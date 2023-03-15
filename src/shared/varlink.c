@@ -125,6 +125,12 @@ struct Varlink {
         size_t output_buffer_index;
         size_t output_buffer_size;
 
+        int *input_fds;
+        size_t n_input_fds;
+
+        int *output_fds;
+        size_t n_output_fds;
+
         VarlinkReply reply_callback;
 
         JsonVariant *current;
@@ -138,11 +144,16 @@ struct Varlink {
         bool prefer_read_write:1;
         bool got_pollhup:1;
 
+        int af; /* address family if socket; AF_UNSPEC if not socket; negative if not known */
+
         usec_t timestamp;
         usec_t timeout;
 
         void *userdata;
         char *description;
+
+        bool allow_fd_passing_input;
+        bool allow_fd_passing_output;
 
         sd_event *event;
         sd_event_source *io_event_source;
@@ -265,7 +276,9 @@ static int varlink_new(Varlink **ret) {
                 .ucred = UCRED_INVALID,
 
                 .timestamp = USEC_INFINITY,
-                .timeout = VARLINK_DEFAULT_TIMEOUT_USEC
+                .timeout = VARLINK_DEFAULT_TIMEOUT_USEC,
+
+                .af = -1,
         };
 
         *ret = v;
@@ -289,6 +302,7 @@ int varlink_connect_address(Varlink **ret, const char *address) {
                 return log_debug_errno(errno, "Failed to create AF_UNIX socket: %m");
 
         v->fd = fd_move_above_stdio(v->fd);
+        v->af = AF_UNIX;
 
         r = sockaddr_un_set_path(&sockaddr.un, address);
         if (r < 0) {
@@ -339,6 +353,7 @@ int varlink_connect_fd(Varlink **ret, int fd) {
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
         v->fd = fd;
+        v->af = -1,
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
         /* Note that if this function is called we assume the passed socket (if it is one) is already
@@ -370,6 +385,14 @@ static void varlink_clear(Varlink *v) {
 
         v->input_buffer = mfree(v->input_buffer);
         v->output_buffer = mfree(v->output_buffer);
+
+        close_many(v->input_fds, v->n_input_fds);
+        v->input_fds = mfree(v->input_fds);
+        v->n_input_fds = 0;
+
+        close_many(v->output_fds, v->n_output_fds);
+        v->output_fds = mfree(v->output_fds);
+        v->n_output_fds = 0;
 
         v->current = json_variant_unref(v->current);
         v->reply = json_variant_unref(v->reply);
@@ -456,18 +479,40 @@ static int varlink_write(Varlink *v) {
 
         assert(v->fd >= 0);
 
-        /* We generally prefer recv()/send() (mostly because of MSG_NOSIGNAL) but also want to be compatible
-         * with non-socket IO, hence fall back automatically.
-         *
-         * Use a local variable to help gcc figure out that we set 'n' in all cases. */
-        bool prefer_write = v->prefer_read_write;
-        if (!prefer_write) {
-                n = send(v->fd, v->output_buffer + v->output_buffer_index, v->output_buffer_size, MSG_DONTWAIT|MSG_NOSIGNAL);
-                if (n < 0 && errno == ENOTSOCK)
-                        prefer_write = v->prefer_read_write = true;
+        if (v->n_output_fds > 0) { /* If we shall send fds along, we must use sendmsg() */
+                struct iovec iov = {
+                        .iov_base = v->output_buffer + v->output_buffer_index,
+                        .iov_len = v->output_buffer_size,
+                };
+                struct msghdr mh = {
+                        .msg_iov = &iov,
+                        .msg_iovlen = 1,
+                        .msg_controllen = CMSG_SPACE(sizeof(int) * v->n_output_fds),
+                };
+
+                mh.msg_control = alloca0(mh.msg_controllen);
+
+                struct cmsghdr *control = CMSG_FIRSTHDR(&mh);
+                control->cmsg_len = CMSG_LEN(sizeof(int) * v->n_output_fds);
+                control->cmsg_level = SOL_SOCKET;
+                control->cmsg_type = SCM_RIGHTS;
+                memcpy(CMSG_DATA(control), v->output_fds, sizeof(int) * v->n_output_fds);
+
+                n = sendmsg(v->fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
+        } else {
+                /* We generally prefer recv()/send() (mostly because of MSG_NOSIGNAL) but also want to be compatible
+                 * with non-socket IO, hence fall back automatically.
+                 *
+                 * Use a local variable to help gcc figure out that we set 'n' in all cases. */
+                bool prefer_write = v->prefer_read_write;
+                if (!prefer_write) {
+                        n = send(v->fd, v->output_buffer + v->output_buffer_index, v->output_buffer_size, MSG_DONTWAIT|MSG_NOSIGNAL);
+                        if (n < 0 && errno == ENOTSOCK)
+                                prefer_write = v->prefer_read_write = true;
+                }
+                if (prefer_write)
+                        n = write(v->fd, v->output_buffer + v->output_buffer_index, v->output_buffer_size);
         }
-        if (prefer_write)
-                n = write(v->fd, v->output_buffer + v->output_buffer_index, v->output_buffer_size);
         if (n < 0) {
                 if (errno == EAGAIN)
                         return 0;
@@ -489,13 +534,22 @@ static int varlink_write(Varlink *v) {
         else
                 v->output_buffer_index += n;
 
+        close_many(v->output_fds, v->n_output_fds);
+        v->n_output_fds = 0;
+
         v->timestamp = now(CLOCK_MONOTONIC);
         return 1;
 }
 
+#define VARLINK_FDS_MAX (16U*1024U)
+
 static int varlink_read(Varlink *v) {
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int) * VARLINK_FDS_MAX)) control;
+        struct iovec iov;
+        struct msghdr mh;
         size_t rs;
         ssize_t n;
+        void *p;
 
         assert(v);
 
@@ -539,16 +593,31 @@ static int varlink_read(Varlink *v) {
                 }
         }
 
+        p = v->input_buffer + v->input_buffer_index + v->input_buffer_size;
         rs = MALLOC_SIZEOF_SAFE(v->input_buffer) - (v->input_buffer_index + v->input_buffer_size);
 
-        bool prefer_read = v->prefer_read_write;
-        if (!prefer_read) {
-                n = recv(v->fd, v->input_buffer + v->input_buffer_index + v->input_buffer_size, rs, MSG_DONTWAIT);
-                if (n < 0 && errno == ENOTSOCK)
-                        prefer_read = v->prefer_read_write = true;
+        if (v->allow_fd_passing_input) {
+                iov = (struct iovec) {
+                        .iov_base = p,
+                        .iov_len = rs,
+                };
+                mh = (struct msghdr) {
+                        .msg_iov = &iov,
+                        .msg_iovlen = 1,
+                        .msg_control = &control,
+                        .msg_controllen = sizeof(control),
+                };
+                n = recvmsg_safe(v->fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        } else {
+                bool prefer_read = v->prefer_read_write;
+                if (!prefer_read) {
+                        n = recv(v->fd, p, rs, MSG_DONTWAIT);
+                        if (n < 0 && errno == ENOTSOCK)
+                                prefer_read = v->prefer_read_write = true;
+                }
+                if (prefer_read)
+                        n = read(v->fd, p, rs);
         }
-        if (prefer_read)
-                n = read(v->fd, v->input_buffer + v->input_buffer_index + v->input_buffer_size, rs);
         if (n < 0) {
                 if (errno == EAGAIN)
                         return 0;
@@ -561,12 +630,38 @@ static int varlink_read(Varlink *v) {
                 return -errno;
         }
         if (n == 0) { /* EOF */
+
+                if (v->allow_fd_passing_input)
+                        cmsg_close_all(&mh);
+
                 v->read_disconnected = true;
                 return 1;
         }
 
         v->input_buffer_size += n;
         v->input_buffer_unscanned += n;
+
+        if (v->allow_fd_passing_input) {
+                struct cmsghdr* cmsg;
+
+                cmsg = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, (socklen_t) -1);
+                if (cmsg) {
+                        size_t add = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+
+                        if (add > INT_MAX - v->n_input_fds) {
+                                cmsg_close_all(&mh);
+                                return -EBADF;
+                        }
+
+                        if (!GREEDY_REALLOC(v->input_fds, v->n_input_fds + add)) {
+                                cmsg_close_all(&mh);
+                                return -ENOMEM;
+                        }
+
+                        memcpy_safe(v->input_fds + v->n_input_fds, CMSG_TYPED_DATA(cmsg, int), add * sizeof(int));
+                        v->n_input_fds += add;
+                }
+        }
 
         return 1;
 }
@@ -2022,6 +2117,150 @@ sd_event *varlink_get_event(Varlink *v) {
         assert_return(v, NULL);
 
         return v->event;
+}
+
+int varlink_push_fd(Varlink *v, int fd) {
+        int i;
+
+        assert_return(v, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
+
+        if (!v->allow_fd_passing_output)
+                return -EPERM;
+
+        if (v->n_output_fds == INT_MAX)
+                return -ENOMEM;
+
+        if (!GREEDY_REALLOC(v->output_fds, v->n_output_fds + 1))
+                return -ENOMEM;
+
+        i = (int) v->n_output_fds;
+        v->output_fds[v->n_output_fds++] = fd;
+        return i;
+}
+
+int varlink_dup_fd(Varlink *v, int fd) {
+        _cleanup_close_ int dp = -1;
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
+
+        dp = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (dp < 0)
+                return -errno;
+
+        r = varlink_push_fd(v, dp);
+        if (r < 0)
+                return r;
+
+        TAKE_FD(dp);
+        return r;
+}
+
+int varlink_peek_fd(Varlink *v, size_t i) {
+        assert_return(v, -EINVAL);
+
+        if (!v->allow_fd_passing_input)
+                return -EPERM;
+
+        if (i >= v->n_input_fds)
+                return -ENXIO;
+
+        return v->input_fds[i];
+}
+
+int varlink_take_fd(Varlink *v, size_t i) {
+        assert_return(v, -EINVAL);
+
+        if (!v->allow_fd_passing_input)
+                return -EPERM;
+
+        if (i >= v->n_input_fds)
+                return -ENXIO;
+
+        return TAKE_FD(v->input_fds[i]);
+}
+
+int varlink_drop_fd(Varlink *v, size_t n) {
+        assert_return(v, -EINVAL);
+
+        if (!v->allow_fd_passing_input)
+                return -EPERM;
+
+        if (n == 0)
+                return 0;
+        if (n > v->n_input_fds)
+                return -ENXIO;
+
+        close_many(v->input_fds, n);
+        memcpy_safe(v->input_fds, v->input_fds + n, v->n_input_fds - n);
+        v->n_input_fds -= n;
+
+        return 0;
+}
+
+static int verify_unix_socket(Varlink *v) {
+        assert(v);
+
+        if (v->af < 0) {
+                struct stat st;
+
+                if (fstat(v->fd, &st) < 0)
+                        return -errno;
+                if (!S_ISSOCK(st.st_mode)) {
+                        v->af = AF_UNSPEC;
+                        return -ENOTSOCK;
+                }
+
+                v->af = socket_get_family(v->fd);
+                if (v->af < 0)
+                        return v->af;
+        }
+
+        return v->af == AF_UNIX ? 0 : -ENOMEDIUM;
+}
+
+int varlink_set_allow_fd_passing_input(Varlink *v, bool b) {
+        int r;
+
+        assert_return(v, -EINVAL);
+
+        if (v->allow_fd_passing_input == b)
+                return 0;
+
+        if (!b) {
+                v->allow_fd_passing_input = false;
+                return 1;
+        }
+
+        r = verify_unix_socket(v);
+        if (r < 0)
+                return r;
+
+        v->allow_fd_passing_input = true;
+        return 0;
+}
+
+int varlink_set_allow_fd_passing_output(Varlink *v, bool b) {
+        int r;
+
+        assert_return(v, -EINVAL);
+
+        if (v->allow_fd_passing_output == b)
+                return 0;
+
+        if (!b) {
+                v->allow_fd_passing_output = false;
+                return 1;
+        }
+
+        r = verify_unix_socket(v);
+        if (r < 0)
+                return r;
+
+        v->allow_fd_passing_output = true;
+        return 0;
 }
 
 int varlink_server_new(VarlinkServer **ret, VarlinkServerFlags flags) {
