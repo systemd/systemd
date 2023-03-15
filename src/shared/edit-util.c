@@ -32,8 +32,8 @@ void edit_file_context_done(EditFileContext *context) {
                         r = path_extract_directory(i->path, &parent);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to extract directory from '%s', ignoring: %m", i->path);
-                        else /* No need to check if the dir is empty, rmdir does nothing if it is not the case. */
-                            (void) rmdir(parent);
+                        else if (rmdir(parent) < 0 && !IN_SET(errno, ENOENT, ENOTEMPTY))
+                                log_debug_errno(errno, "Failed to remove parent directory '%s', ignoring: %m", parent);
                 }
 
                 free(i->path);
