@@ -278,6 +278,7 @@ conf.set_quoted('SYSTEMD_TEST_DATA',                          testsdir / 'testda
 conf.set_quoted('SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH', rootbindir / 'systemd-tty-ask-password-agent')
 conf.set_quoted('SYSTEMD_UPDATE_HELPER_PATH',                 rootlibexecdir / 'systemd-update-helper')
 conf.set_quoted('SYSTEMD_USERWORK_PATH',                      rootlibexecdir / 'systemd-userwork')
+conf.set_quoted('SYSTEMD_MNTWORK_PATH',                       rootlibexecdir / 'systemd-mntwork')
 conf.set_quoted('SYSTEMD_VERITYSETUP_PATH',                   rootlibexecdir / 'systemd-veritysetup')
 conf.set_quoted('SYSTEM_CONFIG_UNIT_DIR',                     pkgsysconfdir / 'system')
 conf.set_quoted('SYSTEM_DATA_UNIT_DIR',                       systemunitdir)
@@ -1885,6 +1886,7 @@ foreach term : ['analyze',
                 'localed',
                 'logind',
                 'machined',
+                'mntfsd',
                 'networkd',
                 'nscd',
                 'nss-myhostname',
@@ -2254,6 +2256,7 @@ subdir('src/kernel-install')
 subdir('src/locale')
 subdir('src/login')
 subdir('src/machine')
+subdir('src/mntfsd')
 subdir('src/network')
 subdir('src/nspawn')
 subdir('src/oom')
@@ -2850,6 +2853,32 @@ if conf.get('ENABLE_SYSEXT') == 1
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootbindir)
+endif
+
+if conf.get('ENABLE_MNTFSD') == 1
+        executable(
+                'systemd-mntwork',
+                systemd_mntwork_sources,
+                include_directories : includes,
+                link_with : [libshared],
+                dependencies : [threads,
+                                userspace,
+                                versiondep],
+                install_rpath : rootpkglibdir,
+                install : true,
+                install_dir : rootlibexecdir)
+
+        executable(
+                'systemd-mntfsd',
+                systemd_mntfsd_sources,
+                include_directories : includes,
+                link_with : [libshared],
+                dependencies : [threads,
+                                userspace,
+                                versiondep],
+                install_rpath : rootpkglibdir,
+                install : true,
+                install_dir : rootlibexecdir)
 endif
 
 if conf.get('ENABLE_USERDB') == 1
@@ -4786,6 +4815,7 @@ foreach tuple : [
         ['localed'],
         ['logind'],
         ['machined'],
+        ['mntfsd'],
         ['networkd'],
         ['nss-myhostname'],
         ['nss-mymachines'],
