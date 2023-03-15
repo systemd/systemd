@@ -20,49 +20,27 @@
 
 static int start_workers(Manager *m, bool explicit_request);
 
-static int on_sigchld(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+static int on_worker_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
         assert(s);
 
-        for (;;) {
-                siginfo_t siginfo = {};
-                bool removed = false;
+        assert_se(!set_remove(m->workers_dynamic, s) != !set_remove(m->workers_fixed, s));
+        sd_event_source_disable_unref(s);
 
-                if (waitid(P_ALL, 0, &siginfo, WNOHANG|WEXITED) < 0) {
-                        if (errno == ECHILD)
-                                break;
-
-                        log_warning_errno(errno, "Failed to invoke waitid(): %m");
-                        break;
-                }
-                if (siginfo.si_pid == 0)
-                        break;
-
-                if (set_remove(m->workers_dynamic, PID_TO_PTR(siginfo.si_pid)))
-                        removed = true;
-                if (set_remove(m->workers_fixed, PID_TO_PTR(siginfo.si_pid)))
-                        removed = true;
-
-                if (!removed) {
-                        log_warning("Weird, got SIGCHLD for unknown child " PID_FMT ", ignoring.", siginfo.si_pid);
-                        continue;
-                }
-
-                if (siginfo.si_code == CLD_EXITED) {
-                        if (siginfo.si_status == EXIT_SUCCESS)
-                                log_debug("Worker " PID_FMT " exited successfully.", siginfo.si_pid);
-                        else
-                                log_warning("Worker " PID_FMT " died with a failure exit status %i, ignoring.", siginfo.si_pid, siginfo.si_status);
-                } else if (siginfo.si_code == CLD_KILLED)
-                        log_warning("Worker " PID_FMT " was killed by signal %s, ignoring.", siginfo.si_pid, signal_to_string(siginfo.si_status));
-                else if (siginfo.si_code == CLD_DUMPED)
-                        log_warning("Worker " PID_FMT " dumped core by signal %s, ignoring.", siginfo.si_pid, signal_to_string(siginfo.si_status));
+        if (si->si_code == CLD_EXITED) {
+                if (si->si_status == EXIT_SUCCESS)
+                        log_debug("Worker " PID_FMT " exited successfully.", si->si_pid);
                 else
-                        log_warning("Can't handle SIGCHLD of this type");
-        }
+                        log_warning("Worker " PID_FMT " died with a failure exit status %i, ignoring.", si->si_pid, si->si_status);
+        } else if (si->si_code == CLD_KILLED)
+                log_warning("Worker " PID_FMT " was killed by signal %s, ignoring.", si->si_pid, signal_to_string(si->si_status));
+        else if (si->si_code == CLD_DUMPED)
+                log_warning("Worker " PID_FMT " dumped core by signal %s, ignoring.", si->si_pid, signal_to_string(si->si_status));
+        else
+                log_warning("Can't handle SIGCHLD of this type");
 
-        (void) start_workers(m, false); /* Fill up workers again if we fell below the low watermark */
+        (void) start_workers(m, /* explicit_request= */ false); /* Fill up workers again if we fell below the low watermark */
         return 0;
 }
 
@@ -74,6 +52,13 @@ static int on_sigusr2(sd_event_source *s, const struct signalfd_siginfo *si, voi
         (void) start_workers(m, true); /* Workers told us there's more work, let's add one more worker as long as we are below the high watermark */
         return 0;
 }
+
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                event_source_hash_ops,
+                sd_event_source,
+                (void (*)(const sd_event_source*, struct siphash*)) trivial_hash_func,
+                (int (*)(const sd_event_source*, const sd_event_source*)) trivial_compare_func,
+                sd_event_source_disable_unref);
 
 int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
@@ -111,17 +96,7 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 log_debug_errno(r, "Failed to enable watchdog handling, ignoring: %m");
 
-        m->workers_fixed = set_new(NULL);
-        m->workers_dynamic = set_new(NULL);
-
-        if (!m->workers_fixed || !m->workers_dynamic)
-                return -ENOMEM;
-
         r = sd_event_add_signal(m->event, NULL, SIGUSR2|SD_EVENT_SIGNAL_PROCMASK, on_sigusr2, m);
-        if (r < 0)
-                return r;
-
-        r = sd_event_add_signal(m->event, NULL, SIGCHLD|SD_EVENT_SIGNAL_PROCMASK, on_sigchld, m);
         if (r < 0)
                 return r;
 
@@ -148,6 +123,7 @@ static size_t manager_current_workers(Manager *m) {
 }
 
 static int start_one_worker(Manager *m) {
+        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *source = NULL;
         bool fixed;
         pid_t pid;
         int r;
@@ -208,12 +184,18 @@ static int start_one_worker(Manager *m) {
                 _exit(EXIT_FAILURE);
         }
 
-        if (fixed)
-                r = set_put(m->workers_fixed, PID_TO_PTR(pid));
-        else
-                r = set_put(m->workers_dynamic, PID_TO_PTR(pid));
+        r = sd_event_add_child(m->event, &source, pid, WEXITED, on_worker_exit, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to watch child " PID_FMT ": %m", pid);
+
+        r = set_ensure_put(
+                        fixed ? &m->workers_fixed : &m->workers_dynamic,
+                        &event_source_hash_ops,
+                        source);
         if (r < 0)
                 return log_error_errno(r, "Failed to add child process to set: %m");
+
+        TAKE_PTR(source);
 
         return 0;
 }
