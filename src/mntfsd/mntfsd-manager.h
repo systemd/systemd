@@ -9,23 +9,18 @@ typedef struct Manager Manager;
 #include "hashmap.h"
 #include "ratelimit.h"
 
-#define USERDB_WORKERS_MIN 3
-#define USERDB_WORKERS_MAX 4096
+#define MNTFS_WORKERS_MIN 3
+#define MNTFS_WORKERS_MAX 4096
 
 struct Manager {
         sd_event *event;
 
-        Set *workers_fixed;    /* Workers 0…USERDB_WORKERS_MIN */
-        Set *workers_dynamic;  /* Workers USERD_WORKERS_MIN+1…USERDB_WORKERS_MAX */
-
-        sd_event_source *sigusr2_event_source;
-        sd_event_source *sigchld_event_source;
+        Set *workers_fixed;    /* Workers 0…MNTFS_WORKERS_MIN */
+        Set *workers_dynamic;  /* Workers MNTFS_WORKERS_MIN+1…MNTFS_WORKERS_MAX */
 
         int listen_fd;
 
         RateLimit worker_ratelimit;
-
-        Hashmap *registry_pidfds; /* struct stat → sd_event_source */
 };
 
 int manager_new(Manager **ret);
