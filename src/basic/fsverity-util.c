@@ -12,6 +12,8 @@
 #include "fileio.h"
 #include "fsverity-util.h"
 #include "string-util.h"
+#include "sha256.h"
+#include "hexdecoct.h"
 
 int fsverity_enable(int fd, const char *path, const void *signature, size_t signature_size) {
         struct fsverity_enable_arg params = {
@@ -44,6 +46,12 @@ int fsverity_enable(int fd, const char *path, const void *signature, size_t sign
 
         if (r == 0)
                 log_debug("Successfully enabled fs-verity on %s.", path);
+
+        if (signature) {
+                uint8_t buffer[SHA256_DIGEST_SIZE];
+                sha256_direct(signature, signature_size, buffer);
+                log_info("DBG: fs-verity signature for %s: %s", path, hexmem(buffer, sizeof(buffer)));
+        }
 
         return r;
 }
