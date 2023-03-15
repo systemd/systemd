@@ -1,0 +1,4 @@
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/systemd/tests/testdata/testsuite-03.units/%N.sh
+Restart=on-failure
