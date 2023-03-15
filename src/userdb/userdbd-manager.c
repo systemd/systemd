@@ -243,7 +243,7 @@ int manager_startup(Manager *m) {
         if (n == 1)
                 m->listen_fd = SD_LISTEN_FDS_START;
         else {
-                union sockaddr_union sockaddr = {
+                static const union sockaddr_union sockaddr = {
                         .un.sun_family = AF_UNIX,
                         .un.sun_path = "/run/systemd/userdb/io.systemd.Multiplexer",
                 };
