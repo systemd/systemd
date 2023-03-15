@@ -2753,7 +2753,7 @@ static int offline_security_checks(
                                 profile = profile_path;
                         }
 
-                        r = copy_file(profile, dropin, 0, 0644, 0, 0, 0);
+                        r = copy_file(profile, dropin, 0, 0644, 0);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy: %m");
                 }
