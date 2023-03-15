@@ -156,22 +156,17 @@ static int start_one_worker(Manager *m) {
 
         fixed = set_size(m->workers_fixed) < USERDB_WORKERS_MIN;
 
-        r = safe_fork("(sd-worker)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork_full(
+                        "(sd-worker)",
+                        /* stdio_fds= */ NULL,
+                        &m->listen_fd, 1,
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_REOPEN_LOG|FORK_LOG|FORK_CLOSE_ALL_FDS,
+                        &pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork new worker child: %m");
         if (r == 0) {
                 char pids[DECIMAL_STR_MAX(pid_t)];
                 /* Child */
-
-                log_close();
-
-                r = close_all_fds(&m->listen_fd, 1);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to close fds in child: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                log_open();
 
                 if (m->listen_fd == 3) {
                         r = fd_cloexec(3, false);
