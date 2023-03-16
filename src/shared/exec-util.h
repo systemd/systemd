@@ -30,6 +30,16 @@ typedef enum ExecCommandFlags {
         _EXEC_COMMAND_FLAGS_INVALID   = -EINVAL,
 } ExecCommandFlags;
 
+int execute_strv(
+                const char *name,
+                char* const* paths,
+                usec_t timeout,
+                gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
+                void* const callback_args[_STDOUT_CONSUME_MAX],
+                char *argv[],
+                char *envp[],
+                ExecDirFlags flags);
+
 int execute_directories(
                 const char* const* directories,
                 usec_t timeout,
