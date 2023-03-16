@@ -145,10 +145,14 @@ static int do_execute(
                                 return log_oom();
                         t = NULL;
                 } else {
-                        r = wait_for_terminate_and_check(t, pid, WAIT_LOG);
+                        bool skip_remaining = false;
+
+                        r = wait_for_terminate_and_check(t, pid, WAIT_LOG | WAIT_ALLOW_EXIT_STATUS_SKIP);
                         if (r < 0)
                                 return r;
-                        if (!FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS) && r > 0)
+                        if (FLAGS_SET(flags, EXEC_DIR_SKIP_REMAINING) && r == EXIT_STATUS_SKIP)
+                                skip_remaining = true;
+                        else if (!FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS) && r > 0)
                                 return r;
 
                         if (callbacks) {
@@ -159,6 +163,9 @@ static int do_execute(
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to process output from %s: %m", *path);
                         }
+
+                        if (skip_remaining)
+                                break;
                 }
         }
 
@@ -201,6 +208,8 @@ int execute_strv(
         _cleanup_close_ int fd = -EBADF;
         pid_t executor_pid;
         int r;
+
+        assert(!FLAGS_SET(flags, EXEC_DIR_PARALLEL | EXEC_DIR_SKIP_REMAINING));
 
         if (strv_isempty(paths))
                 return 0;
