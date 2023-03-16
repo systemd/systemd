@@ -87,11 +87,11 @@ busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/
 
 portablectl detach --now --enable --runtime /tmp/minimal_1 minimal-app0
 
-if command -v fsverity >/dev/null 2>&1; then
+if command -v openssl >/dev/null 2>&1 && command -v fsverity >/dev/null 2>&1 && command -v xxd >/dev/null 2>&1; then
     # Given enabling verity is a one-way operation, and the host might need to mount the image (e.g.: to extract
     # logs) we create an ext4 filesystem that we use just for this test and then discard.
     dd if=/dev/zero of=/tmp/verity.ext4 bs=4M count=1
-    # fsverity imposes that the filesystem's block size is equival to the kernel's page size. Default to 4KB.
+	# fsverity imposes that the filesystem's block size is equival to the kernel's page size. Default to 4KB.
     page_size="$(grep KernelPageSize /proc/self/smaps | head -n1 | awk '{print $2}')"
     if [ -z "${page_size}" ]; then
         page_size=4
@@ -100,15 +100,51 @@ if command -v fsverity >/dev/null 2>&1; then
 
     # Both mkfs and the kernel need to support verity, so don't fail if enabling or mounting fails
     if tune2fs -O verity /tmp/verity.ext4 && mount -o X-mount.mkdir /tmp/verity.ext4 /etc/systemd/system.attached/; then
-        mksquashfs /tmp/minimal_0 /tmp/minimal_0.raw
+        # Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
+        cat >>"/tmp/minimal_0.openssl.cnf" <<EOF
+[ req ]
+prompt = no
+distinguished_name = req_distinguished_name
 
-        timeout "$TIMEOUT" portablectl "${ARGS[@]}" attach --copy=copy --now /tmp/minimal_0.raw minimal-app0
+[ req_distinguished_name ]
+C = DE
+ST = Test State
+L = Test Locality
+O = Org Name
+OU = Org Unit Name
+CN = Common Name
+emailAddress = test@email.com
+EOF
 
-        systemctl is-active minimal-app0.service
-        fsverity measure /etc/systemd/system.attached/minimal-app0.service
-        fsverity measure /etc/systemd/system.attached/minimal-app0.service.d/20-portable.conf
+        openssl req -config /tmp/minimal_0.openssl.cnf -new -x509 -newkey rsa:1024 -keyout /tmp/minimal_0.key -out /tmp/minimal_0.crt -days 365 -nodes
+        openssl x509 -outform der -in /tmp/minimal_0.crt -out /tmp/minimal_0.cer
+        if keyctl padd asymmetric "minimal_0" %keyring:.fs-verity < /tmp/minimal_0.cer; then
+            fsverity digest --hash-alg=sha256 --for-builtin-sig --compact /tmp/minimal_0/usr/lib/systemd/system/minimal-app0.service | \
+                tr -d '\n' | \
+                xxd -p -r | \
+                    openssl smime -sign -nocerts -noattr -binary -in /dev/stdin -inkey /tmp/minimal_0.key -signer /tmp/minimal_0.crt -outform der -out /tmp/minimal_0/usr/lib/systemd/system/minimal-app0.service.p7s
 
-        portablectl detach --now /tmp/minimal_0.raw minimal-app0
+            mksquashfs /tmp/minimal_0 /tmp/minimal_0.raw
+
+            timeout "$TIMEOUT" portablectl "${ARGS[@]}" attach --copy=copy --now /tmp/minimal_0.raw minimal-app0
+
+            systemctl is-active minimal-app0.service
+            fsverity measure /etc/systemd/system.attached/minimal-app0.service
+            fsverity measure /etc/systemd/system.attached/minimal-app0.service.d/20-portable.conf
+
+            portablectl detach --now /tmp/minimal_0.raw minimal-app0
+
+            # Again, with signature enforcement, only the signed version should work
+            echo 1 > /proc/sys/fs/verity/require_signatures
+
+            timeout "$TIMEOUT" portablectl "${ARGS[@]}" attach --copy=symlink --now /tmp/minimal_0.raw minimal-app0
+
+            systemctl is-active minimal-app0.service
+            fsverity measure /etc/systemd/system.attached/minimal-app0.service
+            fsverity measure /etc/systemd/system.attached/minimal-app0.service.d/20-portable.conf && { echo 'unexpected success'; exit 1; }
+
+            portablectl detach --now /tmp/minimal_0.raw minimal-app0
+        fi
 
         umount /etc/systemd/system.attached/
     fi

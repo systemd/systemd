@@ -308,7 +308,10 @@
         unconditionally.</para>
 
         <para>When unit files and drop-ins are copied, if the kernel supports it, fsverity will be used to enable integrity
-        protection on those files. For more information about fsverity, see
+        protection on those files. If a <literal>security.ima</literal> extended attribute is present on a file, it will be
+        copied and re-applied. If a pkcs7 signature of the fsverity digest is available as <filename>foo.service.p7s</filename>
+        then it will be automatically used to enable signed fsverity protection, again if the kernel supports it. For more information
+        about fsverity, see
         <ulink url="https://www.kernel.org/doc/html/latest/filesystems/fsverity.html"> the kernel documentation</ulink>.</para></listitem>
       </varlistentry>
 
