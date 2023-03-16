@@ -145,11 +145,22 @@ static int do_execute(
                                 return log_oom();
                         t = NULL;
                 } else {
-                        r = wait_for_terminate_and_check(t, pid, WAIT_LOG);
+                        bool skip_remaining = false;
+
+                        r = wait_for_terminate_and_check(t, pid, WAIT_LOG_ABNORMAL);
                         if (r < 0)
                                 return r;
-                        if (!FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS) && r > 0)
-                                return r;
+                        if (r > 0) {
+                                if (FLAGS_SET(flags, EXEC_DIR_SKIP_REMAINING) && r == EXIT_SKIP_REMAINING) {
+                                        log_info("%s succeeded with exit status %i, skipping to execute remainings.", *path, r);
+                                        skip_remaining = true;
+                                } else if (FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS))
+                                        log_warning("%s failed with exit status %i, ignoring.", *path, r);
+                                else {
+                                        log_error("%s failed with exit status %i.", *path, r);
+                                        return r;
+                                }
+                        }
 
                         if (callbacks) {
                                 if (lseek(fd, 0, SEEK_SET) < 0)
@@ -159,6 +170,9 @@ static int do_execute(
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to process output from %s: %m", *path);
                         }
+
+                        if (skip_remaining)
+                                break;
                 }
         }
 
@@ -201,6 +215,8 @@ int execute_strv(
         _cleanup_close_ int fd = -EBADF;
         pid_t executor_pid;
         int r;
+
+        assert(!FLAGS_SET(flags, EXEC_DIR_PARALLEL | EXEC_DIR_SKIP_REMAINING));
 
         if (strv_isempty(paths))
                 return 0;
