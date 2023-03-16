@@ -88,7 +88,7 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
                 { "Sleep", "HybridSleepMode",           config_parse_strv,     0, sc->modes + SLEEP_HYBRID_SLEEP  },
                 { "Sleep", "HybridSleepState",          config_parse_strv,     0, sc->states + SLEEP_HYBRID_SLEEP },
 
-                { "Sleep", "HibernateDelaySec",         config_parse_sec,      0, &sc->hibernate_delay_usec       },
+                { "Sleep", "HibernateDelaySec",         config_parse_sec_fix_0,0, &sc->hibernate_delay_usec       },
                 { "Sleep", "SuspendEstimationSec",      config_parse_sec,      0, &sc->suspend_estimation_usec    },
                 {}
         };
@@ -115,7 +115,7 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
                 sc->modes[SLEEP_HYBRID_SLEEP] = strv_new("suspend", "platform", "shutdown");
         if (!sc->states[SLEEP_HYBRID_SLEEP])
                 sc->states[SLEEP_HYBRID_SLEEP] = strv_new("disk");
-        if (sc->suspend_estimation_usec == 0)
+        if (!timestamp_is_set(sc->suspend_estimation_usec))
                 sc->suspend_estimation_usec = DEFAULT_SUSPEND_ESTIMATION_USEC;
 
         /* Ensure values set for all required fields */

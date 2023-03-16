@@ -6,7 +6,7 @@
 #include "hashmap.h"
 #include "time-util.h"
 
-#define DEFAULT_SUSPEND_ESTIMATION_USEC (1 * USEC_PER_HOUR)
+#define DEFAULT_SUSPEND_ESTIMATION_USEC (2 * USEC_PER_HOUR)
 
 typedef enum SleepOperation {
         SLEEP_SUSPEND,
