@@ -30,6 +30,7 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "udev-util.h"
+#include "unaligned.h"
 
 #define COMMAND_TIMEOUT_MSEC (30 * 1000)
 
@@ -271,15 +272,15 @@ static void disk_identify_fixup_string(
                 uint8_t identify[512],
                 unsigned offset_words,
                 size_t len) {
+        assert(offset_words < 512/2);
         disk_identify_get_string(identify, offset_words,
                                  (char *) identify + offset_words * 2, len);
 }
 
-static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned offset_words) {
-        uint16_t *p;
-
-        p = (uint16_t *) identify;
-        p[offset_words] = le16toh (p[offset_words]);
+static void disk_identify_fixup_uint16(uint8_t identify[512], unsigned offset_words) {
+        assert(offset_words < 512/2);
+        unaligned_write_ne16(identify + offset_words * 2,
+                             unaligned_read_le16(identify + offset_words * 2));
 }
 
 /**
