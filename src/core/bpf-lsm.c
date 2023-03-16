@@ -16,6 +16,7 @@
 #include "fileio.h"
 #include "filesystems.h"
 #include "log.h"
+#include "lsm-util.h"
 #include "manager.h"
 #include "mkdir.h"
 #include "nulstr-util.h"
@@ -91,41 +92,6 @@ static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
         return 0;
 }
 
-static int mac_bpf_use(void) {
-        _cleanup_free_ char *lsm_list = NULL;
-        static int cached_use = -1;
-        int r;
-
-        if (cached_use >= 0)
-                return cached_use;
-
-        cached_use = 0;
-
-        r = read_one_line_file("/sys/kernel/security/lsm", &lsm_list);
-        if (r < 0) {
-               if (r != -ENOENT)
-                       log_notice_errno(r, "bpf-lsm: Failed to read /sys/kernel/security/lsm, assuming bpf is unavailable: %m");
-               return 0;
-        }
-
-        for (const char *p = lsm_list;;) {
-                _cleanup_free_ char *word = NULL;
-
-                r = extract_first_word(&p, &word, ",", 0);
-                if (r == 0)
-                        return 0;
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_notice_errno(r, "bpf-lsm: Failed to parse /sys/kernel/security/lsm, assuming bpf is unavailable: %m");
-                        return 0;
-                }
-
-                if (streq(word, "bpf"))
-                        return cached_use = 1;
-        }
-}
-
 bool lsm_bpf_supported(bool initialize) {
         _cleanup_(restrict_fs_bpf_freep) struct restrict_fs_bpf *obj = NULL;
         static int supported = -1;
@@ -139,12 +105,11 @@ bool lsm_bpf_supported(bool initialize) {
         if (!cgroup_bpf_supported())
                 return (supported = false);
 
-        r = mac_bpf_use();
+        r = lsm_supported("bpf");
         if (r < 0) {
                 log_warning_errno(r, "bpf-lsm: Can't determine whether the BPF LSM module is used: %m");
                 return (supported = false);
         }
-
         if (r == 0) {
                 log_info_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "bpf-lsm: BPF LSM hook not enabled in the kernel, BPF LSM not supported");

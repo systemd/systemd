@@ -105,6 +105,7 @@ shared_sources = files(
         'logs-show.c',
         'loop-util.c',
         'loopback-setup.c',
+        'lsm-util.c',
         'machine-id-setup.c',
         'machine-pool.c',
         'macvlan-util.c',
