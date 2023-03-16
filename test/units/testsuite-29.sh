@@ -87,6 +87,35 @@ busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/
 
 portablectl detach --now --enable --runtime /tmp/minimal_1 minimal-app0
 
+if command -v fsverity >/dev/null 2>&1; then
+    # Given enabling verity is a one-way operation, and the host might need to mount the image (e.g.: to extract
+    # logs) we create an ext4 filesystem that we use just for this test and then discard.
+    dd if=/dev/zero of=/tmp/verity.ext4 bs=4M count=1
+    # fsverity imposes that the filesystem's block size is equival to the kernel's page size. Default to 4KB.
+    page_size="$(grep KernelPageSize /proc/self/smaps | head -n1 | awk '{print $2}')"
+    if [ -z "${page_size}" ]; then
+        page_size=4
+    fi
+    mkfs.ext4 -b "${page_size}k" -F /tmp/verity.ext4
+
+    # Both mkfs and the kernel need to support verity, so don't fail if enabling or mounting fails
+    if tune2fs -O verity /tmp/verity.ext4 && mount -o X-mount.mkdir /tmp/verity.ext4 /etc/systemd/system.attached/; then
+        mksquashfs /tmp/minimal_0 /tmp/minimal_0.raw
+
+        timeout "$TIMEOUT" portablectl "${ARGS[@]}" attach --copy=copy --now /tmp/minimal_0.raw minimal-app0
+
+        systemctl is-active minimal-app0.service
+        fsverity measure /etc/systemd/system.attached/minimal-app0.service
+        fsverity measure /etc/systemd/system.attached/minimal-app0.service.d/20-portable.conf
+
+        portablectl detach --now /tmp/minimal_0.raw minimal-app0
+
+        umount /etc/systemd/system.attached/
+    fi
+
+    rm -f /tmp/verity.ext4
+fi
+
 portablectl list | grep -q -F "No images."
 busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1' && exit 1
 
