@@ -172,10 +172,12 @@ void hexdump(const char16_t *prefix, const void *data, size_t size);
         EFI_SYSTEM_TABLE *ST;                                                          \
         EFI_BOOT_SERVICES *BS;                                                         \
         EFI_RUNTIME_SERVICES *RT;                                                      \
+        EFIAPI EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *system_table);  \
         EFIAPI EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *system_table) { \
                 ST = system_table;                                                     \
                 BS = system_table->BootServices;                                       \
                 RT = system_table->RuntimeServices;                                    \
+                __stack_chk_guard_init();                                              \
                 notify_debugger((identity), (wait_for_debugger));                      \
                 EFI_STATUS err = func(image);                                          \
                 log_wait();                                                            \

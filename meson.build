@@ -366,6 +366,8 @@ possible_common_cc_flags = [
         '-Werror=implicit-int',
         '-Werror=incompatible-pointer-types',
         '-Werror=int-conversion',
+        '-Werror=missing-declarations',
+        '-Werror=missing-prototypes',
         '-Werror=overflow',
         '-Werror=override-init',
         '-Werror=return-type',
@@ -397,7 +399,16 @@ possible_common_cc_flags = [
         '-Wno-error=#warnings',  # clang
         '-Wno-string-plus-int',  # clang
 
+        '-fdiagnostics-show-option',
+        '-fno-common',
+        '-fstack-protector',
+        '-fstack-protector-strong',
         '-fstrict-flex-arrays',
+        '--param=ssp-buffer-size=4',
+]
+
+possible_common_link_flags = [
+        '-fstack-protector',
 ]
 
 c_args = get_option('c_args')
@@ -432,7 +443,6 @@ possible_link_flags = [
         '-Wl,--fatal-warnings',
         '-Wl,-z,now',
         '-Wl,-z,relro',
-        '-fstack-protector',
 ]
 
 if get_option('b_sanitize') == 'none'
@@ -454,16 +464,9 @@ if get_option('mode') == 'release'
 endif
 
 possible_cc_flags = [
-        '-Werror=missing-declarations',
-        '-Werror=missing-prototypes',
-        '-fdiagnostics-show-option',
-        '-fno-common',
         '-fno-strict-aliasing',
-        '-fstack-protector',
-        '-fstack-protector-strong',
         '-fstrict-flex-arrays=1',
         '-fvisibility=hidden',
-        '--param=ssp-buffer-size=4',
 ]
 
 if get_option('buildtype') != 'debug'
@@ -484,6 +487,10 @@ add_project_arguments(
                 basic_disabled_warnings,
                 possible_common_cc_flags
         ),
+        language : 'c')
+
+add_project_link_arguments(
+        cc.get_supported_link_arguments(possible_common_link_flags),
         language : 'c')
 
 userspace_c_args += cc.get_supported_arguments(possible_cc_flags)
