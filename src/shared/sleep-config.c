@@ -88,7 +88,7 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
                 { "Sleep", "HybridSleepMode",           config_parse_strv,     0, sc->modes + SLEEP_HYBRID_SLEEP  },
                 { "Sleep", "HybridSleepState",          config_parse_strv,     0, sc->states + SLEEP_HYBRID_SLEEP },
 
-                { "Sleep", "HibernateDelaySec",         config_parse_sec,      0, &sc->hibernate_delay_usec       },
+                { "Sleep", "HibernateDelaySec",         config_parse_sec_fix_0,0, &sc->hibernate_delay_usec       },
                 { "Sleep", "SuspendEstimationSec",      config_parse_sec,      0, &sc->suspend_estimation_usec    },
                 {}
         };

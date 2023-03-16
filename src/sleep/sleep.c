@@ -292,7 +292,8 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
 
                 if (hashmap_isempty(last_capacity))
                         /* In case of no battery, system suspend interval will be set to HibernateDelaySec= or 2 hours. */
-                        suspend_interval = timestamp_is_set(hibernate_timestamp) ? sleep_config->hibernate_delay_usec : DEFAULT_SUSPEND_ESTIMATION_USEC;
+                        suspend_interval = timestamp_is_set(sleep_config->hibernate_delay_usec)
+                                           ? sleep_config->hibernate_delay_usec : DEFAULT_SUSPEND_ESTIMATION_USEC;
                 else {
                         r = get_total_suspend_interval(last_capacity, &suspend_interval);
                         if (r < 0) {
