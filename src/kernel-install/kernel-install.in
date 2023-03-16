@@ -215,15 +215,15 @@ for pref in $BOOT_ROOT_SEARCH; do
         else
             log_verbose "$pref/$suff not found…"
         fi
-
-        if [ -d "$pref/loader/entries" ]; then
-            [ -z "$BOOT_ROOT" ] && BOOT_ROOT="$pref"
-            log_verbose "$pref/loader/entries exists, using BOOT_ROOT=$BOOT_ROOT"
-            break 2
-        else
-            log_verbose "$pref/loader/entries not found…"
-        fi
     done
+
+    if [ -d "$pref/loader/entries" ]; then
+        [ -z "$BOOT_ROOT" ] && BOOT_ROOT="$pref"
+        log_verbose "$pref/loader/entries exists, using BOOT_ROOT=$BOOT_ROOT"
+        break
+    else
+        log_verbose "$pref/loader/entries not found…"
+    fi
 done
 
 [ -z "$BOOT_ROOT" ] && for pref in "/efi" "/boot/efi"; do
