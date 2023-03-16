@@ -24,6 +24,11 @@ static void test_udev_rule_parse_value_one(const char *in, const char *expected_
         } else {
                 assert_se(streq_ptr(value, expected_value));
                 assert_se(endpos == str + strlen(in));
+                /*
+                 * The return value must be terminated by two subsequent NULs
+                 * so it could be safely interpreted as nulstr.
+                 */
+                assert_se(value[strlen(value) + 1] == '\0');
         }
 }
 
