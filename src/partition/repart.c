@@ -3656,7 +3656,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         _cleanup_free_ char *text = NULL;
         Partition *hp;
         uint8_t fp[X509_FINGERPRINT_SIZE];
-        size_t sigsz = 0, padsz; /* avoid false maybe-uninitialized warning */
+        size_t sigsz = 0; /* avoid false maybe-uninitialized warning */
         int whole_fd, r;
 
         assert(p->verity == VERITY_SIG);
@@ -3702,17 +3702,14 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         if (r < 0)
                 return log_error_errno(r, "Failed to format JSON object: %m");
 
-        padsz = round_up_size(strlen(text), 4096);
-        assert_se(padsz <= p->new_size);
-
-        r = strgrowpad0(&text, padsz);
+        r = strgrowpad0(&text, p->new_size);
         if (r < 0)
-                return log_error_errno(r, "Failed to pad string to %s", FORMAT_BYTES(padsz));
+                return log_error_errno(r, "Failed to pad string to %s", FORMAT_BYTES(p->new_size));
 
         if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
                 return log_error_errno(errno, "Failed to seek to partition offset: %m");
 
-        r = loop_write(whole_fd, text, padsz, /*do_poll=*/ false);
+        r = loop_write(whole_fd, text, p->new_size, /*do_poll=*/ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to write verity signature to partition: %m");
 
