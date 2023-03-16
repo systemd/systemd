@@ -347,11 +347,10 @@ int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {
         str += is_escaped;
         if (str[0] != '"')
                 return -EINVAL;
-        str++;
 
         if (!is_escaped) {
                 /* unescape double quotation '\"'->'"' */
-                for (i = j = str; *i != '"'; i++, j++) {
+                for (j = str, i = str + 1; *i != '"'; i++, j++) {
                         if (*i == '\0')
                                 return -EINVAL;
                         if (i[0] == '\\' && i[1] == '"')
@@ -359,12 +358,17 @@ int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {
                         *j = *i;
                 }
                 j[0] = '\0';
+                /*
+                 * The return value must be terminated by two subsequent NULs
+                 * so it could be safely interpreted as nulstr.
+                 */
+                j[1] = '\0';
         } else {
                 _cleanup_free_ char *unescaped = NULL;
                 ssize_t l;
 
                 /* find the end position of value */
-                for (i = str; *i != '"'; i++) {
+                for (i = str + 1; *i != '"'; i++) {
                         if (i[0] == '\\')
                                 i++;
                         if (*i == '\0')
@@ -372,12 +376,17 @@ int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {
                 }
                 i[0] = '\0';
 
-                l = cunescape_length(str, i - str, 0, &unescaped);
+                l = cunescape_length(str + 1, i - (str + 1), 0, &unescaped);
                 if (l < 0)
                         return l;
 
-                assert(l <= i - str);
+                assert(l <= i - (str + 1));
                 memcpy(str, unescaped, l + 1);
+                /*
+                 * The return value must be terminated by two subsequent NULs
+                 * so it could be safely interpreted as nulstr.
+                 */
+                str[l + 1] = '\0';
         }
 
         *ret_value = str;
