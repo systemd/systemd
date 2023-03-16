@@ -305,7 +305,11 @@
         profile drop-ins are symlinked while unit files are copied. Note that this option expresses a preference only,
         in cases where symbolic links cannot be created — for example when the image operated on is a raw disk image,
         and hence not directly referentiable from the host file system — copying of files is used
-        unconditionally.</para></listitem>
+        unconditionally.</para>
+
+        <para>When unit files and drop-ins are copied, if the kernel supports it, fsverity will be used to enable integrity
+        protection on those files. For more information about fsverity, see
+        <ulink url="https://www.kernel.org/doc/html/latest/filesystems/fsverity.html"> the kernel documentation</ulink>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
