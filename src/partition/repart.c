@@ -3266,6 +3266,9 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
                 if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
                         return log_error_errno(errno, "Failed to seek to partition offset: %m");
 
+                if (lseek(t->fd, 0, SEEK_SET) == (off_t) -1)
+                        return log_error_errno(errno, "Failed to seek to start of temporary file: %m");
+
                 r = copy_bytes(t->fd, whole_fd, UINT64_MAX, COPY_REFLINK|COPY_HOLES|COPY_FSYNC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes to partition: %m");
