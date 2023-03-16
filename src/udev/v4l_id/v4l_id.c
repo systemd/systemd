@@ -74,7 +74,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        fd = open(arg_device, O_RDONLY);
+        fd = open(arg_device, O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open %s: %m", arg_device);
 
