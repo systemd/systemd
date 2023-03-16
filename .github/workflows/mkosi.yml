@@ -91,6 +91,7 @@ jobs:
 
         [Content]
         Environment=CI_BUILD=1
+                    DEFAULT_TIMEOUT_SEC=90
 
         [Output]
         KernelCommandLine=${{ env.KERNEL_CMDLINE }}
