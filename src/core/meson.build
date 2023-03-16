@@ -74,8 +74,6 @@ if conf.get('BPF_FRAMEWORK') == 1
         )
 endif
 
-subdir('bpf')
-
 subdir('bpf/socket_bind')
 if conf.get('BPF_FRAMEWORK') == 1
         libcore_sources += [socket_bind_skel_h]
