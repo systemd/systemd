@@ -17,6 +17,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "fsverity-util.h"
 #include "io-util.h"
 #include "macro.h"
 #include "missing_syscall.h"
@@ -714,12 +715,16 @@ static int fd_copy_regular(
                 copy_progress_bytes_t progress,
                 void *userdata) {
 
-        _cleanup_close_ int fdf = -EBADF, fdt = -EBADF;
+        _cleanup_close_ int fdf = -EBADF, fdt = -EBADF, read_only_fdt = -EBADF;
         int r, q;
 
         assert(from);
         assert(st);
         assert(to);
+
+        /* If we need to enable fs-verity, then sync immediately, otherwise the ioctl will fail. */
+        if (copy_flags & COPY_ENABLE_FS_VERITY)
+                copy_flags |= COPY_FSYNC;
 
         r = try_hardlink(hardlink_context, st, dt, to);
         if (r < 0)
@@ -764,10 +769,25 @@ static int fd_copy_regular(
                 }
         }
 
+        if (copy_flags & COPY_ENABLE_FS_VERITY) {
+                /* fsverity IOCTLs require an exclusive, read-only file descriptor, and fail otherwise. */
+                read_only_fdt = fd_reopen(fdt, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (read_only_fdt < 0) {
+                        r = read_only_fdt;
+                        goto fail;
+                }
+        }
+
         q = close_nointr(TAKE_FD(fdt)); /* even if this fails, the fd is now invalidated */
         if (q < 0) {
                 r = q;
                 goto fail;
+        }
+
+        if (read_only_fdt >= 0) {
+                r = fsverity_enable(read_only_fdt, to, /* signature= */ NULL, /* signature_size= */ 0);
+                if (r < 0)
+                        goto fail;
         }
 
         (void) memorize_hardlink(hardlink_context, st, dt, to);
@@ -1355,7 +1375,7 @@ int copy_file_at_full(
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
 
-        _cleanup_close_ int fdf = -EBADF, fdt = -EBADF;
+        _cleanup_close_ int fdf = -EBADF, fdt = -EBADF, read_only_fdt = -EBADF;
         struct stat st;
         int r;
 
@@ -1363,6 +1383,10 @@ int copy_file_at_full(
         assert(dir_fdt >= 0 || dir_fdt == AT_FDCWD);
         assert(from);
         assert(to);
+
+        /* If we need to enable fs-verity, then sync immediately, otherwise the ioctl will fail. */
+        if (copy_flags & COPY_ENABLE_FS_VERITY)
+                copy_flags |= COPY_FSYNC_FULL;
 
         fdf = openat(dir_fdf, from, O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fdf < 0)
@@ -1415,12 +1439,27 @@ int copy_file_at_full(
                 }
         }
 
+        if (copy_flags & COPY_ENABLE_FS_VERITY) {
+                /* fsverity IOCTLs require an exclusive, read-only file descriptor, and fail otherwise. */
+                read_only_fdt = fd_reopen(fdt, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (read_only_fdt < 0) {
+                        r = read_only_fdt;
+                        goto fail;
+                }
+        }
+
         r = close_nointr(TAKE_FD(fdt)); /* even if this fails, the fd is now invalidated */
         if (r < 0)
                 goto fail;
 
         if (copy_flags & COPY_FSYNC_FULL) {
                 r = fsync_parent_at(dir_fdt, to);
+                if (r < 0)
+                        goto fail;
+        }
+
+        if (read_only_fdt >= 0) {
+                r = fsverity_enable(read_only_fdt, to, /* signature= */ NULL, /* signature_size= */ 0);
                 if (r < 0)
                         goto fail;
         }
@@ -1445,12 +1484,16 @@ int copy_file_atomic_full(
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
 
+        _cleanup_close_ int fdt = -EBADF, read_only_fdt = -EBADF;
         _cleanup_(unlink_and_freep) char *t = NULL;
-        _cleanup_close_ int fdt = -EBADF;
         int r;
 
         assert(from);
         assert(to);
+
+        /* If we need to enable fs-verity, then sync immediately, otherwise the ioctl will fail. */
+        if (copy_flags & COPY_ENABLE_FS_VERITY)
+                copy_flags |= COPY_FSYNC_FULL;
 
         if (copy_flags & COPY_MAC_CREATE) {
                 r = mac_selinux_create_file_prepare(to, S_IFREG);
@@ -1488,6 +1531,15 @@ int copy_file_atomic_full(
         if (chattr_mask != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & ~CHATTR_EARLY_FL, NULL);
 
+        if (copy_flags & COPY_ENABLE_FS_VERITY) {
+                /* fsverity IOCTLs require an exclusive, read-only file descriptor, and fail otherwise. */
+                read_only_fdt = fd_reopen(fdt, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (read_only_fdt < 0) {
+                        r = read_only_fdt;
+                        goto fail;
+                }
+        }
+
         r = close_nointr(TAKE_FD(fdt)); /* even if this fails, the fd is now invalidated */
         if (r < 0)
                 goto fail;
@@ -1495,6 +1547,12 @@ int copy_file_atomic_full(
         if (copy_flags & COPY_FSYNC_FULL) {
                 /* Sync the parent directory */
                 r = fsync_parent_at(AT_FDCWD, to);
+                if (r < 0)
+                        goto fail;
+        }
+
+        if (read_only_fdt >= 0) {
+                r = fsverity_enable(read_only_fdt, to, /* signature= */ NULL, /* signature_size= */ 0);
                 if (r < 0)
                         goto fail;
         }

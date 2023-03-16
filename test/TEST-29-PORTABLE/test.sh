@@ -23,6 +23,13 @@ test_append_files() {
         generate_module_dependencies
         inst_binary mksquashfs
         inst_binary unsquashfs
+        inst_binary dd
+        inst_binary sha256sum
+        inst_binary openssl || echo "openssl not found, skipping fsverity test"
+        inst_binary fsverity || echo "fsverity not found, skipping fsverity test"
+        inst_binary tune2fs || echo "tune2fs not found, skipping fsverity test"
+        inst_binary xxd || echo "xxd not found, skipping fsverity test"
+        inst_binary keyctl || echo "keyctl not found, skipping fsverity test"
         install_verity_minimal
     )
 }
