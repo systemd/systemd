@@ -54,9 +54,12 @@ int container_get_leader(const char *machine, pid_t *pid);
 
 int wait_for_terminate(pid_t pid, siginfo_t *status);
 
+#define EXIT_STATUS_SKIP 77
+
 typedef enum WaitFlags {
         WAIT_LOG_ABNORMAL             = 1 << 0,
         WAIT_LOG_NON_ZERO_EXIT_STATUS = 1 << 1,
+        WAIT_ALLOW_EXIT_STATUS_SKIP   = 1 << 2, /* Handle exit status 77 as success. */
 
         /* A shortcut for requesting the most complete logging */
         WAIT_LOG = WAIT_LOG_ABNORMAL|WAIT_LOG_NON_ZERO_EXIT_STATUS,

@@ -150,6 +150,7 @@ shared_sources = files(
         'tpm2-util.c',
         'udev-util.c',
         'uid-alloc-range.c',
+        'uki-util.c',
         'user-record-nss.c',
         'user-record-show.c',
         'user-record.c',
