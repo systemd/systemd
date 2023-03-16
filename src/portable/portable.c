@@ -20,6 +20,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "fsverity-util.h"
 #include "install.h"
 #include "io-util.h"
 #include "locale-util.h"
@@ -1025,7 +1026,7 @@ static int install_chroot_dropin(
                                         return -ENOMEM;
         }
 
-        r = write_string_file(dropin, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        r = write_string_file(dropin, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_ENABLE_FS_VERITY);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write '%s': %m", dropin);
 
@@ -1072,7 +1073,7 @@ static int install_profile_dropin(
 
         if (flags & PORTABLE_PREFER_COPY) {
 
-                r = copy_file_atomic(from, dropin, 0644, 0, 0, COPY_REFLINK);
+                r = copy_file_atomic(from, dropin, 0644, 0, 0, COPY_REFLINK|COPY_ENABLE_FS_VERITY);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to copy %s %s %s: %m", from, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), dropin);
 
@@ -1172,7 +1173,7 @@ static int attach_unit_file(
 
         } else {
                 _cleanup_(unlink_and_freep) char *tmp = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_close_ int fd = -EBADF, read_only_fd = -EBADF;
 
                 (void) mac_selinux_create_file_prepare_label(path, m->selinux_label);
 
@@ -1181,7 +1182,7 @@ static int attach_unit_file(
                 if (fd < 0)
                         return log_debug_errno(fd, "Failed to create unit file '%s': %m", path);
 
-                r = copy_bytes(m->fd, fd, UINT64_MAX, COPY_REFLINK);
+                r = copy_bytes(m->fd, fd, UINT64_MAX, COPY_REFLINK|COPY_FSYNC);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to copy unit file '%s': %m", path);
 
@@ -1193,6 +1194,14 @@ static int attach_unit_file(
                         return log_debug_errno(r, "Failed to install unit file '%s': %m", path);
 
                 tmp = mfree(tmp);
+
+                /* fsverity IOCTLs require an exclusive, read-only file descriptor, and fail otherwise. */
+                read_only_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (read_only_fd < 0)
+                        return read_only_fd;
+                fd = safe_close(fd);
+
+                (void) fsverity_enable(read_only_fd, path, /* signature= */ NULL, /* signature_size= */ 0);
 
                 (void) portable_changes_add(changes, n_changes, PORTABLE_COPY, path, m->source);
         }
