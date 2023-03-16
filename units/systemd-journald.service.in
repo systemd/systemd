@@ -47,6 +47,7 @@ SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
 Type=notify
+PassEnvironment=TERM
 {{SERVICE_WATCHDOG}}
 
 # In case you're wondering why CAP_SYS_PTRACE is needed, access to
