@@ -44,12 +44,6 @@ on:
 permissions:
   contents: read
 
-env:
-  # Enable debug logging in systemd, but keep udev's log level to info,
-  # since it's _very_ verbose in the QEMU task
-  # Disable the ISC DHCP servers, as they are failing in Ubuntu
-  KERNEL_CMDLINE: "systemd.unit=mkosi-check-and-shutdown.service !quiet systemd.log_level=debug systemd.log_target=console udev.log_level=info systemd.default_standard_output=journal+console"
-
 jobs:
   ci:
     runs-on: ubuntu-22.04
@@ -79,7 +73,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
-    - uses: systemd/mkosi@9f1641bfa2e2a032d0b9278b34caf645a12562ac
+    - uses: systemd/mkosi@c1f1e9ab2fe89f21ebdb4984b676f9a489081a64
 
     - name: Configure
       run: |
@@ -94,7 +88,8 @@ jobs:
                     DEFAULT_TIMEOUT_SEC=90
 
         [Output]
-        KernelCommandLine=${{ env.KERNEL_CMDLINE }}
+        KernelCommandLineExtra=systemd.unit=mkosi-check-and-shutdown.service
+                               systemd.journald.max_level_console=debug
         EOF
 
     - name: Generate secure boot key
@@ -107,7 +102,7 @@ jobs:
       run: mkosi summary
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
-      run: sudo mkosi boot ${{ env.KERNEL_CMDLINE }} audit=0
+      run: sudo mkosi boot
 
     - name: Check ${{ matrix.distro }} systemd-nspawn
       run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
