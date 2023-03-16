@@ -662,7 +662,9 @@ int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
                 return log_full_errno(prio, r, "Failed to wait for %s: %m", strna(name));
 
         if (status.si_code == CLD_EXITED) {
-                if (status.si_status != EXIT_SUCCESS)
+                if (status.si_status == EXIT_STATUS_SKIP && FLAGS_SET(flags, WAIT_ALLOW_EXIT_STATUS_SKIP))
+                        log_debug("%s succeeded with exit status %i.", strna(name), status.si_status);
+                else if (status.si_status != EXIT_SUCCESS)
                         log_full(flags & WAIT_LOG_NON_ZERO_EXIT_STATUS ? LOG_ERR : LOG_DEBUG,
                                  "%s failed with exit status %i.", strna(name), status.si_status);
                 else
