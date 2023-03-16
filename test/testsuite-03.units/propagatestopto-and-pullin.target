@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Requires=sleep-infinity-simple.service
+After=sleep-infinity-simple.service
+PropagatesStopTo=sleep-infinity-simple.service
