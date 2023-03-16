@@ -115,7 +115,7 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
                 sc->modes[SLEEP_HYBRID_SLEEP] = strv_new("suspend", "platform", "shutdown");
         if (!sc->states[SLEEP_HYBRID_SLEEP])
                 sc->states[SLEEP_HYBRID_SLEEP] = strv_new("disk");
-        if (sc->suspend_estimation_usec == 0)
+        if (!timestamp_is_set(sc->suspend_estimation_usec))
                 sc->suspend_estimation_usec = DEFAULT_SUSPEND_ESTIMATION_USEC;
 
         /* Ensure values set for all required fields */
