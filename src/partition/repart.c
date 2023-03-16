@@ -3263,11 +3263,21 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
                 if (r < 0)
                         return log_error_errno(r, "Failed to sync loopback device: %m");
         } else if (t->fd >= 0) {
+                struct stat st;
+
                 if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
                         return log_error_errno(errno, "Failed to seek to partition offset: %m");
 
                 if (lseek(t->fd, 0, SEEK_SET) == (off_t) -1)
                         return log_error_errno(errno, "Failed to seek to start of temporary file: %m");
+
+                if (fstat(t->fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat temporary file: %m");
+
+                if (st.st_size > (off_t) p->new_size)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
+                                               "Partition %" PRIu64 "'s contents (%s) don't fit in the partition (%s)",
+                                               p->partno, FORMAT_BYTES(st.st_size), FORMAT_BYTES(p->new_size));
 
                 r = copy_bytes(t->fd, whole_fd, UINT64_MAX, COPY_REFLINK|COPY_HOLES|COPY_FSYNC);
                 if (r < 0)
@@ -3553,6 +3563,8 @@ static int partition_format_verity_hash(
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
 
+        cryptsetup_enable_logging(cd);
+
         r = sym_crypt_format(
                         cd, CRYPT_VERITY, NULL, NULL, NULL, NULL, 0,
                         &(struct crypt_params_verity){
@@ -3564,8 +3576,17 @@ static int partition_format_verity_hash(
                                 .hash_block_size = context->sector_size,
                                 .salt_size = 32,
                         });
-        if (r < 0)
+        if (r < 0) {
+                /* libcryptsetup reports non-descriptive EIO errors for every I/O failure. Luckily, it
+                 * doesn't clobber errno so let's check for ENOSPC so we can report a better error if the
+                 * partition is too small. */
+                if (r == -EIO && errno == ENOSPC)
+                        return log_error_errno(errno,
+                                               "Verity hash data does not fit in partition %"PRIu64" with size %s",
+                                               p->partno, FORMAT_BYTES(p->new_size));
+
                 return log_error_errno(r, "Failed to setup verity hash data: %m");
+        }
 
         r = partition_target_sync(context, p, t);
         if (r < 0)
