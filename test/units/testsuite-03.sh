@@ -3,6 +3,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/assert.sh
+. "$(dirname "$0")"/assert.sh
+
 # Simple test for that daemon-reexec works in container.
 # See: https://github.com/systemd/systemd/pull/23883
 systemctl daemon-reexec
@@ -109,5 +112,14 @@ END_SEC=$(date -u '+%s')
 ELAPSED=$((END_SEC-START_SEC))
 [[ "$ELAPSED" -ge 3 ]] && [[ "$ELAPSED" -le 5 ]] || exit 1
 [[ "$RESULT" -ne 0 ]] || exit 1
+
+# Test PropagatesStopTo= when restart (issue #26839)
+systemctl start propagate-stop-to.target
+assert_rc 0 systemctl --quiet is-active propagate-stop-to.target
+assert_rc 0 systemctl --quiet is-active sleep-infinity-simple.service
+
+systemctl restart propagate-stop-to.target
+assert_rc 0 systemctl --quiet is-active propagate-stop-to.target
+assert_rc 0 systemctl --quiet is-active sleep-infinity-simple.service
 
 touch /testok

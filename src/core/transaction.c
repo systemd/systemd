@@ -902,6 +902,7 @@ int transaction_add_job_and_dependencies(
                 bool ignore_order,
                 sd_bus_error *e) {
 
+        _cleanup_set_free_ Set *to_start = NULL;
         bool is_new;
         Unit *dep;
         Job *ret;
@@ -994,6 +995,12 @@ int transaction_add_job_and_dependencies(
                 /* Finally, recursively add in all dependencies. */
                 if (IN_SET(type, JOB_START, JOB_RESTART)) {
                         UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PULL_IN_START) {
+                                if (type == JOB_RESTART) {
+                                        r = set_ensure_put(&to_start, NULL, dep);
+                                        if (r < 0)
+                                                return r;
+                                }
+
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
                                         if (r != -EBADR) /* job type not applicable */
@@ -1004,6 +1011,12 @@ int transaction_add_job_and_dependencies(
                         }
 
                         UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PULL_IN_START_IGNORED) {
+                                if (type == JOB_RESTART) {
+                                        r = set_ensure_put(&to_start, NULL, dep);
+                                        if (r < 0)
+                                                return r;
+                                }
+
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, false, false, false, ignore_order, e);
                                 if (r < 0) {
                                         /* unit masked, job type not applicable and unit not found are not considered as errors. */
@@ -1079,7 +1092,14 @@ int transaction_add_job_and_dependencies(
                                 if (set_contains(propagated_restart, dep))
                                         continue;
 
-                                r = transaction_add_job_and_dependencies(tr, JOB_STOP, dep, ret, true, false, false, ignore_order, e);
+                                if (set_contains(to_start, dep))
+                                        /* dep has a pending start job in this transaction, which is pulled
+                                         * in due to UNIT_ATOM_PULL_IN_START(_IGNORED). In this case, let's
+                                         * add a restart job directly, which fits the ultimate goal and
+                                         * avoids job type conflict. */
+                                        r = transaction_add_job_and_dependencies(tr, JOB_RESTART, dep, ret, true, false, false, ignore_order, e);
+                                else
+                                        r = transaction_add_job_and_dependencies(tr, JOB_STOP, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
                                         if (r != -EBADR) /* job type not applicable */
                                                 return r;
