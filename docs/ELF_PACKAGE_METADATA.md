@@ -82,55 +82,11 @@ these JSON objects are thus permitted to encode numeric values from these
 ranges as JSON numbers, and should not use numeric values not covered by these
 types and ranges.
 
-A reference implementations of a [build-time tool is provided](https://github.com/systemd/package-notes)
-and can be used to generate a linker script, which can then be used at build time via
-```LDFLAGS="-Wl,-T,/path/to/generated/script"``` to include the note in the binary.
-
-Generator:
-```console
-$ ./generate-package-notes.py --rpm systemd-248~rc2-1.fc33.arm32 --cpe cpe:/o:fedoraproject:fedora:33
-SECTIONS
-{
-    .note.package (READONLY) : ALIGN(4) {
-        LONG(0x0004)                                /* Length of Owner including NUL */
-        LONG(0x007b)                                /* Length of Value including NUL */
-        LONG(0xcafe1a7e)                            /* Note ID */
-        BYTE(0x46) BYTE(0x44) BYTE(0x4f) BYTE(0x00) /* Owner: 'FDO\x00' */
-        BYTE(0x7b) BYTE(0x22) BYTE(0x74) BYTE(0x79) /* Value: '{"type":"rpm","name":"systemd","version":"248~rc2-1.fc33","architecture":"arm32","osCpe":"cpe:/o:fedoraproject:fedora:33"}\x00\x00' */
-        BYTE(0x70) BYTE(0x65) BYTE(0x22) BYTE(0x3a)
-        BYTE(0x22) BYTE(0x72) BYTE(0x70) BYTE(0x6d)
-        BYTE(0x22) BYTE(0x2c) BYTE(0x22) BYTE(0x6e)
-        BYTE(0x61) BYTE(0x6d) BYTE(0x65) BYTE(0x22)
-        BYTE(0x3a) BYTE(0x22) BYTE(0x73) BYTE(0x79)
-        BYTE(0x73) BYTE(0x74) BYTE(0x65) BYTE(0x6d)
-        BYTE(0x64) BYTE(0x22) BYTE(0x2c) BYTE(0x22)
-        BYTE(0x76) BYTE(0x65) BYTE(0x72) BYTE(0x73)
-        BYTE(0x69) BYTE(0x6f) BYTE(0x6e) BYTE(0x22)
-        BYTE(0x3a) BYTE(0x22) BYTE(0x32) BYTE(0x34)
-        BYTE(0x38) BYTE(0x7e) BYTE(0x72) BYTE(0x63)
-        BYTE(0x32) BYTE(0x2d) BYTE(0x31) BYTE(0x2e)
-        BYTE(0x66) BYTE(0x63) BYTE(0x33) BYTE(0x33)
-        BYTE(0x22) BYTE(0x2c) BYTE(0x22) BYTE(0x61)
-        BYTE(0x72) BYTE(0x63) BYTE(0x68) BYTE(0x69)
-        BYTE(0x74) BYTE(0x65) BYTE(0x63) BYTE(0x74)
-        BYTE(0x75) BYTE(0x72) BYTE(0x65) BYTE(0x22)
-        BYTE(0x3a) BYTE(0x22) BYTE(0x61) BYTE(0x72)
-        BYTE(0x6d) BYTE(0x33) BYTE(0x32) BYTE(0x22)
-        BYTE(0x2c) BYTE(0x22) BYTE(0x6f) BYTE(0x73)
-        BYTE(0x43) BYTE(0x70) BYTE(0x65) BYTE(0x22)
-        BYTE(0x3a) BYTE(0x22) BYTE(0x63) BYTE(0x70)
-        BYTE(0x65) BYTE(0x3a) BYTE(0x2f) BYTE(0x6f)
-        BYTE(0x3a) BYTE(0x66) BYTE(0x65) BYTE(0x64)
-        BYTE(0x6f) BYTE(0x72) BYTE(0x61) BYTE(0x70)
-        BYTE(0x72) BYTE(0x6f) BYTE(0x6a) BYTE(0x65)
-        BYTE(0x63) BYTE(0x74) BYTE(0x3a) BYTE(0x66)
-        BYTE(0x65) BYTE(0x64) BYTE(0x6f) BYTE(0x72)
-        BYTE(0x61) BYTE(0x3a) BYTE(0x33) BYTE(0x33)
-        BYTE(0x22) BYTE(0x7d) BYTE(0x00) BYTE(0x00)
-    }
-}
-INSERT AFTER .note.gnu.build-id;
-```
+Reference implementations of [packaging tools for .deb and .rpm](https://github.com/systemd/package-notes)
+are available, and provide macros/helpers to include the note in binaries built
+by the package build system. They make use of the new `--package-metadata` flag that
+is available in the bfd, gold, mold and lld linkers (versions 2.39, 1.3.0 and 15.0
+respectively). This linker flag takes a JSON payload as parameter.
 
 ## Well-known keys
 
