@@ -105,18 +105,31 @@ static bool is_uki(struct PeSectionHeader *sections, size_t scount) {
 
 static int read_pe_section(
                 FILE *uki,
-                const struct PeSectionHeader *section,
+                struct PeSectionHeader *sections,
+                size_t scount,
+                const uint8_t *name,
+                size_t name_len,
                 void **ret,
                 size_t *ret_n) {
 
+        struct PeSectionHeader *section;
         _cleanup_free_ void *data = NULL;
         uint32_t size, bytes;
         uint64_t soff;
+        size_t idx;
 
         assert(uki);
-        assert(section);
+        assert(sections || scount == 0);
         assert(ret);
 
+        if (!find_pe_section(sections, scount, name, name_len, &idx)) {
+                *ret = NULL;
+                if (ret_n)
+                        *ret_n = 0;
+                return 0;
+        }
+
+        section = sections + idx;
         soff = le32toh(section->PointerToRawData);
         size = le32toh(section->VirtualSize);
 
@@ -138,7 +151,7 @@ static int read_pe_section(
         *ret = TAKE_PTR(data);
         if (ret_n)
                 *ret_n = size;
-        return 0;
+        return 1;
 }
 
 static int inspect_osrel(const void *osrel, size_t osrel_size) {
@@ -165,22 +178,30 @@ static int inspect_osrel(const void *osrel, size_t osrel_size) {
         return 0;
 }
 
-static void inspect_uki(FILE *uki, struct PeSectionHeader *sections, size_t scount) {
+static int inspect_uki(
+                FILE *uki,
+                struct PeSectionHeader *sections,
+                size_t scount) {
+
         _cleanup_free_ char *cmdline = NULL, *uname = NULL;
         _cleanup_free_ void *osrel = NULL;
-        size_t osrel_size = 0, idx;
+        size_t osrel_size = 0;
+        int r;
 
         assert(uki);
         assert(sections || scount == 0);
 
-        if (find_pe_section(sections, scount, name_cmdline, sizeof(name_cmdline), &idx))
-                read_pe_section(uki, sections + idx, (void**) &cmdline, NULL);
+        r = read_pe_section(uki, sections, scount, name_cmdline, sizeof(name_cmdline), (void**) &cmdline, NULL);
+        if (r < 0)
+                return r;
 
-        if (find_pe_section(sections, scount, name_uname, sizeof(name_uname), &idx))
-                read_pe_section(uki, sections + idx, (void**) &uname, NULL);
+        r = read_pe_section(uki, sections, scount, name_uname, sizeof(name_uname), (void**) &uname, NULL);
+        if (r < 0)
+                return r;
 
-        if (find_pe_section(sections, scount, name_osrel, sizeof(name_osrel), &idx))
-                read_pe_section(uki, sections + idx, &osrel, &osrel_size);
+        r = read_pe_section(uki, sections, scount, name_osrel, sizeof(name_osrel), &osrel, &osrel_size);
+        if (r < 0)
+                return r;
 
         if (cmdline)
                 printf("    Cmdline: %s\n", cmdline);
@@ -188,6 +209,7 @@ static void inspect_uki(FILE *uki, struct PeSectionHeader *sections, size_t scou
                 printf("    Version: %s\n", uname);
 
         (void) inspect_osrel(osrel, osrel_size);
+        return 0;
 }
 
 int verb_kernel_identify(int argc, char *argv[], void *userdata) {
