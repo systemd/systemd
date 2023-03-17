@@ -154,17 +154,31 @@ static int read_pe_section(
         return 1;
 }
 
-static int inspect_osrel(const void *osrel, size_t osrel_size) {
-        _cleanup_fclose_ FILE *s = NULL;
+static int uki_read_pretty_name(
+                FILE *uki,
+                struct PeSectionHeader *sections,
+                size_t scount,
+                char **ret) {
+
         _cleanup_free_ char *pname = NULL, *name = NULL;
+        _cleanup_fclose_ FILE *s = NULL;
+        _cleanup_free_ void *osrel = NULL;
+        size_t osrel_size = 0;
         int r;
 
-        assert(osrel || osrel_size == 0);
+        assert(uki);
+        assert(sections || scount == 0);
+        assert(ret);
 
-        if (!osrel)
+        r = read_pe_section(uki, sections, scount, name_osrel, sizeof(name_osrel), &osrel, &osrel_size);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                *ret = NULL;
                 return 0;
+        }
 
-        s = fmemopen((void*) osrel, osrel_size, "r");
+        s = fmemopen(osrel, osrel_size, "r");
         if (!s)
                 return log_warning_errno(errno, "Failed to open embedded os-release file, ignoring: %m");
 
@@ -174,7 +188,19 @@ static int inspect_osrel(const void *osrel, size_t osrel_size) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse embedded os-release file, ignoring: %m");
 
-        printf("         OS: %s\n", os_release_pretty_name(pname, name));
+        /* follow the same logic as os_release_pretty_name() */
+        if (!isempty(pname))
+                *ret = TAKE_PTR(pname);
+        else if (!isempty(name))
+                *ret = TAKE_PTR(name);
+        else {
+                char *n = strdup("Linux");
+                if (!n)
+                        return log_oom();
+
+                *ret = n;
+        }
+
         return 0;
 }
 
@@ -183,9 +209,7 @@ static int inspect_uki(
                 struct PeSectionHeader *sections,
                 size_t scount) {
 
-        _cleanup_free_ char *cmdline = NULL, *uname = NULL;
-        _cleanup_free_ void *osrel = NULL;
-        size_t osrel_size = 0;
+        _cleanup_free_ char *cmdline = NULL, *uname = NULL, *pname = NULL;
         int r;
 
         assert(uki);
@@ -199,7 +223,7 @@ static int inspect_uki(
         if (r < 0)
                 return r;
 
-        r = read_pe_section(uki, sections, scount, name_osrel, sizeof(name_osrel), &osrel, &osrel_size);
+        r = uki_read_pretty_name(uki, sections, scount, &pname);
         if (r < 0)
                 return r;
 
@@ -207,8 +231,9 @@ static int inspect_uki(
                 printf("    Cmdline: %s\n", cmdline);
         if (uname)
                 printf("    Version: %s\n", uname);
+        if (pname)
+                printf("         OS: %s\n", pname);
 
-        (void) inspect_osrel(osrel, osrel_size);
         return 0;
 }
 
