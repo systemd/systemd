@@ -197,7 +197,7 @@
           capacity level and estimate battery discharging rate, which is used for estimating timespan until the system battery charge
           level goes down to 5%. Only used by
           <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-          Defaults to 2h.</para></listitem>
+          Defaults to 1h.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
