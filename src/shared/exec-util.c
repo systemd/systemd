@@ -77,7 +77,7 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid, b
 }
 
 static int do_execute(
-                char **directories,
+                const char* const* directories,
                 usec_t timeout,
                 gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
                 void* const callback_args[_STDOUT_CONSUME_MAX],
@@ -99,7 +99,7 @@ static int do_execute(
          */
         parallel_execution = FLAGS_SET(flags, EXEC_DIR_PARALLEL) && !callbacks;
 
-        r = conf_files_list_strv(&paths, NULL, NULL, CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char* const*) directories);
+        r = conf_files_list_strv(&paths, NULL, NULL, CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, directories);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate executables: %m");
 
@@ -202,12 +202,11 @@ int execute_directories(
                 char *envp[],
                 ExecDirFlags flags) {
 
-        char **dirs = (char**) directories;
         _cleanup_close_ int fd = -EBADF;
         int r;
         pid_t executor_pid;
 
-        assert(!strv_isempty(dirs));
+        assert(!strv_isempty((char**) directories));
 
         if (callbacks) {
                 assert(callback_args);
@@ -217,9 +216,9 @@ int execute_directories(
 
                 _cleanup_free_ char *name = NULL;
 
-                r = path_extract_filename(dirs[0], &name);
+                r = path_extract_filename(directories[0], &name);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to extract file name from '%s': %m", dirs[0]);
+                        return log_error_errno(r, "Failed to extract file name from '%s': %m", directories[0]);
 
                 fd = open_serialization_fd(name);
                 if (fd < 0)
@@ -234,7 +233,7 @@ int execute_directories(
         if (r < 0)
                 return r;
         if (r == 0) {
-                r = do_execute(dirs, timeout, callbacks, callback_args, fd, argv, envp, flags);
+                r = do_execute(directories, timeout, callbacks, callback_args, fd, argv, envp, flags);
                 _exit(r < 0 ? EXIT_FAILURE : r);
         }
 
