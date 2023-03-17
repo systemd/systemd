@@ -211,7 +211,7 @@ int verb_kernel_identify(int argc, char *argv[], void *userdata) {
         else
                 puts("pe");
 
-        return EXIT_SUCCESS;
+        return 0;
 }
 
 int verb_kernel_inspect(int argc, char *argv[], void *userdata) {
@@ -236,5 +236,5 @@ int verb_kernel_inspect(int argc, char *argv[], void *userdata) {
         } else
                 puts("Kernel Type: pe");
 
-        return EXIT_SUCCESS;
+        return 0;
 }

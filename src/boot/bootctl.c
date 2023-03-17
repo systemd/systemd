@@ -489,7 +489,7 @@ static int run(int argc, char *argv[]) {
                         return log_oom();
 
                 puts(path);
-                return EXIT_SUCCESS;
+                return 0;
         }
 
         /* Open up and mount the image */
