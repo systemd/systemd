@@ -105,8 +105,8 @@
                 _expr_;                                  \
         })
 
-#define assert_cc(expr) static_assert(expr, #expr)
-
+#define assert_message_cc(expr, message) static_assert(expr, message)
+#define assert_cc(expr) assert_message_cc(expr, #expr)
 
 #define UNIQ_T(x, uniq) CONCATENATE(__unique_prefix_, CONCATENATE(x, uniq))
 #define UNIQ __COUNTER__
