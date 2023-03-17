@@ -477,6 +477,10 @@ static UdevRuleSubstituteType rule_get_substitution_type(const char *str) {
         return SUBST_TYPE_PLAIN;
 }
 
+static bool type_has_nulstr_value(UdevRuleTokenType type) {
+        return type < TK_M_TEST || type == TK_M_RESULT;
+}
+
 static int rule_line_add_token(UdevRuleLine *rule_line, UdevRuleTokenType type, UdevRuleOperatorType op, char *value, void *data) {
         _cleanup_(udev_rule_token_freep) UdevRuleToken *token = NULL;
         UdevRuleMatchType match_type = _MATCH_TYPE_INVALID;
@@ -505,7 +509,7 @@ static int rule_line_add_token(UdevRuleLine *rule_line, UdevRuleTokenType type, 
                 else
                         match_type = MATCH_TYPE_PLAIN;
 
-                if (type < TK_M_TEST || type == TK_M_RESULT) {
+                if (type_has_nulstr_value(type)) {
                         /* Convert value string to nulstr. */
                         bool bar = true, empty = false;
                         char *a, *b;
@@ -1361,18 +1365,32 @@ static bool token_type_and_data_eq(const UdevRuleToken *a, const UdevRuleToken *
                (token_data_is_string(a->type) ? streq_ptr(a->data, b->data) : (a->data == b->data));
 }
 
-static bool token_value_eq(const UdevRuleToken *a, const UdevRuleToken *b) {
+static bool nulstr_eq(const char *a, const char *b) {
+        NULSTR_FOREACH(i, a)
+                if (!nulstr_contains(b, i))
+                        return false;
+
+        NULSTR_FOREACH(i, b)
+                if (!nulstr_contains(a, i))
+                        return false;
+
+        return true;
+}
+
+static bool token_type_and_value_eq(const UdevRuleToken *a, const UdevRuleToken *b) {
         assert(a);
         assert(b);
 
-        if (a->match_type != b->match_type)
+        if (a->type != b->type ||
+            a->match_type != b->match_type)
                 return false;
 
         /* token value is ignored for certain match types */
         if (IN_SET(a->match_type, MATCH_TYPE_EMPTY, MATCH_TYPE_SUBSYSTEM))
                 return true;
 
-        return streq_ptr(a->value, b->value);
+        return type_has_nulstr_value(a->type) ? nulstr_eq(a->value, b->value) :
+                                                streq_ptr(a->value, b->value);
 }
 
 static bool conflicting_op(UdevRuleOperatorType a, UdevRuleOperatorType b) {
@@ -1387,7 +1405,7 @@ static bool tokens_eq(const UdevRuleToken *a, const UdevRuleToken *b) {
 
         return a->attr_subst_type == b->attr_subst_type &&
                a->attr_match_remove_trailing_whitespace == b->attr_match_remove_trailing_whitespace &&
-               token_value_eq(a, b) &&
+               token_type_and_value_eq(a, b) &&
                token_type_and_data_eq(a, b);
 }
 
