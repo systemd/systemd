@@ -57,6 +57,12 @@ if install_tests
         install_data('create-busybox-container',
                      install_mode : 'rwxr-xr-x',
                      install_dir : testdata_dir)
+
+        # The unit tests implemented as shell scripts expect to find testdata/
+        # in the directory where they are stored.
+        meson.add_install_script(meson_make_symlink,
+                                 testdata_dir,
+                                 unittestsdir / 'testdata')
 endif
 
 test_bootctl_json_sh = find_program('test-bootctl-json.sh')
