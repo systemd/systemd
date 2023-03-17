@@ -666,7 +666,7 @@ int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
                         log_full(flags & WAIT_LOG_NON_ZERO_EXIT_STATUS ? LOG_ERR : LOG_DEBUG,
                                  "%s failed with exit status %i.", strna(name), status.si_status);
                 else
-                        log_debug("%s succeeded.", name);
+                        log_debug("%s succeeded.", strna(name));
 
                 return status.si_status;
 
