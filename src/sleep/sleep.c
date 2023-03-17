@@ -39,6 +39,8 @@
 #include "strv.h"
 #include "time-util.h"
 
+#define DEFAULT_HIBERNATE_DELAY_USEC_NO_BATTERY (2 * USEC_PER_HOUR)
+
 static SleepOperation arg_operation = _SLEEP_OPERATION_INVALID;
 
 static int write_hibernate_location_info(const HibernateLocation *hibernate_location) {
@@ -292,7 +294,8 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
 
                 if (hashmap_isempty(last_capacity))
                         /* In case of no battery, system suspend interval will be set to HibernateDelaySec= or 2 hours. */
-                        suspend_interval = timestamp_is_set(hibernate_timestamp) ? sleep_config->hibernate_delay_usec : DEFAULT_SUSPEND_ESTIMATION_USEC;
+                        suspend_interval = timestamp_is_set(hibernate_timestamp)
+                                           ? sleep_config->hibernate_delay_usec : DEFAULT_HIBERNATE_DELAY_USEC_NO_BATTERY;
                 else {
                         r = get_total_suspend_interval(last_capacity, &suspend_interval);
                         if (r < 0) {
