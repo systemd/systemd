@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <stdbool.h>
 #include <stdio.h>
+
+#include "time-util.h"
 
 /* The *_extension_release flavours will look for /usr/lib/extension-release/extension-release.NAME
  * in accordance with the OS extension specification, rather than for /usr/lib/ or /etc/os-release. */
