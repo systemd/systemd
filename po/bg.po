@@ -3,20 +3,22 @@
 # Bulgarian translation of systemd po-file.
 # Copyright © 2016, 2022 Alexander Shopov <ash@kambanaria.org>
 # Alexander Shopov <ash@kambanaria.org>, 2016, 2022.
-#
+# Velislav Ivanov <velislav.bg@gmail.com>, 2023.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-10-20 10:35+0200\n"
-"PO-Revision-Date: 2022-05-31 13:09+0200\n"
-"Last-Translator: Alexander Shopov <ash@kambanaria.org>\n"
-"Language-Team: Bulgarian <dict@ludost.net>\n"
+"PO-Revision-Date: 2023-03-17 15:20+0000\n"
+"Last-Translator: Velislav Ivanov <velislav.bg@gmail.com>\n"
+"Language-Team: Bulgarian <https://translate.fedoraproject.org/projects/"
+"systemd/master/bg/>\n"
 "Language: bg\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 4.15.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -159,22 +161,19 @@ msgstr "За получаването на UUID на продукт е необ�
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
-msgstr ""
+msgstr "Вземи серийния номер на хардуера"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
-#, fuzzy
 msgid "Authentication is required to get hardware serial number."
-msgstr "За задаване на времето на системата е необходима идентификация."
+msgstr "За вземане на серийния номер на хардуер е необходима идентификация."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
-#, fuzzy
 msgid "Get system description"
-msgstr "Задаване на часовия пояс на системата"
+msgstr "Вземане на описание на системата"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
-#, fuzzy
 msgid "Authentication is required to get system description."
-msgstr "За задаване на часовия пояс на системата е необходима идентификация."
+msgstr "За вземане на описание на системата е необходима идентификация."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
