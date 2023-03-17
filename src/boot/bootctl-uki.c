@@ -7,6 +7,7 @@
 #include "os-util.h"
 #include "parse-util.h"
 #include "pe-header.h"
+#include "string-table.h"
 
 #define MAX_SECTIONS 96
 
@@ -18,6 +19,22 @@ static const uint8_t name_linux[8] = ".linux";
 static const uint8_t name_initrd[8] = ".initrd";
 static const uint8_t name_cmdline[8] = ".cmdline";
 static const uint8_t name_uname[8] = ".uname";
+
+typedef enum KernelType {
+        KERNEL_TYPE_UNKNOWN,
+        KERNEL_TYPE_UKI,
+        KERNEL_TYPE_PE,
+        _KERNEL_TYPE_MAX,
+        _KERNEL_TYPE_INVALID = -EINVAL,
+} KernelType;
+
+static const char * const kernel_type_table[_KERNEL_TYPE_MAX] = {
+        [KERNEL_TYPE_UNKNOWN] = "unknown",
+        [KERNEL_TYPE_UKI]     = "uki",
+        [KERNEL_TYPE_PE]      = "pe",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(kernel_type, KernelType);
 
 static int pe_sections(FILE *uki, struct PeSectionHeader **ret, size_t *ret_n) {
         _cleanup_free_ struct PeSectionHeader *sections = NULL;
@@ -207,7 +224,10 @@ static int uki_read_pretty_name(
 static int inspect_uki(
                 FILE *uki,
                 struct PeSectionHeader *sections,
-                size_t scount) {
+                size_t scount,
+                char **ret_cmdline,
+                char **ret_uname,
+                char **ret_pretty_name) {
 
         _cleanup_free_ char *cmdline = NULL, *uname = NULL, *pname = NULL;
         int r;
@@ -215,73 +235,101 @@ static int inspect_uki(
         assert(uki);
         assert(sections || scount == 0);
 
-        r = read_pe_section(uki, sections, scount, name_cmdline, sizeof(name_cmdline), (void**) &cmdline, NULL);
+        if (ret_cmdline) {
+                r = read_pe_section(uki, sections, scount, name_cmdline, sizeof(name_cmdline), (void**) &cmdline, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_uname) {
+                r = read_pe_section(uki, sections, scount, name_uname, sizeof(name_uname), (void**) &uname, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_pretty_name) {
+                r = uki_read_pretty_name(uki, sections, scount, &pname);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_cmdline)
+                *ret_cmdline = TAKE_PTR(cmdline);
+        if (ret_uname)
+                *ret_uname = TAKE_PTR(uname);
+        if (ret_pretty_name)
+                *ret_pretty_name = TAKE_PTR(pname);
+
+        return 0;
+}
+
+static int inspect_kernel(
+                const char *filename,
+                KernelType *ret_type,
+                char **ret_cmdline,
+                char **ret_uname,
+                char **ret_pretty_name) {
+
+        _cleanup_fclose_ FILE *uki = NULL;
+        _cleanup_free_ struct PeSectionHeader *sections = NULL;
+        size_t scount;
+        KernelType t;
+        int r;
+
+        assert(filename);
+
+        uki = fopen(filename, "re");
+        if (!uki)
+                return log_error_errno(errno, "Failed to open UKI file '%s': %m", filename);
+
+        r = pe_sections(uki, &sections, &scount);
         if (r < 0)
                 return r;
 
-        r = read_pe_section(uki, sections, scount, name_uname, sizeof(name_uname), (void**) &uname, NULL);
+        if (!sections)
+                t = KERNEL_TYPE_UNKNOWN;
+        else if (is_uki(sections, scount)) {
+                t = KERNEL_TYPE_UKI;
+                r = inspect_uki(uki, sections, scount, ret_cmdline, ret_uname, ret_pretty_name);
+                if (r < 0)
+                        return r;
+        } else
+                t = KERNEL_TYPE_PE;
+
+        if (ret_type)
+                *ret_type = t;
+
+        return 0;
+}
+
+int verb_kernel_identify(int argc, char *argv[], void *userdata) {
+        KernelType t;
+        int r;
+
+        r = inspect_kernel(argv[1], &t, NULL, NULL, NULL);
         if (r < 0)
                 return r;
 
-        r = uki_read_pretty_name(uki, sections, scount, &pname);
+        puts(kernel_type_to_string(t));
+        return 0;
+}
+
+int verb_kernel_inspect(int argc, char *argv[], void *userdata) {
+        _cleanup_free_ char *cmdline = NULL, *uname = NULL, *pname = NULL;
+        KernelType t;
+        int r;
+
+        r = inspect_kernel(argv[1], &t, &cmdline, &uname, &pname);
         if (r < 0)
                 return r;
 
+        printf("Kernel Type: %s\n", kernel_type_to_string(t));
         if (cmdline)
                 printf("    Cmdline: %s\n", cmdline);
         if (uname)
                 printf("    Version: %s\n", uname);
         if (pname)
                 printf("         OS: %s\n", pname);
-
-        return 0;
-}
-
-int verb_kernel_identify(int argc, char *argv[], void *userdata) {
-        _cleanup_fclose_ FILE *uki = NULL;
-        _cleanup_free_ struct PeSectionHeader *sections = NULL;
-        size_t scount;
-        int r;
-
-        uki = fopen(argv[1], "re");
-        if (!uki)
-                return log_error_errno(errno, "Failed to open UKI file '%s': %m", argv[1]);
-
-        r = pe_sections(uki, &sections, &scount);
-        if (r < 0)
-                return r;
-
-        if (!sections)
-                puts("unknown");
-        else if (is_uki(sections, scount))
-                puts("uki");
-        else
-                puts("pe");
-
-        return 0;
-}
-
-int verb_kernel_inspect(int argc, char *argv[], void *userdata) {
-        _cleanup_fclose_ FILE *uki = NULL;
-        _cleanup_free_ struct PeSectionHeader *sections = NULL;
-        size_t scount;
-        int r;
-
-        uki = fopen(argv[1], "re");
-        if (!uki)
-                return log_error_errno(errno, "Failed to open UKI file '%s': %m", argv[1]);
-
-        r = pe_sections(uki, &sections, &scount);
-        if (r < 0)
-                return r;
-
-        if (!sections)
-                puts("Kernel Type: unknown");
-        else if (is_uki(sections, scount)) {
-                puts("Kernel Type: uki");
-                inspect_uki(uki, sections, scount);
-        } else
-                puts("Kernel Type: pe");
 
         return 0;
 }
