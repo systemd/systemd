@@ -49,8 +49,8 @@
 #  define _fallthrough_
 #endif
 
-#define XSTRINGIFY(x) #x
-#define STRINGIFY(x) XSTRINGIFY(x)
+#define XSTRINGIFY(...) #__VA_ARGS__
+#define STRINGIFY(...) XSTRINGIFY(__VA_ARGS__)
 
 #ifndef __COVERITY__
 #  define VOID_0 ((void)0)
@@ -105,8 +105,8 @@
                 _expr_;                                  \
         })
 
-#define assert_cc(expr) static_assert(expr, #expr)
-
+#define assert_message_cc(expr, message) static_assert(expr, message)
+#define assert_cc(expr) assert_message_cc(expr, #expr)
 
 #define UNIQ_T(x, uniq) CONCATENATE(__unique_prefix_, CONCATENATE(x, uniq))
 #define UNIQ __COUNTER__
