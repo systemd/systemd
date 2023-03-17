@@ -30,6 +30,8 @@
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 
+#define EXIT_SKIP_REMAINING 77
+
 /* Put this test here for a lack of better place */
 assert_cc(EAGAIN == EWOULDBLOCK);
 
@@ -77,7 +79,7 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid, b
 }
 
 static int do_execute(
-                char **directories,
+                char* const* paths,
                 usec_t timeout,
                 gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
                 void* const callback_args[_STDOUT_CONSUME_MAX],
@@ -87,9 +89,8 @@ static int do_execute(
                 ExecDirFlags flags) {
 
         _cleanup_hashmap_free_free_ Hashmap *pids = NULL;
-        _cleanup_strv_free_ char **paths = NULL;
-        int r;
         bool parallel_execution;
+        int r;
 
         /* We fork this all off from a child process so that we can somewhat cleanly make
          * use of SIGALRM to set a time limit.
@@ -98,10 +99,6 @@ static int do_execute(
          * if `callbacks` is nonnull, execution must be serial.
          */
         parallel_execution = FLAGS_SET(flags, EXEC_DIR_PARALLEL) && !callbacks;
-
-        r = conf_files_list_strv(&paths, NULL, NULL, CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, (const char* const*) directories);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enumerate executables: %m");
 
         if (parallel_execution) {
                 pids = hashmap_new(NULL);
@@ -150,11 +147,22 @@ static int do_execute(
                                 return log_oom();
                         t = NULL;
                 } else {
-                        r = wait_for_terminate_and_check(t, pid, WAIT_LOG);
+                        bool skip_remaining = false;
+
+                        r = wait_for_terminate_and_check(t, pid, WAIT_LOG_ABNORMAL);
                         if (r < 0)
                                 return r;
-                        if (!FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS) && r > 0)
-                                return r;
+                        if (r > 0) {
+                                if (FLAGS_SET(flags, EXEC_DIR_SKIP_REMAINING) && r == EXIT_SKIP_REMAINING) {
+                                        log_info("%s succeeded with exit status %i, not executing remaining executables.", *path, r);
+                                        skip_remaining = true;
+                                } else if (FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS))
+                                        log_warning("%s failed with exit status %i, ignoring.", *path, r);
+                                else {
+                                        log_error("%s failed with exit status %i.", *path, r);
+                                        return r;
+                                }
+                        }
 
                         if (callbacks) {
                                 if (lseek(fd, 0, SEEK_SET) < 0)
@@ -164,6 +172,9 @@ static int do_execute(
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to process output from %s: %m", *path);
                         }
+
+                        if (skip_remaining)
+                                break;
                 }
         }
 
@@ -193,8 +204,9 @@ static int do_execute(
         return 0;
 }
 
-int execute_directories(
-                const char* const* directories,
+int execute_strv(
+                const char *name,
+                char* const* paths,
                 usec_t timeout,
                 gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
                 void* const callback_args[_STDOUT_CONSUME_MAX],
@@ -202,19 +214,17 @@ int execute_directories(
                 char *envp[],
                 ExecDirFlags flags) {
 
-        char **dirs = (char**) directories;
-        _cleanup_free_ char *name = NULL;
         _cleanup_close_ int fd = -EBADF;
-        int r;
         pid_t executor_pid;
+        int r;
 
-        assert(!strv_isempty(dirs));
+        assert(!FLAGS_SET(flags, EXEC_DIR_PARALLEL | EXEC_DIR_SKIP_REMAINING));
 
-        r = path_extract_filename(dirs[0], &name);
-        if (r < 0)
-                return log_error_errno(r, "Failed to extract file name from '%s': %m", dirs[0]);
+        if (strv_isempty(paths))
+                return 0;
 
         if (callbacks) {
+                assert(name);
                 assert(callback_args);
                 assert(callbacks[STDOUT_GENERATE]);
                 assert(callbacks[STDOUT_COLLECT]);
@@ -233,7 +243,7 @@ int execute_directories(
         if (r < 0)
                 return r;
         if (r == 0) {
-                r = do_execute(dirs, timeout, callbacks, callback_args, fd, argv, envp, flags);
+                r = do_execute(paths, timeout, callbacks, callback_args, fd, argv, envp, flags);
                 _exit(r < 0 ? EXIT_FAILURE : r);
         }
 
@@ -253,6 +263,39 @@ int execute_directories(
         if (r < 0)
                 return log_error_errno(r, "Failed to parse returned data: %m");
         return 0;
+}
+
+int execute_directories(
+                const char* const* directories,
+                usec_t timeout,
+                gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
+                void* const callback_args[_STDOUT_CONSUME_MAX],
+                char *argv[],
+                char *envp[],
+                ExecDirFlags flags) {
+
+        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        assert(!strv_isempty((char**) directories));
+
+        r = conf_files_list_strv(&paths, NULL, NULL, CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, directories);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate executables: %m");
+
+        if (strv_isempty(paths)) {
+                log_debug("No executables found.");
+                return 0;
+        }
+
+        if (callbacks) {
+                r = path_extract_filename(directories[0], &name);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract file name from '%s': %m", directories[0]);
+        }
+
+        return execute_strv(name, paths, timeout, callbacks, callback_args, argv, envp, flags);
 }
 
 static int gather_environment_generate(int fd, void *arg) {
