@@ -203,22 +203,23 @@ int execute_directories(
                 ExecDirFlags flags) {
 
         char **dirs = (char**) directories;
-        _cleanup_free_ char *name = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
         pid_t executor_pid;
 
         assert(!strv_isempty(dirs));
 
-        r = path_extract_filename(dirs[0], &name);
-        if (r < 0)
-                return log_error_errno(r, "Failed to extract file name from '%s': %m", dirs[0]);
-
         if (callbacks) {
                 assert(callback_args);
                 assert(callbacks[STDOUT_GENERATE]);
                 assert(callbacks[STDOUT_COLLECT]);
                 assert(callbacks[STDOUT_CONSUME]);
+
+                _cleanup_free_ char *name = NULL;
+
+                r = path_extract_filename(dirs[0], &name);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract file name from '%s': %m", dirs[0]);
 
                 fd = open_serialization_fd(name);
                 if (fd < 0)
