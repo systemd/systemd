@@ -667,14 +667,10 @@ int chase_symlinks_and_stat(
         assert(ret_stat);
 
         if (empty_or_root(root) && !ret_path &&
-            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0) {
+            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
                 /* Shortcut this call if none of the special features of this call are requested */
-
-                if (fstatat(AT_FDCWD, path, ret_stat, FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0) < 0)
-                        return -errno;
-
-                return 1;
-        }
+                return RET_NERRNO(fstatat(AT_FDCWD, path, ret_stat,
+                                          FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0));
 
         r = chase_symlinks(path, root, chase_flags, ret_path ? &p : NULL, &path_fd);
         if (r < 0)
@@ -687,7 +683,7 @@ int chase_symlinks_and_stat(
         if (ret_path)
                 *ret_path = TAKE_PTR(p);
 
-        return 1;
+        return 0;
 }
 
 int chase_symlinks_and_access(
@@ -705,14 +701,10 @@ int chase_symlinks_and_access(
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
 
         if (empty_or_root(root) && !ret_path &&
-            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0) {
+            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
                 /* Shortcut this call if none of the special features of this call are requested */
-
-                if (faccessat(AT_FDCWD, path, access_mode, FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0) < 0)
-                        return -errno;
-
-                return 1;
-        }
+                return RET_NERRNO(faccessat(AT_FDCWD, path, access_mode,
+                                            FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0));
 
         r = chase_symlinks(path, root, chase_flags, ret_path ? &p : NULL, &path_fd);
         if (r < 0)
@@ -726,7 +718,7 @@ int chase_symlinks_and_access(
         if (ret_path)
                 *ret_path = TAKE_PTR(p);
 
-        return 1;
+        return 0;
 }
 
 int chase_symlinks_and_fopen_unlocked(
