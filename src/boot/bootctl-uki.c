@@ -103,30 +103,6 @@ static bool is_uki(struct PeSectionHeader *sections, size_t scount) {
                 find_pe_section(sections, scount, name_initrd, sizeof(name_initrd), NULL);
 }
 
-int verb_kernel_identify(int argc, char *argv[], void *userdata) {
-        _cleanup_fclose_ FILE *uki = NULL;
-        _cleanup_free_ struct PeSectionHeader *sections = NULL;
-        size_t scount;
-        int r;
-
-        uki = fopen(argv[1], "re");
-        if (!uki)
-                return log_error_errno(errno, "Failed to open UKI file '%s': %m", argv[1]);
-
-        r = pe_sections(uki, &sections, &scount);
-        if (r < 0)
-                return r;
-
-        if (!sections)
-                puts("unknown");
-        else if (is_uki(sections, scount))
-                puts("uki");
-        else
-                puts("pe");
-
-        return EXIT_SUCCESS;
-}
-
 static int read_pe_section(
                 FILE *uki,
                 const struct PeSectionHeader *section,
@@ -212,6 +188,30 @@ static void inspect_uki(FILE *uki, struct PeSectionHeader *sections, size_t scou
                 printf("    Version: %s\n", uname);
 
         (void) inspect_osrel(osrel, osrel_size);
+}
+
+int verb_kernel_identify(int argc, char *argv[], void *userdata) {
+        _cleanup_fclose_ FILE *uki = NULL;
+        _cleanup_free_ struct PeSectionHeader *sections = NULL;
+        size_t scount;
+        int r;
+
+        uki = fopen(argv[1], "re");
+        if (!uki)
+                return log_error_errno(errno, "Failed to open UKI file '%s': %m", argv[1]);
+
+        r = pe_sections(uki, &sections, &scount);
+        if (r < 0)
+                return r;
+
+        if (!sections)
+                puts("unknown");
+        else if (is_uki(sections, scount))
+                puts("uki");
+        else
+                puts("pe");
+
+        return EXIT_SUCCESS;
 }
 
 int verb_kernel_inspect(int argc, char *argv[], void *userdata) {
