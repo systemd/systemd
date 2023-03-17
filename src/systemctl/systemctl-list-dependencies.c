@@ -64,6 +64,7 @@ static int list_dependencies_one(
 
         _cleanup_strv_free_ char **deps = NULL;
         int r;
+        bool circular = false;
 
         assert(bus);
         assert(name);
@@ -84,12 +85,7 @@ static int list_dependencies_one(
                 UnitActiveState active_state;
 
                 if (strv_contains(*units, *c)) {
-                        if (!arg_plain) {
-                                printf("  ");
-                                r = list_dependencies_print("...", level, branches, /* last = */ c[1] == NULL);
-                                if (r < 0)
-                                        return r;
-                        }
+                        circular = true;
                         continue;
                 }
 
@@ -138,7 +134,7 @@ static int list_dependencies_one(
                         printf("%s%s%s ", on, special_glyph(unit_active_state_to_glyph(active_state)), ansi_normal());
                 }
 
-                r = list_dependencies_print(*c, level, branches, c[1] == NULL);
+                r = list_dependencies_print(*c, level, branches, /* last = */ c[1] == NULL && !circular);
                 if (r < 0)
                         return r;
 
@@ -147,6 +143,13 @@ static int list_dependencies_one(
                        if (r < 0)
                                return r;
                 }
+        }
+
+        if (circular && !arg_plain) {
+                printf("  ");
+                r = list_dependencies_print("...", level, branches, /* last = */ true);
+                if (r < 0)
+                        return r;
         }
 
         if (!arg_plain)
