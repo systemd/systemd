@@ -472,6 +472,8 @@ option('fuzz-tests', type : 'boolean', value : false,
        description : 'run the fuzzer regression tests by default (with sanitizers)')
 option('install-tests', type : 'boolean', value : false,
        description : 'install test executables')
+option('unittestsdir', type : 'string', value : '',
+       description : 'name of the subdirectory of the unit tests')
 option('log-message-verification', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'do fake printf() calls to verify format strings')
 
