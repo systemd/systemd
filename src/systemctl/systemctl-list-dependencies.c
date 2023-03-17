@@ -14,7 +14,6 @@ static int list_dependencies_print(const char *name, int level, unsigned branche
         size_t len = 0;
 
         if (!arg_plain) {
-
                 for (int i = level - 1; i >= 0; i--) {
                         len += 2;
                         if (len > max_len - 3 && !arg_full) {
