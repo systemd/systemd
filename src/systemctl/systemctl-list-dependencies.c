@@ -86,7 +86,7 @@ static int list_dependencies_one(
                 if (strv_contains(*units, *c)) {
                         if (!arg_plain) {
                                 printf("  ");
-                                r = list_dependencies_print("...", level, branches, /* last = */ true);
+                                r = list_dependencies_print("...", level, branches, /* last = */ c[1] == NULL);
                                 if (r < 0)
                                         return r;
                         }
