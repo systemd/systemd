@@ -133,6 +133,7 @@ simple_tests += files(
         'test-raw-clone.c',
         'test-recurse-dir.c',
         'test-replace-var.c',
+        'test-resize-fs.c',
         'test-rlimit-util.c',
         'test-rm-rf.c',
         'test-sd-hwdb.c',
