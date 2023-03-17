@@ -141,15 +141,52 @@ static int read_pe_section(
         return 0;
 }
 
-static int inspect_osrel(const void *osrel, size_t osrel_size) {
-        _cleanup_fclose_ FILE *s = NULL;
+static int uki_read_string(
+                FILE *uki,
+                struct PeSectionHeader *sections,
+                size_t scount,
+                const uint8_t *name,
+                size_t name_len,
+                char **ret) {
+
+        size_t idx;
+
+        assert(uki);
+        assert(sections || scount == 0);
+        assert(ret);
+
+        if (!find_pe_section(sections, scount, name, name_len, &idx)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        return read_pe_section(uki, sections + idx, (void**) ret, NULL);
+}
+
+static int uki_read_pretty_name(
+                FILE *uki,
+                struct PeSectionHeader *sections,
+                size_t scount,
+                char **ret) {
+
         _cleanup_free_ char *pname = NULL, *name = NULL;
+        _cleanup_fclose_ FILE *s = NULL;
+        _cleanup_free_ void *osrel = NULL;
+        size_t osrel_size = 0, idx;
         int r;
 
-        assert(osrel || osrel_size == 0);
+        assert(uki);
+        assert(sections || scount == 0);
+        assert(ret);
 
-        if (!osrel)
+        if (!find_pe_section(sections, scount, name_osrel, sizeof(name_osrel), &idx)) {
+                *ret = NULL;
                 return 0;
+        }
+
+        r = read_pe_section(uki, sections + idx, &osrel, &osrel_size);
+        if (r < 0)
+                return r;
 
         s = fmemopen((void*) osrel, osrel_size, "r");
         if (!s)
@@ -161,33 +198,53 @@ static int inspect_osrel(const void *osrel, size_t osrel_size) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse embedded os-release file, ignoring: %m");
 
-        printf("         OS: %s\n", os_release_pretty_name(pname, name));
+        /* follow the same logic as os_release_pretty_name() */
+        if (!isempty(pname))
+                *ret = TAKE_PTR(pname);
+        else if (!isempty(name))
+                *ret = TAKE_PTR(name);
+        else {
+                char *n = strdup("Linux");
+                if (!n)
+                        return log_oom();
+
+                *ret = n;
+        }
+
         return 0;
 }
 
-static void inspect_uki(FILE *uki, struct PeSectionHeader *sections, size_t scount) {
-        _cleanup_free_ char *cmdline = NULL, *uname = NULL;
-        _cleanup_free_ void *osrel = NULL;
-        size_t osrel_size = 0, idx;
+static int inspect_uki(
+                FILE *uki,
+                struct PeSectionHeader *sections,
+                size_t scount) {
+
+        _cleanup_free_ char *cmdline = NULL, *uname = NULL, *pname = NULL;
+        int r;
 
         assert(uki);
         assert(sections || scount == 0);
 
-        if (find_pe_section(sections, scount, name_cmdline, sizeof(name_cmdline), &idx))
-                read_pe_section(uki, sections + idx, (void**) &cmdline, NULL);
+        r = uki_read_string(uki, sections, scount, name_cmdline, sizeof(name_cmdline), &cmdline);
+        if (r < 0)
+                return r;
 
-        if (find_pe_section(sections, scount, name_uname, sizeof(name_uname), &idx))
-                read_pe_section(uki, sections + idx, (void**) &uname, NULL);
+        r = uki_read_string(uki, sections, scount, name_uname, sizeof(name_uname), &uname);
+        if (r < 0)
+                return r;
 
-        if (find_pe_section(sections, scount, name_osrel, sizeof(name_osrel), &idx))
-                read_pe_section(uki, sections + idx, &osrel, &osrel_size);
+        r = uki_read_pretty_name(uki, sections, scount, &pname);
+        if (r < 0)
+                return r;
 
         if (cmdline)
                 printf("    Cmdline: %s\n", cmdline);
         if (uname)
                 printf("    Version: %s\n", uname);
+        if (pname)
+                printf("         OS: %s\n", pname);
 
-        (void) inspect_osrel(osrel, osrel_size);
+        return 0;
 }
 
 int verb_kernel_identify(int argc, char *argv[], void *userdata) {
