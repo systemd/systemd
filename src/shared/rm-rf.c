@@ -71,11 +71,11 @@ int unlinkat_harder(int dfd, const char *filename, int unlink_flags, RemoveFlags
         if (unlinkat(dfd, filename, unlink_flags) < 0) {
                 r = -errno;
                 /* Try to restore the original access mode if this didn't work */
-                (void) fchmod(dfd, old_mode);
+                (void) fchmod(dfd, old_mode & 07777);
                 return r;
         }
 
-        if (FLAGS_SET(remove_flags, REMOVE_CHMOD_RESTORE) && fchmod(dfd, old_mode) < 0)
+        if (FLAGS_SET(remove_flags, REMOVE_CHMOD_RESTORE) && fchmod(dfd, old_mode & 07777) < 0)
                 return -errno;
 
         /* If this worked, we won't reset the old mode by default, since we'll need it for other entries too,
@@ -105,11 +105,11 @@ int fstatat_harder(int dfd,
 
         if (fstatat(dfd, filename, ret, fstatat_flags) < 0) {
                 r = -errno;
-                (void) fchmod(dfd, old_mode);
+                (void) fchmod(dfd, old_mode & 07777);
                 return r;
         }
 
-        if (FLAGS_SET(remove_flags, REMOVE_CHMOD_RESTORE) && fchmod(dfd, old_mode) < 0)
+        if (FLAGS_SET(remove_flags, REMOVE_CHMOD_RESTORE) && fchmod(dfd, old_mode & 07777) < 0)
                 return -errno;
 
         return 0;
