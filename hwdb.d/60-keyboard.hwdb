@@ -558,6 +558,7 @@ evdev:input:b0003v18D1p8007*
 # 7G-Series
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHaierComputer:pn7G-Series:*
 KEYBOARD_KEY_91=wlan
+
 ###########################################################
 # Hewlett Packard
 ###########################################################
