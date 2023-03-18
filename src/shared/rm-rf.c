@@ -115,6 +115,57 @@ int fstatat_harder(int dfd,
         return 0;
 }
 
+static int openat_harder(int dfd, const char *path, int open_flags, RemoveFlags remove_flags, mode_t *ret_old_mode) {
+        _cleanup_close_ int pfd = -EBADF, fd = -EBADF;
+        mode_t old_mode;
+        int r;
+
+        assert(dfd >= 0 || dfd == AT_FDCWD);
+        assert(path);
+        assert(open_flags & O_DIRECTORY);
+
+        /* Unlike unlink_harder() and fstatat_harder(), this chmod the specified path. */
+
+        fd = RET_NERRNO(openat(dfd, path, open_flags));
+        if (fd >= 0) {
+                if (ret_old_mode) {
+                        struct stat st;
+
+                        if (fstat(fd, &st) < 0)
+                                return -errno;
+
+                        *ret_old_mode = st.st_mode;
+                }
+
+                return TAKE_FD(fd);
+        }
+        if (fd != -EACCES || !FLAGS_SET(remove_flags, REMOVE_CHMOD))
+                return fd;
+
+        pfd = RET_NERRNO(openat(dfd, path, O_PATH|O_CLOEXEC|O_DIRECTORY|(open_flags & O_NOFOLLOW)));
+        if (pfd < 0)
+                return pfd;
+
+        r = patch_dirfd_mode(pfd, &old_mode);
+        if (r < 0)
+                return r;
+
+        fd = RET_NERRNO(fd_reopen(pfd, open_flags));
+        if (fd < 0)
+                return fd;
+
+        if (ret_old_mode)
+                *ret_old_mode = old_mode;
+
+        return TAKE_FD(fd);
+}
+
+static int rm_rf_children_impl(
+                int fd,
+                RemoveFlags flags,
+                const struct stat *root_dev,
+                mode_t old_mode);
+
 static int rm_rf_inner_child(
                 int fd,
                 const char *fname,
@@ -169,13 +220,16 @@ static int rm_rf_inner_child(
                 if (!allow_recursion)
                         return -EISDIR;
 
-                int subdir_fd = openat(fd, fname, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
+                mode_t old_mode;
+                int subdir_fd = openat_harder(fd, fname,
+                                              O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME,
+                                              flags, &old_mode);
                 if (subdir_fd < 0)
-                        return -errno;
+                        return subdir_fd;
 
                 /* We pass REMOVE_PHYSICAL here, to avoid doing the fstatfs() to check the file system type
                  * again for each directory */
-                q = rm_rf_children(subdir_fd, flags | REMOVE_PHYSICAL, root_dev);
+                q = rm_rf_children_impl(subdir_fd, flags | REMOVE_PHYSICAL, root_dev, old_mode);
 
         } else if (flags & REMOVE_ONLY_DIRECTORIES)
                 return 0;
@@ -191,6 +245,7 @@ static int rm_rf_inner_child(
 typedef struct TodoEntry {
         DIR *dir;         /* A directory that we were operating on. */
         char *dirname;    /* The filename of that directory itself. */
+        mode_t old_mode;  /* The original file mode. */
 } TodoEntry;
 
 static void free_todo_entries(TodoEntry **todos) {
@@ -206,6 +261,22 @@ int rm_rf_children(
                 int fd,
                 RemoveFlags flags,
                 const struct stat *root_dev) {
+
+        struct stat st;
+
+        assert(fd >= 0);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        return rm_rf_children_impl(fd, flags, root_dev, st.st_mode);
+}
+
+static int rm_rf_children_impl(
+                int fd,
+                RemoveFlags flags,
+                const struct stat *root_dev,
+                mode_t old_mode) {
 
         _cleanup_(free_todo_entries) TodoEntry *todos = NULL;
         size_t n_todo = 0;
@@ -223,8 +294,13 @@ int rm_rf_children(
                          * We need to remove the inner directory we were operating on. */
                         assert(dirname);
                         r = unlinkat_harder(dirfd(todos[n_todo-1].dir), dirname, AT_REMOVEDIR, flags);
-                        if (r < 0 && r != -ENOENT && ret == 0)
-                                ret = r;
+                        if (r < 0 && r != -ENOENT) {
+                                if (ret == 0)
+                                        ret = r;
+
+                                if (FLAGS_SET(flags, REMOVE_CHMOD_RESTORE))
+                                        (void) fchmodat(dirfd(todos[n_todo-1].dir), dirname, old_mode & 07777, 0);
+                        }
                         dirname = mfree(dirname);
 
                         /* And now let's back out one level up */
@@ -287,12 +363,15 @@ int rm_rf_children(
                                  if (!newdirname)
                                          return log_oom();
 
-                                 int newfd = RET_NERRNO(openat(fd, de->d_name,
-                                                               O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME));
+                                 mode_t mode;
+                                 int newfd = openat_harder(fd, de->d_name,
+                                                           O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME,
+                                                           flags, &mode);
                                  if (newfd >= 0) {
-                                         todos[n_todo++] = (TodoEntry) { TAKE_PTR(d), TAKE_PTR(dirname) };
+                                         todos[n_todo++] = (TodoEntry) { TAKE_PTR(d), TAKE_PTR(dirname), old_mode };
                                          fd = newfd;
                                          dirname = TAKE_PTR(newdirname);
+                                         old_mode = mode;
 
                                          goto next_fd;
 
@@ -314,6 +393,7 @@ int rm_rf_children(
 }
 
 int rm_rf(const char *path, RemoveFlags flags) {
+        mode_t old_mode;
         int fd, r, q = 0;
 
         assert(path);
@@ -345,13 +425,15 @@ int rm_rf(const char *path, RemoveFlags flags) {
                 /* Not btrfs or not a subvolume */
         }
 
-        fd = open(path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
+        fd = openat_harder(AT_FDCWD, path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME, flags, &old_mode);
         if (fd >= 0) {
                 /* We have a dir */
-                r = rm_rf_children(fd, flags, NULL);
+                r = rm_rf_children_impl(fd, flags, NULL, old_mode);
 
                 if (FLAGS_SET(flags, REMOVE_ROOT))
                         q = RET_NERRNO(rmdir(path));
+                else if (FLAGS_SET(flags, REMOVE_CHMOD_RESTORE))
+                        q = RET_NERRNO(chmod(path, old_mode & 07777));
         } else {
                 if (FLAGS_SET(flags, REMOVE_MISSING_OK) && errno == ENOENT)
                         return 0;
