@@ -42,7 +42,7 @@ for script in "${SCRIPTS[@]}"; do
     TMPFILE="$(mktemp)"
     echo "+ spatch --sp-file $script ${ARGS[*]} ..."
     parallel --halt now,fail=1 --keep-order --noswap --max-args=20 \
-             spatch --macro-file="$TOP_DIR/coccinelle/macros.h" --sp-file "$script" "${ARGS[@]}" ::: "${FILES[@]}" \
+             spatch --macro-file="$TOP_DIR/coccinelle/macros.h" --smpl-spacing --sp-file "$script" "${ARGS[@]}" ::: "${FILES[@]}" \
              2>"$TMPFILE" || cat "$TMPFILE"
     echo -e "--x-- Processed $script --x--\n"
 done
