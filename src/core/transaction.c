@@ -341,6 +341,9 @@ static char* merge_unit_ids(const char* unit_log_field, char * const* pairs) {
                 size += next + 1;
         }
 
+        if (!ans)
+                return strdup("");
+
         return TAKE_PTR(ans);
 }
 
