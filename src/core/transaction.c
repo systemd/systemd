@@ -323,22 +323,25 @@ _pure_ static bool unit_matters_to_anchor(Unit *u, Job *job) {
         return false;
 }
 
-static char* merge_unit_ids(const char* unit_log_field, char **pairs) {
-        char *ans = NULL;
-        size_t size = 0, next;
+static char* merge_unit_ids(const char* unit_log_field, char * const* pairs) {
+        _cleanup_free_ char *ans = NULL;
+        size_t size = 0;
 
         STRV_FOREACH_PAIR(unit_id, job_type, pairs) {
+                size_t next;
+
+                if (size > 0)
+                        ans[size - 1] = '\n';
+
                 next = strlen(unit_log_field) + strlen(*unit_id);
                 if (!GREEDY_REALLOC(ans, size + next + 1))
-                        return mfree(ans);
+                        return NULL;
 
                 sprintf(ans + size, "%s%s", unit_log_field, *unit_id);
-                if (*(unit_id+1))
-                        ans[size + next] =  '\n';
                 size += next + 1;
         }
 
-        return ans;
+        return TAKE_PTR(ans);
 }
 
 static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsigned generation, sd_bus_error *e) {
