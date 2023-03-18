@@ -199,12 +199,7 @@ def test_hard_cleanup(*, user):
     test_content('f= {} - - - - ' + label, label, user=user, subpath='/deep/1/2', path_cb=valid_symlink)
 
 def test_base64():
-    test_line('f~ /tmp/base64-test - - - - UGlmZgpQYWZmClB1ZmYgCg==', user=False, returncode=0)
-
-    with open("/tmp/base64-test", mode='r') as f:
-        d = f.read()
-
-    assert d == "Piff\nPaff\nPuff \n"
+    test_content('f~ {} - - - - UGlmZgpQYWZmClB1ZmYgCg==', "Piff\nPaff\nPuff \n", user=False)
 
 if __name__ == '__main__':
     test_invalids(user=False)
