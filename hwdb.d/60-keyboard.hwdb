@@ -523,13 +523,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnGeminiDevices:pnNC14V1006:*
 # Genius
 ###########################################################
 
-###########################################################
-# Haier
-###########################################################
 
-# 7G-Series
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHaierComputer:pn7G-Series:*
- KEYBOARD_KEY_91=wlan
 
 # Slimstar 320
 evdev:input:b0003v0458p0708*
@@ -563,8 +557,7 @@ evdev:input:b0003v18D1p8007*
 
 # 7G-Series
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHaierComputer:pn7G-Series:*
- KEYBOARD_KEY_91=wlan
-
+KEYBOARD_KEY_91=wlan
 ###########################################################
 # Hewlett Packard
 ###########################################################
