@@ -769,7 +769,7 @@ static int enumerator_scan_dir(
                 if (!relevant_sysfs_subdir(de))
                         continue;
 
-                if (!match_subsystem(enumerator, subsystem ? : de->d_name))
+                if (!match_subsystem(enumerator, subsystem ?: de->d_name))
                         continue;
 
                 k = enumerator_scan_dir_and_add_devices(enumerator, basedir, de->d_name, subdir);

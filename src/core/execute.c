@@ -3334,7 +3334,7 @@ static int setup_smack(
                 if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
                         return r;
 
-                r = mac_smack_apply_pid(0, exec_label ? : manager->default_smack_process_label);
+                r = mac_smack_apply_pid(0, exec_label ?: manager->default_smack_process_label);
                 if (r < 0)
                         return r;
         }

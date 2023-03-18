@@ -3483,7 +3483,7 @@ static int inner_child(
 
         if (arg_user || !uid_is_valid(arg_uid) || arg_uid == 0)
                 if (asprintf(envp + n_env++, "USER=%s", arg_user ?: "root") < 0 ||
-                    asprintf(envp + n_env++, "LOGNAME=%s", arg_user ? arg_user : "root") < 0)
+                    asprintf(envp + n_env++, "LOGNAME=%s", arg_user ?: "root") < 0)
                         return log_oom();
 
         assert(!sd_id128_is_null(arg_uuid));

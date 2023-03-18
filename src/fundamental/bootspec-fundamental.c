@@ -43,7 +43,7 @@ bool bootspec_pick_name_version_sort_key(
          * defined) or entry "id" string (i.e. entry file name) otherwise. */
 
         good_name = os_pretty_name ?: (os_image_id ?: (os_name ?: os_id));
-        good_version = os_image_version ?: (os_version ?: (os_version_id ? : os_build_id));
+        good_version = os_image_version ?: (os_version ?: (os_version_id ?: os_build_id));
         good_sort_key = os_image_id ?: os_id;
 
         if (!good_name)

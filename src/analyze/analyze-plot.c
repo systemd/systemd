@@ -89,7 +89,7 @@ static int acquire_host_info(sd_bus *bus, HostInfo **hi) {
         }
 
         r = bus_map_all_properties(
-                        system_bus ? : bus,
+                        system_bus ?: bus,
                         "org.freedesktop.hostname1",
                         "/org/freedesktop/hostname1",
                         hostname_map,
