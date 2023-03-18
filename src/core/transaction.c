@@ -433,7 +433,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
          * find our way backwards if we want to break a cycle. We use
          * a special marker for the beginning: we point to
          * ourselves. */
-        j->marker = from ? from : j;
+        j->marker = from ?: j;
         j->generation = generation;
 
         /* Actual ordering of jobs depends on the unit ordering dependency and job types. We need to traverse

@@ -329,7 +329,7 @@ static int request_parse_range(
                                 return r;
                 }
 
-                p = (colon2 ? colon2 : colon) + 1;
+                p = (colon2 ?: colon) + 1;
                 if (*p) {
                         r = safe_atou64(p, &m->n_entries);
                         if (r < 0)

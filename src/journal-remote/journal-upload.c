@@ -801,7 +801,7 @@ static int open_journal(sd_journal **j) {
                 r = sd_journal_open(j, (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) | arg_journal_type);
         if (r < 0)
                 log_error_errno(r, "Failed to open %s: %m",
-                                arg_directory ? arg_directory : arg_file ? "files" : "journal");
+                                arg_directory ?: (arg_file ? "files" : "journal"));
         return r;
 }
 
