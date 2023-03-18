@@ -287,8 +287,8 @@ int rm_rf_children(
                                  if (!newdirname)
                                          return log_oom();
 
-                                 int newfd = openat(fd, de->d_name,
-                                                    O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
+                                 int newfd = RET_NERRNO(openat(fd, de->d_name,
+                                                               O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME));
                                  if (newfd >= 0) {
                                          todos[n_todo++] = (TodoEntry) { TAKE_PTR(d), TAKE_PTR(dirname) };
                                          fd = newfd;
@@ -296,8 +296,8 @@ int rm_rf_children(
 
                                          goto next_fd;
 
-                                 } else if (errno != -ENOENT && ret == 0)
-                                         ret = -errno;
+                                 } else if (newfd != -ENOENT && ret == 0)
+                                         ret = newfd;
 
                         } else if (r < 0 && r != -ENOENT && ret == 0)
                                 ret = r;
