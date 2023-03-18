@@ -87,7 +87,7 @@ char** strv_new_ap(const char *x, va_list ap);
 #define STRV_IGNORE ((const char *) POINTER_MAX)
 
 static inline const char* STRV_IFNOTNULL(const char *x) {
-        return x ? x : STRV_IGNORE;
+        return x ?: STRV_IGNORE;
 }
 
 static inline bool strv_isempty(char * const *l) {

@@ -246,7 +246,7 @@ static int fix_xattr(int fd, const Context *context) {
 #define filename_escape(s) xescape((s), "./ ")
 
 static const char *coredump_tmpfile_name(const char *s) {
-        return s ? s : "(unnamed temporary file)";
+        return s ?: "(unnamed temporary file)";
 }
 
 static int fix_permissions(
