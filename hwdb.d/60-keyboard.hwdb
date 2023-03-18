@@ -523,8 +523,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnGeminiDevices:pnNC14V1006:*
 # Genius
 ###########################################################
 
-
-
 # Slimstar 320
 evdev:input:b0003v0458p0708*
  KEYBOARD_KEY_0900f0=scrollup
