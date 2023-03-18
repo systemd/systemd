@@ -523,7 +523,11 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnGeminiDevices:pnNC14V1006:*
 # Genius
 ###########################################################
 
-# HaierComputer 7G-Series
+###########################################################
+# Haier
+###########################################################
+
+# 7G-Series
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHaierComputer:pn7G-Series:*
  KEYBOARD_KEY_91=wlan
 
