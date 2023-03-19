@@ -17,6 +17,7 @@
 #include "mkdir.h"
 #include "mountpoint-util.h"
 #include "os-util.h"
+#include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "rm-rf.h"
@@ -29,9 +30,11 @@
 static bool arg_verbose = false;
 static char *arg_esp_path = NULL;
 static char *arg_xbootldr_path = NULL;
+static char *arg_root = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
 typedef enum Action {
         ACTION_ADD,
@@ -65,7 +68,7 @@ typedef struct Context {
         KernelImageType kernel_image_type;
         Layout layout;
         char *layout_other;
-        char *conf_root;
+        char *conf_root; /* not prefixed with arg_root */
         char *boot_root;
         char *entry_token;
         char *entry_dir;
@@ -213,7 +216,7 @@ static int context_set_plugins(Context *c, const char *s, const char *source) {
         return context_set_strv(s, source, "plugins", &c->plugins);
 }
 
-static int context_set_path(const char *s, const char *source, const char *name, char **ret) {
+static int context_set_path(const char *root, const char *s, const char *source, const char *name, char **ret) {
         char *p;
 
         assert(source);
@@ -227,7 +230,7 @@ static int context_set_path(const char *s, const char *source, const char *name,
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "Invalid path for %s specified in %s, ignoring.", name, source);
 
-        p = strdup(s);
+        p = path_join(root, s);
         if (!p)
                 return log_oom();
 
@@ -245,7 +248,7 @@ static int context_set_boot_root(Context *c, const char *s, const char *source) 
         if (c->boot_root)
                 return 0;
 
-        return context_set_path(s, source, "BOOT_ROOT", &c->boot_root);
+        return context_set_path(arg_root, s, source, "BOOT_ROOT", &c->boot_root);
 }
 
 static int context_set_conf_root(Context *c, const char *s, const char *source) {
@@ -254,7 +257,7 @@ static int context_set_conf_root(Context *c, const char *s, const char *source) 
         if (c->conf_root)
                 return 0;
 
-        return context_set_path(s, source, "CONF_ROOT", &c->conf_root);
+        return context_set_path(NULL, s, source, "CONF_ROOT", &c->conf_root);
 }
 
 static int context_load_environment(Context *c) {
@@ -276,7 +279,7 @@ static int context_load_install_conf_one(Context *c, const char *path) {
         assert(c);
         assert(path);
 
-        conf = path_join(path, "install.conf");
+        conf = path_join(arg_root, path, "install.conf");
         if (!conf)
                 return log_oom();
 
@@ -322,7 +325,7 @@ static int context_load_install_conf(Context *c) {
 }
 
 static int context_load_machine_info(Context *c) {
-        _cleanup_free_ char *machine_id = NULL, *layout = NULL;
+        _cleanup_free_ char *path_alloc = NULL, *machine_id = NULL, *layout = NULL;
         const char *path = "/etc/machine-info";
         int r;
 
@@ -333,6 +336,13 @@ static int context_load_machine_info(Context *c) {
 
         if (!sd_id128_is_null(c->machine_id) && c->layout >= 0)
                 return 0;
+
+        if (arg_root) {
+                path_alloc = strjoin(arg_root, path);
+                if (!path_alloc)
+                        return log_oom();
+                path = path_alloc;
+        }
 
         log_debug("Loading %s…", path);
 
@@ -353,6 +363,9 @@ static int context_load_machine_id(Context *c) {
         int r;
 
         assert(c);
+
+        if (arg_root)
+                return 0;
 
         r = sd_id128_get_machine(&c->machine_id);
         if (r < 0) {
@@ -394,7 +407,7 @@ static int context_acquire_xbootldr(Context *c) {
         assert(!c->boot_root);
 
         r = find_xbootldr_and_warn(
-                        /* root = */ NULL,
+                        /* root = */ arg_root,
                         /* path = */ arg_xbootldr_path,
                         /* unprivileged_mode= */ geteuid() != 0,
                         /* ret_path = */ &c->boot_root,
@@ -418,7 +431,7 @@ static int context_acquire_esp(Context *c) {
         assert(!c->boot_root);
 
         r = find_esp_and_warn(
-                        /* root = */ NULL,
+                        /* root = */ arg_root,
                         /* path = */ arg_esp_path,
                         /* unprivileged_mode= */ geteuid() != 0,
                         /* ret_path = */ &c->boot_root,
@@ -455,7 +468,7 @@ static int context_ensure_boot_root(Context *c) {
                 return r;
 
         /* If all else fails, use /boot. */
-        c->boot_root = strdup("/boot");
+        c->boot_root = path_join(arg_root, "/boot");
         if (!c->boot_root)
                 return log_oom();
 
@@ -470,7 +483,7 @@ static int context_load_entry_token(Context *c) {
         assert(c);
         assert(!c->entry_token);
 
-        path = path_join(c->conf_root ?: "/etc/kernel", "entry-token");
+        path = path_join(arg_root, c->conf_root ?: "/etc/kernel", "entry-token");
         if (!path)
                 return log_oom();
 
@@ -504,11 +517,11 @@ static int context_find_entry_token(Context *c) {
         assert(c->boot_root);
         assert(!c->entry_token);
 
-        r = parse_os_release(/* root = */ NULL,
+        r = parse_os_release(arg_root,
                              "IMAGE_ID", &image_id,
                              "ID",       &id);
         if (r < 0 && r != -ENOENT)
-                return log_error_errno(r, "Failed to parse /etc/os-release: %m");
+                return log_error_errno(r, "Failed to parse %s/etc/os-release: %m", strempty(arg_root));
 
         candidates = strv_new(SD_ID128_TO_STRING(c->machine_id),
                               STRV_IFNOTNULL(image_id),
@@ -581,7 +594,7 @@ static int context_load_plugins(Context *c) {
 
         r = conf_files_list_strv(&c->plugins,
                                  ".install",
-                                 /* root = */ NULL,
+                                 arg_root,
                                  CONF_FILES_EXECUTABLE | CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED,
                                  (const char**) CONF_PATHS_STRV("kernel/install.d"));
         if (r < 0)
@@ -704,6 +717,7 @@ static int context_ensure_layout(Context *c) {
 
 static int context_setup_staging_area(Context *c) {
         static const char *template = "/tmp/kernel-install.staging.XXXXXXX";
+        _cleanup_free_ char *t = NULL;
         int r;
 
         assert(c);
@@ -711,15 +725,16 @@ static int context_setup_staging_area(Context *c) {
         if (c->staging_area)
                 return 0;
 
-        if (c->action == ACTION_INSPECT) {
-                c->staging_area = strdup(template);
-                if (!c->staging_area)
-                        return log_oom();
+        t = path_join(arg_root, template);
+        if (!t)
+                return log_oom();
 
+        if (c->action == ACTION_INSPECT) {
+                c->staging_area = TAKE_PTR(t);
                 return 0;
         }
 
-        r = mkdtemp_malloc(template, &c->staging_area);
+        r = mkdtemp_malloc(t, &c->staging_area);
         if (r < 0)
                 return log_error_errno(r, "Failed to create staging area: %m");
 
@@ -878,6 +893,10 @@ static int context_build_environment(Context *c) {
         if (r < 0)
                 return log_oom();
 
+        r = strv_extendf(&e, "KERNEL_INSTALL_ROOT=%s", strempty(arg_root));
+        if (r < 0)
+                return log_oom();
+
         r = strv_extendf(&e, "KERNEL_INSTALL_BOOT_ROOT=%s", c->boot_root);
         if (r < 0)
                 return log_oom();
@@ -986,13 +1005,21 @@ static int verb_add(int argc, char *argv[], void *userdata) {
         if (!c->version)
                 return log_oom();
 
-        c->kernel = strdup(argv[2]);
+        c->kernel = path_join(arg_root, argv[2]);
         if (!c->kernel)
                 return log_oom();
 
-        c->initrds = strv_copy(strv_skip(argv, 3));
-        if (!c->initrds)
-                return log_oom();
+        STRV_FOREACH(p, strv_skip(argv, 3)) {
+                char *t;
+
+                t = path_join(arg_root, *p);
+                if (!t)
+                        return log_oom();
+
+                r = strv_consume(&c->initrds, t);
+                if (r < 0)
+                        return log_oom();
+        }
 
         r = context_prepare_execution(c);
         if (r < 0)
@@ -1039,7 +1066,7 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
         c->action = ACTION_INSPECT;
 
         if (argc == 2) {
-                c->kernel = strdup(argv[1]);
+                c->kernel = path_join(arg_root, argv[1]);
                 if (!c->kernel)
                         return log_oom();
         }
@@ -1097,6 +1124,7 @@ static int help(void) {
                "  -v --verbose           Increase verbosity\n"
                "     --esp-path=PATH     Path to the EFI System Partition (ESP)\n"
                "     --boot-path=PATH    Path to the $BOOT partition\n"
+               "     --root=PATH         Operate on an alternate filesystem root\n"
                "\nSee the %4$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -1111,6 +1139,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_ESP_PATH,
                 ARG_BOOT_PATH,
+                ARG_ROOT,
         };
         static const struct option options[] = {
                 { "help",      no_argument,       NULL, 'h'           },
@@ -1118,6 +1147,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "verbose",   no_argument,       NULL, 'v'           },
                 { "esp-path",  required_argument, NULL, ARG_ESP_PATH  },
                 { "boot-path", required_argument, NULL, ARG_BOOT_PATH },
+                { "root",      required_argument, NULL, ARG_ROOT      },
                 {}
         };
         int c, r;
@@ -1148,6 +1178,12 @@ static int parse_argv(int argc, char *argv[]) {
                         r = free_and_strdup(&arg_xbootldr_path, optarg);
                         if (r < 0)
                                 return log_oom();
+                        break;
+
+                case ARG_ROOT:
+                        r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':
