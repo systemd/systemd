@@ -6,7 +6,9 @@
 #include "initrd-util.h"
 #include "log.h"
 #include "macro.h"
+#include "proc-cmdline-internal.h"
 #include "proc-cmdline.h"
+#include "process-util.h"
 #include "special.h"
 #include "string-util.h"
 #include "strv.h"
@@ -37,7 +39,7 @@ TEST(proc_cmdline_override) {
         assert_se(proc_cmdline(&line) >= 0);
         assert_se(streq(line, "foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\""));
         line = mfree(line);
-        assert_se(proc_cmdline_strv(&args) >= 0);
+        assert_se(proc_cmdline_strv(&args, /* filter_pid1_args = */ false) >= 0);
         assert_se(strv_equal(args, STRV_MAKE("foo_bar=quux", "wuff-piep=tuet", "zumm", "some_arg_with_space=foo bar", "and_one_more=zzz aaa")));
         args = strv_free(args);
 
@@ -57,7 +59,7 @@ TEST(proc_cmdline_override) {
         assert_se(proc_cmdline(&line) >= 0);
         assert_se(streq(line, "hoge"));
         line = mfree(line);
-        assert_se(proc_cmdline_strv(&args) >= 0);
+        assert_se(proc_cmdline_strv(&args, /* filter_pid1_args = */ false) >= 0);
         assert_se(strv_equal(args, STRV_MAKE("hoge")));
         args = strv_free(args);
 
@@ -262,6 +264,21 @@ TEST(proc_cmdline_key_startswith) {
         assert_se(proc_cmdline_key_startswith("foo-bar", "foo_bar"));
         assert_se(proc_cmdline_key_startswith("foo-bar", "foo_"));
         assert_se(!proc_cmdline_key_startswith("foo-bar", "foo_xx"));
+}
+
+static void test_proc_cmdline_filter_pid1_args_one(const char *s, char **expected) {
+        _cleanup_strv_free_ char **args = NULL, **result = NULL;
+
+        assert_se(strv_split_full(&args, s, 0, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE) >= 0);
+        assert_se(proc_cmdline_filter_pid1_args(args, &result) >= 0);
+        assert_se(strv_equal(result, expected));
+}
+
+TEST(proc_cmdline_filter_pid1_args) {
+        test_proc_cmdline_filter_pid1_args_one("   systemd   ", STRV_MAKE_EMPTY);
+        test_proc_cmdline_filter_pid1_args_one("systemd hoge  -x foo \t   --aaa var", STRV_MAKE("hoge", "foo", "var"));
+        test_proc_cmdline_filter_pid1_args_one("/usr/lib/systemd/systemd --switched-root  --system  --deserialize   30 systemd.log_level=debug --unit foo.target systemd.log_target=\"console\"  'arg   with   space '   \t 3",
+                                               STRV_MAKE("systemd.log_level=debug", "systemd.log_target=console", "arg   with   space ", "3"));
 }
 
 static int intro(void) {
