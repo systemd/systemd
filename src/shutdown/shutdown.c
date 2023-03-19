@@ -29,6 +29,7 @@
 #include "killall.h"
 #include "log.h"
 #include "parse-util.h"
+#include "proc-cmdline-internal.h"
 #include "process-util.h"
 #include "reboot-util.h"
 #include "rlimit-util.h"
@@ -50,23 +51,13 @@ static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
 
 static int parse_argv(int argc, char *argv[]) {
         enum {
-                ARG_LOG_LEVEL = 0x100,
-                ARG_LOG_TARGET,
-                ARG_LOG_COLOR,
-                ARG_LOG_LOCATION,
-                ARG_LOG_TIME,
-                ARG_EXIT_CODE,
-                ARG_TIMEOUT,
+                COMMON_GETOPT_ARGS,
+                SHUTDOWN_GETOPT_ARGS,
         };
 
         static const struct option options[] = {
-                { "log-level",     required_argument, NULL, ARG_LOG_LEVEL    },
-                { "log-target",    required_argument, NULL, ARG_LOG_TARGET   },
-                { "log-color",     optional_argument, NULL, ARG_LOG_COLOR    },
-                { "log-location",  optional_argument, NULL, ARG_LOG_LOCATION },
-                { "log-time",      optional_argument, NULL, ARG_LOG_TIME     },
-                { "exit-code",     required_argument, NULL, ARG_EXIT_CODE    },
-                { "timeout",       required_argument, NULL, ARG_TIMEOUT      },
+                COMMON_GETOPT_OPTIONS,
+                SHUTDOWN_GETOPT_OPTIONS,
                 {}
         };
 
