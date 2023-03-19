@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <getopt.h>
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -10,11 +11,72 @@
 #include "initrd-util.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "proc-cmdline-internal.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "virt.h"
+
+int proc_cmdline_filter_pid1_args(
+                char **argv,   /* input, may be reordered by this function. */
+                char ***ret) {
+
+        enum {
+                COMMON_GETOPT_ARGS,
+                SYSTEMD_GETOPT_ARGS,
+                SHUTDOWN_GETOPT_ARGS,
+        };
+
+        static const struct option options[] = {
+                COMMON_GETOPT_OPTIONS,
+                SYSTEMD_GETOPT_OPTIONS,
+                SHUTDOWN_GETOPT_OPTIONS,
+                {}
+        };
+
+        int saved_optind, saved_opterr, saved_optopt, argc;
+        char *saved_optarg;
+        char **filtered;
+        size_t idx;
+
+        assert(argv);
+        assert(ret);
+
+        /* Backup global variables. */
+        saved_optind = optind;
+        saved_opterr = opterr;
+        saved_optopt = optopt;
+        saved_optarg = optarg;
+
+        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
+         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). Here, we do not use
+         * the GNU extensions, but might be used previously. Hence, we need to always reset it. */
+        optind = 0;
+
+        /* Do not print an error message. */
+        opterr = 0;
+
+        /* Filter out all known options. */
+        argc = strv_length(argv);
+        while (getopt_long(argc, argv, SYSTEMD_GETOPT_SHORT_OPTIONS, options, NULL) >= 0)
+                ;
+
+        idx = optind;
+
+        /* Restore global variables. */
+        optind = saved_optind;
+        opterr = saved_opterr;
+        optopt = saved_optopt;
+        optarg = saved_optarg;
+
+        filtered = strv_copy(strv_skip(argv, idx));
+        if (!filtered)
+                return -ENOMEM;
+
+        *ret = filtered;
+        return 0;
+}
 
 int proc_cmdline(char **ret) {
         const char *e;
@@ -40,7 +102,7 @@ int proc_cmdline(char **ret) {
                 return read_one_line_file("/proc/cmdline", ret);
 }
 
-int proc_cmdline_strv(char ***ret) {
+static int proc_cmdline_strv_internal(char ***ret, bool filter_pid1_args) {
         const char *e;
         int r;
 
@@ -51,9 +113,20 @@ int proc_cmdline_strv(char ***ret) {
         if (e)
                 return strv_split_full(ret, e, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
 
-        if (detect_container() > 0)
-                return get_process_cmdline_strv(1, /* flags = */ 0, ret);
-        else {
+        if (detect_container() > 0) {
+                _cleanup_strv_free_ char **args = NULL;
+
+                r = get_process_cmdline_strv(1, /* flags = */ 0, &args);
+                if (r < 0)
+                        return r;
+
+                if (filter_pid1_args)
+                        return proc_cmdline_filter_pid1_args(args, ret);
+
+                *ret = TAKE_PTR(args);
+                return 0;
+
+        } else {
                 _cleanup_free_ char *s = NULL;
 
                 r = read_one_line_file("/proc/cmdline", &s);
@@ -62,6 +135,10 @@ int proc_cmdline_strv(char ***ret) {
 
                 return strv_split_full(ret, s, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
         }
+}
+
+int proc_cmdline_strv(char ***ret) {
+        return proc_cmdline_strv_internal(ret, /* filter_pid1_args = */ false);
 }
 
 static char *mangle_word(const char *word, ProcCmdlineFlags flags) {
@@ -140,7 +217,7 @@ int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, ProcCmdlineF
                 }
         }
 
-        r = proc_cmdline_strv(&args);
+        r = proc_cmdline_strv_internal(&args, /* filter_pid1_args = */ true);
         if (r < 0)
                 return r;
 
@@ -249,7 +326,7 @@ int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_val
         if (FLAGS_SET(flags, PROC_CMDLINE_VALUE_OPTIONAL) && !ret_value)
                 return -EINVAL;
 
-        r = proc_cmdline_strv(&args);
+        r = proc_cmdline_strv_internal(&args, /* filter_pid1_args = */ true);
         if (r < 0)
                 return r;
 
