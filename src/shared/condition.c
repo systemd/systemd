@@ -113,7 +113,7 @@ static int condition_test_kernel_command_line(Condition *c, char **env) {
         assert(c->parameter);
         assert(c->type == CONDITION_KERNEL_COMMAND_LINE);
 
-        r = proc_cmdline_strv(&args);
+        r = proc_cmdline_strv(&args, /* filter_pid1_args = */ false);
         if (r < 0)
                 return r;
 

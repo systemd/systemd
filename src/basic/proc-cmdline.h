@@ -15,7 +15,9 @@ typedef enum ProcCmdlineFlags {
 typedef int (*proc_cmdline_parse_t)(const char *key, const char *value, void *data);
 
 int proc_cmdline(char **ret);
-int proc_cmdline_strv(char ***ret);
+
+/* !!! Do not call proc_cmdline_strv() with filter_pid1_args enabled in a getopt() loop with GNU extentions. !!! */
+int proc_cmdline_strv(char ***ret, bool filter_pid1_args);
 
 int proc_cmdline_parse(const proc_cmdline_parse_t parse, void *userdata, ProcCmdlineFlags flags);
 
