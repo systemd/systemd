@@ -269,20 +269,8 @@
     <para>The following options are understood:</para>
 
     <variablelist>
-      <varlistentry>
-        <term><option>--esp-path=</option></term>
-        <listitem><para>Path to the EFI System Partition (ESP). If not specified, <filename>/efi/</filename>,
-        <filename>/boot/</filename>, and <filename>/boot/efi/</filename> are checked in turn.  It is
-        recommended to mount the ESP to <filename>/efi/</filename>, if possible.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--boot-path=</option></term>
-        <listitem><para>Path to the Extended Boot Loader partition, as defined in the <ulink
-        url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>. If not
-        specified, <filename>/boot/</filename> is checked.  It is recommended to mount the Extended Boot
-        Loader partition to <filename>/boot/</filename>, if possible.</para></listitem>
-      </varlistentry>
+      <xi:include href="standard-options.xml" xpointer="esp-path"/>
+      <xi:include href="standard-options.xml" xpointer="boot-path"/>
 
       <varlistentry>
         <term><option>--root=<replaceable>root</replaceable></option></term>
