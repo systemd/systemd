@@ -133,7 +133,7 @@ static int settle_make_entry_directory(void) {
         bool layout_type1 = use_boot_loader_spec_type1();
         if (arg_make_entry_directory < 0) { /* Automatic mode */
                 if (layout_type1) {
-                        if (arg_entry_token == ARG_ENTRY_TOKEN_MACHINE_ID) {
+                        if (arg_entry_token_type == ARG_ENTRY_TOKEN_MACHINE_ID) {
                                 r = path_is_temporary_fs("/etc/machine-id");
                                 if (r < 0)
                                         return log_debug_errno(r, "Couldn't determine whether /etc/machine-id is on a temporary file system: %m");
