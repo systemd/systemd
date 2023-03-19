@@ -188,6 +188,7 @@
     <variablelist>
       <xi:include href="standard-options.xml" xpointer="esp-path"/>
       <xi:include href="standard-options.xml" xpointer="boot-path"/>
+      <xi:include href="standard-options.xml" xpointer="root"/>
 
       <varlistentry>
         <term><option>--make-entry-directory=yes|no|auto</option></term>
@@ -286,6 +287,9 @@
       few possible candidates below <varname>$BOOT</varname> are checked for Boot Loader Specification Type 1
       entry directories, and if found the entry token is derived from that. If that is not successful,
       <varname>$KERNEL_INSTALL_MACHINE_ID</varname> is used as fallback.</para>
+
+      <para><varname>$KERNEL_INSTALL_ROOT</varname> is set for the plugins to the absolute path of the
+      root directory specified by <option>--root=</option>.</para>
 
       <para><varname>$KERNEL_INSTALL_BOOT_ROOT</varname> is set for the plugins to the absolute path of the
       root directory (mount point, usually) of the hierarchy where boot loader entries, kernel images, and
