@@ -14,10 +14,92 @@
 #include "process-util.h"
 #include "special.h"
 #include "string-util.h"
+#include "strv.h"
 #include "virt.h"
+
+void filter_pid1_args(
+                int argc,
+                char **argv,
+                size_t *index,
+                const char **filtered) {
+
+        size_t n;
+
+        assert(argc > 0);
+        assert(argv);
+        assert(filtered);
+
+        n = index ? *index : 0;
+
+        /* Copy some filtered arguments into the dst array from src. */
+        for (int i = 1; i < argc; i++) {
+                if (STR_IN_SET(argv[i],
+                               "--switched-root",
+                               "--system",
+                               "--user"))
+                        continue;
+
+                if (startswith(argv[i], "--deserialize="))
+                        continue;
+                if (streq(argv[i], "--deserialize")) {
+                        i++;                            /* Skip the argument too */
+                        continue;
+                }
+
+                /* Skip target unit designators. We already acted upon this information and have queued
+                 * appropriate jobs. We don't want to redo all this after reexecution. */
+                if (startswith(argv[i], "--unit="))
+                        continue;
+                if (streq(argv[i], "--unit")) {
+                        i++;                            /* Skip the argument too */
+                        continue;
+                }
+
+                /* Seems we have a good old option. Let's pass it over to the new instance. */
+                filtered[n++] = argv[i];
+        }
+
+        filtered[n] = NULL; /* Make the result valid strv. */
+        if (index)
+                *index = n;
+}
+
+int proc_cmdline_filter_pid1_args(const char *s, char **ret) {
+        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_free_ const char **filtered = NULL;
+        _cleanup_free_ char *joined = NULL;
+        size_t n;
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        /* Here, we need to keep quotes, otherwise, the result string will be wrongly parsed by
+         * proc_cmdline_extract_first(). We assume that the arguments that will be filtered by
+         * filter_pid1_args() are not quoted. */
+        r = strv_split_full(&args, s, NULL, EXTRACT_KEEP_QUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
+        if (r < 0)
+                return r;
+
+        n = strv_length(args);
+        filtered = new(const char*, n + 1);
+        if (!filtered)
+                return -ENOMEM;
+
+        filter_pid1_args(n, args, NULL, filtered);
+
+        joined = strv_join((char* const*) filtered, " ");
+        if (!joined)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(joined);
+        return 0;
+}
 
 int proc_cmdline(char **ret) {
         const char *e;
+        int r;
+
         assert(ret);
 
         /* For testing purposes it is sometimes useful to be able to override what we consider /proc/cmdline to be */
@@ -33,10 +115,20 @@ int proc_cmdline(char **ret) {
                 return 0;
         }
 
-        if (detect_container() > 0)
-                return get_process_cmdline(1, SIZE_MAX, 0, ret);
-        else
-                return read_one_line_file("/proc/cmdline", ret);
+        if (detect_container() > 0) {
+                _cleanup_free_ char *s = NULL;
+
+                /* When we are running on container, then it may contain the path to PID1 and deserialized FD
+                 * or so, let's filter them. */
+
+                r = get_process_cmdline(1, SIZE_MAX, 0, &s);
+                if (r < 0)
+                        return r;
+
+                return proc_cmdline_filter_pid1_args(s, ret);
+        }
+
+        return read_one_line_file("/proc/cmdline", ret);
 }
 
 static int proc_cmdline_extract_first(const char **p, char **ret_word, ProcCmdlineFlags flags) {
