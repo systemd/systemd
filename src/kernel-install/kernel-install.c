@@ -661,6 +661,14 @@ static int context_setup_staging_area(Context *c) {
         if (c->staging_area)
                 return 0;
 
+        if (c->action == ACTION_INSPECT) {
+                c->staging_area = strdup("/tmp/kernel-install.staging.XXXXXXX");
+                if (!c->staging_area)
+                        return log_oom();
+
+                return 0;
+        }
+
         r = mkdtemp_malloc("/tmp/kernel-install.staging.XXXXXXX", &c->staging_area);
         if (r < 0)
                 return log_error_errno(r, "Failed to create staging area: %m");
@@ -672,12 +680,12 @@ static int context_build_entry_dir(Context *c) {
         assert(c);
         assert(c->boot_root);
         assert(c->entry_token);
-        assert(c->version);
+        assert(c->version || c->action == ACTION_INSPECT);
 
         if (c->entry_dir)
                 return 0;
 
-        c->entry_dir = path_join(c->boot_root, c->entry_token, c->version);
+        c->entry_dir = path_join(c->boot_root, c->entry_token, c->version ?: "$KERNEL_VERSION");
         if (!c->entry_dir)
                 return log_oom();
 
@@ -753,6 +761,13 @@ static int context_build_arguments(Context *c) {
                 break;
 
         case ACTION_INSPECT:
+                assert(!c->version);
+                assert(!c->initrds);
+
+                n = 7;
+                verb = "<add|remove>";
+                break;
+
         default:
                 assert_not_reached();
         }
@@ -763,7 +778,7 @@ static int context_build_arguments(Context *c) {
 
         a[i++] = NULL;
         a[i++] = verb;
-        a[i++] = c->version;
+        a[i++] = c->version ?: "$KERNEL_VERSION";
         a[i++] = c->entry_dir;
 
         if (c->action == ACTION_ADD) {
@@ -772,6 +787,9 @@ static int context_build_arguments(Context *c) {
                 STRV_FOREACH(p, c->initrds)
                         a[i++] = *p;
 
+        } else if (c->action == ACTION_INSPECT) {
+                a[i++] = c->kernel ?: "[$KERNEL_IMAGE]";
+                a[i++] = "[$INITRD...]";
         }
 
         a[i++] = NULL;
@@ -965,13 +983,32 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 
 static int verb_inspect(int argc, char *argv[], void *userdata) {
         Context *c = ASSERT_PTR(userdata);
+        _cleanup_free_ char *joined = NULL;
+        int r;
 
-        printf("KERNEL_INSTALL_MACHINE_ID: %s\n", SD_ID128_TO_STRING(c->machine_id));
-        printf("KERNEL_INSTALL_ENTRY_TOKEN: %s\n", c->entry_token);
-        printf("KERNEL_INSTALL_BOOT_ROOT: %s\n", c->boot_root);
-        printf("KERNEL_INSTALL_LAYOUT: %s\n", layout_to_string(c->layout));
-        printf("KERNEL_INSTALL_INITRD_GENERATOR: %s\n", strempty(c->initrd_generator));
-        printf("ENTRY_DIR_ABS: %s/%s/$KERNEL_VERSION\n", c->boot_root, c->entry_token);
+        c->action = ACTION_INSPECT;
+
+        if (argc == 2) {
+                c->kernel = strdup(argv[1]);
+                if (!c->kernel)
+                        return log_oom();
+        }
+
+        r = context_prepare_execution(c);
+        if (r < 0)
+                return r;
+
+        puts("Plugins:");
+        strv_print_full(c->plugins, "  ");
+        puts("");
+
+        puts("Environments:");
+        strv_print_full(c->envs, "  ");
+        puts("");
+
+        puts("Plugin arguments:");
+        joined = strv_join((char**) c->args + 1, " ");
+        printf("  %s\n", strna(joined));
 
         return 0;
 }
@@ -1003,7 +1040,7 @@ static int help(void) {
                "\nUsage:\n"
                "  %1$s [OPTIONS...] add KERNEL-VERSION KERNEL-IMAGE [INITRD-FILE...]\n"
                "  %1$s [OPTIONS...] remove KERNEL-VERSION\n"
-               "  %1$s [OPTIONS...] inspect\n"
+               "  %1$s [OPTIONS...] inspect [KERNEL-IMAGE]\n"
                "\nOptions:\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
@@ -1059,7 +1096,7 @@ static int run(int argc, char* argv[]) {
         static const Verb verbs[] = {
                 { "add",         3,        VERB_ANY, 0,            verb_add            },
                 { "remove",      2,        2,        0,            verb_remove         },
-                { "inspect",     1,        1,        VERB_DEFAULT, verb_inspect        },
+                { "inspect",     1,        2,        VERB_DEFAULT, verb_inspect        },
                 {}
         };
         _cleanup_(context_done) Context c = {
