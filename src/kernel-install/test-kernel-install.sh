@@ -49,6 +49,7 @@ grep -qE 'image' "$BOOT_ROOT/the-token/1.1.1/linux"
 grep -qE 'initrd' "$BOOT_ROOT/the-token/1.1.1/initrd"
 
 "$kernel_install" inspect
+"$kernel_install" inspect "$D/sources/linux"
 
 "$kernel_install" -v remove 1.1.1
 test ! -e "$entry"
