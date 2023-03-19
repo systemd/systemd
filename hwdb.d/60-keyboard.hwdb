@@ -550,6 +550,14 @@ evdev:input:b0003v18D1p8007*
  KEYBOARD_KEY_b002f=reserved                            # Disable micmute key
 
 ###########################################################
+# Haier
+###########################################################
+
+# 7G-Series
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHaierComputer:pn7G-Series:*
+ KEYBOARD_KEY_91=wlan
+
+###########################################################
 # Hewlett Packard
 ###########################################################
 
