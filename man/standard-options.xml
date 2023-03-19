@@ -108,4 +108,13 @@
     </listitem>
   </varlistentry>
 
+  <varlistentry id='root'>
+    <term><option>--root=<replaceable>PATH</replaceable></option></term>
+
+    <listitem>
+      <para>Takes a directory path as an argument. All paths will be prefixed with the given alternate
+      <replaceable>PATH</replaceable>, including config search paths.</para>
+    </listitem>
+  </varlistentry>
+
 </variablelist>
