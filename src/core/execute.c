@@ -201,6 +201,57 @@ static const char *exec_context_tty_path(const ExecContext *context) {
         return "/dev/console";
 }
 
+static int exec_context_tty_size(const ExecContext *context, unsigned *ret_rows, unsigned *ret_cols) {
+        unsigned rows = UINT_MAX, cols = UINT_MAX;
+        const char *tty;
+        int r;
+
+        assert(context);
+        assert(ret_rows);
+        assert(ret_cols);
+
+        tty = skip_dev_prefix(exec_context_tty_path(context));
+
+        if (context->tty_rows == UINT_MAX) {
+                _cleanup_free_ char *cred = NULL;
+
+                cred = strjoin("tty.", tty, ".rows");
+                if (!cred)
+                        return -ENOMEM;
+
+                if (credential_name_valid(cred)) {
+                        r = read_credential_unsigned(cred, &rows);
+                        if (r == -EINVAL)
+                                log_debug_errno(r, "Failed to parse %s credential, ignoring", cred);
+                        else if (r < 0 && r != -ENOENT)
+                                return r;
+                }
+        } else
+                rows = context->tty_rows;
+
+        if (context->tty_cols == UINT_MAX) {
+                _cleanup_free_ char *cred = NULL;
+
+                cred = strjoin("tty.", tty, ".columns");
+                if (!cred)
+                        return -ENOMEM;
+
+                if (credential_name_valid(cred)) {
+                        r = read_credential_unsigned(cred, &cols);
+                        if (r == -EINVAL)
+                                log_debug_errno(r, "Failed to parse %s credential, ignoring", cred);
+                        else if (r < 0 && r != -ENOENT)
+                                return r;
+                }
+        } else
+                cols = context->tty_cols;
+
+        *ret_rows = rows;
+        *ret_cols = cols;
+
+        return 0;
+}
+
 static void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p) {
         const char *path;
 
@@ -222,8 +273,12 @@ static void exec_context_tty_reset(const ExecContext *context, const ExecParamet
                         (void) reset_terminal(path);
         }
 
-        if (p && p->stdin_fd >= 0)
-                (void) terminal_set_size_fd(p->stdin_fd, path, context->tty_rows, context->tty_cols);
+        if (p && p->stdin_fd >= 0) {
+                unsigned rows = UINT_MAX, cols = UINT_MAX;
+
+                (void) exec_context_tty_size(context, &rows, &cols);
+                (void) terminal_set_size_fd(p->stdin_fd, path, rows, cols);
+        }
 
         if (context->tty_vt_disallocate && path)
                 (void) vt_disallocate(path);
@@ -481,9 +536,12 @@ static int setup_input(
 
                 /* Try to make this the controlling tty, if it is a tty, and reset it */
                 if (isatty(STDIN_FILENO)) {
+                        unsigned rows = UINT_MAX, cols = UINT_MAX;
+
+                        (void) exec_context_tty_size(context, &rows, &cols);
                         (void) ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE);
                         (void) reset_terminal_fd(STDIN_FILENO, true);
-                        (void) terminal_set_size_fd(STDIN_FILENO, NULL, context->tty_rows, context->tty_cols);
+                        (void) terminal_set_size_fd(STDIN_FILENO, NULL, rows, cols);
                 }
 
                 return STDIN_FILENO;
@@ -499,6 +557,7 @@ static int setup_input(
         case EXEC_INPUT_TTY:
         case EXEC_INPUT_TTY_FORCE:
         case EXEC_INPUT_TTY_FAIL: {
+                unsigned rows, cols;
                 int fd;
 
                 fd = acquire_terminal(exec_context_tty_path(context),
@@ -509,7 +568,11 @@ static int setup_input(
                 if (fd < 0)
                         return fd;
 
-                r = terminal_set_size_fd(fd, exec_context_tty_path(context), context->tty_rows, context->tty_cols);
+                r = exec_context_tty_size(context, &rows, &cols);
+                if (r < 0)
+                        return r;
+
+                r = terminal_set_size_fd(fd, exec_context_tty_path(context), rows, cols);
                 if (r < 0)
                         return r;
 
@@ -772,6 +835,7 @@ static int setup_confirm_stdio(
                 int *ret_saved_stdout) {
 
         _cleanup_close_ int fd = -EBADF, saved_stdin = -EBADF, saved_stdout = -EBADF;
+        unsigned rows, cols;
         int r;
 
         assert(ret_saved_stdin);
@@ -797,7 +861,11 @@ static int setup_confirm_stdio(
         if (r < 0)
                 return r;
 
-        r = terminal_set_size_fd(fd, vc, context->tty_rows, context->tty_cols);
+        r = exec_context_tty_size(context, &rows, &cols);
+        if (r < 0)
+                return r;
+
+        r = terminal_set_size_fd(fd, vc, rows, cols);
         if (r < 0)
                 return r;
 
@@ -1837,6 +1905,7 @@ static int build_environment(
         _cleanup_strv_free_ char **our_env = NULL;
         size_t n_env = 0;
         char *x;
+        int r;
 
         assert(u);
         assert(c);
@@ -1927,6 +1996,7 @@ static int build_environment(
         }
 
         if (exec_context_needs_term(c)) {
+                _cleanup_free_ void *cred_term = NULL;
                 const char *tty_path, *term = NULL;
 
                 tty_path = exec_context_tty_path(c);
@@ -1937,6 +2007,21 @@ static int build_environment(
 
                 if (path_equal_ptr(tty_path, "/dev/console") && getppid() == 1)
                         term = getenv("TERM");
+                else {
+                        _cleanup_free_ char *cred = NULL;
+
+                        cred = strjoin("tty.", skip_dev_prefix(tty_path), ".term");
+                        if (!cred)
+                                return -ENOMEM;
+
+                        if (credential_name_valid(cred)) {
+                                r = read_credential(cred, &cred_term, NULL);
+                                if (r < 0 && r != -ENOENT)
+                                        return r;
+
+                                term = cred_term;
+                        }
+                }
 
                 if (!term)
                         term = default_term_for_tty(tty_path);

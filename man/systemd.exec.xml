@@ -3088,7 +3088,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <term><varname>TTYColumns=</varname></term>
 
         <listitem><para>Configure the size of the TTY specified with <varname>TTYPath=</varname>. If unset or
-        set to the empty string, the kernel default is used.</para></listitem>
+        set to the empty string, <command>systemd</command> will use the value from the
+        <literal>tty.&lt;tty&lt;.rows</literal> or <literal>tty.&lt;tty&lt;.columns</literal> credentials
+        respectively if configured. Otherwise, the kernel default is used.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3500,7 +3502,8 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <listitem><para>Terminal type, set only for units connected to
           a terminal (<varname>StandardInput=tty</varname>,
           <varname>StandardOutput=tty</varname>, or
-          <varname>StandardError=tty</varname>). See
+          <varname>StandardError=tty</varname>). The <literal>tty.&lt;tty&lt;.term</literal> credential can
+          be used to configure <varname>$TERM</varname> for a specific tty. See
           <citerefentry project='man-pages'><refentrytitle>termcap</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para></listitem>
         </varlistentry>
