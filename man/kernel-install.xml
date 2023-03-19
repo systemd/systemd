@@ -40,6 +40,7 @@
       <command>kernel-install</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">inspect</arg>
+      <arg choice="opt"><replaceable>KERNEL-IMAGE</replaceable></arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -158,7 +159,7 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><command>inspect</command></term>
+        <term><command>inspect [<replaceable>KERNEL-IMAGE</replaceable>]</command></term>
         <listitem>
           <para>Shows the various paths and parameters configured or auto-detected. In particular shows the
           values of the various <varname>$KERNEL_INSTALL_*</varname> environment variables listed
