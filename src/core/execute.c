@@ -80,6 +80,7 @@
 #include "namespace.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "psi-util.h"
 #include "random-util.h"
@@ -201,6 +202,66 @@ static const char *exec_context_tty_path(const ExecContext *context) {
         return "/dev/console";
 }
 
+static int exec_context_tty_size(const ExecContext *context, unsigned *ret_rows, unsigned *ret_cols) {
+        _cleanup_free_ char *rowskey = NULL, *rowsvalue = NULL, *colskey = NULL, *colsvalue = NULL;
+        unsigned rows, cols;
+        const char *tty;
+        int r;
+
+        assert(context);
+        assert(ret_rows);
+        assert(ret_cols);
+
+        rows = context->tty_rows;
+        cols = context->tty_cols;
+
+        tty = exec_context_tty_path(context);
+        if (!tty || (rows != UINT_MAX && cols != UINT_MAX)) {
+                *ret_rows = rows;
+                *ret_cols = cols;
+                return 0;
+        }
+
+        tty = skip_dev_prefix(tty);
+        if (!in_charset(tty, ALPHANUMERICAL)) {
+                log_debug("%s contains non-alphanumeric characters, ignoring", tty);
+                *ret_rows = rows;
+                *ret_cols = cols;
+                return 0;
+        }
+
+        rowskey = strjoin("systemd.tty.rows.", tty);
+        if (!rowskey)
+                return -ENOMEM;
+
+        colskey = strjoin("systemd.tty.columns.", tty);
+        if (!colskey)
+                return -ENOMEM;
+
+        r = proc_cmdline_get_key_many(/* flags = */ 0,
+                                      rowskey, &rowsvalue,
+                                      colskey, &colsvalue);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read TTY size of %s from kernel cmdline, ignoring: %m", tty);
+
+        if (rows == UINT_MAX && rowsvalue) {
+                r = safe_atou(rowsvalue, &rows);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse %s=%s, ignoring: %m", rowskey, rowsvalue);
+        }
+
+        if (cols == UINT_MAX && colsvalue) {
+                r = safe_atou(colsvalue, &cols);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse %s=%s, ignoring: %m", colskey, colsvalue);
+        }
+
+        *ret_rows = rows;
+        *ret_cols = cols;
+
+        return 0;
+}
+
 static void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p) {
         const char *path;
 
@@ -222,8 +283,12 @@ static void exec_context_tty_reset(const ExecContext *context, const ExecParamet
                         (void) reset_terminal(path);
         }
 
-        if (p && p->stdin_fd >= 0)
-                (void) terminal_set_size_fd(p->stdin_fd, path, context->tty_rows, context->tty_cols);
+        if (p && p->stdin_fd >= 0) {
+                unsigned rows = context->tty_rows, cols = context->tty_cols;
+
+                (void) exec_context_tty_size(context, &rows, &cols);
+                (void) terminal_set_size_fd(p->stdin_fd, path, rows, cols);
+        }
 
         if (context->tty_vt_disallocate && path)
                 (void) vt_disallocate(path);
@@ -481,9 +546,12 @@ static int setup_input(
 
                 /* Try to make this the controlling tty, if it is a tty, and reset it */
                 if (isatty(STDIN_FILENO)) {
+                        unsigned rows = context->tty_rows, cols = context->tty_cols;
+
+                        (void) exec_context_tty_size(context, &rows, &cols);
                         (void) ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE);
                         (void) reset_terminal_fd(STDIN_FILENO, true);
-                        (void) terminal_set_size_fd(STDIN_FILENO, NULL, context->tty_rows, context->tty_cols);
+                        (void) terminal_set_size_fd(STDIN_FILENO, NULL, rows, cols);
                 }
 
                 return STDIN_FILENO;
@@ -499,6 +567,7 @@ static int setup_input(
         case EXEC_INPUT_TTY:
         case EXEC_INPUT_TTY_FORCE:
         case EXEC_INPUT_TTY_FAIL: {
+                unsigned rows, cols;
                 int fd;
 
                 fd = acquire_terminal(exec_context_tty_path(context),
@@ -509,7 +578,11 @@ static int setup_input(
                 if (fd < 0)
                         return fd;
 
-                r = terminal_set_size_fd(fd, exec_context_tty_path(context), context->tty_rows, context->tty_cols);
+                r = exec_context_tty_size(context, &rows, &cols);
+                if (r < 0)
+                        return r;
+
+                r = terminal_set_size_fd(fd, exec_context_tty_path(context), rows, cols);
                 if (r < 0)
                         return r;
 
@@ -772,6 +845,7 @@ static int setup_confirm_stdio(
                 int *ret_saved_stdout) {
 
         _cleanup_close_ int fd = -EBADF, saved_stdin = -EBADF, saved_stdout = -EBADF;
+        unsigned rows, cols;
         int r;
 
         assert(ret_saved_stdin);
@@ -797,7 +871,11 @@ static int setup_confirm_stdio(
         if (r < 0)
                 return r;
 
-        r = terminal_set_size_fd(fd, vc, context->tty_rows, context->tty_cols);
+        r = exec_context_tty_size(context, &rows, &cols);
+        if (r < 0)
+                return r;
+
+        r = terminal_set_size_fd(fd, vc, rows, cols);
         if (r < 0)
                 return r;
 
@@ -1837,6 +1915,7 @@ static int build_environment(
         _cleanup_strv_free_ char **our_env = NULL;
         size_t n_env = 0;
         char *x;
+        int r;
 
         assert(u);
         assert(c);
@@ -1927,6 +2006,7 @@ static int build_environment(
         }
 
         if (exec_context_needs_term(c)) {
+                _cleanup_free_ char *cmdline = NULL;
                 const char *tty_path, *term = NULL;
 
                 tty_path = exec_context_tty_path(c);
@@ -1937,6 +2017,19 @@ static int build_environment(
 
                 if (path_equal_ptr(tty_path, "/dev/console") && getppid() == 1)
                         term = getenv("TERM");
+                else if (tty_path && in_charset(skip_dev_prefix(tty_path), ALPHANUMERICAL)) {
+                        _cleanup_free_ char *key = NULL;
+
+                        key = strjoin("systemd.tty.term.", skip_dev_prefix(tty_path));
+                        if (!key)
+                                return -ENOMEM;
+
+                        r = proc_cmdline_get_key(key, 0, &cmdline);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to read %s from kernel cmdline, ignoring: %m", key);
+                        else if (r > 0)
+                                term = cmdline;
+                }
 
                 if (!term)
                         term = default_term_for_tty(tty_path);
