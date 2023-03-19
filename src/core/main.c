@@ -1766,44 +1766,6 @@ static void update_numa_policy(bool skip_setup) {
                 log_warning_errno(r, "Failed to set NUMA memory policy, ignoring: %m");
 }
 
-static void filter_args(
-                const char* dst[],
-                size_t *dst_index,
-                char **src,
-                int argc) {
-
-        assert(dst);
-        assert(dst_index);
-
-        /* Copy some filtered arguments into the dst array from src. */
-        for (int i = 1; i < argc; i++) {
-                if (STR_IN_SET(src[i],
-                               "--switched-root",
-                               "--system",
-                               "--user"))
-                        continue;
-
-                if (startswith(src[i], "--deserialize="))
-                        continue;
-                if (streq(src[i], "--deserialize")) {
-                        i++;                            /* Skip the argument too */
-                        continue;
-                }
-
-                /* Skip target unit designators. We already acted upon this information and have queued
-                 * appropriate jobs. We don't want to redo all this after reexecution. */
-                if (startswith(src[i], "--unit="))
-                        continue;
-                if (streq(src[i], "--unit")) {
-                        i++;                            /* Skip the argument too */
-                        continue;
-                }
-
-                /* Seems we have a good old option. Let's pass it over to the new instance. */
-                dst[(*dst_index)++] = src[i];
-        }
-}
-
 static int do_reexecute(
                 ManagerObjective objective,
                 int argc,
@@ -1862,7 +1824,7 @@ static int do_reexecute(
                 xsprintf(sfd, "%i", fileno(arg_serialization));
 
                 i = 1;         /* Leave args[0] empty for now. */
-                filter_args(args, &i, argv, argc);
+                filter_pid1_args(argc, argv, &i, args);
 
                 if (switch_root_dir)
                         args[i++] = "--switched-root";
