@@ -17,6 +17,7 @@
 #include "kernel-image.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "rm-rf.h"
@@ -28,6 +29,11 @@
 #include "verbs.h"
 
 static bool arg_verbose = false;
+static char *arg_esp_path = NULL;
+static char *arg_xbootldr_path = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
 
 typedef enum Action {
         ACTION_ADD,
@@ -462,7 +468,7 @@ static int context_acquire_xbootldr(Context *c) {
 
         r = find_xbootldr_and_warn_at(
                         /* rfd = */ c->rfd,
-                        /* path = */ NULL,
+                        /* path = */ arg_xbootldr_path,
                         /* unprivileged_mode= */ geteuid() != 0,
                         /* ret_path = */ &c->boot_root,
                         /* ret_uuid = */ NULL,
@@ -486,7 +492,7 @@ static int context_acquire_esp(Context *c) {
 
         r = find_esp_and_warn_at(
                         /* rfd = */ c->rfd,
-                        /* path = */ NULL,
+                        /* path = */ arg_esp_path,
                         /* unprivileged_mode= */ geteuid() != 0,
                         /* ret_path = */ &c->boot_root,
                         /* ret_part = */ NULL,
@@ -1093,6 +1099,8 @@ static int help(void) {
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "  -v --verbose           Increase verbosity\n"
+               "     --esp-path=PATH     Path to the EFI System Partition (ESP)\n"
+               "     --boot-path=PATH    Path to the $BOOT partition\n"
                "\nSee the %4$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -1105,14 +1113,18 @@ static int help(void) {
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
+                ARG_ESP_PATH,
+                ARG_BOOT_PATH,
         };
         static const struct option options[] = {
                 { "help",                 no_argument,       NULL, 'h'                      },
                 { "version",              no_argument,       NULL, ARG_VERSION              },
                 { "verbose",              no_argument,       NULL, 'v'                      },
+                { "esp-path",             required_argument, NULL, ARG_ESP_PATH             },
+                { "boot-path",            required_argument, NULL, ARG_BOOT_PATH            },
                 {}
         };
-        int t;
+        int t, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -1128,6 +1140,18 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'v':
                         log_set_max_level(LOG_DEBUG);
                         arg_verbose = true;
+                        break;
+
+                case ARG_ESP_PATH:
+                        r = parse_path_argument(optarg, /* suppress_root = */ false, &arg_esp_path);
+                        if (r < 0)
+                                return log_oom();
+                        break;
+
+                case ARG_BOOT_PATH:
+                        r = parse_path_argument(optarg, /* suppress_root = */ false, &arg_xbootldr_path);
+                        if (r < 0)
+                                return log_oom();
                         break;
 
                 case '?':
