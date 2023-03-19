@@ -10,6 +10,7 @@
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "find-esp.h"
 #include "id128-util.h"
 #include "kernel-image.h"
 #include "main-func.h"
@@ -381,97 +382,55 @@ static int context_ensure_machine_id(Context *c) {
         return 0;
 }
 
-static int context_find_boot_root_and_entry_token(Context *c) {
-        _cleanup_strv_free_ char **entry_token_candidate = NULL, **boot_root_candidate = NULL;
+static int context_acquire_xbootldr(Context *c) {
         int r;
 
         assert(c);
+        assert(!c->boot_root);
 
-        if (c->boot_root && c->entry_token)
-                return 0;
-
-        if (c->entry_token)
-                entry_token_candidate = strv_new(c->entry_token);
-        else {
-                _cleanup_free_ char *image_id = NULL, *id = NULL;
-
-                r = parse_os_release(/* root = */ NULL,
-                                     "IMAGE_ID", &image_id,
-                                     "ID",       &id);
-                if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to parse /etc/os-release: %m");
-
-                entry_token_candidate = strv_new(SD_ID128_TO_STRING(c->machine_id),
-                                                 STRV_IFNOTNULL(image_id),
-                                                 STRV_IFNOTNULL(id),
-                                                 "Default");
-        }
-        if (!entry_token_candidate)
-                return log_oom();
-
-        if (c->boot_root)
-                boot_root_candidate = strv_new(c->boot_root);
-        else
-                boot_root_candidate = strv_new("/efi", "/boot", "/boot/efi");
-        if (!boot_root_candidate)
-                return log_oom();
-
-        STRV_FOREACH(b, boot_root_candidate) {
-                _cleanup_close_ int dfd = -EBADF;
-
-                dfd = RET_NERRNO(open(*b, O_CLOEXEC | O_DIRECTORY | O_PATH));
-                if (dfd < 0) {
-                        if (dfd != -ENOENT)
-                                return log_error_errno(dfd, "Failed to open \"%s\": %m", *b);
-
-                        continue;
-                }
-
-                STRV_FOREACH(e, entry_token_candidate) {
-                        r = is_dir_full(dfd, *e, /* follow = */ false);
-                        if (IN_SET(r, 0, -ENOENT))
-                                continue;
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to check if '%s/%s' is a directory: %m", *b, *e);
-
-                        log_debug("%s/%s found.", *b, *e);
-
-                        if (!c->boot_root) {
-                                c->boot_root = strdup(*b);
-                                if (!c->boot_root)
-                                        return log_oom();
-                        }
-
-                        if (!c->entry_token) {
-                                c->entry_token = strdup(*e);
-                                if (!c->entry_token)
-                                        return log_oom();
-                        }
-
-                        return 0;
-                }
-
-                if (c->boot_root)
-                        return 0; /* Shortcut: boot_root is already set. */
-
-                r = is_dir_full(dfd, "loader/entries", /* follow = */ false);
-                if (IN_SET(r, 0, -ENOENT))
-                        continue;
-                if (r < 0)
-                        return log_error_errno(r, "Failed to check if '%s/loader/entries' is a directory: %m", *b);
-
-                log_debug("%s/loader/entries found.", *b);
-
-                if (!c->boot_root) {
-                        c->boot_root = strdup(*b);
-                        if (!c->boot_root)
-                                return log_oom();
-                }
-
+        r = find_xbootldr_and_warn(
+                        /* root = */ NULL,
+                        /* path = */ NULL,
+                        /* unprivileged_mode= */ geteuid() != 0,
+                        /* ret_path = */ &c->boot_root,
+                        /* ret_uuid = */ NULL,
+                        /* ret_devid = */ NULL);
+        if (IN_SET(r, -ENOKEY, -EACCES)) {
+                log_debug_errno(r, "Couldn't find an XBOOTLDR partition.");
                 return 0;
         }
+        if (r < 0)
+                return r;
 
-        return 0;
+        log_debug("Using XBOOTLDR partition at %s as $BOOT_ROOT.", c->boot_root);
+        return 1; /* found */
+}
+
+static int context_acquire_esp(Context *c) {
+        int r;
+
+        assert(c);
+        assert(!c->boot_root);
+
+        r = find_esp_and_warn(
+                        /* root = */ NULL,
+                        /* path = */ NULL,
+                        /* unprivileged_mode= */ geteuid() != 0,
+                        /* ret_path = */ &c->boot_root,
+                        /* ret_part = */ NULL,
+                        /* ret_pstart = */ NULL,
+                        /* ret_psize = */ NULL,
+                        /* ret_uuid = */ NULL,
+                        /* ret_devid = */ NULL);
+        if (IN_SET(r, -ENOKEY, -EACCES)) {
+                log_debug_errno(r, "Couldn't find EFI system partition, ignoring.");
+                return 0;
+        }
+        if (r < 0)
+                return r;
+
+        log_debug("Using EFI System Partition at %s as $BOOT_ROOT.", c->boot_root);
+        return 1; /* found */
 }
 
 static int context_ensure_boot_root(Context *c) {
@@ -482,24 +441,13 @@ static int context_ensure_boot_root(Context *c) {
         if (c->boot_root)
                 return 0;
 
-        /* If we still haven't found anything, check if /efi or /boot/efi are mountpoints and if so, assume
-         * they point to the ESP. */
-        FOREACH_STRING(p, "/efi", "/boot/efi") {
-                r = path_is_mount_point(p, /* root = */ NULL, /* flags = */ 0);
-                if (r <= 0) {
-                        if (IN_SET(r, 0, -ENOENT, -ENOTDIR))
-                                continue;
+        r = context_acquire_xbootldr(c);
+        if (r != 0)
+                return r;
 
-                        return log_error_errno(r, "Failed to check if '%s' is a mount point: %m", p);
-                }
-
-                c->boot_root = strdup(p);
-                if (!c->boot_root)
-                        return log_oom();
-
-                log_debug("%s is a mount point, using BOOT_ROOT=%s.", c->boot_root, c->boot_root);
-                return 0;
-        }
+        r = context_acquire_esp(c);
+        if (r != 0)
+                return r;
 
         /* If all else fails, use /boot. */
         c->boot_root = strdup("/boot");
@@ -541,11 +489,74 @@ static int context_load_entry_token(Context *c) {
         return 1; /* loaded */
 }
 
-static int context_ensure_entry_token(Context *c) {
+static int context_find_entry_token(Context *c) {
+        _cleanup_free_ char *image_id = NULL, *id = NULL;
+        _cleanup_strv_free_ char **candidates = NULL;
+        _cleanup_close_ int dfd = -EBADF;
+        int r;
+
         assert(c);
+        assert(c->boot_root);
+        assert(!c->entry_token);
+
+        r = parse_os_release(/* root = */ NULL,
+                             "IMAGE_ID", &image_id,
+                             "ID",       &id);
+        if (r < 0 && r != -ENOENT)
+                return log_error_errno(r, "Failed to parse /etc/os-release: %m");
+
+        candidates = strv_new(SD_ID128_TO_STRING(c->machine_id),
+                              STRV_IFNOTNULL(image_id),
+                              STRV_IFNOTNULL(id),
+                              "Default");
+        if (!candidates)
+                return log_oom();
+
+        dfd = RET_NERRNO(open(c->boot_root, O_CLOEXEC | O_DIRECTORY | O_PATH));
+        if (dfd == -ENOENT)
+                return 0;
+        if (dfd < 0)
+                return log_error_errno(dfd, "Failed to open \"%s\": %m", c->boot_root);
+
+        STRV_FOREACH(e, candidates) {
+                r = is_dir_full(dfd, *e, /* follow = */ false);
+                if (IN_SET(r, 0, -ENOENT))
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if '%s/%s' is a directory: %m", c->boot_root, *e);
+
+                log_debug("%s/%s found.", c->boot_root, *e);
+
+                c->entry_token = strdup(*e);
+                if (!c->entry_token)
+                        return log_oom();
+
+                return 1; /* found */
+        }
+
+        return 0; /* not found */
+}
+
+static int context_ensure_entry_token(Context *c) {
+        int r;
+
+        assert(c);
+
+        /* Now that we determined the machine ID to use, let's determine the "token" for the boot loader
+         * entry to generate. We use that for naming the directory below $BOOT where we want to place the
+         * kernel/initrd and related resources, as well for naming the .conf boot loader spec entry.
+         * Typically this is just the machine ID, but it can be anything else, too, if we are told so. */
 
         if (c->entry_token)
                 return 0;
+
+        r = context_load_entry_token(c);
+        if (r != 0)
+                return r;
+
+        r = context_find_entry_token(c);
+        if (r != 0)
+                return r;
 
         c->entry_token = strdup(SD_ID128_TO_STRING(c->machine_id));
         if (!c->entry_token)
@@ -592,19 +603,6 @@ static int context_init(Context *c) {
                 return r;
 
         r = context_ensure_machine_id(c);
-        if (r < 0)
-                return r;
-
-        /* Now that we determined the machine ID to use, let's determine the "token" for the boot loader
-         * entry to generate. We use that for naming the directory below $BOOT where we want to place the
-         * kernel/initrd and related resources, as well for naming the .conf boot loader spec entry.
-         * Typically this is just the machine ID, but it can be anything else, too, if we are told so. */
-
-        r = context_load_entry_token(c);
-        if (r < 0)
-                return r;
-
-        r = context_find_boot_root_and_entry_token(c);
         if (r < 0)
                 return r;
 
