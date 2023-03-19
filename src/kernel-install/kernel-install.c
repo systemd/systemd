@@ -31,10 +31,12 @@
 static bool arg_verbose = false;
 static char *arg_esp_path = NULL;
 static char *arg_xbootldr_path = NULL;
+static char *arg_root = NULL;
 int arg_make_entry_directory = -1; /* tristate */
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
 typedef enum Action {
         ACTION_ADD,
@@ -207,7 +209,7 @@ static int context_set_path(const char *s, const char *source, const char *name,
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "Invalid path for %s specified in %s, ignoring.", name, source);
 
-        r = chase(s, /* root = */ NULL, CHASE_PREFIX_ROOT, &p, /* ret_fd = */ NULL);
+        r = chase(s, arg_root, CHASE_PREFIX_ROOT, &p, /* ret_fd = */ NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to chase %s=%s specified in %s, ignoring: %m", name, s, source);
 
@@ -243,7 +245,7 @@ static int context_set_plugins(Context *c, const char *s, const char *source) {
         STRV_FOREACH(p, v) {
                 char *q;
 
-                r = chase(*p, /* root = */ NULL, CHASE_PREFIX_ROOT, &q, /* ret_fd = */ NULL);
+                r = chase(*p, arg_root, CHASE_PREFIX_ROOT, &q, /* ret_fd = */ NULL);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to chase plugin '%s' specified in %s, ignoring: %m", *p, source);
                         continue;
@@ -278,14 +280,14 @@ static int context_ensure_conf_root(Context *c) {
         if (c->conf_root)
                 return 0;
 
-        r = chase("/etc/kernel", /* root = */ NULL, CHASE_PREFIX_ROOT, &c->conf_root, /* ret_fd = */ NULL);
+        r = chase("/etc/kernel", arg_root, CHASE_PREFIX_ROOT, &c->conf_root, /* ret_fd = */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to chase /etc/kernel, ignoring: %m");
 
         return 0;
 }
 
-static int context_load_install_conf_one(Context *c, const char *path) {
+static int context_load_install_conf_one(Context *c, const char *root, const char *path) {
         _cleanup_free_ char
                 *conf = NULL, *machine_id = NULL, *boot_root = NULL, *layout = NULL,
                 *initrd_generator = NULL, *uki_generator = NULL;
@@ -294,7 +296,7 @@ static int context_load_install_conf_one(Context *c, const char *path) {
         assert(c);
         assert(path);
 
-        conf = path_join(path, "install.conf");
+        conf = path_join(root, path, "install.conf");
         if (!conf)
                 return log_oom();
 
@@ -327,13 +329,14 @@ static int context_load_install_conf(Context *c) {
         assert(c);
 
         if (c->conf_root) {
-                r = context_load_install_conf_one(c, c->conf_root);
+                /* c->conf_root is already prefixed with arg_root. */
+                r = context_load_install_conf_one(c, /* root = */ NULL, c->conf_root);
                 if (r != 0)
                         return r;
         }
 
         STRV_FOREACH(p, CONF_PATHS_STRV("kernel")) {
-                r = context_load_install_conf_one(c, *p);
+                r = context_load_install_conf_one(c, arg_root, *p);
                 if (r != 0)
                         return r;
         }
@@ -342,7 +345,7 @@ static int context_load_install_conf(Context *c) {
 }
 
 static int context_load_machine_info(Context *c) {
-        _cleanup_free_ char *machine_id = NULL, *layout = NULL;
+        _cleanup_free_ char *path_alloc = NULL, *machine_id = NULL, *layout = NULL;
         const char *path = "/etc/machine-info";
         int r;
 
@@ -353,6 +356,13 @@ static int context_load_machine_info(Context *c) {
 
         if (!sd_id128_is_null(c->machine_id) && c->layout >= 0)
                 return 0;
+
+        if (arg_root) {
+                path_alloc = strjoin(arg_root, path);
+                if (!path_alloc)
+                        return log_oom();
+                path = path_alloc;
+        }
 
         log_debug("Loading %s…", path);
 
@@ -374,11 +384,11 @@ static int context_load_machine_id(Context *c) {
 
         assert(c);
 
-        r = id128_read(/* root = */ NULL, "/etc/machine-id", ID128_FORMAT_PLAIN, &c->machine_id);
+        r = id128_read(arg_root, "/etc/machine-id", ID128_FORMAT_PLAIN, &c->machine_id);
         if (r < 0) {
                 if (ERRNO_IS_MACHINE_ID_UNSET(r))
                         return 0;
-                return log_error_errno(r, "Failed to load machine ID from /etc/machine-id: %m");
+                return log_error_errno(r, "Failed to load machine ID from %s/etc/machine-id: %m", strempty(arg_root));
         }
 
         log_debug("MACHINE_ID=%s set via /etc/machine-id.", SD_ID128_TO_STRING(c->machine_id));
@@ -415,7 +425,7 @@ static int context_acquire_xbootldr(Context *c) {
         assert(!c->boot_root);
 
         r = find_xbootldr_and_warn(
-                        /* root = */ NULL,
+                        /* root = */ arg_root,
                         /* path = */ arg_xbootldr_path,
                         /* unprivileged_mode= */ geteuid() != 0,
                         /* ret_path = */ &c->boot_root,
@@ -439,7 +449,7 @@ static int context_acquire_esp(Context *c) {
         assert(!c->boot_root);
 
         r = find_esp_and_warn(
-                        /* root = */ NULL,
+                        /* root = */ arg_root,
                         /* path = */ arg_esp_path,
                         /* unprivileged_mode= */ geteuid() != 0,
                         /* ret_path = */ &c->boot_root,
@@ -479,7 +489,7 @@ static int context_ensure_boot_root(Context *c) {
                 return r;
 
         /* If all else fails, use /boot. */
-        r = chase("/boot", /* root = */ NULL, CHASE_PREFIX_ROOT, &c->boot_root, /* ret_fd = */ NULL);
+        r = chase("/boot", arg_root, CHASE_PREFIX_ROOT, &c->boot_root, /* ret_fd = */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to chase '/boot': %m");
 
@@ -497,6 +507,7 @@ static int context_ensure_entry_token(Context *c) {
          * kernel/initrd and related resources, as well for naming the .conf boot loader spec entry.
          * Typically this is just the machine ID, but it can be anything else, too, if we are told so. */
 
+        /* conf_root is already prefixed with arg_root, hence root= argument must be NULL. */
         r = boot_entry_token_ensure(
                         /* root = */ NULL,
                         c->conf_root,
@@ -521,7 +532,7 @@ static int context_load_plugins(Context *c) {
 
         r = conf_files_list_strv(&c->plugins,
                                  ".install",
-                                 /* root = */ NULL,
+                                 arg_root,
                                  CONF_FILES_EXECUTABLE | CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED,
                                  (const char**) CONF_PATHS_STRV("kernel/install.d"));
         if (r < 0)
@@ -648,6 +659,7 @@ static int context_ensure_layout(Context *c) {
 
 static int context_setup_staging_area(Context *c) {
         static const char *template = "/tmp/kernel-install.staging.XXXXXXX";
+        _cleanup_free_ char *t = NULL;
         int r;
 
         assert(c);
@@ -655,15 +667,16 @@ static int context_setup_staging_area(Context *c) {
         if (c->staging_area)
                 return 0;
 
-        if (c->action == ACTION_INSPECT) {
-                c->staging_area = strdup(template);
-                if (!c->staging_area)
-                        return log_oom();
+        t = path_join(arg_root, template);
+        if (!t)
+                return log_oom();
 
+        if (c->action == ACTION_INSPECT) {
+                c->staging_area = TAKE_PTR(t);
                 return 0;
         }
 
-        r = mkdtemp_malloc(template, &c->staging_area);
+        r = mkdtemp_malloc(t, &c->staging_area);
         if (r < 0)
                 return log_error_errno(r, "Failed to create staging area: %m");
 
@@ -817,6 +830,7 @@ static int context_build_environment(Context *c) {
                                  "KERNEL_INSTALL_IMAGE_TYPE",       kernel_image_type_to_string(c->kernel_image_type),
                                  "KERNEL_INSTALL_MACHINE_ID",       SD_ID128_TO_STRING(c->machine_id),
                                  "KERNEL_INSTALL_ENTRY_TOKEN",      c->entry_token,
+                                 "KERNEL_INSTALL_ROOT",             strempty(arg_root),
                                  "KERNEL_INSTALL_BOOT_ROOT",        c->boot_root,
                                  "KERNEL_INSTALL_LAYOUT",           context_get_layout(c),
                                  "KERNEL_INSTALL_INITRD_GENERATOR", strempty(c->initrd_generator),
@@ -919,7 +933,7 @@ static int context_assign_kernel(Context *c, const char *version, const char *ke
         }
 
         if (kernel) {
-                r = chase(kernel, /* root = */ NULL, CHASE_PREFIX_ROOT, &c->kernel, /* ret_fd = */ NULL);
+                r = chase(kernel, arg_root, CHASE_PREFIX_ROOT, &c->kernel, /* ret_fd = */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to chase kernel image file '%s': %m", kernel);
         }
@@ -927,7 +941,7 @@ static int context_assign_kernel(Context *c, const char *version, const char *ke
         STRV_FOREACH(p, initrds) {
                 char *q;
 
-                r = chase(*p, /* root = */ NULL, CHASE_PREFIX_ROOT, &q, /* ret_fd = */ NULL);
+                r = chase(*p, arg_root, CHASE_PREFIX_ROOT, &q, /* ret_fd = */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to chase initrd file '%s': %m", *p);
 
@@ -1056,6 +1070,7 @@ static int help(void) {
                "  -v --verbose           Increase verbosity\n"
                "     --esp-path=PATH     Path to the EFI System Partition (ESP)\n"
                "     --boot-path=PATH    Path to the $BOOT partition\n"
+               "     --root=PATH         Operate on an alternate filesystem root\n"
                "     --make-entry-directory=yes|no|auto\n"
                "                         Create $BOOT/ENTRY-TOKEN/ directory\n"
                "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
@@ -1074,6 +1089,7 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 ARG_VERSION = 0x100,
                 ARG_ESP_PATH,
                 ARG_BOOT_PATH,
+                ARG_ROOT,
                 ARG_MAKE_ENTRY_DIRECTORY,
                 ARG_ENTRY_TOKEN,
         };
@@ -1083,6 +1099,7 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 { "verbose",              no_argument,       NULL, 'v'                      },
                 { "esp-path",             required_argument, NULL, ARG_ESP_PATH             },
                 { "boot-path",            required_argument, NULL, ARG_BOOT_PATH            },
+                { "root",                 required_argument, NULL, ARG_ROOT                 },
                 { "make-entry-directory", required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY },
                 { "entry-token",          required_argument, NULL, ARG_ENTRY_TOKEN          },
                 {}
@@ -1116,6 +1133,12 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                         r = parse_path_argument(optarg, /* suppress_root = */ false, &arg_xbootldr_path);
                         if (r < 0)
                                 return log_oom();
+                        break;
+
+                case ARG_ROOT:
+                        r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_MAKE_ENTRY_DIRECTORY:
