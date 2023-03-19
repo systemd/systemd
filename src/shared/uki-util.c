@@ -50,17 +50,17 @@ static int pe_sections(FILE *uki, struct PeSectionHeader **ret, size_t *ret_n) {
                                        items, sizeof(dos));
 
         if (fseek(uki, le32toh(dos.ExeHeader), SEEK_SET) < 0)
-                return log_error_errno(errno, "seek to PE header");
+                return log_error_errno(errno, "Failed to seek to PE header: %m");
 
         items = fread(&pe, 1, sizeof(pe), uki);
         if (items != sizeof(pe))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "PE header read error");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read PE header.");
         if (memcmp(pe.Magic, pe_file_magic, sizeof(pe_file_magic)) != 0)
                 goto no_sections;
 
         soff = le32toh(dos.ExeHeader) + sizeof(pe) + le16toh(pe.FileHeader.SizeOfOptionalHeader);
         if (fseek(uki, soff, SEEK_SET) < 0)
-                return log_error_errno(errno, "seek to PE section headers");
+                return log_error_errno(errno, "Failed to seek to PE section headers: %m");
 
         scount = le16toh(pe.FileHeader.NumberOfSections);
         if (scount > MAX_SECTIONS)
@@ -70,7 +70,7 @@ static int pe_sections(FILE *uki, struct PeSectionHeader **ret, size_t *ret_n) {
                 return log_oom();
         items = fread(sections, sizeof(*sections), scount, uki);
         if (items != scount)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "PE section header read error");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read PE section header.");
 
         *ret = TAKE_PTR(sections);
         *ret_n = scount;
@@ -142,10 +142,10 @@ static int read_pe_section(
         size = le32toh(section->VirtualSize);
 
         if (size > 16 * 1024)
-                return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "PE section too big");
+                return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "PE section too big.");
 
         if (fseek(uki, soff, SEEK_SET) < 0)
-                return log_error_errno(errno, "seek to PE section");
+                return log_error_errno(errno, "Failed to seek to PE section: %m");
 
         data = malloc(size+1);
         if (!data)
@@ -154,7 +154,7 @@ static int read_pe_section(
 
         bytes = fread(data, 1, size, uki);
         if (bytes != size)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "PE section read error");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read PE section.");
 
         *ret = TAKE_PTR(data);
         if (ret_n)
@@ -188,13 +188,13 @@ static int uki_read_pretty_name(
 
         s = fmemopen(osrel, osrel_size, "r");
         if (!s)
-                return log_warning_errno(errno, "Failed to open embedded os-release file, ignoring: %m");
+                return log_error_errno(errno, "Failed to open embedded os-release file: %m");
 
         r = parse_env_file(s, NULL,
                            "PRETTY_NAME", &pname,
                            "NAME",        &name);
         if (r < 0)
-                return log_warning_errno(r, "Failed to parse embedded os-release file, ignoring: %m");
+                return log_error_errno(r, "Failed to parse embedded os-release file: %m");
 
         /* follow the same logic as os_release_pretty_name() */
         if (!isempty(pname))
@@ -271,7 +271,7 @@ int inspect_kernel(
 
         uki = fopen(filename, "re");
         if (!uki)
-                return log_error_errno(errno, "Failed to open UKI file '%s': %m", filename);
+                return log_error_errno(errno, "Failed to open kernel image file '%s': %m", filename);
 
         r = pe_sections(uki, &sections, &scount);
         if (r < 0)
