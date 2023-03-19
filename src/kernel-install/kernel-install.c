@@ -7,6 +7,7 @@
 #include "boot-entry.h"
 #include "chase.h"
 #include "conf-files.h"
+#include "dissect-image.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "exec-util.h"
@@ -17,6 +18,7 @@
 #include "kernel-image.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -31,10 +33,16 @@
 static bool arg_verbose = false;
 static char *arg_esp_path = NULL;
 static char *arg_xbootldr_path = NULL;
+static char *arg_root = NULL;
+static char *arg_image = NULL;
+ImagePolicy *arg_image_policy = NULL;
 static int arg_make_entry_directory = -1; /* tristate */
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 typedef enum Action {
         ACTION_ADD,
@@ -64,6 +72,9 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP(layout, Layout);
 
 typedef struct Context {
         int rfd;
+        LoopDevice *loop_device;
+        char *unlink_dir;
+
         Action action;
         sd_id128_t machine_id;
         bool machine_id_is_random;
@@ -108,6 +119,45 @@ static void context_done(Context *c) {
         strv_free(c->envs);
 
         safe_close(c->rfd);
+        umount_and_rmdir_and_free(c->unlink_dir);
+        loop_device_unref(c->loop_device);
+}
+
+static int context_open_root(Context *c) {
+        int r;
+
+        assert(c);
+
+        if (arg_image) {
+                assert(!arg_root);
+
+                r = mount_image_privately_interactively(
+                                arg_image,
+                                arg_image_policy,
+                                DISSECT_IMAGE_GENERIC_ROOT |
+                                DISSECT_IMAGE_REQUIRE_ROOT |
+                                DISSECT_IMAGE_VALIDATE_OS |
+                                DISSECT_IMAGE_RELAX_VAR_CHECK,
+                                &c->unlink_dir,
+                                &c->rfd,
+                                &c->loop_device);
+                if (r < 0)
+                        return r;
+
+                arg_root = strdup(c->unlink_dir);
+                if (!arg_root)
+                        return log_oom();
+
+                return 0;
+        }
+
+        if (arg_root) {
+                c->rfd = open(arg_root, O_CLOEXEC | O_DIRECTORY | O_PATH);
+                if (c->rfd < 0)
+                        return log_error_errno(errno, "Failed to open %s: %m", arg_root);
+        }
+
+        return 0;
 }
 
 static const char *context_get_layout(Context *c) {
@@ -587,6 +637,10 @@ static int context_init(Context *c) {
 
         assert(c);
 
+        r = context_open_root(c);
+        if (r < 0)
+                return r;
+
         r = context_load_environment(c);
         if (r < 0)
                 return r;
@@ -700,6 +754,7 @@ static int context_ensure_layout(Context *c) {
 
 static int context_setup_staging_area(Context *c) {
         static const char *template = "/tmp/kernel-install.staging.XXXXXXX";
+        _cleanup_free_ char *t = NULL;
         int r;
 
         assert(c);
@@ -707,15 +762,16 @@ static int context_setup_staging_area(Context *c) {
         if (c->staging_area)
                 return 0;
 
-        if (c->action == ACTION_INSPECT) {
-                c->staging_area = strdup(template);
-                if (!c->staging_area)
-                        return log_oom();
+        t = path_join(arg_root, template);
+        if (!t)
+                return log_oom();
 
+        if (c->action == ACTION_INSPECT) {
+                c->staging_area = TAKE_PTR(t);
                 return 0;
         }
 
-        r = mkdtemp_malloc(template, &c->staging_area);
+        r = mkdtemp_malloc(t, &c->staging_area);
         if (r < 0)
                 return log_error_errno(r, "Failed to create staging area: %m");
 
@@ -807,6 +863,21 @@ static int context_remove_entry_dir(Context *c) {
         return 0;
 }
 
+static int strv_extend_path(char ***a, const char *root, const char *path) {
+        _cleanup_free_ char *p = NULL;
+
+        assert(a);
+        assert(path);
+
+        p = path_join(root, path);
+        if (!p)
+                return -ENOMEM;
+
+        assert(path_is_absolute(p));
+
+        return strv_consume(a, TAKE_PTR(p));
+}
+
 static int context_build_arguments(Context *c) {
         _cleanup_strv_free_ char **a = NULL;
         const char *verb;
@@ -844,22 +915,30 @@ static int context_build_arguments(Context *c) {
 
         a = strv_new("dummy-arg", /* to make strv_free() works for this variable. */
                      verb,
-                     c->version ?: "$KERNEL_VERSION",
-                     c->entry_dir);
+                     c->version ?: "$KERNEL_VERSION");
         if (!a)
                 return log_oom();
 
+        r = strv_extend_path(&a, arg_root, c->entry_dir);
+        if (r < 0)
+                return log_oom();
+
         if (c->action == ACTION_ADD) {
-                r = strv_extend(&a, c->kernel);
+                r = strv_extend_path(&a, arg_root, c->kernel);
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extend_strv(&a, c->initrds, /* filter_duplicates = */ false);
-                if (r < 0)
-                        return log_oom();
+                STRV_FOREACH(i, c->initrds) {
+                        r = strv_extend_path(&a, arg_root, *i);
+                        if (r < 0)
+                                return log_oom();
+                }
 
         } else if (c->action == ACTION_INSPECT) {
-                r = strv_extend(&a, c->kernel ?: "[$KERNEL_IMAGE]");
+                if (c->kernel)
+                        r = strv_extend_path(&a, arg_root, c->kernel);
+                else
+                        r = strv_extend(&a, "[$KERNEL_IMAGE]");
                 if (r < 0)
                         return log_oom();
 
@@ -874,6 +953,7 @@ static int context_build_arguments(Context *c) {
 
 static int context_build_environment(Context *c) {
         _cleanup_strv_free_ char **e = NULL;
+        _cleanup_free_ char *boot_root = NULL;
         int r;
 
         assert(c);
@@ -881,13 +961,18 @@ static int context_build_environment(Context *c) {
         if (c->envs)
                 return 0;
 
+        boot_root = path_join(arg_root, c->boot_root);
+        if (!boot_root)
+                return log_oom();
+
         r = strv_env_assign_many(&e,
                                  "LC_COLLATE",                      "C",
                                  "KERNEL_INSTALL_VERBOSE",          one_zero(arg_verbose),
                                  "KERNEL_INSTALL_IMAGE_TYPE",       kernel_image_type_to_string(c->kernel_image_type),
                                  "KERNEL_INSTALL_MACHINE_ID",       SD_ID128_TO_STRING(c->machine_id),
                                  "KERNEL_INSTALL_ENTRY_TOKEN",      c->entry_token,
-                                 "KERNEL_INSTALL_BOOT_ROOT",        c->boot_root,
+                                 "KERNEL_INSTALL_ROOT",             strempty(arg_root),
+                                 "KERNEL_INSTALL_BOOT_ROOT",        boot_root,
                                  "KERNEL_INSTALL_LAYOUT",           context_get_layout(c),
                                  "KERNEL_INSTALL_INITRD_GENERATOR", strempty(c->initrd_generator),
                                  "KERNEL_INSTALL_UKI_GENERATOR",    strempty(c->uki_generator),
@@ -960,7 +1045,7 @@ static int context_execute(Context *c) {
         r = execute_strv(
                         /* name = */ NULL,
                         c->plugins,
-                        /* root = */ NULL,
+                        arg_root,
                         USEC_INFINITY,
                         /* callbacks = */ NULL,
                         /* callback_args = */ NULL,
@@ -1101,6 +1186,10 @@ static int help(void) {
                "  -v --verbose           Increase verbosity\n"
                "     --esp-path=PATH     Path to the EFI System Partition (ESP)\n"
                "     --boot-path=PATH    Path to the $BOOT partition\n"
+               "     --root=PATH         Operate on an alternate filesystem root\n"
+               "     --image=PATH        Operate on disk image as filesystem root\n"
+               "     --image-policy=POLICY\n"
+               "                         Specify disk image dissection policy\n"
                "     --make-entry-directory=yes|no|auto\n"
                "                         Create $BOOT/ENTRY-TOKEN/ directory\n"
                "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
@@ -1119,6 +1208,9 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 ARG_VERSION = 0x100,
                 ARG_ESP_PATH,
                 ARG_BOOT_PATH,
+                ARG_ROOT,
+                ARG_IMAGE,
+                ARG_IMAGE_POLICY,
                 ARG_MAKE_ENTRY_DIRECTORY,
                 ARG_ENTRY_TOKEN,
         };
@@ -1128,6 +1220,9 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 { "verbose",              no_argument,       NULL, 'v'                      },
                 { "esp-path",             required_argument, NULL, ARG_ESP_PATH             },
                 { "boot-path",            required_argument, NULL, ARG_BOOT_PATH            },
+                { "root",                 required_argument, NULL, ARG_ROOT                 },
+                { "image",                required_argument, NULL, ARG_IMAGE                },
+                { "image-policy",         required_argument, NULL, ARG_IMAGE_POLICY         },
                 { "make-entry-directory", required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY },
                 { "entry-token",          required_argument, NULL, ARG_ENTRY_TOKEN          },
                 {}
@@ -1163,6 +1258,24 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                                 return log_oom();
                         break;
 
+                case ARG_ROOT:
+                        r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE_POLICY:
+                        r = parse_image_policy_argument(optarg, &arg_image_policy);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case ARG_MAKE_ENTRY_DIRECTORY:
                         if (streq(optarg, "auto"))
                                 arg_make_entry_directory = -1;
@@ -1187,6 +1300,9 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 default:
                         assert_not_reached();
                 }
+
+        if (arg_root && arg_image)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
         return 1;
 }
