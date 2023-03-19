@@ -6,6 +6,7 @@
 #include "build.h"
 #include "chase.h"
 #include "conf-files.h"
+#include "dissect-image.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "exec-util.h"
@@ -16,6 +17,7 @@
 #include "kernel-image.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "os-util.h"
 #include "parse-argument.h"
@@ -32,10 +34,12 @@ static bool arg_verbose = false;
 static char *arg_esp_path = NULL;
 static char *arg_xbootldr_path = NULL;
 static char *arg_root = NULL;
+static char *arg_image = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 
 typedef enum Action {
         ACTION_ADD,
@@ -1172,6 +1176,7 @@ static int help(void) {
                "     --esp-path=PATH     Path to the EFI System Partition (ESP)\n"
                "     --boot-path=PATH    Path to the $BOOT partition\n"
                "     --root=PATH         Operate on an alternate filesystem root\n"
+               "     --image=PATH        Operate on disk image as filesystem root\n"
                "\nSee the %4$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -1187,6 +1192,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ESP_PATH,
                 ARG_BOOT_PATH,
                 ARG_ROOT,
+                ARG_IMAGE,
         };
         static const struct option options[] = {
                 { "help",      no_argument,       NULL, 'h'           },
@@ -1195,6 +1201,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "esp-path",  required_argument, NULL, ARG_ESP_PATH  },
                 { "boot-path", required_argument, NULL, ARG_BOOT_PATH },
                 { "root",      required_argument, NULL, ARG_ROOT      },
+                { "image",     required_argument, NULL, ARG_IMAGE     },
                 {}
         };
         int c, r;
@@ -1233,12 +1240,21 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_IMAGE:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
                 default:
                         assert_not_reached();
                 }
+
+        if (arg_root && arg_image)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
         return 1;
 }
@@ -1250,6 +1266,8 @@ static int run(int argc, char* argv[]) {
                 { "inspect",     1,        2,        VERB_DEFAULT, verb_inspect        },
                 {}
         };
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
         _cleanup_(context_done) Context c = {
                 .action = _ACTION_INVALID,
                 .kernel_image_type = KERNEL_IMAGE_TYPE_UNKNOWN,
@@ -1269,6 +1287,25 @@ static int run(int argc, char* argv[]) {
         r = context_init(&c);
         if (r < 0)
                 return r;
+
+        /* Open up and mount the image */
+        if (arg_image) {
+                assert(!arg_root);
+
+                r = mount_image_privately_interactively(
+                                arg_image,
+                                DISSECT_IMAGE_GENERIC_ROOT |
+                                DISSECT_IMAGE_RELAX_VAR_CHECK,
+                                &unlink_dir,
+                                /* ret_dir_fd = */ NULL,
+                                &loop_device);
+                if (r < 0)
+                        return r;
+
+                arg_root = strdup(unlink_dir);
+                if (!arg_root)
+                        return log_oom();
+        }
 
         if (invoked_as(argv, "installkernel"))
                 return run_as_installkernel(argc, argv, &c);
