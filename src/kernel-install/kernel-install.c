@@ -1030,6 +1030,12 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
 
         c->action = ACTION_INSPECT;
 
+        if (argc >= 2) {
+                r = context_set_kernel(c, argv[1]);
+                if (r < 0)
+                        return r;
+        }
+
         r = context_prepare_execution(c);
         if (r < 0)
                 return r;
@@ -1076,7 +1082,7 @@ static int help(void) {
                "\nUsage:\n"
                "  %1$s [OPTIONS...] add KERNEL-VERSION KERNEL-IMAGE [INITRD-FILE...]\n"
                "  %1$s [OPTIONS...] remove KERNEL-VERSION\n"
-               "  %1$s [OPTIONS...] inspect\n"
+               "  %1$s [OPTIONS...] inspect [KERNEL-IMAGE]\n"
                "\nOptions:\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
@@ -1132,7 +1138,7 @@ static int run(int argc, char* argv[]) {
         static const Verb verbs[] = {
                 { "add",         3,        VERB_ANY, 0,            verb_add            },
                 { "remove",      2,        2,        0,            verb_remove         },
-                { "inspect",     1,        1,        VERB_DEFAULT, verb_inspect        },
+                { "inspect",     1,        2,        VERB_DEFAULT, verb_inspect        },
                 {}
         };
         _cleanup_(context_done) Context c = {
