@@ -189,6 +189,9 @@
     <para>The following options are understood:</para>
 
     <variablelist>
+      <xi:include href="standard-options.xml" xpointer="esp-path"/>
+      <xi:include href="standard-options.xml" xpointer="boot-path"/>
+
       <varlistentry>
         <term><option>-v</option></term>
         <term><option>--verbose</option></term>
