@@ -7,6 +7,7 @@
 #include "log.h"
 #include "macro.h"
 #include "proc-cmdline.h"
+#include "process-util.h"
 #include "special.h"
 #include "string-util.h"
 #include "tests.h"
@@ -245,6 +246,21 @@ TEST(proc_cmdline_key_startswith) {
         assert_se(proc_cmdline_key_startswith("foo-bar", "foo_bar"));
         assert_se(proc_cmdline_key_startswith("foo-bar", "foo_"));
         assert_se(!proc_cmdline_key_startswith("foo-bar", "foo_xx"));
+}
+
+static void test_proc_cmdline_filter_pid1_args_one(const char *s, const char *expected) {
+        _cleanup_free_ char *result;
+
+        assert_se(proc_cmdline_filter_pid1_args(s, &result) >= 0);
+        assert_se(streq(result, expected));
+}
+
+TEST(proc_cmdline_filter_pid1_args) {
+        test_proc_cmdline_filter_pid1_args_one("   systemd   ", "");
+        test_proc_cmdline_filter_pid1_args_one("systemd -a -b -c --quu --hoge", "");
+        test_proc_cmdline_filter_pid1_args_one("systemd hoge  foo    var", "hoge foo var");
+        test_proc_cmdline_filter_pid1_args_one("/usr/lib/systemd/systemd --switched-root  --system  --deserialize   30 systemd.log_level=debug --unit foo.target systemd.log_target=\"console\"  'arg   with   space '   \t",
+                                               "systemd.log_level=debug systemd.log_target=\"console\" 'arg   with   space '");
 }
 
 static int intro(void) {
