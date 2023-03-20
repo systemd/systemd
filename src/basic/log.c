@@ -1264,6 +1264,18 @@ LogTarget log_get_target(void) {
         return log_target;
 }
 
+LogTarget log_settle_target(void) {
+        LogTarget t = log_get_target();
+
+        if (t != LOG_TARGET_AUTO)
+                return t;
+
+        t = stderr_is_journal() ? LOG_TARGET_JOURNAL_OR_KMSG : LOG_TARGET_CONSOLE;
+
+        log_set_target(t);
+        return t;
+}
+
 int log_get_max_level(void) {
         return log_max_level;
 }
