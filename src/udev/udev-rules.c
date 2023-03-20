@@ -1409,6 +1409,28 @@ static bool tokens_eq(const UdevRuleToken *a, const UdevRuleToken *b) {
                token_type_and_data_eq(a, b);
 }
 
+static bool nulstr_tokens_conflict(const UdevRuleToken *a, const UdevRuleToken *b) {
+        assert(a);
+        assert(b);
+
+        if (!(a->type == b->type &&
+              type_has_nulstr_value(a->type) &&
+              a->op == b->op &&
+              a->op == OP_MATCH &&
+              a->match_type == b->match_type &&
+              a->match_type == MATCH_TYPE_PLAIN &&
+              a->attr_subst_type == b->attr_subst_type &&
+              a->attr_match_remove_trailing_whitespace == b->attr_match_remove_trailing_whitespace &&
+              token_type_and_data_eq(a, b)))
+                return false;
+
+        NULSTR_FOREACH(i, a->value)
+                if (nulstr_contains(b->value, i))
+                        return false;
+
+        return true;
+}
+
 static void udev_check_unused_labels(UdevRuleLine *line) {
         assert(line);
 
@@ -1424,14 +1446,24 @@ static void udev_check_conflicts_duplicates(UdevRuleLine *line) {
 
         LIST_FOREACH(tokens, token, line->tokens)
                 LIST_FOREACH(tokens, i, token->tokens_next) {
-                        if (!tokens_eq(token, i))
+                        bool new_conflicts = false, new_duplicates = false;
+
+                        if (tokens_eq(token, i)) {
+                                if (!duplicates && token->op == i->op)
+                                        new_duplicates = true;
+                                if (!conflicts && conflicting_op(token->op, i->op))
+                                        new_conflicts = true;
+                        } else if (!conflicts && nulstr_tokens_conflict(token, i))
+                                new_conflicts = true;
+                        else
                                 continue;
-                        if (!duplicates && token->op == i->op) {
-                                duplicates = true;
+
+                        if (new_duplicates) {
+                                duplicates = new_duplicates;
                                 log_line_warning(line, "duplicate expressions");
                         }
-                        if (!conflicts && conflicting_op(token->op, i->op)) {
-                                conflicts = true;
+                        if (new_conflicts) {
+                                conflicts = new_conflicts;
                                 log_line_error(line, "conflicting match expressions, the line takes no effect");
                         }
                         if (conflicts && duplicates)
