@@ -1179,17 +1179,8 @@ install_suse_systemd() {
         done < <(rpm -ql "$p")
     done
 
-    # Embed the files needed by the extended testsuite at runtime. Also include
-    # the unit tests needed by TEST-02-UNITTESTS. This is mostly equivalent to
-    # what `ninja install` does for the tests when '-Dinstall-tests=true'.
-    #
-    # Why? openSUSE ships a package named 'systemd-testsuite' which contains
-    # the minimal set of files that allows to run the testsuite on the host (as
-    # long as it runs an equivalent version of systemd) getting rid of the
-    # hassles of fetching, configuring, building the source code.
-    dinfo "Install the files needed by the tests at runtime"
+    dinfo "Install the data needed by the tests at runtime"
     inst_recursive "${SOURCE_DIR}/testdata"
-    inst_recursive "${SOURCE_DIR}/unit-tests"
 
     # On openSUSE, this directory is not created at package install, at least
     # for now.

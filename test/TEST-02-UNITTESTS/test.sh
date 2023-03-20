@@ -20,6 +20,13 @@ $KERNEL_APPEND
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
+test_append_files() {
+    if get_bool "$LOOKS_LIKE_SUSE"; then
+        dinfo "Install the unit test binaries needed by the TEST-02-UNITTESTS at runtime"
+        inst_recursive "${SOURCE_DIR}/unit-tests"
+    fi
+}
+
 check_result_nspawn() {
     check_result_nspawn_unittests "${1}"
 }
