@@ -618,6 +618,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RestartSecMax=</varname></term>
+        <listitem><para>The longest time to sleep before restarting a service as
+        the interval goes up due to <varname>RestartSecStep=</varname>.
+        Takes a value in the same format as <varname>RestartSec=</varname>.
+        Defaults to <literal>infinity</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>TimeoutStartSec=</varname></term>
         <listitem><para>Configures the time to wait for start-up. If a daemon service does not signal
         start-up completion within the configured time, the service will be considered failed and will be

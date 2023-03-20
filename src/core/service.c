@@ -115,6 +115,7 @@ static void service_init(Unit *u) {
         s->timeout_abort_set = u->manager->default_timeout_abort_set;
         s->restart_usec = u->manager->default_restart_usec;
         s->restart_usec_step = 0;
+        s->restart_usec_max = USEC_INFINITY;
         s->runtime_max_usec = USEC_INFINITY;
         s->type = _SERVICE_TYPE_INVALID;
         s->socket_fd = -EBADF;
@@ -253,8 +254,12 @@ static void service_start_watchdog(Service *s) {
 }
 
 static usec_t service_restart_usec(Service *s) {
+        usec_t increased;
         assert(s);
-        return usec_add(usec_adds->restart_usec, s->restart_usec_step * s->n_restarts);
+
+        increased = usec_add(s->restart_usec, s->restart_usec_step * s->n_restarts);
+
+        return MIN(increased, s->restart_usec_max);
 }
 
 static void service_extend_event_source_timeout(Service *s, sd_event_source *source, usec_t extended) {
@@ -895,12 +900,14 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         fprintf(f,
                 "%sRestartSec: %s\n"
                 "%sRestartSecStep: %s\n"
+                "%sRestartSecMax: %s\n"
                 "%sTimeoutStartSec: %s\n"
                 "%sTimeoutStopSec: %s\n"
                 "%sTimeoutStartFailureMode: %s\n"
                 "%sTimeoutStopFailureMode: %s\n",
                 prefix, FORMAT_TIMESPAN(s->restart_usec, USEC_PER_SEC),
                 prefix, FORMAT_TIMESPAN(s->restart_usec_step, USEC_PER_SEC),
+                prefix, FORMAT_TIMESPAN(s->restart_usec_max, USEC_PER_SEC),
                 prefix, FORMAT_TIMESPAN(s->timeout_start_usec, USEC_PER_SEC),
                 prefix, FORMAT_TIMESPAN(s->timeout_stop_usec, USEC_PER_SEC),
                 prefix, service_timeout_failure_mode_to_string(s->timeout_start_failure_mode),
