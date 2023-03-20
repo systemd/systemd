@@ -117,6 +117,7 @@ struct Service {
 
         usec_t restart_usec;
         usec_t restart_usec_step;
+        usec_t restart_usec_max;
         usec_t timeout_start_usec;
         usec_t timeout_stop_usec;
         usec_t timeout_abort_usec;
