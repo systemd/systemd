@@ -81,6 +81,7 @@ static int open_sockets(int *ret_epoll_fd, bool accept) {
 
                 log_close();
                 log_set_open_when_needed(true);
+                log_settle_target();
 
                 r = close_all_fds(except, n);
                 if (r < 0)
