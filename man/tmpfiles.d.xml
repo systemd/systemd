@@ -446,13 +446,15 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           <term><varname>a+</varname></term>
           <listitem><para>Set POSIX ACLs (access control lists), see <citerefentry
           project='man-pages'><refentrytitle>acl</refentrytitle>
-          <manvolnum>5</manvolnum></citerefentry>. If suffixed with <varname>+</varname>, the specified
-          entries will be added to the existing set. <command>systemd-tmpfiles</command> will automatically
-          add the required base entries for user and group based on the access mode of the file, unless base
-          entries already exist or are explicitly specified. The mask will be added if not specified
-          explicitly or already present. Lines of this type accept shell-style globs in place of normal path
-          names. This can be useful for allowing additional access to certain files. Does not follow
-          symlinks.</para></listitem>
+          <manvolnum>5</manvolnum></citerefentry>. Additionally, if 'X' is used, the execute bit is set only
+          if the file is a directory or already has execute permission for some user, as mentioned in
+          <citerefentry project='man-pages'><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+          If suffixed with <varname>+</varname>, the specified entries will be added to the existing set.
+          <command>systemd-tmpfiles</command> will automatically add the required base entries for user
+          and group based on the access mode of the file, unless base entries already exist or are explicitly
+          specified. The mask will be added if not specified explicitly or already present. Lines of this type
+          accept shell-style globs in place of normal path names. This can be useful for allowing additional
+          access to certain files. Does not follow symlinks.</para></listitem>
         </varlistentry>
 
         <varlistentry>
