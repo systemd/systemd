@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <getopt.h>
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -10,14 +11,91 @@
 #include "initrd-util.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "proc-cmdline-internal.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "special.h"
 #include "string-util.h"
+#include "strv.h"
 #include "virt.h"
 
-int proc_cmdline(char **ret) {
+static void filter_pid1_args(
+                int argc,                /* input */
+                char **argv,             /* input, may be reordered by this function, should not be reused. */
+                const char **filtered) { /* optput */
+
+        int saved_optind, saved_opterr, saved_optopt, r;
+        char *saved_optarg;
+        size_t n = 0;
+
+        assert(argc > 0);
+        assert(argv);
+        assert(filtered);
+
+        saved_optind = optind;
+        saved_opterr = opterr;
+        saved_optopt = optopt;
+        saved_optarg = optarg;
+
+        optind = 1;
+        opterr = 0;
+
+        /* Filter out all known options. */
+        while ((r = getopt_long(argc, argv, SYSTEMD_GETOPT_SHORT_OPTIONS, systemd_getopt_options, NULL)) >= 0)
+                ;
+
+        /* Also filter all strings start with '-'. */
+        for (int i = optind; i < argc; i++) {
+                if (argv[i][0] == '-')
+                        continue;
+
+                filtered[n++] = argv[i];
+        }
+
+        /* Make the result valid strv. */
+        filtered[n] = NULL;
+
+        optind = saved_optind;
+        opterr = saved_opterr;
+        optopt = saved_optopt;
+        optarg = saved_optarg;
+}
+
+int proc_cmdline_filter_pid1_args(const char *s, char **ret) {
+        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_free_ const char **filtered = NULL;
+        char *joined;
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        /* Here, we need to keep quotes, otherwise, the result string will be wrongly parsed by
+         * proc_cmdline_extract_first(). We assume that the arguments that should be filtered by
+         * filter_pid1_args() are not quoted. */
+        r = strv_split_full(&args, s, NULL, EXTRACT_KEEP_QUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
+        if (r < 0)
+                return r;
+
+        /* filter_pid1_args() always cut the first argument, hence +1 is not necessary. */
+        filtered = new(const char*, r);
+        if (!filtered)
+                return -ENOMEM;
+
+        filter_pid1_args(r, args, filtered);
+
+        joined = strv_join((char* const*) filtered, " ");
+        if (!joined)
+                return -ENOMEM;
+
+        *ret = joined;
+        return 0;
+}
+
+int proc_cmdline_full(char **ret, bool filter_pid1_args) {
         const char *e;
+        int r;
+
         assert(ret);
 
         /* For testing purposes it is sometimes useful to be able to override what we consider /proc/cmdline to be */
@@ -33,10 +111,22 @@ int proc_cmdline(char **ret) {
                 return 0;
         }
 
-        if (detect_container() > 0)
-                return get_process_cmdline(1, SIZE_MAX, 0, ret);
-        else
+        if (detect_container() <= 0)
                 return read_one_line_file("/proc/cmdline", ret);
+
+        /* When we are running in a container, then the command line may contain the positional arguments
+         * that should be parsed by PID1, e.g. deserialized FD or so, let's filter them. */
+
+        _cleanup_free_ char *s = NULL;
+        r = get_process_cmdline(1, SIZE_MAX, 0, &s);
+        if (r < 0)
+                return r;
+
+        if (filter_pid1_args)
+                return proc_cmdline_filter_pid1_args(s, ret);
+
+        *ret = TAKE_PTR(s);
+        return 0;
 }
 
 static int proc_cmdline_extract_first(const char **p, char **ret_word, ProcCmdlineFlags flags) {
@@ -133,7 +223,7 @@ int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, ProcCmdlineF
                 }
         }
 
-        r = proc_cmdline(&line);
+        r = proc_cmdline_full(&line, /* filter_pid1_args = */ true);
         if (r < 0)
                 return r;
 
@@ -246,7 +336,7 @@ int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_val
         if (FLAGS_SET(flags, PROC_CMDLINE_VALUE_OPTIONAL) && !ret_value)
                 return -EINVAL;
 
-        r = proc_cmdline(&line);
+        r = proc_cmdline_full(&line, /* filter_pid1_args = */ true);
         if (r < 0)
                 return r;
 
@@ -334,7 +424,7 @@ int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
                                 processing_efi = false;
 
                                 line = mfree(line);
-                                r = proc_cmdline(&line);
+                                r = proc_cmdline_full(&line, /* filter_pid1_args = */ true);
                                 if (r < 0)
                                         return r;
 
