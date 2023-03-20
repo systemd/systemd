@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
+#include <math.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -114,6 +115,9 @@ static void service_init(Unit *u) {
         s->timeout_abort_usec = u->manager->default_timeout_abort_usec;
         s->timeout_abort_set = u->manager->default_timeout_abort_set;
         s->restart_usec = u->manager->default_restart_usec;
+        s->restart_steps = 0;
+        s->restart_usec_max = USEC_INFINITY;
+        s->restart_usec_cur = s->restart_usec;
         s->runtime_max_usec = USEC_INFINITY;
         s->type = _SERVICE_TYPE_INVALID;
         s->socket_fd = -EBADF;
@@ -260,6 +264,30 @@ static void service_start_watchdog(Service *s) {
         }
         if (r < 0)
                 log_unit_warning_errno(UNIT(s), r, "Failed to install watchdog timer: %m");
+}
+
+static usec_t service_set_restart_usec(Service *s) {
+        long double unit;
+
+        assert(s);
+
+        /* This is called before n_restarts is updated */
+        if (s->n_restarts == 0 ||
+            s->restart_steps == 0 ||
+            s->restart_usec_max == USEC_INFINITY ||
+            s->restart_usec == s->restart_usec_max)
+                return s->restart_usec_cur = s->restart_usec;
+
+        if (s->n_restarts >= s->restart_steps)
+                return s->restart_usec_cur = s->restart_usec_max;
+
+        /* Enforced in service_verify() and above */
+        assert(s->restart_usec_max > s->restart_usec);
+
+        unit = powl(s->restart_usec_max - s->restart_usec, 1.0L / s->restart_steps);
+
+        s->restart_usec_cur = usec_add(s->restart_usec, (usec_t) powl(unit, s->n_restarts));
+        return s->restart_usec_cur;
 }
 
 static void service_extend_event_source_timeout(Service *s, sd_event_source *source, usec_t extended) {
@@ -644,6 +672,17 @@ static int service_verify(Service *s) {
         if (s->exit_type == SERVICE_EXIT_CGROUP && cg_unified() < CGROUP_UNIFIED_SYSTEMD)
                 log_unit_warning(UNIT(s), "Service has ExitType=cgroup set, but we are running with legacy cgroups v1, which might not work correctly. Continuing.");
 
+        if (s->restart_usec_max == USEC_INFINITY && s->restart_steps > 0)
+                log_unit_warning(UNIT(s), "Service has RestartSteps= but no RestartSecMax= setting. Ignoring.");
+
+        if (s->restart_usec_max != USEC_INFINITY && s->restart_steps == 0)
+                log_unit_warning(UNIT(s), "Service has RestartSecMax= but no RestartSteps= setting. Ignoring.");
+
+        if (s->restart_usec_max < s->restart_usec) {
+                log_unit_warning(UNIT(s), "RestartSecMax= has a value smaller than RestartSec=, resetting RestartSec= to RestartSecMax=.");
+                s->restart_usec = s->restart_usec_max;
+        }
+
         return 0;
 }
 
@@ -899,11 +938,17 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%sRestartSec: %s\n"
+                "%sRestartSteps: %u\n"
+                "%sRestartSecMax: %s\n"
+                "%sRestartSecCurrent: %s\n"
                 "%sTimeoutStartSec: %s\n"
                 "%sTimeoutStopSec: %s\n"
                 "%sTimeoutStartFailureMode: %s\n"
                 "%sTimeoutStopFailureMode: %s\n",
                 prefix, FORMAT_TIMESPAN(s->restart_usec, USEC_PER_SEC),
+                prefix, s->restart_steps,
+                prefix, FORMAT_TIMESPAN(s->restart_usec_max, USEC_PER_SEC),
+                prefix, FORMAT_TIMESPAN(s->restart_usec_cur, USEC_PER_SEC),
                 prefix, FORMAT_TIMESPAN(s->timeout_start_usec, USEC_PER_SEC),
                 prefix, FORMAT_TIMESPAN(s->timeout_stop_usec, USEC_PER_SEC),
                 prefix, service_timeout_failure_mode_to_string(s->timeout_start_failure_mode),
@@ -1215,7 +1260,7 @@ static usec_t service_coldplug_timeout(Service *s) {
                 return usec_add(UNIT(s)->state_change_timestamp.monotonic, service_timeout_abort_usec(s));
 
         case SERVICE_AUTO_RESTART:
-                return usec_add(UNIT(s)->inactive_enter_timestamp.monotonic, s->restart_usec);
+                return usec_add(UNIT(s)->inactive_enter_timestamp.monotonic, s->restart_usec_cur);
 
         case SERVICE_CLEANING:
                 return usec_add(UNIT(s)->state_change_timestamp.monotonic, s->exec_context.timeout_clean_usec);
@@ -1901,7 +1946,9 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         if (s->will_auto_restart) {
                 s->will_auto_restart = false;
 
-                r = service_arm_timer(s, /* relative= */ true, s->restart_usec);
+                service_set_restart_usec(s);
+
+                r = service_arm_timer(s, /* relative= */ true, s->restart_usec_cur);
                 if (r < 0) {
                         s->n_keep_fd_store--;
                         goto fail;
@@ -4116,8 +4163,8 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
         case SERVICE_AUTO_RESTART:
                 if (s->restart_usec > 0)
                         log_unit_debug(UNIT(s),
-                                       "Service RestartSec=%s expired, scheduling restart.",
-                                       FORMAT_TIMESPAN(s->restart_usec, USEC_PER_SEC));
+                                       "Service restart interval %s expired, scheduling restart.",
+                                       FORMAT_TIMESPAN(s->restart_usec_cur, USEC_PER_SEC));
                 else
                         log_unit_debug(UNIT(s),
                                        "Service has no hold-off time (RestartSec=0), scheduling restart.");
