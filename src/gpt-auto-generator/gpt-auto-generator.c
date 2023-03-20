@@ -723,6 +723,8 @@ static int enumerate_partitions(dev_t devnum) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_free_ char *devname = NULL;
+        char p[SYS_BLOCK_PATH_MAX("/size")];
+        char *s = NULL;
         int r, k;
 
         r = block_get_whole_disk(devnum, &devnum);
@@ -741,6 +743,13 @@ static int enumerate_partitions(dev_t devnum) {
         r = loop_device_open_from_path(devname, O_RDONLY, LOCK_SH, &loop);
         if (r < 0)
                 return log_debug_errno(r, "Failed to open %s: %m", devname);
+
+        xsprintf_sys_block_path(p, "/size", devnum);
+        r = read_one_line_file(p, &s);
+        if (r == 0 && !strcmp(s, "0")) {
+                log_debug_errno(r, "Zero sized block device %s, ignoring.", devname);
+                return 0;
+        }
 
         r = dissect_loop_device(
                         loop,
