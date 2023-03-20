@@ -232,7 +232,7 @@ fail:
         return r;
 }
 
-static bool stderr_is_journal(void) {
+bool stderr_is_journal(void) {
         _cleanup_free_ char *w = NULL;
         const char *e;
         uint64_t dev, ino;
@@ -1262,6 +1262,15 @@ void log_parse_environment(void) {
 
 LogTarget log_get_target(void) {
         return log_target;
+}
+
+LogTarget log_settle_target(void) {
+        LogTarget t = log_get_target();
+
+        if (t != LOG_TARGET_AUTO)
+                return t;
+
+        return stderr_is_journal() ? LOG_TARGET_JOURNAL_OR_KMSG : LOG_TARGET_CONSOLE;
 }
 
 int log_get_max_level(void) {
