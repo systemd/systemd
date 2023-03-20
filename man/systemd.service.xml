@@ -611,6 +611,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RestartSecStep=</varname></term>
+        <listitem><para>Increase the time to sleep before restarting a service as
+        the restart counter goes up. Takes a value in the same format as
+        <varname>RestartSec=</varname>. Defaults to 0.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>TimeoutStartSec=</varname></term>
         <listitem><para>Configures the time to wait for start-up. If a daemon service does not signal
         start-up completion within the configured time, the service will be considered failed and will be
