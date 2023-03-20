@@ -6201,6 +6201,8 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_service_type,          "SERVICETYPE" },
                 { config_parse_service_exit_type,     "SERVICEEXITTYPE" },
                 { config_parse_service_restart,       "SERVICERESTART" },
+                { config_parse_unsigned,              "SERVICERESTARTSTEPS" },
+                { config_parse_sec,                   "SERVICERESTARTSECMAX" },
                 { config_parse_service_timeout_failure_mode, "TIMEOUTMODE" },
                 { config_parse_kill_mode,             "KILLMODE" },
                 { config_parse_signal,                "SIGNAL" },
