@@ -54,6 +54,7 @@ void log_set_target(LogTarget target);
 void log_set_target_and_open(LogTarget target);
 int log_set_target_from_string(const char *e);
 LogTarget log_get_target(void) _pure_;
+LogTarget log_settle_target(void);
 
 void log_set_max_level(int level);
 int log_set_max_level_from_string(const char *e);
@@ -85,6 +86,7 @@ assert_cc(STRLEN(__FILE__) > STRLEN(RELATIVE_SOURCE_PATH) + 1);
 int log_open(void);
 void log_close(void);
 void log_forget_fds(void);
+bool stderr_is_journal(void);
 
 void log_parse_environment_variables(void);
 void log_parse_environment(void);
