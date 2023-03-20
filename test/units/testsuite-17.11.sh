@@ -278,6 +278,7 @@ test_syntax_error 'a="b"' "Invalid key 'a'"
 test_syntax_error 'KERNEL=="", KERNEL=="?*", NAME="a"' 'conflicting match expressions, the line takes no effect'
 test_syntax_error 'KERNEL=="abc", KERNEL!="abc", NAME="b"' 'conflicting match expressions, the line takes no effect'
 test_syntax_error 'KERNEL=="|a|b", KERNEL!="b|a|", NAME="c"' 'conflicting match expressions, the line takes no effect'
+test_syntax_error 'KERNEL=="a|b", KERNEL=="c|d|e", NAME="f"' 'conflicting match expressions, the line takes no effect'
 # shellcheck disable=SC2016
 test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}!="?*" ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
                   'conflicting match expressions, the line takes no effect'
@@ -290,6 +291,8 @@ test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}==
 cat >"${rules}" <<'EOF'
 KERNEL=="a|b", KERNEL=="a|c", NAME="d"
 KERNEL=="a|b", KERNEL!="a|c", NAME="d"
+KERNEL!="a", KERNEL!="b", NAME="c"
+KERNEL=="|a", KERNEL=="|b", NAME="c"
 EOF
 assert_0 "${rules}"
 
