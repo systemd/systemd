@@ -136,16 +136,16 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
 static bool use_load_options(
                 EFI_HANDLE stub_image,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
-                bool have_cmdline,
+                bool have_allowlist,
                 char16_t **ret) {
 
         assert(stub_image);
         assert(loaded_image);
         assert(ret);
 
-        /* We only allow custom command lines if we aren't in secure boot or if no cmdline was baked into
+        /* We only allow custom command lines if we aren't in secure boot or if an allowlist was baked into
          * the stub image. */
-        if (secure_boot_enabled() && have_cmdline)
+        if (secure_boot_enabled() && !have_allowlist)
                 return false;
 
         /* We also do a superficial check whether first character of passed command line
@@ -180,6 +180,169 @@ static bool use_load_options(
         return true;
 }
 
+#define MAX_CMDLINE_TOKENS 100
+
+/* Split string by space. TODO: at the moment, spaces under quotes are not supported.
+ * end points to '\0'. */
+static size_t parse_cmdline_params(char16_t *start, char16_t **list) {
+        size_t size = 0;
+        bool found = false;
+
+        while(*start != '\0' && size < MAX_CMDLINE_TOKENS) {
+                if (*start == ' ' || *start == '\r' || *start == '\t' || *start == '\n'){
+                        if (found) {
+                                *start = '\0';
+                                found = false;
+                        }
+                } else {
+                        if (!found) {
+                                list[size++] = start;
+                                found = true;
+                        }
+                }
+                start++;
+        }
+
+        return size;
+}
+
+/**
+ * glob_match - Shell-style pattern matching, like !fnmatch(pat, str, 0)
+ * @pat: Shell-style pattern to match, e.g. "*.[ch]".
+ * @str: String to match.  The pattern must match the entire string.
+ *
+ * Perform shell-style glob matching, returning true (1) if the match
+ * succeeds, or false (0) if it fails.  Equivalent to !fnmatch(@pat, @str, 0).
+ *
+ * Pattern metacharacters are ?, *, [ and \.
+ * (And, inside character classes, !, - and ].)
+ *
+ * This is small and simple implementation intended for device blacklists
+ * where a string is matched against a number of patterns.  Thus, it
+ * does not preprocess the patterns.  It is non-recursive, and run-time
+ * is at most quadratic: strlen(@str)*strlen(@pat).
+ *
+ * An example of the worst case is glob_match("*aaaaa", "aaaaaaaaaa");
+ * it takes 6 passes over the pattern before matching the string.
+ *
+ * Like !fnmatch(@pat, @str, 0) and unlike the shell, this does NOT
+ * treat / or leading . specially; it isn't actually used for pathnames.
+ *
+ * Note that according to glob(7) (and unlike bash), character classes
+ * are complemented by a leading !; this does not support the regex-style
+ * [^a-z] syntax.
+ *
+ * An opening bracket without a matching close is matched literally.
+ */
+static bool glob_match(const char16_t *pat, const char16_t *str) {
+        /*
+         * Backtrack to previous * on mismatch and retry starting one
+         * character later in the string.  Because * matches all characters
+         * (no exception for /), it can be easily proved that there's
+         * never a need to backtrack multiple levels.
+         */
+        const char16_t *back_pat = NULL, *back_str;
+
+        /*
+         * Loop over each token (character or class) in pat, matching
+         * it against the remaining unmatched tail of str.  Return false
+         * on mismatch, or true after matching the trailing nul bytes.
+         */
+        for (;;) {
+                char16_t c = *str++;
+                char16_t d = *pat++;
+
+                switch (d) {
+                case '?':	/* Wildcard: anything but nul */
+                        if (c == '\0')
+                                return false;
+                        break;
+                case '*':	/* Any-length wildcard */
+                        if (*pat == '\0')	/* Optimize trailing * case */
+                                return true;
+                        back_pat = pat;
+                        back_str = --str;	/* Allow zero-length match */
+                        break;
+                case '[': {	/* Character class */
+                        bool match = false, inverted = (*pat == '!');
+                        const char16_t *class = pat + inverted;
+                        char16_t a = *class++;
+
+                        /*
+                         * Iterate over each span in the character class.
+                         * A span is either a single character a, or a
+                         * range a-b.  The first span may begin with ']'.
+                         */
+                        do {
+                                char16_t b = a;
+
+                                if (a == '\0')	/* Malformed */
+                                        goto literal;
+
+                                if (class[0] == '-' && class[1] != ']') {
+                                        b = class[1];
+
+                                        if (b == '\0')
+                                                goto literal;
+
+                                        class += 2;
+                                        /* Any special action if a > b? */
+                                }
+                                match |= (a <= c && c <= b);
+                        } while ((a = *class++) != ']');
+
+                        if (match == inverted)
+                                goto backtrack;
+                        pat = class;
+                        }
+                        break;
+                case '\\':
+                        d = *pat++;
+                        _fallthrough_;
+                default:	/* Literal character */
+literal:
+                        if (c == d) {
+                                if (d == '\0')
+                                        return true;
+                                break;
+                        }
+backtrack:
+                        if (c == '\0' || !back_pat)
+                                return false;	/* No point continuing */
+                        /* Try again from last *, one character later in str. */
+                        pat = back_pat;
+                        str = ++back_str;
+                        break;
+                }
+        }
+}
+
+static void filter_cmdline(char16_t *cmdline, char16_t *allowed) {
+        char16_t *allowlist[MAX_CMDLINE_TOKENS], *cmdlinelist[MAX_CMDLINE_TOKENS];
+        size_t allowlist_size, cmdlinelist_size, i, j;
+        char16_t *accepted_cmdline = cmdline;
+
+        allowlist_size = parse_cmdline_params(allowed, allowlist);
+        cmdlinelist_size = parse_cmdline_params(cmdline, cmdlinelist);
+
+        for (j = 0; j < cmdlinelist_size; j++) {
+                for (i = 0; i < allowlist_size; i++) {
+                        if (glob_match(allowlist[i], cmdlinelist[j])) {
+                                size_t len_cmd = strlen(cmdlinelist[j]);
+                                if (accepted_cmdline != cmdline) {
+                                        *accepted_cmdline = ' ';
+                                        accepted_cmdline++;
+                                }
+                                if (accepted_cmdline != cmdlinelist[j])
+                                        memmove(accepted_cmdline, cmdlinelist[j], len_cmd * sizeof(char16_t));
+                                accepted_cmdline += len_cmd;
+                                break;
+                        }
+                }
+        }
+        *accepted_cmdline = '\0';
+}
+
 static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL;
         size_t credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
@@ -188,7 +351,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         size_t addrs[_UNIFIED_SECTION_MAX] = {}, szs[_UNIFIED_SECTION_MAX] = {};
-        _cleanup_free_ char16_t *cmdline = NULL;
+        _cleanup_free_ char16_t *cmdline = NULL, *allowlist = NULL;
         int sections_measured = -1, parameters_measured = -1;
         bool sysext_measured = false, m;
         uint64_t loader_features = 0;
@@ -262,7 +425,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
         /* Show splash screen as early as possible */
         graphics_splash((const uint8_t*) loaded_image->ImageBase + addrs[UNIFIED_SECTION_SPLASH], szs[UNIFIED_SECTION_SPLASH]);
 
-        if (use_load_options(image, loaded_image, szs[UNIFIED_SECTION_CMDLINE] > 0, &cmdline)) {
+        allowlist = xstrn8_to_16((char *) loaded_image->ImageBase + addrs[UNIFIED_SECTION_CMDLIST],
+                                 szs[UNIFIED_SECTION_CMDLIST]);
+
+        if (use_load_options(image, loaded_image, szs[UNIFIED_SECTION_CMDLIST] > 0, &cmdline)) {
                 /* Let's measure the passed kernel command line into the TPM. Note that this possibly
                  * duplicates what we already did in the boot menu, if that was already used. However, since
                  * we want the boot menu to support an EFI binary, and want to this stub to be usable from
@@ -282,6 +448,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 _cleanup_free_ char16_t *tmp = TAKE_PTR(cmdline), *extra16 = xstr8_to_16(extra);
                 cmdline = xasprintf("%ls %ls", tmp, extra16);
         }
+
+        filter_cmdline(cmdline, allowlist);
 
         export_variables(loaded_image);
 
