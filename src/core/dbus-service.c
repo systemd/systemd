@@ -223,7 +223,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("ExitType", "s", property_get_exit_type, offsetof(Service, exit_type), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Restart", "s", property_get_restart, offsetof(Service, restart), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PIDFile", "s", NULL, offsetof(Service, pid_file), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("NotifyAccess", "s", property_get_notify_access, offsetof(Service, notify_access), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("NotifyAccess", "s", property_get_notify_access, offsetof(Service, notify_access), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("RestartUSec", "t", bus_property_get_usec, offsetof(Service, restart_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimeoutStartUSec", "t", bus_property_get_usec, offsetof(Service, timeout_start_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimeoutStopUSec", "t", bus_property_get_usec, offsetof(Service, timeout_stop_usec), SD_BUS_VTABLE_PROPERTY_CONST),
