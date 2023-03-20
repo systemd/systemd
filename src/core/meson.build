@@ -126,6 +126,7 @@ libcore = shared_library(
                         libblkid,
                         libdl,
                         libkmod,
+                        libm,
                         libmount,
                         libpam,
                         librt,

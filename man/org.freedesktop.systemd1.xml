@@ -2564,6 +2564,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RestartUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u RestartSteps = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t RestartUSecMax = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t TimeoutStartUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t TimeoutStopUSec = ...;
@@ -3188,6 +3192,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property RestartUSec is not documented!-->
 
+    <!--property RestartSteps is not documented!-->
+
+    <!--property RestartUSecMax is not documented!-->
+
     <!--property TimeoutStartFailureMode is not documented!-->
 
     <!--property TimeoutStopFailureMode is not documented!-->
@@ -3745,6 +3753,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="NotifyAccess"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestartUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RestartSteps"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RestartUSecMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TimeoutStartUSec"/>
 

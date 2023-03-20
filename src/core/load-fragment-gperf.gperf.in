@@ -399,6 +399,8 @@ Service.ExecReload,                      config_parse_exec,                     
 Service.ExecStop,                        config_parse_exec,                           SERVICE_EXEC_STOP,                  offsetof(Service, exec_command)
 Service.ExecStopPost,                    config_parse_exec,                           SERVICE_EXEC_STOP_POST,             offsetof(Service, exec_command)
 Service.RestartSec,                      config_parse_sec,                            0,                                  offsetof(Service, restart_usec)
+Service.RestartSteps,                    config_parse_unsigned,                       0,                                  offsetof(Service, restart_steps)
+Service.RestartSecMax,                   config_parse_sec,                            0,                                  offsetof(Service, restart_usec_max)
 Service.TimeoutSec,                      config_parse_service_timeout,                0,                                  0
 Service.TimeoutStartSec,                 config_parse_service_timeout,                0,                                  0
 Service.TimeoutStopSec,                  config_parse_sec_fix_0,                      0,                                  offsetof(Service, timeout_stop_usec)

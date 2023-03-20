@@ -611,6 +611,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RestartSteps=</varname></term>
+        <listitem><para>Configures the number of steps to take to increase the interval
+        of auto-restarts from <varname>RestartSec=</varname> to <varname>RestartSecMax=</varname>.
+        Takes a positive integer or 0 to disable it. Defaults to 0.</para>
+
+        <para>This setting is effective only if <varname>RestartSecMax=</varname> is also set.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RestartSecMax=</varname></term>
+        <listitem><para>Configures the longest time to sleep before restarting a service
+        as the interval goes up with <varname>RestartSteps=</varname>. Takes a value
+        in the same format as <varname>RestartSec=</varname>, or <literal>infinity</literal>
+        to disable the setting. Defaults to <literal>infinity</literal>.</para>
+
+        <para>This setting is effective only if <varname>RestartSteps=</varname> is also set.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>TimeoutStartSec=</varname></term>
         <listitem><para>Configures the time to wait for start-up. If a daemon service does not signal
         start-up completion within the configured time, the service will be considered failed and will be
