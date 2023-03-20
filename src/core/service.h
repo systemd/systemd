@@ -116,6 +116,8 @@ struct Service {
         char *pid_file;
 
         usec_t restart_usec;
+        unsigned restart_steps;
+        usec_t restart_usec_max;
         usec_t timeout_start_usec;
         usec_t timeout_stop_usec;
         usec_t timeout_abort_usec;
