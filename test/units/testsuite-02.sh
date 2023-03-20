@@ -6,7 +6,7 @@ set -o pipefail
 NPROC=$(nproc)
 MAX_QUEUE_SIZE=${NPROC:-2}
 TESTS_GLOB=${TESTS_GLOB:-test-*}
-mapfile -t TEST_LIST < <(find /usr/lib/systemd/tests/ -maxdepth 1 -type f -name "${TESTS_GLOB}")
+mapfile -t TEST_LIST < <(find /usr/lib/systemd/tests/unit-tests/ -maxdepth 1 -type f -name "${TESTS_GLOB}")
 
 # reset state
 rm -fv /failed-tests /skipped-tests /skipped
