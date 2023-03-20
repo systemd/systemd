@@ -3551,6 +3551,7 @@ static int inner_child(
          * it again. Note that the other fds closed here are at least the locking and barrier fds. */
         log_close();
         log_set_open_when_needed(true);
+        log_settle_target();
 
         (void) fdset_close_others(fds);
 

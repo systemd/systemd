@@ -1223,6 +1223,7 @@ int safe_fork_full(
                 /* Close the logs if requested, before we log anything. And make sure we reopen it if needed. */
                 log_close();
                 log_set_open_when_needed(true);
+                log_settle_target();
         }
 
         if (name) {
