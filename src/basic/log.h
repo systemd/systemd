@@ -85,6 +85,7 @@ assert_cc(STRLEN(__FILE__) > STRLEN(RELATIVE_SOURCE_PATH) + 1);
 int log_open(void);
 void log_close(void);
 void log_forget_fds(void);
+bool stderr_is_journal(void);
 
 void log_parse_environment_variables(void);
 void log_parse_environment(void);
