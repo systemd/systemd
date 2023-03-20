@@ -114,6 +114,7 @@ static void service_init(Unit *u) {
         s->timeout_abort_usec = u->manager->default_timeout_abort_usec;
         s->timeout_abort_set = u->manager->default_timeout_abort_set;
         s->restart_usec = u->manager->default_restart_usec;
+        s->restart_usec_step = 0;
         s->runtime_max_usec = USEC_INFINITY;
         s->type = _SERVICE_TYPE_INVALID;
         s->socket_fd = -EBADF;
@@ -249,6 +250,11 @@ static void service_start_watchdog(Service *s) {
         }
         if (r < 0)
                 log_unit_warning_errno(UNIT(s), r, "Failed to install watchdog timer: %m");
+}
+
+static usec_t service_restart_usec(Service *s) {
+        assert(s);
+        return usec_add(usec_adds->restart_usec, s->restart_usec_step * s->n_restarts);
 }
 
 static void service_extend_event_source_timeout(Service *s, sd_event_source *source, usec_t extended) {
@@ -888,11 +894,13 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%sRestartSec: %s\n"
+                "%sRestartSecStep: %s\n"
                 "%sTimeoutStartSec: %s\n"
                 "%sTimeoutStopSec: %s\n"
                 "%sTimeoutStartFailureMode: %s\n"
                 "%sTimeoutStopFailureMode: %s\n",
                 prefix, FORMAT_TIMESPAN(s->restart_usec, USEC_PER_SEC),
+                prefix, FORMAT_TIMESPAN(s->restart_usec_step, USEC_PER_SEC),
                 prefix, FORMAT_TIMESPAN(s->timeout_start_usec, USEC_PER_SEC),
                 prefix, FORMAT_TIMESPAN(s->timeout_stop_usec, USEC_PER_SEC),
                 prefix, service_timeout_failure_mode_to_string(s->timeout_start_failure_mode),
@@ -1204,7 +1212,7 @@ static usec_t service_coldplug_timeout(Service *s) {
                 return usec_add(UNIT(s)->state_change_timestamp.monotonic, service_timeout_abort_usec(s));
 
         case SERVICE_AUTO_RESTART:
-                return usec_add(UNIT(s)->inactive_enter_timestamp.monotonic, s->restart_usec);
+                return usec_add(UNIT(s)->inactive_enter_timestamp.monotonic, service_restart_usec(s));
 
         case SERVICE_CLEANING:
                 return usec_add(UNIT(s)->state_change_timestamp.monotonic, s->exec_context.timeout_clean_usec);
@@ -1890,7 +1898,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         if (s->will_auto_restart) {
                 s->will_auto_restart = false;
 
-                r = service_arm_timer(s, /* relative= */ true, s->restart_usec);
+                r = service_arm_timer(s, /* relative= */ true, service_restart_usec(s));
                 if (r < 0) {
                         s->n_keep_fd_store--;
                         goto fail;
@@ -4088,8 +4096,9 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
         case SERVICE_AUTO_RESTART:
                 if (s->restart_usec > 0)
                         log_unit_debug(UNIT(s),
-                                       "Service RestartSec=%s expired, scheduling restart.",
-                                       FORMAT_TIMESPAN(s->restart_usec, USEC_PER_SEC));
+                                       "Service RestartSec=%s + RestartSecStep=%s expired, scheduling restart.",
+                                       FORMAT_TIMESPAN(s->restart_usec, USEC_PER_SEC),
+                                       FORMAT_TIMESPAN(s->restart_usec_step, USEC_PER_SEC));
                 else
                         log_unit_debug(UNIT(s),
                                        "Service has no hold-off time (RestartSec=0), scheduling restart.");
