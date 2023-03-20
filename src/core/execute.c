@@ -4396,6 +4396,13 @@ static int exec_child(
         log_forget_fds();
         log_set_open_when_needed(true);
 
+        /* If we're using LOG_TARGET_AUTO and opening the log again on every single log call, we'll check if
+         * stderr is attached to the journal every single log call. However, since we'll close all file
+         * descriptors later, that will stop working because stderr will be closed as well. So let's check
+         * once if we're attached to the journal here and change our log target accordingly. */
+        if (log_get_target() == LOG_TARGET_AUTO)
+                log_set_target(stderr_is_journal() ? LOG_TARGET_JOURNAL_OR_KMSG : LOG_TARGET_CONSOLE);
+
         /* In case anything used libc syslog(), close this here, too */
         closelog();
 
