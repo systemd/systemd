@@ -2560,7 +2560,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly s Restart = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s PIDFile = '...';
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NotifyAccess = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RestartUSec = ...;
