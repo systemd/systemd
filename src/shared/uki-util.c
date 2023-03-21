@@ -27,18 +27,18 @@ static const char * const kernel_type_table[_KERNEL_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(kernel_type, KernelType);
 
-static int pe_sections(FILE *uki, struct PeSectionHeader **ret, size_t *ret_n) {
+static int pe_sections(FILE *f, struct PeSectionHeader **ret, size_t *ret_n) {
         _cleanup_free_ struct PeSectionHeader *sections = NULL;
         struct DosFileHeader dos;
         struct PeHeader pe;
         size_t scount;
         uint64_t soff, items;
 
-        assert(uki);
+        assert(f);
         assert(ret);
         assert(ret_n);
 
-        items = fread(&dos, 1, sizeof(dos), uki);
+        items = fread(&dos, 1, sizeof(dos), f);
         if (items < sizeof(dos.Magic))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "File is smaller than DOS magic (got %"PRIu64" of %zu bytes)",
                                        items, sizeof(dos.Magic));
@@ -49,17 +49,17 @@ static int pe_sections(FILE *uki, struct PeSectionHeader **ret, size_t *ret_n) {
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "File is smaller than DOS header (got %"PRIu64" of %zu bytes)",
                                        items, sizeof(dos));
 
-        if (fseek(uki, le32toh(dos.ExeHeader), SEEK_SET) < 0)
+        if (fseek(f, le32toh(dos.ExeHeader), SEEK_SET) < 0)
                 return log_error_errno(errno, "Failed to seek to PE header: %m");
 
-        items = fread(&pe, 1, sizeof(pe), uki);
+        items = fread(&pe, 1, sizeof(pe), f);
         if (items != sizeof(pe))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read PE header.");
         if (memcmp(pe.Magic, pe_file_magic, sizeof(pe_file_magic)) != 0)
                 goto no_sections;
 
         soff = le32toh(dos.ExeHeader) + sizeof(pe) + le16toh(pe.FileHeader.SizeOfOptionalHeader);
-        if (fseek(uki, soff, SEEK_SET) < 0)
+        if (fseek(f, soff, SEEK_SET) < 0)
                 return log_error_errno(errno, "Failed to seek to PE section headers: %m");
 
         scount = le16toh(pe.FileHeader.NumberOfSections);
@@ -68,7 +68,7 @@ static int pe_sections(FILE *uki, struct PeSectionHeader **ret, size_t *ret_n) {
         sections = new(struct PeSectionHeader, scount);
         if (!sections)
                 return log_oom();
-        items = fread(sections, sizeof(*sections), scount, uki);
+        items = fread(sections, sizeof(*sections), scount, f);
         if (items != scount)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read PE section header.");
 
@@ -112,7 +112,7 @@ static bool is_uki(struct PeSectionHeader *sections, size_t scount) {
 }
 
 static int read_pe_section(
-                FILE *uki,
+                FILE *f,
                 struct PeSectionHeader *sections,
                 size_t scount,
                 const uint8_t *name,
@@ -126,7 +126,7 @@ static int read_pe_section(
         uint64_t soff;
         size_t idx;
 
-        assert(uki);
+        assert(f);
         assert(sections || scount == 0);
         assert(ret);
 
@@ -144,7 +144,7 @@ static int read_pe_section(
         if (size > 16 * 1024)
                 return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "PE section too big.");
 
-        if (fseek(uki, soff, SEEK_SET) < 0)
+        if (fseek(f, soff, SEEK_SET) < 0)
                 return log_error_errno(errno, "Failed to seek to PE section: %m");
 
         data = malloc(size+1);
@@ -152,7 +152,7 @@ static int read_pe_section(
                 return log_oom();
         ((uint8_t*) data)[size] = 0; /* safety NUL byte */
 
-        bytes = fread(data, 1, size, uki);
+        bytes = fread(data, 1, size, f);
         if (bytes != size)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read PE section.");
 
@@ -163,7 +163,7 @@ static int read_pe_section(
 }
 
 static int uki_read_pretty_name(
-                FILE *uki,
+                FILE *f,
                 struct PeSectionHeader *sections,
                 size_t scount,
                 char **ret) {
@@ -174,11 +174,11 @@ static int uki_read_pretty_name(
         size_t osrel_size = 0;
         int r;
 
-        assert(uki);
+        assert(f);
         assert(sections || scount == 0);
         assert(ret);
 
-        r = read_pe_section(uki, sections, scount, name_osrel, sizeof(name_osrel), &osrel, &osrel_size);
+        r = read_pe_section(f, sections, scount, name_osrel, sizeof(name_osrel), &osrel, &osrel_size);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -213,7 +213,7 @@ static int uki_read_pretty_name(
 }
 
 static int inspect_uki(
-                FILE *uki,
+                FILE *f,
                 struct PeSectionHeader *sections,
                 size_t scount,
                 char **ret_cmdline,
@@ -223,23 +223,23 @@ static int inspect_uki(
         _cleanup_free_ char *cmdline = NULL, *uname = NULL, *pname = NULL;
         int r;
 
-        assert(uki);
+        assert(f);
         assert(sections || scount == 0);
 
         if (ret_cmdline) {
-                r = read_pe_section(uki, sections, scount, name_cmdline, sizeof(name_cmdline), (void**) &cmdline, NULL);
+                r = read_pe_section(f, sections, scount, name_cmdline, sizeof(name_cmdline), (void**) &cmdline, NULL);
                 if (r < 0)
                         return r;
         }
 
         if (ret_uname) {
-                r = read_pe_section(uki, sections, scount, name_uname, sizeof(name_uname), (void**) &uname, NULL);
+                r = read_pe_section(f, sections, scount, name_uname, sizeof(name_uname), (void**) &uname, NULL);
                 if (r < 0)
                         return r;
         }
 
         if (ret_pretty_name) {
-                r = uki_read_pretty_name(uki, sections, scount, &pname);
+                r = uki_read_pretty_name(f, sections, scount, &pname);
                 if (r < 0)
                         return r;
         }
@@ -261,7 +261,7 @@ int inspect_kernel(
                 char **ret_uname,
                 char **ret_pretty_name) {
 
-        _cleanup_fclose_ FILE *uki = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ struct PeSectionHeader *sections = NULL;
         size_t scount;
         KernelType t;
@@ -269,11 +269,11 @@ int inspect_kernel(
 
         assert(filename);
 
-        uki = fopen(filename, "re");
-        if (!uki)
+        f = fopen(filename, "re");
+        if (!f)
                 return log_error_errno(errno, "Failed to open kernel image file '%s': %m", filename);
 
-        r = pe_sections(uki, &sections, &scount);
+        r = pe_sections(f, &sections, &scount);
         if (r < 0)
                 return r;
 
@@ -281,7 +281,7 @@ int inspect_kernel(
                 t = KERNEL_TYPE_UNKNOWN;
         else if (is_uki(sections, scount)) {
                 t = KERNEL_TYPE_UKI;
-                r = inspect_uki(uki, sections, scount, ret_cmdline, ret_uname, ret_pretty_name);
+                r = inspect_uki(f, sections, scount, ret_cmdline, ret_uname, ret_pretty_name);
                 if (r < 0)
                         return r;
         } else
