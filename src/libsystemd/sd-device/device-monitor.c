@@ -249,7 +249,7 @@ static int device_monitor_event_handler(sd_event_source *s, int fd, uint32_t rev
                 return 0;
 
         if (log_context_enabled())
-                c = log_context_new_consume(device_make_log_fields(device));
+                c = log_context_new_strv_consume(device_make_log_fields(device));
 
         if (m->callback)
                 return m->callback(m, device, m->userdata);

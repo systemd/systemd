@@ -116,7 +116,7 @@ static void test_log_context(void) {
                 _cleanup_(log_context_unrefp) LogContext *ctx = NULL;
 
                 char **strv = STRV_MAKE("SIXTH=ijn", "SEVENTH=PRP");
-                assert_se(ctx = log_context_new(strv, /*owned=*/ false));
+                assert_se(ctx = log_context_new_strv(strv, /*owned=*/ false));
 
                 assert_se(log_context_num_contexts() == 1);
                 assert_se(log_context_num_fields() == 2);
@@ -154,6 +154,17 @@ static void test_log_context(void) {
 
                 assert_se(log_context_num_contexts() == 3);
                 assert_se(log_context_num_fields() == 4);
+
+                test_log_struct();
+                test_long_lines();
+                test_log_syntax();
+        }
+
+        {
+                LOG_CONTEXT_PUSH_KEY_VALUE("ABC=", "QED");
+                LOG_CONTEXT_PUSH_KEY_VALUE("ABC=", "QED");
+                assert_se(log_context_num_contexts() == 1);
+                assert_se(log_context_num_fields() == 1);
 
                 test_log_struct();
                 test_long_lines();
