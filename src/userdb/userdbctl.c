@@ -1149,6 +1149,10 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_services = l;
         }
 
+        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
+         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
+        optind = 0;
+
         for (;;) {
                 int c;
 

@@ -2720,6 +2720,10 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
+        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
+         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
+        optind = 0;
+
         for (;;) {
                 static const char option_string[] = "-hp:als:H:M:qn:o:E:";
 
