@@ -278,6 +278,7 @@ static void test_close_all_fds_inner(void) {
         /* Close logging fd first, so that we don't confuse it by closing its fd */
         log_close();
         log_set_open_when_needed(true);
+        log_settle_target();
 
         /* Close all but the ones to keep */
         assert_se(close_all_fds(keep, n_keep) >= 0);

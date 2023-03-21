@@ -1264,6 +1264,23 @@ LogTarget log_get_target(void) {
         return log_target;
 }
 
+LogTarget log_settle_target(void) {
+
+        /* If we're using LOG_TARGET_AUTO and opening the log again on every single log call, we'll check if
+         * stderr is attached to the journal every single log call. However, if we then close all file
+         * descriptors later, that will stop working because stderr will be closed as well. To avoid that
+         * problem, this function is used to permanently change the log target depending on whether stderr is
+         * connected to the journal or not. */
+
+        LogTarget t = log_get_target();
+
+        if (t != LOG_TARGET_AUTO)
+                return t;
+
+        log_set_target(stderr_is_journal() ? LOG_TARGET_JOURNAL_OR_KMSG : LOG_TARGET_CONSOLE);
+        return LOG_TARGET_AUTO;
+}
+
 int log_get_max_level(void) {
         return log_max_level;
 }
