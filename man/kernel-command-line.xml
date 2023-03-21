@@ -571,6 +571,18 @@
         is set in <filename>/etc/hostname</filename>. Note that this does not bar later runtime changes to
         the hostname, it simply controls the initial hostname set during early boot.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.tty.<replaceable>tty</replaceable>.term=</varname></term>
+        <term><varname>systemd.tty.<replaceable>tty</replaceable>.rows=</varname></term>
+        <term><varname>systemd.tty.<replaceable>tty</replaceable>.columns=</varname></term>
+
+        <listitem><para>These arguments allow configuring default values for <varname>$TERM</varname>,
+        <varname>TTYRows=</varname>, and <varname>TTYColumns=</varname> for tty
+        <replaceable>tty</replaceable>. The tty name should be specified without the
+        <filename>/dev/</filename> prefix (e.g. <literal>systemd.tty.ttyS0.rows=80</literal>).
+        </para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
