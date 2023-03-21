@@ -385,6 +385,42 @@ TEST(capeff) {
         }
 }
 
+TEST(read_one_line_file) {
+        _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-fileio-1lf-XXXXXX";
+        int fd;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *buf, *buf2, *buf3, *buf4, *buf5;
+
+        fd = mkostemp_safe(fn);
+        assert_se(fd >= 0);
+
+        f = fdopen(fd, "we");
+        assert_se(f);
+
+        assert_se(read_one_line_file(fn, &buf) == 0);
+        assert_se(streq_ptr(buf, ""));
+        assert_se(read_one_line_file(fn, &buf2) == 0);
+        assert_se(streq_ptr(buf2, ""));
+
+        assert_se(write_string_stream(f, "x", WRITE_STRING_FILE_AVOID_NEWLINE) >= 0);
+        fflush(f);
+
+        assert_se(read_one_line_file(fn, &buf3) == 1);
+        assert_se(streq_ptr(buf3, "x"));
+
+        assert_se(write_string_stream(f, "\n", WRITE_STRING_FILE_AVOID_NEWLINE) >= 0);
+        fflush(f);
+
+        assert_se(read_one_line_file(fn, &buf4) == 2);
+        assert_se(streq_ptr(buf4, "x"));
+
+        assert_se(write_string_stream(f, "\n", WRITE_STRING_FILE_AVOID_NEWLINE) >= 0);
+        fflush(f);
+
+        assert_se(read_one_line_file(fn, &buf5) == 2);
+        assert_se(streq_ptr(buf5, "x"));
+}
+
 TEST(write_string_stream) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-write_string_stream-XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
