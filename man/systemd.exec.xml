@@ -1758,7 +1758,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <para>Note that this functionality might not be available, for example if KSM is disabled in the
         kernel, or the kernel doesn't support controlling KSM at the process level through
         <function>prctl()</function>.</para>
-        </listitem
+        </listitem>
       </varlistentry>
 
       <varlistentry>
