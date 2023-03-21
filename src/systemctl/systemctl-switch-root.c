@@ -3,7 +3,7 @@
 #include "argv-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
@@ -21,11 +21,11 @@ static int same_file_in_root(
         struct stat sta, stb;
         int r;
 
-        r = chase_symlinks_and_stat(a, root, CHASE_PREFIX_ROOT, NULL, &sta);
+        r = chase_and_stat(a, root, CHASE_PREFIX_ROOT, NULL, &sta);
         if (r < 0)
                 return r;
 
-        r = chase_symlinks_and_stat(b, root, CHASE_PREFIX_ROOT, NULL, &stb);
+        r = chase_and_stat(b, root, CHASE_PREFIX_ROOT, NULL, &stb);
         if (r < 0)
                 return r;
 

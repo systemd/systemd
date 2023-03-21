@@ -10,7 +10,7 @@
 
 #include "alloc-util.h"
 #include "architecture.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -134,7 +134,7 @@ int specifier_real_path(char specifier, const void *data, const char *root, cons
         if (!path)
                 return -ENOENT;
 
-        return chase_symlinks(path, root, 0, ret, NULL);
+        return chase(path, root, 0, ret, NULL);
 }
 
 int specifier_real_directory(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
@@ -190,7 +190,7 @@ int specifier_machine_id(char specifier, const void *data, const char *root, con
         if (root) {
                 _cleanup_close_ int fd = -EBADF;
 
-                fd = chase_symlinks_and_open("/etc/machine-id", root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+                fd = chase_and_open("/etc/machine-id", root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
                 if (fd < 0)
                         /* Translate error for missing os-release file to EUNATCH. */
                         return fd == -ENOENT ? -EUNATCH : fd;
