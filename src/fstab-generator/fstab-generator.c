@@ -7,7 +7,7 @@
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "efi-loader.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -723,12 +723,11 @@ static int parse_fstab(bool initrd) {
                          * where a symlink refers to another mount target; this works assuming the sub-mountpoint
                          * target is the final directory.
                          *
-                         * FIXME: when chase_symlinks() learns to chase non-existent paths, use this here and
+                         * FIXME: when chase() learns to chase non-existent paths, use this here and
                          *        drop the prefixing with /sysroot on error below.
                          */
-                        k = chase_symlinks(where, initrd ? "/sysroot" : NULL,
-                                           CHASE_PREFIX_ROOT | CHASE_NONEXISTENT,
-                                           &canonical_where, NULL);
+                        k = chase(where, initrd ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT,
+                                  &canonical_where, NULL);
                         if (k < 0) {
                                 /* If we can't canonicalize, continue as if it wasn't a symlink */
                                 log_debug_errno(k, "Failed to read symlink target for %s, using as-is: %m", where);

@@ -13,7 +13,7 @@
 #include "architecture.h"
 #include "blockdev-util.h"
 #include "build.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "copy.h"
 #include "device-util.h"
 #include "devnum-util.h"
@@ -1237,7 +1237,7 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
         case ACTION_COPY_FROM: {
                 _cleanup_close_ int source_fd = -EBADF, target_fd = -EBADF;
 
-                source_fd = chase_symlinks_and_open(arg_source, mounted_dir, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+                source_fd = chase_and_open(arg_source, mounted_dir, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
                 if (source_fd < 0)
                         return log_error_errno(source_fd, "Failed to open source path '%s' in image '%s': %m", arg_source, arg_image);
 
@@ -1294,7 +1294,7 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
                         return log_error_errno(r, "Failed to extract filename from target path '%s': %m", arg_target);
                 is_dir = r == O_DIRECTORY;
 
-                r = chase_symlinks(dn, mounted_dir, CHASE_PREFIX_ROOT|CHASE_WARN, NULL, &dfd);
+                r = chase(dn, mounted_dir, CHASE_PREFIX_ROOT|CHASE_WARN, NULL, &dfd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open '%s': %m", dn);
 
@@ -1393,7 +1393,7 @@ static int action_umount(const char *path) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         int r;
 
-        fd = chase_symlinks_and_open(path, NULL, 0, O_DIRECTORY, &canonical);
+        fd = chase_and_open(path, NULL, 0, O_DIRECTORY, &canonical);
         if (fd == -ENOTDIR)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "'%s' is not a directory", path);
         if (fd < 0)

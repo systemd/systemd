@@ -263,7 +263,7 @@ tests += [
                 'base' : test_core_base,
         },
         {
-                'sources' : files('test-chase-symlinks.c'),
+                'sources' : files('test-chase.c'),
                 'type' : 'manual',
         },
         {

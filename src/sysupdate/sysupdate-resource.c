@@ -6,7 +6,7 @@
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
@@ -563,7 +563,7 @@ int resource_resolve_path(
                 _cleanup_free_ char *resolved = NULL;
                 struct stat st;
 
-                r = chase_symlinks(rr->path, root, CHASE_PREFIX_ROOT, &resolved, &fd);
+                r = chase(rr->path, root, CHASE_PREFIX_ROOT, &resolved, &fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve '%s': %m", rr->path);
 
@@ -599,7 +599,7 @@ int resource_resolve_path(
         } else if (RESOURCE_IS_FILESYSTEM(rr->type) && root) {
                 _cleanup_free_ char *resolved = NULL;
 
-                r = chase_symlinks(rr->path, root, CHASE_PREFIX_ROOT, &resolved, NULL);
+                r = chase(rr->path, root, CHASE_PREFIX_ROOT, &resolved, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve '%s': %m", rr->path);
 

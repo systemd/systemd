@@ -22,7 +22,7 @@
 #include "btrfs-util.h"
 #include "build.h"
 #include "capability-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "chattr-util.h"
 #include "conf-files.h"
 #include "constants.h"
@@ -982,7 +982,7 @@ static int path_open_parent_safe(const char *path, bool allow_failure) {
                                       path,
                                       allow_failure ? ", ignoring" : "");
 
-        r = chase_symlinks(dn, arg_root, allow_failure ? CHASE_SAFE : CHASE_SAFE|CHASE_WARN, NULL, &fd);
+        r = chase(dn, arg_root, allow_failure ? CHASE_SAFE : CHASE_SAFE|CHASE_WARN, NULL, &fd);
         if (r == -ENOLINK) /* Unsafe symlink: already covered by CHASE_WARN */
                 return r;
         if (r < 0)
@@ -1007,7 +1007,7 @@ static int path_open_safe(const char *path) {
         if (!path_is_normalized(path))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to open invalid path '%s'.", path);
 
-        r = chase_symlinks(path, arg_root, CHASE_SAFE|CHASE_WARN|CHASE_NOFOLLOW, NULL, &fd);
+        r = chase(path, arg_root, CHASE_SAFE|CHASE_WARN|CHASE_NOFOLLOW, NULL, &fd);
         if (r == -ENOLINK)
                 return r; /* Unsafe symlink: already covered by CHASE_WARN */
         if (r < 0)
@@ -1824,7 +1824,7 @@ static int empty_directory(Item *i, const char *path, CreationMode creation) {
         assert(i);
         assert(i->type == EMPTY_DIRECTORY);
 
-        r = chase_symlinks(path, arg_root, CHASE_SAFE|CHASE_WARN, NULL, &fd);
+        r = chase(path, arg_root, CHASE_SAFE|CHASE_WARN, NULL, &fd);
         if (r == -ENOLINK) /* Unsafe symlink: already covered by CHASE_WARN */
                 return r;
         if (r == -ENOENT) {
@@ -2789,7 +2789,7 @@ static int process_item(Item *i, OperationMask operation) {
                         path = _path;
         }
 
-        r = chase_symlinks(path, arg_root, CHASE_NO_AUTOFS|CHASE_NONEXISTENT|CHASE_WARN, NULL, NULL);
+        r = chase(path, arg_root, CHASE_NO_AUTOFS|CHASE_NONEXISTENT|CHASE_WARN, NULL, NULL);
         if (r == -EREMOTE) {
                 log_notice_errno(r, "Skipping %s", i->path); /* We log the configured path, to not confuse the user. */
                 return 0;

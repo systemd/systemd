@@ -14,7 +14,7 @@
 #include "bpf-firewall.h"
 #include "bus-error.h"
 #include "bus-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "constants.h"
 #include "copy.h"
 #include "dbus-socket.h"
@@ -1434,7 +1434,7 @@ static int socket_determine_selinux_label(Socket *s, char **ret) {
         if (!c)
                 goto no_label;
 
-        r = chase_symlinks(c->path, SERVICE(service)->exec_context.root_directory, CHASE_PREFIX_ROOT, &path, NULL);
+        r = chase(c->path, SERVICE(service)->exec_context.root_directory, CHASE_PREFIX_ROOT, &path, NULL);
         if (r < 0)
                 goto no_label;
 

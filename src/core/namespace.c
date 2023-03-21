@@ -13,7 +13,7 @@
 
 #include "alloc-util.h"
 #include "base-filesystem.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "dev-setup.h"
 #include "devnum-util.h"
 #include "env-util.h"
@@ -1312,13 +1312,13 @@ static int follow_symlink(
          * a time by specifying CHASE_STEP. This function returns 0 if we resolved one step, and > 0 if we reached the
          * end and already have a fully normalized name. */
 
-        r = chase_symlinks(mount_entry_path(m), root_directory, CHASE_STEP|CHASE_NONEXISTENT, &target, NULL);
+        r = chase(mount_entry_path(m), root_directory, CHASE_STEP|CHASE_NONEXISTENT, &target, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to chase symlinks '%s': %m", mount_entry_path(m));
         if (r > 0) /* Reached the end, nothing more to resolve */
                 return 1;
 
-        if (m->n_followed >= CHASE_SYMLINKS_MAX) /* put a boundary on things */
+        if (m->n_followed >= CHASE_MAX) /* put a boundary on things */
                 return log_debug_errno(SYNTHETIC_ERRNO(ELOOP),
                                        "Symlink loop on '%s'.",
                                        mount_entry_path(m));
@@ -1453,9 +1453,9 @@ static int apply_one_mount(
 
                 /* Since mount() will always follow symlinks we chase the symlinks on our own first. Note
                  * that bind mount source paths are always relative to the host root, hence we pass NULL as
-                 * root directory to chase_symlinks() here. */
+                 * root directory to chase() here. */
 
-                r = chase_symlinks(mount_entry_source(m), NULL, CHASE_TRAIL_SLASH, &chased, NULL);
+                r = chase(mount_entry_source(m), NULL, CHASE_TRAIL_SLASH, &chased, NULL);
                 if (r == -ENOENT && m->ignore) {
                         log_debug_errno(r, "Path %s does not exist, ignoring.", mount_entry_source(m));
                         return 0;

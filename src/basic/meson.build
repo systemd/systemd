@@ -14,7 +14,7 @@ basic_sources = files(
         'cap-list.c',
         'capability-util.c',
         'cgroup-util.c',
-        'chase-symlinks.c',
+        'chase.c',
         'chattr-util.c',
         'conf-files.c',
         'devnum-util.c',

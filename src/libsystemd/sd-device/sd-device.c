@@ -8,7 +8,7 @@
 #include "sd-device.h"
 
 #include "alloc-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
@@ -150,7 +150,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                 /* The input path maybe a symlink located outside of /sys. Let's try to chase the symlink at first.
                  * The primary usecase is that e.g. /proc/device-tree is a symlink to /sys/firmware/devicetree/base.
                  * By chasing symlinks in the path at first, we can call sd_device_new_from_path() with such path. */
-                r = chase_symlinks(_syspath, NULL, 0, &syspath, &fd);
+                r = chase(_syspath, NULL, 0, &syspath, &fd);
                 if (r == -ENOENT)
                          /* the device does not exist (any more?) */
                         return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
@@ -163,7 +163,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                         char *p;
 
                         /* /sys is a symlink to somewhere sysfs is mounted on? In that case, we convert the path to real sysfs to "/sys". */
-                        r = chase_symlinks("/sys", NULL, 0, &real_sys, NULL);
+                        r = chase("/sys", NULL, 0, &real_sys, NULL);
                         if (r < 0)
                                 return log_debug_errno(r, "sd-device: Failed to chase symlink /sys: %m");
 

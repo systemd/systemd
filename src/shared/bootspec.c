@@ -4,7 +4,7 @@
 
 #include "bootspec-fundamental.h"
 #include "bootspec.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
@@ -507,7 +507,7 @@ static int boot_loader_read_conf_path(BootConfig *config, const char *root, cons
         assert(config);
         assert(path);
 
-        r = chase_symlinks_and_fopen_unlocked(path, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, "re", &full, &f);
+        r = chase_and_fopen_unlocked(path, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, "re", &full, &f);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -592,7 +592,7 @@ static int boot_entries_find_type1(
         assert(root);
         assert(dir);
 
-        dir_fd = chase_symlinks_and_open(dir, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, O_DIRECTORY|O_CLOEXEC, &full);
+        dir_fd = chase_and_open(dir, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, O_DIRECTORY|O_CLOEXEC, &full);
         if (dir_fd == -ENOENT)
                 return 0;
         if (dir_fd < 0)
@@ -854,7 +854,7 @@ static int boot_entries_find_unified(
         assert(config);
         assert(dir);
 
-        r = chase_symlinks_and_opendir(dir, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &full, &d);
+        r = chase_and_opendir(dir, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &full, &d);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -1269,7 +1269,7 @@ static void boot_entry_file_list(
         assert(p);
         assert(ret_status);
 
-        int status = chase_symlinks_and_access(p, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, NULL);
+        int status = chase_and_access(p, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, NULL);
 
         /* Note that this shows two '/' between the root and the file. This is intentional to highlight (in
          * the absence of color support) to the user that the boot loader is only interested in the second

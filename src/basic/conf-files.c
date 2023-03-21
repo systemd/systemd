@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "constants.h"
 #include "dirent-util.h"
@@ -38,7 +38,7 @@ static int files_add(
         assert(masked);
         assert(path);
 
-        r = chase_symlinks_and_opendir(path, root, CHASE_PREFIX_ROOT, &dirpath, &dir);
+        r = chase_and_opendir(path, root, CHASE_PREFIX_ROOT, &dirpath, &dir);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)

@@ -20,7 +20,7 @@
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "build.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
@@ -3828,7 +3828,7 @@ static int do_copy_files(Partition *p, const char *root, Hashmap *denylist) {
                 if (rfd < 0)
                         return rfd;
 
-                sfd = chase_symlinks_and_open(*source, arg_root, CHASE_PREFIX_ROOT, O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOCTTY, NULL);
+                sfd = chase_and_open(*source, arg_root, CHASE_PREFIX_ROOT, O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOCTTY, NULL);
                 if (sfd < 0)
                         return log_error_errno(sfd, "Failed to open source file '%s%s': %m", strempty(arg_root), *source);
 
@@ -3842,7 +3842,7 @@ static int do_copy_files(Partition *p, const char *root, Hashmap *denylist) {
         STRV_FOREACH_PAIR(source, target, p->copy_files) {
                 _cleanup_close_ int sfd = -EBADF, pfd = -EBADF, tfd = -EBADF;
 
-                sfd = chase_symlinks_and_open(*source, arg_root, CHASE_PREFIX_ROOT, O_CLOEXEC|O_NOCTTY, NULL);
+                sfd = chase_and_open(*source, arg_root, CHASE_PREFIX_ROOT, O_CLOEXEC|O_NOCTTY, NULL);
                 if (sfd < 0)
                         return log_error_errno(sfd, "Failed to open source file '%s%s': %m", strempty(arg_root), *source);
 
@@ -3852,7 +3852,7 @@ static int do_copy_files(Partition *p, const char *root, Hashmap *denylist) {
                                 return log_error_errno(r, "Failed to check type of source file '%s': %m", *source);
 
                         /* We are looking at a directory */
-                        tfd = chase_symlinks_and_open(*target, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
+                        tfd = chase_and_open(*target, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
                         if (tfd < 0) {
                                 _cleanup_free_ char *dn = NULL, *fn = NULL;
 
@@ -3871,7 +3871,7 @@ static int do_copy_files(Partition *p, const char *root, Hashmap *denylist) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to create parent directory '%s': %m", dn);
 
-                                pfd = chase_symlinks_and_open(dn, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
+                                pfd = chase_and_open(dn, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
                                 if (pfd < 0)
                                         return log_error_errno(pfd, "Failed to open parent directory of target: %m");
 
@@ -3911,7 +3911,7 @@ static int do_copy_files(Partition *p, const char *root, Hashmap *denylist) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create parent directory: %m");
 
-                        pfd = chase_symlinks_and_open(dn, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
+                        pfd = chase_and_open(dn, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
                         if (pfd < 0)
                                 return log_error_errno(pfd, "Failed to open parent directory of target: %m");
 
@@ -4042,7 +4042,7 @@ static int add_exclude_path(const char *path, Hashmap **denylist, DenyType type)
         if (!st)
                 return log_oom();
 
-        r = chase_symlinks_and_stat(path, arg_root, CHASE_PREFIX_ROOT, NULL, st);
+        r = chase_and_stat(path, arg_root, CHASE_PREFIX_ROOT, NULL, st);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -4908,7 +4908,7 @@ static int context_read_seed(Context *context, const char *root) {
         if (!arg_randomize) {
                 _cleanup_close_ int fd = -EBADF;
 
-                fd = chase_symlinks_and_open("/etc/machine-id", root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC, NULL);
+                fd = chase_and_open("/etc/machine-id", root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC, NULL);
                 if (fd == -ENOENT)
                         log_info("No machine ID set, using randomized partition UUIDs.");
                 else if (fd < 0)
@@ -5123,7 +5123,7 @@ static int find_backing_devno(
 
         assert(path);
 
-        r = chase_symlinks(path, root, CHASE_PREFIX_ROOT, &resolved, NULL);
+        r = chase(path, root, CHASE_PREFIX_ROOT, &resolved, NULL);
         if (r < 0)
                 return r;
 
@@ -5297,7 +5297,7 @@ static int context_open_copy_block_paths(
 
                 if (p->copy_blocks_path) {
 
-                        source_fd = chase_symlinks_and_open(p->copy_blocks_path, p->copy_blocks_root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NONBLOCK, &opened);
+                        source_fd = chase_and_open(p->copy_blocks_path, p->copy_blocks_root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NONBLOCK, &opened);
                         if (source_fd < 0)
                                 return log_error_errno(source_fd, "Failed to open '%s': %m", p->copy_blocks_path);
 
@@ -6175,7 +6175,7 @@ static int acquire_root_devno(
         assert(ret);
         assert(ret_fd);
 
-        fd = chase_symlinks_and_open(p, root, CHASE_PREFIX_ROOT, mode, &found_path);
+        fd = chase_and_open(p, root, CHASE_PREFIX_ROOT, mode, &found_path);
         if (fd < 0)
                 return fd;
 

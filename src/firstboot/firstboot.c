@@ -10,7 +10,7 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "build.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "copy.h"
 #include "creds-util.h"
 #include "dissect-image.h"
@@ -689,7 +689,7 @@ static int find_shell(const char *path, const char *root) {
         if (!valid_shell(path))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not a valid shell", path);
 
-        r = chase_symlinks(path, root, CHASE_PREFIX_ROOT, NULL, NULL);
+        r = chase(path, root, CHASE_PREFIX_ROOT, NULL, NULL);
         if (r < 0) {
                 const char *p;
                 p = prefix_roota(root, path);

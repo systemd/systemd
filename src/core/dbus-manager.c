@@ -11,7 +11,7 @@
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "data-fd-util.h"
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
@@ -1768,7 +1768,7 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Path to init binary '%s' not absolute.", init);
 
-                r = chase_symlinks_and_access(init, root, CHASE_PREFIX_ROOT, X_OK, NULL);
+                r = chase_and_access(init, root, CHASE_PREFIX_ROOT, X_OK, NULL);
                 if (r == -EACCES)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Init binary %s is not executable.", init);

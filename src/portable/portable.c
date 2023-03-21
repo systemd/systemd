@@ -4,7 +4,7 @@
 
 #include "bus-common-errors.h"
 #include "bus-error.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "copy.h"
 #include "data-fd-util.h"
@@ -244,7 +244,7 @@ static int extract_now(
                 _cleanup_free_ char *resolved = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
 
-                r = chase_symlinks_and_opendir(*i, where, 0, &resolved, &d);
+                r = chase_and_opendir(*i, where, 0, &resolved, &d);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to open unit path '%s', ignoring: %m", *i);
                         continue;

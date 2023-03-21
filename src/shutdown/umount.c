@@ -23,7 +23,7 @@
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "constants.h"
 #include "device-util.h"
 #include "dirent-util.h"
@@ -788,7 +788,7 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool last_
                  * /run/shutdown/mounts from there.
                  */
                 if (!resolved_mounts_path)
-                        (void) chase_symlinks("/run/shutdown/mounts", NULL, 0, &resolved_mounts_path, NULL);
+                        (void) chase("/run/shutdown/mounts", NULL, 0, &resolved_mounts_path, NULL);
                 if (!path_equal(dirname, resolved_mounts_path)) {
                         char newpath[STRLEN("/run/shutdown/mounts/") + 16 + 1];
 

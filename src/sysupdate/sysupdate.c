@@ -6,7 +6,7 @@
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "constants.h"
 #include "dirent-util.h"
@@ -1106,7 +1106,7 @@ static int verb_components(int argc, char **argv, void *userdata) {
                 _cleanup_closedir_ DIR *d = NULL;
                 _cleanup_free_ char *p = NULL;
 
-                r = chase_symlinks_and_opendir(*i, arg_root, CHASE_PREFIX_ROOT, &p, &d);
+                r = chase_and_opendir(*i, arg_root, CHASE_PREFIX_ROOT, &p, &d);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)

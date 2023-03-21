@@ -12,7 +12,7 @@
 #include "bus-error.h"
 #include "bus-kernel.h"
 #include "bus-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "constants.h"
 #include "dbus-service.h"
 #include "dbus-unit.h"
@@ -1007,21 +1007,21 @@ static int service_load_pid_file(Service *s, bool may_warn) {
 
         prio = may_warn ? LOG_INFO : LOG_DEBUG;
 
-        r = chase_symlinks(s->pid_file, NULL, CHASE_SAFE, NULL, &fd);
+        r = chase(s->pid_file, NULL, CHASE_SAFE, NULL, &fd);
         if (r == -ENOLINK) {
                 log_unit_debug_errno(UNIT(s), r,
                                      "Potentially unsafe symlink chain, will now retry with relaxed checks: %s", s->pid_file);
 
                 questionable_pid_file = true;
 
-                r = chase_symlinks(s->pid_file, NULL, 0, NULL, &fd);
+                r = chase(s->pid_file, NULL, 0, NULL, &fd);
         }
         if (r < 0)
                 return log_unit_full_errno(UNIT(s), prio, fd,
                                            "Can't open PID file %s (yet?) after %s: %m", s->pid_file, service_state_to_string(s->state));
 
         /* Let's read the PID file now that we chased it down. But we need to convert the O_PATH fd
-         * chase_symlinks() returned us into a proper fd first. */
+         * chase() returned us into a proper fd first. */
         r = read_one_line_file(FORMAT_PROC_FD_PATH(fd), &k);
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r,

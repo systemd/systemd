@@ -17,7 +17,7 @@
 #include "bus-util.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "core-varlink.h"
 #include "dbus-unit.h"
 #include "dbus.h"
@@ -4894,7 +4894,7 @@ int unit_fail_if_noncanonical(Unit *u, const char* where) {
         assert(u);
         assert(where);
 
-        r = chase_symlinks(where, NULL, CHASE_NONEXISTENT, &canonical_where, NULL);
+        r = chase(where, NULL, CHASE_NONEXISTENT, &canonical_where, NULL);
         if (r < 0) {
                 log_unit_debug_errno(u, r, "Failed to check %s for symlinks, ignoring: %m", where);
                 return 0;

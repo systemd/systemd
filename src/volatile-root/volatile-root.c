@@ -4,7 +4,7 @@
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "devnum-util.h"
 #include "escape.h"
 #include "main-func.h"
@@ -21,7 +21,7 @@ static int make_volatile(const char *path) {
 
         assert(path);
 
-        r = chase_symlinks("/usr", path, CHASE_PREFIX_ROOT, &old_usr, NULL);
+        r = chase("/usr", path, CHASE_PREFIX_ROOT, &old_usr, NULL);
         if (r < 0)
                 return log_error_errno(r, "/usr not available in old root: %m");
 

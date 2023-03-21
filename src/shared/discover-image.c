@@ -14,7 +14,7 @@
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "chattr-util.h"
 #include "copy.h"
 #include "dirent-util.h"
@@ -459,7 +459,7 @@ int image_find(ImageClass class,
                 struct stat st;
                 int flags;
 
-                r = chase_symlinks_and_opendir(path, root, CHASE_PREFIX_ROOT, &resolved, &d);
+                r = chase_and_opendir(path, root, CHASE_PREFIX_ROOT, &resolved, &d);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -556,7 +556,7 @@ int image_discover(
                 _cleanup_free_ char *resolved = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
 
-                r = chase_symlinks_and_opendir(path, root, CHASE_PREFIX_ROOT, &resolved, &d);
+                r = chase_and_opendir(path, root, CHASE_PREFIX_ROOT, &resolved, &d);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -1149,7 +1149,7 @@ int image_read_metadata(Image *i) {
                 _cleanup_free_ char *hostname = NULL;
                 _cleanup_free_ char *path = NULL;
 
-                r = chase_symlinks("/etc/hostname", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, NULL);
+                r = chase("/etc/hostname", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, NULL);
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/hostname in image %s: %m", i->name);
                 else if (r >= 0) {
@@ -1160,7 +1160,7 @@ int image_read_metadata(Image *i) {
 
                 path = mfree(path);
 
-                r = chase_symlinks("/etc/machine-id", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, NULL);
+                r = chase("/etc/machine-id", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, NULL);
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/machine-id in image %s: %m", i->name);
                 else if (r >= 0) {
@@ -1178,7 +1178,7 @@ int image_read_metadata(Image *i) {
 
                 path = mfree(path);
 
-                r = chase_symlinks("/etc/machine-info", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, NULL);
+                r = chase("/etc/machine-info", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, NULL);
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/machine-info in image %s: %m", i->name);
                 else if (r >= 0) {

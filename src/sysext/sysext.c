@@ -9,7 +9,7 @@
 
 #include "build.h"
 #include "capability-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
@@ -131,7 +131,7 @@ static int unmerge(void) {
         STRV_FOREACH(p, arg_hierarchies) {
                 _cleanup_free_ char *resolved = NULL;
 
-                r = chase_symlinks(*p, arg_root, CHASE_PREFIX_ROOT, &resolved, NULL);
+                r = chase(*p, arg_root, CHASE_PREFIX_ROOT, &resolved, NULL);
                 if (r == -ENOENT) {
                         log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", strempty(arg_root), *p);
                         continue;
@@ -179,7 +179,7 @@ static int verb_status(int argc, char **argv, void *userdata) {
                 _cleanup_strv_free_ char **l = NULL;
                 struct stat st;
 
-                r = chase_symlinks(*p, arg_root, CHASE_PREFIX_ROOT, &resolved, NULL);
+                r = chase(*p, arg_root, CHASE_PREFIX_ROOT, &resolved, NULL);
                 if (r == -ENOENT) {
                         log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", strempty(arg_root), *p);
                         continue;
@@ -297,7 +297,7 @@ static int merge_hierarchy(
 
         /* Resolve the path of the host's version of the hierarchy, i.e. what we want to use as lowest layer
          * in the overlayfs stack. */
-        r = chase_symlinks(hierarchy, arg_root, CHASE_PREFIX_ROOT, &resolved_hierarchy, NULL);
+        r = chase(hierarchy, arg_root, CHASE_PREFIX_ROOT, &resolved_hierarchy, NULL);
         if (r == -ENOENT)
                 log_debug_errno(r, "Hierarchy '%s' on host doesn't exist, not merging.", hierarchy);
         else if (r < 0)
@@ -336,7 +336,7 @@ static int merge_hierarchy(
         STRV_FOREACH(p, paths) {
                 _cleanup_free_ char *resolved = NULL;
 
-                r = chase_symlinks(hierarchy, *p, CHASE_PREFIX_ROOT, &resolved, NULL);
+                r = chase(hierarchy, *p, CHASE_PREFIX_ROOT, &resolved, NULL);
                 if (r == -ENOENT) {
                         log_debug_errno(r, "Hierarchy '%s' in extension '%s' doesn't exist, not merging.", hierarchy, *p);
                         continue;
@@ -428,7 +428,7 @@ static int validate_version(
         /* Insist that extension images do not overwrite the underlying OS release file (it's fine if
          * they place one in /etc/os-release, i.e. where things don't matter, as they aren't
          * merged.) */
-        r = chase_symlinks("/usr/lib/os-release", root, CHASE_PREFIX_ROOT, NULL, NULL);
+        r = chase("/usr/lib/os-release", root, CHASE_PREFIX_ROOT, NULL, NULL);
         if (r < 0) {
                 if (r != -ENOENT)
                         return log_error_errno(r, "Failed to determine whether /usr/lib/os-release exists in the extension image: %m");
@@ -649,7 +649,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
         STRV_FOREACH(h, arg_hierarchies) {
                 _cleanup_free_ char *resolved = NULL;
 
-                r = chase_symlinks(*h, arg_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
+                r = chase(*h, arg_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", strempty(arg_root), *h);
 
@@ -691,7 +691,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         continue;
                 }
 
-                r = chase_symlinks(*h, arg_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
+                r = chase(*h, arg_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", strempty(arg_root), *h);
 
@@ -781,7 +781,7 @@ static int verb_merge(int argc, char **argv, void *userdata) {
         STRV_FOREACH(p, arg_hierarchies) {
                 _cleanup_free_ char *resolved = NULL;
 
-                r = chase_symlinks(*p, arg_root, CHASE_PREFIX_ROOT, &resolved, NULL);
+                r = chase(*p, arg_root, CHASE_PREFIX_ROOT, &resolved, NULL);
                 if (r == -ENOENT) {
                         log_debug_errno(r, "Hierarchy '%s%s' does not exist, ignoring.", strempty(arg_root), *p);
                         continue;

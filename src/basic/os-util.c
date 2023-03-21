@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "dirent-util.h"
 #include "env-file.h"
 #include "env-util.h"
@@ -108,9 +108,7 @@ int open_extension_release(const char *root, const char *extension, bool relax_e
                                                "The extension name %s is invalid.", extension);
 
                 extension_full_path = strjoina("/usr/lib/extension-release.d/extension-release.", extension);
-                r = chase_symlinks(extension_full_path, root, CHASE_PREFIX_ROOT,
-                                   ret_path ? &q : NULL,
-                                   ret_fd ? &fd : NULL);
+                r = chase(extension_full_path, root, CHASE_PREFIX_ROOT, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
                 log_full_errno_zerook(LOG_DEBUG, MIN(r, 0), "Checking for %s: %m", extension_full_path);
 
                 /* Cannot find the expected extension-release file? The image filename might have been
@@ -122,8 +120,8 @@ int open_extension_release(const char *root, const char *extension, bool relax_e
                         _cleanup_free_ char *extension_release_dir_path = NULL;
                         _cleanup_closedir_ DIR *extension_release_dir = NULL;
 
-                        r = chase_symlinks_and_opendir("/usr/lib/extension-release.d/", root, CHASE_PREFIX_ROOT,
-                                                       &extension_release_dir_path, &extension_release_dir);
+                        r = chase_and_opendir("/usr/lib/extension-release.d/", root, CHASE_PREFIX_ROOT,
+                                              &extension_release_dir_path, &extension_release_dir);
                         if (r < 0)
                                 return log_debug_errno(r, "Cannot open %s/usr/lib/extension-release.d/, ignoring: %m", root);
 
@@ -192,14 +190,10 @@ int open_extension_release(const char *root, const char *extension, bool relax_e
         } else {
                 const char *var = secure_getenv("SYSTEMD_OS_RELEASE");
                 if (var)
-                        r = chase_symlinks(var, root, 0,
-                                           ret_path ? &q : NULL,
-                                           ret_fd ? &fd : NULL);
+                        r = chase(var, root, 0, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
                 else
                         FOREACH_STRING(path, "/etc/os-release", "/usr/lib/os-release") {
-                                r = chase_symlinks(path, root, CHASE_PREFIX_ROOT,
-                                                   ret_path ? &q : NULL,
-                                                   ret_fd ? &fd : NULL);
+                                r = chase(path, root, CHASE_PREFIX_ROOT, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
                                 if (r != -ENOENT)
                                         break;
                         }

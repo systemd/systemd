@@ -15,7 +15,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "compress.h"
 #include "constants.h"
 #include "dissect-image.h"
@@ -505,13 +505,13 @@ static int resolve_filename(const char *root, char **p) {
         if (!*p)
                 return 0;
 
-        r = chase_symlinks(*p, root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
+        r = chase(*p, root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve \"%s%s\": %m", strempty(root), *p);
 
         free_and_replace(*p, resolved);
 
-        /* chase_symlinks() with flag CHASE_NONEXISTENT will return 0 if the file doesn't exist and 1 if it does.
+        /* chase() with flag CHASE_NONEXISTENT will return 0 if the file doesn't exist and 1 if it does.
          * Return that to the caller
          */
         return r;
@@ -981,7 +981,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                         return r;
                 assert(r > 0);
 
-                r = chase_symlinks_and_access(filename, arg_root, CHASE_PREFIX_ROOT, F_OK, &resolved);
+                r = chase_and_access(filename, arg_root, CHASE_PREFIX_ROOT, F_OK, &resolved);
                 if (r < 0)
                         return log_error_errno(r, "Cannot access \"%s%s\": %m", strempty(arg_root), filename);
 

@@ -7,7 +7,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -75,11 +75,11 @@ static int equivalent(const char *a, const char *b) {
         _cleanup_free_ char *x = NULL, *y = NULL;
         int r;
 
-        r = chase_symlinks(a, NULL, CHASE_TRAIL_SLASH, &x, NULL);
+        r = chase(a, NULL, CHASE_TRAIL_SLASH, &x, NULL);
         if (r < 0)
                 return r;
 
-        r = chase_symlinks(b, NULL, CHASE_TRAIL_SLASH, &y, NULL);
+        r = chase(b, NULL, CHASE_TRAIL_SLASH, &y, NULL);
         if (r < 0)
                 return r;
 
@@ -376,7 +376,7 @@ static int should_skip_path(const char *prefix, const char *suffix) {
         if (!dirname)
                 return -ENOMEM;
 
-        if (chase_symlinks(dirname, NULL, 0, &target, NULL) < 0)
+        if (chase(dirname, NULL, 0, &target, NULL) < 0)
                 return false;
 
         NULSTR_FOREACH(p, prefixes) {

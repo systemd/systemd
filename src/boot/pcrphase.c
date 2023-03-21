@@ -8,7 +8,7 @@
 #include "blkid-util.h"
 #include "blockdev-util.h"
 #include "build.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "efi-loader.h"
 #include "efivars.h"
 #include "escape.h"
@@ -259,7 +259,7 @@ static int run(int argc, char *argv[]) {
                 if (optind != argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected no argument.");
 
-                dfd = chase_symlinks_and_open(arg_file_system, NULL, 0, O_DIRECTORY|O_CLOEXEC, &normalized);
+                dfd = chase_and_open(arg_file_system, NULL, 0, O_DIRECTORY|O_CLOEXEC, &normalized);
                 if (dfd < 0)
                         return log_error_errno(dfd, "Failed to open path '%s': %m", arg_file_system);
 

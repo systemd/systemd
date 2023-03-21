@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -285,7 +285,7 @@ char **path_strv_resolve(char **l, const char *root) {
                 } else
                         t = *s;
 
-                r = chase_symlinks(t, root, 0, &u, NULL);
+                r = chase(t, root, 0, &u, NULL);
                 if (r == -ENOENT) {
                         if (root) {
                                 u = TAKE_PTR(orig);
@@ -621,16 +621,13 @@ static int find_executable_impl(const char *name, const char *root, char **ret_f
 
         assert(name);
 
-        /* Function chase_symlinks() is invoked only when root is not NULL, as using it regardless of
+        /* Function chase() is invoked only when root is not NULL, as using it regardless of
          * root value would alter the behavior of existing callers for example: /bin/sleep would become
          * /usr/bin/sleep when find_executables is called. Hence, this function should be invoked when
          * needed to avoid unforeseen regression or other complicated changes. */
         if (root) {
-                r = chase_symlinks(name,
-                                   root,
-                                   CHASE_PREFIX_ROOT,
-                                   &path_name,
-                                   /* ret_fd= */ NULL); /* prefix root to name in case full paths are not specified */
+                 /* prefix root to name in case full paths are not specified */
+                r = chase(name, root, CHASE_PREFIX_ROOT, &path_name, /* ret_fd= */ NULL);
                 if (r < 0)
                         return r;
 

@@ -26,7 +26,7 @@
 #include "blkid-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "constants.h"
 #include "copy.h"
@@ -1650,7 +1650,7 @@ static int mount_partition(
                 if (r < 0 && r != -EROFS)
                         return r;
 
-                r = chase_symlinks(directory, where, CHASE_PREFIX_ROOT, &chased, NULL);
+                r = chase(directory, where, CHASE_PREFIX_ROOT, &chased, NULL);
                 if (r < 0)
                         return r;
 
@@ -1828,7 +1828,7 @@ int dissected_image_mount(
                 /* Mount the ESP to /efi if it exists. If it doesn't exist, use /boot instead, but only if it
                  * exists and is empty, and we didn't already mount the XBOOTLDR partition into it. */
 
-                r = chase_symlinks("/efi", where, CHASE_PREFIX_ROOT, NULL, NULL);
+                r = chase("/efi", where, CHASE_PREFIX_ROOT, NULL, NULL);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 return r;
@@ -1838,7 +1838,7 @@ int dissected_image_mount(
                         if (!xbootldr_mounted) {
                                 _cleanup_free_ char *p = NULL;
 
-                                r = chase_symlinks("/boot", where, CHASE_PREFIX_ROOT, &p, NULL);
+                                r = chase("/boot", where, CHASE_PREFIX_ROOT, &p, NULL);
                                 if (r < 0) {
                                         if (r != -ENOENT)
                                                 return r;
@@ -3062,7 +3062,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                                                "/lib/systemd/systemd",      /* systemd on /usr non-merged systems */
                                                "/sbin/init") {              /* traditional path the Linux kernel invokes */
 
-                                        r = chase_symlinks(init, t, CHASE_PREFIX_ROOT, NULL, NULL);
+                                        r = chase(init, t, CHASE_PREFIX_ROOT, NULL, NULL);
                                         if (r < 0) {
                                                 if (r != -ENOENT)
                                                         log_debug_errno(r, "Failed to resolve %s, ignoring: %m", init);
@@ -3081,7 +3081,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 
                         default:
                                 NULSTR_FOREACH(p, paths[k]) {
-                                        fd = chase_symlinks_and_open(p, t, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+                                        fd = chase_and_open(p, t, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
                                         if (fd >= 0)
                                                 break;
                                 }
