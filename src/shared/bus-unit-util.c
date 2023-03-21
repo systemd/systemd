@@ -987,6 +987,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "CPUSchedulingResetOnFork",
                               "LockPersonality",
                               "ProtectHostname",
+                              "MemoryKSM",
                               "RestrictSUIDSGID"))
                 return bus_append_parse_boolean(m, field, eq);
 
