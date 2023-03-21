@@ -1746,6 +1746,21 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MemoryKSM=</varname></term>
+
+        <listitem><para>Takes a boolean argument. When set, it enables KSM (kernel samepage merging) for
+        the processes. KSM is a memory-saving de-duplication feature. Anonymous memory pages with identical
+        content can be replaced by a single write-protected page. This feature should only be enabled for
+        jobs that share the same security domain. For details, see
+        <ulink url="https://docs.kernel.org/admin-guide/mm/ksm.html">Kernel sampage merging</ulink> in the
+        kernel documentation.</para>
+
+        <para>Note that the implementation of this setting might not be possible (for example if KSM is not
+        available or <function>prctl()</function> does not yet support enabling KSM at the process level).</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PrivateUsers=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, sets up a new user namespace for the executed processes and
