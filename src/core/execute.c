@@ -5008,16 +5008,15 @@ static int exec_child(
                         return r;
         }
 
-        if (context->memory_ksm >= 0) {
+        if (context->memory_ksm >= 0)
                 if (prctl(PR_SET_MEMORY_MERGE, context->memory_ksm) < 0) {
                         if (ERRNO_IS_NOT_SUPPORTED(errno))
                                 log_unit_debug_errno(unit, r, "KSM support not available, ignoring.");
                         else {
                                 *exit_status = EXIT_KSM;
-                                return log_unit_error_errno(unit, errno, "Failed to set KSM %m");
+                                return log_unit_error_errno(unit, errno, "Failed to set KSM: %m");
                         }
                 }
-        }
 
         /* Drop groups as early as possible.
          * This needs to be done after PrivateDevices=y setup as device nodes should be owned by the host's root.
