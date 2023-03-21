@@ -73,6 +73,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "proc-cmdline-internal.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "psi-util.h"
@@ -817,66 +818,6 @@ static void set_manager_settings(Manager *m) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_LOG_LEVEL = 0x100,
-                ARG_LOG_TARGET,
-                ARG_LOG_COLOR,
-                ARG_LOG_LOCATION,
-                ARG_LOG_TIME,
-                ARG_UNIT,
-                ARG_SYSTEM,
-                ARG_USER,
-                ARG_TEST,
-                ARG_NO_PAGER,
-                ARG_VERSION,
-                ARG_DUMP_CONFIGURATION_ITEMS,
-                ARG_DUMP_BUS_PROPERTIES,
-                ARG_BUS_INTROSPECT,
-                ARG_DUMP_CORE,
-                ARG_CRASH_CHVT,
-                ARG_CRASH_SHELL,
-                ARG_CRASH_REBOOT,
-                ARG_CONFIRM_SPAWN,
-                ARG_SHOW_STATUS,
-                ARG_DESERIALIZE,
-                ARG_SWITCHED_ROOT,
-                ARG_DEFAULT_STD_OUTPUT,
-                ARG_DEFAULT_STD_ERROR,
-                ARG_MACHINE_ID,
-                ARG_SERVICE_WATCHDOGS,
-        };
-
-        static const struct option options[] = {
-                { "log-level",                required_argument, NULL, ARG_LOG_LEVEL                },
-                { "log-target",               required_argument, NULL, ARG_LOG_TARGET               },
-                { "log-color",                optional_argument, NULL, ARG_LOG_COLOR                },
-                { "log-location",             optional_argument, NULL, ARG_LOG_LOCATION             },
-                { "log-time",                 optional_argument, NULL, ARG_LOG_TIME                 },
-                { "unit",                     required_argument, NULL, ARG_UNIT                     },
-                { "system",                   no_argument,       NULL, ARG_SYSTEM                   },
-                { "user",                     no_argument,       NULL, ARG_USER                     },
-                { "test",                     no_argument,       NULL, ARG_TEST                     },
-                { "no-pager",                 no_argument,       NULL, ARG_NO_PAGER                 },
-                { "help",                     no_argument,       NULL, 'h'                          },
-                { "version",                  no_argument,       NULL, ARG_VERSION                  },
-                { "dump-configuration-items", no_argument,       NULL, ARG_DUMP_CONFIGURATION_ITEMS },
-                { "dump-bus-properties",      no_argument,       NULL, ARG_DUMP_BUS_PROPERTIES      },
-                { "bus-introspect",           required_argument, NULL, ARG_BUS_INTROSPECT           },
-                { "dump-core",                optional_argument, NULL, ARG_DUMP_CORE                },
-                { "crash-chvt",               required_argument, NULL, ARG_CRASH_CHVT               },
-                { "crash-shell",              optional_argument, NULL, ARG_CRASH_SHELL              },
-                { "crash-reboot",             optional_argument, NULL, ARG_CRASH_REBOOT             },
-                { "confirm-spawn",            optional_argument, NULL, ARG_CONFIRM_SPAWN            },
-                { "show-status",              optional_argument, NULL, ARG_SHOW_STATUS              },
-                { "deserialize",              required_argument, NULL, ARG_DESERIALIZE              },
-                { "switched-root",            no_argument,       NULL, ARG_SWITCHED_ROOT            },
-                { "default-standard-output",  required_argument, NULL, ARG_DEFAULT_STD_OUTPUT,      },
-                { "default-standard-error",   required_argument, NULL, ARG_DEFAULT_STD_ERROR,       },
-                { "machine-id",               required_argument, NULL, ARG_MACHINE_ID               },
-                { "service-watchdogs",        required_argument, NULL, ARG_SERVICE_WATCHDOGS        },
-                {}
-        };
-
         int c, r;
         bool user_arg_seen = false;
 
@@ -886,7 +827,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (getpid_cached() == 1)
                 opterr = 0;
 
-        while ((c = getopt_long(argc, argv, "hDbsz:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, SYSTEMD_GETOPT_SHORT_OPTIONS, systemd_getopt_options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -1519,7 +1460,7 @@ static int become_shutdown(int objective, int retval) {
                 exit_code[DECIMAL_STR_MAX(uint8_t) + 1],
                 timeout[DECIMAL_STR_MAX(usec_t) + 1];
 
-        const char* command_line[13] = {
+        const char* command_line[14] = {
                 SYSTEMD_SHUTDOWN_BINARY_PATH,
                 table[objective],
                 "--timeout", timeout,
