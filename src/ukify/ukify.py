@@ -31,6 +31,9 @@ EFI_ARCH_MAP = {
         'i[3456]86'    : ['ia32'],
         'aarch64'      : ['aa64'],
         'arm[45678]*l' : ['arm'],
+        'loongarch32'  : ['loongarch32'],
+        'loongarch64'  : ['loongarch64'],
+        'riscv32'      : ['riscv32'],
         'riscv64'      : ['riscv64'],
 }
 EFI_ARCHES: list[str] = sum(EFI_ARCH_MAP.values(), [])
