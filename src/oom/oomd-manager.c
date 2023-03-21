@@ -516,7 +516,10 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                         else
                                 clear_candidates = NULL;
 
-                        r = oomd_kill_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates, t->path, m->dry_run, &selected);
+                        r = oomd_kill_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates,
+                                                     /* prefix= */ t->path,
+                                                     /* dry_run= */ m->dry_run,
+                                                     &selected);
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
