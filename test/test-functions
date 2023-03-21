@@ -3035,6 +3035,7 @@ _test_cleanup() {
         fi
         [[ -n "$TESTDIR" ]] && rm -vfr "$TESTDIR"
         [[ -n "$STATEFILE" ]] && rm -vf "$STATEFILE"
+        [[ -n "$STATEDIR" ]] && rm -vfr "$STATEDIR"
     ) || :
 }
 
