@@ -270,11 +270,11 @@ the directory, and add the following contents:
             },
             "MIMode": "gdb",
             "sourceFileMap": {
-                "/root/build/../src": {
+                "/work/build/../src": {
                     "editorPath": "${workspaceFolder}",
                     "useForBreakpoints": false
                 },
-                "/root/build/*": {
+                "/work/build/*": {
                     "editorPath": "${workspaceFolder}/mkosi.builddir",
                     "useForBreakpoints": false
                 }
