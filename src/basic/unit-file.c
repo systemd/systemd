@@ -2,7 +2,7 @@
 
 #include "sd-id128.h"
 
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -322,7 +322,7 @@ int unit_file_resolve_symlink(
         }
 
         /* Get rid of "." and ".." components in target path */
-        r = chase_symlinks(target, root_dir, CHASE_NOFOLLOW | CHASE_NONEXISTENT, &simplified, NULL);
+        r = chase(target, root_dir, CHASE_NOFOLLOW | CHASE_NONEXISTENT, &simplified, NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to resolve symlink %s/%s pointing to %s: %m",
                                          dir, filename, target);
@@ -432,7 +432,7 @@ int unit_file_build_name_map(
                 if (r < 0)
                         return log_oom();
 
-                r = chase_symlinks(*dir, NULL, 0, &resolved_dir, NULL);
+                r = chase(*dir, NULL, 0, &resolved_dir, NULL);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 log_warning_errno(r, "Failed to resolve symlink %s, ignoring: %m", *dir);

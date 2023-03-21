@@ -10,7 +10,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
@@ -686,7 +686,7 @@ static int remove_marked_symlinks_fd(
                         if (!found) {
                                 _cleanup_free_ char *dest = NULL;
 
-                                q = chase_symlinks(p, lp->root_dir, CHASE_NONEXISTENT, &dest, NULL);
+                                q = chase(p, lp->root_dir, CHASE_NONEXISTENT, &dest, NULL);
                                 if (q == -ENOENT)
                                         continue;
                                 if (q < 0) {
@@ -1379,7 +1379,7 @@ static int unit_file_load(
                 if (!(flags & SEARCH_LOAD))
                         return 0;
 
-                fd = chase_symlinks_and_open(path, root_dir, 0, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+                fd = chase_and_open(path, root_dir, 0, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
                 if (fd < 0)
                         return fd;
         }
@@ -1918,7 +1918,7 @@ static int install_info_symlink_alias(
                 if (!alias_path)
                         return -ENOMEM;
 
-                q = chase_symlinks(alias_path, lp->root_dir, CHASE_NONEXISTENT, NULL, NULL);
+                q = chase(alias_path, lp->root_dir, CHASE_NONEXISTENT, NULL, NULL);
                 if (q < 0 && q != -ENOENT) {
                         r = r < 0 ? r : q;
                         continue;

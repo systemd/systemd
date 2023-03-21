@@ -23,7 +23,7 @@
 #include <linux/pci_regs.h>
 
 #include "alloc-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #include <getopt.h>
 
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -97,7 +97,7 @@ static int run(int argc, char **argv) {
                 printf("%s ", argv[i]);
                 fflush(stdout);
 
-                r = chase_symlinks(argv[i], arg_root, arg_flags, &p, arg_open ? &fd : NULL);
+                r = chase(argv[i], arg_root, arg_flags, &p, arg_open ? &fd : NULL);
                 if (r < 0)
                         log_error_errno(r, "failed: %m");
                 else {
