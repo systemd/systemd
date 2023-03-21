@@ -13,7 +13,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -161,7 +161,7 @@ const char* default_root_shell(const char *root) {
          * will be /bin/bash. Fall back to /bin/sh if DEFAULT_USER_SHELL is not found,
          * or any access errors. */
 
-        int r = chase_symlinks(DEFAULT_USER_SHELL, root, CHASE_PREFIX_ROOT, NULL, NULL);
+        int r = chase(DEFAULT_USER_SHELL, root, CHASE_PREFIX_ROOT, NULL, NULL);
         if (r < 0 && r != -ENOENT)
                 log_debug_errno(r, "Failed to look up shell '%s%s%s': %m",
                                 strempty(root), root ? "/" : "", DEFAULT_USER_SHELL);

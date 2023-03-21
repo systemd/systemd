@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "missing_threads.h"
@@ -40,7 +40,7 @@ int read_login_defs(UGIDAllocationRange *ret_defs, const char *path, const char 
         if (!path)
                 path = "/etc/login.defs";
 
-        r = chase_symlinks_and_fopen_unlocked(path, root, CHASE_PREFIX_ROOT, "re", NULL, &f);
+        r = chase_and_fopen_unlocked(path, root, CHASE_PREFIX_ROOT, "re", NULL, &f);
         if (r == -ENOENT)
                 goto defaults;
         if (r < 0)

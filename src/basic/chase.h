@@ -30,22 +30,22 @@ typedef enum ChaseSymlinksFlags {
 bool unsafe_transition(const struct stat *a, const struct stat *b);
 
 /* How many iterations to execute before returning -ELOOP */
-#define CHASE_SYMLINKS_MAX 32
+#define CHASE_MAX 32
 
-int chase_symlinks(const char *path_with_prefix, const char *root, ChaseSymlinksFlags chase_flags, char **ret_path, int *ret_fd);
+int chase(const char *path_with_prefix, const char *root, ChaseSymlinksFlags chase_flags, char **ret_path, int *ret_fd);
 
-int chase_symlinks_and_open(const char *path, const char *root, ChaseSymlinksFlags chase_flags, int open_flags, char **ret_path);
-int chase_symlinks_and_opendir(const char *path, const char *root, ChaseSymlinksFlags chase_flags, char **ret_path, DIR **ret_dir);
-int chase_symlinks_and_stat(const char *path, const char *root, ChaseSymlinksFlags chase_flags, char **ret_path, struct stat *ret_stat);
-int chase_symlinks_and_access(const char *path, const char *root, ChaseSymlinksFlags chase_flags, int access_mode, char **ret_path);
-int chase_symlinks_and_fopen_unlocked(const char *path, const char *root, ChaseSymlinksFlags chase_flags, const char *open_flags, char **ret_path, FILE **ret_file);
-int chase_symlinks_and_unlink(const char *path, const char *root, ChaseSymlinksFlags chase_flags, int unlink_flags, char **ret_path);
+int chase_and_open(const char *path, const char *root, ChaseSymlinksFlags chase_flags, int open_flags, char **ret_path);
+int chase_and_opendir(const char *path, const char *root, ChaseSymlinksFlags chase_flags, char **ret_path, DIR **ret_dir);
+int chase_and_stat(const char *path, const char *root, ChaseSymlinksFlags chase_flags, char **ret_path, struct stat *ret_stat);
+int chase_and_access(const char *path, const char *root, ChaseSymlinksFlags chase_flags, int access_mode, char **ret_path);
+int chase_and_fopen_unlocked(const char *path, const char *root, ChaseSymlinksFlags chase_flags, const char *open_flags, char **ret_path, FILE **ret_file);
+int chase_and_unlink(const char *path, const char *root, ChaseSymlinksFlags chase_flags, int unlink_flags, char **ret_path);
 
-int chase_symlinks_at(int dir_fd, const char *path, ChaseSymlinksFlags flags, char **ret_path, int *ret_fd);
+int chaseat(int dir_fd, const char *path, ChaseSymlinksFlags flags, char **ret_path, int *ret_fd);
 
-int chase_symlinks_at_and_open(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, int open_flags, char **ret_path);
-int chase_symlinks_at_and_opendir(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, char **ret_path, DIR **ret_dir);
-int chase_symlinks_at_and_stat(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, char **ret_path, struct stat *ret_stat);
-int chase_symlinks_at_and_access(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, int access_mode, char **ret_path);
-int chase_symlinks_at_and_fopen_unlocked(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, const char *open_flags, char **ret_path, FILE **ret_file);
-int chase_symlinks_at_and_unlink(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, int unlink_flags, char **ret_path);
+int chase_and_openat(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, int open_flags, char **ret_path);
+int chase_and_opendirat(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, char **ret_path, DIR **ret_dir);
+int chase_and_statat(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, char **ret_path, struct stat *ret_stat);
+int chase_and_accessat(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, int access_mode, char **ret_path);
+int chase_and_fopenat_unlocked(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, const char *open_flags, char **ret_path, FILE **ret_file);
+int chase_and_unlinkat(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, int unlink_flags, char **ret_path);
