@@ -49,6 +49,7 @@
 #include "sync-util.h"
 #include "tmpfile-util.h"
 #include "uid-alloc-range.h"
+#include "unaligned.h"
 #include "user-util.h"
 
 /* The maximum size up to which we process coredumps. We use 1G on 32bit systems, and 32G on 64bit systems */
@@ -353,28 +354,34 @@ static int parse_auxv64(
 
         /* Note that we set output variables even on error. */
 
-        for (size_t i = 0; i + 1 < words; i += 2)
-                switch (auxv[i]) {
+        for (size_t i = 0; i + 1 < words; i += 2) {
+                uint64_t key, val;
+
+                key = unaligned_read_ne64(auxv + i);
+                val = unaligned_read_ne64(auxv + i + 1);
+
+                switch (key) {
                 case AT_SECURE:
-                        *at_secure = auxv[i + 1] != 0;
+                        *at_secure = val != 0;
                         break;
                 case AT_UID:
-                        *uid = auxv[i + 1];
+                        *uid = val;
                         break;
                 case AT_EUID:
-                        *euid = auxv[i + 1];
+                        *euid = val;
                         break;
                 case AT_GID:
-                        *gid = auxv[i + 1];
+                        *gid = val;
                         break;
                 case AT_EGID:
-                        *egid = auxv[i + 1];
+                        *egid = val;
                         break;
                 case AT_NULL:
-                        if (auxv[i + 1] != 0)
+                        if (val != 0)
                                 goto error;
                         return 0;
                 }
+        }
  error:
         return log_warning_errno(SYNTHETIC_ERRNO(ENODATA),
                                  "AT_NULL terminator not found, cannot parse auxv structure.");
@@ -398,28 +405,34 @@ static int parse_auxv32(
 
         /* Note that we set output variables even on error. */
 
-        for (size_t i = 0; i + 1 < words; i += 2)
-                switch (auxv[i]) {
+        for (size_t i = 0; i + 1 < words; i += 2) {
+                uint32_t key, val;
+
+                key = unaligned_read_ne32(auxv + i);
+                val = unaligned_read_ne32(auxv + i + 1);
+
+                switch (key) {
                 case AT_SECURE:
-                        *at_secure = auxv[i + 1] != 0;
+                        *at_secure = val != 0;
                         break;
                 case AT_UID:
-                        *uid = auxv[i + 1];
+                        *uid = val;
                         break;
                 case AT_EUID:
-                        *euid = auxv[i + 1];
+                        *euid = val;
                         break;
                 case AT_GID:
-                        *gid = auxv[i + 1];
+                        *gid = val;
                         break;
                 case AT_EGID:
-                        *egid = auxv[i + 1];
+                        *egid = val;
                         break;
                 case AT_NULL:
-                        if (auxv[i + 1] != 0)
+                        if (val != 0)
                                 goto error;
                         return 0;
                 }
+        }
  error:
         return log_warning_errno(SYNTHETIC_ERRNO(ENODATA),
                                  "AT_NULL terminator not found, cannot parse auxv structure.");
