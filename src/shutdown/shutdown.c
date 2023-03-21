@@ -75,6 +75,10 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
+        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
+         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
+        optind = 0;
+
         /* "-" prevents getopt from permuting argv[] and moving the verb away
          * from argv[1]. Our interface to initrd promises it'll be there. */
         while ((c = getopt_long(argc, argv, "-", options, NULL)) >= 0)
