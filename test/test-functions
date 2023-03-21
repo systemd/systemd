@@ -207,6 +207,7 @@ BASICTOOLS=(
     seq
     setfattr
     setfont
+    setpriv
     setsid
     sfdisk
     sh
