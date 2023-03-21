@@ -648,7 +648,8 @@ static int install_variables(
                 uint64_t psize,
                 sd_id128_t uuid,
                 const char *path,
-                bool first) {
+                bool first,
+                bool graceful) {
 
         uint16_t slot;
         int r;
@@ -671,18 +672,28 @@ static int install_variables(
                 return log_error_errno(r, "Cannot access \"%s/%s\": %m", esp_path, path);
 
         r = find_slot(uuid, path, &slot);
-        if (r < 0)
+        if (r < 0) {
+                if (graceful)
+                        return log_full_errno(arg_quiet ? LOG_DEBUG : LOG_INFO, r,
+                                              "Failed to access EFI variables, skipping: %m");
+
                 return log_error_errno(r,
                                        r == -ENOENT ?
                                        "Failed to access EFI variables. Is the \"efivarfs\" filesystem mounted?" :
                                        "Failed to determine current boot order: %m");
+        }
 
         if (first || r == 0) {
                 r = efi_add_boot_option(slot, pick_efi_boot_option_description(),
                                         part, pstart, psize,
                                         uuid, path);
-                if (r < 0)
+                if (r < 0) {
+                        if (graceful)
+                                return log_full_errno(arg_quiet ? LOG_DEBUG : LOG_INFO, r,
+                                                      "Failed to create EFI Boot variable entry, skipping: %m");
+
                         return log_error_errno(r, "Failed to create EFI Boot variable entry: %m");
+                }
 
                 log_info("Created EFI boot entry \"%s\".", pick_efi_boot_option_description());
         }
@@ -810,7 +821,8 @@ int verb_install(int argc, char *argv[], void *userdata) {
         }
 
         char *path = strjoina("/EFI/systemd/systemd-boot", arch, ".efi");
-        return install_variables(arg_esp_path, part, pstart, psize, uuid, path, install);
+        r = install_variables(arg_esp_path, part, pstart, psize, uuid, path, install, graceful);
+        return graceful ? 0 : r;
 }
 
 static int remove_boot_efi(const char *esp_path) {
