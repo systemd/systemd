@@ -1755,9 +1755,10 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <ulink url="https://docs.kernel.org/admin-guide/mm/ksm.html">Kernel Samepage Merging</ulink> in the
         kernel documentation.</para>
 
-        <para>Note that the implementation of this setting might not be possible (for example if KSM is not
-        available or <function>prctl()</function> does not yet support enabling KSM at the process level).</para>
-        </listitem>
+        <para>Note that this functionality might not be available, for example if KSM is disabled in the
+        kernel, or the kernel doesn't support controlling KSM at the process level through
+        <function>prctl()</function>.</para>
+        </listitem
       </varlistentry>
 
       <varlistentry>

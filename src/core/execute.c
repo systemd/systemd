@@ -5011,7 +5011,7 @@ static int exec_child(
         if (context->memory_ksm >= 0)
                 if (prctl(PR_SET_MEMORY_MERGE, context->memory_ksm) < 0) {
                         if (ERRNO_IS_NOT_SUPPORTED(errno))
-                                log_unit_debug_errno(unit, r, "KSM support not available, ignoring.");
+                                log_unit_debug_errno(unit, errno, "KSM support not available, ignoring.");
                         else {
                                 *exit_status = EXIT_KSM;
                                 return log_unit_error_errno(unit, errno, "Failed to set KSM: %m");
