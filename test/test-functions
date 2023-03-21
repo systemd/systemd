@@ -133,7 +133,13 @@ if [ -z "$TESTFILE" ]; then
     exit 1
 fi
 TESTNAME="$(basename "$(dirname "$(realpath "$TESTFILE")")")"
-STATEDIR="$BUILD_DIR/test/$TESTNAME"
+
+if get_bool "${NO_BUILD:=}"; then
+    STATEDIR="/var/tmp/systemd-tests/$TESTNAME"
+else
+    STATEDIR="$BUILD_DIR/test/$TESTNAME"
+fi
+
 STATEFILE="$STATEDIR/.testdir"
 IMAGESTATEDIR="$STATEDIR/.."
 TESTLOG="$STATEDIR/test.log"
@@ -2228,7 +2234,7 @@ import_testdir() {
     LOOPDEV="$_LOOPDEV"
     if [[ ! -d "$TESTDIR" ]]; then
         if [[ -z "$TESTDIR" ]]; then
-            TESTDIR="$(mktemp --tmpdir=/var/tmp -d -t systemd-test.XXXXXX)"
+            TESTDIR="$(mktemp --tmpdir=/var/tmp/systemd-tests -d -t systemd-test.XXXXXX)"
         else
             mkdir -p "$TESTDIR"
         fi
