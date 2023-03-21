@@ -60,11 +60,6 @@ touchpad:usb:v044ep1221:*
 # Lenovo
 ###########################################################
 # Thinkpad L14 Gen1 (AMD)
-evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO:*pvrThinkPadL14Gen1**
- EVDEV_ABS_00=::44
- EVDEV_ABS_01=::50
- EVDEV_ABS_35=::44
- EVDEV_ABS_36=::50
  ID_INPUT_TOUCHPAD_INTEGRATION=internal
 
 ###########################################################
