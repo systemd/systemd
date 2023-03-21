@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "chase-symlinks.h"
 #include "copy.h"
+#include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -434,6 +435,9 @@ TEST(chase_symlinks_at) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *result = NULL;
+        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        struct stat st;
         const char *p;
 
         assert_se((tfd = mkdtemp_open(NULL, 0, &t)) >= 0);
@@ -517,6 +521,28 @@ TEST(chase_symlinks_at) {
 
         assert_se(chase_symlinks_at(tfd, "i/../p", CHASE_MKDIR_0755, NULL, NULL) == -ENOENT);
 
+        /* Test CHASE_FILENAME */
+
+        assert_se(chase_symlinks_at(tfd, "chase/parent", CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT|CHASE_NOFOLLOW|CHASE_EXTRACT_FILENAME, &result, &fd) >= 0);
+        assert_se(faccessat(fd, result, F_OK, AT_SYMLINK_NOFOLLOW) >= 0);
+        assert_se(streq(result, "parent"));
+        fd = safe_close(fd);
+        result = mfree(result);
+
+        assert_se(chase_symlinks_at(tfd, "chase", CHASE_PARENT|CHASE_AT_RESOLVE_IN_ROOT|CHASE_EXTRACT_FILENAME, &result, &fd) >= 0);
+        assert_se(faccessat(fd, result, F_OK, 0) >= 0);
+        assert_se(streq(result, "chase"));
+        fd = safe_close(fd);
+        result = mfree(result);
+
+        assert_se(chase_symlinks_at(tfd, "/", CHASE_PARENT|CHASE_AT_RESOLVE_IN_ROOT|CHASE_EXTRACT_FILENAME, &result, NULL) >= 0);
+        assert_se(streq(result, "."));
+        result = mfree(result);
+
+        assert_se(chase_symlinks_at(tfd, ".", CHASE_PARENT|CHASE_AT_RESOLVE_IN_ROOT|CHASE_EXTRACT_FILENAME, &result, NULL) >= 0);
+        assert_se(streq(result, "."));
+        result = mfree(result);
+
         /* Test chase_symlinks_at_and_open() */
 
         fd = chase_symlinks_at_and_open(tfd, "o/p/e/n/f/i/l/e", CHASE_MKDIR_0755, O_CREAT|O_EXCL|O_CLOEXEC, NULL);
@@ -528,6 +554,42 @@ TEST(chase_symlinks_at) {
         assert_se(fd >= 0);
         assert_se(fd_verify_directory(fd) >= 0);
         fd = safe_close(fd);
+
+        /* Test chase_symlinks_at_and_opendir() */
+
+        assert_se(chase_symlinks_at_and_opendir(tfd, "o/p/e/n/d/i", 0, &result, &dir) >= 0);
+        FOREACH_DIRENT(de, dir, assert_not_reached())
+                assert_se(streq(de->d_name, "r"));
+        assert_se(streq(result, "o/p/e/n/d/i"));
+        result = mfree(result);
+
+        /* Test chase_symlinks_at_and_stat() */
+
+        assert_se(chase_symlinks_at_and_stat(tfd, "o/p", 0, &result, &st) >= 0);
+        assert_se(stat_verify_directory(&st) >= 0);
+        assert_se(streq(result, "o/p"));
+        result = mfree(result);
+
+        /* Test chase_symlinks_at_and_access() */
+
+        assert_se(chase_symlinks_at_and_access(tfd, "o/p/e", 0, F_OK, &result) >= 0);
+        assert_se(streq(result, "o/p/e"));
+        result = mfree(result);
+
+        /* Test chase_symlinks_at_and_fopen_unlocked() */
+
+        assert_se(chase_symlinks_at_and_fopen_unlocked(tfd, "o/p/e/n/f/i/l/e", 0, "re", &result, &f) >= 0);
+        assert_se(fread(&(char[1]) {}, 1, 1, f) == 0);
+        assert_se(feof(f));
+        f = safe_fclose(f);
+        assert_se(streq(result, "o/p/e/n/f/i/l/e"));
+        result = mfree(result);
+
+        /* Test chase_symlinks_at_and_unlink() */
+
+        assert_se(chase_symlinks_at_and_unlink(tfd, "o/p/e/n/f/i/l/e", 0, 0, &result) >= 0);
+        assert_se(streq(result, "o/p/e/n/f/i/l/e"));
+        result = mfree(result);
 }
 
 TEST(readlink_and_make_absolute) {

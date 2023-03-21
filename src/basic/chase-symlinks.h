@@ -24,6 +24,7 @@ typedef enum ChaseSymlinksFlags {
                                              * full path is still stored in ret_path and only the returned
                                              * file descriptor will point to the parent directory. */
         CHASE_MKDIR_0755         = 1 << 11, /* Create any missing parent directories in the given path. */
+        CHASE_EXTRACT_FILENAME   = 1 << 12, /* Only return the last component of the resolved path */
 } ChaseSymlinksFlags;
 
 bool unsafe_transition(const struct stat *a, const struct stat *b);
@@ -41,4 +42,10 @@ int chase_symlinks_and_fopen_unlocked(const char *path, const char *root, ChaseS
 int chase_symlinks_and_unlink(const char *path, const char *root, ChaseSymlinksFlags chase_flags, int unlink_flags, char **ret_path);
 
 int chase_symlinks_at(int dir_fd, const char *path, ChaseSymlinksFlags flags, char **ret_path, int *ret_fd);
+
 int chase_symlinks_at_and_open(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, int open_flags, char **ret_path);
+int chase_symlinks_at_and_opendir(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, char **ret_path, DIR **ret_dir);
+int chase_symlinks_at_and_stat(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, char **ret_path, struct stat *ret_stat);
+int chase_symlinks_at_and_access(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, int access_mode, char **ret_path);
+int chase_symlinks_at_and_fopen_unlocked(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, const char *open_flags, char **ret_path, FILE **ret_file);
+int chase_symlinks_at_and_unlink(int dir_fd, const char *path, ChaseSymlinksFlags chase_flags, int unlink_flags, char **ret_path);
