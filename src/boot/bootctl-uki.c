@@ -2,7 +2,7 @@
 
 #include "alloc-util.h"
 #include "bootctl-uki.h"
-#include "uki-util.h"
+#include "kernel-image.h"
 
 int verb_kernel_identify(int argc, char *argv[], void *userdata) {
         KernelImageType t;

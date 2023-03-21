@@ -2,11 +2,11 @@
 
 #include "fd-util.h"
 #include "env-file.h"
+#include "kernel-image.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "pe-header.h"
 #include "string-table.h"
-#include "uki-util.h"
 
 #define MAX_SECTIONS 96
 
