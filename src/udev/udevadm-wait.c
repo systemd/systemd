@@ -6,7 +6,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "device-monitor-private.h"
 #include "device-util.h"
 #include "errno-util.h"

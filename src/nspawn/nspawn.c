@@ -34,7 +34,7 @@
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cgroup-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "common-signal.h"
 #include "copy.h"
 #include "cpu-set-util.h"
@@ -1958,7 +1958,7 @@ static int setup_timezone(const char *dest) {
         if (m == TIMEZONE_OFF)
                 return 0;
 
-        r = chase_symlinks("/etc", dest, CHASE_PREFIX_ROOT, &etc, NULL);
+        r = chase("/etc", dest, CHASE_PREFIX_ROOT, &etc, NULL);
         if (r < 0) {
                 log_warning_errno(r, "Failed to resolve /etc path in container, ignoring: %m");
                 return 0;
@@ -1989,7 +1989,7 @@ static int setup_timezone(const char *dest) {
                         return 0; /* Already pointing to the right place? Then do nothing .. */
 
                 check = strjoina(dest, "/usr/share/zoneinfo/", z);
-                r = chase_symlinks(check, dest, 0, NULL, NULL);
+                r = chase(check, dest, 0, NULL, NULL);
                 if (r < 0)
                         log_debug_errno(r, "Timezone %s does not exist (or is not accessible) in container, not creating symlink: %m", z);
                 else {
@@ -2016,7 +2016,7 @@ static int setup_timezone(const char *dest) {
                 _cleanup_free_ char *resolved = NULL;
                 int found;
 
-                found = chase_symlinks(where, dest, CHASE_NONEXISTENT, &resolved, NULL);
+                found = chase(where, dest, CHASE_NONEXISTENT, &resolved, NULL);
                 if (found < 0) {
                         log_warning_errno(found, "Failed to resolve /etc/localtime path in container, ignoring: %m");
                         return 0;
@@ -2123,7 +2123,7 @@ static int setup_resolv_conf(const char *dest) {
         if (m == RESOLV_CONF_OFF)
                 return 0;
 
-        r = chase_symlinks("/etc", dest, CHASE_PREFIX_ROOT, &etc, NULL);
+        r = chase("/etc", dest, CHASE_PREFIX_ROOT, &etc, NULL);
         if (r < 0) {
                 log_warning_errno(r, "Failed to resolve /etc path in container, ignoring: %m");
                 return 0;
@@ -2151,7 +2151,7 @@ static int setup_resolv_conf(const char *dest) {
                 _cleanup_free_ char *resolved = NULL;
                 int found;
 
-                found = chase_symlinks(where, dest, CHASE_NONEXISTENT, &resolved, NULL);
+                found = chase(where, dest, CHASE_NONEXISTENT, &resolved, NULL);
                 if (found < 0) {
                         log_warning_errno(found, "Failed to resolve /etc/resolv.conf path in container, ignoring: %m");
                         return 0;
@@ -3094,7 +3094,7 @@ static int determine_names(void) {
         return 0;
 }
 
-static int chase_symlinks_and_update(char **p, unsigned flags) {
+static int chase_and_update(char **p, unsigned flags) {
         char *chased;
         int r;
 
@@ -3103,7 +3103,7 @@ static int chase_symlinks_and_update(char **p, unsigned flags) {
         if (!*p)
                 return 0;
 
-        r = chase_symlinks(*p, NULL, flags, &chased, NULL);
+        r = chase(*p, NULL, flags, &chased, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve path %s: %m", *p);
 
@@ -5534,7 +5534,7 @@ static int run(int argc, char *argv[]) {
                 if (arg_ephemeral) {
                         _cleanup_free_ char *np = NULL;
 
-                        r = chase_symlinks_and_update(&arg_directory, 0);
+                        r = chase_and_update(&arg_directory, 0);
                         if (r < 0)
                                 goto finish;
 
@@ -5585,7 +5585,7 @@ static int run(int argc, char *argv[]) {
                         free_and_replace(arg_directory, np);
                         remove_directory = true;
                 } else {
-                        r = chase_symlinks_and_update(&arg_directory, arg_template ? CHASE_NONEXISTENT : 0);
+                        r = chase_and_update(&arg_directory, arg_template ? CHASE_NONEXISTENT : 0);
                         if (r < 0)
                                 goto finish;
 
@@ -5600,7 +5600,7 @@ static int run(int argc, char *argv[]) {
                         }
 
                         if (arg_template) {
-                                r = chase_symlinks_and_update(&arg_template, 0);
+                                r = chase_and_update(&arg_template, 0);
                                 if (r < 0)
                                         goto finish;
 
@@ -5676,7 +5676,7 @@ static int run(int argc, char *argv[]) {
                 assert(arg_image);
                 assert(!arg_template);
 
-                r = chase_symlinks_and_update(&arg_image, 0);
+                r = chase_and_update(&arg_image, 0);
                 if (r < 0)
                         goto finish;
 

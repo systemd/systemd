@@ -75,7 +75,7 @@ Janitorial Clean-ups:
 * rework mount.c and swap.c to follow proper state enumeration/deserialization
   semantics, like we do for device.c now
 
-* get rid of prefix_roota() and similar, only use chase_symlinks() and related
+* get rid of prefix_roota() and similar, only use chase() and related
   calls instead.
 
 * get rid of basename() and replace by path_extract_filename()
@@ -604,13 +604,13 @@ Features:
 * Add support for extra verity configuration options to systemd-repart (FEC,
   hash type, etc)
 
-* chase_symlinks(): take inspiration from path_extract_filename() and return
+* chase(): take inspiration from path_extract_filename() and return
   O_DIRECTORY if input path contains trailing slash.
 
-* chase_symlinks(): refuse resolution if trailing slash is specified on input,
+* chase(): refuse resolution if trailing slash is specified on input,
   but final node is not a directory
 
-* chase_symlinks(): add new flag that simply refuses all symlink use in a path,
+* chase(): add new flag that simply refuses all symlink use in a path,
   then use that for accessing XBOOTLDR/ESP
 
 * document in boot loader spec that symlinks in XBOOTLDR/ESP are not OK even if
@@ -743,7 +743,7 @@ Features:
 * implement varlink introspection
 
 * we should probably drop all use of prefix_roota() and friends, and use
-  chase_symlinks() instead
+  chase() instead
 
 * make persistent restarts easier by adding a new setting OpenPersistentFile=
   or so, which allows opening one or more files that is "persistent" across
@@ -1261,10 +1261,10 @@ Features:
   documented in the pivot_root(2) man page, so that we can drop the /oldroot
   temporary dir.
 
-* special case some calls of chase_symlinks() to use openat2() internally, so
+* special case some calls of chase() to use openat2() internally, so
   that the kernel does what we otherwise do.
 
-* add a new flag to chase_symlinks() that stops chasing once the first missing
+* add a new flag to chase() that stops chasing once the first missing
   component is found and then allows the caller to create the rest.
 
 * make use of new glibc 2.32 APIs sigabbrev_np() and strerrorname_np().
@@ -1951,7 +1951,7 @@ Features:
 
 * mount: turn dependency information from /proc/self/mountinfo into dependency information between systemd units.
 
-* systemd-firstboot: make sure to always use chase_symlinks() before
+* systemd-firstboot: make sure to always use chase() before
   reading/writing files
 
 * firstboot: make it useful to be run immediately after yum --installroot to set up a machine. (most specifically, make --copy-root-password work even if /etc/passwd already exists

@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "copy.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -224,7 +224,7 @@ TEST(copy_tree) {
                 assert_se(f = strjoin(original_dir, *p));
                 assert_se(l = strjoin(copy_dir, *ll));
 
-                assert_se(chase_symlinks(l, NULL, 0, &target, NULL) == 1);
+                assert_se(chase(l, NULL, 0, &target, NULL) == 1);
                 assert_se(path_equal(f, target));
         }
 
