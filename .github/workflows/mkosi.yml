@@ -90,6 +90,8 @@ jobs:
         [Output]
         KernelCommandLineExtra=systemd.unit=mkosi-check-and-shutdown.service
                                systemd.journald.max_level_console=debug
+                               # udev's debug log output is very verbose, so up it to info in CI.
+                               udev.log_level=info
         EOF
 
     - name: Generate secure boot key
