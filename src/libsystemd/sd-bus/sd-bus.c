@@ -2940,7 +2940,7 @@ static int process_fd_check(sd_bus *bus, sd_bus_message *m) {
 }
 
 static int process_message(sd_bus *bus, sd_bus_message *m) {
-        _unused_ _cleanup_(log_context_freep) LogContext *c = NULL;
+        _unused_ _cleanup_(log_context_unrefp) LogContext *c = NULL;
         int r;
 
         assert(bus);
