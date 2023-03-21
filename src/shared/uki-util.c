@@ -19,13 +19,13 @@ static const uint8_t name_initrd[8] = ".initrd";
 static const uint8_t name_cmdline[8] = ".cmdline";
 static const uint8_t name_uname[8] = ".uname";
 
-static const char * const kernel_type_table[_KERNEL_TYPE_MAX] = {
-        [KERNEL_TYPE_UNKNOWN] = "unknown",
-        [KERNEL_TYPE_UKI]     = "uki",
-        [KERNEL_TYPE_PE]      = "pe",
+static const char * const kernel_image_type_table[_KERNEL_IMAGE_TYPE_MAX] = {
+        [KERNEL_IMAGE_TYPE_UNKNOWN] = "unknown",
+        [KERNEL_IMAGE_TYPE_UKI]     = "uki",
+        [KERNEL_IMAGE_TYPE_PE]      = "pe",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(kernel_type, KernelType);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(kernel_image_type, KernelImageType);
 
 static int pe_sections(FILE *f, struct PeSectionHeader **ret, size_t *ret_n) {
         _cleanup_free_ struct PeSectionHeader *sections = NULL;
@@ -256,7 +256,7 @@ static int inspect_uki(
 
 int inspect_kernel(
                 const char *filename,
-                KernelType *ret_type,
+                KernelImageType *ret_type,
                 char **ret_cmdline,
                 char **ret_uname,
                 char **ret_pretty_name) {
@@ -264,7 +264,7 @@ int inspect_kernel(
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ struct PeSectionHeader *sections = NULL;
         size_t scount;
-        KernelType t;
+        KernelImageType t;
         int r;
 
         assert(filename);
@@ -278,14 +278,14 @@ int inspect_kernel(
                 return r;
 
         if (!sections)
-                t = KERNEL_TYPE_UNKNOWN;
+                t = KERNEL_IMAGE_TYPE_UNKNOWN;
         else if (is_uki(sections, scount)) {
-                t = KERNEL_TYPE_UKI;
+                t = KERNEL_IMAGE_TYPE_UKI;
                 r = inspect_uki(f, sections, scount, ret_cmdline, ret_uname, ret_pretty_name);
                 if (r < 0)
                         return r;
         } else
-                t = KERNEL_TYPE_PE;
+                t = KERNEL_IMAGE_TYPE_PE;
 
         if (ret_type)
                 *ret_type = t;
