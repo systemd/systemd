@@ -997,7 +997,7 @@ TEST(conservative_rename) {
         assert_se(access(q, F_OK) < 0 && errno == ENOENT);
 
         /* Check that a manual copy is detected */
-        assert_se(copy_file(p, q, 0, MODE_INVALID, 0, 0, COPY_REFLINK) >= 0);
+        assert_se(copy_file(p, q, 0, MODE_INVALID, COPY_REFLINK) >= 0);
         assert_se(conservative_renameat(AT_FDCWD, q, AT_FDCWD, p) == 0);
         assert_se(access(q, F_OK) < 0 && errno == ENOENT);
 
