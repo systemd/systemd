@@ -132,6 +132,11 @@ This command does the following:
    `default` but without network access. Users may define their own profiles
    too (or modify the existing ones).
 
+5. For each such units and drop-in files, if the kernel supports it, fsverity
+   will be used to provide integrity protection. See the
+   [fsverity section](#fsverity-protection-for-copied-units) for more information
+   and examples.
+
 And that's already it.
 
 Note that the images need to stay around (and in the same location) as long as the
@@ -334,6 +339,16 @@ behaviour, by setting the `ProtectSystem=strict` option. In this case writable
 service data may be placed on the host file system. Use `StateDirectory=` in
 the unit files to enable such behaviour and add a local data directory to the
 services copied onto the host.
+
+## fsverity protection for copied units
+
+Portable images support signed dm-verity for integrity protection. But as
+discussed above, unit files and drop-ins are copied out or created on the fly,
+and stored on a writable system filesystem, which leaves them open to tampering.
+If the kernel supports it, fsverity will be used automatically on such files, to
+provide integrity protection. For more information on fsverity, on the required
+kernel versions, filesystems and kernel configuration, see the
+[`kernel's documentation`](https://www.kernel.org/doc/html/latest/filesystems/fsverity.html).
 
 ## Links
 
