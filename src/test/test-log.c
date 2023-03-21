@@ -80,9 +80,10 @@ static void test_log_context(void) {
                 LOG_CONTEXT_PUSH_STRV(strv);
                 LOG_CONTEXT_PUSH_STRV(strv);
 
-                /* Test that the log context was set up correctly. */
-                assert_se(log_context_num_contexts() == 4);
-                assert_se(log_context_num_fields() == 6);
+                /* Test that the log context was set up correctly. The strv we pushed twice should only
+                 * result in one log context which is reused. */
+                assert_se(log_context_num_contexts() == 3);
+                assert_se(log_context_num_fields() == 4);
 
                 /* Test that everything still works with modifications to the log context. */
                 test_log_struct();
@@ -94,8 +95,8 @@ static void test_log_context(void) {
                         LOG_CONTEXT_PUSH_STRV(strv);
 
                         /* Check that our nested fields got added correctly. */
-                        assert_se(log_context_num_contexts() == 6);
-                        assert_se(log_context_num_fields() == 9);
+                        assert_se(log_context_num_contexts() == 4);
+                        assert_se(log_context_num_fields() == 5);
 
                         /* Test that everything still works in a nested block. */
                         test_log_struct();
@@ -104,15 +105,15 @@ static void test_log_context(void) {
                 }
 
                 /* Check that only the fields from the nested block got removed. */
-                assert_se(log_context_num_contexts() == 4);
-                assert_se(log_context_num_fields() == 6);
+                assert_se(log_context_num_contexts() == 3);
+                assert_se(log_context_num_fields() == 4);
         }
 
         assert_se(log_context_num_contexts() == 0);
         assert_se(log_context_num_fields() == 0);
 
         {
-                _cleanup_(log_context_freep) LogContext *ctx = NULL;
+                _cleanup_(log_context_unrefp) LogContext *ctx = NULL;
 
                 char **strv = STRV_MAKE("SIXTH=ijn", "SEVENTH=PRP");
                 assert_se(ctx = log_context_new(strv, /*owned=*/ false));
@@ -146,6 +147,7 @@ static void test_log_context(void) {
                 assert_se(iovw);
                 assert_se(iovw_consume(iovw, strdup("MNO=pqr"), STRLEN("MNO=pqr") + 1) == 0);
 
+                LOG_CONTEXT_PUSH_IOV(iov, ELEMENTSOF(iov));
                 LOG_CONTEXT_PUSH_IOV(iov, ELEMENTSOF(iov));
                 LOG_CONTEXT_CONSUME_IOV(iovw->iovec, iovw->count);
                 LOG_CONTEXT_PUSH("STU=vwx");
