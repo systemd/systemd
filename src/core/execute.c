@@ -5568,6 +5568,8 @@ int exec_spawn(Unit *unit,
         assert(params);
         assert(params->fds || (params->n_socket_fds + params->n_storage_fds <= 0));
 
+        LOG_CONTEXT_PUSH_UNIT(unit);
+
         if (context->std_input == EXEC_INPUT_SOCKET ||
             context->std_output == EXEC_OUTPUT_SOCKET ||
             context->std_error == EXEC_OUTPUT_SOCKET) {

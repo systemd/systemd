@@ -1208,3 +1208,13 @@ typedef struct UnitForEachDependencyData {
 /* Note: this matches deps that have *any* of the atoms specified in match_atom set */
 #define UNIT_FOREACH_DEPENDENCY(other, u, match_atom) \
         _UNIT_FOREACH_DEPENDENCY(other, u, match_atom, UNIQ_T(data, UNIQ))
+
+#define _LOG_CONTEXT_PUSH_UNIT(unit, u, c)                                                      \
+        const Unit *u = (unit);                                                                 \
+        const ExecContext *c = unit_get_exec_context(u);                                        \
+        LOG_CONTEXT_PUSH_KEY_VALUE(u->manager->unit_log_field, u->id);                          \
+        LOG_CONTEXT_PUSH_KEY_VALUE(u->manager->invocation_log_field, u->invocation_id_string);  \
+        LOG_CONTEXT_PUSH_IOV(c ? c->log_extra_fields : NULL, c ? c->n_log_extra_fields : 0)
+
+#define LOG_CONTEXT_PUSH_UNIT(unit) \
+        _LOG_CONTEXT_PUSH_UNIT(unit, UNIQ_T(u, UNIQ), UNIQ_T(c, UNIQ))
