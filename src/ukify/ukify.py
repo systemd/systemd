@@ -21,6 +21,7 @@ import subprocess
 import tempfile
 import typing
 
+import pefile
 
 __version__ = '{{PROJECT_VERSION}} ({{GIT_VERSION}})'
 
@@ -75,14 +76,6 @@ def path_is_readable(s: typing.Optional[str]) -> typing.Optional[pathlib.Path]:
     except IsADirectoryError:
         pass
     return p
-
-
-def pe_next_section_offset(filename):
-    import pefile
-
-    pe = pefile.PE(filename, fast_load=True)
-    section = pe.sections[-1]
-    return pe.OPTIONAL_HEADER.ImageBase + section.VirtualAddress + section.Misc_VirtualSize
 
 
 def round_up(x, blocksize=4096):
@@ -227,8 +220,6 @@ class Section:
     name: str
     content: pathlib.Path
     tmpfile: typing.Optional[typing.IO] = None
-    flags: list[str] = dataclasses.field(default_factory=lambda: ['data', 'readonly'])
-    offset: typing.Optional[int] = None
     measure: bool = False
 
     @classmethod
@@ -274,20 +265,11 @@ class Section:
 class UKI:
     executable: list[typing.Union[pathlib.Path, str]]
     sections: list[Section] = dataclasses.field(default_factory=list, init=False)
-    offset: typing.Optional[int] = dataclasses.field(default=None, init=False)
-
-    def __post_init__(self):
-        self.offset = round_up(pe_next_section_offset(self.executable))
 
     def add_section(self, section):
-        assert self.offset
-        assert section.offset is None
-
         if section.name in [s.name for s in self.sections]:
             raise ValueError(f'Duplicate section {section.name}')
 
-        section.offset = self.offset
-        self.offset += round_up(section.size())
         self.sections += [section]
 
 
@@ -458,16 +440,65 @@ def pairwise(iterable):
     return zip(a, b)
 
 
-def pe_validate(filename):
-    import pefile
+class PeError(Exception):
+    pass
 
-    pe = pefile.PE(filename, fast_load=True)
 
-    sections = sorted(pe.sections, key=lambda s: (s.VirtualAddress, s.Misc_VirtualSize))
+def pe_add_sections(uki: UKI, output: str):
+    pe = pefile.PE(uki.executable, fast_load=True)
+    assert len(pe.__data__) % pe.OPTIONAL_HEADER.FileAlignment == 0
 
-    for l, r in pairwise(sections):
-        if l.VirtualAddress + l.Misc_VirtualSize > r.VirtualAddress + r.Misc_VirtualSize:
-            raise ValueError(f'Section "{l.Name.decode()}" ({l.VirtualAddress}, {l.Misc_VirtualSize}) overlaps with section "{r.Name.decode()}" ({r.VirtualAddress}, {r.Misc_VirtualSize})')
+    warnings = pe.get_warnings()
+    if warnings:
+        raise PeError(f'pefile warnings treated as errors: {warnings}')
+
+    security = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_SECURITY']]
+    if security.VirtualAddress != 0:
+        # We could strip the signatures, but why would anyone sign the stub?
+        raise PeError(f'Stub image is signed, refusing.')
+
+    for section in uki.sections:
+        new_section = pefile.SectionStructure(pe.__IMAGE_SECTION_HEADER_format__, pe=pe)
+        new_section.__unpack__(b'\0' * new_section.sizeof())
+
+        offset = pe.sections[-1].get_file_offset() + new_section.sizeof()
+        if offset + new_section.sizeof() > pe.OPTIONAL_HEADER.SizeOfHeaders:
+            raise RuntimeError(f'Not enough header space to add section {section.name}.')
+
+        data = section.content.read_bytes()
+
+        new_section.set_file_offset(offset)
+        new_section.Name = section.name.encode()
+        new_section.Misc_VirtualSize = len(data)
+        new_section.PointerToRawData = len(pe.__data__)
+        new_section.SizeOfRawData = round_up(len(data), pe.OPTIONAL_HEADER.FileAlignment)
+        new_section.VirtualAddress = round_up(
+            pe.sections[-1].VirtualAddress + pe.sections[-1].Misc_VirtualSize,
+            pe.OPTIONAL_HEADER.SectionAlignment,
+        )
+
+        new_section.IMAGE_SCN_MEM_READ = True
+        if section.name == '.linux':
+            # Old kernels that use EFI handover protocol will be executed inline.
+            new_section.IMAGE_SCN_CNT_CODE = True
+        else:
+            new_section.IMAGE_SCN_CNT_INITIALIZED_DATA = True
+
+        assert len(pe.__data__) % pe.OPTIONAL_HEADER.FileAlignment == 0
+        pe.__data__ = pe.__data__[:] + data + b'\0' * (new_section.SizeOfRawData - len(data))
+
+        pe.FILE_HEADER.NumberOfSections += 1
+        pe.OPTIONAL_HEADER.SizeOfInitializedData += new_section.Misc_VirtualSize
+        pe.__structures__.append(new_section)
+        pe.sections.append(new_section)
+
+    pe.OPTIONAL_HEADER.CheckSum = 0
+    pe.OPTIONAL_HEADER.SizeOfImage = round_up(
+        pe.sections[-1].VirtualAddress + pe.sections[-1].Misc_VirtualSize,
+        pe.OPTIONAL_HEADER.SectionAlignment,
+    )
+
+    pe.write(output)
 
 
 def make_uki(opts):
@@ -557,9 +588,7 @@ def make_uki(opts):
 
     # UKI creation
 
-    uki.add_section(
-        Section.create('.linux', linux, measure=True,
-                       flags=['code', 'readonly']))
+    uki.add_section(Section.create('.linux', linux, measure=True))
 
     if opts.sb_key:
         unsigned = tempfile.NamedTemporaryFile(prefix='uki')
@@ -567,26 +596,7 @@ def make_uki(opts):
     else:
         output = opts.output
 
-    objcopy_tool = find_tool('llvm-objcopy', 'objcopy', opts=opts)
-
-    cmd = [
-        objcopy_tool,
-        opts.stub,
-        *itertools.chain.from_iterable(
-            ('--add-section',       f'{s.name}={s.content}',
-             '--set-section-flags', f"{s.name}={','.join(s.flags)}")
-            for s in uki.sections),
-        output,
-    ]
-
-    if pathlib.Path(objcopy_tool).name != 'llvm-objcopy':
-        cmd += itertools.chain.from_iterable(
-            ('--change-section-vma', f'{s.name}=0x{s.offset:x}') for s in uki.sections)
-
-    print('+', shell_join(cmd))
-    subprocess.check_call(cmd)
-
-    pe_validate(output)
+    pe_add_sections(uki, output)
 
     # UKI signing
 
@@ -707,7 +717,7 @@ usage: ukify [options…] linux initrd…
     p.add_argument('--tools',
                    type=pathlib.Path,
                    action='append',
-                   help='Directories to search for tools (systemd-measure, llvm-objcopy, ...)')
+                   help='Directories to search for tools (systemd-measure, ...)')
 
     p.add_argument('--output', '-o',
                    type=pathlib.Path,
