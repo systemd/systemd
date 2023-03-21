@@ -744,22 +744,28 @@ finish:
 int fd_reopen(int fd, int flags) {
         int new_fd, r;
 
+        assert(fd >= 0 || fd == AT_FDCWD);
+
         /* Reopens the specified fd with new flags. This is useful for convert an O_PATH fd into a regular one, or to
          * turn O_RDWR fds into O_RDONLY fds.
          *
          * This doesn't work on sockets (since they cannot be open()ed, ever).
          *
-         * This implicitly resets the file read index to 0. */
+         * This implicitly resets the file read index to 0.
+         *
+         * If AT_FDCWD is specified as file descriptor gets an fd to the current cwd */
 
-        if (FLAGS_SET(flags, O_DIRECTORY)) {
+        if (FLAGS_SET(flags, O_DIRECTORY) || fd == AT_FDCWD) {
                 /* If we shall reopen the fd as directory we can just go via "." and thus bypass the whole
                  * magic /proc/ directory, and make ourselves independent of that being mounted. */
-                new_fd = openat(fd, ".", flags);
+                new_fd = openat(fd, ".", flags | O_DIRECTORY);
                 if (new_fd < 0)
                         return -errno;
 
                 return new_fd;
         }
+
+        assert(fd >= 0);
 
         new_fd = open(FORMAT_PROC_FD_PATH(fd), flags);
         if (new_fd < 0) {
