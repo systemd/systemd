@@ -138,7 +138,7 @@ static int create_edit_temp_file(EditFile *e) {
                 if (r < 0)
                         return r;
 
-                r = copy_file(e->original_path, temp, 0, 0644, 0, 0, COPY_REFLINK);
+                r = copy_file(e->original_path, temp, 0, 0644, COPY_REFLINK);
                 if (r == -ENOENT) {
                         r = touch(temp);
                         mac_selinux_create_file_clear();

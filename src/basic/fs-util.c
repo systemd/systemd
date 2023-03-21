@@ -781,12 +781,23 @@ int unlinkat_deallocate(int fd, const char *name, UnlinkDeallocateFlags flags) {
         return 0;
 }
 
-int open_parent(const char *path, int flags, mode_t mode) {
+int open_parent_at(int dir_fd, const char *path, int flags, mode_t mode) {
         _cleanup_free_ char *parent = NULL;
         int r;
 
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(path);
+
         r = path_extract_directory(path, &parent);
-        if (r < 0)
+        if (r == -EDESTADDRREQ) {
+                parent = strdup(".");
+                if (!parent)
+                        return -ENOMEM;
+        } else if (r == -EADDRNOTAVAIL) {
+                parent = strdup(path);
+                if (!parent)
+                        return -ENOMEM;
+        } else if (r < 0)
                 return r;
 
         /* Let's insist on O_DIRECTORY since the parent of a file or directory is a directory. Except if we open an
@@ -797,7 +808,7 @@ int open_parent(const char *path, int flags, mode_t mode) {
         else if (!FLAGS_SET(flags, O_TMPFILE))
                 flags |= O_DIRECTORY|O_RDONLY;
 
-        return RET_NERRNO(open(parent, flags, mode));
+        return RET_NERRNO(openat(dir_fd, parent, flags, mode));
 }
 
 int conservative_renameat(
