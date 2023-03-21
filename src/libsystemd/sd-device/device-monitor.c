@@ -242,14 +242,14 @@ _public_ int sd_device_monitor_stop(sd_device_monitor *m) {
 
 static int device_monitor_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        _unused_ _cleanup_(log_context_freep) LogContext *c = NULL;
+        _unused_ _cleanup_(log_context_unrefp) LogContext *c = NULL;
         sd_device_monitor *m = ASSERT_PTR(userdata);
 
         if (device_monitor_receive_device(m, &device) <= 0)
                 return 0;
 
         if (log_context_enabled())
-                c = log_context_new_consume(device_make_log_fields(device));
+                c = log_context_new_strv_consume(device_make_log_fields(device));
 
         if (m->callback)
                 return m->callback(m, device, m->userdata);
