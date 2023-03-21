@@ -89,6 +89,8 @@ int chase_symlinks_at(
 
         assert(path);
         assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
+        assert(!FLAGS_SET(flags, CHASE_STEP|CHASE_EXTRACT_FILENAME));
+        assert(!FLAGS_SET(flags, CHASE_TRAIL_SLASH|CHASE_EXTRACT_FILENAME));
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
         /* Either the file may be missing, or we return an fd to the final object, but both make no sense */
@@ -97,6 +99,9 @@ int chase_symlinks_at(
 
         if ((flags & CHASE_STEP))
                 assert(!ret_fd);
+
+        if ((flags & CHASE_EXTRACT_FILENAME))
+                assert(ret_path);
 
         if (isempty(path))
                 path = ".";
@@ -403,6 +408,17 @@ int chase_symlinks_at(
         }
 
         if (ret_path) {
+                if (FLAGS_SET(flags, CHASE_EXTRACT_FILENAME) && done) {
+                        _cleanup_free_ char *f = NULL;
+
+                        r = path_extract_filename(done, &f);
+                        if (r < 0 && r != -EDESTADDRREQ)
+                                return r;
+
+                        /* If we get EDESTADDRREQ we clear done and it will get reinitialized by the next block. */
+                        free_and_replace(done, f);
+                }
+
                 if (!done) {
                         done = strdup(append_trail_slash ? "./" : ".");
                         if (!done)
@@ -520,19 +536,23 @@ int chase_symlinks(
                 return r;
 
         if (ret_path) {
-                _cleanup_free_ char *q = NULL;
+                if (!FLAGS_SET(flags, CHASE_EXTRACT_FILENAME)) {
+                        _cleanup_free_ char *q = NULL;
 
-                q = path_join(empty_to_root(root), p);
-                if (!q)
-                        return -ENOMEM;
-
-                path_simplify(q);
-
-                if (FLAGS_SET(flags, CHASE_TRAIL_SLASH) && ENDSWITH_SET(path, "/", "/."))
-                        if (!strextend(&q, "/"))
+                        q = path_join(empty_to_root(root), p);
+                        if (!q)
                                 return -ENOMEM;
 
-                *ret_path = TAKE_PTR(q);
+                        path_simplify(q);
+
+                        if (FLAGS_SET(flags, CHASE_TRAIL_SLASH) && ENDSWITH_SET(path, "/", "/."))
+                                if (!strextend(&q, "/"))
+                                        return -ENOMEM;
+
+                        free_and_replace(p, q);
+                }
+
+                *ret_path = TAKE_PTR(p);
         }
 
         if (ret_fd)
@@ -647,14 +667,10 @@ int chase_symlinks_and_stat(
         assert(ret_stat);
 
         if (empty_or_root(root) && !ret_path &&
-            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0) {
+            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
                 /* Shortcut this call if none of the special features of this call are requested */
-
-                if (fstatat(AT_FDCWD, path, ret_stat, FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0) < 0)
-                        return -errno;
-
-                return 1;
-        }
+                return RET_NERRNO(fstatat(AT_FDCWD, path, ret_stat,
+                                          FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0));
 
         r = chase_symlinks(path, root, chase_flags, ret_path ? &p : NULL, &path_fd);
         if (r < 0)
@@ -667,7 +683,7 @@ int chase_symlinks_and_stat(
         if (ret_path)
                 *ret_path = TAKE_PTR(p);
 
-        return 1;
+        return 0;
 }
 
 int chase_symlinks_and_access(
@@ -685,14 +701,10 @@ int chase_symlinks_and_access(
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
 
         if (empty_or_root(root) && !ret_path &&
-            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0) {
+            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
                 /* Shortcut this call if none of the special features of this call are requested */
-
-                if (faccessat(AT_FDCWD, path, access_mode, FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0) < 0)
-                        return -errno;
-
-                return 1;
-        }
+                return RET_NERRNO(faccessat(AT_FDCWD, path, access_mode,
+                                            FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0));
 
         r = chase_symlinks(path, root, chase_flags, ret_path ? &p : NULL, &path_fd);
         if (r < 0)
@@ -706,7 +718,7 @@ int chase_symlinks_and_access(
         if (ret_path)
                 *ret_path = TAKE_PTR(p);
 
-        return 1;
+        return 0;
 }
 
 int chase_symlinks_and_fopen_unlocked(
@@ -817,3 +829,180 @@ int chase_symlinks_at_and_open(
         return r;
 }
 
+int chase_symlinks_at_and_opendir(
+                int dir_fd,
+                const char *path,
+                ChaseSymlinksFlags chase_flags,
+                char **ret_path,
+                DIR **ret_dir) {
+
+        _cleanup_close_ int path_fd = -EBADF;
+        _cleanup_free_ char *p = NULL;
+        DIR *d;
+        int r;
+
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
+        assert(ret_dir);
+
+        if (dir_fd == AT_FDCWD && !ret_path &&
+            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0) {
+                /* Shortcut this call if none of the special features of this call are requested */
+                d = opendir(path);
+                if (!d)
+                        return -errno;
+
+                *ret_dir = d;
+                return 0;
+        }
+
+        r = chase_symlinks_at(dir_fd, path, chase_flags, ret_path ? &p : NULL, &path_fd);
+        if (r < 0)
+                return r;
+        assert(path_fd >= 0);
+
+        d = xopendirat(path_fd, ".", O_NOFOLLOW);
+        if (!d)
+                return -errno;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(p);
+
+        *ret_dir = d;
+        return 0;
+}
+
+int chase_symlinks_at_and_stat(
+                int dir_fd,
+                const char *path,
+                ChaseSymlinksFlags chase_flags,
+                char **ret_path,
+                struct stat *ret_stat) {
+
+        _cleanup_close_ int path_fd = -EBADF;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(path);
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
+        assert(ret_stat);
+
+        if (dir_fd == AT_FDCWD && !ret_path &&
+            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
+                /* Shortcut this call if none of the special features of this call are requested */
+                return RET_NERRNO(fstatat(AT_FDCWD, path, ret_stat,
+                                          FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0));
+
+        r = chase_symlinks_at(dir_fd, path, chase_flags, ret_path ? &p : NULL, &path_fd);
+        if (r < 0)
+                return r;
+        assert(path_fd >= 0);
+
+        if (fstat(path_fd, ret_stat) < 0)
+                return -errno;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(p);
+
+        return 0;
+}
+
+int chase_symlinks_at_and_access(
+                int dir_fd,
+                const char *path,
+                ChaseSymlinksFlags chase_flags,
+                int access_mode,
+                char **ret_path) {
+
+        _cleanup_close_ int path_fd = -EBADF;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(path);
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
+
+        if (dir_fd == AT_FDCWD && !ret_path &&
+            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
+                /* Shortcut this call if none of the special features of this call are requested */
+                return RET_NERRNO(faccessat(AT_FDCWD, path, access_mode,
+                                            FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0));
+
+        r = chase_symlinks_at(dir_fd, path, chase_flags, ret_path ? &p : NULL, &path_fd);
+        if (r < 0)
+                return r;
+        assert(path_fd >= 0);
+
+        r = access_fd(path_fd, access_mode);
+        if (r < 0)
+                return r;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(p);
+
+        return 0;
+}
+
+int chase_symlinks_at_and_fopen_unlocked(
+                int dir_fd,
+                const char *path,
+                ChaseSymlinksFlags chase_flags,
+                const char *open_flags,
+                char **ret_path,
+                FILE **ret_file) {
+
+        _cleanup_free_ char *final_path = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        int mode_flags, r;
+
+        assert(path);
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT)));
+        assert(open_flags);
+        assert(ret_file);
+
+        mode_flags = fopen_mode_to_flags(open_flags);
+        if (mode_flags < 0)
+                return mode_flags;
+
+        fd = chase_symlinks_at_and_open(dir_fd, path, chase_flags, mode_flags, ret_path ? &final_path : NULL);
+        if (fd < 0)
+                return fd;
+
+        r = take_fdopen_unlocked(&fd, open_flags, ret_file);
+        if (r < 0)
+                return r;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(final_path);
+
+        return 0;
+}
+
+int chase_symlinks_at_and_unlink(
+                int dir_fd,
+                const char *path,
+                ChaseSymlinksFlags chase_flags,
+                int unlink_flags,
+                char **ret_path) {
+
+        _cleanup_free_ char *p = NULL, *fname = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(path);
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT)));
+
+        fd = chase_symlinks_at_and_open(dir_fd, path, chase_flags|CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY|O_CLOEXEC, &p);
+        if (fd < 0)
+                return fd;
+
+        r = path_extract_filename(p, &fname);
+        if (r < 0)
+                return r;
+
+        if (unlinkat(fd, fname, unlink_flags) < 0)
+                return -errno;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(p);
+
+        return 0;
+}
