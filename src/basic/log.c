@@ -73,6 +73,7 @@ static bool prohibit_ipc = false;
 static char *log_abort_msg = NULL;
 
 typedef struct LogContext {
+        unsigned n_ref;
         /* Depending on which destructor is used (log_context_free() or log_context_detach()) the memory
          * referenced by this is freed or not */
         char **fields;
@@ -1562,7 +1563,7 @@ bool log_context_enabled(void) {
         return saved_log_context_enabled;
 }
 
-LogContext* log_context_attach(LogContext *c) {
+static LogContext* log_context_attach(LogContext *c) {
         assert(c);
 
         _log_context_num_fields += strv_length(c->fields);
@@ -1571,7 +1572,7 @@ LogContext* log_context_attach(LogContext *c) {
         return LIST_PREPEND(ll, _log_context, c);
 }
 
-LogContext* log_context_detach(LogContext *c) {
+static LogContext* log_context_detach(LogContext *c) {
         if (!c)
                 return NULL;
 
@@ -1584,11 +1585,21 @@ LogContext* log_context_detach(LogContext *c) {
 }
 
 LogContext* log_context_new(char **fields, bool owned) {
+        if (!fields)
+                return NULL;
+
+        LIST_FOREACH(ll, i, _log_context)
+                if (i->fields == fields) {
+                        assert(!owned);
+                        return log_context_ref(i);
+                }
+
         LogContext *c = new(LogContext, 1);
         if (!c)
                 return NULL;
 
         *c = (LogContext) {
+                .n_ref = 1,
                 .fields = fields,
                 .owned = owned,
         };
@@ -1598,13 +1609,20 @@ LogContext* log_context_new(char **fields, bool owned) {
 
 LogContext* log_context_newv(struct iovec *input_iovec, size_t n_input_iovec, bool owned) {
         if (!input_iovec || n_input_iovec == 0)
-                return NULL; /* Nothing to do */
+                return NULL;
+
+        LIST_FOREACH(ll, i, _log_context)
+                if (i->input_iovec == input_iovec && i->n_input_iovec == n_input_iovec) {
+                        assert(!owned);
+                        return log_context_ref(i);
+                }
 
         LogContext *c = new(LogContext, 1);
         if (!c)
                 return NULL;
 
         *c = (LogContext) {
+                .n_ref = 1,
                 .input_iovec = input_iovec,
                 .n_input_iovec = n_input_iovec,
                 .owned = owned,
@@ -1613,7 +1631,7 @@ LogContext* log_context_newv(struct iovec *input_iovec, size_t n_input_iovec, bo
         return log_context_attach(c);
 }
 
-LogContext* log_context_free(LogContext *c) {
+static LogContext* log_context_free(LogContext *c) {
         if (!c)
                 return NULL;
 
@@ -1626,6 +1644,8 @@ LogContext* log_context_free(LogContext *c) {
 
         return mfree(c);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(LogContext, log_context, log_context_free);
 
 LogContext* log_context_new_consume(char **fields) {
         LogContext *c = log_context_new(fields, /*owned=*/ true);
