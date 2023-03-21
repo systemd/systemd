@@ -12,7 +12,7 @@
 #endif
 
 #include "alloc-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "dissect-image.h"
 #include "exec-util.h"
 #include "extract-word.h"
@@ -844,7 +844,7 @@ static int mount_in_namespace(
         if (r < 0)
                 return log_debug_errno(r == -ENOENT ? SYNTHETIC_ERRNO(EOPNOTSUPP) : r, "Target does not allow propagation of mount points");
 
-        r = chase_symlinks(src, NULL, 0, &chased_src_path, &chased_src_fd);
+        r = chase(src, NULL, 0, &chased_src_path, &chased_src_fd);
         if (r < 0)
                 return log_debug_errno(r, "Failed to resolve source path of %s: %m", src);
         log_debug("Chased source path of %s to %s", src, chased_src_path);

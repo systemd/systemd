@@ -9,7 +9,7 @@
 #include "alloc-util.h"
 #include "blkid-util.h"
 #include "btrfs-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "env-util.h"
@@ -457,7 +457,7 @@ int find_esp_and_warn(
          */
 
         if (path) {
-                r = chase_symlinks(path, root, CHASE_PREFIX_ROOT, &p, NULL);
+                r = chase(path, root, CHASE_PREFIX_ROOT, &p, NULL);
                 if (r < 0)
                         return log_error_errno(r,
                                                "Failed to resolve path %s%s%s: %m",
@@ -476,7 +476,7 @@ int find_esp_and_warn(
         if (path) {
                 struct stat st;
 
-                r = chase_symlinks(path, root, CHASE_PREFIX_ROOT, &p, NULL);
+                r = chase(path, root, CHASE_PREFIX_ROOT, &p, NULL);
                 if (r < 0)
                         return log_error_errno(r,
                                                "Failed to resolve path %s%s%s: %m",
@@ -513,7 +513,7 @@ int find_esp_and_warn(
         }
 
         FOREACH_STRING(dir, "/efi", "/boot", "/boot/efi") {
-                r = chase_symlinks(dir, root, CHASE_PREFIX_ROOT, &p, NULL);
+                r = chase(dir, root, CHASE_PREFIX_ROOT, &p, NULL);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -759,7 +759,7 @@ int find_xbootldr_and_warn(
         /* Similar to find_esp_and_warn(), but finds the XBOOTLDR partition. Returns the same errors. */
 
         if (path) {
-                r = chase_symlinks(path, root, CHASE_PREFIX_ROOT, &p, NULL);
+                r = chase(path, root, CHASE_PREFIX_ROOT, &p, NULL);
                 if (r < 0)
                         return log_error_errno(r,
                                                "Failed to resolve path %s%s%s: %m",
@@ -778,7 +778,7 @@ int find_xbootldr_and_warn(
         if (path) {
                 struct stat st;
 
-                r = chase_symlinks(path, root, CHASE_PREFIX_ROOT, &p, NULL);
+                r = chase(path, root, CHASE_PREFIX_ROOT, &p, NULL);
                 if (r < 0)
                         return log_error_errno(r,
                                                "Failed to resolve path %s%s%s: %m",
@@ -804,7 +804,7 @@ int find_xbootldr_and_warn(
                 goto found;
         }
 
-        r = chase_symlinks("/boot", root, CHASE_PREFIX_ROOT, &p, NULL);
+        r = chase("/boot", root, CHASE_PREFIX_ROOT, &p, NULL);
         if (r == -ENOENT)
                 return -ENOKEY;
         if (r < 0)

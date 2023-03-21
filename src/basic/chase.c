@@ -3,7 +3,7 @@
 #include <linux/magic.h>
 
 #include "alloc-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -72,7 +72,7 @@ static int log_prohibited_symlink(int fd, ChaseSymlinksFlags flags) {
                                  strna(n1));
 }
 
-int chase_symlinks_at(
+int chaseat(
                 int dir_fd,
                 const char *path,
                 ChaseSymlinksFlags flags,
@@ -81,7 +81,7 @@ int chase_symlinks_at(
 
         _cleanup_free_ char *buffer = NULL, *done = NULL;
         _cleanup_close_ int fd = -EBADF, root_fd = -EBADF;
-        unsigned max_follow = CHASE_SYMLINKS_MAX; /* how many symlinks to follow before giving up and returning ELOOP */
+        unsigned max_follow = CHASE_MAX; /* how many symlinks to follow before giving up and returning ELOOP */
         bool exists = true, append_trail_slash = false;
         struct stat previous_stat;
         const char *todo;
@@ -107,7 +107,7 @@ int chase_symlinks_at(
                 path = ".";
 
         /* This function resolves symlinks of the path relative to the given directory file descriptor. If
-         * CHASE_SYMLINKS_RESOLVE_IN_ROOT is specified and a directory file descriptor is provided, symlinks
+         * CHASE_AT_RESOLVE_IN_ROOT is specified and a directory file descriptor is provided, symlinks
          * are resolved relative to the given directory file descriptor. Otherwise, they are resolved
          * relative to the root directory of the host.
          *
@@ -471,7 +471,7 @@ chased_one:
         return 0;
 }
 
-int chase_symlinks(
+int chase(
                 const char *path,
                 const char *original_root,
                 ChaseSymlinksFlags flags,
@@ -531,7 +531,7 @@ int chase_symlinks(
         flags |= CHASE_AT_RESOLVE_IN_ROOT;
         flags &= ~CHASE_PREFIX_ROOT;
 
-        r = chase_symlinks_at(fd, path, flags, ret_path ? &p : NULL, ret_fd ? &pfd : NULL);
+        r = chaseat(fd, path, flags, ret_path ? &p : NULL, ret_fd ? &pfd : NULL);
         if (r < 0)
                 return r;
 
@@ -561,7 +561,7 @@ int chase_symlinks(
         return r;
 }
 
-int chase_symlinks_and_open(
+int chase_and_open(
                 const char *path,
                 const char *root,
                 ChaseSymlinksFlags chase_flags,
@@ -583,7 +583,7 @@ int chase_symlinks_and_open(
                                           open_flags | (FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0),
                                           mode));
 
-        r = chase_symlinks(path, root, CHASE_PARENT|chase_flags, &p, &path_fd);
+        r = chase(path, root, CHASE_PARENT|chase_flags, &p, &path_fd);
         if (r < 0)
                 return r;
         assert(path_fd >= 0);
@@ -609,7 +609,7 @@ int chase_symlinks_and_open(
         return r;
 }
 
-int chase_symlinks_and_opendir(
+int chase_and_opendir(
                 const char *path,
                 const char *root,
                 ChaseSymlinksFlags chase_flags,
@@ -635,7 +635,7 @@ int chase_symlinks_and_opendir(
                 return 0;
         }
 
-        r = chase_symlinks(path, root, chase_flags, ret_path ? &p : NULL, &path_fd);
+        r = chase(path, root, chase_flags, ret_path ? &p : NULL, &path_fd);
         if (r < 0)
                 return r;
         assert(path_fd >= 0);
@@ -651,7 +651,7 @@ int chase_symlinks_and_opendir(
         return 0;
 }
 
-int chase_symlinks_and_stat(
+int chase_and_stat(
                 const char *path,
                 const char *root,
                 ChaseSymlinksFlags chase_flags,
@@ -672,7 +672,7 @@ int chase_symlinks_and_stat(
                 return RET_NERRNO(fstatat(AT_FDCWD, path, ret_stat,
                                           FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0));
 
-        r = chase_symlinks(path, root, chase_flags, ret_path ? &p : NULL, &path_fd);
+        r = chase(path, root, chase_flags, ret_path ? &p : NULL, &path_fd);
         if (r < 0)
                 return r;
         assert(path_fd >= 0);
@@ -686,7 +686,7 @@ int chase_symlinks_and_stat(
         return 0;
 }
 
-int chase_symlinks_and_access(
+int chase_and_access(
                 const char *path,
                 const char *root,
                 ChaseSymlinksFlags chase_flags,
@@ -706,7 +706,7 @@ int chase_symlinks_and_access(
                 return RET_NERRNO(faccessat(AT_FDCWD, path, access_mode,
                                             FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0));
 
-        r = chase_symlinks(path, root, chase_flags, ret_path ? &p : NULL, &path_fd);
+        r = chase(path, root, chase_flags, ret_path ? &p : NULL, &path_fd);
         if (r < 0)
                 return r;
         assert(path_fd >= 0);
@@ -721,7 +721,7 @@ int chase_symlinks_and_access(
         return 0;
 }
 
-int chase_symlinks_and_fopen_unlocked(
+int chase_and_fopen_unlocked(
                 const char *path,
                 const char *root,
                 ChaseSymlinksFlags chase_flags,
@@ -742,7 +742,7 @@ int chase_symlinks_and_fopen_unlocked(
         if (mode_flags < 0)
                 return mode_flags;
 
-        fd = chase_symlinks_and_open(path, root, chase_flags, mode_flags, ret_path ? &final_path : NULL);
+        fd = chase_and_open(path, root, chase_flags, mode_flags, ret_path ? &final_path : NULL);
         if (fd < 0)
                 return fd;
 
@@ -756,7 +756,7 @@ int chase_symlinks_and_fopen_unlocked(
         return 0;
 }
 
-int chase_symlinks_and_unlink(
+int chase_and_unlink(
                 const char *path,
                 const char *root,
                 ChaseSymlinksFlags chase_flags,
@@ -770,7 +770,7 @@ int chase_symlinks_and_unlink(
         assert(path);
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT)));
 
-        fd = chase_symlinks_and_open(path, root, chase_flags|CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY|O_CLOEXEC, &p);
+        fd = chase_and_open(path, root, chase_flags|CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY|O_CLOEXEC, &p);
         if (fd < 0)
                 return fd;
 
@@ -787,7 +787,7 @@ int chase_symlinks_and_unlink(
         return 0;
 }
 
-int chase_symlinks_at_and_open(
+int chase_and_openat(
                 int dir_fd,
                 const char *path,
                 ChaseSymlinksFlags chase_flags,
@@ -808,7 +808,7 @@ int chase_symlinks_at_and_open(
                                           open_flags | (FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0),
                                           mode));
 
-        r = chase_symlinks_at(dir_fd, path, chase_flags|CHASE_PARENT, &p, &path_fd);
+        r = chaseat(dir_fd, path, chase_flags|CHASE_PARENT, &p, &path_fd);
         if (r < 0)
                 return r;
 
@@ -829,7 +829,7 @@ int chase_symlinks_at_and_open(
         return r;
 }
 
-int chase_symlinks_at_and_opendir(
+int chase_and_opendirat(
                 int dir_fd,
                 const char *path,
                 ChaseSymlinksFlags chase_flags,
@@ -855,7 +855,7 @@ int chase_symlinks_at_and_opendir(
                 return 0;
         }
 
-        r = chase_symlinks_at(dir_fd, path, chase_flags, ret_path ? &p : NULL, &path_fd);
+        r = chaseat(dir_fd, path, chase_flags, ret_path ? &p : NULL, &path_fd);
         if (r < 0)
                 return r;
         assert(path_fd >= 0);
@@ -871,7 +871,7 @@ int chase_symlinks_at_and_opendir(
         return 0;
 }
 
-int chase_symlinks_at_and_stat(
+int chase_and_statat(
                 int dir_fd,
                 const char *path,
                 ChaseSymlinksFlags chase_flags,
@@ -892,7 +892,7 @@ int chase_symlinks_at_and_stat(
                 return RET_NERRNO(fstatat(AT_FDCWD, path, ret_stat,
                                           FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0));
 
-        r = chase_symlinks_at(dir_fd, path, chase_flags, ret_path ? &p : NULL, &path_fd);
+        r = chaseat(dir_fd, path, chase_flags, ret_path ? &p : NULL, &path_fd);
         if (r < 0)
                 return r;
         assert(path_fd >= 0);
@@ -906,7 +906,7 @@ int chase_symlinks_at_and_stat(
         return 0;
 }
 
-int chase_symlinks_at_and_access(
+int chase_and_accessat(
                 int dir_fd,
                 const char *path,
                 ChaseSymlinksFlags chase_flags,
@@ -926,7 +926,7 @@ int chase_symlinks_at_and_access(
                 return RET_NERRNO(faccessat(AT_FDCWD, path, access_mode,
                                             FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0));
 
-        r = chase_symlinks_at(dir_fd, path, chase_flags, ret_path ? &p : NULL, &path_fd);
+        r = chaseat(dir_fd, path, chase_flags, ret_path ? &p : NULL, &path_fd);
         if (r < 0)
                 return r;
         assert(path_fd >= 0);
@@ -941,7 +941,7 @@ int chase_symlinks_at_and_access(
         return 0;
 }
 
-int chase_symlinks_at_and_fopen_unlocked(
+int chase_and_fopenat_unlocked(
                 int dir_fd,
                 const char *path,
                 ChaseSymlinksFlags chase_flags,
@@ -962,7 +962,7 @@ int chase_symlinks_at_and_fopen_unlocked(
         if (mode_flags < 0)
                 return mode_flags;
 
-        fd = chase_symlinks_at_and_open(dir_fd, path, chase_flags, mode_flags, ret_path ? &final_path : NULL);
+        fd = chase_and_openat(dir_fd, path, chase_flags, mode_flags, ret_path ? &final_path : NULL);
         if (fd < 0)
                 return fd;
 
@@ -976,7 +976,7 @@ int chase_symlinks_at_and_fopen_unlocked(
         return 0;
 }
 
-int chase_symlinks_at_and_unlink(
+int chase_and_unlinkat(
                 int dir_fd,
                 const char *path,
                 ChaseSymlinksFlags chase_flags,
@@ -990,7 +990,7 @@ int chase_symlinks_at_and_unlink(
         assert(path);
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT)));
 
-        fd = chase_symlinks_at_and_open(dir_fd, path, chase_flags|CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY|O_CLOEXEC, &p);
+        fd = chase_and_openat(dir_fd, path, chase_flags|CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY|O_CLOEXEC, &p);
         if (fd < 0)
                 return fd;
 

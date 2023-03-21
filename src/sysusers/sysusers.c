@@ -5,7 +5,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "constants.h"
 #include "copy.h"
@@ -1571,7 +1571,7 @@ static int item_equivalent(Item *a, Item *b) {
             !(is_nologin_shell(a_shell) && is_nologin_shell(b_shell))) {
                 _cleanup_free_ char *pa = NULL, *pb = NULL;
 
-                r = chase_symlinks(a_shell, arg_root, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &pa, NULL);
+                r = chase(a_shell, arg_root, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &pa, NULL);
                 if (r < 0) {
                         log_full_errno(ERRNO_IS_RESOURCE(r) ? LOG_ERR : LOG_DEBUG,
                                        r, "Failed to look up path '%s%s%s': %m",
@@ -1579,7 +1579,7 @@ static int item_equivalent(Item *a, Item *b) {
                         return ERRNO_IS_RESOURCE(r) ? r : false;
                 }
 
-                r = chase_symlinks(b_shell, arg_root, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &pb, NULL);
+                r = chase(b_shell, arg_root, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &pb, NULL);
                 if (r < 0) {
                         log_full_errno(ERRNO_IS_RESOURCE(r) ? LOG_ERR : LOG_DEBUG,
                                        r, "Failed to look up path '%s%s%s': %m",

@@ -10,7 +10,7 @@
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-unit-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "dropin.h"
 #include "env-util.h"
 #include "exit-status.h"
@@ -422,7 +422,7 @@ int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **ret_unit_
                 if (!path)
                         return log_oom();
 
-                r = chase_symlinks(path, arg_root, 0, &lpath, NULL);
+                r = chase(path, arg_root, 0, &lpath, NULL);
                 if (r == -ENOENT)
                         continue;
                 if (r == -ENOMEM)
