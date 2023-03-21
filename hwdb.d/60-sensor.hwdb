@@ -704,12 +704,15 @@ sensor:modalias:acpi:KIOX000A*:dmi:*svnMEDION:pnE2215TMD60198:*
 sensor:modalias:acpi:KIOX010A*:dmi:*:svnMEDION:pnE*:*
 # Medion Akoya E3222 MD62450
 sensor:modalias:acpi:KIOX010A*:dmi:*:svnMEDION:pnMEDION*:*
+# and rebrands of the above
+sensor:modalias:acpi:KIOX010A*:dmi:*:rvnMEDION:rnMEDION*:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
  ACCEL_LOCATION=display
 
 # Same as above, but for base sensor
 sensor:modalias:acpi:KIOX020A*:dmi:*:svnMEDION:pnE*:*
 sensor:modalias:acpi:KIOX020A*:dmi:*:svnMEDION:pnMEDION*:*
+sensor:modalias:acpi:KIOX020A*:dmi:*:rvnMEDION:rnMEDION*:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
  ACCEL_LOCATION=base
 

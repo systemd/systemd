@@ -18,9 +18,6 @@ at_exit() {
     return 0
 }
 
-# shellcheck source=test/units/assert.sh
-. "$(dirname "$0")"/assert.sh
-
 trap at_exit EXIT
 
 # Create a simple unit file for testing

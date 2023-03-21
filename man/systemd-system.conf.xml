@@ -444,11 +444,11 @@
         <varname>IPAccounting=</varname>. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details on the per-unit settings. <varname>DefaultTasksAccounting=</varname> defaults to yes,
-        <varname>DefaultMemoryAccounting=</varname> to
-        &MEMORY_ACCOUNTING_DEFAULT;. <varname>DefaultCPUAccounting=</varname> defaults to yes if enabling CPU
-        accounting doesn't require the CPU controller to be enabled (Linux 4.15+ using the unified hierarchy
-        for resource control), otherwise it defaults to no. The other three settings default to
-        no.</para></listitem>
+        <varname>DefaultMemoryAccounting=</varname> to &MEMORY_ACCOUNTING_DEFAULT;.
+        <varname>DefaultCPUAccounting=</varname> defaults to yes, but really has no effect if enabling CPU
+        accounting doesn't require the <option>cpu</option> controller to be enabled (Linux 4.15+ using the
+        unified hierarchy for resource control), otherwise it defaults to no. The other three settings
+        default to no.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -556,6 +556,18 @@
         to configure the rate limit window, and <varname>ReloadLimitBurst=</varname> takes a positive integer to
         configure the maximum allowed number of reloads within the configured time window.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultMemoryPressureWatch=</varname></term>
+        <term><varname>DefaultMemoryPressureThresholdSec=</varname></term>
+
+        <listitem><para>Configures the default settings for the per-unit
+        <varname>MemoryPressureWatch=</varname> and <varname>MemoryPressureThresholdSec=</varname>
+        settings. See
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. Defaults to <literal>auto</literal> and <literal>200ms</literal>, respectively. This
+        also sets the memory pressure monitoring threshold for the service manager itself.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -592,6 +604,36 @@
             <xi:include href="standard-specifiers.xml" xpointer="W"/>
             <xi:include href="standard-specifiers.xml" xpointer="T"/>
             <xi:include href="standard-specifiers.xml" xpointer="V"/>
+            <row>
+              <entry><literal>%h</literal></entry>
+              <entry>User home directory</entry>
+              <entry>This is the home directory of the <emphasis>user running the service manager instance</emphasis>.</entry>
+            </row>
+            <row>
+              <entry><literal>%u</literal></entry>
+              <entry>Username</entry>
+              <entry>This is the username of the <emphasis>user running the service manager instance</emphasis>.</entry>
+            </row>
+            <row>
+              <entry><literal>%U</literal></entry>
+              <entry>User id</entry>
+              <entry>This is the user id of the <emphasis>user running the service manager instance</emphasis>.</entry>
+            </row>
+            <row>
+              <entry><literal>%g</literal></entry>
+              <entry>Primary group</entry>
+              <entry>This is the primary group of the <emphasis>user running the service manager instance</emphasis>.</entry>
+            </row>
+            <row>
+              <entry><literal>%G</literal></entry>
+              <entry>Primary group id</entry>
+              <entry>This is the primary group id of the <emphasis>user running the service manager instance</emphasis>.</entry>
+            </row>
+            <row>
+              <entry><literal>%s</literal></entry>
+              <entry>User shell</entry>
+              <entry>This is the shell of the <emphasis>user running the service manager instance</emphasis>.</entry>
+            </row>
             <xi:include href="standard-specifiers.xml" xpointer="percent"/>
           </tbody>
         </tgroup>

@@ -18,7 +18,7 @@ static int show_installation_targets_client_side(const char *name) {
         flags = UNIT_FILE_DRY_RUN |
                 (arg_runtime ? UNIT_FILE_RUNTIME : 0);
 
-        r = unit_file_disable(LOOKUP_SCOPE_SYSTEM, flags, NULL, p, &changes, &n_changes);
+        r = unit_file_disable(RUNTIME_SCOPE_SYSTEM, flags, NULL, p, &changes, &n_changes);
         if (r < 0)
                 return log_error_errno(r, "Failed to get file links for %s: %m", name);
 
@@ -76,7 +76,7 @@ int verb_is_enabled(int argc, char *argv[], void *userdata) {
                 STRV_FOREACH(name, names) {
                         UnitFileState state;
 
-                        r = unit_file_get_state(arg_scope, arg_root, *name, &state);
+                        r = unit_file_get_state(arg_runtime_scope, arg_root, *name, &state);
                         if (r == -ENOENT) {
                                 if (!arg_quiet)
                                         puts("not-found");

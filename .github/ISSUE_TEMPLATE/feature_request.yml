@@ -43,6 +43,7 @@ body:
         - 'systemd-coredump'
         - 'systemd-cryptsetup'
         - 'systemd-delta'
+        - 'systemd-dissect'
         - 'systemd-env-generator'
         - 'systemd-fsck'
         - 'systemd-gpt-auto-generator'
@@ -119,6 +120,6 @@ body:
     attributes:
       label: The systemd version you checked that didn't have the feature you are asking for
       description: If this is not the most recently released upstream version, then please check first if it has that feature already.
-      placeholder: '252'
+      placeholder: '253'
     validations:
       required: false

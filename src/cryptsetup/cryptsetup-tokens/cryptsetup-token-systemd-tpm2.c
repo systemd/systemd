@@ -205,13 +205,13 @@ _public_ void cryptsetup_token_dump(
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Failed to parse " TOKEN_NAME " JSON fields: %m");
 
-        r = pcr_mask_to_string(hash_pcr_mask, &hash_pcrs_str);
-        if (r < 0)
-                return (void) crypt_log_debug_errno(cd, r, "Cannot format PCR hash mask: %m");
+        hash_pcrs_str = tpm2_pcr_mask_to_string(hash_pcr_mask);
+        if (!hash_pcrs_str)
+                return (void) crypt_log_debug_errno(cd, ENOMEM, "Cannot format PCR hash mask: %m");
 
-        r = pcr_mask_to_string(pubkey_pcr_mask, &pubkey_pcrs_str);
-        if (r < 0)
-                return (void) crypt_log_debug_errno(cd, r, "Cannot format PCR hash mask: %m");
+        pubkey_pcrs_str = tpm2_pcr_mask_to_string(pubkey_pcr_mask);
+        if (!pubkey_pcrs_str)
+                return (void) crypt_log_debug_errno(cd, ENOMEM, "Cannot format PCR hash mask: %m");
 
         r = crypt_dump_buffer_to_hex_string(blob, blob_size, &blob_str);
         if (r < 0)
@@ -271,7 +271,7 @@ _public_ int cryptsetup_token_validate(
                 }
 
                 u = json_variant_unsigned(e);
-                if (u >= TPM2_PCRS_MAX) {
+                if (!TPM2_PCR_VALID(u)) {
                         crypt_log_debug(cd, "TPM2 PCR number out of range.");
                         return 1;
                 }

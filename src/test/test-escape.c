@@ -196,6 +196,10 @@ TEST(shell_maybe_quote) {
 
         test_shell_maybe_quote_one("głąb\002\003rząd", 0, "\"głąb\\002\\003rząd\"");
         test_shell_maybe_quote_one("głąb\002\003rząd", SHELL_ESCAPE_POSIX, "$'głąb\\002\\003rząd'");
+
+        /* Bogus UTF-8 strings */
+        test_shell_maybe_quote_one("\250\350", 0, "\"\\250\\350\"");
+        test_shell_maybe_quote_one("\250\350", SHELL_ESCAPE_POSIX, "$'\\250\\350'");
 }
 
 static void test_quote_command_line_one(char **argv, const char *expected) {

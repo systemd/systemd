@@ -14,6 +14,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "tmpfile-util.h"
@@ -328,24 +329,71 @@ int fopen_tmpfile_linkable(const char *target, int flags, char **ret_path, FILE 
         return 0;
 }
 
-int link_tmpfile(int fd, const char *path, const char *target) {
+static int link_fd(int fd, int newdirfd, const char *newpath) {
+        int r;
+
+        assert(fd >= 0);
+        assert(newdirfd >= 0 || newdirfd == AT_FDCWD);
+        assert(newpath);
+
+        /* Try symlinking via /proc/fd/ first. */
+        r = RET_NERRNO(linkat(AT_FDCWD, FORMAT_PROC_FD_PATH(fd), newdirfd, newpath, AT_SYMLINK_FOLLOW));
+        if (r != -ENOENT)
+                return r;
+
+        /* Fall back to symlinking via AT_EMPTY_PATH as fallback (this requires CAP_DAC_READ_SEARCH and a
+         * more recent kernel, but does not require /proc/ mounted) */
+        if (proc_mounted() != 0)
+                return r;
+
+        return RET_NERRNO(linkat(fd, "", newdirfd, newpath, AT_EMPTY_PATH));
+}
+
+int link_tmpfile(int fd, const char *path, const char *target, bool replace) {
+        _cleanup_free_ char *tmp = NULL;
+        int r;
+
         assert(fd >= 0);
         assert(target);
 
-        /* Moves a temporary file created with open_tmpfile() above into its final place. if "path" is NULL an fd
-         * created with O_TMPFILE is assumed, and linkat() is used. Otherwise it is assumed O_TMPFILE is not supported
-         * on the directory, and renameat2() is used instead.
-         *
-         * Note that in both cases we will not replace existing files. This is because linkat() does not support this
-         * operation currently (renameat2() does), and there is no nice way to emulate this. */
+        /* Moves a temporary file created with open_tmpfile() above into its final place. If "path" is NULL
+         * an fd created with O_TMPFILE is assumed, and linkat() is used. Otherwise it is assumed O_TMPFILE
+         * is not supported on the directory, and renameat2() is used instead. */
 
-        if (path)
+        if (path) {
+                if (replace)
+                        return RET_NERRNO(rename(path, target));
+
                 return rename_noreplace(AT_FDCWD, path, AT_FDCWD, target);
+        }
 
-        return RET_NERRNO(linkat(AT_FDCWD, FORMAT_PROC_FD_PATH(fd), AT_FDCWD, target, AT_SYMLINK_FOLLOW));
+        r = link_fd(fd, AT_FDCWD, target);
+        if (r != -EEXIST || !replace)
+                return r;
+
+        /* So the target already exists and we were asked to replace it. That sucks a bit, since the kernel's
+         * linkat() logic does not allow that. We work-around this by linking the file to a random name
+         * first, and then renaming that to the final name. This reintroduces the race O_TMPFILE kinda is
+         * trying to fix, but at least the vulnerability window (i.e. where the file is linked into the file
+         * system under a temporary name) is very short. */
+
+        r = tempfn_random(target, NULL, &tmp);
+        if (r < 0)
+                return r;
+
+        if (link_fd(fd, AT_FDCWD, tmp) < 0)
+                return -EEXIST; /* propagate original error */
+
+        r = RET_NERRNO(rename(tmp, target));
+        if (r < 0) {
+                (void) unlink(tmp);
+                return r;
+        }
+
+        return 0;
 }
 
-int flink_tmpfile(FILE *f, const char *path, const char *target) {
+int flink_tmpfile(FILE *f, const char *path, const char *target, bool replace) {
         int fd, r;
 
         assert(f);
@@ -359,7 +407,7 @@ int flink_tmpfile(FILE *f, const char *path, const char *target) {
         if (r < 0)
                 return r;
 
-        return link_tmpfile(fd, path, target);
+        return link_tmpfile(fd, path, target, replace);
 }
 
 int mkdtemp_malloc(const char *template, char **ret) {

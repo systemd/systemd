@@ -55,7 +55,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_root_image_options);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_root_hash);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_root_hash_sig);
 CONFIG_PARSER_PROTOTYPE(config_parse_capability_set);
-CONFIG_PARSER_PROTOTYPE(config_parse_exec_mount_flags);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_mount_propagation_flag);
 CONFIG_PARSER_PROTOTYPE(config_parse_timer);
 CONFIG_PARSER_PROTOTYPE(config_parse_trigger_unit);
 CONFIG_PARSER_PROTOTYPE(config_parse_path_spec);
@@ -152,6 +152,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_watchdog_sec);
 CONFIG_PARSER_PROTOTYPE(config_parse_tty_size);
 CONFIG_PARSER_PROTOTYPE(config_parse_log_filter_patterns);
 CONFIG_PARSER_PROTOTYPE(config_parse_open_file);
+CONFIG_PARSER_PROTOTYPE(config_parse_memory_pressure_watch);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

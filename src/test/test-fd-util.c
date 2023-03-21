@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <sys/eventfd.h>
+#include <sys/mount.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -11,11 +12,14 @@
 #include "macro.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
+#include "mkdir.h"
 #include "mount-util.h"
+#include "namespace-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "rlimit-util.h"
+#include "rm-rf.h"
 #include "seccomp-util.h"
 #include "serialize.h"
 #include "string-util.h"
@@ -567,6 +571,47 @@ TEST(take_fd) {
         assert_se(fd1 >= 0);
         assert_se(array[0] == -EBADF);
         assert_se(array[1] == -EBADF);
+}
+
+TEST(dir_fd_is_root) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert_se((fd = open("/", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
+        assert_se(dir_fd_is_root(fd) > 0);
+
+        fd = safe_close(fd);
+
+        assert_se((fd = open("/usr", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
+        assert_se(dir_fd_is_root(fd) == 0);
+
+        r = detach_mount_namespace();
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "Failed to detach mount namespace");
+
+        _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
+        _cleanup_free_ char *x = NULL, *y = NULL;
+
+        assert_se(mkdtemp_malloc("/tmp/test-mkdir-XXXXXX", &tmp) >= 0);
+        assert_se(x = path_join(tmp, "x"));
+        assert_se(y = path_join(tmp, "x/y"));
+        assert_se(mkdir_p(y, 0755) >= 0);
+        assert_se(mount_nofollow_verbose(LOG_DEBUG, x, y, NULL, MS_BIND, NULL) >= 0);
+
+        fd = safe_close(fd);
+
+        assert_se((fd = open(tmp, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
+        assert_se(dir_fd_is_root(fd) == 0);
+
+        fd = safe_close(fd);
+
+        assert_se((fd = open(x, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
+        assert_se(dir_fd_is_root(fd) == 0);
+
+        fd = safe_close(fd);
+
+        assert_se((fd = open(y, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
+        assert_se(dir_fd_is_root(fd) == 0);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

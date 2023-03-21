@@ -460,7 +460,8 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                               "Slice",
                               "ManagedOOMSwap",
                               "ManagedOOMMemoryPressure",
-                              "ManagedOOMPreference"))
+                              "ManagedOOMPreference",
+                              "MemoryPressureWatch"))
                 return bus_append_string(m, field, eq);
 
         if (STR_IN_SET(field, "ManagedOOMMemoryPressureLimit")) {
@@ -912,6 +913,9 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
 
                 return 1;
         }
+
+        if (streq(field, "MemoryPressureThresholdSec"))
+                return bus_append_parse_sec_rename(m, field, eq);
 
         return 0;
 }
@@ -2754,7 +2758,7 @@ int unit_load_state(sd_bus *bus, const char *name, char **load_state) {
         if (!path)
                 return log_oom();
 
-        /* This function warns on it's own, because otherwise it'd be awkward to pass
+        /* This function warns on its own, because otherwise it'd be awkward to pass
          * the dbus error message around. */
 
         r = sd_bus_get_property_string(

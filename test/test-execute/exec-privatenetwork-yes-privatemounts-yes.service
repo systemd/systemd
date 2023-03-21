@@ -3,8 +3,7 @@
 Description=Test for PrivateNetwork= with mount namespacing
 
 [Service]
-ExecStart=/bin/sh -x -c '! ip link | grep -E "^[0-9]+: " | grep -Ev ": (lo|(erspan|gre|gretap|ip_vti|ip6_vti|ip6gre|ip6tnl|sit|tunl)0@.*):"'
-ExecStart=/bin/sh -x -c '! ip link | grep -E "^[0-9]+: " | grep -F ": dummy-test-exec:"'
+ExecStart=/bin/sh -x -c '! ip link show dummy-test-exec'
 ExecStart=/bin/sh -x -c 'test ! -e /proc/sys/net/ipv4/conf/dummy-test-exec'
 # With mount namespacing, we cannot access the dummy-test-exec interface through sysfs.
 ExecStart=/bin/sh -x -c 'test ! -e /sys/class/net/dummy-test-exec'

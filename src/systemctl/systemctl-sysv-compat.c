@@ -117,7 +117,7 @@ int enable_sysv_units(const char *verb, char **args) {
 
         /* Processes all SysV units, and reshuffles the array so that afterwards only the native units remain */
 
-        if (arg_scope != LOOKUP_SCOPE_SYSTEM)
+        if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
                 return 0;
 
         if (getenv_bool("SYSTEMCTL_SKIP_SYSV") > 0)
@@ -129,7 +129,7 @@ int enable_sysv_units(const char *verb, char **args) {
                         "is-enabled"))
                 return 0;
 
-        r = lookup_paths_init_or_warn(&paths, arg_scope, LOOKUP_PATHS_EXCLUDE_GENERATED, arg_root);
+        r = lookup_paths_init_or_warn(&paths, arg_runtime_scope, LOOKUP_PATHS_EXCLUDE_GENERATED, arg_root);
         if (r < 0)
                 return r;
 
@@ -159,7 +159,7 @@ int enable_sysv_units(const char *verb, char **args) {
                 if (path_is_absolute(name))
                         continue;
 
-                j = unit_file_exists(arg_scope, &paths, name);
+                j = unit_file_exists(arg_runtime_scope, &paths, name);
                 if (j < 0 && !IN_SET(j, -ELOOP, -ERFKILL, -EADDRNOTAVAIL))
                         return log_error_errno(j, "Failed to look up unit file state: %m");
                 found_native = j != 0;

@@ -12,4 +12,12 @@ from any other, even if locking is used to ensure these threads don't operate on
 
 <para id="safe">All functions listed here are thread-safe and may be called in parallel from multiple threads.</para>
 
+<para id='getenv'>The code described here uses
+<citerefentry project='man-pages'><refentrytitle>getenv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+which is declared to be not multi-thread-safe. This means that the code calling the functions described
+here must not call
+<citerefentry project='man-pages'><refentrytitle>setenv</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+from a parallel thread. It is recommended to only do calls to <function>setenv()</function>
+from an early phase of the program when no other threads have been started.</para>
+
 </refsect1>

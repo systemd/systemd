@@ -81,6 +81,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "psi-util.h"
 #include "random-util.h"
 #include "recurse-dir.h"
 #include "rlimit-util.h"
@@ -1571,11 +1572,24 @@ static int apply_address_families(const Unit* u, const ExecContext *c) {
 }
 
 static int apply_memory_deny_write_execute(const Unit* u, const ExecContext *c) {
+        int r;
+
         assert(u);
         assert(c);
 
         if (!c->memory_deny_write_execute)
                 return 0;
+
+        /* use prctl() if kernel supports it (6.3) */
+        r = prctl(PR_SET_MDWE, PR_MDWE_REFUSE_EXEC_GAIN, 0, 0, 0);
+        if (r == 0) {
+                log_unit_debug(u, "Enabled MemoryDenyWriteExecute= with PR_SET_MDWE");
+                return 0;
+        }
+        if (r < 0 && errno != EINVAL)
+                return log_unit_debug_errno(u, errno, "Failed to enable MemoryDenyWriteExecute= with PR_SET_MDWE: %m");
+        /* else use seccomp */
+        log_unit_debug(u, "Kernel doesn't support PR_SET_MDWE: falling back to seccomp");
 
         if (skip_seccomp_unavailable(u, "MemoryDenyWriteExecute="))
                 return 0;
@@ -1809,6 +1823,7 @@ static int build_environment(
                 const Unit *u,
                 const ExecContext *c,
                 const ExecParameters *p,
+                const CGroupContext *cgroup_context,
                 size_t n_fds,
                 char **fdnames,
                 const char *home,
@@ -1816,6 +1831,7 @@ static int build_environment(
                 const char *shell,
                 dev_t journal_stream_dev,
                 ino_t journal_stream_ino,
+                const char *memory_pressure_path,
                 char ***ret) {
 
         _cleanup_strv_free_ char **our_env = NULL;
@@ -1827,7 +1843,7 @@ static int build_environment(
         assert(p);
         assert(ret);
 
-#define N_ENV_VARS 17
+#define N_ENV_VARS 19
         our_env = new0(char*, N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
         if (!our_env)
                 return -ENOMEM;
@@ -1991,8 +2007,35 @@ static int build_environment(
 
         our_env[n_env++] = x;
 
-        our_env[n_env++] = NULL;
-        assert(n_env <= N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
+        if (memory_pressure_path) {
+                x = strjoin("MEMORY_PRESSURE_WATCH=", memory_pressure_path);
+                if (!x)
+                        return -ENOMEM;
+
+                our_env[n_env++] = x;
+
+                if (cgroup_context && !path_equal(memory_pressure_path, "/dev/null")) {
+                        _cleanup_free_ char *b = NULL, *e = NULL;
+
+                        if (asprintf(&b, "%s " USEC_FMT " " USEC_FMT,
+                                     MEMORY_PRESSURE_DEFAULT_TYPE,
+                                     cgroup_context->memory_pressure_threshold_usec == USEC_INFINITY ? MEMORY_PRESSURE_DEFAULT_THRESHOLD_USEC :
+                                     CLAMP(cgroup_context->memory_pressure_threshold_usec, 1U, MEMORY_PRESSURE_DEFAULT_WINDOW_USEC),
+                                     MEMORY_PRESSURE_DEFAULT_WINDOW_USEC) < 0)
+                                return -ENOMEM;
+
+                        if (base64mem(b, strlen(b) + 1, &e) < 0)
+                                return -ENOMEM;
+
+                        x = strjoin("MEMORY_PRESSURE_WRITE=", e);
+                        if (!x)
+                                return -ENOMEM;
+
+                        our_env[n_env++] = x;
+                }
+        }
+
+        assert(n_env < N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
 #undef N_ENV_VARS
 
         *ret = TAKE_PTR(our_env);
@@ -2071,7 +2114,7 @@ bool exec_needs_mount_namespace(
         if (!strv_isempty(context->extension_directories))
                 return true;
 
-        if (!IN_SET(context->mount_flags, 0, MS_SHARED))
+        if (!IN_SET(context->mount_propagation_flag, 0, MS_SHARED))
                 return true;
 
         if (context->private_tmp && runtime && (runtime->tmp_dir || runtime->var_tmp_dir))
@@ -3291,7 +3334,7 @@ static int setup_smack(
                 if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
                         return r;
 
-                r = mac_smack_apply_pid(0, exec_label ? : manager->default_smack_process_label);
+                r = mac_smack_apply_pid(0, exec_label ?: manager->default_smack_process_label);
                 if (r < 0)
                         return r;
         }
@@ -3548,13 +3591,16 @@ static int apply_mount_namespace(
                 const ExecContext *context,
                 const ExecParameters *params,
                 const ExecRuntime *runtime,
+                const char *memory_pressure_path,
                 char **error_path) {
 
-        _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL;
+        _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
+                        **read_write_paths_cleanup = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
         const char *root_dir = NULL, *root_image = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
                         *extension_dir = NULL;
+        char **read_write_paths;
         NamespaceInfo ns_info;
         bool needs_sandboxing;
         BindMount *bind_mounts = NULL;
@@ -3578,6 +3624,23 @@ static int apply_mount_namespace(
         r = compile_symlinks(context, params, &symlinks);
         if (r < 0)
                 goto finalize;
+
+        /* We need to make the pressure path writable even if /sys/fs/cgroups is made read-only, as the
+         * service will need to write to it in order to start the notifications. */
+        if (context->protect_control_groups && memory_pressure_path && !streq(memory_pressure_path, "/dev/null")) {
+                read_write_paths_cleanup = strv_copy(context->read_write_paths);
+                if (!read_write_paths_cleanup) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
+
+                r = strv_extend(&read_write_paths_cleanup, memory_pressure_path);
+                if (r < 0)
+                        goto finalize;
+
+                read_write_paths = read_write_paths_cleanup;
+        } else
+                read_write_paths = context->read_write_paths;
 
         needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command_flags & EXEC_COMMAND_FULLY_PRIVILEGED);
         if (needs_sandboxing) {
@@ -3628,7 +3691,7 @@ static int apply_mount_namespace(
         else
                 ns_info = (NamespaceInfo) {};
 
-        if (context->mount_flags == MS_SHARED)
+        if (context->mount_propagation_flag == MS_SHARED)
                 log_unit_debug(u, "shared mount propagation hidden by other fs namespacing unit settings: ignoring");
 
         if (exec_context_has_credentials(context) &&
@@ -3666,7 +3729,7 @@ static int apply_mount_namespace(
                 }
 
         r = setup_namespace(root_dir, root_image, context->root_image_options,
-                            &ns_info, context->read_write_paths,
+                            &ns_info, read_write_paths,
                             needs_sandboxing ? context->read_only_paths : NULL,
                             needs_sandboxing ? context->inaccessible_paths : NULL,
                             needs_sandboxing ? context->exec_paths : NULL,
@@ -3683,7 +3746,7 @@ static int apply_mount_namespace(
                             var_tmp_dir,
                             creds_path,
                             context->log_namespace,
-                            context->mount_flags,
+                            context->mount_propagation_flag,
                             context->root_hash, context->root_hash_size, context->root_hash_path,
                             context->root_hash_sig, context->root_hash_sig_size, context->root_hash_sig_path,
                             context->root_verity,
@@ -3963,9 +4026,9 @@ static int send_user_lookup(
 
         if (writev(user_lookup_fd,
                (struct iovec[]) {
-                           IOVEC_INIT(&uid, sizeof(uid)),
-                           IOVEC_INIT(&gid, sizeof(gid)),
-                           IOVEC_INIT_STRING(unit->id) }, 3) < 0)
+                           IOVEC_MAKE(&uid, sizeof(uid)),
+                           IOVEC_MAKE(&gid, sizeof(gid)),
+                           IOVEC_MAKE_STRING(unit->id) }, 3) < 0)
                 return -errno;
 
         return 0;
@@ -4169,9 +4232,10 @@ static int get_open_file_fd(Unit *u, const OpenFile *of) {
 
         ofd = open(of->path, O_PATH | O_CLOEXEC);
         if (ofd < 0)
-                return log_error_errno(errno, "Could not open \"%s\": %m", of->path);
+                return log_unit_error_errno(u, errno, "Could not open \"%s\": %m", of->path);
+
         if (fstat(ofd, &st) < 0)
-                return log_error_errno(errno, "Failed to stat %s: %m", of->path);
+                return log_unit_error_errno(u, errno, "Failed to stat %s: %m", of->path);
 
         if (S_ISSOCK(st.st_mode)) {
                 fd = connect_unix_harder(u, of, ofd);
@@ -4179,7 +4243,8 @@ static int get_open_file_fd(Unit *u, const OpenFile *of) {
                         return fd;
 
                 if (FLAGS_SET(of->flags, OPENFILE_READ_ONLY) && shutdown(fd, SHUT_WR) < 0)
-                        return log_error_errno(errno, "Failed to shutdown send for socket %s: %m", of->path);
+                        return log_unit_error_errno(u, errno, "Failed to shutdown send for socket %s: %m",
+                                                    of->path);
 
                 log_unit_debug(u, "socket %s opened (fd=%d)", of->path, fd);
         } else {
@@ -4247,6 +4312,7 @@ static int exec_child(
                 const ExecParameters *params,
                 ExecRuntime *runtime,
                 DynamicCreds *dcreds,
+                const CGroupContext *cgroup_context,
                 int socket_fd,
                 const int named_iofds[static 3],
                 int *params_fds,
@@ -4260,7 +4326,7 @@ static int exec_child(
         int r, ngids = 0, exec_fd;
         _cleanup_free_ gid_t *supplementary_gids = NULL;
         const char *username = NULL, *groupname = NULL;
-        _cleanup_free_ char *home_buffer = NULL;
+        _cleanup_free_ char *home_buffer = NULL, *memory_pressure_path = NULL;
         const char *home = NULL, *shell = NULL;
         char **final_argv = NULL;
         dev_t journal_stream_dev = 0;
@@ -4418,7 +4484,7 @@ static int exec_child(
          * invocations themselves. Also note that while we'll only invoke NSS modules involved in user management they
          * might internally call into other NSS modules that are involved in hostname resolution, we never know. */
         if (setenv("SYSTEMD_ACTIVATION_UNIT", unit->id, true) != 0 ||
-            setenv("SYSTEMD_ACTIVATION_SCOPE", MANAGER_IS_SYSTEM(unit->manager) ? "system" : "user", true) != 0) {
+            setenv("SYSTEMD_ACTIVATION_SCOPE", runtime_scope_to_string(unit->manager->runtime_scope), true) != 0) {
                 *exit_status = EXIT_MEMORY;
                 return log_unit_error_errno(unit, errno, "Failed to update environment: %m");
         }
@@ -4625,11 +4691,13 @@ static int exec_child(
 
         if (mpol_is_valid(numa_policy_get_type(&context->numa_policy))) {
                 r = apply_numa_policy(&context->numa_policy);
-                if (r == -EOPNOTSUPP)
-                        log_unit_debug_errno(unit, r, "NUMA support not available, ignoring.");
-                else if (r < 0) {
-                        *exit_status = EXIT_NUMA_POLICY;
-                        return log_unit_error_errno(unit, r, "Failed to set NUMA memory policy: %m");
+                if (r < 0) {
+                        if (ERRNO_IS_NOT_SUPPORTED(r))
+                                log_unit_debug_errno(unit, r, "NUMA support not available, ignoring.");
+                        else {
+                                *exit_status = EXIT_NUMA_POLICY;
+                                return log_unit_error_errno(unit, r, "Failed to set NUMA memory policy: %m");
+                        }
                 }
         }
 
@@ -4673,15 +4741,41 @@ static int exec_child(
                 }
         }
 
-        /* If delegation is enabled we'll pass ownership of the cgroup to the user of the new process. On cgroup v1
-         * this is only about systemd's own hierarchy, i.e. not the controller hierarchies, simply because that's not
-         * safe. On cgroup v2 there's only one hierarchy anyway, and delegation is safe there, hence in that case only
-         * touch a single hierarchy too. */
-        if (params->cgroup_path && context->user && (params->flags & EXEC_CGROUP_DELEGATE)) {
-                r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, uid, gid);
-                if (r < 0) {
-                        *exit_status = EXIT_CGROUP;
-                        return log_unit_error_errno(unit, r, "Failed to adjust control group access: %m");
+        if (params->cgroup_path) {
+                /* If delegation is enabled we'll pass ownership of the cgroup to the user of the new process. On cgroup v1
+                 * this is only about systemd's own hierarchy, i.e. not the controller hierarchies, simply because that's not
+                 * safe. On cgroup v2 there's only one hierarchy anyway, and delegation is safe there, hence in that case only
+                 * touch a single hierarchy too. */
+
+                if (params->flags & EXEC_CGROUP_DELEGATE) {
+                        r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, uid, gid);
+                        if (r < 0) {
+                                *exit_status = EXIT_CGROUP;
+                                return log_unit_error_errno(unit, r, "Failed to adjust control group access: %m");
+                        }
+                }
+
+                if (cgroup_context && cg_unified() > 0 && is_pressure_supported() > 0) {
+                        if (cgroup_context_want_memory_pressure(cgroup_context)) {
+                                r = cg_get_path("memory", params->cgroup_path, "memory.pressure", &memory_pressure_path);
+                                if (r < 0) {
+                                        *exit_status = EXIT_MEMORY;
+                                        return log_oom();
+                                }
+
+                                r = chmod_and_chown(memory_pressure_path, 0644, uid, gid);
+                                if (r < 0) {
+                                        log_unit_full_errno(unit, r == -ENOENT || ERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                                            "Failed to adjust ownership of '%s', ignoring: %m", memory_pressure_path);
+                                        memory_pressure_path = mfree(memory_pressure_path);
+                                }
+                        } else if (cgroup_context->memory_pressure_watch == CGROUP_PRESSURE_WATCH_OFF) {
+                                memory_pressure_path = strdup("/dev/null"); /* /dev/null is explicit indicator for turning of memory pressure watch */
+                                if (!memory_pressure_path) {
+                                        *exit_status = EXIT_MEMORY;
+                                        return log_oom();
+                                }
+                        }
                 }
         }
 
@@ -4705,6 +4799,7 @@ static int exec_child(
                         unit,
                         context,
                         params,
+                        cgroup_context,
                         n_fds,
                         fdnames,
                         home,
@@ -4712,6 +4807,7 @@ static int exec_child(
                         shell,
                         journal_stream_dev,
                         journal_stream_ino,
+                        memory_pressure_path,
                         &our_env);
         if (r < 0) {
                 *exit_status = EXIT_MEMORY;
@@ -4859,12 +4955,14 @@ static int exec_child(
 
                 if (ns_type_supported(NAMESPACE_NET)) {
                         r = setup_shareable_ns(runtime->netns_storage_socket, CLONE_NEWNET);
-                        if (r == -EPERM)
-                                log_unit_warning_errno(unit, r,
-                                                       "PrivateNetwork=yes is configured, but network namespace setup failed, ignoring: %m");
-                        else if (r < 0) {
-                                *exit_status = EXIT_NETWORK;
-                                return log_unit_error_errno(unit, r, "Failed to set up network namespacing: %m");
+                        if (r < 0) {
+                                if (ERRNO_IS_PRIVILEGE(r))
+                                        log_unit_warning_errno(unit, r,
+                                                               "PrivateNetwork=yes is configured, but network namespace setup failed, ignoring: %m");
+                                else {
+                                        *exit_status = EXIT_NETWORK;
+                                        return log_unit_error_errno(unit, r, "Failed to set up network namespacing: %m");
+                                }
                         }
                 } else if (context->network_namespace_path) {
                         *exit_status = EXIT_NETWORK;
@@ -4896,7 +4994,7 @@ static int exec_child(
         if (needs_mount_namespace) {
                 _cleanup_free_ char *error_path = NULL;
 
-                r = apply_mount_namespace(unit, command->flags, context, params, runtime, &error_path);
+                r = apply_mount_namespace(unit, command->flags, context, params, runtime, memory_pressure_path, &error_path);
                 if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
                         return log_unit_error_errno(unit, r, "Failed to set up mount namespacing%s%s: %m",
@@ -5370,6 +5468,7 @@ int exec_spawn(Unit *unit,
                const ExecParameters *params,
                ExecRuntime *runtime,
                DynamicCreds *dcreds,
+               const CGroupContext *cgroup_context,
                pid_t *ret) {
 
         int socket_fd, r, named_iofds[3] = { -1, -1, -1 }, *fds = NULL;
@@ -5457,6 +5556,7 @@ int exec_spawn(Unit *unit,
                                params,
                                runtime,
                                dcreds,
+                               cgroup_context,
                                socket_fd,
                                named_iofds,
                                fds,

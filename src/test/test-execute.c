@@ -1065,6 +1065,19 @@ static void test_exec_privatenetwork(Manager *m) {
         test(m, "exec-privatenetwork-yes-privatemounts-yes.service", status, CLD_EXITED);
 }
 
+static void test_exec_networknamespacepath(Manager *m) {
+        int r;
+
+        r = find_executable("ip", NULL);
+        if (r < 0) {
+                log_notice_errno(r, "Skipping %s, could not find ip binary: %m", __func__);
+                return;
+        }
+
+        test(m, "exec-networknamespacepath-privatemounts-no.service", MANAGER_IS_SYSTEM(m) ? EXIT_SUCCESS : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-networknamespacepath-privatemounts-yes.service", can_unshare ? EXIT_SUCCESS : EXIT_FAILURE, CLD_EXITED);
+}
+
 static void test_exec_oomscoreadjust(Manager *m) {
         test(m, "exec-oomscoreadjust-positive.service", 0, CLD_EXITED);
 
@@ -1141,7 +1154,7 @@ typedef struct test_entry {
 
 #define entry(x) {x, #x}
 
-static void run_tests(LookupScope scope, char **patterns) {
+static void run_tests(RuntimeScope scope, char **patterns) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_free_ char *unit_paths = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
@@ -1168,6 +1181,7 @@ static void run_tests(LookupScope scope, char **patterns) {
                 entry(test_exec_inaccessiblepaths),
                 entry(test_exec_ioschedulingclass),
                 entry(test_exec_mount_apivfs),
+                entry(test_exec_networknamespacepath),
                 entry(test_exec_noexecpaths),
                 entry(test_exec_oomscoreadjust),
                 entry(test_exec_passenvironment),
@@ -1297,7 +1311,7 @@ TEST(run_tests_root) {
 
         if (prepare_ns("(test-execute-root)") == 0) {
                 can_unshare = true;
-                run_tests(LOOKUP_SCOPE_SYSTEM, filters);
+                run_tests(RUNTIME_SCOPE_SYSTEM, filters);
                 _exit(EXIT_SUCCESS);
         }
 }
@@ -1306,7 +1320,7 @@ TEST(run_tests_without_unshare) {
         if (!have_namespaces()) {
                 /* unshare() is already filtered. */
                 can_unshare = false;
-                run_tests(LOOKUP_SCOPE_SYSTEM, strv_skip(saved_argv, 1));
+                run_tests(RUNTIME_SCOPE_SYSTEM, strv_skip(saved_argv, 1));
                 return;
         }
 
@@ -1334,7 +1348,7 @@ TEST(run_tests_without_unshare) {
                 assert_se(errno == EOPNOTSUPP);
 
                 can_unshare = false;
-                run_tests(LOOKUP_SCOPE_SYSTEM, filters);
+                run_tests(RUNTIME_SCOPE_SYSTEM, filters);
                 _exit(EXIT_SUCCESS);
         }
 #else
@@ -1355,7 +1369,7 @@ TEST(run_tests_unprivileged) {
                 assert_se(capability_bounding_set_drop(0, /* right_now = */ true) >= 0);
 
                 can_unshare = false;
-                run_tests(LOOKUP_SCOPE_USER, filters);
+                run_tests(RUNTIME_SCOPE_USER, filters);
                 _exit(EXIT_SUCCESS);
         }
 }
@@ -1378,11 +1392,16 @@ static int intro(void) {
         /* Create dummy network interface for testing PrivateNetwork=yes */
         (void) system("ip link add dummy-test-exec type dummy");
 
+        /* Create a network namespace and a dummy interface in it for NetworkNamespacePath= */
+        (void) system("ip netns add test-execute-netns");
+        (void) system("ip netns exec test-execute-netns ip link add dummy-test-ns type dummy");
+
         return EXIT_SUCCESS;
 }
 
 static int outro(void) {
         (void) system("ip link del dummy-test-exec");
+        (void) system("ip netns del test-execute-netns");
         (void) rmdir(PRIVATE_UNIT_DIR);
 
         return EXIT_SUCCESS;

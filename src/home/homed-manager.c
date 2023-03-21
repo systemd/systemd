@@ -18,6 +18,7 @@
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "clean-ipc.h"
+#include "common-signal.h"
 #include "conf-files.h"
 #include "device-util.h"
 #include "dirent-util.h"
@@ -222,6 +223,15 @@ int manager_new(Manager **ret) {
                 return r;
 
         r = sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
+        if (r < 0)
+                log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || (r == -EHOSTDOWN) ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to allocate memory pressure watch, ignoring: %m");
+
+        r = sd_event_add_signal(m->event, NULL, SIGRTMIN+18, sigrtmin18_handler, NULL);
         if (r < 0)
                 return r;
 
@@ -1446,9 +1456,10 @@ static int manager_generate_key_pair(Manager *m) {
                 return log_error_errno(errno, "Failed to move public key file into place: %m");
         temp_public = mfree(temp_public);
 
-        if (rename(temp_private, "/var/lib/systemd/home/local.private") < 0) {
-                (void) unlink_noerrno("/var/lib/systemd/home/local.public"); /* try to remove the file we already created */
-                return log_error_errno(errno, "Failed to move private key file into place: %m");
+        r = RET_NERRNO(rename(temp_private, "/var/lib/systemd/home/local.private"));
+        if (r < 0) {
+                (void) unlink("/var/lib/systemd/home/local.public"); /* try to remove the file we already created */
+                return log_error_errno(r, "Failed to move private key file into place: %m");
         }
         temp_private = mfree(temp_private);
 
@@ -1616,7 +1627,7 @@ void manager_revalidate_image(Manager *m, Home *h) {
         assert(h);
 
         /* Frees an automatically discovered image, if it's synthetic and its image disappeared. Unmounts any
-         * image if it's mounted but it's image vanished. */
+         * image if it's mounted but its image vanished. */
 
         if (h->current_operation || !ordered_set_isempty(h->pending_operations))
                 return;

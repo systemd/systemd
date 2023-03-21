@@ -146,12 +146,13 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_service_timeout_failure_mode, service_time
 DEFINE_CONFIG_PARSE_ENUM(config_parse_socket_bind, socket_address_bind_ipv6_only_or_bool, SocketAddressBindIPv6Only, "Failed to parse bind IPv6 only value");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_oom_policy, oom_policy, OOMPolicy, "Failed to parse OOM policy");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_managed_oom_preference, managed_oom_preference, ManagedOOMPreference, "Failed to parse ManagedOOMPreference=");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_memory_pressure_watch, cgroup_pressure_watch, CGroupPressureWatch, "Failed to parse memory pressure watch setting");
 DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_ip_tos, ip_tos, int, -1, "Failed to parse IP TOS value");
 DEFINE_CONFIG_PARSE_PTR(config_parse_blockio_weight, cg_blkio_weight_parse, uint64_t, "Invalid block IO weight");
 DEFINE_CONFIG_PARSE_PTR(config_parse_cg_weight, cg_weight_parse, uint64_t, "Invalid weight");
 DEFINE_CONFIG_PARSE_PTR(config_parse_cg_cpu_weight, cg_cpu_weight_parse, uint64_t, "Invalid CPU weight");
 static DEFINE_CONFIG_PARSE_PTR(config_parse_cpu_shares_internal, cg_cpu_shares_parse, uint64_t, "Invalid CPU shares");
-DEFINE_CONFIG_PARSE_PTR(config_parse_exec_mount_flags, mount_propagation_flag_from_string, unsigned long, "Failed to parse mount flag");
+DEFINE_CONFIG_PARSE_PTR(config_parse_exec_mount_propagation_flag, mount_propagation_flag_from_string, unsigned long, "Failed to parse mount propagation flag");
 DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_numa_policy, mpol, int, -1, "Invalid NUMA policy type");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_status_unit_format, status_unit_format, StatusUnitFormat, "Failed to parse status unit format");
 DEFINE_CONFIG_PARSE_ENUM_FULL(config_parse_socket_timestamping, socket_timestamping_from_string_harder, SocketTimestamping, "Failed to parse timestamping precision");
@@ -201,7 +202,7 @@ bool contains_instance_specifier_superset(const char *s) {
                 return false;
 
         /* %i, %n and %N all expand to the instance or a superset of it. */
-        for (; p < q; p++) {
+        for (; p < q; p++)
                 if (*p == '%')
                         percent = !percent;
                 else if (percent) {
@@ -209,7 +210,6 @@ bool contains_instance_specifier_superset(const char *s) {
                                 return true;
                         percent = false;
                 }
-        }
 
         return false;
 }
@@ -2743,6 +2743,16 @@ int config_parse_environ(
                 return 0;
         }
 
+        /* If 'u' is set, we operate on the regular unit specifier table. Otherwise we use a manager-specific
+         * specifier table (in which case ltype must contain the runtime scope). */
+        const Specifier *table = u ? NULL : (const Specifier[]) {
+                COMMON_SYSTEM_SPECIFIERS,
+                COMMON_TMP_SPECIFIERS,
+                COMMON_CREDS_SPECIFIERS(ltype),
+                { 'h', specifier_user_home,  NULL },
+                { 's', specifier_user_shell, NULL },
+        };
+
         for (const char *p = rvalue;; ) {
                 _cleanup_free_ char *word = NULL, *resolved = NULL;
 
@@ -2757,10 +2767,10 @@ int config_parse_environ(
                 if (r == 0)
                         return 0;
 
-                if (u)
-                        r = unit_env_printf(u, word, &resolved);
+                if (table)
+                        r = specifier_printf(word, sc_arg_max(), table, NULL, NULL, &resolved);
                 else
-                        r = specifier_printf(word, sc_arg_max(), system_and_tmp_specifier_table, NULL, NULL, &resolved);
+                        r = unit_env_printf(u, word, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to resolve specifiers in %s, ignoring: %m", word);
@@ -3967,12 +3977,12 @@ int config_parse_delegate(
                 return 0;
         }
 
-        /* We either accept a boolean value, which may be used to turn on delegation for all controllers, or turn it
-         * off for all. Or it takes a list of controller names, in which case we add the specified controllers to the
-         * mask to delegate. */
+        /* We either accept a boolean value, which may be used to turn on delegation for all controllers, or
+         * turn it off for all. Or it takes a list of controller names, in which case we add the specified
+         * controllers to the mask to delegate. Delegate= enables delegation without any controllers. */
 
         if (isempty(rvalue)) {
-                /* An empty string resets controllers and set Delegate=yes. */
+                /* An empty string resets controllers and sets Delegate=yes. */
                 c->delegate = true;
                 c->delegate_controllers = 0;
                 return 0;
@@ -4371,15 +4381,13 @@ int config_parse_io_limit(
                 }
 
         if (!l) {
-                CGroupIOLimitType ttype;
-
                 l = new0(CGroupIODeviceLimit, 1);
                 if (!l)
                         return log_oom();
 
                 l->path = TAKE_PTR(resolved);
-                for (ttype = 0; ttype < _CGROUP_IO_LIMIT_TYPE_MAX; ttype++)
-                        l->limits[ttype] = cgroup_io_limit_defaults[ttype];
+                for (CGroupIOLimitType i = 0; i < _CGROUP_IO_LIMIT_TYPE_MAX; i++)
+                        l->limits[i] = cgroup_io_limit_defaults[i];
 
                 LIST_PREPEND(device_limits, c->io_device_limits, l);
         }
@@ -5614,7 +5622,7 @@ int config_parse_emergency_action(
                 void *userdata) {
 
         EmergencyAction *x = ASSERT_PTR(data);
-        bool is_system;
+        RuntimeScope runtime_scope;
         int r;
 
         assert(filename);
@@ -5623,16 +5631,16 @@ int config_parse_emergency_action(
 
         /* If we have a unit determine the scope based on it */
         if (unit)
-                is_system = MANAGER_IS_SYSTEM(((Unit*) ASSERT_PTR(userdata))->manager);
+                runtime_scope = ((Unit*) ASSERT_PTR(userdata))->manager->runtime_scope;
         else
-                is_system = ltype; /* otherwise, assume the scope is passed in via ltype */
+                runtime_scope = ltype; /* otherwise, assume the scope is passed in via ltype */
 
-        r = parse_emergency_action(rvalue, is_system, x);
+        r = parse_emergency_action(rvalue, runtime_scope, x);
         if (r < 0) {
                 if (r == -EOPNOTSUPP)
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "%s= specified as %s mode action, ignoring: %s",
-                                   lvalue, is_system ? "user" : "system", rvalue);
+                                   lvalue, runtime_scope_to_string(runtime_scope), rvalue);
                 else
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse %s=, ignoring: %s", lvalue, rvalue);
@@ -6203,8 +6211,10 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_nsec,                  "NANOSECONDS" },
                 { config_parse_namespace_path_strv,   "PATH [...]" },
                 { config_parse_bind_paths,            "PATH[:PATH[:OPTIONS]] [...]" },
-                { config_parse_unit_requires_mounts_for, "PATH [...]" },
-                { config_parse_exec_mount_flags,      "MOUNTFLAG [...]" },
+                { config_parse_unit_requires_mounts_for,
+                                                      "PATH [...]" },
+                { config_parse_exec_mount_propagation_flag,
+                                                      "MOUNTFLAG" },
                 { config_parse_unit_string_printf,    "STRING" },
                 { config_parse_trigger_unit,          "UNIT" },
                 { config_parse_timer,                 "TIMER" },

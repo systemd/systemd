@@ -668,9 +668,9 @@ int strv_compare(char * const *a, char * const *b) {
         return 0;
 }
 
-void strv_print(char * const *l) {
+void strv_print_full(char * const *l, const char *prefix) {
         STRV_FOREACH(s, l)
-                puts(*s);
+                printf("%s%s\n", strempty(prefix), *s);
 }
 
 int strv_extendf(char ***l, const char *format, ...) {

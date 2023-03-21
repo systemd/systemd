@@ -9,7 +9,7 @@ success() { echo >&2 -e "\033[32;1m$1\033[0m"; }
 
 ARGS=(
     "--optimization=0"
-    "--optimization=s -Dgnu-efi=true -Defi-cflags=-m32 -Defi-libdir=/usr/lib32"
+    "--optimization=s"
     "--optimization=3 -Db_lto=true -Ddns-over-tls=false"
     "--optimization=3 -Db_lto=false"
     "--optimization=3 -Ddns-over-tls=openssl"
@@ -27,7 +27,6 @@ PACKAGES=(
     kbd
     libblkid-dev
     libbpf-dev
-    libc6-dev-i386
     libcap-dev
     libcurl4-gnutls-dev
     libfdisk-dev
@@ -55,6 +54,7 @@ PACKAGES=(
     python3-lxml
     python3-pefile
     python3-pip
+    python3-pyelftools
     python3-pyparsing
     python3-setuptools
     quota
@@ -156,8 +156,8 @@ for args in "${ARGS[@]}"; do
         fatal "'meson compile' failed with '$args'"
     fi
 
-    for loader in build/src/boot/efi/*.efi; do
-        if sbverify --list "$loader" |& grep -q "gap in section table"; then
+    for loader in build/src/boot/efi/*{.efi,.efi.stub}; do
+        if [[ "$(sbverify --list "$loader" 2>&1)" != "No signature table present" ]]; then
             fatal "$loader: Gaps found in section table"
         fi
     done

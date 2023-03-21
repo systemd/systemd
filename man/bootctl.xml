@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="bootctl" conditional='HAVE_GNU_EFI'
+<refentry id="bootctl" conditional='ENABLE_BOOTLOADER'
     xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>bootctl</title>
@@ -336,7 +336,7 @@
         Specification Type #2 entries should be placed in the directory <literal>$(bootctl
         -x)/EFI/Linux/</literal>.</para>
 
-        <para>Note that this option (similarly to the <option>--print-booth-path</option> option mentioned
+        <para>Note that this option (similarly to the <option>--print-boot-path</option> option mentioned
         above), is available independently from the boot loader used, i.e. also without
         <command>systemd-boot</command> being installed.</para></listitem>
       </varlistentry>

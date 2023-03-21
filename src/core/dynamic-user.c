@@ -11,6 +11,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "lock-util.h"
 #include "nscd-flush.h"
 #include "parse-util.h"
 #include "random-util.h"
@@ -298,8 +299,8 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                 /* Let's store the user name in the lock file, so that we can use it for looking up the username for a UID */
                 l = pwritev(lock_fd,
                             (struct iovec[2]) {
-                                    IOVEC_INIT_STRING(name),
-                                    IOVEC_INIT((char[1]) { '\n' }, 1),
+                                    IOVEC_MAKE_STRING(name),
+                                    IOVEC_MAKE((char[1]) { '\n' }, 1),
                             }, 2, 0);
                 if (l < 0) {
                         r = -errno;
@@ -320,7 +321,7 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
 
 static int dynamic_user_pop(DynamicUser *d, uid_t *ret_uid, int *ret_lock_fd) {
         uid_t uid = UID_INVALID;
-        struct iovec iov = IOVEC_INIT(&uid, sizeof(uid));
+        struct iovec iov = IOVEC_MAKE(&uid, sizeof(uid));
         int lock_fd;
         ssize_t k;
 
@@ -342,7 +343,7 @@ static int dynamic_user_pop(DynamicUser *d, uid_t *ret_uid, int *ret_lock_fd) {
 }
 
 static int dynamic_user_push(DynamicUser *d, uid_t uid, int lock_fd) {
-        struct iovec iov = IOVEC_INIT(&uid, sizeof(uid));
+        struct iovec iov = IOVEC_MAKE(&uid, sizeof(uid));
 
         assert(d);
 
@@ -362,27 +363,12 @@ static void unlink_uid_lock(int lock_fd, uid_t uid, const char *name) {
         (void) make_uid_symlinks(uid, name, false); /* remove direct lookup symlinks */
 }
 
-static int lockfp(int fd, int *fd_lock) {
-        if (lockf(fd, F_LOCK, 0) < 0)
-                return -errno;
-        *fd_lock = fd;
-        return 0;
-}
-
-static void unlockfp(int *fd_lock) {
-        if (*fd_lock < 0)
-                return;
-        lockf(*fd_lock, F_ULOCK, 0);
-        *fd_lock = -EBADF;
-}
-
 static int dynamic_user_realize(
                 DynamicUser *d,
                 char **suggested_dirs,
                 uid_t *ret_uid, gid_t *ret_gid,
                 bool is_user) {
 
-        _cleanup_(unlockfp) int storage_socket0_lock = -EBADF;
         _cleanup_close_ int uid_lock_fd = -EBADF;
         _cleanup_close_ int etc_passwd_lock_fd = -EBADF;
         uid_t num = UID_INVALID; /* a uid if is_user, and a gid otherwise */
@@ -397,9 +383,11 @@ static int dynamic_user_realize(
         /* Acquire a UID for the user name. This will allocate a UID for the user name if the user doesn't exist
          * yet. If it already exists its existing UID/GID will be reused. */
 
-        r = lockfp(d->storage_socket[0], &storage_socket0_lock);
+        r = posix_lock(d->storage_socket[0], LOCK_EX);
         if (r < 0)
                 return r;
+
+        CLEANUP_POSIX_UNLOCK(d->storage_socket[0]);
 
         r = dynamic_user_pop(d, &num, &uid_lock_fd);
         if (r < 0) {
@@ -411,7 +399,9 @@ static int dynamic_user_realize(
 
                 /* OK, nothing stored yet, let's try to find something useful. While we are working on this release the
                  * lock however, so that nobody else blocks on our NSS lookups. */
-                unlockfp(&storage_socket0_lock);
+                r = posix_lock(d->storage_socket[0], LOCK_UN);
+                if (r < 0)
+                        return r;
 
                 /* Let's see if a proper, static user or group by this name exists. Try to take the lock on
                  * /etc/passwd, if that fails with EROFS then /etc is read-only. In that case it's fine if we don't
@@ -461,7 +451,7 @@ static int dynamic_user_realize(
                 }
 
                 /* So, we found a working UID/lock combination. Let's see if we actually still need it. */
-                r = lockfp(d->storage_socket[0], &storage_socket0_lock);
+                r = posix_lock(d->storage_socket[0], LOCK_EX);
                 if (r < 0) {
                         unlink_uid_lock(uid_lock_fd, num, d->name);
                         return r;
@@ -524,7 +514,6 @@ static int dynamic_user_realize(
 }
 
 int dynamic_user_current(DynamicUser *d, uid_t *ret) {
-        _cleanup_(unlockfp) int storage_socket0_lock = -EBADF;
         _cleanup_close_ int lock_fd = -EBADF;
         uid_t uid;
         int r;
@@ -534,9 +523,11 @@ int dynamic_user_current(DynamicUser *d, uid_t *ret) {
         /* Get the currently assigned UID for the user, if there's any. This simply pops the data from the
          * storage socket, and pushes it back in right-away. */
 
-        r = lockfp(d->storage_socket[0], &storage_socket0_lock);
+        r = posix_lock(d->storage_socket[0], LOCK_EX);
         if (r < 0)
                 return r;
+
+        CLEANUP_POSIX_UNLOCK(d->storage_socket[0]);
 
         r = dynamic_user_pop(d, &uid, &lock_fd);
         if (r < 0)
@@ -567,7 +558,6 @@ static DynamicUser* dynamic_user_unref(DynamicUser *d) {
 }
 
 static int dynamic_user_close(DynamicUser *d) {
-        _cleanup_(unlockfp) int storage_socket0_lock = -EBADF;
         _cleanup_close_ int lock_fd = -EBADF;
         uid_t uid;
         int r;
@@ -575,9 +565,11 @@ static int dynamic_user_close(DynamicUser *d) {
         /* Release the user ID, by releasing the lock on it, and emptying the storage socket. After this the
          * user is unrealized again, much like it was after it the DynamicUser object was first allocated. */
 
-        r = lockfp(d->storage_socket[0], &storage_socket0_lock);
+        r = posix_lock(d->storage_socket[0], LOCK_EX);
         if (r < 0)
                 return r;
+
+        CLEANUP_POSIX_UNLOCK(d->storage_socket[0]);
 
         r = dynamic_user_pop(d, &uid, &lock_fd);
         if (r == -EAGAIN)

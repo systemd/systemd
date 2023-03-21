@@ -485,13 +485,16 @@ static int mount_add_default_ordering_dependencies(Mount *m, MountParameters *p,
         if (e && in_initrd()) {
                 /* All mounts under /sysroot need to happen later, at initrd-fs.target time. IOW,
                  * it's not technically part of the basic initrd filesystem itself, and so
-                 * shouldn't inherit the default Before=local-fs.target dependency. */
+                 * shouldn't inherit the default Before=local-fs.target dependency. However,
+                 * these mounts still need to start after local-fs-pre.target, as a sync point
+                 * for things like systemd-hibernate-resume@.service that should start before
+                 * any mounts. */
 
-                after = NULL;
+                after = SPECIAL_LOCAL_FS_PRE_TARGET;
                 before = isempty(e) ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_INITRD_FS_TARGET;
 
         } else if (in_initrd() && path_startswith(m->where, "/sysusr/usr")) {
-                after = NULL;
+                after = SPECIAL_LOCAL_FS_PRE_TARGET;
                 before = SPECIAL_INITRD_USR_FS_TARGET;
 
         } else if (mount_is_network(p)) {
@@ -509,11 +512,9 @@ static int mount_add_default_ordering_dependencies(Mount *m, MountParameters *p,
                         return r;
         }
 
-        if (after) {
-                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, /* add_reference= */ true, mask);
-                if (r < 0)
-                        return r;
-        }
+        r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, /* add_reference= */ true, mask);
+        if (r < 0)
+                return r;
 
         return unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET,
                                                  /* add_reference= */ true, mask);
@@ -922,6 +923,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
                        &exec_params,
                        m->exec_runtime,
                        &m->dynamic_creds,
+                       &m->cgroup_context,
                        &pid);
         if (r < 0)
                 return r;

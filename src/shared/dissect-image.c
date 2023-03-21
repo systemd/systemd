@@ -50,6 +50,7 @@
 #include "id128-util.h"
 #include "import-util.h"
 #include "io-util.h"
+#include "missing_mount.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -1502,7 +1503,99 @@ static int fs_grow(const char *node_path, const char *mount_path) {
         return 0;
 }
 
+int partition_pick_mount_options(
+                PartitionDesignator d,
+                const char *fstype,
+                bool rw,
+                bool discard,
+                char **ret_options,
+                unsigned long *ret_ms_flags) {
+
+        _cleanup_free_ char *options = NULL;
+
+        assert(ret_options);
+
+        /* Selects a baseline of bind mount flags, that should always apply.
+         *
+         * Firstly, we set MS_NODEV universally on all mounts, since we don't want to allow device nodes outside of /dev/.
+         *
+         * On /var/tmp/ we'll also set MS_NOSUID, same as we set for /tmp/ on the host.
+         *
+         * On the ESP and XBOOTLDR partitions we'll also disable symlinks, and execution. These file systems
+         * are generally untrusted (i.e. not encrypted or authenticated), and typically VFAT hence we should
+         * be as restrictive as possible, and this shouldn't hurt, since the functionality is not available
+         * there anyway. */
+
+        unsigned long flags = MS_NODEV;
+
+        if (!rw)
+                flags |= MS_RDONLY;
+
+        switch (d) {
+
+        case PARTITION_ESP:
+        case PARTITION_XBOOTLDR:
+                flags |= MS_NOSUID|MS_NOEXEC|ms_nosymfollow_supported();
+
+                /* The ESP might contain a pre-boot random seed. Let's make this unaccessible to regular
+                 * userspace. ESP/XBOOTLDR is almost certainly VFAT, hence if we don't know assume it is. */
+                if (!fstype || fstype_can_umask(fstype))
+                        if (!strextend_with_separator(&options, ",", "umask=0077"))
+                                return -ENOMEM;
+                break;
+
+        case PARTITION_TMP:
+                flags |= MS_NOSUID;
+                break;
+
+        default:
+                break;
+        }
+
+        /* So, when you request MS_RDONLY from ext4, then this means nothing. It happily still writes to the
+         * backing storage. What's worse, the BLKRO[GS]ET flag and (in case of loopback devices)
+         * LO_FLAGS_READ_ONLY don't mean anything, they affect userspace accesses only, and write accesses
+         * from the upper file system still get propagated through to the underlying file system,
+         * unrestricted. To actually get ext4/xfs/btrfs to stop writing to the device we need to specify
+         * "norecovery" as mount option, in addition to MS_RDONLY. Yes, this sucks, since it means we need to
+         * carry a per file system table here.
+         *
+         * Note that this means that we might not be able to mount corrupted file systems as read-only
+         * anymore (since in some cases the kernel implementations will refuse mounting when corrupted,
+         * read-only and "norecovery" is specified). But I think for the case of automatically determined
+         * mount options for loopback devices this is the right choice, since otherwise using the same
+         * loopback file twice even in read-only mode, is going to fail badly sooner or later. The usecase of
+         * making reuse of the immutable images "just work" is more relevant to us than having read-only
+         * access that actually modifies stuff work on such image files. Or to say this differently: if
+         * people want their file systems to be fixed up they should just open them in writable mode, where
+         * all these problems don't exist. */
+        if (!rw && fstype && fstype_can_norecovery(fstype))
+                if (!strextend_with_separator(&options, ",", "norecovery"))
+                        return -ENOMEM;
+
+        if (discard && fstype && fstype_can_discard(fstype))
+                if (!strextend_with_separator(&options, ",", "discard"))
+                        return -ENOMEM;
+
+        if (!ret_ms_flags) /* Fold flags into option string if ret_flags specified as NULL */
+                if (!strextend_with_separator(&options, ",",
+                                              FLAGS_SET(flags, MS_RDONLY) ? "ro" : "rw",
+                                              FLAGS_SET(flags, MS_NODEV) ? "nodev" : "dev",
+                                              FLAGS_SET(flags, MS_NOSUID) ? "nosuid" : "suid",
+                                              FLAGS_SET(flags, MS_NOEXEC) ? "noexec" : "exec",
+                                              FLAGS_SET(flags, MS_NOSYMFOLLOW) ? "nosymfollow" : NULL))
+                        /* NB: we suppress 'symfollow' here, since it's the default, and old /bin/mount might not know it */
+                        return -ENOMEM;
+
+        if (ret_ms_flags)
+                *ret_ms_flags = flags;
+
+        *ret_options = TAKE_PTR(options);
+        return 0;
+}
+
 static int mount_partition(
+                PartitionDesignator d,
                 DissectedPartition *m,
                 const char *where,
                 const char *directory,
@@ -1511,8 +1604,9 @@ static int mount_partition(
                 DissectImageFlags flags) {
 
         _cleanup_free_ char *chased = NULL, *options = NULL;
+        bool rw, discard, remap_uid_gid = false;
         const char *p, *node, *fstype;
-        bool rw, remap_uid_gid = false;
+        unsigned long ms_flags;
         int r;
 
         assert(m);
@@ -1523,7 +1617,7 @@ static int mount_partition(
 
         /* Use decrypted node and matching fstype if available, otherwise use the original device */
         node = FORMAT_PROC_FD_PATH(m->mount_node_fd);
-        fstype = m->decrypted_node ? m->decrypted_fstype: m->fstype;
+        fstype = dissected_partition_fstype(m);
 
         if (!fstype)
                 return -EAFNOSUPPORT;
@@ -1540,6 +1634,9 @@ static int mount_partition(
                 return -EUNATCH;
 
         rw = m->rw && !(flags & DISSECT_IMAGE_MOUNT_READ_ONLY);
+
+        discard = ((flags & DISSECT_IMAGE_DISCARD) ||
+                   ((flags & DISSECT_IMAGE_DISCARD_ON_LOOP) && is_loop_device(m->node) > 0));
 
         if (FLAGS_SET(flags, DISSECT_IMAGE_FSCK) && rw) {
                 r = run_fsck(m->mount_node_fd, fstype);
@@ -1571,14 +1668,9 @@ static int mount_partition(
                 p = where;
         }
 
-        /* If requested, turn on discard support. */
-        if (fstype_can_discard(fstype) &&
-            ((flags & DISSECT_IMAGE_DISCARD) ||
-             ((flags & DISSECT_IMAGE_DISCARD_ON_LOOP) && is_loop_device(m->node) > 0))) {
-                options = strdup("discard");
-                if (!options)
-                        return -ENOMEM;
-        }
+        r = partition_pick_mount_options(d, dissected_partition_fstype(m), rw, discard, &options, &ms_flags);
+        if (r < 0)
+                return r;
 
         if (uid_is_valid(uid_shift) && uid_shift != 0) {
 
@@ -1598,28 +1690,7 @@ static int mount_partition(
                 if (!strextend_with_separator(&options, ",", m->mount_options))
                         return -ENOMEM;
 
-        /* So, when you request MS_RDONLY from ext4, then this means nothing. It happily still writes to the
-         * backing storage. What's worse, the BLKRO[GS]ET flag and (in case of loopback devices)
-         * LO_FLAGS_READ_ONLY don't mean anything, they affect userspace accesses only, and write accesses
-         * from the upper file system still get propagated through to the underlying file system,
-         * unrestricted. To actually get ext4/xfs/btrfs to stop writing to the device we need to specify
-         * "norecovery" as mount option, in addition to MS_RDONLY. Yes, this sucks, since it means we need to
-         * carry a per file system table here.
-         *
-         * Note that this means that we might not be able to mount corrupted file systems as read-only
-         * anymore (since in some cases the kernel implementations will refuse mounting when corrupted,
-         * read-only and "norecovery" is specified). But I think for the case of automatically determined
-         * mount options for loopback devices this is the right choice, since otherwise using the same
-         * loopback file twice even in read-only mode, is going to fail badly sooner or later. The usecase of
-         * making reuse of the immutable images "just work" is more relevant to us than having read-only
-         * access that actually modifies stuff work on such image files. Or to say this differently: if
-         * people want their file systems to be fixed up they should just open them in writable mode, where
-         * all these problems don't exist. */
-        if (!rw && STRPTR_IN_SET(fstype, "ext3", "ext4", "xfs", "btrfs"))
-                if (!strextend_with_separator(&options, ",", "norecovery"))
-                        return -ENOMEM;
-
-        r = mount_nofollow_verbose(LOG_DEBUG, node, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
+        r = mount_nofollow_verbose(LOG_DEBUG, node, p, fstype, ms_flags, options);
         if (r < 0)
                 return r;
 
@@ -1692,14 +1763,14 @@ int dissected_image_mount(
 
                 /* First mount the root fs. If there's none we use a tmpfs. */
                 if (m->partitions[PARTITION_ROOT].found)
-                        r = mount_partition(m->partitions + PARTITION_ROOT, where, NULL, uid_shift, uid_range, flags);
+                        r = mount_partition(PARTITION_ROOT, m->partitions + PARTITION_ROOT, where, NULL, uid_shift, uid_range, flags);
                 else
                         r = mount_root_tmpfs(where, uid_shift, flags);
                 if (r < 0)
                         return r;
 
                 /* For us mounting root always means mounting /usr as well */
-                r = mount_partition(m->partitions + PARTITION_USR, where, "/usr", uid_shift, uid_range, flags);
+                r = mount_partition(PARTITION_USR, m->partitions + PARTITION_USR, where, "/usr", uid_shift, uid_range, flags);
                 if (r < 0)
                         return r;
 
@@ -1731,23 +1802,23 @@ int dissected_image_mount(
         if (flags & DISSECT_IMAGE_MOUNT_ROOT_ONLY)
                 return 0;
 
-        r = mount_partition(m->partitions + PARTITION_HOME, where, "/home", uid_shift, uid_range, flags);
+        r = mount_partition(PARTITION_HOME, m->partitions + PARTITION_HOME, where, "/home", uid_shift, uid_range, flags);
         if (r < 0)
                 return r;
 
-        r = mount_partition(m->partitions + PARTITION_SRV, where, "/srv", uid_shift, uid_range, flags);
+        r = mount_partition(PARTITION_SRV, m->partitions + PARTITION_SRV, where, "/srv", uid_shift, uid_range, flags);
         if (r < 0)
                 return r;
 
-        r = mount_partition(m->partitions + PARTITION_VAR, where, "/var", uid_shift, uid_range, flags);
+        r = mount_partition(PARTITION_VAR, m->partitions + PARTITION_VAR, where, "/var", uid_shift, uid_range, flags);
         if (r < 0)
                 return r;
 
-        r = mount_partition(m->partitions + PARTITION_TMP, where, "/var/tmp", uid_shift, uid_range, flags);
+        r = mount_partition(PARTITION_TMP, m->partitions + PARTITION_TMP, where, "/var/tmp", uid_shift, uid_range, flags);
         if (r < 0)
                 return r;
 
-        xbootldr_mounted = mount_partition(m->partitions + PARTITION_XBOOTLDR, where, "/boot", uid_shift, uid_range, flags);
+        xbootldr_mounted = mount_partition(PARTITION_XBOOTLDR, m->partitions + PARTITION_XBOOTLDR, where, "/boot", uid_shift, uid_range, flags);
         if (xbootldr_mounted < 0)
                 return xbootldr_mounted;
 
@@ -1773,7 +1844,7 @@ int dissected_image_mount(
                                                 return r;
                                 } else if (dir_is_empty(p, /* ignore_hidden_or_backup= */ false) > 0) {
                                         /* It exists and is an empty directory. Let's mount the ESP there. */
-                                        r = mount_partition(m->partitions + PARTITION_ESP, where, "/boot", uid_shift, uid_range, flags);
+                                        r = mount_partition(PARTITION_ESP, m->partitions + PARTITION_ESP, where, "/boot", uid_shift, uid_range, flags);
                                         if (r < 0)
                                                 return r;
 
@@ -1785,7 +1856,7 @@ int dissected_image_mount(
                 if (!esp_done) {
                         /* OK, let's mount the ESP now to /efi (possibly creating the dir if missing) */
 
-                        r = mount_partition(m->partitions + PARTITION_ESP, where, "/efi", uid_shift, uid_range, flags);
+                        r = mount_partition(PARTITION_ESP, m->partitions + PARTITION_ESP, where, "/efi", uid_shift, uid_range, flags);
                         if (r < 0)
                                 return r;
                 }
@@ -3154,6 +3225,20 @@ finish:
                 safe_close_pair(fds + 2*k);
 
         return r;
+}
+
+Architecture dissected_image_architecture(DissectedImage *img) {
+        assert(img);
+
+        if (img->partitions[PARTITION_ROOT].found &&
+            img->partitions[PARTITION_ROOT].architecture >= 0)
+                return img->partitions[PARTITION_ROOT].architecture;
+
+        if (img->partitions[PARTITION_USR].found &&
+            img->partitions[PARTITION_USR].architecture >= 0)
+                return img->partitions[PARTITION_USR].architecture;
+
+        return _ARCHITECTURE_INVALID;
 }
 
 int dissect_loop_device(

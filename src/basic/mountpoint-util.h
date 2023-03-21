@@ -37,7 +37,10 @@
 
 int name_to_handle_at_loop(int fd, const char *path, struct file_handle **ret_handle, int *ret_mnt_id, int flags);
 
-int path_get_mnt_id(const char *path, int *ret);
+int path_get_mnt_id_at(int dir_fd, const char *path, int *ret);
+static inline int path_get_mnt_id(const char *path, int *ret) {
+        return path_get_mnt_id_at(AT_FDCWD, path, ret);
+}
 
 int fd_is_mount_point(int fd, const char *filename, int flags);
 int path_is_mount_point(const char *path, const char *root, int flags);
@@ -49,6 +52,8 @@ bool fstype_is_blockdev_backed(const char *fstype);
 bool fstype_is_ro(const char *fsype);
 bool fstype_can_discard(const char *fstype);
 bool fstype_can_uid_gid(const char *fstype);
+bool fstype_can_norecovery(const char *fstype);
+bool fstype_can_umask(const char *fstype);
 
 int dev_is_devtmpfs(void);
 
@@ -58,3 +63,7 @@ int mount_nofollow(const char *source, const char *target, const char *filesyste
 const char *mount_propagation_flag_to_string(unsigned long flags);
 int mount_propagation_flag_from_string(const char *name, unsigned long *ret);
 bool mount_propagation_flag_is_valid(unsigned long flag);
+
+unsigned long ms_nosymfollow_supported(void);
+
+int mount_option_supported(const char *fstype, const char *key, const char *value);

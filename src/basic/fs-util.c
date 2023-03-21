@@ -33,11 +33,6 @@
 #include "umask-util.h"
 #include "user-util.h"
 
-int unlink_noerrno(const char *path) {
-        PROTECT_ERRNO;
-        return RET_NERRNO(unlink(path));
-}
-
 int rmdir_parents(const char *path, const char *stop) {
         char *p;
         int r;
@@ -674,7 +669,7 @@ void unlink_tempfilep(char (*p)[]) {
          * successfully created. We ignore both the rare case where the
          * original suffix is used and unlink failures. */
         if (!endswith(*p, ".XXXXXX"))
-                (void) unlink_noerrno(*p);
+                (void) unlink(*p);
 }
 
 int unlinkat_deallocate(int fd, const char *name, UnlinkDeallocateFlags flags) {
@@ -993,7 +988,6 @@ int parse_cifs_service(
 int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
         _cleanup_close_ int fd = -EBADF, parent_fd = -EBADF;
         _cleanup_free_ char *fname = NULL;
-        bool made;
         int r;
 
         /* Creates a directory with mkdirat() and then opens it, in the "most atomic" fashion we can
@@ -1033,33 +1027,11 @@ int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
                 path = fname;
         }
 
-        r = RET_NERRNO(mkdirat(dirfd, path, mode));
-        if (r == -EEXIST) {
-                if (FLAGS_SET(flags, O_EXCL))
-                        return -EEXIST;
-
-                made = false;
-        } else if (r < 0)
-                return r;
-        else
-                made = true;
-
-        fd = RET_NERRNO(openat(dirfd, path, (flags & ~O_EXCL)|O_DIRECTORY|O_NOFOLLOW));
-        if (fd < 0) {
-                if (fd == -ENOENT)  /* We got ENOENT? then someone else immediately removed it after we
-                                     * created it. In that case let's return immediately without unlinking
-                                     * anything, because there simply isn't anything to unlink anymore. */
-                        return -ENOENT;
-                if (fd == -ELOOP)   /* is a symlink? exists already → created by someone else, don't unlink */
-                        return -EEXIST;
-                if (fd == -ENOTDIR) /* not a directory? exists already → created by someone else, don't unlink */
-                        return -EEXIST;
-
-                if (made)
-                        (void) unlinkat(dirfd, path, AT_REMOVEDIR);
-
+        fd = xopenat(dirfd, path, flags|O_CREAT|O_DIRECTORY|O_NOFOLLOW, mode);
+        if (IN_SET(fd, -ELOOP, -ENOTDIR))
+                return -EEXIST;
+        if (fd < 0)
                 return fd;
-        }
 
         return TAKE_FD(fd);
 }
@@ -1109,4 +1081,46 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
                 if (--attempts == 0) /* Give up eventually, somebody is playing with us */
                         return -EEXIST;
         }
+}
+
+int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
+        _cleanup_close_ int fd = -EBADF;
+        bool made = false;
+        int r;
+
+        if (FLAGS_SET(flags, O_DIRECTORY|O_CREAT)) {
+                r = RET_NERRNO(mkdirat(dir_fd, path, mode));
+                if (r == -EEXIST) {
+                        if (FLAGS_SET(flags, O_EXCL))
+                                return -EEXIST;
+
+                        made = false;
+                } else if (r < 0)
+                        return r;
+                else
+                        made = true;
+
+                flags &= ~(O_EXCL|O_CREAT);
+        }
+
+        fd = RET_NERRNO(openat(dir_fd, path, flags, mode));
+        if (fd < 0) {
+                if (IN_SET(fd,
+                           /* We got ENOENT? then someone else immediately removed it after we
+                           * created it. In that case let's return immediately without unlinking
+                           * anything, because there simply isn't anything to unlink anymore. */
+                           -ENOENT,
+                           /* is a symlink? exists already → created by someone else, don't unlink */
+                           -ELOOP,
+                           /* not a directory? exists already → created by someone else, don't unlink */
+                           -ENOTDIR))
+                        return fd;
+
+                if (made)
+                        (void) unlinkat(dir_fd, path, AT_REMOVEDIR);
+
+                return fd;
+        }
+
+        return TAKE_FD(fd);
 }

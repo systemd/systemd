@@ -107,24 +107,24 @@ int verb_enable(int argc, char *argv[], void *userdata) {
 
                 flags = unit_file_flags_from_args();
                 if (streq(verb, "enable")) {
-                        r = unit_file_enable(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = unit_file_enable(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
                         carries_install_info = r;
                 } else if (streq(verb, "disable")) {
-                        r = unit_file_disable(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = unit_file_disable(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
                         carries_install_info = r;
                 } else if (streq(verb, "reenable")) {
-                        r = unit_file_reenable(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = unit_file_reenable(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
                         carries_install_info = r;
                 } else if (streq(verb, "link"))
-                        r = unit_file_link(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = unit_file_link(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
                 else if (streq(verb, "preset"))
-                        r = unit_file_preset(arg_scope, flags, arg_root, names, arg_preset_mode, &changes, &n_changes);
+                        r = unit_file_preset(arg_runtime_scope, flags, arg_root, names, arg_preset_mode, &changes, &n_changes);
                 else if (streq(verb, "mask"))
-                        r = unit_file_mask(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = unit_file_mask(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
                 else if (streq(verb, "unmask"))
-                        r = unit_file_unmask(arg_scope, flags, arg_root, names, &changes, &n_changes);
+                        r = unit_file_unmask(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
                 else if (streq(verb, "revert"))
-                        r = unit_file_revert(arg_scope, arg_root, names, &changes, &n_changes);
+                        r = unit_file_revert(arg_runtime_scope, arg_root, names, &changes, &n_changes);
                 else
                         assert_not_reached();
 
@@ -143,7 +143,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 if (STR_IN_SET(verb, "mask", "unmask")) {
                         _cleanup_(lookup_paths_free) LookupPaths lp = {};
 
-                        r = lookup_paths_init_or_warn(&lp, arg_scope, 0, arg_root);
+                        r = lookup_paths_init_or_warn(&lp, arg_runtime_scope, 0, arg_root);
                         if (r < 0)
                                 return r;
 
@@ -211,7 +211,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
 
                 if (send_runtime) {
                         if (streq(method, "DisableUnitFilesWithFlagsAndInstallInfo"))
-                                r = sd_bus_message_append(m, "t", arg_runtime ? UNIT_FILE_RUNTIME : 0);
+                                r = sd_bus_message_append(m, "t", arg_runtime ? (uint64_t) UNIT_FILE_RUNTIME : UINT64_C(0));
                         else
                                 r = sd_bus_message_append(m, "b", arg_runtime);
                         if (r < 0)
@@ -263,7 +263,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                            "  instance name specified.",
                            special_glyph(SPECIAL_GLYPH_BULLET));
 
-        if (streq(verb, "disable") && arg_scope == LOOKUP_SCOPE_USER && !arg_quiet && !arg_no_warn) {
+        if (streq(verb, "disable") && arg_runtime_scope == RUNTIME_SCOPE_USER && !arg_quiet && !arg_no_warn) {
                 /* If some of the units are disabled in user scope but still enabled in global scope,
                  * we emit a warning for that. */
 
@@ -272,7 +272,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 STRV_FOREACH(name, names) {
                         UnitFileState state;
 
-                        r = unit_file_get_state(LOOKUP_SCOPE_GLOBAL, arg_root, *name, &state);
+                        r = unit_file_get_state(RUNTIME_SCOPE_GLOBAL, arg_root, *name, &state);
                         if (r == -ENOENT)
                                 continue;
                         if (r < 0)

@@ -23,7 +23,7 @@
 
 static const char *arg_bus_path = DEFAULT_BUS_PATH;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-static bool arg_user = false;
+static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 
 static int help(void) {
         printf("%s [OPTIONS...]\n\n"
@@ -73,11 +73,11 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_USER:
-                        arg_user = true;
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
                 case ARG_SYSTEM:
-                        arg_user = false;
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
                 case 'p':
@@ -133,7 +133,7 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to allocate bus: %m");
 
         if (arg_transport == BUS_TRANSPORT_MACHINE)
-                r = bus_set_address_machine(a, arg_user, arg_bus_path);
+                r = bus_set_address_machine(a, arg_runtime_scope, arg_bus_path);
         else
                 r = sd_bus_set_address(a, arg_bus_path);
         if (r < 0)

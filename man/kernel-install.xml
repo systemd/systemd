@@ -25,10 +25,21 @@
     <cmdsynopsis>
       <command>kernel-install</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <arg choice="plain">COMMAND</arg>
+      <arg choice="plain">add</arg>
       <arg choice="plain"><replaceable>KERNEL-VERSION</replaceable></arg>
       <arg choice="plain"><replaceable>KERNEL-IMAGE</replaceable></arg>
       <arg choice="opt" rep="repeat"><replaceable>INITRD-FILE</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>kernel-install</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">remove</arg>
+      <arg choice="plain"><replaceable>KERNEL-VERSION</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>kernel-install</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">inspect</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -111,7 +122,7 @@
 
             <listitem><para><filename>90-uki-copy.install</filename> copies a file
             <filename>uki.efi</filename> from <varname>$KERNEL_INSTALL_STAGING_AREA</varname> or if it does
-            not exist the <replaceable>KERNEL-IMAGE</replaceable> argument, iff it has a
+            not exist the <replaceable>KERNEL-IMAGE</replaceable> argument, only if it has a
             <literal>.efi</literal> extension, to
             <filename>$BOOT/EFI/Linux/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.efi</filename>.</para>
 
@@ -224,10 +235,8 @@
       (EFI System Partition) are mounted, and also conceptually referred to as <varname>$BOOT</varname>. Can
       be overridden by setting <varname>$BOOT_ROOT</varname> (see below).</para>
 
-      <para><varname>$KERNEL_INSTALL_LAYOUT=bls|uki|other|...</varname> is set for the plugins to specify the
-      installation layout. Defaults to <option>bls</option> if
-      <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable></filename> exists, or <option>other</option>
-      otherwise. Additional layout names may be defined by convention. If a plugin uses a special layout,
+      <para><varname>$KERNEL_INSTALL_LAYOUT=auto|bls|uki|other|...</varname> is set for the plugins to specify the
+      installation layout. Additional layout names may be defined by convention. If a plugin uses a special layout,
       it's encouraged to declare its own layout name and configure <varname>layout=</varname> in
       <filename>install.conf</filename> upon initial installation. The following values are currently
       understood:</para>
@@ -262,6 +271,17 @@
           <term>other</term>
           <listitem>
             <para>Some other layout not understood natively by <command>kernel-install</command>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>auto</term>
+          <listitem>
+            <para>Pick the layout automatically. If the kernel is a UKI set layout to
+            <option>uki</option>. If not default to <option>bls</option> if
+            <filename>$BOOT/loader/entries.srel</filename> with content <literal>type1</literal> or
+            <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable></filename> exists, or
+            <option>other</option> otherwise.</para>
+            <para>Leaving layout blank has the same effect. This is the default.</para>
           </listitem>
         </varlistentry>
       </variablelist>

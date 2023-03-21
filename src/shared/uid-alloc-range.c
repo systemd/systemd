@@ -3,6 +3,7 @@
 #include "chase-symlinks.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "missing_threads.h"
 #include "string-util.h"
 #include "uid-alloc-range.h"
 #include "user-util.h"

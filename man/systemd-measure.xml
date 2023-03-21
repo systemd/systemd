@@ -3,7 +3,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
-<refentry id="systemd-measure" xmlns:xi="http://www.w3.org/2001/XInclude" conditional='HAVE_GNU_EFI'>
+<refentry id="systemd-measure" xmlns:xi="http://www.w3.org/2001/XInclude" conditional='ENABLE_BOOTLOADER'>
 
   <refentryinfo>
     <title>systemd-measure</title>
@@ -337,7 +337,7 @@
       <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
      </para>
   </refsect1>
 

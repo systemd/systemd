@@ -98,7 +98,7 @@ static int specifier_last_component(char specifier, const void *data, const char
 }
 
 int install_name_printf(
-                LookupScope scope,
+                RuntimeScope scope,
                 const InstallInfo *info,
                 const char *format,
                 char **ret) {

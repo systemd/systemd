@@ -248,7 +248,14 @@ static void set_destroy_ignore_pointer_max(Set** s) {
         set_free_free(*s);
 }
 
-int verify_units(char **filenames, LookupScope scope, bool check_man, bool run_generators, RecursiveErrors recursive_errors, const char *root) {
+int verify_units(
+                char **filenames,
+                RuntimeScope scope,
+                bool check_man,
+                bool run_generators,
+                RecursiveErrors recursive_errors,
+                const char *root) {
+
         const ManagerTestRunFlags flags =
                 MANAGER_TEST_RUN_MINIMAL |
                 MANAGER_TEST_RUN_ENV_GENERATORS |

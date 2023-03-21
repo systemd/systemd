@@ -543,6 +543,30 @@ static int manager_sigrtmin1(sd_event_source *s, const struct signalfd_siginfo *
         return 0;
 }
 
+static int manager_memory_pressure(sd_event_source *s, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        log_info("Under memory pressure, flushing caches.");
+
+        manager_flush_caches(m, LOG_INFO);
+        sd_event_trim_memory();
+
+        return 0;
+}
+
+static int manager_memory_pressure_listen(Manager *m) {
+        int r;
+
+        assert(m);
+
+        r = sd_event_add_memory_pressure(m->event, NULL, manager_memory_pressure, m);
+        if (r < 0)
+                log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || (r == -EHOSTDOWN )? LOG_DEBUG : LOG_NOTICE, r,
+                               "Failed to install memory pressure event source, ignoring: %m");
+
+        return 0;
+}
+
 int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -572,6 +596,9 @@ int manager_new(Manager **ret) {
                 .need_builtin_fallbacks = true,
                 .etc_hosts_last = USEC_INFINITY,
                 .read_etc_hosts = true,
+
+                .sigrtmin18_info.memory_pressure_handler = manager_memory_pressure,
+                .sigrtmin18_info.memory_pressure_userdata = m,
         };
 
         r = dns_trust_anchor_load(&m->trust_anchor);
@@ -621,6 +648,10 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
+        r = manager_memory_pressure_listen(m);
+        if (r < 0)
+                return r;
+
         r = manager_connect_bus(m);
         if (r < 0)
                 return r;
@@ -628,6 +659,7 @@ int manager_new(Manager **ret) {
         (void) sd_event_add_signal(m->event, &m->sigusr1_event_source, SIGUSR1, manager_sigusr1, m);
         (void) sd_event_add_signal(m->event, &m->sigusr2_event_source, SIGUSR2, manager_sigusr2, m);
         (void) sd_event_add_signal(m->event, &m->sigrtmin1_event_source, SIGRTMIN+1, manager_sigrtmin1, m);
+        (void) sd_event_add_signal(m->event, NULL, SIGRTMIN+18, sigrtmin18_handler, &m->sigrtmin18_info);
 
         manager_cleanup_saved_user(m);
 
@@ -1717,9 +1749,9 @@ int socket_disable_pmtud(int fd, int af) {
         assert(fd >= 0);
 
         if (af == AF_UNSPEC) {
-                r = socket_get_family(fd, &af);
-                if (r < 0)
-                        return r;
+                af = socket_get_family(fd);
+                if (af < 0)
+                        return af;
         }
 
         switch (af) {

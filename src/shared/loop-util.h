@@ -14,12 +14,14 @@ struct LoopDevice {
         unsigned n_ref;
         int fd;
         int lock_fd;
-        int nr;   /* The loopback device index (i.e. 4 for /dev/loop4); if this object encapsulates a non-loopback block device, set to -1 */
-        dev_t devno;
+        int nr;         /* The loopback device index (i.e. 4 for /dev/loop4); if this object encapsulates a non-loopback block device, set to -1 */
+        dev_t devno;    /* The loopback device's own dev_t */
         char *node;
         sd_device *dev;
         char *backing_file;
         bool relinquished;
+        dev_t backing_devno; /* The backing file's dev_t */
+        ino_t backing_inode; /* The backing file's ino_t */
         uint64_t diskseq; /* Block device sequence number, monothonically incremented by the kernel on create/attach, or 0 if we don't know */
         uint64_t uevent_seqnum_not_before; /* uevent sequm right before we attached the loopback device, or UINT64_MAX if we don't know */
         usec_t timestamp_not_before; /* CLOCK_MONOTONIC timestamp taken immediately before attaching the loopback device, or USEC_INFINITY if we don't know */
@@ -47,3 +49,6 @@ int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size);
 
 int loop_device_flock(LoopDevice *d, int operation);
 int loop_device_sync(LoopDevice *d);
+
+int loop_device_set_autoclear(LoopDevice *d, bool autoclear);
+int loop_device_set_filename(LoopDevice *d, const char *name);

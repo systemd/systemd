@@ -26,7 +26,7 @@ TEST_RET(default_memory_low, .sd_booted = true) {
         assert_se(get_testdata_dir("units", &unit_dir) >= 0);
         assert_se(set_unit_path(unit_dir) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
-        r = manager_new(LOOKUP_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m);
+        r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m);
         if (IN_SET(r, -EPERM, -EACCES)) {
                 log_error_errno(r, "manager_new: %m");
                 return log_tests_skipped("cannot create manager");

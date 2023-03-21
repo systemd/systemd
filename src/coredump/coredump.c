@@ -171,14 +171,9 @@ static int parse_config(void) {
                 {}
         };
 
-        return config_parse_many_nulstr(
-                        PKGSYSCONFDIR "/coredump.conf",
-                        CONF_PATHS_NULSTR("systemd/coredump.conf.d"),
-                        "Coredump\0",
-                        config_item_table_lookup, items,
-                        CONFIG_PARSE_WARN,
-                        NULL,
-                        NULL);
+        return config_parse_config_file("coredump.conf", "Coredump\0",
+                                        config_item_table_lookup, items,
+                                        CONFIG_PARSE_WARN, NULL);
 }
 
 static uint64_t storage_size_max(void) {
@@ -251,7 +246,7 @@ static int fix_xattr(int fd, const Context *context) {
 #define filename_escape(s) xescape((s), "./ ")
 
 static const char *coredump_tmpfile_name(const char *s) {
-        return s ? s : "(unnamed temporary file)";
+        return s ?: "(unnamed temporary file)";
 }
 
 static int fix_permissions(
@@ -277,7 +272,7 @@ static int fix_permissions(
         if (r < 0)
                 return log_error_errno(r, "Failed to sync coredump %s: %m", coredump_tmpfile_name(filename));
 
-        r = link_tmpfile(fd, filename, target);
+        r = link_tmpfile(fd, filename, target, /* replace= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to move coredump %s into place: %m", target);
 

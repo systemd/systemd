@@ -133,7 +133,7 @@ static int settle_make_entry_directory(void) {
         bool layout_type1 = use_boot_loader_spec_type1();
         if (arg_make_entry_directory < 0) { /* Automatic mode */
                 if (layout_type1) {
-                        if (arg_entry_token == ARG_ENTRY_TOKEN_MACHINE_ID) {
+                        if (arg_entry_token_type == ARG_ENTRY_TOKEN_MACHINE_ID) {
                                 r = path_is_temporary_fs("/etc/machine-id");
                                 if (r < 0)
                                         return log_debug_errno(r, "Couldn't determine whether /etc/machine-id is on a temporary file system: %m");
@@ -262,13 +262,14 @@ static int copy_file_with_version_check(const char *from, const char *to, bool f
 
         r = fsync_full(fd_to);
         if (r < 0) {
-                (void) unlink_noerrno(t);
+                (void) unlink(t);
                 return log_error_errno(r, "Failed to copy data from \"%s\" to \"%s\": %m", from, t);
         }
 
-        if (renameat(AT_FDCWD, t, AT_FDCWD, to) < 0) {
-                (void) unlink_noerrno(t);
-                return log_error_errno(errno, "Failed to rename \"%s\" to \"%s\": %m", t, to);
+        r = RET_NERRNO(renameat(AT_FDCWD, t, AT_FDCWD, to));
+        if (r < 0) {
+                (void) unlink(t);
+                return log_error_errno(r, "Failed to rename \"%s\" to \"%s\": %m", t, to);
         }
 
         log_info("Copied \"%s\" to \"%s\".", from, to);
@@ -426,12 +427,14 @@ static int install_binaries(const char *esp_path, const char *arch, bool force) 
 static int install_loader_config(const char *esp_path) {
         _cleanup_(unlink_and_freep) char *t = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        const char *p;
+        _cleanup_free_ char *p = NULL;
         int r;
 
         assert(arg_make_entry_directory >= 0);
 
-        p = prefix_roota(esp_path, "/loader/loader.conf");
+        p = path_join(esp_path, "/loader/loader.conf");
+        if (!p)
+                return log_oom();
         if (access(p, F_OK) >= 0) /* Silently skip creation if the file already exists (early check) */
                 return 0;
 
@@ -447,7 +450,7 @@ static int install_loader_config(const char *esp_path) {
                 fprintf(f, "default %s-*\n", arg_entry_token);
         }
 
-        r = flink_tmpfile(f, t, p);
+        r = flink_tmpfile(f, t, p, /* replace= */ false);
         if (r == -EEXIST)
                 return 0; /* Silently skip creation if the file exists now (recheck) */
         if (r < 0)
@@ -476,7 +479,7 @@ static int install_loader_specification(const char *root) {
 
         fprintf(f, "type1\n");
 
-        r = flink_tmpfile(f, t, p);
+        r = flink_tmpfile(f, t, p, /* replace= */ false);
         if (r == -EEXIST)
                 return 0; /* Silently skip creation if the file exists now (recheck) */
         if (r < 0)
@@ -661,7 +664,7 @@ static int install_variables(
                 return 0;
         }
 
-        r = chase_symlinks_and_access(path, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, NULL, NULL);
+        r = chase_symlinks_and_access(path, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, NULL);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)

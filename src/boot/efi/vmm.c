@@ -10,6 +10,7 @@
 #include "proto/device-path.h"
 #include "string-util-fundamental.h"
 #include "util.h"
+#include "vmm.h"
 
 #define QEMU_KERNEL_LOADER_FS_MEDIA_GUID \
         { 0x1428f772, 0xb64a, 0x441e, { 0xb8, 0xc3, 0x9e, 0xbd, 0xd7, 0xf8, 0x93, 0xc7 } }
@@ -214,7 +215,7 @@ static const SmbiosHeader *get_smbios_table(uint8_t type, uint64_t *ret_size_lef
         uint64_t size = 0;
         const uint8_t *p = find_smbios_configuration_table(&size);
         if (!p)
-                return false;
+                return NULL;
 
         for (;;) {
                 if (size < sizeof(SmbiosHeader))

@@ -245,9 +245,7 @@ static int add_mount(
                 fprintf(f, "Type=%s\n", fstype);
 
         if (options)
-                fprintf(f, "Options=%s,%s\n", options, rw ? "rw" : "ro");
-        else
-                fprintf(f, "Options=%s\n", rw ? "rw" : "ro");
+                fprintf(f, "Options=%s\n", options);
 
         r = fflush_and_check(f);
         if (r < 0)
@@ -301,17 +299,30 @@ static int path_is_busy(const char *where) {
 }
 
 static int add_partition_mount(
+                PartitionDesignator d,
                 DissectedPartition *p,
                 const char *id,
                 const char *where,
                 const char *description) {
 
+        _cleanup_free_ char *options = NULL;
         int r;
+
         assert(p);
 
         r = path_is_busy(where);
         if (r != 0)
                 return r < 0 ? r : 0;
+
+        r = partition_pick_mount_options(
+                        d,
+                        dissected_partition_fstype(p),
+                        p->rw,
+                        /* discard= */ true,
+                        &options,
+                        /* ret_ms_flags= */ NULL);
+        if (r < 0)
+                return r;
 
         return add_mount(
                         id,
@@ -321,7 +332,7 @@ static int add_partition_mount(
                         p->rw,
                         p->growfs,
                         /* measure= */ STR_IN_SET(id, "root", "var"), /* by default measure rootfs and /var, since they contain the "identity" of the system */
-                        NULL,
+                        options,
                         description,
                         SPECIAL_LOCAL_FS_TARGET);
 }
@@ -452,20 +463,8 @@ static int add_automount(
         return generator_add_symlink(arg_dest, SPECIAL_LOCAL_FS_TARGET, "wants", unit);
 }
 
-static const char *esp_or_xbootldr_options(const DissectedPartition *p) {
-        assert(p);
-
-        /* Discovered ESP and XBOOTLDR partition are always hardened with "noexec,nosuid,nodev".
-         * If we probed vfat or have no idea about the file system then assume these file systems are vfat
-         * and thus understand "umask=0077". */
-
-        if (!p->fstype || streq(p->fstype, "vfat"))
-                return "umask=0077,noexec,nosuid,nodev";
-
-        return "noexec,nosuid,nodev";
-}
-
 static int add_partition_xbootldr(DissectedPartition *p) {
+        _cleanup_free_ char *options = NULL;
         int r;
 
         assert(p);
@@ -489,13 +488,23 @@ static int add_partition_xbootldr(DissectedPartition *p) {
         if (r > 0)
                 return 0;
 
+        r = partition_pick_mount_options(
+                        PARTITION_XBOOTLDR,
+                        dissected_partition_fstype(p),
+                        /* rw= */ true,
+                        /* discard= */ false,
+                        &options,
+                        /* ret_ms_flags= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine default mount options for Boot Loader Partition: %m");
+
         return add_automount("boot",
                              p->node,
                              "/boot",
                              p->fstype,
                              /* rw= */ true,
                              /* growfs= */ false,
-                             esp_or_xbootldr_options(p),
+                             options,
                              "Boot Loader Partition",
                              120 * USEC_PER_SEC);
 }
@@ -503,6 +512,7 @@ static int add_partition_xbootldr(DissectedPartition *p) {
 #if ENABLE_EFI
 static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
         const char *esp_path = NULL, *id = NULL;
+        _cleanup_free_ char *options = NULL;
         int r;
 
         assert(p);
@@ -518,10 +528,15 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
                 if (errno != ENOENT)
                         return log_error_errno(errno, "Failed to determine whether /efi exists: %m");
 
-                /* Use /boot as fallback, but only if there's no XBOOTLDR partition */
+                /* Use /boot as fallback, but only if there's no XBOOTLDR partition and /boot exists */
                 if (!has_xbootldr) {
-                        esp_path = "/boot";
-                        id = "boot";
+                        if (access("/boot", F_OK) < 0) {
+                                if (errno != ENOENT)
+                                        return log_error_errno(errno, "Failed to determine whether /boot exists: %m");
+                        } else {
+                                esp_path = "/boot";
+                                id = "boot";
+                        }
                 }
         }
         if (!esp_path)
@@ -564,13 +579,23 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
         } else
                 log_debug("Not an EFI boot, skipping ESP check.");
 
+        r = partition_pick_mount_options(
+                        PARTITION_ESP,
+                        dissected_partition_fstype(p),
+                        /* rw= */ true,
+                        /* discard= */ false,
+                        &options,
+                        /* ret_ms_flags= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine default mount options for EFI System Partition: %m");
+
         return add_automount(id,
                              p->node,
                              esp_path,
                              p->fstype,
                              /* rw= */ true,
                              /* growfs= */ false,
-                             esp_or_xbootldr_options(p),
+                             options,
                              "EFI System Partition Automount",
                              120 * USEC_PER_SEC);
 }
@@ -606,7 +631,7 @@ static int add_partition_root_rw(DissectedPartition *p) {
         path = strjoina(arg_dest, "/systemd-remount-fs.service.d/50-remount-rw.conf");
 
         r = write_string_file(path,
-                              "# Automatically generated by systemd-gpt-generator\n\n"
+                              "# Automatically generated by systemd-gpt-auto-generator\n\n"
                               "[Service]\n"
                               "Environment=SYSTEMD_REMOUNT_ROOT_RW=1\n",
                               WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_NOFOLLOW|WRITE_STRING_FILE_MKDIR_0755);
@@ -632,6 +657,7 @@ static int add_root_cryptsetup(void) {
 
 static int add_root_mount(void) {
 #if ENABLE_EFI
+        _cleanup_free_ char *options = NULL;
         int r;
 
         if (!is_efi_boot()) {
@@ -663,6 +689,20 @@ static int add_root_mount(void) {
         /* Note that we do not need to enable systemd-remount-fs.service here. If
          * /etc/fstab exists, systemd-fstab-generator will pull it in for us. */
 
+        r = partition_pick_mount_options(
+                        PARTITION_ROOT,
+                        arg_root_fstype,
+                        arg_root_rw > 0,
+                        /* discard= */ true,
+                        &options,
+                        /* ret_ms_flags= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pick root mount options: %m");
+
+        if (arg_root_options)
+                if (!strextend_with_separator(&options, ",", arg_root_options))
+                        return log_oom();
+
         return add_mount(
                         "root",
                         "/dev/gpt-auto-root",
@@ -671,7 +711,7 @@ static int add_root_mount(void) {
                         /* rw= */ arg_root_rw > 0,
                         /* growfs= */ false,
                         /* measure= */ true,
-                        arg_root_options,
+                        options,
                         "Root Partition",
                         in_initrd() ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
 #else
@@ -740,25 +780,25 @@ static int enumerate_partitions(dev_t devnum) {
         }
 
         if (m->partitions[PARTITION_HOME].found) {
-                k = add_partition_mount(m->partitions + PARTITION_HOME, "home", "/home", "Home Partition");
+                k = add_partition_mount(PARTITION_HOME, m->partitions + PARTITION_HOME, "home", "/home", "Home Partition");
                 if (k < 0)
                         r = k;
         }
 
         if (m->partitions[PARTITION_SRV].found) {
-                k = add_partition_mount(m->partitions + PARTITION_SRV, "srv", "/srv", "Server Data Partition");
+                k = add_partition_mount(PARTITION_SRV, m->partitions + PARTITION_SRV, "srv", "/srv", "Server Data Partition");
                 if (k < 0)
                         r = k;
         }
 
         if (m->partitions[PARTITION_VAR].found) {
-                k = add_partition_mount(m->partitions + PARTITION_VAR, "var", "/var", "Variable Data Partition");
+                k = add_partition_mount(PARTITION_VAR, m->partitions + PARTITION_VAR, "var", "/var", "Variable Data Partition");
                 if (k < 0)
                         r = k;
         }
 
         if (m->partitions[PARTITION_TMP].found) {
-                k = add_partition_mount(m->partitions + PARTITION_TMP, "var-tmp", "/var/tmp", "Temporary Data Partition");
+                k = add_partition_mount(PARTITION_TMP, m->partitions + PARTITION_TMP, "var-tmp", "/var/tmp", "Temporary Data Partition");
                 if (k < 0)
                         r = k;
         }

@@ -25,6 +25,7 @@ static int help(void) {
                 { "monitor",      "Listen to kernel and udev events"  },
                 { "test",         "Test an event run"                 },
                 { "test-builtin", "Test a built-in command"           },
+                { "verify",       "Verify udev rules files"           },
                 { "wait",         "Wait for device or device symlink" },
                 { "lock",         "Lock a block device"               },
         };
@@ -104,6 +105,7 @@ static int udevadm_main(int argc, char *argv[]) {
                 { "test-builtin", VERB_ANY, VERB_ANY, 0, builtin_main },
                 { "wait",         VERB_ANY, VERB_ANY, 0, wait_main    },
                 { "lock",         VERB_ANY, VERB_ANY, 0, lock_main    },
+                { "verify",       VERB_ANY, VERB_ANY, 0, verify_main  },
                 { "version",      VERB_ANY, VERB_ANY, 0, version_main },
                 { "help",         VERB_ANY, VERB_ANY, 0, help_main    },
                 {}
@@ -119,8 +121,7 @@ static int run(int argc, char *argv[]) {
                 return run_udevd(argc, argv);
 
         udev_parse_config();
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

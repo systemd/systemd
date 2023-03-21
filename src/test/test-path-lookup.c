@@ -11,7 +11,7 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
-static void test_paths_one(LookupScope scope) {
+static void test_paths_one(RuntimeScope scope) {
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp_without_env = {};
         _cleanup_(lookup_paths_free) LookupPaths lp_with_env = {};
@@ -34,9 +34,9 @@ static void test_paths_one(LookupScope scope) {
 }
 
 TEST(paths) {
-        test_paths_one(LOOKUP_SCOPE_SYSTEM);
-        test_paths_one(LOOKUP_SCOPE_USER);
-        test_paths_one(LOOKUP_SCOPE_GLOBAL);
+        test_paths_one(RUNTIME_SCOPE_SYSTEM);
+        test_paths_one(RUNTIME_SCOPE_USER);
+        test_paths_one(RUNTIME_SCOPE_GLOBAL);
 }
 
 TEST(user_and_global_paths) {
@@ -48,8 +48,8 @@ TEST(user_and_global_paths) {
         assert_se(unsetenv("XDG_DATA_DIRS") == 0);
         assert_se(unsetenv("XDG_CONFIG_DIRS") == 0);
 
-        assert_se(lookup_paths_init(&lp_global, LOOKUP_SCOPE_GLOBAL, 0, NULL) == 0);
-        assert_se(lookup_paths_init(&lp_user, LOOKUP_SCOPE_USER, 0, NULL) == 0);
+        assert_se(lookup_paths_init(&lp_global, RUNTIME_SCOPE_GLOBAL, 0, NULL) == 0);
+        assert_se(lookup_paths_init(&lp_user, RUNTIME_SCOPE_USER, 0, NULL) == 0);
         g = lp_global.search_path;
         u = lp_user.search_path;
 
@@ -70,7 +70,7 @@ TEST(user_and_global_paths) {
                 log_info("+ %s", *p);
 }
 
-static void test_generator_binary_paths_one(LookupScope scope) {
+static void test_generator_binary_paths_one(RuntimeScope scope) {
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
         _cleanup_strv_free_ char **gp_without_env = NULL;
         _cleanup_strv_free_ char **env_gp_without_env = NULL;
@@ -85,13 +85,13 @@ static void test_generator_binary_paths_one(LookupScope scope) {
         assert_se(unsetenv("SYSTEMD_ENVIRONMENT_GENERATOR_PATH") == 0);
 
         gp_without_env = generator_binary_paths(scope);
-        env_gp_without_env = env_generator_binary_paths(scope == LOOKUP_SCOPE_SYSTEM ? true : false);
+        env_gp_without_env = env_generator_binary_paths(scope);
 
-        log_info("Generators dirs (%s):", scope == LOOKUP_SCOPE_SYSTEM ? "system" : "user");
+        log_info("Generators dirs (%s):", runtime_scope_to_string(scope));
         STRV_FOREACH(dir, gp_without_env)
                 log_info("        %s", *dir);
 
-        log_info("Environment generators dirs (%s):", scope == LOOKUP_SCOPE_SYSTEM ? "system" : "user");
+        log_info("Environment generators dirs (%s):", runtime_scope_to_string(scope));
         STRV_FOREACH(dir, env_gp_without_env)
                 log_info("        %s", *dir);
 
@@ -104,13 +104,13 @@ static void test_generator_binary_paths_one(LookupScope scope) {
         assert_se(setenv("SYSTEMD_ENVIRONMENT_GENERATOR_PATH", systemd_env_generator_path, 1) == 0);
 
         gp_with_env = generator_binary_paths(scope);
-        env_gp_with_env = env_generator_binary_paths(scope == LOOKUP_SCOPE_SYSTEM ? true : false);
+        env_gp_with_env = env_generator_binary_paths(scope);
 
-        log_info("Generators dirs (%s):", scope == LOOKUP_SCOPE_SYSTEM ? "system" : "user");
+        log_info("Generators dirs (%s):", runtime_scope_to_string(scope));
         STRV_FOREACH(dir, gp_with_env)
                 log_info("        %s", *dir);
 
-        log_info("Environment generators dirs (%s):", scope == LOOKUP_SCOPE_SYSTEM ? "system" : "user");
+        log_info("Environment generators dirs (%s):", runtime_scope_to_string(scope));
         STRV_FOREACH(dir, env_gp_with_env)
                 log_info("        %s", *dir);
 
@@ -119,8 +119,8 @@ static void test_generator_binary_paths_one(LookupScope scope) {
 }
 
 TEST(generator_binary_paths) {
-        test_generator_binary_paths_one(LOOKUP_SCOPE_SYSTEM);
-        test_generator_binary_paths_one(LOOKUP_SCOPE_USER);
+        test_generator_binary_paths_one(RUNTIME_SCOPE_SYSTEM);
+        test_generator_binary_paths_one(RUNTIME_SCOPE_USER);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

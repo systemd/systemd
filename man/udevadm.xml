@@ -49,6 +49,11 @@
       <command>udevadm test-builtin <optional>options</optional> <replaceable>command</replaceable> <replaceable>devpath</replaceable></command>
     </cmdsynopsis>
     <cmdsynopsis>
+      <command>udevadm verify</command>
+      <arg choice="opt" rep="repeat">options</arg>
+      <arg choice="opt" rep="repeat"><replaceable>file</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
       <command>udevadm wait <optional>options</optional> <replaceable>device|syspath</replaceable></command>
     </cmdsynopsis>
     <cmdsynopsis>
@@ -490,8 +495,8 @@
           <term><option>--wait-daemon[=<replaceable>SECONDS</replaceable>]</option></term>
           <listitem>
             <para>Before triggering uevents, wait for systemd-udevd daemon to be initialized.
-            Optionally takes timeout value. Default timeout is 5 seconds. This is equivalent to invoke
-            invoking <command>udevadm control --ping</command> before <command>udevadm trigger</command>.</para>
+            Optionally takes timeout value. Default timeout is 5 seconds. This is equivalent to invoking
+            <command>udevadm control --ping</command> before <command>udevadm trigger</command>.</para>
           </listitem>
         </varlistentry>
 
@@ -730,6 +735,47 @@
             <literal>online</literal>, <literal>offline</literal>, <literal>bind</literal>,
             and <literal>unbind</literal>. Also, the special value <literal>help</literal> can be used
             to list the possible actions. The default value is <literal>add</literal>.</para>
+          </listitem>
+        </varlistentry>
+
+        <xi:include href="standard-options.xml" xpointer="help" />
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>udevadm verify
+      <arg choice="opt"><replaceable>options</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>file</replaceable></arg>
+      …
+      </title>
+
+      <para>Verify syntactic and semantic correctness of udev rules files.</para>
+
+      <para>Positional arguments could be used to specify one or more files to check.
+      If no files are specified, the udev rules are read from the files located in
+      the same udev/rules.d directories that are processed by the udev daemon.</para>
+
+      <para>The exit status is <constant>0</constant> if all specified udev rules files
+      are syntactically and semantically correct, and a non-zero error code otherwise.</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>-N</option></term>
+          <term><option>--resolve-names=<constant>early</constant>|<constant>never</constant></option></term>
+          <listitem>
+            <para>Specify when udevadm should resolve names of users
+            and groups.  When set to <constant>early</constant> (the
+            default), names will be resolved when the rules are
+            parsed. When set to <constant>never</constant>, names will
+            never be resolved.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--root=<replaceable>PATH</replaceable></option></term>
+          <listitem>
+            <para>When looking for udev rules files located in udev/rules.d directories,
+            operate on files underneath the specified root path <replaceable>PATH</replaceable>.</para>
           </listitem>
         </varlistentry>
 

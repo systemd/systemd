@@ -12,7 +12,7 @@
 #include "alloc-util.h"
 #include "ether-addr-util.h"
 #include "hexdecoct.h"
-#include "lockfile-util.h"
+#include "lock-util.h"
 #include "missing_network.h"
 #include "netif-naming-scheme.h"
 #include "netlink-util.h"

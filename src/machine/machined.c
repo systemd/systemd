@@ -12,6 +12,7 @@
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "cgroup-util.h"
+#include "common-signal.h"
 #include "daemon-util.h"
 #include "dirent-util.h"
 #include "discover-image.h"
@@ -60,6 +61,15 @@ static int manager_new(Manager **ret) {
         r = sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
         if (r < 0)
                 return r;
+
+        r = sd_event_add_signal(m->event, NULL, SIGRTMIN+18, sigrtmin18_handler, NULL);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
+        if (r < 0)
+                log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || r == -EHOSTDOWN ? LOG_DEBUG : LOG_NOTICE, r,
+                               "Unable to create memory pressure event source, ignoring: %m");
 
         (void) sd_event_set_watchdog(m->event, true);
 
@@ -339,7 +349,7 @@ static int run(int argc, char *argv[]) {
          * make sure this check stays in. */
         (void) mkdir_label("/run/systemd/machines", 0755);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, SIGRTMIN+18, -1) >= 0);
 
         r = manager_new(&m);
         if (r < 0)

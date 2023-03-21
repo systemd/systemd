@@ -560,7 +560,7 @@ static void deref_unlink_file(Hashmap *known_files, const char *fn, const char *
                 return;
 
         if (arg_dry_run) {
-                r = chase_symlinks_and_access(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, &path, NULL);
+                r = chase_symlinks_and_access(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, &path);
                 if (r < 0)
                         log_info_errno(r, "Unable to determine whether \"%s\" exists, ignoring: %m", fn);
                 else

@@ -8,13 +8,37 @@
 #include "systemctl.h"
 #include "terminal-util.h"
 
-static int list_dependencies_print(const char *name, int level, unsigned branches, bool last) {
+static int list_dependencies_print(const char *name, UnitActiveState state, int level, unsigned branches, bool last) {
         _cleanup_free_ char *n = NULL;
         size_t max_len = MAX(columns(),20u);
         size_t len = 0;
 
-        if (!arg_plain) {
+        if (arg_plain || state == _UNIT_ACTIVE_STATE_INVALID)
+                printf("  ");
+        else {
+                const char *on;
 
+                switch (state) {
+                case UNIT_ACTIVE:
+                case UNIT_RELOADING:
+                case UNIT_ACTIVATING:
+                        on = ansi_highlight_green();
+                        break;
+
+                case UNIT_INACTIVE:
+                case UNIT_DEACTIVATING:
+                        on = ansi_normal();
+                        break;
+
+                default:
+                        on = ansi_highlight_red();
+                        break;
+                }
+
+                printf("%s%s%s ", on, special_glyph(unit_active_state_to_glyph(state)), ansi_normal());
+        }
+
+        if (!arg_plain) {
                 for (int i = level - 1; i >= 0; i--) {
                         len += 2;
                         if (len > max_len - 3 && !arg_full) {
@@ -64,6 +88,7 @@ static int list_dependencies_one(
 
         _cleanup_strv_free_ char **deps = NULL;
         int r;
+        bool circular = false;
 
         assert(bus);
         assert(name);
@@ -84,12 +109,7 @@ static int list_dependencies_one(
                 UnitActiveState active_state;
 
                 if (strv_contains(*units, *c)) {
-                        if (!arg_plain) {
-                                printf("  ");
-                                r = list_dependencies_print("...", level + 1, (branches << 1) | (c[1] == NULL ? 0 : 1), /* last = */ true);
-                                if (r < 0)
-                                        return r;
-                        }
+                        circular = true;
                         continue;
                 }
 
@@ -113,32 +133,7 @@ static int list_dependencies_one(
                                 continue;
                 }
 
-                if (arg_plain)
-                        printf("  ");
-                else {
-                        const char *on;
-
-                        switch (active_state) {
-                        case UNIT_ACTIVE:
-                        case UNIT_RELOADING:
-                        case UNIT_ACTIVATING:
-                                on = ansi_highlight_green();
-                                break;
-
-                        case UNIT_INACTIVE:
-                        case UNIT_DEACTIVATING:
-                                on = ansi_normal();
-                                break;
-
-                        default:
-                                on = ansi_highlight_red();
-                                break;
-                        }
-
-                        printf("%s%s%s ", on, special_glyph(unit_active_state_to_glyph(active_state)), ansi_normal());
-                }
-
-                r = list_dependencies_print(*c, level, branches, c[1] == NULL);
+                r = list_dependencies_print(*c, active_state, level, branches, /* last = */ c[1] == NULL && !circular);
                 if (r < 0)
                         return r;
 
@@ -147,6 +142,12 @@ static int list_dependencies_one(
                        if (r < 0)
                                return r;
                 }
+        }
+
+        if (circular && !arg_plain) {
+                r = list_dependencies_print("...", _UNIT_ACTIVE_STATE_INVALID, level, branches, /* last = */ true);
+                if (r < 0)
+                        return r;
         }
 
         if (!arg_plain)

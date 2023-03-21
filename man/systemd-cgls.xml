@@ -106,17 +106,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-x</option></term>
         <term><option>--xattr=</option></term>
 
         <listitem><para>Controls whether to include information about extended attributes of the listed
-        control groups in the output. Expects a boolean value, defaults to yes.</para></listitem>
+        control groups in the output. With the long option, expects a boolean value. Defaults to no.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
+        <term><option>-c</option></term>
         <term><option>--cgroup-id=</option></term>
 
         <listitem><para>Controls whether to include the numeric ID of the listed control groups in the
-        output. Expects a boolean value, defaults to yes.</para></listitem>
+        output. With the long option, expects a boolean value. Defaults to no.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

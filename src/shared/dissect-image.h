@@ -160,6 +160,8 @@ int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t u
 
 int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_flags);
 
+Architecture dissected_image_architecture(DissectedImage *m);
+
 DecryptedImage* decrypted_image_ref(DecryptedImage *p);
 DecryptedImage* decrypted_image_unref(DecryptedImage *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DecryptedImage*, decrypted_image_unref);
@@ -191,3 +193,11 @@ int dissect_fstype_ok(const char *fstype);
 
 int probe_sector_size(int fd, uint32_t *ret);
 int probe_sector_size_prefer_ioctl(int fd, uint32_t *ret);
+
+int partition_pick_mount_options(PartitionDesignator d, const char *fstype, bool rw, bool discard, char **ret_options, unsigned long *ret_ms_flags);
+
+static inline const char *dissected_partition_fstype(const DissectedPartition *m) {
+        assert(m);
+
+        return m->decrypted_node ? m->decrypted_fstype : m->fstype;
+}

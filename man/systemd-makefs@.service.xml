@@ -19,6 +19,7 @@
     <refname>systemd-makefs@.service</refname>
     <refname>systemd-mkswap@.service</refname>
     <refname>systemd-growfs@.service</refname>
+    <refname>systemd-growfs-root.service</refname>
     <refname>systemd-makefs</refname>
     <refname>systemd-growfs</refname>
     <refpurpose>Creating and growing file systems on demand</refpurpose>
@@ -28,6 +29,7 @@
     <para><filename>systemd-makefs@<replaceable>device</replaceable>.service</filename></para>
     <para><filename>systemd-mkswap@<replaceable>device</replaceable>.service</filename></para>
     <para><filename>systemd-growfs@<replaceable>mountpoint</replaceable>.service</filename></para>
+    <para><filename>systemd-growfs-root.service</filename></para>
     <para><filename>/usr/lib/systemd/systemd-makefs</filename></para>
     <para><filename>/usr/lib/systemd/systemd-growfs</filename></para>
   </refsynopsisdiv>
@@ -36,8 +38,9 @@
     <title>Description</title>
 
     <para><filename>systemd-makefs@.service</filename>,
-    <filename>systemd-mkswap@.service</filename>, and
-    <filename>systemd-growfs@.service</filename> are used to implement the
+    <filename>systemd-mkswap@.service</filename>,
+    <filename>systemd-growfs@.service</filename>, and
+    <filename>systemd-growfs-root.service</filename> are used to implement the
     <option>x-systemd.makefs</option> and <option>x-systemd.growfs</option> options
     in <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     see <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>.

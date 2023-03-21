@@ -232,7 +232,7 @@
         <term><option>--measure</option></term>
         <term><option>--no-measure</option></term>
 
-        <listitem><para>Enable or disable a call to <command>systmed-measure</command> to print
+        <listitem><para>Enable or disable a call to <command>systemd-measure</command> to print
         pre-calculated PCR values. Defaults to false.</para></listitem>
       </varlistentry>
 
@@ -305,7 +305,7 @@
       <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>objcopy</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
      </para>
   </refsect1>
 

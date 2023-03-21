@@ -104,6 +104,15 @@ _udevadm_test-builtin(){
     fi
 }
 
+(( $+functions[_udevadm_verify] )) ||
+_udevadm_verify(){
+    _arguments \
+        {-N+,--resolve-names=}'[When to resolve names.]:resolve:(early never)' \
+        '--root=[Operate on catalog hierarchy under specified directory]:directories:_directories' \
+        {-h,--help}'[Print help text.]' \
+        '*::files:_files'
+}
+
 (( $+functions[_udevadm_wait] )) ||
 _udevadm_wait(){
     _arguments \
@@ -154,6 +163,7 @@ _udevadm_commands(){
         'monitor:listen to kernel and udev events'
         'test:test an event run'
         'test-builtin:test a built-in command'
+        'verify:verify udev rules files'
         'wait:wait for devices or device symlinks being created'
         'lock:lock a block device and run a comand'
     )

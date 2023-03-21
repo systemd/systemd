@@ -32,11 +32,14 @@ int mkdirat_safe_internal(
         assert(mode != MODE_INVALID);
         assert(_mkdirat && _mkdirat != mkdirat);
 
-        if (_mkdirat(dir_fd, path, mode) >= 0) {
+        r = _mkdirat(dir_fd, path, mode);
+        if (r >= 0) {
                 r = chmod_and_chown_at(dir_fd, path, mode, uid, gid);
                 if (r < 0)
                         return r;
         }
+        if (r != -EEXIST)
+                return r;
 
         if (fstatat(dir_fd, path, &st, AT_SYMLINK_NOFOLLOW) < 0)
                 return -errno;

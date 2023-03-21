@@ -182,6 +182,8 @@ testcase_nvme_subsystem() {
     local expected_symlinks=(
         # Controller(s)
         /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef
+        /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef_16
+        /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef_17
         # Shared namespaces
         /dev/disk/by-path/pci-*-nvme-16
         /dev/disk/by-path/pci-*-nvme-17
@@ -646,7 +648,7 @@ testcase_btrfs_basic() {
     echo "Single device: default settings"
     uuid="deadbeef-dead-dead-beef-000000000000"
     label="btrfs_root"
-    udevadm lock --device="${devices[0]}" mkfs.btrfs -L "$label" -U "$uuid" "${devices[0]}"
+    udevadm lock --device="${devices[0]}" mkfs.btrfs -f -L "$label" -U "$uuid" "${devices[0]}"
     udevadm wait --settle --timeout=30 "${devices[0]}" "/dev/disk/by-uuid/$uuid" "/dev/disk/by-label/$label"
     btrfs filesystem show
     helper_check_device_symlinks
@@ -664,7 +666,7 @@ name="diskpart3", size=85M
 name="diskpart4", size=85M
 EOF
     udevadm wait --settle --timeout=30 /dev/disk/by-partlabel/diskpart{1..4}
-    udevadm lock --device="${devices[0]}" mkfs.btrfs -d single -m raid1 -L "$label" -U "$uuid" /dev/disk/by-partlabel/diskpart{1..4}
+    udevadm lock --device="${devices[0]}" mkfs.btrfs -f -d single -m raid1 -L "$label" -U "$uuid" /dev/disk/by-partlabel/diskpart{1..4}
     udevadm wait --settle --timeout=30 "/dev/disk/by-uuid/$uuid" "/dev/disk/by-label/$label"
     btrfs filesystem show
     helper_check_device_symlinks
@@ -680,7 +682,7 @@ EOF
             --device=/dev/disk/by-id/ata-foobar_deadbeefbtrfs1 \
             --device=/dev/disk/by-id/ata-foobar_deadbeefbtrfs2 \
             --device=/dev/disk/by-id/ata-foobar_deadbeefbtrfs3 \
-            mkfs.btrfs -M -d raid10 -m raid10 -L "$label" -U "$uuid" "${devices[@]}"
+            mkfs.btrfs -f -M -d raid10 -m raid10 -L "$label" -U "$uuid" "${devices[@]}"
     udevadm wait --settle --timeout=30 "/dev/disk/by-uuid/$uuid" "/dev/disk/by-label/$label"
     btrfs filesystem show
     helper_check_device_symlinks
@@ -720,7 +722,7 @@ EOF
             --device=/dev/mapper/encbtrfs1 \
             --device=/dev/mapper/encbtrfs2 \
             --device=/dev/mapper/encbtrfs3 \
-            mkfs.btrfs -M -d raid1 -m raid1 -L "$label" -U "$uuid" /dev/mapper/encbtrfs{0..3}
+            mkfs.btrfs -f -M -d raid1 -m raid1 -L "$label" -U "$uuid" /dev/mapper/encbtrfs{0..3}
     udevadm wait --settle --timeout=30 "/dev/disk/by-uuid/$uuid" "/dev/disk/by-label/$label"
     btrfs filesystem show
     helper_check_device_symlinks

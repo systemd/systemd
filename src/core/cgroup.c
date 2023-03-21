@@ -175,6 +175,9 @@ void cgroup_context_init(CGroupContext *c) {
                 .moom_swap = MANAGED_OOM_AUTO,
                 .moom_mem_pressure = MANAGED_OOM_AUTO,
                 .moom_preference = MANAGED_OOM_PREFERENCE_NONE,
+
+                .memory_pressure_watch = _CGROUP_PRESSURE_WATCH_INVALID,
+                .memory_pressure_threshold_usec = USEC_INFINITY,
         };
 }
 
@@ -445,7 +448,7 @@ static char *format_cgroup_memory_limit_comparison(char *buf, size_t l, Unit *u,
 }
 
 void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
-        _cleanup_free_ char *disable_controllers_str = NULL, *cpuset_cpus = NULL, *cpuset_mems = NULL, *startup_cpuset_cpus = NULL, *startup_cpuset_mems = NULL;
+        _cleanup_free_ char *disable_controllers_str = NULL, *delegate_controllers_str = NULL, *cpuset_cpus = NULL, *cpuset_mems = NULL, *startup_cpuset_cpus = NULL, *startup_cpuset_mems = NULL;
         CGroupContext *c;
         struct in_addr_prefix *iaai;
 
@@ -469,6 +472,10 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         prefix = strempty(prefix);
 
         (void) cg_mask_to_string(c->disable_controllers, &disable_controllers_str);
+        (void) cg_mask_to_string(c->delegate_controllers, &delegate_controllers_str);
+
+        /* "Delegate=" means "yes, but no controllers". Show this as "(none)". */
+        const char *delegate_str = delegate_controllers_str ?: c->delegate ? "(none)" : "no";
 
         cpuset_cpus = cpu_set_to_range_string(&c->cpuset_cpus);
         startup_cpuset_cpus = cpu_set_to_range_string(&c->startup_cpuset_cpus);
@@ -517,7 +524,8 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sManagedOOMSwap: %s\n"
                 "%sManagedOOMMemoryPressure: %s\n"
                 "%sManagedOOMMemoryPressureLimit: " PERMYRIAD_AS_PERCENT_FORMAT_STR "\n"
-                "%sManagedOOMPreference: %s\n",
+                "%sManagedOOMPreference: %s\n"
+                "%sMemoryPressureWatch: %s\n",
                 prefix, yes_no(c->cpu_accounting),
                 prefix, yes_no(c->io_accounting),
                 prefix, yes_no(c->blockio_accounting),
@@ -555,21 +563,16 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, tasks_max_resolve(&c->tasks_max),
                 prefix, cgroup_device_policy_to_string(c->device_policy),
                 prefix, strempty(disable_controllers_str),
-                prefix, yes_no(c->delegate),
+                prefix, delegate_str,
                 prefix, managed_oom_mode_to_string(c->moom_swap),
                 prefix, managed_oom_mode_to_string(c->moom_mem_pressure),
                 prefix, PERMYRIAD_AS_PERCENT_FORMAT_VAL(UINT32_SCALE_TO_PERMYRIAD(c->moom_mem_pressure_limit)),
-                prefix, managed_oom_preference_to_string(c->moom_preference));
+                prefix, managed_oom_preference_to_string(c->moom_preference),
+                prefix, cgroup_pressure_watch_to_string(c->memory_pressure_watch));
 
-        if (c->delegate) {
-                _cleanup_free_ char *t = NULL;
-
-                (void) cg_mask_to_string(c->delegate_controllers, &t);
-
-                fprintf(f, "%sDelegateControllers: %s\n",
-                        prefix,
-                        strempty(t));
-        }
+        if (c->memory_pressure_threshold_usec != USEC_INFINITY)
+                fprintf(f, "%sMemoryPressureThresholdSec: %s\n",
+                        prefix, FORMAT_TIMESPAN(c->memory_pressure_threshold_usec, 1));
 
         LIST_FOREACH(device_allow, a, c->device_allow)
                 fprintf(f,
@@ -2361,6 +2364,13 @@ static int unit_update_cgroup(
         /* Set attributes */
         cgroup_context_apply(u, target_mask, state);
         cgroup_xattr_apply(u);
+
+        /* For most units we expect that memory monitoring is set up before the unit is started and we won't
+         * touch it after. For PID 1 this is different though, because we couldn't possibly do that given
+         * that PID 1 runs before init.scope is even set up. Hence, whenever init.scope is realized, let's
+         * try to open the memory pressure interface anew. */
+        if (unit_has_name(u, SPECIAL_INIT_SCOPE))
+                (void) manager_setup_memory_pressure_event_source(u->manager);
 
         return 0;
 }
@@ -4369,3 +4379,12 @@ static const char* const freezer_action_table[_FREEZER_ACTION_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(freezer_action, FreezerAction);
+
+static const char* const cgroup_pressure_watch_table[_CGROUP_PRESSURE_WATCH_MAX] = {
+        [CGROUP_PRESSURE_WATCH_OFF] = "off",
+        [CGROUP_PRESSURE_WATCH_AUTO] = "auto",
+        [CGROUP_PRESSURE_WATCH_ON] = "on",
+        [CGROUP_PRESSURE_WATCH_SKIP] = "skip",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(cgroup_pressure_watch, CGroupPressureWatch, CGROUP_PRESSURE_WATCH_ON);

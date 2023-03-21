@@ -186,8 +186,8 @@ static void log_job_error_with_service_result(const char* service, const char *r
                 _cleanup_free_ char *t = NULL;
 
                 t = strv_join((char**) extra_args, " ");
-                systemctl = strjoina("systemctl ", t ? : "<args>");
-                journalctl = strjoina("journalctl ", t ? : "<args>");
+                systemctl = strjoina("systemctl ", t ?: "<args>");
+                journalctl = strjoina("journalctl ", t ?: "<args>");
         }
 
         if (!isempty(result)) {

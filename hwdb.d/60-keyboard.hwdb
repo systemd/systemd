@@ -550,6 +550,14 @@ evdev:input:b0003v18D1p8007*
  KEYBOARD_KEY_b002f=reserved                            # Disable micmute key
 
 ###########################################################
+# Haier
+###########################################################
+
+# 7G-Series
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHaierComputer:pn7G-Series:*
+ KEYBOARD_KEY_91=wlan
+
+###########################################################
 # Hewlett Packard
 ###########################################################
 
@@ -952,7 +960,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrIdeaPad5*:*
  KEYBOARD_KEY_81=insert
 
 # Thinkpad X200_Tablet
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrThinkPad*X2*Tablet*:*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrThinkPad*X2*T*:*
  KEYBOARD_KEY_5d=menu
  KEYBOARD_KEY_63=fn
  KEYBOARD_KEY_66=screenlock
@@ -1328,11 +1336,6 @@ evdev:input:b0003v046DpC309*
  KEYBOARD_KEY_c01b6=images                              # My Pictures (F11)
  KEYBOARD_KEY_c01b7=audio                               # My Music (F12)
 
-# Logitech USB Receiver Mouse (Lift for Business, left-handed)
-# This left-handed ergonomic mouse swaps the left/right buttons
-evdev:input:b0003v046DpC548e0111*
- KEYBOARD_KEY_90001=btn_right
- KEYBOARD_KEY_90002=btn_left
 
 ###########################################################
 # Maxdata

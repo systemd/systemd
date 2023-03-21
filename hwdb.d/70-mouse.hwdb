@@ -388,6 +388,12 @@ mouse:usb:v046dpc08b:name:Logitech G502 HERO SE:*
 mouse:usb:v046dpc08b:name:Logitech G502 HERO Gaming Mouse:*
  MOUSE_DPI=1200@1000 *2400@1000 3200@1000 6400@1000
 
+# Logitech G502 X (Wired)
+mouse:usb:v046dpc098:name:Logitech, Inc. G502 X LIGHTSPEED:*
+# Logitech G502 X (Wireless)
+mouse:usb:v046dpc547:name:Logitech USB Receiver:*
+ MOUSE_DPI=1200@1000 *2400@1000 3200@1000 6400@1000
+
 # Logitech G700 Laser Mouse (Wired)
 mouse:usb:v046dpc06b:name:Logitech G700 Laser Mouse:*
 # Logitech G700 Laser Mouse (Wireless)

@@ -15,7 +15,6 @@ rules = [
                '60-input-id.rules',
                '60-persistent-alsa.rules',
                '60-persistent-input.rules',
-               '60-persistent-storage.rules',
                '60-persistent-storage-tape.rules',
                '60-persistent-v4l.rules',
                '60-sensor.rules',
@@ -53,6 +52,7 @@ endforeach
 
 rules_in = [
         ['50-udev-default.rules'],
+        ['60-persistent-storage.rules'],
         ['64-btrfs.rules'],
         ['99-systemd.rules'],
 

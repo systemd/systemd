@@ -424,6 +424,54 @@ grep -q -F '{"name":"b","type":"raw","class":"portable","ro":false,"path":"/run/
 grep -q -F '{"name":"c","type":"raw","class":"extension","ro":false,"path":"/run/extensions/c.raw"' /tmp/discover.json
 rm /tmp/discover.json /run/machines/a.raw /run/portables/b.raw /run/extensions/c.raw
 
+# Check that the /sbin/mount.ddi helper works
+T="/tmp/mounthelper.$RANDOM"
+mount -t ddi "${image}.gpt" "$T" -o ro,X-mount.mkdir,discard
+umount -R "$T"
+rmdir "$T"
+
+LOOP="$(systemd-dissect --attach --loop-ref=waldo "${image}.raw")"
+
+# Wait until the symlinks we want to test are established
+udevadm trigger -w "$LOOP"
+
+# Check if the /dev/loop/* symlinks really reference the right device
+test /dev/loop/by-ref/waldo -ef "$LOOP"
+
+if [ "$(stat -c '%Hd:%Ld' "${image}.raw")" != '?d:?d' ] ; then
+   # Old stat didn't know the %Hd and %Ld specifiers and turned them into ?d
+   # instead. Let's simply skip the test on such old systems.
+   test "$(stat -c '/dev/loop/by-inode/%Hd:%Ld-%i' "${image}.raw")" -ef "$LOOP"
+fi
+
+# Detach by loopback device
+systemd-dissect --detach "$LOOP"
+
+# Test long reference name.
+# Note, sizeof_field(struct loop_info64, lo_file_name) == 64,
+# and --loop-ref accepts upto 63 characters, and udev creates symlink
+# based on the name when it has upto _62_ characters.
+name="$(for (( i = 0; i < 62; i++ )); do echo -n 'x'; done)"
+LOOP="$(systemd-dissect --attach --loop-ref="$name" "${image}.raw")"
+udevadm trigger -w "$LOOP"
+
+# Check if the /dev/loop/by-ref/$name symlink really references the right device
+test "/dev/loop/by-ref/$name" -ef "$LOOP"
+
+# Detach by the /dev/loop/by-ref symlink
+systemd-dissect --detach "/dev/loop/by-ref/$name"
+
+name="$(for (( i = 0; i < 63; i++ )); do echo -n 'x'; done)"
+LOOP="$(systemd-dissect --attach --loop-ref="$name" "${image}.raw")"
+udevadm trigger -w "$LOOP"
+
+# Check if the /dev/loop/by-ref/$name symlink does not exist
+test ! -e "/dev/loop/by-ref/$name"
+
+# Detach by backing inode
+systemd-dissect --detach "${image}.raw"
+(! systemd-dissect --detach "${image}.raw")
+
 echo OK >/testok
 
 exit 0

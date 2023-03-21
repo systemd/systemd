@@ -1264,7 +1264,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("ExecPaths", "as", NULL, offsetof(ExecContext, exec_paths), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NoExecPaths", "as", NULL, offsetof(ExecContext, no_exec_paths), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ExecSearchPath", "as", NULL, offsetof(ExecContext, exec_search_path), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("MountFlags", "t", bus_property_get_ulong, offsetof(ExecContext, mount_flags), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MountFlags", "t", bus_property_get_ulong, offsetof(ExecContext, mount_propagation_flag), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateTmp", "b", bus_property_get_bool, offsetof(ExecContext, private_tmp), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PrivateDevices", "b", bus_property_get_bool, offsetof(ExecContext, private_devices), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectClock", "b", bus_property_get_bool, offsetof(ExecContext, protect_clock), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1674,7 +1674,7 @@ static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(personality, unsigned long, parse_pers
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(secure_bits, "i", int32_t, int, "%" PRIi32, secure_bits_to_string_alloc_with_check);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(capability, "t", uint64_t, uint64_t, "%" PRIu64, capability_set_to_string);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(namespace_flag, "t", uint64_t, unsigned long, "%" PRIu64, namespace_flags_to_string);
-static BUS_DEFINE_SET_TRANSIENT_TO_STRING(mount_flags, "t", uint64_t, unsigned long, "%" PRIu64, mount_propagation_flag_to_string_with_check);
+static BUS_DEFINE_SET_TRANSIENT_TO_STRING(mount_propagation_flag, "t", uint64_t, unsigned long, "%" PRIu64, mount_propagation_flag_to_string_with_check);
 
 int bus_exec_context_set_transient_property(
                 Unit *u,
@@ -2117,7 +2117,7 @@ int bus_exec_context_set_transient_property(
         }
 
         if (streq(name, "MountFlags"))
-                return bus_set_transient_mount_flags(u, name, &c->mount_flags, message, flags, error);
+                return bus_set_transient_mount_propagation_flag(u, name, &c->mount_propagation_flag, message, flags, error);
 
         if (streq(name, "NetworkNamespacePath"))
                 return bus_set_transient_path(u, name, &c->network_namespace_path, message, flags, error);

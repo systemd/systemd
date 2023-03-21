@@ -27,6 +27,7 @@
 #include "cgroup-util.h"
 #include "constants.h"
 #include "copy.h"
+#include "edit-util.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "format-table.h"
@@ -1412,6 +1413,163 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         return process_forward(event, &forward, master, 0, machine);
 }
 
+static int normalize_nspawn_filename(const char *name, char **ret_file) {
+        _cleanup_free_ char *file = NULL;
+
+        assert(name);
+        assert(ret_file);
+
+        if (!endswith(name, ".nspawn"))
+                file = strjoin(name, ".nspawn");
+        else
+                file = strdup(name);
+        if (!file)
+                return log_oom();
+
+        if (!filename_is_valid(file))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid settings file name '%s'.", file);
+
+        *ret_file = TAKE_PTR(file);
+        return 0;
+}
+
+static int get_settings_path(const char *name, char **ret_path) {
+        assert(name);
+        assert(ret_path);
+
+        FOREACH_STRING(i, "/etc/systemd/nspawn", "/run/systemd/nspawn", "/var/lib/machines") {
+                _cleanup_free_ char *path = NULL;
+
+                path = path_join(i, name);
+                if (!path)
+                        return -ENOMEM;
+
+                if (access(path, F_OK) >= 0) {
+                        *ret_path = TAKE_PTR(path);
+                        return 0;
+                }
+        }
+
+        return -ENOENT;
+}
+
+static int edit_settings(int argc, char *argv[], void *userdata) {
+        _cleanup_(edit_file_context_done) EditFileContext context = {
+                .remove_parent = false,
+        };
+        int r;
+
+        if (!on_tty())
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit machine settings if not on a tty.");
+
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Edit is only supported on the host machine.");
+
+        r = mac_selinux_init();
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(name, strv_skip(argv, 1)) {
+                _cleanup_free_ char *file = NULL, *path = NULL;
+
+                if (path_is_absolute(*name)) {
+                        if (!path_is_safe(*name))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid settings file path '%s'.",
+                                                       *name);
+
+                        r = edit_files_add(&context, *name, NULL, NULL);
+                        if (r < 0)
+                                return r;
+                        continue;
+                }
+
+                r = normalize_nspawn_filename(*name, &file);
+                if (r < 0)
+                        return r;
+
+                r = get_settings_path(file, &path);
+                if (r == -ENOENT) {
+                        log_debug("No existing settings file for machine '%s' found, creating a new file.", *name);
+
+                        path = path_join("/etc/systemd/nspawn", file);
+                        if (!path)
+                                return log_oom();
+
+                        r = edit_files_add(&context, path, NULL, NULL);
+                        if (r < 0)
+                                return r;
+                        continue;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get the path of the settings file: %m");
+
+                if (path_startswith(path, "/var/lib/machines")) {
+                        _cleanup_free_ char *new_path = NULL;
+
+                        new_path = path_join("/etc/systemd/nspawn", file);
+                        if (!new_path)
+                                return log_oom();
+
+                        r = edit_files_add(&context, new_path, path, NULL);
+                } else
+                        r = edit_files_add(&context, path, NULL, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return do_edit_files_and_install(&context);
+}
+
+static int cat_settings(int argc, char *argv[], void *userdata) {
+        int r = 0;
+
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Cat is only supported on the host machine.");
+
+        pager_open(arg_pager_flags);
+
+        STRV_FOREACH(name, strv_skip(argv, 1)) {
+                _cleanup_free_ char *file = NULL, *path = NULL;
+                int q;
+
+                if (path_is_absolute(*name)) {
+                        if (!path_is_safe(*name))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid settings file path '%s'.",
+                                                       *name);
+
+                        q = cat_files(*name, /* dropins = */ NULL, /* flags = */ 0);
+                        if (q < 0)
+                                return r < 0 ? r : q;
+                        continue;
+                }
+
+                q = normalize_nspawn_filename(*name, &file);
+                if (q < 0)
+                        return r < 0 ? r : q;
+
+                q = get_settings_path(file, &path);
+                if (q == -ENOENT) {
+                        log_error_errno(q, "No settings file found for machine '%s'.", *name);
+                        r = r < 0 ? r : q;
+                        continue;
+                }
+                if (q < 0) {
+                        log_error_errno(q, "Failed to get the path of the settings file: %m");
+                        return r < 0 ? r : q;
+                }
+
+                q = cat_files(path, /* dropins = */ NULL, /* flags = */ 0);
+                if (q < 0)
+                        return r < 0 ? r : q;
+        }
+
+        return r;
+}
+
 static int remove_image(int argc, char *argv[], void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -2443,18 +2601,20 @@ static int help(int argc, char *argv[], void *userdata) {
                "  kill NAME...                Send signal to processes of a VM/container\n"
                "  copy-to NAME PATH [PATH]    Copy files from the host to a container\n"
                "  copy-from NAME PATH [PATH]  Copy files from a container to the host\n"
-               "  bind NAME PATH [PATH]       Bind mount a path from the host into a container\n\n"
-               "Image Commands:\n"
+               "  bind NAME PATH [PATH]       Bind mount a path from the host into a container\n"
+               "\nImage Commands:\n"
                "  list-images                 Show available container and VM images\n"
                "  image-status [NAME...]      Show image details\n"
                "  show-image [NAME...]        Show properties of image\n"
+               "  edit NAME|FILE...           Edit settings of one or more VMs/containers\n"
+               "  cat NAME|FILE...            Show settings of one or more VMs/containers\n"
                "  clone NAME NAME             Clone an image\n"
                "  rename NAME NAME            Rename an image\n"
                "  read-only NAME [BOOL]       Mark or unmark image read-only\n"
                "  remove NAME...              Remove an image\n"
                "  set-limit [NAME] BYTES      Set image or pool size limit (disk quota)\n"
-               "  clean                       Remove hidden (or all) images\n\n"
-               "Image Transfer Commands:\n"
+               "  clean                       Remove hidden (or all) images\n"
+               "\nImage Transfer Commands:\n"
                "  pull-tar URL [NAME]         Download a TAR container image\n"
                "  pull-raw URL [NAME]         Download a RAW container or VM image\n"
                "  import-tar FILE [NAME]      Import a local TAR container image\n"
@@ -2800,6 +2960,8 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "login",           VERB_ANY, 2,        0,            login_machine     },
                 { "shell",           VERB_ANY, VERB_ANY, 0,            shell_machine     },
                 { "bind",            3,        4,        0,            bind_mount        },
+                { "edit",            2,        VERB_ANY, 0,            edit_settings     },
+                { "cat",             2,        VERB_ANY, 0,            cat_settings      },
                 { "copy-to",         3,        4,        0,            copy_files        },
                 { "copy-from",       3,        4,        0,            copy_files        },
                 { "remove",          2,        VERB_ANY, 0,            remove_image      },
@@ -2842,7 +3004,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = bus_connect_transport(arg_transport, arg_host, false, &bus);
+        r = bus_connect_transport(arg_transport, arg_host, RUNTIME_SCOPE_SYSTEM, &bus);
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport);
 

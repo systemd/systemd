@@ -301,7 +301,7 @@ means they should not be provided by any networked service (as those usually
 become available during late boot only), except if a local cache is kept that
 makes them available during early boot too (i.e. before networking is
 up). Specifically, system users need to be resolvable at least before
-`systemd-udevd.service` and `systemd-tmpfiles.service` are started, as both
+`systemd-udevd.service` and `systemd-tmpfiles-setup.service` are started, as both
 need to resolve system users — but note that there might be more services
 requiring full resolvability of system users than just these two.
 

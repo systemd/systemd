@@ -59,10 +59,78 @@
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     Those options complement options listed here.</para>
 
-    <para>See the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface">New
-    Control Group Interfaces</ulink> for an introduction on how to make
-    use of resource control APIs from programs.</para>
+    <refsect2>
+      <title>Enabling and disabling controllers</title>
+
+      <para>Controllers in the cgroup hierarchy are hierarchical, and resource control is realized by
+      distributing resource assignments between siblings in branches of the cgroup hierarchy. There is no
+      need to explicitly <emphasis>enable</emphasis> a cgroup controller for a unit.
+      <command>systemd</command> will instruct the kernel to enable a controller for a given unit when this
+      unit has configuration for a given controller. For example, when <varname>CPUWeight=</varname> is set,
+      the <option>cpu</option> controller will be enabled, and when <varname>TasksMax=</varname> are set, the
+      <option>pids</option> controller will be enabled. In addition, various controllers may be also be
+      enabled explicitly via the
+      <varname>MemoryAccounting=</varname>/<varname>TasksAccounting=</varname>/<varname>IOAccounting=</varname>
+      settings. Because of how the cgroup hierarchy works, controllers will be automatically enabled for all
+      parent units and for any sibling units starting with the lowest level at which a controller is enabled.
+      Units for which a controller is enabled may be subject to resource control even if they don't have any
+      explicit configuration.</para>
+
+      <para>Setting <varname>Delegate=</varname> enables any delegated controllers for that unit (see below).
+      The delegatee may then enable controllers for its children as appropriate. In particular, if the
+      delegatee is <command>systemd</command> (in the <filename>user@.service</filename> unit), it will
+      repeat the same logic as the system instance and enable controllers for user units which have resource
+      limits configured, and their siblings and parents and parents' siblings.</para>
+
+      <para>Controllers may be <emphasis>disabled</emphasis> for parts of the cgroup hierarchy with
+      <varname>DisableControllers=</varname> (see below).</para>
+
+      <example>
+        <title>Enabling and disabling controllers</title>
+
+        <programlisting>
+                      -.slice
+                     /       \
+              /-----/         \--------------\
+             /                                \
+      system.slice                       user.slice
+        /       \                          /      \
+       /         \                        /        \
+      /           \              user@42.service  user@1000.service
+     /             \             Delegate=        Delegate=yes
+a.service       b.slice                             /        \
+CPUWeight=20   DisableControllers=cpu              /          \
+                 /  \                      app.slice      session.slice
+                /    \                     CPUWeight=100  CPUWeight=100
+               /      \
+       b1.service   b2.service
+                    CPUWeight=1000
+        </programlisting>
+
+        <para>In this hierarchy, the <option>cpu</option> controller is enabled for all units shown except
+        <filename>b1.service</filename> and <filename>b2.service</filename>. Because there is no explicit
+        configuration for <filename>system.slice</filename> and <filename>user.slice</filename>, CPU
+        resources will be split equally between them. Similarly, resources are allocated equally between
+        children of <filename>user.slice</filename> and between the child slices beneath
+        <filename>user@1000.service</filename>. Assuming that there is no futher configuration of resources
+        or delegation below slices <filename>app.slice</filename> or <filename>session.slice</filename>, the
+        <option>cpu</option> controller would not be enabled for units in those slices and CPU resources
+        would be further allocated using other mechanisms, e.g. based on nice levels. The manager for user
+        42 has delegation enabled without any controllers, i.e. it can manipulate its subtree of the cgroup
+        hierarchy, but without resource control.</para>
+
+        <para>In the slice <filename>system.slice</filename>, CPU resources are split 1:6 for service
+        <filename>a.service</filename>, and 5:6 for slice <filename>b.slice</filename>, because slice
+        <filename>b.slice</filename> gets the default value of 100 for <filename>cpu.weight</filename> when
+        <varname>CPUWeight=</varname> is not set.</para>
+
+        <para><varname>CPUWeight=</varname> setting in service <filename>b2.service</filename> is neutralized
+        by <varname>DisableControllers=</varname> in slice <filename>b.slice</filename>, so the
+        <option>cpu</option> controller would not be enabled for services <filename>b1.service</filename> and
+        <filename>b2.service</filename>, and CPU resources would be further allocated using other mechanisms,
+        e.g. based on nice levels.</para>
+      </example>
+    </refsect2>
 
     <refsect2>
       <title>Setting resource controls for a group of related units</title>
@@ -82,6 +150,11 @@
       <filename index="false">/etc/systemd/system/user-.slice.d/*.conf</filename>. This last directory
       applies to all user slices.</para>
     </refsect2>
+
+    <para>See the <ulink
+    url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface">New
+    Control Group Interfaces</ulink> for an introduction on how to make
+    use of resource control APIs from programs.</para>
   </refsect1>
 
   <refsect1>
@@ -118,6 +191,9 @@
           setting may be controlled with
           <varname>DefaultCPUAccounting=</varname> in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <para>Under the unified cgroup hierarchy, CPU accounting is available for all units and this
+          setting has no effect.</para>
         </listitem>
       </varlistentry>
 
@@ -126,17 +202,20 @@
         <term><varname>StartupCPUWeight=<replaceable>weight</replaceable></varname></term>
 
         <listitem>
+          <para>These settings control the <option>cpu</option> controller in the unified hierarchy.</para>
+
           <para>These options accept an integer value or a the special string "idle":</para>
             <itemizedlist>
               <listitem>
-                <para>If set to an integer value, assign the specified CPU time weight to the processes executed,
-                if the unified control group hierarchy is used on the system. These options control the
-                <literal>cpu.weight</literal> control group attribute. The allowed range is 1 to 10000. Defaults to
-                100. For details about this control group attribute, see <ulink
-                url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Groups v2</ulink>
-                and <ulink url="https://docs.kernel.org/scheduler/sched-design-CFS.html">CFS
-                Scheduler</ulink>.  The available CPU time is split up among all units within one slice relative to
-                their CPU time weight. A higher weight means more CPU time, a lower weight means less.</para>
+                <para>If set to an integer value, assign the specified CPU time weight to the processes
+                executed, if the unified control group hierarchy is used on the system. These options control
+                the <literal>cpu.weight</literal> control group attribute. The allowed range is 1 to 10000.
+                Defaults to unset, but the kernel default is 100. For details about this control group
+                attribute, see <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Groups
+                v2</ulink> and <ulink url="https://docs.kernel.org/scheduler/sched-design-CFS.html">CFS
+                Scheduler</ulink>. The available CPU time is split up among all units within one slice
+                relative to their CPU time weight. A higher weight means more CPU time, a lower weight means
+                less.</para>
               </listitem>
               <listitem>
                 <para>If set to the special string "idle", mark the cgroup for "idle scheduling", which means
@@ -151,6 +230,13 @@
           <varname>CPUWeight=</varname> applies to normal runtime of the system, and if the former is not set also to
           the startup and shutdown phases. Using <varname>StartupCPUWeight=</varname> allows prioritizing specific services at
           boot-up and shutdown differently than during normal runtime.</para>
+
+          <para>In addition to the resource allocation performed by the <option>cpu</option> controller, the
+          kernel may automatically divide resources based on session-id grouping, see "The autogroup feature"
+          in <citerefentry
+          project='man-pages'><refentrytitle>sched</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+          The effect of this feature is similar to the <option>cpu</option> controller with no explicit
+          configuration, so users should be careful to not mistake one for the other.</para>
         </listitem>
       </varlistentry>
 
@@ -158,6 +244,8 @@
         <term><varname>CPUQuota=</varname></term>
 
         <listitem>
+          <para>This setting controls the <option>cpu</option> controller in the unified hierarchy.</para>
+
           <para>Assign the specified CPU time quota to the processes executed. Takes a percentage value, suffixed with
           "%". The percentage specifies how much CPU time the unit shall get at maximum, relative to the total CPU time
           available on one CPU. Use values &gt; 100% for allotting CPU time on more than one CPU. This controls the
@@ -177,6 +265,8 @@
         <term><varname>CPUQuotaPeriodSec=</varname></term>
 
         <listitem>
+          <para>This setting controls the <option>cpu</option> controller in the unified hierarchy.</para>
+
           <para>Assign the duration over which the CPU time quota specified by <varname>CPUQuota=</varname> is measured.
           Takes a time duration value in seconds, with an optional suffix such as "ms" for milliseconds (or "s" for seconds.)
           The default setting is 100ms. The period is clamped to the range supported by the kernel, which is [1ms, 1000ms].
@@ -197,6 +287,8 @@
         <term><varname>StartupAllowedCPUs=</varname></term>
 
         <listitem>
+          <para>This setting controls the <option>cpuset</option> controller in the unified hierarchy.</para>
+
           <para>Restrict processes to be executed on specific CPUs. Takes a list of CPU indices or ranges separated by either
           whitespace or commas. CPU ranges are specified by the lower and upper CPU indices separated by a dash.</para>
 
@@ -218,6 +310,8 @@
         <term><varname>StartupAllowedMemoryNodes=</varname></term>
 
         <listitem>
+          <para>These settings control the <option>cpuset</option> controller in the unified hierarchy.</para>
+
           <para>Restrict processes to be executed on specific memory NUMA nodes. Takes a list of memory NUMA nodes indices
           or ranges separated by either whitespace or commas. Memory NUMA nodes ranges are specified by the lower and upper
           NUMA nodes indices separated by a dash.</para>
@@ -239,6 +333,8 @@
         <term><varname>MemoryAccounting=</varname></term>
 
         <listitem>
+          <para>This setting controls the <option>memory</option> controller in the unified hierarchy.</para>
+
           <para>Turn on process and kernel memory accounting for this
           unit. Takes a boolean argument. Note that turning on memory
           accounting for one unit will also implicitly turn it on for
@@ -255,6 +351,8 @@
         <term><varname>StartupMemoryLow=<replaceable>bytes</replaceable></varname>, <varname>DefaultStartupMemoryLow=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
+          <para>These settings control the <option>memory</option> controller in the unified hierarchy.</para>
+
           <para>Specify the memory usage protection of the executed processes in this unit.
           When reclaiming memory, the unit is treated as if it was using less memory resulting in memory
           to be preferentially reclaimed from unprotected units.
@@ -299,6 +397,8 @@
         <term><varname>StartupMemoryHigh=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
+          <para>These settings control the <option>memory</option> controller in the unified hierarchy.</para>
+
           <para>Specify the throttling limit on memory usage of the executed processes in this unit. Memory usage may go
           above the limit if unavoidable, but the processes are heavily slowed down and memory is taken away
           aggressively in such cases. This is the main mechanism to control memory usage of a unit.</para>
@@ -323,6 +423,8 @@
         <term><varname>StartupMemoryMax=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
+          <para>These settings control the <option>memory</option> controller in the unified hierarchy.</para>
+
           <para>Specify the absolute limit on memory usage of the executed processes in this unit. If memory usage
           cannot be contained under the limit, out-of-memory killer is invoked inside the unit. It is recommended to
           use <varname>MemoryHigh=</varname> as the main control mechanism and use <varname>MemoryMax=</varname> as the
@@ -347,6 +449,8 @@
         <term><varname>StartupMemorySwapMax=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
+          <para>These settings control the <option>memory</option> controller in the unified hierarchy.</para>
+
           <para>Specify the absolute limit on swap usage of the executed processes in this unit.</para>
 
           <para>Takes a swap size in bytes. If the value is suffixed with K, M, G or T, the specified swap size is
@@ -367,6 +471,8 @@
         <term><varname>StartupMemoryZSwapMax=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
+          <para>These settings control the <option>memory</option> controller in the unified hierarchy.</para>
+
           <para>Specify the absolute limit on zswap usage of the processes in this unit. Zswap is a lightweight compressed
           cache for swap pages. It takes pages that are in the process of being swapped out and attempts to compress them into a
           dynamically allocated RAM-based memory pool. If the limit specified is hit, no entries from this unit will be
@@ -390,17 +496,14 @@
         <term><varname>TasksAccounting=</varname></term>
 
         <listitem>
-          <para>Turn on task accounting for this unit. Takes a
-          boolean argument. If enabled, the system manager will keep
-          track of the number of tasks in the unit. The number of
-          tasks accounted this way includes both kernel threads and
-          userspace processes, with each thread counting
-          individually. Note that turning on tasks accounting for one
-          unit will also implicitly turn it on for all units contained
-          in the same slice and for all its parent slices and the
-          units contained therein. The system default for this setting
-          may be controlled with
-          <varname>DefaultTasksAccounting=</varname> in
+          <para>This setting controls the <option>pids</option> controller in the unified hierarchy.</para>
+
+          <para>Turn on task accounting for this unit. Takes a boolean argument. If enabled, the kernel will
+          keep track of the total number of tasks in the unit and its children. This number includes both
+          kernel threads and userspace processes, with each thread counted individually. Note that turning on
+          tasks accounting for one unit will also implicitly turn it on for all units contained in the same
+          slice and for all its parent slices and the units contained therein. The system default for this
+          setting may be controlled with <varname>DefaultTasksAccounting=</varname> in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
@@ -409,6 +512,8 @@
         <term><varname>TasksMax=<replaceable>N</replaceable></varname></term>
 
         <listitem>
+          <para>This setting controls the <option>pids</option> controller in the unified hierarchy.</para>
+
           <para>Specify the maximum number of tasks that may be created in the unit. This ensures that the
           number of tasks accounted for the unit (see above) stays below a specific limit. This either takes
           an absolute number of tasks or a percentage value that is taken relative to the configured maximum
@@ -428,6 +533,8 @@
         <term><varname>IOAccounting=</varname></term>
 
         <listitem>
+          <para>This setting controls the <option>io</option> controller in the unified hierarchy.</para>
+
           <para>Turn on Block I/O accounting for this unit, if the unified control group hierarchy is used on the
           system. Takes a boolean argument. Note that turning on block I/O accounting for one unit will also implicitly
           turn it on for all units contained in the same slice and all for its parent slices and the units contained
@@ -442,6 +549,8 @@
         <term><varname>StartupIOWeight=<replaceable>weight</replaceable></varname></term>
 
         <listitem>
+          <para>These settings control the <option>io</option> controller in the unified hierarchy.</para>
+
           <para>Set the default overall block I/O weight for the executed processes, if the unified control
           group hierarchy is used on the system. Takes a single weight value (between 1 and 10000) to set the
           default block I/O weight. This controls the <literal>io.weight</literal> control group attribute,
@@ -464,6 +573,8 @@
         <term><varname>IODeviceWeight=<replaceable>device</replaceable> <replaceable>weight</replaceable></varname></term>
 
         <listitem>
+          <para>This setting controls the <option>io</option> controller in the unified hierarchy.</para>
+
           <para>Set the per-device overall block I/O weight for the executed processes, if the unified control group
           hierarchy is used on the system. Takes a space-separated pair of a file path and a weight value to specify
           the device specific weight value, between 1 and 10000. (Example: <literal>/dev/sda 1000</literal>). The file
@@ -488,6 +599,8 @@
         <term><varname>IOWriteBandwidthMax=<replaceable>device</replaceable> <replaceable>bytes</replaceable></varname></term>
 
         <listitem>
+          <para>These settings control the <option>io</option> controller in the unified hierarchy.</para>
+
           <para>Set the per-device overall block I/O bandwidth maximum limit for the executed processes, if the unified
           control group hierarchy is used on the system. This limit is not work-conserving and the executed processes
           are not allowed to use more even if the device has idle capacity.  Takes a space-separated pair of a file
@@ -510,6 +623,8 @@
         <term><varname>IOWriteIOPSMax=<replaceable>device</replaceable> <replaceable>IOPS</replaceable></varname></term>
 
         <listitem>
+          <para>These settings control the <option>io</option> controller in the unified hierarchy.</para>
+
           <para>Set the per-device overall block I/O IOs-Per-Second maximum limit for the executed processes, if the
           unified control group hierarchy is used on the system. This limit is not work-conserving and the executed
           processes are not allowed to use more even if the device has idle capacity.  Takes a space-separated pair of
@@ -531,6 +646,8 @@
         <term><varname>IODeviceLatencyTargetSec=<replaceable>device</replaceable> <replaceable>target</replaceable></varname></term>
 
         <listitem>
+          <para>This setting controls the <option>io</option> controller in the unified hierarchy.</para>
+
           <para>Set the per-device average target I/O latency for the executed processes, if the unified control group
           hierarchy is used on the system. Takes a file path and a timespan separated by a space to specify
           the device specific latency target. (Example: "/dev/sda 25ms"). The file path may be specified
@@ -1034,29 +1151,37 @@ DeviceAllow=/dev/loop-control
           <para>Turns on delegation of further resource control partitioning to processes of the unit. Units where this
           is enabled may create and manage their own private subhierarchy of control groups below the control group of
           the unit itself. For unprivileged services (i.e. those using the <varname>User=</varname> setting) the unit's
-          control group will be made accessible to the relevant user. When enabled the service manager will refrain
-          from manipulating control groups or moving processes below the unit's control group, so that a clear concept
-          of ownership is established: the control group tree above the unit's control group (i.e. towards the root
-          control group) is owned and managed by the service manager of the host, while the control group tree below
-          the unit's control group is owned and managed by the unit itself. Takes either a boolean argument or a list
-          of control group controller names. If true, delegation is turned on, and all supported controllers are
-          enabled for the unit, making them available to the unit's processes for management. If false, delegation is
-          turned off entirely (and no additional controllers are enabled). If set to a list of controllers, delegation
-          is turned on, and the specified controllers are enabled for the unit. Note that additional controllers than
-          the ones specified might be made available as well, depending on configuration of the containing slice unit
-          or other units contained in it. Note that assigning the empty string will enable delegation, but reset the
-          list of controllers, all assignments prior to this will have no effect.  Defaults to false.</para>
+          control group will be made accessible to the relevant user.</para>
 
-          <para>Note that controller delegation to less privileged code is only safe on the unified control group
-          hierarchy. Accordingly, access to the specified controllers will not be granted to unprivileged services on
-          the legacy hierarchy, even when requested.</para>
+          <para>When enabled the service manager will refrain from manipulating control groups or moving
+          processes below the unit's control group, so that a clear concept of ownership is established: the
+          control group tree at the level of the unit's control group and above (i.e. towards the root
+          control group) is owned and managed by the service manager of the host, while the control group
+          tree below the unit's control group is owned and managed by the unit itself.</para>
+
+          <para>Takes either a boolean argument or a (possibly empty) list of control group controller names.
+          If true, delegation is turned on, and all supported controllers are enabled for the unit, making
+          them available to the unit's processes for management. If false, delegation is turned off entirely
+          (and no additional controllers are enabled). If set to a list of controllers, delegation is turned
+          on, and the specified controllers are enabled for the unit. Assigning the empty string will enable
+          delegation, but reset the list of controllers, and all assignments prior to this will have no
+          effect. Note that additional controllers other than the ones specified might be made available as
+          well, depending on configuration of the containing slice unit or other units contained in it.
+          Defaults to false.</para>
+
+          <para>Note that controller delegation to less privileged code is only safe on the unified control
+          group hierarchy. Accordingly, access to the specified controllers will not be granted to
+          unprivileged services on the legacy hierarchy, even when requested.</para>
 
           <xi:include href="supported-controllers.xml"  xpointer="controllers-text" />
 
-          <para>Not all of these controllers are available on all kernels however, and some are
-          specific to the unified hierarchy while others are specific to the legacy hierarchy. Also note that the
-          kernel might support further controllers, which aren't covered here yet as delegation is either not supported
-          at all for them or not defined cleanly.</para>
+          <para>Not all of these controllers are available on all kernels however, and some are specific to
+          the unified hierarchy while others are specific to the legacy hierarchy. Also note that the kernel
+          might support further controllers, which aren't covered here yet as delegation is either not
+          supported at all for them or not defined cleanly.</para>
+
+          <para>Note that because of the hierarchical nature of cgroup hierarchy, any controllers that are
+          delegated will be enabled for the parent and sibling units of the unit with delegation.</para>
 
           <para>For further details on the delegation model consult <ulink
           url="https://systemd.io/CGROUP_DELEGATION">Control Group APIs and Delegation</ulink>.</para>
@@ -1067,18 +1192,19 @@ DeviceAllow=/dev/loop-control
         <term><varname>DisableControllers=</varname></term>
 
         <listitem>
-          <para>Disables controllers from being enabled for a unit's children. If a controller listed is already in use
-          in its subtree, the controller will be removed from the subtree. This can be used to avoid child units being
-          able to implicitly or explicitly enable a controller. Defaults to not disabling any controllers.</para>
-
-          <para>It may not be possible to successfully disable a controller if the unit or any child of the unit in
-          question delegates controllers to its children, as any delegated subtree of the cgroup hierarchy is unmanaged
-          by systemd.</para>
+          <para>Disables controllers from being enabled for a unit's children. If a controller listed is
+          already in use in its subtree, the controller will be removed from the subtree. This can be used to
+          avoid configuration in child units from being able to implicitly or explicitly enable a controller.
+          Defaults to empty.</para>
 
           <para>Multiple controllers may be specified, separated by spaces. You may also pass
           <varname>DisableControllers=</varname> multiple times, in which case each new instance adds another controller
           to disable. Passing <varname>DisableControllers=</varname> by itself with no controller name present resets
           the disabled controller list.</para>
+
+          <para>It may not be possible to disable a controller after units have been started, if the unit or
+          any child of the unit in question delegates controllers to its children, as any delegated subtree
+          of the cgroup hierarchy is unmanaged by systemd.</para>
 
           <xi:include href="supported-controllers.xml"  xpointer="controllers-text" />
         </listitem>
@@ -1168,6 +1294,53 @@ DeviceAllow=/dev/loop-control
           and <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MemoryPressureWatch=</varname></term>
+
+        <listitem><para>Controls memory pressure monitoring for invoked processes. Takes one of
+        <literal>off</literal>, <literal>on</literal>, <literal>auto</literal> or <literal>skip</literal>. If
+        <literal>off</literal> tells the service not to watch for memory pressure events, by setting the
+        <varname>$MEMORY_PRESSURE_WATCH</varname> environment variable to the literal string
+        <filename>/dev/null</filename>. If <literal>on</literal> tells the service to watch for memory
+        pressure events. This enables memory accounting for the service, and ensures the
+        <filename>memory.pressure</filename> cgroup attribute files is accessible for read and write to the
+        service's user. It then sets the <varname>$MEMORY_PRESSURE_WATCH</varname> environment variable for
+        processes invoked by the unit to the file system path to this file. The threshold information
+        configured with <varname>MemoryPressureThresholdSec=</varname> is encoded in the
+        <varname>$MEMORY_PRESSURE_WRITE</varname> environment variable. If the <literal>auto</literal> value
+        is set the protocol is enabled if memory accounting is anyway enabled for the unit, and disabled
+        otherwise. If set to <literal>skip</literal> the logic is neither enabled, nor disabled and the two
+        environment variables are not set.</para>
+
+        <para>Note that services are free to use the two environment variables, but it's unproblematic if
+        they ignore them. Memory pressure handling must be implemented individually in each service, and
+        usually means different things for different software. For further details on memory pressure
+        handling see <ulink url="https://systemd.io/MEMORY_PRESSURE">Memory Pressure Handling in
+        systemd</ulink>.</para>
+
+        <para>Services implemented using
+        <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry> may use
+        <citerefentry><refentrytitle>sd_event_add_memory_pressure</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        to watch for and handle memory pressure events.</para>
+
+        <para>If not explicit set, defaults to the <varname>DefaultMemoryPressureWatch=</varname> setting in
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MemoryPressureThresholdSec=</varname></term>
+
+        <listitem><para>Sets the memory pressure threshold time for memory pressure monitor as configured via
+        <varname>MemoryPressureWatch=</varname>. Specifies the maximum allocation latency before a memory
+        pressure event is signalled to the service, per 2s window. If not specified defaults to the
+        <varname>DefaultMemoryPressureThresholdSec=</varname> setting in
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        (which in turn defaults to 200ms). The specified value expects a time unit such as
+        <literal>ms</literal> or <literal>µs</literal>, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details on the permitted syntax.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

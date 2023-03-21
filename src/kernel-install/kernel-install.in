@@ -215,17 +215,17 @@ for pref in $BOOT_ROOT_SEARCH; do
             log_verbose "$pref/$suff exists, using BOOT_ROOT=$BOOT_ROOT, ENTRY_TOKEN=$ENTRY_TOKEN"
             break 2
         else
-            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "$pref/$suff not found…"
-        fi
-
-        if [ -d "$pref/loader/entries" ]; then
-            [ -z "$BOOT_ROOT" ] && BOOT_ROOT="$pref"
-            log_verbose "$pref/loader/entries exists, using BOOT_ROOT=$BOOT_ROOT"
-            break 2
-        else
-            log_verbose "$pref/loader/entries not found…"
+            log_verbose "$pref/$suff not found…"
         fi
     done
+
+    if [ -d "$pref/loader/entries" ]; then
+        [ -z "$BOOT_ROOT" ] && BOOT_ROOT="$pref"
+        log_verbose "$pref/loader/entries exists, using BOOT_ROOT=$BOOT_ROOT"
+        break
+    else
+        log_verbose "$pref/loader/entries not found…"
+    fi
 done
 
 [ -z "$BOOT_ROOT" ] && for pref in "/efi" "/boot/efi"; do
@@ -240,20 +240,26 @@ done
 
 if [ -z "$BOOT_ROOT" ]; then
     BOOT_ROOT="/boot"
-    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-        echo "KERNEL_INSTALL_BOOT_ROOT autodection yielded no candidates, using \"$BOOT_ROOT\""
+    log_verbose "KERNEL_INSTALL_BOOT_ROOT autodetection yielded no candidates, using \"$BOOT_ROOT\""
 fi
 
 if [ -z "$ENTRY_TOKEN" ]; then
     ENTRY_TOKEN="$MACHINE_ID"
-    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-        echo "No entry-token candidate matched, using \"$ENTRY_TOKEN\" from machine-id"
+    log_verbose "No entry-token candidate matched, using \"$ENTRY_TOKEN\" from machine-id"
 fi
 
-if [ -z "$layout" ]; then
+export KERNEL_INSTALL_IMAGE_TYPE=""
+if [ -f "$1" ]; then
+    KERNEL_INSTALL_IMAGE_TYPE="$(bootctl kernel-identify "$1" 2>/dev/null || echo "unknown")"
+fi
+
+if [ "$layout" = "auto" ] || [ -z "$layout" ]; then
     # No layout configured by the administrator. Let's try to figure it out
     # automatically from metadata already contained in $BOOT_ROOT.
-    if [ -e "$BOOT_ROOT/loader/entries.srel" ]; then
+    if [ "$KERNEL_INSTALL_IMAGE_TYPE" = "uki" ]; then
+        layout="uki"
+        log_verbose "Kernel image is UKI, using layout=$layout"
+    elif [ -e "$BOOT_ROOT/loader/entries.srel" ]; then
         read -r ENTRIES_SREL <"$BOOT_ROOT/loader/entries.srel"
         if [ "$ENTRIES_SREL" = "type1" ]; then
             # The loader/entries.srel file clearly indicates that the installed
@@ -266,8 +272,7 @@ if [ -z "$layout" ]; then
             # have no idea what that means, let's stay away from it by default.
             layout="other"
         fi
-        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
-            echo "$BOOT_ROOT/loader/entries.srel with '$ENTRIES_SREL' found, using layout=$layout"
+        log_verbose "$BOOT_ROOT/loader/entries.srel with '$ENTRIES_SREL' found, using layout=$layout"
 
     elif [ -d "$BOOT_ROOT/$ENTRY_TOKEN" ]; then
         # If the metadata in $BOOT_ROOT doesn't tell us anything, then check if

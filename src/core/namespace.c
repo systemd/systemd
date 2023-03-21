@@ -24,6 +24,7 @@
 #include "glyph-util.h"
 #include "label.h"
 #include "list.h"
+#include "lock-util.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
 #include "missing_syscall.h"
@@ -1099,27 +1100,6 @@ static int mount_bind_sysfs(const MountEntry *m) {
         return 1;
 }
 
-static bool mount_option_supported(const char *fstype, const char *key, const char *value) {
-        _cleanup_close_ int fd = -EBADF;
-        int r;
-
-        /* This function assumes support by default. Only if the fsconfig() call fails with -EINVAL/-EOPNOTSUPP
-         * will it report that the option/value is not supported. */
-
-        fd = fsopen(fstype, FSOPEN_CLOEXEC);
-        if (fd < 0) {
-                if (errno != ENOSYS)
-                        log_debug_errno(errno, "Failed to open superblock context for '%s': %m", fstype);
-                return true; /* If fsopen() fails for whatever reason, assume the value is supported. */
-        }
-
-        r = fsconfig(fd, FSCONFIG_SET_STRING, key, value, 0);
-        if (r < 0 && !IN_SET(errno, EINVAL, EOPNOTSUPP, ENOSYS))
-                log_debug_errno(errno, "Failed to set '%s=%s' on '%s' superblock context: %m", key, value, fstype);
-
-        return r >= 0 || !IN_SET(errno, EINVAL, EOPNOTSUPP);
-}
-
 static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
         _cleanup_free_ char *opts = NULL;
         const char *entry_path;
@@ -1147,13 +1127,14 @@ static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
                  * fsopen()/fsconfig() was also backported on some distros which allows us to detect
                  * hidepid=/subset= support in even more scenarios. */
 
-                if (mount_option_supported("proc", "hidepid", hpv)) {
+                if (mount_option_supported("proc", "hidepid", hpv) != 0) {
                         opts = strjoin("hidepid=", hpv);
                         if (!opts)
                                 return -ENOMEM;
                 }
 
-                if (ns_info->proc_subset == PROC_SUBSET_PID && mount_option_supported("proc", "subset", "pid"))
+                if (ns_info->proc_subset == PROC_SUBSET_PID &&
+                    mount_option_supported("proc", "subset", "pid") != 0)
                         if (!strextend_with_separator(&opts, ",", "subset=pid"))
                                 return -ENOMEM;
         }
@@ -2049,7 +2030,7 @@ int setup_namespace(
                 const char* var_tmp_dir,
                 const char *creds_path,
                 const char *log_namespace,
-                unsigned long mount_flags,
+                unsigned long mount_propagation_flag,
                 const void *root_hash,
                 size_t root_hash_size,
                 const char *root_hash_path,
@@ -2095,8 +2076,8 @@ int setup_namespace(
         if (!isempty(propagate_dir) && !isempty(incoming_dir))
                 setup_propagate = true;
 
-        if (mount_flags == 0)
-                mount_flags = MS_SHARED;
+        if (mount_propagation_flag == 0)
+                mount_propagation_flag = MS_SHARED;
 
         if (root_image) {
                 /* Make the whole image read-only if we can determine that we only access it in a read-only fashion. */
@@ -2445,7 +2426,8 @@ int setup_namespace(
 
         if (unshare(CLONE_NEWNS) < 0) {
                 r = log_debug_errno(errno, "Failed to unshare the mount namespace: %m");
-                if (IN_SET(r, -EACCES, -EPERM, -EOPNOTSUPP, -ENOSYS))
+                if (ERRNO_IS_PRIVILEGE(r) ||
+                    ERRNO_IS_NOT_SUPPORTED(r))
                         /* If the kernel doesn't support namespaces, or when there's a MAC or seccomp filter
                          * in place that doesn't allow us to create namespaces (or a missing cap), then
                          * propagate a recognizable error back, which the caller can use to detect this case
@@ -2541,10 +2523,9 @@ int setup_namespace(
                 goto finish;
         }
 
-        /* Remount / as the desired mode. Note that this will not
-         * reestablish propagation from our side to the host, since
-         * what's disconnected is disconnected. */
-        if (mount(NULL, "/", NULL, mount_flags | MS_REC, NULL) < 0) {
+        /* Remount / as the desired mode. Note that this will not reestablish propagation from our side to
+         * the host, since what's disconnected is disconnected. */
+        if (mount(NULL, "/", NULL, mount_propagation_flag | MS_REC, NULL) < 0) {
                 r = log_debug_errno(errno, "Failed to remount '/' with desired mount flags: %m");
                 goto finish;
         }
@@ -2867,9 +2848,9 @@ int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
         return 0;
 }
 
-int setup_shareable_ns(const int ns_storage_socket[static 2], unsigned long nsflag) {
+int setup_shareable_ns(int ns_storage_socket[static 2], unsigned long nsflag) {
         _cleanup_close_ int ns = -EBADF;
-        int r, q;
+        int r;
         const char *ns_name, *ns_path;
 
         assert(ns_storage_socket);
@@ -2887,57 +2868,47 @@ int setup_shareable_ns(const int ns_storage_socket[static 2], unsigned long nsfl
          *
          * It's a bit crazy, but hey, works great! */
 
-        if (lockf(ns_storage_socket[0], F_LOCK, 0) < 0)
+        r = posix_lock(ns_storage_socket[0], LOCK_EX);
+        if (r < 0)
+                return r;
+
+        CLEANUP_POSIX_UNLOCK(ns_storage_socket[0]);
+
+        ns = receive_one_fd(ns_storage_socket[0], MSG_PEEK|MSG_DONTWAIT);
+        if (ns >= 0) {
+                /* Yay, found something, so let's join the namespace */
+                r = RET_NERRNO(setns(ns, nsflag));
+                if (r < 0)
+                        return r;
+
+                return 0;
+        }
+
+        if (ns != -EAGAIN)
+                return ns;
+
+        /* Nothing stored yet, so let's create a new namespace. */
+
+        if (unshare(nsflag) < 0)
                 return -errno;
 
-        ns = receive_one_fd(ns_storage_socket[0], MSG_DONTWAIT);
-        if (ns == -EAGAIN) {
-                /* Nothing stored yet, so let's create a new namespace. */
+        (void) loopback_setup();
 
-                if (unshare(nsflag) < 0) {
-                        r = -errno;
-                        goto fail;
-                }
+        ns_path = strjoina("/proc/self/ns/", ns_name);
+        ns = open(ns_path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        if (ns < 0)
+                return -errno;
 
-                (void) loopback_setup();
+        r = send_one_fd(ns_storage_socket[1], ns, MSG_DONTWAIT);
+        if (r < 0)
+                return r;
 
-                ns_path = strjoina("/proc/self/ns/", ns_name);
-                ns = open(ns_path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                if (ns < 0) {
-                        r = -errno;
-                        goto fail;
-                }
-
-                r = 1;
-
-        } else if (ns < 0) {
-                r = ns;
-                goto fail;
-
-        } else {
-                /* Yay, found something, so let's join the namespace */
-                if (setns(ns, nsflag) < 0) {
-                        r = -errno;
-                        goto fail;
-                }
-
-                r = 0;
-        }
-
-        q = send_one_fd(ns_storage_socket[1], ns, MSG_DONTWAIT);
-        if (q < 0) {
-                r = q;
-                goto fail;
-        }
-
-fail:
-        (void) lockf(ns_storage_socket[0], F_ULOCK, 0);
-        return r;
+        return 1;
 }
 
-int open_shareable_ns_path(const int ns_storage_socket[static 2], const char *path, unsigned long nsflag) {
+int open_shareable_ns_path(int ns_storage_socket[static 2], const char *path, unsigned long nsflag) {
         _cleanup_close_ int ns = -EBADF;
-        int q, r;
+        int r;
 
         assert(ns_storage_socket);
         assert(ns_storage_socket[0] >= 0);
@@ -2948,44 +2919,35 @@ int open_shareable_ns_path(const int ns_storage_socket[static 2], const char *pa
          * it. This is supposed to be called ahead of time, i.e. before setup_shareable_ns() which will
          * allocate a new anonymous ns if needed. */
 
-        if (lockf(ns_storage_socket[0], F_LOCK, 0) < 0)
+        r = posix_lock(ns_storage_socket[0], LOCK_EX);
+        if (r < 0)
+                return r;
+
+        CLEANUP_POSIX_UNLOCK(ns_storage_socket[0]);
+
+        ns = receive_one_fd(ns_storage_socket[0], MSG_PEEK|MSG_DONTWAIT);
+        if (ns >= 0)
+                return 0;
+        if (ns != -EAGAIN)
+                return ns;
+
+        /* Nothing stored yet. Open the file from the file system. */
+
+        ns = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        if (ns < 0)
                 return -errno;
 
-        ns = receive_one_fd(ns_storage_socket[0], MSG_DONTWAIT);
-        if (ns == -EAGAIN) {
-                /* Nothing stored yet. Open the file from the file system. */
+        r = fd_is_ns(ns, nsflag);
+        if (r == 0)
+                return -EINVAL;
+        if (r < 0 && r != -EUCLEAN) /* EUCLEAN: we don't know */
+                return r;
 
-                ns = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-                if (ns < 0) {
-                        r = -errno;
-                        goto fail;
-                }
+        r = send_one_fd(ns_storage_socket[1], ns, MSG_DONTWAIT);
+        if (r < 0)
+                return r;
 
-                r = fd_is_ns(ns, nsflag);
-                if (r == 0) { /* Not a ns of our type? Refuse early. */
-                        r = -EINVAL;
-                        goto fail;
-                }
-                if (r < 0 && r != -EUCLEAN) /* EUCLEAN: we don't know */
-                        goto fail;
-
-                r = 1;
-
-        } else if (ns < 0) {
-                r = ns;
-                goto fail;
-        } else
-                r = 0; /* Already allocated */
-
-        q = send_one_fd(ns_storage_socket[1], ns, MSG_DONTWAIT);
-        if (q < 0) {
-                r = q;
-                goto fail;
-        }
-
-fail:
-        (void) lockf(ns_storage_socket[0], F_ULOCK, 0);
-        return r;
+        return 1;
 }
 
 bool ns_type_supported(NamespaceType type) {

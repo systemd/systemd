@@ -3,6 +3,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/mount.h>
+#if WANT_LINUX_FS_H
+#include <linux/fs.h>
+#endif
 
 #include "alloc-util.h"
 #include "chase-symlinks.h"
@@ -10,6 +13,8 @@
 #include "fileio.h"
 #include "filesystems.h"
 #include "fs-util.h"
+#include "missing_fs.h"
+#include "missing_mount.h"
 #include "missing_stat.h"
 #include "missing_syscall.h"
 #include "mkdir.h"
@@ -350,11 +355,19 @@ int path_is_mount_point(const char *t, const char *root, int flags) {
         return fd_is_mount_point(fd, last_path_component(t), flags);
 }
 
-int path_get_mnt_id(const char *path, int *ret) {
+int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
         STRUCT_NEW_STATX_DEFINE(buf);
         int r;
 
-        if (statx(AT_FDCWD, path, AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT, STATX_MNT_ID, &buf.sx) < 0) {
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(path);
+        assert(ret);
+
+        if (statx(dir_fd,
+                  path,
+                  AT_NO_AUTOMOUNT|(isempty(path) ? AT_EMPTY_PATH : AT_SYMLINK_NOFOLLOW),
+                  STATX_MNT_ID,
+                  &buf.sx) < 0) {
                 if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
                         return -errno;
 
@@ -366,11 +379,11 @@ int path_get_mnt_id(const char *path, int *ret) {
                 return 0;
         }
 
-        r = name_to_handle_at_loop(AT_FDCWD, path, NULL, ret, 0);
+        r = name_to_handle_at_loop(dir_fd, path, NULL, ret, isempty(path) ? AT_EMPTY_PATH : 0);
         if (r == 0 || is_name_to_handle_at_fatal_error(r))
                 return r;
 
-        return fd_fdinfo_mnt_id(AT_FDCWD, path, 0, ret);
+        return fd_fdinfo_mnt_id(dir_fd, path, isempty(path) ? AT_EMPTY_PATH : 0, ret);
 }
 
 bool fstype_is_network(const char *fstype) {
@@ -456,6 +469,15 @@ bool fstype_is_ro(const char *fstype) {
 }
 
 bool fstype_can_discard(const char *fstype) {
+        int r;
+
+        assert(fstype);
+
+        /* On new kernels we can just ask the kernel */
+        r = mount_option_supported(fstype, "discard", NULL);
+        if (r >= 0)
+                return r;
+
         return STR_IN_SET(fstype,
                           "btrfs",
                           "f2fs",
@@ -464,10 +486,42 @@ bool fstype_can_discard(const char *fstype) {
                           "xfs");
 }
 
-bool fstype_can_uid_gid(const char *fstype) {
+bool fstype_can_norecovery(const char *fstype) {
+        int r;
 
-        /* All file systems that have a uid=/gid= mount option that fixates the owners of all files and directories,
-         * current and future. */
+        assert(fstype);
+
+        /* On new kernels we can just ask the kernel */
+        r = mount_option_supported(fstype, "norecovery", NULL);
+        if (r >= 0)
+                return r;
+
+        return STR_IN_SET(fstype,
+                          "ext3",
+                          "ext4",
+                          "xfs",
+                          "btrfs");
+}
+
+bool fstype_can_umask(const char *fstype) {
+        int r;
+
+        assert(fstype);
+
+        /* On new kernels we can just ask the kernel */
+        r = mount_option_supported(fstype, "umask", "0077");
+        if (r >= 0)
+                return r;
+
+        return streq(fstype, "vfat");
+}
+
+bool fstype_can_uid_gid(const char *fstype) {
+        /* All file systems that have a uid=/gid= mount option that fixates the owners of all files and
+         * directories, current and future. Note that this does *not* ask the kernel via
+         * mount_option_supported() here because the uid=/gid= setting of various file systems mean different
+         * things: some apply it only to the root dir inode, others to all inodes in the file system. Thus we
+         * maintain the curated list below. 😢 */
 
         return STR_IN_SET(fstype,
                           "adfs",
@@ -601,4 +655,112 @@ int mount_propagation_flag_from_string(const char *name, unsigned long *ret) {
 
 bool mount_propagation_flag_is_valid(unsigned long flag) {
         return IN_SET(flag, 0, MS_SHARED, MS_PRIVATE, MS_SLAVE);
+}
+
+unsigned long ms_nosymfollow_supported(void) {
+        _cleanup_close_ int fsfd = -EBADF, mntfd = -EBADF;
+        static int cache = -1;
+
+        /* Returns MS_NOSYMFOLLOW if it is supported, zero otherwise. */
+
+        if (cache >= 0)
+                return cache ? MS_NOSYMFOLLOW : 0;
+
+        /* Checks if MS_NOSYMFOLLOW is supported (which was added in 5.10). We use the new mount API's
+         * mount_setattr() call for that, which was added in 5.12, which is close enough. */
+
+        fsfd = fsopen("tmpfs", FSOPEN_CLOEXEC);
+        if (fsfd < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno))
+                        goto not_supported;
+
+                log_debug_errno(errno, "Failed to open superblock context for tmpfs: %m");
+                return 0;
+        }
+
+        if (fsconfig(fsfd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno))
+                        goto not_supported;
+
+                log_debug_errno(errno, "Failed to create tmpfs superblock: %m");
+                return 0;
+        }
+
+        mntfd = fsmount(fsfd, FSMOUNT_CLOEXEC, 0);
+        if (mntfd < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno))
+                        goto not_supported;
+
+                log_debug_errno(errno, "Failed to turn superblock fd into mount fd: %m");
+                return 0;
+        }
+
+        if (mount_setattr(mntfd, "", AT_EMPTY_PATH|AT_RECURSIVE,
+                          &(struct mount_attr) {
+                                  .attr_set = MOUNT_ATTR_NOSYMFOLLOW,
+                          }, sizeof(struct mount_attr)) < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno))
+                        goto not_supported;
+
+                log_debug_errno(errno, "Failed to set MOUNT_ATTR_NOSYMFOLLOW mount attribute: %m");
+                return 0;
+        }
+
+        cache = true;
+        return MS_NOSYMFOLLOW;
+
+not_supported:
+        cache = false;
+        return 0;
+}
+
+int mount_option_supported(const char *fstype, const char *key, const char *value) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        /* Checks if the specified file system supports a mount option. Returns > 0 if it suppors it, == 0 if
+         * it does not. Return -EAGAIN if we can't determine it. And any other error otherwise. */
+
+        assert(fstype);
+        assert(key);
+
+        fd = fsopen(fstype, FSOPEN_CLOEXEC);
+        if (fd < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno))
+                        return -EAGAIN;  /* new mount API not available → don't know */
+
+                return log_debug_errno(errno, "Failed to open superblock context for '%s': %m", fstype);
+        }
+
+        /* Various file systems have not been converted to the new mount API yet. For such file systems
+         * fsconfig() with FSCONFIG_SET_STRING/FSCONFIG_SET_FLAG never fail. Which sucks, because we want to
+         * use it for testing support, after all. Let's hence do a check if the file system got converted yet
+         * first. */
+        if (fsconfig(fd, FSCONFIG_SET_FD, "adefinitelynotexistingmountoption", NULL, fd) < 0) {
+                /* If FSCONFIG_SET_FD is not supported for the fs, then the file system was not converted to
+                 * the new mount API yet. If it returns EINVAL the mount option doesn't exist, but the fstype
+                 * is converted. */
+                if (errno == EOPNOTSUPP)
+                        return -EAGAIN; /* FSCONFIG_SET_FD not supported on the fs, hence not converted to new mount API → don't know */
+                if (errno != EINVAL)
+                        return log_debug_errno(errno, "Failed to check if file system has been converted to new mount API: %m");
+
+                /* So FSCONFIG_SET_FD worked, but the option didn't exist (we got EINVAL), this means the fs
+                 * is converted. Let's now ask the actual question we wonder about. */
+        } else
+                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "FSCONFIG_SET_FD worked unexpectedly for '%s', whoa!", fstype);
+
+        if (value)
+                r = fsconfig(fd, FSCONFIG_SET_STRING, key, value, 0);
+        else
+                r = fsconfig(fd, FSCONFIG_SET_FLAG, key, NULL, 0);
+        if (r < 0) {
+                if (errno == EINVAL)
+                        return false; /* EINVAL means option not supported. */
+
+                return log_debug_errno(errno, "Failed to set '%s%s%s' on '%s' superblock context: %m",
+                                       key, value ? "=" : "", strempty(value), fstype);
+        }
+
+        return true; /* works! */
 }

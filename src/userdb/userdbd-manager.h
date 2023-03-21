@@ -7,7 +7,6 @@
 typedef struct Manager Manager;
 
 #include "hashmap.h"
-#include "varlink.h"
 #include "ratelimit.h"
 
 #define USERDB_WORKERS_MIN 3
@@ -18,9 +17,6 @@ struct Manager {
 
         Set *workers_fixed;    /* Workers 0…USERDB_WORKERS_MIN */
         Set *workers_dynamic;  /* Workers USERD_WORKERS_MIN+1…USERDB_WORKERS_MAX */
-
-        sd_event_source *sigusr2_event_source;
-        sd_event_source *sigchld_event_source;
 
         int listen_fd;
 

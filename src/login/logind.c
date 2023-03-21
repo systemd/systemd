@@ -14,6 +14,7 @@
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "cgroup-util.h"
+#include "common-signal.h"
 #include "constants.h"
 #include "daemon-util.h"
 #include "device-util.h"
@@ -84,6 +85,14 @@ static int manager_new(Manager **ret) {
         r = sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
         if (r < 0)
                 return r;
+
+        r = sd_event_add_signal(m->event, NULL, SIGRTMIN+18, sigrtmin18_handler, NULL);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
 
         (void) sd_event_set_watchdog(m->event, true);
 
@@ -1196,7 +1205,7 @@ static int run(int argc, char *argv[]) {
         (void) mkdir_label("/run/systemd/users", 0755);
         (void) mkdir_label("/run/systemd/sessions", 0755);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGHUP, SIGTERM, SIGINT, SIGCHLD, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGHUP, SIGTERM, SIGINT, SIGCHLD, SIGRTMIN+18, -1) >= 0);
 
         r = manager_new(&m);
         if (r < 0)

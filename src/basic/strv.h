@@ -87,7 +87,7 @@ char** strv_new_ap(const char *x, va_list ap);
 #define STRV_IGNORE ((const char *) POINTER_MAX)
 
 static inline const char* STRV_IFNOTNULL(const char *x) {
-        return x ? x : STRV_IGNORE;
+        return x ?: STRV_IGNORE;
 }
 
 static inline bool strv_isempty(char * const *l) {
@@ -149,7 +149,10 @@ bool strv_overlap(char * const *a, char * const *b) _pure_;
         _STRV_FOREACH_PAIR(x, y, l, UNIQ_T(i, UNIQ))
 
 char** strv_sort(char **l);
-void strv_print(char * const *l);
+void strv_print_full(char * const *l, const char *prefix);
+static inline void strv_print(char * const *l) {
+        strv_print_full(l, NULL);
+}
 
 #define strv_from_stdarg_alloca(first)                          \
         ({                                                      \

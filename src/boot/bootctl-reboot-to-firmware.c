@@ -11,7 +11,7 @@ int verb_reboot_to_firmware(int argc, char *argv[], void *userdata) {
                 r = efi_get_reboot_to_firmware();
                 if (r > 0) {
                         puts("active");
-                        return EXIT_SUCCESS; /* success */
+                        return 0; /* success */
                 }
                 if (r == 0) {
                         puts("supported");

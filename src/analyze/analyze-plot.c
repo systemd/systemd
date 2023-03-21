@@ -80,8 +80,8 @@ static int acquire_host_info(sd_bus *bus, HostInfo **hi) {
         if (!host)
                 return log_oom();
 
-        if (arg_scope != LOOKUP_SCOPE_SYSTEM) {
-                r = bus_connect_transport(arg_transport, arg_host, false, &system_bus);
+        if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM) {
+                r = bus_connect_transport(arg_transport, arg_host, RUNTIME_SCOPE_SYSTEM, &system_bus);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to connect to system bus, ignoring: %m");
                         goto manager;
@@ -89,7 +89,7 @@ static int acquire_host_info(sd_bus *bus, HostInfo **hi) {
         }
 
         r = bus_map_all_properties(
-                        system_bus ? : bus,
+                        system_bus ?: bus,
                         "org.freedesktop.hostname1",
                         "/org/freedesktop/hostname1",
                         hostname_map,
@@ -431,7 +431,7 @@ int verb_plot(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(unit_times_free_arrayp) UnitTimes *times = NULL;
         _cleanup_free_ char *pretty_times = NULL;
-        bool use_full_bus = arg_scope == LOOKUP_SCOPE_SYSTEM;
+        bool use_full_bus = arg_runtime_scope == RUNTIME_SCOPE_SYSTEM;
         BootTimes *boot;
         int n, r;
 
@@ -447,7 +447,7 @@ int verb_plot(int argc, char *argv[], void *userdata) {
         if (n < 0)
                 return n;
 
-        if (use_full_bus || arg_scope != LOOKUP_SCOPE_SYSTEM) {
+        if (use_full_bus || arg_runtime_scope != RUNTIME_SCOPE_SYSTEM) {
                 n = acquire_host_info(bus, &host);
                 if (n < 0)
                         return n;

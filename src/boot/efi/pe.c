@@ -16,8 +16,14 @@
 #  define TARGET_MACHINE_TYPE 0xAA64U
 #elif defined(__arm__)
 #  define TARGET_MACHINE_TYPE 0x01C2U
+#elif defined(__riscv) && __riscv_xlen == 32
+#  define TARGET_MACHINE_TYPE 0x5032U
 #elif defined(__riscv) && __riscv_xlen == 64
 #  define TARGET_MACHINE_TYPE 0x5064U
+#elif defined(__loongarch__) && __loongarch_grlen == 32
+#  define TARGET_MACHINE_TYPE 0x6232U
+#elif defined(__loongarch__) && __loongarch_grlen == 64
+#  define TARGET_MACHINE_TYPE 0x6264U
 #else
 #  error Unknown EFI arch
 #endif
@@ -147,16 +153,8 @@ static void locate_sections(
         assert(offsets);
         assert(sizes);
 
-        size_t prev_section_addr = 0;
-
         for (size_t i = 0; i < n_table; i++) {
                 const PeSectionHeader *sect = section_table + i;
-
-                if (in_memory) {
-                        if (prev_section_addr > sect->VirtualAddress)
-                                log_error("Overlapping PE sections detected. Boot may fail due to image memory corruption!");
-                        prev_section_addr = sect->VirtualAddress + sect->VirtualSize;
-                }
 
                 for (size_t j = 0; sections[j]; j++) {
                         if (memcmp(sect->Name, sections[j], strlen8(sections[j])) != 0)

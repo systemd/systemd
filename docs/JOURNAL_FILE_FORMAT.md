@@ -178,8 +178,10 @@ _packed_ struct Header {
         le64_t data_hash_chain_depth;
         le64_t field_hash_chain_depth;
         /* Added in 252 */
-        le32_t tail_entry_array_offset;                 \
-        le32_t tail_entry_array_n_entries;              \
+        le32_t tail_entry_array_offset;
+        le32_t tail_entry_array_n_entries;
+        /* Added in 254 */
+        le64_t tail_entry_offset;
 };
 ```
 
@@ -251,6 +253,9 @@ field hash table, minus one.
 
 **tail_entry_array_offset** and **tail_entry_array_n_entries** allow immediate
 access to the last entry array in the global entry array chain.
+
+**tail_entry_offset** allow immediate access to the last entry in the journal
+file.
 
 ## Extensibility
 

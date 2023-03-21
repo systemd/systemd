@@ -239,12 +239,14 @@ enum {
         /* Added in 252 */                              \
         le32_t tail_entry_array_offset;                 \
         le32_t tail_entry_array_n_entries;              \
+        /* Added in 254 */                              \
+        le64_t tail_entry_offset;                       \
         }
 
 struct Header struct_Header__contents;
 struct Header__packed struct_Header__contents _packed_;
 assert_cc(sizeof(struct Header) == sizeof(struct Header__packed));
-assert_cc(sizeof(struct Header) == 264);
+assert_cc(sizeof(struct Header) == 272);
 
 #define FSS_HEADER_SIGNATURE                                            \
         ((const char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })

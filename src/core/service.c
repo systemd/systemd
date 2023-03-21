@@ -1709,6 +1709,7 @@ static int service_spawn_internal(
                        &exec_params,
                        s->exec_runtime,
                        &s->dynamic_creds,
+                       &s->cgroup_context,
                        &pid);
         if (r < 0)
                 return r;
@@ -4172,7 +4173,7 @@ static void service_force_watchdog(Service *s) {
                 return;
 
         log_unit_error(UNIT(s), "Watchdog request (last status: %s)!",
-                       s->status_text ? s->status_text : "<unset>");
+                       s->status_text ?: "<unset>");
 
         service_enter_signal(s, SERVICE_STOP_WATCHDOG, SERVICE_FAILURE_WATCHDOG);
 }

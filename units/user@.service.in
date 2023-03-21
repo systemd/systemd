@@ -10,7 +10,7 @@
 [Unit]
 Description=User Manager for UID %i
 Documentation=man:user@.service(5)
-After=user-runtime-dir@%i.service dbus.service
+After=user-runtime-dir@%i.service dbus.service systemd-oomd.service
 Requires=user-runtime-dir@%i.service
 IgnoreOnIsolate=yes
 
@@ -26,3 +26,4 @@ TasksMax=infinity
 TimeoutStopSec={{ DEFAULT_USER_TIMEOUT_SEC*4//3 }}s
 KeyringMode=inherit
 OOMScoreAdjust=100
+MemoryPressureWatch=skip

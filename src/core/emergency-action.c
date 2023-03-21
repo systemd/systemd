@@ -154,7 +154,7 @@ DEFINE_STRING_TABLE_LOOKUP(emergency_action, EmergencyAction);
 
 int parse_emergency_action(
                 const char *value,
-                bool system,
+                RuntimeScope runtime_scope,
                 EmergencyAction *ret) {
 
         EmergencyAction x;
@@ -163,7 +163,7 @@ int parse_emergency_action(
         if (x < 0)
                 return -EINVAL;
 
-        if (!system && x != EMERGENCY_ACTION_NONE && x < _EMERGENCY_ACTION_FIRST_USER_ACTION)
+        if (runtime_scope != RUNTIME_SCOPE_SYSTEM && x != EMERGENCY_ACTION_NONE && x < _EMERGENCY_ACTION_FIRST_USER_ACTION)
                 return -EOPNOTSUPP;
 
         *ret = x;

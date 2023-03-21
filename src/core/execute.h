@@ -267,7 +267,7 @@ struct ExecContext {
 
         char **read_write_paths, **read_only_paths, **inaccessible_paths, **exec_paths, **no_exec_paths;
         char **exec_search_path;
-        unsigned long mount_flags;
+        unsigned long mount_propagation_flag;
         BindMount *bind_mounts;
         size_t n_bind_mounts;
         TemporaryFileSystem *temporary_filesystems;
@@ -442,6 +442,7 @@ int exec_spawn(Unit *unit,
                const ExecParameters *exec_params,
                ExecRuntime *runtime,
                DynamicCreds *dynamic_creds,
+               const CGroupContext *cgroup_context,
                pid_t *ret);
 
 void exec_command_done_array(ExecCommand *c, size_t n);

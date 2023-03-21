@@ -44,12 +44,6 @@ on:
 permissions:
   contents: read
 
-env:
-  # Enable debug logging in systemd, but keep udev's log level to info,
-  # since it's _very_ verbose in the QEMU task
-  # Disable the ISC DHCP servers, as they are failing in Ubuntu
-  KERNEL_CMDLINE: "systemd.unit=mkosi-check-and-shutdown.service !quiet systemd.log_level=debug systemd.log_target=console udev.log_level=info systemd.default_standard_output=journal+console systemd.mask=isc-dhcp-server6.service systemd.mask=isc-dhcp-server.service"
-
 jobs:
   ci:
     runs-on: ubuntu-22.04
@@ -78,8 +72,8 @@ jobs:
             release: "8"
 
     steps:
-    - uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b
-    - uses: systemd/mkosi@1d131062066fe7b5a83b87319b4464b186adbb1c
+    - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
+    - uses: systemd/mkosi@c1f1e9ab2fe89f21ebdb4984b676f9a489081a64
 
     - name: Configure
       run: |
@@ -91,9 +85,13 @@ jobs:
 
         [Content]
         Environment=CI_BUILD=1
+                    DEFAULT_TIMEOUT_SEC=90
 
         [Output]
-        KernelCommandLine=${{ env.KERNEL_CMDLINE }}
+        KernelCommandLineExtra=systemd.unit=mkosi-check-and-shutdown.service
+                               systemd.journald.max_level_console=debug
+                               # udev's debug log output is very verbose, so up it to info in CI.
+                               udev.log_level=info
         EOF
 
     - name: Generate secure boot key
@@ -106,39 +104,13 @@ jobs:
       run: mkosi summary
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
-      run: |
-        STATUS=0
-        sudo strace -f -Z -o strace mkosi boot ${{ env.KERNEL_CMDLINE }} audit=0 || STATUS=$?
-        if [ $STATUS -ne 0 ]; then
-          cat strace
-        fi
-        exit $STATUS
-      env:
-        SYSTEMD_LOG_LEVEL: debug
+      run: sudo mkosi boot
 
     - name: Check ${{ matrix.distro }} systemd-nspawn
-      run: |
-        STATUS=0
-        sudo strace -f -Z -o strace mkosi shell bash -c "[[ -e /testok ]] || STATUS=$?"
-        if [ $STATUS -ne 0 ]; then
-          cat /failed-services
-          cat strace
-        fi
-        exit $STATUS
-      env:
-        SYSTEMD_LOG_LEVEL: debug
+      run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
 
     - name: Boot ${{ matrix.distro }} QEMU
       run: timeout -k 30 10m mkosi qemu
 
     - name: Check ${{ matrix.distro }} QEMU
-      run: |
-        STATUS=0
-        sudo strace -f -Z -o strace mkosi shell bash -c "[[ -e /testok ]] || STATUS=$?"
-        if [ $STATUS -ne 0 ]; then
-          cat /failed-services
-          cat strace
-        fi
-        exit $STATUS
-      env:
-        SYSTEMD_LOG_LEVEL: debug
+      run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"

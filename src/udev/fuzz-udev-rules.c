@@ -27,11 +27,10 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         fflush(f);
 
         assert_se(rules = udev_rules_new(RESOLVE_NAME_EARLY));
-        r = udev_rules_parse_file(rules, filename);
+        r = udev_rules_parse_file(rules, filename, NULL);
         log_info_errno(r, "Parsing %s: %m", filename);
-        assert_se(IN_SET(r,
-                         0,       /* OK */
-                         -ENOBUFS /* line length exceeded */));
+        assert_se(r >= 0 ||             /* OK */
+                  r == -ENOBUFS);       /* line length exceeded */
 
         return 0;
 }

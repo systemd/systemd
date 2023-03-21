@@ -184,6 +184,9 @@ static void unit_init(Unit *u) {
 
                 if (u->type != UNIT_SLICE)
                         cc->tasks_max = u->manager->default_tasks_max;
+
+                cc->memory_pressure_watch = u->manager->default_memory_pressure_watch;
+                cc->memory_pressure_threshold_usec = u->manager->default_memory_pressure_threshold_usec;
         }
 
         ec = unit_get_exec_context(u);
@@ -902,7 +905,7 @@ static int unit_reserve_dependencies(Unit *u, Unit *other) {
         /* Let's reserve some space in the dependency hashmaps so that later on merging the units cannot
          * fail.
          *
-         * First make some room in the per dependency type hashmaps. Using the summed size of both unit's
+         * First make some room in the per dependency type hashmaps. Using the summed size of both units'
          * hashmaps is an estimate that is likely too high since they probably use some of the same
          * types. But it's never too low, and that's all we need. */
 
@@ -4006,7 +4009,7 @@ UnitFileState unit_get_unit_file_state(Unit *u) {
 
         if (u->unit_file_state < 0 && u->fragment_path) {
                 r = unit_file_get_state(
-                                u->manager->unit_file_scope,
+                                u->manager->runtime_scope,
                                 NULL,
                                 u->id,
                                 &u->unit_file_state);
@@ -4033,7 +4036,7 @@ int unit_get_unit_file_preset(Unit *u) {
                         return (u->unit_file_preset = -EISDIR);
 
                 u->unit_file_preset = unit_file_query_preset(
-                                u->manager->unit_file_scope,
+                                u->manager->runtime_scope,
                                 NULL,
                                 bn,
                                 NULL);

@@ -508,9 +508,9 @@ uint64_t get_os_indications_supported(void) {
 }
 
 #ifdef EFI_DEBUG
-extern uint8_t _text, _data;
+extern uint8_t __ImageBase;
 __attribute__((noinline)) void notify_debugger(const char *identity, volatile bool wait) {
-        printf("%s@%p,%p\n", identity, &_text, &_data);
+        printf("%s@%p\n", identity, &__ImageBase);
         if (wait)
                 printf("Waiting for debugger to attach...\n");
 

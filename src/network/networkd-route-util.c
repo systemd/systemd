@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "logarithm.h"
+#include "missing_threads.h"
 #include "networkd-address.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"

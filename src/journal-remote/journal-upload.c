@@ -568,14 +568,9 @@ static int parse_config(void) {
                 {}
         };
 
-        return config_parse_many_nulstr(
-                        PKGSYSCONFDIR "/journal-upload.conf",
-                        CONF_PATHS_NULSTR("systemd/journal-upload.conf.d"),
-                        "Upload\0",
-                        config_item_table_lookup, items,
-                        CONFIG_PARSE_WARN,
-                        NULL,
-                        NULL);
+        return config_parse_config_file("journal-upload.conf", "Upload\0",
+                                        config_item_table_lookup, items,
+                                        CONFIG_PARSE_WARN, NULL);
 }
 
 static int help(void) {
@@ -806,7 +801,7 @@ static int open_journal(sd_journal **j) {
                 r = sd_journal_open(j, (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) | arg_journal_type);
         if (r < 0)
                 log_error_errno(r, "Failed to open %s: %m",
-                                arg_directory ? arg_directory : arg_file ? "files" : "journal");
+                                arg_directory ?: (arg_file ? "files" : "journal"));
         return r;
 }
 

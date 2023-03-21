@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-bless-boot.service" conditional='HAVE_GNU_EFI'
+<refentry id="systemd-bless-boot.service" conditional='ENABLE_BOOTLOADER'
           xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
@@ -24,7 +24,7 @@
 
   <refsynopsisdiv>
     <para><filename>systemd-bless-boot.service</filename></para>
-    <para><filename>/usr/lib/systemd/system-bless-boot</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-bless-boot</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -50,7 +50,7 @@
   <refsect1>
     <title>Options</title>
 
-    <para>The <filename>/usr/lib/systemd/system-bless-boot</filename> executable may also be invoked from the
+    <para>The <filename>/usr/lib/systemd/systemd-bless-boot</filename> executable may also be invoked from the
     command line, taking one of the following command arguments:</para>
 
     <variablelist>

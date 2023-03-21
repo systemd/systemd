@@ -63,6 +63,8 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
             ${PAMDIR:-} \
             -D "sysvinit-path=$sysvinit_path" \
             -D "rootprefix=$rootprefix" \
+            -D default-timeout-sec=${DEFAULT_TIMEOUT_SEC:-10} \
+            -D default-user-timeout-sec=${DEFAULT_TIMEOUT_SEC:-10} \
             -D man=false \
             -D translations=false \
             -D version-tag="${VERSION_TAG}" \
@@ -139,7 +141,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
             -D pcre2=true \
             -D glib=true \
             -D dbus=true \
-            -D gnu-efi=true \
+            -D bootloader=true \
             -D kernel-install=true \
             -D analyze=true \
             -D bpf-framework=true \

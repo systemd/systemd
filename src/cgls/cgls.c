@@ -24,7 +24,7 @@
 #include "unit-name.h"
 
 static PagerFlags arg_pager_flags = 0;
-static OutputFlags arg_output_flags = OUTPUT_CGROUP_XATTRS | OUTPUT_CGROUP_ID;
+static OutputFlags arg_output_flags = 0;
 
 static enum {
         SHOW_UNIT_NONE,
@@ -54,11 +54,11 @@ static int help(void) {
                "  -a --all            Show all groups, including empty\n"
                "  -u --unit           Show the subtrees of specified system units\n"
                "     --user-unit      Show the subtrees of specified user units\n"
-               "     --xattr=BOOL     Show cgroup extended attributes\n"
-               "     --cgroup-id=BOOL Show cgroup ID\n"
+               "  -x --xattr=BOOL     Show cgroup extended attributes\n"
+               "  -c --cgroup-id=BOOL Show cgroup ID\n"
                "  -l --full           Do not ellipsize output\n"
                "  -k                  Include kernel threads in output\n"
-               "  -M --machine=       Show container\n"
+               "  -M --machine=NAME   Show container NAME\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
@@ -72,8 +72,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER = 0x100,
                 ARG_VERSION,
                 ARG_USER_UNIT,
-                ARG_XATTR,
-                ARG_CGROUP_ID,
         };
 
         static const struct option options[] = {
@@ -85,8 +83,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "machine",   required_argument, NULL, 'M'           },
                 { "unit",      optional_argument, NULL, 'u'           },
                 { "user-unit", optional_argument, NULL, ARG_USER_UNIT },
-                { "xattr",     required_argument, NULL, ARG_XATTR     },
-                { "cgroup-id", required_argument, NULL, ARG_CGROUP_ID },
+                { "xattr",     required_argument, NULL, 'x'           },
+                { "cgroup-id", required_argument, NULL, 'c'           },
                 {}
         };
 
@@ -95,7 +93,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "-hkalM:u::", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "-hkalM:u::xc", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -143,18 +141,24 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_machine = optarg;
                         break;
 
-                case ARG_XATTR:
-                        r = parse_boolean(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --xattr= value: %s", optarg);
+                case 'x':
+                        if (optarg) {
+                                r = parse_boolean(optarg);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse --xattr= value: %s", optarg);
+                        } else
+                                r = true;
 
                         SET_FLAG(arg_output_flags, OUTPUT_CGROUP_XATTRS, r);
                         break;
 
-                case ARG_CGROUP_ID:
-                        r = parse_boolean(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --cgroup-id= value: %s", optarg);
+                case 'c':
+                        if (optarg) {
+                                r = parse_boolean(optarg);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse --cgroup-id= value: %s", optarg);
+                        } else
+                                r = true;
 
                         SET_FLAG(arg_output_flags, OUTPUT_CGROUP_ID, r);
                         break;
@@ -215,9 +219,10 @@ static int run(int argc, char *argv[]) {
 
                                 if (!bus) {
                                         /* Connect to the bus only if necessary */
-                                        r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL,
-                                                                          arg_show_unit == SHOW_UNIT_USER,
-                                                                          &bus);
+                                        r = bus_connect_transport_systemd(
+                                                        BUS_TRANSPORT_LOCAL, NULL,
+                                                        arg_show_unit == SHOW_UNIT_USER ? RUNTIME_SCOPE_USER : RUNTIME_SCOPE_SYSTEM,
+                                                        &bus);
                                         if (r < 0)
                                                 return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL);
                                 }

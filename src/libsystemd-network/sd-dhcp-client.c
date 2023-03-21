@@ -790,7 +790,7 @@ static int client_message_init(
 
         /* seconds between sending first and last DISCOVER
          * must always be strictly positive to deal with broken servers */
-        secs = ((time_now - client->start_time) / USEC_PER_SEC) ? : 1;
+        secs = ((time_now - client->start_time) / USEC_PER_SEC) ?: 1;
         packet->dhcp.secs = htobe16(secs);
 
         /* RFC2131 section 4.1

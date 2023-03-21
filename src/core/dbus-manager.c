@@ -1530,7 +1530,7 @@ static void log_caller(sd_bus_message *message, Manager *manager, const char *me
         log_info("%s requested from client PID " PID_FMT "%s%s%s%s%s%s...",
                  method, pid,
                  comm ? " ('" : "", strempty(comm), comm ? "')" : "",
-                 caller ? " (unit " : "", caller ? caller->id : NULL, caller ? ")" : "");
+                 caller ? " (unit " : "", caller ? caller->id : "", caller ? ")" : "");
 }
 
 static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1768,7 +1768,7 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Path to init binary '%s' not absolute.", init);
 
-                r = chase_symlinks_and_access(init, root, CHASE_PREFIX_ROOT, X_OK, NULL, NULL);
+                r = chase_symlinks_and_access(init, root, CHASE_PREFIX_ROOT, X_OK, NULL);
                 if (r == -EACCES)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Init binary %s is not executable.", init);
@@ -2113,7 +2113,7 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         if (!h)
                 return -ENOMEM;
 
-        r = unit_file_get_list(m->unit_file_scope, NULL, h, states, patterns);
+        r = unit_file_get_list(m->runtime_scope, NULL, h, states, patterns);
         if (r < 0)
                 goto fail;
 
@@ -2179,7 +2179,7 @@ static int method_get_unit_file_state(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        r = unit_file_get_state(m->unit_file_scope, NULL, name, &state);
+        r = unit_file_get_state(m->runtime_scope, NULL, name, &state);
         if (r < 0)
                 return r;
 
@@ -2199,7 +2199,7 @@ static int method_get_default_target(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
-        r = unit_file_get_default(m->unit_file_scope, NULL, &default_target);
+        r = unit_file_get_default(m->runtime_scope, NULL, &default_target);
         if (r == -ERFKILL)
                 sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED, "Unit file is masked.");
         if (r < 0)
@@ -2392,7 +2392,7 @@ static int reply_install_changes_and_free(
 static int method_enable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
-                int (*call)(LookupScope scope, UnitFileFlags flags, const char *root_dir, char *files[], InstallChange **changes, size_t *n_changes),
+                int (*call)(RuntimeScope scope, UnitFileFlags flags, const char *root_dir, char *files[], InstallChange **changes, size_t *n_changes),
                 bool carries_install_info,
                 sd_bus_error *error) {
 
@@ -2433,7 +2433,7 @@ static int method_enable_unit_files_generic(
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = call(m->unit_file_scope, flags, NULL, l, &changes, &n_changes);
+        r = call(m->runtime_scope, flags, NULL, l, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2456,7 +2456,7 @@ static int method_link_unit_files(sd_bus_message *message, void *userdata, sd_bu
         return method_enable_unit_files_generic(message, userdata, unit_file_link, /* carries_install_info = */ false, error);
 }
 
-static int unit_file_preset_without_mode(LookupScope scope, UnitFileFlags flags, const char *root_dir, char **files, InstallChange **changes, size_t *n_changes) {
+static int unit_file_preset_without_mode(RuntimeScope scope, UnitFileFlags flags, const char *root_dir, char **files, InstallChange **changes, size_t *n_changes) {
         return unit_file_preset(scope, flags, root_dir, files, UNIT_FILE_PRESET_FULL, changes, n_changes);
 }
 
@@ -2505,7 +2505,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_preset(m->unit_file_scope, flags, NULL, l, preset_mode, &changes, &n_changes);
+        r = unit_file_preset(m->runtime_scope, flags, NULL, l, preset_mode, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2515,7 +2515,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
 static int method_disable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
-                int (*call)(LookupScope scope, UnitFileFlags flags, const char *root_dir, char *files[], InstallChange **changes, size_t *n_changes),
+                int (*call)(RuntimeScope scope, UnitFileFlags flags, const char *root_dir, char *files[], InstallChange **changes, size_t *n_changes),
                 bool carries_install_info,
                 sd_bus_error *error) {
 
@@ -2558,7 +2558,7 @@ static int method_disable_unit_files_generic(
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = call(m->unit_file_scope, flags, NULL, l, &changes, &n_changes);
+        r = call(m->runtime_scope, flags, NULL, l, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2600,7 +2600,7 @@ static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_revert(m->unit_file_scope, NULL, l, &changes, &n_changes);
+        r = unit_file_revert(m->runtime_scope, NULL, l, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2630,7 +2630,7 @@ static int method_set_default_target(sd_bus_message *message, void *userdata, sd
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_set_default(m->unit_file_scope, force ? UNIT_FILE_FORCE : 0, NULL, name, &changes, &n_changes);
+        r = unit_file_set_default(m->runtime_scope, force ? UNIT_FILE_FORCE : 0, NULL, name, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2672,7 +2672,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_file_preset_all(m->unit_file_scope, flags, NULL, preset_mode, &changes, &n_changes);
+        r = unit_file_preset_all(m->runtime_scope, flags, NULL, preset_mode, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2711,7 +2711,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         if (dep < 0)
                 return -EINVAL;
 
-        r = unit_file_add_dependency(m->unit_file_scope, flags, NULL, l, target, dep, &changes, &n_changes);
+        r = unit_file_add_dependency(m->runtime_scope, flags, NULL, l, target, dep, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2738,7 +2738,7 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        r = unit_file_disable(m->unit_file_scope,
+        r = unit_file_disable(m->runtime_scope,
                               UNIT_FILE_DRY_RUN | (runtime ? UNIT_FILE_RUNTIME : 0),
                               NULL, STRV_MAKE(name), &changes, &n_changes);
         if (r < 0) {
@@ -2943,6 +2943,8 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultLimitRTTIME", "t", bus_property_get_rlimit, offsetof(Manager, rlimit[RLIMIT_RTTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultLimitRTTIMESoft", "t", bus_property_get_rlimit, offsetof(Manager, rlimit[RLIMIT_RTTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultTasksMax", "t", bus_property_get_tasks_max, offsetof(Manager, default_tasks_max), 0),
+        SD_BUS_PROPERTY("DefaultMemoryPressureThresholdUSec", "t", bus_property_get_usec, offsetof(Manager, default_memory_pressure_threshold_usec), 0),
+        SD_BUS_PROPERTY("DefaultMemoryPressureWatch", "s", bus_property_get_cgroup_pressure_watch, offsetof(Manager, default_memory_pressure_watch), 0),
         SD_BUS_PROPERTY("TimerSlackNSec", "t", property_get_timer_slack_nsec, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultOOMPolicy", "s", bus_property_get_oom_policy, offsetof(Manager, default_oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultOOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),

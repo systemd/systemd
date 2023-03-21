@@ -270,19 +270,19 @@ static int loop_configure(
         assert(ret);
 
         if (asprintf(&node, "/dev/loop%i", nr) < 0)
-                return -ENOMEM;
+                return log_oom_debug();
 
         r = sd_device_new_from_devname(&dev, node);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to create sd_device object for \"%s\": %m", node);
 
         r = sd_device_get_devnum(dev, &devno);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to get devnum: %m");
 
         fd = sd_device_open(dev, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|open_flags);
         if (fd < 0)
-                return fd;
+                return log_device_debug_errno(dev, fd, "Failed to open device: %m");
 
         /* Let's lock the device before we do anything. We take the BSD lock on a second, separately opened
          * fd for the device. udev after all watches for close() events (specifically IN_CLOSE_WRITE) on
@@ -293,15 +293,18 @@ static int loop_configure(
          * automatically release the lock, after we are done. */
         lock_fd = open_lock_fd(fd, LOCK_EX);
         if (lock_fd < 0)
-                return lock_fd;
+                return log_device_debug_errno(dev, lock_fd, "Failed to acquire lock: %m");
+
+        log_device_debug(dev, "Acquired exclusive lock.");
 
         /* Let's see if backing file is really unattached. Someone may already attach a backing file without
          * taking BSD lock. */
         r = loop_is_bound(fd);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to check if the loopback block device is bound: %m");
         if (r > 0)
-                return -EBUSY;
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EBUSY),
+                                              "The loopback block device is already bound, ignoring.");
 
         /* Let's see if the device is really detached, i.e. currently has no associated partition block
          * devices. On various kernels (such as 5.8) it is possible to have a loopback block device that
@@ -310,11 +313,12 @@ static int loop_configure(
          * again. */
         r = block_device_remove_all_partitions(dev, fd);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to remove partitions on the loopback block device: %m");
         if (r > 0)
                 /* Removed all partitions. Let's report this to the caller, to try again, and count this as
                  * an attempt. */
-                return -EUCLEAN;
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EUCLEAN),
+                                              "Removed partitions on the loopback block device.");
 
         if (!loop_configure_broken) {
                 /* Acquire uevent seqnum immediately before attaching the loopback device. This allows
@@ -325,7 +329,7 @@ static int loop_configure(
                  * use. But doing this at least shortens the race window a bit. */
                 r = get_current_uevent_seqnum(&seqnum);
                 if (r < 0)
-                        return r;
+                        return log_device_debug_errno(dev, r, "Failed to get the current uevent seqnum: %m");
 
                 timestamp = now(CLOCK_MONOTONIC);
 
@@ -335,7 +339,7 @@ static int loop_configure(
                          * rather than ENOTTY on loopback block devices. They should fix that in the kernel,
                          * but in the meantime we accept both here. */
                         if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
-                                return -errno;
+                                return log_device_debug_errno(dev, errno, "ioctl(LOOP_CONFIGURE) failed: %m");
 
                         loop_configure_broken = true;
                 } else {
@@ -343,7 +347,7 @@ static int loop_configure(
 
                         r = loop_configure_verify(loop_with_fd, c);
                         if (r < 0)
-                                return r;
+                                return log_device_debug_errno(dev, r, "Failed to verify if loopback block device is correctly configured: %m");
                         if (r == 0) {
                                 /* LOOP_CONFIGURE doesn't work. Remember that. */
                                 loop_configure_broken = true;
@@ -363,12 +367,12 @@ static int loop_configure(
                 /* Let's read the seqnum again, to shorten the window. */
                 r = get_current_uevent_seqnum(&seqnum);
                 if (r < 0)
-                        return r;
+                        return log_device_debug_errno(dev, r, "Failed to get the current uevent seqnum: %m");
 
                 timestamp = now(CLOCK_MONOTONIC);
 
                 if (ioctl(fd, LOOP_SET_FD, c->fd) < 0)
-                        return -errno;
+                        return log_device_debug_errno(dev, errno, "ioctl(LOOP_SET_FD) failed: %m");
 
                 loop_with_fd = TAKE_FD(fd);
 
@@ -379,14 +383,14 @@ static int loop_configure(
 
         r = fd_get_diskseq(loop_with_fd, &diskseq);
         if (r < 0 && r != -EOPNOTSUPP)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to get diskseq: %m");
 
         switch (lock_op & ~LOCK_NB) {
         case LOCK_EX: /* Already in effect */
                 break;
         case LOCK_SH: /* Downgrade */
                 if (flock(lock_fd, lock_op) < 0)
-                        return -errno;
+                        return log_device_debug_errno(dev, errno, "Failed to downgrade lock level: %m");
                 break;
         case LOCK_UN: /* Release */
                 lock_fd = safe_close(lock_fd);
@@ -397,7 +401,7 @@ static int loop_configure(
 
         LoopDevice *d = new(LoopDevice, 1);
         if (!d)
-                return -ENOMEM;
+                return log_oom_debug();
 
         *d = (LoopDevice) {
                 .n_ref = 1,
@@ -549,6 +553,7 @@ static int loop_device_make_internal(
         /* Loop around LOOP_CTL_GET_FREE, since at the moment we attempt to open the returned device it might
          * be gone already, taken by somebody else racing against us. */
         for (unsigned n_attempts = 0;;) {
+                usec_t usec;
                 int nr;
 
                 /* Let's take a lock on the control device first. On a busy system, where many programs
@@ -590,11 +595,15 @@ static int loop_device_make_internal(
 
                 /* Wait some random time, to make collision less likely. Let's pick a random time in the
                  * range 0ms…250ms, linearly scaled by the number of failed attempts. */
-                (void) usleep(random_u64_range(UINT64_C(10) * USEC_PER_MSEC +
-                                               UINT64_C(240) * USEC_PER_MSEC * n_attempts/64));
+                usec = random_u64_range(UINT64_C(10) * USEC_PER_MSEC +
+                                        UINT64_C(240) * USEC_PER_MSEC * n_attempts/64);
+                log_debug("Trying again after %s.", FORMAT_TIMESPAN(usec, USEC_PER_MSEC));
+                (void) usleep(usec);
         }
 
         d->backing_file = TAKE_PTR(backing_file);
+        d->backing_inode = st.st_ino;
+        d->backing_devno = st.st_dev;
 
         log_debug("Successfully acquired %s, devno=%u:%u, nr=%i, diskseq=%" PRIu64,
                   d->node,
@@ -841,11 +850,12 @@ int loop_device_open(
 
         _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
         _cleanup_free_ char *node = NULL, *backing_file = NULL;
+        dev_t devnum, backing_devno = 0;
         struct loop_info64 info;
+        ino_t backing_inode = 0;
         uint64_t diskseq = 0;
         LoopDevice *d;
         const char *s;
-        dev_t devnum;
         int r, nr = -1;
 
         assert(dev);
@@ -878,6 +888,9 @@ int loop_device_open(
                         if (!backing_file)
                                 return -ENOMEM;
                 }
+
+                backing_devno = info.lo_device;
+                backing_inode = info.lo_inode;
         }
 
         r = fd_get_diskseq(fd, &diskseq);
@@ -913,6 +926,8 @@ int loop_device_open(
                 .node = TAKE_PTR(node),
                 .dev = sd_device_ref(dev),
                 .backing_file = TAKE_PTR(backing_file),
+                .backing_inode = backing_inode,
+                .backing_devno = backing_devno,
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
                 .devno = devnum,
                 .diskseq = diskseq,
@@ -1102,4 +1117,58 @@ int loop_device_sync(LoopDevice *d) {
          * we can check the return value though. */
 
         return RET_NERRNO(fsync(d->fd));
+}
+
+int loop_device_set_autoclear(LoopDevice *d, bool autoclear) {
+        struct loop_info64 info;
+
+        assert(d);
+
+        if (ioctl(d->fd, LOOP_GET_STATUS64, &info) < 0)
+                return -errno;
+
+        if (autoclear == FLAGS_SET(info.lo_flags, LO_FLAGS_AUTOCLEAR))
+                return 0;
+
+        SET_FLAG(info.lo_flags, LO_FLAGS_AUTOCLEAR, autoclear);
+
+        if (ioctl(d->fd, LOOP_SET_STATUS64, &info) < 0)
+                return -errno;
+
+        return 1;
+}
+
+int loop_device_set_filename(LoopDevice *d, const char *name) {
+        struct loop_info64 info;
+
+        assert(d);
+
+        /* Sets the .lo_file_name of the loopback device. This is supposed to contain the path to the file
+         * backing the block device, but is actually just a free-form string you can pass to the kernel. Most
+         * tools that actually care for the backing file path use the sysfs attribute file loop/backing_file
+         * which is a kernel generated string, subject to file system namespaces and such.
+         *
+         * .lo_file_name is useful since userspace can select it freely when creating a loopback block
+         * device, and we can use it for /dev/loop/by-ref/ symlinks, and similar, so that apps can recognize
+         * their own loopback files. */
+
+        if (name && strlen(name) >= sizeof(info.lo_file_name))
+                return -ENOBUFS;
+
+        if (ioctl(d->fd, LOOP_GET_STATUS64, &info) < 0)
+                return -errno;
+
+        if (strneq((char*) info.lo_file_name, strempty(name), sizeof(info.lo_file_name)))
+                return 0;
+
+        if (name) {
+                strncpy((char*) info.lo_file_name, name, sizeof(info.lo_file_name)-1);
+                info.lo_file_name[sizeof(info.lo_file_name)-1] = 0;
+        } else
+                memzero(info.lo_file_name, sizeof(info.lo_file_name));
+
+        if (ioctl(d->fd, LOOP_SET_STATUS64, &info) < 0)
+                return -errno;
+
+        return 1;
 }

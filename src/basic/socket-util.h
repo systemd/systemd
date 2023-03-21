@@ -306,7 +306,7 @@ struct timespec_large {
 
 ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags);
 
-int socket_get_family(int fd, int *ret);
+int socket_get_family(int fd);
 int socket_set_recvpktinfo(int fd, int af, bool b);
 int socket_set_unicast_if(int fd, int af, int ifi);
 

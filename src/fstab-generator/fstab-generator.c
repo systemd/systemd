@@ -9,6 +9,7 @@
 #include "bus-locator.h"
 #include "chase-symlinks.h"
 #include "efi-loader.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fstab-util.h"
@@ -626,14 +627,7 @@ static int do_daemon_reload(void) {
         FOREACH_STRING(unit, SPECIAL_INITRD_FS_TARGET, SPECIAL_SWAP_TARGET) {
                 log_info("Requesting %s/start/replace...", unit);
 
-                k = sd_bus_call_method(bus,
-                                       "org.freedesktop.systemd1",
-                                       "/org/freedesktop/systemd1",
-                                       "org.freedesktop.systemd1.Manager",
-                                       "StartUnit",
-                                       &error,
-                                       NULL,
-                                       "ss", unit, "replace");
+                k = bus_call_method(bus, bus_systemd_mgr, "StartUnit", &error, NULL, "ss", unit, "replace");
                 if (k < 0) {
                         log_error_errno(k, "Failed to (re)start %s: %s", unit, bus_error_message(&error, r));
                         if (r == 0)
@@ -648,11 +642,24 @@ static const char* sysroot_fstab_path(void) {
         return getenv("SYSTEMD_SYSROOT_FSTAB") ?: "/sysroot/etc/fstab";
 }
 
+static int add_sysusr_sysroot_usr_bind_mount(const char *source) {
+        return add_mount(source,
+                        arg_dest,
+                        "/sysusr/usr",
+                        "/sysroot/usr",
+                        NULL,
+                        NULL,
+                        "bind",
+                        0,
+                        0,
+                        SPECIAL_INITRD_FS_TARGET);
+}
+
 static int parse_fstab(bool initrd) {
         _cleanup_endmntent_ FILE *f = NULL;
         const char *fstab;
         struct mntent *me;
-        int r = 0;
+        int r = 0, sysfs_check = -1;
 
         if (initrd)
                 fstab = sysroot_fstab_path();
@@ -690,7 +697,14 @@ static int parse_fstab(bool initrd) {
                                 continue;
                         }
 
-                        if (is_device_path(what)) {
+                        if (sysfs_check < 0) {
+                                r = getenv_bool_secure("SYSTEMD_SYSFS_CHECK");
+                                if (r < 0 && r != -ENXIO)
+                                        log_debug_errno(r, "Failed to parse $SYSTEMD_SYSFS_CHECK, ignoring: %m");
+                                sysfs_check = r != 0;
+                        }
+
+                        if (sysfs_check && is_device_path(what)) {
                                 log_info("/sys/ is read-only (running in a container?), ignoring fstab device entry for %s.", what);
                                 continue;
                         }
@@ -751,7 +765,7 @@ static int parse_fstab(bool initrd) {
                 if (streq(me->mnt_type, "swap"))
                         k = add_swap(fstab, what, me, flags);
                 else {
-                        bool rw_only, automount;
+                        bool rw_only, automount, is_sysroot, is_sysroot_usr;
 
                         rw_only = fstab_test_option(me->mnt_opts, "x-systemd.rw-only\0");
                         automount = fstab_test_option(me->mnt_opts,
@@ -761,21 +775,43 @@ static int parse_fstab(bool initrd) {
                         flags |= rw_only * MOUNT_RW_ONLY |
                                  automount * MOUNT_AUTOMOUNT;
 
+                        is_sysroot = in_initrd() && path_equal(where, "/sysroot");
+                        /* See comment from add_sysroot_usr_mount about the need for extra indirection
+                         * in case /usr needs to be mounted in order for the root fs to be synthesized
+                         * based on configuration included in /usr/, e.g. systemd-repart. */
+                        is_sysroot_usr = in_initrd() && path_equal(where, "/sysroot/usr");
+
                         const char *target_unit =
                                 initrd ?               SPECIAL_INITRD_FS_TARGET :
+                                is_sysroot ?           SPECIAL_INITRD_ROOT_FS_TARGET :
+                                is_sysroot_usr ?       SPECIAL_INITRD_USR_FS_TARGET :
                                 mount_is_network(me) ? SPECIAL_REMOTE_FS_TARGET :
                                                        SPECIAL_LOCAL_FS_TARGET;
+
+                        if (is_sysroot && is_device_path(what)) {
+                                r = generator_write_initrd_root_device_deps(arg_dest, what);
+                                if (r < 0)
+                                        return r;
+                        }
 
                         k = add_mount(fstab,
                                       arg_dest,
                                       what,
-                                      canonical_where ?: where,
-                                      canonical_where ? where: NULL,
+                                      is_sysroot_usr ? "/sysusr/usr" : canonical_where ?: where,
+                                      !is_sysroot_usr && canonical_where ? where : NULL,
                                       me->mnt_type,
                                       me->mnt_opts,
                                       me->mnt_passno,
                                       flags,
                                       target_unit);
+
+                        if (is_sysroot_usr && k >= 0) {
+                                log_debug("Synthesizing fstab entry what=/sysusr/usr where=/sysroot/usr opts=bind");
+
+                                r = add_sysusr_sysroot_usr_bind_mount(fstab);
+                                if (r != 0)
+                                        k = r;
+                        }
                 }
 
                 if (arg_sysroot_check && k > 0)
@@ -853,6 +889,10 @@ static int add_sysroot_mount(void) {
         if (streq(arg_root_what, "gpt-auto")) {
                 /* This is handled by gpt-auto-generator */
                 log_debug("Skipping root directory handling, as gpt-auto was requested.");
+                return 0;
+        } else if (streq(arg_root_what, "fstab")) {
+                /* This is handled by parse_fstab */
+                log_debug("Using initrd's fstab for /sysroot/ configuration.");
                 return 0;
         }
 
@@ -974,6 +1014,11 @@ static int add_sysroot_usr_mount(void) {
                 log_debug("Skipping /usr/ directory handling, as gpt-auto was requested.");
                 return 1; /* systemd-gpt-auto-generator will generate a unit for this, hence report that a
                            * unit file is being created for the host /usr/ mount. */
+        } else if (streq(arg_usr_what, "fstab")) {
+                /* This is handled by parse_fstab */
+                log_debug("Using initrd's fstab for /sysroot/usr/ configuration.");
+                return 1; /* parse_fstab will generate a unit for this, hence report that a
+                           * unit file is being created for the host /usr/ mount. */
         }
 
         if (path_equal(arg_usr_what, "/dev/nfs")) {
@@ -1018,18 +1063,9 @@ static int add_sysroot_usr_mount(void) {
         if (r < 0)
                 return r;
 
-        log_debug("Synthesizing entry what=/sysusr/usr where=/sysrootr/usr opts=bind");
+        log_debug("Synthesizing entry what=/sysusr/usr where=/sysroot/usr opts=bind");
 
-        r = add_mount("/proc/cmdline",
-                      arg_dest,
-                      "/sysusr/usr",
-                      "/sysroot/usr",
-                      NULL,
-                      NULL,
-                      "bind",
-                      0,
-                      0,
-                      SPECIAL_INITRD_FS_TARGET);
+        r = add_sysusr_sysroot_usr_bind_mount("/proc/cmdline");
         if (r < 0)
                 return r;
 

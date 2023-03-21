@@ -54,6 +54,10 @@ All tools:
 * `$SYSTEMD_SYSROOT_FSTAB` — if set, use this path instead of
   `/sysroot/etc/fstab`. Only useful for debugging `systemd-fstab-generator`.
 
+* `$SYSTEMD_SYSFS_CHECK` — takes a boolean. If set, overrides sysfs container
+  detection that ignores `/dev/` entries in fstab. Only useful for debugging
+  `systemd-fstab-generator`.
+
 * `$SYSTEMD_CRYPTTAB` — if set, use this path instead of `/etc/crypttab`. Only
   useful for debugging. Currently only supported by
   `systemd-cryptsetup-generator`.
@@ -516,3 +520,9 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   systemd-stub. Normally, requested measurement of resources is conditionalized
   on kernels that have booted with `systemd-stub`. With this environment
   variable the test for that my be bypassed, for testing purposes.
+
+`systemd-repart`:
+
+* `$SYSTEMD_REPART_MKFS_OPTIONS_<FSTYPE>` – configure additional arguments to use for
+  `mkfs` when formatting partition file systems. There's one variable for each
+  of the supported file systems.

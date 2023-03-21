@@ -932,7 +932,7 @@ Minimize=guess
 EOF
     done
 
-    if ! command -v mksquashfs >/dev/null; then
+    if command -v mksquashfs >/dev/null; then
         tee "$defs/root-squashfs.conf" <<EOF
 [Partition]
 Type=root-${architecture}

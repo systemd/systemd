@@ -3263,8 +3263,21 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
                 if (r < 0)
                         return log_error_errno(r, "Failed to sync loopback device: %m");
         } else if (t->fd >= 0) {
+                struct stat st;
+
                 if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
                         return log_error_errno(errno, "Failed to seek to partition offset: %m");
+
+                if (lseek(t->fd, 0, SEEK_SET) == (off_t) -1)
+                        return log_error_errno(errno, "Failed to seek to start of temporary file: %m");
+
+                if (fstat(t->fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat temporary file: %m");
+
+                if (st.st_size > (off_t) p->new_size)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
+                                               "Partition %" PRIu64 "'s contents (%s) don't fit in the partition (%s)",
+                                               p->partno, FORMAT_BYTES(st.st_size), FORMAT_BYTES(p->new_size));
 
                 r = copy_bytes(t->fd, whole_fd, UINT64_MAX, COPY_REFLINK|COPY_HOLES|COPY_FSYNC);
                 if (r < 0)
@@ -3550,6 +3563,8 @@ static int partition_format_verity_hash(
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
 
+        cryptsetup_enable_logging(cd);
+
         r = sym_crypt_format(
                         cd, CRYPT_VERITY, NULL, NULL, NULL, NULL, 0,
                         &(struct crypt_params_verity){
@@ -3561,8 +3576,17 @@ static int partition_format_verity_hash(
                                 .hash_block_size = context->sector_size,
                                 .salt_size = 32,
                         });
-        if (r < 0)
+        if (r < 0) {
+                /* libcryptsetup reports non-descriptive EIO errors for every I/O failure. Luckily, it
+                 * doesn't clobber errno so let's check for ENOSPC so we can report a better error if the
+                 * partition is too small. */
+                if (r == -EIO && errno == ENOSPC)
+                        return log_error_errno(errno,
+                                               "Verity hash data does not fit in partition %"PRIu64" with size %s",
+                                               p->partno, FORMAT_BYTES(p->new_size));
+
                 return log_error_errno(r, "Failed to setup verity hash data: %m");
+        }
 
         r = partition_target_sync(context, p, t);
         if (r < 0)
@@ -3653,7 +3677,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         _cleanup_free_ char *text = NULL;
         Partition *hp;
         uint8_t fp[X509_FINGERPRINT_SIZE];
-        size_t sigsz = 0, padsz; /* avoid false maybe-uninitialized warning */
+        size_t sigsz = 0; /* avoid false maybe-uninitialized warning */
         int whole_fd, r;
 
         assert(p->verity == VERITY_SIG);
@@ -3699,17 +3723,14 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         if (r < 0)
                 return log_error_errno(r, "Failed to format JSON object: %m");
 
-        padsz = round_up_size(strlen(text), 4096);
-        assert_se(padsz <= p->new_size);
-
-        r = strgrowpad0(&text, padsz);
+        r = strgrowpad0(&text, p->new_size);
         if (r < 0)
-                return log_error_errno(r, "Failed to pad string to %s", FORMAT_BYTES(padsz));
+                return log_error_errno(r, "Failed to pad string to %s", FORMAT_BYTES(p->new_size));
 
         if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
                 return log_error_errno(errno, "Failed to seek to partition offset: %m");
 
-        r = loop_write(whole_fd, text, padsz, /*do_poll=*/ false);
+        r = loop_write(whole_fd, text, p->new_size, /*do_poll=*/ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to write verity signature to partition: %m");
 
@@ -4021,7 +4042,7 @@ static int add_exclude_path(const char *path, Hashmap **denylist, DenyType type)
         if (!st)
                 return log_oom();
 
-        r = chase_symlinks_and_stat(path, arg_root, CHASE_PREFIX_ROOT, NULL, st, NULL);
+        r = chase_symlinks_and_stat(path, arg_root, CHASE_PREFIX_ROOT, NULL, st);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -4092,6 +4113,7 @@ static int context_mkfs(Context *context) {
                 _cleanup_hashmap_free_ Hashmap *denylist = NULL;
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
+                _cleanup_strv_free_ char **extra_mkfs_options = NULL;
 
                 if (p->dropped)
                         continue;
@@ -4143,8 +4165,14 @@ static int context_mkfs(Context *context) {
                                 return r;
                 }
 
+                r = mkfs_options_from_env("REPART", p->format, &extra_mkfs_options);
+                if (r < 0)
+                        return log_error_errno(r,
+                                               "Failed to determine mkfs command line options for '%s': %m",
+                                               p->format);
+
                 r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label), root,
-                                    p->fs_uuid, arg_discard, context->sector_size, NULL);
+                                    p->fs_uuid, arg_discard, context->sector_size, extra_mkfs_options);
                 if (r < 0)
                         return r;
 
@@ -5413,6 +5441,7 @@ static int context_minimize(Context *context) {
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(unlink_and_freep) char *temp = NULL;
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+                _cleanup_strv_free_ char **extra_mkfs_options = NULL;
                 _cleanup_close_ int fd = -EBADF;
                 sd_id128_t fs_uuid;
                 uint64_t fsz;
@@ -5477,8 +5506,14 @@ static int context_minimize(Context *context) {
                                 return r;
                 }
 
+                r = mkfs_options_from_env("REPART", p->format, &extra_mkfs_options);
+                if (r < 0)
+                        return log_error_errno(r,
+                                               "Failed to determine mkfs command line options for '%s': %m",
+                                               p->format);
+
                 r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, fs_uuid,
-                                    arg_discard, context->sector_size, NULL);
+                                    arg_discard, context->sector_size, extra_mkfs_options);
                 if (r < 0)
                         return r;
 
@@ -5532,7 +5567,7 @@ static int context_minimize(Context *context) {
                         return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
 
                 r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, p->fs_uuid,
-                                    arg_discard, context->sector_size, NULL);
+                                    arg_discard, context->sector_size, extra_mkfs_options);
                 if (r < 0)
                         return r;
 
@@ -5584,7 +5619,7 @@ static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        r = terminal_urlify_man("systemd-repart", "1", &link);
+        r = terminal_urlify_man("systemd-repart", "8", &link);
         if (r < 0)
                 return log_oom();
 

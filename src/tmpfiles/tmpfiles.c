@@ -196,7 +196,7 @@ typedef enum {
 } CreationMode;
 
 static bool arg_cat_config = false;
-static bool arg_user = false;
+static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static OperationMask arg_operation = 0;
 static bool arg_boot = false;
 static PagerFlags arg_pager_flags = 0;
@@ -262,7 +262,7 @@ static int specifier_directory(char specifier, const void *data, const char *roo
         int r;
 
         assert_cc(ELEMENTSOF(paths_system) == ELEMENTSOF(paths_user));
-        paths = arg_user ? paths_user : paths_system;
+        paths = arg_runtime_scope == RUNTIME_SCOPE_USER ? paths_user : paths_system;
 
         i = PTR_TO_UINT(data);
         assert(i < ELEMENTSOF(paths_system));
@@ -305,7 +305,7 @@ static int log_unresolvable_specifier(const char *filename, unsigned line) {
                    log_level,
                    filename, line, 0,
                    "Failed to resolve specifier: %s, skipping.",
-                   arg_user ? "Required $XDG_... variable not defined" : "uninitialized /etc/ detected");
+                   arg_runtime_scope == RUNTIME_SCOPE_USER ? "Required $XDG_... variable not defined" : "uninitialized /etc/ detected");
 
         if (!notified)
                 log_full(log_level,
@@ -2286,7 +2286,7 @@ static int rm_if_wrong_type_safe(
                 return 0;
 
         (void) fd_get_path(parent_fd, &parent_name);
-        log_notice("Wrong file type 0x%x; rm -rf \"%s/%s\"", st.st_mode & S_IFMT, strna(parent_name), name);
+        log_notice("Wrong file type 0o%o; rm -rf \"%s/%s\"", st.st_mode & S_IFMT, strna(parent_name), name);
 
         /* If the target of the symlink was the wrong type, the link needs to be removed instead of the
          * target, so make sure it is identified as a link and not a directory. */
@@ -3191,7 +3191,7 @@ static int parse_line(
                 { 'S', specifier_directory,       UINT_TO_PTR(DIRECTORY_STATE)   },
                 { 't', specifier_directory,       UINT_TO_PTR(DIRECTORY_RUNTIME) },
 
-                COMMON_CREDS_SPECIFIERS(arg_user ? LOOKUP_SCOPE_USER : LOOKUP_SCOPE_SYSTEM),
+                COMMON_CREDS_SPECIFIERS(arg_runtime_scope),
                 COMMON_TMP_SPECIFIERS,
                 {}
         };
@@ -3756,7 +3756,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_USER:
-                        arg_user = true;
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
                 case ARG_CREATE:
@@ -3842,7 +3842,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "When --replace= is given, some configuration items must be specified");
 
-        if (arg_root && arg_user)
+        if (arg_root && arg_runtime_scope == RUNTIME_SCOPE_USER)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Combination of --user and --root= is not supported.");
 
@@ -4090,14 +4090,22 @@ static int run(int argc, char *argv[]) {
         /* Descending down file system trees might take a lot of fds */
         (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
 
-        if (arg_user) {
+        switch (arg_runtime_scope) {
+
+        case RUNTIME_SCOPE_USER:
                 r = user_config_paths(&config_dirs);
                 if (r < 0)
                         return log_error_errno(r, "Failed to initialize configuration directory list: %m");
-        } else {
+                break;
+
+        case RUNTIME_SCOPE_SYSTEM:
                 config_dirs = strv_split_nulstr(CONF_PATHS_NULSTR("tmpfiles.d"));
                 if (!config_dirs)
                         return log_oom();
+                break;
+
+        default:
+                assert_not_reached();
         }
 
         if (DEBUG_LOGGING) {

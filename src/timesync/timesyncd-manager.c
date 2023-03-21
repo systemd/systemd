@@ -15,6 +15,7 @@
 
 #include "alloc-util.h"
 #include "bus-polkit.h"
+#include "common-signal.h"
 #include "dns-domain.h"
 #include "event-util.h"
 #include "fd-util.h"
@@ -972,10 +973,10 @@ static int manager_network_read_link_servers(Manager *m) {
         assert(m);
 
         r = sd_network_get_ntp(&ntp);
-        if (r < 0) {
+        if (r < 0 && r != -ENODATA) {
                 if (r == -ENOMEM)
                         log_oom();
-                else if (r != -ENODATA)
+                else
                         log_debug_errno(r, "Failed to get link NTP servers: %m");
                 goto clear;
         }
@@ -1129,6 +1130,11 @@ int manager_new(Manager **ret) {
 
         (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL,  NULL);
         (void) sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+        (void) sd_event_add_signal(m->event, NULL, SIGRTMIN+18, sigrtmin18_handler, NULL);
+
+        r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
 
         (void) sd_event_set_watchdog(m->event, true);
 

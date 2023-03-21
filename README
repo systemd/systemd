@@ -216,7 +216,7 @@ REQUIREMENTS:
         awk, sed, grep, and similar tools
         clang >= 10.0, llvm >= 10.0 (optional, required to build BPF programs
                 from source code in C)
-        gnu-efi >= 3.0.5 (optional, required for systemd-boot)
+        pyelftools (optional, required for systemd-boot)
 
         During runtime, you need the following additional
         dependencies:
@@ -305,7 +305,7 @@ USERS AND GROUPS:
         group to exist. New journal files will be readable by this group (but
         not writable), which may be used to grant specific users read access. In
         addition, system groups "wheel" and "adm" will be given read-only access
-        to journal files using systemd-tmpfiles.service.
+        to journal files using systemd-tmpfiles-setup.service.
 
         The journal remote daemon requires the "systemd-journal-remote" system
         user and group to exist. During execution this network facing service

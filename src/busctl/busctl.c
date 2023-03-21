@@ -27,6 +27,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "runtime-scope.h"
 #include "set.h"
 #include "sort-util.h"
 #include "strv.h"
@@ -47,7 +48,7 @@ static bool arg_show_machine = false;
 static char **arg_matches = NULL;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
-static bool arg_user = false;
+static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static size_t arg_snaplen = 4096;
 static bool arg_list = false;
 static bool arg_quiet = false;
@@ -109,10 +110,21 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
                 switch (arg_transport) {
 
                 case BUS_TRANSPORT_LOCAL:
-                        if (arg_user)
+
+                        switch (arg_runtime_scope) {
+
+                        case RUNTIME_SCOPE_USER:
                                 r = bus_set_address_user(bus);
-                        else
+                                break;
+
+                        case RUNTIME_SCOPE_SYSTEM:
                                 r = bus_set_address_system(bus);
+                                break;
+
+                        default:
+                                assert_not_reached();
+                        }
+
                         break;
 
                 case BUS_TRANSPORT_REMOTE:
@@ -120,7 +132,7 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
                         break;
 
                 case BUS_TRANSPORT_MACHINE:
-                        r = bus_set_address_machine(bus, arg_user, arg_host);
+                        r = bus_set_address_machine(bus, arg_runtime_scope, arg_host);
                         break;
 
                 default:
@@ -2405,11 +2417,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_USER:
-                        arg_user = true;
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
                 case ARG_SYSTEM:
-                        arg_user = false;
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
                 case ARG_ADDRESS:

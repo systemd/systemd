@@ -31,6 +31,7 @@
 #include "bus-util.h"
 #include "clean-ipc.h"
 #include "clock-util.h"
+#include "common-signal.h"
 #include "constants.h"
 #include "core-varlink.h"
 #include "creds-util.h"
@@ -69,6 +70,7 @@
 #include "path-lookup.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "psi-util.h"
 #include "ratelimit.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
@@ -567,7 +569,11 @@ static int manager_setup_signals(Manager *m) {
                         SIGRTMIN+15, /* systemd: Immediate reboot */
                         SIGRTMIN+16, /* systemd: Immediate kexec */
 
-                        /* ... space for more immediate system state changes ... */
+                        /* ... space for one more immediate system state change ... */
+
+                        SIGRTMIN+18, /* systemd: control command */
+
+                        /* ... space ... */
 
                         SIGRTMIN+20, /* systemd: enable status messages */
                         SIGRTMIN+21, /* systemd: disable status messages */
@@ -638,6 +644,8 @@ static char** sanitize_environment(char **l) {
                         "LOG_NAMESPACE",
                         "MAINPID",
                         "MANAGERPID",
+                        "MEMORY_PRESSURE_WATCH",
+                        "MEMORY_PRESSURE_WRITE",
                         "MONITOR_EXIT_CODE",
                         "MONITOR_EXIT_STATUS",
                         "MONITOR_INVOCATION_ID",
@@ -787,6 +795,31 @@ static int manager_setup_sigchld_event_source(Manager *m) {
         return 0;
 }
 
+int manager_setup_memory_pressure_event_source(Manager *m) {
+        int r;
+
+        assert(m);
+
+        m->memory_pressure_event_source = sd_event_source_disable_unref(m->memory_pressure_event_source);
+
+        r = sd_event_add_memory_pressure(m->event, &m->memory_pressure_event_source, NULL, NULL);
+        if (r < 0)
+                log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || (r == -EHOSTDOWN) ? LOG_DEBUG : LOG_NOTICE, r,
+                               "Failed to establish memory pressure event source, ignoring: %m");
+        else if (m->default_memory_pressure_threshold_usec != USEC_INFINITY) {
+
+                /* If there's a default memory pressure threshold set, also apply it to the service manager itself */
+                r = sd_event_source_set_memory_pressure_period(
+                                m->memory_pressure_event_source,
+                                m->default_memory_pressure_threshold_usec,
+                                MEMORY_PRESSURE_DEFAULT_WINDOW_USEC);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to adjust memory pressure threshold, ignoring: %m");
+        }
+
+        return 0;
+}
+
 static int manager_find_credentials_dirs(Manager *m) {
         const char *e;
         int r;
@@ -822,19 +855,19 @@ void manager_set_switching_root(Manager *m, bool switching_root) {
         m->switching_root = MANAGER_IS_SYSTEM(m) && switching_root;
 }
 
-int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager **_m) {
+int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, Manager **_m) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
         assert(_m);
-        assert(IN_SET(scope, LOOKUP_SCOPE_SYSTEM, LOOKUP_SCOPE_USER));
+        assert(IN_SET(runtime_scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER));
 
         m = new(Manager, 1);
         if (!m)
                 return -ENOMEM;
 
         *m = (Manager) {
-                .unit_file_scope = scope,
+                .runtime_scope = runtime_scope,
                 .objective = _MANAGER_OBJECTIVE_INVALID,
 
                 .status_unit_format = STATUS_UNIT_FORMAT_DEFAULT,
@@ -843,10 +876,10 @@ int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager *
                 .default_memory_accounting = MEMORY_ACCOUNTING_DEFAULT,
                 .default_tasks_accounting = true,
                 .default_tasks_max = TASKS_MAX_UNSET,
-                .default_timeout_start_usec = manager_default_timeout(scope == LOOKUP_SCOPE_SYSTEM),
-                .default_timeout_stop_usec = manager_default_timeout(scope == LOOKUP_SCOPE_SYSTEM),
+                .default_timeout_start_usec = manager_default_timeout(runtime_scope),
+                .default_timeout_stop_usec = manager_default_timeout(runtime_scope),
                 .default_restart_usec = DEFAULT_RESTART_USEC,
-                .default_device_timeout_usec = manager_default_timeout(scope == LOOKUP_SCOPE_SYSTEM),
+                .default_device_timeout_usec = manager_default_timeout(runtime_scope),
 
                 .original_log_level = -1,
                 .original_log_target = _LOG_TARGET_INVALID,
@@ -877,6 +910,9 @@ int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager *
                 .test_run_flags = test_run_flags,
 
                 .default_oom_policy = OOM_STOP,
+
+                .default_memory_pressure_watch = CGROUP_PRESSURE_WATCH_AUTO,
+                .default_memory_pressure_threshold_usec = USEC_INFINITY,
         };
 
 #if ENABLE_EFI
@@ -964,6 +1000,10 @@ int manager_new(LookupScope scope, ManagerTestRunFlags test_run_flags, Manager *
                 (void) manager_setup_timezone_change(m);
 
                 r = manager_setup_sigchld_event_source(m);
+                if (r < 0)
+                        return r;
+
+                r = manager_setup_memory_pressure_event_source(m);
                 if (r < 0)
                         return r;
 
@@ -1541,6 +1581,7 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->jobs_in_progress_event_source);
         sd_event_source_unref(m->run_queue_event_source);
         sd_event_source_unref(m->user_lookup_event_source);
+        sd_event_source_unref(m->memory_pressure_event_source);
 
         safe_close(m->signal_fd);
         safe_close(m->notify_fd);
@@ -1749,7 +1790,7 @@ static void manager_preset_all(Manager *m) {
         /* If this is the first boot, and we are in the host system, then preset everything */
         UnitFilePresetMode mode = FIRST_BOOT_FULL_PRESET ? UNIT_FILE_PRESET_FULL : UNIT_FILE_PRESET_ENABLE_ONLY;
 
-        r = unit_file_preset_all(LOOKUP_SCOPE_SYSTEM, 0, NULL, mode, NULL, 0);
+        r = unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, 0, NULL, mode, NULL, 0);
         if (r < 0)
                 log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
                                "Failed to populate /etc with preset unit settings, ignoring: %m");
@@ -1798,7 +1839,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
 
         /* If we are running in test mode, we still want to run the generators,
          * but we should not touch the real generator directories. */
-        r = lookup_paths_init_or_warn(&m->lookup_paths, m->unit_file_scope,
+        r = lookup_paths_init_or_warn(&m->lookup_paths, m->runtime_scope,
                                       MANAGER_IS_TEST_RUN(m) ? LOOKUP_PATHS_TEMPORARY_GENERATED : 0,
                                       root);
         if (r < 0)
@@ -2892,6 +2933,47 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
                 switch (sfsi.ssi_signo - SIGRTMIN) {
 
+                case 18: {
+                        bool generic = false;
+
+                        if (sfsi.ssi_code != SI_QUEUE)
+                                generic = true;
+                        else {
+                                /* Override a few select commands by our own PID1-specific logic */
+
+                                switch (sfsi.ssi_int) {
+
+                                case _COMMON_SIGNAL_COMMAND_LOG_LEVEL_BASE..._COMMON_SIGNAL_COMMAND_LOG_LEVEL_END:
+                                        manager_override_log_level(m, sfsi.ssi_int - _COMMON_SIGNAL_COMMAND_LOG_LEVEL_BASE);
+                                        break;
+
+                                case COMMON_SIGNAL_COMMAND_CONSOLE:
+                                        manager_override_log_target(m, LOG_TARGET_CONSOLE);
+                                        break;
+
+                                case COMMON_SIGNAL_COMMAND_JOURNAL:
+                                        manager_override_log_target(m, LOG_TARGET_JOURNAL);
+                                        break;
+
+                                case COMMON_SIGNAL_COMMAND_KMSG:
+                                        manager_override_log_target(m, LOG_TARGET_KMSG);
+                                        break;
+
+                                case COMMON_SIGNAL_COMMAND_NULL:
+                                        manager_override_log_target(m, LOG_TARGET_NULL);
+                                        break;
+
+                                default:
+                                        generic = true;
+                                }
+                        }
+
+                        if (generic)
+                                return sigrtmin18_handler(source, &sfsi, NULL);
+
+                        break;
+                }
+
                 case 20:
                         manager_override_show_status(m, SHOW_STATUS_YES, "signal");
                         break;
@@ -3382,7 +3464,7 @@ int manager_reload(Manager *m) {
         m->uid_refs = hashmap_free(m->uid_refs);
         m->gid_refs = hashmap_free(m->gid_refs);
 
-        r = lookup_paths_init_or_warn(&m->lookup_paths, m->unit_file_scope, 0, NULL);
+        r = lookup_paths_init_or_warn(&m->lookup_paths, m->runtime_scope, 0, NULL);
         if (r < 0)
                 return r;
 
@@ -3695,7 +3777,7 @@ static int manager_run_environment_generators(Manager *m) {
         if (MANAGER_IS_TEST_RUN(m) && !(m->test_run_flags & MANAGER_TEST_RUN_ENV_GENERATORS))
                 return 0;
 
-        paths = env_generator_binary_paths(MANAGER_IS_SYSTEM(m));
+        paths = env_generator_binary_paths(m->runtime_scope);
         if (!paths)
                 return log_oom();
 
@@ -3725,7 +3807,7 @@ static int build_generator_environment(Manager *m, char ***ret) {
         if (!nl)
                 return -ENOMEM;
 
-        r = strv_env_assign(&nl, "SYSTEMD_SCOPE", MANAGER_IS_SYSTEM(m) ? "system" : "user");
+        r = strv_env_assign(&nl, "SYSTEMD_SCOPE", runtime_scope_to_string(m->runtime_scope));
         if (r < 0)
                 return r;
 
@@ -3814,7 +3896,7 @@ static int manager_run_generators(Manager *m) {
         if (MANAGER_IS_TEST_RUN(m) && !(m->test_run_flags & MANAGER_TEST_RUN_GENERATORS))
                 return 0;
 
-        paths = generator_binary_paths(m->unit_file_scope);
+        paths = generator_binary_paths(m->runtime_scope);
         if (!paths)
                 return log_oom();
 

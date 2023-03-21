@@ -20,7 +20,7 @@ ConditionDirectoryNotEmpty=|/usr/lib/extensions
 
 DefaultDependencies=no
 After=local-fs.target
-Before=sysinit.target systemd-tmpfiles.service
+Before=sysinit.target systemd-tmpfiles-setup.service
 Conflicts=shutdown.target initrd-switch-root.target
 Before=shutdown.target initrd-switch-root.target
 

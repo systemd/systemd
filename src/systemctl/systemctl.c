@@ -71,7 +71,7 @@ char **arg_properties = NULL;
 bool arg_all = false;
 enum dependency arg_dependency = DEPENDENCY_FORWARD;
 const char *_arg_job_mode = NULL;
-LookupScope arg_scope = LOOKUP_SCOPE_SYSTEM;
+RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 bool arg_wait = false;
 bool arg_no_block = false;
 int arg_legend = -1; /* -1: true, unless --quiet is passed, 1: true */
@@ -323,6 +323,8 @@ static int systemctl_help(void) {
                "     --mkdir             Create directory before mounting, if missing\n"
                "     --marked            Restart/reload previously marked units\n"
                "     --drop-in=NAME      Edit unit files using the specified drop-in file name\n"
+               "     --when=TIME         Schedule halt/power-off/reboot/kexec action after\n"
+               "                         a certain timestamp\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -447,6 +449,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_MARKED,
                 ARG_NO_WARN,
                 ARG_DROP_IN,
+                ARG_WHEN,
         };
 
         static const struct option options[] = {
@@ -511,6 +514,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "mkdir",               no_argument,       NULL, ARG_MKDIR               },
                 { "marked",              no_argument,       NULL, ARG_MARKED              },
                 { "drop-in",             required_argument, NULL, ARG_DROP_IN             },
+                { "when",                required_argument, NULL, ARG_WHEN                },
                 {}
         };
 
@@ -646,15 +650,15 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_USER:
-                        arg_scope = LOOKUP_SCOPE_USER;
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
                 case ARG_SYSTEM:
-                        arg_scope = LOOKUP_SCOPE_SYSTEM;
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
                 case ARG_GLOBAL:
-                        arg_scope = LOOKUP_SCOPE_GLOBAL;
+                        arg_runtime_scope = RUNTIME_SCOPE_GLOBAL;
                         break;
 
                 case ARG_WAIT:
@@ -975,6 +979,30 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         arg_drop_in = optarg;
                         break;
 
+                case ARG_WHEN:
+                        if (streq(optarg, "show")) {
+                                r = logind_show_shutdown();
+                                if (r < 0 && r != -ENODATA)
+                                        return r;
+
+                                return 0;
+                        }
+
+                        if (STR_IN_SET(optarg, "", "cancel")) {
+                                arg_when = USEC_INFINITY;
+                                break;
+                        }
+
+                        r = parse_timestamp(optarg, &arg_when);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --when= argument '%s': %m", optarg);
+
+                        if (!timestamp_is_set(arg_when))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid timestamp '%s' specified for --when=.", optarg);
+
+                        break;
+
                 case '.':
                         /* Output an error mimicking getopt, and print a hint afterwards */
                         log_error("%s: invalid option -- '.'", program_invocation_name);
@@ -992,10 +1020,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
         /* If we are in --user mode, there's no point in talking to PolicyKit or the infra to query system
          * passwords */
-        if (arg_scope != LOOKUP_SCOPE_SYSTEM)
+        if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
                 arg_ask_password = false;
 
-        if (arg_transport == BUS_TRANSPORT_REMOTE && arg_scope != LOOKUP_SCOPE_SYSTEM)
+        if (arg_transport == BUS_TRANSPORT_REMOTE && arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Cannot access user instance remotely.");
 

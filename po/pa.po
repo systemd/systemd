@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
-# A S Alam <amanpreet.alam@gmail.com>, 2020, 2021.
+# A S Alam <amanpreet.alam@gmail.com>, 2020, 2021, 2023.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-10-20 10:35+0200\n"
-"PO-Revision-Date: 2021-01-24 16:38+0000\n"
+"PO-Revision-Date: 2023-03-14 02:20+0000\n"
 "Last-Translator: A S Alam <amanpreet.alam@gmail.com>\n"
 "Language-Team: Punjabi <https://translate.fedoraproject.org/projects/systemd/"
 "master/pa/>\n"
@@ -14,7 +14,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 4.4.2\n"
+"X-Generator: Weblate 4.15.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -57,7 +57,7 @@ msgstr "systemd ਹਾਲਤ ਮੁੜ ਲੋਡ ਕਰੋ"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
-msgstr ""
+msgstr "systemd ਹਾਲਤ ਲੋਡ ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
@@ -329,7 +329,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
-msgstr ""
+msgstr "ਸਿਸਟਮ ਨੂੰ ਬੰਦ ਕਰੋ"
 
 #: src/login/org.freedesktop.login1.policy:170
 msgid "Authentication is required to power off the system."
@@ -357,7 +357,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
-msgstr ""
+msgstr "ਸਿਸਟਮ ਨੂੰ ਮੁੜ ਚਾਲੂ ਕਰੋ"
 
 #: src/login/org.freedesktop.login1.policy:203
 msgid "Authentication is required to reboot the system."
@@ -385,7 +385,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
-msgstr ""
+msgstr "ਸਿਸਟਮ ਨੂੰ ਰੋਕ ਦਿਓ"
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid "Authentication is required to halt the system."
@@ -793,7 +793,7 @@ msgstr ""
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
-msgstr ""
+msgstr "ਸਿਸਟਮ ਸਮਾੰ ਸੈੱਟ ਕਰੋ"
 
 #: src/timedate/org.freedesktop.timedate1.policy:23
 msgid "Authentication is required to set the system time."

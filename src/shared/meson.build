@@ -35,6 +35,7 @@ shared_sources = files(
         'chown-recursive.c',
         'clean-ipc.c',
         'clock-util.c',
+        'common-signal.c',
         'compare-operator.c',
         'condition.c',
         'conf-parser.c',
@@ -53,6 +54,7 @@ shared_sources = files(
         'dm-util.c',
         'dns-domain.c',
         'dropin.c',
+        'edit-util.c',
         'efi-api.c',
         'efi-loader.c',
         'elf-util.c',
@@ -89,6 +91,7 @@ shared_sources = files(
         'journal-util.c',
         'json.c',
         'kbd-util.c',
+        'kernel-image.c',
         'keyring-util.c',
         'killall.c',
         'label.c',
@@ -97,7 +100,6 @@ shared_sources = files(
         'libmount-util.c',
         'local-addresses.c',
         'locale-setup.c',
-        'lockfile-util.c',
         'logs-show.c',
         'loop-util.c',
         'loopback-setup.c',
@@ -295,7 +297,8 @@ libshared_static = static_library(
         libshared_name,
         shared_sources,
         include_directories : includes,
-        dependencies : libshared_deps,
+        dependencies : [libshared_deps,
+                        userspace],
         c_args : ['-fvisibility=default'],
         build_by_default : false)
 
@@ -309,7 +312,8 @@ libshared = shared_library(
                       libbasic,
                       libbasic_gcrypt,
                       libsystemd_static],
-        dependencies : libshared_deps,
+        dependencies : [libshared_deps,
+                        userspace],
         install : true,
         install_dir : rootpkglibdir)
 
@@ -322,7 +326,8 @@ if get_option('fdisk') != 'false'
                 'shared-fdisk',
                 shared_fdisk_sources,
                 include_directories : includes,
-                dependencies : [libfdisk],
+                dependencies : [libfdisk,
+                                userspace],
                 c_args : ['-fvisibility=default'],
                 build_by_default : false)
 endif

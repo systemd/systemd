@@ -50,7 +50,7 @@ sanitize_address_undefined = custom_target(
 fuzz_sanitizers = [['address,undefined', sanitize_address_undefined]]
 fuzz_testsdir = 'test/fuzz'
 
-if git.found() and fs.exists(project_source_root / '.git')
+if git.found() and fs.is_dir(project_source_root / '.git')
         out = run_command(env, '-u', 'GIT_WORK_TREE',
                           git, '--git-dir=@0@/.git'.format(project_source_root),
                           'ls-files', ':/@0@/*/*'.format(fuzz_testsdir),

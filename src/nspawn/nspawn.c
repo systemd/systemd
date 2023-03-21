@@ -35,6 +35,7 @@
 #include "capability-util.h"
 #include "cgroup-util.h"
 #include "chase-symlinks.h"
+#include "common-signal.h"
 #include "copy.h"
 #include "cpu-set-util.h"
 #include "creds-util.h"
@@ -232,6 +233,7 @@ static size_t arg_n_credentials = 0;
 static char **arg_bind_user = NULL;
 static bool arg_suppress_sync = false;
 static char *arg_settings_filename = NULL;
+static Architecture arg_architecture = _ARCHITECTURE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_template, freep);
@@ -3220,8 +3222,6 @@ static int patch_sysctl(void) {
 
 static int inner_child(
                 Barrier *barrier,
-                const char *directory,
-                bool secondary,
                 int fd_inner_socket,
                 FDSet *fds,
                 char **os_release_pairs) {
@@ -3259,7 +3259,6 @@ static int inner_child(
          * unshare(). See below. */
 
         assert(barrier);
-        assert(directory);
         assert(fd_inner_socket >= 0);
 
         log_debug("Inner child is initializing.");
@@ -3401,11 +3400,16 @@ static int inner_child(
                 r = safe_personality(arg_personality);
                 if (r < 0)
                         return log_error_errno(r, "personality() failed: %m");
-        } else if (secondary) {
+#ifdef ARCHITECTURE_SECONDARY
+        } else if (arg_architecture == ARCHITECTURE_SECONDARY) {
                 r = safe_personality(PER_LINUX32);
                 if (r < 0)
                         return log_error_errno(r, "personality() failed: %m");
-        }
+#endif
+        } else if (arg_architecture >= 0 && arg_architecture != native_architecture())
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Selected architecture '%s' not supported locally, refusing.",
+                                       architecture_to_string(arg_architecture));
 
         r = setrlimit_closest_all((const struct rlimit *const*) arg_rlimit, &which_failed);
         if (r < 0)
@@ -3479,7 +3483,7 @@ static int inner_child(
 
         if (arg_user || !uid_is_valid(arg_uid) || arg_uid == 0)
                 if (asprintf(envp + n_env++, "USER=%s", arg_user ?: "root") < 0 ||
-                    asprintf(envp + n_env++, "LOGNAME=%s", arg_user ? arg_user : "root") < 0)
+                    asprintf(envp + n_env++, "LOGNAME=%s", arg_user ?: "root") < 0)
                         return log_oom();
 
         assert(!sd_id128_is_null(arg_uuid));
@@ -3635,7 +3639,6 @@ static int outer_child(
                 Barrier *barrier,
                 const char *directory,
                 DissectedImage *dissected_image,
-                bool secondary,
                 int fd_outer_socket,
                 int fd_inner_socket,
                 FDSet *fds,
@@ -3755,6 +3758,19 @@ static int outer_child(
                 directory = "/run/systemd/nspawn-root";
         }
 
+        /* Make sure we always have a mount that we can move to root later on. */
+        r = make_mount_point(directory);
+        if (r < 0)
+                return r;
+
+        /* So the whole tree is now MS_SLAVE, i.e. we'll still receive mount/umount events from the host
+         * mount namespace. For the directory we are going to run our container let's turn this off, so that
+         * we'll live in our own little world from now on, and propagation from the host may only happen via
+         * the mount tunnel dir, or not at all. */
+        r = mount_follow_verbose(LOG_ERR, NULL, directory, NULL, MS_PRIVATE|MS_REC, NULL);
+        if (r < 0)
+                return r;
+
         r = setup_pivot_root(
                         directory,
                         arg_pivot_root_new,
@@ -3809,11 +3825,6 @@ static int outer_child(
                         arg_uid_range,
                         arg_selinux_apifs_context,
                         MOUNT_ROOT_ONLY);
-        if (r < 0)
-                return r;
-
-        /* Make sure we always have a mount that we can move to root later on. */
-        r = make_mount_point(directory);
         if (r < 0)
                 return r;
 
@@ -4031,7 +4042,7 @@ static int outer_child(
                                 return log_error_errno(r, "Failed to join network namespace: %m");
                 }
 
-                r = inner_child(barrier, directory, secondary, fd_inner_socket, fds, os_release_pairs);
+                r = inner_child(barrier, fd_inner_socket, fds, os_release_pairs);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
@@ -4742,7 +4753,6 @@ static int load_oci_bundle(void) {
 
 static int run_container(
                DissectedImage *dissected_image,
-               bool secondary,
                FDSet *fds,
                char veth_name[IFNAMSIZ], bool *veth_created,
                struct ExposeArgs *expose_args,
@@ -4844,7 +4854,6 @@ static int run_container(
                 r = outer_child(&barrier,
                                 arg_directory,
                                 dissected_image,
-                                secondary,
                                 fd_outer_socket_pair[1],
                                 fd_inner_socket_pair[1],
                                 fds,
@@ -5162,6 +5171,12 @@ static int run_container(
                 (void) sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
         }
 
+        (void) sd_event_add_signal(event, NULL, SIGRTMIN+18, sigrtmin18_handler, NULL);
+
+        r = sd_event_add_memory_pressure(event, NULL, NULL, NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
+
         /* Exit when the child exits */
         (void) sd_event_add_signal(event, NULL, SIGCHLD, on_sigchld, PID_TO_PTR(*pid));
 
@@ -5423,8 +5438,7 @@ static int cant_be_in_netns(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        bool secondary = false, remove_directory = false, remove_image = false,
-                veth_created = false, remove_tmprootdir = false;
+        bool remove_directory = false, remove_image = false, veth_created = false, remove_tmprootdir = false;
         _cleanup_close_ int master = -EBADF;
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int r, n_fd_passed, ret = EXIT_SUCCESS;
@@ -5511,8 +5525,8 @@ static int run(int argc, char *argv[]) {
                  * two systems write to the same /var). Let's allow it for the special cases where /var is
                  * either copied (i.e. --ephemeral) or replaced (i.e. --volatile=yes|state). */
                 if (path_equal(arg_directory, "/") && !(arg_ephemeral || IN_SET(arg_volatile_mode, VOLATILE_YES, VOLATILE_STATE))) {
-                        log_error("Spawning container on root directory is not supported. Consider using --ephemeral, --volatile=yes or --volatile=state.");
-                        r = -EINVAL;
+                        r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                            "Spawning container on root directory is not supported. Consider using --ephemeral, --volatile=yes or --volatile=state.");
                         goto finish;
                 }
 
@@ -5785,6 +5799,9 @@ static int run(int argc, char *argv[]) {
                 /* Now that we mounted the image, let's try to remove it again, if it is ephemeral */
                 if (remove_image && unlink(arg_image) >= 0)
                         remove_image = false;
+
+                if (arg_architecture < 0)
+                        arg_architecture = dissected_image_architecture(dissected_image);
         }
 
         r = custom_mount_prepare_all(arg_directory, arg_custom_mounts, arg_n_custom_mounts);
@@ -5803,7 +5820,7 @@ static int run(int argc, char *argv[]) {
                 log_info("Spawning container %s on %s.\nPress Ctrl-] three times within 1s to kill container.",
                          arg_machine, arg_image ?: arg_directory);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, SIGRTMIN+18, -1) >= 0);
 
         if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) < 0) {
                 r = log_error_errno(errno, "Failed to become subreaper: %m");
@@ -5820,7 +5837,6 @@ static int run(int argc, char *argv[]) {
         }
         for (;;) {
                 r = run_container(dissected_image,
-                                  secondary,
                                   fds,
                                   veth_name, &veth_created,
                                   &expose_args, &master,

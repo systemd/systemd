@@ -502,7 +502,7 @@ static int container_bus_new(Machine *m, sd_bus_error *error, sd_bus **ret) {
                 bus->address = address;
                 bus->bus_client = true;
                 bus->trusted = false;
-                bus->is_system = true;
+                bus->runtime_scope = RUNTIME_SCOPE_SYSTEM;
 
                 r = sd_bus_start(bus);
                 if (r == -ENOENT)

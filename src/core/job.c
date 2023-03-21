@@ -1001,7 +1001,7 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
         }
 
         /* A special check to make sure we take down anything RequisiteOf= if we aren't active. This is when
-         * the verify-active job merges with a satisfying job type, and then loses it's invalidation effect,
+         * the verify-active job merges with a satisfying job type, and then loses its invalidation effect,
          * as the result there is JOB_DONE for the start job we merged into, while we should be failing the
          * depending job if the said unit isn't in fact active. Oneshots are an example of this, where going
          * directly from activating to inactive is success.

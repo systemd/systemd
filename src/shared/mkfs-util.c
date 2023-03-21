@@ -271,6 +271,7 @@ int make_filesystem(
         _cleanup_strv_free_ char **argv = NULL;
         _cleanup_(unlink_and_freep) char *protofile = NULL;
         char vol_id[CONST_MAX(SD_ID128_UUID_STRING_MAX, 8U + 1U)] = {};
+        int stdio_fds[3] = { -EBADF, STDERR_FILENO, STDERR_FILENO};
         int r;
 
         assert(node);
@@ -352,7 +353,7 @@ int make_filesystem(
                 assert_se(sd_id128_to_uuid_string(uuid, vol_id));
 
         /* When changing this conditional, also adjust the log statement below. */
-        if (streq(fstype, "ext2")) {
+        if (STR_IN_SET(fstype, "ext2", "ext3", "ext4")) {
                 argv = strv_new(mkfs,
                                 "-q",
                                 "-L", label,
@@ -361,23 +362,7 @@ int make_filesystem(
                                 "-m", "0",
                                 "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
                                 "-b", "4096",
-                                node);
-                if (!argv)
-                        return log_oom();
-
-                if (root && strv_extend_strv(&argv, STRV_MAKE("-d", root), false) < 0)
-                        return log_oom();
-
-        } else if (STR_IN_SET(fstype, "ext3", "ext4")) {
-                argv = strv_new(mkfs,
-                                "-q",
-                                "-L", label,
-                                "-U", vol_id,
-                                "-I", "256",
-                                "-O", "has_journal",
-                                "-m", "0",
-                                "-E", discard ? "discard,lazy_itable_init=1" : "nodiscard,lazy_itable_init=1",
-                                "-b", "4096",
+                                "-T", "default",
                                 node);
 
                 if (root && strv_extend_strv(&argv, STRV_MAKE("-d", root), false) < 0)
@@ -458,6 +443,9 @@ int make_filesystem(
                                 return log_oom();
                 }
 
+                /* mkfs.vfat does not have a --quiet option so let's redirect stdout to /dev/null instead. */
+                stdio_fds[1] = -EBADF;
+
         } else if (streq(fstype, "swap"))
                 /* TODO: add --quiet here if
                  * https://github.com/util-linux/util-linux/issues/1499 resolved. */
@@ -467,14 +455,16 @@ int make_filesystem(
                                 "-U", vol_id,
                                 node);
 
-        else if (streq(fstype, "squashfs"))
+        else if (streq(fstype, "squashfs")) {
 
                 argv = strv_new(mkfs,
                                 root, node,
-                                "-quiet",
                                 "-noappend");
 
-        else if (streq(fstype, "erofs"))
+                /* mksquashfs -quiet option is pretty new so let's redirect stdout to /dev/null instead. */
+                stdio_fds[1] = -EBADF;
+
+        } else if (streq(fstype, "erofs"))
 
                 argv = strv_new(mkfs,
                                 "-U", vol_id,
@@ -489,7 +479,14 @@ int make_filesystem(
         if (extra_mkfs_args && strv_extend_strv(&argv, extra_mkfs_args, false) < 0)
                 return log_oom();
 
-        r = safe_fork("(mkfs)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS, NULL);
+        r = safe_fork_full(
+                        "(mkfs)",
+                        stdio_fds,
+                        /*except_fds=*/ NULL,
+                        /*n_except_fds=*/ 0,
+                        FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|
+                        FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO,
+                        /*ret_pid=*/ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -518,5 +515,26 @@ int make_filesystem(
                 log_info("%s successfully formatted as %s (no label or uuid specified)",
                          node, fstype);
 
+        return 0;
+}
+
+int mkfs_options_from_env(const char *component, const char *fstype, char ***ret) {
+        _cleanup_(strv_freep) char **l = NULL;
+        const char *e;
+        char *n;
+
+        assert(component);
+        assert(fstype);
+        assert(ret);
+
+        n = strjoina("SYSTEMD_", component, "_MKFS_OPTIONS_", fstype);
+        e = getenv(ascii_strupper(n));
+        if (e) {
+                l = strv_split(e, NULL);
+                if (!l)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(l);
         return 0;
 }

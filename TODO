@@ -129,6 +129,20 @@ Deprecations and removals:
 
 Features:
 
+* mount /tmp/ and /var/tmp with a uidmap applied that blocks out "nobody" user
+  among other things such as dynamic uid ranges for containers and so on. That
+  way noone can create files there with these uids and we enforce they are only
+  used transiently, never persistently.
+
+* set MS_NOSYMFOLLOW for ESP and XBOOTLDR mounts both in gpt-generator and in
+  dissect.c
+
+* rework loopback support in fstab: when "loop" option is used, then
+  instantiate a new systemd-loop@.service for the source path, set the
+  lo_file_name field for it to something recognizable derived from the fstab
+  line, and then generate a mount unit for it using a udev generated symlink
+  based on lo_file_name.
+
 * remove tomoyo support, it's obsolete and unmaintained apparently
 
 * journald: add varlink service that allows subscribing to certain log events,
@@ -158,6 +172,21 @@ Features:
 * Add systemd-mount@.service which is instantiated for a block device and
   invokes systemd-mount and exits. This is then useful to use in
   ENV{SYSTEMD_WANTS} in udev rules, and a bit prettier than using RUN+=
+
+* udevd: extend memory pressure logic: also kill any idle worker processes
+
+* SIGRTMIN+18 and memory pressure handling should still be added to: hostnamed,
+  localed, oomd, timedated.
+
+* journald: also collect CLOCK_BOOTTIME timestamps per log entry. Then, derive
+  "corrected" CLOCK_REALTIME information on display from that and the timestamp
+  info of the newest entry of the specificy boot (as identified by the boot
+  ID). This way, if a system comes up without a valid clock but acquires a
+  better clock later, we can "fix" older entry timestamps on display, by
+  calculating backwards. We cannot use CLOCK_MONOTONIC for this, since it does
+  not account for suspend phases. This would then also enable us to correct the
+  kmsg timestamping we consume (where we erroneously assume the clock was in
+  CLOCK_MONOTONIC, but it actually is CLOCK_BOOTTIME as per kernel).
 
 * sd-journal puts a limit on parallel journal files to view at once. journald
   should probably honour that same limit (JOURNAL_FILES_MAX) when vacuuming to
@@ -258,9 +287,6 @@ Features:
 
 * systemd-sysext: for sysext DDIs picked up via EFI stub, set much stricter
   image policy by default
-
-* systemd-dissect: maybe add "--attach" and "--detach" verbs which
-  synchronously attach a DDI to a loopback device but not actually mount them.
 
 * pam_systemd_home: add module parameter to control whether to only accept
   only password or only pcks11/fido2 auth, and then use this to hook nicely
@@ -700,7 +726,7 @@ Features:
   what to do if support ended
 
 * pam_systemd: on interactive logins, maybe show SUPPORT_END information at
-  login time, á la motd
+  login time, à la motd
 
 * sd-boot: instead of unconditionally deriving the ESP to search boot loader
   spec entries in from the paths of sd-boot binary, let's optionally allow it

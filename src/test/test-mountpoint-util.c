@@ -321,6 +321,51 @@ TEST(fd_is_mount_point) {
         assert_se(fd_is_mount_point(fd, "", 0) == -EINVAL);
 }
 
+TEST(ms_nosymfollow_supported) {
+        log_info("MS_NOSYMFOLLOW supported: %s", yes_no(ms_nosymfollow_supported()));
+}
+
+TEST(mount_option_supported) {
+        int r;
+
+        r = mount_option_supported("tmpfs", "size", "64M");
+        log_info("tmpfs supports size=64M: %s (%i)", r < 0 ? "dont know" : yes_no(r), r);
+        assert_se(r > 0 || (r < 0 && ERRNO_IS_PRIVILEGE(r)));
+
+        r = mount_option_supported("ext4", "discard", NULL);
+        log_info("ext4 supports discard: %s (%i)", r < 0 ? "dont know" : yes_no(r), r);
+        assert_se(r > 0 || r == -EAGAIN || (r < 0 && ERRNO_IS_PRIVILEGE(r)));
+
+        r = mount_option_supported("tmpfs", "idontexist", "64M");
+        log_info("tmpfs supports idontexist: %s (%i)", r < 0 ? "dont know" : yes_no(r), r);
+        assert_se(r == 0 || (r < 0 && ERRNO_IS_PRIVILEGE(r)));
+
+        r = mount_option_supported("tmpfs", "ialsodontexist", NULL);
+        log_info("tmpfs supports ialsodontexist: %s (%i)", r < 0 ? "dont know" : yes_no(r), r);
+        assert_se(r == 0 || (r < 0 && ERRNO_IS_PRIVILEGE(r)));
+
+        r = mount_option_supported("proc", "hidepid", "1");
+        log_info("proc supports hidepid=1: %s (%i)", r < 0 ? "dont know" : yes_no(r), r);
+        assert_se(r >= 0 || (r < 0 && ERRNO_IS_PRIVILEGE(r)));
+}
+
+TEST(fstype_can_discard) {
+        assert_se(fstype_can_discard("ext4"));
+        assert_se(!fstype_can_discard("squashfs"));
+        assert_se(!fstype_can_discard("iso9660"));
+}
+
+TEST(fstype_can_norecovery) {
+        assert_se(fstype_can_norecovery("ext4"));
+        assert_se(!fstype_can_norecovery("vfat"));
+        assert_se(!fstype_can_norecovery("tmpfs"));
+}
+
+TEST(fstype_can_umask) {
+        assert_se(fstype_can_umask("vfat"));
+        assert_se(!fstype_can_umask("tmpfs"));
+}
+
 static int intro(void) {
         /* let's move into our own mount namespace with all propagation from the host turned off, so
          * that /proc/self/mountinfo is static and constant for the whole time our test runs. */

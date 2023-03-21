@@ -44,6 +44,7 @@ simple_tests += files(
         'test-architecture.c',
         'test-argv-util.c',
         'test-barrier.c',
+        'test-bitfield.c',
         'test-bitmap.c',
         'test-blockdev-util.c',
         'test-bootspec.c',
@@ -53,6 +54,7 @@ simple_tests += files(
         'test-cgroup-util.c',
         'test-cgroup.c',
         'test-clock.c',
+        'test-compare-operator.c',
         'test-condition.c',
         'test-conf-files.c',
         'test-conf-parser.c',
@@ -104,6 +106,7 @@ simple_tests += files(
         'test-list.c',
         'test-local-addresses.c',
         'test-locale-util.c',
+        'test-lock-util.c',
         'test-log.c',
         'test-logarithm.c',
         'test-macro.c',
@@ -156,9 +159,7 @@ simple_tests += files(
         'test-strxcpyx.c',
         'test-sysctl-util.c',
         'test-terminal-util.c',
-        'test-time-util.c',
         'test-tmpfile-util.c',
-        'test-tmpfiles.c',
         'test-tpm2.c',
         'test-udev-util.c',
         'test-uid-alloc-range.c',
@@ -457,7 +458,7 @@ tests += [
         },
         {
                 'sources' : files('test-sbat.c'),
-                'condition' : 'HAVE_GNU_EFI',
+                'condition' : 'ENABLE_BOOTLOADER',
                 'c_args' : '-I@0@'.format(efi_config_h_dir),
         },
         {
@@ -500,6 +501,10 @@ tests += [
                         journal_includes,
                         udev_includes,
                 ],
+        },
+        {
+                'sources' : files('test-time-util.c'),
+                'timeout' : 120,
         },
         {
                 'sources' : files('test-udev.c'),

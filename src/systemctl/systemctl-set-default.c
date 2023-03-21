@@ -49,7 +49,7 @@ static int determine_default(char **ret_name) {
         int r;
 
         if (install_client_side()) {
-                r = unit_file_get_default(arg_scope, arg_root, ret_name);
+                r = unit_file_get_default(arg_runtime_scope, arg_root, ret_name);
                 if (r == -ERFKILL)
                         return log_error_errno(r, "Failed to get default target: Unit file is masked.");
                 if (r < 0)
@@ -109,7 +109,7 @@ int verb_set_default(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
         if (install_client_side()) {
-                r = unit_file_set_default(arg_scope, UNIT_FILE_FORCE, arg_root, unit, &changes, &n_changes);
+                r = unit_file_set_default(arg_runtime_scope, UNIT_FILE_FORCE, arg_root, unit, &changes, &n_changes);
                 install_changes_dump(r, "set default", changes, n_changes, arg_quiet);
                 if (r < 0)
                         goto finish;

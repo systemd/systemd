@@ -1,0 +1,2 @@
+/dev/sdx1 /sysroot auto defaults 0 1
+/dev/sdx2 /sysroot/usr auto defaults 0 0

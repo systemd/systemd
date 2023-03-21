@@ -14,6 +14,7 @@
 #include "logarithm.h"
 #include "macro.h"
 #include "missing_prctl.h"
+#include "missing_threads.h"
 #include "parse-util.h"
 #include "user-util.h"
 

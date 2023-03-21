@@ -27,11 +27,9 @@
 
 int acquire_data_fd(const void *data, size_t size, unsigned flags) {
         _cleanup_close_pair_ int pipefds[2] = PIPE_EBADF;
-        char pattern[] = "/dev/shm/data-fd-XXXXXX";
         _cleanup_close_ int fd = -EBADF;
         int isz = 0, r;
         ssize_t n;
-        off_t f;
 
         assert(data || size == 0);
 
@@ -59,23 +57,13 @@ int acquire_data_fd(const void *data, size_t size, unsigned flags) {
                 return RET_NERRNO(open("/dev/null", O_RDONLY|O_CLOEXEC|O_NOCTTY));
 
         if ((flags & ACQUIRE_NO_MEMFD) == 0) {
-                fd = memfd_new("data-fd");
-                if (fd < 0)
-                        goto try_pipe;
+                fd = memfd_new_and_seal("data-fd", data, size);
+                if (fd < 0) {
+                        if (ERRNO_IS_NOT_SUPPORTED(fd))
+                                goto try_pipe;
 
-                n = write(fd, data, size);
-                if (n < 0)
-                        return -errno;
-                if ((size_t) n != size)
-                        return -EIO;
-
-                f = lseek(fd, 0, SEEK_SET);
-                if (f != 0)
-                        return -errno;
-
-                r = memfd_set_sealed(fd);
-                if (r < 0)
-                        return r;
+                        return fd;
+                }
 
                 return TAKE_FD(fd);
         }
@@ -135,6 +123,8 @@ try_dev_shm:
 
 try_dev_shm_without_o_tmpfile:
         if ((flags & ACQUIRE_NO_REGULAR) == 0) {
+                char pattern[] = "/dev/shm/data-fd-XXXXXX";
+
                 fd = mkostemp_safe(pattern);
                 if (fd < 0)
                         return fd;
@@ -150,9 +140,7 @@ try_dev_shm_without_o_tmpfile:
                 }
 
                 /* Let's reopen the thing, in order to get an O_RDONLY fd for the original O_RDWR one */
-                r = open(pattern, O_RDONLY|O_CLOEXEC);
-                if (r < 0)
-                        r = -errno;
+                r = fd_reopen(fd, O_RDONLY|O_CLOEXEC);
 
         unlink_and_return:
                 (void) unlink(pattern);
@@ -351,7 +339,8 @@ finish:
 
 int memfd_clone_fd(int fd, const char *name, int mode) {
         _cleanup_close_ int mfd = -EBADF;
-        bool ro;
+        struct stat st;
+        bool ro, exec;
         int r;
 
         /* Creates a clone of a regular file in a memfd. Unlike copy_data_fd() this returns strictly a memfd
@@ -363,13 +352,18 @@ int memfd_clone_fd(int fd, const char *name, int mode) {
         assert(IN_SET(mode & O_ACCMODE, O_RDONLY, O_RDWR));
         assert((mode & ~(O_RDONLY|O_RDWR|O_CLOEXEC)) == 0);
 
-        ro = (mode & O_ACCMODE) == O_RDONLY;
-
-        mfd = memfd_create(name,
-                           ((FLAGS_SET(mode, O_CLOEXEC) || ro) ? MFD_CLOEXEC : 0) |
-                           (ro ? MFD_ALLOW_SEALING : 0));
-        if (mfd < 0)
+        if (fstat(fd, &st) < 0)
                 return -errno;
+
+        ro = (mode & O_ACCMODE) == O_RDONLY;
+        exec = st.st_mode & 0111;
+
+        mfd = memfd_create_wrapper(name,
+                                   ((FLAGS_SET(mode, O_CLOEXEC) || ro) ? MFD_CLOEXEC : 0) |
+                                   (ro ? MFD_ALLOW_SEALING : 0) |
+                                   (exec ? MFD_EXEC : MFD_NOEXEC_SEAL));
+        if (mfd < 0)
+                return mfd;
 
         r = copy_bytes(fd, mfd, UINT64_MAX, COPY_REFLINK);
         if (r < 0)

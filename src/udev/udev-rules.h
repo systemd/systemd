@@ -6,6 +6,7 @@
 #include "time-util.h"
 #include "udev-util.h"
 
+typedef struct UdevRuleFile UdevRuleFile;
 typedef struct UdevRules UdevRules;
 typedef struct UdevEvent UdevEvent;
 
@@ -17,7 +18,8 @@ typedef enum {
         _ESCAPE_TYPE_INVALID = -EINVAL,
 } UdevRuleEscapeType;
 
-int udev_rules_parse_file(UdevRules *rules, const char *filename);
+int udev_rules_parse_file(UdevRules *rules, const char *filename, UdevRuleFile **ret);
+unsigned udev_rule_file_get_issues(UdevRuleFile *rule_file);
 UdevRules* udev_rules_new(ResolveNameTiming resolve_name_timing);
 int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing);
 UdevRules *udev_rules_free(UdevRules *rules);

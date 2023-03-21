@@ -35,17 +35,11 @@ else
     apt-get update
     apt-get install -y gperf m4 gettext python3-pip \
         libcap-dev libmount-dev \
-        pkg-config wget python3-jinja2 zipmerge
+        pkg-config wget python3-jinja2 zipmerge zstd
 
     if [[ "$ARCHITECTURE" == i386 ]]; then
         apt-get install -y pkg-config:i386 libcap-dev:i386 libmount-dev:i386
     fi
-
-    # gnu-efi is installed here to enable -Dgnu-efi behind which fuzz-bcd
-    # is hidden. It isn't linked against efi. It doesn't
-    # even include "efi.h" because "bcd.c" can work in "unit test" mode
-    # where it isn't necessary.
-    apt-get install -y gnu-efi zstd
 
     pip3 install -r .github/workflows/requirements.txt --require-hashes
 
@@ -73,7 +67,7 @@ else
     fi
 fi
 
-if ! meson "$build" "-D$fuzzflag" -Db_lundef=false; then
+if ! meson setup "$build" "-D$fuzzflag" -Db_lundef=false; then
     cat "$build/meson-logs/meson-log.txt"
     exit 1
 fi

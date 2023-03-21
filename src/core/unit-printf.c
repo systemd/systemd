@@ -183,7 +183,7 @@ int unit_name_printf(const Unit *u, const char* format, char **ret) {
 
                 COMMON_SYSTEM_SPECIFIERS,
 
-                COMMON_CREDS_SPECIFIERS(u->manager->unit_file_scope),
+                COMMON_CREDS_SPECIFIERS(u->manager->runtime_scope),
                 {}
         };
 
@@ -253,7 +253,7 @@ int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, 
 
                 COMMON_SYSTEM_SPECIFIERS,
 
-                COMMON_CREDS_SPECIFIERS(u->manager->unit_file_scope),
+                COMMON_CREDS_SPECIFIERS(u->manager->runtime_scope),
 
                 COMMON_TMP_SPECIFIERS,
                 {}

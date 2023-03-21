@@ -47,7 +47,7 @@ TEST(specifier_escape_strv) {
 static const Specifier specifier_table[] = {
         COMMON_SYSTEM_SPECIFIERS,
 
-        COMMON_CREDS_SPECIFIERS(LOOKUP_SCOPE_USER),
+        COMMON_CREDS_SPECIFIERS(RUNTIME_SCOPE_USER),
         { 'h', specifier_user_home,       NULL },
 
         COMMON_TMP_SPECIFIERS,
