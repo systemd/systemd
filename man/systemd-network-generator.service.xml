@@ -95,7 +95,7 @@
     </variablelist>
 
     <para>See
-    <citerefentry project='man-pages'><refentrytitle>dracut.kernel</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    <citerefentry project='man-pages'><refentrytitle>dracut.cmdline</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     and
     <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     for option syntax and details.</para>
