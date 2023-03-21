@@ -336,7 +336,7 @@ static int context_load_install_conf(Context *c) {
 }
 
 static int context_load_machine_info(Context *c) {
-        _cleanup_free_ char *machine_id = NULL;
+        _cleanup_free_ char *machine_id = NULL, *layout = NULL;
         const char *path = "/etc/machine-info";
         int r;
 
@@ -345,19 +345,21 @@ static int context_load_machine_info(Context *c) {
         /* If the user configured an explicit machine ID to use in /etc/machine-info to use for our purpose,
          * we'll use that instead (for compatibility). */
 
-        if (!sd_id128_is_null(c->machine_id))
+        if (!sd_id128_is_null(c->machine_id) && c->layout >= 0)
                 return 0;
 
         log_debug("Loading %s…", path);
 
         r = parse_env_file(NULL, path,
-                           "KERNEL_INSTALL_MACHINE_ID", &machine_id);
+                           "KERNEL_INSTALL_MACHINE_ID", &machine_id,
+                           "KERNEL_INSTALL_LAYOUT", &layout);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to parse '%s': %m", path);
 
         (void) context_set_machine_id(c, machine_id, path);
+        (void) context_set_layout(c, layout, path);
         return 0;
 }
 
