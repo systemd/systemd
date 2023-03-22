@@ -1,0 +1,2 @@
+[Unit]
+PropagatesStopTo=sleep-infinity-simple.service
