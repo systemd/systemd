@@ -104,7 +104,7 @@ static int verify_rules_file(UdevRules *rules, const char *fname) {
         UdevRuleFile *file;
         int r;
 
-        r = udev_rules_parse_file(rules, fname, &file);
+        r = udev_rules_parse_file(rules, fname, /* extra_checks = */ true, &file);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse rules file %s: %m", fname);
         if (r == 0) /* empty file. */
