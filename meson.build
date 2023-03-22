@@ -779,6 +779,7 @@ foreach header : ['crypt.h',
                   'valgrind/valgrind.h',
                   'linux/time_types.h',
                   'sys/sdt.h',
+                  'linux/fsverity.h',
                  ]
 
         conf.set10('HAVE_' + header.underscorify().to_upper(),

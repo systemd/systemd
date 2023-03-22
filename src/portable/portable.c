@@ -20,10 +20,12 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "fsverity-util.h"
 #include "install.h"
 #include "io-util.h"
 #include "locale-util.h"
 #include "loop-util.h"
+#include "memfd-util.h"
 #include "mkdir.h"
 #include "nulstr-util.h"
 #include "os-util.h"
@@ -39,6 +41,7 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
+#include "xattr-util.h"
 
 /* Markers used in the first line of our 20-portable.conf unit file drop-in to determine, that a) the unit file was
  * dropped there by the portable service logic and b) for which image it was dropped there. */
@@ -78,8 +81,17 @@ static bool unit_match(const char *unit, char **matches) {
         return false;
 }
 
-static PortableMetadata *portable_metadata_new(const char *name, const char *path, const char *selinux_label, int fd) {
+static PortableMetadata *portable_metadata_new(
+                const char *name,
+                const char *path,
+                const char *selinux_label,
+                PortableMetadataSignatureType signature_type,
+                int signature_fd,
+                int fd) {
+
         PortableMetadata *m;
+
+        assert(signature_type < _PORTABLE_METADATA_SIGNATURE_TYPE_MAX);
 
         m = malloc0(offsetof(PortableMetadata, name) + strlen(name) + 1);
         if (!m)
@@ -103,6 +115,8 @@ static PortableMetadata *portable_metadata_new(const char *name, const char *pat
 
         strcpy(m->name, name);
         m->fd = fd;
+        m->signature_fd = signature_fd;
+        m->signature_type = signature_type;
 
         return TAKE_PTR(m);
 }
@@ -112,6 +126,7 @@ PortableMetadata *portable_metadata_unref(PortableMetadata *i) {
                 return NULL;
 
         safe_close(i->fd);
+        safe_close(i->signature_fd);
         free(i->source);
         free(i->image_path);
         free(i->selinux_label);
@@ -220,7 +235,12 @@ static int extract_now(
                 }
 
                 if (ret_os_release) {
-                        os_release = portable_metadata_new(os_release_id, NULL, NULL, os_release_fd);
+                        os_release = portable_metadata_new(os_release_id,
+                                                           /* path= */ NULL,
+                                                           /* selinux_label= */ NULL,
+                                                           PORTABLE_METADATA_SIGNATURE_TYPE_NONE,
+                                                           /* signature_fd= */ -EBADF,
+                                                           os_release_fd);
                         if (!os_release)
                                 return -ENOMEM;
 
@@ -251,9 +271,11 @@ static int extract_now(
                 }
 
                 FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to read directory: %m")) {
+                        PortableMetadataSignatureType signature_type = PORTABLE_METADATA_SIGNATURE_TYPE_NONE;
+                        _cleanup_free_ char *signature_filename = NULL, *ima_xattr = NULL;
                         _cleanup_(portable_metadata_unrefp) PortableMetadata *m = NULL;
+                        _cleanup_close_ int fd = -EBADF, signature_fd = -EBADF;
                         _cleanup_(mac_selinux_freep) char *con = NULL;
-                        _cleanup_close_ int fd = -EBADF;
 
                         if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
                                 continue;
@@ -283,22 +305,59 @@ static int extract_now(
                                 log_debug_errno(errno, "Failed to get SELinux file context from '%s', ignoring: %m", de->d_name);
 #endif
 
+                        /* Does the unit come with a signature? First, check for an ima xattr signature.
+                         * If that's absent, then check for a detached pkcs7 signature, which can be used
+                         * with fsverity. */
+                        r = fgetxattr_malloc(fd, "security.ima", &ima_xattr);
+                        if (r > 0) {
+                                signature_type = PORTABLE_METADATA_SIGNATURE_TYPE_IMA;
+
+                                signature_fd = memfd_new_and_seal("ima-xattr", ima_xattr, r);
+                                if (signature_fd < 0)
+                                        return log_debug_errno(signature_fd, "Failed to create memfd: %m");
+                        } else if (r < 0) {
+                                if (!ERRNO_IS_XATTR_ABSENT(r))
+                                        log_debug_errno(r, "Failed to get IMA xattr from '%s', ignoring: %m", de->d_name);
+
+                                signature_filename = strjoin(de->d_name, ".p7s");
+                                if (!signature_filename)
+                                        return -ENOMEM;
+
+                                signature_fd = openat(dirfd(d), signature_filename, O_CLOEXEC|O_RDONLY);
+                                if (signature_fd < 0 && errno != -ENOENT)
+                                        log_debug_errno(errno, "Failed to read signature file '%s', ignoring: %m", signature_filename);
+                                else
+                                        signature_type = PORTABLE_METADATA_SIGNATURE_TYPE_P7S;
+                        }
+
                         if (socket_fd >= 0) {
                                 struct iovec iov[] = {
                                         IOVEC_MAKE_STRING(de->d_name),
                                         IOVEC_MAKE((char *)"\0", sizeof(char)),
+                                        IOVEC_MAKE((PortableMetadataSignatureType *)&signature_type, sizeof(PortableMetadataSignatureType)),
                                         IOVEC_MAKE_STRING(strempty(con)),
                                 };
+
+                                /* We are sending this over in an iovec, ensure it's 1 byte so that we
+                                 * don't have to worry about alignment. */
+                                assert_se(sizeof(PortableMetadataSignatureType) == 1);
 
                                 r = send_one_fd_iov_with_data_fd(socket_fd, iov, ELEMENTSOF(iov), fd);
                                 if (r < 0)
                                         return log_debug_errno(r, "Failed to send unit metadata to parent: %m");
+
+                                if (signature_fd >= 0) {
+                                        r = send_one_fd_iov_with_data_fd(socket_fd, NULL, 0, signature_fd);
+                                        if (r < 0)
+                                                return log_debug_errno(r, "Failed to send signature: %m");
+                                }
                         }
 
-                        m = portable_metadata_new(de->d_name, where, con, fd);
+                        m = portable_metadata_new(de->d_name, where, con, signature_type, signature_fd, fd);
                         if (!m)
                                 return -ENOMEM;
                         fd = -EBADF;
+                        signature_fd = -EBADF;
 
                         m->source = path_join(resolved, de->d_name);
                         if (!m->source)
@@ -427,8 +486,9 @@ static int portable_extract_by_path(
                         return -ENOMEM;
 
                 for (;;) {
+                        PortableMetadataSignatureType signature_type = PORTABLE_METADATA_SIGNATURE_TYPE_NONE;
                         _cleanup_(portable_metadata_unrefp) PortableMetadata *add = NULL;
-                        _cleanup_close_ int fd = -EBADF;
+                        _cleanup_close_ int fd = -EBADF, signature_fd = -EBADF;
                         /* We use NAME_MAX space for the SELinux label here. The kernel currently enforces no limit, but
                          * according to suggestions from the SELinux people this will change and it will probably be
                          * identical to NAME_MAX. For now we use that, but this should be updated one day when the final
@@ -456,12 +516,29 @@ static int portable_extract_by_path(
                          * use a marker to separate the name and the optional SELinux context. */
                         char *selinux_label = memchr(iov_buffer, 0, n);
                         assert(selinux_label);
-                        selinux_label++;
 
-                        add = portable_metadata_new(iov_buffer, path, selinux_label, fd);
+                        /* Finally we might get a signature. Given there's no limit on the size (it might
+                         * contain a certificate chain), we send an optional second FD. */
+                        if (n > selinux_label + sizeof(PortableMetadataSignatureType) - (char *)iov.iov_base) {
+                                signature_type = *(PortableMetadataSignatureType *) ++selinux_label;
+                                selinux_label += sizeof(PortableMetadataSignatureType);
+
+                                if (signature_type != PORTABLE_METADATA_SIGNATURE_TYPE_NONE) {
+                                        assert(signature_type < _PORTABLE_METADATA_SIGNATURE_TYPE_MAX);
+
+                                        signature_fd = receive_one_fd(seq[0], 0);
+                                        if (signature_fd < 0)
+                                                return log_debug_errno(signature_fd,
+                                                                       "Failed to receive signature fd: %m");
+                                }
+                        } else
+                                selinux_label = NULL;
+
+                        add = portable_metadata_new(iov_buffer, path, selinux_label, signature_type, signature_fd, fd);
                         if (!add)
                                 return -ENOMEM;
                         fd = -EBADF;
+                        signature_fd = -EBADF;
 
                         /* Note that we do not initialize 'add->source' here, as the source path is not usable here as
                          * it refers to a path only valid in the short-living namespaced child process we forked
@@ -1025,7 +1102,7 @@ static int install_chroot_dropin(
                                         return -ENOMEM;
         }
 
-        r = write_string_file(dropin, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        r = write_string_file(dropin, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_ENABLE_FS_VERITY);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write '%s': %m", dropin);
 
@@ -1072,7 +1149,7 @@ static int install_profile_dropin(
 
         if (flags & PORTABLE_PREFER_COPY) {
 
-                r = copy_file_atomic(from, dropin, 0644, 0, 0, COPY_REFLINK);
+                r = copy_file_atomic(from, dropin, 0644, 0, 0, COPY_REFLINK|COPY_ENABLE_FS_VERITY);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to copy %s %s %s: %m", from, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), dropin);
 
@@ -1172,7 +1249,9 @@ static int attach_unit_file(
 
         } else {
                 _cleanup_(unlink_and_freep) char *tmp = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_close_ int fd = -EBADF, read_only_fd = -EBADF;
+                _cleanup_free_ void *signature = NULL;
+                size_t signature_size = 0;
 
                 (void) mac_selinux_create_file_prepare_label(path, m->selinux_label);
 
@@ -1181,7 +1260,7 @@ static int attach_unit_file(
                 if (fd < 0)
                         return log_debug_errno(fd, "Failed to create unit file '%s': %m", path);
 
-                r = copy_bytes(m->fd, fd, UINT64_MAX, COPY_REFLINK);
+                r = copy_bytes(m->fd, fd, UINT64_MAX, COPY_REFLINK|COPY_FSYNC);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to copy unit file '%s': %m", path);
 
@@ -1193,6 +1272,31 @@ static int attach_unit_file(
                         return log_debug_errno(r, "Failed to install unit file '%s': %m", path);
 
                 tmp = mfree(tmp);
+
+                if (m->signature_fd >= 0) {
+                        r = read_full_file(FORMAT_PROC_FD_PATH(m->signature_fd), (char **)&signature, &signature_size);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to read signature file: %m");
+                }
+
+                if (m->signature_type == PORTABLE_METADATA_SIGNATURE_TYPE_IMA) {
+                        r = xsetxattr(fd, path, "security.ima", signature, signature_size, 0);
+                        if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r))
+                                log_debug_errno(r, "Failed to set IMA signature on '%s', ignoring: %m", path);
+
+                        signature = mfree(signature);
+                        signature_size = 0;
+                }
+
+                /* fsverity IOCTLs require an exclusive, read-only file descriptor, and fail otherwise. */
+                read_only_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (read_only_fd < 0)
+                        return read_only_fd;
+                fd = safe_close(fd);
+
+                r = fsverity_enable(read_only_fd, path, signature, signature_size);
+                if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r))
+                        log_debug_errno(r, "Failed to enable fs-verity on '%s', ignoring: %m", path);
 
                 (void) portable_changes_add(changes, n_changes, PORTABLE_COPY, path, m->source);
         }

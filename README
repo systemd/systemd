@@ -134,6 +134,10 @@ REQUIREMENTS:
           CONFIG_IMA_ARCH_POLICY
           CONFIG_INTEGRITY_MACHINE_KEYRING
 
+        Required for signed fs-verity verification of unit files from portable images:
+          CONFIG_FS_VERITY
+          CONFIG_FS_VERITY_BUILTIN_SIGNATURES
+
         Required for RestrictFileSystems= in service units:
           CONFIG_BPF
           CONFIG_BPF_SYSCALL
