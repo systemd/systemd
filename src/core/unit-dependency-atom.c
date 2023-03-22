@@ -80,6 +80,7 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
                                         UNIT_ATOM_PROPAGATE_STOP_FAILURE,
 
         [UNIT_PROPAGATES_STOP_TO]     = UNIT_ATOM_RETROACTIVE_STOP_ON_STOP |
+                                        UNIT_ATOM_PROPAGATE_RESTART |
                                         UNIT_ATOM_PROPAGATE_STOP,
 
         /* These are simple dependency types: they consist of a single atom only */
