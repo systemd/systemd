@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <sys/file.h>
 #include <linux/falloc.h>
 #include <linux/magic.h>
 #include <unistd.h>
@@ -13,6 +14,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hostname-util.h"
+#include "lock-util.h"
 #include "log.h"
 #include "macro.h"
 #include "missing_fcntl.h"
@@ -1099,6 +1101,9 @@ int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
         bool made = false;
         int r;
 
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(path);
+
         if (FLAGS_SET(flags, O_DIRECTORY|O_CREAT)) {
                 r = RET_NERRNO(mkdirat(dir_fd, path, mode));
                 if (r == -EEXIST) {
@@ -1131,6 +1136,56 @@ int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
                         (void) unlinkat(dir_fd, path, AT_REMOVEDIR);
 
                 return fd;
+        }
+
+        return TAKE_FD(fd);
+}
+
+int xopenat_lock(int dir_fd, const char *path, int flags, mode_t mode, LockType locktype, int operation) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(path);
+        assert(IN_SET(operation & ~LOCK_NB, LOCK_EX, LOCK_SH));
+
+        /* POSIX/UNPOSIX locks don't work on directories. */
+        if (flags & O_DIRECTORY)
+                assert(locktype == LOCK_BSD);
+
+        for (;;) {
+                struct stat st;
+
+                fd = xopenat(dir_fd, path, flags, mode);
+                if (fd < 0)
+                        return fd;
+
+                switch (locktype) {
+                case LOCK_BSD:
+                        r = RET_NERRNO(flock(fd, operation));
+                        break;
+                case LOCK_POSIX:
+                        r = posix_lock(fd, operation);
+                        break;
+                case LOCK_UNPOSIX:
+                        r = unposix_lock(fd, operation);
+                        break;
+                default:
+                        assert_not_reached();
+                }
+                if (r < 0)
+                        return r;
+
+                /* If we acquired the lock, let's check if the file/directory still exists in the file
+                 * system. If not, then the previous exclusive owner removed it and then closed it. In such a
+                 * case our acquired lock is worthless, hence try again. */
+
+                if (fstat(fd, &st) < 0)
+                        return -errno;
+                if (st.st_nlink > 0)
+                        break;
+
+                fd = safe_close(fd);
         }
 
         return TAKE_FD(fd);
