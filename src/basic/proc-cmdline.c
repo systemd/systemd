@@ -40,6 +40,30 @@ int proc_cmdline(char **ret) {
                 return read_one_line_file("/proc/cmdline", ret);
 }
 
+int proc_cmdline_strv(char ***ret) {
+        const char *e;
+        int r;
+
+        assert(ret);
+
+        /* For testing purposes it is sometimes useful to be able to override what we consider /proc/cmdline to be */
+        e = secure_getenv("SYSTEMD_PROC_CMDLINE");
+        if (e)
+                return strv_split_full(ret, e, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
+
+        if (detect_container() > 0)
+                return get_process_cmdline_strv(1, /* flags = */ 0, ret);
+        else {
+                _cleanup_free_ char *s = NULL;
+
+                r = read_one_line_file("/proc/cmdline", &s);
+                if (r < 0)
+                        return r;
+
+                return strv_split_full(ret, s, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
+        }
+}
+
 static char *mangle_word(const char *word, ProcCmdlineFlags flags) {
         char *c;
 
@@ -90,7 +114,6 @@ static int proc_cmdline_parse_strv(char **args, proc_cmdline_parse_t parse_item,
 
 int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, ProcCmdlineFlags flags) {
         _cleanup_strv_free_ char **args = NULL;
-        _cleanup_free_ char *line = NULL;
         int r;
 
         assert(parse_item);
@@ -98,6 +121,8 @@ int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, ProcCmdlineF
         /* We parse the EFI variable first, because later settings have higher priority. */
 
         if (!FLAGS_SET(flags, PROC_CMDLINE_IGNORE_EFI_OPTIONS)) {
+                _cleanup_free_ char *line = NULL;
+
                 r = systemd_efi_options_variable(&line);
                 if (r < 0) {
                         if (r != -ENODATA)
@@ -112,15 +137,10 @@ int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, ProcCmdlineF
                                 return r;
 
                         args = strv_free(args);
-                        line = mfree(line);
                 }
         }
 
-        r = proc_cmdline(&line);
-        if (r < 0)
-                return r;
-
-        r = strv_split_full(&args, line, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
+        r = proc_cmdline_strv(&args);
         if (r < 0)
                 return r;
 
@@ -229,11 +249,7 @@ int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_val
         if (FLAGS_SET(flags, PROC_CMDLINE_VALUE_OPTIONAL) && !ret_value)
                 return -EINVAL;
 
-        r = proc_cmdline(&line);
-        if (r < 0)
-                return r;
-
-        r = strv_split_full(&args, line, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
+        r = proc_cmdline_strv(&args);
         if (r < 0)
                 return r;
 
@@ -250,7 +266,6 @@ int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_val
                 return r;
         }
 
-        line = mfree(line);
         r = systemd_efi_options_variable(&line);
         if (r == -ENODATA) {
                 if (ret_value)
@@ -330,7 +345,6 @@ static int cmdline_get_key_ap(ProcCmdlineFlags flags, char* const* args, va_list
 
 int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
         _cleanup_strv_free_ char **args = NULL;
-        _cleanup_free_ char *line = NULL;
         int r, ret = 0;
         va_list ap;
 
@@ -341,6 +355,8 @@ int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
         /* This call may clobber arguments on failure! */
 
         if (!FLAGS_SET(flags, PROC_CMDLINE_IGNORE_EFI_OPTIONS)) {
+                _cleanup_free_ char *line = NULL;
+
                 r = systemd_efi_options_variable(&line);
                 if (r < 0 && r != -ENODATA)
                         log_debug_errno(r, "Failed to get SystemdOptions EFI variable, ignoring: %m");
@@ -357,14 +373,9 @@ int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
 
                 ret = r;
                 args = strv_free(args);
-                line = mfree(line);
         }
 
-        r = proc_cmdline(&line);
-        if (r < 0)
-                return r;
-
-        r = strv_split_full(&args, line, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
+        r = proc_cmdline_strv(&args);
         if (r < 0)
                 return r;
 
