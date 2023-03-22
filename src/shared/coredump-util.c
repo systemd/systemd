@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <elf.h>
+
 #include "coredump-util.h"
 #include "extract-word.h"
 #include "fileio.h"
 #include "string-table.h"
+#include "unaligned.h"
 #include "virt.h"
 
 static const char *const coredump_filter_table[_COREDUMP_FILTER_MAX] = {
@@ -63,6 +66,91 @@ int coredump_filter_mask_from_string(const char *s, uint64_t *ret) {
 
         *ret = m;
         return 0;
+}
+
+#define _DEFINE_PARSE_AUXV(size, type, unaligned_read)                  \
+        static int parse_auxv##size(                                    \
+                        int log_level,                                  \
+                        const void *auxv,                               \
+                        size_t size_bytes,                              \
+                        int *at_secure,                                 \
+                        uid_t *uid,                                     \
+                        uid_t *euid,                                    \
+                        gid_t *gid,                                     \
+                        gid_t *egid) {                                  \
+                                                                        \
+                assert(auxv || size_bytes == 0);                        \
+                assert(at_secure);                                      \
+                assert(uid);                                            \
+                assert(euid);                                           \
+                assert(gid);                                            \
+                assert(egid);                                           \
+                                                                        \
+                if (size_bytes % (2 * sizeof(type)) != 0)               \
+                        return log_full_errno(log_level,                \
+                                              SYNTHETIC_ERRNO(EIO),     \
+                                              "Incomplete auxv structure (%zu bytes).", \
+                                              size_bytes);              \
+                                                                        \
+                size_t words = size_bytes / sizeof(type);               \
+                                                                        \
+                /* Note that we set output variables even on error. */  \
+                                                                        \
+                for (size_t i = 0; i + 1 < words; i += 2) {             \
+                        type key, val;                                  \
+                                                                        \
+                        key = unaligned_read((uint8_t*) auxv + i * sizeof(type)); \
+                        val = unaligned_read((uint8_t*) auxv + (i + 1) * sizeof(type)); \
+                                                                        \
+                        switch (key) {                                  \
+                        case AT_SECURE:                                 \
+                                *at_secure = val != 0;                  \
+                                break;                                  \
+                        case AT_UID:                                    \
+                                *uid = val;                             \
+                                break;                                  \
+                        case AT_EUID:                                   \
+                                *euid = val;                            \
+                                break;                                  \
+                        case AT_GID:                                    \
+                                *gid = val;                             \
+                                break;                                  \
+                        case AT_EGID:                                   \
+                                *egid = val;                            \
+                                break;                                  \
+                        case AT_NULL:                                   \
+                                if (val != 0)                           \
+                                        goto error;                     \
+                                return 0;                               \
+                        }                                               \
+                }                                                       \
+        error:                                                          \
+                return log_full_errno(log_level,                        \
+                                      SYNTHETIC_ERRNO(ENODATA),         \
+                                      "AT_NULL terminator not found, cannot parse auxv structure."); \
+        }
+
+#define DEFINE_PARSE_AUXV(size)                                         \
+        _DEFINE_PARSE_AUXV(size, uint##size##_t, unaligned_read_ne##size)
+
+DEFINE_PARSE_AUXV(32);
+DEFINE_PARSE_AUXV(64);
+
+int parse_auxv(
+                int log_level,
+                bool elf64bit,
+                const void *auxv,
+                size_t size_bytes,
+                int *at_secure,
+                uid_t *uid,
+                uid_t *euid,
+                gid_t *gid,
+                gid_t *egid) {
+
+        if (elf64bit)
+                return parse_auxv64(log_level, auxv, size_bytes, at_secure, uid, euid, gid, egid);
+        else
+                return parse_auxv32(log_level, auxv, size_bytes, at_secure, uid, euid, gid, egid);
 }
 
 int set_coredump_filter(uint64_t value) {
