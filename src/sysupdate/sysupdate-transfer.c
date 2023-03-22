@@ -4,7 +4,7 @@
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "conf-parser.h"
 #include "dirent-util.h"
 #include "fd-util.h"
@@ -1211,7 +1211,7 @@ int transfer_install_instance(
                         assert_not_reached();
 
                 if (resolve_link_path && root) {
-                        r = chase_symlinks(link_path, root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
+                        r = chase(link_path, root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to resolve current symlink path '%s': %m", link_path);
 

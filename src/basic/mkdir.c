@@ -5,7 +5,7 @@
 #include <string.h>
 
 #include "alloc-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -47,7 +47,7 @@ int mkdirat_safe_internal(
         if ((flags & MKDIR_FOLLOW_SYMLINK) && S_ISLNK(st.st_mode)) {
                 _cleanup_free_ char *p = NULL;
 
-                r = chase_symlinks_at(dir_fd, path, CHASE_NONEXISTENT, &p, NULL);
+                r = chaseat(dir_fd, path, CHASE_NONEXISTENT, &p, NULL);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -234,7 +234,7 @@ int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m
                 if (r < 0)
                         return r;
 
-                dfd = chase_symlinks_and_open(pp, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_DIRECTORY, NULL);
+                dfd = chase_and_open(pp, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_DIRECTORY, NULL);
                 if (dfd < 0)
                         return dfd;
         }

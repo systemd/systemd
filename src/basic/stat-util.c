@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "dirent-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -145,7 +145,7 @@ int null_or_empty_path_with_root(const char *fn, const char *root) {
         if (path_equal_ptr(path_startswith(fn, root ?: "/"), "dev/null"))
                 return true;
 
-        r = chase_symlinks_and_stat(fn, root, CHASE_PREFIX_ROOT, NULL, &st);
+        r = chase_and_stat(fn, root, CHASE_PREFIX_ROOT, NULL, &st);
         if (r < 0)
                 return r;
 

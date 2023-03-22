@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 #include "base-filesystem.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "fd-util.h"
 #include "initrd-util.h"
 #include "log.h"
@@ -53,7 +53,7 @@ int switch_root(const char *new_root,
                 old_root_fd = safe_close(old_root_fd);
 
         /* Determine where we shall place the old root after the transition */
-        r = chase_symlinks(old_root_after, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved_old_root_after, NULL);
+        r = chase(old_root_after, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved_old_root_after, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, old_root_after);
         if (r == 0) /* Doesn't exist yet. Let's create it */
@@ -69,7 +69,7 @@ int switch_root(const char *new_root,
         FOREACH_STRING(path, "/sys", "/dev", "/run", "/proc") {
                 _cleanup_free_ char *chased = NULL;
 
-                r = chase_symlinks(path, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &chased, NULL);
+                r = chase(path, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &chased, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, path);
                 if (r > 0) {
