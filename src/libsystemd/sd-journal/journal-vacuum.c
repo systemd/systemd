@@ -159,6 +159,9 @@ int journal_directory_vacuum(
                 if (!S_ISREG(st.st_mode))
                         continue;
 
+                size = 512UL * (uint64_t) st.st_blocks;
+                sum += size;
+
                 q = strlen(de->d_name);
 
                 if (endswith(de->d_name, ".journal")) {
@@ -234,8 +237,6 @@ int journal_directory_vacuum(
                         continue;
                 }
 
-                size = 512UL * (uint64_t) st.st_blocks;
-
                 r = journal_file_empty(dirfd(d), p);
                 if (r < 0) {
                         log_debug_errno(r, "Failed check if %s is empty, ignoring: %m", p);
@@ -274,8 +275,6 @@ int journal_directory_vacuum(
                         .seqnum_id = seqnum_id,
                         .have_seqnum = have_seqnum,
                 };
-
-                sum += size;
         }
 
         typesafe_qsort(list, n_list, vacuum_compare);
