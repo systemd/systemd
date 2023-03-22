@@ -913,7 +913,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NETWORK_INTERFACE:
-                        r = network_iface_pair_parse_and_test("Network interface", &arg_network_interfaces, optarg);
+                        r = interface_pair_parse_and_test(&arg_network_interfaces, optarg);
                         if (r < 0)
                                 return r;
 
@@ -922,7 +922,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NETWORK_MACVLAN:
-                        r = network_iface_pair_parse_and_test("MACVLAN network interface", &arg_network_macvlan, optarg);
+                        r = macvlan_pair_parse_and_test(&arg_network_macvlan, optarg);
                         if (r < 0)
                                 return r;
 
@@ -931,7 +931,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NETWORK_IPVLAN:
-                        r = network_iface_pair_parse_and_test("IPVLAN network interface", &arg_network_ipvlan, optarg);
+                        r = ipvlan_pair_parse_and_test(&arg_network_ipvlan, optarg);
                         if (r < 0)
                                 return r;
 
