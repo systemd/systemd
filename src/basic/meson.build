@@ -31,6 +31,7 @@ basic_sources = files(
         'filesystems.c',
         'format-util.c',
         'fs-util.c',
+        'fsverity-util.c',
         'glob-util.c',
         'glyph-util.c',
         'gunicode.c',
