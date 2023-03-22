@@ -72,9 +72,9 @@ Files.PrivateUsersChown,      config_parse_userns_chown,   0,                   
 Files.PrivateUsersOwnership,  config_parse_userns_ownership, 0,                      offsetof(Settings, userns_ownership)
 Files.BindUser,               config_parse_bind_user,      0,                        offsetof(Settings, bind_user)
 Network.Private,              config_parse_tristate,       0,                        offsetof(Settings, private_network)
-Network.Interface,            config_parse_strv,           0,                        offsetof(Settings, network_interfaces)
-Network.MACVLAN,              config_parse_strv,           0,                        offsetof(Settings, network_macvlan)
-Network.IPVLAN,               config_parse_strv,           0,                        offsetof(Settings, network_ipvlan)
+Network.Interface,            config_parse_network_iface_pair, 0,                    offsetof(Settings, network_interfaces)
+Network.MACVLAN,              config_parse_macvlan_iface_pair, 0,                    offsetof(Settings, network_macvlan)
+Network.IPVLAN,               config_parse_ipvlan_iface_pair, 0,                     offsetof(Settings, network_ipvlan)
 Network.VirtualEthernet,      config_parse_tristate,       0,                        offsetof(Settings, network_veth)
 Network.VirtualEthernetExtra, config_parse_veth_extra,     0,                        0
 Network.Bridge,               config_parse_ifname,         0,                        offsetof(Settings, network_bridge)
