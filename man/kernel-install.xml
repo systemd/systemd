@@ -275,9 +275,9 @@
         </varlistentry>
       </variablelist>
 
-      <para><varname>$KERNEL_INSTALL_INITRD_GENERATOR</varname> is set for plugins to select the initrd
-      generator. This may be configured as <varname>initrd_generator=</varname> in
-      <filename>install.conf</filename>, see below.</para>
+      <para><varname>$KERNEL_INSTALL_INITRD_GENERATOR</varname> and <varname>$KERNEL_INSTALL_UKI_GENERATOR</varname> 
+      are set for plugins to select the initrd and/or uki generator. This may be configured as 
+      <varname>initrd_generator=</varname> in <filename>install.conf</filename>, see below.</para>
 
       <para><varname>$KERNEL_INSTALL_STAGING_AREA</varname> is set for plugins to a path to a directory.
       Plugins may drop files in that directory, and they will be installed as part of the loader entry, based
