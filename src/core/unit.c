@@ -730,6 +730,9 @@ Unit* unit_free(Unit *u) {
         bpf_link_free(u->ipv6_socket_bind_link);
 #endif
 
+        if (u->in_cgroup_empty_queue)
+                unit_prune_cgroup(u);
+
         unit_release_cgroup(u);
 
         if (!MANAGER_IS_RELOADING(u->manager))
