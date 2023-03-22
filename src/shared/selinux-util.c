@@ -45,9 +45,9 @@ static bool have_status_page = false;
 
 #define log_enforcing_errno(error, ...)                                 \
         ({                                                              \
+                int _e = (error);                                       \
                 bool _enforcing = mac_selinux_enforcing();              \
                 int _level = _enforcing ? LOG_ERR : LOG_WARNING;        \
-                int _e = (error);                                       \
                                                                         \
                 int _r = (log_get_max_level() >= LOG_PRI(_level))       \
                         ? log_internal(_level, _e, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \

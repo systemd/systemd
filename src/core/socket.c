@@ -1473,9 +1473,10 @@ static int socket_address_listen_do(
 #define log_address_error_errno(u, address, error, fmt)          \
         ({                                                       \
                 _cleanup_free_ char *_t = NULL;                  \
+                int __e = (error);                               \
                                                                  \
                 (void) socket_address_print(address, &_t);       \
-                log_unit_error_errno(u, error, fmt, strna(_t));  \
+                log_unit_error_errno(u, __e, fmt, strna(_t)); \
         })
 
 static int fork_needed(const SocketAddress *address, const ExecContext *context) {
