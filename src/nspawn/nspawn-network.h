@@ -22,4 +22,6 @@ int veth_extra_parse(char ***l, const char *p);
 
 int remove_veth_links(const char *primary, char **pairs);
 
-int network_iface_pair_parse_and_test(const char* iftype, char ***l, const char *p);
+int interface_pair_parse_and_test(char ***l, const char *p);
+int macvlan_pair_parse_and_test(char ***l, const char *p);
+int ipvlan_pair_parse_and_test(char ***l, const char *p);
