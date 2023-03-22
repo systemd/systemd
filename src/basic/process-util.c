@@ -259,6 +259,32 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
         return 0;
 }
 
+int get_process_cmdline_strv(pid_t pid, ProcessCmdlineFlags flags, char ***ret) {
+        _cleanup_free_ char *t = NULL;
+        char **args;
+        size_t k;
+        int r;
+
+        assert(pid >= 0);
+        assert((flags & ~PROCESS_CMDLINE_COMM_FALLBACK) == 0);
+        assert(ret);
+
+        r = get_process_cmdline_nulstr(pid, SIZE_MAX, flags, &t, &k);
+        if (r < 0)
+                return r;
+
+        /* truncate the last NUL, otherwise strv_parse_nulstr() adds an additional empty string. */
+        if (r > 0 && k > 0 && t[k-1] == '\0')
+                k--;
+
+        args = strv_parse_nulstr(t, k);
+        if (!args)
+                return -ENOMEM;
+
+        *ret = args;
+        return 0;
+}
+
 int container_get_leader(const char *machine, pid_t *pid) {
         _cleanup_free_ char *s = NULL, *class = NULL;
         const char *p;
