@@ -18,7 +18,6 @@
 int make_lock_file_at(int dir_fd, const char *p, int operation, LockFile *ret) {
         _cleanup_close_ int fd = -EBADF, dfd = -EBADF;
         _cleanup_free_ char *t = NULL;
-        int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(p);
@@ -38,28 +37,9 @@ int make_lock_file_at(int dir_fd, const char *p, int operation, LockFile *ret) {
         if (!t)
                 return -ENOMEM;
 
-        for (;;) {
-                struct stat st;
-
-                fd = openat(dfd, p, O_CREAT|O_RDWR|O_NOFOLLOW|O_CLOEXEC|O_NOCTTY, 0600);
-                if (fd < 0)
-                        return -errno;
-
-                r = unposix_lock(fd, operation);
-                if (r < 0)
-                        return r == -EAGAIN ? -EBUSY : r;
-
-                /* If we acquired the lock, let's check if the file still exists in the file system. If not,
-                 * then the previous exclusive owner removed it and then closed it. In such a case our
-                 * acquired lock is worthless, hence try again. */
-
-                if (fstat(fd, &st) < 0)
-                        return -errno;
-                if (st.st_nlink > 0)
-                        break;
-
-                fd = safe_close(fd);
-        }
+        fd = xopenat_lock(dfd, p, O_CREAT|O_RDWR|O_NOFOLLOW|O_CLOEXEC|O_NOCTTY, 0600, LOCK_UNPOSIX, operation);
+        if (fd < 0)
+                return fd == -EAGAIN ? -EBUSY : fd;
 
         *ret = (LockFile) {
                 .dir_fd = TAKE_FD(dfd),
@@ -182,4 +162,19 @@ void unposix_unlockpp(int **fd) {
 
         (void) fcntl_lock(**fd, LOCK_UN, /*ofd=*/ true);
         *fd = NULL;
+}
+
+int lock_generic(int fd, LockType type, int operation) {
+        assert(fd >= 0);
+
+        switch (type) {
+        case LOCK_BSD:
+                return RET_NERRNO(flock(fd, operation));
+        case LOCK_POSIX:
+                return posix_lock(fd, operation);
+        case LOCK_UNPOSIX:
+                return unposix_lock(fd, operation);
+        default:
+                assert_not_reached();
+        }
 }
