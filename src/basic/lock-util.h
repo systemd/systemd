@@ -32,3 +32,11 @@ void unposix_unlockpp(int **fd);
 
 #define CLEANUP_UNPOSIX_UNLOCK(fd)                                   \
         _cleanup_(unposix_unlockpp) _unused_ int *CONCATENATE(_cleanup_unposix_unlock_, UNIQ) = &(fd)
+
+typedef enum LockType {
+        LOCK_BSD,
+        LOCK_POSIX,
+        LOCK_UNPOSIX,
+} LockType;
+
+int lock_generic(int fd, LockType type, int operation);
