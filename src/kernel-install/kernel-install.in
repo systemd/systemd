@@ -106,9 +106,10 @@ else
     shift
 fi
 
-# These two settings are only settable via install.conf
+# These three settings are only settable via install.conf
 layout=
 initrd_generator=
+uki_generator=
 # These two settings can be inherited from the environment
 _MACHINE_ID_SAVED="$MACHINE_ID"
 _BOOT_ROOT_SAVED="$BOOT_ROOT"
@@ -132,6 +133,8 @@ fi
 [ -n "$layout" ] && log_verbose "$install_conf configures layout=$layout"
 [ -n "$initrd_generator" ] && \
     log_verbose "$install_conf configures initrd_generator=$initrd_generator"
+[ -n "$uki_generator" ] && \
+    log_verbose "$install_conf configures uki_generator=$uki_generator"
 
 if [ -n "$_MACHINE_ID_SAVED" ]; then
     MACHINE_ID="$_MACHINE_ID_SAVED"
@@ -307,6 +310,7 @@ export KERNEL_INSTALL_ENTRY_TOKEN="$ENTRY_TOKEN"
 export KERNEL_INSTALL_BOOT_ROOT="$BOOT_ROOT"
 export KERNEL_INSTALL_LAYOUT="$layout"
 export KERNEL_INSTALL_INITRD_GENERATOR="$initrd_generator"
+export KERNEL_INSTALL_UKI_GENERATOR="$uki_generator"
 export KERNEL_INSTALL_STAGING_AREA
 
 MAKE_ENTRY_DIR_ABS=0
@@ -383,6 +387,7 @@ case "$COMMAND" in
         echo "KERNEL_INSTALL_BOOT_ROOT: $KERNEL_INSTALL_BOOT_ROOT"
         echo "KERNEL_INSTALL_LAYOUT: $KERNEL_INSTALL_LAYOUT"
         echo "KERNEL_INSTALL_INITRD_GENERATOR: $KERNEL_INSTALL_INITRD_GENERATOR"
+        echo "KERNEL_INSTALL_UKI_GENERATOR: $KERNEL_INSTALL_UKI_GENERATOR"
         echo "ENTRY_DIR_ABS: $KERNEL_INSTALL_BOOT_ROOT/$ENTRY_TOKEN/\$KERNEL_VERSION"
 
         # Assert that ENTRY_DIR_ABS actually matches what we are printing here
