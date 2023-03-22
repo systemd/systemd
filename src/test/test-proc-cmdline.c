@@ -90,17 +90,17 @@ static void test_proc_cmdline_given_one(bool flip_initrd) {
                 in_initrd_force(!in_initrd());
 
         bool t = true, f = false;
-        assert_se(proc_cmdline_parse_given("foo_bar=quux wuff-piep=\"tuet \" rd.zumm space='x y z' miepf=\"uuu\"",
-                                           parse_item_given, &t, PROC_CMDLINE_STRIP_RD_PREFIX) >= 0);
-
-        assert_se(proc_cmdline_parse_given("foo_bar=quux wuff-piep=\"tuet \" rd.zumm space='x y z' miepf=\"uuu\"",
-                                           parse_item_given, &f, 0) >= 0);
+        assert_se(proc_cmdline_parse(parse_item_given, &t, PROC_CMDLINE_STRIP_RD_PREFIX) >= 0);
+        assert_se(proc_cmdline_parse(parse_item_given, &f, 0) >= 0);
 
         if (flip_initrd)
                 in_initrd_force(!in_initrd());
 }
 
 TEST(test_proc_cmdline_given) {
+        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=\"tuet \" rd.zumm space='x y z' miepf=\"uuu\"") == 0);
+        assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=miepf=\"uuu\"") == 0);
+
         test_proc_cmdline_given_one(false);
         /* Repeat the same thing, but now flip our ininitrdness */
         test_proc_cmdline_given_one(true);
