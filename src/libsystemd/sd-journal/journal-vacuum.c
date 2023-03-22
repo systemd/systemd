@@ -48,6 +48,16 @@ static int vacuum_info_compare(const vacuum_info *a, const vacuum_info *b) {
         return strcmp(a->filename, b->filename);
 }
 
+static void vacuum_info_array_free(vacuum_info *list, size_t n) {
+        if (!list)
+                return;
+
+        for (vacuum_info *i = list; i < list + n; i++)
+                free(i->filename);
+
+        free(list);
+}
+
 static void patch_realtime(
                 int fd,
                 const char *fn,
@@ -129,6 +139,8 @@ int journal_directory_vacuum(
         vacuum_info *list = NULL;
         usec_t retention_limit = 0;
         int r;
+
+        CLEANUP_ARRAY(list, n_list, vacuum_info_array_free);
 
         assert(directory);
 
@@ -312,10 +324,6 @@ int journal_directory_vacuum(
         r = 0;
 
 finish:
-        for (i = 0; i < n_list; i++)
-                free(list[i].filename);
-        free(list);
-
         log_full(verbose ? LOG_INFO : LOG_DEBUG, "Vacuuming done, freed %s of archived journals from %s.",
                  FORMAT_BYTES(freed), directory);
 
