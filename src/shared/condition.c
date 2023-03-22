@@ -106,35 +106,28 @@ Condition* condition_free_list_type(Condition *head, ConditionType type) {
 }
 
 static int condition_test_kernel_command_line(Condition *c, char **env) {
-        _cleanup_free_ char *line = NULL;
+        _cleanup_strv_free_ char **args = NULL;
         int r;
 
         assert(c);
         assert(c->parameter);
         assert(c->type == CONDITION_KERNEL_COMMAND_LINE);
 
-        r = proc_cmdline(&line);
+        r = proc_cmdline_strv(&args);
         if (r < 0)
                 return r;
 
         bool equal = strchr(c->parameter, '=');
 
-        for (const char *p = line;;) {
-                _cleanup_free_ char *word = NULL;
+        STRV_FOREACH(word, args) {
                 bool found;
 
-                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
-
                 if (equal)
-                        found = streq(word, c->parameter);
+                        found = streq(*word, c->parameter);
                 else {
                         const char *f;
 
-                        f = startswith(word, c->parameter);
+                        f = startswith(*word, c->parameter);
                         found = f && IN_SET(*f, 0, '=');
                 }
 
