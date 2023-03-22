@@ -106,6 +106,10 @@ def maybe_decompress(filename):
         # not compressed
         return f.read()
 
+    if start.startswith(b'MZ'):
+        # not compressed aarch64 and riscv64
+        return f.read()
+
     if start.startswith(b'\x1f\x8b'):
         gzip = try_import('gzip')
         return gzip.open(f).read()
