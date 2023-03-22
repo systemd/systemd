@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-int test_network_interface_initialized(const char *name);
+int test_network_interfaces_initialized(char **iface_pairs);
 
 int setup_veth(const char *machine_name, pid_t pid, char iface_name[IFNAMSIZ], bool bridge);
 int setup_veth_extra(const char *machine_name, pid_t pid, char **pairs);
@@ -22,4 +22,6 @@ int veth_extra_parse(char ***l, const char *p);
 
 int remove_veth_links(const char *primary, char **pairs);
 
-int network_iface_pair_parse_and_test(const char* iftype, char ***l, const char *p);
+int interface_pair_parse(char ***l, const char *p);
+int macvlan_pair_parse(char ***l, const char *p);
+int ipvlan_pair_parse(char ***l, const char *p);

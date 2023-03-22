@@ -260,6 +260,8 @@ CONFIG_PARSER_PROTOTYPE(config_parse_overlay);
 CONFIG_PARSER_PROTOTYPE(config_parse_inaccessible);
 CONFIG_PARSER_PROTOTYPE(config_parse_veth_extra);
 CONFIG_PARSER_PROTOTYPE(config_parse_network_iface_pair);
+CONFIG_PARSER_PROTOTYPE(config_parse_macvlan_iface_pair);
+CONFIG_PARSER_PROTOTYPE(config_parse_ipvlan_iface_pair);
 CONFIG_PARSER_PROTOTYPE(config_parse_network_zone);
 CONFIG_PARSER_PROTOTYPE(config_parse_boot);
 CONFIG_PARSER_PROTOTYPE(config_parse_pid2);

@@ -488,7 +488,49 @@ int config_parse_network_iface_pair(
         assert(lvalue);
         assert(rvalue);
 
-        return network_iface_pair_parse_and_test(lvalue, l, rvalue);
+        return interface_pair_parse(l, rvalue);
+}
+
+int config_parse_macvlan_iface_pair(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char*** l = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        return macvlan_pair_parse(l, rvalue);
+}
+
+int config_parse_ipvlan_iface_pair(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char*** l = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        return ipvlan_pair_parse(l, rvalue);
 }
 
 int config_parse_network_zone(
