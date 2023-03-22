@@ -2940,7 +2940,7 @@ static int process_fd_check(sd_bus *bus, sd_bus_message *m) {
 }
 
 static int process_message(sd_bus *bus, sd_bus_message *m) {
-        _unused_ _cleanup_(log_context_freep) LogContext *c = NULL;
+        _unused_ _cleanup_(log_context_unrefp) LogContext *c = NULL;
         int r;
 
         assert(bus);
@@ -2950,7 +2950,7 @@ static int process_message(sd_bus *bus, sd_bus_message *m) {
         bus->iteration_counter++;
 
         if (log_context_enabled())
-                c = log_context_new_consume(bus_message_make_log_fields(m));
+                c = log_context_new_strv_consume(bus_message_make_log_fields(m));
 
         log_debug_bus_message(m);
 
