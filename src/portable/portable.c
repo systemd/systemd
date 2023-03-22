@@ -1005,19 +1005,41 @@ static int install_chroot_dropin(
                                "LogExtraFields=PORTABLE=", base_name, "\n"))
                         return -ENOMEM;
 
+                if (!ordered_hashmap_isempty(extension_images)) {
+                        _cleanup_free_ char *root_base_name = NULL;
+
+                        r = path_extract_filename(image_path, &root_base_name);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract basename from '%s': %m", image_path);
+
+                        if (!strextend(&text, "LogExtraFields=PORTABLE_ROOT=", root_base_name, "\n"))
+                                return -ENOMEM;
+                }
+
                 if (m->image_path && !path_equal(m->image_path, image_path))
-                        ORDERED_HASHMAP_FOREACH(ext, extension_images)
+                        ORDERED_HASHMAP_FOREACH(ext, extension_images) {
+                                _cleanup_free_ char *extension_base_name = NULL;
+
+                                r = path_extract_filename(ext->path, &extension_base_name);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to extract basename from '%s': %m", ext->path);
+
                                 if (!strextend(&text,
+                                               "\n",
                                                extension_setting_from_image(ext->type),
                                                ext->path,
                                                /* With --force tell PID1 to avoid enforcing that the image <name> and
                                                 * extension-release.<name> have to match. */
                                                !IN_SET(type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) &&
                                                    FLAGS_SET(flags, PORTABLE_FORCE_SYSEXT) ?
-                                                       ":x-systemd.relax-extension-release-check" :
-                                                       "",
-                                               "\n"))
+                                                       ":x-systemd.relax-extension-release-check\n" :
+                                                       "\n",
+                                               /* In PORTABLE= we list the 'main' image name for this unit
+                                                * (the image where the unit was extracted from), but we are
+                                                * stacking multiple images, so list those too. */
+                                               "LogExtraFields=PORTABLE_EXTENSION=", extension_base_name, "\n"))
                                         return -ENOMEM;
+                        }
         }
 
         r = write_string_file(dropin, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
