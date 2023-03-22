@@ -35,6 +35,7 @@ hwdb:
   - hwdb.d/**/*
 journal:
   - src/journal/*
+  - src/libsystemd/sd-journal/*
 journal-remote:
   - src/journal-remote/*
 meson:
