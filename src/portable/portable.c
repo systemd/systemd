@@ -1005,18 +1005,26 @@ static int install_chroot_dropin(
                                "LogExtraFields=PORTABLE=", base_name, "\n"))
                         return -ENOMEM;
 
+                if (!ordered_hashmap_isempty(extension_images))
+                        if (!strextend(&text, "LogExtraFields=PORTABLE_ROOT=", image_path, "\n"))
+                                return -ENOMEM;
+
                 if (m->image_path && !path_equal(m->image_path, image_path))
                         ORDERED_HASHMAP_FOREACH(ext, extension_images)
                                 if (!strextend(&text,
+                                               "\n",
                                                extension_setting_from_image(ext->type),
                                                ext->path,
                                                /* With --force tell PID1 to avoid enforcing that the image <name> and
                                                 * extension-release.<name> have to match. */
                                                !IN_SET(type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) &&
                                                    FLAGS_SET(flags, PORTABLE_FORCE_SYSEXT) ?
-                                                       ":x-systemd.relax-extension-release-check" :
-                                                       "",
-                                               "\n"))
+                                                       ":x-systemd.relax-extension-release-check\n" :
+                                                       "\n",
+                                               /* In PORTABLE= we list the 'main' image name for this unit
+                                                * (the image where the unit was extracted from), but we are
+                                                * stacking multiple images, so list those too. */
+                                               "LogExtraFields=PORTABLE_EXTENSION=", ext->path, "\n"))
                                         return -ENOMEM;
         }
 
