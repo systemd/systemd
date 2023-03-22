@@ -49,6 +49,7 @@
 #include "sync-util.h"
 #include "tmpfile-util.h"
 #include "uid-alloc-range.h"
+#include "unaligned.h"
 #include "user-util.h"
 
 /* The maximum size up to which we process coredumps. We use 1G on 32bit systems, and 32G on 64bit systems */
@@ -335,95 +336,65 @@ static int make_filename(const Context *context, char **ret) {
         return 0;
 }
 
-static int parse_auxv64(
-                const uint64_t *auxv,
-                size_t size_bytes,
-                int *at_secure,
-                uid_t *uid,
-                uid_t *euid,
-                gid_t *gid,
-                gid_t *egid) {
+#define _DEFINE_PARSE_AUXV(size, type, unaligned_read)                  \
+        static int parse_auxv##size(                                    \
+                        const void *auxv,                               \
+                        size_t size_bytes,                              \
+                        int *at_secure,                                 \
+                        uid_t *uid,                                     \
+                        uid_t *euid,                                    \
+                        gid_t *gid,                                     \
+                        gid_t *egid) {                                  \
+                                                                        \
+                assert(auxv || size_bytes == 0);                        \
+                                                                        \
+                if (size_bytes % (2 * sizeof(type)) != 0)               \
+                        return log_warning_errno(SYNTHETIC_ERRNO(EIO),  \
+                                                 "Incomplete auxv structure (%zu bytes).", \
+                                                 size_bytes);           \
+                                                                        \
+                size_t words = size_bytes / sizeof(type);               \
+                                                                        \
+                /* Note that we set output variables even on error. */  \
+                                                                        \
+                for (size_t i = 0; i + 1 < words; i += 2) {             \
+                        type key, val;                                  \
+                                                                        \
+                        key = unaligned_read((uint8_t*) auxv + i * sizeof(type)); \
+                        val = unaligned_read((uint8_t*) auxv + (i + 1) * sizeof(type)); \
+                                                                        \
+                        switch (key) {                                  \
+                        case AT_SECURE:                                 \
+                                *at_secure = val != 0;                  \
+                                break;                                  \
+                        case AT_UID:                                    \
+                                *uid = val;                             \
+                                break;                                  \
+                        case AT_EUID:                                   \
+                                *euid = val;                            \
+                                break;                                  \
+                        case AT_GID:                                    \
+                                *gid = val;                             \
+                                break;                                  \
+                        case AT_EGID:                                   \
+                                *egid = val;                            \
+                                break;                                  \
+                        case AT_NULL:                                   \
+                                if (val != 0)                           \
+                                        goto error;                     \
+                                return 0;                               \
+                        }                                               \
+                }                                                       \
+        error:                                                          \
+                return log_warning_errno(SYNTHETIC_ERRNO(ENODATA),      \
+                                         "AT_NULL terminator not found, cannot parse auxv structure."); \
+        }
 
-        assert(auxv || size_bytes == 0);
+#define DEFINE_PARSE_AUXV(size)\
+        _DEFINE_PARSE_AUXV(size, uint##size##_t, unaligned_read_ne##size)
 
-        if (size_bytes % (2 * sizeof(uint64_t)) != 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EIO), "Incomplete auxv structure (%zu bytes).", size_bytes);
-
-        size_t words = size_bytes / sizeof(uint64_t);
-
-        /* Note that we set output variables even on error. */
-
-        for (size_t i = 0; i + 1 < words; i += 2)
-                switch (auxv[i]) {
-                case AT_SECURE:
-                        *at_secure = auxv[i + 1] != 0;
-                        break;
-                case AT_UID:
-                        *uid = auxv[i + 1];
-                        break;
-                case AT_EUID:
-                        *euid = auxv[i + 1];
-                        break;
-                case AT_GID:
-                        *gid = auxv[i + 1];
-                        break;
-                case AT_EGID:
-                        *egid = auxv[i + 1];
-                        break;
-                case AT_NULL:
-                        if (auxv[i + 1] != 0)
-                                goto error;
-                        return 0;
-                }
- error:
-        return log_warning_errno(SYNTHETIC_ERRNO(ENODATA),
-                                 "AT_NULL terminator not found, cannot parse auxv structure.");
-}
-
-static int parse_auxv32(
-                const uint32_t *auxv,
-                size_t size_bytes,
-                int *at_secure,
-                uid_t *uid,
-                uid_t *euid,
-                gid_t *gid,
-                gid_t *egid) {
-
-        assert(auxv || size_bytes == 0);
-
-        size_t words = size_bytes / sizeof(uint32_t);
-
-        if (size_bytes % (2 * sizeof(uint32_t)) != 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EIO), "Incomplete auxv structure (%zu bytes).", size_bytes);
-
-        /* Note that we set output variables even on error. */
-
-        for (size_t i = 0; i + 1 < words; i += 2)
-                switch (auxv[i]) {
-                case AT_SECURE:
-                        *at_secure = auxv[i + 1] != 0;
-                        break;
-                case AT_UID:
-                        *uid = auxv[i + 1];
-                        break;
-                case AT_EUID:
-                        *euid = auxv[i + 1];
-                        break;
-                case AT_GID:
-                        *gid = auxv[i + 1];
-                        break;
-                case AT_EGID:
-                        *egid = auxv[i + 1];
-                        break;
-                case AT_NULL:
-                        if (auxv[i + 1] != 0)
-                                goto error;
-                        return 0;
-                }
- error:
-        return log_warning_errno(SYNTHETIC_ERRNO(ENODATA),
-                                 "AT_NULL terminator not found, cannot parse auxv structure.");
-}
+DEFINE_PARSE_AUXV(32);
+DEFINE_PARSE_AUXV(64);
 
 static int grant_user_access(int core_fd, const Context *context) {
         int at_secure = -1;
@@ -460,11 +431,11 @@ static int grant_user_access(int core_fd, const Context *context) {
                                       "Core file has non-native endianness, not adjusting permissions.");
 
         if (elf[EI_CLASS] == ELFCLASS64)
-                r = parse_auxv64((const uint64_t*) context->meta[META_PROC_AUXV],
+                r = parse_auxv64(context->meta[META_PROC_AUXV],
                                  context->meta_size[META_PROC_AUXV],
                                  &at_secure, &uid, &euid, &gid, &egid);
         else
-                r = parse_auxv32((const uint32_t*) context->meta[META_PROC_AUXV],
+                r = parse_auxv32(context->meta[META_PROC_AUXV],
                                  context->meta_size[META_PROC_AUXV],
                                  &at_secure, &uid, &euid, &gid, &egid);
         if (r < 0)
