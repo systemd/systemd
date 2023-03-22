@@ -1227,124 +1227,6 @@ static void rule_resolve_goto(UdevRuleFile *rule_file) {
         }
 }
 
-int udev_rules_parse_file(UdevRules *rules, const char *filename, UdevRuleFile **ret) {
-        _cleanup_(udev_rule_file_freep) UdevRuleFile *rule_file = NULL;
-        _cleanup_free_ char *continuation = NULL, *name = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        bool ignore_line = false;
-        unsigned line_nr = 0;
-        struct stat st;
-        int r;
-
-        assert(rules);
-        assert(filename);
-
-        f = fopen(filename, "re");
-        if (!f)
-                return log_warning_errno(errno, "Failed to open %s, ignoring: %m", filename);
-
-        if (fstat(fileno(f), &st) < 0)
-                return log_warning_errno(errno, "Failed to stat %s, ignoring: %m", filename);
-
-        if (null_or_empty(&st)) {
-                log_debug("Skipping empty file: %s", filename);
-                if (ret)
-                        *ret = NULL;
-                return 0;
-        }
-
-        r = hashmap_put_stats_by_path(&rules->stats_by_path, filename, &st);
-        if (r < 0)
-                return log_warning_errno(errno, "Failed to save stat for %s, ignoring: %m", filename);
-
-        (void) fd_warn_permissions(filename, fileno(f));
-
-        log_debug("Reading rules file: %s", filename);
-
-        name = strdup(filename);
-        if (!name)
-                return log_oom();
-
-        rule_file = new(UdevRuleFile, 1);
-        if (!rule_file)
-                return log_oom();
-
-        *rule_file = (UdevRuleFile) {
-                .filename = TAKE_PTR(name),
-                .rules = rules,
-        };
-
-        LIST_APPEND(rule_files, rules->rule_files, rule_file);
-
-        for (;;) {
-                _cleanup_free_ char *buf = NULL;
-                size_t len;
-                char *line;
-
-                r = read_line(f, UDEV_LINE_SIZE, &buf);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
-
-                line_nr++;
-                line = skip_leading_chars(buf, NULL);
-
-                /* Lines beginning with '#' are ignored regardless of line continuation. */
-                if (line[0] == '#')
-                        continue;
-
-                len = strlen(line);
-
-                if (continuation && !ignore_line) {
-                        if (strlen(continuation) + len >= UDEV_LINE_SIZE)
-                                ignore_line = true;
-
-                        if (!strextend(&continuation, line))
-                                return log_oom();
-
-                        if (!ignore_line) {
-                                line = continuation;
-                                len = strlen(line);
-                        }
-                }
-
-                if (len > 0 && line[len - 1] == '\\') {
-                        if (ignore_line)
-                                continue;
-
-                        line[len - 1] = '\0';
-                        if (!continuation) {
-                                continuation = strdup(line);
-                                if (!continuation)
-                                        return log_oom();
-                        }
-
-                        continue;
-                }
-
-                if (ignore_line)
-                        log_file_error(rule_file, line_nr, "Line is too long, ignored");
-                else if (len > 0)
-                        (void) rule_add_line(rule_file, line, line_nr);
-
-                continuation = mfree(continuation);
-                ignore_line = false;
-        }
-
-        if (continuation)
-                log_file_error(rule_file, line_nr,
-                               "Unexpected EOF after line continuation, line ignored");
-
-        rule_resolve_goto(rule_file);
-
-        if (ret)
-                *ret = rule_file;
-
-        TAKE_PTR(rule_file);
-        return 1;
-}
-
 static bool token_data_is_string(UdevRuleTokenType type) {
         return IN_SET(type, TK_M_ENV,
                             TK_M_CONST,
@@ -1474,6 +1356,124 @@ static void udev_check_conflicts_duplicates(UdevRuleLine *line) {
 static void udev_check_rule_line(UdevRuleLine *line) {
         udev_check_unused_labels(line);
         udev_check_conflicts_duplicates(line);
+}
+
+int udev_rules_parse_file(UdevRules *rules, const char *filename, UdevRuleFile **ret) {
+        _cleanup_(udev_rule_file_freep) UdevRuleFile *rule_file = NULL;
+        _cleanup_free_ char *continuation = NULL, *name = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        bool ignore_line = false;
+        unsigned line_nr = 0;
+        struct stat st;
+        int r;
+
+        assert(rules);
+        assert(filename);
+
+        f = fopen(filename, "re");
+        if (!f)
+                return log_warning_errno(errno, "Failed to open %s, ignoring: %m", filename);
+
+        if (fstat(fileno(f), &st) < 0)
+                return log_warning_errno(errno, "Failed to stat %s, ignoring: %m", filename);
+
+        if (null_or_empty(&st)) {
+                log_debug("Skipping empty file: %s", filename);
+                if (ret)
+                        *ret = NULL;
+                return 0;
+        }
+
+        r = hashmap_put_stats_by_path(&rules->stats_by_path, filename, &st);
+        if (r < 0)
+                return log_warning_errno(errno, "Failed to save stat for %s, ignoring: %m", filename);
+
+        (void) fd_warn_permissions(filename, fileno(f));
+
+        log_debug("Reading rules file: %s", filename);
+
+        name = strdup(filename);
+        if (!name)
+                return log_oom();
+
+        rule_file = new(UdevRuleFile, 1);
+        if (!rule_file)
+                return log_oom();
+
+        *rule_file = (UdevRuleFile) {
+                .filename = TAKE_PTR(name),
+                .rules = rules,
+        };
+
+        LIST_APPEND(rule_files, rules->rule_files, rule_file);
+
+        for (;;) {
+                _cleanup_free_ char *buf = NULL;
+                size_t len;
+                char *line;
+
+                r = read_line(f, UDEV_LINE_SIZE, &buf);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                line_nr++;
+                line = skip_leading_chars(buf, NULL);
+
+                /* Lines beginning with '#' are ignored regardless of line continuation. */
+                if (line[0] == '#')
+                        continue;
+
+                len = strlen(line);
+
+                if (continuation && !ignore_line) {
+                        if (strlen(continuation) + len >= UDEV_LINE_SIZE)
+                                ignore_line = true;
+
+                        if (!strextend(&continuation, line))
+                                return log_oom();
+
+                        if (!ignore_line) {
+                                line = continuation;
+                                len = strlen(line);
+                        }
+                }
+
+                if (len > 0 && line[len - 1] == '\\') {
+                        if (ignore_line)
+                                continue;
+
+                        line[len - 1] = '\0';
+                        if (!continuation) {
+                                continuation = strdup(line);
+                                if (!continuation)
+                                        return log_oom();
+                        }
+
+                        continue;
+                }
+
+                if (ignore_line)
+                        log_file_error(rule_file, line_nr, "Line is too long, ignored");
+                else if (len > 0)
+                        (void) rule_add_line(rule_file, line, line_nr);
+
+                continuation = mfree(continuation);
+                ignore_line = false;
+        }
+
+        if (continuation)
+                log_file_error(rule_file, line_nr,
+                               "Unexpected EOF after line continuation, line ignored");
+
+        rule_resolve_goto(rule_file);
+
+        if (ret)
+                *ret = rule_file;
+
+        TAKE_PTR(rule_file);
+        return 1;
 }
 
 unsigned udev_rule_file_get_issues(UdevRuleFile *rule_file) {
