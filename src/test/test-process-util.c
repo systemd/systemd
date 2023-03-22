@@ -113,7 +113,7 @@ TEST(get_process_comm) {
 
 static void test_get_process_cmdline_one(pid_t pid) {
         _cleanup_free_ char *c = NULL, *d = NULL, *e = NULL, *f = NULL, *g = NULL, *h = NULL, *joined = NULL;
-        _cleanup_free_ char **strv_a = NULL, **strv_b = NULL;
+        _cleanup_strv_free_ char **strv_a = NULL, **strv_b = NULL;
         int r;
 
         r = get_process_cmdline(pid, SIZE_MAX, 0, &c);
@@ -257,7 +257,7 @@ TEST(get_process_cmdline_harder) {
         char path[] = "/tmp/test-cmdlineXXXXXX";
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *line = NULL;
-        _cleanup_free_ char **args = NULL;
+        _cleanup_strv_free_ char **args = NULL;
         pid_t pid;
         int r;
 
