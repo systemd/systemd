@@ -71,7 +71,7 @@ int edit_files_add(
         if (edit_files_contains(context, path))
                 return 0;
 
-        if (!GREEDY_REALLOC0(context->files, context->n_files + 2))
+        if (!GREEDY_REALLOC(context->files, context->n_files + 1))
                 return log_oom();
 
         new_path = strdup(path);
