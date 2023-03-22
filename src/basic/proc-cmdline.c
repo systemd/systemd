@@ -303,75 +303,91 @@ int proc_cmdline_get_bool(const char *key, bool *ret) {
         return 1;
 }
 
-int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
-        _cleanup_free_ char *line = NULL;
-        bool processing_efi = true;
-        const char *p;
-        va_list ap;
-        int r, ret = 0;
+typedef struct ProcCmdlineDataEntry {
+        const char *key;
+        char *value;
+        char **ret;
+} ProcCmdlineDataEntry;
 
-        /* The PROC_CMDLINE_VALUE_OPTIONAL flag doesn't really make sense for proc_cmdline_get_key_many(), let's make
-         * this clear. */
+typedef struct ProcCmdlineData {
+        ProcCmdlineDataEntry *data;
+        size_t num;
+} ProcCmdlineData;
+
+static void proc_cmdline_data_done(ProcCmdlineData *c) {
+        assert(c);
+
+        FOREACH_ARRAY(e, c->data, c->num)
+                free(e->value);
+
+        free(c->data);
+}
+
+static int get_many_handler(const char *key, const char *value, void *data) {
+        ProcCmdlineData *c = ASSERT_PTR(data);
+        int r;
+
+        assert(key);
+
+        FOREACH_ARRAY(e, c->data, c->num) {
+                if (!proc_cmdline_key_streq(e->key, key))
+                        continue;
+
+                if (value) {
+                        r = free_and_strdup(&e->value, value);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
+int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
+        _cleanup_(proc_cmdline_data_done) ProcCmdlineData c = {};
+        va_list ap;
+        int r;
+
+        /* The PROC_CMDLINE_VALUE_OPTIONAL flag doesn't really make sense for proc_cmdline_get_key_many(),
+         * let's make this clear. */
         assert(!FLAGS_SET(flags, PROC_CMDLINE_VALUE_OPTIONAL));
 
-        /* This call may clobber arguments on failure! */
-
-        if (!FLAGS_SET(flags, PROC_CMDLINE_IGNORE_EFI_OPTIONS)) {
-                r = systemd_efi_options_variable(&line);
-                if (r < 0 && r != -ENODATA)
-                        log_debug_errno(r, "Failed to get SystemdOptions EFI variable, ignoring: %m");
-        }
-
-        p = line;
+        va_start(ap, flags);
         for (;;) {
-                _cleanup_free_ char *word = NULL;
+                const char *k;
+                char **v;
 
-                r = proc_cmdline_extract_first(&p, &word, flags);
-                if (r < 0)
-                        return r;
-                if (r == 0) {
-                        /* We finished with this command line. If this was the EFI one, then let's proceed with the regular one */
-                        if (processing_efi) {
-                                processing_efi = false;
-
-                                line = mfree(line);
-                                r = proc_cmdline(&line);
-                                if (r < 0)
-                                        return r;
-
-                                p = line;
-                                continue;
-                        }
-
+                k = va_arg(ap, const char*);
+                if (!k)
                         break;
+
+                assert_se(v = va_arg(ap, char**));
+
+                if (!GREEDY_REALLOC(c.data, c.num + 1)) {
+                        va_end(ap);
+                        return -ENOMEM;
                 }
 
-                va_start(ap, flags);
-
-                for (;;) {
-                        char **v;
-                        const char *k, *e;
-
-                        k = va_arg(ap, const char*);
-                        if (!k)
-                                break;
-
-                        assert_se(v = va_arg(ap, char**));
-
-                        e = proc_cmdline_key_startswith(word, k);
-                        if (e && *e == '=') {
-                                r = free_and_strdup(v, e + 1);
-                                if (r < 0) {
-                                        va_end(ap);
-                                        return r;
-                                }
-
-                                ret++;
-                        }
-                }
-
-                va_end(ap);
+                c.data[c.num++] = (ProcCmdlineDataEntry) {
+                        .key = k,
+                        .ret = v,
+                };
         }
 
-        return ret;
+        va_end(ap);
+
+        if (c.num == 0)
+                return 0; /* shortcut. */
+
+        r = proc_cmdline_parse(get_many_handler, &c, flags);
+        if (r < 0)
+                return r;
+
+        r = 0;
+        FOREACH_ARRAY(e, c.data, c.num) {
+                r += !!e->value;
+                *e->ret = TAKE_PTR(e->value);
+        }
+
+        return r;
 }
