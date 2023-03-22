@@ -1078,15 +1078,16 @@ Condition *unit_find_failed_condition(Unit *u);
         ({                                                              \
                 const Unit *_u = (unit);                                \
                 const int _l = (level);                                 \
+                int _e = (error);                                       \
                 bool _do_log = !(log_get_max_level() < LOG_PRI(_l) ||   \
                         (_u && !unit_log_level_test(_u, _l)));          \
                 const ExecContext *_c = _do_log && _u ?                 \
                         unit_get_exec_context(_u) : NULL;               \
                 LOG_CONTEXT_PUSH_IOV(_c ? _c->log_extra_fields : NULL,  \
                                      _c ? _c->n_log_extra_fields : 0);  \
-                !_do_log ? -ERRNO_VALUE(error) :                        \
-                        _u ? log_object_internal(_l, error, PROJECT_FILE, __LINE__, __func__, _u->manager->unit_log_field, _u->id, _u->manager->invocation_log_field, _u->invocation_id_string, ##__VA_ARGS__) : \
-                                log_internal(_l, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
+                !_do_log ? -ERRNO_VALUE(_e) :                           \
+                        _u ? log_object_internal(_l, _e, PROJECT_FILE, __LINE__, __func__, _u->manager->unit_log_field, _u->id, _u->manager->invocation_log_field, _u->invocation_id_string, ##__VA_ARGS__) : \
+                                log_internal(_l, _e, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
         })
 
 #define log_unit_full_errno(unit, level, error, ...) \
