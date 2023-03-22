@@ -20,7 +20,7 @@
 #include "time-util.h"
 #include "xattr-util.h"
 
-struct vacuum_info {
+typedef struct vacuum_info {
         uint64_t usage;
         char *filename;
 
@@ -29,9 +29,9 @@ struct vacuum_info {
         sd_id128_t seqnum_id;
         uint64_t seqnum;
         bool have_seqnum;
-};
+} vacuum_info;
 
-static int vacuum_compare(const struct vacuum_info *a, const struct vacuum_info *b) {
+static int vacuum_info_compare(const vacuum_info *a, const vacuum_info *b) {
         int r;
 
         if (a->have_seqnum && b->have_seqnum &&
@@ -46,6 +46,16 @@ static int vacuum_compare(const struct vacuum_info *a, const struct vacuum_info 
                 return memcmp(&a->seqnum_id, &b->seqnum_id, 16);
 
         return strcmp(a->filename, b->filename);
+}
+
+static void vacuum_info_array_free(vacuum_info *list, size_t n) {
+        if (!list)
+                return;
+
+        for (vacuum_info *i = list; i < list + n; i++)
+                free(i->filename);
+
+        free(list);
 }
 
 static void patch_realtime(
@@ -126,9 +136,11 @@ int journal_directory_vacuum(
         uint64_t sum = 0, freed = 0, n_active_files = 0;
         size_t n_list = 0, i;
         _cleanup_closedir_ DIR *d = NULL;
-        struct vacuum_info *list = NULL;
+        vacuum_info *list = NULL;
         usec_t retention_limit = 0;
         int r;
+
+        CLEANUP_ARRAY(list, n_list, vacuum_info_array_free);
 
         assert(directory);
 
@@ -158,6 +170,9 @@ int journal_directory_vacuum(
 
                 if (!S_ISREG(st.st_mode))
                         continue;
+
+                size = 512UL * (uint64_t) st.st_blocks;
+                sum += size;
 
                 q = strlen(de->d_name);
 
@@ -234,8 +249,6 @@ int journal_directory_vacuum(
                         continue;
                 }
 
-                size = 512UL * (uint64_t) st.st_blocks;
-
                 r = journal_file_empty(dirfd(d), p);
                 if (r < 0) {
                         log_debug_errno(r, "Failed check if %s is empty, ignoring: %m", p);
@@ -266,7 +279,7 @@ int journal_directory_vacuum(
                         goto finish;
                 }
 
-                list[n_list++] = (struct vacuum_info) {
+                list[n_list++] = (vacuum_info) {
                         .filename = TAKE_PTR(p),
                         .usage = size,
                         .seqnum = seqnum,
@@ -274,11 +287,9 @@ int journal_directory_vacuum(
                         .seqnum_id = seqnum_id,
                         .have_seqnum = have_seqnum,
                 };
-
-                sum += size;
         }
 
-        typesafe_qsort(list, n_list, vacuum_compare);
+        typesafe_qsort(list, n_list, vacuum_info_compare);
 
         for (i = 0; i < n_list; i++) {
                 uint64_t left;
@@ -313,10 +324,6 @@ int journal_directory_vacuum(
         r = 0;
 
 finish:
-        for (i = 0; i < n_list; i++)
-                free(list[i].filename);
-        free(list);
-
         log_full(verbose ? LOG_INFO : LOG_DEBUG, "Vacuuming done, freed %s of archived journals from %s.",
                  FORMAT_BYTES(freed), directory);
 
