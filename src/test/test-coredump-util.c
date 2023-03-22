@@ -67,6 +67,33 @@ TEST(coredump_filter_mask_from_string) {
                                 1 << COREDUMP_FILTER_SHARED_DAX)));
 }
 
+static void test_parse_auxv_two(
+                ptrdiff_t offset,
+                const char *data,
+                size_t data_size,
+                bool elf64bit,
+                int expect_at_secure,
+                uid_t expect_uid,
+                uid_t expect_euid,
+                gid_t expect_gid,
+                gid_t expect_egid) {
+
+        int at_secure;
+        uid_t uid, euid;
+        gid_t gid, egid;
+        assert_se(parse_auxv(LOG_ERR, elf64bit, data, data_size,
+                             &at_secure, &uid, &euid, &gid, &egid) == 0);
+
+        log_debug("[offset=%td] at_secure=%d, uid="UID_FMT", euid="UID_FMT", gid="GID_FMT", egid="GID_FMT,
+                  offset,
+                  at_secure, uid, euid, gid, egid);
+
+        assert_se(uid == expect_uid);
+        assert_se(euid == expect_euid);
+        assert_se(gid == expect_gid);
+        assert_se(egid == expect_egid);
+}
+
 static void test_parse_auxv_one(
                 int dir_fd,
                 const char *filename,
@@ -77,24 +104,26 @@ static void test_parse_auxv_one(
                 gid_t expect_gid,
                 gid_t expect_egid) {
 
-        _cleanup_free_ char *data;
+        _cleanup_free_ char *buf;
+        const char *data;
         size_t data_size;
         log_info("Parsing %s…", filename);
-        assert_se(read_full_file_at(dir_fd, filename, &data, &data_size) >= 0);
+        assert_se(read_full_file_at(dir_fd, filename, &buf, &data_size) >= 0);
 
-        int at_secure;
-        uid_t uid, euid;
-        gid_t gid, egid;
-        assert_se(parse_auxv(LOG_ERR, elf64bit, data, data_size,
-                             &at_secure, &uid, &euid, &gid, &egid) == 0);
+        for (ptrdiff_t offset = 0; offset < 8; offset++) {
+                _cleanup_free_ char *buf2 = NULL;
 
-        log_info("at_secure=%d, uid="UID_FMT", euid="UID_FMT", gid="GID_FMT", egid="GID_FMT,
-                 at_secure, uid, euid, gid, egid);
+                if (offset == 0)
+                        data = buf;
+                else {
+                        assert_se(buf2 = malloc(offset + data_size));
+                        memcpy(buf2 + offset, buf, data_size);
+                        data = buf2 + offset;
+                }
 
-        assert_se(uid == expect_uid);
-        assert_se(euid == expect_euid);
-        assert_se(gid == expect_gid);
-        assert_se(egid == expect_egid);
+                test_parse_auxv_two(offset, data, data_size, elf64bit,
+                                    expect_at_secure, expect_uid, expect_euid, expect_gid, expect_egid);
+        }
 }
 
 TEST(test_parse_auxv) {
