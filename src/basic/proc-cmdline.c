@@ -12,8 +12,8 @@
 #include "parse-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
-#include "special.h"
 #include "string-util.h"
+#include "strv.h"
 #include "virt.h"
 
 int proc_cmdline(char **ret) {
@@ -40,71 +40,47 @@ int proc_cmdline(char **ret) {
                 return read_one_line_file("/proc/cmdline", ret);
 }
 
-static int proc_cmdline_extract_first(const char **p, char **ret_word, ProcCmdlineFlags flags) {
-        const char *q = *p;
-        int r;
+static char *mangle_word(const char *word, ProcCmdlineFlags flags) {
+        char *c;
 
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-                const char *c;
-
-                r = extract_first_word(&q, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
-
+        c = startswith(word, "rd.");
+        if (c) {
                 /* Filter out arguments that are intended only for the initrd */
-                c = startswith(word, "rd.");
-                if (c) {
-                        if (!in_initrd())
-                                continue;
 
-                        if (FLAGS_SET(flags, PROC_CMDLINE_STRIP_RD_PREFIX)) {
-                                r = free_and_strdup(&word, c);
-                                if (r < 0)
-                                        return r;
-                        }
+                if (!in_initrd())
+                        return NULL;
 
-                } else if (FLAGS_SET(flags, PROC_CMDLINE_RD_STRICT) && in_initrd())
-                        continue; /* And optionally filter out arguments that are intended only for the host */
+                if (FLAGS_SET(flags, PROC_CMDLINE_STRIP_RD_PREFIX))
+                        return c;
 
-                *p = q;
-                *ret_word = TAKE_PTR(word);
-                return 1;
-        }
+        } else if (FLAGS_SET(flags, PROC_CMDLINE_RD_STRICT) && in_initrd())
+                /* And optionally filter out arguments that are intended only for the host */
+                return NULL;
 
-        *p = q;
-        *ret_word = NULL;
-        return 0;
+        return (char*) word;
 }
 
-static int proc_cmdline_parse_given(const char *line, proc_cmdline_parse_t parse_item, void *data, ProcCmdlineFlags flags) {
-        const char *p;
+static int proc_cmdline_parse_strv(char **args, proc_cmdline_parse_t parse_item, void *data, ProcCmdlineFlags flags) {
         int r;
 
         assert(parse_item);
 
-        /* The PROC_CMDLINE_VALUE_OPTIONAL flag doesn't really make sense for proc_cmdline_parse(), let's make this
-         * clear. */
+        /* The PROC_CMDLINE_VALUE_OPTIONAL flag doesn't really make sense for proc_cmdline_parse(), let's
+         * make this clear. */
         assert(!FLAGS_SET(flags, PROC_CMDLINE_VALUE_OPTIONAL));
 
-        p = line;
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-                char *value;
+        STRV_FOREACH(word, args) {
+                char *key, *value;
 
-                r = proc_cmdline_extract_first(&p, &word, flags);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
+                key = mangle_word(*word, flags);
+                if (!key)
+                        continue;
 
-                value = strchr(word, '=');
+                value = strchr(key, '=');
                 if (value)
-                        *(value++) = 0;
+                        *(value++) = '\0';
 
-                r = parse_item(word, value, data);
+                r = parse_item(key, value, data);
                 if (r < 0)
                         return r;
         }
@@ -113,6 +89,7 @@ static int proc_cmdline_parse_given(const char *line, proc_cmdline_parse_t parse
 }
 
 int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, ProcCmdlineFlags flags) {
+        _cleanup_strv_free_ char **args = NULL;
         _cleanup_free_ char *line = NULL;
         int r;
 
@@ -126,10 +103,15 @@ int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, ProcCmdlineF
                         if (r != -ENODATA)
                                 log_debug_errno(r, "Failed to get SystemdOptions EFI variable, ignoring: %m");
                 } else {
-                        r = proc_cmdline_parse_given(line, parse_item, data, flags);
+                        r = strv_split_full(&args, line, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
                         if (r < 0)
                                 return r;
 
+                        r = proc_cmdline_parse_strv(args, parse_item, data, flags);
+                        if (r < 0)
+                                return r;
+
+                        args = strv_free(args);
                         line = mfree(line);
                 }
         }
@@ -138,7 +120,11 @@ int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, ProcCmdlineF
         if (r < 0)
                 return r;
 
-        return proc_cmdline_parse_given(line, parse_item, data, flags);
+        r = strv_split_full(&args, line, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
+        if (r < 0)
+                return r;
+
+        return proc_cmdline_parse_strv(args, parse_item, data, flags);
 }
 
 static bool relaxed_equal_char(char a, char b) {
@@ -173,24 +159,19 @@ bool proc_cmdline_key_streq(const char *x, const char *y) {
         return true;
 }
 
-static int cmdline_get_key(const char *line, const char *key, ProcCmdlineFlags flags, char **ret_value) {
+static int cmdline_get_key(char **args, const char *key, ProcCmdlineFlags flags, char **ret_value) {
         _cleanup_free_ char *v = NULL;
         bool found = false;
-        const char *p;
         int r;
 
-        assert(line);
         assert(key);
 
-        p = line;
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
+        STRV_FOREACH(p, args) {
+                const char *word;
 
-                r = proc_cmdline_extract_first(&p, &word, flags);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
+                word = mangle_word(*p, flags);
+                if (!word)
+                        continue;
 
                 if (ret_value) {
                         const char *e;
@@ -224,6 +205,7 @@ static int cmdline_get_key(const char *line, const char *key, ProcCmdlineFlags f
 }
 
 int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_value) {
+        _cleanup_strv_free_ char **args = NULL;
         _cleanup_free_ char *line = NULL, *v = NULL;
         int r;
 
@@ -251,10 +233,14 @@ int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_val
         if (r < 0)
                 return r;
 
-        if (FLAGS_SET(flags, PROC_CMDLINE_IGNORE_EFI_OPTIONS)) /* Shortcut */
-                return cmdline_get_key(line, key, flags, ret_value);
+        r = strv_split_full(&args, line, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
+        if (r < 0)
+                return r;
 
-        r = cmdline_get_key(line, key, flags, ret_value ? &v : NULL);
+        if (FLAGS_SET(flags, PROC_CMDLINE_IGNORE_EFI_OPTIONS)) /* Shortcut */
+                return cmdline_get_key(args, key, flags, ret_value);
+
+        r = cmdline_get_key(args, key, flags, ret_value ? &v : NULL);
         if (r < 0)
                 return r;
         if (r > 0) {
@@ -275,7 +261,12 @@ int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_val
         if (r < 0)
                 return r;
 
-        return cmdline_get_key(line, key, flags, ret_value);
+        args = strv_free(args);
+        r = strv_split_full(&args, line, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
+        if (r < 0)
+                return r;
+
+        return cmdline_get_key(args, key, flags, ret_value);
 }
 
 int proc_cmdline_get_bool(const char *key, bool *ret) {
@@ -303,12 +294,45 @@ int proc_cmdline_get_bool(const char *key, bool *ret) {
         return 1;
 }
 
-int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
-        _cleanup_free_ char *line = NULL;
-        bool processing_efi = true;
-        const char *p;
-        va_list ap;
+static int cmdline_get_key_ap(ProcCmdlineFlags flags, char* const* args, va_list ap) {
         int r, ret = 0;
+
+        for (;;) {
+                char **v;
+                const char *k, *e;
+
+                k = va_arg(ap, const char*);
+                if (!k)
+                        break;
+
+                assert_se(v = va_arg(ap, char**));
+
+                STRV_FOREACH(p, args) {
+                        const char *word;
+
+                        word = mangle_word(*p, flags);
+                        if (!word)
+                                continue;
+
+                        e = proc_cmdline_key_startswith(word, k);
+                        if (e && *e == '=') {
+                                r = free_and_strdup(v, e + 1);
+                                if (r < 0)
+                                        return r;
+
+                                ret++;
+                        }
+                }
+        }
+
+        return ret;
+}
+
+int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
+        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_free_ char *line = NULL;
+        int r, ret = 0;
+        va_list ap;
 
         /* The PROC_CMDLINE_VALUE_OPTIONAL flag doesn't really make sense for proc_cmdline_get_key_many(), let's make
          * this clear. */
@@ -320,58 +344,36 @@ int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
                 r = systemd_efi_options_variable(&line);
                 if (r < 0 && r != -ENODATA)
                         log_debug_errno(r, "Failed to get SystemdOptions EFI variable, ignoring: %m");
+                if (r >= 0) {
+                        r = strv_split_full(&args, line, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
+                        if (r < 0)
+                                return r;
+
+                        va_start(ap, flags);
+                        r = cmdline_get_key_ap(flags, args, ap);
+                        va_end(ap);
+                        if (r < 0)
+                                return r;
+
+                        ret = r;
+                        args = strv_free(args);
+                        line = mfree(line);
+                }
         }
 
-        p = line;
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
+        r = proc_cmdline(&line);
+        if (r < 0)
+                return r;
 
-                r = proc_cmdline_extract_first(&p, &word, flags);
-                if (r < 0)
-                        return r;
-                if (r == 0) {
-                        /* We finished with this command line. If this was the EFI one, then let's proceed with the regular one */
-                        if (processing_efi) {
-                                processing_efi = false;
+        r = strv_split_full(&args, line, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
+        if (r < 0)
+                return r;
 
-                                line = mfree(line);
-                                r = proc_cmdline(&line);
-                                if (r < 0)
-                                        return r;
+        va_start(ap, flags);
+        r = cmdline_get_key_ap(flags, args, ap);
+        va_end(ap);
+        if (r < 0)
+                return r;
 
-                                p = line;
-                                continue;
-                        }
-
-                        break;
-                }
-
-                va_start(ap, flags);
-
-                for (;;) {
-                        char **v;
-                        const char *k, *e;
-
-                        k = va_arg(ap, const char*);
-                        if (!k)
-                                break;
-
-                        assert_se(v = va_arg(ap, char**));
-
-                        e = proc_cmdline_key_startswith(word, k);
-                        if (e && *e == '=') {
-                                r = free_and_strdup(v, e + 1);
-                                if (r < 0) {
-                                        va_end(ap);
-                                        return r;
-                                }
-
-                                ret++;
-                        }
-                }
-
-                va_end(ap);
-        }
-
-        return ret;
+        return ret + r;
 }
