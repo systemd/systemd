@@ -48,6 +48,16 @@ static int vacuum_info_compare(const vacuum_info *a, const vacuum_info *b) {
         return strcmp(a->filename, b->filename);
 }
 
+static void vacuum_info_array_free(vacuum_info *list, size_t n) {
+        if (!list)
+                return;
+
+        for (vacuum_info *i = list; i < list + n; i++)
+                free(i->filename);
+
+        free(list);
+}
+
 static void patch_realtime(
                 int fd,
                 const char *fn,
@@ -130,6 +140,8 @@ int journal_directory_vacuum(
         usec_t retention_limit = 0;
         int r;
 
+        CLEANUP_ARRAY(list, n_list, vacuum_info_array_free);
+
         assert(directory);
 
         if (max_use <= 0 && max_retention_usec <= 0 && n_max_files <= 0)
@@ -142,7 +154,7 @@ int journal_directory_vacuum(
         if (!d)
                 return -errno;
 
-        FOREACH_DIRENT_ALL(de, d, r = -errno; goto finish) {
+        FOREACH_DIRENT_ALL(de, d, return -errno) {
                 unsigned long long seqnum = 0, realtime;
                 _cleanup_free_ char *p = NULL;
                 sd_id128_t seqnum_id;
@@ -182,10 +194,8 @@ int journal_directory_vacuum(
                         }
 
                         p = strdup(de->d_name);
-                        if (!p) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
+                        if (!p)
+                                return -ENOMEM;
 
                         de->d_name[q-8-16-1-16-1] = 0;
                         if (sd_id128_from_string(de->d_name + q-8-16-1-16-1-32, &seqnum_id) < 0) {
@@ -220,10 +230,8 @@ int journal_directory_vacuum(
                         }
 
                         p = strdup(de->d_name);
-                        if (!p) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
+                        if (!p)
+                                return -ENOMEM;
 
                         if (sscanf(de->d_name + q-1-8-16-1-16, "%16llx-%16llx.journal~", &realtime, &tmp) != 2) {
                                 n_active_files++;
@@ -262,10 +270,8 @@ int journal_directory_vacuum(
 
                 patch_realtime(dirfd(d), p, &st, &realtime);
 
-                if (!GREEDY_REALLOC(list, n_list + 1)) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!GREEDY_REALLOC(list, n_list + 1))
+                        return -ENOMEM;
 
                 list[n_list++] = (vacuum_info) {
                         .filename = TAKE_PTR(p),
@@ -309,15 +315,8 @@ int journal_directory_vacuum(
         if (oldest_usec && i < n_list && (*oldest_usec == 0 || list[i].realtime < *oldest_usec))
                 *oldest_usec = list[i].realtime;
 
-        r = 0;
-
-finish:
-        for (i = 0; i < n_list; i++)
-                free(list[i].filename);
-        free(list);
-
         log_full(verbose ? LOG_INFO : LOG_DEBUG, "Vacuuming done, freed %s of archived journals from %s.",
                  FORMAT_BYTES(freed), directory);
 
-        return r;
+        return 0;
 }
