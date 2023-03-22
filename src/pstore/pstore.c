@@ -152,7 +152,7 @@ static int move_file(PStoreEntry *pe, const char *subdir1, const char *subdir2) 
                 r = mkdir_parents(ofd_path, 0755);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create directory %s: %m", ofd_path);
-                r = copy_file_atomic(ifd_path, ofd_path, 0600, 0, 0, COPY_REPLACE);
+                r = copy_file_atomic(ifd_path, ofd_path, 0600, COPY_REPLACE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy_file_atomic: %s to %s", ifd_path, ofd_path);
         }

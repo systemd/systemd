@@ -283,7 +283,7 @@ static void test_exec_workingdirectory(Manager *m) {
 static void test_exec_execsearchpath(Manager *m) {
         assert_se(mkdir_p("/tmp/test-exec_execsearchpath", 0755) >= 0);
 
-        assert_se(copy_file("/bin/ls", "/tmp/test-exec_execsearchpath/ls_temp", 0,  0777, 0, 0, COPY_REPLACE) >= 0);
+        assert_se(copy_file("/bin/ls", "/tmp/test-exec_execsearchpath/ls_temp", 0,  0777, COPY_REPLACE) >= 0);
 
         test(m, "exec-execsearchpath.service", 0, CLD_EXITED);
 

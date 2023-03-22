@@ -2034,7 +2034,7 @@ static int setup_timezone(const char *dest) {
 
         case TIMEZONE_COPY:
                 /* If mounting failed, try to copy */
-                r = copy_file_atomic("/etc/localtime", where, 0644, 0, 0, COPY_REFLINK|COPY_REPLACE);
+                r = copy_file_atomic("/etc/localtime", where, 0644, COPY_REFLINK|COPY_REPLACE);
                 if (r < 0) {
                         log_full_errno(IN_SET(r, -EROFS, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING, r,
                                        "Failed to copy /etc/localtime to %s, ignoring: %m", where);
@@ -2168,9 +2168,9 @@ static int setup_resolv_conf(const char *dest) {
         }
 
         if (IN_SET(m, RESOLV_CONF_REPLACE_HOST, RESOLV_CONF_REPLACE_STATIC, RESOLV_CONF_REPLACE_UPLINK, RESOLV_CONF_REPLACE_STUB))
-                r = copy_file_atomic(what, where, 0644, 0, 0, COPY_REFLINK|COPY_REPLACE);
+                r = copy_file_atomic(what, where, 0644, COPY_REFLINK|COPY_REPLACE);
         else
-                r = copy_file(what, where, O_TRUNC|O_NOFOLLOW, 0644, 0, 0, COPY_REFLINK);
+                r = copy_file(what, where, O_TRUNC|O_NOFOLLOW, 0644, COPY_REFLINK);
         if (r < 0) {
                 /* If the file already exists as symlink, let's suppress the warning, under the assumption that
                  * resolved or something similar runs inside and the symlink points there.
@@ -5697,7 +5697,10 @@ static int run(int argc, char *argv[]) {
 
                         {
                                 BLOCK_SIGNALS(SIGINT);
-                                r = copy_file(arg_image, np, O_EXCL, arg_read_only ? 0400 : 0600, FS_NOCOW_FL, FS_NOCOW_FL, COPY_REFLINK|COPY_CRTIME|COPY_SIGINT);
+                                r = copy_file_full(arg_image, np, O_EXCL, arg_read_only ? 0400 : 0600,
+                                                   FS_NOCOW_FL, FS_NOCOW_FL,
+                                                   COPY_REFLINK|COPY_CRTIME|COPY_SIGINT,
+                                                   NULL, NULL);
                         }
                         if (r == -EINTR) {
                                 log_error_errno(r, "Interrupted while copying image file to %s, removed again.", np);
