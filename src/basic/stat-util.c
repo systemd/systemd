@@ -307,6 +307,17 @@ int fd_verify_regular(int fd) {
         return stat_verify_regular(&st);
 }
 
+int verify_regular_at(int dir_fd, const char *path, bool follow) {
+        struct stat st;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
+        if (fstatat(dir_fd, path, &st, follow ? 0 : AT_SYMLINK_NOFOLLOW) < 0)
+                return -errno;
+
+        return stat_verify_regular(&st);
+}
+
 int stat_verify_directory(const struct stat *st) {
         assert(st);
 
