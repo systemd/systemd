@@ -1358,7 +1358,7 @@ static void udev_check_rule_line(UdevRuleLine *line) {
         udev_check_conflicts_duplicates(line);
 }
 
-int udev_rules_parse_file(UdevRules *rules, const char *filename, UdevRuleFile **ret) {
+int udev_rules_parse_file(UdevRules *rules, const char *filename, bool extra_checks, UdevRuleFile **ret) {
         _cleanup_(udev_rule_file_freep) UdevRuleFile *rule_file = NULL;
         _cleanup_free_ char *continuation = NULL, *name = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -1469,6 +1469,10 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename, UdevRuleFile *
 
         rule_resolve_goto(rule_file);
 
+        if (extra_checks)
+                LIST_FOREACH(rule_lines, line, rule_file->rule_lines)
+                        udev_check_rule_line(line);
+
         if (ret)
                 *ret = rule_file;
 
@@ -1478,9 +1482,6 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename, UdevRuleFile *
 
 unsigned udev_rule_file_get_issues(UdevRuleFile *rule_file) {
         assert(rule_file);
-
-        LIST_FOREACH(rule_lines, line, rule_file->rule_lines)
-                udev_check_rule_line(line);
 
         return rule_file->issues;
 }
@@ -1513,7 +1514,7 @@ int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing
                 return log_debug_errno(r, "Failed to enumerate rules files: %m");
 
         STRV_FOREACH(f, files) {
-                r = udev_rules_parse_file(rules, *f, NULL);
+                r = udev_rules_parse_file(rules, *f, false, NULL);
                 if (r < 0)
                         log_debug_errno(r, "Failed to read rules file %s, ignoring: %m", *f);
         }
