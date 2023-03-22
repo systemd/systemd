@@ -79,7 +79,7 @@ static int proc_cmdline_extract_first(const char **p, char **ret_word, ProcCmdli
         return 0;
 }
 
-int proc_cmdline_parse_given(const char *line, proc_cmdline_parse_t parse_item, void *data, ProcCmdlineFlags flags) {
+static int proc_cmdline_parse_given(const char *line, proc_cmdline_parse_t parse_item, void *data, ProcCmdlineFlags flags) {
         const char *p;
         int r;
 
