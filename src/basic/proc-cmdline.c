@@ -210,7 +210,7 @@ static int cmdline_get_key(const char *line, const char *key, ProcCmdlineFlags f
                                 found = true;
 
                 } else {
-                        if (streq(word, key)) {
+                        if (proc_cmdline_key_streq(word, key)) {
                                 found = true;
                                 break; /* we found what we were looking for */
                         }

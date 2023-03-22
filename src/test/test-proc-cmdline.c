@@ -109,7 +109,7 @@ TEST(test_proc_cmdline_given) {
 TEST(proc_cmdline_get_key) {
         _cleanup_free_ char *value = NULL;
 
-        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm spaaace='ö ü ß' ticks=\"''\"\n\nkkk=uuu\n\n\n") == 0);
+        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm-ghh spaaace='ö ü ß' ticks=\"''\"\n\nkkk=uuu\n\n\n") == 0);
 
         assert_se(proc_cmdline_get_key("", 0, &value) == -EINVAL);
         assert_se(proc_cmdline_get_key("abc", 0, NULL) == 0);
@@ -120,6 +120,7 @@ TEST(proc_cmdline_get_key) {
         value = mfree(value);
         assert_se(proc_cmdline_get_key("foo_bar", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 && streq_ptr(value, "quux"));
         value = mfree(value);
+        assert_se(proc_cmdline_get_key("foo_bar", 0, NULL) == 0);
         assert_se(proc_cmdline_get_key("foo-bar", 0, &value) > 0 && streq_ptr(value, "quux"));
         value = mfree(value);
         assert_se(proc_cmdline_get_key("foo-bar", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 && streq_ptr(value, "quux"));
@@ -138,9 +139,12 @@ TEST(proc_cmdline_get_key) {
         assert_se(proc_cmdline_get_key("wuff_piep", 0, NULL) == 0);
         assert_se(proc_cmdline_get_key("wuff_piep", PROC_CMDLINE_VALUE_OPTIONAL, NULL) == -EINVAL);
 
-        assert_se(proc_cmdline_get_key("zumm", 0, &value) == 0 && value == NULL);
-        assert_se(proc_cmdline_get_key("zumm", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 && value == NULL);
-        assert_se(proc_cmdline_get_key("zumm", 0, NULL) > 0);
+        assert_se(proc_cmdline_get_key("zumm-ghh", 0, &value) == 0 && value == NULL);
+        assert_se(proc_cmdline_get_key("zumm-ghh", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 && value == NULL);
+        assert_se(proc_cmdline_get_key("zumm-ghh", 0, NULL) > 0);
+        assert_se(proc_cmdline_get_key("zumm_ghh", 0, &value) == 0 && value == NULL);
+        assert_se(proc_cmdline_get_key("zumm_ghh", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 && value == NULL);
+        assert_se(proc_cmdline_get_key("zumm_ghh", 0, NULL) > 0);
 
         assert_se(proc_cmdline_get_key("spaaace", 0, &value) > 0 && streq_ptr(value, "ö ü ß"));
         value = mfree(value);
