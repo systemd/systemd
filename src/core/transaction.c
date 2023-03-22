@@ -1053,39 +1053,27 @@ int transaction_add_job_and_dependencies(
                 }
 
                 if (IN_SET(type, JOB_STOP, JOB_RESTART)) {
-                        _cleanup_set_free_ Set *propagated_restart = NULL;
+                        UnitDependencyAtom atom;
+                        JobType ptype;
+
                         /* We propagate STOP as STOP, but RESTART only as TRY_RESTART, in order not to start
                          * dependencies that are not around. */
+                        if (type == JOB_RESTART) {
+                                atom = UNIT_ATOM_PROPAGATE_RESTART;
+                                ptype = JOB_TRY_RESTART;
+                        } else {
+                                ptype = JOB_STOP;
+                                atom = UNIT_ATOM_PROPAGATE_STOP;
+                        }
 
-                        if (type == JOB_RESTART)
-                                UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PROPAGATE_RESTART) {
-                                        JobType nt;
+                        UNIT_FOREACH_DEPENDENCY(dep, ret->unit, atom) {
+                                JobType nt;
 
-                                        r = set_ensure_put(&propagated_restart, NULL, dep);
-                                        if (r < 0)
-                                                return r;
-
-                                        nt = job_type_collapse(JOB_TRY_RESTART, dep);
-                                        if (nt == JOB_NOP)
-                                                continue;
-
-                                        r = transaction_add_job_and_dependencies(tr, nt, dep, ret, true, false, false, ignore_order, e);
-                                        if (r < 0) {
-                                                if (r != -EBADR) /* job type not applicable */
-                                                        return r;
-
-                                                sd_bus_error_free(e);
-                                        }
-                                }
-
-                        /* The 'stop' part of a restart job is also propagated to
-                         * units with UNIT_ATOM_PROPAGATE_STOP */
-                        UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PROPAGATE_STOP) {
-                                /* Units experienced restart propagation are skipped */
-                                if (set_contains(propagated_restart, dep))
+                                nt = job_type_collapse(ptype, dep);
+                                if (nt == JOB_NOP)
                                         continue;
 
-                                r = transaction_add_job_and_dependencies(tr, JOB_STOP, dep, ret, true, false, false, ignore_order, e);
+                                r = transaction_add_job_and_dependencies(tr, nt, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
                                         if (r != -EBADR) /* job type not applicable */
                                                 return r;
