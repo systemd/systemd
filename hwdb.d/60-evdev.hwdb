@@ -583,6 +583,13 @@ evdev:input:b0003v17EFp60B5*
  EVDEV_ABS_35=::12
  EVDEV_ABS_36=::11
 
+# Lenovo Thinkpad L14 Gen1 (AMD)
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO:*pvrThinkPadL14Gen1**
+ EVDEV_ABS_00=::44
+ EVDEV_ABS_01=::50
+ EVDEV_ABS_35=::44
+ EVDEV_ABS_36=::50
+
 # Lenovo T460
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*ThinkPad*T460:*
  EVDEV_ABS_00=1266:5677:44
