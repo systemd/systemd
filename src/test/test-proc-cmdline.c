@@ -26,15 +26,17 @@ TEST(proc_cmdline_parse) {
 }
 
 TEST(proc_cmdline_override) {
+        _cleanup_free_ char *line = NULL, *value = NULL;
+
         assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"") == 0);
         assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=different") == 0);
 
         /* First test if the overrides for /proc/cmdline still work */
-        _cleanup_free_ char *line = NULL, *value = NULL;
         assert_se(proc_cmdline(&line) >= 0);
+        assert_se(streq(line, "foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\""));
+        line = mfree(line);
 
         /* Test if parsing makes uses of the override */
-        assert_se(streq(line, "foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\""));
         assert_se(proc_cmdline_get_key("foo_bar", 0, &value) > 0 && streq_ptr(value, "quux"));
         value = mfree(value);
 
@@ -44,10 +46,13 @@ TEST(proc_cmdline_override) {
         assert_se(proc_cmdline_get_key("and_one_more", 0, &value) > 0 && streq_ptr(value, "zzz aaa"));
         value = mfree(value);
 
-        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=") == 0);
-        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"") == 0);
+        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=hoge") == 0);
+        assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"") == 0);
 
-        assert_se(streq(line, "foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\""));
+        assert_se(proc_cmdline(&line) >= 0);
+        assert_se(streq(line, "hoge"));
+        line = mfree(line);
+
         assert_se(proc_cmdline_get_key("foo_bar", 0, &value) > 0 && streq_ptr(value, "quux"));
         value = mfree(value);
 
