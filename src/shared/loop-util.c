@@ -24,6 +24,7 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "fileio.h"
 #include "loop-util.h"
 #include "missing_loop.h"
@@ -422,7 +423,6 @@ static int loop_configure(
 }
 
 static int loop_device_make_internal(
-                const char *path,
                 int fd,
                 int open_flags,
                 uint64_t offset,
@@ -458,17 +458,9 @@ static int loop_device_make_internal(
                         return r;
         }
 
-        if (path) {
-                r = path_make_absolute_cwd(path, &backing_file);
-                if (r < 0)
-                        return r;
-
-                path_simplify(backing_file);
-        } else {
-                r = fd_get_path(fd, &backing_file);
-                if (r < 0)
-                        return r;
-        }
+        r = fd_get_path(fd, &backing_file);
+        if (r < 0)
+                return r;
 
         f_flags = fcntl(fd, F_GETFL);
         if (f_flags < 0)
@@ -639,7 +631,6 @@ int loop_device_make(
         assert(ret);
 
         return loop_device_make_internal(
-                        NULL,
                         fd,
                         open_flags,
                         offset,
@@ -650,7 +641,8 @@ int loop_device_make(
                         ret);
 }
 
-int loop_device_make_by_path(
+int loop_device_make_by_path_at(
+                int dir_fd,
                 const char *path,
                 int open_flags,
                 uint32_t sector_size,
@@ -662,6 +654,7 @@ int loop_device_make_by_path(
         _cleanup_close_ int fd = -EBADF;
         bool direct = false;
 
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(path);
         assert(ret);
         assert(open_flags < 0 || IN_SET(open_flags, O_RDWR, O_RDONLY));
@@ -678,9 +671,9 @@ int loop_device_make_by_path(
         direct_flags = FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO) ? O_DIRECT : 0;
         rdwr_flags = open_flags >= 0 ? open_flags : O_RDWR;
 
-        fd = open(path, basic_flags|direct_flags|rdwr_flags);
+        fd = xopenat(dir_fd, path, basic_flags|direct_flags|rdwr_flags, 0);
         if (fd < 0 && direct_flags != 0) /* If we had O_DIRECT on, and things failed with that, let's immediately try again without */
-                fd = open(path, basic_flags|rdwr_flags);
+                fd = xopenat(dir_fd, path, basic_flags|rdwr_flags, 0);
         else
                 direct = direct_flags != 0;
         if (fd < 0) {
@@ -690,9 +683,9 @@ int loop_device_make_by_path(
                 if (open_flags >= 0 || !(ERRNO_IS_PRIVILEGE(r) || r == -EROFS))
                         return r;
 
-                fd = open(path, basic_flags|direct_flags|O_RDONLY);
+                fd = xopenat(dir_fd, path, basic_flags|direct_flags|O_RDONLY, 0);
                 if (fd < 0 && direct_flags != 0) /* as above */
-                        fd = open(path, basic_flags|O_RDONLY);
+                        fd = xopenat(dir_fd, path, basic_flags|O_RDONLY, 0);
                 else
                         direct = direct_flags != 0;
                 if (fd < 0)
@@ -709,7 +702,7 @@ int loop_device_make_by_path(
                   direct ? "enabled" : "disabled",
                   direct != (direct_flags != 0) ? " (O_DIRECT was requested but not supported)" : "");
 
-        return loop_device_make_internal(path, fd, open_flags, 0, 0, sector_size, loop_flags, lock_op, ret);
+        return loop_device_make_internal(fd, open_flags, 0, 0, sector_size, loop_flags, lock_op, ret);
 }
 
 int loop_device_make_by_path_memory(
@@ -751,7 +744,7 @@ int loop_device_make_by_path_memory(
 
         fd = safe_close(fd); /* Let's close the original early */
 
-        return loop_device_make_internal(NULL, mfd, open_flags, 0, 0, sector_size, loop_flags, lock_op, ret);
+        return loop_device_make_internal(mfd, open_flags, 0, 0, sector_size, loop_flags, lock_op, ret);
 }
 
 static LoopDevice* loop_device_free(LoopDevice *d) {
