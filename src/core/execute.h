@@ -467,6 +467,7 @@ const char* exec_context_fdname(const ExecContext *c, int fd_index);
 bool exec_context_may_touch_console(const ExecContext *c);
 bool exec_context_maintains_privileges(const ExecContext *c);
 bool exec_context_has_encrypted_credentials(ExecContext *c);
+bool exec_context_has_credentials(const ExecContext *context);
 
 int exec_context_get_effective_ioprio(const ExecContext *c);
 bool exec_context_get_effective_mount_apivfs(const ExecContext *c);
