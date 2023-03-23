@@ -112,7 +112,8 @@ TEST(get_process_comm) {
 }
 
 static void test_get_process_cmdline_one(pid_t pid) {
-        _cleanup_free_ char *c = NULL, *d = NULL, *e = NULL, *f = NULL, *g = NULL, *h = NULL;
+        _cleanup_free_ char *c = NULL, *d = NULL, *e = NULL, *f = NULL, *g = NULL, *h = NULL, *joined = NULL;
+        _cleanup_free_ char **strv_a = NULL, **strv_b = NULL;
         int r;
 
         r = get_process_cmdline(pid, SIZE_MAX, 0, &c);
@@ -132,6 +133,18 @@ static void test_get_process_cmdline_one(pid_t pid) {
 
         r = get_process_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX | PROCESS_CMDLINE_COMM_FALLBACK, &h);
         log_info("      %s", r >= 0 ? h : errno_to_name(r));
+
+        r = get_process_cmdline_strv(pid, 0, &strv_a);
+        if (r >= 0)
+                assert_se(joined = strv_join(strv_a, "\", \""));
+        log_info("      \"%s\"", r >= 0 ? joined : errno_to_name(r));
+
+        joined = mfree(joined);
+
+        r = get_process_cmdline_strv(pid, PROCESS_CMDLINE_COMM_FALLBACK, &strv_b);
+        if (r >= 0)
+                assert_se(joined = strv_join(strv_b, "\", \""));
+        log_info("      \"%s\"", r >= 0 ? joined : errno_to_name(r));
 }
 
 TEST(get_process_cmdline) {
@@ -244,6 +257,7 @@ TEST(get_process_cmdline_harder) {
         char path[] = "/tmp/test-cmdlineXXXXXX";
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *line = NULL;
+        _cleanup_free_ char **args = NULL;
         pid_t pid;
         int r;
 
@@ -358,6 +372,10 @@ TEST(get_process_cmdline_harder) {
         assert_se(streq(line, "[testa]"));
         line = mfree(line);
 
+        assert_se(get_process_cmdline_strv(0, PROCESS_CMDLINE_COMM_FALLBACK, &args) >= 0);
+        assert_se(strv_equal(args, STRV_MAKE("[testa]")));
+        args = strv_free(args);
+
         /* Test with multiple arguments that don't require quoting */
 
         assert_se(write(fd, "foo\0bar", 8) == 8);
@@ -370,6 +388,10 @@ TEST(get_process_cmdline_harder) {
         assert_se(get_process_cmdline(0, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &line) >= 0);
         assert_se(streq(line, "foo bar"));
         line = mfree(line);
+
+        assert_se(get_process_cmdline_strv(0, PROCESS_CMDLINE_COMM_FALLBACK, &args) >= 0);
+        assert_se(strv_equal(args, STRV_MAKE("foo", "bar")));
+        args = strv_free(args);
 
         assert_se(write(fd, "quux", 4) == 4);
         assert_se(get_process_cmdline(0, SIZE_MAX, 0, &line) >= 0);
@@ -457,6 +479,10 @@ TEST(get_process_cmdline_harder) {
         assert_se(streq(line, "foo bar quux"));
         line = mfree(line);
 
+        assert_se(get_process_cmdline_strv(0, PROCESS_CMDLINE_COMM_FALLBACK, &args) >= 0);
+        assert_se(strv_equal(args, STRV_MAKE("foo", "bar", "quux")));
+        args = strv_free(args);
+
         assert_se(ftruncate(fd, 0) >= 0);
         assert_se(prctl(PR_SET_NAME, "aaaa bbbb cccc") >= 0);
 
@@ -482,11 +508,17 @@ TEST(get_process_cmdline_harder) {
         assert_se(streq(line, "[aaaa bbbb …"));
         line = mfree(line);
 
+        assert_se(get_process_cmdline_strv(0, PROCESS_CMDLINE_COMM_FALLBACK, &args) >= 0);
+        assert_se(strv_equal(args, STRV_MAKE("[aaaa bbbb cccc]")));
+        args = strv_free(args);
+
         /* Test with multiple arguments that do require quoting */
 
 #define CMDLINE1 "foo\0'bar'\0\"bar$\"\0x y z\0!``\0"
 #define EXPECT1  "foo \"'bar'\" \"\\\"bar\\$\\\"\" \"x y z\" \"!\\`\\`\""
-#define EXPECT1p  "foo $'\\'bar\\'' $'\"bar$\"' $'x y z' $'!``'"
+#define EXPECT1p "foo $'\\'bar\\'' $'\"bar$\"' $'x y z' $'!``'"
+#define EXPECT1v STRV_MAKE("foo", "'bar'", "\"bar$\"", "x y z", "!``")
+
         assert_se(lseek(fd, SEEK_SET, 0) == 0);
         assert_se(write(fd, CMDLINE1, sizeof CMDLINE1) == sizeof CMDLINE1);
         assert_se(ftruncate(fd, sizeof CMDLINE1) == 0);
@@ -503,9 +535,15 @@ TEST(get_process_cmdline_harder) {
         assert_se(streq(line, EXPECT1p));
         line = mfree(line);
 
+        assert_se(get_process_cmdline_strv(0, 0, &args) >= 0);
+        assert_se(strv_equal(args, EXPECT1v));
+        args = strv_free(args);
+
 #define CMDLINE2 "foo\0\1\2\3\0\0"
 #define EXPECT2  "foo \"\\001\\002\\003\""
-#define EXPECT2p  "foo $'\\001\\002\\003'"
+#define EXPECT2p "foo $'\\001\\002\\003'"
+#define EXPECT2v STRV_MAKE("foo", "\1\2\3", "")
+
         assert_se(lseek(fd, SEEK_SET, 0) == 0);
         assert_se(write(fd, CMDLINE2, sizeof CMDLINE2) == sizeof CMDLINE2);
         assert_se(ftruncate(fd, sizeof CMDLINE2) == 0);
@@ -521,6 +559,10 @@ TEST(get_process_cmdline_harder) {
         log_debug("exp: ==%s==", EXPECT2p);
         assert_se(streq(line, EXPECT2p));
         line = mfree(line);
+
+        assert_se(get_process_cmdline_strv(0, 0, &args) >= 0);
+        assert_se(strv_equal(args, EXPECT2v));
+        args = strv_free(args);
 
         safe_close(fd);
         _exit(EXIT_SUCCESS);
