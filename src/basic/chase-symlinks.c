@@ -304,7 +304,7 @@ int chase_symlinks_at(
                                 return r;
 
                         if (FLAGS_SET(flags, CHASE_MKDIR_0755) && !isempty(todo)) {
-                                child = open_mkdir_at(fd, first, O_CLOEXEC|O_PATH|O_EXCL, 0755);
+                                child = xopenat(fd, first, O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC, 0755);
                                 if (child < 0)
                                         return child;
                         } else if (FLAGS_SET(flags, CHASE_PARENT) && isempty(todo)) {
