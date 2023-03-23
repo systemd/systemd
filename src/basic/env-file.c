@@ -381,22 +381,15 @@ int parse_env_file_fd_sentinel(
                 const char *fname, /* only used for logging */
                 ...) {
 
-        _cleanup_close_ int fd_ro = -EBADF;
         _cleanup_fclose_ FILE *f = NULL;
         va_list ap;
         int r;
 
         assert(fd >= 0);
 
-        fd_ro = fd_reopen(fd, O_CLOEXEC | O_RDONLY);
-        if (fd_ro < 0)
-                return fd_ro;
-
-        f = fdopen(fd_ro, "re");
-        if (!f)
-                return -errno;
-
-        TAKE_FD(fd_ro);
+        r = fdopen_independent(fd, "re", &f);
+        if (r < 0)
+                return r;
 
         va_start(ap, fname);
         r = parse_env_filev(f, fname, ap);
@@ -485,6 +478,7 @@ int load_env_file_pairs(FILE *f, const char *fname, char ***ret) {
         int r;
 
         assert(f || fname);
+        assert(ret);
 
         r = parse_env_file_internal(f, fname, load_env_file_push_pairs, &m);
         if (r < 0)
@@ -492,6 +486,19 @@ int load_env_file_pairs(FILE *f, const char *fname, char ***ret) {
 
         *ret = TAKE_PTR(m);
         return 0;
+}
+
+int load_env_file_pairs_fd(int fd, const char *fname, char ***ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        assert(fd >= 0);
+
+        r = fdopen_independent(fd, "re", &f);
+        if (r < 0)
+                return r;
+
+        return load_env_file_pairs(f, fname, ret);
 }
 
 static int merge_env_file_push(

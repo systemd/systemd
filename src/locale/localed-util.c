@@ -312,7 +312,7 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
 }
 
 int x11_read_data(Context *c, sd_bus_message *m) {
-        _cleanup_close_ int fd = -EBADF, fd_ro = -EBADF;
+        _cleanup_close_ int fd = -EBADF;
         _cleanup_fclose_ FILE *f = NULL;
         bool in_section = false;
         struct stat st;
@@ -348,15 +348,9 @@ int x11_read_data(Context *c, sd_bus_message *m) {
         c->x11_stat = st;
         x11_context_clear(&c->x11_from_xorg);
 
-        fd_ro = fd_reopen(fd, O_CLOEXEC | O_RDONLY);
-        if (fd_ro < 0)
-                return fd_ro;
-
-        f = fdopen(fd_ro, "re");
-        if (!f)
-                return -errno;
-
-        TAKE_FD(fd_ro);
+        r = fdopen_independent(fd, "re", &f);
+        if (r < 0)
+                return r;
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
