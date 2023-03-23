@@ -400,7 +400,8 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                                 nl = true;
                         } else {
                                 _cleanup_free_ char *pretty_portable = NULL, *pretty_os = NULL, *sysext_level = NULL,
-                                        *id = NULL, *version_id = NULL, *sysext_scope = NULL, *portable_prefixes = NULL;
+                                        *sysext_id = NULL, *sysext_version_id = NULL, *sysext_scope = NULL, *portable_prefixes = NULL,
+                                        *id = NULL, *version_id = NULL, *image_id = NULL, *image_version = NULL, *build_id = NULL;
                                 _cleanup_fclose_ FILE *f = NULL;
 
                                 f = fmemopen_unlocked((void*) data, sz, "r");
@@ -408,30 +409,42 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                                         return log_error_errno(errno, "Failed to open extension-release buffer: %m");
 
                                 r = parse_env_file(f, name,
-                                                   "ID", &id,
-                                                   "VERSION_ID", &version_id,
+                                                   "SYSEXT_ID", &sysext_id,
+                                                   "SYSEXT_VERSION_ID", &sysext_version_id,
+                                                   "SYSEXT_BUILD_ID", &build_id,
+                                                   "SYSEXT_IMAGE_ID", &image_id,
+                                                   "SYSEXT_IMAGE_VERSION", &image_version,
+                                                   "SYSEXT_PRETTY_NAME", &pretty_os,
                                                    "SYSEXT_SCOPE", &sysext_scope,
                                                    "SYSEXT_LEVEL", &sysext_level,
+                                                   "ID", &id,
+                                                   "VERSION_ID", &version_id,
                                                    "PORTABLE_PRETTY_NAME", &pretty_portable,
-                                                   "PORTABLE_PREFIXES", &portable_prefixes,
-                                                   "PRETTY_NAME", &pretty_os);
+                                                   "PORTABLE_PREFIXES", &portable_prefixes);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse extension release from '%s': %m", name);
 
                                 printf("Extension:\n\t%s\n"
                                        "\tExtension Scope:\n\t\t%s\n"
                                        "\tExtension Compatibility Level:\n\t\t%s\n"
+                                       "\tExtension Compatibility OS:\n\t\t%s\n"
+                                       "\tExtension Compatibility OS Version:\n\t\t%s\n"
                                        "\tPortable Service:\n\t\t%s\n"
                                        "\tPortable Prefixes:\n\t\t%s\n"
-                                       "\tOperating System:\n\t\t%s (%s %s)\n",
+                                       "\tExtension Image:\n\t\t%s%s%s %s%s%s\n",
                                        name,
                                        strna(sysext_scope),
                                        strna(sysext_level),
+                                       strna(id),
+                                       strna(version_id),
                                        strna(pretty_portable),
                                        strna(portable_prefixes),
-                                       strna(pretty_os),
-                                       strna(id),
-                                       strna(version_id));
+                                       strempty(pretty_os),
+                                       pretty_os ? " (" : "ID: ",
+                                       strna(sysext_id ?: image_id),
+                                       pretty_os ? "" : "Version: ",
+                                       strna(sysext_version_id ?: image_version ?: build_id),
+                                       pretty_os ? ")" : "");
                         }
 
                         r = sd_bus_message_exit_container(reply);
