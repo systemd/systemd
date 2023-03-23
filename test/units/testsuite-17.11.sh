@@ -287,6 +287,15 @@ test_syntax_error 'KERNEL=="|a|b", KERNEL=="b|a|", NAME="c"' 'duplicate expressi
 # shellcheck disable=SC2016
 test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}=="?*", ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
                   'duplicate expressions'
+test_syntax_error ',ACTION=="a", NAME="b"' 'Stray leading comma.'
+test_syntax_error ' ,ACTION=="a", NAME="b"' 'Stray leading comma.'
+test_syntax_error ', ACTION=="a", NAME="b"' 'Stray leading comma.'
+test_syntax_error 'ACTION=="a", NAME="b",' 'Stray trailing comma.'
+test_syntax_error 'ACTION=="a", NAME="b", ' 'Stray trailing comma.'
+test_syntax_error 'ACTION=="a" NAME="b"' 'A comma between tokens is expected.'
+test_syntax_error 'ACTION=="a",, NAME="b"' 'More than one comma between tokens.'
+test_syntax_error 'ACTION=="a" , NAME="b"' 'Stray whitespace before comma.'
+test_syntax_error 'ACTION=="a",NAME="b"' 'Whitespace after comma is expected.'
 
 cat >"${rules}" <<'EOF'
 KERNEL=="a|b", KERNEL=="a|c", NAME="d"
@@ -343,6 +352,28 @@ EOF
 cat >"${exp}" <<EOF
 ${rules}:1 duplicate expressions
 ${rules}:1 conflicting match expressions, the line takes no effect
+${rules}: udev rules check failed
+EOF
+cp "${workdir}/default_output_1_fail" "${exo}"
+assert_1 "${rules}"
+
+cat >"${rules}" <<'EOF'
+ACTION=="a"NAME="b"
+EOF
+cat >"${exp}" <<EOF
+${rules}:1 A comma between tokens is expected.
+${rules}:1 Whitespace between tokens is expected.
+${rules}: udev rules check failed
+EOF
+cp "${workdir}/default_output_1_fail" "${exo}"
+assert_1 "${rules}"
+
+cat >"${rules}" <<'EOF'
+ACTION=="a" ,NAME="b"
+EOF
+cat >"${exp}" <<EOF
+${rules}:1 Stray whitespace before comma.
+${rules}:1 Whitespace after comma is expected.
 ${rules}: udev rules check failed
 EOF
 cp "${workdir}/default_output_1_fail" "${exo}"
