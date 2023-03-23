@@ -1223,7 +1223,7 @@ TEST(openat_report_new) {
 
 TEST(xopenat) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF, fd2 = -EBADF;
 
         assert_se((tfd = mkdtemp_open(NULL, 0, &t)) >= 0);
 
@@ -1244,6 +1244,11 @@ TEST(xopenat) {
         assert_se((fd = xopenat(tfd, "def", O_CREAT|O_EXCL|O_CLOEXEC, 0644)) >= 0);
         assert_se(fd_verify_regular(fd) >= 0);
         fd = safe_close(fd);
+
+        /* Test that we can reopen an existing fd with xopenat() by specifying an empty path. */
+
+        assert_se((fd = xopenat(tfd, "def", O_PATH|O_CLOEXEC, 0)) >= 0);
+        assert_se((fd2 = xopenat(fd, "", O_RDWR|O_CLOEXEC, 0644)) >= 0);
 }
 
 TEST(xopenat_lock) {

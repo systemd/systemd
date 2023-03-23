@@ -1104,6 +1104,11 @@ int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(path);
 
+        if (isempty(path)) {
+                assert(!FLAGS_SET(flags, O_CREAT));
+                return fd_reopen(dir_fd, flags);
+        }
+
         if (FLAGS_SET(flags, O_DIRECTORY|O_CREAT)) {
                 r = RET_NERRNO(mkdirat(dir_fd, path, mode));
                 if (r == -EEXIST) {
