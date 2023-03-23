@@ -49,7 +49,6 @@
 #include "sync-util.h"
 #include "tmpfile-util.h"
 #include "uid-alloc-range.h"
-#include "unaligned.h"
 #include "user-util.h"
 
 /* The maximum size up to which we process coredumps. We use 1G on 32bit systems, and 32G on 64bit systems */
@@ -336,66 +335,6 @@ static int make_filename(const Context *context, char **ret) {
         return 0;
 }
 
-#define _DEFINE_PARSE_AUXV(size, type, unaligned_read)                  \
-        static int parse_auxv##size(                                    \
-                        const void *auxv,                               \
-                        size_t size_bytes,                              \
-                        int *at_secure,                                 \
-                        uid_t *uid,                                     \
-                        uid_t *euid,                                    \
-                        gid_t *gid,                                     \
-                        gid_t *egid) {                                  \
-                                                                        \
-                assert(auxv || size_bytes == 0);                        \
-                                                                        \
-                if (size_bytes % (2 * sizeof(type)) != 0)               \
-                        return log_warning_errno(SYNTHETIC_ERRNO(EIO),  \
-                                                 "Incomplete auxv structure (%zu bytes).", \
-                                                 size_bytes);           \
-                                                                        \
-                size_t words = size_bytes / sizeof(type);               \
-                                                                        \
-                /* Note that we set output variables even on error. */  \
-                                                                        \
-                for (size_t i = 0; i + 1 < words; i += 2) {             \
-                        type key, val;                                  \
-                                                                        \
-                        key = unaligned_read((uint8_t*) auxv + i * sizeof(type)); \
-                        val = unaligned_read((uint8_t*) auxv + (i + 1) * sizeof(type)); \
-                                                                        \
-                        switch (key) {                                  \
-                        case AT_SECURE:                                 \
-                                *at_secure = val != 0;                  \
-                                break;                                  \
-                        case AT_UID:                                    \
-                                *uid = val;                             \
-                                break;                                  \
-                        case AT_EUID:                                   \
-                                *euid = val;                            \
-                                break;                                  \
-                        case AT_GID:                                    \
-                                *gid = val;                             \
-                                break;                                  \
-                        case AT_EGID:                                   \
-                                *egid = val;                            \
-                                break;                                  \
-                        case AT_NULL:                                   \
-                                if (val != 0)                           \
-                                        goto error;                     \
-                                return 0;                               \
-                        }                                               \
-                }                                                       \
-        error:                                                          \
-                return log_warning_errno(SYNTHETIC_ERRNO(ENODATA),      \
-                                         "AT_NULL terminator not found, cannot parse auxv structure."); \
-        }
-
-#define DEFINE_PARSE_AUXV(size)\
-        _DEFINE_PARSE_AUXV(size, uint##size##_t, unaligned_read_ne##size)
-
-DEFINE_PARSE_AUXV(32);
-DEFINE_PARSE_AUXV(64);
-
 static int grant_user_access(int core_fd, const Context *context) {
         int at_secure = -1;
         uid_t uid = UID_INVALID, euid = UID_INVALID;
@@ -430,14 +369,11 @@ static int grant_user_access(int core_fd, const Context *context) {
                 return log_info_errno(SYNTHETIC_ERRNO(EUCLEAN),
                                       "Core file has non-native endianness, not adjusting permissions.");
 
-        if (elf[EI_CLASS] == ELFCLASS64)
-                r = parse_auxv64(context->meta[META_PROC_AUXV],
-                                 context->meta_size[META_PROC_AUXV],
-                                 &at_secure, &uid, &euid, &gid, &egid);
-        else
-                r = parse_auxv32(context->meta[META_PROC_AUXV],
-                                 context->meta_size[META_PROC_AUXV],
-                                 &at_secure, &uid, &euid, &gid, &egid);
+        r = parse_auxv(LOG_WARNING,
+                       /* elf_class= */ elf[EI_CLASS],
+                       context->meta[META_PROC_AUXV],
+                       context->meta_size[META_PROC_AUXV],
+                       &at_secure, &uid, &euid, &gid, &egid);
         if (r < 0)
                 return r;
 
