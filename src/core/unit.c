@@ -4217,7 +4217,7 @@ int unit_patch_contexts(Unit *u) {
 
                         /* If there are encrypted credentials we might need to access the TPM. */
                         if (exec_context_has_encrypted_credentials(ec)) {
-                                r = cgroup_add_device_allow(cc, "/dev/tpmrm0", "rw");
+                                r = cgroup_add_device_allow(cc, "char-tpm", "rw");
                                 if (r < 0)
                                         return r;
                         }
