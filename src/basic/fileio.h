@@ -106,6 +106,8 @@ int get_proc_field(const char *filename, const char *pattern, const char *termin
 DIR *xopendirat(int dirfd, const char *name, int flags);
 int xfopenat(int dir_fd, const char *path, const char *mode, int flags, FILE **ret);
 
+int fdopen_independent(int fd, const char *mode, FILE **ret);
+
 int search_and_fopen(const char *path, const char *mode, const char *root, const char **search, FILE **ret, char **ret_path);
 int search_and_fopen_nulstr(const char *path, const char *mode, const char *root, const char *search, FILE **ret, char **ret_path);
 
