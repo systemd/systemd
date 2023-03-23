@@ -818,4 +818,5 @@ global:
         sd_session_get_username;
         sd_session_get_start_time;
         sd_uid_get_login_time;
+        sd_event_source_leave_ratelimit;
 } LIBSYSTEMD_253;
