@@ -222,17 +222,11 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
 
                 _cleanup_strv_free_ char **args = NULL;
 
-                args = strv_parse_nulstr(t, k);
+                /* Drop trailing NULs, otherwise strv_parse_nulstr() adds additional empty strings at the end.
+                 * See also issue #21186. */
+                args = strv_parse_nulstr_full(t, k, /* drop_trailing_nuls = */ true);
                 if (!args)
                         return -ENOMEM;
-
-                /* Drop trailing empty strings. See issue #21186. */
-                STRV_FOREACH_BACKWARDS(p, args) {
-                        if (!isempty(*p))
-                                break;
-
-                        *p = mfree(*p);
-                }
 
                 ans = quote_command_line(args, shflags);
                 if (!ans)
@@ -256,6 +250,28 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
         }
 
         *ret = ans;
+        return 0;
+}
+
+int get_process_cmdline_strv(pid_t pid, ProcessCmdlineFlags flags, char ***ret) {
+        _cleanup_free_ char *t = NULL;
+        char **args;
+        size_t k;
+        int r;
+
+        assert(pid >= 0);
+        assert((flags & ~PROCESS_CMDLINE_COMM_FALLBACK) == 0);
+        assert(ret);
+
+        r = get_process_cmdline_nulstr(pid, SIZE_MAX, flags, &t, &k);
+        if (r < 0)
+                return r;
+
+        args = strv_parse_nulstr_full(t, k, /* drop_trailing_nuls = */ true);
+        if (!args)
+                return -ENOMEM;
+
+        *ret = args;
         return 0;
 }
 
