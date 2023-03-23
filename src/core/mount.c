@@ -553,6 +553,31 @@ static int mount_add_default_ordering_dependencies(Mount *m, MountParameters *p,
         return 0;
 }
 
+static int mount_add_default_network_dependencies(Mount *m, MountParameters *p, UnitDependencyMask mask) {
+        int r;
+
+        assert(m);
+
+        if (!mount_is_network(p))
+                return 0;
+
+        /* We order ourselves after network.target. This is primarily useful at shutdown: services that take
+         * down the network should order themselves before network.target, so that they are shut down only
+         * after this mount unit is stopped. */
+
+        r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_NETWORK_TARGET,
+                                        /* add_reference= */ true, mask);
+        if (r < 0)
+                return r;
+
+        /* We pull in network-online.target, and order ourselves after it. This is useful at start-up to
+         * actively pull in tools that want to be started before we start mounting network file systems, and
+         * whose purpose it is to delay this until the network is "up". */
+
+        return unit_add_two_dependencies_by_name(UNIT(m), UNIT_WANTS, UNIT_AFTER, SPECIAL_NETWORK_ONLINE_TARGET,
+                                                 /* add_reference= */ true, mask);
+}
+
 static int mount_add_default_dependencies(Mount *m) {
         UnitDependencyMask mask;
         MountParameters *p;
@@ -580,29 +605,7 @@ static int mount_add_default_dependencies(Mount *m) {
         if (r < 0)
                 return r;
 
-        if (mount_is_network(p)) {
-                /* We order ourselves after network.target. This is primarily useful at shutdown:
-                 * services that take down the network should order themselves before
-                 * network.target, so that they are shut down only after this mount unit is
-                 * stopped. */
-
-                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_NETWORK_TARGET,
-                                                /* add_reference= */ true, mask);
-                if (r < 0)
-                        return r;
-
-                /* We pull in network-online.target, and order ourselves after it. This is useful
-                 * at start-up to actively pull in tools that want to be started before we start
-                 * mounting network file systems, and whose purpose it is to delay this until the
-                 * network is "up". */
-
-                r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_WANTS, UNIT_AFTER, SPECIAL_NETWORK_ONLINE_TARGET,
-                                                      /* add_reference= */ true, mask);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        return mount_add_default_network_dependencies(m, p, mask);
 }
 
 static int mount_verify(Mount *m) {
