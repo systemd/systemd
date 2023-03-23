@@ -1086,8 +1086,10 @@ static int parse_argv(int argc, char *argv[]) {
                         return r;
 
                 /* When --grep is used along with --lines, we don't know how many lines we can print.
-                 * So we search backwards and count until enough lines have been printed or we hit the head. */
-                if (arg_lines >= 0)
+                 * So we search backwards and count until enough lines have been printed or we hit the head.
+                 * An exception is that --follow might set arg_lines, so let's not imply --reverse
+                 * if that is specified. */
+                if (arg_lines >= 0 && !arg_follow)
                         arg_reverse = true;
         }
 
