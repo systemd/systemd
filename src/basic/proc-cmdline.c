@@ -18,6 +18,7 @@
 
 int proc_cmdline(char **ret) {
         const char *e;
+
         assert(ret);
 
         /* For testing purposes it is sometimes useful to be able to override what we consider /proc/cmdline to be */
