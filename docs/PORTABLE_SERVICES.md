@@ -345,15 +345,32 @@ was loaded from. In case extensions are used, additionally there will be a
 (i.e.: `RootImage=` or `RootDirectory=`), and one `PORTABLE_EXTENSION=` field per
 each extension image used.
 
+The os-release file from the portable image will be parsed and added as structured
+metadata to the journal log entries by for an ID between `IMAGE_ID` and `ID` in this
+order of preference, and a version among `IMAGE_VERSION`, `VERSION_ID`, and
+`BUILD_ID` in this order of preference. The ID and version, if any, are concatenated
+with an underscore (`_`) as separator. If only either one is found, it will be used
+by itself. The field will be named `PORTABLE_NAME_AND_VERSION=`.
+
+In case extensions are used, the same fields in the same order are, but prefixed by
+`SYSEXT_`, are parsed from each extension-release file, and are appended to the
+journal as log entries, using `PORTABLE_EXTENSION_NAME_AND_VERSION=` as the field
+name. The base layer's field will be named `PORTABLE_ROOT_NAME_AND_VERSION=` instead
+of `PORTABLE_NAME_AND_VERSION=` in this case.
+
 For example, a portable service `app0` using two extensions `app0.raw` and
-`app1.raw`, and a base layer `base.raw`, will create log entries with the
-following fields:
+`app1.raw` (with `SYSEXT_ID=app`, and `SYSEXT_VERSION_ID=` `0` and `1` in their
+respective extension-releases), and a base layer `base.raw` (with `VERSION_ID=10` and
+`ID=debian` in os-release), will create log entries with the following fields:
 
 ```
 PORTABLE=app0.raw
 PORTABLE_ROOT=base.raw
+PORTABLE_ROOT_NAME_AND_VERSION=debian_10
 PORTABLE_EXTENSION=app0.raw
+PORTABLE_EXTENSION_NAME_AND_VERSION=app_0
 PORTABLE_EXTENSION=app1.raw
+PORTABLE_EXTENSION_NAME_AND_VERSION=app_1
 ```
 
 ## Links
