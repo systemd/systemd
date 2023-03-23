@@ -608,12 +608,7 @@ static int extract_image_and_extensions(
                 if (!validate_sysext && !ret_valid_prefixes && !ret_extension_releases)
                         continue;
 
-                /* We need to keep the fd valid, to return the PortableMetadata to the caller. */
-                r = fdopen_independent(extension_release_meta->fd, "re", &f);
-                if (r < 0)
-                        return r;
-
-                r = load_env_file_pairs(f, extension_release_meta->name, &extension_release);
+                r = load_env_file_pairs_fd(extension_release_meta->fd, extension_release_meta->name, &extension_release);
                 if (r < 0)
                         return r;
 
