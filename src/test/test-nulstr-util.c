@@ -19,87 +19,66 @@ TEST(strv_split_nulstr) {
         assert_se(streq(l[3], "str3"));
 }
 
-TEST(strv_parse_nulstr) {
-        _cleanup_strv_free_ char **l = NULL;
-        const char nulstr[] = "hoge\0hoge2\0hoge3\0\0hoge5\0\0xxx";
+#define strv_parse_nulstr_full_one(s, n, e0, e1)                        \
+        ({                                                              \
+                _cleanup_strv_free_ char **v0 = NULL, **v1 = NULL;      \
+                                                                        \
+                assert_se(v0 = strv_parse_nulstr_full(s, n, false));    \
+                assert_se(strv_equal(v0, e0));                          \
+                assert_se(v1 = strv_parse_nulstr_full(s, n, true));     \
+                assert_se(strv_equal(v1, e1));                          \
+        })
 
-        l = strv_parse_nulstr(nulstr, sizeof(nulstr)-1);
-        assert_se(l);
-        puts("Parse nulstr:");
-        strv_print(l);
+TEST(strv_parse_nulstr_full) {
+        const char nulstr1[] = "hoge\0hoge2\0hoge3\0\0hoge5\0\0xxx";
+        const char nulstr2[] = "hoge\0hoge2\0hoge3\0\0hoge5\0\0xxx\0\0\0";
 
-        assert_se(streq(l[0], "hoge"));
-        assert_se(streq(l[1], "hoge2"));
-        assert_se(streq(l[2], "hoge3"));
-        assert_se(streq(l[3], ""));
-        assert_se(streq(l[4], "hoge5"));
-        assert_se(streq(l[5], ""));
-        assert_se(streq(l[6], "xxx"));
-        strv_free(l);
+        strv_parse_nulstr_full_one(nulstr1, sizeof(nulstr1) - 1,
+                                   STRV_MAKE("hoge", "hoge2", "hoge3", "", "hoge5", "", "xxx"),
+                                   STRV_MAKE("hoge", "hoge2", "hoge3", "", "hoge5", "", "xxx"));
 
-        l = strv_parse_nulstr((const char[0]) {}, 0);
-        assert_se(l);
-        assert_se(strv_isempty(l));
-        strv_free(l);
+        strv_parse_nulstr_full_one(nulstr2, sizeof(nulstr2) - 1,
+                                   STRV_MAKE("hoge", "hoge2", "hoge3", "", "hoge5", "", "xxx", "", ""),
+                                   STRV_MAKE("hoge", "hoge2", "hoge3", "", "hoge5", "", "xxx"));
 
-        l = strv_parse_nulstr((const char[1]) { 0 }, 1);
-        assert_se(l);
-        assert_se(strv_equal(l, STRV_MAKE("")));
-        strv_free(l);
+        strv_parse_nulstr_full_one(((const char[0]) {}), 0,
+                                   STRV_MAKE_EMPTY, STRV_MAKE_EMPTY);
 
-        l = strv_parse_nulstr((const char[1]) { 'x' }, 1);
-        assert_se(l);
-        assert_se(strv_equal(l, STRV_MAKE("x")));
-        strv_free(l);
+        strv_parse_nulstr_full_one(((const char[1]) { 0 }), 1,
+                                   STRV_MAKE(""), STRV_MAKE_EMPTY);
 
-        l = strv_parse_nulstr((const char[2]) { 0, 0 }, 2);
-        assert_se(l);
-        assert_se(strv_equal(l, STRV_MAKE("", "")));
-        strv_free(l);
+        strv_parse_nulstr_full_one(((const char[1]) { 'x' }), 1,
+                                   STRV_MAKE("x"), STRV_MAKE("x"));
 
-        l = strv_parse_nulstr((const char[2]) { 'x', 0 }, 2);
-        assert_se(l);
-        assert_se(strv_equal(l, STRV_MAKE("x")));
-        strv_free(l);
+        strv_parse_nulstr_full_one(((const char[2]) { 0, 0 }), 2,
+                                   STRV_MAKE("", ""), STRV_MAKE_EMPTY);
 
-        l = strv_parse_nulstr((const char[3]) { 0, 0, 0 }, 3);
-        assert_se(l);
-        assert_se(strv_equal(l, STRV_MAKE("", "", "")));
-        strv_free(l);
+        strv_parse_nulstr_full_one(((const char[2]) { 'x', 0 }), 2,
+                                   STRV_MAKE("x"), STRV_MAKE("x"));
 
-        l = strv_parse_nulstr((const char[3]) { 'x', 0, 0 }, 3);
-        assert_se(l);
-        assert_se(strv_equal(l, STRV_MAKE("x", "")));
-        strv_free(l);
+        strv_parse_nulstr_full_one(((const char[3]) { 0, 0, 0 }), 3,
+                                   STRV_MAKE("", "", ""), STRV_MAKE_EMPTY);
 
-        l = strv_parse_nulstr((const char[3]) { 0, 'x', 0 }, 3);
-        assert_se(l);
-        assert_se(strv_equal(l, STRV_MAKE("", "x")));
-        strv_free(l);
+        strv_parse_nulstr_full_one(((const char[3]) { 'x', 0, 0 }), 3,
+                                   STRV_MAKE("x", ""), STRV_MAKE("x"));
 
-        l = strv_parse_nulstr((const char[3]) { 0, 0, 'x' }, 3);
-        assert_se(l);
-        assert_se(strv_equal(l, STRV_MAKE("", "", "x")));
-        strv_free(l);
+        strv_parse_nulstr_full_one(((const char[3]) { 0, 'x', 0 }), 3,
+                                   STRV_MAKE("", "x"), STRV_MAKE("", "x"));
 
-        l = strv_parse_nulstr((const char[3]) { 'x', 'x', 0 }, 3);
-        assert_se(l);
-        assert_se(strv_equal(l, STRV_MAKE("xx")));
-        strv_free(l);
+        strv_parse_nulstr_full_one(((const char[3]) { 0, 0, 'x' }), 3,
+                                   STRV_MAKE("", "", "x"), STRV_MAKE("", "", "x"));
 
-        l = strv_parse_nulstr((const char[3]) { 0, 'x', 'x' }, 3);
-        assert_se(l);
-        assert_se(strv_equal(l, STRV_MAKE("", "xx")));
-        strv_free(l);
+        strv_parse_nulstr_full_one(((const char[3]) { 'x', 'x', 0 }), 3,
+                                   STRV_MAKE("xx"), STRV_MAKE("xx"));
 
-        l = strv_parse_nulstr((const char[3]) { 'x', 0, 'x' }, 3);
-        assert_se(l);
-        assert_se(strv_equal(l, STRV_MAKE("x", "x")));
-        strv_free(l);
+        strv_parse_nulstr_full_one(((const char[3]) { 0, 'x', 'x' }), 3,
+                                   STRV_MAKE("", "xx"), STRV_MAKE("", "xx"));
 
-        l = strv_parse_nulstr((const char[3]) { 'x', 'x', 'x' }, 3);
-        assert_se(l);
-        assert_se(strv_equal(l, STRV_MAKE("xxx")));
+        strv_parse_nulstr_full_one(((const char[3]) { 'x', 0, 'x' }), 3,
+                                   STRV_MAKE("x", "x"), STRV_MAKE("x", "x"));
+
+        strv_parse_nulstr_full_one(((const char[3]) { 'x', 'x', 'x' }), 3,
+                                   STRV_MAKE("xxx"), STRV_MAKE("xxx"));
 }
 
 static void test_strv_make_nulstr_one(char **l) {
