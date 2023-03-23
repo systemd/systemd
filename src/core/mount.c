@@ -475,6 +475,22 @@ static bool mount_is_extrinsic(Unit *u) {
         return false;
 }
 
+static bool mount_is_credentials(Mount *m) {
+        const char *e;
+
+        assert(m);
+
+        /* Returns true if this is a credentials mount. We don't want automatic dependencies on credential
+         * mounts, since they are managed by us for even the earliest services, and we never want anything to
+         * be ordered before them hence. */
+
+        e = path_startswith(m->where, UNIT(m)->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+        if (!e)
+                return false;
+
+        return !isempty(path_startswith(e, "credentials"));
+}
+
 static int mount_add_default_ordering_dependencies(Mount *m, MountParameters *p, UnitDependencyMask mask) {
         const char *after, *before, *e;
         int r;
@@ -497,7 +513,10 @@ static int mount_add_default_ordering_dependencies(Mount *m, MountParameters *p,
                 after = SPECIAL_LOCAL_FS_PRE_TARGET;
                 before = SPECIAL_INITRD_USR_FS_TARGET;
 
-        } else if (mount_is_network(p)) {
+        } else if (mount_is_credentials(m))
+                after = before = NULL;
+
+        else if (mount_is_network(p)) {
                 after = SPECIAL_REMOTE_FS_PRE_TARGET;
                 before = SPECIAL_REMOTE_FS_TARGET;
 
@@ -506,18 +525,32 @@ static int mount_add_default_ordering_dependencies(Mount *m, MountParameters *p,
                 before = SPECIAL_LOCAL_FS_TARGET;
         }
 
-        if (!mount_is_nofail(m)) {
+        if (before && !mount_is_nofail(m)) {
                 r = unit_add_dependency_by_name(UNIT(m), UNIT_BEFORE, before, /* add_reference= */ true, mask);
                 if (r < 0)
                         return r;
         }
 
-        r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, /* add_reference= */ true, mask);
+        if (after) {
+                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, /* add_reference= */ true, mask);
+                if (r < 0)
+                        return r;
+        }
+
+        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET,
+                                              /* add_reference= */ true, mask);
         if (r < 0)
                 return r;
 
-        return unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET,
-                                                 /* add_reference= */ true, mask);
+        /* If this is a tmpfs mount then we have to unmount it before we try to deactivate swaps */
+        if (streq_ptr(p->fstype, "tmpfs") && !mount_is_credentials(m)) {
+                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_SWAP_TARGET,
+                                                /* add_reference= */ true, mask);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int mount_add_default_dependencies(Mount *m) {
@@ -565,14 +598,6 @@ static int mount_add_default_dependencies(Mount *m) {
 
                 r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_WANTS, UNIT_AFTER, SPECIAL_NETWORK_ONLINE_TARGET,
                                                       /* add_reference= */ true, mask);
-                if (r < 0)
-                        return r;
-        }
-
-        /* If this is a tmpfs mount then we have to unmount it before we try to deactivate swaps */
-        if (streq_ptr(p->fstype, "tmpfs")) {
-                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_SWAP_TARGET,
-                                                /* add_reference= */ true, mask);
                 if (r < 0)
                         return r;
         }
