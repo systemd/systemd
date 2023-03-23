@@ -566,18 +566,13 @@ static int extract_image_and_extensions(
          * extension-release metadata match, otherwise reject it immediately as invalid, or it will fail when
          * the units are started. Also, collect valid portable prefixes if caller requested that. */
         if (validate_sysext || ret_valid_prefixes) {
-                _cleanup_fclose_ FILE *f = NULL;
                 _cleanup_free_ char *prefixes = NULL;
 
-                r = take_fdopen_unlocked(&os_release->fd, "r", &f);
-                if (r < 0)
-                        return r;
-
-                r = parse_env_file(f, os_release->name,
-                                   "ID", &id,
-                                   "VERSION_ID", &version_id,
-                                   "SYSEXT_LEVEL", &sysext_level,
-                                   "PORTABLE_PREFIXES", &prefixes);
+                r = parse_env_file_fd(os_release->fd, os_release->name,
+                                     "ID", &id,
+                                     "VERSION_ID", &version_id,
+                                     "SYSEXT_LEVEL", &sysext_level,
+                                     "PORTABLE_PREFIXES", &prefixes);
                 if (r < 0)
                         return r;
                 if (isempty(id))
@@ -594,7 +589,6 @@ static int extract_image_and_extensions(
                 _cleanup_(portable_metadata_unrefp) PortableMetadata *extension_release_meta = NULL;
                 _cleanup_hashmap_free_ Hashmap *extra_unit_files = NULL;
                 _cleanup_strv_free_ char **extension_release = NULL;
-                _cleanup_fclose_ FILE *f = NULL;
                 const char *e;
 
                 r = portable_extract_by_path(ext->path, /* path_is_extension= */ true, relax_extension_release_check, matches, &extension_release_meta, &extra_unit_files, error);
@@ -608,12 +602,7 @@ static int extract_image_and_extensions(
                 if (!validate_sysext && !ret_valid_prefixes && !ret_extension_releases)
                         continue;
 
-                /* We need to keep the fd valid, to return the PortableMetadata to the caller. */
-                r = fdopen_independent(extension_release_meta->fd, "re", &f);
-                if (r < 0)
-                        return r;
-
-                r = load_env_file_pairs(f, extension_release_meta->name, &extension_release);
+                r = load_env_file_pairs_fd(extension_release_meta->fd, extension_release_meta->name, &extension_release);
                 if (r < 0)
                         return r;
 
@@ -951,11 +940,71 @@ static int make_marker_text(const char *image_path, OrderedHashmap *extension_im
         return 0;
 }
 
+static int append_release_log_fields(const PortableMetadata *release, ImageClass type, char **ret_text) {
+        static const char *const field_names[_IMAGE_CLASS_MAX][6]= {
+                 [IMAGE_PORTABLE] = { "ID", "VERSION_ID", "IMAGE_VERSION", "IMAGE_ID", "BUILD_ID", NULL },
+                 [IMAGE_EXTENSION] = { "SYSEXT_ID", "SYSEXT_VERSION_ID", "SYSEXT_IMAGE_VERSION", "SYSEXT_IMAGE_ID", "SYSEXT_BUILD_ID", NULL },
+        };
+        _cleanup_strv_free_ char **fields = NULL;
+        _cleanup_free_ char *text = NULL;
+        const char *prefix;
+        int r;
+
+        assert(IN_SET(type, IMAGE_PORTABLE, IMAGE_EXTENSION));
+        assert(!strv_isempty((char *const *)field_names[type]));
+        assert(ret_text);
+
+        if (!release)
+                return 0; /* Nothing to do. */
+
+        if (type == IMAGE_EXTENSION) {
+                _cleanup_free_ char *basename = NULL;
+                char *image_name;
+
+                r = path_extract_filename(release->name, &basename);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to extract basename from '%s': %m", release->name);
+
+                image_name = startswith(basename, "extension-release.");
+                /* The extension-release filename should always start with extension-release. as we enforce
+                 * this much earlier, if we get here and it's not set there's a logic error somewhere up the
+                 * stack. */
+                assert(image_name);
+
+                prefix = strjoina(image_name, ":");
+        } else
+                prefix = "";
+
+        r = load_env_file_pairs_fd(release->fd, release->name, &fields);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse '%s': %m", release->name);
+
+        STRV_FOREACH_PAIR(key, value, fields) {
+                if (!strv_find((char *const *)field_names[type], *key))
+                        continue;
+
+                if (!strextend(&text, "LogExtraFields=",
+                               *key,
+                               "=",
+                               prefix,
+                               *value,
+                               "\n"))
+                        return -ENOMEM;
+        }
+
+        if (!strextend(ret_text, text))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static int install_chroot_dropin(
                 const char *image_path,
                 ImageType type,
                 OrderedHashmap *extension_images,
+                OrderedHashmap *extension_releases,
                 const PortableMetadata *m,
+                const PortableMetadata *os_release,
                 const char *dropin_dir,
                 PortableFlags flags,
                 char **ret_dropin,
@@ -1005,19 +1054,56 @@ static int install_chroot_dropin(
                                "LogExtraFields=PORTABLE=", base_name, "\n"))
                         return -ENOMEM;
 
+                if (!ordered_hashmap_isempty(extension_images)) {
+                        _cleanup_free_ char *root_base_name = NULL;
+
+                        r = path_extract_filename(image_path, &root_base_name);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract basename from '%s': %m", image_path);
+
+                        if (!strextend(&text, "LogExtraFields=PORTABLE_ROOT=", root_base_name, "\n"))
+                                return -ENOMEM;
+                }
+
+                r = append_release_log_fields(os_release, IMAGE_PORTABLE, &text);
+                if (r < 0)
+                        return r;
+
                 if (m->image_path && !path_equal(m->image_path, image_path))
-                        ORDERED_HASHMAP_FOREACH(ext, extension_images)
+                        ORDERED_HASHMAP_FOREACH(ext, extension_images) {
+                                _cleanup_free_ char *extension_base_name = NULL;
+
+                                r = path_extract_filename(ext->path, &extension_base_name);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to extract basename from '%s': %m", ext->path);
+
                                 if (!strextend(&text,
+                                               "\n",
                                                extension_setting_from_image(ext->type),
                                                ext->path,
                                                /* With --force tell PID1 to avoid enforcing that the image <name> and
                                                 * extension-release.<name> have to match. */
                                                !IN_SET(type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) &&
                                                    FLAGS_SET(flags, PORTABLE_FORCE_SYSEXT) ?
-                                                       ":x-systemd.relax-extension-release-check" :
-                                                       "",
-                                               "\n"))
+                                                       ":x-systemd.relax-extension-release-check\n" :
+                                                       "\n",
+                                               /* In PORTABLE= we list the 'main' image name for this unit
+                                                * (the image where the unit was extracted from), but we are
+                                                * stacking multiple images, so list those too. */
+                                               "LogExtraFields=PORTABLE_EXTENSION=", extension_base_name, "\n"))
                                         return -ENOMEM;
+
+                                /* Look for image/version identifiers in the extension release files. We
+                                 * look for all possible IDs, but typically only 1 or 2 will be set, so
+                                 * the number of fields added shouldn't be too large. We prefix the DDI
+                                 * name to the value, so that we can add the same field multiple times and
+                                 * still be able to identify what applies to what. */
+                                r = append_release_log_fields(ordered_hashmap_get(extension_releases,ext->name),
+                                                              IMAGE_EXTENSION,
+                                                              &text);
+                                if (r < 0)
+                                        return r;
+                        }
         }
 
         r = write_string_file(dropin, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
@@ -1106,7 +1192,9 @@ static int attach_unit_file(
                 const char *image_path,
                 ImageType type,
                 OrderedHashmap *extension_images,
+                OrderedHashmap *extension_releases,
                 const PortableMetadata *m,
+                const PortableMetadata *os_release,
                 const char *profile,
                 PortableFlags flags,
                 PortableChange **changes,
@@ -1150,7 +1238,7 @@ static int attach_unit_file(
          * is reloaded while we are creating things here: as long as only the drop-ins exist the unit doesn't exist at
          * all for PID 1. */
 
-        r = install_chroot_dropin(image_path, type, extension_images, m, dropin_dir, flags, &chroot_dropin, changes, n_changes);
+        r = install_chroot_dropin(image_path, type, extension_images, extension_releases, m, os_release, dropin_dir, flags, &chroot_dropin, changes, n_changes);
         if (r < 0)
                 return r;
 
@@ -1302,7 +1390,8 @@ int portable_attach(
                 size_t *n_changes,
                 sd_bus_error *error) {
 
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL;
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
+        _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_strv_free_ char **valid_prefixes = NULL;
@@ -1318,8 +1407,8 @@ int portable_attach(
                         /* relax_extension_release_check= */ FLAGS_SET(flags, PORTABLE_FORCE_SYSEXT),
                         &image,
                         &extension_images,
-                        /* extension_releases= */ NULL,
-                        /* os_release= */ NULL,
+                        &extension_releases,
+                        &os_release,
                         &unit_files,
                         &valid_prefixes,
                         error);
@@ -1386,8 +1475,8 @@ int portable_attach(
                 }
 
         HASHMAP_FOREACH(item, unit_files) {
-                r = attach_unit_file(&paths, image->path, image->type, extension_images,
-                                     item, profile, flags, changes, n_changes);
+                r = attach_unit_file(&paths, image->path, image->type, extension_images, extension_releases,
+                                     item, os_release, profile, flags, changes, n_changes);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to attach unit '%s': %m", item->name);
         }
