@@ -88,7 +88,7 @@ $ git clone https://github.com/systemd/systemd.git
 $ cd systemd
 $ git checkout -b <BRANCH>        # where BRANCH is the name of the branch
 $ vim src/core/main.c             # or wherever you'd like to make your changes
-$ meson build                     # configure the build
+$ meson setup build -Danalyze=true -Drepart=true -Defi=true -Dbootloader=true -Dukify=true # configure the build
 $ ninja -C build                  # build it locally, see if everything compiles fine
 $ meson test -C build             # run some simple regression tests
 $ cd ..
