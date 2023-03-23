@@ -158,7 +158,7 @@ int journal_directory_vacuum(
                 unsigned long long seqnum = 0, realtime;
                 _cleanup_free_ char *p = NULL;
                 sd_id128_t seqnum_id;
-                bool have_seqnum;
+                bool have_seqnum, active = false;
                 uint64_t size;
                 struct stat st;
                 size_t q;
@@ -180,36 +180,24 @@ int journal_directory_vacuum(
                         /* Vacuum archived files. Active files are
                          * left around */
 
-                        if (q < 1 + 32 + 1 + 16 + 1 + 16 + 8) {
-                                n_active_files++;
-                                sum += size;
-                                continue;
-                        }
+                        if (q < 1 + 32 + 1 + 16 + 1 + 16 + 8)
+                                active = true;
 
                         if (de->d_name[q-8-16-1] != '-' ||
                             de->d_name[q-8-16-1-16-1] != '-' ||
-                            de->d_name[q-8-16-1-16-1-32-1] != '@') {
-                                n_active_files++;
-                                sum += size;
-                                continue;
-                        }
+                            de->d_name[q-8-16-1-16-1-32-1] != '@')
+                                active = true;
 
                         p = strdup(de->d_name);
                         if (!p)
                                 return -ENOMEM;
 
                         de->d_name[q-8-16-1-16-1] = 0;
-                        if (sd_id128_from_string(de->d_name + q-8-16-1-16-1-32, &seqnum_id) < 0) {
-                                n_active_files++;
-                                sum += size;
-                                continue;
-                        }
+                        if (sd_id128_from_string(de->d_name + q-8-16-1-16-1-32, &seqnum_id) < 0)
+                                active = true;
 
-                        if (sscanf(de->d_name + q-8-16-1-16, "%16llx-%16llx.journal", &seqnum, &realtime) != 2) {
-                                n_active_files++;
-                                sum += size;
-                                continue;
-                        }
+                        if (sscanf(de->d_name + q-8-16-1-16, "%16llx-%16llx.journal", &seqnum, &realtime) != 2)
+                                active = true;
 
                         have_seqnum = true;
 
@@ -221,33 +209,30 @@ int journal_directory_vacuum(
 
                         /* Vacuum corrupted files */
 
-                        if (q < 1 + 16 + 1 + 16 + 8 + 1) {
-                                n_active_files++;
-                                sum += size;
-                                continue;
-                        }
+                        if (q < 1 + 16 + 1 + 16 + 8 + 1)
+                                active = true;
 
                         if (de->d_name[q-1-8-16-1] != '-' ||
-                            de->d_name[q-1-8-16-1-16-1] != '@') {
-                                n_active_files++;
-                                sum += size;
-                                continue;
-                        }
+                            de->d_name[q-1-8-16-1-16-1] != '@')
+                                active = true;
 
                         p = strdup(de->d_name);
                         if (!p)
                                 return -ENOMEM;
 
-                        if (sscanf(de->d_name + q-1-8-16-1-16, "%16llx-%16llx.journal~", &realtime, &tmp) != 2) {
-                                n_active_files++;
-                                sum += size;
-                                continue;
-                        }
+                        if (sscanf(de->d_name + q-1-8-16-1-16, "%16llx-%16llx.journal~", &realtime, &tmp) != 2)
+                                active = true;
 
                         have_seqnum = false;
                 } else {
                         /* We do not vacuum unknown files! */
                         log_debug("Not vacuuming unknown file %s.", de->d_name);
+                        continue;
+                }
+
+                if (active) {
+                        n_active_files++;
+                        sum += size;
                         continue;
                 }
 
