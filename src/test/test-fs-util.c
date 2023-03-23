@@ -13,6 +13,7 @@
 #include "macro.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
 #include "stdio-util.h"
@@ -1221,8 +1222,8 @@ TEST(openat_report_new) {
 }
 
 TEST(xopenat) {
-        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
 
         assert_se((tfd = mkdtemp_open(NULL, 0, &t)) >= 0);
 
@@ -1243,6 +1244,56 @@ TEST(xopenat) {
         assert_se((fd = xopenat(tfd, "def", O_CREAT|O_EXCL|O_CLOEXEC, 0644)) >= 0);
         assert_se(fd_verify_regular(fd) >= 0);
         fd = safe_close(fd);
+}
+
+TEST(xopenat_lock) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        siginfo_t si;
+
+        assert_se((tfd = mkdtemp_open(NULL, 0, &t)) >= 0);
+
+        /* Test that we can acquire an exclusive lock on a directory in one process, remove the directory,
+         * and close the file descriptor and still properly create the directory and acquire the lock in
+         * another process.  */
+
+        fd = xopenat_lock(tfd, "abc", O_CREAT|O_DIRECTORY|O_CLOEXEC, 0755, LOCK_BSD, LOCK_EX);
+        assert_se(fd >= 0);
+        assert_se(faccessat(tfd, "abc", F_OK, 0) >= 0);
+        assert_se(fd_verify_directory(fd) >= 0);
+        assert_se(xopenat_lock(tfd, "abc", O_DIRECTORY|O_CLOEXEC, 0755, LOCK_BSD, LOCK_EX|LOCK_NB) == -EAGAIN);
+
+        pid_t pid = fork();
+        assert_se(pid >= 0);
+
+        if (pid == 0) {
+                safe_close(fd);
+
+                fd = xopenat_lock(tfd, "abc", O_CREAT|O_DIRECTORY|O_CLOEXEC, 0755, LOCK_BSD, LOCK_EX);
+                assert_se(fd >= 0);
+                assert_se(faccessat(tfd, "abc", F_OK, 0) >= 0);
+                assert_se(fd_verify_directory(fd) >= 0);
+                assert_se(xopenat_lock(tfd, "abc", O_DIRECTORY|O_CLOEXEC, 0755, LOCK_BSD, LOCK_EX|LOCK_NB) == -EAGAIN);
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        /* We need to give the child process some time to get past the xopenat() call in xopenat_lock() and
+         * block in the call to lock_generic() waiting for the lock to become free. We can't modify
+         * xopenat_lock() to signal an eventfd to let us know when that has happened, so we just sleep for a
+         * little and assume that's enough time for the child process to get along far enough. It doesn't
+         * matter if it doesn't get far enough, in that case we just won't trigger the fallback logic in
+         * xopenat_lock(), but the test will still succeed. */
+        assert_se(usleep(20 * USEC_PER_MSEC) >= 0);
+
+        assert_se(unlinkat(tfd, "abc", AT_REMOVEDIR) >= 0);
+        fd = safe_close(fd);
+
+        assert_se(wait_for_terminate(pid, &si) >= 0);
+        assert_se(si.si_code == CLD_EXITED);
+
+        assert_se(xopenat_lock(tfd, "abc", 0, 0755, LOCK_POSIX, LOCK_EX) == -EBADF);
+        assert_se(xopenat_lock(tfd, "def", O_DIRECTORY, 0755, LOCK_POSIX, LOCK_EX) == -EBADF);
 }
 
 static int intro(void) {
