@@ -3823,6 +3823,62 @@ static bool insist_on_sandboxing(
         return false;
 }
 
+static int verity_settings_prepare(
+                VeritySettings *verity,
+                const char *root_image,
+                const void *root_hash,
+                size_t root_hash_size,
+                const char *root_hash_path,
+                const void *root_hash_sig,
+                size_t root_hash_sig_size,
+                const char *root_hash_sig_path,
+                const char *verity_data_path) {
+
+        int r;
+
+        assert(verity);
+
+        if (root_hash) {
+                void *d;
+
+                d = memdup(root_hash, root_hash_size);
+                if (!d)
+                        return -ENOMEM;
+
+                free_and_replace(verity->root_hash, d);
+                verity->root_hash_size = root_hash_size;
+                verity->designator = PARTITION_ROOT;
+        }
+
+        if (root_hash_sig) {
+                void *d;
+
+                d = memdup(root_hash_sig, root_hash_sig_size);
+                if (!d)
+                        return -ENOMEM;
+
+                free_and_replace(verity->root_hash_sig, d);
+                verity->root_hash_sig_size = root_hash_sig_size;
+                verity->designator = PARTITION_ROOT;
+        }
+
+        if (verity_data_path) {
+                r = free_and_strdup(&verity->data_path, verity_data_path);
+                if (r < 0)
+                        return r;
+        }
+
+        r = verity_settings_load(
+                        verity,
+                        root_image,
+                        root_hash_path,
+                        root_hash_sig_path);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to load root hash: %m");
+
+        return 0;
+}
+
 static int apply_mount_namespace(
                 const Unit *u,
                 ExecCommandFlags command_flags,
@@ -3832,12 +3888,12 @@ static int apply_mount_namespace(
                 const char *memory_pressure_path,
                 char **error_path) {
 
+        _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
                         **read_write_paths_cleanup = NULL;
-        const char *tmp_dir = NULL, *var_tmp_dir = NULL;
-        const char *root_dir = NULL, *root_image = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
                         *extension_dir = NULL;
+        const char *root_dir = NULL, *root_image = NULL, *tmp_dir = NULL, *var_tmp_dir = NULL;
         char **read_write_paths;
         NamespaceInfo ns_info;
         bool needs_sandboxing;
@@ -3956,6 +4012,17 @@ static int apply_mount_namespace(
                 if (asprintf(&extension_dir, "/run/user/" UID_FMT "/systemd/unit-extensions", geteuid()) < 0)
                         return -ENOMEM;
 
+        if (root_image) {
+                r = verity_settings_prepare(
+                        &verity,
+                        root_image,
+                        context->root_hash, context->root_hash_size, context->root_hash_path,
+                        context->root_hash_sig, context->root_hash_sig_size, context->root_hash_sig_path,
+                        context->root_verity);
+                if (r < 0)
+                        return r;
+        }
+
         r = setup_namespace(
                         root_dir,
                         root_image,
@@ -3981,9 +4048,7 @@ static int apply_mount_namespace(
                         creds_path,
                         context->log_namespace,
                         context->mount_propagation_flag,
-                        context->root_hash, context->root_hash_size, context->root_hash_path,
-                        context->root_hash_sig, context->root_hash_sig_size, context->root_hash_sig_path,
-                        context->root_verity,
+                        &verity,
                         context->extension_images,
                         context->n_extension_images,
                         context->extension_image_policy ?: &image_policy_sysext,
