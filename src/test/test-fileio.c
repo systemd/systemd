@@ -492,6 +492,23 @@ TEST(load_env_file_pairs) {
                         WRITE_STRING_FILE_CREATE);
         assert_se(r == 0);
 
+        r = load_env_file_pairs_fd(fd, fn, &l);
+        assert_se(r >= 0);
+
+        assert_se(strv_length(l) == 14);
+        STRV_FOREACH_PAIR(k, v, l) {
+                assert_se(STR_IN_SET(*k, "NAME", "ID", "PRETTY_NAME", "ANSI_COLOR", "HOME_URL", "SUPPORT_URL", "BUG_REPORT_URL"));
+                printf("%s=%s\n", *k, *v);
+                if (streq(*k, "NAME")) assert_se(streq(*v, "Arch Linux"));
+                if (streq(*k, "ID")) assert_se(streq(*v, "arch"));
+                if (streq(*k, "PRETTY_NAME")) assert_se(streq(*v, "Arch Linux"));
+                if (streq(*k, "ANSI_COLOR")) assert_se(streq(*v, "0;36"));
+                if (streq(*k, "HOME_URL")) assert_se(streq(*v, "https://www.archlinux.org/"));
+                if (streq(*k, "SUPPORT_URL")) assert_se(streq(*v, "https://bbs.archlinux.org/"));
+                if (streq(*k, "BUG_REPORT_URL")) assert_se(streq(*v, "https://bugs.archlinux.org/"));
+        }
+        l = strv_free(l);
+
         f = fdopen(fd, "r");
         assert_se(f);
 
