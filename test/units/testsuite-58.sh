@@ -4,10 +4,11 @@ set -eux
 set -o pipefail
 
 runas() {
-    declare userid=$1
+    declare userid=$(id -u $1)
+    declare usergid=$(id -g $1)
     shift
     # shellcheck disable=SC2016
-    su "$userid" -s /bin/sh -c 'XDG_RUNTIME_DIR=/run/user/$UID exec "$@"' -- sh "$@"
+    XDG_RUNTIME_DIR=/run/user/$UID setpriv --reuid="$userid" --regid="$usergid" --clear-groups "$@"
 }
 
 if ! command -v systemd-repart &>/dev/null; then
