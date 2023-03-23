@@ -6782,6 +6782,23 @@ int exec_context_get_clean_mask(ExecContext *c, ExecCleanMask *ret) {
         return 0;
 }
 
+bool exec_context_has_encrypted_credentials(ExecContext *c) {
+        ExecLoadCredential *load_cred;
+        ExecSetCredential *set_cred;
+
+        assert(c);
+
+        HASHMAP_FOREACH(load_cred, c->load_credentials)
+                if (load_cred->encrypted)
+                        return true;
+
+        HASHMAP_FOREACH(set_cred, c->set_credentials)
+                if (set_cred->encrypted)
+                        return true;
+
+        return false;
+}
+
 void exec_status_start(ExecStatus *s, pid_t pid) {
         assert(s);
 
