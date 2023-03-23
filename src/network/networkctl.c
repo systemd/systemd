@@ -80,6 +80,65 @@ static bool arg_full = false;
 static unsigned arg_lines = 10;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 
+static int check_netns_match(sd_bus *bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        struct stat st;
+        uint64_t id;
+        int r;
+
+        r = sd_bus_get_property_trivial(
+                        bus,
+                        "org.freedesktop.network1",
+                        "/org/freedesktop/network1",
+                        "org.freedesktop.network1.Manager",
+                        "NamespaceId",
+                        &error,
+                        't',
+                        &id);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to query network namespace of networkd, ignoring: %s", bus_error_message(&error, r));
+                return 0;
+        }
+        if (id == 0) {
+                log_debug("systemd-networkd.service not running in a network namespace (?), skipping netns check.");
+                return 0;
+        }
+
+        if (stat("/proc/self/ns/net", &st) < 0)
+                return log_error_errno(errno, "Failed to determine our own network namespace ID: %m");
+
+        if (id != st.st_ino)
+                return log_error_errno(SYNTHETIC_ERRNO(EREMOTE),
+                                       "networkctl must be invoked in same network namespace as systemd-networkd.service.");
+
+        return 0;
+}
+
+static bool networkd_is_running(void) {
+        return access("/run/systemd/netif/state", F_OK) >= 0;
+}
+
+static int acquire_bus(sd_bus **ret) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        assert(ret);
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect system bus: %m");
+
+        r = check_netns_match(bus);
+        if (r < 0)
+                return r;
+
+        if (!networkd_is_running())
+                fprintf(stderr, "WARNING: systemd-networkd is not running, output will be incomplete.\n\n");
+
+        *ret = TAKE_PTR(bus);
+        return 0;
+}
+
 static int get_description(sd_bus *bus, JsonVariant **ret) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -786,12 +845,16 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
 }
 
 static int list_links(int argc, char *argv[], void *userdata) {
-        sd_bus *bus = ASSERT_PTR(userdata);
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         TableCell *cell;
         int c, r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (arg_json_format_flags != JSON_FORMAT_OFF) {
                 if (arg_all || argc <= 1)
@@ -2388,11 +2451,15 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
 }
 
 static int link_status(int argc, char *argv[], void *userdata) {
-        sd_bus *bus = ASSERT_PTR(userdata);
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         int r, c;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         if (arg_json_format_flags != JSON_FORMAT_OFF) {
                 if (arg_all || argc <= 1)
@@ -2701,9 +2768,13 @@ static int link_renew_one(sd_bus *bus, int index, const char *name) {
 }
 
 static int link_renew(int argc, char *argv[], void *userdata) {
-        sd_bus *bus = ASSERT_PTR(userdata);
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int index, k = 0, r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         for (int i = 1; i < argc; i++) {
                 index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
@@ -2731,9 +2802,13 @@ static int link_force_renew_one(sd_bus *bus, int index, const char *name) {
 }
 
 static int link_force_renew(int argc, char *argv[], void *userdata) {
-        sd_bus *bus = ASSERT_PTR(userdata);
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int k = 0, r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         for (int i = 1; i < argc; i++) {
                 int index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
@@ -2749,9 +2824,13 @@ static int link_force_renew(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_reload(int argc, char *argv[], void *userdata) {
-        sd_bus *bus = ASSERT_PTR(userdata);
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         r = bus_call_method(bus, bus_network_mgr, "Reload", &error, NULL, NULL);
         if (r < 0)
@@ -2761,12 +2840,16 @@ static int verb_reload(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_reconfigure(int argc, char *argv[], void *userdata) {
-        sd_bus *bus = ASSERT_PTR(userdata);
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_set_free_ Set *indexes = NULL;
         int index, r;
         void *p;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
 
         indexes = set_new(NULL);
         if (!indexes)
@@ -2916,7 +2999,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int networkctl_main(sd_bus *bus, int argc, char *argv[]) {
+static int networkctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "list",        VERB_ANY, VERB_ANY, VERB_DEFAULT, list_links          },
                 { "status",      VERB_ANY, VERB_ANY, 0,            link_status         },
@@ -2932,53 +3015,10 @@ static int networkctl_main(sd_bus *bus, int argc, char *argv[]) {
                 {}
         };
 
-        return dispatch_verb(argc, argv, verbs, bus);
-}
-
-static int check_netns_match(sd_bus *bus) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        struct stat st;
-        uint64_t id;
-        int r;
-
-        r = sd_bus_get_property_trivial(
-                        bus,
-                        "org.freedesktop.network1",
-                        "/org/freedesktop/network1",
-                        "org.freedesktop.network1.Manager",
-                        "NamespaceId",
-                        &error,
-                        't',
-                        &id);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to query network namespace of networkd, ignoring: %s", bus_error_message(&error, r));
-                return 0;
-        }
-        if (id == 0) {
-                log_debug("systemd-networkd.service not running in a network namespace (?), skipping netns check.");
-                return 0;
-        }
-
-        if (stat("/proc/self/ns/net", &st) < 0)
-                return log_error_errno(r, "Failed to determine our own network namespace ID: %m");
-
-        if (id != st.st_ino)
-                return log_error_errno(SYNTHETIC_ERRNO(EREMOTE),
-                                       "networkctl must be invoked in same network namespace as systemd-networkd.service.");
-
-        return 0;
-}
-
-static void warn_networkd_missing(void) {
-
-        if (access("/run/systemd/netif/state", F_OK) >= 0)
-                return;
-
-        fprintf(stderr, "WARNING: systemd-networkd is not running, output will be incomplete.\n\n");
+        return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 static int run(int argc, char* argv[]) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         log_setup();
@@ -2987,17 +3027,7 @@ static int run(int argc, char* argv[]) {
         if (r <= 0)
                 return r;
 
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect system bus: %m");
-
-        r = check_netns_match(bus);
-        if (r < 0)
-                return r;
-
-        warn_networkd_missing();
-
-        return networkctl_main(bus, argc, argv);
+        return networkctl_main(argc, argv);
 }
 
 DEFINE_MAIN_FUNCTION(run);
