@@ -14,6 +14,10 @@ fi
 
 src="$(dirname "$0")/testdata/test-network-generator-conversion"
 
+ls -l "$(dirname "$0")"/testdata || :
+ls /usr/lib/systemd/tests/testdata/ || :
+ls /usr/lib/systemd/tests/testdata/test-network-generator-conversion || :
+
 for f in "$src"/test-*.input; do
     echo "*** Running $f"
 
