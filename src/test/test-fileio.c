@@ -14,6 +14,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "memfd-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -1071,5 +1072,47 @@ TEST(test_read_virtual_file) {
         test_read_virtual_file_one(4097);
         test_read_virtual_file_one(SIZE_MAX);
 }
+
+TEST(test_fdopen_independent) {
+#define TEST_TEXT "this is some random test text we are going to write to a memfd"
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_fclose_ FILE *f = NULL;
+        char buf[STRLEN(TEST_TEXT) + 1];
+
+        fd = memfd_new("fdopen_independent");
+        if (fd < 0) {
+                assert_se(ERRNO_IS_NOT_SUPPORTED(fd));
+                return;
+        }
+
+        assert_se(write(fd, TEST_TEXT, strlen(TEST_TEXT)) == strlen(TEST_TEXT));
+        /* we'll leave the read offset at the end of the memfd, the fdopen_independent() descriptors should
+         * start at the beginning anyway */
+
+        assert_se(fdopen_independent(fd, "re", &f) >= 0);
+        zero(buf);
+        assert_se(fread(buf, 1, sizeof(buf), f) == strlen(TEST_TEXT));
+        assert_se(streq(buf, TEST_TEXT));
+        assert_se((fcntl(fileno(f), F_GETFL) & O_ACCMODE) == O_RDONLY);
+        assert_se(FLAGS_SET(fcntl(fileno(f), F_GETFD), FD_CLOEXEC));
+        f = safe_fclose(f);
+
+        assert_se(fdopen_independent(fd, "r", &f) >= 0);
+        zero(buf);
+        assert_se(fread(buf, 1, sizeof(buf), f) == strlen(TEST_TEXT));
+        assert_se(streq(buf, TEST_TEXT));
+        assert_se((fcntl(fileno(f), F_GETFL) & O_ACCMODE) == O_RDONLY);
+        assert_se(!FLAGS_SET(fcntl(fileno(f), F_GETFD), FD_CLOEXEC));
+        f = safe_fclose(f);
+
+        assert_se(fdopen_independent(fd, "r+e", &f) >= 0);
+        zero(buf);
+        assert_se(fread(buf, 1, sizeof(buf), f) == strlen(TEST_TEXT));
+        assert_se(streq(buf, TEST_TEXT));
+        assert_se((fcntl(fileno(f), F_GETFL) & O_ACCMODE) == O_RDWR);
+        assert_se(FLAGS_SET(fcntl(fileno(f), F_GETFD), FD_CLOEXEC));
+        f = safe_fclose(f);
+}
+
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

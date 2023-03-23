@@ -594,7 +594,6 @@ static int extract_image_and_extensions(
                 _cleanup_(portable_metadata_unrefp) PortableMetadata *extension_release_meta = NULL;
                 _cleanup_hashmap_free_ Hashmap *extra_unit_files = NULL;
                 _cleanup_strv_free_ char **extension_release = NULL;
-                _cleanup_close_ int extension_release_fd = -EBADF;
                 _cleanup_fclose_ FILE *f = NULL;
                 const char *e;
 
@@ -610,11 +609,7 @@ static int extract_image_and_extensions(
                         continue;
 
                 /* We need to keep the fd valid, to return the PortableMetadata to the caller. */
-                extension_release_fd = fd_reopen(extension_release_meta->fd, O_CLOEXEC|O_RDONLY);
-                if (extension_release_fd < 0)
-                        return extension_release_fd;
-
-                r = take_fdopen_unlocked(&extension_release_fd, "r", &f);
+                r = fdopen_independent(extension_release_meta->fd, "re", &f);
                 if (r < 0)
                         return r;
 

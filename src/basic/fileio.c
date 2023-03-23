@@ -1020,6 +1020,35 @@ int xfopenat(int dir_fd, const char *path, const char *mode, int flags, FILE **r
         return 0;
 }
 
+int fdopen_independent(int fd, const char *mode, FILE **ret) {
+        _cleanup_close_ int copy_fd = -EBADF;
+        _cleanup_fclose_ FILE *f = NULL;
+        int mode_flags;
+
+        assert(fd >= 0);
+        assert(mode);
+        assert(ret);
+
+        /* A combination of fdopen() + fd_reopen(). i.e. reopens the inode the specified fd points to and
+         * returns a FILE* for it */
+
+        mode_flags = fopen_mode_to_flags(mode);
+        if (mode_flags < 0)
+                return mode_flags;
+
+        copy_fd = fd_reopen(fd, mode_flags);
+        if (copy_fd < 0)
+                return copy_fd;
+
+        f = fdopen(copy_fd, mode);
+        if (!f)
+                return -errno;
+
+        TAKE_FD(copy_fd);
+        *ret = TAKE_PTR(f);
+        return 0;
+}
+
 static int search_and_fopen_internal(
                 const char *path,
                 const char *mode,
