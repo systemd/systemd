@@ -917,7 +917,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
         cgroup_context_dump(UNIT(m), f, prefix);
 }
 
-static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
+static int mount_spawn(Mount *m, ExecCommand *c, pid_t *ret_pid) {
 
         _cleanup_(exec_params_clear) ExecParameters exec_params = {
                 .flags     = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
@@ -931,7 +931,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
 
         assert(m);
         assert(c);
-        assert(_pid);
+        assert(ret_pid);
 
         r = unit_prepare_exec(UNIT(m));
         if (r < 0)
@@ -960,8 +960,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 return r;
 
-        *_pid = pid;
-
+        *ret_pid = pid;
         return 0;
 }
 
