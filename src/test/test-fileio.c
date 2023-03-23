@@ -508,6 +508,23 @@ TEST(write_string_file_verify) {
         assert_se(write_string_file("/proc/version", buf2, WRITE_STRING_FILE_VERIFY_ON_FAILURE|WRITE_STRING_FILE_AVOID_NEWLINE) == 0);
 }
 
+static void check_file_pairs_one(char **l) {
+        assert_se(l);
+        assert_se(strv_length(l) == 14);
+
+        STRV_FOREACH_PAIR(k, v, l) {
+                assert_se(STR_IN_SET(*k, "NAME", "ID", "PRETTY_NAME", "ANSI_COLOR", "HOME_URL", "SUPPORT_URL", "BUG_REPORT_URL"));
+                printf("%s=%s\n", *k, *v);
+                assert_se(!streq(*k, "NAME") || streq(*v, "Arch Linux"));
+                assert_se(!streq(*k, "ID") || streq(*v, "arch"));
+                assert_se(!streq(*k, "PRETTY_NAME") || streq(*v, "Arch Linux"));
+                assert_se(!streq(*k, "ANSI_COLOR") || streq(*v, "0;36"));
+                assert_se(!streq(*k, "HOME_URL") || streq(*v, "https://www.archlinux.org/"));
+                assert_se(!streq(*k, "SUPPORT_URL") || streq(*v, "https://bbs.archlinux.org/"));
+                assert_se(!streq(*k, "BUG_REPORT_URL") || streq(*v, "https://bugs.archlinux.org/"));
+        }
+}
+
 TEST(load_env_file_pairs) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-load_env_file_pairs-XXXXXX";
         int fd, r;
@@ -528,24 +545,17 @@ TEST(load_env_file_pairs) {
                         WRITE_STRING_FILE_CREATE);
         assert_se(r == 0);
 
+        r = load_env_file_pairs_fd(fd, fn, &l);
+        assert_se(r >= 0);
+        check_file_pairs_one(l);
+        l = strv_free(l);
+
         f = fdopen(fd, "r");
         assert_se(f);
 
         r = load_env_file_pairs(f, fn, &l);
         assert_se(r >= 0);
-
-        assert_se(strv_length(l) == 14);
-        STRV_FOREACH_PAIR(k, v, l) {
-                assert_se(STR_IN_SET(*k, "NAME", "ID", "PRETTY_NAME", "ANSI_COLOR", "HOME_URL", "SUPPORT_URL", "BUG_REPORT_URL"));
-                printf("%s=%s\n", *k, *v);
-                if (streq(*k, "NAME")) assert_se(streq(*v, "Arch Linux"));
-                if (streq(*k, "ID")) assert_se(streq(*v, "arch"));
-                if (streq(*k, "PRETTY_NAME")) assert_se(streq(*v, "Arch Linux"));
-                if (streq(*k, "ANSI_COLOR")) assert_se(streq(*v, "0;36"));
-                if (streq(*k, "HOME_URL")) assert_se(streq(*v, "https://www.archlinux.org/"));
-                if (streq(*k, "SUPPORT_URL")) assert_se(streq(*v, "https://bbs.archlinux.org/"));
-                if (streq(*k, "BUG_REPORT_URL")) assert_se(streq(*v, "https://bugs.archlinux.org/"));
-        }
+        check_file_pairs_one(l);
 }
 
 TEST(search_and_fopen) {
