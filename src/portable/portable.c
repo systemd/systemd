@@ -940,11 +940,75 @@ static int make_marker_text(const char *image_path, OrderedHashmap *extension_im
         return 0;
 }
 
+static int append_release_log_fields(
+                const PortableMetadata *release,
+                ImageClass type,
+                const char *field_name,
+                char **ret_text) {
+
+        static const char *const field_versions[_IMAGE_CLASS_MAX][4]= {
+                 [IMAGE_PORTABLE] = { "IMAGE_VERSION", "VERSION_ID", "BUILD_ID", NULL },
+                 [IMAGE_EXTENSION] = { "SYSEXT_IMAGE_VERSION", "SYSEXT_VERSION_ID", "SYSEXT_BUILD_ID", NULL },
+        };
+        static const char *const field_ids[_IMAGE_CLASS_MAX][3]= {
+                 [IMAGE_PORTABLE] = { "IMAGE_ID", "ID", NULL },
+                 [IMAGE_EXTENSION] = { "SYSEXT_IMAGE_ID", "SYSEXT_ID", NULL },
+        };
+        _cleanup_strv_free_ char **fields = NULL;
+        const char *id = NULL, *version = NULL;
+        int r;
+
+        assert(IN_SET(type, IMAGE_PORTABLE, IMAGE_EXTENSION));
+        assert(!strv_isempty((char *const *)field_ids[type]));
+        assert(!strv_isempty((char *const *)field_versions[type]));
+        assert(field_name);
+        assert(ret_text);
+
+        if (!release)
+                return 0; /* Nothing to do. */
+
+        r = load_env_file_pairs_fd(release->fd, release->name, &fields);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse '%s': %m", release->name);
+
+        /* Find an ID first, in order of preference from more specific to less specific: IMAGE_ID -> ID */
+        STRV_FOREACH(k, (char *const *)field_ids[type]) {
+                id = strv_env_pairs_get(fields, *k);
+                if (id)
+                        break;
+        }
+
+        /* Then the version, same logic, prefer the more specific one */
+        STRV_FOREACH(k, (char *const *)field_versions[type]) {
+                version = strv_env_pairs_get(fields, *k);
+                if (version)
+                        break;
+        }
+
+        /* If there's no valid version to be found, simply omit it. */
+        if (!id && !version)
+                return 0;
+
+        if (!strextend(ret_text,
+                       "LogExtraFields=",
+                       field_name,
+                       "=",
+                       strempty(id),
+                       id && version ? "_" : "",
+                       strempty(version),
+                       "\n"))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static int install_chroot_dropin(
                 const char *image_path,
                 ImageType type,
                 OrderedHashmap *extension_images,
+                OrderedHashmap *extension_releases,
                 const PortableMetadata *m,
+                const PortableMetadata *os_release,
                 const char *dropin_dir,
                 PortableFlags flags,
                 char **ret_dropin,
@@ -994,16 +1058,30 @@ static int install_chroot_dropin(
                                "LogExtraFields=PORTABLE=", base_name, "\n"))
                         return -ENOMEM;
 
-                if (!ordered_hashmap_isempty(extension_images)) {
+                /* If we have a single image then PORTABLE= will point to it, so we add
+                 * PORTABLE_NAME_AND_VERSION= with the os-release fields and we are done. But if we have
+                 * extensions, PORTABLE= will point to the image where the current unit was found in. So we
+                 * also list PORTABLE_ROOT= and PORTABLE_ROOT_NAME_AND_VERSION= for the base image, and
+                 * PORTABLE_EXTENSION= and PORTABLE_EXTENSION_NAME_AND_VERSION= for each extension, so that
+                 * all needed metadata is available. */
+                if (ordered_hashmap_isempty(extension_images))
+                        r = append_release_log_fields(os_release, IMAGE_PORTABLE, "PORTABLE_NAME_AND_VERSION", &text);
+                else {
                         _cleanup_free_ char *root_base_name = NULL;
 
                         r = path_extract_filename(image_path, &root_base_name);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to extract basename from '%s': %m", image_path);
 
-                        if (!strextend(&text, "LogExtraFields=PORTABLE_ROOT=", root_base_name, "\n"))
+                        if (!strextend(&text,
+                                       "Environment=PORTABLE_ROOT=", root_base_name, "\n",
+                                       "LogExtraFields=PORTABLE_ROOT=", root_base_name, "\n"))
                                 return -ENOMEM;
+
+                        r = append_release_log_fields(os_release, IMAGE_PORTABLE, "PORTABLE_ROOT_NAME_AND_VERSION", &text);
                 }
+                if (r < 0)
+                        return r;
 
                 if (m->image_path && !path_equal(m->image_path, image_path))
                         ORDERED_HASHMAP_FOREACH(ext, extension_images) {
@@ -1028,6 +1106,18 @@ static int install_chroot_dropin(
                                                 * stacking multiple images, so list those too. */
                                                "LogExtraFields=PORTABLE_EXTENSION=", extension_base_name, "\n"))
                                         return -ENOMEM;
+
+                                /* Look for image/version identifiers in the extension release files. We
+                                 * look for all possible IDs, but typically only 1 or 2 will be set, so
+                                 * the number of fields added shouldn't be too large. We prefix the DDI
+                                 * name to the value, so that we can add the same field multiple times and
+                                 * still be able to identify what applies to what. */
+                                r = append_release_log_fields(ordered_hashmap_get(extension_releases, ext->name),
+                                                              IMAGE_EXTENSION,
+                                                              "PORTABLE_EXTENSION_NAME_AND_VERSION",
+                                                              &text);
+                                if (r < 0)
+                                        return r;
                         }
         }
 
@@ -1117,7 +1207,9 @@ static int attach_unit_file(
                 const char *image_path,
                 ImageType type,
                 OrderedHashmap *extension_images,
+                OrderedHashmap *extension_releases,
                 const PortableMetadata *m,
+                const PortableMetadata *os_release,
                 const char *profile,
                 PortableFlags flags,
                 PortableChange **changes,
@@ -1161,7 +1253,7 @@ static int attach_unit_file(
          * is reloaded while we are creating things here: as long as only the drop-ins exist the unit doesn't exist at
          * all for PID 1. */
 
-        r = install_chroot_dropin(image_path, type, extension_images, m, dropin_dir, flags, &chroot_dropin, changes, n_changes);
+        r = install_chroot_dropin(image_path, type, extension_images, extension_releases, m, os_release, dropin_dir, flags, &chroot_dropin, changes, n_changes);
         if (r < 0)
                 return r;
 
@@ -1313,7 +1405,8 @@ int portable_attach(
                 size_t *n_changes,
                 sd_bus_error *error) {
 
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL;
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
+        _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_strv_free_ char **valid_prefixes = NULL;
@@ -1329,8 +1422,8 @@ int portable_attach(
                         /* relax_extension_release_check= */ FLAGS_SET(flags, PORTABLE_FORCE_SYSEXT),
                         &image,
                         &extension_images,
-                        /* extension_releases= */ NULL,
-                        /* os_release= */ NULL,
+                        &extension_releases,
+                        &os_release,
                         &unit_files,
                         &valid_prefixes,
                         error);
@@ -1397,8 +1490,8 @@ int portable_attach(
                 }
 
         HASHMAP_FOREACH(item, unit_files) {
-                r = attach_unit_file(&paths, image->path, image->type, extension_images,
-                                     item, profile, flags, changes, n_changes);
+                r = attach_unit_file(&paths, image->path, image->type, extension_images, extension_releases,
+                                     item, os_release, profile, flags, changes, n_changes);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to attach unit '%s': %m", item->name);
         }
