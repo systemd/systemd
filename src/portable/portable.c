@@ -566,18 +566,13 @@ static int extract_image_and_extensions(
          * extension-release metadata match, otherwise reject it immediately as invalid, or it will fail when
          * the units are started. Also, collect valid portable prefixes if caller requested that. */
         if (validate_sysext || ret_valid_prefixes) {
-                _cleanup_fclose_ FILE *f = NULL;
                 _cleanup_free_ char *prefixes = NULL;
 
-                r = take_fdopen_unlocked(&os_release->fd, "r", &f);
-                if (r < 0)
-                        return r;
-
-                r = parse_env_file(f, os_release->name,
-                                   "ID", &id,
-                                   "VERSION_ID", &version_id,
-                                   "SYSEXT_LEVEL", &sysext_level,
-                                   "PORTABLE_PREFIXES", &prefixes);
+                r = parse_env_file_fd(os_release->fd, os_release->name,
+                                     "ID", &id,
+                                     "VERSION_ID", &version_id,
+                                     "SYSEXT_LEVEL", &sysext_level,
+                                     "PORTABLE_PREFIXES", &prefixes);
                 if (r < 0)
                         return r;
                 if (isempty(id))
