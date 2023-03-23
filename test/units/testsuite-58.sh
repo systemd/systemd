@@ -8,7 +8,7 @@ runas() {
     declare usergid=$(id -g $1)
     shift
     # shellcheck disable=SC2016
-    setpriv --reuid="$userid" --regid="$usergid" --clear-groups /bin/sh -c "XDG_RUNTIME_DIR=/run/user/$UID exec $@"
+    XDG_RUNTIME_DIR=/run/user/$UID setpriv --reuid="$userid" --regid="$usergid" --clear-groups "$@"
 }
 
 if ! command -v systemd-repart &>/dev/null; then
