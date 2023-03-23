@@ -594,7 +594,6 @@ static int extract_image_and_extensions(
                 _cleanup_(portable_metadata_unrefp) PortableMetadata *extension_release_meta = NULL;
                 _cleanup_hashmap_free_ Hashmap *extra_unit_files = NULL;
                 _cleanup_strv_free_ char **extension_release = NULL;
-                _cleanup_fclose_ FILE *f = NULL;
                 const char *e;
 
                 r = portable_extract_by_path(ext->path, /* path_is_extension= */ true, relax_extension_release_check, matches, &extension_release_meta, &extra_unit_files, error);
@@ -608,12 +607,7 @@ static int extract_image_and_extensions(
                 if (!validate_sysext && !ret_valid_prefixes && !ret_extension_releases)
                         continue;
 
-                /* We need to keep the fd valid, to return the PortableMetadata to the caller. */
-                r = fdopen_independent(extension_release_meta->fd, "re", &f);
-                if (r < 0)
-                        return r;
-
-                r = load_env_file_pairs(f, extension_release_meta->name, &extension_release);
+                r = load_env_file_pairs_fd(extension_release_meta->fd, extension_release_meta->name, &extension_release);
                 if (r < 0)
                         return r;
 
