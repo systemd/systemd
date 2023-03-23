@@ -1069,6 +1069,51 @@ static UdevRuleOperatorType parse_operator(const char *op) {
         return _OP_TYPE_INVALID;
 }
 
+static void check_token_delimiters(UdevRuleLine *rule_line, const char *line) {
+        assert(rule_line);
+
+        size_t n_comma = 0;
+        bool ws_before_comma = false, ws_after_comma = false;
+        const char *p;
+
+        for (p = line; !isempty(p); ++p) {
+                if (*p == ',')
+                        ++n_comma;
+                else if (strchr(WHITESPACE, *p)) {
+                        if (n_comma > 0)
+                                ws_after_comma = true;
+                        else
+                                ws_before_comma = true;
+                } else
+                        break;
+        }
+
+        if (line == rule_line->line) {
+                /* this is the first token of the rule */
+                if (n_comma > 0)
+                        log_line_warning(rule_line, "Stray leading comma.");
+        } else if (isempty(p)) {
+                /* there are no more tokens in the rule */
+                if (n_comma > 0)
+                        log_line_warning(rule_line, "Stray trailing comma.");
+        } else {
+                /* single comma is expected */
+                if (n_comma == 0)
+                        log_line_warning(rule_line, "A comma between tokens is expected.");
+                else if (n_comma > 1)
+                        log_line_warning(rule_line, "Too many commas between tokens.");
+
+                /* whitespace after comma is expected */
+                if (n_comma > 0) {
+                        if (ws_before_comma)
+                                log_line_warning(rule_line, "Stray whitespace before comma.");
+                        if (!ws_after_comma)
+                                log_line_warning(rule_line, "Whitespace after comma is expected.");
+                } else if (!ws_before_comma && !ws_after_comma)
+                        log_line_warning(rule_line, "Whitespace between tokens is expected.");
+        }
+}
+
 static int parse_line(char **line, char **ret_key, char **ret_attr, UdevRuleOperatorType *ret_op, char **ret_value) {
         char *key_begin, *key_end, *attr, *tmp;
         UdevRuleOperatorType op;
@@ -1140,7 +1185,7 @@ static void sort_tokens(UdevRuleLine *rule_line) {
         }
 }
 
-static int rule_add_line(UdevRuleFile *rule_file, const char *line_str, unsigned line_nr) {
+static int rule_add_line(UdevRuleFile *rule_file, const char *line_str, unsigned line_nr, bool extra_checks) {
         _cleanup_(udev_rule_line_freep) UdevRuleLine *rule_line = NULL;
         _cleanup_free_ char *line = NULL;
         char *p;
@@ -1171,6 +1216,9 @@ static int rule_add_line(UdevRuleFile *rule_file, const char *line_str, unsigned
         for (p = rule_line->line; !isempty(p); ) {
                 char *key, *attr, *value;
                 UdevRuleOperatorType op;
+
+                if (extra_checks)
+                        check_token_delimiters(rule_line, p);
 
                 r = parse_line(&p, &key, &attr, &op, &value);
                 if (r < 0)
@@ -1457,7 +1505,7 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename, bool extra_che
                 if (ignore_line)
                         log_file_error(rule_file, line_nr, "Line is too long, ignored");
                 else if (len > 0)
-                        (void) rule_add_line(rule_file, line, line_nr);
+                        (void) rule_add_line(rule_file, line, line_nr, extra_checks);
 
                 continuation = mfree(continuation);
                 ignore_line = false;
