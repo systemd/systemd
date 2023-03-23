@@ -26,5 +26,15 @@ const char* coredump_filter_to_string(CoredumpFilter i) _const_;
 CoredumpFilter coredump_filter_from_string(const char *s) _pure_;
 int coredump_filter_mask_from_string(const char *s, uint64_t *ret);
 
+int parse_auxv(int log_level,
+               uint8_t elf_class,
+               const void *auxv,
+               size_t size_bytes,
+               int *at_secure,
+               uid_t *uid,
+               uid_t *euid,
+               gid_t *gid,
+               gid_t *egid);
+
 int set_coredump_filter(uint64_t value);
 void disable_coredumps(void);

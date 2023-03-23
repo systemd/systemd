@@ -3,60 +3,31 @@
 if install_tests
         testdata_dir = testsdir + '/testdata/'
 
-        install_subdir('journal-data',
-                       exclude_files : '.gitattributes',
-                       install_dir : testdata_dir)
-        install_subdir('units',
-                       exclude_files : '.gitattributes',
-                       install_dir : testdata_dir)
-        install_subdir('test-execute',
-                       exclude_files : '.gitattributes',
-                       install_dir : testdata_dir)
-        install_subdir('test-fstab-generator',
-                       exclude_files : '.gitattributes',
-                       install_dir : testdata_dir)
-        install_subdir('test-path',
-                       exclude_files : '.gitattributes',
-                       install_dir : testdata_dir)
-        install_subdir('test-path-util',
-                       exclude_files : '.gitattributes',
-                       install_dir : testdata_dir)
-        install_subdir('test-umount',
-                       exclude_files : '.gitattributes',
-                       install_dir : testdata_dir)
-        install_subdir('test-network-generator-conversion',
-                       exclude_files : '.gitattributes',
-                       install_dir : testdata_dir)
-        install_subdir('testsuite-03.units',
-                       exclude_files : '.gitattributes',
-                       install_dir : testdata_dir)
-        install_subdir('testsuite-04.units',
-                       exclude_files : '.gitattributes',
-                       install_dir : testdata_dir)
-        install_subdir('testsuite-06.units',
-                       exclude_files : '.gitattributes',
-                       install_dir : testdata_dir)
-        install_subdir('testsuite-10.units',
-                       exclude_files : '.gitattributes',
-                       install_dir : testdata_dir)
-        install_subdir('testsuite-11.units',
-                       exclude_files : '.gitattributes',
-                       install_dir : testdata_dir)
-        install_subdir('testsuite-16.units',
-                       exclude_files : '.gitattributes',
-                       install_dir : testdata_dir)
-        install_subdir('testsuite-28.units',
-                       exclude_files : '.gitattributes',
-                       install_dir : testdata_dir)
-        install_subdir('testsuite-30.units',
-                       exclude_files : '.gitattributes',
-                       install_dir : testdata_dir)
-        install_subdir('testsuite-52.units',
-                       exclude_files : '.gitattributes',
-                       install_dir : testdata_dir)
-        install_subdir('testsuite-63.units',
-                       exclude_files : '.gitattributes',
-                       install_dir : testdata_dir)
+        foreach subdir : [
+                'auxv',
+                'journal-data',
+                'units',
+                'test-execute',
+                'test-fstab-generator',
+                'test-path',
+                'test-path-util',
+                'test-umount',
+                'test-network-generator-conversion',
+                'testsuite-03.units',
+                'testsuite-04.units',
+                'testsuite-06.units',
+                'testsuite-10.units',
+                'testsuite-11.units',
+                'testsuite-16.units',
+                'testsuite-28.units',
+                'testsuite-30.units',
+                'testsuite-52.units',
+                'testsuite-63.units',
+        ]
+                install_subdir(subdir,
+                               exclude_files : '.gitattributes',
+                               install_dir : testdata_dir)
+        endforeach
 
         install_data(kbd_model_map,
                      install_dir : testdata_dir + '/test-keymap-util')
