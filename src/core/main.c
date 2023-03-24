@@ -1506,7 +1506,6 @@ static void redirect_telinit(int argc, char *argv[]) {
 }
 
 static int become_shutdown(int objective, int retval) {
-
         static const char* const table[_MANAGER_OBJECTIVE_MAX] = {
                 [MANAGER_EXIT]     = "exit",
                 [MANAGER_REBOOT]   = "reboot",
@@ -1516,28 +1515,30 @@ static int become_shutdown(int objective, int retval) {
         };
 
         char log_level[STRLEN("--log-level=") + DECIMAL_STR_MAX(int)],
-                exit_code[STRLEN("--exit-code=") + DECIMAL_STR_MAX(uint8_t)],
-                timeout[STRLEN("--timeout=") + DECIMAL_STR_MAX(usec_t) + STRLEN("us")];
-
-        const char* command_line[10] = {
-                SYSTEMD_SHUTDOWN_BINARY_PATH,
-                table[objective],
-                timeout,
-                log_level,
-        };
+             timeout[STRLEN("--timeout=") + DECIMAL_STR_MAX(usec_t) + STRLEN("us")],
+             exit_code[STRLEN("--exit-code=") + DECIMAL_STR_MAX(uint8_t)];
 
         _cleanup_strv_free_ char **env_block = NULL;
         usec_t watchdog_timer = 0;
-        size_t pos = 7;
         int r;
 
         assert(objective >= 0 && objective < _MANAGER_OBJECTIVE_MAX);
         assert(table[objective]);
-        assert(!command_line[pos]);
-        env_block = strv_copy(environ);
 
         xsprintf(log_level, "--log-level=%d", log_get_max_level());
         xsprintf(timeout, "--timeout=%" PRI_USEC "us", arg_default_timeout_stop_usec);
+
+        const char* command_line[10] = {
+                SYSTEMD_SHUTDOWN_BINARY_PATH,
+                table[objective],
+                log_level,
+                timeout,
+                /* Note that the last position is a terminator and must contain NULL. */
+        };
+        size_t pos = 4;
+
+        assert(command_line[pos-1]);
+        assert(!command_line[pos]);
 
         switch (log_get_target()) {
 
@@ -1567,11 +1568,13 @@ static int become_shutdown(int objective, int retval) {
                 command_line[pos++] = "--log-time";
 
         if (objective == MANAGER_EXIT) {
-                command_line[pos++] = exit_code;
                 xsprintf(exit_code, "--exit-code=%d", retval);
+                command_line[pos++] = exit_code;
         }
 
-        assert(pos < ELEMENTSOF(command_line));
+        assert(pos < ELEMENTSOF(command_line) - 1);
+
+        /* The watchdog: */
 
         if (objective == MANAGER_REBOOT)
                 watchdog_timer = arg_reboot_watchdog;
@@ -1585,6 +1588,10 @@ static int become_shutdown(int objective, int retval) {
         (void) watchdog_setup_pretimeout_governor(NULL);
         r = watchdog_setup(watchdog_timer);
         watchdog_close(r < 0);
+
+        /* The environment block: */
+
+        env_block = strv_copy(environ);
 
         /* Tell the binary how often to ping, ignore failure */
         (void) strv_extendf(&env_block, "WATCHDOG_USEC="USEC_FMT, watchdog_timer);
