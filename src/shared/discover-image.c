@@ -27,6 +27,7 @@
 #include "hashmap.h"
 #include "hostname-setup.h"
 #include "id128-util.h"
+#include "initrd-util.h"
 #include "lock-util.h"
 #include "log.h"
 #include "loop-util.h"
@@ -63,6 +64,19 @@ static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
                             "/var/lib/extensions\0"         /* the main place for images */
                             "/usr/local/lib/extensions\0"
                             "/usr/lib/extensions\0",
+};
+
+/* Inside the initrd, use a slightly different set of search path (i.e. include .extra/sysext in extension
+ * search dir) */
+static const char* const image_search_path_initrd[_IMAGE_CLASS_MAX] = {
+        /* (entries that aren't listed here will get the same search path as for the non initrd-case) */
+
+        [IMAGE_EXTENSION] = "/etc/extensions\0"             /* only place symlinks here */
+                            "/run/extensions\0"             /* and here too */
+                            "/var/lib/extensions\0"         /* the main place for images */
+                            "/usr/local/lib/extensions\0"
+                            "/usr/lib/extensions\0"
+                            "/.extra/sysext\0"              /* put sysext picked up by systemd-stub last, since not trusted */
 };
 
 static Image *image_free(Image *i) {
@@ -438,6 +452,14 @@ static int image_make(
         return -EMEDIUMTYPE;
 }
 
+static const char *pick_image_search_path(ImageClass class) {
+        if (class < 0 || class >= _IMAGE_CLASS_MAX)
+                return NULL;
+
+        /* Use the initrd search path if there is one, otherwise use the common one */
+        return in_initrd() && image_search_path_initrd[class] ? image_search_path_initrd[class] : image_search_path[class];
+}
+
 int image_find(ImageClass class,
                const char *name,
                const char *root,
@@ -453,7 +475,7 @@ int image_find(ImageClass class,
         if (!image_name_is_valid(name))
                 return -ENOENT;
 
-        NULSTR_FOREACH(path, image_search_path[class]) {
+        NULSTR_FOREACH(path, pick_image_search_path(class)) {
                 _cleanup_free_ char *resolved = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
                 struct stat st;
@@ -552,7 +574,7 @@ int image_discover(
         assert(class < _IMAGE_CLASS_MAX);
         assert(h);
 
-        NULSTR_FOREACH(path, image_search_path[class]) {
+        NULSTR_FOREACH(path, pick_image_search_path(class)) {
                 _cleanup_free_ char *resolved = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
 
@@ -1130,7 +1152,7 @@ int image_set_limit(Image *i, uint64_t referenced_max) {
         return btrfs_subvol_set_subtree_quota_limit(i->path, 0, referenced_max);
 }
 
-int image_read_metadata(Image *i) {
+int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
         _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
         int r;
 
@@ -1215,7 +1237,9 @@ int image_read_metadata(Image *i) {
 
                 r = dissect_loop_device(
                                 d,
-                                NULL, NULL,
+                                /* verity= */ NULL,
+                                /* mount_options= */ NULL,
+                                image_policy,
                                 DISSECT_IMAGE_GENERIC_ROOT |
                                 DISSECT_IMAGE_REQUIRE_ROOT |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
@@ -1283,7 +1307,7 @@ bool image_in_search_path(
 
         assert(image);
 
-        NULSTR_FOREACH(path, image_search_path[class]) {
+        NULSTR_FOREACH(path, pick_image_search_path(class)) {
                 const char *p, *q;
                 size_t k;
 

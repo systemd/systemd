@@ -324,6 +324,7 @@ static int portable_extract_by_path(
                 bool path_is_extension,
                 bool relax_extension_release_check,
                 char **matches,
+                const ImagePolicy *image_policy,
                 PortableMetadata **ret_os_release,
                 Hashmap **ret_unit_files,
                 sd_bus_error *error) {
@@ -369,7 +370,9 @@ static int portable_extract_by_path(
 
                 r = dissect_loop_device(
                                 d,
-                                NULL, NULL,
+                                /* verity= */ NULL,
+                                /* mount_options= */ NULL,
+                                image_policy,
                                 DISSECT_IMAGE_READ_ONLY |
                                 DISSECT_IMAGE_GENERIC_ROOT |
                                 DISSECT_IMAGE_REQUIRE_ROOT |
@@ -510,6 +513,7 @@ static int extract_image_and_extensions(
                 char **extension_image_paths,
                 bool validate_sysext,
                 bool relax_extension_release_check,
+                const ImagePolicy *image_policy,
                 Image **ret_image,
                 OrderedHashmap **ret_extension_images,
                 OrderedHashmap **ret_extension_releases,
@@ -558,7 +562,15 @@ static int extract_image_and_extensions(
                 }
         }
 
-        r = portable_extract_by_path(image->path, /* path_is_extension= */ false, /* relax_extension_release_check= */ false, matches, &os_release, &unit_files, error);
+        r = portable_extract_by_path(
+                        image->path,
+                        /* path_is_extension= */ false,
+                        /* relax_extension_release_check= */ false,
+                        matches,
+                        image_policy,
+                        &os_release,
+                        &unit_files,
+                        error);
         if (r < 0)
                 return r;
 
@@ -597,7 +609,15 @@ static int extract_image_and_extensions(
                 _cleanup_fclose_ FILE *f = NULL;
                 const char *e;
 
-                r = portable_extract_by_path(ext->path, /* path_is_extension= */ true, relax_extension_release_check, matches, &extension_release_meta, &extra_unit_files, error);
+                r = portable_extract_by_path(
+                                ext->path,
+                                /* path_is_extension= */ true,
+                                relax_extension_release_check,
+                                matches,
+                                image_policy,
+                                &extension_release_meta,
+                                &extra_unit_files,
+                                error);
                 if (r < 0)
                         return r;
 
@@ -668,6 +688,7 @@ int portable_extract(
                 const char *name_or_path,
                 char **matches,
                 char **extension_image_paths,
+                const ImagePolicy *image_policy,
                 PortableFlags flags,
                 PortableMetadata **ret_os_release,
                 OrderedHashmap **ret_extension_releases,
@@ -690,6 +711,7 @@ int portable_extract(
                         extension_image_paths,
                         /* validate_sysext= */ false,
                         /* relax_extension_release_check= */ FLAGS_SET(flags, PORTABLE_FORCE_SYSEXT),
+                        image_policy,
                         &image,
                         &extension_images,
                         &extension_releases,
@@ -1297,6 +1319,7 @@ int portable_attach(
                 char **matches,
                 const char *profile,
                 char **extension_image_paths,
+                const ImagePolicy *image_policy,
                 PortableFlags flags,
                 PortableChange **changes,
                 size_t *n_changes,
@@ -1316,6 +1339,7 @@ int portable_attach(
                         extension_image_paths,
                         /* validate_sysext= */ true,
                         /* relax_extension_release_check= */ FLAGS_SET(flags, PORTABLE_FORCE_SYSEXT),
+                        image_policy,
                         &image,
                         &extension_images,
                         /* extension_releases= */ NULL,

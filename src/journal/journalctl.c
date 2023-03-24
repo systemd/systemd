@@ -134,6 +134,7 @@ static Set *arg_output_fields = NULL;
 static const char *arg_pattern = NULL;
 static pcre2_code *arg_compiled_pattern = NULL;
 static PatternCompileCase arg_case = PATTERN_COMPILE_CASE_AUTO;
+ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_facilities, set_freep);
@@ -145,6 +146,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_output_fields, set_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_compiled_pattern, pattern_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 static enum {
         ACTION_SHOW,
@@ -326,8 +328,9 @@ static int help(void) {
                "  -m --merge                 Show entries from all available journals\n"
                "  -D --directory=PATH        Show journal files from directory\n"
                "     --file=PATH             Show journal file\n"
-               "     --root=ROOT             Operate on files below a root directory\n"
-               "     --image=IMAGE           Operate on files in filesystem image\n"
+               "     --root=PATH             Operate on an alternate filesystem root\n"
+               "     --image=PATH            Operate on disk image as filesystem root\n"
+               "     --image-policy=POLICY   Specify disk image dissection policy\n"
                "     --namespace=NAMESPACE   Show journal data from specified journal namespace\n"
                "\n%3$sFiltering Options:%4$s\n"
                "  -S --since=DATE            Show entries not older than the specified date\n"
@@ -444,6 +447,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_HOSTNAME,
                 ARG_OUTPUT_FIELDS,
                 ARG_NAMESPACE,
+                ARG_IMAGE_POLICY,
         };
 
         static const struct option options[] = {
@@ -511,6 +515,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-hostname",          no_argument,       NULL, ARG_NO_HOSTNAME          },
                 { "output-fields",        required_argument, NULL, ARG_OUTPUT_FIELDS        },
                 { "namespace",            required_argument, NULL, ARG_NAMESPACE            },
+                { "image-policy",         required_argument, NULL, ARG_IMAGE_POLICY         },
                 {}
         };
 
@@ -1033,7 +1038,17 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
                 }
+                case ARG_IMAGE_POLICY: {
+                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
 
+                        r = image_policy_from_string(optarg, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
+
+                        image_policy_free(arg_image_policy);
+                        arg_image_policy = TAKE_PTR(p);
+                        break;
+                }
                 case '?':
                         return -EINVAL;
 
@@ -2124,6 +2139,7 @@ static int run(int argc, char *argv[]) {
 
                 r = mount_image_privately_interactively(
                                 arg_image,
+                                arg_image_policy,
                                 DISSECT_IMAGE_GENERIC_ROOT |
                                 DISSECT_IMAGE_REQUIRE_ROOT |
                                 DISSECT_IMAGE_VALIDATE_OS |
