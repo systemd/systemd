@@ -591,6 +591,29 @@ TEST(chase_symlinks_at) {
         assert_se(chase_symlinks_at_and_unlink(tfd, "o/p/e/n/f/i/l/e", 0, 0, &result) >= 0);
         assert_se(streq(result, "o/p/e/n/f/i/l/e"));
         result = mfree(result);
+
+        /* Test chase_symlinks_at_and_pin() */
+
+        assert_se((fd = chase_symlinks_at_and_pin(tfd, "chase/parent", CHASE_AT_RESOLVE_IN_ROOT|CHASE_NOFOLLOW, &result)) >= 0);
+        assert_se(faccessat(fd, result, F_OK, AT_SYMLINK_NOFOLLOW) >= 0);
+        assert_se(streq(result, "parent"));
+        fd = safe_close(fd);
+        result = mfree(result);
+
+        assert_se((fd = chase_symlinks_at_and_pin(tfd, "chase", CHASE_AT_RESOLVE_IN_ROOT, &result)) >= 0);
+        assert_se(faccessat(fd, result, F_OK, 0) >= 0);
+        assert_se(streq(result, "chase"));
+        fd = safe_close(fd);
+        result = mfree(result);
+
+        assert_se((fd = chase_symlinks_at_and_pin(tfd, "/", CHASE_AT_RESOLVE_IN_ROOT, &result)) >= 0);
+        assert_se(streq(result, "."));
+        result = mfree(result);
+        fd = safe_close(fd);
+
+        assert_se((fd = chase_symlinks_at_and_pin(tfd, ".", CHASE_AT_RESOLVE_IN_ROOT, &result)) >= 0);
+        assert_se(streq(result, "."));
+        result = mfree(result);
 }
 
 TEST(readlink_and_make_absolute) {
