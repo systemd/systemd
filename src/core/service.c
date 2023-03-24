@@ -65,6 +65,8 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_FINAL_SIGTERM] = UNIT_DEACTIVATING,
         [SERVICE_FINAL_SIGKILL] = UNIT_DEACTIVATING,
         [SERVICE_FAILED] = UNIT_FAILED,
+        [SERVICE_DEAD_BEFORE_AUTO_RESTART] = UNIT_INACTIVE,
+        [SERVICE_FAILED_BEFORE_AUTO_RESTART] = UNIT_FAILED,
         [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING,
         [SERVICE_CLEANING] = UNIT_MAINTENANCE,
 };
@@ -91,6 +93,8 @@ static const UnitActiveState state_translation_table_idle[_SERVICE_STATE_MAX] = 
         [SERVICE_FINAL_SIGTERM] = UNIT_DEACTIVATING,
         [SERVICE_FINAL_SIGKILL] = UNIT_DEACTIVATING,
         [SERVICE_FAILED] = UNIT_FAILED,
+        [SERVICE_DEAD_BEFORE_AUTO_RESTART] = UNIT_INACTIVE,
+        [SERVICE_FAILED_BEFORE_AUTO_RESTART] = UNIT_FAILED,
         [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING,
         [SERVICE_CLEANING] = UNIT_MAINTENANCE,
 };
@@ -346,9 +350,6 @@ static void service_fd_store_unlink(ServiceFDStore *fs) {
 static void service_release_fd_store(Service *s) {
         assert(s);
 
-        if (s->n_keep_fd_store > 0)
-                return;
-
         log_unit_debug(UNIT(s), "Releasing all stored fds");
         while (s->fd_store)
                 service_fd_store_unlink(s->fd_store);
@@ -360,6 +361,10 @@ static void service_release_resources(Unit *u) {
         Service *s = SERVICE(u);
 
         assert(s);
+
+        /* Don't release resources if this is a transitionary failed/dead state */
+        if (IN_SET(s->state, SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART))
+                return;
 
         if (!s->fd_store && s->stdin_fd < 0 && s->stdout_fd < 0 && s->stderr_fd < 0)
                 return;
@@ -1152,7 +1157,9 @@ static void service_set_state(Service *s, ServiceState state) {
                 s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
         }
 
-        if (IN_SET(state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART)) {
+        if (IN_SET(state,
+                   SERVICE_DEAD, SERVICE_FAILED,
+                   SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART, SERVICE_AUTO_RESTART)) {
                 unit_unwatch_all_pids(UNIT(s));
                 unit_dequeue_rewatch_pids(UNIT(s));
         }
@@ -1265,7 +1272,10 @@ static int service_coldplug(Unit *u) {
                         return r;
         }
 
-        if (!IN_SET(s->deserialized_state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART, SERVICE_CLEANING)) {
+        if (!IN_SET(s->deserialized_state,
+                    SERVICE_DEAD, SERVICE_FAILED,
+                    SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART, SERVICE_AUTO_RESTART,
+                    SERVICE_CLEANING)) {
                 (void) unit_enqueue_rewatch_pids(u);
                 (void) unit_setup_dynamic_creds(u);
                 (void) unit_setup_exec_runtime(u);
@@ -1846,14 +1856,14 @@ static bool service_will_restart(Unit *u) {
 
         if (s->will_auto_restart)
                 return true;
-        if (s->state == SERVICE_AUTO_RESTART)
+        if (IN_SET(s->state, SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART, SERVICE_AUTO_RESTART))
                 return true;
 
         return unit_will_restart_default(u);
 }
 
 static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) {
-        ServiceState end_state;
+        ServiceState end_state, restart_state;
         int r;
 
         assert(s);
@@ -1869,12 +1879,15 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         if (s->result == SERVICE_SUCCESS) {
                 unit_log_success(UNIT(s));
                 end_state = SERVICE_DEAD;
+                restart_state = SERVICE_DEAD_BEFORE_AUTO_RESTART;
         } else if (s->result == SERVICE_SKIP_CONDITION) {
                 unit_log_skip(UNIT(s), service_result_to_string(s->result));
                 end_state = SERVICE_DEAD;
+                restart_state = SERVICE_DEAD_BEFORE_AUTO_RESTART;
         } else {
                 unit_log_failure(UNIT(s), service_result_to_string(s->result));
                 end_state = SERVICE_FAILED;
+                restart_state = SERVICE_FAILED_BEFORE_AUTO_RESTART;
         }
         unit_warn_leftover_processes(UNIT(s), unit_log_leftover_process_stop);
 
@@ -1892,30 +1905,32 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                         s->will_auto_restart = true;
         }
 
-        /* Make sure service_release_resources() doesn't destroy our FD store, while we are changing through
-         * SERVICE_FAILED/SERVICE_DEAD before entering into SERVICE_AUTO_RESTART. */
-        s->n_keep_fd_store ++;
-
-        service_set_state(s, end_state);
-
         if (s->will_auto_restart) {
                 s->will_auto_restart = false;
 
                 r = service_arm_timer(s, /* relative= */ true, s->restart_usec);
-                if (r < 0) {
-                        s->n_keep_fd_store--;
+                if (r < 0)
                         goto fail;
-                }
 
+                /* We make two state changes here: one that maps to the high-level UNIT_INACTIVE/UNIT_FAILED
+                 * state (i.e. a state indicating deactivation), and then one that that maps to the
+                 * high-level UNIT_STARTING state (i.e. a state indicating activation). We do this so that
+                 * external software can watch the state changes and see all service failures, even if they
+                 * are only transitionary and followed by an automatic restart. We have fine-grained
+                 * low-level states for this though so that software can distinguish the permanent UNIT_INACTIVE
+                 * state from this transitionary UNIT_INACTIVE state by looking at the low-level states. */
+                service_set_state(s, restart_state);
                 service_set_state(s, SERVICE_AUTO_RESTART);
-        } else
+        } else {
+                service_set_state(s, end_state);
+
                 /* If we shan't restart, then flush out the restart counter. But don't do that immediately, so that the
                  * user can still introspect the counter. Do so on the next start. */
                 s->flush_n_restarts = true;
+        }
 
         /* The new state is in effect, let's decrease the fd store ref counter again. Let's also re-add us to the GC
          * queue, so that the fd store is possibly gc'ed again */
-        s->n_keep_fd_store--;
         unit_add_to_gc_queue(UNIT(s));
 
         /* The next restart might not be a manual stop, hence reset the flag indicating manual stops */
@@ -2604,14 +2619,11 @@ static int service_start(Unit *u) {
         if (IN_SET(s->state, SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST))
                 return 0;
 
-        /* A service that will be restarted must be stopped first to
-         * trigger BindsTo and/or OnFailure dependencies. If a user
-         * does not want to wait for the holdoff time to elapse, the
-         * service should be manually restarted, not started. We
-         * simply return EAGAIN here, so that any start jobs stay
-         * queued, and assume that the auto restart timer will
-         * eventually trigger the restart. */
-        if (s->state == SERVICE_AUTO_RESTART)
+        /* A service that will be restarted must be stopped first to trigger BindsTo and/or OnFailure
+         * dependencies. If a user does not want to wait for the holdoff time to elapse, the service should
+         * be manually restarted, not started. We simply return EAGAIN here, so that any start jobs stay
+         * queued, and assume that the auto restart timer will eventually trigger the restart. */
+        if (IN_SET(s->state, SERVICE_AUTO_RESTART, SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART))
                 return -EAGAIN;
 
         assert(IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED));
@@ -2659,34 +2671,55 @@ static int service_stop(Unit *u) {
         /* Don't create restart jobs from manual stops. */
         s->forbid_restart = true;
 
-        /* Already on it */
-        if (IN_SET(s->state,
-                   SERVICE_STOP, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                   SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL))
+        switch (s->state) {
+
+        case SERVICE_STOP:
+        case SERVICE_STOP_SIGTERM:
+        case SERVICE_STOP_SIGKILL:
+        case SERVICE_STOP_POST:
+        case SERVICE_FINAL_WATCHDOG:
+        case SERVICE_FINAL_SIGTERM:
+        case SERVICE_FINAL_SIGKILL:
+                /* Already on it */
                 return 0;
 
-        /* A restart will be scheduled or is in progress. */
-        if (s->state == SERVICE_AUTO_RESTART) {
+        case SERVICE_AUTO_RESTART:
+                /* A restart will be scheduled or is in progress. */
                 service_set_state(s, SERVICE_DEAD);
                 return 0;
-        }
 
-        /* If there's already something running we go directly into kill mode. */
-        if (IN_SET(s->state, SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_STOP_WATCHDOG)) {
+        case SERVICE_CONDITION:
+        case SERVICE_START_PRE:
+        case SERVICE_START:
+        case SERVICE_START_POST:
+        case SERVICE_RELOAD:
+        case SERVICE_RELOAD_SIGNAL:
+        case SERVICE_RELOAD_NOTIFY:
+        case SERVICE_STOP_WATCHDOG:
+                /* If there's already something running we go directly into kill mode. */
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_SUCCESS);
                 return 0;
-        }
 
-        /* If we are currently cleaning, then abort it, brutally. */
-        if (s->state == SERVICE_CLEANING) {
+        case SERVICE_CLEANING:
+                /* If we are currently cleaning, then abort it, brutally. */
                 service_enter_signal(s, SERVICE_FINAL_SIGKILL, SERVICE_SUCCESS);
                 return 0;
+
+        case SERVICE_RUNNING:
+        case SERVICE_EXITED:
+                service_enter_stop(s, SERVICE_SUCCESS);
+                return 1;
+
+        case SERVICE_DEAD_BEFORE_AUTO_RESTART:
+        case SERVICE_FAILED_BEFORE_AUTO_RESTART:
+        case SERVICE_DEAD:
+        case SERVICE_FAILED:
+        default:
+                /* Unknown state, or unit_stop() should already have handled these */
+                assert_not_reached();
         }
 
-        assert(IN_SET(s->state, SERVICE_RUNNING, SERVICE_EXITED));
 
-        service_enter_stop(s, SERVICE_SUCCESS);
-        return 1;
 }
 
 static int service_reload(Unit *u) {
@@ -3289,6 +3322,11 @@ static bool service_may_gc(Unit *u) {
             control_pid_good(s) > 0)
                 return false;
 
+        /* Only allow collection of actually dead services, i.e. not those that are in the transitionary
+         * SERVICE_DEAD_RESTART/SERVICE_FAILED_RESTART states. */
+        if (!IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED))
+                return false;
+
         return true;
 }
 
@@ -3450,11 +3488,9 @@ static void service_notify_cgroup_empty_event(Unit *u) {
 
         switch (s->state) {
 
-                /* Waiting for SIGCHLD is usually more interesting,
-                 * because it includes return codes/signals. Which is
-                 * why we ignore the cgroup events for most cases,
-                 * except when we don't know pid which to expect the
-                 * SIGCHLD for. */
+                /* Waiting for SIGCHLD is usually more interesting, because it includes return
+                 * codes/signals. Which is why we ignore the cgroup events for most cases, except when we
+                 * don't know pid which to expect the SIGCHLD for. */
 
         case SERVICE_START:
                 if (IN_SET(s->type, SERVICE_NOTIFY, SERVICE_NOTIFY_RELOAD) &&
@@ -3512,6 +3548,9 @@ static void service_notify_cgroup_empty_event(Unit *u) {
          * up the cgroup earlier and should do it now. */
         case SERVICE_DEAD:
         case SERVICE_FAILED:
+        case SERVICE_DEAD_BEFORE_AUTO_RESTART:
+        case SERVICE_FAILED_BEFORE_AUTO_RESTART:
+        case SERVICE_AUTO_RESTART:
                 unit_prune_cgroup(u);
                 break;
 
