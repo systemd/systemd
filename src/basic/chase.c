@@ -784,6 +784,18 @@ int chase_and_unlink(
         return 0;
 }
 
+int chase_and_open_parent(const char *path, const char *root, ChaseFlags chase_flags, char **ret_filename) {
+        int pfd, r;
+
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
+
+        r = chase(path, root, CHASE_PARENT|CHASE_EXTRACT_FILENAME|chase_flags, ret_filename, &pfd);
+        if (r < 0)
+                return r;
+
+        return pfd;
+}
+
 int chase_and_openat(
                 int dir_fd,
                 const char *path,
@@ -1002,4 +1014,21 @@ int chase_and_unlinkat(
                 *ret_path = TAKE_PTR(p);
 
         return 0;
+}
+
+int chase_and_open_parent_at(
+                int dir_fd,
+                const char *path,
+                ChaseFlags chase_flags,
+                char **ret_filename) {
+
+        int pfd, r;
+
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
+
+        r = chaseat(dir_fd, path, CHASE_PARENT|CHASE_EXTRACT_FILENAME|chase_flags, ret_filename, &pfd);
+        if (r < 0)
+                return r;
+
+        return pfd;
 }
