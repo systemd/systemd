@@ -26,15 +26,17 @@ TEST(proc_cmdline_parse) {
 }
 
 TEST(proc_cmdline_override) {
+        _cleanup_free_ char *line = NULL, *value = NULL;
+
         assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"") == 0);
         assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=different") == 0);
 
         /* First test if the overrides for /proc/cmdline still work */
-        _cleanup_free_ char *line = NULL, *value = NULL;
         assert_se(proc_cmdline(&line) >= 0);
+        assert_se(streq(line, "foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\""));
+        line = mfree(line);
 
         /* Test if parsing makes uses of the override */
-        assert_se(streq(line, "foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\""));
         assert_se(proc_cmdline_get_key("foo_bar", 0, &value) > 0 && streq_ptr(value, "quux"));
         value = mfree(value);
 
@@ -44,10 +46,13 @@ TEST(proc_cmdline_override) {
         assert_se(proc_cmdline_get_key("and_one_more", 0, &value) > 0 && streq_ptr(value, "zzz aaa"));
         value = mfree(value);
 
-        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=") == 0);
-        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"") == 0);
+        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=hoge") == 0);
+        assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"") == 0);
 
-        assert_se(streq(line, "foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\""));
+        assert_se(proc_cmdline(&line) >= 0);
+        assert_se(streq(line, "hoge"));
+        line = mfree(line);
+
         assert_se(proc_cmdline_get_key("foo_bar", 0, &value) > 0 && streq_ptr(value, "quux"));
         value = mfree(value);
 
@@ -90,17 +95,17 @@ static void test_proc_cmdline_given_one(bool flip_initrd) {
                 in_initrd_force(!in_initrd());
 
         bool t = true, f = false;
-        assert_se(proc_cmdline_parse_given("foo_bar=quux wuff-piep=\"tuet \" rd.zumm space='x y z' miepf=\"uuu\"",
-                                           parse_item_given, &t, PROC_CMDLINE_STRIP_RD_PREFIX) >= 0);
-
-        assert_se(proc_cmdline_parse_given("foo_bar=quux wuff-piep=\"tuet \" rd.zumm space='x y z' miepf=\"uuu\"",
-                                           parse_item_given, &f, 0) >= 0);
+        assert_se(proc_cmdline_parse(parse_item_given, &t, PROC_CMDLINE_STRIP_RD_PREFIX) >= 0);
+        assert_se(proc_cmdline_parse(parse_item_given, &f, 0) >= 0);
 
         if (flip_initrd)
                 in_initrd_force(!in_initrd());
 }
 
 TEST(test_proc_cmdline_given) {
+        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=\"tuet \" rd.zumm space='x y z' miepf=\"uuu\"") == 0);
+        assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=miepf=\"uuu\"") == 0);
+
         test_proc_cmdline_given_one(false);
         /* Repeat the same thing, but now flip our ininitrdness */
         test_proc_cmdline_given_one(true);
@@ -109,7 +114,7 @@ TEST(test_proc_cmdline_given) {
 TEST(proc_cmdline_get_key) {
         _cleanup_free_ char *value = NULL;
 
-        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm spaaace='ö ü ß' ticks=\"''\"\n\nkkk=uuu\n\n\n") == 0);
+        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm-ghh spaaace='ö ü ß' ticks=\"''\"\n\nkkk=uuu\n\n\n") == 0);
 
         assert_se(proc_cmdline_get_key("", 0, &value) == -EINVAL);
         assert_se(proc_cmdline_get_key("abc", 0, NULL) == 0);
@@ -120,6 +125,7 @@ TEST(proc_cmdline_get_key) {
         value = mfree(value);
         assert_se(proc_cmdline_get_key("foo_bar", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 && streq_ptr(value, "quux"));
         value = mfree(value);
+        assert_se(proc_cmdline_get_key("foo_bar", 0, NULL) == 0);
         assert_se(proc_cmdline_get_key("foo-bar", 0, &value) > 0 && streq_ptr(value, "quux"));
         value = mfree(value);
         assert_se(proc_cmdline_get_key("foo-bar", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 && streq_ptr(value, "quux"));
@@ -138,9 +144,12 @@ TEST(proc_cmdline_get_key) {
         assert_se(proc_cmdline_get_key("wuff_piep", 0, NULL) == 0);
         assert_se(proc_cmdline_get_key("wuff_piep", PROC_CMDLINE_VALUE_OPTIONAL, NULL) == -EINVAL);
 
-        assert_se(proc_cmdline_get_key("zumm", 0, &value) == 0 && value == NULL);
-        assert_se(proc_cmdline_get_key("zumm", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 && value == NULL);
-        assert_se(proc_cmdline_get_key("zumm", 0, NULL) > 0);
+        assert_se(proc_cmdline_get_key("zumm-ghh", 0, &value) == 0 && value == NULL);
+        assert_se(proc_cmdline_get_key("zumm-ghh", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 && value == NULL);
+        assert_se(proc_cmdline_get_key("zumm-ghh", 0, NULL) > 0);
+        assert_se(proc_cmdline_get_key("zumm_ghh", 0, &value) == 0 && value == NULL);
+        assert_se(proc_cmdline_get_key("zumm_ghh", PROC_CMDLINE_VALUE_OPTIONAL, &value) > 0 && value == NULL);
+        assert_se(proc_cmdline_get_key("zumm_ghh", 0, NULL) > 0);
 
         assert_se(proc_cmdline_get_key("spaaace", 0, &value) > 0 && streq_ptr(value, "ö ü ß"));
         value = mfree(value);

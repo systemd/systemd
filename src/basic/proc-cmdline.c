@@ -18,6 +18,7 @@
 
 int proc_cmdline(char **ret) {
         const char *e;
+
         assert(ret);
 
         /* For testing purposes it is sometimes useful to be able to override what we consider /proc/cmdline to be */
@@ -78,7 +79,7 @@ static int proc_cmdline_extract_first(const char **p, char **ret_word, ProcCmdli
         return 0;
 }
 
-int proc_cmdline_parse_given(const char *line, proc_cmdline_parse_t parse_item, void *data, ProcCmdlineFlags flags) {
+static int proc_cmdline_parse_given(const char *line, proc_cmdline_parse_t parse_item, void *data, ProcCmdlineFlags flags) {
         const char *p;
         int r;
 
@@ -173,7 +174,7 @@ bool proc_cmdline_key_streq(const char *x, const char *y) {
 }
 
 static int cmdline_get_key(const char *line, const char *key, ProcCmdlineFlags flags, char **ret_value) {
-        _cleanup_free_ char *ret = NULL;
+        _cleanup_free_ char *v = NULL;
         bool found = false;
         const char *p;
         int r;
@@ -199,7 +200,7 @@ static int cmdline_get_key(const char *line, const char *key, ProcCmdlineFlags f
                                 continue;
 
                         if (*e == '=') {
-                                r = free_and_strdup(&ret, e+1);
+                                r = free_and_strdup(&v, e+1);
                                 if (r < 0)
                                         return r;
 
@@ -209,7 +210,7 @@ static int cmdline_get_key(const char *line, const char *key, ProcCmdlineFlags f
                                 found = true;
 
                 } else {
-                        if (streq(word, key)) {
+                        if (proc_cmdline_key_streq(word, key)) {
                                 found = true;
                                 break; /* we found what we were looking for */
                         }
@@ -217,7 +218,7 @@ static int cmdline_get_key(const char *line, const char *key, ProcCmdlineFlags f
         }
 
         if (ret_value)
-                *ret_value = TAKE_PTR(ret);
+                *ret_value = TAKE_PTR(v);
 
         return found;
 }
