@@ -167,6 +167,7 @@ int copy_bytes_full(
 
         assert(fdf >= 0);
         assert(fdt >= 0);
+        assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
 
         /* Tries to copy bytes from the file descriptor 'fdf' to 'fdt' in the smartest possible way. Copies a maximum
          * of 'max_bytes', which may be specified as UINT64_MAX, in which no maximum is applied. Returns negative on
@@ -931,7 +932,7 @@ static int fd_copy_directory(
 
         _cleanup_close_ int fdf = -EBADF, fdt = -EBADF;
         _cleanup_closedir_ DIR *d = NULL;
-        bool exists, created;
+        bool exists;
         int r;
 
         assert(st);
@@ -961,33 +962,22 @@ static int fd_copy_directory(
         if (!d)
                 return -errno;
 
-        exists = false;
-        if (copy_flags & COPY_MERGE_EMPTY) {
-                r = dir_is_empty_at(dt, to, /* ignore_hidden_or_backup= */ false);
-                if (r < 0 && r != -ENOENT)
-                        return r;
-                else if (r == 1)
-                        exists = true;
-        }
+        r = dir_is_empty_at(dt, to, /* ignore_hidden_or_backup= */ false);
+        if (r < 0 && r != -ENOENT)
+                return r;
+        if ((r > 0 && !(copy_flags & (COPY_MERGE|COPY_MERGE_EMPTY))) || (r == 0 && !FLAGS_SET(copy_flags, COPY_MERGE)))
+                return -EEXIST;
 
-        if (exists)
-                created = false;
-        else {
-                if (copy_flags & COPY_MAC_CREATE)
-                        r = mkdirat_label(dt, to, st->st_mode & 07777);
-                else
-                        r = mkdirat(dt, to, st->st_mode & 07777);
-                if (r >= 0)
-                        created = true;
-                else if (errno == EEXIST && (copy_flags & COPY_MERGE))
-                        created = false;
-                else
-                        return -errno;
-        }
+        exists = r >= 0;
 
-        fdt = openat(dt, to, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        fdt = xopenat_lock(dt, to,
+                           O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|(exists ? 0 : O_CREAT|O_EXCL),
+                           (copy_flags & COPY_MAC_CREATE ? XO_LABEL : 0),
+                           st->st_mode & 07777,
+                           copy_flags & COPY_LOCK_BSD ? LOCK_BSD : LOCK_NONE,
+                           LOCK_EX);
         if (fdt < 0)
-                return -errno;
+                return fdt;
 
         r = 0;
 
@@ -1063,9 +1053,9 @@ static int fd_copy_directory(
                 }
 
                 q = fd_copy_tree_generic(dirfd(d), de->d_name, &buf, fdt, de->d_name, original_device,
-                                         depth_left-1, override_uid, override_gid, copy_flags, denylist,
-                                         hardlink_context, child_display_path, progress_path, progress_bytes,
-                                         userdata);
+                                         depth_left-1, override_uid, override_gid, copy_flags & ~COPY_LOCK_BSD,
+                                         denylist, hardlink_context, child_display_path, progress_path,
+                                         progress_bytes, userdata);
 
                 if (q == -EINTR) /* Propagate SIGINT/SIGTERM up instantly */
                         return q;
@@ -1076,7 +1066,7 @@ static int fd_copy_directory(
         }
 
 finish:
-        if (created) {
+        if (!exists) {
                 if (fchown(fdt,
                            uid_is_valid(override_uid) ? override_uid : st->st_uid,
                            gid_is_valid(override_gid) ? override_gid : st->st_gid) < 0)
@@ -1094,7 +1084,7 @@ finish:
                         return -errno;
         }
 
-        return r;
+        return copy_flags & COPY_LOCK_BSD ? TAKE_FD(fdt) : 0;
 }
 
 static int fd_copy_leaf(
@@ -1188,6 +1178,7 @@ int copy_tree_at_full(
 
         assert(from);
         assert(to);
+        assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
 
         if (fstatat(fdf, from, &st, AT_SYMLINK_NOFOLLOW) < 0)
                 return -errno;
@@ -1290,6 +1281,7 @@ int copy_file_fd_at_full(
         assert(dir_fdf >= 0 || dir_fdf == AT_FDCWD);
         assert(from);
         assert(fdt >= 0);
+        assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
 
         fdf = openat(dir_fdf, from, O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fdf < 0)
@@ -1360,17 +1352,13 @@ int copy_file_at_full(
                 return r;
 
         WITH_UMASK(0000) {
-                if (copy_flags & COPY_MAC_CREATE) {
-                        r = mac_selinux_create_file_prepare_at(dir_fdt, to, S_IFREG);
-                        if (r < 0)
-                                return r;
-                }
-                fdt = openat(dir_fdt, to, flags|O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY,
-                           mode != MODE_INVALID ? mode : st.st_mode);
-                if (copy_flags & COPY_MAC_CREATE)
-                        mac_selinux_create_file_clear();
+                fdt = xopenat_lock(dir_fdt, to,
+                                   flags|O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY,
+                                   (copy_flags & COPY_MAC_CREATE ? XO_LABEL : 0),
+                                   mode != MODE_INVALID ? mode : st.st_mode,
+                                   copy_flags & COPY_LOCK_BSD ? LOCK_BSD : LOCK_NONE, LOCK_EX);
                 if (fdt < 0)
-                        return -errno;
+                        return fdt;
         }
 
         if (!FLAGS_SET(flags, O_EXCL)) { /* if O_EXCL was used we created the thing as regular file, no need to check again */
@@ -1382,7 +1370,7 @@ int copy_file_at_full(
         if (chattr_mask != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL, NULL);
 
-        r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags, NULL, NULL, progress_bytes, userdata);
+        r = copy_bytes_full(fdf, fdt, UINT64_MAX, copy_flags & ~COPY_LOCK_BSD, NULL, NULL, progress_bytes, userdata);
         if (r < 0)
                 goto fail;
 
@@ -1399,9 +1387,11 @@ int copy_file_at_full(
                 }
         }
 
-        r = close_nointr(TAKE_FD(fdt)); /* even if this fails, the fd is now invalidated */
-        if (r < 0)
-                goto fail;
+        if (!FLAGS_SET(copy_flags, COPY_LOCK_BSD)) {
+                r = close_nointr(TAKE_FD(fdt)); /* even if this fails, the fd is now invalidated */
+                if (r < 0)
+                        goto fail;
+        }
 
         if (copy_flags & COPY_FSYNC_FULL) {
                 r = fsync_parent_at(dir_fdt, to);
@@ -1409,7 +1399,7 @@ int copy_file_at_full(
                         goto fail;
         }
 
-        return 0;
+        return copy_flags & COPY_LOCK_BSD ? TAKE_FD(fdt) : 0;
 
 fail:
         /* Only unlink if we definitely are the ones who created the file */
@@ -1437,6 +1427,7 @@ int copy_file_atomic_at_full(
 
         assert(from);
         assert(to);
+        assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
 
         if (copy_flags & COPY_MAC_CREATE) {
                 r = mac_selinux_create_file_prepare_at(dir_fdt, to, S_IFREG);

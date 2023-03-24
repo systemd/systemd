@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/file.h>
 #include <sys/xattr.h>
 #include <unistd.h>
 
@@ -433,6 +434,26 @@ TEST_RET(copy_holes) {
         close(fd_copy);
 
         return 0;
+}
+
+TEST(copy_lock) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+
+        assert_se((tfd = mkdtemp_open(NULL, 0, &t)) >= 0);
+        assert_se(mkdirat(tfd, "abc", 0755) >= 0);
+        assert_se(write_string_file_at(tfd, "abc/def", "abc", WRITE_STRING_FILE_CREATE) >= 0);
+
+        assert_se((fd = copy_directory_at(tfd, "abc", tfd, "qed", COPY_LOCK_BSD)) >= 0);
+        assert_se(faccessat(tfd, "qed", F_OK, 0) >= 0);
+        assert_se(faccessat(tfd, "qed/def", F_OK, 0) >= 0);
+        assert_se(xopenat_lock(tfd, "qed", 0, 0, 0, LOCK_BSD, LOCK_EX|LOCK_NB) == -EAGAIN);
+        fd = safe_close(fd);
+
+        assert_se((fd = copy_file_at(tfd, "abc/def", tfd, "poi", 0, 0644, COPY_LOCK_BSD)));
+        assert_se(read_file_at_and_streq(tfd, "poi", "abc\n"));
+        assert_se(xopenat_lock(tfd, "poi", 0, 0, 0, LOCK_BSD, LOCK_EX|LOCK_NB) == -EAGAIN);
+        fd = safe_close(fd);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
