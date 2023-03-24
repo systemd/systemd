@@ -1143,6 +1143,14 @@ install_debian_systemd() {
         files="$(dpkg-query -L "$deb" 2>/dev/null)" || continue
         ddebug "Install debian files from package $deb"
         for file in $files; do
+            ddebug "Considering $file"
+
+            if [ "$file" = /usr/lib/systemd/tests/unit-tests/testdata ]; then
+                ls -ld /usr/lib/systemd/tests/testdata
+                ls -l /usr/lib/systemd/tests/unit-tests/testdata
+                readlink -e /usr/lib/systemd/tests/unit-tests/testdata
+            fi
+
             [ -e "$file" ] || continue
             [ -d "$file" ] && continue
             inst "$file"
@@ -1179,18 +1187,8 @@ install_suse_systemd() {
         done < <(rpm -ql "$p")
     done
 
-    # Embed the files needed by the extended testsuite at runtime. Also include
-    # the unit tests needed by TEST-02-UNITTESTS. This is mostly equivalent to
-    # what `ninja install` does for the tests when '-Dinstall-tests=true'.
-    #
-    # Why? openSUSE ships a package named 'systemd-testsuite' which contains
-    # the minimal set of files that allows to run the testsuite on the host (as
-    # long as it runs an equivalent version of systemd) getting rid of the
-    # hassles of fetching, configuring, building the source code.
-    dinfo "Install the files needed by the tests at runtime"
-    image_install "${SOURCE_DIR}"/test-*
+    dinfo "Install the data needed by the tests at runtime"
     inst_recursive "${SOURCE_DIR}/testdata"
-    inst_recursive "${SOURCE_DIR}/manual"
 
     # On openSUSE, this directory is not created at package install, at least
     # for now.
@@ -1272,7 +1270,7 @@ get_ldpath() {
 install_missing_libraries() {
     dinfo "Install missing libraries"
     # install possible missing libraries
-    for i in "${initdir:?}"{,/usr}/{sbin,bin}/* "$initdir"{,/usr}/lib/systemd/{,tests/{,manual/,unsafe/}}*; do
+    for i in "${initdir:?}"{,/usr}/{sbin,bin}/* "$initdir"{,/usr}/lib/systemd/{,tests/unit-tests/{,manual/,unsafe/}}*; do
         LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$(get_ldpath "$i")" inst_libs "$i"
     done
 
