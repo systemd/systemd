@@ -455,8 +455,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
         int r;
 
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         /* If we run in a container, automatically turn off EFI file system access */
         if (detect_container() > 0)
