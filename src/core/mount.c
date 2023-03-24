@@ -258,8 +258,6 @@ static void mount_done(Unit *u) {
         exec_command_done_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
         m->control_command = NULL;
 
-        dynamic_creds_unref(&m->dynamic_creds);
-
         mount_unwatch_control_pid(m);
 
         m->timer_event_source = sd_event_source_disable_unref(m->timer_event_source);
@@ -790,10 +788,8 @@ static int mount_coldplug(Unit *u) {
                         return r;
         }
 
-        if (!IN_SET(m->deserialized_state, MOUNT_DEAD, MOUNT_FAILED)) {
-                (void) unit_setup_dynamic_creds(u);
+        if (!IN_SET(m->deserialized_state, MOUNT_DEAD, MOUNT_FAILED))
                 (void) unit_setup_exec_runtime(u);
-        }
 
         mount_set_state(m, m->deserialized_state);
         return 0;
@@ -922,7 +918,6 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
                        &m->exec_context,
                        &exec_params,
                        m->exec_runtime,
-                       &m->dynamic_creds,
                        &m->cgroup_context,
                        &pid);
         if (r < 0)
@@ -953,8 +948,6 @@ static void mount_enter_dead(Mount *m, MountResult f) {
         unit_destroy_runtime_data(UNIT(m), &m->exec_context);
 
         unit_unref_uid_gid(UNIT(m), true);
-
-        dynamic_creds_destroy(&m->dynamic_creds);
 
         /* Any dependencies based on /proc/self/mountinfo are now stale. Let's re-generate dependencies from
          * .mount unit. */
@@ -2268,7 +2261,6 @@ const UnitVTable mount_vtable = {
         .cgroup_context_offset = offsetof(Mount, cgroup_context),
         .kill_context_offset = offsetof(Mount, kill_context),
         .exec_runtime_offset = offsetof(Mount, exec_runtime),
-        .dynamic_creds_offset = offsetof(Mount, dynamic_creds),
 
         .sections =
                 "Unit\0"

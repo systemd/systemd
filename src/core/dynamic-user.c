@@ -739,18 +739,28 @@ int dynamic_user_lookup_name(Manager *m, const char *name, uid_t *ret) {
         return r;
 }
 
-int dynamic_creds_acquire(DynamicCreds *creds, Manager *m, const char *user, const char *group) {
+int dynamic_creds_make(Manager *m, const char *user, const char *group, DynamicCreds **ret) {
+        _cleanup_(dynamic_creds_unrefp) DynamicCreds *creds = NULL;
         bool acquired = false;
         int r;
 
-        assert(creds);
         assert(m);
+        assert(ret);
+
+        if (!user && !group) {
+                *ret = NULL;
+                return 0;
+        }
+
+        creds = new0(DynamicCreds, 1);
+        if (!creds)
+                return -ENOMEM;
 
         /* A DynamicUser object encapsulates an allocation of both a UID and a GID for a specific name. However, some
          * services use different user and groups. For cases like that there's DynamicCreds containing a pair of user
          * and group. This call allocates a pair. */
 
-        if (!creds->user && user) {
+        if (user) {
                 r = dynamic_user_acquire(m, user, &creds->user);
                 if (r < 0)
                         return r;
@@ -758,19 +768,18 @@ int dynamic_creds_acquire(DynamicCreds *creds, Manager *m, const char *user, con
                 acquired = true;
         }
 
-        if (!creds->group) {
-
-                if (creds->user && (!group || streq_ptr(user, group)))
-                        creds->group = dynamic_user_ref(creds->user);
-                else if (group) {
-                        r = dynamic_user_acquire(m, group, &creds->group);
-                        if (r < 0) {
-                                if (acquired)
-                                        creds->user = dynamic_user_unref(creds->user);
-                                return r;
-                        }
+        if (creds->user && (!group || streq_ptr(user, group)))
+                creds->group = dynamic_user_ref(creds->user);
+        else if (group) {
+                r = dynamic_user_acquire(m, group, &creds->group);
+                if (r < 0) {
+                        if (acquired)
+                                creds->user = dynamic_user_unref(creds->user);
+                        return r;
                 }
         }
+
+        *ret = TAKE_PTR(creds);
 
         return 0;
 }
@@ -803,16 +812,22 @@ int dynamic_creds_realize(DynamicCreds *creds, char **suggested_paths, uid_t *ui
         return 0;
 }
 
-void dynamic_creds_unref(DynamicCreds *creds) {
-        assert(creds);
+DynamicCreds* dynamic_creds_unref(DynamicCreds *creds) {
+        if (!creds)
+                return NULL;
 
         creds->user = dynamic_user_unref(creds->user);
         creds->group = dynamic_user_unref(creds->group);
+
+        return mfree(creds);
 }
 
-void dynamic_creds_destroy(DynamicCreds *creds) {
-        assert(creds);
+DynamicCreds* dynamic_creds_destroy(DynamicCreds *creds) {
+        if (!creds)
+                return NULL;
 
         creds->user = dynamic_user_destroy(creds->user);
         creds->group = dynamic_user_destroy(creds->group);
+
+        return mfree(creds);
 }

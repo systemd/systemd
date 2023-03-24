@@ -154,8 +154,6 @@ static void socket_done(Unit *u) {
         exec_command_free_array(s->exec_command, _SOCKET_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
-        dynamic_creds_unref(&s->dynamic_creds);
-
         socket_unwatch_control_pid(s);
 
         unit_ref_unset(&s->service);
@@ -1908,10 +1906,8 @@ static int socket_coldplug(Unit *u) {
                         return r;
         }
 
-        if (!IN_SET(s->deserialized_state, SOCKET_DEAD, SOCKET_FAILED, SOCKET_CLEANING)) {
-                (void) unit_setup_dynamic_creds(u);
+        if (!IN_SET(s->deserialized_state, SOCKET_DEAD, SOCKET_FAILED, SOCKET_CLEANING))
                 (void) unit_setup_exec_runtime(u);
-        }
 
         socket_set_state(s, s->deserialized_state);
         return 0;
@@ -1950,7 +1946,6 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                        &s->exec_context,
                        &exec_params,
                        s->exec_runtime,
-                       &s->dynamic_creds,
                        &s->cgroup_context,
                        &pid);
         if (r < 0)
@@ -2057,8 +2052,6 @@ static void socket_enter_dead(Socket *s, SocketResult f) {
         unit_destroy_runtime_data(UNIT(s), &s->exec_context);
 
         unit_unref_uid_gid(UNIT(s), true);
-
-        dynamic_creds_destroy(&s->dynamic_creds);
 }
 
 static void socket_enter_signal(Socket *s, SocketState state, SocketResult f);
@@ -3471,7 +3464,6 @@ const UnitVTable socket_vtable = {
         .cgroup_context_offset = offsetof(Socket, cgroup_context),
         .kill_context_offset = offsetof(Socket, kill_context),
         .exec_runtime_offset = offsetof(Socket, exec_runtime),
-        .dynamic_creds_offset = offsetof(Socket, dynamic_creds),
 
         .sections =
                 "Unit\0"

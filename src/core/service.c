@@ -422,8 +422,6 @@ static void service_done(Unit *u) {
         s->control_command = NULL;
         s->main_command = NULL;
 
-        dynamic_creds_unref(&s->dynamic_creds);
-
         exit_status_set_free(&s->restart_prevent_status);
         exit_status_set_free(&s->restart_force_status);
         exit_status_set_free(&s->success_status);
@@ -1316,7 +1314,6 @@ static int service_coldplug(Unit *u) {
 
         if (!IN_SET(s->deserialized_state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART, SERVICE_CLEANING)) {
                 (void) unit_enqueue_rewatch_pids(u);
-                (void) unit_setup_dynamic_creds(u);
                 (void) unit_setup_exec_runtime(u);
         }
 
@@ -1768,7 +1765,6 @@ static int service_spawn_internal(
                        &s->exec_context,
                        &exec_params,
                        s->exec_runtime,
-                       &s->dynamic_creds,
                        &s->cgroup_context,
                        &pid);
         if (r < 0)
@@ -1981,9 +1977,6 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
 
         /* Get rid of the IPC bits of the user */
         unit_unref_uid_gid(UNIT(s), true);
-
-        /* Release the user, and destroy it if we are the only remaining owner */
-        dynamic_creds_destroy(&s->dynamic_creds);
 
         /* Try to delete the pid file. At this point it will be
          * out-of-date, and some software might be confused by it, so
@@ -4943,7 +4936,6 @@ const UnitVTable service_vtable = {
         .cgroup_context_offset = offsetof(Service, cgroup_context),
         .kill_context_offset = offsetof(Service, kill_context),
         .exec_runtime_offset = offsetof(Service, exec_runtime),
-        .dynamic_creds_offset = offsetof(Service, dynamic_creds),
 
         .sections =
                 "Unit\0"
