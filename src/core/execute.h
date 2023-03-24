@@ -5,6 +5,7 @@ typedef struct ExecStatus ExecStatus;
 typedef struct ExecCommand ExecCommand;
 typedef struct ExecContext ExecContext;
 typedef struct ExecSharedRuntime ExecSharedRuntime;
+typedef struct DynamicCreds DynamicCreds;
 typedef struct ExecRuntime ExecRuntime;
 typedef struct ExecParameters ExecParameters;
 typedef struct Manager Manager;
@@ -127,6 +128,7 @@ struct ExecSharedRuntime {
 
 struct ExecRuntime {
         ExecSharedRuntime *shared;
+        DynamicCreds *dynamic_creds;
 };
 
 typedef enum ExecDirectoryType {
@@ -445,7 +447,6 @@ int exec_spawn(Unit *unit,
                const ExecContext *context,
                const ExecParameters *exec_params,
                ExecRuntime *runtime,
-               DynamicCreds *dynamic_creds,
                const CGroupContext *cgroup_context,
                pid_t *ret);
 
@@ -497,7 +498,7 @@ int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char 
 int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds);
 void exec_shared_runtime_vacuum(Manager *m);
 
-int exec_runtime_make(ExecSharedRuntime *shared, ExecRuntime **ret);
+int exec_runtime_make(ExecSharedRuntime *shared, DynamicCreds *creds, ExecRuntime **ret);
 ExecRuntime* exec_runtime_free(ExecRuntime *rt, bool destroy);
 void exec_runtime_freep(ExecRuntime **rt);
 
