@@ -49,6 +49,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "getopt-defs.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "ima-setup.h"
@@ -818,62 +819,13 @@ static void set_manager_settings(Manager *m) {
 
 static int parse_argv(int argc, char *argv[]) {
         enum {
-                ARG_LOG_LEVEL = 0x100,
-                ARG_LOG_TARGET,
-                ARG_LOG_COLOR,
-                ARG_LOG_LOCATION,
-                ARG_LOG_TIME,
-                ARG_UNIT,
-                ARG_SYSTEM,
-                ARG_USER,
-                ARG_TEST,
-                ARG_NO_PAGER,
-                ARG_VERSION,
-                ARG_DUMP_CONFIGURATION_ITEMS,
-                ARG_DUMP_BUS_PROPERTIES,
-                ARG_BUS_INTROSPECT,
-                ARG_DUMP_CORE,
-                ARG_CRASH_CHVT,
-                ARG_CRASH_SHELL,
-                ARG_CRASH_REBOOT,
-                ARG_CONFIRM_SPAWN,
-                ARG_SHOW_STATUS,
-                ARG_DESERIALIZE,
-                ARG_SWITCHED_ROOT,
-                ARG_DEFAULT_STD_OUTPUT,
-                ARG_DEFAULT_STD_ERROR,
-                ARG_MACHINE_ID,
-                ARG_SERVICE_WATCHDOGS,
+                COMMON_GETOPT_ARGS,
+                SYSTEMD_GETOPT_ARGS,
         };
 
         static const struct option options[] = {
-                { "log-level",                required_argument, NULL, ARG_LOG_LEVEL                },
-                { "log-target",               required_argument, NULL, ARG_LOG_TARGET               },
-                { "log-color",                optional_argument, NULL, ARG_LOG_COLOR                },
-                { "log-location",             optional_argument, NULL, ARG_LOG_LOCATION             },
-                { "log-time",                 optional_argument, NULL, ARG_LOG_TIME                 },
-                { "unit",                     required_argument, NULL, ARG_UNIT                     },
-                { "system",                   no_argument,       NULL, ARG_SYSTEM                   },
-                { "user",                     no_argument,       NULL, ARG_USER                     },
-                { "test",                     no_argument,       NULL, ARG_TEST                     },
-                { "no-pager",                 no_argument,       NULL, ARG_NO_PAGER                 },
-                { "help",                     no_argument,       NULL, 'h'                          },
-                { "version",                  no_argument,       NULL, ARG_VERSION                  },
-                { "dump-configuration-items", no_argument,       NULL, ARG_DUMP_CONFIGURATION_ITEMS },
-                { "dump-bus-properties",      no_argument,       NULL, ARG_DUMP_BUS_PROPERTIES      },
-                { "bus-introspect",           required_argument, NULL, ARG_BUS_INTROSPECT           },
-                { "dump-core",                optional_argument, NULL, ARG_DUMP_CORE                },
-                { "crash-chvt",               required_argument, NULL, ARG_CRASH_CHVT               },
-                { "crash-shell",              optional_argument, NULL, ARG_CRASH_SHELL              },
-                { "crash-reboot",             optional_argument, NULL, ARG_CRASH_REBOOT             },
-                { "confirm-spawn",            optional_argument, NULL, ARG_CONFIRM_SPAWN            },
-                { "show-status",              optional_argument, NULL, ARG_SHOW_STATUS              },
-                { "deserialize",              required_argument, NULL, ARG_DESERIALIZE              },
-                { "switched-root",            no_argument,       NULL, ARG_SWITCHED_ROOT            },
-                { "default-standard-output",  required_argument, NULL, ARG_DEFAULT_STD_OUTPUT,      },
-                { "default-standard-error",   required_argument, NULL, ARG_DEFAULT_STD_ERROR,       },
-                { "machine-id",               required_argument, NULL, ARG_MACHINE_ID               },
-                { "service-watchdogs",        required_argument, NULL, ARG_SERVICE_WATCHDOGS        },
+                COMMON_GETOPT_OPTIONS,
+                SYSTEMD_GETOPT_OPTIONS,
                 {}
         };
 
@@ -886,7 +838,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (getpid_cached() == 1)
                 opterr = 0;
 
-        while ((c = getopt_long(argc, argv, "hDbsz:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, SYSTEMD_GETOPT_SHORT_OPTIONS, options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -1515,16 +1467,15 @@ static int become_shutdown(int objective, int retval) {
                 [MANAGER_KEXEC]    = "kexec",
         };
 
-        char log_level[DECIMAL_STR_MAX(int) + 1],
-                exit_code[DECIMAL_STR_MAX(uint8_t) + 1],
-                timeout[DECIMAL_STR_MAX(usec_t) + 1];
+        char log_level[STRLEN("--log-level=") + DECIMAL_STR_MAX(int)],
+                exit_code[STRLEN("--exit-code=") + DECIMAL_STR_MAX(uint8_t)],
+                timeout[STRLEN("--timeout=") + DECIMAL_STR_MAX(usec_t) + STRLEN("us")];
 
-        const char* command_line[13] = {
+        const char* command_line[10] = {
                 SYSTEMD_SHUTDOWN_BINARY_PATH,
                 table[objective],
-                "--timeout", timeout,
-                "--log-level", log_level,
-                "--log-target",
+                timeout,
+                log_level,
         };
 
         _cleanup_strv_free_ char **env_block = NULL;
@@ -1537,24 +1488,24 @@ static int become_shutdown(int objective, int retval) {
         assert(!command_line[pos]);
         env_block = strv_copy(environ);
 
-        xsprintf(log_level, "%d", log_get_max_level());
-        xsprintf(timeout, "%" PRI_USEC "us", arg_default_timeout_stop_usec);
+        xsprintf(log_level, "--log-level=%d", log_get_max_level());
+        xsprintf(timeout, "--timeout=%" PRI_USEC "us", arg_default_timeout_stop_usec);
 
         switch (log_get_target()) {
 
         case LOG_TARGET_KMSG:
         case LOG_TARGET_JOURNAL_OR_KMSG:
         case LOG_TARGET_SYSLOG_OR_KMSG:
-                command_line[pos++] = "kmsg";
+                command_line[pos++] = "--log-target=kmsg";
                 break;
 
         case LOG_TARGET_NULL:
-                command_line[pos++] = "null";
+                command_line[pos++] = "--log_target=null";
                 break;
 
         case LOG_TARGET_CONSOLE:
         default:
-                command_line[pos++] = "console";
+                command_line[pos++] = "--log-target=console";
                 break;
         };
 
@@ -1568,9 +1519,8 @@ static int become_shutdown(int objective, int retval) {
                 command_line[pos++] = "--log-time";
 
         if (objective == MANAGER_EXIT) {
-                command_line[pos++] = "--exit-code";
                 command_line[pos++] = exit_code;
-                xsprintf(exit_code, "%d", retval);
+                xsprintf(exit_code, "--exit-code=%d", retval);
         }
 
         assert(pos < ELEMENTSOF(command_line));
@@ -1847,11 +1797,11 @@ static int do_reexecute(
                         log_error_errno(r, "Failed to switch root, trying to continue: %m");
         }
 
-        args_size = argc + 6;
+        args_size = argc + 5;
         args = newa(const char*, args_size);
 
         if (!switch_root_init) {
-                char sfd[DECIMAL_STR_MAX(int)];
+                char sfd[STRLEN("--deserialize=") + DECIMAL_STR_MAX(int)];
 
                 /* First try to spawn ourselves with the right path, and with full serialization. We do this
                  * only if the user didn't specify an explicit init to spawn. */
@@ -1859,7 +1809,7 @@ static int do_reexecute(
                 assert(arg_serialization);
                 assert(fds);
 
-                xsprintf(sfd, "%i", fileno(arg_serialization));
+                xsprintf(sfd, "--deserialize=%i", fileno(arg_serialization));
 
                 i = 1;         /* Leave args[0] empty for now. */
                 filter_args(args, &i, argv, argc);
@@ -1867,7 +1817,6 @@ static int do_reexecute(
                 if (switch_root_dir)
                         args[i++] = "--switched-root";
                 args[i++] = runtime_scope_cmdline_option_to_string(arg_runtime_scope);
-                args[i++] = "--deserialize";
                 args[i++] = sfd;
                 args[i++] = NULL;
 
