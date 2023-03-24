@@ -174,8 +174,6 @@ static void swap_done(Unit *u) {
         exec_command_done_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
-        dynamic_creds_unref(&s->dynamic_creds);
-
         swap_unwatch_control_pid(s);
 
         s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
@@ -593,10 +591,8 @@ static int swap_coldplug(Unit *u) {
                         return r;
         }
 
-        if (!IN_SET(new_state, SWAP_DEAD, SWAP_FAILED)) {
-                (void) unit_setup_dynamic_creds(u);
+        if (!IN_SET(new_state, SWAP_DEAD, SWAP_FAILED))
                 (void) unit_setup_exec_runtime(u);
-        }
 
         swap_set_state(s, new_state);
         return 0;
@@ -689,7 +685,6 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
                        &s->exec_context,
                        &exec_params,
                        s->exec_runtime,
-                       &s->dynamic_creds,
                        &s->cgroup_context,
                        &pid);
         if (r < 0)
@@ -724,8 +719,6 @@ static void swap_enter_dead(Swap *s, SwapResult f) {
         unit_destroy_runtime_data(UNIT(s), &s->exec_context);
 
         unit_unref_uid_gid(UNIT(s), true);
-
-        dynamic_creds_destroy(&s->dynamic_creds);
 }
 
 static void swap_enter_active(Swap *s, SwapResult f) {
@@ -1619,7 +1612,6 @@ const UnitVTable swap_vtable = {
         .cgroup_context_offset = offsetof(Swap, cgroup_context),
         .kill_context_offset = offsetof(Swap, kill_context),
         .exec_runtime_offset = offsetof(Swap, exec_runtime),
-        .dynamic_creds_offset = offsetof(Swap, dynamic_creds),
 
         .sections =
                 "Unit\0"

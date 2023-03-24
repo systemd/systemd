@@ -91,7 +91,6 @@ struct Socket {
         CGroupContext cgroup_context;
 
         ExecRuntime *exec_runtime;
-        DynamicCreds dynamic_creds;
 
         /* For Accept=no sockets refers to the one service we'll
          * activate. For Accept=yes sockets is either NULL, or filled
