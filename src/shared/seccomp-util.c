@@ -800,6 +800,15 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "setpriority\0"
                 "setrlimit\0"
         },
+        [SYSCALL_FILTER_SET_SANDBOX] = {
+                .name = "@sandbox",
+                .help = "Sandbox functionality",
+                .value =
+                "landlock_add_rule\0"
+                "landlock_create_ruleset\0"
+                "landlock_restrict_self\0"
+                "seccomp\0"
+        },
         [SYSCALL_FILTER_SET_SETUID] = {
                 .name = "@setuid",
                 .help = "Operations for changing user/group credentials",
