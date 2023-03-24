@@ -60,6 +60,7 @@ touchpad:usb:v044ep1221:*
 # Lenovo
 ###########################################################
 # Thinkpad L14 Gen1 (AMD)
+touchpad:usb:v06cbp0081:*
  ID_INPUT_TOUCHPAD_INTEGRATION=internal
 
 ###########################################################
