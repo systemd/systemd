@@ -1515,16 +1515,15 @@ static int become_shutdown(int objective, int retval) {
                 [MANAGER_KEXEC]    = "kexec",
         };
 
-        char log_level[DECIMAL_STR_MAX(int) + 1],
-                exit_code[DECIMAL_STR_MAX(uint8_t) + 1],
-                timeout[DECIMAL_STR_MAX(usec_t) + 1];
+        char log_level[STRLEN("--log-level=") + DECIMAL_STR_MAX(int)],
+                exit_code[STRLEN("--exit-code=") + DECIMAL_STR_MAX(uint8_t)],
+                timeout[STRLEN("--timeout=") + DECIMAL_STR_MAX(usec_t) + STRLEN("us")];
 
-        const char* command_line[13] = {
+        const char* command_line[10] = {
                 SYSTEMD_SHUTDOWN_BINARY_PATH,
                 table[objective],
-                "--timeout", timeout,
-                "--log-level", log_level,
-                "--log-target",
+                timeout,
+                log_level,
         };
 
         _cleanup_strv_free_ char **env_block = NULL;
@@ -1537,24 +1536,24 @@ static int become_shutdown(int objective, int retval) {
         assert(!command_line[pos]);
         env_block = strv_copy(environ);
 
-        xsprintf(log_level, "%d", log_get_max_level());
-        xsprintf(timeout, "%" PRI_USEC "us", arg_default_timeout_stop_usec);
+        xsprintf(log_level, "--log-level=%d", log_get_max_level());
+        xsprintf(timeout, "--timeout=%" PRI_USEC "us", arg_default_timeout_stop_usec);
 
         switch (log_get_target()) {
 
         case LOG_TARGET_KMSG:
         case LOG_TARGET_JOURNAL_OR_KMSG:
         case LOG_TARGET_SYSLOG_OR_KMSG:
-                command_line[pos++] = "kmsg";
+                command_line[pos++] = "--log-target=kmsg";
                 break;
 
         case LOG_TARGET_NULL:
-                command_line[pos++] = "null";
+                command_line[pos++] = "--log_target=null";
                 break;
 
         case LOG_TARGET_CONSOLE:
         default:
-                command_line[pos++] = "console";
+                command_line[pos++] = "--log-target=console";
                 break;
         };
 
@@ -1568,9 +1567,8 @@ static int become_shutdown(int objective, int retval) {
                 command_line[pos++] = "--log-time";
 
         if (objective == MANAGER_EXIT) {
-                command_line[pos++] = "--exit-code";
                 command_line[pos++] = exit_code;
-                xsprintf(exit_code, "%d", retval);
+                xsprintf(exit_code, "--exit-code=%d", retval);
         }
 
         assert(pos < ELEMENTSOF(command_line));
@@ -1847,11 +1845,11 @@ static int do_reexecute(
                         log_error_errno(r, "Failed to switch root, trying to continue: %m");
         }
 
-        args_size = argc + 6;
+        args_size = argc + 5;
         args = newa(const char*, args_size);
 
         if (!switch_root_init) {
-                char sfd[DECIMAL_STR_MAX(int)];
+                char sfd[STRLEN("--deserialize=") + DECIMAL_STR_MAX(int)];
 
                 /* First try to spawn ourselves with the right path, and with full serialization. We do this
                  * only if the user didn't specify an explicit init to spawn. */
@@ -1859,7 +1857,7 @@ static int do_reexecute(
                 assert(arg_serialization);
                 assert(fds);
 
-                xsprintf(sfd, "%i", fileno(arg_serialization));
+                xsprintf(sfd, "--deserialize=%i", fileno(arg_serialization));
 
                 i = 1;         /* Leave args[0] empty for now. */
                 filter_args(args, &i, argv, argc);
@@ -1867,7 +1865,6 @@ static int do_reexecute(
                 if (switch_root_dir)
                         args[i++] = "--switched-root";
                 args[i++] = runtime_scope_cmdline_option_to_string(arg_runtime_scope);
-                args[i++] = "--deserialize";
                 args[i++] = sfd;
                 args[i++] = NULL;
 
