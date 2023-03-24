@@ -1143,6 +1143,15 @@ install_debian_systemd() {
         files="$(dpkg-query -L "$deb" 2>/dev/null)" || continue
         ddebug "Install debian files from package $deb"
         for file in $files; do
+            set +x
+            if [ "$file" = /usr/lib/systemd/tests/unit-tests/testdata ]; then
+                ddebug "Considering $file"
+                ls -ld /usr/lib/systemd/tests/testdata
+                ls -l /usr/lib/systemd/tests/unit-tests/testdata
+                readlink -e /usr/lib/systemd/tests/unit-tests/testdata
+                set -x
+            fi
+
             [ -e "$file" ] || continue
             [ -d "$file" ] && continue
             inst "$file"
