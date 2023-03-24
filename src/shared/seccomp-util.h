@@ -57,8 +57,11 @@ enum {
         SYSCALL_FILTER_SET_SYSTEM_SERVICE,
         SYSCALL_FILTER_SET_TIMER,
         SYSCALL_FILTER_SET_KNOWN,
-        _SYSCALL_FILTER_SET_MAX
+        _SYSCALL_FILTER_SET_MAX,
 };
+
+assert_cc(SYSCALL_FILTER_SET_DEFAULT == 0);
+assert_cc(SYSCALL_FILTER_SET_KNOWN == _SYSCALL_FILTER_SET_MAX-1);
 
 extern const SyscallFilterSet syscall_filter_sets[];
 
