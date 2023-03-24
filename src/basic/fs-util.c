@@ -1096,6 +1096,14 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
         }
 }
 
+int label_pre(int dir_fd, const char *path, mode_t mode) {
+        return 0;
+}
+
+int label_post(int dir_fd, const char *path) {
+        return 0;
+}
+
 int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
         _cleanup_close_ int fd = -EBADF;
         bool made = false;
@@ -1107,6 +1115,12 @@ int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
         if (isempty(path)) {
                 assert(!FLAGS_SET(flags, O_CREAT|O_EXCL));
                 return fd_reopen(dir_fd, flags);
+        }
+
+        if (FLAGS_SET(flags, O_CREAT|O_LABEL)) {
+                r = label_pre(dir_fd, path, FLAGS_SET(flags, O_DIRECTORY) ? S_IFDIR : S_IFREG);
+                if (r < 0)
+                        return r;
         }
 
         if (FLAGS_SET(flags, O_DIRECTORY|O_CREAT)) {
@@ -1121,10 +1135,16 @@ int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
                 else
                         made = true;
 
-                flags &= ~(O_EXCL|O_CREAT);
+                if (FLAGS_SET(flags, O_LABEL)) {
+                        r = label_post(dir_fd, path);
+                        if (r < 0)
+                                return r;
+                }
+
+                flags &= ~(O_EXCL|O_CREAT|O_LABEL);
         }
 
-        fd = RET_NERRNO(openat(dir_fd, path, flags, mode));
+        fd = RET_NERRNO(openat(dir_fd, path, flags & ~O_LABEL, mode));
         if (fd < 0) {
                 if (IN_SET(fd,
                            /* We got ENOENT? then someone else immediately removed it after we
@@ -1141,6 +1161,12 @@ int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
                         (void) unlinkat(dir_fd, path, AT_REMOVEDIR);
 
                 return fd;
+        }
+
+        if (FLAGS_SET(flags, O_CREAT|O_LABEL)) {
+                r = label_post(dir_fd, path);
+                if (r < 0)
+                        return r;
         }
 
         return TAKE_FD(fd);

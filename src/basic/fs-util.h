@@ -23,6 +23,9 @@
 #define PTR_TO_MODE(p) ((mode_t) ((uintptr_t) (p)-1))
 #define MODE_TO_PTR(u) ((void *) ((uintptr_t) (u)+1))
 
+/* We reuse __O_LARGEFILE to tell xopenat() it should do security labeling. */
+#define O_LABEL __O_LARGEFILE
+
 int rmdir_parents(const char *path, const char *stop);
 
 int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
@@ -131,6 +134,10 @@ int parse_cifs_service(const char *s, char **ret_host, char **ret_service, char 
 int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode);
 
 int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created);
+
+/* These are exposed to be overriden in src/shared/label.c */
+_weak_ int label_pre(int dir_fd, const char *path, mode_t mode);
+_weak_ int label_post(int dir_fd, const char *path);
 
 int xopenat(int dir_fd, const char *path, int flags, mode_t mode);
 
