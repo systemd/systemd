@@ -48,6 +48,7 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_REMOUNTING_SIGKILL] = UNIT_RELOADING,
         [MOUNT_UNMOUNTING_SIGTERM] = UNIT_DEACTIVATING,
         [MOUNT_UNMOUNTING_SIGKILL] = UNIT_DEACTIVATING,
+        [MOUNT_UNMOUNTING_CATCHUP] = UNIT_DEACTIVATING,
         [MOUNT_FAILED] = UNIT_FAILED,
         [MOUNT_CLEANING] = UNIT_MAINTENANCE,
 };
@@ -475,6 +476,26 @@ static bool mount_is_extrinsic(Unit *u) {
         return false;
 }
 
+static bool mount_is_credentials(Mount *m) {
+        const char *e;
+
+        assert(m);
+
+        /* Returns true if this is a credentials mount. We don't want automatic dependencies on credentials,
+         * since they are managed by us for event he earliest services, and we never want anythong to be
+         * ordered before them */
+
+        e = path_startswith(m->where, UNIT(m)->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+        if (!e)
+                return false;
+
+        e = path_startswith(e, "credentials");
+        if (!e)
+                return false;
+
+        return !isempty(e);
+}
+
 static int mount_add_default_ordering_dependencies(Mount *m, MountParameters *p, UnitDependencyMask mask) {
         const char *after, *before, *e;
         int r;
@@ -497,7 +518,10 @@ static int mount_add_default_ordering_dependencies(Mount *m, MountParameters *p,
                 after = SPECIAL_LOCAL_FS_PRE_TARGET;
                 before = SPECIAL_INITRD_USR_FS_TARGET;
 
-        } else if (mount_is_network(p)) {
+        } else if (mount_is_credentials(m))
+                after = before = NULL;
+
+        else if (mount_is_network(p)) {
                 after = SPECIAL_REMOTE_FS_PRE_TARGET;
                 before = SPECIAL_REMOTE_FS_TARGET;
 
@@ -506,17 +530,56 @@ static int mount_add_default_ordering_dependencies(Mount *m, MountParameters *p,
                 before = SPECIAL_LOCAL_FS_TARGET;
         }
 
-        if (!mount_is_nofail(m)) {
+        if (before && !mount_is_nofail(m)) {
                 r = unit_add_dependency_by_name(UNIT(m), UNIT_BEFORE, before, /* add_reference= */ true, mask);
                 if (r < 0)
                         return r;
         }
 
-        r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, /* add_reference= */ true, mask);
+        if (after) {
+                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, after, /* add_reference= */ true, mask);
+                if (r < 0)
+                        return r;
+        }
+
+        r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET,
+                                              /* add_reference= */ true, mask);
         if (r < 0)
                 return r;
 
-        return unit_add_two_dependencies_by_name(UNIT(m), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_UMOUNT_TARGET,
+        /* If this is a tmpfs mount then we have to unmount it before we try to deactivate swaps */
+        if (streq_ptr(p->fstype, "tmpfs") && !mount_is_credentials(m)) {
+                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_SWAP_TARGET,
+                                                /* add_reference= */ true, mask);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int mount_add_default_network_dependencies(Mount *m, MountParameters *p, UnitDependencyMask mask) {
+        int r;
+
+        assert(m);
+
+        if (!mount_is_network(p))
+                return 0;
+
+        /* We order ourselves after network.target. This is primarily useful at shutdown: services that take
+         * down the network should order themselves before network.target, so that they are shut down only
+         * after this mount unit is stopped. */
+
+        r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_NETWORK_TARGET,
+                                        /* add_reference= */ true, mask);
+        if (r < 0)
+                return r;
+
+        /* We pull in network-online.target, and order ourselves after it. This is useful at start-up to
+         * actively pull in tools that want to be started before we start mounting network file systems, and
+         * whose purpose it is to delay this until the network is "up". */
+
+        return unit_add_two_dependencies_by_name(UNIT(m), UNIT_WANTS, UNIT_AFTER, SPECIAL_NETWORK_ONLINE_TARGET,
                                                  /* add_reference= */ true, mask);
 }
 
@@ -547,37 +610,7 @@ static int mount_add_default_dependencies(Mount *m) {
         if (r < 0)
                 return r;
 
-        if (mount_is_network(p)) {
-                /* We order ourselves after network.target. This is primarily useful at shutdown:
-                 * services that take down the network should order themselves before
-                 * network.target, so that they are shut down only after this mount unit is
-                 * stopped. */
-
-                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_NETWORK_TARGET,
-                                                /* add_reference= */ true, mask);
-                if (r < 0)
-                        return r;
-
-                /* We pull in network-online.target, and order ourselves after it. This is useful
-                 * at start-up to actively pull in tools that want to be started before we start
-                 * mounting network file systems, and whose purpose it is to delay this until the
-                 * network is "up". */
-
-                r = unit_add_two_dependencies_by_name(UNIT(m), UNIT_WANTS, UNIT_AFTER, SPECIAL_NETWORK_ONLINE_TARGET,
-                                                      /* add_reference= */ true, mask);
-                if (r < 0)
-                        return r;
-        }
-
-        /* If this is a tmpfs mount then we have to unmount it before we try to deactivate swaps */
-        if (streq_ptr(p->fstype, "tmpfs")) {
-                r = unit_add_dependency_by_name(UNIT(m), UNIT_AFTER, SPECIAL_SWAP_TARGET,
-                                                /* add_reference= */ true, mask);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        return mount_add_default_network_dependencies(m, p, mask);
 }
 
 static int mount_verify(Mount *m) {
@@ -889,7 +922,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
         cgroup_context_dump(UNIT(m), f, prefix);
 }
 
-static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
+static int mount_spawn(Mount *m, ExecCommand *c, pid_t *ret_pid) {
 
         _cleanup_(exec_params_clear) ExecParameters exec_params = {
                 .flags     = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
@@ -903,7 +936,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
 
         assert(m);
         assert(c);
-        assert(_pid);
+        assert(ret_pid);
 
         r = unit_prepare_exec(UNIT(m));
         if (r < 0)
@@ -932,8 +965,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 return r;
 
-        *_pid = pid;
-
+        *ret_pid = pid;
         return 0;
 }
 
@@ -1046,11 +1078,37 @@ static void mount_enter_unmounting(Mount *m) {
 
         assert(m);
 
+        r = path_is_mount_point(m->where, NULL, 0);
+        if (IN_SET(r, 0, -ENOENT)) {
+                /* Not a mount point anymore ? Then we raced against something else which unmounted it? Let's
+                 * handle this gracefully, and wait until we get the kernel notification about it. */
+
+                log_unit_debug(UNIT(m), "Path '%s' is not a mount point anymore, waiting for mount table refresh.", m->where);
+
+                /* Apparently our idea of the kernel mount table is out of date. Make sure we re-read it
+                 * again, soon, so that we don't delay mount handling unnecessarily. */
+                (void) sd_event_source_leave_ratelimit(UNIT(m)->manager->mount_event_source);
+
+                m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
+                mount_unwatch_control_pid(m);
+
+                r = mount_arm_timer(m, usec_add(now(CLOCK_MONOTONIC), m->timeout_usec));
+                if (r < 0)
+                        goto fail;
+
+                /* Let's enter a distinct state where we just wait for the mount table to catch up */
+                mount_set_state(m, MOUNT_UNMOUNTING_CATCHUP);
+                return;
+        }
+        if (r < 0)
+                log_unit_debug_errno(UNIT(m), r, "Unable to determine if '%s' is a mount point, ignoring: %m", m->where);
+
         /* Start counting our attempts */
         if (!IN_SET(m->state,
                     MOUNT_UNMOUNTING,
                     MOUNT_UNMOUNTING_SIGTERM,
-                    MOUNT_UNMOUNTING_SIGKILL))
+                    MOUNT_UNMOUNTING_SIGKILL,
+                    MOUNT_UNMOUNTING_CATCHUP))
                 m->n_retry_umount = 0;
 
         m->control_command_id = MOUNT_EXEC_UNMOUNT;
@@ -1071,7 +1129,6 @@ static void mount_enter_unmounting(Mount *m) {
                 goto fail;
 
         mount_set_state(m, MOUNT_UNMOUNTING);
-
         return;
 
 fail:
@@ -1244,6 +1301,7 @@ static int mount_start(Unit *u) {
                    MOUNT_UNMOUNTING,
                    MOUNT_UNMOUNTING_SIGTERM,
                    MOUNT_UNMOUNTING_SIGKILL,
+                   MOUNT_UNMOUNTING_CATCHUP,
                    MOUNT_CLEANING))
                 return -EAGAIN;
 
@@ -1273,6 +1331,7 @@ static int mount_stop(Unit *u) {
         case MOUNT_UNMOUNTING:
         case MOUNT_UNMOUNTING_SIGKILL:
         case MOUNT_UNMOUNTING_SIGTERM:
+        case MOUNT_UNMOUNTING_CATCHUP:
                 /* Already on it */
                 return 0;
 
@@ -1538,6 +1597,10 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 mount_enter_dead_or_mounted(m, f);
                 break;
 
+        case MOUNT_UNMOUNTING_CATCHUP:
+                /* Didn't expect a process to die, hence let's ignore it */
+                break;
+
         case MOUNT_CLEANING:
                 if (m->clean_result == MOUNT_SUCCESS)
                         m->clean_result = f;
@@ -1593,6 +1656,7 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
                 break;
 
         case MOUNT_UNMOUNTING:
+        case MOUNT_UNMOUNTING_CATCHUP:
                 log_unit_warning(UNIT(m), "Unmounting timed out. Terminating.");
                 mount_enter_signal(m, MOUNT_UNMOUNTING_SIGTERM, MOUNT_FAILURE_TIMEOUT);
                 break;
@@ -2053,8 +2117,7 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
 
                 if (!mount_is_mounted(mount)) {
 
-                        /* A mount point is not around right now. It
-                         * might be gone, or might never have
+                        /* A mount point is not around right now. It might be gone, or might never have
                          * existed. */
 
                         if (mount->from_proc_self_mountinfo &&
@@ -2069,6 +2132,7 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                         switch (mount->state) {
 
                         case MOUNT_MOUNTED:
+                        case MOUNT_UNMOUNTING_CATCHUP:
                                 /* This has just been unmounted by somebody else, follow the state change. */
                                 mount_enter_dead(mount, MOUNT_SUCCESS);
                                 break;
@@ -2107,11 +2171,9 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                                 break;
 
                         default:
-                                /* Nothing really changed, but let's
-                                 * issue an notification call
-                                 * nonetheless, in case somebody is
-                                 * waiting for this. (e.g. file system
-                                 * ro/rw remounts.) */
+                                /* Nothing really changed, but let's issue an notification call nonetheless,
+                                 * in case somebody is waiting for this. (e.g. file system ro/rw
+                                 * remounts.) */
                                 mount_set_state(mount, mount->state);
                                 break;
                         }
