@@ -807,7 +807,7 @@ int conservative_renameat(
         _cleanup_close_ int old_fd = -EBADF, new_fd = -EBADF;
         struct stat old_stat, new_stat;
 
-        /* Renames the old path to thew new path, much like renameat() — except if both are regular files and
+        /* Renames the old path to the new path, much like renameat() — except if both are regular files and
          * have the exact same contents and basic file attributes already. In that case remove the new file
          * instead. This call is useful for reducing inotify wakeups on files that are updated but don't
          * actually change. This function is written in a style that we rather rename too often than suppress
