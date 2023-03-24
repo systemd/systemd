@@ -4057,7 +4057,6 @@ static void append_socket_pair(int *array, size_t *n, const int pair[static 2]) 
 static int close_remaining_fds(
                 const ExecParameters *params,
                 const ExecRuntime *runtime,
-                const DynamicCreds *dcreds,
                 int user_lookup_fd,
                 int socket_fd,
                 const int *fds, size_t n_fds) {
@@ -4086,11 +4085,11 @@ static int close_remaining_fds(
                 append_socket_pair(dont_close, &n_dont_close, runtime->shared->ipcns_storage_socket);
         }
 
-        if (dcreds) {
-                if (dcreds->user)
-                        append_socket_pair(dont_close, &n_dont_close, dcreds->user->storage_socket);
-                if (dcreds->group)
-                        append_socket_pair(dont_close, &n_dont_close, dcreds->group->storage_socket);
+        if (runtime->dynamic_creds) {
+                if (runtime->dynamic_creds->user)
+                        append_socket_pair(dont_close, &n_dont_close, runtime->dynamic_creds->user->storage_socket);
+                if (runtime->dynamic_creds->group)
+                        append_socket_pair(dont_close, &n_dont_close, runtime->dynamic_creds->group->storage_socket);
         }
 
         if (user_lookup_fd >= 0)
@@ -4404,7 +4403,6 @@ static int exec_child(
                 const ExecContext *context,
                 const ExecParameters *params,
                 ExecRuntime *runtime,
-                DynamicCreds *dcreds,
                 const CGroupContext *cgroup_context,
                 int socket_fd,
                 const int named_iofds[static 3],
@@ -4537,7 +4535,7 @@ static int exec_child(
         }
 #endif
 
-        r = close_remaining_fds(params, runtime, dcreds, user_lookup_fd, socket_fd, keep_fds, n_keep_fds);
+        r = close_remaining_fds(params, runtime, user_lookup_fd, socket_fd, keep_fds, n_keep_fds);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_unit_error_errno(unit, r, "Failed to close unwanted file descriptors: %m");
@@ -4583,7 +4581,7 @@ static int exec_child(
                 return log_unit_error_errno(unit, errno, "Failed to update environment: %m");
         }
 
-        if (context->dynamic_user && dcreds) {
+        if (context->dynamic_user && runtime->dynamic_creds) {
                 _cleanup_strv_free_ char **suggested_paths = NULL;
 
                 /* On top of that, make sure we bypass our own NSS module nss-systemd comprehensively for any NSS
@@ -4599,7 +4597,7 @@ static int exec_child(
                         return log_oom();
                 }
 
-                r = dynamic_creds_realize(dcreds, suggested_paths, &uid, &gid);
+                r = dynamic_creds_realize(runtime->dynamic_creds, suggested_paths, &uid, &gid);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
                         if (r == -EILSEQ)
@@ -4618,8 +4616,8 @@ static int exec_child(
                         return log_unit_error_errno(unit, SYNTHETIC_ERRNO(ESRCH), "GID validation failed for \""GID_FMT"\"", gid);
                 }
 
-                if (dcreds->user)
-                        username = dcreds->user->name;
+                if (runtime->dynamic_creds->user)
+                        username = runtime->dynamic_creds->user->name;
 
         } else {
                 r = get_fixed_user(context, &username, &uid, &gid, &home, &shell);
@@ -5550,7 +5548,6 @@ int exec_spawn(Unit *unit,
                const ExecContext *context,
                const ExecParameters *params,
                ExecRuntime *runtime,
-               DynamicCreds *dcreds,
                const CGroupContext *cgroup_context,
                pid_t *ret) {
 
@@ -5640,7 +5637,6 @@ int exec_spawn(Unit *unit,
                                context,
                                params,
                                runtime,
-                               dcreds,
                                cgroup_context,
                                socket_fd,
                                named_iofds,
@@ -7443,7 +7439,7 @@ void exec_shared_runtime_vacuum(Manager *m) {
         }
 }
 
-int exec_runtime_make(ExecSharedRuntime *shared, ExecRuntime **ret) {
+int exec_runtime_make(ExecSharedRuntime *shared, DynamicCreds *creds, ExecRuntime **ret) {
         _cleanup_(exec_runtime_freep) ExecRuntime *rt = NULL;
 
         assert(ret);
@@ -7459,6 +7455,7 @@ int exec_runtime_make(ExecSharedRuntime *shared, ExecRuntime **ret) {
 
         *rt = (ExecRuntime) {
                 .shared = shared,
+                .dynamic_creds = creds,
         };
 
         *ret = TAKE_PTR(rt);
@@ -7470,6 +7467,12 @@ ExecRuntime* exec_runtime_free(ExecRuntime *rt, bool destroy) {
                 return NULL;
 
         exec_shared_runtime_unref(rt->shared, destroy);
+
+        if (destroy)
+                dynamic_creds_destroy(rt->dynamic_creds);
+        else
+                dynamic_creds_unref(rt->dynamic_creds);
+
         return mfree(rt);
 }
 
