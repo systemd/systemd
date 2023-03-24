@@ -42,7 +42,7 @@ static bool shim_validate(
                 const void *ctx, const EFI_DEVICE_PATH *device_path, const void *file_buffer, size_t file_size) {
 
         EFI_STATUS err;
-        _cleanup_free_ char *file_buffer_owned = NULL;
+        _cleanup_free_ void *file_buffer_owned = NULL;
 
         if (!file_buffer) {
                 if (!device_path)
