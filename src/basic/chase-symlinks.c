@@ -100,9 +100,6 @@ int chase_symlinks_at(
         if ((flags & CHASE_STEP))
                 assert(!ret_fd);
 
-        if ((flags & CHASE_EXTRACT_FILENAME))
-                assert(ret_path);
-
         if (isempty(path))
                 path = ".";
 
