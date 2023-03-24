@@ -1218,4 +1218,33 @@ TEST(make_cstring) {
         TEST_MAKE_CSTRING_ONE(test8, -EINVAL, MAKE_CSTRING_REQUIRE_TRAILING_NUL, NULL);
 }
 
+TEST(find_line_startswith) {
+        static const char text[] =
+                "foobar\n"
+                "this is a test\n"
+                "foobar: waldo\n"
+                "more\n"
+                "\n"
+                "piff\n"
+                "foobarfoobar\n"
+                "iff\n";
+        static const char emptystring[] = "";
+
+        assert_se(find_line_startswith(text, "") == text);
+        assert_se(find_line_startswith(text, "f") == text+1);
+        assert_se(find_line_startswith(text, "foobar") == text+6);
+        assert_se(!find_line_startswith(text, "foobarx"));
+        assert_se(!find_line_startswith(text, "oobar"));
+        assert_se(find_line_startswith(text, "t") == text + 8);
+        assert_se(find_line_startswith(text, "th") == text + 9);
+        assert_se(find_line_startswith(text, "this") == text + 11);
+        assert_se(find_line_startswith(text, "foobarf") == text + 54);
+        assert_se(find_line_startswith(text, "more\n") == text + 41);
+        assert_se(find_line_startswith(text, "\n") == text + 42);
+        assert_se(find_line_startswith(text, "iff") == text + 63);
+
+        assert_se(find_line_startswith(emptystring, "") == emptystring);
+        assert_se(!find_line_startswith(emptystring, "x"));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
