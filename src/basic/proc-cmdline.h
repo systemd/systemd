@@ -14,9 +14,11 @@ typedef enum ProcCmdlineFlags {
 
 typedef int (*proc_cmdline_parse_t)(const char *key, const char *value, void *data);
 
-int proc_cmdline(char **ret);
+int proc_cmdline_filter_pid1_args(char **argv, char ***ret);
 
-int proc_cmdline_parse_given(const char *line, proc_cmdline_parse_t parse_item, void *data, ProcCmdlineFlags flags);
+int proc_cmdline(char **ret);
+int proc_cmdline_strv(char ***ret);
+
 int proc_cmdline_parse(const proc_cmdline_parse_t parse, void *userdata, ProcCmdlineFlags flags);
 
 int proc_cmdline_get_key(const char *parameter, ProcCmdlineFlags flags, char **value);
