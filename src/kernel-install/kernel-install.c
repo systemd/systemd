@@ -326,7 +326,7 @@ static int context_load_install_conf(Context *c) {
                         return r;
         }
 
-        STRV_FOREACH(p, STRV_MAKE("/etc/kernel", "/usr/lib/kernel")) {
+        STRV_FOREACH(p, CONF_PATHS_STRV("kernel")) {
                 r = context_load_install_conf_one(c, *p);
                 if (r != 0)
                         return r;
@@ -598,7 +598,7 @@ static int context_load_plugins(Context *c) {
                                  ".install",
                                  /* root = */ NULL,
                                  CONF_FILES_EXECUTABLE | CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED,
-                                 STRV_MAKE_CONST("/usr/lib/kernel/install.d", "/etc/kernel/install.d"));
+                                 (const char**) CONF_PATHS_STRV("kernel/install.d"));
         if (r < 0)
                 return log_error_errno(r, "Failed to find plugins: %m");
 
