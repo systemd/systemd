@@ -33,6 +33,7 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, service_result, Service
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_restart, service_restart, ServiceRestart);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_emergency_action, emergency_action, EmergencyAction);
 static BUS_DEFINE_PROPERTY_GET2(property_get_notify_access, "s", Service, service_get_notify_access, notify_access_to_string);
+static BUS_DEFINE_PROPERTY_GET(property_get_restart_usec_current, "t", Service, service_restart_usec);
 static BUS_DEFINE_PROPERTY_GET(property_get_timeout_abort_usec, "t", Service, service_timeout_abort_usec);
 static BUS_DEFINE_PROPERTY_GET(property_get_watchdog_usec, "t", Service, service_get_watchdog_usec);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_timeout_failure_mode, service_timeout_failure_mode, ServiceTimeoutFailureMode);
@@ -225,6 +226,9 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("PIDFile", "s", NULL, offsetof(Service, pid_file), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NotifyAccess", "s", property_get_notify_access, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("RestartUSec", "t", bus_property_get_usec, offsetof(Service, restart_usec), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RestartSteps", "u", bus_property_get_unsigned, offsetof(Service, restart_steps), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RestartUSecMax", "t", bus_property_get_usec, offsetof(Service, restart_usec_max), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RestartUSecCurrent", "t", bus_property_get_restart_usec_current, 0, 0),
         SD_BUS_PROPERTY("TimeoutStartUSec", "t", bus_property_get_usec, offsetof(Service, timeout_start_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimeoutStopUSec", "t", bus_property_get_usec, offsetof(Service, timeout_stop_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimeoutAbortUSec", "t", property_get_timeout_abort_usec, 0, 0),
@@ -447,6 +451,12 @@ static int bus_service_set_transient_property(
 
         if (streq(name, "RestartUSec"))
                 return bus_set_transient_usec(u, name, &s->restart_usec, message, flags, error);
+
+        if (streq(name, "RestartSteps"))
+                return bus_set_transient_unsigned(u, name, &s->restart_steps, message, flags, error);
+
+        if (streq(name, "RestartUSecMax"))
+                return bus_set_transient_usec(u, name, &s->restart_usec_max, message, flags, error);
 
         if (streq(name, "TimeoutStartUSec")) {
                 r = bus_set_transient_usec(u, name, &s->timeout_start_usec, message, flags, error);
