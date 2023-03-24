@@ -222,17 +222,11 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
 
                 _cleanup_strv_free_ char **args = NULL;
 
-                args = strv_parse_nulstr(t, k);
+                /* Drop trailing NULs, otherwise strv_parse_nulstr() adds additional empty strings at the end.
+                 * See also issue #21186. */
+                args = strv_parse_nulstr_full(t, k, /* drop_trailing_nuls = */ true);
                 if (!args)
                         return -ENOMEM;
-
-                /* Drop trailing empty strings. See issue #21186. */
-                STRV_FOREACH_BACKWARDS(p, args) {
-                        if (!isempty(*p))
-                                break;
-
-                        *p = mfree(*p);
-                }
 
                 ans = quote_command_line(args, shflags);
                 if (!ans)
