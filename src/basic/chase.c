@@ -549,7 +549,7 @@ int chase(const char *path, const char *original_root, ChaseFlags flags, char **
         return r;
 }
 
-int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, int open_flags, char **ret_path) {
+int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, int64_t open_flags, char **ret_path) {
         _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL, *fname = NULL;
         mode_t mode = open_flags & O_DIRECTORY ? 0755 : 0644;
@@ -744,7 +744,7 @@ int chase_and_unlink(const char *path, const char *root, ChaseFlags chase_flags,
         return 0;
 }
 
-int chase_and_openat(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, char **ret_path) {
+int chase_and_openat(int dir_fd, const char *path, ChaseFlags chase_flags, int64_t open_flags, char **ret_path) {
         _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL, *fname = NULL;
         mode_t mode = open_flags & O_DIRECTORY ? 0755 : 0644;
