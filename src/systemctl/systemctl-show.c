@@ -681,7 +681,7 @@ static void print_status_info(
         }
 
         if (i->status_text)
-                printf("     Status: \"%s\"\n", i->status_text);
+                printf("     Status: \"%s%s%s\"\n", ansi_highlight_cyan(), i->status_text, ansi_normal());
         if (i->status_errno > 0) {
                 errno = i->status_errno;
                 printf("      Error: %i (%m)\n", i->status_errno);
