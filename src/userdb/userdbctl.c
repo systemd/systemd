@@ -1038,6 +1038,7 @@ static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
                         log_debug("Chain invoking: %s", s);
                 }
 
+                fflush(stdout);
                 execv(chain_invocation[0], chain_invocation);
                 if (errno == ENOENT) /* Let's handle ENOENT gracefully */
                         log_warning_errno(errno, "Chain executable '%s' does not exist, ignoring chain invocation.", chain_invocation[0]);
