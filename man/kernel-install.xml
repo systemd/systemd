@@ -57,16 +57,17 @@
     below.</para>
 
     <para><command>kernel-install</command> will run the executable files ("plugins") located in the
-    directory <filename>/usr/lib/kernel/install.d/</filename> and the local administration directory
-    <filename>/etc/kernel/install.d/</filename>.  All files are collectively sorted and executed in lexical
+    directory <filename>/usr/lib/kernel/install.d/</filename>, the local administration directory
+    <filename>/etc/kernel/install.d/</filename>, and the volatile runtime directory
+    <filename>/run/kernel/install.d/</filename>. All files are collectively sorted and executed in lexical
     order, regardless of the directory in which they live. However, files with identical filenames replace
-    each other.  Files in <filename>/etc/kernel/install.d/</filename> take precedence over files with the
-    same name in <filename>/usr/lib/kernel/install.d/</filename>. This can be used to override a
-    system-supplied executables with a local file if needed; a symbolic link in
-    <filename>/etc/kernel/install.d/</filename> with the same name as an executable in
-    <filename>/usr/lib/kernel/install.d/</filename>, pointing to <filename>/dev/null</filename>, disables the
-    executable entirely. Executables must have the extension <literal>.install</literal>; other extensions
-    are ignored.</para>
+    each other. Files in <filename>/etc/kernel/install.d/</filename> have the highest priority, files in
+    <filename>/run/kernel/install.d/</filename> take precedence over files with the same name in
+    <filename>/usr/lib/kernel/install.d/</filename>. This can be used to override a system-supplied
+    executables with a local file if needed; a symbolic link in <filename>/etc/kernel/install.d/</filename>
+    with the same name as an executable in <filename>/usr/lib/kernel/install.d/</filename>, pointing to
+    <filename>/dev/null</filename>, disables the executable entirely (it is "masked"). Executables must have
+    the extension <literal>.install</literal>; other extensions are ignored.</para>
 
     <para>An executable placed in these directories should return <constant>0</constant> on success. It may
     also return <constant>77</constant> to cause the whole operation to terminate (executables later in
@@ -83,8 +84,9 @@
           <para>This command expects a kernel version string and a path to a kernel image file as arguments.
           Optionally, one or more initrd images may be specified as well (note that plugins might generate
           additional ones). <command>kernel-install</command> calls the executable files from
-          <filename>/usr/lib/kernel/install.d/*.install</filename> and
-          <filename>/etc/kernel/install.d/*.install</filename> (i.e. the plugins) with the following
+          <filename>/etc/kernel/install.d/*.install</filename>,
+          <filename>/run/kernel/install.d/*.install</filename>, and
+          <filename>/usr/lib/kernel/install.d/*.install</filename> (i.e. the plugins) with the following
           arguments:</para>
 
           <programlisting>add <replaceable>KERNEL-VERSION</replaceable> <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename> <replaceable>KERNEL-IMAGE</replaceable> [<replaceable>INITRD-FILE</replaceable> ...]</programlisting>
@@ -135,8 +137,9 @@
         <term><command>remove <replaceable>KERNEL-VERSION</replaceable></command></term>
         <listitem>
           <para>This command expects a kernel version string as single argument. This calls executables from
-          <filename>/usr/lib/kernel/install.d/*.install</filename> and
-          <filename>/etc/kernel/install.d/*.install</filename> with the following arguments:
+          <filename>/etc/kernel/install.d/*.install</filename>,
+          <filename>/run/kernel/install.d/*.install</filename>, and
+          <filename>/usr/lib/kernel/install.d/*.install</filename> with the following arguments:
           </para>
 
           <programlisting>remove <replaceable>KERNEL-VERSION</replaceable> <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename></programlisting>
@@ -330,8 +333,9 @@
     <variablelist>
       <varlistentry>
         <term>
-          <filename>/usr/lib/kernel/install.d/*.install</filename>
           <filename>/etc/kernel/install.d/*.install</filename>
+          <filename>/run/kernel/install.d/*.install</filename>
+          <filename>/usr/lib/kernel/install.d/*.install</filename>
         </term>
           <listitem>
             <para>Drop-in files which are executed by kernel-install.</para>
@@ -401,15 +405,17 @@
       </varlistentry>
       <varlistentry>
         <term>
-          <filename>/usr/lib/kernel/install.conf</filename>
           <filename>/etc/kernel/install.conf</filename>
+          <filename>/run/kernel/install.conf</filename>
+          <filename>/usr/lib/kernel/install.conf</filename>
         </term>
           <listitem>
             <para>Configuration options for <command>kernel-install</command>, as a series of
             <varname>KEY=</varname><replaceable>VALUE</replaceable> assignments, compatible with shell
             syntax, following the same rules as described in
             <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            <filename>/etc/kernel/install.conf</filename> will be read if present, and
+            <filename>/etc/kernel/install.conf</filename> will be read if present, Otherwise,
+            <filename>/run/kernel/install.conf</filename> will be read if present, and
             <filename>/usr/lib/kernel/install.conf</filename> otherwise. This file is optional.
             <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the path.
             </para>
