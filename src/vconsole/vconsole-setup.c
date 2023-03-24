@@ -95,6 +95,16 @@ static void context_merge_config(
                         free_and_replace(dst->config[i], src_compat->config[i]);
 }
 
+static const char* context_get_config(Context *c, VCMeta meta) {
+        assert(c);
+        assert(meta >= 0 && meta < _VC_META_MAX);
+
+        if (meta == VC_KEYMAP)
+                return isempty(c->config[VC_KEYMAP]) ? SYSTEMD_DEFAULT_KEYMAP : c->config[VC_KEYMAP];
+
+        return empty_to_null(c->config[meta]);
+}
+
 static int context_read_creds(Context *c) {
         _cleanup_(context_done) Context v = {};
         int r;
@@ -259,14 +269,20 @@ static int toggle_utf8_sysfs(bool utf8) {
         return 0;
 }
 
-static int keyboard_load_and_wait(const char *vc, const char *map, const char *map_toggle, bool utf8) {
-        const char *args[8];
+static int keyboard_load_and_wait(const char *vc, Context *c, bool utf8) {
+        const char *map, *map_toggle, *args[8];
         unsigned i = 0;
         pid_t pid;
         int r;
 
+        assert(vc);
+        assert(c);
+
+        map = context_get_config(c, VC_KEYMAP);
+        map_toggle = context_get_config(c, VC_KEYMAP_TOGGLE);
+
         /* An empty map means kernel map */
-        if (isempty(map))
+        if (!map)
                 return 0;
 
         args[i++] = KBD_LOADKEYS;
@@ -298,28 +314,35 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
         return wait_for_terminate_and_check(KBD_LOADKEYS, pid, WAIT_LOG);
 }
 
-static int font_load_and_wait(const char *vc, const char *font, const char *map, const char *unimap) {
-        const char *args[9];
+static int font_load_and_wait(const char *vc, Context *c) {
+        const char *font, *map, *unimap, *args[9];
         unsigned i = 0;
         pid_t pid;
         int r;
 
+        assert(vc);
+        assert(c);
+
+        font = context_get_config(c, VC_FONT);
+        map = context_get_config(c, VC_FONT_MAP);
+        unimap = context_get_config(c, VC_FONT_UNIMAP);
+
         /* Any part can be set independently */
-        if (isempty(font) && isempty(map) && isempty(unimap))
+        if (!font && !map && !unimap)
                 return 0;
 
         args[i++] = KBD_SETFONT;
         args[i++] = "-C";
         args[i++] = vc;
-        if (!isempty(map)) {
+        if (map) {
                 args[i++] = "-m";
                 args[i++] = map;
         }
-        if (!isempty(unimap)) {
+        if (unimap) {
                 args[i++] = "-u";
                 args[i++] = unimap;
         }
-        if (!isempty(font))
+        if (font)
                 args[i++] = font;
         args[i++] = NULL;
 
@@ -559,7 +582,6 @@ int main(int argc, char **argv) {
         _cleanup_(context_done) Context c = {};
         _cleanup_free_ char *vc = NULL;
         _cleanup_close_ int fd = -EBADF;
-        const char *vc_keymap;
         bool utf8, keyboard_ok;
         unsigned idx = 0;
         int r;
@@ -579,13 +601,11 @@ int main(int argc, char **argv) {
 
         context_load_config(&c);
 
-        vc_keymap = isempty(c.config[VC_KEYMAP]) ? SYSTEMD_DEFAULT_KEYMAP : c.config[VC_KEYMAP];
-
         (void) toggle_utf8_sysfs(utf8);
         (void) toggle_utf8_vc(vc, fd, utf8);
 
-        r = font_load_and_wait(vc, c.config[VC_FONT], c.config[VC_FONT_MAP], c.config[VC_FONT_UNIMAP]);
-        keyboard_ok = keyboard_load_and_wait(vc, vc_keymap, c.config[VC_KEYMAP_TOGGLE], utf8) == 0;
+        r = font_load_and_wait(vc, &c);
+        keyboard_ok = keyboard_load_and_wait(vc, &c, utf8) == 0;
 
         if (idx > 0) {
                 if (r == 0)
