@@ -1349,6 +1349,27 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         if (r < 0)
                 return r;
 
+        if (exec_context_has_credentials(c) && u->manager->prefix[EXEC_DIRECTORY_RUNTIME]) {
+                _cleanup_free_ char *m = NULL;
+                const char *p;
+
+                /* Let's make sure the credentials directory of this service is unmounted *after* the service
+                 * itself shuts down. This only matters if mount namespacing is not used for the service, and
+                 * hence the credentials mount appears on the host. */
+
+                p = path_join(u->manager->prefix[EXEC_DIRECTORY_RUNTIME], "credentials", u->id);
+                if (!p)
+                        return -ENOMEM;
+
+                r = unit_name_from_path(p, ".mount", &m);
+                if (r < 0)
+                        return r;
+
+                r = unit_add_dependency_by_name(u, UNIT_AFTER, m, /* add_reference= */ true, UNIT_DEPENDENCY_FILE);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
 

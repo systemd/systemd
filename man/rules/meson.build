@@ -627,6 +627,7 @@ manpages = [
   '3',
   ['sd_event_source_get_ratelimit',
    'sd_event_source_is_ratelimited',
+   'sd_event_source_leave_ratelimit',
    'sd_event_source_set_ratelimit_expire_callback'],
   ''],
  ['sd_event_source_set_userdata', '3', ['sd_event_source_get_userdata'], ''],
