@@ -282,7 +282,7 @@ void mangle_stub_cmdline(char16_t *cmdline) {
         }
 }
 
-EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, size_t off, size_t size, char **ret, size_t *ret_size) {
+EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, size_t off, size_t size, void **ret, size_t *ret_size) {
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
         _cleanup_free_ char *buf = NULL;
         EFI_STATUS err;
