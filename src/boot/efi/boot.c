@@ -2311,12 +2311,16 @@ static EFI_STATUS initrd_prepare(
                 if (info->FileSize == 0) /* Automatically skip over empty files */
                         continue;
 
-                size_t new_size, read_size = info->FileSize;
-                if (__builtin_add_overflow(size, read_size, &new_size))
+                size_t new_size, read_size;
+                if (__builtin_add_overflow(size, info->FileSize, &new_size))
                         return EFI_OUT_OF_RESOURCES;
                 initrd = xrealloc(initrd, size, new_size);
 
-                err = handle->Read(handle, &read_size, initrd + size);
+                (void) handle->Close(handle);
+                handle = NULL;
+
+                void *read_buf = initrd + size;
+                err = file_read(root, *i, 0, info->FileSize, &read_buf, &read_size);
                 if (err != EFI_SUCCESS)
                         return err;
 
