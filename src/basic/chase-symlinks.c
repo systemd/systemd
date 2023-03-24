@@ -784,6 +784,23 @@ int chase_symlinks_and_unlink(
         return 0;
 }
 
+int chase_symlinks_and_pin(
+                const char *path,
+                const char *root,
+                ChaseSymlinksFlags chase_flags,
+                char **ret_filename) {
+
+        int pfd, r;
+
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT|CHASE_EXTRACT_FILENAME)));
+
+        r = chase_symlinks(path, root, CHASE_PARENT|CHASE_EXTRACT_FILENAME|chase_flags, ret_filename, &pfd);
+        if (r < 0)
+                return r;
+
+        return pfd;
+}
+
 int chase_symlinks_at_and_open(
                 int dir_fd,
                 const char *path,
@@ -1002,4 +1019,21 @@ int chase_symlinks_at_and_unlink(
                 *ret_path = TAKE_PTR(p);
 
         return 0;
+}
+
+int chase_symlinks_at_and_pin(
+                int dir_fd,
+                const char *path,
+                ChaseSymlinksFlags chase_flags,
+                char **ret_filename) {
+
+        int pfd, r;
+
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT|CHASE_EXTRACT_FILENAME)));
+
+        r = chase_symlinks_at(dir_fd, path, CHASE_PARENT|CHASE_EXTRACT_FILENAME|chase_flags, ret_filename, &pfd);
+        if (r < 0)
+                return r;
+
+        return pfd;
 }
