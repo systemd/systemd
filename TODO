@@ -136,6 +136,10 @@ Features:
   always end in a colon. This requires updating our udev rules, as well as
   checking if the various hwdb files are fine with that.
 
+* Add a bus API to enumerate contents of the fdstore of a service,
+  handle/display similar to querying the process tree. Should probably just an
+  array of inode/devnum of fd, plus fd_get_name() data
+
 * mount /tmp/ and /var/tmp with a uidmap applied that blocks out "nobody" user
   among other things such as dynamic uid ranges for containers and so on. That
   way noone can create files there with these uids and we enforce they are only
