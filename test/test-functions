@@ -1144,7 +1144,7 @@ install_debian_systemd() {
         ddebug "Install debian files from package $deb"
         for file in $files; do
             [ -e "$file" ] || continue
-            [ -d "$file" ] && continue
+            [ ! -L "$file" ] && [ -d "$file" ] && continue
             inst "$file"
         done
     done < <(grep -E '^Package:' "${SOURCE_DIR}/debian/control" | cut -d ':' -f 2)
@@ -1174,7 +1174,7 @@ install_suse_systemd() {
         ddebug "Install files from package $p"
         while read -r f; do
             [ -e "$f" ] || continue
-            [ -d "$f" ] && continue
+            [ ! -L "$file" ] && [ -d "$file" ] && continue
             inst "$f"
         done < <(rpm -ql "$p")
     done
