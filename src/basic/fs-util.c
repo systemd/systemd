@@ -1096,7 +1096,7 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
         }
 }
 
-int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
+int xopenat(int dir_fd, const char *path, int64_t flags, mode_t mode) {
         _cleanup_close_ int fd = -EBADF;
         bool made = false;
         int r;
@@ -1106,7 +1106,7 @@ int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
 
         if (isempty(path)) {
                 assert(!FLAGS_SET(flags, O_CREAT|O_EXCL));
-                return fd_reopen(dir_fd, flags & ~O_NOFOLLOW);
+                return fd_reopen(dir_fd, flags & INT_MAX & ~O_NOFOLLOW);
         }
 
         if (FLAGS_SET(flags, O_DIRECTORY|O_CREAT)) {
@@ -1124,7 +1124,7 @@ int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
                 flags &= ~(O_EXCL|O_CREAT);
         }
 
-        fd = RET_NERRNO(openat(dir_fd, path, flags, mode));
+        fd = RET_NERRNO(openat(dir_fd, path, flags & INT_MAX, mode));
         if (fd < 0) {
                 if (IN_SET(fd,
                            /* We got ENOENT? then someone else immediately removed it after we
@@ -1146,7 +1146,7 @@ int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
         return TAKE_FD(fd);
 }
 
-int xopenat_lock(int dir_fd, const char *path, int flags, mode_t mode, LockType locktype, int operation) {
+int xopenat_lock(int dir_fd, const char *path, int64_t flags, mode_t mode, LockType locktype, int operation) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
