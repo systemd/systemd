@@ -638,7 +638,7 @@ field of `struct passwd`).
 
 `sshAuthorizedKeys` → An array of strings, each listing an SSH public key that
 is authorized to access the account. The strings should follow the same format
-as the lines in the traditional `~/.ssh/authorized_key` file.
+as the lines in the traditional `~/.ssh/authorized_keys` file.
 
 `pkcs11EncryptedKey` → An array of objects. Each element of the array should be
 an object consisting of three string fields: `uri` shall contain a PKCS#11

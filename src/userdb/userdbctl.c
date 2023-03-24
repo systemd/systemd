@@ -962,7 +962,7 @@ static int display_services(int argc, char *argv[], void *userdata) {
                         return table_log_print_error(r);
         }
 
-        if (arg_legend) {
+        if (arg_legend && arg_output != OUTPUT_JSON) {
                 if (table_get_rows(t) > 1)
                         printf("\n%zu services listed.\n", table_get_rows(t) - 1);
                 else
@@ -1038,6 +1038,7 @@ static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
                         log_debug("Chain invoking: %s", s);
                 }
 
+                fflush(stdout);
                 execv(chain_invocation[0], chain_invocation);
                 if (errno == ENOENT) /* Let's handle ENOENT gracefully */
                         log_warning_errno(errno, "Chain executable '%s' does not exist, ignoring chain invocation.", chain_invocation[0]);

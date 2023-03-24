@@ -172,6 +172,136 @@ if ! systemd-detect-virt -cq ; then
     homectl remove test-user2
 fi
 
+# userdbctl tests
+export PAGER=
+
+# Create a couple of user/group records to test io.systemd.DropIn
+# See docs/USER_RECORD.md and docs/GROUP_RECORD.md
+mkdir -p /run/userdb/
+cat >"/run/userdb/dropingroup.group" <<\EOF
+{
+    "groupName" : "dropingroup",
+    "gid"       : 1000000
+}
+EOF
+cat >"/run/userdb/dropinuser.user" <<\EOF
+{
+    "userName" : "dropinuser",
+    "uid"      : 2000000,
+    "realName" : "🐱",
+    "memberOf" : [
+        "dropingroup"
+    ]
+}
+EOF
+cat >"/run/userdb/dropinuser.user-privileged" <<\EOF
+{
+    "privileged" : {
+        "hashedPassword" : [
+            "$6$WHBKvAFFT9jKPA4k$OPY4D4TczKN/jOnJzy54DDuOOagCcvxxybrwMbe1SVdm.Bbr.zOmBdATp.QrwZmvqyr8/SafbbQu.QZ2rRvDs/"
+        ],
+        "sshAuthorizedKeys" : [
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA//dxI2xLg4MgxIKKZv1nqwTEIlE/fdakii2Fb75pG+ foo@bar.tld",
+            "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBMlaqG2rTMje5CQnfjXJKmoSpEVJ2gWtx4jBvsQbmee2XbU/Qdq5+SRisssR9zVuxgg5NA5fv08MgjwJQMm+csc= hello@world.tld"
+        ]
+    }
+}
+EOF
+# Set permissions and create necessary symlinks as described in nss-systemd(8)
+chmod 0600 "/run/userdb/dropinuser.user-privileged"
+ln -svrf "/run/userdb/dropingroup.group" "/run/userdb/1000000.group"
+ln -svrf "/run/userdb/dropinuser.user" "/run/userdb/2000000.user"
+ln -svrf "/run/userdb/dropinuser.user-privileged" "/run/userdb/2000000.user-privileged"
+
+userdbctl
+userdbctl --version
+userdbctl --help --no-pager
+userdbctl --no-legend
+userdbctl --output=classic
+userdbctl --output=friendly
+userdbctl --output=table
+userdbctl --output=json | jq
+userdbctl -j --json=pretty | jq
+userdbctl -j --json=short | jq
+userdbctl --with-varlink=no
+
+userdbctl user
+userdbctl user testuser
+userdbctl user root
+userdbctl user testuser root
+userdbctl user -j testuser root | jq
+userdbctl user --with-nss=no --synthesize=yes root nobody
+userdbctl user dropinuser
+userdbctl user 2000000
+userdbctl user --with-nss=no --with-varlink=no --synthesize=no --multiplexer=no dropinuser
+userdbctl user --with-nss=no 2000000
+(! userdbctl user '')
+(! userdbctl user 🐱)
+(! userdbctl user 🐱 '' bar)
+(! userdbctl user i-do-not-exist)
+(! userdbctl user root i-do-not-exist testuser)
+(! userdbctl user --with-nss=no --synthesize=no root nobody)
+(! userdbctl user -N root nobody)
+(! userdbctl user --with-dropin=no dropinuser)
+(! userdbctl user --with-dropin=no 2000000)
+
+userdbctl group
+userdbctl group testuser
+userdbctl group root
+userdbctl group testuser root
+userdbctl group -j testuser root | jq
+userdbctl group dropingroup
+userdbctl group 1000000
+userdbctl group --with-nss=no --with-varlink=no --synthesize=no --multiplexer=no dropingroup
+userdbctl group --with-nss=no 1000000
+(! userdbctl group '')
+(! userdbctl group 🐱)
+(! userdbctl group 🐱 '' bar)
+(! userdbctl group i-do-not-exist)
+(! userdbctl group root i-do-not-exist testuser)
+(! userdbctl group --with-dropin=no dropingroup)
+(! userdbctl group --with-dropin=no 1000000)
+
+userdbctl users-in-group
+userdbctl users-in-group testuser
+userdbctl users-in-group testuser root
+userdbctl users-in-group -j testuser root | jq
+userdbctl users-in-group 🐱
+(! userdbctl users-in-group '')
+(! userdbctl users-in-group foo '' bar)
+
+userdbctl groups-of-user
+userdbctl groups-of-user testuser
+userdbctl groups-of-user testuser root
+userdbctl groups-of-user -j testuser root | jq
+userdbctl groups-of-user 🐱
+(! userdbctl groups-of-user '')
+(! userdbctl groups-of-user foo '' bar)
+
+userdbctl services
+userdbctl services -j | jq
+
+userdbctl ssh-authorized-keys dropinuser | tee /tmp/authorized-keys
+grep "ssh-ed25519" /tmp/authorized-keys
+grep "ecdsa-sha2-nistp256" /tmp/authorized-keys
+echo "my-top-secret-key 🐱" >/tmp/my-top-secret-key
+userdbctl ssh-authorized-keys dropinuser --chain /bin/cat /tmp/my-top-secret-key | tee /tmp/authorized-keys
+grep "ssh-ed25519" /tmp/authorized-keys
+grep "ecdsa-sha2-nistp256" /tmp/authorized-keys
+grep "my-top-secret-key 🐱" /tmp/authorized-keys
+(! userdbctl ssh-authorized-keys 🐱)
+(! userdbctl ssh-authorized-keys dropin-user --chain)
+(! userdbctl ssh-authorized-keys dropin-user --chain '')
+(! SYSTEMD_LOG_LEVEL=debug userdbctl ssh-authorized-keys dropin-user --chain /bin/false)
+
+(! userdbctl '')
+for opt in json multiplexer output synthesize with-dropin with-nss with-varlink; do
+    (! userdbctl "--$opt=''")
+    (! userdbctl "--$opt='🐱'")
+    (! userdbctl "--$opt=foo")
+    (! userdbctl "--$opt=foo" "--$opt=''" "--$opt=🐱")
+done
+
 systemd-analyze log-level info
 
 echo OK >/testok

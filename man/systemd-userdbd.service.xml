@@ -57,7 +57,7 @@
     records as acquired with APIs such as <citerefentry
     project='man-pages'><refentrytitle>getpwnam</refentrytitle><manvolnum>1</manvolnum></citerefentry> to
     JSON user/group records, thus hiding the differences between the services as much as
-    possible. <constant>io.systemd.Dropin</constant> makes JSON user/group records from the aforementioned
+    possible. <constant>io.systemd.DropIn</constant> makes JSON user/group records from the aforementioned
     drop-in directories available.</para>
   </refsect1>
 
