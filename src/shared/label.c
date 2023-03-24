@@ -115,3 +115,12 @@ int btrfs_subvol_make_label(const char *path) {
 
         return mac_smack_fix(path, 0);
 }
+
+int label_pre(int dir_fd, const char *path, mode_t mode) {
+        return mac_selinux_create_file_prepare_at(dir_fd, path, mode & S_IFMT);
+}
+
+int label_post(int dir_fd, const char *path) {
+        mac_selinux_create_file_clear();
+        return mac_smack_fix_full(dir_fd, path, NULL, 0);
+}
