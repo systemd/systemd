@@ -282,6 +282,8 @@ test_syntax_error 'KERNEL=="a|b", KERNEL=="c|d|e", NAME="f"' 'conflicting match 
 # shellcheck disable=SC2016
 test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}!="?*", ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
                   'conflicting match expressions, the line takes no effect'
+test_syntax_error 'ACTION=="a*", ACTION=="bc*", NAME="d"' 'conflicting match expressions, the line takes no effect'
+test_syntax_error 'ACTION=="a*|bc*", ACTION=="d*|ef*", NAME="g"' 'conflicting match expressions, the line takes no effect'
 test_syntax_error 'KERNEL!="", KERNEL=="?*", NAME="a"' 'duplicate expressions'
 test_syntax_error 'KERNEL=="|a|b", KERNEL=="b|a|", NAME="c"' 'duplicate expressions'
 # shellcheck disable=SC2016
@@ -302,6 +304,8 @@ KERNEL=="a|b", KERNEL=="a|c", NAME="d"
 KERNEL=="a|b", KERNEL!="a|c", NAME="d"
 KERNEL!="a", KERNEL!="b", NAME="c"
 KERNEL=="|a", KERNEL=="|b", NAME="c"
+KERNEL=="*", KERNEL=="a*", NAME="b"
+KERNEL=="a*", KERNEL=="c*|ab*", NAME="d"
 EOF
 assert_0 "${rules}"
 

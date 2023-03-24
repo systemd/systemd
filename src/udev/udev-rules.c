@@ -1348,17 +1348,34 @@ static bool nulstr_tokens_conflict(const UdevRuleToken *a, const UdevRuleToken *
               a->op == b->op &&
               a->op == OP_MATCH &&
               a->match_type == b->match_type &&
-              a->match_type == MATCH_TYPE_PLAIN &&
               a->attr_subst_type == b->attr_subst_type &&
               a->attr_match_remove_trailing_whitespace == b->attr_match_remove_trailing_whitespace &&
               token_type_and_data_eq(a, b)))
                 return false;
 
-        NULSTR_FOREACH(i, a->value)
-                if (nulstr_contains(b->value, i))
-                        return false;
+        if (a->match_type == MATCH_TYPE_PLAIN) {
+                NULSTR_FOREACH(i, a->value)
+                        if (nulstr_contains(b->value, i))
+                                return false;
+                return true;
+        }
 
-        return true;
+        if (a->match_type == MATCH_TYPE_GLOB) {
+                NULSTR_FOREACH(i, a->value) {
+                        size_t i_n = strcspn(i, GLOB_CHARS);
+                        if (i_n == 0)
+                                return false;
+                        NULSTR_FOREACH(j, b->value) {
+                                size_t j_n = strcspn(j, GLOB_CHARS);
+                                if (j_n == 0 || strneq(i, j, MIN(i_n, j_n)))
+                                        return false;
+                        }
+
+                }
+                return true;
+        }
+
+        return false;
 }
 
 static void udev_check_unused_labels(UdevRuleLine *line) {
