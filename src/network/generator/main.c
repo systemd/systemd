@@ -4,6 +4,7 @@
 
 #include "build.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "generator.h"
 #include "macro.h"
 #include "main-func.h"
@@ -13,6 +14,7 @@
 #include "proc-cmdline.h"
 
 #define NETWORKD_UNIT_DIRECTORY "/run/systemd/network"
+#define NETWORKD_CMDLINE_PARSED "/run/systemd/networkd/cmdline-parsed"
 
 static const char *arg_root = NULL;
 
@@ -81,33 +83,30 @@ static int link_save(Link *link, const char *dest_dir) {
         return 0;
 }
 
-static int context_save(Context *context) {
+static int context_save(Context *context, const char *dest_dir) {
         Network *network;
         NetDev *netdev;
         Link *link;
         int k, r;
-        const char *p;
 
-        p = prefix_roota(arg_root, NETWORKD_UNIT_DIRECTORY);
-
-        r = mkdir_p(p, 0755);
+        r = mkdir_p(dest_dir, 0755);
         if (r < 0)
-                return log_error_errno(r, "Failed to create directory " NETWORKD_UNIT_DIRECTORY ": %m");
+                return log_error_errno(r, "Failed to create directory %s: %m", dest_dir);
 
         HASHMAP_FOREACH(network, context->networks_by_name) {
-                k = network_save(network, p);
+                k = network_save(network, dest_dir);
                 if (k < 0 && r >= 0)
                         r = k;
         }
 
         HASHMAP_FOREACH(netdev, context->netdevs_by_name) {
-                k = netdev_save(netdev, p);
+                k = netdev_save(netdev, dest_dir);
                 if (k < 0 && r >= 0)
                         r = k;
         }
 
         HASHMAP_FOREACH(link, context->links_by_filename) {
-                k = link_save(link, p);
+                k = link_save(link, dest_dir);
                 if (k < 0 && r >= 0)
                         r = k;
         }
@@ -167,16 +166,37 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context context = {};
+        _cleanup_free_ char *unit_dir = NULL, *cmdline_parsed_file = NULL;
         int r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
 
+        unit_dir = path_join(arg_root, NETWORKD_UNIT_DIRECTORY);
+        if (!unit_dir)
+                return log_oom();
+
         if (optind >= argc) {
+                cmdline_parsed_file = path_join(arg_root, NETWORKD_CMDLINE_PARSED);
+                if (!cmdline_parsed_file)
+                        return log_oom();
+
+                r = access(cmdline_parsed_file, F_OK);
+                if (r >= 0) {
+                        log_debug("Kernel command line already parsed.");
+                        return 0;
+                }
+                if (errno != ENOENT)
+                        log_debug_errno(errno, "Failed to determine whether %s exists, ignoring: %m", cmdline_parsed_file);
+
                 r = proc_cmdline_parse(parse_cmdline_item, &context, 0);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse kernel command line: %m");
+
+                r = touch_file(cmdline_parsed_file, /* parents= */ true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to touch %s, ignoring: %m", cmdline_parsed_file);
         } else {
                 for (int i = optind; i < argc; i++) {
                         _cleanup_free_ char *word = NULL;
@@ -201,7 +221,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to merge multiple command line options: %m");
 
-        return context_save(&context);
+        return context_save(&context, unit_dir);
 }
 
 DEFINE_MAIN_FUNCTION(run);
