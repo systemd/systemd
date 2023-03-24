@@ -4791,7 +4791,10 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
 }
 
 int unit_setup_exec_runtime(Unit *u) {
+        _cleanup_(exec_shared_runtime_unrefp) ExecSharedRuntime *esr = NULL;
+        _cleanup_(dynamic_creds_unrefp) DynamicCreds *dcreds = NULL;
         ExecRuntime **rt;
+        ExecContext *ec;
         size_t offset;
         Unit *other;
         int r;
@@ -4804,34 +4807,38 @@ int unit_setup_exec_runtime(Unit *u) {
         if (*rt)
                 return 0;
 
-        /* Try to get it from somebody else */
-        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_JOINS_NAMESPACE_OF) {
-                r = exec_runtime_acquire(u->manager, NULL, other->id, false, rt);
-                if (r == 1)
-                        return 1;
-        }
-
-        return exec_runtime_acquire(u->manager, unit_get_exec_context(u), u->id, true, rt);
-}
-
-int unit_setup_dynamic_creds(Unit *u) {
-        ExecContext *ec;
-        DynamicCreds *dcreds;
-        size_t offset;
-
-        assert(u);
-
-        offset = UNIT_VTABLE(u)->dynamic_creds_offset;
-        assert(offset > 0);
-        dcreds = (DynamicCreds*) ((uint8_t*) u + offset);
-
         ec = unit_get_exec_context(u);
         assert(ec);
 
-        if (!ec->dynamic_user)
-                return 0;
+        /* Try to get it from somebody else */
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_JOINS_NAMESPACE_OF) {
+                r = exec_shared_runtime_acquire(u->manager, NULL, other->id, false, &esr);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        break;
+        }
 
-        return dynamic_creds_acquire(dcreds, u->manager, ec->user, ec->group);
+        if (!esr) {
+                r = exec_shared_runtime_acquire(u->manager, ec, u->id, true, &esr);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ec->dynamic_user) {
+                r = dynamic_creds_make(u->manager, ec->user, ec->group, &dcreds);
+                if (r < 0)
+                        return r;
+        }
+
+        r = exec_runtime_make(esr, dcreds, rt);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(esr);
+        TAKE_PTR(dcreds);
+
+        return r;
 }
 
 bool unit_type_supported(UnitType t) {
@@ -5562,10 +5569,6 @@ int unit_prepare_exec(Unit *u) {
         unit_export_state_files(u);
 
         r = unit_setup_exec_runtime(u);
-        if (r < 0)
-                return r;
-
-        r = unit_setup_dynamic_creds(u);
         if (r < 0)
                 return r;
 
