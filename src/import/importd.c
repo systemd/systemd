@@ -554,9 +554,9 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         };
         struct ucred *ucred;
         Manager *m = userdata;
-        char *p, *e;
         Transfer *t;
         ssize_t n;
+        char *p;
         int r;
 
         n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
@@ -594,8 +594,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         if (!p)
                 return 0;
 
-        e = strchrnul(p, '\n');
-        *e = 0;
+        truncate_nl(p);
 
         r = parse_percent(p);
         if (r < 0) {
