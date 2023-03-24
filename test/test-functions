@@ -1131,6 +1131,9 @@ install_compiled_systemd() {
         # Set effective & default ACLs for the build dir so unprivileged
         # processes can write gcda files with coverage stats
         setfacl -R -m 'd:o:rwX' -m 'o:rwX' "${initdir}/${BUILD_DIR:?}/"
+        # Do an initial coverage capture, to make sure the final report includes
+        # files that the tests didn't touch at all
+        lcov --initial --capture --directory "${initdir}/${BUILD_DIR:?}" --output-file "${TESTDIR:?}/coverage-base"
     fi
 }
 
@@ -1488,21 +1491,28 @@ check_coverage_reports() {
         dest="${TESTDIR:?}/coverage-info"
     fi
 
+    if [[ ! -e "${TESTDIR:?}/coverage-base" ]]; then
+        # This shouldn't happen, as the report is generated during the setup
+        # phase in install_compiled_systemd().
+        derror "Missing base coverage report"
+        return 1
+    fi
+
     # Create a coverage report that will later be uploaded. Remove info about
     # system libraries/headers, as we don't really care about them.
+    lcov --directory "${root}/${BUILD_DIR:?}" --capture --output-file "${dest}.new"
+    lcov --remove "${dest}.new" -o "${dest}.new" '/usr/include/*' '/usr/lib/*'
     if [[ -f "$dest" ]]; then
         # If the destination report file already exists, don't overwrite it, but
-        # dump the new report in a temporary file and then merge it with the already
-        # present one - this usually happens when running both "parts" of a test
-        # in one run (the qemu and the nspawn part).
-        lcov --directory "${root}/${BUILD_DIR:?}" --capture --output-file "${dest}.new"
-        lcov --remove "${dest}.new" -o "${dest}.new" '/usr/include/*' '/usr/lib/*'
+        # merge it with the already present one - this usually happens when
+        # running both "parts" of a test in one run (the qemu and the nspawn part).
         lcov --add-tracefile "${dest}" --add-tracefile "${dest}.new" -o "${dest}"
-        rm -f "${dest}.new"
     else
-        lcov --directory "${root}/${BUILD_DIR:?}" --capture --output-file "${dest}"
-        lcov --remove "${dest}" -o "${dest}" '/usr/include/*' '/usr/lib/*'
+        # If there's no prior coverage report, merge the new one with the base
+        # report we did during the setup phase (see install_compiled_systemd()).
+        lcov --add-tracefile "${TESTDIR:?}/coverage-base" --add-tracefile "${dest}.new" -o "${dest}"
     fi
+    rm -f "${dest}.new"
 
     # If the test logs contain lines like:
     #
@@ -1512,6 +1522,10 @@ check_coverage_reports() {
     # usually due to the sandbox being too restrictive (e.g. ProtectSystem=yes,
     # ProtectHome=yes) or the $BUILD_DIR being inaccessible to non-root users - see
     # `setfacl` stuff in install_compiled_systemd().
+    #
+    # Also, a note: some tests, like TEST-46, overmount /home with tmpfs, which
+    # means if your build dir is under /home/your-user (which is usually the
+    # case) you might get bogus erorrs and missing coverage.
     if ! get_bool "${IGNORE_MISSING_COVERAGE:=}" && \
        "${JOURNALCTL:?}" -q --no-pager -D "${root:?}/var/log/journal" --grep "profiling:.+?gcda:[Cc]annot open"; then
         derror "Detected possibly missing coverage, check the journal"
