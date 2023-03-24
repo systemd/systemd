@@ -168,6 +168,8 @@ int lock_generic(int fd, LockType type, int operation) {
         assert(fd >= 0);
 
         switch (type) {
+        case LOCK_NONE:
+                return 0;
         case LOCK_BSD:
                 return RET_NERRNO(flock(fd, operation));
         case LOCK_POSIX:
