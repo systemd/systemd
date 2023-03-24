@@ -58,15 +58,35 @@ static int load_kernel_syscalls(Set **ret) {
         return 0;
 }
 
+static int syscall_set_add(Set **s, const SyscallFilterSet *set) {
+        int r;
+
+        assert(s);
+
+        if (!set)
+                return 0;
+
+        NULSTR_FOREACH(sc, set->value) {
+                if (sc[0] == '@')
+                        continue;
+
+                r = set_put_strdup(s, sc);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static void syscall_set_remove(Set *s, const SyscallFilterSet *set) {
         if (!set)
                 return;
 
-        NULSTR_FOREACH(syscall, set->value) {
-                if (syscall[0] == '@')
+        NULSTR_FOREACH(sc, set->value) {
+                if (sc[0] == '@')
                         continue;
 
-                free(set_remove(s, syscall));
+                free(set_remove(s, sc));
         }
 }
 
@@ -84,6 +104,7 @@ static void dump_syscall_filter(const SyscallFilterSet *set) {
 
 int verb_syscall_filters(int argc, char *argv[], void *userdata) {
         bool first = true;
+        int r;
 
         pager_open(arg_pager_flags);
 
@@ -91,9 +112,9 @@ int verb_syscall_filters(int argc, char *argv[], void *userdata) {
                 _cleanup_set_free_ Set *kernel = NULL, *known = NULL;
                 int k = 0;  /* explicit initialization to appease gcc */
 
-                NULSTR_FOREACH(sys, syscall_filter_sets[SYSCALL_FILTER_SET_KNOWN].value)
-                        if (set_put_strdup(&known, sys) < 0)
-                                return log_oom();
+                r = syscall_set_add(&known, syscall_filter_sets + SYSCALL_FILTER_SET_KNOWN);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to prepare set of known system calls: %m");
 
                 if (!arg_quiet)
                         k = load_kernel_syscalls(&kernel);
