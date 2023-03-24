@@ -23,7 +23,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "catalog.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "chattr-util.h"
 #include "constants.h"
 #include "dissect-image.h"
@@ -1112,7 +1112,7 @@ static int add_matches(sd_journal *j, char **args) {
                         _cleanup_free_ char *p = NULL, *t = NULL, *t2 = NULL, *interpreter = NULL;
                         struct stat st;
 
-                        r = chase_symlinks(*i, NULL, CHASE_TRAIL_SLASH, &p, NULL);
+                        r = chase(*i, NULL, CHASE_TRAIL_SLASH, &p, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Couldn't canonicalize path: %m");
 

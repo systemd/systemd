@@ -11,7 +11,7 @@
 #include "bus-locator.h"
 #include "bus-unit-util.h"
 #include "bus-wait-for-jobs.h"
-#include "chase-symlinks.h"
+#include "chase.h"
 #include "constants.h"
 #include "dirent-util.h"
 #include "env-file.h"
@@ -84,7 +84,7 @@ static int determine_image(const char *image, bool permit_non_existing, char **r
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Operations on images by path not supported when connecting to remote systems.");
 
-        r = chase_symlinks(image, NULL, CHASE_TRAIL_SLASH | (permit_non_existing ? CHASE_NONEXISTENT : 0), ret, NULL);
+        r = chase(image, NULL, CHASE_TRAIL_SLASH | (permit_non_existing ? CHASE_NONEXISTENT : 0), ret, NULL);
         if (r < 0)
                 return log_error_errno(r, "Cannot normalize specified image path '%s': %m", image);
 
