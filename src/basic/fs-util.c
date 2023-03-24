@@ -1106,7 +1106,7 @@ int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
 
         if (isempty(path)) {
                 assert(!FLAGS_SET(flags, O_CREAT|O_EXCL));
-                return fd_reopen(dir_fd, flags);
+                return fd_reopen(dir_fd, flags & ~O_NOFOLLOW);
         }
 
         if (FLAGS_SET(flags, O_DIRECTORY|O_CREAT)) {
