@@ -10,6 +10,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "build.h"
 #include "fd-util.h"
 #include "main-func.h"
 #include "memory-util.h"
@@ -897,13 +898,13 @@ static void print_properties(const Context *c) {
 }
 
 static int help(void) {
-        printf("Usage: %s [options] <device>\n"
-               "  -l --lock-media    lock the media (to enable eject request events)\n"
-               "  -u --unlock-media  unlock the media\n"
-               "  -e --eject-media   eject the media\n"
-               "  -d --debug         print debug messages to stderr\n"
-               "  -h --help          print this help text\n"
-               "\n",
+        printf("%s [OPTIONS...] DEVICE\n\n"
+               "  -l --lock-media    Lock the media (to enable eject request events)\n"
+               "  -u --unlock-media  Unlock the media\n"
+               "  -e --eject-media   Eject the media\n"
+               "  -d --debug         Print debug messages to stderr\n"
+               "  -h --help          Show this help text\n"
+               "     --version       Show package version\n",
                program_invocation_short_name);
 
         return 0;
@@ -916,6 +917,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "eject-media",  no_argument, NULL, 'e' },
                 { "debug",        no_argument, NULL, 'd' },
                 { "help",         no_argument, NULL, 'h' },
+                { "version",      no_argument, NULL, 'v' },
                 {}
         };
         int c;
@@ -938,6 +940,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 case 'h':
                         return help();
+                case 'v':
+                        return version();
+                case '?':
+                        return -EINVAL;
                 default:
                         assert_not_reached();
                 }

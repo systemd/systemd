@@ -739,6 +739,7 @@
         </varlistentry>
 
         <xi:include href="standard-options.xml" xpointer="help" />
+        <xi:include href="standard-options.xml" xpointer="version" />
       </variablelist>
     </refsect2>
 

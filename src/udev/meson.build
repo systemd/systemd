@@ -143,6 +143,7 @@ foreach prog : udev_progs
                 install_dir : udevlibexecdir)
 
         udev_prog_paths += {name : exe}
+        public_programs += exe
 endforeach
 
 if install_sysconfdir_samples
