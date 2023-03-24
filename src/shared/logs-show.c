@@ -93,14 +93,9 @@ static int url_from_catalog(sd_journal *j, char **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find catalog entry: %m");
 
-        weblink = startswith(t, "Documentation:");
-        if (!weblink) {
-                weblink = strstr(t + 1, "\nDocumentation:");
-                if (!weblink)
-                        goto notfound;
-
-                weblink += 15;
-        }
+        weblink = find_line_startswith(t, "Documentation:");
+        if (!weblink)
+                goto notfound;
 
         /* Skip whitespace to value */
         weblink += strspn(weblink, " \t");

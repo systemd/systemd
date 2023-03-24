@@ -590,14 +590,9 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 
         buf[n] = 0;
 
-        p = startswith(buf, "X_IMPORT_PROGRESS=");
-        if (!p) {
-                p = strstr(buf, "\nX_IMPORT_PROGRESS=");
-                if (!p)
-                        return 0;
-
-                p += 19;
-        }
+        p = find_line_startswith(buf, "X_IMPORT_PROGRESS=");
+        if (!p)
+                return 0;
 
         e = strchrnul(p, '\n');
         *e = 0;

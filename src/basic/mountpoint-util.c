@@ -125,14 +125,9 @@ static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *ret_mn
         if (r < 0)
                 return r;
 
-        p = startswith(fdinfo, "mnt_id:");
-        if (!p) {
-                p = strstr(fdinfo, "\nmnt_id:");
-                if (!p) /* The mnt_id field is a relatively new addition */
-                        return -EOPNOTSUPP;
-
-                p += 8;
-        }
+        p = find_line_startswith(fdinfo, "mnt_id:");
+        if (!p) /* The mnt_id field is a relatively new addition */
+                return -EOPNOTSUPP;
 
         p += strspn(p, WHITESPACE);
         p[strcspn(p, WHITESPACE)] = 0;
