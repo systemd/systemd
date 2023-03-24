@@ -554,9 +554,9 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         };
         struct ucred *ucred;
         Manager *m = userdata;
-        char *p, *e;
         Transfer *t;
         ssize_t n;
+        char *p;
         int r;
 
         n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
@@ -590,17 +590,11 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 
         buf[n] = 0;
 
-        p = startswith(buf, "X_IMPORT_PROGRESS=");
-        if (!p) {
-                p = strstr(buf, "\nX_IMPORT_PROGRESS=");
-                if (!p)
-                        return 0;
+        p = find_line_startswith(buf, "X_IMPORT_PROGRESS=");
+        if (!p)
+                return 0;
 
-                p += 19;
-        }
-
-        e = strchrnul(p, '\n');
-        *e = 0;
+        truncate_nl(p);
 
         r = parse_percent(p);
         if (r < 0) {

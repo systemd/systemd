@@ -1453,14 +1453,9 @@ int pidfd_get_pid(int fd, pid_t *ret) {
         if (r < 0)
                 return r;
 
-        p = startswith(fdinfo, "Pid:");
-        if (!p) {
-                p = strstr(fdinfo, "\nPid:");
-                if (!p)
-                        return -ENOTTY; /* not a pidfd? */
-
-                p += 5;
-        }
+        p = find_line_startswith(fdinfo, "Pid:");
+        if (!p)
+                return -ENOTTY; /* not a pidfd? */
 
         p += strspn(p, WHITESPACE);
         p[strcspn(p, WHITESPACE)] = 0;
