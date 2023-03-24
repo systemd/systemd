@@ -111,6 +111,11 @@
       <varname>VERSION_ID=</varname> exists and matches. This ensures ABI/API compatibility between the
       layers and prevents merging of an incompatible image in an overlay.</para>
 
+      <para>In order to identify the extension image itself, the same fields defined below can be added to the
+      <filename>extension-release</filename> file with a <varname>SYSEXT_</varname> prefix (to disambiguate
+      from fields used to match on the base image). E.g.: <varname>SYSEXT_ID=myext</varname>,
+      <varname>SYSEXT_VERSION_ID=1.2.3</varname>.</para>
+
       <para>In the <filename>extension-release.<replaceable>IMAGE</replaceable></filename> filename, the
       <replaceable>IMAGE</replaceable> part must exactly match the file name of the containing image with the
       suffix removed. In case it is not possible to guarantee that an image file name is stable and doesn't
