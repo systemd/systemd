@@ -797,8 +797,18 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "sched_setparam\0"
                 "sched_setscheduler\0"
                 "set_mempolicy\0"
+                "set_mempolicy_home_node\0"
                 "setpriority\0"
                 "setrlimit\0"
+        },
+        [SYSCALL_FILTER_SET_SANDBOX] = {
+                .name = "@sandbox",
+                .help = "Sandbox functionality",
+                .value =
+                "landlock_add_rule\0"
+                "landlock_create_ruleset\0"
+                "landlock_restrict_self\0"
+                "seccomp\0"
         },
         [SYSCALL_FILTER_SET_SETUID] = {
                 .name = "@setuid",
