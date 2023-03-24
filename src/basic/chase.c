@@ -100,9 +100,6 @@ int chaseat(
         if ((flags & CHASE_STEP))
                 assert(!ret_fd);
 
-        if ((flags & CHASE_EXTRACT_FILENAME))
-                assert(ret_path);
-
         if (isempty(path))
                 path = ".";
 
@@ -787,6 +784,18 @@ int chase_and_unlink(
         return 0;
 }
 
+int chase_and_pin(const char *path, const char *root, ChaseFlags chase_flags, char **ret_filename) {
+        int pfd, r;
+
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT|CHASE_EXTRACT_FILENAME)));
+
+        r = chase(path, root, CHASE_PARENT|CHASE_EXTRACT_FILENAME|chase_flags, ret_filename, &pfd);
+        if (r < 0)
+                return r;
+
+        return pfd;
+}
+
 int chase_and_openat(
                 int dir_fd,
                 const char *path,
@@ -1005,4 +1014,21 @@ int chase_and_unlinkat(
                 *ret_path = TAKE_PTR(p);
 
         return 0;
+}
+
+int chase_and_pinat(
+                int dir_fd,
+                const char *path,
+                ChaseFlags chase_flags,
+                char **ret_filename) {
+
+        int pfd, r;
+
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT|CHASE_EXTRACT_FILENAME)));
+
+        r = chaseat(dir_fd, path, CHASE_PARENT|CHASE_EXTRACT_FILENAME|chase_flags, ret_filename, &pfd);
+        if (r < 0)
+                return r;
+
+        return pfd;
 }

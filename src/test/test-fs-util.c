@@ -432,7 +432,7 @@ TEST(chase) {
         assert_se(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
 
-TEST(chase_at) {
+TEST(chaseat) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *result = NULL;
@@ -564,20 +564,20 @@ TEST(chase_at) {
         assert_se(streq(result, "o/p/e/n/d/i"));
         result = mfree(result);
 
-        /* Test chase_at_and_stat() */
+        /* Test chase_and_statat() */
 
         assert_se(chase_and_statat(tfd, "o/p", 0, &result, &st) >= 0);
         assert_se(stat_verify_directory(&st) >= 0);
         assert_se(streq(result, "o/p"));
         result = mfree(result);
 
-        /* Test chase_at_and_access() */
+        /* Test chase_and_accessat() */
 
         assert_se(chase_and_accessat(tfd, "o/p/e", 0, F_OK, &result) >= 0);
         assert_se(streq(result, "o/p/e"));
         result = mfree(result);
 
-        /* Test chase_at_and_fopen_unlocked() */
+        /* Test chase_and_fopenat_unlocked() */
 
         assert_se(chase_and_fopenat_unlocked(tfd, "o/p/e/n/f/i/l/e", 0, "re", &result, &f) >= 0);
         assert_se(fread(&(char[1]) {}, 1, 1, f) == 0);
@@ -586,10 +586,34 @@ TEST(chase_at) {
         assert_se(streq(result, "o/p/e/n/f/i/l/e"));
         result = mfree(result);
 
-        /* Test chase_at_and_unlink() */
+        /* Test chase_and_unlinkat() */
 
         assert_se(chase_and_unlinkat(tfd, "o/p/e/n/f/i/l/e", 0, 0, &result) >= 0);
         assert_se(streq(result, "o/p/e/n/f/i/l/e"));
+        result = mfree(result);
+
+        /* Test chase_and_pinat() */
+
+        assert_se((fd = chase_and_pinat(tfd, "chase/parent", CHASE_AT_RESOLVE_IN_ROOT|CHASE_NOFOLLOW, &result)) >= 0);
+        assert_se(faccessat(fd, result, F_OK, AT_SYMLINK_NOFOLLOW) >= 0);
+        assert_se(streq(result, "parent"));
+        fd = safe_close(fd);
+        result = mfree(result);
+
+        assert_se((fd = chase_and_pinat(tfd, "chase", CHASE_AT_RESOLVE_IN_ROOT, &result)) >= 0);
+        assert_se(faccessat(fd, result, F_OK, 0) >= 0);
+        assert_se(streq(result, "chase"));
+        fd = safe_close(fd);
+        result = mfree(result);
+
+        assert_se((fd = chase_and_pinat(tfd, "/", CHASE_AT_RESOLVE_IN_ROOT, &result)) >= 0);
+        assert_se(streq(result, "."));
+        fd = safe_close(fd);
+        result = mfree(result);
+
+        assert_se((fd = chase_and_pinat(tfd, ".", CHASE_AT_RESOLVE_IN_ROOT, &result)) >= 0);
+        assert_se(streq(result, "."));
+        fd = safe_close(fd);
         result = mfree(result);
 }
 
