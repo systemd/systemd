@@ -14,6 +14,7 @@ int parse_env_file_fd_sentinel(int fd, const char *fname, ...) _sentinel_;
 #define parse_env_file_fd(fd, fname, ...) parse_env_file_fd_sentinel(fd, fname, __VA_ARGS__, NULL)
 int load_env_file(FILE *f, const char *fname, char ***ret);
 int load_env_file_pairs(FILE *f, const char *fname, char ***ret);
+int load_env_file_pairs_fd(int fd, const char *fname, char ***ret);
 
 int merge_env_file(char ***env, FILE *f, const char *fname);
 
