@@ -1572,7 +1572,7 @@ static int become_shutdown(int objective, int retval) {
                 command_line[pos++] = exit_code;
         }
 
-        assert(pos < ELEMENTSOF(command_line) - 1);
+        assert(pos < ELEMENTSOF(command_line));
 
         /* The watchdog: */
 
