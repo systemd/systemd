@@ -15,7 +15,7 @@
 #include "string-util.h"
 
 static int run(int argc, char *argv[]) {
-        int r, k;
+        int r;
 
         if (argc != 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -31,10 +31,8 @@ static int run(int argc, char *argv[]) {
 
         if (streq(argv[1], "start")) {
                 r = unlink_or_warn("/run/nologin");
-                k = unlink_or_warn("/etc/nologin");
                 if (r < 0)
                         return r;
-                return k;
 
         } else if (streq(argv[1], "stop"))
                 return create_shutdown_run_nologin_or_warn();
