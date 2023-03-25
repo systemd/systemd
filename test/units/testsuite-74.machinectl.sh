@@ -11,8 +11,6 @@ at_exit() {
     if [[ -v NSPAWN_NAME && -e "/var/lib/machines/$NSPAWN_NAME" ]]; then
         rm -fvr "/var/lib/machines/$NSPAWN_NAME" "/etc/systemd/nspawn/$NSPAWN_NAME" "new"
     fi
-
-    return 0
 }
 
 trap at_exit EXIT
