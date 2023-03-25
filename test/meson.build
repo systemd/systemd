@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 if install_tests
-        testdata_dir = testsdir + '/testdata/'
-
         foreach subdir : [
                 'auxv',
                 'journal-data',
@@ -59,6 +57,12 @@ if install_tests
         install_data('create-busybox-container',
                      install_mode : 'rwxr-xr-x',
                      install_dir : testdata_dir)
+
+        # The unit tests implemented as shell scripts expect to find testdata/
+        # in the directory where they are stored.
+        meson.add_install_script(meson_make_symlink,
+                                 testdata_dir,
+                                 unittestsdir / 'testdata')
 endif
 
 test_bootctl_json_sh = find_program('test-bootctl-json.sh')
@@ -76,7 +80,7 @@ test_sysusers_sh = configure_file(
         configuration : conf)
 if install_tests and conf.get('ENABLE_SYSUSERS') == 1
         install_data(test_sysusers_sh,
-                     install_dir : testsdir)
+                     install_dir : unittestsdir)
         install_subdir('test-sysusers',
                        exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
@@ -87,7 +91,7 @@ endif
 test_compare_versions_sh = files('test-compare-versions.sh')
 if install_tests
         install_data(test_compare_versions_sh,
-                     install_dir : testsdir)
+                     install_dir : unittestsdir)
 endif
 
 ############################################################
@@ -109,11 +113,11 @@ if install_tests
 
         install_data('test-fstab-generator.sh',
                      install_mode : 'rwxr-xr-x',
-                     install_dir : testsdir)
+                     install_dir : unittestsdir)
 
         install_data('test-network-generator-conversion.sh',
                      install_mode : 'rwxr-xr-x',
-                     install_dir : testsdir)
+                     install_dir : unittestsdir)
 endif
 
 ############################################################
