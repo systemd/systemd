@@ -1,7 +1,7 @@
 ---
 # vi: ts=2 sw=2 et:
 # SPDX-License-Identifier: LGPL-2.1-or-later
-#
+# foo
 name: "CodeQL"
 
 on:
