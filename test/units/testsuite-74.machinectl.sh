@@ -7,14 +7,10 @@ set -o pipefail
 # shellcheck source=test/units/assert.sh
 . "$(dirname "$0")"/assert.sh
 
-: >/failed
-
 at_exit() {
     if [[ -v NSPAWN_NAME && -e "/var/lib/machines/$NSPAWN_NAME" ]]; then
         rm -fvr "/var/lib/machines/$NSPAWN_NAME" "/etc/systemd/nspawn/$NSPAWN_NAME" "new"
     fi
-
-    return 0
 }
 
 trap at_exit EXIT
@@ -38,6 +34,3 @@ script -ec 'machinectl cat "$PWD/new"' /dev/null
 
 EDITOR='mv new' script -ec 'machinectl edit "$NSPAWN_NAME"' /dev/null
 printf '%s\n' '[Exec]' 'Boot=false' | cmp - "/etc/systemd/nspawn/$NSPAWN_NAME"
-
-touch /testok
-rm /failed
