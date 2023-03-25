@@ -59,7 +59,7 @@ printf '[Coredump]\nStorage=external' >/run/systemd/coredump.conf.d/99-external.
 "$MAKE_DUMP_SCRIPT" "$CORE_TEST_BIN" "SIGABRT"
 rm -fv /run/systemd/coredump.conf.d/99-external.conf
 # Wait a bit for the coredumps to get processed
-timeout 30 bash -c "while [[ $(coredumpctl list -q --no-legend $CORE_TEST_BIN | wc -l) -lt 4 ]]; do sleep 1; done"
+timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $CORE_TEST_BIN | wc -l) -lt 4 ]]; do sleep 1; done"
 
 coredumpctl
 SYSTEMD_LOG_LEVEL=debug coredumpctl
@@ -116,7 +116,7 @@ printf '[Coredump]\nStorage=external' >/run/systemd/coredump.conf.d/99-external.
 "${UNPRIV_CMD[@]}" "$MAKE_DUMP_SCRIPT" "$CORE_TEST_UNPRIV_BIN" "SIGABRT"
 rm -fv /run/systemd/coredump.conf.d/99-external.conf
 # Wait a bit for the coredumps to get processed
-timeout 30 bash -c "while [[ $(coredumpctl list -q --no-legend $CORE_TEST_UNPRIV_BIN | wc -l) -lt 4 ]]; do sleep 1; done"
+timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $CORE_TEST_UNPRIV_BIN | wc -l) -lt 4 ]]; do sleep 1; done"
 
 # root should see coredumps from both binaries
 coredumpctl info "$CORE_TEST_UNPRIV_BIN"
@@ -149,7 +149,7 @@ rm -f /tmp/core.{output,redirected}
 journalctl -b -n 1 --output=export --output-fields=MESSAGE,COREDUMP COREDUMP_EXE="/usr/bin/test-dump" |
     /usr/lib/systemd/systemd-coredump --backtrace $$ 0 0 6 1679509994 12345 mymachine
 # Wait a bit for the coredump to get processed
-timeout 30 bash -c "while [[ $(coredumpctl list -q --no-legend $$ | wc -l) -eq 0 ]]; do sleep 1; done"
+timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $$ | wc -l) -eq 0 ]]; do sleep 1; done"
 coredumpctl info "$$"
 coredumpctl info COREDUMP_HOSTNAME="mymachine"
 
