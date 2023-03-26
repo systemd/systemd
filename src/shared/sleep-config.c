@@ -802,6 +802,13 @@ static bool location_is_resume_device(const HibernateLocation *location, dev_t s
  * Attempt to find the hibernation location by parsing /proc/swaps, /sys/power/resume, and
  * /sys/power/resume_offset.
  *
+ * Beware:
+ *  Never use a device or file as location that hasn't been somehow specified by a user that would also be
+ *  entrusted with full system memory access (for example via /sys/power/resume) or that isn't an already
+ *  active swap area!
+ *  Otherwise various security attacks might become possible, for example an attacker could silently attach
+ *  such a device and circumvent full disk encryption when it would be automatically used for hibernation.
+ *
  * Returns:
  *  1 - Values are set in /sys/power/resume and /sys/power/resume_offset.
  *      ret_hibernate_location will represent matching /proc/swap entry if identified or NULL if not.
