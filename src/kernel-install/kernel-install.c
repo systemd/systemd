@@ -31,6 +31,7 @@
 static bool arg_verbose = false;
 static char *arg_esp_path = NULL;
 static char *arg_xbootldr_path = NULL;
+static int arg_make_entry_directory = -1; /* tristate */
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -693,7 +694,10 @@ static bool context_should_make_entry_dir(Context *c) {
         /* Compatibility with earlier versions that used the presence of $BOOT_ROOT/$ENTRY_TOKEN to signal to
          * 00-entry-directory to create $ENTRY_DIR_ABS to serve as the indication to use or to not use the BLS */
 
-        return c->layout == LAYOUT_BLS;
+        if (arg_make_entry_directory < 0)
+                return c->layout == LAYOUT_BLS;
+
+        return arg_make_entry_directory;
 }
 
 static int context_make_entry_dir(Context *c) {
@@ -1052,6 +1056,8 @@ static int help(void) {
                "  -v --verbose           Increase verbosity\n"
                "     --esp-path=PATH     Path to the EFI System Partition (ESP)\n"
                "     --boot-path=PATH    Path to the $BOOT partition\n"
+               "     --make-entry-directory=yes|no|auto\n"
+               "                         Create $BOOT/ENTRY-TOKEN/ directory\n"
                "\nSee the %4$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -1066,6 +1072,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_ESP_PATH,
                 ARG_BOOT_PATH,
+                ARG_MAKE_ENTRY_DIRECTORY,
         };
         static const struct option options[] = {
                 { "help",                 no_argument,       NULL, 'h'                      },
@@ -1073,6 +1080,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "verbose",              no_argument,       NULL, 'v'                      },
                 { "esp-path",             required_argument, NULL, ARG_ESP_PATH             },
                 { "boot-path",            required_argument, NULL, ARG_BOOT_PATH            },
+                { "make-entry-directory", required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY },
                 {}
         };
         int t, r;
@@ -1103,6 +1111,20 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_path_argument(optarg, /* suppress_root = */ false, &arg_xbootldr_path);
                         if (r < 0)
                                 return log_oom();
+                        break;
+
+                case ARG_MAKE_ENTRY_DIRECTORY:
+                        if (streq(optarg, "auto"))
+                                arg_make_entry_directory = -1;
+                        else {
+                                bool b;
+
+                                r = parse_boolean_argument("--make-entry-directory=", optarg, &b);
+                                if (r < 0)
+                                        return r;
+
+                                arg_make_entry_directory = b;
+                        }
                         break;
 
                 case '?':
