@@ -4268,7 +4268,7 @@ CGroupContext *unit_get_cgroup_context(Unit *u) {
         return (CGroupContext*) ((uint8_t*) u + offset);
 }
 
-ExecRuntime *unit_get_exec_runtime(Unit *u) {
+ExecSharedRuntime *unit_get_exec_runtime(Unit *u) {
         size_t offset;
 
         if (u->type < 0)
@@ -4278,7 +4278,7 @@ ExecRuntime *unit_get_exec_runtime(Unit *u) {
         if (offset <= 0)
                 return NULL;
 
-        return *(ExecRuntime**) ((uint8_t*) u + offset);
+        return *(ExecSharedRuntime**) ((uint8_t*) u + offset);
 }
 
 static const char* unit_drop_in_dir(Unit *u, UnitWriteFlags flags) {
@@ -4791,7 +4791,7 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
 }
 
 int unit_setup_exec_runtime(Unit *u) {
-        ExecRuntime **rt;
+        ExecSharedRuntime **rt;
         size_t offset;
         Unit *other;
         int r;
@@ -4799,19 +4799,19 @@ int unit_setup_exec_runtime(Unit *u) {
         offset = UNIT_VTABLE(u)->exec_runtime_offset;
         assert(offset > 0);
 
-        /* Check if there already is an ExecRuntime for this unit? */
-        rt = (ExecRuntime**) ((uint8_t*) u + offset);
+        /* Check if there already is an ExecSharedRuntime for this unit? */
+        rt = (ExecSharedRuntime**) ((uint8_t*) u + offset);
         if (*rt)
                 return 0;
 
         /* Try to get it from somebody else */
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_JOINS_NAMESPACE_OF) {
-                r = exec_runtime_acquire(u->manager, NULL, other->id, false, rt);
+                r = exec_shared_runtime_acquire(u->manager, NULL, other->id, false, rt);
                 if (r == 1)
                         return 1;
         }
 
-        return exec_runtime_acquire(u->manager, unit_get_exec_context(u), u->id, true, rt);
+        return exec_shared_runtime_acquire(u->manager, unit_get_exec_context(u), u->id, true, rt);
 }
 
 int unit_setup_dynamic_creds(Unit *u) {
