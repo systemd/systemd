@@ -257,7 +257,7 @@ int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret) {
         assert(path);
         assert(ret);
 
-        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, 0);
+        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, /* xopen_flags = */ 0, /* mode = */ 0);
         if (fd < 0)
                 return fd;
 
