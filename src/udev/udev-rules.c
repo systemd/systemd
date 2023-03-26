@@ -1069,6 +1069,51 @@ static UdevRuleOperatorType parse_operator(const char *op) {
         return _OP_TYPE_INVALID;
 }
 
+static void check_token_delimiters(UdevRuleLine *rule_line, const char *line) {
+        assert(rule_line);
+
+        size_t n_comma = 0;
+        bool ws_before_comma = false, ws_after_comma = false;
+        const char *p;
+
+        for (p = line; !isempty(p); ++p) {
+                if (*p == ',')
+                        ++n_comma;
+                else if (strchr(WHITESPACE, *p)) {
+                        if (n_comma > 0)
+                                ws_after_comma = true;
+                        else
+                                ws_before_comma = true;
+                } else
+                        break;
+        }
+
+        if (line == rule_line->line) {
+                /* this is the first token of the rule */
+                if (n_comma > 0)
+                        log_line_warning(rule_line, "Stray leading comma.");
+        } else if (isempty(p)) {
+                /* there are no more tokens in the rule */
+                if (n_comma > 0)
+                        log_line_warning(rule_line, "Stray trailing comma.");
+        } else {
+                /* single comma is expected */
+                if (n_comma == 0)
+                        log_line_warning(rule_line, "A comma between tokens is expected.");
+                else if (n_comma > 1)
+                        log_line_warning(rule_line, "Too many commas between tokens.");
+
+                /* whitespace after comma is expected */
+                if (n_comma > 0) {
+                        if (ws_before_comma)
+                                log_line_warning(rule_line, "Stray whitespace before comma.");
+                        if (!ws_after_comma)
+                                log_line_warning(rule_line, "Whitespace after comma is expected.");
+                } else if (!ws_before_comma && !ws_after_comma)
+                        log_line_warning(rule_line, "Whitespace between tokens is expected.");
+        }
+}
+
 static int parse_line(char **line, char **ret_key, char **ret_attr, UdevRuleOperatorType *ret_op, char **ret_value) {
         char *key_begin, *key_end, *attr, *tmp;
         UdevRuleOperatorType op;
@@ -1140,7 +1185,7 @@ static void sort_tokens(UdevRuleLine *rule_line) {
         }
 }
 
-static int rule_add_line(UdevRuleFile *rule_file, const char *line_str, unsigned line_nr) {
+static int rule_add_line(UdevRuleFile *rule_file, const char *line_str, unsigned line_nr, bool extra_checks) {
         _cleanup_(udev_rule_line_freep) UdevRuleLine *rule_line = NULL;
         _cleanup_free_ char *line = NULL;
         char *p;
@@ -1171,6 +1216,9 @@ static int rule_add_line(UdevRuleFile *rule_file, const char *line_str, unsigned
         for (p = rule_line->line; !isempty(p); ) {
                 char *key, *attr, *value;
                 UdevRuleOperatorType op;
+
+                if (extra_checks)
+                        check_token_delimiters(rule_line, p);
 
                 r = parse_line(&p, &key, &attr, &op, &value);
                 if (r < 0)
@@ -1227,7 +1275,155 @@ static void rule_resolve_goto(UdevRuleFile *rule_file) {
         }
 }
 
-int udev_rules_parse_file(UdevRules *rules, const char *filename, UdevRuleFile **ret) {
+static bool token_data_is_string(UdevRuleTokenType type) {
+        return IN_SET(type, TK_M_ENV,
+                            TK_M_CONST,
+                            TK_M_ATTR,
+                            TK_M_SYSCTL,
+                            TK_M_PARENTS_ATTR,
+                            TK_A_SECLABEL,
+                            TK_A_ENV,
+                            TK_A_ATTR,
+                            TK_A_SYSCTL);
+}
+
+static bool token_type_and_data_eq(const UdevRuleToken *a, const UdevRuleToken *b) {
+        assert(a);
+        assert(b);
+
+        return a->type == b->type &&
+               (token_data_is_string(a->type) ? streq_ptr(a->data, b->data) : (a->data == b->data));
+}
+
+static bool nulstr_eq(const char *a, const char *b) {
+        NULSTR_FOREACH(i, a)
+                if (!nulstr_contains(b, i))
+                        return false;
+
+        NULSTR_FOREACH(i, b)
+                if (!nulstr_contains(a, i))
+                        return false;
+
+        return true;
+}
+
+static bool token_type_and_value_eq(const UdevRuleToken *a, const UdevRuleToken *b) {
+        assert(a);
+        assert(b);
+
+        if (a->type != b->type ||
+            a->match_type != b->match_type)
+                return false;
+
+        /* token value is ignored for certain match types */
+        if (IN_SET(a->match_type, MATCH_TYPE_EMPTY, MATCH_TYPE_SUBSYSTEM))
+                return true;
+
+        return type_has_nulstr_value(a->type) ? nulstr_eq(a->value, b->value) :
+                                                streq_ptr(a->value, b->value);
+}
+
+static bool conflicting_op(UdevRuleOperatorType a, UdevRuleOperatorType b) {
+        return (a == OP_MATCH && b == OP_NOMATCH) ||
+               (a == OP_NOMATCH && b == OP_MATCH);
+}
+
+/* test whether all fields besides UdevRuleOperatorType of two tokens match */
+static bool tokens_eq(const UdevRuleToken *a, const UdevRuleToken *b) {
+        assert(a);
+        assert(b);
+
+        return a->attr_subst_type == b->attr_subst_type &&
+               a->attr_match_remove_trailing_whitespace == b->attr_match_remove_trailing_whitespace &&
+               token_type_and_value_eq(a, b) &&
+               token_type_and_data_eq(a, b);
+}
+
+static bool nulstr_tokens_conflict(const UdevRuleToken *a, const UdevRuleToken *b) {
+        assert(a);
+        assert(b);
+
+        if (!(a->type == b->type &&
+              type_has_nulstr_value(a->type) &&
+              a->op == b->op &&
+              a->op == OP_MATCH &&
+              a->match_type == b->match_type &&
+              a->attr_subst_type == b->attr_subst_type &&
+              a->attr_match_remove_trailing_whitespace == b->attr_match_remove_trailing_whitespace &&
+              token_type_and_data_eq(a, b)))
+                return false;
+
+        if (a->match_type == MATCH_TYPE_PLAIN) {
+                NULSTR_FOREACH(i, a->value)
+                        if (nulstr_contains(b->value, i))
+                                return false;
+                return true;
+        }
+
+        if (a->match_type == MATCH_TYPE_GLOB) {
+                NULSTR_FOREACH(i, a->value) {
+                        size_t i_n = strcspn(i, GLOB_CHARS);
+                        if (i_n == 0)
+                                return false;
+                        NULSTR_FOREACH(j, b->value) {
+                                size_t j_n = strcspn(j, GLOB_CHARS);
+                                if (j_n == 0 || strneq(i, j, MIN(i_n, j_n)))
+                                        return false;
+                        }
+
+                }
+                return true;
+        }
+
+        return false;
+}
+
+static void udev_check_unused_labels(UdevRuleLine *line) {
+        assert(line);
+
+        if (FLAGS_SET(line->type, LINE_HAS_LABEL) &&
+            !FLAGS_SET(line->type, LINE_IS_REFERENCED))
+                log_line_warning(line, "LABEL=\"%s\" is unused.", line->label);
+}
+
+static void udev_check_conflicts_duplicates(UdevRuleLine *line) {
+        assert(line);
+
+        bool conflicts = false, duplicates = false;
+
+        LIST_FOREACH(tokens, token, line->tokens)
+                LIST_FOREACH(tokens, i, token->tokens_next) {
+                        bool new_conflicts = false, new_duplicates = false;
+
+                        if (tokens_eq(token, i)) {
+                                if (!duplicates && token->op == i->op)
+                                        new_duplicates = true;
+                                if (!conflicts && conflicting_op(token->op, i->op))
+                                        new_conflicts = true;
+                        } else if (!conflicts && nulstr_tokens_conflict(token, i))
+                                new_conflicts = true;
+                        else
+                                continue;
+
+                        if (new_duplicates) {
+                                duplicates = new_duplicates;
+                                log_line_warning(line, "duplicate expressions");
+                        }
+                        if (new_conflicts) {
+                                conflicts = new_conflicts;
+                                log_line_error(line, "conflicting match expressions, the line takes no effect");
+                        }
+                        if (conflicts && duplicates)
+                                return;
+                }
+}
+
+static void udev_check_rule_line(UdevRuleLine *line) {
+        udev_check_unused_labels(line);
+        udev_check_conflicts_duplicates(line);
+}
+
+int udev_rules_parse_file(UdevRules *rules, const char *filename, bool extra_checks, UdevRuleFile **ret) {
         _cleanup_(udev_rule_file_freep) UdevRuleFile *rule_file = NULL;
         _cleanup_free_ char *continuation = NULL, *name = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -1326,7 +1522,7 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename, UdevRuleFile *
                 if (ignore_line)
                         log_file_error(rule_file, line_nr, "Line is too long, ignored");
                 else if (len > 0)
-                        (void) rule_add_line(rule_file, line, line_nr);
+                        (void) rule_add_line(rule_file, line, line_nr, extra_checks);
 
                 continuation = mfree(continuation);
                 ignore_line = false;
@@ -1338,6 +1534,10 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename, UdevRuleFile *
 
         rule_resolve_goto(rule_file);
 
+        if (extra_checks)
+                LIST_FOREACH(rule_lines, line, rule_file->rule_lines)
+                        udev_check_rule_line(line);
+
         if (ret)
                 *ret = rule_file;
 
@@ -1345,142 +1545,8 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename, UdevRuleFile *
         return 1;
 }
 
-static bool token_data_is_string(UdevRuleTokenType type) {
-        return IN_SET(type, TK_M_ENV,
-                            TK_M_CONST,
-                            TK_M_ATTR,
-                            TK_M_SYSCTL,
-                            TK_M_PARENTS_ATTR,
-                            TK_A_SECLABEL,
-                            TK_A_ENV,
-                            TK_A_ATTR,
-                            TK_A_SYSCTL);
-}
-
-static bool token_type_and_data_eq(const UdevRuleToken *a, const UdevRuleToken *b) {
-        assert(a);
-        assert(b);
-
-        return a->type == b->type &&
-               (token_data_is_string(a->type) ? streq_ptr(a->data, b->data) : (a->data == b->data));
-}
-
-static bool nulstr_eq(const char *a, const char *b) {
-        NULSTR_FOREACH(i, a)
-                if (!nulstr_contains(b, i))
-                        return false;
-
-        NULSTR_FOREACH(i, b)
-                if (!nulstr_contains(a, i))
-                        return false;
-
-        return true;
-}
-
-static bool token_type_and_value_eq(const UdevRuleToken *a, const UdevRuleToken *b) {
-        assert(a);
-        assert(b);
-
-        if (a->type != b->type ||
-            a->match_type != b->match_type)
-                return false;
-
-        /* token value is ignored for certain match types */
-        if (IN_SET(a->match_type, MATCH_TYPE_EMPTY, MATCH_TYPE_SUBSYSTEM))
-                return true;
-
-        return type_has_nulstr_value(a->type) ? nulstr_eq(a->value, b->value) :
-                                                streq_ptr(a->value, b->value);
-}
-
-static bool conflicting_op(UdevRuleOperatorType a, UdevRuleOperatorType b) {
-        return (a == OP_MATCH && b == OP_NOMATCH) ||
-               (a == OP_NOMATCH && b == OP_MATCH);
-}
-
-/* test whether all fields besides UdevRuleOperatorType of two tokens match */
-static bool tokens_eq(const UdevRuleToken *a, const UdevRuleToken *b) {
-        assert(a);
-        assert(b);
-
-        return a->attr_subst_type == b->attr_subst_type &&
-               a->attr_match_remove_trailing_whitespace == b->attr_match_remove_trailing_whitespace &&
-               token_type_and_value_eq(a, b) &&
-               token_type_and_data_eq(a, b);
-}
-
-static bool nulstr_tokens_conflict(const UdevRuleToken *a, const UdevRuleToken *b) {
-        assert(a);
-        assert(b);
-
-        if (!(a->type == b->type &&
-              type_has_nulstr_value(a->type) &&
-              a->op == b->op &&
-              a->op == OP_MATCH &&
-              a->match_type == b->match_type &&
-              a->match_type == MATCH_TYPE_PLAIN &&
-              a->attr_subst_type == b->attr_subst_type &&
-              a->attr_match_remove_trailing_whitespace == b->attr_match_remove_trailing_whitespace &&
-              token_type_and_data_eq(a, b)))
-                return false;
-
-        NULSTR_FOREACH(i, a->value)
-                if (nulstr_contains(b->value, i))
-                        return false;
-
-        return true;
-}
-
-static void udev_check_unused_labels(UdevRuleLine *line) {
-        assert(line);
-
-        if (FLAGS_SET(line->type, LINE_HAS_LABEL) &&
-            !FLAGS_SET(line->type, LINE_IS_REFERENCED))
-                log_line_warning(line, "LABEL=\"%s\" is unused.", line->label);
-}
-
-static void udev_check_conflicts_duplicates(UdevRuleLine *line) {
-        assert(line);
-
-        bool conflicts = false, duplicates = false;
-
-        LIST_FOREACH(tokens, token, line->tokens)
-                LIST_FOREACH(tokens, i, token->tokens_next) {
-                        bool new_conflicts = false, new_duplicates = false;
-
-                        if (tokens_eq(token, i)) {
-                                if (!duplicates && token->op == i->op)
-                                        new_duplicates = true;
-                                if (!conflicts && conflicting_op(token->op, i->op))
-                                        new_conflicts = true;
-                        } else if (!conflicts && nulstr_tokens_conflict(token, i))
-                                new_conflicts = true;
-                        else
-                                continue;
-
-                        if (new_duplicates) {
-                                duplicates = new_duplicates;
-                                log_line_warning(line, "duplicate expressions");
-                        }
-                        if (new_conflicts) {
-                                conflicts = new_conflicts;
-                                log_line_error(line, "conflicting match expressions, the line takes no effect");
-                        }
-                        if (conflicts && duplicates)
-                                return;
-                }
-}
-
-static void udev_check_rule_line(UdevRuleLine *line) {
-        udev_check_unused_labels(line);
-        udev_check_conflicts_duplicates(line);
-}
-
 unsigned udev_rule_file_get_issues(UdevRuleFile *rule_file) {
         assert(rule_file);
-
-        LIST_FOREACH(rule_lines, line, rule_file->rule_lines)
-                udev_check_rule_line(line);
 
         return rule_file->issues;
 }
@@ -1513,7 +1579,7 @@ int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing
                 return log_debug_errno(r, "Failed to enumerate rules files: %m");
 
         STRV_FOREACH(f, files) {
-                r = udev_rules_parse_file(rules, *f, NULL);
+                r = udev_rules_parse_file(rules, *f, /* extra_checks = */ false, NULL);
                 if (r < 0)
                         log_debug_errno(r, "Failed to read rules file %s, ignoring: %m", *f);
         }
