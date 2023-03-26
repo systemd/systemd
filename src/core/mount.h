@@ -75,7 +75,7 @@ struct Mount {
         KillContext kill_context;
         CGroupContext cgroup_context;
 
-        ExecRuntime *exec_runtime;
+        ExecSharedRuntime *exec_runtime;
         DynamicCreds dynamic_creds;
 
         MountState state, deserialized_state;
