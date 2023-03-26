@@ -10,7 +10,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "ordered-set.h"
 #include "resolved-conf.h"
 #include "resolved-dns-server.h"
