@@ -12,6 +12,7 @@
 #include "managed-journal-file.h"
 #include "mmap-cache.h"
 #include "rm-rf.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "tests.h"
 
@@ -45,7 +46,17 @@ static int raw_verify(const char *fn, const char *verification_key) {
         m = mmap_cache_new();
         assert_se(m != NULL);
 
-        r = journal_file_open(-1, fn, O_RDONLY, JOURNAL_COMPRESS|(verification_key ? JOURNAL_SEAL : 0), 0666, UINT64_MAX, NULL, m, NULL, &f);
+        r = journal_file_open(
+                        /* fd= */ -1,
+                        fn,
+                        O_RDONLY,
+                        JOURNAL_COMPRESS|(verification_key ? JOURNAL_SEAL : 0),
+                        0666,
+                        /* compress_threshold_bytes= */ UINT64_MAX,
+                        /* metrics= */ NULL,
+                        m,
+                        /* template= */ NULL,
+                        &f);
         if (r < 0)
                 return r;
 
@@ -55,16 +66,15 @@ static int raw_verify(const char *fn, const char *verification_key) {
         return r;
 }
 
-static int run_test(int argc, char *argv[]) {
+static int run_test(const char *verification_key, ssize_t max_iterations) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         char t[] = "/var/tmp/journal-XXXXXX";
-        unsigned n;
+        struct stat st;
         JournalFile *f;
         ManagedJournalFile *df;
-        const char *verification_key = argv[1];
         usec_t from = 0, to = 0, total = 0;
-        struct stat st;
-        uint64_t p;
+        uint64_t start, end;
+        int r;
 
         m = mmap_cache_new();
         assert_se(m != NULL);
@@ -79,32 +89,57 @@ static int run_test(int argc, char *argv[]) {
         assert_se(chdir(t) >= 0);
         (void) chattr_path(t, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
 
-        log_info("Generating...");
+        log_info("Generating a test journal");
 
-        assert_se(managed_journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS|(verification_key ? JOURNAL_SEAL : 0), 0666, UINT64_MAX, NULL, m, NULL, NULL, &df) == 0);
+        assert_se(managed_journal_file_open(
+                                /* fd= */ -1,
+                                "test.journal",
+                                O_RDWR|O_CREAT,
+                                JOURNAL_COMPRESS|(verification_key ? JOURNAL_SEAL : 0),
+                                0666,
+                                /* compress_threshold_bytes= */ UINT64_MAX,
+                                /* metrics= */ NULL,
+                                m,
+                                /* deferred_closes= */ NULL,
+                                /* template= */ NULL,
+                                &df) == 0);
 
-        for (n = 0; n < N_ENTRIES; n++) {
+        for (size_t n = 0; n < N_ENTRIES; n++) {
+                _cleanup_free_ char *test = NULL;
                 struct iovec iovec;
                 struct dual_timestamp ts;
-                char *test;
 
                 dual_timestamp_get(&ts);
-
                 assert_se(asprintf(&test, "RANDOM=%li", random() % RANDOM_RANGE));
-
                 iovec = IOVEC_MAKE_STRING(test);
-
-                assert_se(journal_file_append_entry(df->file, &ts, NULL, &iovec, 1, NULL, NULL, NULL, NULL) == 0);
-
-                free(test);
+                assert_se(journal_file_append_entry(
+                                        df->file,
+                                        &ts,
+                                        /* boot_id= */ NULL,
+                                        &iovec,
+                                        /* n_iovec= */ 1,
+                                        /* seqnum= */ NULL,
+                                        /* seqnum_id= */ NULL,
+                                        /* ret_object= */ NULL,
+                                        /* ret_offset= */ NULL) == 0);
         }
 
         (void) managed_journal_file_close(df);
 
-        log_info("Verifying...");
+        log_info("Verifying with key: %s", strna(verification_key));
 
-        assert_se(journal_file_open(-1, "test.journal", O_RDONLY, JOURNAL_COMPRESS|(verification_key ? JOURNAL_SEAL: 0), 0666, UINT64_MAX, NULL, m, NULL, &f) == 0);
-        /* journal_file_print_header(f); */
+        assert_se(journal_file_open(
+                                /* fd= */ -1,
+                                "test.journal",
+                                O_RDONLY,
+                                JOURNAL_COMPRESS|(verification_key ? JOURNAL_SEAL : 0),
+                                0666,
+                                /* compress_threshold_bytes= */ UINT64_MAX,
+                                /* metrics= */ NULL,
+                                m,
+                                /* template= */ NULL,
+                                &f) == 0);
+        journal_file_print_header(f);
         journal_file_dump(f);
 
         assert_se(journal_file_verify(f, verification_key, &from, &to, &total, true) >= 0);
@@ -116,25 +151,25 @@ static int run_test(int argc, char *argv[]) {
                          FORMAT_TIMESPAN(total > to ? total - to : 0, 0));
 
         (void) journal_file_close(f);
+        assert_se(stat("test.journal", &st) >= 0);
 
-        if (verification_key) {
-                log_info("Toggling bits...");
+        start = 38448 * 8 + 0;
+        end = max_iterations < 0 ? (uint64_t)st.st_size * 8 : start + max_iterations;
+        log_info("Toggling bits %"PRIu64 " to %"PRIu64, start, end);
 
-                assert_se(stat("test.journal", &st) >= 0);
+        for (uint64_t p = start; p < end; p++) {
+                bit_toggle("test.journal", p);
 
-                for (p = 38448*8+0; p < ((uint64_t) st.st_size * 8); p ++) {
-                        bit_toggle("test.journal", p);
-
+                if (max_iterations < 0)
                         log_info("[ %"PRIu64"+%"PRIu64"]", p / 8, p % 8);
 
-                        if (raw_verify("test.journal", verification_key) >= 0)
-                                log_notice(ANSI_HIGHLIGHT_RED ">>>> %"PRIu64" (bit %"PRIu64") can be toggled without detection." ANSI_NORMAL, p / 8, p % 8);
+                r = raw_verify("test.journal", verification_key);
+                /* Suppress the notice when running in the limited (CI) mode */
+                if (verification_key && max_iterations < 0 && r >= 0)
+                        log_notice(ANSI_HIGHLIGHT_RED ">>>> %"PRIu64" (bit %"PRIu64") can be toggled without detection." ANSI_NORMAL, p / 8, p % 8);
 
-                        bit_toggle("test.journal", p);
-                }
+                bit_toggle("test.journal", p);
         }
-
-        log_info("Exiting...");
 
         assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 
@@ -142,11 +177,35 @@ static int run_test(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
+        const char *verification_key = NULL;
+        int max_iterations = 512;
+
+        if (argc > 1) {
+                /* Don't limit the number of iterations when the verification key
+                 * is provided on the command line, we want to do that only in CIs */
+                verification_key = argv[1];
+                max_iterations = -1;
+        }
+
         assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
-        run_test(argc, argv);
+        run_test(verification_key, max_iterations);
 
         assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
-        run_test(argc, argv);
+        run_test(verification_key, max_iterations);
+
+#if HAVE_GCRYPT
+        /* If we're running without any arguments and we're compiled with gcrypt
+         * check the journal verification stuff with a valid key as well */
+        if (argc <= 1) {
+                verification_key = "c262bd-85187f-0b1b04-877cc5/1c7af8-35a4e900";
+
+                assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
+                run_test(verification_key, max_iterations);
+
+                assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
+                run_test(verification_key, max_iterations);
+        }
+#endif
 
         return 0;
 }

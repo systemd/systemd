@@ -105,6 +105,7 @@ tests += [
         {
                 'sources' : files('test-journal-verify.c'),
                 'base' : test_journal_base,
+                'timeout' : 90,
         },
         {
                 'sources' : files('test-journal.c'),
