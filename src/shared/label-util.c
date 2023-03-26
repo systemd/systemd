@@ -7,6 +7,7 @@
 #include "btrfs-util.h"
 #include "fs-util.h"
 #include "label.h"
+#include "label-util.h"
 #include "macro.h"
 #include "selinux-util.h"
 #include "smack-util.h"
@@ -114,4 +115,30 @@ int btrfs_subvol_make_label(const char *path) {
                 return r;
 
         return mac_smack_fix(path, 0);
+}
+
+static int label_pre_internal(int dir_fd, const char *path, mode_t mode) {
+        return mac_selinux_create_file_prepare_at(dir_fd, path, mode);
+}
+
+static int label_post_internal(int dir_fd, const char *path) {
+        mac_selinux_create_file_clear();
+        return mac_smack_fix_full(dir_fd, path, NULL, 0);
+}
+
+static const LabelOps *ops = &(LabelOps) {
+        .pre = label_pre_internal,
+        .post = label_post_internal,
+};
+
+int mac_init(void) {
+        int r;
+
+        r = mac_selinux_init();
+        if (r < 0)
+                return r;
+
+        label_ops = ops;
+
+        return 0;
 }
