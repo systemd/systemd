@@ -289,8 +289,8 @@ static int userdb_on_query_reply(
 
         case LOOKUP_MEMBERSHIP: {
                 struct membership_data {
-                        const char *user_name;
-                        const char *group_name;
+                        char *user_name;
+                        char *group_name;
                 } membership_data = {};
 
                 static const JsonDispatch dispatch_table[] = {
@@ -306,21 +306,8 @@ static int userdb_on_query_reply(
                 if (r < 0)
                         goto finish;
 
-                iterator->found_user_name = mfree(iterator->found_user_name);
-                iterator->found_group_name = mfree(iterator->found_group_name);
-
-                iterator->found_user_name = strdup(membership_data.user_name);
-                if (!iterator->found_user_name) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
-                iterator->found_group_name = strdup(membership_data.group_name);
-                if (!iterator->found_group_name) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
-
+                free_and_replace(iterator->found_user_name, membership_data.user_name);
+                free_and_replace(iterator->found_group_name, membership_data.group_name);
                 iterator->n_found++;
 
                 if (FLAGS_SET(flags, VARLINK_REPLY_CONTINUES))
