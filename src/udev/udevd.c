@@ -2062,7 +2062,7 @@ int run_udevd(int argc, char *argv[]) {
         /* set umask before creating any file/directory */
         umask(022);
 
-        r = mac_selinux_init();
+        r = mac_init();
         if (r < 0)
                 return r;
 
