@@ -1133,6 +1133,8 @@ static int help(void) {
                "     --boot-path=PATH    Path to the $BOOT partition\n"
                "     --make-entry-directory=yes|no|auto\n"
                "                         Create $BOOT/ENTRY-TOKEN/ directory\n"
+               "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
+               "                         Entry token to use for this installation\n"
                "\nSee the %4$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -1142,12 +1144,13 @@ static int help(void) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
+static int parse_argv(int argc, char *argv[], Context *c) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_ESP_PATH,
                 ARG_BOOT_PATH,
                 ARG_MAKE_ENTRY_DIRECTORY,
+                ARG_ENTRY_TOKEN,
         };
         static const struct option options[] = {
                 { "help",                 no_argument,       NULL, 'h'                      },
@@ -1156,12 +1159,14 @@ static int parse_argv(int argc, char *argv[]) {
                 { "esp-path",             required_argument, NULL, ARG_ESP_PATH             },
                 { "boot-path",            required_argument, NULL, ARG_BOOT_PATH            },
                 { "make-entry-directory", required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY },
+                { "entry-token",          required_argument, NULL, ARG_ENTRY_TOKEN          },
                 {}
         };
         int t, r;
 
         assert(argc >= 0);
         assert(argv);
+        assert(c);
 
         while ((t = getopt_long(argc, argv, "hv", options, NULL)) >= 0)
                 switch (t) {
@@ -1200,6 +1205,12 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
 
+                case ARG_ENTRY_TOKEN:
+                        r = parse_boot_entry_token_type(optarg, &c->entry_token_type, &c->entry_token);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1231,7 +1242,7 @@ static int run(int argc, char* argv[]) {
         if (bypass())
                 return 0;
 
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, &c);
         if (r <= 0)
                 return r;
 
