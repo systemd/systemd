@@ -118,93 +118,16 @@ finish:
 int settle_entry_token(void) {
         int r;
 
-        switch (arg_entry_token_type) {
-
-        case ARG_ENTRY_TOKEN_AUTO: {
-                _cleanup_free_ char *buf = NULL, *p = NULL;
-                p = path_join(arg_root, etc_kernel(), "entry-token");
-                if (!p)
-                        return log_oom();
-                r = read_one_line_file(p, &buf);
-                if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to read %s: %m", p);
-
-                if (!isempty(buf)) {
-                        free_and_replace(arg_entry_token, buf);
-                        arg_entry_token_type = ARG_ENTRY_TOKEN_LITERAL;
-                } else if (sd_id128_is_null(arg_machine_id)) {
-                        _cleanup_free_ char *id = NULL, *image_id = NULL;
-
-                        r = parse_os_release(arg_root,
-                                             "IMAGE_ID", &image_id,
-                                             "ID", &id);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to load /etc/os-release: %m");
-
-                        if (!isempty(image_id)) {
-                                free_and_replace(arg_entry_token, image_id);
-                                arg_entry_token_type = ARG_ENTRY_TOKEN_OS_IMAGE_ID;
-                        } else if (!isempty(id)) {
-                                free_and_replace(arg_entry_token, id);
-                                arg_entry_token_type = ARG_ENTRY_TOKEN_OS_ID;
-                        } else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No machine ID set, and /etc/os-release carries no ID=/IMAGE_ID= fields.");
-                } else {
-                        r = free_and_strdup_warn(&arg_entry_token, SD_ID128_TO_STRING(arg_machine_id));
-                        if (r < 0)
-                                return r;
-
-                        arg_entry_token_type = ARG_ENTRY_TOKEN_MACHINE_ID;
-                }
-
-                break;
-        }
-
-        case ARG_ENTRY_TOKEN_MACHINE_ID:
-                if (sd_id128_is_null(arg_machine_id))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No machine ID set.");
-
-                r = free_and_strdup_warn(&arg_entry_token, SD_ID128_TO_STRING(arg_machine_id));
+        if (!arg_entry_token) {
+                r = boot_entry_token_from_type(
+                                arg_root,
+                                etc_kernel(),
+                                arg_machine_id,
+                                &arg_entry_token_type,
+                                &arg_entry_token);
                 if (r < 0)
                         return r;
-
-                break;
-
-        case ARG_ENTRY_TOKEN_OS_IMAGE_ID: {
-                _cleanup_free_ char *buf = NULL;
-
-                r = parse_os_release(arg_root, "IMAGE_ID", &buf);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to load /etc/os-release: %m");
-
-                if (isempty(buf))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "IMAGE_ID= field not set in /etc/os-release.");
-
-                free_and_replace(arg_entry_token, buf);
-                break;
         }
-
-        case ARG_ENTRY_TOKEN_OS_ID: {
-                _cleanup_free_ char *buf = NULL;
-
-                r = parse_os_release(arg_root, "ID", &buf);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to load /etc/os-release: %m");
-
-                if (isempty(buf))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "ID= field not set in /etc/os-release.");
-
-                free_and_replace(arg_entry_token, buf);
-                break;
-        }
-
-        case ARG_ENTRY_TOKEN_LITERAL:
-                assert(!isempty(arg_entry_token)); /* already filled in by command line parser */
-                break;
-        }
-
-        if (isempty(arg_entry_token) || !(utf8_is_valid(arg_entry_token) && string_is_safe(arg_entry_token)))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected entry token not valid: %s", arg_entry_token);
 
         log_debug("Using entry token: %s", arg_entry_token);
         return 0;

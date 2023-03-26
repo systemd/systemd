@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "chase.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
 #include "id128-util.h"
@@ -41,6 +42,7 @@ bool id128_is_valid(const char *s) {
 }
 
 int id128_read_fd(int fd, Id128FormatFlag f, sd_id128_t *ret) {
+        _cleanup_close_ int newfd = -EBADF;
         char buffer[SD_ID128_UUID_STRING_MAX + 1]; /* +1 is for trailing newline */
         ssize_t l;
         int r;
@@ -56,6 +58,10 @@ int id128_read_fd(int fd, Id128FormatFlag f, sd_id128_t *ret) {
          *     -ENOMEDIUM: an empty string,
          *     -ENOPKG:    "uninitialized" or "uninitialized\n",
          *     -EUCLEAN:   other invalid strings. */
+
+        fd = fd_reopen_condition(fd, O_RDONLY|O_CLOEXEC|O_NOCTTY, O_PATH, &newfd);
+        if (fd < 0)
+                return fd;
 
         l = loop_read(fd, buffer, sizeof(buffer), false); /* we expect a short read of either 32/33 or 36/37 chars */
         if (l < 0)
@@ -101,12 +107,14 @@ int id128_read_fd(int fd, Id128FormatFlag f, sd_id128_t *ret) {
         return r == -EINVAL ? -EUCLEAN : r;
 }
 
-int id128_read(const char *p, Id128FormatFlag f, sd_id128_t *ret) {
+int id128_read(const char *root, const char *p, Id128FormatFlag f, sd_id128_t *ret) {
         _cleanup_close_ int fd = -EBADF;
 
-        fd = open(p, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        assert(p);
+
+        fd = chase_and_open(p, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, /* ret_path = */ NULL);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return id128_read_fd(fd, f, ret);
 }
@@ -184,9 +192,9 @@ int id128_get_product(sd_id128_t *ret) {
         /* Reads the systems product UUID from DMI or devicetree (where it is located on POWER). This is
          * particularly relevant in VM environments, where VM managers typically place a VM uuid there. */
 
-        r = id128_read("/sys/class/dmi/id/product_uuid", ID128_FORMAT_UUID, &uuid);
+        r = id128_read(NULL, "/sys/class/dmi/id/product_uuid", ID128_FORMAT_UUID, &uuid);
         if (r == -ENOENT)
-                r = id128_read("/proc/device-tree/vm,uuid", ID128_FORMAT_UUID, &uuid);
+                r = id128_read(NULL, "/proc/device-tree/vm,uuid", ID128_FORMAT_UUID, &uuid);
         if (r < 0)
                 return r;
 
