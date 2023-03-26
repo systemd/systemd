@@ -1306,6 +1306,9 @@ Features:
 * Maybe add a separate GPT partition type to the discoverable partition spec
   for "hibernate" partitions, that are exactly like swap partitions but only
   activated right before hibernation and thus never used for regular swapping.
+  Beware: If this would be used per default, attack as described in
+          src/shared/sleep-config.c's location_is_resume_device() function would become
+          possible.
 
 * socket units: allow creating a udev monitor socket with ListenDevices= or so,
   with matches, then activate app through that passing socket over
