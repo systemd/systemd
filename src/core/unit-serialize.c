@@ -522,7 +522,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         continue;
                 }
 
-                r = exec_runtime_deserialize_compat(u, l, v, fds);
+                r = exec_shared_runtime_deserialize_compat(u, l, v, fds);
                 if (r < 0) {
                         log_unit_warning(u, "Failed to deserialize runtime parameter '%s', ignoring.", l);
                         continue;

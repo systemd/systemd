@@ -157,7 +157,7 @@ struct Service {
         ServiceExecCommand control_command_id;
 
         /* Runtime data of the execution context */
-        ExecRuntime *exec_runtime;
+        ExecSharedRuntime *exec_runtime;
         DynamicCreds dynamic_creds;
 
         pid_t main_pid, control_pid;

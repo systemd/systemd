@@ -67,7 +67,7 @@ struct Swap {
         KillContext kill_context;
         CGroupContext cgroup_context;
 
-        ExecRuntime *exec_runtime;
+        ExecSharedRuntime *exec_runtime;
         DynamicCreds dynamic_creds;
 
         SwapState state, deserialized_state;

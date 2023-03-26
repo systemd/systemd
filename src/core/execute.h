@@ -4,7 +4,7 @@
 typedef struct ExecStatus ExecStatus;
 typedef struct ExecCommand ExecCommand;
 typedef struct ExecContext ExecContext;
-typedef struct ExecRuntime ExecRuntime;
+typedef struct ExecSharedRuntime ExecSharedRuntime;
 typedef struct ExecParameters ExecParameters;
 typedef struct Manager Manager;
 
@@ -106,7 +106,7 @@ struct ExecCommand {
  * invocations of commands. Specifically, this allows sharing of /tmp and /var/tmp data as well as network namespaces
  * between invocations of commands. This is a reference counted object, with one reference taken by each currently
  * active command invocation that wants to share this runtime. */
-struct ExecRuntime {
+struct ExecSharedRuntime {
         unsigned n_ref;
 
         Manager *manager;
@@ -439,7 +439,7 @@ int exec_spawn(Unit *unit,
                ExecCommand *command,
                const ExecContext *context,
                const ExecParameters *exec_params,
-               ExecRuntime *runtime,
+               ExecSharedRuntime *runtime,
                DynamicCreds *dynamic_creds,
                const CGroupContext *cgroup_context,
                pid_t *ret);
@@ -483,13 +483,13 @@ void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int 
 void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix);
 void exec_status_reset(ExecStatus *s);
 
-int exec_runtime_acquire(Manager *m, const ExecContext *c, const char *name, bool create, ExecRuntime **ret);
-ExecRuntime *exec_runtime_unref(ExecRuntime *r, bool destroy);
+int exec_shared_runtime_acquire(Manager *m, const ExecContext *c, const char *name, bool create, ExecSharedRuntime **ret);
+ExecSharedRuntime *exec_shared_runtime_unref(ExecSharedRuntime *r, bool destroy);
 
-int exec_runtime_serialize(const Manager *m, FILE *f, FDSet *fds);
-int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value, FDSet *fds);
-int exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds);
-void exec_runtime_vacuum(Manager *m);
+int exec_shared_runtime_serialize(const Manager *m, FILE *f, FDSet *fds);
+int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char *value, FDSet *fds);
+int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds);
+void exec_shared_runtime_vacuum(Manager *m);
 
 void exec_params_clear(ExecParameters *p);
 
@@ -532,5 +532,5 @@ ExecDirectoryType exec_directory_type_symlink_from_string(const char *s) _pure_;
 const char* exec_resource_type_to_string(ExecDirectoryType i) _const_;
 ExecDirectoryType exec_resource_type_from_string(const char *s) _pure_;
 
-bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params, const ExecRuntime *runtime);
+bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params, const ExecSharedRuntime *runtime);
 bool exec_needs_network_namespace(const ExecContext *context);
