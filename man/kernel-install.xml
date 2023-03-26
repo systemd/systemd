@@ -203,6 +203,47 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--entry-token=</option></term>
+
+        <listitem>
+          <para>Controls how to name and identify boot loader entries for this kernel installation or
+          deleteion. Takes one of <literal>auto</literal>, <literal>machine-id</literal>,
+          <literal>os-id</literal>, <literal>os-image-id</literal>, or an arbitrary string prefixed by
+          <literal>literal:</literal> as argument.</para>
+
+          <para>If set to <option>machine-id</option> the entries are named after the machine ID of the
+          running system (e.g. <literal>b0e793a9baf14b5fa13ecbe84ff637ac</literal>). See
+          <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+          details about the machine ID concept and file.</para>
+
+          <para>If set to <option>os-id</option> the entries are named after the OS ID of the running system,
+          i.e. the <varname>ID=</varname> field of
+          <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          (e.g. <literal>fedora</literal>). Similarly, if set to <option>os-image-id</option> the entries are
+          named after the OS image ID of the running system, i.e. the <varname>IMAGE_ID=</varname> field of
+          <filename>os-release</filename> (e.g. <literal>vendorx-cashier-system</literal>).</para>
+
+          <para>If set to <option>auto</option> (the default), the
+          <filename>/etc/kernel/entry-token</filename> (or <filename>$CONF_ROOT/entry-token</filename>) file
+          will be read if it exists, and the stored value used. Otherwise if the local machine ID is
+          initialized it is used. Otherwise <varname>IMAGE_ID=</varname> from <filename>os-release</filename>
+          will be used, if set. Otherwise, <varname>ID=</varname> from <filename>os-release</filename> will
+          be used, if set.</para>
+
+          <para>Using the machine ID for naming the entries is generally preferable, however there are cases
+          where using the other identifiers is a good option. Specifically: if the identification data that
+          the machine ID entails shall not be stored on the (unencrypted) <varname>$BOOT_ROOT</varname>
+          partition, or if the ID shall be generated on first boot and is not known when the entries are
+          prepared. Note that using the machine ID has the benefit that multiple parallel installations of
+          the same OS can coexist on the same medium, and they can update their boot loader entries
+          independently. When using another identifier (such as the OS ID or the OS image ID), parallel
+          installations of the same OS would try to use the same entry name. To support parallel
+          installations, the installer must use a different entry token when adding a second installation.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-v</option></term>
         <term><option>--verbose</option></term>
         <listitem>
