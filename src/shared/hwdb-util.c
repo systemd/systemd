@@ -11,7 +11,7 @@
 #include "fs-util.h"
 #include "hwdb-internal.h"
 #include "hwdb-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "mkdir-label.h"
 #include "nulstr-util.h"
 #include "path-util.h"
