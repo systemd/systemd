@@ -10,7 +10,7 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-#include "label.h"
+#include "label-util.h"
 #include "macro.h"
 
 #define SMACK_FLOOR_LABEL "_"

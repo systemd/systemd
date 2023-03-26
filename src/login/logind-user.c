@@ -16,7 +16,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
-#include "label.h"
+#include "label-util.h"
 #include "limits-util.h"
 #include "logind-dbus.h"
 #include "logind-user-dbus.h"
