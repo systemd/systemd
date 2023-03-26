@@ -2828,7 +2828,6 @@ static int mount_tunnel_open(void) {
 }
 
 static int setup_machine_id(const char *directory) {
-        const char *etc_machine_id;
         sd_id128_t id;
         int r;
 
@@ -2839,9 +2838,7 @@ static int setup_machine_id(const char *directory) {
          * in the container and our idea of the container UUID will always be in sync (at least if PID 1 in the
          * container behaves nicely). */
 
-        etc_machine_id = prefix_roota(directory, "/etc/machine-id");
-
-        r = id128_read(etc_machine_id, ID128_FORMAT_PLAIN, &id);
+        r = id128_read(directory, "/etc/machine-id", ID128_FORMAT_PLAIN, &id);
         if (r < 0) {
                 if (!ERRNO_IS_MACHINE_ID_UNSET(r)) /* If the file is missing, empty, or uninitialized, we don't mind */
                         return log_error_errno(r, "Failed to read machine ID from container image: %m");

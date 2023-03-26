@@ -158,14 +158,11 @@ static int run(int argc, char *argv[]) {
         }
 
         if (arg_commit) {
-                const char *etc_machine_id;
-
                 r = machine_id_commit(arg_root);
                 if (r < 0)
                         return r;
 
-                etc_machine_id = prefix_roota(arg_root, "/etc/machine-id");
-                r = id128_read(etc_machine_id, ID128_FORMAT_PLAIN, &id);
+                r = id128_read(arg_root, "/etc/machine-id", ID128_FORMAT_PLAIN, &id);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read machine ID back: %m");
         } else {
