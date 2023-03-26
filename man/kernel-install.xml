@@ -192,6 +192,19 @@
       <xi:include href="standard-options.xml" xpointer="image"/>
 
       <varlistentry>
+        <term><option>--make-entry-directory=yes|no|auto</option></term>
+        <listitem>
+          <para>Controls creation and deletion of the
+          <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>
+          Type #1 entry directory on the file system containing resources such as kernel and initrd images
+          during <option>add</option> and <option>remove</option>, respectively. The directory is named after
+          the entry token, and is placed immediately below the boot root directory. When
+          <literal>auto</literal>, the directory is created or removed only when the install layout is
+          <literal>bls</literal>. Defaults to <literal>auto</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-v</option></term>
         <term><option>--verbose</option></term>
         <listitem>

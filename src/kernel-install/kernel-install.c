@@ -34,6 +34,7 @@ static char *arg_esp_path = NULL;
 static char *arg_xbootldr_path = NULL;
 static char *arg_root = NULL;
 static char *arg_image = NULL;
+int arg_make_entry_directory = -1; /* tristate */
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -706,7 +707,10 @@ static bool context_should_make_entry_dir(Context *c) {
         /* Compatibility with earlier versions that used the presence of $BOOT_ROOT/$ENTRY_TOKEN to signal to
          * 00-entry-directory to create $ENTRY_DIR_ABS to serve as the indication to use or to not use the BLS */
 
-        return c->layout == LAYOUT_BLS;
+        if (arg_make_entry_directory < 0)
+                return c->layout == LAYOUT_BLS;
+
+        return arg_make_entry_directory;
 }
 
 static int context_make_entry_dir(Context *c) {
@@ -1093,6 +1097,8 @@ static int help(void) {
                "     --boot-path=PATH    Path to the $BOOT partition\n"
                "     --root=PATH         Operate on an alternate filesystem root\n"
                "     --image=PATH        Operate on disk image as filesystem root\n"
+               "     --make-entry-directory=yes|no|auto\n"
+               "                         Create $BOOT/ENTRY-TOKEN/ directory\n"
                "\nSee the %4$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -1109,6 +1115,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BOOT_PATH,
                 ARG_ROOT,
                 ARG_IMAGE,
+                ARG_MAKE_ENTRY_DIRECTORY,
         };
         static const struct option options[] = {
                 { "help",                 no_argument,       NULL, 'h'                      },
@@ -1118,6 +1125,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "boot-path",            required_argument, NULL, ARG_BOOT_PATH            },
                 { "root",                 required_argument, NULL, ARG_ROOT                 },
                 { "image",                required_argument, NULL, ARG_IMAGE                },
+                { "make-entry-directory", required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY },
                 {}
         };
         int t, r;
@@ -1160,6 +1168,20 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
+                        break;
+
+                case ARG_MAKE_ENTRY_DIRECTORY:
+                        if (streq(optarg, "auto"))
+                                arg_make_entry_directory = -1;
+                        else {
+                                bool b;
+
+                                r = parse_boolean_argument("--make-entry-directory=", optarg, &b);
+                                if (r < 0)
+                                        return r;
+
+                                arg_make_entry_directory = b;
+                        }
                         break;
 
                 case '?':
