@@ -2210,7 +2210,7 @@ bool exec_needs_mount_namespace(
         if (!IN_SET(context->mount_propagation_flag, 0, MS_SHARED))
                 return true;
 
-        if (context->private_tmp && runtime && (runtime->tmp_dir || runtime->var_tmp_dir))
+        if (context->private_tmp && runtime && runtime->shared && (runtime->shared->tmp_dir || runtime->shared->var_tmp_dir))
                 return true;
 
         if (context->private_devices ||
@@ -3742,16 +3742,16 @@ static int apply_mount_namespace(
                  * that is sticky, and that's the one we want to use here.
                  * This does not apply when we are using /run/systemd/empty as fallback. */
 
-                if (context->private_tmp && runtime) {
-                        if (streq_ptr(runtime->tmp_dir, RUN_SYSTEMD_EMPTY))
-                                tmp_dir = runtime->tmp_dir;
-                        else if (runtime->tmp_dir)
-                                tmp_dir = strjoina(runtime->tmp_dir, "/tmp");
+                if (context->private_tmp && runtime && runtime->shared) {
+                        if (streq_ptr(runtime->shared->tmp_dir, RUN_SYSTEMD_EMPTY))
+                                tmp_dir = runtime->shared->tmp_dir;
+                        else if (runtime->shared->tmp_dir)
+                                tmp_dir = strjoina(runtime->shared->tmp_dir, "/tmp");
 
-                        if (streq_ptr(runtime->var_tmp_dir, RUN_SYSTEMD_EMPTY))
-                                var_tmp_dir = runtime->var_tmp_dir;
-                        else if (runtime->var_tmp_dir)
-                                var_tmp_dir = strjoina(runtime->var_tmp_dir, "/tmp");
+                        if (streq_ptr(runtime->shared->var_tmp_dir, RUN_SYSTEMD_EMPTY))
+                                var_tmp_dir = runtime->shared->var_tmp_dir;
+                        else if (runtime->shared->var_tmp_dir)
+                                var_tmp_dir = strjoina(runtime->shared->var_tmp_dir, "/tmp");
                 }
 
                 ns_info = (NamespaceInfo) {
@@ -4057,7 +4057,6 @@ static void append_socket_pair(int *array, size_t *n, const int pair[static 2]) 
 static int close_remaining_fds(
                 const ExecParameters *params,
                 const ExecRuntime *runtime,
-                const DynamicCreds *dcreds,
                 int user_lookup_fd,
                 int socket_fd,
                 const int *fds, size_t n_fds) {
@@ -4081,16 +4080,16 @@ static int close_remaining_fds(
                 n_dont_close += n_fds;
         }
 
-        if (runtime) {
-                append_socket_pair(dont_close, &n_dont_close, runtime->netns_storage_socket);
-                append_socket_pair(dont_close, &n_dont_close, runtime->ipcns_storage_socket);
+        if (runtime && runtime->shared) {
+                append_socket_pair(dont_close, &n_dont_close, runtime->shared->netns_storage_socket);
+                append_socket_pair(dont_close, &n_dont_close, runtime->shared->ipcns_storage_socket);
         }
 
-        if (dcreds) {
-                if (dcreds->user)
-                        append_socket_pair(dont_close, &n_dont_close, dcreds->user->storage_socket);
-                if (dcreds->group)
-                        append_socket_pair(dont_close, &n_dont_close, dcreds->group->storage_socket);
+        if (runtime && runtime->dynamic_creds) {
+                if (runtime->dynamic_creds->user)
+                        append_socket_pair(dont_close, &n_dont_close, runtime->dynamic_creds->user->storage_socket);
+                if (runtime->dynamic_creds->group)
+                        append_socket_pair(dont_close, &n_dont_close, runtime->dynamic_creds->group->storage_socket);
         }
 
         if (user_lookup_fd >= 0)
@@ -4404,7 +4403,6 @@ static int exec_child(
                 const ExecContext *context,
                 const ExecParameters *params,
                 ExecRuntime *runtime,
-                DynamicCreds *dcreds,
                 const CGroupContext *cgroup_context,
                 int socket_fd,
                 const int named_iofds[static 3],
@@ -4537,7 +4535,7 @@ static int exec_child(
         }
 #endif
 
-        r = close_remaining_fds(params, runtime, dcreds, user_lookup_fd, socket_fd, keep_fds, n_keep_fds);
+        r = close_remaining_fds(params, runtime, user_lookup_fd, socket_fd, keep_fds, n_keep_fds);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_unit_error_errno(unit, r, "Failed to close unwanted file descriptors: %m");
@@ -4583,7 +4581,7 @@ static int exec_child(
                 return log_unit_error_errno(unit, errno, "Failed to update environment: %m");
         }
 
-        if (context->dynamic_user && dcreds) {
+        if (context->dynamic_user && runtime && runtime->dynamic_creds) {
                 _cleanup_strv_free_ char **suggested_paths = NULL;
 
                 /* On top of that, make sure we bypass our own NSS module nss-systemd comprehensively for any NSS
@@ -4599,7 +4597,7 @@ static int exec_child(
                         return log_oom();
                 }
 
-                r = dynamic_creds_realize(dcreds, suggested_paths, &uid, &gid);
+                r = dynamic_creds_realize(runtime->dynamic_creds, suggested_paths, &uid, &gid);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
                         if (r == -EILSEQ)
@@ -4618,8 +4616,8 @@ static int exec_child(
                         return log_unit_error_errno(unit, SYNTHETIC_ERRNO(ESRCH), "GID validation failed for \""GID_FMT"\"", gid);
                 }
 
-                if (dcreds->user)
-                        username = dcreds->user->name;
+                if (runtime->dynamic_creds->user)
+                        username = runtime->dynamic_creds->user->name;
 
         } else {
                 r = get_fixed_user(context, &username, &uid, &gid, &home, &shell);
@@ -4686,16 +4684,16 @@ static int exec_child(
                 }
         }
 
-        if (context->network_namespace_path && runtime && runtime->netns_storage_socket[0] >= 0) {
-                r = open_shareable_ns_path(runtime->netns_storage_socket, context->network_namespace_path, CLONE_NEWNET);
+        if (context->network_namespace_path && runtime && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
+                r = open_shareable_ns_path(runtime->shared->netns_storage_socket, context->network_namespace_path, CLONE_NEWNET);
                 if (r < 0) {
                         *exit_status = EXIT_NETWORK;
                         return log_unit_error_errno(unit, r, "Failed to open network namespace path %s: %m", context->network_namespace_path);
                 }
         }
 
-        if (context->ipc_namespace_path && runtime && runtime->ipcns_storage_socket[0] >= 0) {
-                r = open_shareable_ns_path(runtime->ipcns_storage_socket, context->ipc_namespace_path, CLONE_NEWIPC);
+        if (context->ipc_namespace_path && runtime && runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
+                r = open_shareable_ns_path(runtime->shared->ipcns_storage_socket, context->ipc_namespace_path, CLONE_NEWIPC);
                 if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
                         return log_unit_error_errno(unit, r, "Failed to open IPC namespace path %s: %m", context->ipc_namespace_path);
@@ -5045,10 +5043,10 @@ static int exec_child(
                 }
         }
 
-        if (exec_needs_network_namespace(context) && runtime && runtime->netns_storage_socket[0] >= 0) {
+        if (exec_needs_network_namespace(context) && runtime && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
 
                 if (ns_type_supported(NAMESPACE_NET)) {
-                        r = setup_shareable_ns(runtime->netns_storage_socket, CLONE_NEWNET);
+                        r = setup_shareable_ns(runtime->shared->netns_storage_socket, CLONE_NEWNET);
                         if (r < 0) {
                                 if (ERRNO_IS_PRIVILEGE(r))
                                         log_unit_warning_errno(unit, r,
@@ -5066,10 +5064,10 @@ static int exec_child(
                         log_unit_warning(unit, "PrivateNetwork=yes is configured, but the kernel does not support network namespaces, ignoring.");
         }
 
-        if (exec_needs_ipc_namespace(context) && runtime && runtime->ipcns_storage_socket[0] >= 0) {
+        if (exec_needs_ipc_namespace(context) && runtime && runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
 
                 if (ns_type_supported(NAMESPACE_IPC)) {
-                        r = setup_shareable_ns(runtime->ipcns_storage_socket, CLONE_NEWIPC);
+                        r = setup_shareable_ns(runtime->shared->ipcns_storage_socket, CLONE_NEWIPC);
                         if (r == -EPERM)
                                 log_unit_warning_errno(unit, r,
                                                        "PrivateIPC=yes is configured, but IPC namespace setup failed, ignoring: %m");
@@ -5550,7 +5548,6 @@ int exec_spawn(Unit *unit,
                const ExecContext *context,
                const ExecParameters *params,
                ExecRuntime *runtime,
-               DynamicCreds *dcreds,
                const CGroupContext *cgroup_context,
                pid_t *ret) {
 
@@ -5640,7 +5637,6 @@ int exec_spawn(Unit *unit,
                                context,
                                params,
                                runtime,
-                               dcreds,
                                cgroup_context,
                                socket_fd,
                                named_iofds,
@@ -6956,14 +6952,14 @@ static void *remove_tmpdir_thread(void *p) {
         return NULL;
 }
 
-static ExecRuntime* exec_runtime_free(ExecRuntime *rt, bool destroy) {
+static ExecSharedRuntime* exec_shared_runtime_free(ExecSharedRuntime *rt, bool destroy) {
         int r;
 
         if (!rt)
                 return NULL;
 
         if (rt->manager)
-                (void) hashmap_remove(rt->manager->exec_runtime_by_id, rt->id);
+                (void) hashmap_remove(rt->manager->exec_shared_runtime_by_id, rt->id);
 
         /* When destroy is true, then rm_rf tmp_dir and var_tmp_dir. */
 
@@ -6995,13 +6991,13 @@ static ExecRuntime* exec_runtime_free(ExecRuntime *rt, bool destroy) {
         return mfree(rt);
 }
 
-static void exec_runtime_freep(ExecRuntime **rt) {
-        (void) exec_runtime_free(*rt, false);
+static void exec_shared_runtime_freep(ExecSharedRuntime **rt) {
+        (void) exec_shared_runtime_free(*rt, false);
 }
 
-static int exec_runtime_allocate(ExecRuntime **ret, const char *id) {
+static int exec_shared_runtime_allocate(ExecSharedRuntime **ret, const char *id) {
         _cleanup_free_ char *id_copy = NULL;
-        ExecRuntime *n;
+        ExecSharedRuntime *n;
 
         assert(ret);
 
@@ -7009,11 +7005,11 @@ static int exec_runtime_allocate(ExecRuntime **ret, const char *id) {
         if (!id_copy)
                 return -ENOMEM;
 
-        n = new(ExecRuntime, 1);
+        n = new(ExecSharedRuntime, 1);
         if (!n)
                 return -ENOMEM;
 
-        *n = (ExecRuntime) {
+        *n = (ExecSharedRuntime) {
                 .id = TAKE_PTR(id_copy),
                 .netns_storage_socket = PIPE_EBADF,
                 .ipcns_storage_socket = PIPE_EBADF,
@@ -7023,16 +7019,16 @@ static int exec_runtime_allocate(ExecRuntime **ret, const char *id) {
         return 0;
 }
 
-static int exec_runtime_add(
+static int exec_shared_runtime_add(
                 Manager *m,
                 const char *id,
                 char **tmp_dir,
                 char **var_tmp_dir,
                 int netns_storage_socket[2],
                 int ipcns_storage_socket[2],
-                ExecRuntime **ret) {
+                ExecSharedRuntime **ret) {
 
-        _cleanup_(exec_runtime_freep) ExecRuntime *rt = NULL;
+        _cleanup_(exec_shared_runtime_freep) ExecSharedRuntime *rt = NULL;
         int r;
 
         assert(m);
@@ -7040,11 +7036,11 @@ static int exec_runtime_add(
 
         /* tmp_dir, var_tmp_dir, {net,ipc}ns_storage_socket fds are donated on success */
 
-        r = exec_runtime_allocate(&rt, id);
+        r = exec_shared_runtime_allocate(&rt, id);
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_put(&m->exec_runtime_by_id, &string_hash_ops, rt->id, rt);
+        r = hashmap_ensure_put(&m->exec_shared_runtime_by_id, &string_hash_ops, rt->id, rt);
         if (r < 0)
                 return r;
 
@@ -7066,16 +7062,16 @@ static int exec_runtime_add(
 
         if (ret)
                 *ret = rt;
-        /* do not remove created ExecRuntime object when the operation succeeds. */
+        /* do not remove created ExecSharedRuntime object when the operation succeeds. */
         TAKE_PTR(rt);
         return 0;
 }
 
-static int exec_runtime_make(
+static int exec_shared_runtime_make(
                 Manager *m,
                 const ExecContext *c,
                 const char *id,
-                ExecRuntime **ret) {
+                ExecSharedRuntime **ret) {
 
         _cleanup_(namespace_cleanup_tmpdirp) char *tmp_dir = NULL, *var_tmp_dir = NULL;
         _cleanup_close_pair_ int netns_storage_socket[2] = PIPE_EBADF, ipcns_storage_socket[2] = PIPE_EBADF;
@@ -7085,7 +7081,7 @@ static int exec_runtime_make(
         assert(c);
         assert(id);
 
-        /* It is not necessary to create ExecRuntime object. */
+        /* It is not necessary to create ExecSharedRuntime object. */
         if (!exec_needs_network_namespace(c) && !exec_needs_ipc_namespace(c) && !c->private_tmp) {
                 *ret = NULL;
                 return 0;
@@ -7110,24 +7106,24 @@ static int exec_runtime_make(
                         return -errno;
         }
 
-        r = exec_runtime_add(m, id, &tmp_dir, &var_tmp_dir, netns_storage_socket, ipcns_storage_socket, ret);
+        r = exec_shared_runtime_add(m, id, &tmp_dir, &var_tmp_dir, netns_storage_socket, ipcns_storage_socket, ret);
         if (r < 0)
                 return r;
 
         return 1;
 }
 
-int exec_runtime_acquire(Manager *m, const ExecContext *c, const char *id, bool create, ExecRuntime **ret) {
-        ExecRuntime *rt;
+int exec_shared_runtime_acquire(Manager *m, const ExecContext *c, const char *id, bool create, ExecSharedRuntime **ret) {
+        ExecSharedRuntime *rt;
         int r;
 
         assert(m);
         assert(id);
         assert(ret);
 
-        rt = hashmap_get(m->exec_runtime_by_id, id);
+        rt = hashmap_get(m->exec_shared_runtime_by_id, id);
         if (rt)
-                /* We already have an ExecRuntime object, let's increase the ref count and reuse it */
+                /* We already have an ExecSharedRuntime object, let's increase the ref count and reuse it */
                 goto ref;
 
         if (!create) {
@@ -7136,11 +7132,11 @@ int exec_runtime_acquire(Manager *m, const ExecContext *c, const char *id, bool 
         }
 
         /* If not found, then create a new object. */
-        r = exec_runtime_make(m, c, id, &rt);
+        r = exec_shared_runtime_make(m, c, id, &rt);
         if (r < 0)
                 return r;
         if (r == 0) {
-                /* When r == 0, it is not necessary to create ExecRuntime object. */
+                /* When r == 0, it is not necessary to create ExecSharedRuntime object. */
                 *ret = NULL;
                 return 0;
         }
@@ -7152,7 +7148,7 @@ ref:
         return 1;
 }
 
-ExecRuntime *exec_runtime_unref(ExecRuntime *rt, bool destroy) {
+ExecSharedRuntime *exec_shared_runtime_unref(ExecSharedRuntime *rt, bool destroy) {
         if (!rt)
                 return NULL;
 
@@ -7162,17 +7158,17 @@ ExecRuntime *exec_runtime_unref(ExecRuntime *rt, bool destroy) {
         if (rt->n_ref > 0)
                 return NULL;
 
-        return exec_runtime_free(rt, destroy);
+        return exec_shared_runtime_free(rt, destroy);
 }
 
-int exec_runtime_serialize(const Manager *m, FILE *f, FDSet *fds) {
-        ExecRuntime *rt;
+int exec_shared_runtime_serialize(const Manager *m, FILE *f, FDSet *fds) {
+        ExecSharedRuntime *rt;
 
         assert(m);
         assert(f);
         assert(fds);
 
-        HASHMAP_FOREACH(rt, m->exec_runtime_by_id) {
+        HASHMAP_FOREACH(rt, m->exec_shared_runtime_by_id) {
                 fprintf(f, "exec-runtime=%s", rt->id);
 
                 if (rt->tmp_dir)
@@ -7227,33 +7223,33 @@ int exec_runtime_serialize(const Manager *m, FILE *f, FDSet *fds) {
         return 0;
 }
 
-int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value, FDSet *fds) {
-        _cleanup_(exec_runtime_freep) ExecRuntime *rt_create = NULL;
-        ExecRuntime *rt;
+int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char *value, FDSet *fds) {
+        _cleanup_(exec_shared_runtime_freep) ExecSharedRuntime *rt_create = NULL;
+        ExecSharedRuntime *rt;
         int r;
 
         /* This is for the migration from old (v237 or earlier) deserialization text.
          * Due to the bug #7790, this may not work with the units that use JoinsNamespaceOf=.
-         * Even if the ExecRuntime object originally created by the other unit, we cannot judge
+         * Even if the ExecSharedRuntime object originally created by the other unit, we cannot judge
          * so or not from the serialized text, then we always creates a new object owned by this. */
 
         assert(u);
         assert(key);
         assert(value);
 
-        /* Manager manages ExecRuntime objects by the unit id.
+        /* Manager manages ExecSharedRuntime objects by the unit id.
          * So, we omit the serialized text when the unit does not have id (yet?)... */
         if (isempty(u->id)) {
                 log_unit_debug(u, "Invocation ID not found. Dropping runtime parameter.");
                 return 0;
         }
 
-        if (hashmap_ensure_allocated(&u->manager->exec_runtime_by_id, &string_hash_ops) < 0)
+        if (hashmap_ensure_allocated(&u->manager->exec_shared_runtime_by_id, &string_hash_ops) < 0)
                 return log_oom();
 
-        rt = hashmap_get(u->manager->exec_runtime_by_id, u->id);
+        rt = hashmap_get(u->manager->exec_shared_runtime_by_id, u->id);
         if (!rt) {
-                if (exec_runtime_allocate(&rt_create, u->id) < 0)
+                if (exec_shared_runtime_allocate(&rt_create, u->id) < 0)
                         return log_oom();
 
                 rt = rt_create;
@@ -7292,9 +7288,9 @@ int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value,
         } else
                 return 0;
 
-        /* If the object is newly created, then put it to the hashmap which manages ExecRuntime objects. */
+        /* If the object is newly created, then put it to the hashmap which manages ExecSharedRuntime objects. */
         if (rt_create) {
-                r = hashmap_put(u->manager->exec_runtime_by_id, rt_create->id, rt_create);
+                r = hashmap_put(u->manager->exec_shared_runtime_by_id, rt_create->id, rt_create);
                 if (r < 0) {
                         log_unit_debug_errno(u, r, "Failed to put runtime parameter to manager's storage: %m");
                         return 0;
@@ -7309,7 +7305,7 @@ int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value,
         return 1;
 }
 
-int exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
+int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
         _cleanup_free_ char *tmp_dir = NULL, *var_tmp_dir = NULL;
         char *id = NULL;
         int r, netns_fdpair[] = {-1, -1}, ipcns_fdpair[] = {-1, -1};
@@ -7421,25 +7417,67 @@ int exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
         }
 
 finalize:
-        r = exec_runtime_add(m, id, &tmp_dir, &var_tmp_dir, netns_fdpair, ipcns_fdpair, NULL);
+        r = exec_shared_runtime_add(m, id, &tmp_dir, &var_tmp_dir, netns_fdpair, ipcns_fdpair, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add exec-runtime: %m");
         return 0;
 }
 
-void exec_runtime_vacuum(Manager *m) {
-        ExecRuntime *rt;
+void exec_shared_runtime_vacuum(Manager *m) {
+        ExecSharedRuntime *rt;
 
         assert(m);
 
-        /* Free unreferenced ExecRuntime objects. This is used after manager deserialization process. */
+        /* Free unreferenced ExecSharedRuntime objects. This is used after manager deserialization process. */
 
-        HASHMAP_FOREACH(rt, m->exec_runtime_by_id) {
+        HASHMAP_FOREACH(rt, m->exec_shared_runtime_by_id) {
                 if (rt->n_ref > 0)
                         continue;
 
-                (void) exec_runtime_free(rt, false);
+                (void) exec_shared_runtime_free(rt, false);
         }
+}
+
+int exec_runtime_make(ExecSharedRuntime *shared, DynamicCreds *creds, ExecRuntime **ret) {
+        _cleanup_(exec_runtime_freep) ExecRuntime *rt = NULL;
+
+        assert(ret);
+
+        if (!shared && !creds) {
+                *ret = NULL;
+                return 0;
+        }
+
+        rt = new(ExecRuntime, 1);
+        if (!rt)
+                return -ENOMEM;
+
+        *rt = (ExecRuntime) {
+                .shared = shared,
+                .dynamic_creds = creds,
+        };
+
+        *ret = TAKE_PTR(rt);
+        return 1;
+}
+
+ExecRuntime* exec_runtime_free(ExecRuntime *rt, bool destroy) {
+        if (!rt)
+                return NULL;
+
+        exec_shared_runtime_unref(rt->shared, destroy);
+
+        if (destroy)
+                dynamic_creds_destroy(rt->dynamic_creds);
+        else
+                dynamic_creds_unref(rt->dynamic_creds);
+
+        return mfree(rt);
+}
+
+void exec_runtime_freep(ExecRuntime **rt) {
+        assert(rt);
+        (void) exec_runtime_free(*rt, /*destroy=*/ false);
 }
 
 void exec_params_clear(ExecParameters *p) {

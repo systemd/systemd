@@ -4,6 +4,8 @@
 typedef struct ExecStatus ExecStatus;
 typedef struct ExecCommand ExecCommand;
 typedef struct ExecContext ExecContext;
+typedef struct ExecSharedRuntime ExecSharedRuntime;
+typedef struct DynamicCreds DynamicCreds;
 typedef struct ExecRuntime ExecRuntime;
 typedef struct ExecParameters ExecParameters;
 typedef struct Manager Manager;
@@ -106,7 +108,7 @@ struct ExecCommand {
  * invocations of commands. Specifically, this allows sharing of /tmp and /var/tmp data as well as network namespaces
  * between invocations of commands. This is a reference counted object, with one reference taken by each currently
  * active command invocation that wants to share this runtime. */
-struct ExecRuntime {
+struct ExecSharedRuntime {
         unsigned n_ref;
 
         Manager *manager;
@@ -122,6 +124,11 @@ struct ExecRuntime {
 
         /* Like netns_storage_socket, but the file descriptor is referring to the IPC namespace. */
         int ipcns_storage_socket[2];
+};
+
+struct ExecRuntime {
+        ExecSharedRuntime *shared;
+        DynamicCreds *dynamic_creds;
 };
 
 typedef enum ExecDirectoryType {
@@ -440,7 +447,6 @@ int exec_spawn(Unit *unit,
                const ExecContext *context,
                const ExecParameters *exec_params,
                ExecRuntime *runtime,
-               DynamicCreds *dynamic_creds,
                const CGroupContext *cgroup_context,
                pid_t *ret);
 
@@ -483,13 +489,21 @@ void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int 
 void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix);
 void exec_status_reset(ExecStatus *s);
 
-int exec_runtime_acquire(Manager *m, const ExecContext *c, const char *name, bool create, ExecRuntime **ret);
-ExecRuntime *exec_runtime_unref(ExecRuntime *r, bool destroy);
+int exec_shared_runtime_acquire(Manager *m, const ExecContext *c, const char *name, bool create, ExecSharedRuntime **ret);
+ExecSharedRuntime *exec_shared_runtime_unref(ExecSharedRuntime *r, bool destroy);
+static inline void exec_shared_runtime_unrefp(ExecSharedRuntime **rt) {
+        if (*rt)
+                *rt = exec_shared_runtime_unref(*rt, /* destroy = */ false);
+}
 
-int exec_runtime_serialize(const Manager *m, FILE *f, FDSet *fds);
-int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value, FDSet *fds);
-int exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds);
-void exec_runtime_vacuum(Manager *m);
+int exec_shared_runtime_serialize(const Manager *m, FILE *f, FDSet *fds);
+int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char *value, FDSet *fds);
+int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds);
+void exec_shared_runtime_vacuum(Manager *m);
+
+int exec_runtime_make(ExecSharedRuntime *shared, DynamicCreds *creds, ExecRuntime **ret);
+ExecRuntime* exec_runtime_free(ExecRuntime *rt, bool destroy);
+void exec_runtime_freep(ExecRuntime **rt);
 
 void exec_params_clear(ExecParameters *p);
 
