@@ -3,7 +3,7 @@
 #include <errno.h>
 
 #include "btrfs-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "machine-pool.h"
 #include "missing_magic.h"
 #include "stat-util.h"
