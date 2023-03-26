@@ -37,7 +37,13 @@ int make_lock_file_at(int dir_fd, const char *p, int operation, LockFile *ret) {
         if (!t)
                 return -ENOMEM;
 
-        fd = xopenat_lock(dfd, p, O_CREAT|O_RDWR|O_NOFOLLOW|O_CLOEXEC|O_NOCTTY, 0600, LOCK_UNPOSIX, operation);
+        fd = xopenat_lock(dfd,
+                          p,
+                          O_CREAT|O_RDWR|O_NOFOLLOW|O_CLOEXEC|O_NOCTTY,
+                          /* xopen_flags = */ 0,
+                          0600,
+                          LOCK_UNPOSIX,
+                          operation);
         if (fd < 0)
                 return fd == -EAGAIN ? -EBUSY : fd;
 
