@@ -1466,7 +1466,7 @@ static int edit_settings(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Edit is only supported on the host machine.");
 
-        r = mac_selinux_init();
+        r = mac_init();
         if (r < 0)
                 return r;
 
