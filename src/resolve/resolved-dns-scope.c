@@ -740,10 +740,6 @@ DnsScopeMatch dns_scope_good_domain(
                 if (m >= 0)
                         return m;
 
-                if ((s->family == AF_INET && dns_name_endswith(domain, "in-addr.arpa") > 0) ||
-                    (s->family == AF_INET6 && dns_name_endswith(domain, "ip6.arpa") > 0))
-                        return DNS_SCOPE_MAYBE;
-
                 if ((dns_name_endswith(domain, "local") > 0 && /* only resolve names ending in .local via mDNS */
                      dns_name_equal(domain, "local") == 0 &&   /* but not the single-label "local" name itself */
                      manager_is_own_hostname(s->manager, domain) <= 0)) /* never resolve the local hostname via mDNS */
