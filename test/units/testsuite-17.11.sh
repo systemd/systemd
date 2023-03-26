@@ -300,6 +300,9 @@ test_syntax_error 'ACTION=="a" NAME="b"' 'A comma between tokens is expected.'
 test_syntax_error 'ACTION=="a",, NAME="b"' 'More than one comma between tokens.'
 test_syntax_error 'ACTION=="a" , NAME="b"' 'Stray whitespace before comma.'
 test_syntax_error 'ACTION=="a",NAME="b"' 'Whitespace after comma is expected.'
+test_syntax_error 'RESULT=="a", PROGRAM="b"' 'Reordering RESULT check after PROGRAM assignment.'
+test_syntax_error 'RESULT=="a*", PROGRAM="b", RESULT=="*c", PROGRAM="d"' \
+        'Reordering RESULT check after PROGRAM assignment.'
 
 cat >"${rules}" <<'EOF'
 KERNEL=="a|b", KERNEL=="a|c", NAME="d"
@@ -308,6 +311,7 @@ KERNEL!="a", KERNEL!="b", NAME="c"
 KERNEL=="|a", KERNEL=="|b", NAME="c"
 KERNEL=="*", KERNEL=="a*", NAME="b"
 KERNEL=="a*", KERNEL=="c*|ab*", NAME="d"
+PROGRAM="a", RESULT=="b"
 EOF
 assert_0 "${rules}"
 

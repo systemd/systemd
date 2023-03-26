@@ -1168,6 +1168,20 @@ static int parse_line(char **line, char **ret_key, char **ret_attr, UdevRuleOper
         return 1;
 }
 
+static void check_tokens_order(UdevRuleLine *rule_line) {
+        bool has_result = false;
+
+        assert(rule_line);
+
+        LIST_FOREACH(tokens, t, rule_line->tokens)
+                if (t->type == TK_M_RESULT)
+                        has_result = true;
+                else if (has_result && t->type == TK_M_PROGRAM) {
+                        log_line_warning(rule_line, "Reordering RESULT check after PROGRAM assignment.");
+                        break;
+                }
+}
+
 static void sort_tokens(UdevRuleLine *rule_line) {
         assert(rule_line);
 
@@ -1235,6 +1249,9 @@ static int rule_add_line(UdevRuleFile *rule_file, const char *line_str, unsigned
                 log_line_warning(rule_line, "The line has no effect, ignoring.");
                 return 0;
         }
+
+        if (extra_checks)
+                check_tokens_order(rule_line);
 
         sort_tokens(rule_line);
         TAKE_PTR(rule_line);
