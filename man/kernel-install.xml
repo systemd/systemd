@@ -40,6 +40,7 @@
       <command>kernel-install</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">inspect</arg>
+      <arg choice="opt"><replaceable>KERNEL-IMAGE</replaceable></arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -158,7 +159,7 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><command>inspect</command></term>
+        <term><command>inspect [<replaceable>KERNEL-IMAGE</replaceable>]</command></term>
         <listitem>
           <para>Shows the various paths and parameters configured or auto-detected. In particular shows the
           values of the various <varname>$KERNEL_INSTALL_*</varname> environment variables listed
@@ -185,6 +186,11 @@
     <para>The following options are understood:</para>
 
     <variablelist>
+      <xi:include href="standard-options.xml" xpointer="esp-path"/>
+      <xi:include href="standard-options.xml" xpointer="boot-path"/>
+      <xi:include href="standard-options.xml" xpointer="root"/>
+      <xi:include href="standard-options.xml" xpointer="image"/>
+
       <varlistentry>
         <term><option>-v</option></term>
         <term><option>--verbose</option></term>
@@ -228,6 +234,10 @@
       few possible candidates below <varname>$BOOT</varname> are checked for Boot Loader Specification Type 1
       entry directories, and if found the entry token is derived from that. If that is not successful,
       <varname>$KERNEL_INSTALL_MACHINE_ID</varname> is used as fallback.</para>
+
+      <para><varname>$KERNEL_INSTALL_ROOT</varname> is set for the plugins to the absolute path of the
+      root directory specified by <option>--root=</option> or the mount point of the image specified by
+      <option>--image=</option>.</para>
 
       <para><varname>$KERNEL_INSTALL_BOOT_ROOT</varname> is set for the plugins to the absolute path of the
       root directory (mount point, usually) of the hierarchy where boot loader entries, kernel images, and
