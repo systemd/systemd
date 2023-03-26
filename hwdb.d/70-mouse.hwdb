@@ -154,6 +154,15 @@ mouse:bluetooth:v05acp030d:name:*:*
  MOUSE_DPI=1300@1000
 
 ##########################################
+# Cherry
+##########################################
+
+# Cherry MW 2310
+mouse:usb:v1A81p1701:name:G-Tech Wireless Dongle Mouse:*
+ KEYBOARD_KEY_90005=back
+ KEYBOARD_KEY_90004=forward
+
+##########################################
 # Chicony
 ##########################################
 
