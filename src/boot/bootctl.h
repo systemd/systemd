@@ -3,16 +3,9 @@
 
 #include "sd-id128.h"
 
+#include "boot-entry.h"
 #include "json.h"
 #include "pager.h"
-
-typedef enum EntryTokenType {
-        ARG_ENTRY_TOKEN_MACHINE_ID,
-        ARG_ENTRY_TOKEN_OS_IMAGE_ID,
-        ARG_ENTRY_TOKEN_OS_ID,
-        ARG_ENTRY_TOKEN_LITERAL,
-        ARG_ENTRY_TOKEN_AUTO,
-} EntryTokenType;
 
 typedef enum InstallSource {
         ARG_INSTALL_SOURCE_IMAGE,
@@ -32,7 +25,7 @@ extern bool arg_quiet;
 extern int arg_make_entry_directory; /* tri-state: < 0 for automatic logic */
 extern sd_id128_t arg_machine_id;
 extern char *arg_install_layout;
-extern EntryTokenType arg_entry_token_type;
+extern BootEntryTokenType arg_entry_token_type;
 extern char *arg_entry_token;
 extern JsonFormatFlags arg_json_format_flags;
 extern bool arg_arch_all;

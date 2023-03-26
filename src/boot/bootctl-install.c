@@ -133,7 +133,7 @@ static int settle_make_entry_directory(void) {
         bool layout_type1 = use_boot_loader_spec_type1();
         if (arg_make_entry_directory < 0) { /* Automatic mode */
                 if (layout_type1) {
-                        if (arg_entry_token_type == ARG_ENTRY_TOKEN_MACHINE_ID) {
+                        if (arg_entry_token_type == BOOT_ENTRY_TOKEN_MACHINE_ID) {
                                 r = path_is_temporary_fs("/etc/machine-id");
                                 if (r < 0)
                                         return log_debug_errno(r, "Couldn't determine whether /etc/machine-id is on a temporary file system: %m");
@@ -510,7 +510,7 @@ static int install_entry_token(void) {
         /* Let's save the used entry token in /etc/kernel/entry-token if we used it to create the entry
          * directory, or if anything else but the machine ID */
 
-        if (!arg_make_entry_directory && arg_entry_token_type == ARG_ENTRY_TOKEN_MACHINE_ID)
+        if (!arg_make_entry_directory && arg_entry_token_type == BOOT_ENTRY_TOKEN_MACHINE_ID)
                 return 0;
 
         p = path_join(arg_root, etc_kernel(), "entry-token");
