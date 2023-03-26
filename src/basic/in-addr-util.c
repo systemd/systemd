@@ -155,6 +155,31 @@ bool in6_addr_is_ipv4_mapped_address(const struct in6_addr *a) {
                 a->s6_addr32[2] == htobe32(UINT32_C(0x0000ffff));
 }
 
+int in_addr_get_broadcast(
+                int family,
+                union in_addr_union *addr,
+                unsigned char prefixlen,
+                union in_addr_union *broadcast_addr) {
+        switch (family) {
+        case AF_INET:
+                in4_addr_get_broadcast(&addr->in, prefixlen, &broadcast_addr->in);
+                return 0;
+        }
+        return -EAFNOSUPPORT;
+}
+
+struct in_addr *in4_addr_get_broadcast(
+                const struct in_addr *address,
+                unsigned char prefixlen,
+                struct in_addr *broadcast_addr) {
+        struct in_addr netmask;
+
+        in4_addr_prefixlen_to_netmask(&netmask, prefixlen);
+        broadcast_addr->s_addr = address->s_addr & netmask.s_addr;
+        broadcast_addr->s_addr |= ~netmask.s_addr;
+        return broadcast_addr;
+}
+
 bool in4_addr_equal(const struct in_addr *a, const struct in_addr *b) {
         assert(a);
         assert(b);
