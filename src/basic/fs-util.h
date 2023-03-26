@@ -132,6 +132,12 @@ int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode);
 
 int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created);
 
+/* We define extended open flags from bits 33-64 to avoid conflicts with the existing open flags which could
+ * be assigned bits 1-32. */
+typedef enum XOpenFlags {
+        XO_LABEL = 1LL << (sizeof(int) * 8 + 1),
+} XOpenFlags;
+
 int xopenat(int dir_fd, const char *path, int64_t flags, mode_t mode);
 
 int xopenat_lock(int dir_fd, const char *path, int64_t flags, mode_t mode, LockType locktype, int operation);
