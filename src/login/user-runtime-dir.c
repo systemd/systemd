@@ -9,7 +9,7 @@
 #include "dev-setup.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "limits-util.h"
 #include "main-func.h"
 #include "mkdir-label.h"
