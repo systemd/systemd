@@ -132,7 +132,7 @@ cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 {
-    printf 'RUN+="/bin/true"%8175s\\\n' ' '
+    printf 'RUN+="/bin/true",%8174s\\\n' ' '
     printf 'RUN+="/bin/false"%8174s\\\n' ' '
     echo
 } >"${rules}"
@@ -201,7 +201,7 @@ test_syntax_error 'TAGS{a}=="b"' 'Invalid attribute for TAGS.'
 test_syntax_error 'TAGS:="a"' 'Invalid operator for TAGS.'
 test_syntax_error 'SUBSYSTEM{a}=="b"' 'Invalid attribute for SUBSYSTEM.'
 test_syntax_error 'SUBSYSTEM:="b"' 'Invalid operator for SUBSYSTEM.'
-test_syntax_error 'SUBSYSTEM=="bus" NAME="b"' '"bus" must be specified as "subsystem".'
+test_syntax_error 'SUBSYSTEM=="bus", NAME="b"' '"bus" must be specified as "subsystem".'
 test_syntax_error 'SUBSYSTEMS{a}=="b"' 'Invalid attribute for SUBSYSTEMS.'
 test_syntax_error 'SUBSYSTEMS:="b"' 'Invalid operator for SUBSYSTEMS.'
 test_syntax_error 'DRIVER{a}=="b"' 'Invalid attribute for DRIVER.'
@@ -219,20 +219,20 @@ test_syntax_error 'SYSCTL{a}-="b"' 'Invalid operator for SYSCTL.'
 test_syntax_error 'SYSCTL{a}+="b"' "SYSCTL key takes '==', '!=', or '=' operator, assuming '='."
 test_syntax_error 'SYSCTL{a}="%?"' 'Invalid value "%?" for SYSCTL (char 1: invalid substitution type), ignoring.'
 test_syntax_error 'ATTRS=""' 'Invalid attribute for ATTRS.'
-test_syntax_error 'ATTRS{%}=="b" NAME="b"' 'Invalid attribute "%" for ATTRS (char 1: invalid substitution type), ignoring.'
+test_syntax_error 'ATTRS{%}=="b", NAME="b"' 'Invalid attribute "%" for ATTRS (char 1: invalid substitution type), ignoring.'
 test_syntax_error 'ATTRS{a}-="b"' 'Invalid operator for ATTRS.'
-test_syntax_error 'ATTRS{device/}!="a" NAME="b"' "'device' link may not be available in future kernels."
-test_syntax_error 'ATTRS{../}!="a" NAME="b"' 'Direct reference to parent sysfs directory, may break in future kernels.'
+test_syntax_error 'ATTRS{device/}!="a", NAME="b"' "'device' link may not be available in future kernels."
+test_syntax_error 'ATTRS{../}!="a", NAME="b"' 'Direct reference to parent sysfs directory, may break in future kernels.'
 test_syntax_error 'TEST{a}=="b"' "Failed to parse mode 'a': Invalid argument"
-test_syntax_error 'TEST{0}=="%" NAME="b"' 'Invalid value "%" for TEST (char 1: invalid substitution type), ignoring.'
+test_syntax_error 'TEST{0}=="%", NAME="b"' 'Invalid value "%" for TEST (char 1: invalid substitution type), ignoring.'
 test_syntax_error 'TEST{0644}="b"' 'Invalid operator for TEST.'
 test_syntax_error 'PROGRAM{a}=="b"' 'Invalid attribute for PROGRAM.'
 test_syntax_error 'PROGRAM-="b"' 'Invalid operator for PROGRAM.'
-test_syntax_error 'PROGRAM=="%" NAME="b"' 'Invalid value "%" for PROGRAM (char 1: invalid substitution type), ignoring.'
+test_syntax_error 'PROGRAM=="%", NAME="b"' 'Invalid value "%" for PROGRAM (char 1: invalid substitution type), ignoring.'
 test_syntax_error 'IMPORT="b"' 'Invalid attribute for IMPORT.'
 test_syntax_error 'IMPORT{a}="b"' 'Invalid attribute for IMPORT.'
 test_syntax_error 'IMPORT{a}-="b"' 'Invalid operator for IMPORT.'
-test_syntax_error 'IMPORT{file}=="%" NAME="b"' 'Invalid value "%" for IMPORT (char 1: invalid substitution type), ignoring.'
+test_syntax_error 'IMPORT{file}=="%", NAME="b"' 'Invalid value "%" for IMPORT (char 1: invalid substitution type), ignoring.'
 test_syntax_error 'IMPORT{builtin}!="foo"' 'Unknown builtin command: foo'
 test_syntax_error 'RESULT{a}=="b"' 'Invalid attribute for RESULT.'
 test_syntax_error 'RESULT:="b"' 'Invalid operator for RESULT.'
@@ -241,7 +241,7 @@ test_syntax_error 'OPTIONS-="b"' 'Invalid operator for OPTIONS.'
 test_syntax_error 'OPTIONS!="b"' 'Invalid operator for OPTIONS.'
 test_syntax_error 'OPTIONS+="link_priority=a"' "Failed to parse link priority 'a': Invalid argument"
 test_syntax_error 'OPTIONS:="log_level=a"' "Failed to parse log level 'a': Invalid argument"
-test_syntax_error 'OPTIONS="a" NAME="b"' "Invalid value for OPTIONS key, ignoring: 'a'"
+test_syntax_error 'OPTIONS="a", NAME="b"' "Invalid value for OPTIONS key, ignoring: 'a'"
 test_syntax_error 'OWNER{a}="b"' 'Invalid attribute for OWNER.'
 test_syntax_error 'OWNER-="b"' 'Invalid operator for OWNER.'
 test_syntax_error 'OWNER!="b"' 'Invalid operator for OWNER.'
@@ -268,8 +268,8 @@ test_syntax_error 'RUN="%"' 'Invalid value "%" for RUN (char 1: invalid substitu
 test_syntax_error 'RUN{builtin}+="foo"' "Unknown builtin command 'foo', ignoring"
 test_syntax_error 'GOTO{a}="b"' 'Invalid attribute for GOTO.'
 test_syntax_error 'GOTO=="b"' 'Invalid operator for GOTO.'
-test_syntax_error 'NAME="a" GOTO="b"' 'GOTO="b" has no matching label, ignoring'
-test_syntax_error 'GOTO="a" GOTO="b"
+test_syntax_error 'NAME="a", GOTO="b"' 'GOTO="b" has no matching label, ignoring'
+test_syntax_error 'GOTO="a", GOTO="b"
 LABEL="a"' 'Contains multiple GOTO keys, ignoring GOTO="b".'
 test_syntax_error 'LABEL{a}="b"' 'Invalid attribute for LABEL.'
 test_syntax_error 'LABEL=="b"' 'Invalid operator for LABEL.'
@@ -280,19 +280,32 @@ test_syntax_error 'KERNEL=="abc", KERNEL!="abc", NAME="b"' 'conflicting match ex
 test_syntax_error 'KERNEL=="|a|b", KERNEL!="b|a|", NAME="c"' 'conflicting match expressions, the line takes no effect'
 test_syntax_error 'KERNEL=="a|b", KERNEL=="c|d|e", NAME="f"' 'conflicting match expressions, the line takes no effect'
 # shellcheck disable=SC2016
-test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}!="?*" ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
+test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}!="?*", ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
                   'conflicting match expressions, the line takes no effect'
+test_syntax_error 'ACTION=="a*", ACTION=="bc*", NAME="d"' 'conflicting match expressions, the line takes no effect'
+test_syntax_error 'ACTION=="a*|bc*", ACTION=="d*|ef*", NAME="g"' 'conflicting match expressions, the line takes no effect'
 test_syntax_error 'KERNEL!="", KERNEL=="?*", NAME="a"' 'duplicate expressions'
 test_syntax_error 'KERNEL=="|a|b", KERNEL=="b|a|", NAME="c"' 'duplicate expressions'
 # shellcheck disable=SC2016
-test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}=="?*" ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
+test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}=="?*", ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
                   'duplicate expressions'
+test_syntax_error ',ACTION=="a", NAME="b"' 'Stray leading comma.'
+test_syntax_error ' ,ACTION=="a", NAME="b"' 'Stray leading comma.'
+test_syntax_error ', ACTION=="a", NAME="b"' 'Stray leading comma.'
+test_syntax_error 'ACTION=="a", NAME="b",' 'Stray trailing comma.'
+test_syntax_error 'ACTION=="a", NAME="b", ' 'Stray trailing comma.'
+test_syntax_error 'ACTION=="a" NAME="b"' 'No comma between tokens.'
+test_syntax_error 'ACTION=="a",, NAME="b"' 'Too many commas between tokens.'
+test_syntax_error 'ACTION=="a" , NAME="b"' 'Whitespace before comma.'
+test_syntax_error 'ACTION=="a",NAME="b"' 'No whitespace after comma.'
 
 cat >"${rules}" <<'EOF'
 KERNEL=="a|b", KERNEL=="a|c", NAME="d"
 KERNEL=="a|b", KERNEL!="a|c", NAME="d"
 KERNEL!="a", KERNEL!="b", NAME="c"
 KERNEL=="|a", KERNEL=="|b", NAME="c"
+KERNEL=="*", KERNEL=="a*", NAME="b"
+KERNEL=="a*", KERNEL=="c*|ab*", NAME="d"
 EOF
 assert_0 "${rules}"
 
@@ -343,6 +356,28 @@ EOF
 cat >"${exp}" <<EOF
 ${rules}:1 duplicate expressions
 ${rules}:1 conflicting match expressions, the line takes no effect
+${rules}: udev rules check failed
+EOF
+cp "${workdir}/default_output_1_fail" "${exo}"
+assert_1 "${rules}"
+
+cat >"${rules}" <<'EOF'
+ACTION=="a"NAME="b"
+EOF
+cat >"${exp}" <<EOF
+${rules}:1 No comma between tokens.
+${rules}:1 No whitespace between tokens.
+${rules}: udev rules check failed
+EOF
+cp "${workdir}/default_output_1_fail" "${exo}"
+assert_1 "${rules}"
+
+cat >"${rules}" <<'EOF'
+ACTION=="a" ,NAME="b"
+EOF
+cat >"${exp}" <<EOF
+${rules}:1 Whitespace before comma.
+${rules}:1 No whitespace after comma.
 ${rules}: udev rules check failed
 EOF
 cp "${workdir}/default_output_1_fail" "${exo}"
