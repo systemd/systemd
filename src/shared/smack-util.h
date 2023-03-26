@@ -28,6 +28,7 @@ typedef enum SmackAttr {
 } SmackAttr;
 
 bool mac_smack_use(void);
+int mac_smack_init(void);
 
 int mac_smack_fix_full(int atfd, const char *inode_path, const char *label_path, LabelFixFlags flags);
 static inline int mac_smack_fix(const char *path, LabelFixFlags flags) {
