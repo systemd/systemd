@@ -802,6 +802,8 @@ static bool location_is_resume_device(const HibernateLocation *location, dev_t s
  * Attempt to find the hibernation location by parsing /proc/swaps, /sys/power/resume, and
  * /sys/power/resume_offset.
  *
+ * Beware: For security reasons, never find this by scanning for inactive swap devices!
+ *
  * Returns:
  *  1 - Values are set in /sys/power/resume and /sys/power/resume_offset.
  *      ret_hibernate_location will represent matching /proc/swap entry if identified or NULL if not.
