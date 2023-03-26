@@ -65,7 +65,7 @@
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "ioprio-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "log.h"
 #include "macro.h"
 #include "manager.h"
