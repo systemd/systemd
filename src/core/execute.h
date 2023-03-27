@@ -484,7 +484,8 @@ void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix);
 void exec_status_reset(ExecStatus *s);
 
 int exec_shared_runtime_acquire(Manager *m, const ExecContext *c, const char *name, bool create, ExecSharedRuntime **ret);
-ExecSharedRuntime *exec_shared_runtime_unref(ExecSharedRuntime *r, bool destroy);
+ExecSharedRuntime *exec_shared_runtime_destroy(ExecSharedRuntime *r);
+ExecSharedRuntime *exec_shared_runtime_unref(ExecSharedRuntime *r);
 
 int exec_shared_runtime_serialize(const Manager *m, FILE *f, FDSet *fds);
 int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char *value, FDSet *fds);

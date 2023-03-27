@@ -150,7 +150,7 @@ static void socket_done(Unit *u) {
 
         s->peers_by_address = set_free(s->peers_by_address);
 
-        s->exec_runtime = exec_shared_runtime_unref(s->exec_runtime, false);
+        s->exec_runtime = exec_shared_runtime_unref(s->exec_runtime);
         exec_command_free_array(s->exec_command, _SOCKET_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
@@ -2049,7 +2049,7 @@ static void socket_enter_dead(Socket *s, SocketResult f) {
 
         socket_set_state(s, s->result != SOCKET_SUCCESS ? SOCKET_FAILED : SOCKET_DEAD);
 
-        s->exec_runtime = exec_shared_runtime_unref(s->exec_runtime, true);
+        s->exec_runtime = exec_shared_runtime_destroy(s->exec_runtime);
 
         unit_destroy_runtime_data(UNIT(s), &s->exec_context);
 
