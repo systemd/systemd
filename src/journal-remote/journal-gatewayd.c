@@ -765,6 +765,7 @@ static int request_handler_machine(
 
         (void) parse_os_release(
                         NULL,
+                        IMAGE_EXTENSION,
                         "PRETTY_NAME", &pretty_name,
                         "NAME=", &os_name);
         (void) get_virtualization(&v);
