@@ -58,3 +58,12 @@
 #ifndef O_TMPFILE
 #define O_TMPFILE (__O_TMPFILE | O_DIRECTORY)
 #endif
+
+/* So O_LARGEFILE is generally implied by glibc, and defined to zero hence, because we only build in LFS
+ * mode. However, when invoking fcntl(F_GETFL) the flag is ORed into the result anyway — glibc does not mask
+ * it away. Which sucks. Let's define the actual value here, so that we can mask it ourselves. */
+#if O_LARGEFILE != 0
+#define RAW_O_LARGEFILE O_LARGEFILE
+#else
+#define RAW_O_LARGEFILE 0100000
+#endif
