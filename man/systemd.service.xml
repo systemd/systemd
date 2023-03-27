@@ -1141,7 +1141,11 @@
         fully stopped and no job is queued or being executed for it. If this option is used,
         <varname>NotifyAccess=</varname> (see above) should be set to open access to the notification socket
         provided by systemd. If <varname>NotifyAccess=</varname> is not set, it will be implicitly set to
-        <option>main</option>.</para></listitem>
+        <option>main</option>.</para>
+
+        <para>The <command>fdstore</command> command of
+        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        may be used to list the current contents of a service's file descriptor store.</para></listitem>
       </varlistentry>
 
       <varlistentry>
