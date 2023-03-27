@@ -2008,6 +2008,11 @@ conf.set10(
         have_pyelftools,
 )
 
+if conf.get('ENABLE_BOOTLOADER') == 1
+        conf.set_quoted('BOOTLOADER_VENDOR', get_option('bootloader-vendor'))
+        conf.set_quoted('BOOTLOADER_DESCRIPTION', get_option('bootloader-description'))
+endif
+
 if get_option('ukify') == 'auto'
     want_ukify = python_39  and conf.get('ENABLE_BOOTLOADER') == 1
 elif get_option('ukify') == 'true' and (not python_39 or conf.get('ENABLE_BOOTLOADER') != 1)
