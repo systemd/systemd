@@ -142,7 +142,7 @@ struct user_group_data {
         bool incomplete;
 };
 
-static void user_group_data_release(struct user_group_data *d) {
+static void user_group_data_done(struct user_group_data *d) {
         json_variant_unref(d->record);
 }
 
@@ -188,7 +188,7 @@ static int userdb_on_query_reply(
         switch (iterator->what) {
 
         case LOOKUP_USER: {
-                _cleanup_(user_group_data_release) struct user_group_data user_data = {};
+                _cleanup_(user_group_data_done) struct user_group_data user_data = {};
 
                 static const JsonDispatch dispatch_table[] = {
                         { "record",     _JSON_VARIANT_TYPE_INVALID, json_dispatch_variant, offsetof(struct user_group_data, record),     0 },
@@ -245,7 +245,7 @@ static int userdb_on_query_reply(
         }
 
         case LOOKUP_GROUP: {
-                _cleanup_(user_group_data_release) struct user_group_data group_data = {};
+                _cleanup_(user_group_data_done) struct user_group_data group_data = {};
 
                 static const JsonDispatch dispatch_table[] = {
                         { "record",     _JSON_VARIANT_TYPE_INVALID, json_dispatch_variant, offsetof(struct user_group_data, record),     0 },
