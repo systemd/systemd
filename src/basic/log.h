@@ -426,6 +426,16 @@ typedef struct LogRateLimit {
 #define log_ratelimit_error_errno(error, ...)     log_ratelimit_full_errno(LOG_ERR,     error, __VA_ARGS__)
 #define log_ratelimit_emergency_errno(error, ...) log_ratelimit_full_errno(log_emergency_level(), error, __VA_ARGS__)
 
+const char *_log_set_prefix(const char *prefix, bool force);
+static inline const char *_log_unset_prefixp(const char **p) {
+        assert(p);
+        _log_set_prefix(*p, true);
+        return NULL;
+}
+
+#define LOG_SET_PREFIX(prefix) \
+        _cleanup_(_log_unset_prefixp) _unused_ const char *CONCATENATE(_cleanup_log_unset_prefix_, UNIQ) = _log_set_prefix(prefix, false);
+
 /*
  * The log context allows attaching extra metadata to log messages written to the journal via log.h. We keep
  * track of a thread local log context onto which we can push extra metadata fields that should be logged.

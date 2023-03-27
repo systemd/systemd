@@ -88,6 +88,8 @@ typedef struct LogContext {
 static thread_local LIST_HEAD(LogContext, _log_context) = NULL;
 static thread_local size_t _log_context_num_fields = 0;
 
+static thread_local const char *log_prefix = NULL;
+
 #if LOG_MESSAGE_VERIFICATION || defined(__COVERITY__)
 bool _log_message_dummy = false; /* Always false */
 #endif
@@ -395,7 +397,7 @@ static int write_to_console(
              header_time[FORMAT_TIMESTAMP_MAX],
              prefix[1 + DECIMAL_STR_MAX(int) + 2],
              tid_string[3 + DECIMAL_STR_MAX(pid_t) + 1];
-        struct iovec iovec[9];
+        struct iovec iovec[11];
         const char *on = NULL, *off = NULL;
         size_t n = 0;
 
@@ -434,6 +436,10 @@ static int write_to_console(
 
         if (on)
                 iovec[n++] = IOVEC_MAKE_STRING(on);
+        if (log_prefix) {
+                iovec[n++] = IOVEC_MAKE_STRING(log_prefix);
+                iovec[n++] = IOVEC_MAKE_STRING(": ");
+        }
         iovec[n++] = IOVEC_MAKE_STRING(buffer);
         if (off)
                 iovec[n++] = IOVEC_MAKE_STRING(off);
@@ -493,6 +499,8 @@ static int write_to_syslog(
                 IOVEC_MAKE_STRING(header_time),
                 IOVEC_MAKE_STRING(program_invocation_short_name),
                 IOVEC_MAKE_STRING(header_pid),
+                IOVEC_MAKE_STRING(strempty(log_prefix)),
+                IOVEC_MAKE_STRING(log_prefix ? ": " : ""),
                 IOVEC_MAKE_STRING(buffer),
         };
         const struct msghdr msghdr = {
@@ -554,6 +562,8 @@ static int write_to_kmsg(
                 IOVEC_MAKE_STRING(header_priority),
                 IOVEC_MAKE_STRING(program_invocation_short_name),
                 IOVEC_MAKE_STRING(header_pid),
+                IOVEC_MAKE_STRING(strempty(log_prefix)),
+                IOVEC_MAKE_STRING(log_prefix ? ": " : ""),
                 IOVEC_MAKE_STRING(buffer),
                 IOVEC_MAKE_STRING("\n"),
         };
@@ -665,13 +675,17 @@ static int write_to_journal(
         if (journal_fd < 0)
                 return 0;
 
-        iovec_len = MIN(4 + _log_context_num_fields * 2, IOVEC_MAX);
+        iovec_len = MIN(6 + _log_context_num_fields * 2, IOVEC_MAX);
         iovec = newa(struct iovec, iovec_len);
 
         log_do_header(header, sizeof(header), level, error, file, line, func, object_field, object, extra_field, extra);
 
         iovec[n++] = IOVEC_MAKE_STRING(header);
         iovec[n++] = IOVEC_MAKE_STRING("MESSAGE=");
+        if (log_prefix) {
+                iovec[n++] = IOVEC_MAKE_STRING(log_prefix);
+                iovec[n++] = IOVEC_MAKE_STRING(": ");
+        }
         iovec[n++] = IOVEC_MAKE_STRING(buffer);
         iovec[n++] = IOVEC_MAKE_STRING("\n");
 
@@ -847,16 +861,9 @@ int log_object_internalv(
         /* Make sure that %m maps to the specified error (or "Success"). */
         LOCAL_ERRNO(ERRNO_VALUE(error));
 
-        /* Prepend the object name before the message */
-        if (object) {
-                size_t n;
+        LOG_SET_PREFIX(object);
 
-                n = strlen(object);
-                buffer = newa(char, n + 2 + LINE_MAX);
-                b = stpcpy(stpcpy(buffer, object), ": ");
-        } else
-                b = buffer = newa(char, LINE_MAX);
-
+        b = buffer = newa(char, LINE_MAX);
         (void) vsnprintf(b, LINE_MAX, format, ap);
 
         return log_dispatch_internal(level, error, file, line, func,
@@ -1570,6 +1577,15 @@ void log_setup(void) {
         (void) log_open();
         if (log_on_console() && show_color < 0)
                 log_show_color(true);
+}
+
+const char *_log_set_prefix(const char *prefix, bool force) {
+        const char *old = log_prefix;
+
+        if (prefix || force)
+                log_prefix = prefix;
+
+        return old;
 }
 
 static int saved_log_context_enabled = -1;
