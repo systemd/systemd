@@ -53,6 +53,7 @@ typedef enum TableDataType {
         TABLE_SIGNAL,
         TABLE_MODE,            /* as in UNIX file mode (mode_t), in typical octal output */
         TABLE_MODE_INODE_TYPE, /* also mode_t, but displays only the inode type as string */
+        TABLE_DEVNUM,          /* a dev_t, displayed in the usual major:minor way */
         _TABLE_DATA_TYPE_MAX,
 
         /* The following are not really data types, but commands for table_add_cell_many() to make changes to
