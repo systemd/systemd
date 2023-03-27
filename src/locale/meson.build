@@ -45,5 +45,8 @@ tests += [
                         'localed-util.c',
                         'xkbcommon-util.c',
                 ),
+                'dependencies' : [
+                        libxkbcommon_deps,
+                ],
         },
 ]
