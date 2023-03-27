@@ -156,6 +156,12 @@
       <arg choice="plain">malloc</arg>
       <arg choice="opt" rep="repeat"><replaceable>D-BUS SERVICE</replaceable></arg>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">fdstore</arg>
+      <arg choice="opt" rep="repeat"><replaceable>UNIT</replaceable></arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -803,8 +809,37 @@ $ systemd-analyze verify /tmp/source:alias.service
 }
         </programlisting>
       </example>
-
     </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze fdstore <optional><replaceable>UNIT</replaceable>...</optional></command></title>
+
+      <para>Lists the current contents of the specified service unit's file descriptor store. This shows
+      names, inode types, device numbers, inode numbers, paths and open modes of the open file
+      descriptors. The specified units must have <varname>FileDescriptorStoreMax=</varname> enabled, see
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+      details.</para>
+
+      <example>
+        <title>Table output</title>
+        <programlisting>$ systemd-analyze fdstore systemd-journald.service
+FDNAME TYPE DEVNO   INODE RDEVNO PATH             FLAGS
+stored sock 0:8   4218620 -      socket:[4218620] ro
+stored sock 0:8   4213198 -      socket:[4213198] ro
+stored sock 0:8   4213190 -      socket:[4213190] ro
+…</programlisting>
+      </example>
+
+      <para>Note: the "DEVNO" column refers to the major/minor numbers of the device node backing the file
+      system the file descriptor's inode is on. The "RDEVNO" column refers to the major/minor numbers of the
+      device node itself if the file descriptor refers to one. Compare with corresponding
+      <varname>.st_dev</varname> and <varname>.st_rdev</varname> fields in <type>struct stat</type> (see
+      <citerefentry
+      project='man-pages'><refentrytitle>stat</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+      details). The listed inode numbers in the "INODE" column are on the file system indicated by
+      "DEVNO".</para>
+    </refsect2>
+
   </refsect1>
 
   <refsect1>
