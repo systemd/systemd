@@ -459,6 +459,48 @@ int strv_env_assign(char ***l, const char *key, const char *value) {
         return strv_env_replace_consume(l, p);
 }
 
+int _strv_env_assign_many(char ***l, ...) {
+        va_list ap;
+        int r;
+
+        assert(l);
+
+        va_start(ap, l);
+        for (;;) {
+                const char *key, *value;
+
+                key = va_arg(ap, const char *);
+                if (!key)
+                        break;
+
+                if (!env_name_is_valid(key)) {
+                        va_end(ap);
+                        return -EINVAL;
+                }
+
+                value = va_arg(ap, const char *);
+                if (!value) {
+                        strv_env_unset(*l, key);
+                        continue;
+                }
+
+                char *p = strjoin(key, "=", value);
+                if (!p) {
+                        va_end(ap);
+                        return -ENOMEM;
+                }
+
+                r = strv_env_replace_consume(l, p);
+                if (r < 0) {
+                        va_end(ap);
+                        return r;
+                }
+        }
+        va_end(ap);
+
+        return 0;
+}
+
 char *strv_env_get_n(char **l, const char *name, size_t k, unsigned flags) {
         assert(name);
 

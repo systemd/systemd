@@ -133,6 +133,32 @@ TEST(strv_env_assign) {
         assert_se(streq(a[0], "a=A"));
 }
 
+TEST(strv_env_assign_many) {
+        _cleanup_strv_free_ char **a = NULL;
+
+        assert_se(strv_env_assign_many(&a, "a", "a", "b", "b") >= 0);
+
+        assert_se(strv_length(a) == 2);
+        assert_se(strv_contains(a, "a=a"));
+        assert_se(strv_contains(a, "b=b"));
+
+        assert_se(strv_env_assign_many(&a, "a", "A", "b", "b", "c", "c") >= 0);
+        assert_se(strv_length(a) == 3);
+        assert_se(strv_contains(a, "a=A"));
+        assert_se(strv_contains(a, "b=b"));
+        assert_se(strv_contains(a, "c=c"));
+
+        assert_se(strv_env_assign_many(&a, "b", NULL, "c", "C") >= 0);
+        assert_se(strv_length(a) == 2);
+        assert_se(strv_contains(a, "a=A"));
+        assert_se(strv_contains(a, "c=C"));
+
+        assert_se(strv_env_assign_many(&a, "a=", "B") == -EINVAL);
+        assert_se(strv_length(a) == 2);
+        assert_se(strv_contains(a, "a=A"));
+        assert_se(strv_contains(a, "c=C"));
+}
+
 TEST(env_strv_get_n) {
         const char *_env[] = {
                 "FOO=NO NO NO",
