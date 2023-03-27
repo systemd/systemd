@@ -129,6 +129,13 @@ Deprecations and removals:
 
 Features:
 
+* fix our various hwdb lookup keys to end with ":" again. The original idea was
+  that hwdb patters can match arbitrary fields with expressions like
+  "*:foobar:*", to wildcard match both the start and the end of the string.
+  This only works safely for later extensions of the string if the strings
+  always end in a colon. This requires updating our udev rules, as well as
+  checking if the various hwdb files are fine with that.
+
 * mount /tmp/ and /var/tmp with a uidmap applied that blocks out "nobody" user
   among other things such as dynamic uid ranges for containers and so on. That
   way noone can create files there with these uids and we enforce they are only
