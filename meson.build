@@ -201,6 +201,8 @@ kernelinstalldir = kerneldir / 'install.d'
 factorydir = datadir / 'factory'
 bootlibdir = prefixdir / 'lib/systemd/boot/efi'
 testsdir = prefixdir / 'lib/systemd/tests'
+unittestsdir = testsdir / 'unit-tests'
+testdata_dir = testsdir / 'testdata'
 systemdstatedir = localstatedir / 'lib/systemd'
 catalogstatedir = systemdstatedir / 'catalog'
 randomseeddir = localstatedir / 'lib/systemd'
@@ -274,7 +276,7 @@ conf.set_quoted('SYSTEMD_LANGUAGE_FALLBACK_MAP',              pkgdatadir / 'lang
 conf.set_quoted('SYSTEMD_MAKEFS_PATH',                        rootlibexecdir / 'systemd-makefs')
 conf.set_quoted('SYSTEMD_PULL_PATH',                          rootlibexecdir / 'systemd-pull')
 conf.set_quoted('SYSTEMD_SHUTDOWN_BINARY_PATH',               rootlibexecdir / 'systemd-shutdown')
-conf.set_quoted('SYSTEMD_TEST_DATA',                          testsdir / 'testdata')
+conf.set_quoted('SYSTEMD_TEST_DATA',                          testdata_dir)
 conf.set_quoted('SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH', rootbindir / 'systemd-tty-ask-password-agent')
 conf.set_quoted('SYSTEMD_UPDATE_HELPER_PATH',                 rootlibexecdir / 'systemd-update-helper')
 conf.set_quoted('SYSTEMD_USERWORK_PATH',                      rootlibexecdir / 'systemd-userwork')
@@ -4320,7 +4322,7 @@ foreach test : tests
                 build_by_default : want_tests != 'false',
                 install_rpath : rootpkglibdir,
                 install : install_tests,
-                install_dir : testsdir / type,
+                install_dir : unittestsdir / type,
                 link_depends : runtest_env)
 
         if type == 'manual'
@@ -4344,7 +4346,7 @@ exe = executable(
         dependencies : userspace,
         build_by_default : want_tests != 'false',
         install : install_tests,
-        install_dir : testsdir)
+        install_dir : unittestsdir)
 if want_tests != 'false'
         test('test-libsystemd-sym', exe)
 endif
@@ -4362,7 +4364,7 @@ exe = executable(
         ],
         build_by_default : want_tests != 'false' and static_libsystemd_pic,
         install : install_tests and static_libsystemd_pic,
-        install_dir : testsdir)
+        install_dir : unittestsdir)
 if want_tests != 'false' and static_libsystemd_pic
         test('test-libsystemd-static-sym', exe)
 endif
@@ -4376,7 +4378,7 @@ exe = executable(
         dependencies : userspace,
         build_by_default : want_tests != 'false',
         install : install_tests,
-        install_dir : testsdir)
+        install_dir : unittestsdir)
 if want_tests != 'false'
         test('test-libudev-sym', exe)
 endif
@@ -4390,7 +4392,7 @@ exe = executable(
         dependencies : userspace,
         build_by_default : want_tests != 'false' and static_libudev_pic,
         install : install_tests and static_libudev_pic,
-        install_dir : testsdir)
+        install_dir : unittestsdir)
 if want_tests != 'false' and static_libudev_pic
         test('test-libudev-static-sym', exe)
 endif
