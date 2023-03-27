@@ -753,7 +753,19 @@ int fd_reopen(int fd, int flags) {
          *
          * This implicitly resets the file read index to 0.
          *
-         * If AT_FDCWD is specified as file descriptor gets an fd to the current cwd */
+         * If AT_FDCWD is specified as file descriptor gets an fd to the current cwd.
+         *
+         * If the specified file descriptor refers to a symlink via O_PATH, then this function cannot be used
+         * to follow that symlink. Because we cannot have non-O_PATH fds to symlinks reopening it without
+         * O_PATH will always result with -ELOOP. */
+
+        if (FLAGS_SET(flags, O_NOFOLLOW))
+                /* O_NOFOLLOW is not allowed in fd_reopen(), because after all this is primarily implemented
+                 * via a symlink-based interface in /proc/self/fd. Let's refuse this here early. Note that
+                 * the kernel would generate ELOOP here too, hence this manual check is mostly redundant –
+                 * the only reason we add it here is so that the O_DIRECTORY special case (see below) behaves
+                 * the same way as the non-O_DIRECTORY case. */
+                return -ELOOP;
 
         if (FLAGS_SET(flags, O_DIRECTORY) || fd == AT_FDCWD) {
                 /* If we shall reopen the fd as directory we can just go via "." and thus bypass the whole
