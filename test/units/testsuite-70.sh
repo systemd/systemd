@@ -217,6 +217,55 @@ systemd-run -p PrivateDevices=yes -p LoadCredentialEncrypted=testdata.encrypted:
 systemd-run -p PrivateDevices=yes -p SetCredentialEncrypted=testdata.encrypted:"$(cat /tmp/testdata.encrypted)" --pipe --wait systemd-creds cat testdata.encrypted | cmp - /tmp/testdata
 rm /tmp/testdata
 
+# negative tests for cryptenroll
+
+# Prepare a new disk image
+img_2="/var/tmp/file_enroll.txt"
+truncate -s 20M $img_2
+echo -n password >/tmp/password
+cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom $img_2 /tmp/password
+
+#arg_fido2_lock_with
+ret="$(! systemd-cryptenroll --fido2-with-client-pin=false 2> >(grep "No block device node specified"))"
+test -n "${ret}"
+
+ret="$(! systemd-cryptenroll --fido2-with-client-pin=1234 $img_2 2> >(grep "Failed to parse boolean argument"))"
+test -n "${ret}"
+
+systemd-cryptenroll --fido2-with-client-pin=false $img_2
+
+ret="$(! systemd-cryptenroll --fido2-with-user-presence=1234 $img_2 2> >(grep "Failed to parse boolean argument"))"
+test -n "${ret}"
+
+systemd-cryptenroll --fido2-with-user-presence=false $img_2
+
+ret="$(! systemd-cryptenroll --fido2-with-user-verification=1234 $img_2 2> >(grep "Failed to parse boolean argument"))"
+test -n "${ret}"
+
+systemd-cryptenroll --fido2-with-user-verification=false $img_2
+
+#arg_enroll_type
+ret="$(! systemd-cryptenroll --recovery-key --password $img_2 2> >(grep "Multiple operations specified at once"))"
+test -n "${ret}"
+
+#systemd-cryptenroll --password $img_2
+
+ret="$(! systemd-cryptenroll --password --recovery-key $img_2 2> >(grep "Multiple operations specified at once"))"
+test -n "${ret}"
+
+#systemd-cryptenroll --recovery-key $img_2
+
+#arg_unlock_type
+ret="$(! systemd-cryptenroll --unlock-fido2-device=auto --unlock-fido2-device=auto $img_2 2> >(grep "Multiple unlock methods specified at once"))"
+test -n "${ret}"
+
+#systemd-cryptenroll --unlock-fido2-device=auto $img_2 2>/dev/null
+
+ret="$(! systemd-cryptenroll --unlock-fido2-device=auto --unlock-key-file=/tmp/unlock $img_2 2> >(grep "Multiple unlock methods specified at once"))"
+test -n "${ret}"
+
+#systemd-cryptenroll --unlock-key-file=/tmp/unlock $img_2 2>/dev/null
+
 echo OK >/testok
 
 exit 0
