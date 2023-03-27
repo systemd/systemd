@@ -734,7 +734,7 @@ static int create_remoteserver(
                    create output as expected. */
                 r = journal_remote_get_writer(s, NULL, &s->_single_writer);
                 if (r < 0)
-                        return r;
+                        return log_warning_errno(r, "Failed to get writer: %m");
         }
 
         return 0;
