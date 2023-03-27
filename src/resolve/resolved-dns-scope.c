@@ -569,6 +569,10 @@ static DnsScopeMatch match_subnet_reverse_lookups(
                 if (a->prefixlen == UCHAR_MAX) /* don't know subnet mask */
                         continue;
 
+                /* Don't send mDNS queries for the IPv4 broadcast address */
+                if (in_addr_equal(f, &a->in_brd, &ia))
+                        return DNS_SCOPE_NO;
+
                 /* Check if the address is in the local subnet */
                 r = in_addr_prefix_covers(f, &a->in_addr, a->prefixlen, &ia);
                 if (r < 0)
