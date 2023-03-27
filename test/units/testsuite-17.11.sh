@@ -173,7 +173,7 @@ EOF
 test_syntax_error '=' 'Invalid key/value pair, ignoring.'
 test_syntax_error 'ACTION{a}=="b"' 'Invalid attribute for ACTION.'
 test_syntax_error 'ACTION:="b"' 'Invalid operator for ACTION.'
-test_syntax_error 'ACTION=="b"' 'The line takes no effect, ignoring.'
+test_syntax_error 'ACTION=="b"' 'The line has no effect, ignoring.'
 test_syntax_error 'DEVPATH{a}=="b"' 'Invalid attribute for DEVPATH.'
 test_syntax_error 'DEVPATH:="b"' 'Invalid operator for DEVPATH.'
 test_syntax_error 'KERNEL{a}=="b"' 'Invalid attribute for KERNEL.'
@@ -275,15 +275,15 @@ test_syntax_error 'LABEL{a}="b"' 'Invalid attribute for LABEL.'
 test_syntax_error 'LABEL=="b"' 'Invalid operator for LABEL.'
 test_syntax_error 'LABEL="b"' 'LABEL="b" is unused.'
 test_syntax_error 'a="b"' "Invalid key 'a'"
-test_syntax_error 'KERNEL=="", KERNEL=="?*", NAME="a"' 'conflicting match expressions, the line takes no effect'
-test_syntax_error 'KERNEL=="abc", KERNEL!="abc", NAME="b"' 'conflicting match expressions, the line takes no effect'
-test_syntax_error 'KERNEL=="|a|b", KERNEL!="b|a|", NAME="c"' 'conflicting match expressions, the line takes no effect'
-test_syntax_error 'KERNEL=="a|b", KERNEL=="c|d|e", NAME="f"' 'conflicting match expressions, the line takes no effect'
+test_syntax_error 'KERNEL=="", KERNEL=="?*", NAME="a"' 'conflicting match expressions, the line has no effect'
+test_syntax_error 'KERNEL=="abc", KERNEL!="abc", NAME="b"' 'conflicting match expressions, the line has no effect'
+test_syntax_error 'KERNEL=="|a|b", KERNEL!="b|a|", NAME="c"' 'conflicting match expressions, the line has no effect'
+test_syntax_error 'KERNEL=="a|b", KERNEL=="c|d|e", NAME="f"' 'conflicting match expressions, the line has no effect'
 # shellcheck disable=SC2016
 test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}!="?*", ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
-                  'conflicting match expressions, the line takes no effect'
-test_syntax_error 'ACTION=="a*", ACTION=="bc*", NAME="d"' 'conflicting match expressions, the line takes no effect'
-test_syntax_error 'ACTION=="a*|bc*", ACTION=="d*|ef*", NAME="g"' 'conflicting match expressions, the line takes no effect'
+                  'conflicting match expressions, the line has no effect'
+test_syntax_error 'ACTION=="a*", ACTION=="bc*", NAME="d"' 'conflicting match expressions, the line has no effect'
+test_syntax_error 'ACTION=="a*|bc*", ACTION=="d*|ef*", NAME="g"' 'conflicting match expressions, the line has no effect'
 test_syntax_error 'KERNEL!="", KERNEL=="?*", NAME="a"' 'duplicate expressions'
 test_syntax_error 'KERNEL=="|a|b", KERNEL=="b|a|", NAME="c"' 'duplicate expressions'
 # shellcheck disable=SC2016
@@ -312,7 +312,7 @@ assert_0 "${rules}"
 echo 'GOTO="a"' >"${rules}"
 cat >"${exp}" <<EOF
 ${rules}:1 GOTO="a" has no matching label, ignoring
-${rules}:1 The line takes no effect any more, dropping
+${rules}:1 The line has no effect any more, dropping.
 ${rules}: udev rules check failed
 EOF
 cp "${workdir}/default_output_1_fail" "${exo}"
@@ -343,7 +343,7 @@ EOF
 cat >"${exp}" <<EOF
 ${rules}:2 Contains multiple LABEL keys, ignoring LABEL="a".
 ${rules}:1 GOTO="a" has no matching label, ignoring
-${rules}:1 The line takes no effect any more, dropping
+${rules}:1 The line has no effect any more, dropping.
 ${rules}:2 LABEL="b" is unused.
 ${rules}: udev rules check failed
 EOF
@@ -355,7 +355,7 @@ KERNEL!="", KERNEL=="?*", KERNEL=="", NAME="a"
 EOF
 cat >"${exp}" <<EOF
 ${rules}:1 duplicate expressions
-${rules}:1 conflicting match expressions, the line takes no effect
+${rules}:1 conflicting match expressions, the line has no effect
 ${rules}: udev rules check failed
 EOF
 cp "${workdir}/default_output_1_fail" "${exo}"
