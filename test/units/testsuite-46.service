@@ -3,8 +3,8 @@
 Description=TEST-46-HOMED
 Wants=getty-pre.target
 Before=getty-pre.target
-Wants=systemd-homed.service
-After=systemd-homed.service
+Requires=systemd-homed.service systemd-userdbd.service
+After=systemd-homed.service systemd-userdbd.service
 
 [Service]
 ExecStartPre=rm -f /failed /testok
