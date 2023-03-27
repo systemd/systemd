@@ -115,3 +115,5 @@ static inline char *format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int f
 
 #define FORMAT_PROC_FD_PATH(fd) \
         format_proc_fd_path((char[PROC_FD_PATH_MAX]) {}, (fd))
+
+const char *accmode_to_string(int flags);
