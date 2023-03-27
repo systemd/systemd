@@ -449,7 +449,8 @@ class PeError(Exception):
 
 def pe_add_sections(uki: UKI, output: str):
     pe = pefile.PE(uki.executable, fast_load=True)
-    assert len(pe.__data__) % pe.OPTIONAL_HEADER.FileAlignment == 0
+    if len(pe.__data__) % pe.OPTIONAL_HEADER.FileAlignment != 0:
+        print(f'{uki.executable} size ({len(pe.__data__)}) is not aligned to PE file alignment ({pe.OPTIONAL_HEADER.FileAlignment})')
 
     warnings = pe.get_warnings()
     if warnings:
@@ -487,7 +488,6 @@ def pe_add_sections(uki: UKI, output: str):
         else:
             new_section.IMAGE_SCN_CNT_INITIALIZED_DATA = True
 
-        assert len(pe.__data__) % pe.OPTIONAL_HEADER.FileAlignment == 0
         pe.__data__ = pe.__data__[:] + data + b'\0' * (new_section.SizeOfRawData - len(data))
 
         pe.FILE_HEADER.NumberOfSections += 1
