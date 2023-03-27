@@ -4231,14 +4231,16 @@ executable(
         install : true,
         install_dir : rootlibexecdir)
 
-exe = custom_target(
-        'kernel-install',
-        input : kernel_install_in,
-        output : 'kernel-install',
-        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
-        install : want_kernel_install,
-        install_mode : 'rwxr-xr-x',
-        install_dir : bindir)
+exe = executable(
+         'kernel-install',
+         'src/kernel-install/kernel-install.c',
+         include_directories : includes,
+         link_with : [libshared],
+         dependencies : [userspace,
+                         versiondep],
+         install_rpath : rootpkglibdir,
+         install : want_kernel_install,
+         install_dir : bindir)
 public_programs += exe
 
 if want_tests != 'false' and want_kernel_install
