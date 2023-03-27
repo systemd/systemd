@@ -438,8 +438,10 @@ usec_t watchdog_runtime_wait(void) {
         return timeout / 2;
 }
 
+/* returns 1 if ping was performed, 0 if skipped/disabled, negative on error */
 int watchdog_ping(void) {
         usec_t ntime, timeout;
+        int r;
 
         if (watchdog_timeout == 0)
                 return 0;
@@ -459,7 +461,11 @@ int watchdog_ping(void) {
                         return 0;
         }
 
-        return watchdog_ping_now();
+        r = watchdog_ping_now();
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 void watchdog_close(bool disarm) {
