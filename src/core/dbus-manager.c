@@ -1236,6 +1236,8 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
                 return r;
 
         HASHMAP_FOREACH_KEY(u, k, m->units) {
+                (void) manager_ping_watchdog(m);
+
                 if (k != u->id)
                         continue;
 
