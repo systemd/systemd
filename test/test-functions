@@ -107,10 +107,10 @@ fi
 TEST_BASE_DIR=${TEST_BASE_DIR:-$(realpath "$(dirname "${BASH_SOURCE[0]}")")}
 TEST_UNITS_DIR="$(realpath "$TEST_BASE_DIR/units")"
 SOURCE_DIR=$(realpath "$TEST_BASE_DIR/..")
-TOOLS_DIR="$SOURCE_DIR/tools"
 # These variables are used by test scripts
-export TEST_BASE_DIR TEST_UNITS_DIR SOURCE_DIR TOOLS_DIR
+export TEST_BASE_DIR TEST_UNITS_DIR SOURCE_DIR
 
+TOOLS_DIR="$SOURCE_DIR/tools"
 # note that find-build-dir.sh will return $BUILD_DIR if provided, else it will try to find it
 if get_bool "${NO_BUILD:=}"; then
     BUILD_DIR="$SOURCE_DIR"
@@ -133,7 +133,13 @@ if [ -z "$TESTFILE" ]; then
     exit 1
 fi
 TESTNAME="$(basename "$(dirname "$(realpath "$TESTFILE")")")"
-STATEDIR="$BUILD_DIR/test/$TESTNAME"
+
+if get_bool "${NO_BUILD:=}"; then
+    STATEDIR="/var/tmp/systemd-tests/$TESTNAME"
+else
+    STATEDIR="$BUILD_DIR/test/$TESTNAME"
+fi
+
 STATEFILE="$STATEDIR/.testdir"
 IMAGESTATEDIR="$STATEDIR/.."
 TESTLOG="$STATEDIR/test.log"
@@ -2228,7 +2234,7 @@ import_testdir() {
     LOOPDEV="$_LOOPDEV"
     if [[ ! -d "$TESTDIR" ]]; then
         if [[ -z "$TESTDIR" ]]; then
-            TESTDIR="$(mktemp --tmpdir=/var/tmp -d -t systemd-test.XXXXXX)"
+            TESTDIR="$(mktemp --tmpdir=/var/tmp/systemd-tests -d -t systemd-test.XXXXXX)"
         else
             mkdir -p "$TESTDIR"
         fi
@@ -3029,6 +3035,7 @@ _test_cleanup() {
         fi
         [[ -n "$TESTDIR" ]] && rm -vfr "$TESTDIR"
         [[ -n "$STATEFILE" ]] && rm -vf "$STATEFILE"
+        [[ -n "$STATEDIR" ]] && rm -vfr "$STATEDIR"
     ) || :
 }
 
