@@ -57,6 +57,9 @@ if install_tests
         install_subdir('testsuite-63.units',
                        exclude_files : '.gitattributes',
                        install_dir : testdata_dir)
+        install_subdir('testsuite-81.units',
+                       exclude_files : '.gitattributes',
+                       install_dir : testdata_dir)
 
         install_data(kbd_model_map,
                      install_dir : testdata_dir + '/test-keymap-util')
