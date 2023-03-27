@@ -7,6 +7,7 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "env-util.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "fileio.h"
@@ -58,6 +59,16 @@ char* strv_find_startswith(char * const *l, const char *name) {
                 e = startswith(*i, name);
                 if (e)
                         return e;
+        }
+
+        return NULL;
+}
+
+char* strv_find_first_field(char * const *needles, char * const *haystack) {
+        STRV_FOREACH(k, needles) {
+                char *value = strv_env_pairs_get((char **)haystack, *k);
+                if (value)
+                        return value;
         }
 
         return NULL;
