@@ -556,6 +556,9 @@ static DnsScopeMatch match_subnet_reverse_lookups(
         if (s->family != AF_UNSPEC && f != s->family)
                 return _DNS_SCOPE_MATCH_INVALID; /* Don't look for IPv4 addresses on LLMNR/mDNS over IPv6 and vice versa */
 
+        if (in_addr_is_null(f, &ia))
+                return DNS_SCOPE_NO;
+
         LIST_FOREACH(addresses, a, s->link->addresses) {
 
                 if (a->family != f)
@@ -568,6 +571,10 @@ static DnsScopeMatch match_subnet_reverse_lookups(
 
                 if (a->prefixlen == UCHAR_MAX) /* don't know subnet mask */
                         continue;
+
+                /* Don't send mDNS queries for the IPv4 broadcast address */
+                if (f == AF_INET && in_addr_equal(f, &a->in_addr_broadcast, &ia) > 0)
+                        return DNS_SCOPE_NO;
 
                 /* Check if the address is in the local subnet */
                 r = in_addr_prefix_covers(f, &a->in_addr, a->prefixlen, &ia);
