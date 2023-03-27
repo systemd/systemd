@@ -43,7 +43,7 @@ bool arg_quiet = false;
 int arg_make_entry_directory = false; /* tri-state: < 0 for automatic logic */
 sd_id128_t arg_machine_id = SD_ID128_NULL;
 char *arg_install_layout = NULL;
-EntryTokenType arg_entry_token_type = ARG_ENTRY_TOKEN_AUTO;
+BootEntryTokenType arg_entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
 char *arg_entry_token = NULL;
 JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 bool arg_arch_all = false;
@@ -328,30 +328,11 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_quiet = true;
                         break;
 
-                case ARG_ENTRY_TOKEN: {
-                        const char *e;
-
-                        if (streq(optarg, "machine-id")) {
-                                arg_entry_token_type = ARG_ENTRY_TOKEN_MACHINE_ID;
-                                arg_entry_token = mfree(arg_entry_token);
-                        } else if (streq(optarg, "os-image-id")) {
-                                arg_entry_token_type = ARG_ENTRY_TOKEN_OS_IMAGE_ID;
-                                arg_entry_token = mfree(arg_entry_token);
-                        } else if (streq(optarg, "os-id")) {
-                                arg_entry_token_type = ARG_ENTRY_TOKEN_OS_ID;
-                                arg_entry_token = mfree(arg_entry_token);
-                        } else if ((e = startswith(optarg, "literal:"))) {
-                                arg_entry_token_type = ARG_ENTRY_TOKEN_LITERAL;
-
-                                r = free_and_strdup_warn(&arg_entry_token, e);
-                                if (r < 0)
-                                        return r;
-                        } else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unexpected parameter for --entry-token=: %s", optarg);
-
+                case ARG_ENTRY_TOKEN:
+                        r = parse_boot_entry_token_type(optarg, &arg_entry_token_type, &arg_entry_token);
+                        if (r < 0)
+                                return r;
                         break;
-                }
 
                 case ARG_MAKE_ENTRY_DIRECTORY:
                         if (streq(optarg, "auto"))  /* retained for backwards compatibility */
