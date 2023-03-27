@@ -96,11 +96,19 @@ systemctl is-active app0.service
 status="$(portablectl is-attached --extension app0 minimal_0)"
 [[ "${status}" == "running-runtime" ]]
 
+grep -q -F "LogExtraFields=PORTABLE_ROOT=minimal_0.raw" /run/systemd/system.attached/app0.service.d/20-portable.conf
+grep -q -F "LogExtraFields=PORTABLE_EXTENSION=app0.raw" /run/systemd/system.attached/app0.service.d/20-portable.conf
+grep -q -F "LogExtraFields=PORTABLE_EXTENSION_NAME_AND_VERSION=app" /run/systemd/system.attached/app0.service.d/20-portable.conf
+
 timeout "$TIMEOUT" portablectl "${ARGS[@]}" reattach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_1.raw app0
 
 systemctl is-active app0.service
 status="$(portablectl is-attached --extension app0 minimal_1)"
 [[ "${status}" == "running-runtime" ]]
+
+grep -q -F "LogExtraFields=PORTABLE_ROOT=minimal_1.raw" /run/systemd/system.attached/app0.service.d/20-portable.conf
+grep -q -F "LogExtraFields=PORTABLE_EXTENSION=app0.raw" /run/systemd/system.attached/app0.service.d/20-portable.conf
+grep -q -F "LogExtraFields=PORTABLE_EXTENSION_NAME_AND_VERSION=app" /run/systemd/system.attached/app0.service.d/20-portable.conf
 
 portablectl detach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_1.raw app0
 
@@ -188,6 +196,20 @@ portablectl inspect --cat --extension app0 --extension app1 rootdir app0 app1 | 
 portablectl inspect --cat --extension app0 --extension app1 rootdir app0 app1 | grep -q -f /tmp/app1/usr/lib/extension-release.d/extension-release.app2
 portablectl inspect --cat --extension app0 --extension app1 rootdir app0 app1 | grep -q -f /tmp/app1/usr/lib/systemd/system/app1.service
 portablectl inspect --cat --extension app0 --extension app1 rootdir app0 app1 | grep -q -f /tmp/app0/usr/lib/systemd/system/app0.service
+
+grep -q -F "LogExtraFields=PORTABLE=app0" /run/systemd/system.attached/app0.service.d/20-portable.conf
+grep -q -F "LogExtraFields=PORTABLE_ROOT=rootdir" /run/systemd/system.attached/app0.service.d/20-portable.conf
+grep -q -F "LogExtraFields=PORTABLE_EXTENSION=app0" /run/systemd/system.attached/app0.service.d/20-portable.conf
+grep -q -F "LogExtraFields=PORTABLE_EXTENSION_NAME_AND_VERSION=app" /run/systemd/system.attached/app0.service.d/20-portable.conf
+grep -q -F "LogExtraFields=PORTABLE_EXTENSION=app1" /run/systemd/system.attached/app0.service.d/20-portable.conf
+grep -q -F "LogExtraFields=PORTABLE_EXTENSION_NAME_AND_VERSION=app_1" /run/systemd/system.attached/app0.service.d/20-portable.conf
+
+grep -q -F "LogExtraFields=PORTABLE=app1" /run/systemd/system.attached/app1.service.d/20-portable.conf
+grep -q -F "LogExtraFields=PORTABLE_ROOT=rootdir" /run/systemd/system.attached/app1.service.d/20-portable.conf
+grep -q -F "LogExtraFields=PORTABLE_EXTENSION=app0" /run/systemd/system.attached/app1.service.d/20-portable.conf
+grep -q -F "LogExtraFields=PORTABLE_EXTENSION_NAME_AND_VERSION=app" /run/systemd/system.attached/app1.service.d/20-portable.conf
+grep -q -F "LogExtraFields=PORTABLE_EXTENSION=app1" /run/systemd/system.attached/app1.service.d/20-portable.conf
+grep -q -F "LogExtraFields=PORTABLE_EXTENSION_NAME_AND_VERSION=app_1" /run/systemd/system.attached/app1.service.d/20-portable.conf
 
 portablectl detach --now --runtime --extension /tmp/app0 --extension /tmp/app1 /tmp/rootdir app0 app1
 
