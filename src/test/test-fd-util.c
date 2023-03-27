@@ -22,6 +22,7 @@
 #include "rm-rf.h"
 #include "seccomp-util.h"
 #include "serialize.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
@@ -410,6 +411,10 @@ TEST(fd_reopen) {
         assert_se(FLAGS_SET(fl, O_DIRECTORY));
         assert_se(FLAGS_SET(fl, O_PATH));
 
+        /* fd_reopen() with O_NOFOLLOW will systematically fail, since it is implemented via a symlink in /proc/self/fd/ */
+        assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC|O_NOFOLLOW) == -ELOOP);
+        assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW) == -ELOOP);
+
         fd2 = fd_reopen(fd1, O_RDONLY|O_DIRECTORY|O_CLOEXEC);  /* drop the O_PATH */
         assert_se(fd2 >= 0);
 
@@ -486,6 +491,23 @@ TEST(fd_reopen) {
         safe_close(fd1);
         assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC) == -EBADF);
         fd1 = -EBADF;
+
+        /* Validate what happens if we reopen a symlink */
+        fd1 = open("/proc/self", O_PATH|O_CLOEXEC|O_NOFOLLOW);
+        assert_se(fd1 >= 0);
+        assert_se(fstat(fd1, &st1) >= 0);
+        assert_se(S_ISLNK(st1.st_mode));
+
+        fd2 = fd_reopen(fd1, O_PATH|O_CLOEXEC);
+        assert_se(fd2 >= 0);
+        assert_se(fstat(fd2, &st2) >= 0);
+        assert_se(S_ISLNK(st2.st_mode));
+        assert_se(stat_inode_same(&st1, &st2));
+        fd2 = safe_close(fd2);
+
+        /* So here's the thing: if we have an O_PATH fd to a symlink, we *cannot* convert it to a regular fd
+         * with that. i.e. you cannot have the VFS follow a symlink pinned via an O_PATH fd. */
+        assert_se(fd_reopen(fd1, O_RDONLY|O_CLOEXEC) == -ELOOP);
 }
 
 TEST(fd_reopen_condition) {
