@@ -195,3 +195,20 @@ test -e "$BOOT_ROOT/the-token/1.1.1" && { echo 'unexpected success'; exit 1; }
 test -e "$BOOT_ROOT/the-token/1.1.1" && { echo 'unexpected success'; exit 1; }
 test -d "$BOOT_ROOT/the-token"
 rmdir "$BOOT_ROOT/the-token"
+
+###########################################
+# tests for --entry-token=
+###########################################
+"$kernel_install" -v --make-entry-directory=yes --entry-token=machine-id add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+test -d "$BOOT_ROOT/$MACHINE_ID/1.1.1"
+"$kernel_install" -v --make-entry-directory=yes --entry-token=machine-id remove 1.1.1
+test ! -e "$BOOT_ROOT/$MACHINE_ID/1.1.1"
+test -d "$BOOT_ROOT/$MACHINE_ID"
+rmdir "$BOOT_ROOT/$MACHINE_ID"
+
+"$kernel_install" -v --make-entry-directory=yes --entry-token=literal:hoge add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+test -d "$BOOT_ROOT/hoge/1.1.1"
+"$kernel_install" -v --make-entry-directory=yes --entry-token=literal:hoge remove 1.1.1
+test ! -e "$BOOT_ROOT/hoge/1.1.1"
+test -d "$BOOT_ROOT/hoge"
+rmdir "$BOOT_ROOT/hoge"
