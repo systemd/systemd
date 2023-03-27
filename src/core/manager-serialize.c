@@ -174,7 +174,7 @@ int manager_serialize(
         manager_serialize_uid_refs(m, f);
         manager_serialize_gid_refs(m, f);
 
-        r = exec_runtime_serialize(m, f, fds);
+        r = exec_shared_runtime_serialize(m, f, fds);
         if (r < 0)
                 return r;
 
@@ -519,7 +519,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 else if ((val = startswith(l, "destroy-ipc-gid=")))
                         manager_deserialize_gid_refs_one(m, val);
                 else if ((val = startswith(l, "exec-runtime=")))
-                        (void) exec_runtime_deserialize_one(m, val, fds);
+                        (void) exec_shared_runtime_deserialize_one(m, val, fds);
                 else if ((val = startswith(l, "subscribed="))) {
 
                         if (strv_extend(&m->deserialized_subscribed, val) < 0)

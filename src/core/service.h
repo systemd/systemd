@@ -156,7 +156,6 @@ struct Service {
 
         /* Runtime data of the execution context */
         ExecRuntime *exec_runtime;
-        DynamicCreds dynamic_creds;
 
         pid_t main_pid, control_pid;
 
