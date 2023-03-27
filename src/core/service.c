@@ -279,7 +279,7 @@ usec_t service_restart_usec(Service *s) {
                      (IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART) ? 1 : 0);
 
         /* n_restarts can equal to 0 if no restart has happened nor planned */
-        if (IN_SET(n_restarts, 0, 1) ||
+        if (n_restarts <= 1 ||
             s->restart_steps == 0 ||
             s->restart_usec_max == USEC_INFINITY ||
             s->restart_usec == s->restart_usec_max)
