@@ -17,6 +17,7 @@ TEST(parse_compare_operator) {
         const char *str_e = "!=!="; /* parse_compare_operator() moves the pointer */
         assert_se(parse_compare_operator(&str_e, COMPARE_EQUAL_BY_STRING) == COMPARE_STRING_UNEQUAL);
         assert_se(parse_compare_operator(&str_e, 0) == COMPARE_UNEQUAL);
+        assert_se(parse_compare_operator(&str_e, 0) == _COMPARE_OPERATOR_INVALID);
 }
 
 TEST(test_order) {
