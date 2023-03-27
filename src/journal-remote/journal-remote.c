@@ -122,14 +122,14 @@ int journal_remote_get_writer(RemoteServer *s, const char *host, Writer **writer
         if (w)
                 writer_ref(w);
         else {
-                w = writer_new(s);
-                if (!w)
-                        return log_oom();
+                r = writer_new(s, &w);
+                if (r < 0)
+                        return r;
 
                 if (s->split_mode == JOURNAL_WRITE_SPLIT_HOST) {
                         w->hashmap_key = strdup(key);
                         if (!w->hashmap_key)
-                                return log_oom();
+                                return -ENOMEM;
                 }
 
                 r = open_output(s, w, host);
@@ -142,7 +142,6 @@ int journal_remote_get_writer(RemoteServer *s, const char *host, Writer **writer
         }
 
         *writer = TAKE_PTR(w);
-
         return 0;
 }
 
