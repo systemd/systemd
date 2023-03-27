@@ -5,12 +5,13 @@
 #include "format-table.h"
 #include "parse-util.h"
 
-int list_enrolled(struct crypt_device *cd) {
+struct keyslot_metadata {
+        int slot;
+        const char *type;
+};
 
-        struct keyslot_metadata {
-                int slot;
-                const char *type;
-        } *keyslot_metadata = NULL;
+int list_enrolled(struct crypt_device *cd) {
+        _cleanup_free_ struct keyslot_metadata *keyslot_metadata = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
         size_t n_keyslot_metadata = 0;
         int slot_max, r;
