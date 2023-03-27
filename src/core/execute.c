@@ -6956,36 +6956,12 @@ static void *remove_tmpdir_thread(void *p) {
         return NULL;
 }
 
-static ExecSharedRuntime* exec_shared_runtime_free(ExecSharedRuntime *rt, bool destroy) {
-        int r;
-
+static ExecSharedRuntime* exec_shared_runtime_free(ExecSharedRuntime *rt) {
         if (!rt)
                 return NULL;
 
         if (rt->manager)
                 (void) hashmap_remove(rt->manager->exec_shared_runtime_by_id, rt->id);
-
-        /* When destroy is true, then rm_rf tmp_dir and var_tmp_dir. */
-
-        if (destroy && rt->tmp_dir && !streq(rt->tmp_dir, RUN_SYSTEMD_EMPTY)) {
-                log_debug("Spawning thread to nuke %s", rt->tmp_dir);
-
-                r = asynchronous_job(remove_tmpdir_thread, rt->tmp_dir);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to nuke %s: %m", rt->tmp_dir);
-                else
-                        rt->tmp_dir = NULL;
-        }
-
-        if (destroy && rt->var_tmp_dir && !streq(rt->var_tmp_dir, RUN_SYSTEMD_EMPTY)) {
-                log_debug("Spawning thread to nuke %s", rt->var_tmp_dir);
-
-                r = asynchronous_job(remove_tmpdir_thread, rt->var_tmp_dir);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to nuke %s: %m", rt->var_tmp_dir);
-                else
-                        rt->var_tmp_dir = NULL;
-        }
 
         rt->id = mfree(rt->id);
         rt->tmp_dir = mfree(rt->tmp_dir);
@@ -6995,8 +6971,42 @@ static ExecSharedRuntime* exec_shared_runtime_free(ExecSharedRuntime *rt, bool d
         return mfree(rt);
 }
 
-static void exec_shared_runtime_freep(ExecSharedRuntime **rt) {
-        (void) exec_shared_runtime_free(*rt, false);
+DEFINE_TRIVIAL_UNREF_FUNC(ExecSharedRuntime, exec_shared_runtime, exec_shared_runtime_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(ExecSharedRuntime*, exec_shared_runtime_free);
+
+ExecSharedRuntime* exec_shared_runtime_destroy(ExecSharedRuntime *rt) {
+        int r;
+
+        if (!rt)
+                return NULL;
+
+        assert(rt->n_ref > 0);
+        rt->n_ref--;
+
+        if (rt->n_ref > 0)
+                return NULL;
+
+        if (rt->tmp_dir && !streq(rt->tmp_dir, RUN_SYSTEMD_EMPTY)) {
+                log_debug("Spawning thread to nuke %s", rt->tmp_dir);
+
+                r = asynchronous_job(remove_tmpdir_thread, rt->tmp_dir);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to nuke %s: %m", rt->tmp_dir);
+                else
+                        rt->tmp_dir = NULL;
+        }
+
+        if (rt->var_tmp_dir && !streq(rt->var_tmp_dir, RUN_SYSTEMD_EMPTY)) {
+                log_debug("Spawning thread to nuke %s", rt->var_tmp_dir);
+
+                r = asynchronous_job(remove_tmpdir_thread, rt->var_tmp_dir);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to nuke %s: %m", rt->var_tmp_dir);
+                else
+                        rt->var_tmp_dir = NULL;
+        }
+
+        return exec_shared_runtime_free(rt);
 }
 
 static int exec_shared_runtime_allocate(ExecSharedRuntime **ret, const char *id) {
@@ -7150,19 +7160,6 @@ ref:
         rt->n_ref++;
         *ret = rt;
         return 1;
-}
-
-ExecSharedRuntime *exec_shared_runtime_unref(ExecSharedRuntime *rt, bool destroy) {
-        if (!rt)
-                return NULL;
-
-        assert(rt->n_ref > 0);
-
-        rt->n_ref--;
-        if (rt->n_ref > 0)
-                return NULL;
-
-        return exec_shared_runtime_free(rt, destroy);
 }
 
 int exec_shared_runtime_serialize(const Manager *m, FILE *f, FDSet *fds) {
@@ -7438,7 +7435,7 @@ void exec_shared_runtime_vacuum(Manager *m) {
                 if (rt->n_ref > 0)
                         continue;
 
-                (void) exec_shared_runtime_free(rt, false);
+                (void) exec_shared_runtime_free(rt);
         }
 }
 
