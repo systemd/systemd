@@ -20,7 +20,7 @@ typedef struct Writer {
         unsigned n_ref;
 } Writer;
 
-Writer* writer_new(RemoteServer* server);
+int writer_new(RemoteServer *server, Writer **ret);
 Writer* writer_ref(Writer *w);
 Writer* writer_unref(Writer *w);
 
