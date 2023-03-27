@@ -15,7 +15,7 @@ int devname_from_devnum(mode_t mode, dev_t devnum, char **ret) {
 
         assert(ret);
 
-        if (major(devnum) == 0 && minor(devnum) == 0)
+        if (devnum_is_zero(devnum))
                 return device_path_make_inaccessible(mode, ret);
 
         r = device_new_from_mode_and_devnum(&dev, mode, devnum);

@@ -979,7 +979,7 @@ int get_ctty_devnr(pid_t pid, dev_t *d) {
                    &ttynr) != 1)
                 return -EIO;
 
-        if (major(ttynr) == 0 && minor(ttynr) == 0)
+        if (devnum_is_zero(ttynr))
                 return -ENXIO;
 
         if (d)
