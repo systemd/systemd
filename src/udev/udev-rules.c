@@ -1232,7 +1232,7 @@ static int rule_add_line(UdevRuleFile *rule_file, const char *line_str, unsigned
         }
 
         if (rule_line->type == 0) {
-                log_line_warning(rule_line, "The line takes no effect, ignoring.");
+                log_line_warning(rule_line, "The line has no effect, ignoring.");
                 return 0;
         }
 
@@ -1264,7 +1264,7 @@ static void rule_resolve_goto(UdevRuleFile *rule_file) {
                         line->goto_label = NULL;
 
                         if ((line->type & ~(LINE_HAS_LABEL|LINE_IS_REFERENCED)) == 0) {
-                                log_line_notice(line, "The line takes no effect any more, dropping");
+                                log_line_notice(line, "The line has no effect any more, dropping.");
                                 /* LINE_IS_REFERENCED implies LINE_HAS_LABEL */
                                 if (line->type & LINE_HAS_LABEL)
                                         udev_rule_line_clear_tokens(line);
@@ -1411,7 +1411,7 @@ static void udev_check_conflicts_duplicates(UdevRuleLine *line) {
                         }
                         if (new_conflicts) {
                                 conflicts = new_conflicts;
-                                log_line_error(line, "conflicting match expressions, the line takes no effect");
+                                log_line_error(line, "conflicting match expressions, the line has no effect");
                         }
                         if (conflicts && duplicates)
                                 return;
