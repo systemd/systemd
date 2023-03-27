@@ -449,7 +449,7 @@ class PeError(Exception):
 
 def pe_add_sections(uki: UKI, output: str):
     pe = pefile.PE(uki.executable, fast_load=True)
-    assert len(pe.__data__) % pe.OPTIONAL_HEADER.FileAlignment == 0
+    assert pe.FILE_HEADER.PointerToSymbolTable != 0 or len(pe.__data__) % pe.OPTIONAL_HEADER.FileAlignment == 0
 
     warnings = pe.get_warnings()
     if warnings:
@@ -459,6 +459,12 @@ def pe_add_sections(uki: UKI, output: str):
     if security.VirtualAddress != 0:
         # We could strip the signatures, but why would anyone sign the stub?
         raise PeError(f'Stub image is signed, refusing.')
+
+    # If the executable has not been stripped, it might not be aligned to a multiple of the file alignment so
+    # let's make sure it is by padding it.
+    if pe.FILE_HEADER.PointerToSymbolTable != 0:
+        padlen = round_up(len(pe.__data__), pe.OPTIONAL_HEADER.FileAlignment) - len(pe.__data__)
+        pe.__data__ = pe.__data__[:] + padlen * b'\0'
 
     for section in uki.sections:
         new_section = pefile.SectionStructure(pe.__IMAGE_SECTION_HEADER_format__, pe=pe)
