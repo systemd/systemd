@@ -1,0 +1,8 @@
+[powertools-hotfixes]
+name=powertools-hotfixes
+mirrorlist=http://mirrorlist.centos.org/?release=$stream&arch=$basearch&repo=PowerTools
+gpgkey=https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+gpgcheck=1
+enabled=1
+module_hotfixes=1
+skip_if_unavailable=1
