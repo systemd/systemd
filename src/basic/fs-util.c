@@ -14,6 +14,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hostname-util.h"
+#include "label.h"
 #include "lock-util.h"
 #include "log.h"
 #include "macro.h"
@@ -1096,7 +1097,7 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
         }
 }
 
-int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
+int xopenat(int dir_fd, const char *path, int64_t flags, mode_t mode) {
         _cleanup_close_ int fd = -EBADF;
         bool made = false;
         int r;
@@ -1106,7 +1107,13 @@ int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
 
         if (isempty(path)) {
                 assert(!FLAGS_SET(flags, O_CREAT|O_EXCL));
-                return fd_reopen(dir_fd, flags);
+                return fd_reopen(dir_fd, flags & INT_MAX & ~O_NOFOLLOW);
+        }
+
+        if (FLAGS_SET(flags, O_CREAT|XO_LABEL)) {
+                r = label_pre(dir_fd, path, mode);
+                if (r < 0)
+                        return r;
         }
 
         if (FLAGS_SET(flags, O_DIRECTORY|O_CREAT)) {
@@ -1121,10 +1128,16 @@ int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
                 else
                         made = true;
 
-                flags &= ~(O_EXCL|O_CREAT);
+                if (FLAGS_SET(flags, XO_LABEL)) {
+                        r = label_post(dir_fd, path);
+                        if (r < 0)
+                                return r;
+                }
+
+                flags &= ~(O_EXCL|O_CREAT|XO_LABEL);
         }
 
-        fd = RET_NERRNO(openat(dir_fd, path, flags, mode));
+        fd = RET_NERRNO(openat(dir_fd, path, flags & INT_MAX, mode));
         if (fd < 0) {
                 if (IN_SET(fd,
                            /* We got ENOENT? then someone else immediately removed it after we
@@ -1143,10 +1156,16 @@ int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
                 return fd;
         }
 
+        if (FLAGS_SET(flags, O_CREAT|XO_LABEL)) {
+                r = label_post(dir_fd, path);
+                if (r < 0)
+                        return r;
+        }
+
         return TAKE_FD(fd);
 }
 
-int xopenat_lock(int dir_fd, const char *path, int flags, mode_t mode, LockType locktype, int operation) {
+int xopenat_lock(int dir_fd, const char *path, int64_t flags, mode_t mode, LockType locktype, int operation) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 

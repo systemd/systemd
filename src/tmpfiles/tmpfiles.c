@@ -41,7 +41,7 @@
 #include "glob-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
@@ -4133,7 +4133,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = mac_selinux_init();
+        r = mac_init();
         if (r < 0)
                 return r;
 
