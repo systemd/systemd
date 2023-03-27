@@ -42,7 +42,7 @@ static int http_socket = -1, https_socket = -1;
 static char** arg_gnutls_log = NULL;
 
 static JournalWriteSplitMode arg_split_mode = _JOURNAL_WRITE_SPLIT_INVALID;
-static const char* arg_output = NULL;
+static char *arg_output = NULL;
 
 static char *arg_key = NULL;
 static char *arg_cert = NULL;
@@ -62,6 +62,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_gnutls_log, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cert, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_trust, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_output, freep);
 
 static const char* const journal_write_split_mode_table[_JOURNAL_WRITE_SPLIT_MAX] = {
         [JOURNAL_WRITE_SPLIT_NONE] = "none",
@@ -957,7 +958,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "cannot use --output/-o more than once");
 
-                        arg_output = optarg;
+                        r = parse_path_argument(optarg, /* suppress_root = */ false, &arg_output);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_SPLIT_MODE:
