@@ -16,6 +16,7 @@ test_append_files() {
         instmods erofs
         generate_module_dependencies
         image_install -o mksquashfs
+        image_install -o setpriv
         image_install -o mkfs.erofs
     fi
 
