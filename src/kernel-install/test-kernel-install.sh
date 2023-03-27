@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # shellcheck disable=SC2235
-set -eu
+set -eux
 set -o pipefail
 
-kernel_install="${1:?}"
-plugin="${2:?}"
+kernel_install="${1?}"
+plugin="${2?}"
+bootctl="${PROJECT_BUILD_ROOT?}/bootctl"
 
 D="$(mktemp --tmpdir --directory "test-kernel-install.XXXXXXXXXX")"
-
-export _KERNEL_INSTALL_BOOTCTL="$PROJECT_BUILD_ROOT/bootctl"
 
 # shellcheck disable=SC2064
 trap "rm -rf '$D'" EXIT INT QUIT PIPE
@@ -52,9 +51,9 @@ grep -qE 'initrd' "$BOOT_ROOT/the-token/1.1.1/initrd"
 "$kernel_install" inspect
 
 "$kernel_install" -v remove 1.1.1
-test ! -f "$entry"
-test ! -f "$BOOT_ROOT/the-token/1.1.1/linux"
-test ! -f "$BOOT_ROOT/the-token/1.1.1/initrd"
+test ! -e "$entry"
+test ! -e "$BOOT_ROOT/the-token/1.1.1/linux"
+test ! -e "$BOOT_ROOT/the-token/1.1.1/initrd"
 
 # Invoke kernel-install as installkernel
 ln -s --relative -v "$kernel_install" "$D/sources/installkernel"
@@ -86,7 +85,7 @@ grep -qE '^initrd .*/the-token/1.1.1/initrd' "$entry"
 grep -qE 'image' "$BOOT_ROOT/the-token/1.1.1/linux"
 grep -qE 'initrd' "$BOOT_ROOT/the-token/1.1.1/initrd"
 
-if test -x "$_KERNEL_INSTALL_BOOTCTL"; then
+if test -x "$bootctl"; then
     echo "Testing bootctl"
     e2="${entry%+*}_2.conf"
     cp "$entry" "$e2"
@@ -97,14 +96,14 @@ if test -x "$_KERNEL_INSTALL_BOOTCTL"; then
     # create file that is not referenced. Check if cleanup removes
     # it but leaves the rest alone
     :> "$BOOT_ROOT/the-token/1.1.2/initrd"
-    "$_KERNEL_INSTALL_BOOTCTL" --root="$D" cleanup
+    "$bootctl" --root="$D" cleanup
     test ! -e "$BOOT_ROOT/the-token/1.1.2/initrd"
     test -e "$BOOT_ROOT/the-token/1.1.2/linux"
     test -e "$BOOT_ROOT/the-token/1.1.1/linux"
     test -e "$BOOT_ROOT/the-token/1.1.1/initrd"
 
     # now remove duplicated entry and make sure files are left over
-    "$_KERNEL_INSTALL_BOOTCTL" --root="$D" unlink "${e2##*/}"
+    "$bootctl" --root="$D" unlink "${e2##*/}"
     test -e "$BOOT_ROOT/the-token/1.1.1/linux"
     test -e "$BOOT_ROOT/the-token/1.1.1/initrd"
     test -e "$entry"
@@ -112,7 +111,7 @@ if test -x "$_KERNEL_INSTALL_BOOTCTL"; then
     # remove last entry referencing those files
     entry_id="${entry##*/}"
     entry_id="${entry_id%+*}.conf"
-    "$_KERNEL_INSTALL_BOOTCTL" --root="$D" unlink "$entry_id"
+    "$bootctl" --root="$D" unlink "$entry_id"
     test ! -e "$entry"
     test ! -e "$BOOT_ROOT/the-token/1.1.1/linux"
     test ! -e "$BOOT_ROOT/the-token/1.1.1/initrd"
