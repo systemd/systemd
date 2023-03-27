@@ -994,4 +994,16 @@ TEST(strv_copy_n) {
         assert_se(strv_equal(l, STRV_MAKE("a", "b", "c", "d", "e")));
 }
 
+TEST(strv_find_first_field) {
+        char **haystack = STRV_MAKE("a", "b", "c", "d", "e", "f", "g", "h", "i", "j");
+
+        assert_se(strv_find_first_field(NULL, NULL) == NULL);
+        assert_se(strv_find_first_field(NULL, haystack) == NULL);
+        assert_se(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "b"), NULL) == NULL);
+        assert_se(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "b"), haystack) == NULL);
+        assert_se(streq_ptr(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "a", "c"), haystack), "b"));
+        assert_se(streq_ptr(strv_find_first_field(STRV_MAKE("k", "l", "m", "d", "c", "a"), haystack), "d"));
+        assert_se(streq_ptr(strv_find_first_field(STRV_MAKE("i", "k", "l", "m", "d", "c", "a", "b"), haystack), "j"));
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
