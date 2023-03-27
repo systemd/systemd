@@ -1,3 +1,0 @@
-[Service]
-Type=oneshot
-ExecStart=/usr/lib/systemd/tests/testdata/testsuite-81.units/test.sh
