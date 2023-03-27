@@ -3123,6 +3123,7 @@ int manager_loop(Manager *m) {
         while (m->objective == MANAGER_OK) {
 
                 (void) watchdog_ping();
+                m->watchdog_stalled_pings = 0;
 
                 if (!ratelimit_below(&rl)) {
                         /* Yay, something is going seriously wrong, pause a little */
@@ -3164,6 +3165,30 @@ int manager_loop(Manager *m) {
         }
 
         return m->objective;
+}
+
+#define MAX_WATCHDOG_PINGS_WHILE_STALLED 1000   // FIXME: make runtime configurable?
+int manager_ping_watchdog(Manager *m) {
+        int r;
+
+        assert(m);
+
+        /* Cap the number of pings performed without running the event loop,
+         * just in case something's entered an infinite loop vs. being slow.
+         */
+        if (m->watchdog_stalled_pings > MAX_WATCHDOG_PINGS_WHILE_STALLED)
+                return 0;
+
+        r = watchdog_ping();
+        if (r <= 0)
+                return r;
+
+        /* Note we only count the actual pings performed,
+         * not every call to this function.
+         */
+        m->watchdog_stalled_pings++;
+
+        return 0;
 }
 
 int manager_load_unit_from_dbus_path(Manager *m, const char *s, sd_bus_error *e, Unit **_u) {
