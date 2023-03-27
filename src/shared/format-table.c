@@ -24,6 +24,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "sort-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "terminal-util.h"
@@ -348,6 +349,7 @@ static size_t table_data_size(TableDataType type, const void *data) {
                 return sizeof(pid_t);
 
         case TABLE_MODE:
+        case TABLE_MODE_INODE_TYPE:
                 return sizeof(mode_t);
 
         default:
@@ -1022,6 +1024,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         break;
 
                 case TABLE_MODE:
+                case TABLE_MODE_INODE_TYPE:
                         buffer.mode = va_arg(ap, mode_t);
                         data = &buffer.mode;
                         break;
@@ -1377,6 +1380,7 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                         return CMP(a->pid, b->pid);
 
                 case TABLE_MODE:
+                case TABLE_MODE_INODE_TYPE:
                         return CMP(a->mode, b->mode);
 
                 default:
@@ -1881,6 +1885,13 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 d->formatted = p;
                 break;
         }
+
+        case TABLE_MODE_INODE_TYPE:
+
+                if (d->mode == MODE_INVALID)
+                        return table_ersatz_string(t);
+
+                return inode_type_to_string(d->mode);
 
         default:
                 assert_not_reached();
@@ -2696,6 +2707,7 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
                 return json_variant_new_integer(ret, d->int_val);
 
         case TABLE_MODE:
+        case TABLE_MODE_INODE_TYPE:
                 if (d->mode == MODE_INVALID)
                         return json_variant_new_null(ret);
 
