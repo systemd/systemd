@@ -957,7 +957,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "cannot use --output/-o more than once");
 
-                        arg_output = optarg;
+                        r = parse_path_argument(optarg, /* suppress_root = */ false, &arg_output);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_SPLIT_MODE:
