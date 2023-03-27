@@ -15,6 +15,7 @@ trap "rm -rf '$D'" EXIT INT QUIT PIPE
 mkdir -p "$D/boot"
 mkdir -p "$D/efi"
 mkdir -p "$D/sources"
+mkdir -p "$D/tmp"
 
 echo 'buzy image' >"$D/sources/linux"
 echo 'the initrd' >"$D/sources/initrd"
@@ -206,3 +207,17 @@ test -d "$BOOT_ROOT/hoge/1.1.1"
 test ! -e "$BOOT_ROOT/hoge/1.1.1"
 test -d "$BOOT_ROOT/hoge"
 rmdir "$BOOT_ROOT/hoge"
+
+###########################################
+# tests for --root=
+###########################################
+export KERNEL_INSTALL_CONF_ROOT="/sources"
+export KERNEL_INSTALL_PLUGINS="00-skip.install"
+export BOOT_ROOT="/boot"
+
+"$kernel_install" -v --make-entry-directory=yes --entry-token=literal:foo --root="$D" add 1.1.1 "/sources/linux" "/sources/initrd"
+test -d "$D/boot/foo/1.1.1"
+"$kernel_install" -v --make-entry-directory=yes --entry-token=literal:foo --root="$D" remove 1.1.1
+test ! -e "$D/boot/foo/1.1.1"
+test -d "$D/boot/foo"
+rmdir "$D/boot/foo"
