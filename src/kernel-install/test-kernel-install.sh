@@ -117,3 +117,75 @@ if test -x "$bootctl"; then
     test ! -e "$BOOT_ROOT/the-token/1.1.1/linux"
     test ! -e "$BOOT_ROOT/the-token/1.1.1/initrd"
 fi
+
+###########################################
+# tests for --make-entry-directory=
+###########################################
+
+# disable all dropins
+cat >"$D/00-skip.install" <<EOF
+#!/bin/bash
+exit 77
+EOF
+chmod +x "$D/00-skip.install"
+export KERNEL_INSTALL_PLUGINS="$D/00-skip.install"
+
+# drop layout= from install.conf
+cat >"$D/sources/install.conf" <<EOF
+initrd_generator=none
+# those are overridden by envvars
+BOOT_ROOT="$D/badboot"
+MACHINE_ID=badbadbadbadbadbad6abadbadbadbad
+EOF
+export KERNEL_INSTALL_CONF_ROOT="$D/sources"
+
+rm -rf "$BOOT_ROOT"
+mkdir -p "$BOOT_ROOT"
+
+# 1. defaults to 'auto', and the entry directory is created only when the layout is BLS
+# 1.1 token directory does not exist -> layout is other.
+"$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+test -e "$BOOT_ROOT/the-token/1.1.1" && { echo 'unexpected success'; exit 1; }
+"$kernel_install" -v remove 1.1.1
+test -e "$BOOT_ROOT/the-token/1.1.1" && { echo 'unexpected success'; exit 1; }
+
+# 1.2 token directory exists -> layout is BLS
+mkdir -p "$BOOT_ROOT/the-token"
+"$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+test -d "$BOOT_ROOT/the-token/1.1.1"
+"$kernel_install" -v remove 1.1.1
+test -e "$BOOT_ROOT/the-token/1.1.1" && { echo 'unexpected success'; exit 1; }
+rmdir "$BOOT_ROOT/the-token"
+
+# 2. --make-entry-directory=yes
+# 2.1 token directory does not exist -> layout is other.
+"$kernel_install" -v --make-entry-directory=yes add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+test -d "$BOOT_ROOT/the-token/1.1.1"
+"$kernel_install" -v --make-entry-directory=yes remove 1.1.1
+test -e "$BOOT_ROOT/the-token/1.1.1" && { echo 'unexpected success'; exit 1; }
+test -d "$BOOT_ROOT/the-token"
+
+# 2.2 token directory exists -> layout is BLS
+mkdir -p "$BOOT_ROOT/the-token"
+"$kernel_install" -v --make-entry-directory=yes add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+test -d "$BOOT_ROOT/the-token/1.1.1"
+"$kernel_install" -v --make-entry-directory=yes remove 1.1.1
+test -e "$BOOT_ROOT/the-token/1.1.1" && { echo 'unexpected success'; exit 1; }
+test -d "$BOOT_ROOT/the-token"
+rmdir "$BOOT_ROOT/the-token"
+
+# 3. --make-entry-directory=no
+# 3.1 token directory does not exist -> layout is other.
+"$kernel_install" -v --make-entry-directory=no add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+test -e "$BOOT_ROOT/the-token/1.1.1" && { echo 'unexpected success'; exit 1; }
+"$kernel_install" -v --make-entry-directory=no remove 1.1.1
+test -e "$BOOT_ROOT/the-token/1.1.1" && { echo 'unexpected success'; exit 1; }
+
+# 3.2 token directory exists -> layout is BLS
+mkdir -p "$BOOT_ROOT/the-token"
+"$kernel_install" -v --make-entry-directory=no add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+test -e "$BOOT_ROOT/the-token/1.1.1" && { echo 'unexpected success'; exit 1; }
+"$kernel_install" -v --make-entry-directory=no remove 1.1.1
+test -e "$BOOT_ROOT/the-token/1.1.1" && { echo 'unexpected success'; exit 1; }
+test -d "$BOOT_ROOT/the-token"
+rmdir "$BOOT_ROOT/the-token"
