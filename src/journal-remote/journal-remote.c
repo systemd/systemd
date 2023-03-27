@@ -122,9 +122,9 @@ int journal_remote_get_writer(RemoteServer *s, const char *host, Writer **writer
         if (w)
                 writer_ref(w);
         else {
-                w = writer_new(s);
-                if (!w)
-                        return log_oom();
+                r = writer_new(s, &w);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create Writer object: %m");
 
                 if (s->split_mode == JOURNAL_WRITE_SPLIT_HOST) {
                         w->hashmap_key = strdup(key);
@@ -138,11 +138,10 @@ int journal_remote_get_writer(RemoteServer *s, const char *host, Writer **writer
 
                 r = hashmap_put(s->writers, w->hashmap_key ?: key, w);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to store Writer object: %m");
         }
 
         *writer = TAKE_PTR(w);
-
         return 0;
 }
 
