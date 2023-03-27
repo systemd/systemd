@@ -420,8 +420,7 @@ TEST(fd_reopen) {
 
         assert_se(fstat(fd2, &st2) >= 0);
         assert_se(S_ISDIR(st2.st_mode));
-        assert_se(st1.st_ino == st2.st_ino);
-        assert_se(st1.st_rdev == st2.st_rdev);
+        assert_se(stat_inode_same(&st1, &st2));
 
         fl = fcntl(fd2, F_GETFL);
         assert_se(fl >= 0);
@@ -435,8 +434,7 @@ TEST(fd_reopen) {
 
         assert_se(fstat(fd1, &st1) >= 0);
         assert_se(S_ISDIR(st1.st_mode));
-        assert_se(st1.st_ino == st2.st_ino);
-        assert_se(st1.st_rdev == st2.st_rdev);
+        assert_se(stat_inode_same(&st1, &st2));
 
         fl = fcntl(fd1, F_GETFL);
         assert_se(fl >= 0);
@@ -463,8 +461,7 @@ TEST(fd_reopen) {
 
         assert_se(fstat(fd2, &st2) >= 0);
         assert_se(S_ISREG(st2.st_mode));
-        assert_se(st1.st_ino == st2.st_ino);
-        assert_se(st1.st_rdev == st2.st_rdev);
+        assert_se(stat_inode_same(&st1, &st2));
 
         fl = fcntl(fd2, F_GETFL);
         assert_se(fl >= 0);
@@ -479,8 +476,7 @@ TEST(fd_reopen) {
 
         assert_se(fstat(fd1, &st1) >= 0);
         assert_se(S_ISREG(st1.st_mode));
-        assert_se(st1.st_ino == st2.st_ino);
-        assert_se(st1.st_rdev == st2.st_rdev);
+        assert_se(stat_inode_same(&st1, &st2));
 
         fl = fcntl(fd1, F_GETFL);
         assert_se(fl >= 0);
