@@ -39,7 +39,7 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid, b
         pid_t _pid;
         int r;
 
-        if (null_or_empty_path(path)) {
+        if (null_or_empty_path(path) > 0) {
                 log_debug("%s is empty (a mask).", path);
                 return 0;
         }
