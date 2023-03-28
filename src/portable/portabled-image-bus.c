@@ -416,6 +416,8 @@ static int bus_image_method_detach(
 
         assert(message);
 
+        CLEANUP_ARRAY(changes, n_changes, portable_changes_free);
+
         if (sd_bus_message_is_method_call(message, NULL, "DetachWithExtensions")) {
                 r = sd_bus_message_read_strv(message, &extension_images);
                 if (r < 0)
@@ -468,13 +470,9 @@ static int bus_image_method_detach(
                         &n_changes,
                         error);
         if (r < 0)
-                goto finish;
+                return r;
 
-        r = reply_portable_changes(message, changes, n_changes);
-
-finish:
-        portable_changes_free(changes, n_changes);
-        return r;
+        return reply_portable_changes(message, changes, n_changes);
 }
 
 int bus_image_common_remove(
