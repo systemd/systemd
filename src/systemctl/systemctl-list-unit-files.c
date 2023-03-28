@@ -157,8 +157,8 @@ int verb_list_unit_files(int argc, char *argv[], void *userdata) {
 
                 n_units = hashmap_size(h);
 
-                units = new(UnitFileList, n_units ?: 1); /* avoid malloc(0) */
-                if (!units)
+                units = new(UnitFileList, n_units);
+                if (!units && n_units > 0)
                         return log_oom();
 
                 HASHMAP_FOREACH(u, h) {
