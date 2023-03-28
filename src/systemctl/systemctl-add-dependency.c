@@ -74,12 +74,11 @@ int verb_add_dependency(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                if (arg_no_reload)
-                        return 0;
-
-                r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
-                if (r < 0)
-                        return r;
+                if (!arg_no_reload) {
+                        r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 0;
