@@ -652,8 +652,8 @@ d /tmp/foo/bar - - - - bmA:1h -</programlisting></para>
       taken on each directory/file the algorithm decides to remove. If the aging algorithm finds a lock is
       already taken on some directory/file, it (and everything below it) is skipped. Applications may use
       this to temporarily exclude certain directory subtrees from the aging algorithm: the applications can
-      take a BSD file lock themselves, and as long as they keep it aging of the directory/file and everything
-      below it is disabled.</para>
+      take a BSD file lock themselves (either a shared or an exclusive lock), and as long as they keep it
+      aging of the directory/file and everything below it is disabled.</para>
     </refsect2>
 
     <refsect2>
