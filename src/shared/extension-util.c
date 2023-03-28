@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "architecture.h"
+#include "chase.h"
 #include "env-util.h"
 #include "extension-util.h"
 #include "log.h"
@@ -134,4 +135,25 @@ int parse_env_extension_hierarchies(char ***ret_hierarchies) {
 
         *ret_hierarchies = TAKE_PTR(l);
         return 0;
+}
+
+int extension_forbidden_content_validate(const char *root) {
+        int r;
+
+        /* Insist that extension images do not overwrite the underlying OS release file (it's fine if
+         * they place one in /etc/os-release, i.e. where things don't matter, as they aren't
+         * merged.)
+         * Also insist that extensions don't themselves include extensions, as we don't want to get bogged
+         * down in recursion games. */
+        STRV_FOREACH(p, STRV_MAKE("/usr/lib/os-release", "/usr/lib/extensions/", "/usr/local/lib/extensions/")) {
+                r = chase(*p, root, CHASE_PREFIX_ROOT, NULL, NULL);
+                if (r > 0) {
+                        log_debug("Extension image contains %s, which is not allowed, refusing.", *p);
+                        return 0;
+                }
+                if (r < 0 && r != -ENOENT)
+                        return log_debug_errno(r, "Failed to determine whether %s exists in the extension image: %m", *p);
+        }
+
+        return 1;
 }
