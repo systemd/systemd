@@ -60,9 +60,7 @@ static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
 
         [IMAGE_EXTENSION] = "/etc/extensions\0"             /* only place symlinks here */
                             "/run/extensions\0"             /* and here too */
-                            "/var/lib/extensions\0"         /* the main place for images */
-                            "/usr/local/lib/extensions\0"
-                            "/usr/lib/extensions\0",
+                            "/var/lib/extensions\0",        /* the main place for images */
 };
 
 static Image *image_free(Image *i) {
