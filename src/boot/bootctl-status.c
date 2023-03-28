@@ -222,7 +222,7 @@ static int enumerate_binaries(
 
                 r = get_file_version(fd, &v);
                 if (r < 0)
-                        return r;
+                        continue;
 
                 if (*previous) { /* let's output the previous entry now, since now we know that there will be one more, and can draw the tree glyph properly */
                         printf("         %s %s%s\n",
