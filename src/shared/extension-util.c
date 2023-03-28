@@ -3,7 +3,7 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "env-util.h"
-#include "extension-release.h"
+#include "extension-util.h"
 #include "log.h"
 #include "os-util.h"
 #include "strv.h"
