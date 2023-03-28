@@ -3520,6 +3520,8 @@ static int bus_add_match_full(
         assert_return(match, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
+        CLEANUP_ARRAY(components, n_components, bus_match_parse_free);
+
         r = bus_match_parse(match, &components, &n_components);
         if (r < 0)
                 goto finish;
@@ -3582,7 +3584,6 @@ static int bus_add_match_full(
         s = NULL;
 
 finish:
-        bus_match_parse_free(components, n_components);
         sd_bus_slot_unref(s);
 
         return r;
