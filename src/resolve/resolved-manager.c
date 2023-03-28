@@ -106,7 +106,7 @@ fail:
 
 static int manager_process_address(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
-        union in_addr_union address;
+        union in_addr_union address, broadcast;
         uint16_t type;
         int r, ifindex, family;
         LinkAddress *a;
@@ -134,6 +134,10 @@ static int manager_process_address(sd_netlink *rtnl, sd_netlink_message *mm, voi
         switch (family) {
 
         case AF_INET:
+                r = sd_netlink_message_read_in_addr(mm, IFA_BROADCAST, &broadcast.in);
+                if (r < 0)
+                        broadcast.in = (struct in_addr) {0};
+
                 r = sd_netlink_message_read_in_addr(mm, IFA_LOCAL, &address.in);
                 if (r < 0) {
                         r = sd_netlink_message_read_in_addr(mm, IFA_ADDRESS, &address.in);
@@ -144,6 +148,7 @@ static int manager_process_address(sd_netlink *rtnl, sd_netlink_message *mm, voi
                 break;
 
         case AF_INET6:
+                broadcast.in6 = (struct in6_addr) {0};
                 r = sd_netlink_message_read_in6_addr(mm, IFA_LOCAL, &address.in6);
                 if (r < 0) {
                         r = sd_netlink_message_read_in6_addr(mm, IFA_ADDRESS, &address.in6);
@@ -164,7 +169,7 @@ static int manager_process_address(sd_netlink *rtnl, sd_netlink_message *mm, voi
         case RTM_NEWADDR:
 
                 if (!a) {
-                        r = link_address_new(l, &a, family, &address);
+                        r = link_address_new(l, &a, family, &address, &broadcast);
                         if (r < 0)
                                 return r;
                 }

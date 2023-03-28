@@ -816,7 +816,11 @@ ResolveSupport link_get_mdns_support(Link *link) {
         return MIN(link->mdns_support, link->manager->mdns_support);
 }
 
-int link_address_new(Link *l, LinkAddress **ret, int family, const union in_addr_union *in_addr) {
+int link_address_new(Link *l,
+                LinkAddress **ret,
+                int family,
+                const union in_addr_union *in_addr,
+                const union in_addr_union *in_addr_broadcast) {
         LinkAddress *a;
 
         assert(l);
@@ -829,6 +833,7 @@ int link_address_new(Link *l, LinkAddress **ret, int family, const union in_addr
         *a = (LinkAddress) {
                 .family = family,
                 .in_addr = *in_addr,
+                .in_addr_broadcast = *in_addr_broadcast,
                 .link = l,
                 .prefixlen = UCHAR_MAX,
         };
