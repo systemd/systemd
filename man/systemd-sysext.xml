@@ -90,7 +90,9 @@
     carrying large binary images, however are still useful for carrying symlinks to them. The primary place
     for installing system extensions is <filename>/var/lib/extensions/</filename>. Any directories found in
     these search directories are considered directory based extension images, any files with the
-    <filename>.raw</filename> suffix are considered disk image based extension images.</para>
+    <filename>.raw</filename> suffix are considered disk image based extension images. In case of directory
+    extensions, note that they however cannot be stored under <filename>/usr/lib/extensions/</filename> or
+    <filename>/usr/local/lib/extensions/</filename>, as the kernel does not allow recursive OverlayFS.</para>
 
     <para>During boot OS extension images are activated automatically, if the
     <filename>systemd-sysext.service</filename> is enabled. Note that this service runs only after the
