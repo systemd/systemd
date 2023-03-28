@@ -70,6 +70,8 @@ int verb_enable(int argc, char *argv[], void *userdata) {
         bool ignore_carries_install_info = arg_quiet || arg_no_warn;
         int r;
 
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
         if (!argv[1])
                 return 0;
 
@@ -130,8 +132,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
 
                 install_changes_dump(r, verb, changes, n_changes, arg_quiet);
                 if (r < 0)
-                        goto finish;
-                r = 0;
+                        return r;
         } else {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -236,15 +237,14 @@ int verb_enable(int argc, char *argv[], void *userdata) {
 
                 r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, &changes, &n_changes);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 /* Try to reload if enabled */
                 if (!arg_no_reload) {
                         r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
-                        if (r > 0)
-                                r = 0;
-                } else
-                        r = 0;
+                        if (r < 0)
+                                return r;
+                }
         }
 
         if (carries_install_info == 0 && !ignore_carries_install_info)
@@ -306,7 +306,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
 
                 r = acquire_bus(BUS_MANAGER, &bus);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 len = strv_length(names);
                 {
@@ -321,8 +321,5 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 }
         }
 
-finish:
-        install_changes_free(changes, n_changes);
-
-        return r;
+        return 0;
 }
