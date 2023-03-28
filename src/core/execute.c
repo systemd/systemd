@@ -3444,7 +3444,7 @@ static int compile_bind_mounts(
                 char ***ret_empty_directories) {
 
         _cleanup_strv_free_ char **empty_directories = NULL;
-        BindMount *bind_mounts;
+        BindMount *bind_mounts = NULL;
         size_t n, h = 0;
         int r;
 
@@ -3453,6 +3453,8 @@ static int compile_bind_mounts(
         assert(ret_bind_mounts);
         assert(ret_n_bind_mounts);
         assert(ret_empty_directories);
+
+        CLEANUP_ARRAY(bind_mounts, h, bind_mount_free_many);
 
         n = context->n_bind_mounts;
         for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
@@ -3479,16 +3481,13 @@ static int compile_bind_mounts(
                 char *s, *d;
 
                 s = strdup(item->source);
-                if (!s) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!s)
+                        return -ENOMEM;
 
                 d = strdup(item->destination);
                 if (!d) {
                         free(s);
-                        r = -ENOMEM;
-                        goto finish;
+                        return -ENOMEM;
                 }
 
                 bind_mounts[h++] = (BindMount) {
@@ -3516,14 +3515,12 @@ static int compile_bind_mounts(
                          * tmpfs that makes it accessible and is empty except for the submounts we do this for. */
 
                         private_root = path_join(params->prefix[t], "private");
-                        if (!private_root) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
+                        if (!private_root)
+                                return -ENOMEM;
 
                         r = strv_consume(&empty_directories, private_root);
                         if (r < 0)
-                                goto finish;
+                                return r;
                 }
 
                 for (size_t i = 0; i < context->directories[t].n_items; i++) {
@@ -3538,10 +3535,8 @@ static int compile_bind_mounts(
                                 s = path_join(params->prefix[t], "private", context->directories[t].items[i].path);
                         else
                                 s = path_join(params->prefix[t], context->directories[t].items[i].path);
-                        if (!s) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
+                        if (!s)
+                                return -ENOMEM;
 
                         if (exec_directory_is_private(context, t) &&
                             exec_context_with_rootfs(context))
@@ -3553,8 +3548,7 @@ static int compile_bind_mounts(
                                 d = strdup(s);
                         if (!d) {
                                 free(s);
-                                r = -ENOMEM;
-                                goto finish;
+                                return -ENOMEM;
                         }
 
                         bind_mounts[h++] = (BindMount) {
@@ -3570,15 +3564,11 @@ static int compile_bind_mounts(
 
         assert(h == n);
 
-        *ret_bind_mounts = bind_mounts;
+        *ret_bind_mounts = TAKE_PTR(bind_mounts);
         *ret_n_bind_mounts = n;
         *ret_empty_directories = TAKE_PTR(empty_directories);
 
         return (int) n;
-
-finish:
-        bind_mount_free_many(bind_mounts, h);
-        return r;
 }
 
 /* ret_symlinks will contain a list of pairs src:dest that describes
