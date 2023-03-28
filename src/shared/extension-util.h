@@ -14,3 +14,9 @@ int extension_release_validate(
 
 /* Parse SYSTEMD_SYSEXT_HIERARCHIES and if not set, return "/usr /opt" */
 int parse_env_extension_hierarchies(char ***ret_hierarchies);
+
+/* Insist that extension images do not overwrite the underlying OS release file (it's fine if they place one
+ * in /etc/os-release, i.e. where things don't matter, as they aren't merged.)
+ * Also insist that extensions don't themselves include extensions, as we don't want to get bogged  down in
+ * recursion games. */
+int extension_forbidden_content_validate(const char *root);
