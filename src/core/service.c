@@ -271,6 +271,7 @@ static void service_start_watchdog(Service *s) {
 usec_t service_restart_usec(Service *s) {
         unsigned n_restarts;
         long double unit;
+        usec_t next;
 
         assert(s);
 
@@ -280,24 +281,26 @@ usec_t service_restart_usec(Service *s) {
          * between job enqueuing and running is usually neglectable compared to the time
          * we'll be sleeping. */
         n_restarts = s->n_restarts +
-                     (IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART) ? 1 : 0);
+                     (IN_SET(s->state, SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART, SERVICE_AUTO_RESTART) ? 1 : 0);
 
         /* n_restarts can equal to 0 if no restart has happened nor planned */
         if (n_restarts <= 1 ||
-            s->restart_steps == 0 ||
+            s->restart_steps <= 0 ||
             s->restart_usec_max == USEC_INFINITY ||
-            s->restart_usec == s->restart_usec_max)
-                return s->restart_usec;
+            s->restart_usec >= s->restart_usec_max)
+                next = s->restart_usec;
+        else if (n_restarts > s->restart_steps)
+                next =  s->restart_usec_max;
+        else {
+                /* Enforced in service_verify() and above */
+                assert(s->restart_usec_max > s->restart_usec);
 
-        if (n_restarts > s->restart_steps)
-                return s->restart_usec_max;
+                unit = powl(s->restart_usec_max - s->restart_usec, 1.0L / s->restart_steps);
+                next = usec_add(s->restart_usec, (usec_t) powl(unit, n_restarts - 1));
+        }
 
-        /* Enforced in service_verify() and above */
-        assert(s->restart_usec_max > s->restart_usec);
-
-        unit = powl(s->restart_usec_max - s->restart_usec, 1.0L / s->restart_steps);
-
-        return usec_add(s->restart_usec, (usec_t) powl(unit, n_restarts - 1));
+        log_unit_debug(UNIT(s), "Next restart interval calculated as: %s", FORMAT_TIMESPAN(next, 0));
+        return next;
 }
 
 static void service_extend_event_source_timeout(Service *s, sd_event_source *source, usec_t extended) {
