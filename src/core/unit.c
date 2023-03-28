@@ -2277,7 +2277,6 @@ static int unit_log_resources(Unit *u) {
         size_t n_message_parts = 0, n_iovec = 0;
         char* message_parts[1 + 2 + 2 + 1], *t;
         nsec_t nsec = NSEC_INFINITY;
-        int r;
         const char* const ip_fields[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
                 [CGROUP_IP_INGRESS_BYTES]   = "IP_METRIC_INGRESS_BYTES",
                 [CGROUP_IP_INGRESS_PACKETS] = "IP_METRIC_INGRESS_PACKETS",
@@ -2293,6 +2292,9 @@ static int unit_log_resources(Unit *u) {
 
         assert(u);
 
+        CLEANUP_ARRAY(message_parts, n_message_parts, string_array_done);
+        CLEANUP_ARRAY(iovec, n_iovec, iovec_array_done);
+
         /* Invoked whenever a unit enters failed or dead state. Logs information about consumed resources if resource
          * accounting was enabled for a unit. It does this in two ways: a friendly human readable string with reduced
          * information and the complete data in structured fields. */
@@ -2300,18 +2302,14 @@ static int unit_log_resources(Unit *u) {
         (void) unit_get_cpu_usage(u, &nsec);
         if (nsec != NSEC_INFINITY) {
                 /* Format the CPU time for inclusion in the structured log message */
-                if (asprintf(&t, "CPU_USAGE_NSEC=%" PRIu64, nsec) < 0) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (asprintf(&t, "CPU_USAGE_NSEC=%" PRIu64, nsec) < 0)
+                        return log_oom();
                 iovec[n_iovec++] = IOVEC_MAKE_STRING(t);
 
                 /* Format the CPU time for inclusion in the human language message string */
                 t = strjoin("consumed ", FORMAT_TIMESPAN(nsec / NSEC_PER_USEC, USEC_PER_MSEC), " CPU time");
-                if (!t) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (!t)
+                        return log_oom();
 
                 message_parts[n_message_parts++] = t;
 
@@ -2334,10 +2332,8 @@ static int unit_log_resources(Unit *u) {
                         any_io = true;
 
                 /* Format IO accounting data for inclusion in the structured log message */
-                if (asprintf(&t, "%s=%" PRIu64, io_fields[k], value) < 0) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (asprintf(&t, "%s=%" PRIu64, io_fields[k], value) < 0)
+                        return log_oom();
                 iovec[n_iovec++] = IOVEC_MAKE_STRING(t);
 
                 /* Format the IO accounting data for inclusion in the human language message string, but only
@@ -2345,17 +2341,13 @@ static int unit_log_resources(Unit *u) {
                 if (k == CGROUP_IO_READ_BYTES) {
                         assert(!rr);
                         rr = strjoin("read ", strna(FORMAT_BYTES(value)), " from disk");
-                        if (!rr) {
-                                r = log_oom();
-                                goto finish;
-                        }
+                        if (!rr)
+                                return log_oom();
                 } else if (k == CGROUP_IO_WRITE_BYTES) {
                         assert(!wr);
                         wr = strjoin("written ", strna(FORMAT_BYTES(value)), " to disk");
-                        if (!wr) {
-                                r = log_oom();
-                                goto finish;
-                        }
+                        if (!wr)
+                                return log_oom();
                 }
 
                 if (IN_SET(k, CGROUP_IO_READ_BYTES, CGROUP_IO_WRITE_BYTES))
@@ -2375,10 +2367,8 @@ static int unit_log_resources(Unit *u) {
                         char *k;
 
                         k = strdup("no IO");
-                        if (!k) {
-                                r = log_oom();
-                                goto finish;
-                        }
+                        if (!k)
+                                return log_oom();
 
                         message_parts[n_message_parts++] = k;
                 }
@@ -2398,10 +2388,8 @@ static int unit_log_resources(Unit *u) {
                         any_traffic = true;
 
                 /* Format IP accounting data for inclusion in the structured log message */
-                if (asprintf(&t, "%s=%" PRIu64, ip_fields[m], value) < 0) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (asprintf(&t, "%s=%" PRIu64, ip_fields[m], value) < 0)
+                        return log_oom();
                 iovec[n_iovec++] = IOVEC_MAKE_STRING(t);
 
                 /* Format the IP accounting data for inclusion in the human language message string, but only for the
@@ -2409,17 +2397,13 @@ static int unit_log_resources(Unit *u) {
                 if (m == CGROUP_IP_INGRESS_BYTES) {
                         assert(!igress);
                         igress = strjoin("received ", strna(FORMAT_BYTES(value)), " IP traffic");
-                        if (!igress) {
-                                r = log_oom();
-                                goto finish;
-                        }
+                        if (!igress)
+                                return log_oom();
                 } else if (m == CGROUP_IP_EGRESS_BYTES) {
                         assert(!egress);
                         egress = strjoin("sent ", strna(FORMAT_BYTES(value)), " IP traffic");
-                        if (!egress) {
-                                r = log_oom();
-                                goto finish;
-                        }
+                        if (!egress)
+                                return log_oom();
                 }
 
                 if (IN_SET(m, CGROUP_IP_INGRESS_BYTES, CGROUP_IP_EGRESS_BYTES))
@@ -2430,10 +2414,8 @@ static int unit_log_resources(Unit *u) {
 
         /* This check is here because it is the earliest point following all possible log_level assignments. If
          * log_level is assigned anywhere after this point, move this check. */
-        if (!unit_log_level_test(u, log_level)) {
-                r = 0;
-                goto finish;
-        }
+        if (!unit_log_level_test(u, log_level))
+                return 0;
 
         if (have_ip_accounting) {
                 if (any_traffic) {
@@ -2446,20 +2428,16 @@ static int unit_log_resources(Unit *u) {
                         char *k;
 
                         k = strdup("no IP traffic");
-                        if (!k) {
-                                r = log_oom();
-                                goto finish;
-                        }
+                        if (!k)
+                                return log_oom();
 
                         message_parts[n_message_parts++] = k;
                 }
         }
 
         /* Is there any accounting data available at all? */
-        if (n_iovec == 0) {
-                r = 0;
-                goto finish;
-        }
+        if (n_iovec == 0)
+                return 0;
 
         if (n_message_parts == 0)
                 t = strjoina("MESSAGE=", u->id, ": Completed.");
@@ -2469,10 +2447,8 @@ static int unit_log_resources(Unit *u) {
                 message_parts[n_message_parts] = NULL;
 
                 joined = strv_join(message_parts, ", ");
-                if (!joined) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (!joined)
+                        return log_oom();
 
                 joined[0] = ascii_toupper(joined[0]);
                 t = strjoina("MESSAGE=", u->id, ": ", joined, ".");
@@ -2490,16 +2466,8 @@ static int unit_log_resources(Unit *u) {
         iovec[n_iovec + 3] = IOVEC_MAKE_STRING(t);
 
         log_unit_struct_iovec(u, log_level, iovec, n_iovec + 4);
-        r = 0;
 
-finish:
-        for (size_t i = 0; i < n_message_parts; i++)
-                free(message_parts[i]);
-
-        for (size_t i = 0; i < n_iovec; i++)
-                free(iovec[i].iov_base);
-
-        return r;
+        return 0;
 
 }
 

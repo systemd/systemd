@@ -113,6 +113,8 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
         assert(s);
         assert(p);
 
+        CLEANUP_ARRAY(iovec, z, iovec_array_done);
+
         if (l <= 0)
                 return;
 
@@ -196,7 +198,7 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
 
                 e = memchr(k, '\n', l);
                 if (!e)
-                        goto finish;
+                        return;
 
                 *e = 0;
 
@@ -300,10 +302,6 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
 
         if (saved_log_max_level != INT_MAX)
                 log_set_max_level(saved_log_max_level);
-
-finish:
-        for (j = 0; j < z; j++)
-                free(iovec[j].iov_base);
 }
 
 static int server_read_dev_kmsg(Server *s) {
