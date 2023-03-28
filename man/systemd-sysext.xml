@@ -84,13 +84,16 @@
     them they may optionally carry Verity authentication information.</para>
 
     <para>System extensions are automatically looked for in the directories
-    <filename>/etc/extensions/</filename>, <filename>/run/extensions/</filename>,
-    <filename>/var/lib/extensions/</filename>, <filename>/usr/lib/extensions/</filename> and
-    <filename>/usr/local/lib/extensions/</filename>. The first two listed directories are not suitable for
+    <filename>/etc/extensions/</filename>, <filename>/run/extensions/</filename> and
+    <filename>/var/lib/extensions/</filename>. The first two listed directories are not suitable for
     carrying large binary images, however are still useful for carrying symlinks to them. The primary place
     for installing system extensions is <filename>/var/lib/extensions/</filename>. Any directories found in
     these search directories are considered directory based extension images, any files with the
-    <filename>.raw</filename> suffix are considered disk image based extension images.</para>
+    <filename>.raw</filename> suffix are considered disk image based extension images. Previous versions
+    of <command>systemd-sysext</command> also loaded extensions from <filename>/usr/lib/extensions/</filename>
+    and <filename>/usr/local/lib/extensions/</filename>, but these storage directories have been deprecated,
+    as when used with directory based extension images it resulted in a recursive overlay, which is not
+    allowed by the kernel.</para>
 
     <para>During boot OS extension images are activated automatically, if the
     <filename>systemd-sysext.service</filename> is enabled. Note that this service runs only after the
