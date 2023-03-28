@@ -20,7 +20,7 @@ static void dump_changes(InstallChange *c, unsigned n) {
 }
 
 int main(int argc, char* argv[]) {
-        Hashmap *h;
+        _cleanup_(hashmap_freep) Hashmap *h = NULL;
         UnitFileList *p;
         int r;
         const char *const files[] = { "avahi-daemon.service", NULL };
@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        h = hashmap_new(&string_hash_ops);
+        h = hashmap_new(&unit_file_list_hash_ops);
         r = unit_file_get_list(RUNTIME_SCOPE_SYSTEM, NULL, h, NULL, NULL);
         assert_se(r == 0);
 
@@ -47,8 +47,6 @@ int main(int argc, char* argv[]) {
                         p->path,
                         unit_file_state_to_string(p->state));
         }
-
-        unit_file_list_free(h);
 
         log_info("/*** enable **/");
 
