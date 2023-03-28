@@ -169,8 +169,6 @@ int verb_list_unit_files(int argc, char *argv[], void *userdata) {
                 }
 
                 assert(c <= n_units);
-
-                r = 0;
         } else {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
