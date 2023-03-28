@@ -449,6 +449,15 @@ class PeError(Exception):
 
 def pe_add_sections(uki: UKI, output: str):
     pe = pefile.PE(uki.executable, fast_load=True)
+
+    # Old stubs do not use aligned raw data values, so let's fix them up here instead.
+    for section in reversed(pe.sections):
+        oldp = section.PointerToRawData
+        oldsz = section.SizeOfRawData
+        section.PointerToRawData = round_up(section.PointerToRawData, pe.OPTIONAL_HEADER.FileAlignment)
+        section.SizeOfRawData = round_up(section.SizeOfRawData, pe.OPTIONAL_HEADER.FileAlignment)
+        pe.__data__ = pe.__data__[0:oldp] + (section.PointerToRawData - oldp) * b'\0' + pe.__data__[oldp:oldsz] + (section.SizeOfRawData - oldsz) * b'\0'
+
     assert len(pe.__data__) % pe.OPTIONAL_HEADER.FileAlignment == 0
 
     warnings = pe.get_warnings()
