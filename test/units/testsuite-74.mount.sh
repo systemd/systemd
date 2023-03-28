@@ -114,7 +114,7 @@ systemctl status "$(systemd-escape --path "$WORK_DIR/mnt").automount"
 losetup -d "$LOOP"
 unset LOOP
 # The automount unit should disappear once the underlying blockdev is gone
-timeout 10s bash -c "while systemctl status '$(systemd-escape --path "$WORK_DIR/mnt").automount)'; do sleep .2; done"
+timeout 10s bash -c "while systemctl status '$(systemd-escape --path "$WORK_DIR/mnt".automount)'; do sleep .2; done"
 
 # Mount a disk image
 systemd-mount --discover "$WORK_DIR/simple.img"
