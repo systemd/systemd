@@ -309,12 +309,6 @@ Features:
   is then useful for network boot, by embdedding a cpio with type #1 snippets
   in sd-boot, which reference remote kernels.
 
-* fix systemd-gpt-auto-generator in case a UKI is spawned from XBOOTLDR without
-  sd-boot. In that case LoaderDevicePartUUID will point to the XBOOTLDR, and we
-  should then derive the root disk from that, and then the ESP/XBOOTLDR from
-  that. Right now we will only mount ESP if it matches LoaderDEvicePartUUID
-  which isn't quite the same.
-
 * maybe prohibit setuid() to the nobody user, to lock things down, via seccomp.
   the nobody is not a user any code should run under, ever, as that user would
   possibly get a lot of access to resources it really shouldn't be getting
