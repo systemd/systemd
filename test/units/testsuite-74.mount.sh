@@ -114,7 +114,7 @@ systemctl status "$(systemd-escape --path "$WORK_DIR/mnt").automount"
 losetup -d "$LOOP"
 unset LOOP
 # The automount unit should disappear once the underlying blockdev is gone
-timeout 10s bash -c "while systemctl status '$(systemd-escape --path "$WORK_DIR/mnt").automount)'; do sleep .2; done"
+timeout 10s bash -c "while systemctl status '$(systemd-escape --path "$WORK_DIR/mnt".automount)'; do sleep .2; done"
 
 # Mount a disk image
 systemd-mount --discover "$WORK_DIR/simple.img"
@@ -122,7 +122,7 @@ systemd-mount --discover "$WORK_DIR/simple.img"
 test -e /run/media/system/simple.img/foo.bar
 # systemd-mount --list and systemd-umount require the loopback block device is initialized by udevd.
 udevadm settle --timeout 30
-assert_in "/dev/loop.* ext4 sd-mount-test" "$(systemd-mount --list --full)"
+assert_in "/dev/loop.* ext4 +sd-mount-test" "$(systemd-mount --list --full)"
 systemd-umount "$WORK_DIR/simple.img"
 
 # --owner + vfat
