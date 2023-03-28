@@ -110,19 +110,19 @@
     <para>Unit files are loaded from a set of paths determined during compilation, described in the next
     section.</para>
 
-    <para>Valid unit names consist of a "name prefix" and a dot and a suffix specifying the unit type. The
-    "unit prefix" must consist of one or more valid characters (ASCII letters, digits, <literal>:</literal>,
-    <literal>-</literal>, <literal>_</literal>, <literal>.</literal>, and <literal>\</literal>). The total
-    length of the unit name including the suffix must not exceed 256 characters. The type suffix must be one
-    of <literal>.service</literal>, <literal>.socket</literal>, <literal>.device</literal>,
-    <literal>.mount</literal>, <literal>.automount</literal>, <literal>.swap</literal>,
-    <literal>.target</literal>, <literal>.path</literal>, <literal>.timer</literal>,
-    <literal>.slice</literal>, or <literal>.scope</literal>.</para>
+    <para>Valid unit names consist of a "unit name prefix", and a suffix specifying the unit type which
+    begins with a dot. The "unit name prefix" must consist of one or more valid characters (ASCII letters,
+    digits, <literal>:</literal>, <literal>-</literal>, <literal>_</literal>, <literal>.</literal>, and
+    <literal>\</literal>). The total length of the unit name including the suffix must not exceed 255
+    characters. The unit type suffix must be one of <literal>.service</literal>, <literal>.socket</literal>,
+    <literal>.device</literal>, <literal>.mount</literal>, <literal>.automount</literal>,
+    <literal>.swap</literal>, <literal>.target</literal>, <literal>.path</literal>,
+    <literal>.timer</literal>, <literal>.slice</literal>, or <literal>.scope</literal>.</para>
 
-    <para>Units names can be parameterized by a single argument called the "instance name". The unit is then
+    <para>Unit names can be parameterized by a single argument called the "instance name". The unit is then
     constructed based on a "template file" which serves as the definition of multiple services or other
-    units. A template unit must have a single <literal>@</literal> at the end of the name (right before the
-    type suffix). The name of the full unit is formed by inserting the instance name between
+    units. A template unit must have a single <literal>@</literal> at the end of the unit name prefix (right
+    before the type suffix). The name of the full unit is formed by inserting the instance name between
     <literal>@</literal> and the unit type suffix. In the unit file itself, the instance parameter may be
     referred to using <literal>%i</literal> and other specifiers, see below.</para>
 
