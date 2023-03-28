@@ -449,7 +449,26 @@ class PeError(Exception):
 
 def pe_add_sections(uki: UKI, output: str):
     pe = pefile.PE(uki.executable, fast_load=True)
-    assert pe.FILE_HEADER.PointerToSymbolTable != 0 or len(pe.__data__) % pe.OPTIONAL_HEADER.FileAlignment == 0
+
+    # Old stubs might have been stripped, leading to unaligned raw data values, so let's fix them up here.
+    for i in range(len(pe.sections)):
+        oldp = pe.sections[i].PointerToRawData
+        oldsz = pe.sections[i].SizeOfRawData
+        pe.sections[i].PointerToRawData = round_up(pe.sections[i].PointerToRawData, pe.OPTIONAL_HEADER.FileAlignment)
+        pe.sections[i].SizeOfRawData = round_up(pe.sections[i].SizeOfRawData, pe.OPTIONAL_HEADER.FileAlignment)
+        padp = pe.sections[i].PointerToRawData - oldp
+        padsz = pe.sections[i].SizeOfRawData - oldsz
+
+        for j in range(i + 1, len(pe.sections)):
+            pe.sections[j].PointerToRawData += padp + padsz
+
+        pe.__data__ = pe.__data__[:oldp] + padp * b'\0' + pe.__data__[oldp:oldp+oldsz] + padsz * b'\0' + pe.__data__[oldp+oldsz:]
+
+    # If this stub was stripped, we might not have any space to add new sections. Let's try our best to make
+    # some space by padding the SizeOfHeaders to a multiple of the file alignment. This is safe because the
+    # first section's data starts at a multiple of the file alignment, so all space before that is unused.
+    pe.OPTIONAL_HEADER.SizeOfHeaders = round_up(pe.OPTIONAL_HEADER.SizeOfHeaders, pe.OPTIONAL_HEADER.FileAlignment)
+    pe = pefile.PE(data=pe.write(), fast_load=True)
 
     warnings = pe.get_warnings()
     if warnings:
@@ -459,12 +478,6 @@ def pe_add_sections(uki: UKI, output: str):
     if security.VirtualAddress != 0:
         # We could strip the signatures, but why would anyone sign the stub?
         raise PeError(f'Stub image is signed, refusing.')
-
-    # If the executable has not been stripped, it might not be aligned to a multiple of the file alignment so
-    # let's make sure it is by padding it.
-    if pe.FILE_HEADER.PointerToSymbolTable != 0:
-        padlen = round_up(len(pe.__data__), pe.OPTIONAL_HEADER.FileAlignment) - len(pe.__data__)
-        pe.__data__ = pe.__data__[:] + padlen * b'\0'
 
     for section in uki.sections:
         new_section = pefile.SectionStructure(pe.__IMAGE_SECTION_HEADER_format__, pe=pe)
@@ -479,7 +492,9 @@ def pe_add_sections(uki: UKI, output: str):
         new_section.set_file_offset(offset)
         new_section.Name = section.name.encode()
         new_section.Misc_VirtualSize = len(data)
-        new_section.PointerToRawData = len(pe.__data__)
+        # Non-stripped stubs might still have an unaligned symbol table at the end, making their size
+        # unaligned, so we make sure to explicitly pad the pointer to new sections to an aligned offset.
+        new_section.PointerToRawData = round_up(len(pe.__data__), pe.OPTIONAL_HEADER.FileAlignment)
         new_section.SizeOfRawData = round_up(len(data), pe.OPTIONAL_HEADER.FileAlignment)
         new_section.VirtualAddress = round_up(
             pe.sections[-1].VirtualAddress + pe.sections[-1].Misc_VirtualSize,
@@ -493,8 +508,7 @@ def pe_add_sections(uki: UKI, output: str):
         else:
             new_section.IMAGE_SCN_CNT_INITIALIZED_DATA = True
 
-        assert len(pe.__data__) % pe.OPTIONAL_HEADER.FileAlignment == 0
-        pe.__data__ = pe.__data__[:] + data + b'\0' * (new_section.SizeOfRawData - len(data))
+        pe.__data__ = pe.__data__[:] + b'\0' * (new_section.PointerToRawData - len(pe.__data__)) + data + b'\0' * (new_section.SizeOfRawData - len(data))
 
         pe.FILE_HEADER.NumberOfSections += 1
         pe.OPTIONAL_HEADER.SizeOfInitializedData += new_section.Misc_VirtualSize
