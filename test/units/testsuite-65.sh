@@ -762,7 +762,8 @@ EOF
 
 # Empty CapabilityBoundingSet is not enough for --threshold=72 for system services,
 # but user services have less options available and the analysis should account for this
-systemd-analyze security --threshold=72 --offline=true --user --root=/tmp/img/ testfile.service
+# (--root seems to not work properly with --user, so use an absolute path instead)
+systemd-analyze security --threshold=72 --offline=true --user /tmp/img/usr/lib/systemd/user/testfile.service
 
 rm /tmp/img/usr/lib/systemd/user/testfile.service
 
