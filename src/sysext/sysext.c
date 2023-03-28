@@ -408,47 +408,6 @@ static int strverscmp_improvedp(char *const* a, char *const* b) {
         return strverscmp_improved(*a, *b);
 }
 
-static int validate_version(
-                const char *root,
-                const Image *img,
-                const char *host_os_release_id,
-                const char *host_os_release_version_id,
-                const char *host_os_release_sysext_level) {
-
-        int r;
-
-        assert(root);
-        assert(img);
-
-        if (arg_force) {
-                log_debug("Force mode enabled, skipping version validation.");
-                return 1;
-        }
-
-        /* Insist that extension images do not overwrite the underlying OS release file (it's fine if
-         * they place one in /etc/os-release, i.e. where things don't matter, as they aren't
-         * merged.) */
-        r = chase("/usr/lib/os-release", root, CHASE_PREFIX_ROOT, NULL, NULL);
-        if (r < 0) {
-                if (r != -ENOENT)
-                        return log_error_errno(r, "Failed to determine whether /usr/lib/os-release exists in the extension image: %m");
-        } else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Extension image contains /usr/lib/os-release file, which is not allowed (it may carry /etc/os-release), refusing.");
-
-        r = extension_release_validate(
-                        img->name,
-                        host_os_release_id,
-                        host_os_release_version_id,
-                        host_os_release_sysext_level,
-                        in_initrd() ? "initrd" : "system",
-                        img->extension_release);
-        if (r < 0)
-                return log_error_errno(r, "Failed to validate extension release information: %m");
-
-        return r;
-}
-
 static int merge_subprocess(Hashmap *images, const char *workspace) {
         _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL, *host_os_release_sysext_level = NULL,
                 *buf = NULL;
@@ -505,6 +464,17 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                 switch (img->type) {
                 case IMAGE_DIRECTORY:
                 case IMAGE_SUBVOLUME:
+
+                        if (!arg_force) {
+                                r = extension_has_forbidden_content(p);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0) {
+                                        n_ignored++;
+                                        continue;
+                                }
+                        }
+
                         r = mount_nofollow_verbose(LOG_ERR, img->path, p, NULL, MS_BIND, NULL);
                         if (r < 0)
                                 return r;
@@ -536,6 +506,9 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
 
                         if (verity_settings.data_path)
                                 flags |= DISSECT_IMAGE_NO_PARTITION_TABLE;
+
+                        if (!arg_force)
+                                flags |= DISSECT_IMAGE_VALIDATE_OS_EXT;
 
                         r = loop_device_make_by_path(
                                         img->path,
@@ -576,8 +549,12 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                                         UID_INVALID,
                                         UID_INVALID,
                                         flags);
-                        if (r < 0)
+                        if (r < 0 && r != -ENOMEDIUM)
                                 return r;
+                        if (r == -ENOMEDIUM && !arg_force) {
+                                n_ignored++;
+                                continue;
+                        }
 
                         r = dissected_image_relinquish(m);
                         if (r < 0)
@@ -588,17 +565,22 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         assert_not_reached();
                 }
 
-                r = validate_version(
-                                p,
-                                img,
-                                host_os_release_id,
-                                host_os_release_version_id,
-                                host_os_release_sysext_level);
-                if (r < 0)
-                        return r;
-                if (r == 0) {
-                        n_ignored++;
-                        continue;
+                if (arg_force)
+                        log_debug("Force mode enabled, skipping version validation.");
+                else {
+                        r = extension_release_validate(
+                                        img->name,
+                                        host_os_release_id,
+                                        host_os_release_version_id,
+                                        host_os_release_sysext_level,
+                                        in_initrd() ? "initrd" : "system",
+                                        img->extension_release);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                n_ignored++;
+                                continue;
+                        }
                 }
 
                 /* Nice! This one is an extension we want. */
@@ -612,7 +594,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
         /* Nothing left? Then shortcut things */
         if (n_extensions == 0) {
                 if (n_ignored > 0)
-                        log_info("No suitable extensions found (%u ignored due to incompatible version).", n_ignored);
+                        log_info("No suitable extensions found (%u ignored due to incompatible image(s)).", n_ignored);
                 else
                         log_info("No extensions found.");
                 return 0;
