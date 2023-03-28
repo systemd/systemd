@@ -1283,3 +1283,11 @@ char *find_line_startswith(const char *haystack, const char *needle) {
 
         return p + strlen(needle);
 }
+
+void string_array_done(char **s, size_t n) {
+        if (!s)
+                return;
+
+        for (size_t i = 0; i < n; i++)
+                free(s[i]);
+}

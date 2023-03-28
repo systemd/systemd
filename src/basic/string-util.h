@@ -255,3 +255,5 @@ char *strdupspn(const char *a, const char *accept);
 char *strdupcspn(const char *a, const char *reject);
 
 char *find_line_startswith(const char *haystack, const char *needle);
+
+void string_array_done(char **s, size_t n);
