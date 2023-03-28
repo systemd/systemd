@@ -3,7 +3,6 @@
 set -e
 
 TEST_DESCRIPTION="test NotifyAccess through sd-notify"
-TEST_NO_QEMU=1
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"

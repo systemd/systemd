@@ -5,4 +5,4 @@ Description=TEST-80-NOTIFYACCESS
 [Service]
 ExecStartPre=rm -f /failed /testok
 ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
-Type=oneshot
+Type=notify
