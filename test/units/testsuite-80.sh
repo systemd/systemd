@@ -48,5 +48,32 @@ assert_eq "$(systemctl show notify.service -p NotifyAccess --value)" "all"
 
 rm /tmp/syncfifo1 /tmp/syncfifo2
 
+MYSCRIPT="/tmp/myscript$RANDOM.sh"
+cat >> "$MYSCRIPT" <<'EOF'
+#!/usr/bin/env bash
+set -eux
+set -o pipefail
+N="/tmp/$RANDOM"
+echo $RANDOM > "$N"
+systemd-notify --fd=4 --fdname=quux --pid=parent 4< "$N"
+rm "$N"
+systemd-notify --ready
+exec sleep infinity
+EOF
+
+chmod +x "$MYSCRIPT"
+
+MYUNIT="myunit$RANDOM.service"
+systemd-run -u "$MYUNIT" -p Type=notify -p StandardOutput=journal+console -p StandardError=journal+console -p FileDescriptorStoreMax=7 "$MYSCRIPT"
+
+test "$(systemd-analyze fdstore "$MYUNIT" | wc -l)" -eq 2
+systemd-analyze fdstore "$MYUNIT" --json=short
+systemd-analyze fdstore "$MYUNIT" --json=short | grep -P -q '\[{"fdname":"quux","type":.*,"devno":\[.*\],"inode":.*,"rdevno":null,"path":"/tmp/.*","flags":"ro"}\]'
+
+systemctl stop "$MYUNIT"
+rm "$MYSCRIPT"
+
 touch /testok
 rm /failed
+
+exit 0
