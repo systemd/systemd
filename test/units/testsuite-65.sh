@@ -160,6 +160,7 @@ fi
 
 # verify
 mkdir -p /tmp/img/usr/lib/systemd/system/
+mkdir -p /tmp/img/usr/lib/systemd/user/
 mkdir -p /tmp/img/opt/
 
 touch /tmp/img/opt/script0.sh
@@ -752,6 +753,19 @@ systemd-analyze security --threshold=50 --offline=true \
 set -e
 
 rm /tmp/img/usr/lib/systemd/system/testfile.service
+
+cat <<EOF >/tmp/img/usr/lib/systemd/user/testfile.service
+[Service]
+ExecStart = echo hello
+CapabilityBoundingSet =
+EOF
+
+# Empty CapabilityBoundingSet is not enough for --threshold=72 for system services,
+# but user services have less options available and the analysis should account for this
+# (--root seems to not work properly with --user, so use an absolute path instead)
+systemd-analyze security --threshold=72 --offline=true --user /tmp/img/usr/lib/systemd/user/testfile.service
+
+rm /tmp/img/usr/lib/systemd/user/testfile.service
 
 if systemd-analyze --version | grep -q -F "+ELFUTILS"; then
     systemd-analyze inspect-elf --json=short /lib/systemd/systemd | grep -q -F '"elfType":"executable"'

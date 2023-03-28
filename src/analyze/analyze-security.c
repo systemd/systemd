@@ -129,6 +129,7 @@ struct security_assessor {
         size_t offset;
         uint64_t parameter;
         bool default_dependencies_only;
+        bool system_services_only;
 };
 
 static SecurityInfo *security_info_new(void) {
@@ -767,6 +768,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .weight = 2000,
                 .range = 10,
                 .assess = assess_user,
+                .system_services_only = true,
         },
         {
                 .id = "SupplementaryGroups=",
@@ -845,6 +847,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .range = 1,
                 .assess = assess_bool,
                 .offset = offsetof(SecurityInfo, protect_control_groups),
+                .system_services_only = true,
         },
         {
                 .id = "ProtectKernelModules=",
@@ -1278,6 +1281,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .weight = 1000,
                 .range = 3,
                 .assess = assess_protect_proc,
+                .system_services_only = true,
         },
         {
                 .id = "ProcSubset=",
@@ -1288,6 +1292,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .weight = 10,
                 .range = 1,
                 .assess = assess_proc_subset,
+                .system_services_only = true,
         },
         {
                 .id = "NotifyAccess=",
@@ -1310,6 +1315,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .range = 1,
                 .assess = assess_remove_ipc,
                 .offset = offsetof(SecurityInfo, remove_ipc),
+                .system_services_only = true,
         },
         {
                 .id = "Delegate=",
@@ -1593,6 +1599,7 @@ static const struct security_assessor security_assessor_table[] = {
                 .weight = 1000,
                 .range = 10,
                 .assess = assess_ip_address_allow,
+                .system_services_only = true,
         },
         {
                 .id = "DeviceAllow=",
@@ -1716,6 +1723,7 @@ static int assess(const SecurityInfo *info,
                   AnalyzeSecurityFlags flags,
                   unsigned threshold,
                   JsonVariant *policy,
+                  RuntimeScope scope,
                   PagerFlags pager_flags,
                   JsonFormatFlags json_format_flags) {
 
@@ -1768,6 +1776,11 @@ static int assess(const SecurityInfo *info,
                 if (a->default_dependencies_only && !info->default_dependencies) {
                         badness = UINT64_MAX;
                         d = strdup("Service runs in special boot phase, option is not appropriate");
+                        if (!d)
+                                return log_oom();
+                } else if (a->system_services_only && scope != RUNTIME_SCOPE_SYSTEM) {
+                        badness = UINT64_MAX;
+                        d = strdup("Option does not apply to user services");
                         if (!d)
                                 return log_oom();
                 } else if (weight == 0) {
@@ -2413,6 +2426,7 @@ static int analyze_security_one(sd_bus *bus,
                                 AnalyzeSecurityFlags flags,
                                 unsigned threshold,
                                 JsonVariant *policy,
+                                RuntimeScope scope,
                                 PagerFlags pager_flags,
                                 JsonFormatFlags json_format_flags) {
 
@@ -2431,7 +2445,7 @@ static int analyze_security_one(sd_bus *bus,
         if (r < 0)
                 return r;
 
-        r = assess(info, overview_table, flags, threshold, policy, pager_flags, json_format_flags);
+        r = assess(info, overview_table, flags, threshold, policy, scope, pager_flags, json_format_flags);
         if (r < 0)
                 return r;
 
@@ -2645,6 +2659,7 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
 static int offline_security_check(Unit *u,
                                   unsigned threshold,
                                   JsonVariant *policy,
+                                  RuntimeScope scope,
                                   PagerFlags pager_flags,
                                   JsonFormatFlags json_format_flags) {
 
@@ -2662,7 +2677,7 @@ static int offline_security_check(Unit *u,
         if (r < 0)
               return r;
 
-        return assess(info, overview_table, flags, threshold, policy, pager_flags, json_format_flags);
+        return assess(info, overview_table, flags, threshold, policy, scope, pager_flags, json_format_flags);
 }
 
 static int offline_security_checks(
@@ -2769,7 +2784,7 @@ static int offline_security_checks(
         }
 
         for (size_t i = 0; i < count; i++) {
-                k = offline_security_check(units[i], threshold, policy, pager_flags, json_format_flags);
+                k = offline_security_check(units[i], threshold, policy, scope, pager_flags, json_format_flags);
                 if (k < 0 && r == 0)
                         r = k;
         }
@@ -2854,7 +2869,7 @@ static int analyze_security(sd_bus *bus,
                 flags |= ANALYZE_SECURITY_SHORT|ANALYZE_SECURITY_ONLY_LOADED|ANALYZE_SECURITY_ONLY_LONG_RUNNING;
 
                 STRV_FOREACH(i, list) {
-                        r = analyze_security_one(bus, *i, overview_table, flags, threshold, policy, pager_flags, json_format_flags);
+                        r = analyze_security_one(bus, *i, overview_table, flags, threshold, policy, scope, pager_flags, json_format_flags);
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }
@@ -2887,7 +2902,7 @@ static int analyze_security(sd_bus *bus,
                         } else
                                 name = mangled;
 
-                        r = analyze_security_one(bus, name, overview_table, flags, threshold, policy, pager_flags, json_format_flags);
+                        r = analyze_security_one(bus, name, overview_table, flags, threshold, policy, scope, pager_flags, json_format_flags);
                         if (r < 0 && ret >= 0)
                                 ret = r;
                 }
