@@ -39,7 +39,7 @@
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
-static bool arg_full = false;
+static int arg_full = -1;
 static const char *arg_address = NULL;
 static bool arg_unique = false;
 static bool arg_acquired = false;
@@ -215,7 +215,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
         if (!table)
                 return log_oom();
 
-        if (arg_full)
+        if (arg_full > 0)
                 table_set_width(table, 0);
 
         r = table_set_align_percent(table, table_get_cell(table, 0, COLUMN_PID), 100);
@@ -1120,7 +1120,7 @@ static int introspect(int argc, char **argv, void *userdata) {
                 sorted[k++] = m;
         }
 
-        if (result_width > 40 && !arg_full)
+        if (result_width > 40 && arg_full <= 0)
                 result_width = 40;
 
         typesafe_qsort(sorted, k, member_compare_funcp);
@@ -2549,6 +2549,9 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached();
                 }
+
+        if (arg_full < 0)
+                arg_full = terminal_is_dumb();
 
         return 1;
 }
