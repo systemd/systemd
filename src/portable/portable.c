@@ -198,7 +198,7 @@ static int extract_now(
         /* First, find os-release/extension-release and send it upstream (or just save it). */
         if (path_is_extension) {
                 os_release_id = strjoina("/usr/lib/extension-release.d/extension-release.", image_name);
-                r = open_extension_release(where, image_name, relax_extension_release_check, &os_release_path, &os_release_fd);
+                r = open_extension_release(where, IMAGE_EXTENSION, image_name, relax_extension_release_check, &os_release_path, &os_release_fd);
         } else {
                 os_release_id = "/etc/os-release";
                 r = open_os_release(where, &os_release_path, &os_release_fd);
@@ -618,7 +618,7 @@ static int extract_image_and_extensions(
                         return r;
 
                 if (validate_sysext) {
-                        r = extension_release_validate(ext->path, id, version_id, sysext_level, "portable", extension_release);
+                        r = release_file_validate(ext->path, id, version_id, sysext_level, "portable", extension_release, "SYSEXT_LEVEL", "SYSEXT_SCOPE");
                         if (r == 0)
                                 return sd_bus_error_set_errnof(error, SYNTHETIC_ERRNO(ESTALE), "Image %s extension-release metadata does not match the root's", ext->path);
                         if (r < 0)

@@ -76,16 +76,17 @@ static int entry_token_from_os_release(const char *root, BootEntryTokenType *typ
         switch (*type) {
         case BOOT_ENTRY_TOKEN_AUTO:
                 r = parse_os_release(root,
+                                     IMAGE_EXTENSION,
                                      "IMAGE_ID", &image_id,
                                      "ID",       &id);
                 break;
 
         case BOOT_ENTRY_TOKEN_OS_IMAGE_ID:
-                r = parse_os_release(root, "IMAGE_ID", &image_id);
+                r = parse_os_release(root, IMAGE_EXTENSION, "IMAGE_ID", &image_id);
                 break;
 
         case BOOT_ENTRY_TOKEN_OS_ID:
-                r = parse_os_release(root, "ID", &id);
+                r = parse_os_release(root, IMAGE_EXTENSION, "ID", &id);
                 break;
 
         default:

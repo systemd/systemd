@@ -165,6 +165,7 @@ static void context_read_os_release(Context *c) {
                       (UINT64_C(1) << PROP_OS_SUPPORT_END));
 
         r = parse_os_release(NULL,
+                             IMAGE_EXTENSION,
                              "PRETTY_NAME", &os_pretty_name,
                              "NAME",        &os_name,
                              "CPE_NAME",    &c->data[PROP_OS_CPE_NAME],
