@@ -815,14 +815,9 @@ static int dir_cleanup(
                                 continue;
 
                         fd = xopenat_nomod(dirfd(d), de->d_name);
-                        if (fd < 0) {
-                                if (fd != -ENOENT)
-                                        r = log_warning_errno(fd, "Opening file \"%s\" failed, ignoring: %m", sub_path);
-
-                                continue;
-                        }
-
-                        if (flock(fd, LOCK_EX|LOCK_NB) < 0) {
+                        if (fd < 0 && fd != -ENOENT)
+                                log_warning_errno(fd, "Opening file \"%s\" failed, ignoring: %m", sub_path);
+                        if (fd >= 0 && flock(fd, LOCK_EX|LOCK_NB) < 0 && errno == EAGAIN) {
                                 log_debug_errno(errno, "Couldn't acquire shared BSD lock on file \"%s\", skipping: %m", p);
                                 continue;
                         }
