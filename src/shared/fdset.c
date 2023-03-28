@@ -192,24 +192,39 @@ int fdset_new_listen_fds(FDSet **ret, bool unset) {
         return 0;
 }
 
-int fdset_close_others(FDSet *fds) {
-        _cleanup_free_ int *a = NULL;
-        size_t j = 0, m;
+int fdset_get_array(FDSet *fds, int **ret_array) {
+        unsigned j = 0, m;
         void *e;
+        int *a;
+
+        assert(ret_array);
 
         m = fdset_size(fds);
-        if (m > 0) {
-                a = new(int, m);
-                if (!a)
-                        return -ENOMEM;
+        if (m > INT_MAX) /* We want to be able to return an "int" */
+                return -ENOMEM;
 
-                SET_FOREACH(e, MAKE_SET(fds))
-                        a[j++] = PTR_TO_FD(e);
-        }
+        a = new(int, m);
+        if (!a)
+                return -ENOMEM;
+
+        SET_FOREACH(e, MAKE_SET(fds))
+                a[j++] = PTR_TO_FD(e);
 
         assert(j == m);
 
-        return close_all_fds(a, j);
+        *ret_array = TAKE_PTR(a);
+        return (int) m;
+}
+
+int fdset_close_others(FDSet *fds) {
+        _cleanup_free_ int *a = NULL;
+        int n;
+
+        n = fdset_get_array(fds, &a);
+        if (n < 0)
+                return n;
+
+        return close_all_fds(a, n);
 }
 
 unsigned fdset_size(FDSet *fds) {
