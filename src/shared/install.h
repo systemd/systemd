@@ -195,7 +195,6 @@ int unit_file_get_state(RuntimeScope scope, const char *root_dir, const char *fi
 int unit_file_exists(RuntimeScope scope, const LookupPaths *paths, const char *name);
 
 int unit_file_get_list(RuntimeScope scope, const char *root_dir, Hashmap *h, char **states, char **patterns);
-Hashmap* unit_file_list_free(Hashmap *h);
 extern const struct hash_ops unit_file_list_hash_ops;
 
 InstallChangeType install_changes_add(InstallChange **changes, size_t *n_changes, InstallChangeType type, const char *path, const char *source);
