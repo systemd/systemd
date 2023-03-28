@@ -207,6 +207,9 @@ typedef struct UnitStatusInfo {
         bool running:1;
         int status_errno;
 
+        uint32_t fd_store_max;
+        uint32_t n_fd_store;
+
         usec_t start_timestamp;
         usec_t exit_timestamp;
 
@@ -678,7 +681,7 @@ static void print_status_info(
         }
 
         if (i->status_text)
-                printf("     Status: \"%s\"\n", i->status_text);
+                printf("     Status: \"%s%s%s\"\n", ansi_highlight_cyan(), i->status_text, ansi_normal());
         if (i->status_errno > 0) {
                 errno = i->status_errno;
                 printf("      Error: %i (%m)\n", i->status_errno);
@@ -702,6 +705,9 @@ static void print_status_info(
                 else
                         printf("\n");
         }
+
+        if (i->n_fd_store > 0 || i->fd_store_max > 0)
+                printf("   FD Store: %u%s (limit: %u)%s\n", i->n_fd_store, ansi_grey(), i->fd_store_max, ansi_normal());
 
         if (i->memory_current != UINT64_MAX) {
                 printf("     Memory: %s", FORMAT_BYTES(i->memory_current));
@@ -1991,6 +1997,8 @@ static int show_one(
                 { "StatusText",                     "s",               NULL,           offsetof(UnitStatusInfo, status_text)                       },
                 { "PIDFile",                        "s",               NULL,           offsetof(UnitStatusInfo, pid_file)                          },
                 { "StatusErrno",                    "i",               NULL,           offsetof(UnitStatusInfo, status_errno)                      },
+                { "FileDescriptorStoreMax",         "u",               NULL,           offsetof(UnitStatusInfo, fd_store_max)                      },
+                { "NFileDescriptorStore",           "u",               NULL,           offsetof(UnitStatusInfo, n_fd_store)                        },
                 { "ExecMainStartTimestamp",         "t",               NULL,           offsetof(UnitStatusInfo, start_timestamp)                   },
                 { "ExecMainExitTimestamp",          "t",               NULL,           offsetof(UnitStatusInfo, exit_timestamp)                    },
                 { "ExecMainCode",                   "i",               NULL,           offsetof(UnitStatusInfo, exit_code)                         },
@@ -2061,10 +2069,14 @@ static int show_one(
                 .runtime_max_sec = USEC_INFINITY,
                 .memory_current = UINT64_MAX,
                 .memory_high = CGROUP_LIMIT_MAX,
+                .startup_memory_high = CGROUP_LIMIT_MAX,
                 .memory_max = CGROUP_LIMIT_MAX,
+                .startup_memory_max = CGROUP_LIMIT_MAX,
                 .memory_swap_max = CGROUP_LIMIT_MAX,
+                .startup_memory_swap_max = CGROUP_LIMIT_MAX,
                 .memory_zswap_max = CGROUP_LIMIT_MAX,
-                .memory_limit = UINT64_MAX,
+                .startup_memory_zswap_max = CGROUP_LIMIT_MAX,
+                .memory_limit = CGROUP_LIMIT_MAX,
                 .memory_available = CGROUP_LIMIT_MAX,
                 .cpu_usage_nsec = UINT64_MAX,
                 .tasks_current = UINT64_MAX,
