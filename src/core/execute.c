@@ -3688,6 +3688,8 @@ static int apply_mount_namespace(
 
         assert(context);
 
+        CLEANUP_ARRAY(bind_mounts, n_bind_mounts, bind_mount_free_many);
+
         if (params->flags & EXEC_APPLY_CHROOT) {
                 root_image = context->root_image;
 
@@ -3702,20 +3704,18 @@ static int apply_mount_namespace(
         /* Symlinks for exec dirs are set up after other mounts, before they are made read-only. */
         r = compile_symlinks(context, params, &symlinks);
         if (r < 0)
-                goto finalize;
+                return r;
 
         /* We need to make the pressure path writable even if /sys/fs/cgroups is made read-only, as the
          * service will need to write to it in order to start the notifications. */
         if (context->protect_control_groups && memory_pressure_path && !streq(memory_pressure_path, "/dev/null")) {
                 read_write_paths_cleanup = strv_copy(context->read_write_paths);
-                if (!read_write_paths_cleanup) {
-                        r = -ENOMEM;
-                        goto finalize;
-                }
+                if (!read_write_paths_cleanup)
+                        return -ENOMEM;
 
                 r = strv_extend(&read_write_paths_cleanup, memory_pressure_path);
                 if (r < 0)
-                        goto finalize;
+                        return r;
 
                 read_write_paths = read_write_paths_cleanup;
         } else
@@ -3777,35 +3777,25 @@ static int apply_mount_namespace(
             params->prefix[EXEC_DIRECTORY_RUNTIME] &&
             FLAGS_SET(params->flags, EXEC_WRITE_CREDENTIALS)) {
                 creds_path = path_join(params->prefix[EXEC_DIRECTORY_RUNTIME], "credentials", u->id);
-                if (!creds_path) {
-                        r = -ENOMEM;
-                        goto finalize;
-                }
+                if (!creds_path)
+                        return -ENOMEM;
         }
 
         if (MANAGER_IS_SYSTEM(u->manager)) {
                 propagate_dir = path_join("/run/systemd/propagate/", u->id);
-                if (!propagate_dir) {
-                        r = -ENOMEM;
-                        goto finalize;
-                }
+                if (!propagate_dir)
+                        return -ENOMEM;
 
                 incoming_dir = strdup("/run/systemd/incoming");
-                if (!incoming_dir) {
-                        r = -ENOMEM;
-                        goto finalize;
-                }
+                if (!incoming_dir)
+                        return -ENOMEM;
 
                 extension_dir = strdup("/run/systemd/unit-extensions");
-                if (!extension_dir) {
-                        r = -ENOMEM;
-                        goto finalize;
-                }
+                if (!extension_dir)
+                        return -ENOMEM;
         } else
-                if (asprintf(&extension_dir, "/run/user/" UID_FMT "/systemd/unit-extensions", geteuid()) < 0) {
-                        r = -ENOMEM;
-                        goto finalize;
-                }
+                if (asprintf(&extension_dir, "/run/user/" UID_FMT "/systemd/unit-extensions", geteuid()) < 0)
+                        return -ENOMEM;
 
         r = setup_namespace(root_dir, root_image, context->root_image_options,
                             &ns_info, read_write_paths,
@@ -3852,16 +3842,12 @@ static int apply_mount_namespace(
                                        "Bind mounts: %zu, temporary filesystems: %zu, root directory: %s, root image: %s, dynamic user: %s",
                                        n_bind_mounts, context->n_temporary_filesystems, yes_no(root_dir), yes_no(root_image), yes_no(context->dynamic_user));
 
-                        r = -EOPNOTSUPP;
-                } else {
+                        return -EOPNOTSUPP;
+                } else
                         log_unit_debug(u, "Failed to set up namespace, assuming containerized execution and ignoring.");
-                        r = 0;
-                }
         }
 
-finalize:
-        bind_mount_free_many(bind_mounts, n_bind_mounts);
-        return r;
+        return 0;
 }
 
 static int apply_working_directory(
