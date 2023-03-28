@@ -16,7 +16,7 @@
 #include "env-util.h"
 #include "errno-list.h"
 #include "escape.h"
-#include "extension-release.h"
+#include "extension-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"

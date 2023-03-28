@@ -64,7 +64,7 @@ shared_sources = files(
         'ethtool-util.c',
         'exec-util.c',
         'exit-status.c',
-        'extension-release.c',
+        'extension-util.c',
         'fdset.c',
         'fileio-label.c',
         'find-esp.c',

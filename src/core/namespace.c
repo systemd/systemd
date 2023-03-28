@@ -18,7 +18,7 @@
 #include "devnum-util.h"
 #include "env-util.h"
 #include "escape.h"
-#include "extension-release.h"
+#include "extension-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "glyph-util.h"

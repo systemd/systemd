@@ -39,7 +39,7 @@
 #include "dm-util.h"
 #include "env-file.h"
 #include "env-util.h"
-#include "extension-release.h"
+#include "extension-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
