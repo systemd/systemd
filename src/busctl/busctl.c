@@ -39,7 +39,7 @@
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
-static bool arg_full = false;
+static int arg_full = -1;
 static const char *arg_address = NULL;
 static bool arg_unique = false;
 static bool arg_acquired = false;
@@ -215,7 +215,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
         if (!table)
                 return log_oom();
 
-        if (arg_full)
+        if (arg_full > 0)
                 table_set_width(table, 0);
 
         r = table_set_align_percent(table, table_get_cell(table, 0, COLUMN_PID), 100);
@@ -369,9 +369,6 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
 }
 
 static void print_subtree(const char *prefix, const char *path, char **l) {
-        const char *vertical, *space;
-        char **n;
-
         /* We assume the list is sorted. Let's first skip over the
          * entry we are looking at. */
         for (;;) {
@@ -384,11 +381,13 @@ static void print_subtree(const char *prefix, const char *path, char **l) {
                 l++;
         }
 
-        vertical = strjoina(prefix, special_glyph(SPECIAL_GLYPH_TREE_VERTICAL));
-        space = strjoina(prefix, special_glyph(SPECIAL_GLYPH_TREE_SPACE));
+        const char
+                *vertical = strjoina(prefix, special_glyph(SPECIAL_GLYPH_TREE_VERTICAL)),
+                *space = strjoina(prefix, special_glyph(SPECIAL_GLYPH_TREE_SPACE));
 
         for (;;) {
                 bool has_more = false;
+                char **n;
 
                 if (!*l || !path_startswith(*l, path))
                         break;
@@ -973,8 +972,8 @@ static int introspect(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_xml = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(member_set_freep) Set *members = NULL;
-        unsigned name_width, type_width, signature_width, result_width, j, k = 0;
-        Member *m, **sorted = NULL;
+        unsigned name_width, type_width, signature_width, result_width;
+        Member *m;
         const char *xml;
         int r;
 
@@ -1098,7 +1097,8 @@ static int introspect(int argc, char **argv, void *userdata) {
         signature_width = strlen("SIGNATURE");
         result_width = strlen("RESULT/VALUE");
 
-        sorted = newa(Member*, set_size(members));
+        Member **sorted = newa(Member*, set_size(members));
+        size_t k = 0;
 
         SET_FOREACH(m, members) {
                 if (argv[3] && !streq(argv[3], m->interface))
@@ -1120,7 +1120,7 @@ static int introspect(int argc, char **argv, void *userdata) {
                 sorted[k++] = m;
         }
 
-        if (result_width > 40)
+        if (result_width > 40 && arg_full <= 0)
                 result_width = 40;
 
         typesafe_qsort(sorted, k, member_compare_funcp);
@@ -1135,7 +1135,7 @@ static int introspect(int argc, char **argv, void *userdata) {
                        (int) result_width, "RESULT/VALUE",
                        "FLAGS");
 
-        for (j = 0; j < k; j++) {
+        for (size_t j = 0; j < k; j++) {
                 _cleanup_free_ char *ellipsized = NULL;
                 const char *rv;
                 bool is_interface;
@@ -2549,6 +2549,9 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached();
                 }
+
+        if (arg_full < 0)
+                arg_full = terminal_is_dumb();
 
         return 1;
 }
