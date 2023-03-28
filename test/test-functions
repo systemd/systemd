@@ -685,6 +685,8 @@ EOF
         mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system" "$initdir/opt"
         grep "^ID=" "$os_release" >"$initdir/usr/lib/extension-release.d/extension-release.app0"
         echo "${version_id}" >>"$initdir/usr/lib/extension-release.d/extension-release.app0"
+        ( echo "${version_id}"
+          echo "SYSEXT_IMAGE_ID=app" ) >>"$initdir/usr/lib/extension-release.d/extension-release.app0"
         cat >"$initdir/usr/lib/systemd/system/app0.service" <<EOF
 [Service]
 Type=oneshot
@@ -710,6 +712,8 @@ EOF
         grep "^ID=" "$os_release" >"$initdir/usr/lib/extension-release.d/extension-release.app2"
         ( echo "${version_id}"
           echo "SYSEXT_SCOPE=portable"
+          echo "SYSEXT_IMAGE_ID=app"
+          echo "SYSEXT_IMAGE_VERSION=1"
           echo "PORTABLE_PREFIXES=app1" ) >>"$initdir/usr/lib/extension-release.d/extension-release.app2"
         setfattr -n user.extension-release.strict -v false "$initdir/usr/lib/extension-release.d/extension-release.app2"
         cat >"$initdir/usr/lib/systemd/system/app1.service" <<EOF
