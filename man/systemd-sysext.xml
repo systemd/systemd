@@ -52,7 +52,9 @@
     the hierarchy ("unmerging"). Merging thus makes the extension's resources suddenly appear below the
     <filename>/usr/</filename> and <filename>/opt/</filename> hierarchies as if they were included in the
     base OS image itself. Unmerging makes them disappear again, leaving in place only the files that were
-    shipped with the base OS image itself.</para>
+    shipped with the base OS image itself. System extensions must not contain other system extensions,
+    i.e.: they must not contain either a <filename>/usr/lib/extensions/</filename> or a
+    <filename>/usr/local/lib/extensions/</filename> directory.</para>
 
     <para>Files and directories contained in the extension images outside of the <filename>/usr/</filename>
     and <filename>/opt/</filename> hierarchies are <emphasis>not</emphasis> merged, and hence have no effect
@@ -90,7 +92,9 @@
     carrying large binary images, however are still useful for carrying symlinks to them. The primary place
     for installing system extensions is <filename>/var/lib/extensions/</filename>. Any directories found in
     these search directories are considered directory based extension images, any files with the
-    <filename>.raw</filename> suffix are considered disk image based extension images.</para>
+    <filename>.raw</filename> suffix are considered disk image based extension images. In case of directory
+    extensions, note that they however cannot be stored under <filename>/usr/lib/extensions/</filename> or
+    <filename>/usr/local/lib/extensions/</filename>, as the kernel does not allow recursive OverlayFS.</para>
 
     <para>During boot OS extension images are activated automatically, if the
     <filename>systemd-sysext.service</filename> is enabled. Note that this service runs only after the
