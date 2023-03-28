@@ -715,7 +715,7 @@ static int dir_cleanup(
                                         continue;
                                 }
 
-                                if (flock(dirfd(sub_dir), LOCK_EX|LOCK_NB) < 0) {
+                                if (flock(dirfd(sub_dir), LOCK_SH|LOCK_NB) < 0) {
                                         log_debug_errno(errno, "Couldn't acquire shared BSD lock on directory \"%s\", skipping: %m", p);
                                         continue;
                                 }
