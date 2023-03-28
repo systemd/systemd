@@ -30,7 +30,6 @@ static inline int dir_is_empty(const char *path, bool ignore_hidden_or_backup) {
 
 bool null_or_empty(struct stat *st) _pure_;
 int null_or_empty_path_with_root(const char *fn, const char *root);
-int null_or_empty_fd(int fd);
 
 static inline int null_or_empty_path(const char *fn) {
         return null_or_empty_path_with_root(fn, NULL);
