@@ -58,11 +58,13 @@ static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
                             "/usr/local/lib/portables\0"
                             "/usr/lib/portables\0",
 
+        /* Note that we don't allow storing extensions under /usr/, unlike with other image types. That's
+         * because extension images are supposed to extend /usr/, so you get into recursive races, especially
+         * with directory-based extensions, as the kernel's OverlayFS explicitly checks for this and errors
+         * out with -ELOOP if it finds that a lowerdir= is a child of another lowerdir=. */
         [IMAGE_EXTENSION] = "/etc/extensions\0"             /* only place symlinks here */
                             "/run/extensions\0"             /* and here too */
-                            "/var/lib/extensions\0"         /* the main place for images */
-                            "/usr/local/lib/extensions\0"
-                            "/usr/lib/extensions\0",
+                            "/var/lib/extensions\0",        /* the main place for images */
 };
 
 static Image *image_free(Image *i) {
