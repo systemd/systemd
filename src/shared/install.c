@@ -3625,6 +3625,14 @@ Hashmap* unit_file_list_free(Hashmap *h) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(UnitFileList*, unit_file_list_free_one);
 
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        unit_file_list_hash_ops_free,
+        char,
+        string_hash_func,
+        string_compare_func,
+        UnitFileList,
+        unit_file_list_free_one);
+
 int unit_file_get_list(
                 RuntimeScope scope,
                 const char *root_dir,
