@@ -311,6 +311,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--image-policy=<replaceable>policy</replaceable></option></term>
+
+        <listitem><para>Takes an image policy string as argument, as per
+        <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
+        policy is enforced when operating on the disk image specified via <option>--image=</option>, see
+        above. If not specified defaults to
+        <literal>root=verity+signed+encrypted+unprotected+absent:usr=verity+signed+encrypted+unprotected+absent:home=encrypted+unprotected+absent:srv=encrypted+unprotected+absent:esp=unprotected+absent:xbootldr=unprotected+absent:tmp=encrypted+unprotected+absent:var=encrypted+unprotected+absent</literal>,
+        i.e. all recognized file systems in the image are used, but not the swap partition.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--oci-bundle=</option></term>
 
         <listitem><para>Takes the path to an OCI runtime bundle to invoke, as specified in the <ulink

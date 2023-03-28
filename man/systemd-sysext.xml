@@ -90,7 +90,12 @@
     carrying large binary images, however are still useful for carrying symlinks to them. The primary place
     for installing system extensions is <filename>/var/lib/extensions/</filename>. Any directories found in
     these search directories are considered directory based extension images, any files with the
-    <filename>.raw</filename> suffix are considered disk image based extension images.</para>
+    <filename>.raw</filename> suffix are considered disk image based extension images. When invoked in the
+    initrd, the additional directory <filename>/.extra/sysext/</filename> is included in the directories that
+    are searched for extension images. Note however, that by default a tighter image policy applies to images
+    found there, though, see below. This directory is populated by
+    <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> with
+    extension images found in the system's EFI System Partition.</para>
 
     <para>During boot OS extension images are activated automatically, if the
     <filename>systemd-sysext.service</filename> is enabled. Note that this service runs only after the
@@ -231,6 +236,19 @@
         not.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--image-policy=<replaceable>policy</replaceable></option></term>
+
+        <listitem><para>Takes an image policy string as argument, as per
+        <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
+        policy is enforced when operating on system extension disk images. If not specified defaults to
+        <literal>root=verity+signed+encrypted+unprotected+absent:usr=verity+signed+encrypted+unprotected+absent</literal>,
+        i.e. only the root and <filename>/usr/</filename> file systems in the image are used. When run in the
+        initrd and operating on a system extension image stored in the <filename>/.extra/sysext/</filename>
+        directory a slightly stricter policy is used by default:
+        <literal>root=signed+absent:usr=signed+absent</literal>, see above for details.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="json" />
@@ -247,7 +265,8 @@
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>
   </refsect1>
 

@@ -396,10 +396,20 @@
         <term><varname>rd.systemd.gpt_auto=</varname></term>
 
         <listitem>
-          <para>Configures whether GPT based partition auto-discovery
-          shall be attempted. For details, see
+          <para>Configures whether GPT-based partition auto-discovery shall be attempted. For details, see
           <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.image_policy=</varname></term>
+        <term><varname>rd.systemd.image_policy=</varname></term>
+
+        <listitem><para>When GPT-based partition auto-discovery is used, configures the image dissection
+        policy string to apply, as per
+        <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>. For
+        details see
+        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
