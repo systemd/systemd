@@ -578,7 +578,7 @@ TEST(preset_and_list) {
         UnitFileState state;
         bool got_yes = false, got_no = false;
         UnitFileList *fl;
-        Hashmap *h;
+        _cleanup_(hashmap_freep) Hashmap *h = NULL;
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) == -ENOENT);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) == -ENOENT);
@@ -653,7 +653,7 @@ TEST(preset_and_list) {
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
-        assert_se(h = hashmap_new(&string_hash_ops));
+        assert_se(h = hashmap_new(&unit_file_list_hash_ops_free));
         assert_se(unit_file_get_list(RUNTIME_SCOPE_SYSTEM, root, h, NULL, NULL) >= 0);
 
         p = strjoina(root, "/usr/lib/systemd/system/preset-yes.service");
@@ -672,8 +672,6 @@ TEST(preset_and_list) {
                 } else
                         assert_se(IN_SET(fl->state, UNIT_FILE_DISABLED, UNIT_FILE_STATIC, UNIT_FILE_INDIRECT, UNIT_FILE_ALIAS));
         }
-
-        unit_file_list_free(h);
 
         assert_se(got_yes && got_no);
 }
