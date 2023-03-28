@@ -160,7 +160,7 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 if (show_full_group_info) {
                         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
-                        r = groupdb_by_gid(hr->gid, 0, &gr);
+                        r = groupdb_by_gid(NULL, hr->gid, 0, &gr);
                         if (r < 0) {
                                 errno = -r;
                                 printf("         GID: " GID_FMT " (unresolvable: %m)\n", hr->gid);
@@ -174,7 +174,7 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (show_full_group_info) {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
-                r = membershipdb_by_user(hr->user_name, 0, &iterator);
+                r = membershipdb_by_user(NULL, hr->user_name, 0, &iterator);
                 if (r < 0) {
                         errno = -r;
                         printf(" Aux. Groups: (can't acquire: %m)\n");
@@ -549,7 +549,7 @@ void group_record_show(GroupRecord *gr, bool show_full_user_info) {
         if (show_full_user_info) {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
-                r = membershipdb_by_group(gr->group_name, 0, &iterator);
+                r = membershipdb_by_group(NULL, gr->group_name, 0, &iterator);
                 if (r < 0) {
                         errno = -r;
                         printf("     Members: (can't acquire: %m)");

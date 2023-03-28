@@ -615,7 +615,7 @@ enum nss_status _nss_systemd_setpwent(int stayopen) {
          * (think: LDAP/NIS type situations), and our synthesizing of root/nobody is a robustness fallback
          * only, which matters for getpwnam()/getpwuid() primarily, which are the main NSS entrypoints to the
          * user database. */
-        r = userdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getpwent_data.iterator);
+        r = userdb_all(NULL, nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getpwent_data.iterator);
         return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
 }
 
@@ -635,7 +635,7 @@ enum nss_status _nss_systemd_setgrent(int stayopen) {
         getgrent_data.by_membership = false;
 
         /* See _nss_systemd_setpwent() for an explanation why we use USERDB_DONT_SYNTHESIZE here */
-        r = groupdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getgrent_data.iterator);
+        r = groupdb_all(NULL, nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getgrent_data.iterator);
         return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
 }
 
@@ -655,7 +655,7 @@ enum nss_status _nss_systemd_setspent(int stayopen) {
         getspent_data.by_membership = false;
 
         /* See _nss_systemd_setpwent() for an explanation why we use USERDB_DONT_SYNTHESIZE here */
-        r = userdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getspent_data.iterator);
+        r = userdb_all(NULL, nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getspent_data.iterator);
         return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
 }
 
@@ -675,7 +675,7 @@ enum nss_status _nss_systemd_setsgent(int stayopen) {
         getsgent_data.by_membership = false;
 
         /* See _nss_systemd_setpwent() for an explanation why we use USERDB_DONT_SYNTHESIZE here */
-        r = groupdb_all(nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getsgent_data.iterator);
+        r = groupdb_all(NULL, nss_glue_userdb_flags() | USERDB_DONT_SYNTHESIZE, &getsgent_data.iterator);
         return r < 0 ? NSS_STATUS_UNAVAIL : NSS_STATUS_SUCCESS;
 }
 
@@ -762,7 +762,7 @@ enum nss_status _nss_systemd_getgrent_r(
                          * supposed to merge the group records found during iteration automatically. */
                         getgrent_data.iterator = userdb_iterator_free(getgrent_data.iterator);
 
-                        r = membershipdb_all(nss_glue_userdb_flags(), &getgrent_data.iterator);
+                        r = membershipdb_all(NULL, nss_glue_userdb_flags(), &getgrent_data.iterator);
                         if (r < 0 && r != -ESRCH) {
                                 UNPROTECT_ERRNO;
                                 *errnop = -r;
@@ -987,7 +987,7 @@ enum nss_status _nss_systemd_initgroups_dyn(
         if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
-        r = membershipdb_by_user(user_name, nss_glue_userdb_flags(), &iterator);
+        r = membershipdb_by_user(NULL, user_name, nss_glue_userdb_flags(), &iterator);
         if (r < 0) {
                 UNPROTECT_ERRNO;
                 *errnop = -r;
@@ -1010,7 +1010,7 @@ enum nss_status _nss_systemd_initgroups_dyn(
                 /* The group might be defined via traditional NSS only, hence let's do a full look-up without
                  * disabling NSS. This means we are operating recursively here. */
 
-                r = groupdb_by_name(group_name, (nss_glue_userdb_flags() & ~USERDB_EXCLUDE_NSS) | USERDB_SUPPRESS_SHADOW, &g);
+                r = groupdb_by_name(NULL, group_name, (nss_glue_userdb_flags() & ~USERDB_EXCLUDE_NSS) | USERDB_SUPPRESS_SHADOW, &g);
                 if (r == -ESRCH)
                         continue;
                 if (r < 0) {

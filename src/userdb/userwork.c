@@ -159,14 +159,14 @@ static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, Var
                 return r;
 
         if (uid_is_valid(p.uid))
-                r = userdb_by_uid(p.uid, userdb_flags, &hr);
+                r = userdb_by_uid(link, p.uid, userdb_flags, &hr);
         else if (p.user_name)
-                r = userdb_by_name(p.user_name, userdb_flags, &hr);
+                r = userdb_by_name(link, p.user_name, userdb_flags, &hr);
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
                 _cleanup_(json_variant_unrefp) JsonVariant *last = NULL;
 
-                r = userdb_all(userdb_flags, &iterator);
+                r = userdb_all(link, userdb_flags, &iterator);
                 if (IN_SET(r, -ESRCH, -ENOLINK))
                         /* We turn off Varlink lookups in various cases (e.g. in case we only enable DropIn
                          * backend) — this might make userdb_all return ENOLINK (which indicates that varlink
@@ -296,14 +296,14 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
                 return r;
 
         if (gid_is_valid(p.gid))
-                r = groupdb_by_gid(p.gid, userdb_flags, &g);
+                r = groupdb_by_gid(link, p.gid, userdb_flags, &g);
         else if (p.group_name)
-                r = groupdb_by_name(p.group_name, userdb_flags, &g);
+                r = groupdb_by_name(link, p.group_name, userdb_flags, &g);
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
                 _cleanup_(json_variant_unrefp) JsonVariant *last = NULL;
 
-                r = groupdb_all(userdb_flags, &iterator);
+                r = groupdb_all(link, userdb_flags, &iterator);
                 if (IN_SET(r, -ESRCH, -ENOLINK))
                         return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
                 if (r < 0)
@@ -379,11 +379,11 @@ static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, Var
                 return r;
 
         if (p.group_name)
-                r = membershipdb_by_group(p.group_name, userdb_flags, &iterator);
+                r = membershipdb_by_group(link, p.group_name, userdb_flags, &iterator);
         else if (p.user_name)
-                r = membershipdb_by_user(p.user_name, userdb_flags, &iterator);
+                r = membershipdb_by_user(link, p.user_name, userdb_flags, &iterator);
         else
-                r = membershipdb_all(userdb_flags, &iterator);
+                r = membershipdb_all(link, userdb_flags, &iterator);
         if (IN_SET(r, -ESRCH, -ENOLINK))
                 return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
         if (r < 0)

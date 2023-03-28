@@ -81,7 +81,7 @@ enum nss_status userdb_getpwnam(
         if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
-        r = userdb_by_name(name, nss_glue_userdb_flags()|USERDB_SUPPRESS_SHADOW, &hr);
+        r = userdb_by_name(NULL, name, nss_glue_userdb_flags()|USERDB_SUPPRESS_SHADOW, &hr);
         if (r == -ESRCH)
                 return NSS_STATUS_NOTFOUND;
         if (r < 0) {
@@ -114,7 +114,7 @@ enum nss_status userdb_getpwuid(
         if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
-        r = userdb_by_uid(uid, nss_glue_userdb_flags()|USERDB_SUPPRESS_SHADOW, &hr);
+        r = userdb_by_uid(NULL, uid, nss_glue_userdb_flags()|USERDB_SUPPRESS_SHADOW, &hr);
         if (r == -ESRCH)
                 return NSS_STATUS_NOTFOUND;
         if (r < 0) {
@@ -190,7 +190,7 @@ enum nss_status userdb_getspnam(
         if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
-        r = userdb_by_name(name, nss_glue_userdb_flags(), &hr);
+        r = userdb_by_name(NULL, name, nss_glue_userdb_flags(), &hr);
         if (r == -ESRCH)
                 return NSS_STATUS_NOTFOUND;
         if (r < 0) {
@@ -290,7 +290,7 @@ enum nss_status userdb_getgrnam(
         if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
-        r = groupdb_by_name(name, nss_glue_userdb_flags()|USERDB_SUPPRESS_SHADOW, &g);
+        r = groupdb_by_name(NULL, name, nss_glue_userdb_flags()|USERDB_SUPPRESS_SHADOW, &g);
         if (r < 0 && r != -ESRCH) {
                 *errnop = -r;
                 return NSS_STATUS_UNAVAIL;
@@ -358,7 +358,7 @@ enum nss_status userdb_getgrgid(
         if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
-        r = groupdb_by_gid(gid, nss_glue_userdb_flags()|USERDB_SUPPRESS_SHADOW, &g);
+        r = groupdb_by_gid(NULL, gid, nss_glue_userdb_flags()|USERDB_SUPPRESS_SHADOW, &g);
         if (r < 0 && r != -ESRCH) {
                 *errnop = -r;
                 return NSS_STATUS_UNAVAIL;
@@ -457,7 +457,7 @@ enum nss_status userdb_getsgnam(
         if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
-        r = groupdb_by_name(name, nss_glue_userdb_flags(), &hr);
+        r = groupdb_by_name(NULL, name, nss_glue_userdb_flags(), &hr);
         if (r == -ESRCH)
                 return NSS_STATUS_NOTFOUND;
         if (r < 0) {
