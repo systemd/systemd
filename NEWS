@@ -320,6 +320,10 @@ CHANGES WITH 253:
           partition. A plugin to generate the UKI .efi file must be provided
           separately.
 
+	* systemd-userdbd and systemd-homed now honour credentials passed
+	  using SO_PASSCRED, and systemd-userdbd acting as multiplexer sends
+	  the credentials of the original connecting client to all services
+
         Changes in systemctl:
 
         * 'systemctl reboot' has dropped support for accepting a positional
