@@ -2094,7 +2094,7 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         UnitFileList *item;
-        Hashmap *h;
+        _cleanup_(hashmap_freep) Hashmap *h = NULL;
         int r;
 
         assert(message);
@@ -2109,36 +2109,30 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
-        h = hashmap_new(&string_hash_ops);
+        h = hashmap_new(&unit_file_list_hash_ops_free);
         if (!h)
                 return -ENOMEM;
 
         r = unit_file_get_list(m->runtime_scope, NULL, h, states, patterns);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = sd_bus_message_open_container(reply, 'a', "(ss)");
         if (r < 0)
-                goto fail;
+                return r;
 
         HASHMAP_FOREACH(item, h) {
 
                 r = sd_bus_message_append(reply, "(ss)", item->path, unit_file_state_to_string(item->state));
                 if (r < 0)
-                        goto fail;
+                        return r;
         }
-
-        unit_file_list_free(h);
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
                 return r;
 
         return sd_bus_send(NULL, reply, NULL);
-
-fail:
-        unit_file_list_free(h);
-        return r;
 }
 
 static int method_list_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
