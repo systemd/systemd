@@ -754,6 +754,8 @@ static int dir_cleanup(
                                         r = log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", sub_path);
 
                 } else {
+                        _cleanup_close_ int fd = -EBADF;
+
                         /* Skip files for which the sticky bit is set. These are semantics we define, and are
                          * unknown elsewhere. See XDG_RUNTIME_DIR specification for details. */
                         if (sx.stx_mode & S_ISVTX) {
@@ -793,6 +795,14 @@ static int dir_cleanup(
                         if (!needs_cleanup(atime_nsec, btime_nsec, ctime_nsec, mtime_nsec,
                                            cutoff_nsec, sub_path, age_by_file, false))
                                 continue;
+
+                        fd = xopenat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME, 0);
+                        if (fd < 0 && fd != -ENOENT)
+                                log_warning_errno(fd, "Opening file \"%s\" failed, ignoring: %m", sub_path);
+                        if (fd >= 0 && flock(fd, LOCK_EX|LOCK_NB) < 0 && errno == EAGAIN) {
+                                log_debug_errno(errno, "Couldn't acquire shared BSD lock on file \"%s\", skipping: %m", p);
+                                continue;
+                        }
 
                         log_debug("Removing \"%s\".", sub_path);
                         if (unlinkat(dirfd(d), de->d_name, 0) < 0)
