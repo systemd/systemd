@@ -1516,11 +1516,13 @@ static int become_shutdown(int objective, int retval) {
 
         char log_level[STRLEN("--log-level=") + DECIMAL_STR_MAX(int)],
              timeout[STRLEN("--timeout=") + DECIMAL_STR_MAX(usec_t) + STRLEN("us")],
-             exit_code[STRLEN("--exit-code=") + DECIMAL_STR_MAX(uint8_t)];
+             exit_code[STRLEN("--exit-code=") + DECIMAL_STR_MAX(int)];
 
         _cleanup_strv_free_ char **env_block = NULL;
         usec_t watchdog_timer = 0;
         int r;
+
+        log_info("%s(%s, %i)", __func__, table[objective], retval);
 
         assert(objective >= 0 && objective < _MANAGER_OBJECTIVE_MAX);
         assert(table[objective]);
@@ -1571,6 +1573,9 @@ static int become_shutdown(int objective, int retval) {
                 xsprintf(exit_code, "--exit-code=%d", retval);
                 command_line[pos++] = exit_code;
         }
+
+        _cleanup_free_ char *joined = strv_join((char**) command_line, " ");
+        log_info("%s", strna(joined));
 
         assert(pos < ELEMENTSOF(command_line));
 
