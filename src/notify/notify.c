@@ -11,6 +11,8 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "env-util.h"
+#include "fd-util.h"
+#include "fdset.h"
 #include "format-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -33,9 +35,13 @@ static gid_t arg_gid = GID_INVALID;
 static bool arg_no_block = false;
 static char **arg_env = NULL;
 static char **arg_exec = NULL;
+static FDSet *arg_fds = NULL;
+static char *arg_fdname = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_env, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_exec, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_fds, fdset_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_fdname, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -60,6 +66,8 @@ static int help(void) {
                "     --booted          Check if the system was booted up with systemd\n"
                "     --no-block        Do not wait until operation finished\n"
                "     --exec            Execute command line separated by ';' once done\n"
+               "     --fd=FD           Pass specified file descriptor with along with message\n"
+               "     --fdname=NAME     Name to assign to passed file descriptor(s)\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                program_invocation_short_name,
@@ -103,6 +111,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_UID,
                 ARG_NO_BLOCK,
                 ARG_EXEC,
+                ARG_FD,
+                ARG_FDNAME,
         };
 
         static const struct option options[] = {
@@ -117,9 +127,12 @@ static int parse_argv(int argc, char *argv[]) {
                 { "uid",       required_argument, NULL, ARG_UID       },
                 { "no-block",  no_argument,       NULL, ARG_NO_BLOCK  },
                 { "exec",      no_argument,       NULL, ARG_EXEC      },
+                { "fd",        required_argument, NULL, ARG_FD        },
+                { "fdname",    required_argument, NULL, ARG_FDNAME    },
                 {}
         };
 
+        _cleanup_(fdset_freep) FDSet *passed = NULL;
         bool do_exec = false;
         int c, r, n_env;
 
@@ -198,6 +211,62 @@ static int parse_argv(int argc, char *argv[]) {
                         do_exec = true;
                         break;
 
+                case ARG_FD: {
+                        _cleanup_close_ int owned_fd = -EBADF;
+                        int fdnr;
+
+                        r = safe_atoi(optarg, &fdnr);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse file descriptor: %s", optarg);
+                        if (fdnr < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "File descriptor can't be negative: %i", fdnr);
+
+                        if (!passed) {
+                                /* Take possession of all assed fds */
+                                r = fdset_new_fill(&passed);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to take possession of passed file descriptors: %m");
+
+                                r = fdset_cloexec(passed, true);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to enable O_CLOEXEC for passed file descriptors: %m");
+                        }
+
+                        if (fdnr < 3) {
+                                /* For stdin/stdout/stderr we want to keep the fd, too, hence make a copy */
+                                owned_fd = fcntl(fdnr, F_DUPFD_CLOEXEC, 3);
+                                if (owned_fd < 0)
+                                        return log_error_errno(errno, "Failed to duplicate file descriptor: %m");
+                        } else {
+                                /* Otherwise, move the fd over */
+                                owned_fd = fdset_remove(passed, fdnr);
+                                if (owned_fd < 0)
+                                        return log_error_errno(owned_fd, "Specified file descriptor '%i' not passed or specified more than once: %m", fdnr);
+                        }
+
+                        if (!arg_fds) {
+                                arg_fds = fdset_new();
+                                if (!arg_fds)
+                                        return log_oom();
+                        }
+
+                        r = fdset_put(arg_fds, owned_fd);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add file descriptor to set: %m");
+
+                        TAKE_FD(owned_fd);
+                        break;
+                }
+
+                case ARG_FDNAME:
+                        if (!fdname_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File descriptor name invalid: %s", optarg);
+
+                        if (free_and_strdup(&arg_fdname, optarg) < 0)
+                                return log_oom();
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -212,10 +281,14 @@ static int parse_argv(int argc, char *argv[]) {
             !arg_reloading &&
             !arg_status &&
             !arg_pid &&
-            !arg_booted) {
+            !arg_booted &&
+            fdset_isempty(arg_fds)) {
                 help();
                 return -EINVAL;
         }
+
+        if (arg_fdname && fdset_isempty(arg_fds))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No file descriptors passed, but --fdname= set, refusing.");
 
         if (do_exec) {
                 int i;
@@ -243,13 +316,16 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_oom();
         }
 
+        if (!fdset_isempty(passed))
+                log_warning("Warning: %u more file descriptors passed than referenced with --fd=.", fdset_size(passed));
+
         return 1;
 }
 
 static int run(int argc, char* argv[]) {
-        _cleanup_free_ char *status = NULL, *cpid = NULL, *n = NULL, *monotonic_usec = NULL;
+        _cleanup_free_ char *status = NULL, *cpid = NULL, *n = NULL, *monotonic_usec = NULL, *fdn = NULL;
         _cleanup_strv_free_ char **final_env = NULL;
-        char* our_env[7];
+        char* our_env[9];
         size_t i = 0;
         pid_t source_pid;
         int r;
@@ -302,6 +378,18 @@ static int run(int argc, char* argv[]) {
                 our_env[i++] = cpid;
         }
 
+        if (!fdset_isempty(arg_fds)) {
+                our_env[i++] = (char*) "FDSTORE=1";
+
+                if (arg_fdname) {
+                        fdn = strjoin("FDNAME=", arg_fdname);
+                        if (!fdn)
+                                return log_oom();
+
+                        our_env[i++] = fdn;
+                }
+        }
+
         our_env[i++] = NULL;
 
         final_env = strv_env_merge(our_env, arg_env);
@@ -338,12 +426,27 @@ static int run(int argc, char* argv[]) {
                                                   * or the service manager itself */
                         source_pid = 0;
         }
-        r = sd_pid_notify(source_pid, false, n);
+
+        if (fdset_isempty(arg_fds))
+                r = sd_pid_notify(source_pid, /* unset_environment= */ false, n);
+        else {
+                _cleanup_free_ int *a = NULL;
+                int k;
+
+                k = fdset_get_array(arg_fds, &a);
+                if (k < 0)
+                        return log_error_errno(k, "Failed to convert file descriptor set to array: %m");
+
+                r = sd_pid_notify_with_fds(source_pid, /* unset_environment= */ false, n, a, k);
+
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to notify init system: %m");
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "No status data could be sent: $NOTIFY_SOCKET was not set");
+
+        arg_fds = fdset_free(arg_fds); /* Close before we execute anything */
 
         if (!arg_no_block) {
                 r = sd_notify_barrier(0, 5 * USEC_PER_SEC);

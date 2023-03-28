@@ -482,3 +482,26 @@ int inode_compare_func(const struct stat *a, const struct stat *b) {
 }
 
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(inode_hash_ops, struct stat, inode_hash_func, inode_compare_func, free);
+
+const char* inode_type_to_string(mode_t m) {
+
+        /* Returns a short string for the inode type. We use the same name as the underlying macros for each
+         * inode type. */
+
+        switch (m & S_IFMT) {
+        case S_IFREG:
+                return "reg";
+        case S_IFDIR:
+                return "dir";
+        case S_IFCHR:
+                return "chr";
+        case S_IFBLK:
+                return "blk";
+        case S_IFIFO:
+                return "fifo";
+        case S_IFSOCK:
+                return "sock";
+        }
+
+        return NULL;
+}

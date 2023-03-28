@@ -16,6 +16,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "locale-util.h"
+#include "missing_fcntl.h"
 #include "mount-util.h"
 #include "open-file.h"
 #include "parse-util.h"
@@ -218,6 +219,72 @@ int bus_service_method_mount_image(sd_bus_message *message, void *userdata, sd_b
         return bus_service_method_mount(message, userdata, error, true);
 }
 
+int bus_service_method_dump_file_descriptor_store(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        Service *s = ASSERT_PTR(userdata);
+        int r;
+
+        assert(message);
+
+        r = mac_selinux_unit_access_check(UNIT(s), message, "status", error);
+        if (r < 0)
+                return r;
+
+        if (s->n_fd_store_max == 0 && s->n_fd_store == 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "File descriptor store not enabled for %s.", UNIT(s)->id);
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(suuutuusu)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(fd_store, i, s->fd_store) {
+                _cleanup_free_ char *path = NULL;
+                struct stat st;
+                int flags;
+
+                if (fstat(i->fd, &st) < 0) {
+                        log_debug_errno(errno, "Failed to stat() file descriptor entry '%s', skipping.", strna(i->fdname));
+                        continue;
+                }
+
+                flags = fcntl(i->fd, F_GETFL);
+                if (flags < 0) {
+                        log_debug_errno(errno, "Failed to issue F_GETFL on file descriptor entry '%s', skipping.", strna(i->fdname));
+                        continue;
+                }
+
+                /* glibc implies O_LARGEFILE everywhere on 64bit off_t builds, but forgets to hide it away on
+                 * F_GETFL, but provides no definition to check for that. Let's mask the flag away manually,
+                 * to not confuse clients. */
+                flags &= RAW_O_LARGEFILE;
+
+                (void) fd_get_path(i->fd, &path);
+
+                r = sd_bus_message_append(
+                                reply,
+                                "(suuutuusu)",
+                                i->fdname,
+                                (uint32_t) st.st_mode,
+                                (uint32_t) major(st.st_dev), (uint32_t) minor(st.st_dev),
+                                (uint64_t) st.st_ino,
+                                (uint32_t) major(st.st_rdev), (uint32_t) minor(st.st_rdev),
+                                path,
+                                (uint32_t) flags);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Type", "s", property_get_type, offsetof(Service, type), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -291,6 +358,12 @@ const sd_bus_vtable bus_service_vtable[] = {
                                  SD_BUS_NO_RESULT,
                                  bus_service_method_mount_image,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
+
+        SD_BUS_METHOD_WITH_ARGS("DumpFileDescriptorStore",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_ARGS("a(suuutuusu)", entries),
+                                bus_service_method_dump_file_descriptor_store,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
 
         /* The following four are obsolete, and thus marked hidden here. They moved into the Unit interface */
         SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
