@@ -413,7 +413,16 @@ systemd-sysext merge
 test ! -e /usr/lib/systemd/system/some_file
 systemd-sysext unmerge
 rmdir /etc/extensions/app-nodistro
-rm /var/lib/extensions/app-nodistro.raw
+
+# Check that extension directories in /usr/ are rejected gracefully, as the kernel would not allow it
+mkdir -p /usr/lib/extensions/app-reject/usr/lib/{extension-release.d/,systemd/system/}
+echo "ID=_any" > /usr/lib/extensions/app-reject/usr/lib/extension-release.d/extension-release.app-reject
+touch /usr/lib/extensions/app-reject/usr/lib/systemd/system/other_file
+systemd-sysext merge
+grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file
+test ! -e /usr/lib/systemd/system/other_file
+systemd-sysext unmerge
+rm -rf /usr/lib/extensions/app-reject
 
 mkdir -p /run/machines /run/portables /run/extensions
 touch /run/machines/a.raw /run/portables/b.raw /run/extensions/c.raw

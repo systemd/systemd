@@ -605,6 +605,16 @@ int image_discover(
                         if (hashmap_contains(h, pretty))
                                 continue;
 
+                        /* The kernel checks that directories specified as lowerdir= do not contain each
+                         * other, so skip extension directories stored in /usr early. */
+                        if (class == IMAGE_EXTENSION && S_ISDIR(st.st_mode) && startswith(path, "/usr")) {
+                                log_debug("Ignoring extension directory %s, since it is stored under %s and"
+                                          " would result in a recursive overlay, which is not supported.",
+                                          de->d_name,
+                                          path);
+                                continue;
+                        }
+
                         r = image_make(class, pretty, dirfd(d), resolved, de->d_name, &st, &image);
                         if (IN_SET(r, -ENOENT, -EMEDIUMTYPE))
                                 continue;
