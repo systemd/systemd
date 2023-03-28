@@ -3619,10 +3619,6 @@ static UnitFileList* unit_file_list_free_one(UnitFileList *f) {
         return mfree(f);
 }
 
-Hashmap* unit_file_list_free(Hashmap *h) {
-        return hashmap_free_with_destructor(h, unit_file_list_free_one);
-}
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(UnitFileList*, unit_file_list_free_one);
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
