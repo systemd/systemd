@@ -3478,21 +3478,19 @@ static int compile_bind_mounts(
 
         for (size_t i = 0; i < context->n_bind_mounts; i++) {
                 BindMount *item = context->bind_mounts + i;
-                char *s, *d;
+                _cleanup_free_ char *s = NULL, *d = NULL;
 
                 s = strdup(item->source);
                 if (!s)
                         return -ENOMEM;
 
                 d = strdup(item->destination);
-                if (!d) {
-                        free(s);
+                if (!d)
                         return -ENOMEM;
-                }
 
                 bind_mounts[h++] = (BindMount) {
-                        .source = s,
-                        .destination = d,
+                        .source = TAKE_PTR(s),
+                        .destination = TAKE_PTR(d),
                         .read_only = item->read_only,
                         .recursive = item->recursive,
                         .ignore_enoent = item->ignore_enoent,
@@ -3524,7 +3522,7 @@ static int compile_bind_mounts(
                 }
 
                 for (size_t i = 0; i < context->directories[t].n_items; i++) {
-                        char *s, *d;
+                        _cleanup_free_ char *s = NULL, *d = NULL;
 
                         /* When one of the parent directories is in the list, we cannot create the symlink
                          * for the child directory. See also the comments in setup_exec_directory(). */
@@ -3546,14 +3544,12 @@ static int compile_bind_mounts(
                                 d = path_join(params->prefix[t], context->directories[t].items[i].path);
                         else
                                 d = strdup(s);
-                        if (!d) {
-                                free(s);
+                        if (!d)
                                 return -ENOMEM;
-                        }
 
                         bind_mounts[h++] = (BindMount) {
-                                .source = s,
-                                .destination = d,
+                                .source = TAKE_PTR(s),
+                                .destination = TAKE_PTR(d),
                                 .read_only = false,
                                 .nosuid = context->dynamic_user, /* don't allow suid/sgid when DynamicUser= is on */
                                 .recursive = true,
