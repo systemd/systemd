@@ -191,6 +191,24 @@
         escaped as <literal>\;</literal>.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--fd=</option></term>
+
+        <listitem><para>Send a file descriptor along with the notification message. This is useful when
+        invoked in services that have the <varname>FileDescriptorStoreMax=</varname> setting enabled, see
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. The specified file descriptor must be passed to <command>systemd-notify</command> when
+        invoked. This option may be used multiple times to pass multiple file descriptors in a single
+        notification message.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--fdname=</option></term>
+
+        <listitem><para>Set a name to assign to the file descriptors passed via <option>--fd=</option> (see
+        above). This controls the <literal>FDNAME=</literal> field.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
