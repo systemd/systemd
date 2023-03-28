@@ -448,6 +448,11 @@ static void test_format_timestamp_with_tz_one(const char *tz) {
 TEST(FORMAT_TIMESTAMP_with_tz) {
         _cleanup_strv_free_ char **timezones = NULL;
 
+        test_format_timestamp_with_tz_one("UTC");
+
+        if (!slow_tests_enabled())
+                return (void) log_tests_skipped("slow tests are disabled");
+
         assert_se(get_timezones(&timezones) >= 0);
         STRV_FOREACH(tz, timezones)
                 test_format_timestamp_with_tz_one(*tz);
@@ -895,6 +900,11 @@ static void test_parse_timestamp_with_tz_one(const char *tz) {
 
 TEST(parse_timestamp_with_tz) {
         _cleanup_strv_free_ char **timezones = NULL;
+
+        test_parse_timestamp_with_tz_one("UTC");
+
+        if (!slow_tests_enabled())
+                return (void) log_tests_skipped("slow tests are disabled");
 
         assert_se(get_timezones(&timezones) >= 0);
         STRV_FOREACH(tz, timezones)
