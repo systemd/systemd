@@ -521,6 +521,24 @@ static DIR* opendir_nomod(const char *path) {
         return xopendirat_nomod(AT_FDCWD, path);
 }
 
+static int xopenat_nomod(int dir_fd, const char *path) {
+        int fd;
+
+        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME, 0);
+        if (fd >= 0)
+                return fd;
+
+        log_debug_errno(fd, "Cannot open %sfile \"%s\": %m", dir_fd == AT_FDCWD ? "" : "sub", path);
+        if (fd != -EPERM)
+                return fd;
+
+        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOFOLLOW, 0);
+        if (fd < 0)
+                log_debug_errno(fd, "Cannot open %sfile \"%s\": %m", dir_fd == AT_FDCWD ? "" : "sub", path);
+
+        return fd;
+}
+
 static inline nsec_t load_statx_timestamp_nsec(const struct statx_timestamp *ts) {
         assert(ts);
 
@@ -754,6 +772,8 @@ static int dir_cleanup(
                                         r = log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", sub_path);
 
                 } else {
+                        _cleanup_close_ int fd = -EBADF;
+
                         /* Skip files for which the sticky bit is set. These are semantics we define, and are
                          * unknown elsewhere. See XDG_RUNTIME_DIR specification for details. */
                         if (sx.stx_mode & S_ISVTX) {
@@ -793,6 +813,19 @@ static int dir_cleanup(
                         if (!needs_cleanup(atime_nsec, btime_nsec, ctime_nsec, mtime_nsec,
                                            cutoff_nsec, sub_path, age_by_file, false))
                                 continue;
+
+                        fd = xopenat_nomod(dirfd(d), de->d_name);
+                        if (fd < 0) {
+                                if (fd != -ENOENT)
+                                        r = log_warning_errno(fd, "Opening file \"%s\" failed, ignoring: %m", sub_path);
+
+                                continue;
+                        }
+
+                        if (flock(fd, LOCK_EX|LOCK_NB) < 0) {
+                                log_debug_errno(errno, "Couldn't acquire shared BSD lock on file \"%s\", skipping: %m", p);
+                                continue;
+                        }
 
                         log_debug("Removing \"%s\".", sub_path);
                         if (unlinkat(dirfd(d), de->d_name, 0) < 0)
