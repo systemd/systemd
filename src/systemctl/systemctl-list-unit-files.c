@@ -136,6 +136,7 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
 int verb_list_unit_files(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ UnitFileList *units = NULL;
+        _cleanup_(hashmap_freep) Hashmap *h = NULL;
         unsigned c = 0;
         const char *state;
         char *path;
@@ -143,38 +144,31 @@ int verb_list_unit_files(int argc, char *argv[], void *userdata) {
         bool fallback = false;
 
         if (install_client_side()) {
-                Hashmap *h;
                 UnitFileList *u;
                 unsigned n_units;
 
-                h = hashmap_new(&string_hash_ops);
+                h = hashmap_new(&unit_file_list_hash_ops_free);
                 if (!h)
                         return log_oom();
 
                 r = unit_file_get_list(arg_runtime_scope, arg_root, h, arg_states, strv_skip(argv, 1));
-                if (r < 0) {
-                        unit_file_list_free(h);
+                if (r < 0)
                         return log_error_errno(r, "Failed to get unit file list: %m");
-                }
 
                 n_units = hashmap_size(h);
 
                 units = new(UnitFileList, n_units ?: 1); /* avoid malloc(0) */
-                if (!units) {
-                        unit_file_list_free(h);
+                if (!units)
                         return log_oom();
-                }
 
                 HASHMAP_FOREACH(u, h) {
                         if (!output_show_unit_file(u, NULL, NULL))
                                 continue;
 
                         units[c++] = *u;
-                        free(u);
                 }
 
                 assert(c <= n_units);
-                hashmap_free(h);
 
                 r = 0;
         } else {
@@ -261,10 +255,6 @@ int verb_list_unit_files(int argc, char *argv[], void *userdata) {
         r = output_unit_file_list(units, c);
         if (r < 0)
                 return r;
-
-        if (install_client_side())
-                for (UnitFileList *unit = units; unit < units + c; unit++)
-                        free(unit->path);
 
         if (c == 0)
                 return -ENOENT;
