@@ -316,6 +316,8 @@ int bus_image_common_attach(
         assert(message);
         assert(name_or_path || image);
 
+        CLEANUP_ARRAY(changes, n_changes, portable_changes_free);
+
         if (!m) {
                 assert(image);
                 m = image->userdata;
@@ -390,13 +392,9 @@ int bus_image_common_attach(
                         &n_changes,
                         error);
         if (r < 0)
-                goto finish;
+                return r;
 
-        r = reply_portable_changes(message, changes, n_changes);
-
-finish:
-        portable_changes_free(changes, n_changes);
-        return r;
+        return reply_portable_changes(message, changes, n_changes);
 }
 
 static int bus_image_method_attach(sd_bus_message *message, void *userdata, sd_bus_error *error) {
