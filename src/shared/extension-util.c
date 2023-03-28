@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "architecture.h"
+#include "chase.h"
 #include "env-util.h"
 #include "extension-util.h"
 #include "log.h"
@@ -133,5 +134,22 @@ int parse_env_extension_hierarchies(char ***ret_hierarchies) {
                 return r;
 
         *ret_hierarchies = TAKE_PTR(l);
+        return 0;
+}
+
+int extension_has_forbidden_content(const char *root) {
+        int r;
+
+        /* Insist that extension images do not overwrite the underlying OS release file (it's fine if
+         * they place one in /etc/os-release, i.e. where things don't matter, as they aren't
+         * merged.) */
+        r = chase("/usr/lib/os-release", root, CHASE_PREFIX_ROOT, NULL, NULL);
+        if (r > 0) {
+                log_debug("Extension contains '/usr/lib/os-release', which is not allowed, refusing.");
+                return 1;
+        }
+        if (r < 0 && r != -ENOENT)
+                return log_debug_errno(r, "Failed to determine whether '/usr/lib/os-release' exists in the extension: %m");
+
         return 0;
 }

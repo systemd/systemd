@@ -22,6 +22,7 @@
 #include "dissect-image.h"
 #include "env-file.h"
 #include "env-util.h"
+#include "extension-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
@@ -1150,6 +1151,16 @@ int image_read_metadata(Image *i) {
                 sd_id128_t machine_id = SD_ID128_NULL;
                 _cleanup_free_ char *hostname = NULL;
                 _cleanup_free_ char *path = NULL;
+
+                if (i->class == IMAGE_EXTENSION) {
+                        r = extension_has_forbidden_content(i->path);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
+                                                       "Conflicting content found in image %s, refusing.",
+                                                       i->name);
+                }
 
                 r = chase("/etc/hostname", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, NULL);
                 if (r < 0 && r != -ENOENT)
