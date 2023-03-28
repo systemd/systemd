@@ -548,6 +548,8 @@ static int maybe_enable_disable(sd_bus *bus, const char *path, bool enable) {
         size_t n_changes = 0;
         int r;
 
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
         if (!arg_enable)
                 return 0;
 
@@ -585,7 +587,6 @@ static int maybe_enable_disable(sd_bus *bus, const char *path, bool enable) {
         }
 
         (void) bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, &changes, &n_changes);
-        install_changes_free(changes, n_changes);
 
         return 0;
 }
