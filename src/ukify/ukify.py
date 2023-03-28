@@ -449,7 +449,26 @@ class PeError(Exception):
 
 def pe_add_sections(uki: UKI, output: str):
     pe = pefile.PE(uki.executable, fast_load=True)
-    assert len(pe.__data__) % pe.OPTIONAL_HEADER.FileAlignment == 0
+
+    # Old stubs might have been stripped, leading to unaligned raw data values, so let's fix them up here.
+    for i, section in enumerate(pe.sections):
+        oldp = section.PointerToRawData
+        oldsz = section.SizeOfRawData
+        section.PointerToRawData = round_up(oldp, pe.OPTIONAL_HEADER.FileAlignment)
+        section.SizeOfRawData = round_up(oldsz, pe.OPTIONAL_HEADER.FileAlignment)
+        padp = section.PointerToRawData - oldp
+        padsz = section.SizeOfRawData - oldsz
+
+        for later_section in pe.sections[i+1:]:
+            later_section.PointerToRawData += padp + padsz
+
+        pe.__data__ = pe.__data__[:oldp] + bytearray(padp) + pe.__data__[oldp:oldp+oldsz] + bytearray(padsz) + pe.__data__[oldp+oldsz:]
+
+    # We might not have any space to add new sections. Let's try our best to make some space by padding the
+    # SizeOfHeaders to a multiple of the file alignment. This is safe because the first section's data starts
+    # at a multiple of the file alignment, so all space before that is unused.
+    pe.OPTIONAL_HEADER.SizeOfHeaders = round_up(pe.OPTIONAL_HEADER.SizeOfHeaders, pe.OPTIONAL_HEADER.FileAlignment)
+    pe = pefile.PE(data=pe.write(), fast_load=True)
 
     warnings = pe.get_warnings()
     if warnings:
@@ -473,7 +492,9 @@ def pe_add_sections(uki: UKI, output: str):
         new_section.set_file_offset(offset)
         new_section.Name = section.name.encode()
         new_section.Misc_VirtualSize = len(data)
-        new_section.PointerToRawData = len(pe.__data__)
+        # Non-stripped stubs might still have an unaligned symbol table at the end, making their size
+        # unaligned, so we make sure to explicitly pad the pointer to new sections to an aligned offset.
+        new_section.PointerToRawData = round_up(len(pe.__data__), pe.OPTIONAL_HEADER.FileAlignment)
         new_section.SizeOfRawData = round_up(len(data), pe.OPTIONAL_HEADER.FileAlignment)
         new_section.VirtualAddress = round_up(
             pe.sections[-1].VirtualAddress + pe.sections[-1].Misc_VirtualSize,
@@ -487,8 +508,7 @@ def pe_add_sections(uki: UKI, output: str):
         else:
             new_section.IMAGE_SCN_CNT_INITIALIZED_DATA = True
 
-        assert len(pe.__data__) % pe.OPTIONAL_HEADER.FileAlignment == 0
-        pe.__data__ = pe.__data__[:] + data + b'\0' * (new_section.SizeOfRawData - len(data))
+        pe.__data__ = pe.__data__[:] + b'\0' * (new_section.PointerToRawData - len(pe.__data__)) + data + b'\0' * (new_section.SizeOfRawData - len(data))
 
         pe.FILE_HEADER.NumberOfSections += 1
         pe.OPTIONAL_HEADER.SizeOfInitializedData += new_section.Misc_VirtualSize
