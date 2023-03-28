@@ -1120,7 +1120,7 @@ static int introspect(int argc, char **argv, void *userdata) {
                 sorted[k++] = m;
         }
 
-        if (result_width > 40)
+        if (result_width > 40 && !arg_full)
                 result_width = 40;
 
         typesafe_qsort(sorted, k, member_compare_funcp);
