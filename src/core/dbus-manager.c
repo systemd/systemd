@@ -2710,6 +2710,8 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
         const char *name;
         int runtime, r;
 
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
         r = sd_bus_message_read(message, "sb", &name, &runtime);
         if (r < 0)
                 return r;
@@ -2725,27 +2727,21 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
         r = unit_file_disable(m->runtime_scope,
                               UNIT_FILE_DRY_RUN | (runtime ? UNIT_FILE_RUNTIME : 0),
                               NULL, STRV_MAKE(name), &changes, &n_changes);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get file links for %s: %m", name);
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get file links for %s: %m", name);
 
         for (i = 0; i < n_changes; i++)
                 if (changes[i].type == INSTALL_CHANGE_UNLINK) {
                         r = sd_bus_message_append(reply, "s", changes[i].path);
                         if (r < 0)
-                                goto finish;
+                                return r;
                 }
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
-                goto finish;
+                return r;
 
-        r = sd_bus_send(NULL, reply, NULL);
-
-finish:
-        install_changes_free(changes, n_changes);
-        return r;
+        return sd_bus_send(NULL, reply, NULL);
 }
 
 static int method_get_job_waiting(sd_bus_message *message, void *userdata, sd_bus_error *error) {
