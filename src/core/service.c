@@ -271,6 +271,7 @@ static void service_start_watchdog(Service *s) {
 usec_t service_restart_usec(Service *s) {
         unsigned n_restarts;
         long double unit;
+        usec_t value;
 
         assert(s);
 
@@ -286,18 +287,20 @@ usec_t service_restart_usec(Service *s) {
         if (n_restarts <= 1 ||
             s->restart_steps == 0 ||
             s->restart_usec_max == USEC_INFINITY ||
-            s->restart_usec == s->restart_usec_max)
-                return s->restart_usec;
+            s->restart_usec >= s->restart_usec_max)
+                value = s->restart_usec;
+        else if (n_restarts > s->restart_steps)
+                value = s->restart_usec_max;
+        else {
+                /* Enforced in service_verify() and above */
+                assert(s->restart_usec_max > s->restart_usec);
 
-        if (n_restarts > s->restart_steps)
-                return s->restart_usec_max;
+                unit = powl(s->restart_usec_max - s->restart_usec, 1.0L / s->restart_steps);
+                value = usec_add(s->restart_usec, (usec_t) powl(unit, n_restarts - 1));
+        }
 
-        /* Enforced in service_verify() and above */
-        assert(s->restart_usec_max > s->restart_usec);
-
-        unit = powl(s->restart_usec_max - s->restart_usec, 1.0L / s->restart_steps);
-
-        return usec_add(s->restart_usec, (usec_t) powl(unit, n_restarts - 1));
+        log_unit_debug(UNIT(s), "Restart interval calculated as: %s", FORMAT_TIMESPAN(value, 0));
+        return value;
 }
 
 static void service_extend_event_source_timeout(Service *s, sd_event_source *source, usec_t extended) {
