@@ -97,6 +97,8 @@ assert_1 --resolve-names=now
 # Failed to parse rules file .: Is a directory
 cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 .
+# Failed to parse rules file ./nosuchfile: No such file or directory
+assert_1 ./nosuchfile
 # Failed to parse rules file .: Is a directory
 cat >"${exo}" <<EOF
 
