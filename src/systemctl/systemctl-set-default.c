@@ -102,6 +102,8 @@ int verb_set_default(int argc, char *argv[], void *userdata) {
         assert(argc >= 2);
         assert(argv);
 
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
         r = unit_name_mangle_with_suffix(argv[1], "set-default",
                                          arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
                                          ".target", &unit);
@@ -112,7 +114,7 @@ int verb_set_default(int argc, char *argv[], void *userdata) {
                 r = unit_file_set_default(arg_runtime_scope, UNIT_FILE_FORCE, arg_root, unit, &changes, &n_changes);
                 install_changes_dump(r, "set default", changes, n_changes, arg_quiet);
                 if (r < 0)
-                        goto finish;
+                        return r;
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -130,13 +132,13 @@ int verb_set_default(int argc, char *argv[], void *userdata) {
 
                 r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, &changes, &n_changes);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 /* Try to reload if enabled */
                 if (!arg_no_reload) {
                         r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
                         if (r < 0)
-                                goto finish;
+                                return r;
                 }
         }
 
@@ -147,14 +149,11 @@ int verb_set_default(int argc, char *argv[], void *userdata) {
 
                 r = determine_default(&final);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 if (!streq(final, unit))
                         log_notice("Note: \"%s\" is the default unit (possibly a runtime override).", final);
         }
 
-finish:
-        install_changes_free(changes, n_changes);
-
-        return r < 0 ? r : 0;
+        return 0;
 }
