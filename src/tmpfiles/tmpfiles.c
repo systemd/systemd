@@ -528,13 +528,13 @@ static int xopenat_nomod(int dir_fd, const char *path) {
         if (fd >= 0)
                 return fd;
 
-        log_debug_errno(fd, "Cannot open %sfile \"%s\": %m", dir_fd == AT_FDCWD ? "" : "sub", path);
+        log_debug_errno(fd, "Cannot open file \"%s\": %m", path);
         if (fd != -EPERM)
                 return fd;
 
         fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOFOLLOW, 0);
         if (fd < 0)
-                log_debug_errno(fd, "Cannot open %sfile \"%s\": %m", dir_fd == AT_FDCWD ? "" : "sub", path);
+                log_debug_errno(fd, "Cannot open file \"%s\": %m", path);
 
         return fd;
 }
@@ -815,14 +815,9 @@ static int dir_cleanup(
                                 continue;
 
                         fd = xopenat_nomod(dirfd(d), de->d_name);
-                        if (fd < 0) {
-                                if (fd != -ENOENT)
-                                        r = log_warning_errno(fd, "Opening file \"%s\" failed, ignoring: %m", sub_path);
-
-                                continue;
-                        }
-
-                        if (flock(fd, LOCK_EX|LOCK_NB) < 0) {
+                        if (fd < 0 && fd != -ENOENT)
+                                log_warning_errno(fd, "Opening file \"%s\" failed, ignoring: %m", sub_path);
+                        if (fd >= 0 && flock(fd, LOCK_EX|LOCK_NB) < 0 && errno == EAGAIN) {
                                 log_debug_errno(errno, "Couldn't acquire shared BSD lock on file \"%s\", skipping: %m", p);
                                 continue;
                         }
