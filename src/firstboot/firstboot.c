@@ -111,6 +111,7 @@ static void print_welcome(void) {
 
         r = parse_os_release(
                         arg_root,
+                        IMAGE_EXTENSION,
                         "PRETTY_NAME", &pretty_name,
                         "NAME", &os_name,
                         "ANSI_COLOR", &ansi_color);

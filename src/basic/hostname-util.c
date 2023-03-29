@@ -25,7 +25,7 @@ char* get_default_hostname(void) {
         }
 
         _cleanup_free_ char *f = NULL;
-        r = parse_os_release(NULL, "DEFAULT_HOSTNAME", &f);
+        r = parse_os_release(NULL, IMAGE_EXTENSION, "DEFAULT_HOSTNAME", &f);
         if (r < 0)
                 log_debug_errno(r, "Failed to parse os-release, ignoring: %m");
         else if (f) {
