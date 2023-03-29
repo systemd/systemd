@@ -230,16 +230,17 @@ static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*i
 }
 
 static int should_configure(int dir_fd, const char *filename) {
-        int r;
-
         assert(dir_fd >= 0);
         assert(filename);
 
-        r = faccessat(dir_fd, filename, F_OK, AT_SYMLINK_NOFOLLOW);
-        if (r < 0 && errno != ENOENT)
-                return log_error_errno(errno, "Failed to access %s: %m", filename);
+        if (faccessat(dir_fd, filename, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to access %s: %m", filename);
 
-        return r < 0 || arg_force;
+                return true; /* missing */
+        }
+
+        return arg_force; /* exists, but if --force was given we should still configure the file. */
 }
 
 static bool locale_is_ok(const char *name) {
