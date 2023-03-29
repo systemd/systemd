@@ -1250,6 +1250,26 @@ static unsigned manager_dispatch_cleanup_queue(Manager *m) {
         return n;
 }
 
+static unsigned manager_dispatch_release_resources_queue(Manager *m) {
+        unsigned n = 0;
+        Unit *u;
+
+        assert(m);
+
+        while ((u = m->release_resources_queue)) {
+                assert(u->in_release_resources_queue);
+
+                LIST_REMOVE(release_resources_queue, m->release_resources_queue, u);
+                u->in_release_resources_queue = false;
+
+                n++;
+
+                unit_release_resources(u);
+        }
+
+        return n;
+}
+
 enum {
         GC_OFFSET_IN_PATH,  /* This one is on the path we were traveling */
         GC_OFFSET_UNSURE,   /* No clue */
@@ -3156,6 +3176,9 @@ int manager_loop(Manager *m) {
                         continue;
 
                 if (manager_dispatch_stop_when_unneeded_queue(m) > 0)
+                        continue;
+
+                if (manager_dispatch_release_resources_queue(m) > 0)
                         continue;
 
                 if (manager_dispatch_dbus_queue(m) > 0)
