@@ -6,9 +6,12 @@
 #include "initrd-util.h"
 #include "log.h"
 #include "macro.h"
+#include "nulstr-util.h"
 #include "proc-cmdline.h"
+#include "process-util.h"
 #include "special.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 
 static int obj;
@@ -27,6 +30,7 @@ TEST(proc_cmdline_parse) {
 
 TEST(proc_cmdline_override) {
         _cleanup_free_ char *line = NULL, *value = NULL;
+        _cleanup_strv_free_ char **args = NULL;
 
         assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"") == 0);
         assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=different") == 0);
@@ -35,6 +39,9 @@ TEST(proc_cmdline_override) {
         assert_se(proc_cmdline(&line) >= 0);
         assert_se(streq(line, "foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\""));
         line = mfree(line);
+        assert_se(proc_cmdline_strv(&args) >= 0);
+        assert_se(strv_equal(args, STRV_MAKE("foo_bar=quux", "wuff-piep=tuet", "zumm", "some_arg_with_space=foo bar", "and_one_more=zzz aaa")));
+        args = strv_free(args);
 
         /* Test if parsing makes uses of the override */
         assert_se(proc_cmdline_get_key("foo_bar", 0, &value) > 0 && streq_ptr(value, "quux"));
@@ -52,6 +59,9 @@ TEST(proc_cmdline_override) {
         assert_se(proc_cmdline(&line) >= 0);
         assert_se(streq(line, "hoge"));
         line = mfree(line);
+        assert_se(proc_cmdline_strv(&args) >= 0);
+        assert_se(strv_equal(args, STRV_MAKE("hoge")));
+        args = strv_free(args);
 
         assert_se(proc_cmdline_get_key("foo_bar", 0, &value) > 0 && streq_ptr(value, "quux"));
         value = mfree(value);
@@ -254,6 +264,48 @@ TEST(proc_cmdline_key_startswith) {
         assert_se(proc_cmdline_key_startswith("foo-bar", "foo_bar"));
         assert_se(proc_cmdline_key_startswith("foo-bar", "foo_"));
         assert_se(!proc_cmdline_key_startswith("foo-bar", "foo_xx"));
+}
+
+#define test_proc_cmdline_filter_pid1_args_one(nulstr, expected)        \
+        ({                                                              \
+                _cleanup_strv_free_ char **a = NULL, **b = NULL;        \
+                const char s[] = (nulstr);                              \
+                                                                        \
+                /* This emulates get_process_cmdline_strv(). */         \
+                assert_se(a = strv_parse_nulstr_full(s, ELEMENTSOF(s),  \
+                                                     /* drop_trailing_nuls = */ true)); \
+                assert_se(proc_cmdline_filter_pid1_args(a, &b) >= 0);   \
+                assert_se(strv_equal(b, expected));                     \
+        })
+
+TEST(proc_cmdline_filter_pid1_args) {
+        test_proc_cmdline_filter_pid1_args_one("systemd\0",
+                                               STRV_MAKE_EMPTY);
+
+        test_proc_cmdline_filter_pid1_args_one("systemd\0"
+                                               "hoge\0"
+                                               "-x\0"
+                                               "foo\0"
+                                               "--aaa\0"
+                                               "var\0",
+                                               STRV_MAKE("hoge", "foo", "var"));
+
+        test_proc_cmdline_filter_pid1_args_one("/usr/lib/systemd/systemd\0"
+                                               "--switched-root\0"
+                                               "--system\0"
+                                               "--deserialize\030\0"   /* followed with space */
+                                               "--deserialize=31\0"    /* followed with '=' */
+                                               "--exit-code=42\0"
+                                               "\0\0\0"
+                                               "systemd.log_level=debug\0"
+                                               "--unit\0foo.target\0"
+                                               "  '  quoted '\0"
+                                               "systemd.log_target=console\0"
+                                               "\t\0"
+                                               "  arg   with   space \0"
+                                               "3\0"
+                                               "\0\0\0",
+                                               STRV_MAKE("", "", "", "systemd.log_level=debug", "  '  quoted '", "systemd.log_target=console", "\t", "  arg   with   space ", "3"));
 }
 
 static int intro(void) {
