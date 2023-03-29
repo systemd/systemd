@@ -2,6 +2,8 @@
 
 #include <getopt.h>
 #include <stdbool.h>
+#include <sys/mount.h>
+#include <unistd.h>
 
 #include "build.h"
 #include "boot-entry.h"
@@ -19,9 +21,11 @@
 #include "main-func.h"
 #include "mkdir.h"
 #include "mount-util.h"
+#include "mountpoint-util.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -36,6 +40,7 @@ static char *arg_xbootldr_path = NULL;
 static char *arg_root = NULL;
 static char *arg_image = NULL;
 static int arg_make_entry_directory = -1; /* tristate */
+static bool arg_sandbox = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -111,6 +116,27 @@ static void context_done(Context *c) {
         strv_free(c->plugins);
         free(c->args); /* Don't use strv_free(). */
         strv_free(c->envs);
+}
+
+static const char *path_drop_root(const char *path) {
+        const char *p;
+
+        assert(path);
+
+        if (!arg_sandbox || !arg_root)
+                return path;
+
+        p = path_startswith(path, arg_root);
+        assert(p);
+        assert(p > path);
+        if (p[0] == '/')
+                return p;
+
+        if (p[-1] == '/')
+                return p - 1;
+
+        assert(isempty(p));
+        return p;
 }
 
 static const char *context_get_layout(Context *c) {
@@ -799,16 +825,19 @@ static int context_build_arguments(Context *c) {
         a[i++] = NULL;
         a[i++] = verb;
         a[i++] = c->version ?: "$KERNEL_VERSION";
-        a[i++] = c->entry_dir;
+        a[i++] = path_drop_root(c->entry_dir);
 
         if (c->action == ACTION_ADD) {
-                a[i++] = c->kernel;
+                a[i++] = path_drop_root(c->kernel);
 
                 STRV_FOREACH(p, c->initrds)
-                        a[i++] = *p;
+                        a[i++] = path_drop_root(*p);
 
         } else if (c->action == ACTION_INSPECT) {
-                a[i++] = c->kernel ?: "[$KERNEL_IMAGE]";
+                if (c->kernel)
+                        a[i++] = path_drop_root(c->kernel);
+                else
+                        a[i++] = "[$KERNEL_IMAGE]";
                 a[i++] = "[$INITRD...]";
         }
 
@@ -834,12 +863,12 @@ static int context_build_environment(Context *c) {
                                  "KERNEL_INSTALL_IMAGE_TYPE",       kernel_image_type_to_string(c->kernel_image_type),
                                  "KERNEL_INSTALL_MACHINE_ID",       SD_ID128_TO_STRING(c->machine_id),
                                  "KERNEL_INSTALL_ENTRY_TOKEN",      c->entry_token,
-                                 "KERNEL_INSTALL_ROOT",             strempty(arg_root),
-                                 "KERNEL_INSTALL_BOOT_ROOT",        c->boot_root,
+                                 "KERNEL_INSTALL_ROOT",             arg_sandbox ? "" : strempty(arg_root),
+                                 "KERNEL_INSTALL_BOOT_ROOT",        path_drop_root(c->boot_root),
                                  "KERNEL_INSTALL_LAYOUT",           context_get_layout(c),
                                  "KERNEL_INSTALL_INITRD_GENERATOR", strempty(c->initrd_generator),
                                  "KERNEL_INSTALL_UKI_GENERATOR",    strempty(c->uki_generator),
-                                 "KERNEL_INSTALL_STAGING_AREA",     c->staging_area);
+                                 "KERNEL_INSTALL_STAGING_AREA",     path_drop_root(c->staging_area));
         if (r < 0)
                 return log_error_errno(r, "Failed to build environment variables for plugins: %m");
 
@@ -879,6 +908,82 @@ static int context_prepare_execution(Context *c) {
         return 0;
 }
 
+static int context_execute_in_sandbox(Context *c) {
+        _cleanup_free_ const char **plugins = NULL;
+        int r;
+
+        assert(c);
+
+        if (arg_root) {
+                const char **q;
+
+                q = plugins = new(const char*, strv_length(c->plugins) + 1);
+                if (!q)
+                        return log_oom();
+
+                STRV_FOREACH(p, c->plugins)
+                        *q++ = path_drop_root(*p);
+                *q = NULL;
+
+                FOREACH_STRING(p, "/sys", "/proc", "/dev") {
+                        _cleanup_free_ char *where = NULL;
+
+                        r = path_is_mount_point(p, /* root = */ NULL, /* flags = */ 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine whether '%s' is a mount point: %m", p);
+                        if (r == 0)
+                                continue;
+
+                        where = path_join(arg_root, p);
+                        if (!where)
+                                return log_oom();
+
+                        r = mkdir_p(where, 0755);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create directory '%s': %m", p);
+
+                        r = mount_nofollow_verbose(LOG_DEBUG, p, where, NULL, MS_BIND|MS_REC, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to bind mount '%s' to '%s': %m", p, where);
+                }
+
+                FOREACH_STRING(p, "/dev/shm", "/tmp") {
+                        _cleanup_free_ char *where = NULL;
+
+                        where = path_join(arg_root, p);
+                        if (!where)
+                                return log_oom();
+
+                        r = mkdir_p(where, 0755);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create directory '%s': %m", p);
+
+                        r = mount_nofollow_verbose(LOG_DEBUG, "tmpfs", where, "tmpfs", MS_NOSUID|MS_NODEV|MS_STRICTATIME, "mode=01777" NESTED_TMPFS_LIMITS);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to bind mount '%s' to '%s': %m", p, where);
+                }
+
+                r = mount_switch_root(arg_root, MS_SHARED);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to switch root: %m");
+        } else {
+                r = bind_remount_recursive("/", MS_RDONLY, MS_RDONLY,
+                                           STRV_MAKE("/sys", "/run", "/proc", "/dev/shm", "/tmp", c->boot_root));
+                if (r < 0)
+                        return log_error_errno(r, "Read-only bind remount failed: %m");
+        }
+
+        return execute_strv(
+                        /* name = */ NULL,
+                        ((char**) plugins) ?: c->plugins,
+                        USEC_INFINITY,
+                        /* callbacks = */ NULL,
+                        /* callback_args = */ NULL,
+                        (char**) c->args,
+                        c->envs,
+                        EXEC_DIR_SKIP_REMAINING);
+}
+
 static int context_execute(Context *c) {
         int r;
 
@@ -905,17 +1010,29 @@ static int context_execute(Context *c) {
                 log_debug("Plugin arguments: %s", strna(joined));
         }
 
-        r = execute_strv(
-                        /* name = */ NULL,
-                        c->plugins,
-                        USEC_INFINITY,
-                        /* callbacks = */ NULL,
-                        /* callback_args = */ NULL,
-                        (char**) c->args,
-                        c->envs,
-                        EXEC_DIR_SKIP_REMAINING);
-        if (r < 0)
-                return r;
+
+        if (arg_sandbox) {
+                r = safe_fork("(sandbox)",
+                              FORK_RESET_SIGNALS | FORK_WAIT | FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE, NULL);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        r = context_execute_in_sandbox(c);
+                        _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+                }
+        } else {
+                r = execute_strv(
+                                /* name = */ NULL,
+                                c->plugins,
+                                USEC_INFINITY,
+                                /* callbacks = */ NULL,
+                                /* callback_args = */ NULL,
+                                (char**) c->args,
+                                c->envs,
+                                EXEC_DIR_SKIP_REMAINING);
+                if (r < 0)
+                        return r;
+        }
 
         context_remove_entry_dir(c);
 
@@ -1098,6 +1215,7 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 ARG_IMAGE,
                 ARG_MAKE_ENTRY_DIRECTORY,
                 ARG_ENTRY_TOKEN,
+                ARG_SANDBOX,
         };
         static const struct option options[] = {
                 { "help",                 no_argument,       NULL, 'h'                      },
@@ -1109,6 +1227,7 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 { "image",                required_argument, NULL, ARG_IMAGE                },
                 { "make-entry-directory", required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY },
                 { "entry-token",          required_argument, NULL, ARG_ENTRY_TOKEN          },
+                { "sandbox",              no_argument,       NULL, ARG_SANDBOX              },
                 {}
         };
         int t, r;
@@ -1172,6 +1291,10 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                         r = parse_boot_entry_token_type(optarg, &c->entry_token_type, &c->entry_token);
                         if (r < 0)
                                 return r;
+                        break;
+
+                case ARG_SANDBOX:
+                        arg_sandbox = true;
                         break;
 
                 case '?':
