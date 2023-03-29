@@ -7582,6 +7582,23 @@ void exec_directory_sort(ExecDirectory *d) {
                         }
 }
 
+ExecCleanMask exec_clean_mask_from_string(const char *s) {
+        ExecDirectoryType t;
+
+        assert(s);
+
+        if (streq(s, "all"))
+                return EXEC_CLEAN_ALL;
+        if (streq(s, "fdstore"))
+                return EXEC_CLEAN_FDSTORE;
+
+        t = exec_resource_type_from_string(s);
+        if (t < 0)
+                return (ExecCleanMask) t;
+
+        return 1U << t;
+}
+
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(exec_set_credential_hash_ops, char, string_hash_func, string_compare_func, ExecSetCredential, exec_set_credential_free);
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(exec_load_credential_hash_ops, char, string_hash_func, string_compare_func, ExecLoadCredential, exec_load_credential_free);
 

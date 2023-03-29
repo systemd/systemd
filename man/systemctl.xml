@@ -538,12 +538,16 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>,
             <varname>LogsDirectory=</varname> and <varname>RuntimeDirectory=</varname>, see
             <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-            for details. For timer units this may be used to clear out the persistent timestamp data if
+            for details. It may also be used to clear the file decriptor store as enabled via
+            <varname>FileDescriptorStoreMax=</varname>, see
+            <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            for details.  For timer units this may be used to clear out the persistent timestamp data if
             <varname>Persistent=</varname> is used and <option>--what=state</option> is selected, see
             <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
             command only applies to units that use either of these settings. If <option>--what=</option> is
-            not specified, both the cache and runtime data are removed (as these two types of data are
-            generally redundant and reproducible on the next invocation of the unit).</para>
+            not specified, the cache and runtime data as well as the file descriptor store are removed (as
+            these three types of resources are generally redundant and reproducible on the next invocation of
+            the unit). Note that the specified units must be stopped to invoke this operation.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -2193,13 +2197,17 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
         <listitem>
           <para>Select what type of per-unit resources to remove when the <command>clean</command> command is
-          invoked, see below. Takes one of <constant>configuration</constant>, <constant>state</constant>,
-          <constant>cache</constant>, <constant>logs</constant>, <constant>runtime</constant> to select the
-          type of resource. This option may be specified more than once, in which case all specified resource
-          types are removed. Also accepts the special value <constant>all</constant> as a shortcut for
-          specifying all five resource types. If this option is not specified defaults to the combination of
-          <constant>cache</constant> and <constant>runtime</constant>, i.e. the two kinds of resources that
-          are generally considered to be redundant and can be reconstructed on next invocation.</para>
+          invoked, see above. Takes one of <constant>configuration</constant>, <constant>state</constant>,
+          <constant>cache</constant>, <constant>logs</constant>, <constant>runtime</constant>,
+          <constant>fdstore</constant> to select the type of resource. This option may be specified more than
+          once, in which case all specified resource types are removed. Also accepts the special value
+          <constant>all</constant> as a shortcut for specifying all six resource types. If this option is not
+          specified defaults to the combination of <constant>cache</constant>, <constant>runtime</constant>
+          and <constant>fdstore</constant>, i.e. the three kinds of resources that are generally considered
+          to be redundant and can be reconstructed on next invocation. Note that the explicit removal of the
+          <constant>fdstore</constant> resource type is only useful if the
+          <varname>FileDescriptorStorePreserve=</varname> option is enabled, since the file descriptor store
+          is otherwise cleaned automatically when the unit is stopped.</para>
         </listitem>
       </varlistentry>
 

@@ -90,6 +90,12 @@ static int property_get_can_clean(
                         return r;
         }
 
+        if (FLAGS_SET(mask, EXEC_CLEAN_FDSTORE)) {
+                r = sd_bus_message_append(reply, "s", "fdstore");
+                if (r < 0)
+                        return r;
+        }
+
         return sd_bus_message_close_container(reply);
 }
 
@@ -696,6 +702,7 @@ int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error 
                 return r;
 
         for (;;) {
+                ExecCleanMask m;
                 const char *i;
 
                 r = sd_bus_message_read(message, "s", &i);
@@ -704,17 +711,11 @@ int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error 
                 if (r == 0)
                         break;
 
-                if (streq(i, "all"))
-                        mask |= EXEC_CLEAN_ALL;
-                else {
-                        ExecDirectoryType t;
+                m = exec_clean_mask_from_string(i);
+                if (m < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid resource type: %s", i);
 
-                        t = exec_resource_type_from_string(i);
-                        if (t < 0)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid resource type: %s", i);
-
-                        mask |= 1U << t;
-                }
+                mask |= m;
         }
 
         r = sd_bus_message_exit_container(message);
