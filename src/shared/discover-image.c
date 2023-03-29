@@ -22,6 +22,7 @@
 #include "dissect-image.h"
 #include "env-file.h"
 #include "env-util.h"
+#include "extension-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
@@ -58,11 +59,13 @@ static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
                             "/usr/local/lib/portables\0"
                             "/usr/lib/portables\0",
 
+        /* Note that we don't allow storing extensions under /usr/lib, unlike with other image types. That's
+         * because extension images are supposed to extend /usr, so you get into recursive races, especially
+         * with directory-based extensions, as the kernel's OverlayFS explicitly checks for this and errors
+         * out with -ELOOP if it finds that a lowerdir= is a child of another lowerdir=. */
         [IMAGE_EXTENSION] = "/etc/extensions\0"             /* only place symlinks here */
                             "/run/extensions\0"             /* and here too */
-                            "/var/lib/extensions\0"         /* the main place for images */
-                            "/usr/local/lib/extensions\0"
-                            "/usr/lib/extensions\0",
+                            "/var/lib/extensions\0",        /* the main place for images */
 };
 
 static Image *image_free(Image *i) {
@@ -1148,6 +1151,16 @@ int image_read_metadata(Image *i) {
                 sd_id128_t machine_id = SD_ID128_NULL;
                 _cleanup_free_ char *hostname = NULL;
                 _cleanup_free_ char *path = NULL;
+
+                if (i->class == IMAGE_EXTENSION) {
+                        r = extension_forbidden_content_validate(i->path);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                log_debug("Forbidden content found in image %s, refusing.", i->name);
+                                return -ENOMEDIUM;
+                        }
+                }
 
                 r = chase("/etc/hostname", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, NULL);
                 if (r < 0 && r != -ENOENT)
