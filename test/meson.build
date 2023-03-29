@@ -10,6 +10,7 @@ if install_tests
                 'test-path',
                 'test-path-util',
                 'test-umount',
+                'test-network',
                 'test-network-generator-conversion',
                 'testsuite-03.units',
                 'testsuite-04.units',
