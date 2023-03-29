@@ -969,7 +969,7 @@ static int process_root_account(int rfd) {
                 return 0;
         }
 
-        r = make_lock_file_at(pfd, ETC_PASSWD_LOCK_NAME, LOCK_EX, &lock);
+        r = make_lock_file_at(pfd, ETC_PASSWD_LOCK_FILENAME, LOCK_EX, &lock);
         if (r < 0)
                 return log_error_errno(r, "Failed to take a lock on /etc/passwd: %m");
 
