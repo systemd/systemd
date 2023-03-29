@@ -158,7 +158,6 @@ struct Service {
 
         /* Runtime data of the execution context */
         ExecRuntime *exec_runtime;
-        DynamicCreds dynamic_creds;
 
         pid_t main_pid, control_pid;
 
@@ -207,7 +206,6 @@ struct Service {
         ServiceFDStore *fd_store;
         size_t n_fd_store;
         unsigned n_fd_store_max;
-        unsigned n_keep_fd_store;
 
         char *usb_function_descriptors;
         char *usb_function_strings;

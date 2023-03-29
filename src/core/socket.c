@@ -150,11 +150,9 @@ static void socket_done(Unit *u) {
 
         s->peers_by_address = set_free(s->peers_by_address);
 
-        s->exec_runtime = exec_runtime_unref(s->exec_runtime, false);
+        s->exec_runtime = exec_runtime_free(s->exec_runtime);
         exec_command_free_array(s->exec_command, _SOCKET_EXEC_COMMAND_MAX);
         s->control_command = NULL;
-
-        dynamic_creds_unref(&s->dynamic_creds);
 
         socket_unwatch_control_pid(s);
 
@@ -1532,16 +1530,18 @@ static int socket_address_listen_in_cgroup(
 
         if (s->exec_context.network_namespace_path &&
             s->exec_runtime &&
-            s->exec_runtime->netns_storage_socket[0] >= 0) {
-                r = open_shareable_ns_path(s->exec_runtime->netns_storage_socket, s->exec_context.network_namespace_path, CLONE_NEWNET);
+            s->exec_runtime->shared &&
+            s->exec_runtime->shared->netns_storage_socket[0] >= 0) {
+                r = open_shareable_ns_path(s->exec_runtime->shared->netns_storage_socket, s->exec_context.network_namespace_path, CLONE_NEWNET);
                 if (r < 0)
                         return log_unit_error_errno(UNIT(s), r, "Failed to open network namespace path %s: %m", s->exec_context.network_namespace_path);
         }
 
         if (s->exec_context.ipc_namespace_path &&
             s->exec_runtime &&
-            s->exec_runtime->ipcns_storage_socket[0] >= 0) {
-                r = open_shareable_ns_path(s->exec_runtime->ipcns_storage_socket, s->exec_context.ipc_namespace_path, CLONE_NEWIPC);
+            s->exec_runtime->shared &&
+            s->exec_runtime->shared->ipcns_storage_socket[0] >= 0) {
+                r = open_shareable_ns_path(s->exec_runtime->shared->ipcns_storage_socket, s->exec_context.ipc_namespace_path, CLONE_NEWIPC);
                 if (r < 0)
                         return log_unit_error_errno(UNIT(s), r, "Failed to open IPC namespace path %s: %m", s->exec_context.ipc_namespace_path);
         }
@@ -1559,10 +1559,11 @@ static int socket_address_listen_in_cgroup(
 
                 if (exec_needs_network_namespace(&s->exec_context) &&
                     s->exec_runtime &&
-                    s->exec_runtime->netns_storage_socket[0] >= 0) {
+                    s->exec_runtime->shared &&
+                    s->exec_runtime->shared->netns_storage_socket[0] >= 0) {
 
                         if (ns_type_supported(NAMESPACE_NET)) {
-                                r = setup_shareable_ns(s->exec_runtime->netns_storage_socket, CLONE_NEWNET);
+                                r = setup_shareable_ns(s->exec_runtime->shared->netns_storage_socket, CLONE_NEWNET);
                                 if (r < 0) {
                                         log_unit_error_errno(UNIT(s), r, "Failed to join network namespace: %m");
                                         _exit(EXIT_NETWORK);
@@ -1905,10 +1906,8 @@ static int socket_coldplug(Unit *u) {
                         return r;
         }
 
-        if (!IN_SET(s->deserialized_state, SOCKET_DEAD, SOCKET_FAILED, SOCKET_CLEANING)) {
-                (void) unit_setup_dynamic_creds(u);
+        if (!IN_SET(s->deserialized_state, SOCKET_DEAD, SOCKET_FAILED, SOCKET_CLEANING))
                 (void) unit_setup_exec_runtime(u);
-        }
 
         socket_set_state(s, s->deserialized_state);
         return 0;
@@ -1947,7 +1946,6 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                        &s->exec_context,
                        &exec_params,
                        s->exec_runtime,
-                       &s->dynamic_creds,
                        &s->cgroup_context,
                        &pid);
         if (r < 0)
@@ -2049,13 +2047,11 @@ static void socket_enter_dead(Socket *s, SocketResult f) {
 
         socket_set_state(s, s->result != SOCKET_SUCCESS ? SOCKET_FAILED : SOCKET_DEAD);
 
-        s->exec_runtime = exec_runtime_unref(s->exec_runtime, true);
+        s->exec_runtime = exec_runtime_destroy(s->exec_runtime);
 
         unit_destroy_runtime_data(UNIT(s), &s->exec_context);
 
         unit_unref_uid_gid(UNIT(s), true);
-
-        dynamic_creds_destroy(&s->dynamic_creds);
 }
 
 static void socket_enter_signal(Socket *s, SocketState state, SocketResult f);
@@ -2488,7 +2484,7 @@ static int socket_start(Unit *u) {
 
                 /* If the service is already active we cannot start the
                  * socket */
-                if (!IN_SET(service->state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART))
+                if (!IN_SET(service->state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART, SERVICE_AUTO_RESTART))
                         return log_unit_error_errno(u, SYNTHETIC_ERRNO(EBUSY), "Socket service %s already active, refusing.", UNIT(service)->id);
         }
 
@@ -3291,7 +3287,7 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
                 return;
 
         if (IN_SET(SERVICE(other)->state,
-                   SERVICE_DEAD, SERVICE_FAILED,
+                   SERVICE_DEAD, SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED, SERVICE_FAILED_BEFORE_AUTO_RESTART,
                    SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
                    SERVICE_AUTO_RESTART))
                socket_enter_listening(s);
@@ -3468,7 +3464,6 @@ const UnitVTable socket_vtable = {
         .cgroup_context_offset = offsetof(Socket, cgroup_context),
         .kill_context_offset = offsetof(Socket, kill_context),
         .exec_runtime_offset = offsetof(Socket, exec_runtime),
-        .dynamic_creds_offset = offsetof(Socket, dynamic_creds),
 
         .sections =
                 "Unit\0"

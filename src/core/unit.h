@@ -570,13 +570,9 @@ typedef struct UnitVTable {
         size_t kill_context_offset;
 
         /* If greater than 0, the offset into the object where the
-         * pointer to ExecRuntime is found, if the unit type has
+         * pointer to ExecSharedRuntime is found, if the unit type has
          * that */
         size_t exec_runtime_offset;
-
-        /* If greater than 0, the offset into the object where the pointer to DynamicCreds is found, if the unit type
-         * has that. */
-        size_t dynamic_creds_offset;
 
         /* The name of the configuration file section with the private settings of this unit */
         const char *private_section;
@@ -967,7 +963,6 @@ CGroupContext *unit_get_cgroup_context(Unit *u) _pure_;
 ExecRuntime *unit_get_exec_runtime(Unit *u) _pure_;
 
 int unit_setup_exec_runtime(Unit *u);
-int unit_setup_dynamic_creds(Unit *u);
 
 char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf);
 char* unit_concat_strv(char **l, UnitWriteFlags flags);

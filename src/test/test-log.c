@@ -175,6 +175,32 @@ static void test_log_context(void) {
         assert_se(log_context_num_fields() == 0);
 }
 
+static void test_log_prefix(void) {
+        {
+                LOG_SET_PREFIX("ABC");
+
+                test_log_struct();
+                test_long_lines();
+                test_log_syntax();
+
+                {
+                        LOG_SET_PREFIX("QED");
+
+                        test_log_struct();
+                        test_long_lines();
+                        test_log_syntax();
+                }
+
+                test_log_struct();
+                test_long_lines();
+                test_log_syntax();
+        }
+
+        test_log_struct();
+        test_long_lines();
+        test_log_syntax();
+}
+
 int main(int argc, char* argv[]) {
         test_file();
 
@@ -188,6 +214,7 @@ int main(int argc, char* argv[]) {
                 test_long_lines();
                 test_log_syntax();
                 test_log_context();
+                test_log_prefix();
         }
 
         return 0;

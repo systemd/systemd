@@ -1436,8 +1436,12 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename, bool extra_che
         assert(filename);
 
         f = fopen(filename, "re");
-        if (!f)
+        if (!f) {
+                if (!extra_checks && errno == ENOENT)
+                        return 0;
+
                 return log_warning_errno(errno, "Failed to open %s, ignoring: %m", filename);
+        }
 
         if (fstat(fileno(f), &st) < 0)
                 return log_warning_errno(errno, "Failed to stat %s, ignoring: %m", filename);

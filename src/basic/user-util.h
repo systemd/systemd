@@ -80,7 +80,8 @@ int take_etc_passwd_lock(const char *root);
 #define UID_MAPPED_ROOT ((uid_t) (INT32_MAX-1))
 #define GID_MAPPED_ROOT ((gid_t) (INT32_MAX-1))
 
-#define ETC_PASSWD_LOCK_PATH "/etc/.pwd.lock"
+#define ETC_PASSWD_LOCK_FILENAME ".pwd.lock"
+#define ETC_PASSWD_LOCK_PATH "/etc/" ETC_PASSWD_LOCK_FILENAME
 
 /* The following macros add 1 when converting things, since UID 0 is a valid UID, while the pointer
  * NULL is special */

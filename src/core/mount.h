@@ -76,7 +76,6 @@ struct Mount {
         CGroupContext cgroup_context;
 
         ExecRuntime *exec_runtime;
-        DynamicCreds dynamic_creds;
 
         MountState state, deserialized_state;
 
