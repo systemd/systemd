@@ -3605,13 +3605,14 @@ int verity_dissect_and_mount(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse image %s extension-release metadata: %m", dissected_image->image_name);
 
-                r = extension_release_validate(
+                r = release_file_validate(
                                 dissected_image->image_name,
                                 required_host_os_release_id,
                                 required_host_os_release_version_id,
                                 required_host_os_release_sysext_level,
                                 required_sysext_scope,
-                                extension_release);
+                                extension_release,
+                                IMAGE_EXTENSION);
                 if (r == 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Image %s extension-release metadata does not match the root's", dissected_image->image_name);
                 if (r < 0)
