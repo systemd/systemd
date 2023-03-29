@@ -115,6 +115,7 @@ int boot_entry_token_ensure(
                 const char *root,
                 const char *etc_kernel,
                 sd_id128_t machine_id,
+                bool machine_id_is_random,
                 BootEntryTokenType *type,
                 char **token) {
 
@@ -133,13 +134,21 @@ int boot_entry_token_ensure(
                 if (r != 0)
                         return r;
 
-                r = entry_token_from_machine_id(machine_id, type, token);
-                if (r != 0)
-                        return r;
+                if (!machine_id_is_random) {
+                        r = entry_token_from_machine_id(machine_id, type, token);
+                        if (r != 0)
+                                return r;
+                }
 
                 r = entry_token_from_os_release(root, type, token);
                 if (r != 0)
                         return r;
+
+                if (machine_id_is_random) {
+                        r = entry_token_from_machine_id(machine_id, type, token);
+                        if (r != 0)
+                                return r;
+                }
 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "No machine ID set, and %s/etc/os-release carries no ID=/IMAGE_ID= fields.",
