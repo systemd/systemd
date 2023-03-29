@@ -206,6 +206,7 @@ struct Service {
         ServiceFDStore *fd_store;
         size_t n_fd_store;
         unsigned n_fd_store_max;
+        ExecPreserveMode fd_store_preserve_mode;
 
         char *usb_function_descriptors;
         char *usb_function_strings;
