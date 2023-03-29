@@ -22,6 +22,7 @@
 #include "dissect-image.h"
 #include "env-file.h"
 #include "env-util.h"
+#include "extension-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
@@ -605,6 +606,16 @@ int image_discover(
                         if (hashmap_contains(h, pretty))
                                 continue;
 
+                        /* The kernel checks that directories specified as lowerdir= do not contain each
+                         * other, so skip extension directories stored in /usr early. */
+                        if (class == IMAGE_EXTENSION && S_ISDIR(st.st_mode) && startswith(path, "/usr")) {
+                                log_debug("Ignoring extension directory %s, since it is stored under %s and"
+                                          " would result in a recursive overlay, which is not supported.",
+                                          de->d_name,
+                                          path);
+                                continue;
+                        }
+
                         r = image_make(class, pretty, dirfd(d), resolved, de->d_name, &st, &image);
                         if (IN_SET(r, -ENOENT, -EMEDIUMTYPE))
                                 continue;
@@ -1148,6 +1159,16 @@ int image_read_metadata(Image *i) {
                 sd_id128_t machine_id = SD_ID128_NULL;
                 _cleanup_free_ char *hostname = NULL;
                 _cleanup_free_ char *path = NULL;
+
+                if (i->class == IMAGE_EXTENSION) {
+                        r = extension_forbidden_content_validate(i->path);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                log_debug("Forbidden content found in image %s, refusing.", i->name);
+                                return -ENOMEDIUM;
+                        }
+                }
 
                 r = chase("/etc/hostname", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, NULL);
                 if (r < 0 && r != -ENOENT)

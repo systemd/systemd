@@ -39,7 +39,7 @@
 #include "dm-util.h"
 #include "env-file.h"
 #include "env-util.h"
-#include "extension-release.h"
+#include "extension-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -1787,11 +1787,16 @@ int dissected_image_mount(
                                         ok = true;
                         }
                         if (!ok && FLAGS_SET(flags, DISSECT_IMAGE_VALIDATE_OS_EXT)) {
-                                r = path_is_extension_tree(where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_SYSEXT_CHECK));
+                                r = extension_forbidden_content_validate(where);
                                 if (r < 0)
                                         return r;
-                                if (r > 0)
-                                        ok = true;
+                                if (r > 0) {
+                                        r = path_is_extension_tree(where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_SYSEXT_CHECK));
+                                        if (r < 0)
+                                                return r;
+                                        if (r > 0)
+                                                ok = true;
+                                }
                         }
 
                         if (!ok)
