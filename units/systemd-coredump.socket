@@ -11,7 +11,7 @@
 Description=Process Core Dump Socket
 Documentation=man:systemd-coredump(8)
 DefaultDependencies=no
-Before=shutdown.target
+Before=shutdown.target systemd-sysctl.service
 Conflicts=shutdown.target
 
 [Socket]
