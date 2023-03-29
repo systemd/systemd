@@ -24,6 +24,8 @@ int fdset_new_listen_fds(FDSet **ret, bool unset);
 
 int fdset_cloexec(FDSet *fds, bool b);
 
+int fdset_get_array(FDSet *fds, int **ret_array);
+
 int fdset_close_others(FDSet *fds);
 
 unsigned fdset_size(FDSet *fds);
