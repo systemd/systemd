@@ -115,6 +115,8 @@ void* varlink_get_userdata(Varlink *v);
 
 int varlink_get_peer_uid(Varlink *v, uid_t *ret);
 int varlink_get_peer_pid(Varlink *v, pid_t *ret);
+int varlink_get_uid(Varlink *v, uid_t *ret);
+void varlink_ucred_enable_impersonate(Varlink *v_send, Varlink *v_recv);
 
 int varlink_set_relative_timeout(Varlink *v, usec_t usec);
 

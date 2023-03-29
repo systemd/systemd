@@ -281,5 +281,10 @@ int manager_startup(Manager *m) {
         if (setsockopt(m->listen_fd, SOL_SOCKET, SO_RCVTIMEO, TIMEVAL_STORE(LISTEN_TIMEOUT_USEC), sizeof(struct timeval)) < 0)
                 return log_error_errno(errno, "Failed to se SO_RCVTIMEO: %m");
 
+        /* Set SO_PASSCRED on the listening socket as well. It only needs to be set after accept(), but setting
+         * it early here can prevent race conditions in some cases */
+        if (setsockopt_int(m->listen_fd, SOL_SOCKET, SO_PASSCRED, true) < 0)
+                return log_error_errno(errno, "Failed to set SO_PASSCRED: %m");
+
         return start_workers(m, false);
 }
