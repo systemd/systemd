@@ -239,7 +239,14 @@ static int should_configure(int dir_fd, const char *filename) {
         if (r < 0 && errno != ENOENT)
                 return log_error_errno(errno, "Failed to access %s: %m", filename);
 
-        return r < 0 || arg_force;
+        if (faccessat(dir_fd, filename, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to access %s: %m", filename);
+
+                return true; /* missing */
+        }
+
+        return arg_force; /* exists, but if --force was given we should still configure the file. */
 }
 
 static bool locale_is_ok(const char *name) {
