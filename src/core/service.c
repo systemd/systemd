@@ -452,8 +452,6 @@ static void service_done(Unit *u) {
 
         service_close_socket_fd(s);
 
-        unit_ref_unset(&s->accept_socket);
-
         service_stop_watchdog(s);
 
         s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
