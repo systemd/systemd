@@ -21,7 +21,7 @@ int verb_clean_or_freeze(int argc, char *argv[], void *userdata) {
         polkit_agent_open_maybe();
 
         if (!arg_clean_what) {
-                arg_clean_what = strv_new("cache", "runtime");
+                arg_clean_what = strv_new("cache", "runtime", "fdstore");
                 if (!arg_clean_what)
                         return log_oom();
         }
