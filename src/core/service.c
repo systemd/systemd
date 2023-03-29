@@ -69,6 +69,7 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_FAILED] = UNIT_FAILED,
         [SERVICE_DEAD_BEFORE_AUTO_RESTART] = UNIT_INACTIVE,
         [SERVICE_FAILED_BEFORE_AUTO_RESTART] = UNIT_FAILED,
+        [SERVICE_DEAD_RESOURCES_PINNED] = UNIT_INACTIVE,
         [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING,
         [SERVICE_CLEANING] = UNIT_MAINTENANCE,
 };
@@ -97,6 +98,7 @@ static const UnitActiveState state_translation_table_idle[_SERVICE_STATE_MAX] = 
         [SERVICE_FAILED] = UNIT_FAILED,
         [SERVICE_DEAD_BEFORE_AUTO_RESTART] = UNIT_INACTIVE,
         [SERVICE_FAILED_BEFORE_AUTO_RESTART] = UNIT_FAILED,
+        [SERVICE_DEAD_RESOURCES_PINNED] = UNIT_INACTIVE,
         [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING,
         [SERVICE_CLEANING] = UNIT_MAINTENANCE,
 };
@@ -139,6 +141,8 @@ static void service_init(Unit *u) {
         s->oom_policy = _OOM_POLICY_INVALID;
         s->reload_begin_usec = USEC_INFINITY;
         s->reload_signal = SIGHUP;
+
+        s->fd_store_preserve_mode = EXEC_PRESERVE_RESTART;
 }
 
 static void service_unwatch_control_pid(Service *s) {
@@ -1031,8 +1035,10 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         if (s->n_fd_store_max > 0)
                 fprintf(f,
                         "%sFile Descriptor Store Max: %u\n"
+                        "%sFile Descriptor Store Pin: %s\n"
                         "%sFile Descriptor Store Current: %zu\n",
                         prefix, s->n_fd_store_max,
+                        prefix, exec_preserve_mode_to_string(s->fd_store_preserve_mode),
                         prefix, s->n_fd_store);
 
         service_dump_fdstore(s, f, prefix);
@@ -1244,7 +1250,8 @@ static void service_set_state(Service *s, ServiceState state) {
 
         if (IN_SET(state,
                    SERVICE_DEAD, SERVICE_FAILED,
-                   SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART, SERVICE_AUTO_RESTART)) {
+                   SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART, SERVICE_AUTO_RESTART,
+                   SERVICE_DEAD_RESOURCES_PINNED)) {
                 unit_unwatch_all_pids(UNIT(s));
                 unit_dequeue_rewatch_pids(UNIT(s));
         }
@@ -1351,7 +1358,8 @@ static int service_coldplug(Unit *u) {
         if (!IN_SET(s->deserialized_state,
                     SERVICE_DEAD, SERVICE_FAILED,
                     SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART, SERVICE_AUTO_RESTART,
-                    SERVICE_CLEANING)) {
+                    SERVICE_CLEANING,
+                    SERVICE_DEAD_RESOURCES_PINNED)) {
                 (void) unit_enqueue_rewatch_pids(u);
                 (void) unit_setup_exec_runtime(u);
         }
@@ -1939,6 +1947,12 @@ static bool service_will_restart(Unit *u) {
         return unit_will_restart_default(u);
 }
 
+static ServiceState service_determine_dead_state(Service *s) {
+        assert(s);
+
+        return s->fd_store && s->fd_store_preserve_mode == EXEC_PRESERVE_YES ? SERVICE_DEAD_RESOURCES_PINNED : SERVICE_DEAD;
+}
+
 static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) {
         ServiceState end_state, restart_state;
         int r;
@@ -1955,11 +1969,11 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
 
         if (s->result == SERVICE_SUCCESS) {
                 unit_log_success(UNIT(s));
-                end_state = SERVICE_DEAD;
+                end_state = service_determine_dead_state(s);
                 restart_state = SERVICE_DEAD_BEFORE_AUTO_RESTART;
         } else if (s->result == SERVICE_SKIP_CONDITION) {
                 unit_log_skip(UNIT(s), service_result_to_string(s->result));
-                end_state = SERVICE_DEAD;
+                end_state = service_determine_dead_state(s);
                 restart_state = SERVICE_DEAD_BEFORE_AUTO_RESTART;
         } else {
                 unit_log_failure(UNIT(s), service_result_to_string(s->result));
@@ -2022,6 +2036,10 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
 
         /* Also, remove the runtime directory */
         unit_destroy_runtime_data(UNIT(s), &s->exec_context);
+
+        /* Also get rid of the fd store, if that's configured. */
+        if (s->fd_store_preserve_mode == EXEC_PRESERVE_NO)
+                service_release_fd_store(s);
 
         /* Get rid of the IPC bits of the user */
         unit_unref_uid_gid(UNIT(s), true);
@@ -2701,7 +2719,7 @@ static int service_start(Unit *u) {
         if (IN_SET(s->state, SERVICE_AUTO_RESTART, SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART))
                 return -EAGAIN;
 
-        assert(IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED));
+        assert(IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_DEAD_RESOURCES_PINNED));
 
         r = unit_acquire_invocation_id(u);
         if (r < 0)
@@ -2760,7 +2778,7 @@ static int service_stop(Unit *u) {
 
         case SERVICE_AUTO_RESTART:
                 /* A restart will be scheduled or is in progress. */
-                service_set_state(s, SERVICE_DEAD);
+                service_set_state(s, service_determine_dead_state(s));
                 return 0;
 
         case SERVICE_CONDITION:
@@ -2789,6 +2807,7 @@ static int service_stop(Unit *u) {
         case SERVICE_FAILED_BEFORE_AUTO_RESTART:
         case SERVICE_DEAD:
         case SERVICE_FAILED:
+        case SERVICE_DEAD_RESOURCES_PINNED:
         default:
                 /* Unknown state, or unit_stop() should already have handled these */
                 assert_not_reached();
@@ -3397,7 +3416,7 @@ static bool service_may_gc(Unit *u) {
 
         /* Only allow collection of actually dead services, i.e. not those that are in the transitionary
          * SERVICE_DEAD_BEFORE_AUTO_RESTART/SERVICE_FAILED_BEFORE_AUTO_RESTART states. */
-        if (!IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED))
+        if (!IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_DEAD_RESOURCES_PINNED))
                 return false;
 
         return true;
@@ -3624,6 +3643,7 @@ static void service_notify_cgroup_empty_event(Unit *u) {
         case SERVICE_DEAD_BEFORE_AUTO_RESTART:
         case SERVICE_FAILED_BEFORE_AUTO_RESTART:
         case SERVICE_AUTO_RESTART:
+        case SERVICE_DEAD_RESOURCES_PINNED:
                 unit_prune_cgroup(u);
                 break;
 
@@ -4712,7 +4732,7 @@ int service_set_socket_fd(
 
         assert(!s->socket_peer);
 
-        if (s->state != SERVICE_DEAD)
+        if (!IN_SET(s->state, SERVICE_DEAD, SERVICE_DEAD_RESOURCES_PINNED))
                 return -EAGAIN;
 
         if (getpeername_pretty(fd, true, &peer_text) >= 0) {
@@ -4749,7 +4769,7 @@ static void service_reset_failed(Unit *u) {
         assert(s);
 
         if (s->state == SERVICE_FAILED)
-                service_set_state(s, SERVICE_DEAD);
+                service_set_state(s, service_determine_dead_state(s));
 
         s->result = SERVICE_SUCCESS;
         s->reload_result = SERVICE_SUCCESS;
@@ -4920,14 +4940,19 @@ static void service_release_resources(Unit *u) {
         /* Don't release resources if this is a transitionary failed/dead state
          * (i.e. SERVICE_DEAD_BEFORE_AUTO_RESTART/SERVICE_FAILED_BEFORE_AUTO_RESTART), insist on a permanent
          * failure state. */
-        if (!IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED))
+        if (!IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_DEAD_RESOURCES_PINNED))
                 return;
 
         log_unit_debug(u, "Releasing resources...");
 
         service_close_socket_fd(s);
         service_release_stdio_fd(s);
-        service_release_fd_store(s);
+
+        if (s->fd_store_preserve_mode != EXEC_PRESERVE_YES)
+                service_release_fd_store(s);
+
+        if (s->state == SERVICE_DEAD_RESOURCES_PINNED && !s->fd_store)
+                service_set_state(s, SERVICE_DEAD);
 }
 
 static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {

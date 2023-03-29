@@ -146,6 +146,7 @@ typedef enum ServiceState {
         SERVICE_FAILED,
         SERVICE_DEAD_BEFORE_AUTO_RESTART,
         SERVICE_FAILED_BEFORE_AUTO_RESTART,
+        SERVICE_DEAD_RESOURCES_PINNED,  /* Like SERVICE_DEAD, but with pinned resources */
         SERVICE_AUTO_RESTART,
         SERVICE_CLEANING,
         _SERVICE_STATE_MAX,
