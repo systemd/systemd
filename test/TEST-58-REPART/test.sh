@@ -14,6 +14,7 @@ test_append_files() {
         install_dmevent
         instmods dm_verity =md
         instmods erofs
+        inst_binary setpriv
         generate_module_dependencies
         image_install -o mksquashfs
         image_install -o mkfs.erofs
