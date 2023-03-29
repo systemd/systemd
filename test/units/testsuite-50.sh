@@ -413,6 +413,17 @@ systemd-sysext merge
 test ! -e /usr/lib/systemd/system/some_file
 systemd-sysext unmerge
 rmdir /etc/extensions/app-nodistro
+
+# Check that extensions cannot contain os-release
+mkdir -p /run/extensions/app-reject/usr/lib/{extension-release.d/,systemd/system}
+echo "ID=_any" > /run/extensions/app-reject/usr/lib/extension-release.d/extension-release.app-reject
+echo "ID=_any" > /run/extensions/app-reject/usr/lib/os-release
+touch /run/extensions/app-reject/usr/lib/systemd/system/other_file
+systemd-sysext merge && { echo 'unexpected success'; exit 1; }
+test ! -e /usr/lib/systemd/system/some_file
+test ! -e /usr/lib/systemd/system/other_file
+systemd-sysext unmerge
+rm -rf /run/extensions/app-reject
 rm /var/lib/extensions/app-nodistro.raw
 
 mkdir -p /run/machines /run/portables /run/extensions
