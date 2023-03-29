@@ -239,7 +239,14 @@ static int should_configure(int dir_fd, const char *filename) {
         if (r < 0 && errno != ENOENT)
                 return log_error_errno(errno, "Failed to access %s: %m", filename);
 
-        return r < 0 || arg_force;
+        if (faccessat(dir_fd, filename, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to access %s: %m", filename);
+
+                return true; /* missing */
+        }
+
+        return arg_force; /* exists, but if --force was given we should still configure the file. */
 }
 
 static bool locale_is_ok(const char *name) {
@@ -344,7 +351,11 @@ static int process_locale(int rfd) {
         if (r <= 0)
                 return r;
 
-        if (arg_copy_locale && !dir_fd_is_root(rfd)) {
+        r = dir_fd_is_root(rfd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if directory file descriptor is root: %m");
+
+        if (arg_copy_locale && r == 0) {
                 r = copy_file_atomic_at(AT_FDCWD, "/etc/locale.conf", pfd, f, 0644, COPY_REFLINK);
                 if (r != -ENOENT) {
                         if (r < 0)
@@ -429,7 +440,11 @@ static int process_keymap(int rfd) {
         if (r <= 0)
                 return r;
 
-        if (arg_copy_keymap && !dir_fd_is_root(rfd)) {
+        r = dir_fd_is_root(rfd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if directory file descriptor is root: %m");
+
+        if (arg_copy_keymap && r == 0) {
                 r = copy_file_atomic_at(AT_FDCWD, "/etc/vconsole.conf", pfd, f, 0644, COPY_REFLINK);
                 if (r != -ENOENT) {
                         if (r < 0)
@@ -517,7 +532,11 @@ static int process_timezone(int rfd) {
         if (r <= 0)
                 return r;
 
-        if (arg_copy_timezone && !dir_fd_is_root(rfd)) {
+        r = dir_fd_is_root(rfd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if directory file descriptor is root: %m");
+
+        if (arg_copy_timezone && r == 0) {
                 _cleanup_free_ char *s = NULL;
 
                 r = readlink_malloc("/etc/localtime", &s);
@@ -969,11 +988,15 @@ static int process_root_account(int rfd) {
                 return 0;
         }
 
-        r = make_lock_file_at(pfd, ETC_PASSWD_LOCK_NAME, LOCK_EX, &lock);
+        r = make_lock_file_at(pfd, ETC_PASSWD_LOCK_FILENAME, LOCK_EX, &lock);
         if (r < 0)
                 return log_error_errno(r, "Failed to take a lock on /etc/passwd: %m");
 
-        if (arg_copy_root_shell && !dir_fd_is_root(rfd)) {
+        k = dir_fd_is_root(rfd);
+        if (k < 0)
+                return log_error_errno(k, "Failed to check if directory file descriptor is root: %m");
+
+        if (arg_copy_root_shell && k == 0) {
                 struct passwd *p;
 
                 errno = 0;
@@ -990,7 +1013,7 @@ static int process_root_account(int rfd) {
         if (r < 0)
                 return r;
 
-        if (arg_copy_root_password && !dir_fd_is_root(rfd)) {
+        if (arg_copy_root_password && k == 0) {
                 struct spwd *p;
 
                 errno = 0;
