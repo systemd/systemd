@@ -131,7 +131,9 @@
         directories marked with <varname>D</varname> or
         <varname>R</varname>, and files or directories themselves
         marked with <varname>r</varname> or <varname>R</varname> are
-        removed.</para></listitem>
+        removed unless an exclusive BSD lock is taken on them (see <citerefentry
+        project='man-pages'><refentrytitle>flock</refentrytitle><manvolnum>2</manvolnum></citerefentry>).
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
