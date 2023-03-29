@@ -334,11 +334,9 @@ int lock_main(int argc, char *argv[], void *userdata) {
                         if (fd < 0)
                                 return fd;
 
-                        r = fdset_put(fds, fd);
+                        r = fdset_consume(fds, TAKE_FD(fd));
                         if (r < 0)
                                 return log_oom();
-
-                        TAKE_FD(fd);
                 }
         }
 
