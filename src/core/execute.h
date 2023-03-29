@@ -161,8 +161,9 @@ typedef enum ExecCleanMask {
         EXEC_CLEAN_CACHE         = 1U << EXEC_DIRECTORY_CACHE,
         EXEC_CLEAN_LOGS          = 1U << EXEC_DIRECTORY_LOGS,
         EXEC_CLEAN_CONFIGURATION = 1U << EXEC_DIRECTORY_CONFIGURATION,
+        EXEC_CLEAN_FDSTORE       = 1U << _EXEC_DIRECTORY_TYPE_MAX,
         EXEC_CLEAN_NONE          = 0,
-        EXEC_CLEAN_ALL           = (1U << _EXEC_DIRECTORY_TYPE_MAX) - 1,
+        EXEC_CLEAN_ALL           = (1U << (_EXEC_DIRECTORY_TYPE_MAX+1)) - 1,
         _EXEC_CLEAN_MASK_INVALID = -EINVAL,
 } ExecCleanMask;
 
@@ -517,6 +518,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(ExecLoadCredential*, exec_load_credential_free);
 void exec_directory_done(ExecDirectory *d);
 int exec_directory_add(ExecDirectory *d, const char *path, const char *symlink);
 void exec_directory_sort(ExecDirectory *d);
+
+ExecCleanMask exec_clean_mask_from_string(const char *s);
 
 extern const struct hash_ops exec_set_credential_hash_ops;
 extern const struct hash_ops exec_load_credential_hash_ops;
