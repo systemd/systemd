@@ -199,6 +199,11 @@ static int service_set_main_pid(Service *s, pid_t pid) {
 void service_close_socket_fd(Service *s) {
         assert(s);
 
+        if (s->socket_fd < 0 && !UNIT_ISSET(s->accept_socket) && !s->socket_peer)
+                return;
+
+        log_unit_debug(UNIT(s), "Closing connection socket.");
+
         /* Undo the effect of service_set_socket_fd(). */
 
         s->socket_fd = asynchronous_close(s->socket_fd);
@@ -387,34 +392,29 @@ static void service_fd_store_unlink(ServiceFDStore *fs) {
 static void service_release_fd_store(Service *s) {
         assert(s);
 
+        if (!s->fd_store)
+                return;
+
         log_unit_debug(UNIT(s), "Releasing all stored fds");
+
         while (s->fd_store)
                 service_fd_store_unlink(s->fd_store);
 
         assert(s->n_fd_store == 0);
 }
 
-static void service_release_resources(Unit *u) {
-        Service *s = SERVICE(u);
-
+static void service_release_stdio_fd(Service *s) {
         assert(s);
 
-        /* Don't release resources if this is a transitionary failed/dead state */
-        if (IN_SET(s->state, SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART))
+        if (s->stdin_fd < 0 && s->stdout_fd < 0 && s->stdout_fd < 0)
                 return;
 
-        if (!s->fd_store && s->stdin_fd < 0 && s->stdout_fd < 0 && s->stderr_fd < 0)
-                return;
-
-        log_unit_debug(u, "Releasing resources.");
+        log_unit_debug(UNIT(s), "Releasing stdin/stdout/stderr file descriptors.");
 
         s->stdin_fd = safe_close(s->stdin_fd);
         s->stdout_fd = safe_close(s->stdout_fd);
         s->stderr_fd = safe_close(s->stderr_fd);
-
-        service_release_fd_store(s);
 }
-
 static void service_done(Unit *u) {
         Service *s = SERVICE(u);
 
@@ -459,7 +459,8 @@ static void service_done(Unit *u) {
 
         s->bus_name_pid_lookup_slot = sd_bus_slot_unref(s->bus_name_pid_lookup_slot);
 
-        service_release_resources(u);
+        service_release_fd_store(s);
+        service_release_stdio_fd(s);
 }
 
 static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
@@ -1247,15 +1248,6 @@ static void service_set_state(Service *s, ServiceState state) {
                 unit_unwatch_all_pids(UNIT(s));
                 unit_dequeue_rewatch_pids(UNIT(s));
         }
-
-        if (!IN_SET(state,
-                    SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
-                    SERVICE_RUNNING,
-                    SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
-                    SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                    SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL) &&
-            !(state == SERVICE_DEAD && UNIT(s)->job))
-                service_close_socket_fd(s);
 
         if (state != SERVICE_START)
                 s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
@@ -4913,6 +4905,23 @@ static int service_can_start(Unit *u) {
         }
 
         return 1;
+}
+
+static void service_release_resources(Unit *u) {
+        Service *s = SERVICE(ASSERT_PTR(u));
+
+        /* Invoked by the unit state engine, whenever it realizes that unit is dead and there's no job
+         * anymore for it, and it hence is a good idea to release resources */
+
+        /* Don't release resources if this is a transitionary failed/dead state
+         * (i.e. SERVICE_DEAD_BEFORE_AUTO_RESTART/SERVICE_FAILED_BEFORE_AUTO_RESTART), insist on a permanent
+         * failure state. */
+        if (!IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED))
+                return;
+
+        service_close_socket_fd(s);
+        service_release_stdio_fd(s);
+        service_release_fd_store(s);
 }
 
 static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
