@@ -935,3 +935,16 @@ int dir_fd_is_root(int dir_fd) {
          */
         return statx_inode_same(&st.sx, &pst.sx) && statx_mount_same(&st.nsx, &pst.nsx);
 }
+
+const char *accmode_to_string(int flags) {
+        switch (flags & O_ACCMODE) {
+        case O_RDONLY:
+                return "ro";
+        case O_WRONLY:
+                return "wo";
+        case O_RDWR:
+                return "rw";
+        default:
+                return NULL;
+        }
+}
