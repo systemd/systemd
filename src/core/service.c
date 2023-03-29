@@ -4854,22 +4854,39 @@ static const char* service_status_text(Unit *u) {
 
 static int service_clean(Unit *u, ExecCleanMask mask) {
         _cleanup_strv_free_ char **l = NULL;
+        bool may_clean_fdstore = false;
         Service *s = SERVICE(u);
         int r;
 
         assert(s);
         assert(mask != 0);
 
-        if (s->state != SERVICE_DEAD)
+        if (!IN_SET(s->state, SERVICE_DEAD, SERVICE_RESOURCES_PINNED))
                 return -EBUSY;
 
+        /* Determine if there's anything we could potentially clean */
         r = exec_context_get_clean_directories(&s->exec_context, u->manager->prefix, mask, &l);
         if (r < 0)
                 return r;
 
-        if (strv_isempty(l))
-                return -EUNATCH;
+        if (mask & EXEC_CLEAN_FDSTORE)
+                may_clean_fdstore = s->n_fd_store > 0 || s->n_fd_store_max > 0;
 
+        if (strv_isempty(l) && !may_clean_fdstore)
+                return -EUNATCH; /* Nothing to potentially clean */
+
+        /* Let's clean the stuff we can clean quickly */
+        if (may_clean_fdstore)
+                service_release_fd_store(s);
+
+        /* If we are done, leave quickly */
+        if (strv_isempty(l)) {
+                if (s->state == SERVICE_RESOURCES_PINNED && !s->fd_store)
+                        service_set_state(s, SERVICE_DEAD);
+                return 0;
+        }
+
+        /* We need to clean disk stuff. This is slow, hence do it out of process, and change state */
         service_unwatch_control_pid(s);
         s->clean_result = SERVICE_SUCCESS;
         s->control_command = NULL;
@@ -4896,10 +4913,21 @@ fail:
 
 static int service_can_clean(Unit *u, ExecCleanMask *ret) {
         Service *s = SERVICE(u);
+        ExecCleanMask mask = 0;
+        int r;
 
         assert(s);
+        assert(ret);
 
-        return exec_context_get_clean_mask(&s->exec_context, ret);
+        r = exec_context_get_clean_mask(&s->exec_context, &mask);
+        if (r < 0)
+                return r;
+
+        if (s->n_fd_store_max > 0)
+                mask |= EXEC_CLEAN_FDSTORE;
+
+        *ret = mask;
+        return 0;
 }
 
 static const char *service_finished_job(Unit *u, JobType t, JobResult result) {
