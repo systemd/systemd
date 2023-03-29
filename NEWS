@@ -18,6 +18,12 @@ CHANGES WITH 254 in spe:
           permit more impactful operations such as system suspend to local
           users.
 
+        Changes in userdbd and homed:
+
+        * systemd-userdbd and systemd-homed now honour credentials passed
+          using SO_PASSCRED, and systemd-userdbd acting as multiplexer sends
+          the credentials of the original connecting client to all services
+
 CHANGES WITH 253:
 
         Announcements of Future Feature Removals and Incompatible Changes:
