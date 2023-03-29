@@ -91,7 +91,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                 const char16_t *name;
                 const char16_t *filename;
                 const EFI_GUID vendor;
-                char *buffer;
+                void *buffer;
                 size_t size;
         } sb_vars[] = {
                 { u"db",  u"db.auth",  EFI_IMAGE_SECURITY_DATABASE_GUID, NULL, 0 },
