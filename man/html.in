@@ -14,7 +14,11 @@ target="man/$1.html"
 ninja -C "@BUILD_ROOT@" "$target"
 
 fullname="@BUILD_ROOT@/$target"
-redirect="$(test -f "$fullname" && readlink "$fullname" || :)"
+if [ -f "$fullname" ]; then
+    redirect="$(readlink "$fullname" || :)"
+else
+    redirect=""
+fi
 if [ -n "$redirect" ]; then
     ninja -C "@BUILD_ROOT@" "man/$redirect"
 
