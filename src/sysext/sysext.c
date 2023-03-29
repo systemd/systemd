@@ -436,13 +436,14 @@ static int validate_version(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Extension image contains /usr/lib/os-release file, which is not allowed (it may carry /etc/os-release), refusing.");
 
-        r = extension_release_validate(
+        r = release_file_validate(
                         img->name,
                         host_os_release_id,
                         host_os_release_version_id,
                         host_os_release_sysext_level,
                         in_initrd() ? "initrd" : "system",
-                        img->image_release_file);
+                        img->image_release_file,
+                        IMAGE_EXTENSION);
         if (r < 0)
                 return log_error_errno(r, "Failed to validate extension release information: %m");
 
@@ -1014,7 +1015,7 @@ static int run(int argc, char *argv[]) {
         /* For debugging purposes it might make sense to do this for other hierarchies than /usr/ and
          * /opt/, but let's make that a hacker/debugging feature, i.e. env var instead of cmdline
          * switch. */
-        r = parse_env_extension_hierarchies(&arg_hierarchies);
+        r = parse_env_extension_hierarchies(&arg_hierarchies, "SYSTEMD_SYSEXT_HIERARCHIES");
         if (r < 0)
                 return log_error_errno(r, "Failed to parse $SYSTEMD_SYSEXT_HIERARCHIES environment variable: %m");
 
