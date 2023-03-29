@@ -1,21 +1,27 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # shellcheck disable=SC2235
-set -eu
+set -eux
 set -o pipefail
+
+export SYSTEMD_LOG_LEVEL=debug
 
 kernel_install="${1:?}"
 plugin="${2:?}"
+if [[ -d "${PROJECT_BUILD_ROOT:-}" ]]; then
+    bootctl="${PROJECT_BUILD_ROOT}/bootctl"
+else
+    bootctl=
+fi
 
 D="$(mktemp --tmpdir --directory "test-kernel-install.XXXXXXXXXX")"
-
-export _KERNEL_INSTALL_BOOTCTL="$PROJECT_BUILD_ROOT/bootctl"
 
 # shellcheck disable=SC2064
 trap "rm -rf '$D'" EXIT INT QUIT PIPE
 mkdir -p "$D/boot"
 mkdir -p "$D/efi"
 mkdir -p "$D/sources"
+mkdir -p "$D/tmp"
 
 echo 'buzy image' >"$D/sources/linux"
 echo 'the initrd' >"$D/sources/initrd"
@@ -50,11 +56,12 @@ grep -qE 'image' "$BOOT_ROOT/the-token/1.1.1/linux"
 grep -qE 'initrd' "$BOOT_ROOT/the-token/1.1.1/initrd"
 
 "$kernel_install" inspect
+"$kernel_install" inspect "$D/sources/linux"
 
 "$kernel_install" -v remove 1.1.1
-test ! -f "$entry"
-test ! -f "$BOOT_ROOT/the-token/1.1.1/linux"
-test ! -f "$BOOT_ROOT/the-token/1.1.1/initrd"
+test ! -e "$entry"
+test ! -e "$BOOT_ROOT/the-token/1.1.1/linux"
+test ! -e "$BOOT_ROOT/the-token/1.1.1/initrd"
 
 # Invoke kernel-install as installkernel
 ln -s --relative -v "$kernel_install" "$D/sources/installkernel"
@@ -86,7 +93,7 @@ grep -qE '^initrd .*/the-token/1.1.1/initrd' "$entry"
 grep -qE 'image' "$BOOT_ROOT/the-token/1.1.1/linux"
 grep -qE 'initrd' "$BOOT_ROOT/the-token/1.1.1/initrd"
 
-if test -x "$_KERNEL_INSTALL_BOOTCTL"; then
+if test -x "$bootctl"; then
     echo "Testing bootctl"
     e2="${entry%+*}_2.conf"
     cp "$entry" "$e2"
@@ -97,14 +104,14 @@ if test -x "$_KERNEL_INSTALL_BOOTCTL"; then
     # create file that is not referenced. Check if cleanup removes
     # it but leaves the rest alone
     :> "$BOOT_ROOT/the-token/1.1.2/initrd"
-    "$_KERNEL_INSTALL_BOOTCTL" --root="$D" cleanup
+    "$bootctl" --root="$D" cleanup
     test ! -e "$BOOT_ROOT/the-token/1.1.2/initrd"
     test -e "$BOOT_ROOT/the-token/1.1.2/linux"
     test -e "$BOOT_ROOT/the-token/1.1.1/linux"
     test -e "$BOOT_ROOT/the-token/1.1.1/initrd"
 
     # now remove duplicated entry and make sure files are left over
-    "$_KERNEL_INSTALL_BOOTCTL" --root="$D" unlink "${e2##*/}"
+    "$bootctl" --root="$D" unlink "${e2##*/}"
     test -e "$BOOT_ROOT/the-token/1.1.1/linux"
     test -e "$BOOT_ROOT/the-token/1.1.1/initrd"
     test -e "$entry"
@@ -112,8 +119,111 @@ if test -x "$_KERNEL_INSTALL_BOOTCTL"; then
     # remove last entry referencing those files
     entry_id="${entry##*/}"
     entry_id="${entry_id%+*}.conf"
-    "$_KERNEL_INSTALL_BOOTCTL" --root="$D" unlink "$entry_id"
+    "$bootctl" --root="$D" unlink "$entry_id"
     test ! -e "$entry"
     test ! -e "$BOOT_ROOT/the-token/1.1.1/linux"
     test ! -e "$BOOT_ROOT/the-token/1.1.1/initrd"
 fi
+
+###########################################
+# tests for --make-entry-directory=
+###########################################
+
+# disable all dropins
+cat >"$D/00-skip.install" <<EOF
+#!/bin/bash
+exit 77
+EOF
+chmod +x "$D/00-skip.install"
+export KERNEL_INSTALL_PLUGINS="$D/00-skip.install"
+
+# drop layout= from install.conf
+cat >"$D/sources/install.conf" <<EOF
+initrd_generator=none
+# those are overridden by envvars
+BOOT_ROOT="$D/badboot"
+MACHINE_ID=badbadbadbadbadbad6abadbadbadbad
+EOF
+export KERNEL_INSTALL_CONF_ROOT="$D/sources"
+
+rm -rf "$BOOT_ROOT"
+mkdir -p "$BOOT_ROOT"
+
+# 1. defaults to 'auto', and the entry directory is created only when the layout is BLS
+# 1.1 token directory does not exist -> layout is other.
+"$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+test -e "$BOOT_ROOT/the-token/1.1.1" && { echo 'unexpected success'; exit 1; }
+"$kernel_install" -v remove 1.1.1
+test -e "$BOOT_ROOT/the-token/1.1.1" && { echo 'unexpected success'; exit 1; }
+
+# 1.2 token directory exists -> layout is BLS
+mkdir -p "$BOOT_ROOT/the-token"
+"$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+test -d "$BOOT_ROOT/the-token/1.1.1"
+"$kernel_install" -v remove 1.1.1
+test -e "$BOOT_ROOT/the-token/1.1.1" && { echo 'unexpected success'; exit 1; }
+rmdir "$BOOT_ROOT/the-token"
+
+# 2. --make-entry-directory=yes
+# 2.1 token directory does not exist -> layout is other.
+"$kernel_install" -v --make-entry-directory=yes add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+test -d "$BOOT_ROOT/the-token/1.1.1"
+"$kernel_install" -v --make-entry-directory=yes remove 1.1.1
+test -e "$BOOT_ROOT/the-token/1.1.1" && { echo 'unexpected success'; exit 1; }
+test -d "$BOOT_ROOT/the-token"
+
+# 2.2 token directory exists -> layout is BLS
+mkdir -p "$BOOT_ROOT/the-token"
+"$kernel_install" -v --make-entry-directory=yes add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+test -d "$BOOT_ROOT/the-token/1.1.1"
+"$kernel_install" -v --make-entry-directory=yes remove 1.1.1
+test -e "$BOOT_ROOT/the-token/1.1.1" && { echo 'unexpected success'; exit 1; }
+test -d "$BOOT_ROOT/the-token"
+rmdir "$BOOT_ROOT/the-token"
+
+# 3. --make-entry-directory=no
+# 3.1 token directory does not exist -> layout is other.
+"$kernel_install" -v --make-entry-directory=no add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+test -e "$BOOT_ROOT/the-token/1.1.1" && { echo 'unexpected success'; exit 1; }
+"$kernel_install" -v --make-entry-directory=no remove 1.1.1
+test -e "$BOOT_ROOT/the-token/1.1.1" && { echo 'unexpected success'; exit 1; }
+
+# 3.2 token directory exists -> layout is BLS
+mkdir -p "$BOOT_ROOT/the-token"
+"$kernel_install" -v --make-entry-directory=no add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+test -e "$BOOT_ROOT/the-token/1.1.1" && { echo 'unexpected success'; exit 1; }
+"$kernel_install" -v --make-entry-directory=no remove 1.1.1
+test -e "$BOOT_ROOT/the-token/1.1.1" && { echo 'unexpected success'; exit 1; }
+test -d "$BOOT_ROOT/the-token"
+rmdir "$BOOT_ROOT/the-token"
+
+###########################################
+# tests for --entry-token=
+###########################################
+"$kernel_install" -v --make-entry-directory=yes --entry-token=machine-id add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+test -d "$BOOT_ROOT/$MACHINE_ID/1.1.1"
+"$kernel_install" -v --make-entry-directory=yes --entry-token=machine-id remove 1.1.1
+test ! -e "$BOOT_ROOT/$MACHINE_ID/1.1.1"
+test -d "$BOOT_ROOT/$MACHINE_ID"
+rmdir "$BOOT_ROOT/$MACHINE_ID"
+
+"$kernel_install" -v --make-entry-directory=yes --entry-token=literal:hoge add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+test -d "$BOOT_ROOT/hoge/1.1.1"
+"$kernel_install" -v --make-entry-directory=yes --entry-token=literal:hoge remove 1.1.1
+test ! -e "$BOOT_ROOT/hoge/1.1.1"
+test -d "$BOOT_ROOT/hoge"
+rmdir "$BOOT_ROOT/hoge"
+
+###########################################
+# tests for --root=
+###########################################
+export KERNEL_INSTALL_CONF_ROOT="/sources"
+export KERNEL_INSTALL_PLUGINS="/00-skip.install"
+export BOOT_ROOT="/boot"
+
+"$kernel_install" -v --make-entry-directory=yes --entry-token=literal:foo --root="$D" add 1.1.1 "/sources/linux" "/sources/initrd"
+test -d "$D/boot/foo/1.1.1"
+"$kernel_install" -v --make-entry-directory=yes --entry-token=literal:foo --root="$D" remove 1.1.1
+test ! -e "$D/boot/foo/1.1.1"
+test -d "$D/boot/foo"
+rmdir "$D/boot/foo"
