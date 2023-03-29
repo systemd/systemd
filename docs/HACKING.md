@@ -340,7 +340,7 @@ To debug systemd-boot in an IDE such as VSCode we can use a launch configuration
 If you're hacking on the kernel in tandem with systemd, you can clone a kernel repository in mkosi.kernel/ in
 the systemd repository, and mkosi will automatically build that kernel and install it into the final image.
 To prevent the distribution's kernel from being installed (which isn't necessary since we're building our
-own kernel), you can add the following snippets to mkosi.default.d/20-local.conf:
+own kernel), you can add the following snippets to mkosi.conf.d/20-local.conf:
 
 (This snippet is for Fedora, the list of packages will need to be changed for other distributions)
 
