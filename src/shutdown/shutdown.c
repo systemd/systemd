@@ -25,6 +25,7 @@
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "getopt-defs.h"
 #include "initrd-util.h"
 #include "killall.h"
 #include "log.h"
@@ -50,23 +51,13 @@ static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
 
 static int parse_argv(int argc, char *argv[]) {
         enum {
-                ARG_LOG_LEVEL = 0x100,
-                ARG_LOG_TARGET,
-                ARG_LOG_COLOR,
-                ARG_LOG_LOCATION,
-                ARG_LOG_TIME,
-                ARG_EXIT_CODE,
-                ARG_TIMEOUT,
+                COMMON_GETOPT_ARGS,
+                SHUTDOWN_GETOPT_ARGS,
         };
 
         static const struct option options[] = {
-                { "log-level",     required_argument, NULL, ARG_LOG_LEVEL    },
-                { "log-target",    required_argument, NULL, ARG_LOG_TARGET   },
-                { "log-color",     optional_argument, NULL, ARG_LOG_COLOR    },
-                { "log-location",  optional_argument, NULL, ARG_LOG_LOCATION },
-                { "log-time",      optional_argument, NULL, ARG_LOG_TIME     },
-                { "exit-code",     required_argument, NULL, ARG_EXIT_CODE    },
-                { "timeout",       required_argument, NULL, ARG_TIMEOUT      },
+                COMMON_GETOPT_OPTIONS,
+                SHUTDOWN_GETOPT_OPTIONS,
                 {}
         };
 
@@ -74,6 +65,10 @@ static int parse_argv(int argc, char *argv[]) {
 
         assert(argc >= 1);
         assert(argv);
+
+        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
+         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
+        optind = 0;
 
         /* "-" prevents getopt from permuting argv[] and moving the verb away
          * from argv[1]. Our interface to initrd promises it'll be there. */
