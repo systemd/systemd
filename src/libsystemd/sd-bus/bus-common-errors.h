@@ -32,6 +32,8 @@
 #define BUS_ERROR_UNIT_BUSY                    "org.freedesktop.systemd1.UnitBusy"
 #define BUS_ERROR_UNIT_INACTIVE                "org.freedesktop.systemd1.UnitInactive"
 #define BUS_ERROR_FREEZE_CANCELLED             "org.freedesktop.systemd1.FreezeCancelled"
+#define BUS_ERROR_FILE_DESCRIPTOR_STORE_DISABLED        \
+                                               "org.freedesktop.systemd1.FileDescriptorStoreDisabled"
 
 #define BUS_ERROR_NO_SUCH_MACHINE              "org.freedesktop.machine1.NoSuchMachine"
 #define BUS_ERROR_NO_SUCH_IMAGE                "org.freedesktop.machine1.NoSuchImage"

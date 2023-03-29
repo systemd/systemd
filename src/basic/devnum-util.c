@@ -83,7 +83,7 @@ int device_path_make_canonical(mode_t mode, dev_t devnum, char **ret) {
 
         assert(ret);
 
-        if (major(devnum) == 0 && minor(devnum) == 0)
+        if (devnum_is_zero(devnum))
                 /* A special hack to make sure our 'inaccessible' device nodes work. They won't have symlinks in
                  * /dev/block/ and /dev/char/, hence we handle them specially here. */
                 return device_path_make_inaccessible(mode, ret);
