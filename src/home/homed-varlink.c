@@ -21,17 +21,20 @@ typedef struct LookupParameters {
 static bool client_is_trusted(Varlink *link, Home *h) {
         uid_t peer_uid;
         int r;
+        bool trusted;
 
         assert(link);
         assert(h);
 
-        r = varlink_get_peer_uid(link, &peer_uid);
+        r = varlink_get_uid(link, &peer_uid);
         if (r < 0) {
                 log_debug_errno(r, "Unable to query peer UID, ignoring: %m");
                 return false;
         }
 
-        return peer_uid == 0 || peer_uid == h->uid;
+        trusted = peer_uid == 0 || peer_uid == h->uid;
+        log_debug("Peer UID is " UID_FMT "; %strusted", peer_uid, (trusted ? "" : "un"));
+        return trusted;
 }
 
 static int build_user_json(Home *h, bool trusted, JsonVariant **ret) {

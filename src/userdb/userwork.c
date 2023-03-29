@@ -80,12 +80,14 @@ static int build_user_json(Varlink *link, UserRecord *ur, JsonVariant **ret) {
         assert(ur);
         assert(ret);
 
-        r = varlink_get_peer_uid(link, &peer_uid);
+        r = varlink_get_uid(link, &peer_uid);
         if (r < 0) {
-                log_debug_errno(r, "Unable to query peer UID, ignoring: %m");
+                log_debug_errno(r, "Unable to query requestor's UID, ignoring: %m");
                 trusted = false;
-        } else
+        } else {
                 trusted = peer_uid == 0 || peer_uid == ur->uid;
+                log_debug("Peer UID is " UID_FMT "; %strusted", peer_uid, (trusted ? "" : "un"));
+        }
 
         flags = USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_BINDING|USER_RECORD_STRIP_SECRET|USER_RECORD_ALLOW_STATUS|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_PERMISSIVE;
         if (trusted)
@@ -157,14 +159,14 @@ static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, Var
                 return r;
 
         if (uid_is_valid(p.uid))
-                r = userdb_by_uid(p.uid, userdb_flags, &hr);
+                r = userdb_by_uid(link, p.uid, userdb_flags, &hr);
         else if (p.user_name)
-                r = userdb_by_name(p.user_name, userdb_flags, &hr);
+                r = userdb_by_name(link, p.user_name, userdb_flags, &hr);
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
                 _cleanup_(json_variant_unrefp) JsonVariant *last = NULL;
 
-                r = userdb_all(userdb_flags, &iterator);
+                r = userdb_all(link, userdb_flags, &iterator);
                 if (IN_SET(r, -ESRCH, -ENOLINK))
                         /* We turn off Varlink lookups in various cases (e.g. in case we only enable DropIn
                          * backend) — this might make userdb_all return ENOLINK (which indicates that varlink
@@ -232,12 +234,14 @@ static int build_group_json(Varlink *link, GroupRecord *gr, JsonVariant **ret) {
         assert(gr);
         assert(ret);
 
-        r = varlink_get_peer_uid(link, &peer_uid);
+        r = varlink_get_uid(link, &peer_uid);
         if (r < 0) {
-                log_debug_errno(r, "Unable to query peer UID, ignoring: %m");
+                log_debug_errno(r, "Unable to query requestor's UID, ignoring: %m");
                 trusted = false;
-        } else
+        } else {
                 trusted = peer_uid == 0;
+                log_debug("Peer UID is " UID_FMT "; %strusted", peer_uid, (trusted ? "" : "un"));
+        }
 
         flags = USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_BINDING|USER_RECORD_STRIP_SECRET|USER_RECORD_ALLOW_STATUS|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_PERMISSIVE;
         if (trusted)
@@ -292,14 +296,14 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
                 return r;
 
         if (gid_is_valid(p.gid))
-                r = groupdb_by_gid(p.gid, userdb_flags, &g);
+                r = groupdb_by_gid(link, p.gid, userdb_flags, &g);
         else if (p.group_name)
-                r = groupdb_by_name(p.group_name, userdb_flags, &g);
+                r = groupdb_by_name(link, p.group_name, userdb_flags, &g);
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
                 _cleanup_(json_variant_unrefp) JsonVariant *last = NULL;
 
-                r = groupdb_all(userdb_flags, &iterator);
+                r = groupdb_all(link, userdb_flags, &iterator);
                 if (IN_SET(r, -ESRCH, -ENOLINK))
                         return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
                 if (r < 0)
@@ -375,11 +379,11 @@ static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, Var
                 return r;
 
         if (p.group_name)
-                r = membershipdb_by_group(p.group_name, userdb_flags, &iterator);
+                r = membershipdb_by_group(link, p.group_name, userdb_flags, &iterator);
         else if (p.user_name)
-                r = membershipdb_by_user(p.user_name, userdb_flags, &iterator);
+                r = membershipdb_by_user(link, p.user_name, userdb_flags, &iterator);
         else
-                r = membershipdb_all(userdb_flags, &iterator);
+                r = membershipdb_all(link, userdb_flags, &iterator);
         if (IN_SET(r, -ESRCH, -ENOLINK))
                 return varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
         if (r < 0)
