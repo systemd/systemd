@@ -574,7 +574,8 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                                         host_os_release_version_id,
                                         host_os_release_sysext_level,
                                         in_initrd() ? "initrd" : "system",
-                                        img->extension_release);
+                                        img->extension_release,
+                                        IMAGE_SYSEXT);
                         if (r < 0)
                                 return r;
                         if (r == 0) {
@@ -996,7 +997,7 @@ static int run(int argc, char *argv[]) {
         /* For debugging purposes it might make sense to do this for other hierarchies than /usr/ and
          * /opt/, but let's make that a hacker/debugging feature, i.e. env var instead of cmdline
          * switch. */
-        r = parse_env_extension_hierarchies(&arg_hierarchies);
+        r = parse_env_extension_hierarchies(&arg_hierarchies, "SYSTEMD_SYSEXT_HIERARCHIES");
         if (r < 0)
                 return log_error_errno(r, "Failed to parse $SYSTEMD_SYSEXT_HIERARCHIES environment variable: %m");
 
