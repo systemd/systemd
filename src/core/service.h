@@ -245,7 +245,7 @@ extern const UnitVTable service_vtable;
 int service_set_socket_fd(Service *s, int fd, struct Socket *socket, struct SocketPeer *peer, bool selinux_context_net);
 void service_close_socket_fd(Service *s);
 
-usec_t service_restart_usec(Service *s);
+usec_t service_restart_usec_next(Service *s);
 
 const char* service_restart_to_string(ServiceRestart i) _const_;
 ServiceRestart service_restart_from_string(const char *s) _pure_;
