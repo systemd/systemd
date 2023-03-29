@@ -268,38 +268,37 @@ static void service_start_watchdog(Service *s) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to install watchdog timer: %m");
 }
 
-usec_t service_restart_usec(Service *s) {
-        unsigned n_restarts;
-        long double unit;
+usec_t service_restart_usec_next(Service *s) {
+        unsigned n_restarts_next;
         usec_t value;
 
         assert(s);
 
-        /* s->n_restarts is not yet updated when we're in these states, so let's add 1 to it manually.
-         * Note that for SERVICE_AUTO_RESTART a restart job might have been enqueued,
-         * i.e. s->n_restarts is already increased. But we assume it's not since the time
-         * between job enqueuing and running is usually neglectable compared to the time
-         * we'll be sleeping. */
-        n_restarts = s->n_restarts +
-                     (IN_SET(s->state, SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART, SERVICE_AUTO_RESTART) ? 1 : 0);
+        /* When the service state is in SERVICE_*_BEFORE_AUTO_RESTART or SERVICE_AUTO_RESTART,
+         * we still need to add 1 to s->n_restarts manually because s->n_restarts is not updated
+         * until a restart job is enqueued. Note that for SERVICE_AUTO_RESTART, that might have been
+         * the case, i.e. s->n_restarts is already increased. But we assume it's not since the time
+         * between job enqueuing and running is usually neglectable compared to the time we'll be sleeping. */
+        n_restarts_next = s->n_restarts + 1;
 
-        /* n_restarts can equal to 0 if no restart has happened nor planned */
-        if (n_restarts <= 1 ||
+        if (n_restarts_next <= 1 ||
             s->restart_steps == 0 ||
             s->restart_usec_max == USEC_INFINITY ||
             s->restart_usec >= s->restart_usec_max)
                 value = s->restart_usec;
-        else if (n_restarts > s->restart_steps)
+        else if (n_restarts_next > s->restart_steps)
                 value = s->restart_usec_max;
         else {
+                long double unit;
+
                 /* Enforced in service_verify() and above */
                 assert(s->restart_usec_max > s->restart_usec);
 
                 unit = powl(s->restart_usec_max - s->restart_usec, 1.0L / s->restart_steps);
-                value = usec_add(s->restart_usec, (usec_t) powl(unit, n_restarts - 1));
+                value = usec_add(s->restart_usec, (usec_t) powl(unit, n_restarts_next - 1));
         }
 
-        log_unit_debug(UNIT(s), "Restart interval calculated as: %s", FORMAT_TIMESPAN(value, 0));
+        log_unit_debug(UNIT(s), "Next restart interval calculated as: %s", FORMAT_TIMESPAN(value, 0));
         return value;
 }
 
@@ -1270,7 +1269,7 @@ static usec_t service_coldplug_timeout(Service *s) {
                 return usec_add(UNIT(s)->state_change_timestamp.monotonic, service_timeout_abort_usec(s));
 
         case SERVICE_AUTO_RESTART:
-                return usec_add(UNIT(s)->inactive_enter_timestamp.monotonic, service_restart_usec(s));
+                return usec_add(UNIT(s)->inactive_enter_timestamp.monotonic, service_restart_usec_next(s));
 
         case SERVICE_CLEANING:
                 return usec_add(UNIT(s)->state_change_timestamp.monotonic, s->exec_context.timeout_clean_usec);
@@ -1963,7 +1962,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                  * state from this transitionary UNIT_INACTIVE state by looking at the low-level states. */
                 service_set_state(s, restart_state);
 
-                r = service_arm_timer(s, /* relative= */ true, service_restart_usec(s));
+                r = service_arm_timer(s, /* relative= */ true, service_restart_usec_next(s));
                 if (r < 0)
                         goto fail;
 
@@ -4200,7 +4199,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
                 if (s->restart_usec > 0)
                         log_unit_debug(UNIT(s),
                                        "Service restart interval %s expired, scheduling restart.",
-                                       FORMAT_TIMESPAN(service_restart_usec(s), USEC_PER_SEC));
+                                       FORMAT_TIMESPAN(service_restart_usec_next(s), USEC_PER_SEC));
                 else
                         log_unit_debug(UNIT(s),
                                        "Service has no hold-off time (RestartSec=0), scheduling restart.");
