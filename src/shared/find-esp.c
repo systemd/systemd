@@ -261,11 +261,6 @@ static int verify_fsroot_dir(
                                       (unprivileged_mode && ERRNO_IS_PRIVILEGE(errno)) ? LOG_DEBUG : LOG_ERR, errno,
                                       "Failed to open directory \"%s\": %m", path);
 
-        /* So, the ESP and XBOOTLDR partition are commonly located on an autofs mount. stat() on the
-         * directory won't trigger it, if it is not mounted yet. Let's hence explicitly trigger it here,
-         * before stat()ing */
-        (void) faccessat(fd, "trigger", F_OK, AT_SYMLINK_NOFOLLOW); /* Filename doesn't matter... */
-
         r = statx_fallback(fd, "", AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sxa.sx);
         if (r < 0)
                 return log_full_errno((unprivileged_mode && ERRNO_IS_PRIVILEGE(r)) ? LOG_DEBUG : LOG_ERR, r,
