@@ -16,6 +16,7 @@ test_append_files() {
         instmods overlay =overlayfs
         generate_module_dependencies
         inst_binary unsquashfs
+        inst_binary setpriv
         install_verity_minimal
     )
 }
