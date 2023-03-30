@@ -367,7 +367,9 @@ static int make_addresses(struct local_address **addresses) {
                                               .address.in = { htobe32(0x7F000002) } };
         addrs[n++] = (struct local_address) { .family = AF_INET6,
                                               .address.in6 = in6addr_loopback };
-        return 0;
+
+        *addresses = TAKE_PTR(addrs);
+        return n;
 }
 
 static int test_one_module(const char *dir,
