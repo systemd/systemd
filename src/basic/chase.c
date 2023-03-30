@@ -517,9 +517,9 @@ int chase(
         path = path_startswith(absolute, empty_to_root(root));
         if (!path)
                 return log_full_errno(flags & CHASE_WARN ? LOG_WARNING : LOG_DEBUG,
-                                        SYNTHETIC_ERRNO(ECHRNG),
-                                        "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
-                                        absolute, empty_to_root(root));
+                                      SYNTHETIC_ERRNO(ECHRNG),
+                                      "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
+                                      absolute, empty_to_root(root));
 
         fd = open(empty_to_root(root), O_CLOEXEC|O_DIRECTORY|O_PATH);
         if (fd < 0)
