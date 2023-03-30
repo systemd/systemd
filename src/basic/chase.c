@@ -164,6 +164,20 @@ int chaseat(
          *    the mount point is emitted. CHASE_WARN cannot be used in PID 1.
          */
 
+        if (FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT)) {
+                /* If we get AT_FDCWD or dir_fd points to "/", then we always resolve symlinks relative to
+                 * the host's root. Hence, CHASE_AT_RESOLVE_IN_ROOT is meaningless. */
+
+                if (dir_fd >= 0)
+                        r = dir_fd_is_root(dir_fd);
+                else
+                        r = true;
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        flags &= ~CHASE_AT_RESOLVE_IN_ROOT;
+        }
+
         if (!(flags &
               (CHASE_AT_RESOLVE_IN_ROOT|CHASE_NONEXISTENT|CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_STEP|
                CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755)) &&
@@ -525,10 +539,10 @@ int chase(
         if (fd < 0)
                 return -errno;
 
-        flags |= CHASE_AT_RESOLVE_IN_ROOT;
-        flags &= ~CHASE_PREFIX_ROOT;
+        if (!empty_or_root(root))
+                flags |= CHASE_AT_RESOLVE_IN_ROOT;
 
-        r = chaseat(fd, path, flags, ret_path ? &p : NULL, ret_fd ? &pfd : NULL);
+        r = chaseat(fd, path, flags & ~CHASE_PREFIX_ROOT, ret_path ? &p : NULL, ret_fd ? &pfd : NULL);
         if (r < 0)
                 return r;
 
