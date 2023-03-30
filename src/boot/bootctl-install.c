@@ -189,29 +189,29 @@ static int version_check(int fd_from, const char *from, int fd_to, const char *t
         assert(to);
 
         r = get_file_version(fd_from, &a);
+        if (r == -ESRCH)
+                return log_notice_errno(r, "Source file \"%s\" does not carry version information!", from);
         if (r < 0)
                 return r;
-        if (r == 0)
-                return log_notice_errno(SYNTHETIC_ERRNO(EREMOTE),
-                                       "Source file \"%s\" does not carry version information!",
-                                       from);
 
         r = get_file_version(fd_to, &b);
+        if (r == -ESRCH)
+                return log_notice_errno(r, "Skipping \"%s\", it's owned by another boot loader (no version info found).",
+                                        to);
         if (r < 0)
                 return r;
-        if (r == 0 || compare_product(a, b) != 0)
-                return log_notice_errno(SYNTHETIC_ERRNO(EREMOTE),
-                                        "Skipping \"%s\", since it's owned by another boot loader.",
-                                        to);
+        if (compare_product(a, b) != 0)
+                return log_notice_errno(SYNTHETIC_ERRNO(ESRCH),
+                                        "Skipping \"%s\", it's owned by another boot loader.", to);
 
         r = compare_version(a, b);
         log_debug("Comparing versions: \"%s\" %s \"%s", a, comparison_operator(r), b);
         if (r < 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(ESTALE),
-                                         "Skipping \"%s\", since newer boot loader version in place already.", to);
+                                         "Skipping \"%s\", newer boot loader version in place already.", to);
         if (r == 0)
                 return log_info_errno(SYNTHETIC_ERRNO(ESTALE),
-                                      "Skipping \"%s\", since same boot loader version in place already.", to);
+                                      "Skipping \"%s\", same boot loader version in place already.", to);
 
         return 0;
 }
@@ -415,7 +415,7 @@ static int install_binaries(const char *esp_path, const char *arch, bool force) 
                 k = copy_one_file(esp_path, de->d_name, force);
                 /* Don't propagate an error code if no update necessary, installed version already equal or
                  * newer version, or other boot loader in place. */
-                if (arg_graceful && IN_SET(k, -ESTALE, -EREMOTE))
+                if (arg_graceful && IN_SET(k, -ESTALE, -ESRCH))
                         continue;
                 if (k < 0 && r == 0)
                         r = k;
@@ -852,9 +852,11 @@ static int remove_boot_efi(const char *esp_path) {
                         return log_error_errno(errno, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
 
                 r = get_file_version(fd, &v);
+                if (r == -ESRCH)
+                        continue;  /* No version information */
                 if (r < 0)
                         return r;
-                if (r > 0 && startswith(v, "systemd-boot ")) {
+                if (startswith(v, "systemd-boot ")) {
                         r = unlinkat(dirfd(d), de->d_name, 0);
                         if (r < 0)
                                 return log_error_errno(errno, "Failed to remove \"%s/%s\": %m", p, de->d_name);
