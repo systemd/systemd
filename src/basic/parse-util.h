@@ -11,6 +11,26 @@
 
 typedef unsigned long loadavg_t;
 
+typedef enum PcrNumber {
+        CORE_FM,
+        PLAT_CONFIG,
+        EXT_CODE,
+        EXT_FM,
+        BOOT_LD,
+        GPT_PT,
+        POWER_ST,
+        SECURE_BT,
+        LINUX_KN = 9,
+        IMA_ST,
+        SYSTEMD_KN,
+        SYSTEMD_BT,
+        SYSTEMD_STB,
+        SHIM_CT,
+        LUKS_KEY,
+        ALIASES_MAX,
+        PCR_INVALID = -EINVAL,
+} PcrNumber;
+
 int parse_boolean(const char *v) _pure_;
 int parse_pid(const char *s, pid_t* ret_pid);
 int parse_mode(const char *s, mode_t *ret);
@@ -151,3 +171,5 @@ int parse_oom_score_adjust(const char *s, int *ret);
  * to a loadavg_t. */
 int store_loadavg_fixed_point(unsigned long i, unsigned long f, loadavg_t *ret);
 int parse_loadavg_fixed_point(const char *s, loadavg_t *ret);
+int named_pcr(char *pcr, unsigned *n);
+PcrNumber pcr_number_from_string(const char *s);
