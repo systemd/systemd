@@ -71,7 +71,8 @@ int main(int argc, char *argv[]) {
         int r;
 
         r = sd_bus_open_system(&bus);
-        assert_se(r >= 0);
+        if (r < 0)
+                return log_notice_errno(r, "Can't connect to system bus, skipping test: %m");
 
         print_inhibitors(bus);
 
