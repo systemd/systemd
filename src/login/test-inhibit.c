@@ -8,6 +8,7 @@
 #include "bus-util.h"
 #include "fd-util.h"
 #include "macro.h"
+#include "tests.h"
 
 static int inhibit(sd_bus *bus, const char *what) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -71,7 +72,8 @@ int main(int argc, char *argv[]) {
         int r;
 
         r = sd_bus_open_system(&bus);
-        assert_se(r >= 0);
+        if (r < 0)
+                return log_tests_skipped_errno(r, "Can't connect to system bus, skipping test: %m");
 
         print_inhibitors(bus);
 
