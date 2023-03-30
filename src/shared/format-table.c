@@ -7,6 +7,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "devnum-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -24,6 +25,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "sort-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "terminal-util.h"
@@ -107,6 +109,7 @@ typedef struct TableData {
                 gid_t gid;
                 pid_t pid;
                 mode_t mode;
+                dev_t devnum;
                 /* … add more here as we start supporting more cell data types … */
         };
 } TableData;
@@ -348,7 +351,11 @@ static size_t table_data_size(TableDataType type, const void *data) {
                 return sizeof(pid_t);
 
         case TABLE_MODE:
+        case TABLE_MODE_INODE_TYPE:
                 return sizeof(mode_t);
+
+        case TABLE_DEVNUM:
+                return sizeof(dev_t);
 
         default:
                 assert_not_reached();
@@ -867,6 +874,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         gid_t gid;
                         pid_t pid;
                         mode_t mode;
+                        dev_t devnum;
                 } buffer;
 
                 switch (type) {
@@ -1022,8 +1030,14 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         break;
 
                 case TABLE_MODE:
+                case TABLE_MODE_INODE_TYPE:
                         buffer.mode = va_arg(ap, mode_t);
                         data = &buffer.mode;
+                        break;
+
+                case TABLE_DEVNUM:
+                        buffer.devnum = va_arg(ap, dev_t);
+                        data = &buffer.devnum;
                         break;
 
                 case TABLE_SET_MINIMUM_WIDTH: {
@@ -1273,6 +1287,8 @@ int table_hide_column_from_display_internal(Table *t, ...) {
 }
 
 static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t index_b) {
+        int r;
+
         assert(a);
         assert(b);
 
@@ -1377,7 +1393,15 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                         return CMP(a->pid, b->pid);
 
                 case TABLE_MODE:
+                case TABLE_MODE_INODE_TYPE:
                         return CMP(a->mode, b->mode);
+
+                case TABLE_DEVNUM:
+                        r = CMP(major(a->devnum), major(b->devnum));
+                        if (r != 0)
+                                return r;
+
+                        return CMP(minor(a->devnum), minor(b->devnum));
 
                 default:
                         ;
@@ -1881,6 +1905,22 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 d->formatted = p;
                 break;
         }
+
+        case TABLE_MODE_INODE_TYPE:
+
+                if (d->mode == MODE_INVALID)
+                        return table_ersatz_string(t);
+
+                return inode_type_to_string(d->mode);
+
+        case TABLE_DEVNUM:
+                if (devnum_is_zero(d->devnum))
+                        return table_ersatz_string(t);
+
+                if (asprintf(&d->formatted, DEVNUM_FORMAT_STR, DEVNUM_FORMAT_VAL(d->devnum)) < 0)
+                        return NULL;
+
+                break;
 
         default:
                 assert_not_reached();
@@ -2696,10 +2736,19 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
                 return json_variant_new_integer(ret, d->int_val);
 
         case TABLE_MODE:
+        case TABLE_MODE_INODE_TYPE:
                 if (d->mode == MODE_INVALID)
                         return json_variant_new_null(ret);
 
                 return json_variant_new_unsigned(ret, d->mode);
+
+        case TABLE_DEVNUM:
+                if (devnum_is_zero(d->devnum))
+                        return json_variant_new_null(ret);
+
+                return json_build(ret, JSON_BUILD_ARRAY(
+                                                  JSON_BUILD_UNSIGNED(major(d->devnum)),
+                                                  JSON_BUILD_UNSIGNED(minor(d->devnum))));
 
         default:
                 return -EINVAL;

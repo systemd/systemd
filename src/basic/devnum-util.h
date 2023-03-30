@@ -50,3 +50,7 @@ static inline char *format_devnum(dev_t d, char buf[static DEVNUM_STR_MAX]) {
 }
 
 #define FORMAT_DEVNUM(d) format_devnum((d), (char[DEVNUM_STR_MAX]) {})
+
+static inline bool devnum_is_zero(dev_t d) {
+        return major(d) == 0 && minor(d) == 0;
+}
