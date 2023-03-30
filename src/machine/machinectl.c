@@ -1762,12 +1762,14 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         const char *method;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+        bool enable;
 
         CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        method = streq(argv[0], "enable") ? "EnableUnitFiles" : "DisableUnitFiles";
+        enable = streq(argv[0], "enable");
+        method = enable ? "EnableUnitFiles" : "DisableUnitFiles";
 
         r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, method);
         if (r < 0)
@@ -1777,7 +1779,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        if (streq(argv[0], "enable")) {
+        if (enable) {
                 r = sd_bus_message_append(m, "s", "machines.target");
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -1807,7 +1809,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        if (streq(argv[0], "enable"))
+        if (enable)
                 r = sd_bus_message_append(m, "bb", false, false);
         else
                 r = sd_bus_message_append(m, "b", false);
@@ -1818,7 +1820,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enable or disable unit: %s", bus_error_message(&error, r));
 
-        if (streq(argv[0], "enable")) {
+        if (enable) {
                 r = sd_bus_message_read(reply, "b", NULL);
                 if (r < 0)
                         return bus_log_parse_error(r);
@@ -1835,7 +1837,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         if (arg_now) {
                 _cleanup_strv_free_ char **new_args = NULL;
 
-                new_args = strv_new(streq(argv[0], "enable") ? "start" : "poweroff");
+                new_args = strv_new(enable ? "start" : "poweroff");
                 if (!new_args)
                         return log_oom();
 
@@ -1843,7 +1845,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_oom();
 
-                if (streq(argv[0], "enable"))
+                if (enable)
                         return start_machine(strv_length(new_args), new_args, userdata);
 
                 return poweroff_machine(strv_length(new_args), new_args, userdata);
