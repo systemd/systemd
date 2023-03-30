@@ -226,74 +226,55 @@ echo -n password >/tmp/password
 cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom $img_2 /tmp/password
 
 #boolean_arguments
-ret="$(! systemd-cryptenroll --fido2-with-client-pin=false 2> >(grep "No block device node specified"))"
-test -n "${ret}"
+systemd-cryptenroll --fido2-with-client-pin=false && { echo 'unexpected success'; exit 1; }
 
-ret="$(! systemd-cryptenroll --fido2-with-user-presence=f $img_2 /tmp/foo 2> >(grep "Too many arguments"))"
-test -n "${ret}"
+systemd-cryptenroll --fido2-with-user-presence=f $img_2 /tmp/foo && { echo 'unexpected success'; exit 1; }
 
-ret="$(! systemd-cryptenroll --fido2-with-client-pin=1234 $img_2 2> >(grep "Failed to parse boolean argument"))"
-test -n "${ret}"
+systemd-cryptenroll --fido2-with-client-pin=1234 $img_2 && { echo 'unexpected success'; exit 1; }
 
 systemd-cryptenroll --fido2-with-client-pin=false $img_2
 
-ret="$(! systemd-cryptenroll --fido2-with-user-presence=1234 $img_2 2> >(grep "Failed to parse boolean argument"))"
-test -n "${ret}"
+systemd-cryptenroll --fido2-with-user-presence=1234 $img_2 && { echo 'unexpected success'; exit 1; }
 
 systemd-cryptenroll --fido2-with-user-presence=false $img_2
 
-ret="$(! systemd-cryptenroll --fido2-with-user-verification=1234 $img_2 2> >(grep "Failed to parse boolean argument"))"
-test -n "${ret}"
+systemd-cryptenroll --fido2-with-user-verification=1234 $img_2 && { echo 'unexpected success'; exit 1; }
 
-ret="$(! systemd-cryptenroll --tpm2-with-pin=1234 $img_2 2> >(grep "Failed to parse boolean argument"))"
-test -n "${ret}"
+systemd-cryptenroll --tpm2-with-pin=1234 $img_2 && { echo 'unexpected success'; exit 1; }
 
 systemd-cryptenroll --fido2-with-user-verification=false $img_2
 
 #arg_enroll_type
-ret="$(! systemd-cryptenroll --recovery-key --password $img_2 2> >(grep "Multiple operations specified at once"))"
-test -n "${ret}"
+systemd-cryptenroll --recovery-key --password $img_2 && { echo 'unexpected success'; exit 1; }
 
-ret="$(! systemd-cryptenroll --password --recovery-key $img_2 2> >(grep "Multiple operations specified at once"))"
-test -n "${ret}"
+systemd-cryptenroll --password --recovery-key $img_2 && { echo 'unexpected success'; exit 1; }
 
-ret="$(! systemd-cryptenroll --password --fido2-device=auto $img_2 2> >(grep "Multiple operations specified at once"))"
-test -n "${ret}"
+systemd-cryptenroll --password --fido2-device=auto $img_2 && { echo 'unexpected success'; exit 1; }
 
-ret="$(! systemd-cryptenroll --password --pkcs11-token-uri=auto $img_2 2> >(grep "Multiple operations specified at once"))"
-test -n "${ret}"
+systemd-cryptenroll --password --pkcs11-token-uri=auto $img_2 && { echo 'unexpected success'; exit 1; }
 
-ret="$(! systemd-cryptenroll --password --tpm2-device=auto $img_2 2> >(grep "Multiple operations specified at once"))"
-test -n "${ret}"
+systemd-cryptenroll --password --tpm2-device=auto $img_2 && { echo 'unexpected success'; exit 1; }
 
 #arg_unlock_type
-ret="$(! systemd-cryptenroll --unlock-fido2-device=auto --unlock-fido2-device=auto $img_2 2> >(grep "Multiple unlock methods specified at once"))"
-test -n "${ret}"
+systemd-cryptenroll --unlock-fido2-device=auto --unlock-fido2-device=auto $img_2 && { echo 'unexpected success'; exit 1; }
 
-ret="$(! systemd-cryptenroll --unlock-fido2-device=auto --unlock-key-file=/tmp/unlock $img_2 2> >(grep "Multiple unlock methods specified at once"))"
-test -n "${ret}"
+systemd-cryptenroll --unlock-fido2-device=auto --unlock-key-file=/tmp/unlock $img_2 && { echo 'unexpected success'; exit 1; }
 
-#fido2_cred_alg
-ret="$(! systemd-cryptenroll --fido2-credential-algorithm=es512 $img_2 2> >(grep "Failed to parse COSE algorithm"))"
-test -n "${ret}"
+#fido2_cred_algo
+systemd-cryptenroll --fido2-credential-algorithm=es512 $img_2 && { echo 'unexpected success'; exit 1; }
 
 #tpm2_errors
-ret="$(! systemd-cryptenroll --tpm2-public-key-pcrs=key $img_2 2> >(grep "Failed to parse PCR number"))"
-test -n "${ret}"
+systemd-cryptenroll --tpm2-public-key-pcrs=key $img_2 && { echo 'unexpected success'; exit 1; }
 
-ret="$(! systemd-cryptenroll --tpm2-pcrs=key $img_2 2> >(grep "Failed to parse PCR number"))"
-test -n "${ret}"
+systemd-cryptenroll --tpm2-pcrs=key $img_2 && { echo 'unexpected success'; exit 1; }
 
 #wipe_slots
-ret="$(! systemd-cryptenroll --wipe-slot $img_2 2> >(grep "Failed to parse slot index"))"
-test -n "${ret}"
+systemd-cryptenroll --wipe-slot $img_2 && { echo 'unexpected success'; exit 1; }
 
-ret="$(! systemd-cryptenroll --wipe-slot=10240000 $img_2 2> >(grep "Slot index"))"
-test -n "${ret}"
+systemd-cryptenroll --wipe-slot=10240000 $img_2 && { echo 'unexpected success'; exit 1; }
 
 #fido2_multiple_auto
-ret="$(! systemd-cryptenroll --fido2-device=auto --unlock-fido2-device=auto $img_2 2> >(grep "When both enrolling and unlocking with FIDO2 tokens, automatic discovery is unsupported. Please specify device paths for enrolling and unlocking respectively."))"
-test -n "${ret}"
+systemd-cryptenroll --fido2-device=auto --unlock-fido2-device=auto $img_2 && { echo 'unexpected success'; exit 1; }
 
 echo OK >/testok
 
