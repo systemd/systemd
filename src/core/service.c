@@ -17,6 +17,7 @@
 #include "constants.h"
 #include "dbus-service.h"
 #include "dbus-unit.h"
+#include "devnum-util.h"
 #include "env-util.h"
 #include "escape.h"
 #include "exit-status.h"
@@ -874,6 +875,42 @@ static int service_load(Unit *u) {
         return service_verify(s);
 }
 
+static void service_dump_fdstore(Service *s, FILE *f, const char *prefix) {
+        assert(s);
+        assert(f);
+        assert(prefix);
+
+        LIST_FOREACH(fd_store, i, s->fd_store) {
+                _cleanup_free_ char *path = NULL;
+                struct stat st;
+                int flags;
+
+                if (fstat(i->fd, &st) < 0) {
+                        log_debug_errno(errno, "Failed to stat fdstore entry: %m");
+                        continue;
+                }
+
+                flags = fcntl(i->fd, F_GETFL);
+                if (flags < 0) {
+                        log_debug_errno(errno, "Failed to get fdstore entry flags: %m");
+                        continue;
+                }
+
+                (void) fd_get_path(i->fd, &path);
+
+                fprintf(f,
+                        "%s%s '%s' (type=%s; dev=" DEVNUM_FORMAT_STR "; inode=%" PRIu64 "; rdev=" DEVNUM_FORMAT_STR "; path=%s; access=%s)\n",
+                        prefix, i == s->fd_store ? "File Descriptor Store Entry:" : "                            ",
+                        i->fdname,
+                        inode_type_to_string(st.st_mode),
+                        DEVNUM_FORMAT_VAL(st.st_dev),
+                        (uint64_t) st.st_ino,
+                        DEVNUM_FORMAT_VAL(st.st_rdev),
+                        strna(path),
+                        accmode_to_string(flags));
+        }
+}
+
 static void service_dump(Unit *u, FILE *f, const char *prefix) {
         ServiceExecCommand c;
         Service *s = SERVICE(u);
@@ -998,6 +1035,8 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sFile Descriptor Store Current: %zu\n",
                         prefix, s->n_fd_store_max,
                         prefix, s->n_fd_store);
+
+        service_dump_fdstore(s, f, prefix);
 
         if (s->open_files)
                 LIST_FOREACH(open_files, of, s->open_files) {
