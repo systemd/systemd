@@ -54,7 +54,7 @@
 #include "inotify-util.h"
 #include "install.h"
 #include "io-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "load-fragment.h"
 #include "locale-setup.h"
 #include "log.h"
