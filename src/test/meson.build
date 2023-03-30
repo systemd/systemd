@@ -263,7 +263,7 @@ tests += [
                 'base' : test_core_base,
         },
         {
-                'sources' : files('test-chase.c'),
+                'sources' : files('test-chase-manual.c'),
                 'type' : 'manual',
         },
         {
