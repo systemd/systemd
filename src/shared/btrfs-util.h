@@ -49,8 +49,13 @@ int btrfs_is_subvol(const char *path);
 int btrfs_reflink(int infd, int outfd);
 int btrfs_clone_range(int infd, uint64_t in_offset, int ofd, uint64_t out_offset, uint64_t sz);
 
-int btrfs_get_block_device_fd(int fd, dev_t *dev);
-int btrfs_get_block_device(const char *path, dev_t *dev);
+int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret);
+static inline int btrfs_get_block_device(const char *path, dev_t *ret) {
+        return btrfs_get_block_device_at(AT_FDCWD, path, ret);
+}
+static inline int btrfs_get_block_device_fd(int fd, dev_t *ret) {
+        return btrfs_get_block_device_fd(fd, ret);
+}
 
 int btrfs_defrag_fd(int fd);
 int btrfs_defrag(const char *p);
