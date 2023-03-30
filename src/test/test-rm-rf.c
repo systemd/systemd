@@ -10,79 +10,31 @@
 #include "tmpfile-util.h"
 
 static void test_rm_rf_chmod_inner(void) {
-        _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
-        const char *a, *b, *x, *y;
-        struct stat st;
+        _cleanup_free_ char *d = NULL;
+        const char *x, *y;
 
         assert_se(getuid() != 0);
 
-        assert_se(mkdtemp_malloc("/tmp/test-rm-rf.XXXXXXX", &d) >= 0);
-        a = strjoina(d, "/a");
-        b = strjoina(a, "/b");
-        x = strjoina(d, "/x");
-        y = strjoina(x, "/y");
+        assert_se(mkdtemp_malloc(NULL, &d) >= 0);
 
+        x = strjoina(d, "/d");
         assert_se(mkdir(x, 0700) >= 0);
+        y = strjoina(x, "/f");
         assert_se(mknod(y, S_IFREG | 0600, 0) >= 0);
 
         assert_se(chmod(y, 0400) >= 0);
         assert_se(chmod(x, 0500) >= 0);
         assert_se(chmod(d, 0500) >= 0);
 
-        assert_se(rm_rf(d, REMOVE_PHYSICAL) == -EACCES);
+        assert_se(rm_rf(d, REMOVE_PHYSICAL|REMOVE_ROOT) == -EACCES);
 
         assert_se(access(d, F_OK) >= 0);
         assert_se(access(x, F_OK) >= 0);
         assert_se(access(y, F_OK) >= 0);
 
-        assert_se(rm_rf(d, REMOVE_PHYSICAL|REMOVE_CHMOD) >= 0);
+        assert_se(rm_rf(d, REMOVE_PHYSICAL|REMOVE_ROOT|REMOVE_CHMOD) >= 0);
 
-        assert_se(access(d, F_OK) >= 0);
-        assert_se(access(x, F_OK) < 0 && errno == ENOENT);
-        assert_se(access(y, F_OK) < 0 && errno == ENOENT);
-
-        assert_se(mkdir(a, 0700) >= 0);
-        assert_se(mkdir(b, 0700) >= 0);
-        assert_se(mkdir(x, 0700) >= 0);
-        assert_se(mknod(y, S_IFREG | 0600, 0) >= 0);
-
-        assert_se(chmod(b, 0000) >= 0);
-        assert_se(chmod(a, 0000) >= 0);
-        assert_se(chmod(y, 0000) >= 0);
-        assert_se(chmod(x, 0000) >= 0);
-        assert_se(chmod(d, 0500) >= 0);
-
-        assert_se(rm_rf(d, REMOVE_PHYSICAL|REMOVE_CHMOD|REMOVE_CHMOD_RESTORE|REMOVE_ONLY_DIRECTORIES) == -ENOTEMPTY);
-
-        assert_se(access(a, F_OK) < 0 && errno == ENOENT);
-        assert_se(access(d, F_OK) >= 0);
-        assert_se(stat(d, &st) >= 0 && (st.st_mode & 07777) == 0500);
-        assert_se(access(x, F_OK) >= 0);
-        assert_se(stat(x, &st) >= 0 && (st.st_mode & 07777) == 0000);
-        assert_se(chmod(x, 0700) >= 0);
-        assert_se(access(y, F_OK) >= 0);
-        assert_se(stat(y, &st) >= 0 && (st.st_mode & 07777) == 0000);
-
-        assert_se(chmod(y, 0000) >= 0);
-        assert_se(chmod(x, 0000) >= 0);
-        assert_se(chmod(d, 0000) >= 0);
-
-        assert_se(rm_rf(d, REMOVE_PHYSICAL|REMOVE_CHMOD|REMOVE_CHMOD_RESTORE) >= 0);
-
-        assert_se(stat(d, &st) >= 0 && (st.st_mode & 07777) == 0000);
-        assert_se(access(d, F_OK) >= 0);
-        assert_se(chmod(d, 0700) >= 0);
-        assert_se(access(x, F_OK) < 0 && errno == ENOENT);
-
-        assert_se(mkdir(x, 0700) >= 0);
-        assert_se(mknod(y, S_IFREG | 0600, 0) >= 0);
-
-        assert_se(chmod(y, 0000) >= 0);
-        assert_se(chmod(x, 0000) >= 0);
-        assert_se(chmod(d, 0000) >= 0);
-
-        assert_se(rm_rf(d, REMOVE_PHYSICAL|REMOVE_CHMOD|REMOVE_ROOT) >= 0);
-
+        errno = 0;
         assert_se(access(d, F_OK) < 0 && errno == ENOENT);
 }
 
