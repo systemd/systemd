@@ -1703,7 +1703,6 @@ static void cmdline_take_random_seed(void) {
 }
 
 static void initialize_coredump(bool skip_setup) {
-#if ENABLE_COREDUMP
         if (getpid_cached() != 1)
                 return;
 
@@ -1717,7 +1716,6 @@ static void initialize_coredump(bool skip_setup) {
          * command line later so core dumps can still be generated during early startup and in initrd. */
         if (!skip_setup)
                 disable_coredumps();
-#endif
 }
 
 static void initialize_core_pattern(bool skip_setup) {
