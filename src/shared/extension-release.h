@@ -4,7 +4,7 @@
 #include "os-util.h"
 
 /* Given an image name (for logging purposes), a set of os-release values from the host and a key-value pair
- * vector of extension-release/syscfg-releases variables, check that the distro and (system extension level
+ * vector of extension-release/confext-releases variables, check that the distro and (system extension level
  * or distro version) match and return 1, and 0 otherwise. */
 int release_file_validate(
                 const char *name,

@@ -329,8 +329,8 @@ the journal instead of only when logging in debug mode.
   systems as submounts should be used. Do not specify API file systems such as
   `/proc/` or `/sys/` here, or hierarchies that have them as submounts. In
   particular, do not specify the root directory `/` here. Similarly,
-  `$SYSTEMD_SYSCFG_HIERARCHIES` works for syscfg images and supports the
-  systemd-syscfg multi-call functionality of sysext.
+  `$SYSTEMD_CONFEXT_HIERARCHIES` works for confext images and supports the
+  systemd-confext multi-call functionality of sysext.
 
 `systemd-tmpfiles`:
 

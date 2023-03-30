@@ -138,7 +138,7 @@ units = [
         ['systemd-reboot.service',              ''],
         ['systemd-rfkill.socket',               'ENABLE_RFKILL'],
         ['systemd-sysext.service',              'ENABLE_SYSEXT'],
-        ['systemd-syscfg.service',              'ENABLE_SYSEXT'],
+        ['systemd-confext.service',              'ENABLE_SYSEXT'],
         ['systemd-sysupdate.timer',             'ENABLE_SYSUPDATE'],
         ['systemd-sysupdate-reboot.timer',      'ENABLE_SYSUPDATE'],
         ['systemd-sysusers.service',            'ENABLE_SYSUSERS',

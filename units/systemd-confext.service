@@ -9,13 +9,13 @@
 
 [Unit]
 Description=Merge System Configuration Images into /etc/
-Documentation=man:systemd-syscfg.service(8)
+Documentation=man:systemd-confext.service(8)
 
 ConditionCapability=CAP_SYS_ADMIN
-ConditionDirectoryNotEmpty=|/run/syscfgs
-ConditionDirectoryNotEmpty=|/var/lib/syscfgs
-ConditionDirectoryNotEmpty=|/usr/local/lib/syscfgs
-ConditionDirectoryNotEmpty=|/usr/lib/syscfgs
+ConditionDirectoryNotEmpty=|/run/confexts
+ConditionDirectoryNotEmpty=|/var/lib/confexts
+ConditionDirectoryNotEmpty=|/usr/local/lib/confexts
+ConditionDirectoryNotEmpty=|/usr/lib/confexts
 
 DefaultDependencies=no
 After=local-fs.target
@@ -26,8 +26,8 @@ Before=shutdown.target initrd-switch-root.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=systemd-syscfg merge
-ExecStop=systemd-syscfg unmerge
+ExecStart=systemd-confext merge
+ExecStop=systemd-confext unmerge
 
 [Install]
 WantedBy=sysinit.target

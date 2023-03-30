@@ -32,11 +32,11 @@ static const struct {
                 .release_file_path_prefix = "/usr/lib/extension-release.d/extension-release.",
                 .release_file_name_prefix = "extension-release.",
         },
-        [IMAGE_SYSCFG] = {
-                .strict_xattr_name = "user.syscfg-release.strict",
-                .release_file_directory = "/etc/syscfg-release.d/",
-                .release_file_path_prefix = "/etc/syscfg-release.d/syscfg-release.",
-                .release_file_name_prefix = "syscfg-release.",
+        [IMAGE_CONFEXT] = {
+                .strict_xattr_name = "user.confext-release.strict",
+                .release_file_directory = "/etc/confext-release.d/",
+                .release_file_path_prefix = "/etc/confext-release.d/confext-release.",
+                .release_file_name_prefix = "confext-release.",
         }
 };
 
@@ -71,7 +71,7 @@ int path_is_extension_tree(ImageClass image_class, const char *path, const char 
                 return -errno;
 
         /* We use /usr/lib/extension-release.d/extension-release[.NAME] as flag for something being a system extension,
-         * /etc/syscfg-release.d/syscfg-release[.NAME] as flag for something being a system configuration, and finally,
+         * /etc/confext-release.d/confext-release[.NAME] as flag for something being a system configuration, and finally,
          * and {/etc|/usr/lib}/os-release as a flag for something being an OS (when not an extension). */
         r = open_extension_release(path, image_class, extension, relax_extension_release_check, NULL, NULL);
         if (r == -ENOENT) /* We got nothing */

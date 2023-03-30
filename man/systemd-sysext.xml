@@ -19,8 +19,8 @@
   <refnamediv>
     <refname>systemd-sysext</refname>
     <refname>systemd-sysext.service</refname>
-    <refname>systemd-syscfg</refname>
-    <refname>systemd-syscfg.service</refname>
+    <refname>systemd-confext</refname>
+    <refname>systemd-confext.service</refname>
     <refpurpose>Activates System Extension Images or System Configuration Images</refpurpose>
   </refnamediv>
 
@@ -34,12 +34,12 @@
     <para><literallayout><filename>systemd-sysext.service</filename></literallayout></para>
 
     <cmdsynopsis>
-      <command>systemd-syscfg</command>
+      <command>systemd-confext</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">COMMAND</arg>
     </cmdsynopsis>
 
-    <para><literallayout><filename>systemd-syscfg.service</filename></literallayout></para>
+    <para><literallayout><filename>systemd-confext.service</filename></literallayout></para>
 
   </refsynopsisdiv>
 
@@ -141,26 +141,26 @@
     content, as the <filename>os-release</filename> file of the OS, but it describes the resources carried
     in the extension image.</para>
 
-    <para>The <command>systemd-syscfg</command> concept follows the same principle as the
+    <para>The <command>systemd-confext</command> concept follows the same principle as the
     <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     functionality but instead of working on <filename>/usr</filename> and <filename>/opt</filename>,
-    <command>syscfg</command> will extend only <filename>/etc</filename>. Files and directories contained
+    <command>confext</command> will extend only <filename>/etc</filename>. Files and directories contained
     in the configuration images outside of the <filename>/etc/</filename> hierarchy are <emphasis>not</emphasis>
     merged, and hence have no effect when included in the image. Formats for system configuration images
     are of the same as system extension images.</para>
 
     <para>System configurations are looked for in the directories
-    <filename>/etc/syscfgs/</filename>, <filename>/run/syscfgs/</filename>,
-    <filename>/var/lib/syscfgs/</filename>, <filename>/usr/lib/syscfgs/</filename> and
-    <filename>/usr/local/lib/syscfgs/</filename>. The first two listed directories are not suitable for
+    <filename>/etc/confexts/</filename>, <filename>/run/confexts/</filename>,
+    <filename>/var/lib/confexts/</filename>, <filename>/usr/lib/confexts/</filename> and
+    <filename>/usr/local/lib/confexts/</filename>. The first two listed directories are not suitable for
     carrying large binary images, however are still useful for carrying symlinks to them. The primary place
-    for installing system extensions is <filename>/var/lib/syscfgs/</filename>. Any directories found in
+    for installing system extensions is <filename>/var/lib/confexts/</filename>. Any directories found in
     these search directories are considered directory based configuration images, any files with the
     <filename>.raw</filename> suffix are considered disk image based configuration images.</para>
 
-    <para>Again, just like extension images, the syscfg images will contain a /etc/syscfg-release.d/syscfg-release.,
+    <para>Again, just like extension images, the confext images will contain a /etc/confext-release.d/confext-release.,
     which must match the image name (with the usual escape hatch of xattr), and again with content being one or more
-    of ID, VERSION_ID, and SYSCFG_LEVEL. Configuration images will then be checked and matched against the base
+    of ID, VERSION_ID, and CONFEXT_LEVEL. Configuration images will then be checked and matched against the base
     OS layer.</para>
   </refsect1>
 
@@ -187,7 +187,7 @@
     the underlying host <filename>/usr/</filename> is managed as immutable disk image or is a traditional
     package manager controlled (i.e. writable) tree.</para>
 
-    <para>For the syscfg case, the OSConfig project aims to perform runtime reconfiguration of OS services.
+    <para>For the confext case, the OSConfig project aims to perform runtime reconfiguration of OS services.
     Sometimes, there is a need to swap certain configuration parameter values or restart only a specific
     service without deployment of new code or a complete OS deployment. In other words, we want to be able
     to tie the most frequently configured options to runtime updateable flags that can be changed without a
@@ -196,7 +196,7 @@
   <refsect1>
     <title>Commands</title>
 
-    <para>The following commands are understood by both the sysext and syscfg concepts:</para>
+    <para>The following commands are understood by both the sysext and confext concepts:</para>
 
     <variablelist>
       <varlistentry>
@@ -204,7 +204,7 @@
 
         <listitem><para>When invoked without any command verb, or when <option>status</option> is specified
         the current merge status is shown, separately (for both <filename>/usr/</filename> and
-        <filename>/opt/</filename> of sysext and for <filename>/etc/</filename> of syscfg).</para></listitem>
+        <filename>/opt/</filename> of sysext and for <filename>/etc/</filename> of confext).</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -212,7 +212,7 @@
         <listitem><para>Merges all currently installed system extension images into
         <filename>/usr/</filename> and <filename>/opt/</filename>, by overmounting these hierarchies with an
         <literal>overlayfs</literal> file system combining the underlying hierarchies with those included in
-        the extension images. This command will fail if the hierarchies are already merged. For syscfg, the merge
+        the extension images. This command will fail if the hierarchies are already merged. For confext, the merge
         happens into the <filename>/etc/</filename> directory instead.</para></listitem>
       </varlistentry>
 
@@ -220,7 +220,7 @@
         <term><option>unmerge</option></term>
         <listitem><para>Unmerges all currently installed system extension images from
         <filename>/usr/</filename> and <filename>/opt/</filename> for sysext and <filename>/etc/</filename>,
-        for syscfg, by unmounting the <literal>overlayfs</literal> file systems created by <option>merge</option>
+        for confext, by unmounting the <literal>overlayfs</literal> file systems created by <option>merge</option>
         prior.</para></listitem>
       </varlistentry>
 
@@ -257,7 +257,7 @@
 
         <listitem><para>Operate relative to the specified root directory, i.e. establish the
         <literal>overlayfs</literal> mount not on the top-level host <filename>/usr/</filename> and
-        <filename>/opt/</filename> hierarchies for sysext or <filename>/etc/</filename> for syscfg,
+        <filename>/opt/</filename> hierarchies for sysext or <filename>/etc/</filename> for confext,
         but below some specified root directory.</para></listitem>
       </varlistentry>
 
@@ -265,7 +265,7 @@
         <term><option>--force</option></term>
 
         <listitem><para>When merging system extensions into <filename>/usr/</filename> and
-        <filename>/opt/</filename> for sysext and <filename>/etc/</filename> for syscfg,
+        <filename>/opt/</filename> for sysext and <filename>/etc/</filename> for confext,
         ignore version incompatibilities, i.e. force merging regardless of
         whether the version information included in the images matches the host or not.</para></listitem>
       </varlistentry>

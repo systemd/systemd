@@ -39,14 +39,14 @@
 #include "user-util.h"
 #include "verbs.h"
 
-static char **arg_hierarchies = NULL; /* "/usr" + "/opt" by default for sysext and /etc by default for syscfg */
+static char **arg_hierarchies = NULL; /* "/usr" + "/opt" by default for sysext and /etc by default for confext */
 static char *arg_root = NULL;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_force = false;
 
-/* Is set to IMAGE_SYSCFG when systemd is called with the syscfg functionality instead of the default */
+/* Is set to IMAGE_CONFEXT when systemd is called with the confext functionality instead of the default */
 static ImageClass arg_image_class = IMAGE_EXTENSION;
 
 STATIC_DESTRUCTOR_REGISTER(arg_hierarchies, strv_freep);
@@ -71,14 +71,14 @@ static const struct {
                 .scope_env = "SYSEXT_SCOPE",
                 .name_env = "SYSTEMD_SYSEXT_HIERARCHIES",
         },
-        [IMAGE_SYSCFG] = {
-                .dot_directory_name = ".systemd-syscfg",
-                .directory_name = "systemd-syscfg",
-                .short_identifier = "syscfg",
-                .short_identifier_plural = "syscfgs",
-                .level_env = "SYSCFG_LEVEL",
-                .scope_env = "SYSCFG_SCOPE",
-                .name_env = "SYSTEMD_SYSCFG_HIERARCHIES",
+        [IMAGE_CONFEXT] = {
+                .dot_directory_name = ".systemd-confext",
+                .directory_name = "systemd-confext",
+                .short_identifier = "confext",
+                .short_identifier_plural = "confexts",
+                .level_env = "CONFEXT_LEVEL",
+                .scope_env = "CONFEXT_SCOPE",
+                .name_env = "SYSTEMD_CONFEXT_HIERARCHIES",
         }
 };
 
@@ -447,7 +447,7 @@ static int validate_version(
                 const char *host_os_release_id,
                 const char *host_os_release_version_id,
                 const char *host_os_release_sysext_level,
-                const char *host_os_release_syscfg_level) {
+                const char *host_os_release_confext_level) {
 
         int r;
 
@@ -470,7 +470,7 @@ static int validate_version(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Extension image contains /usr/lib/os-release file, which is not allowed (it may carry /etc/os-release), refusing.");
 
-        const char *host_os_release_level = (arg_image_class == IMAGE_SYSCFG) ? host_os_release_syscfg_level : host_os_release_sysext_level;
+        const char *host_os_release_level = (arg_image_class == IMAGE_CONFEXT) ? host_os_release_confext_level : host_os_release_sysext_level;
         r = release_file_validate(
                         img->name,
                         host_os_release_id,
@@ -487,7 +487,7 @@ static int validate_version(
 
 static int merge_subprocess(Hashmap *images, const char *workspace) {
         _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL, *host_os_release_sysext_level = NULL,
-            *host_os_release_syscfg_level = NULL, *buf = NULL;
+            *host_os_release_confext_level = NULL, *buf = NULL;
         _cleanup_strv_free_ char **extensions = NULL, **paths = NULL;
         size_t n_extensions = 0;
         unsigned n_ignored = 0;
@@ -514,7 +514,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                 return r;
 
         /* Acquire host OS release info, so that we can compare it with the extension's data */
-        char **host_os_release_level = (arg_image_class == IMAGE_SYSCFG) ? &host_os_release_syscfg_level : &host_os_release_sysext_level;
+        char **host_os_release_level = (arg_image_class == IMAGE_CONFEXT) ? &host_os_release_confext_level : &host_os_release_sysext_level;
         r = parse_os_release(
                         arg_root,
                         "ID", &host_os_release_id,
@@ -632,7 +632,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                                 host_os_release_id,
                                 host_os_release_version_id,
                                 host_os_release_sysext_level,
-                                host_os_release_syscfg_level);
+                                host_os_release_confext_level);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -928,7 +928,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
 
         printf("%1$s [OPTIONS...] COMMAND\n"
                 "\n%5$sMerge extension images into /usr/ and /opt/ hierarchies for\n"
-               " sysext and into the /etc/ hierarchy for syscfg.%6$s\n"
+               " sysext and into the /etc/ hierarchy for confext.%6$s\n"
                "  status                  Show current merge status (default)\n"
                "  merge                   Merge extensions into relevant hierarchies\n"
                "  unmerge                 Unmerge extensions from relevant hierarchies\n"
@@ -1043,7 +1043,7 @@ static int sysext_main(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         int r;
-        arg_image_class = invoked_as(argv, "systemd-syscfg") ? IMAGE_SYSCFG : IMAGE_EXTENSION;
+        arg_image_class = invoked_as(argv, "systemd-confext") ? IMAGE_CONFEXT : IMAGE_EXTENSION;
 
         log_setup();
 

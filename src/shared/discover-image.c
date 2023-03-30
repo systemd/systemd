@@ -64,10 +64,10 @@ static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
                             "/usr/local/lib/extensions\0"
                             "/usr/lib/extensions\0",
 
-        [IMAGE_SYSCFG] =    "/run/syscfgs\0"             /* only place symlinks here */
-                            "/var/lib/syscfgs\0"         /* the main place for images */
-                            "/usr/local/lib/syscfgs\0"
-                            "/usr/lib/syscfgs\0",
+        [IMAGE_CONFEXT] =    "/run/confexts\0"             /* only place symlinks here */
+                            "/var/lib/confexts\0"         /* the main place for images */
+                            "/usr/local/lib/confexts\0"
+                            "/usr/lib/confexts\0",
 };
 
 static Image *image_free(Image *i) {
@@ -1332,7 +1332,7 @@ static const char* const image_class_table[_IMAGE_CLASS_MAX] = {
         [IMAGE_MACHINE] = "machine",
         [IMAGE_PORTABLE] = "portable",
         [IMAGE_EXTENSION] = "extension",
-        [IMAGE_SYSCFG] = "syscfg"
+        [IMAGE_CONFEXT] = "confext"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(image_class, ImageClass);
