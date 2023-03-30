@@ -11,7 +11,6 @@
 #include "cgroup-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "log.h"
 #include "macro.h"
 #include "mountpoint-util.h"
@@ -29,11 +28,9 @@ static bool is_physical_fs(const struct statfs *sfs) {
 
 static int patch_dirfd_mode(
                 int dfd,
-                bool refuse_already_set,
                 mode_t *ret_old_mode) {
 
         struct stat st;
-        int r;
 
         assert(dfd >= 0);
         assert(ret_old_mode);
@@ -42,24 +39,16 @@ static int patch_dirfd_mode(
                 return -errno;
         if (!S_ISDIR(st.st_mode))
                 return -ENOTDIR;
-
-        if (FLAGS_SET(st.st_mode, 0700)) { /* Already set? */
-                if (refuse_already_set)
-                        return -EACCES; /* original error */
-
-                *ret_old_mode = st.st_mode;
-                return 0;
-        }
-
+        if (FLAGS_SET(st.st_mode, 0700)) /* Already set? */
+                return -EACCES; /* original error */
         if (st.st_uid != geteuid())  /* this only works if the UID matches ours */
                 return -EACCES;
 
-        r = fchmod_opath(dfd, (st.st_mode | 0700) & 07777);
-        if (r < 0)
-                return r;
+        if (fchmod(dfd, (st.st_mode | 0700) & 07777) < 0)
+                return -errno;
 
         *ret_old_mode = st.st_mode;
-        return 1;
+        return 0;
 }
 
 int unlinkat_harder(int dfd, const char *filename, int unlink_flags, RemoveFlags remove_flags) {
@@ -75,7 +64,7 @@ int unlinkat_harder(int dfd, const char *filename, int unlink_flags, RemoveFlags
         if (errno != EACCES || !FLAGS_SET(remove_flags, REMOVE_CHMOD))
                 return -errno;
 
-        r = patch_dirfd_mode(dfd, /* refuse_already_set = */ true, &old_mode);
+        r = patch_dirfd_mode(dfd, &old_mode);
         if (r < 0)
                 return r;
 
@@ -110,7 +99,7 @@ int fstatat_harder(int dfd,
         if (errno != EACCES || !FLAGS_SET(remove_flags, REMOVE_CHMOD))
                 return -errno;
 
-        r = patch_dirfd_mode(dfd, /* refuse_already_set = */ true, &old_mode);
+        r = patch_dirfd_mode(dfd, &old_mode);
         if (r < 0)
                 return r;
 
@@ -125,68 +114,6 @@ int fstatat_harder(int dfd,
 
         return 0;
 }
-
-static int openat_harder(int dfd, const char *path, int open_flags, RemoveFlags remove_flags, mode_t *ret_old_mode) {
-        _cleanup_close_ int pfd = -EBADF, fd = -EBADF;
-        bool chmod_done = false;
-        mode_t old_mode;
-        int r;
-
-        assert(dfd >= 0 || dfd == AT_FDCWD);
-        assert(path);
-
-        /* Unlike unlink_harder() and fstatat_harder(), this chmod the specified path. */
-
-        if (FLAGS_SET(open_flags, O_PATH) ||
-            !FLAGS_SET(open_flags, O_DIRECTORY) ||
-            !FLAGS_SET(remove_flags, REMOVE_CHMOD)) {
-
-                fd = RET_NERRNO(openat(dfd, path, open_flags));
-                if (fd < 0)
-                        return fd;
-
-                if (ret_old_mode) {
-                        struct stat st;
-
-                        if (fstat(fd, &st) < 0)
-                                return -errno;
-
-                        *ret_old_mode = st.st_mode;
-                }
-
-                return TAKE_FD(fd);
-        }
-
-        pfd = RET_NERRNO(openat(dfd, path, (open_flags & (O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW)) | O_PATH));
-        if (pfd < 0)
-                return pfd;
-
-        if (FLAGS_SET(remove_flags, REMOVE_CHMOD)) {
-                r = patch_dirfd_mode(pfd, /* refuse_already_set = */ false, &old_mode);
-                if (r < 0)
-                        return r;
-
-                chmod_done = r;
-        }
-
-        fd = fd_reopen(pfd, open_flags);
-        if (fd < 0) {
-                if (chmod_done)
-                        (void) fchmod_opath(pfd, old_mode & 07777);
-                return fd;
-        }
-
-        if (ret_old_mode)
-                *ret_old_mode = old_mode;
-
-        return TAKE_FD(fd);
-}
-
-static int rm_rf_children_impl(
-                int fd,
-                RemoveFlags flags,
-                const struct stat *root_dev,
-                mode_t old_mode);
 
 static int rm_rf_inner_child(
                 int fd,
@@ -242,16 +169,13 @@ static int rm_rf_inner_child(
                 if (!allow_recursion)
                         return -EISDIR;
 
-                mode_t old_mode;
-                int subdir_fd = openat_harder(fd, fname,
-                                              O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME,
-                                              flags, &old_mode);
+                int subdir_fd = openat(fd, fname, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
                 if (subdir_fd < 0)
-                        return subdir_fd;
+                        return -errno;
 
                 /* We pass REMOVE_PHYSICAL here, to avoid doing the fstatfs() to check the file system type
                  * again for each directory */
-                q = rm_rf_children_impl(subdir_fd, flags | REMOVE_PHYSICAL, root_dev, old_mode);
+                q = rm_rf_children(subdir_fd, flags | REMOVE_PHYSICAL, root_dev);
 
         } else if (flags & REMOVE_ONLY_DIRECTORIES)
                 return 0;
@@ -267,7 +191,6 @@ static int rm_rf_inner_child(
 typedef struct TodoEntry {
         DIR *dir;         /* A directory that we were operating on. */
         char *dirname;    /* The filename of that directory itself. */
-        mode_t old_mode;  /* The original file mode. */
 } TodoEntry;
 
 static void free_todo_entries(TodoEntry **todos) {
@@ -283,22 +206,6 @@ int rm_rf_children(
                 int fd,
                 RemoveFlags flags,
                 const struct stat *root_dev) {
-
-        struct stat st;
-
-        assert(fd >= 0);
-
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        return rm_rf_children_impl(fd, flags, root_dev, st.st_mode);
-}
-
-static int rm_rf_children_impl(
-                int fd,
-                RemoveFlags flags,
-                const struct stat *root_dev,
-                mode_t old_mode) {
 
         _cleanup_(free_todo_entries) TodoEntry *todos = NULL;
         size_t n_todo = 0;
@@ -316,20 +223,14 @@ static int rm_rf_children_impl(
                          * We need to remove the inner directory we were operating on. */
                         assert(dirname);
                         r = unlinkat_harder(dirfd(todos[n_todo-1].dir), dirname, AT_REMOVEDIR, flags);
-                        if (r < 0 && r != -ENOENT) {
-                                if (ret == 0)
-                                        ret = r;
-
-                                if (FLAGS_SET(flags, REMOVE_CHMOD_RESTORE))
-                                        (void) fchmodat(dirfd(todos[n_todo-1].dir), dirname, old_mode & 07777, 0);
-                        }
+                        if (r < 0 && r != -ENOENT && ret == 0)
+                                ret = r;
                         dirname = mfree(dirname);
 
                         /* And now let's back out one level up */
                         n_todo --;
                         d = TAKE_PTR(todos[n_todo].dir);
                         dirname = TAKE_PTR(todos[n_todo].dirname);
-                        old_mode = todos[n_todo].old_mode;
 
                         assert(d);
                         fd = dirfd(d); /* Retrieve the file descriptor from the DIR object */
@@ -386,20 +287,12 @@ static int rm_rf_children_impl(
                                  if (!newdirname)
                                          return log_oom();
 
-                                 mode_t mode;
-                                 int newfd = openat_harder(fd, de->d_name,
-                                                           O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME,
-                                                           flags, &mode);
+                                 int newfd = RET_NERRNO(openat(fd, de->d_name,
+                                                               O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME));
                                  if (newfd >= 0) {
-                                         todos[n_todo++] = (TodoEntry) {
-                                                 .dir = TAKE_PTR(d),
-                                                 .dirname = TAKE_PTR(dirname),
-                                                 .old_mode = old_mode
-                                         };
-
+                                         todos[n_todo++] = (TodoEntry) { TAKE_PTR(d), TAKE_PTR(dirname) };
                                          fd = newfd;
                                          dirname = TAKE_PTR(newdirname);
-                                         old_mode = mode;
 
                                          goto next_fd;
 
@@ -413,20 +306,14 @@ static int rm_rf_children_impl(
                 if (FLAGS_SET(flags, REMOVE_SYNCFS) && syncfs(fd) < 0 && ret >= 0)
                         ret = -errno;
 
-                if (n_todo == 0) {
-                        if (FLAGS_SET(flags, REMOVE_CHMOD_RESTORE) &&
-                            fchmod(fd, old_mode & 07777) < 0 && ret >= 0)
-                                ret = -errno;
-
+                if (n_todo == 0)
                         break;
-                }
         }
 
         return ret;
 }
 
 int rm_rf(const char *path, RemoveFlags flags) {
-        mode_t old_mode;
         int fd, r, q = 0;
 
         assert(path);
@@ -458,10 +345,10 @@ int rm_rf(const char *path, RemoveFlags flags) {
                 /* Not btrfs or not a subvolume */
         }
 
-        fd = openat_harder(AT_FDCWD, path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME, flags, &old_mode);
+        fd = open(path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
         if (fd >= 0) {
                 /* We have a dir */
-                r = rm_rf_children_impl(fd, flags, NULL, old_mode);
+                r = rm_rf_children(fd, flags, NULL);
 
                 if (FLAGS_SET(flags, REMOVE_ROOT))
                         q = RET_NERRNO(rmdir(path));
