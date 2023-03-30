@@ -534,6 +534,11 @@ bool fdname_is_valid(const char *s) {
 int fd_get_path(int fd, char **ret) {
         int r;
 
+        assert(fd >= 0 || fd == AT_FDCWD);
+
+        if (fd == AT_FDCWD)
+                return safe_getcwd(ret);
+
         r = readlink_malloc(FORMAT_PROC_FD_PATH(fd), ret);
         if (r == -ENOENT) {
                 /* ENOENT can mean two things: that the fd does not exist or that /proc is not mounted. Let's make
