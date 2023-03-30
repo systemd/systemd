@@ -63,7 +63,7 @@ int get_file_version(int fd, char **ret) {
         struct stat st;
         char *buf;
         const char *s, *e;
-        char *x = NULL;
+        char *marker = NULL;
         int r;
 
         assert(fd >= 0);
@@ -73,42 +73,43 @@ int get_file_version(int fd, char **ret) {
                 return log_error_errno(errno, "Failed to stat EFI binary: %m");
 
         r = stat_verify_regular(&st);
-        if (r < 0)
-                return log_error_errno(r, "EFI binary is not a regular file: %m");
-
-        if (st.st_size < 27 || file_offset_beyond_memory_size(st.st_size)) {
-                *ret = NULL;
-                return 0;
+        if (r < 0) {
+                log_debug_errno(r, "EFI binary is not a regular file, assuming no version information: %m");
+                return -ESRCH;
         }
+
+        if (st.st_size < 27 || file_offset_beyond_memory_size(st.st_size))
+                return log_debug_errno(SYNTHETIC_ERRNO(ESRCH),
+                                       "EFI binary size too %s: %"PRIi64,
+                                       st.st_size < 27 ? "small" : "large", st.st_size);
 
         buf = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
         if (buf == MAP_FAILED)
-                return log_error_errno(errno, "Failed to memory map EFI binary: %m");
+                return log_error_errno(errno, "Failed to mmap EFI binary: %m");
 
         s = mempmem_safe(buf, st.st_size - 8, "#### LoaderInfo: ", 17);
         if (!s) {
-                r = -ESRCH;
+                r = log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "EFI binary has no LoaderInfo marker.");
                 goto finish;
         }
 
         e = memmem_safe(s, st.st_size - (s - buf), " ####", 5);
         if (!e || e - s < 3) {
-                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Malformed version string.");
+                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL), "EFI binary has malformed LoaderInfo marker.");
                 goto finish;
         }
 
-        x = strndup(s, e - s);
-        if (!x) {
+        marker = strndup(s, e - s);
+        if (!marker) {
                 r = log_oom();
                 goto finish;
         }
-        r = 1;
 
+        log_debug("EFI binary LoaderInfo marker: \"%s\"", marker);
+        r = 0;
+        *ret = marker;
 finish:
         (void) munmap(buf, st.st_size);
-        if (r >= 0)
-                *ret = x;
-
         return r;
 }
 
