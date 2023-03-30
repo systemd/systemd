@@ -1845,8 +1845,8 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
 
                 if (streq(argv[0], "enable"))
                         return start_machine(strv_length(new_args), new_args, userdata);
-                else
-                        return poweroff_machine(strv_length(new_args), new_args, userdata);
+
+                return poweroff_machine(strv_length(new_args), new_args, userdata);
         }
 
         return 0;
