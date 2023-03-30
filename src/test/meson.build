@@ -53,6 +53,7 @@ simple_tests += files(
         'test-cgroup-setup.c',
         'test-cgroup-util.c',
         'test-cgroup.c',
+        'test-chase.c',
         'test-clock.c',
         'test-compare-operator.c',
         'test-condition.c',
@@ -263,7 +264,7 @@ tests += [
                 'base' : test_core_base,
         },
         {
-                'sources' : files('test-chase.c'),
+                'sources' : files('test-chase-manual.c'),
                 'type' : 'manual',
         },
         {
