@@ -3512,7 +3512,7 @@ static int bus_add_match_full(
 
         struct bus_match_component *components = NULL;
         size_t n_components = 0;
-        sd_bus_slot *s = NULL;
+        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *s = NULL;
         int r = 0;
 
         assert_return(bus, -EINVAL);
@@ -3520,15 +3520,15 @@ static int bus_add_match_full(
         assert_return(match, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
+        CLEANUP_ARRAY(components, n_components, bus_match_parse_free);
+
         r = bus_match_parse(match, &components, &n_components);
         if (r < 0)
-                goto finish;
+                return r;
 
         s = bus_slot_allocate(bus, !slot, BUS_MATCH_CALLBACK, sizeof(struct match_callback), userdata);
-        if (!s) {
-                r = -ENOMEM;
-                goto finish;
-        }
+        if (!s)
+                return -ENOMEM;
 
         s->match_callback.callback = callback;
         s->match_callback.install_callback = install_callback;
@@ -3544,10 +3544,8 @@ static int bus_add_match_full(
                         /* We store the original match string, so that we can use it to remove the match again. */
 
                         s->match_callback.match_string = strdup(match);
-                        if (!s->match_callback.match_string) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
+                        if (!s->match_callback.match_string)
+                                return -ENOMEM;
 
                         if (asynchronous) {
                                 r = bus_add_match_internal_async(bus,
@@ -3557,7 +3555,7 @@ static int bus_add_match_full(
                                                                  s);
 
                                 if (r < 0)
-                                        goto finish;
+                                        return r;
 
                                 /* Make the slot of the match call floating now. We need the reference, but we don't
                                  * want that this match pins the bus object, hence we first create it non-floating, but
@@ -3566,7 +3564,7 @@ static int bus_add_match_full(
                         } else
                                 r = bus_add_match_internal(bus, s->match_callback.match_string, &s->match_callback.after);
                         if (r < 0)
-                                goto finish;
+                                return r;
 
                         s->match_added = true;
                 }
@@ -3575,17 +3573,13 @@ static int bus_add_match_full(
         bus->match_callbacks_modified = true;
         r = bus_match_add(&bus->match_callbacks, components, n_components, &s->match_callback);
         if (r < 0)
-                goto finish;
+                return r;
 
         if (slot)
                 *slot = s;
         s = NULL;
 
-finish:
-        bus_match_parse_free(components, n_components);
-        sd_bus_slot_unref(s);
-
-        return r;
+        return 0;
 }
 
 _public_ int sd_bus_add_match(

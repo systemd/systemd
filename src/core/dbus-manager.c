@@ -2233,8 +2233,7 @@ static int install_error(
                 int c,
                 InstallChange *changes,
                 size_t n_changes) {
-
-        int r;
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
         for (size_t i = 0; i < n_changes; i++)
 
@@ -2246,83 +2245,67 @@ static int install_error(
 
                 case -EEXIST:
                         if (changes[i].source)
-                                r = sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS,
-                                                      "File %s already exists and is a symlink to %s.",
-                                                      changes[i].path, changes[i].source);
+                                return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS,
+                                                         "File %s already exists and is a symlink to %s.",
+                                                         changes[i].path, changes[i].source);
                         else
-                                r = sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS,
-                                                      "File %s already exists.",
-                                                      changes[i].path);
-                        goto found;
+                                return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS,
+                                                         "File %s already exists.",
+                                                         changes[i].path);
 
                 case -ERFKILL:
-                        r = sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED,
-                                              "Unit file %s is masked.", changes[i].path);
-                        goto found;
+                        return sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED,
+                                                 "Unit file %s is masked.", changes[i].path);
 
                 case -EADDRNOTAVAIL:
-                        r = sd_bus_error_setf(error, BUS_ERROR_UNIT_GENERATED,
-                                              "Unit %s is transient or generated.", changes[i].path);
-                        goto found;
+                        return sd_bus_error_setf(error, BUS_ERROR_UNIT_GENERATED,
+                                                 "Unit %s is transient or generated.", changes[i].path);
 
                 case -ETXTBSY:
-                        r = sd_bus_error_setf(error, BUS_ERROR_UNIT_BAD_PATH,
-                                              "File %s is under the systemd unit hierarchy already.", changes[i].path);
-                        goto found;
+                        return sd_bus_error_setf(error, BUS_ERROR_UNIT_BAD_PATH,
+                                                 "File %s is under the systemd unit hierarchy already.", changes[i].path);
 
                 case -EBADSLT:
-                        r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
-                                              "Invalid specifier in %s.", changes[i].path);
-                        goto found;
+                        return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                                 "Invalid specifier in %s.", changes[i].path);
 
                 case -EIDRM:
-                        r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
-                                              "Destination unit %s is a non-template unit.", changes[i].path);
-                        goto found;
+                        return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                                 "Destination unit %s is a non-template unit.", changes[i].path);
 
                 case -EUCLEAN:
-                        r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
-                                              "\"%s\" is not a valid unit name.",
-                                              changes[i].path);
-                        goto found;
+                        return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                                 "\"%s\" is not a valid unit name.",
+                                                 changes[i].path);
 
                 case -ELOOP:
-                        r = sd_bus_error_setf(error, BUS_ERROR_UNIT_LINKED,
-                                              "Refusing to operate on alias name or linked unit file: %s",
-                                              changes[i].path);
-                        goto found;
+                        return sd_bus_error_setf(error, BUS_ERROR_UNIT_LINKED,
+                                                 "Refusing to operate on alias name or linked unit file: %s",
+                                                 changes[i].path);
 
                 case -EXDEV:
                         if (changes[i].source)
-                                r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
-                                                      "Cannot alias %s as %s.",
-                                                      changes[i].source, changes[i].path);
+                                return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                                         "Cannot alias %s as %s.",
+                                                         changes[i].source, changes[i].path);
                         else
-                                r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
-                                                      "Invalid unit reference %s.", changes[i].path);
-                        goto found;
+                                return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                                         "Invalid unit reference %s.", changes[i].path);
 
                 case -ENOENT:
-                        r = sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT,
-                                              "Unit file %s does not exist.", changes[i].path);
-                        goto found;
+                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT,
+                                                 "Unit file %s does not exist.", changes[i].path);
 
                 case -EUNATCH:
-                        r = sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
-                                              "Cannot resolve specifiers in %s.", changes[i].path);
-                        goto found;
+                        return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING,
+                                                 "Cannot resolve specifiers in %s.", changes[i].path);
 
                 default:
                         assert(changes[i].type < 0); /* other errors */
-                        r = sd_bus_error_set_errnof(error, changes[i].type, "File %s: %m", changes[i].path);
-                        goto found;
+                        return sd_bus_error_set_errnof(error, changes[i].type, "File %s: %m", changes[i].path);
                 }
 
-        r = c < 0 ? c : -EINVAL;
-
- found:
-        install_changes_free(changes, n_changes);
-        return r;
+        return c < 0 ? c : -EINVAL;
 }
 
 static int reply_install_changes_and_free(
@@ -2726,6 +2709,8 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
         const char *name;
         int runtime, r;
 
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
         r = sd_bus_message_read(message, "sb", &name, &runtime);
         if (r < 0)
                 return r;
@@ -2741,27 +2726,21 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
         r = unit_file_disable(m->runtime_scope,
                               UNIT_FILE_DRY_RUN | (runtime ? UNIT_FILE_RUNTIME : 0),
                               NULL, STRV_MAKE(name), &changes, &n_changes);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get file links for %s: %m", name);
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get file links for %s: %m", name);
 
         for (i = 0; i < n_changes; i++)
                 if (changes[i].type == INSTALL_CHANGE_UNLINK) {
                         r = sd_bus_message_append(reply, "s", changes[i].path);
                         if (r < 0)
-                                goto finish;
+                                return r;
                 }
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
-                goto finish;
+                return r;
 
-        r = sd_bus_send(NULL, reply, NULL);
-
-finish:
-        install_changes_free(changes, n_changes);
-        return r;
+        return sd_bus_send(NULL, reply, NULL);
 }
 
 static int method_get_job_waiting(sd_bus_message *message, void *userdata, sd_bus_error *error) {
