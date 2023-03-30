@@ -195,7 +195,7 @@ int chaseat(
         }
 
         /* If we get AT_FDCWD, we always resolve symlinks relative to the host's root. Only if a positive
-         * directory file descriptor is provided will we look at CHASE_AT_RESOLVE_IN_ROOT to determine
+         * directory file descriptor is provided we will look at CHASE_AT_RESOLVE_IN_ROOT to determine
          * whether to resolve symlinks in it or not. */
         if (dir_fd >= 0 && FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT))
                 root_fd = openat(dir_fd, ".", O_CLOEXEC|O_DIRECTORY|O_PATH);
@@ -517,9 +517,9 @@ int chase(
         path = path_startswith(absolute, empty_to_root(root));
         if (!path)
                 return log_full_errno(flags & CHASE_WARN ? LOG_WARNING : LOG_DEBUG,
-                                        SYNTHETIC_ERRNO(ECHRNG),
-                                        "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
-                                        absolute, empty_to_root(root));
+                                      SYNTHETIC_ERRNO(ECHRNG),
+                                      "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
+                                      absolute, empty_to_root(root));
 
         fd = open(empty_to_root(root), O_CLOEXEC|O_DIRECTORY|O_PATH);
         if (fd < 0)
