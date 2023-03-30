@@ -922,4 +922,23 @@ TEST(parse_loadavg_fixed_point) {
         assert_se(parse_loadavg_fixed_point("", &fp) == -EINVAL);
 }
 
+TEST(pcr_from_string) {
+        assert_se(pcr_number_from_string((char*)"core-firmware") == 0);
+        assert_se(pcr_number_from_string((char*)"platform-config") == 1);
+        assert_se(pcr_number_from_string((char*)"external-code") == 2);
+        assert_se(pcr_number_from_string((char*)"external-firmware") == 3);
+        assert_se(pcr_number_from_string((char*)"boot-loader") == 4);
+        assert_se(pcr_number_from_string((char*)"boot-loader-config") == 5);
+        assert_se(pcr_number_from_string((char*)"host-platform") == 6);
+        assert_se(pcr_number_from_string((char*)"secure-boot-policy") == 7);
+        assert_se(pcr_number_from_string((char*)"kernel-initrd") == 9);
+        assert_se(pcr_number_from_string((char*)"ima") == 10);
+        assert_se(pcr_number_from_string((char*)"kernel-image-phase") == 11);
+        assert_se(pcr_number_from_string((char*)"kernel-config") == 12);
+        assert_se(pcr_number_from_string((char*)"sysext-image") == 13);
+        assert_se(pcr_number_from_string((char*)"shim-policy") == 14);
+        assert_se(pcr_number_from_string((char*)"system-identity") == 15);
+        assert_se(pcr_number_from_string((char*)"hello") == -EINVAL);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
