@@ -97,11 +97,8 @@ struct DnsTransaction {
         /* The features of the DNS server at time of transaction start */
         DnsServerFeatureLevel current_feature_level;
 
-        /* If we got SERVFAIL back, we retry the lookup, using a lower feature level than we used
-         * before. Similar, if we get NXDOMAIN in pure EDNS0 mode, we check in EDNS0-less mode before giving
-         * up (as mitigation for DVE-2018-0001). */
+        /* If we got SERVFAIL back, we retry the lookup, using a lower feature level than we used before. */
         DnsServerFeatureLevel clamp_feature_level_servfail;
-        DnsServerFeatureLevel clamp_feature_level_nxdomain;
 
         uint16_t id;
 
