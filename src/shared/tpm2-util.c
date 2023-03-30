@@ -20,6 +20,7 @@
 #include "random-util.h"
 #include "sha256.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "time-util.h"
 #include "tpm2-util.h"
 #include "virt.h"
@@ -2610,14 +2611,10 @@ int tpm2_pcr_mask_from_string(const char *arg, uint32_t *ret_mask) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse PCR list: %s", arg);
 
-                r = safe_atou(pcr, &n);
+                r = pcr_index_from_string(pcr);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse PCR number: %s", pcr);
-                if (n >= TPM2_PCRS_MAX)
-                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
-                                               "PCR number out of range (valid range 0…%u): %u",
-                                               TPM2_PCRS_MAX - 1, n);
-
+                        return log_error_errno(r, "Failed to parse specified PCR or specified PCR is out of range: %s", pcr);
+                n = r;
                 SET_BIT(mask, n);;
         }
 
@@ -3115,3 +3112,24 @@ int tpm2_util_pbkdf2_hmac_sha256(const void *pass,
 
         return 0;
 }
+
+static const char* const pcr_index_table[_PCR_INDEX_MAX_DEFINED] = {
+        [PCR_PLATFORM_CODE]       = "platform-code",
+        [PCR_PLATFORM_CONFIG]     = "platform-config",
+        [PCR_EXTERNAL_CODE]       = "external-code",
+        [PCR_EXTERNAL_CONFIG]     = "external-config",
+        [PCR_BOOT_LOADER_CODE]    = "boot-loader-code",
+        [PCR_BOOT_LOADER_CONFIG]  = "boot-loader-config",
+        [PCR_SECURE_BOOT_POLICY]  = "secure-boot-policy",
+        [PCR_KERNEL_INITRD]       = "kernel-initrd",
+        [PCR_IMA]                 = "ima",
+        [PCR_KERNEL_BOOT]         = "kernel-boot",
+        [PCR_KERNEL_CONFIG]       = "kernel-config",
+        [PCR_SYSEXTS]             = "sysexts",
+        [PCR_SHIM_POLICY]         = "shim-policy",
+        [PCR_SYSTEM_IDENTITY]     = "system-identity",
+        [PCR_DEBUG]               = "debug",
+        [PCR_APPLICATION_SUPPORT] = "application-support",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_FALLBACK(pcr_index, int, TPM2_PCRS_MAX);
