@@ -1041,7 +1041,7 @@ manpages = [
  ['systemd-sysctl.service', '8', ['systemd-sysctl'], ''],
  ['systemd-sysext',
   '8',
-  ['systemd-syscfg', 'systemd-syscfg.service', 'systemd-sysext.service'],
+  ['systemd-confext', 'systemd-confext.service', 'systemd-sysext.service'],
   ''],
  ['systemd-system-update-generator', '8', [], ''],
  ['systemd-system.conf',

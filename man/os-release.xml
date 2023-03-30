@@ -443,13 +443,13 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>SYSCFG_LEVEL=</varname></term>
+          <term><varname>CONFEXT_LEVEL=</varname></term>
 
-          <listitem><para>Semantically the same as <varname>SYSEXT_LEVEL=</varname> but for syscfg images.
-          See <filename>/etc/syscfg-release.d/syscfg-release.<replaceable>IMAGE</replaceable></filename>
+          <listitem><para>Semantically the same as <varname>SYSEXT_LEVEL=</varname> but for confext images.
+          See <filename>/etc/confext-release.d/confext-release.<replaceable>IMAGE</replaceable></filename>
           for more information.</para>
 
-          <para>Examples: <literal>SYSCFG_LEVEL=2</literal>, <literal>SYSCFG_LEVEL=15.14</literal>.
+          <para>Examples: <literal>CONFEXT_LEVEL=2</literal>, <literal>CONFEXT_LEVEL=15.14</literal>.
           </para></listitem>
         </varlistentry>
 
@@ -465,9 +465,9 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>SYSCFG_SCOPE=</varname></term>
+          <term><varname>CONFEXT_SCOPE=</varname></term>
 
-          <listitem><para>Semantically the same as <varname>SYSEXT_SCOPE=</varname> but for syscfg images.</para></listitem>
+          <listitem><para>Semantically the same as <varname>SYSEXT_SCOPE=</varname> but for confext images.</para></listitem>
         </varlistentry>
 
         <varlistentry>

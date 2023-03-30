@@ -1,4 +1,4 @@
-# systemd-syscfg(8) completion                        -*- shell-script -*-
+# systemd-confext(8) completion                        -*- shell-script -*-
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # This file is part of systemd.
@@ -23,7 +23,7 @@ __contains_word() {
     done
 }
 
-_systemd-syscfg() {
+_systemd-confext() {
     local i verb comps
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
     local -A OPTS=(
@@ -82,4 +82,4 @@ _systemd-syscfg() {
     return 0
 }
 
-complete -F _systemd-syscfg systemd-syscfg
+complete -F _systemd-confext systemd-confext

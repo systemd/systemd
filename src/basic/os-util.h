@@ -9,7 +9,7 @@ typedef enum ImageClass {
         IMAGE_MACHINE,
         IMAGE_PORTABLE,
         IMAGE_EXTENSION,
-        IMAGE_SYSCFG,
+        IMAGE_CONFEXT,
         _IMAGE_CLASS_MAX,
         _IMAGE_CLASS_INVALID = -EINVAL,
 } ImageClass;

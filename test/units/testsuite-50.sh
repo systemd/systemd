@@ -472,16 +472,16 @@ test ! -e "/dev/loop/by-ref/$name"
 systemd-dissect --detach "${image}.raw"
 (! systemd-dissect --detach "${image}.raw")
 
-# check for syscfg functionality
-mkdir -p /run/syscfgs/test/etc/syscfg-release.d
-echo "ID=_any" >/run/syscfgs/test/etc/syscfg-release.d/syscfg-release.test
-echo "ARCHITECTURE=_any" >>/run/syscfgs/test/etc/syscfg-release.d/syscfg-release.test
-echo "MARKER_SYSCFG_123" >/run/syscfgs/test/etc/testfile
-systemd-syscfg merge
-grep -q -F "MARKER_SYSCFG_123" /etc/testfile
-systemd-syscfg status
-systemd-syscfg unmerge
-rm -rf /run/syscfgs/
+# check for confext functionality
+mkdir -p /run/confexts/test/etc/confext-release.d
+echo "ID=_any" >/run/confexts/test/etc/confext-release.d/confext-release.test
+echo "ARCHITECTURE=_any" >>/run/confexts/test/etc/confext-release.d/confext-release.test
+echo "MARKER_CONFEXT_123" >/run/confexts/test/etc/testfile
+systemd-confext merge
+grep -q -F "MARKER_CONFEXT_123" /etc/testfile
+systemd-confext status
+systemd-confext unmerge
+rm -rf /run/confexts/
 
 echo OK >/testok
 
