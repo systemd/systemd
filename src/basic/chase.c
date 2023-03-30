@@ -103,6 +103,9 @@ int chaseat(
         if (isempty(path))
                 path = ".";
 
+        if (dir_fd == AT_FDCWD)
+                flags &= ~CHASE_AT_RESOLVE_IN_ROOT;
+
         /* This function resolves symlinks of the path relative to the given directory file descriptor. If
          * CHASE_AT_RESOLVE_IN_ROOT is specified and a directory file descriptor is provided, symlinks
          * are resolved relative to the given directory file descriptor. Otherwise, they are resolved
