@@ -26,6 +26,53 @@ TEST(tpm2_mask_from_string) {
         test_tpm2_pcr_mask_from_string_one("0,2", 5, 0);
         test_tpm2_pcr_mask_from_string_one("0+2", 5, 0);
         test_tpm2_pcr_mask_from_string_one("foo", 0, -EINVAL);
+        test_tpm2_pcr_mask_from_string_one("7+application-support", 8388736, 0);
+        test_tpm2_pcr_mask_from_string_one("8+boot-loader-code", 272, 0);
+        test_tpm2_pcr_mask_from_string_one("6+boot-loader-code,44", 0, -EINVAL);
+        test_tpm2_pcr_mask_from_string_one("7,shim-policy,4", 16528, 0);
+        test_tpm2_pcr_mask_from_string_one("sysexts,shim-policy+kernel-boot", 26624, 0);
+        test_tpm2_pcr_mask_from_string_one("sysexts,shim+kernel-boot", 0, -EINVAL);
+        test_tpm2_pcr_mask_from_string_one("sysexts+17+23", 8527872, 0);
+        test_tpm2_pcr_mask_from_string_one("debug+24", 16842752, 0);
+}
+
+TEST(pcr_index_from_string) {
+        assert_se(pcr_index_from_string("platform-code") == 0);
+        assert_se(pcr_index_from_string("0") == 0);
+        assert_se(pcr_index_from_string("platform-config") == 1);
+        assert_se(pcr_index_from_string("1") == 1);
+        assert_se(pcr_index_from_string("external-code") == 2);
+        assert_se(pcr_index_from_string("2") == 2);
+        assert_se(pcr_index_from_string("external-config") == 3);
+        assert_se(pcr_index_from_string("3") == 3);
+        assert_se(pcr_index_from_string("boot-loader-code") == 4);
+        assert_se(pcr_index_from_string("4") == 4);
+        assert_se(pcr_index_from_string("boot-loader-config") == 5);
+        assert_se(pcr_index_from_string("5") == 5);
+        assert_se(pcr_index_from_string("secure-boot-policy") == 7);
+        assert_se(pcr_index_from_string("7") == 7);
+        assert_se(pcr_index_from_string("kernel-initrd") == 9);
+        assert_se(pcr_index_from_string("9") == 9);
+        assert_se(pcr_index_from_string("ima") == 10);
+        assert_se(pcr_index_from_string("10") == 10);
+        assert_se(pcr_index_from_string("kernel-boot") == 11);
+        assert_se(pcr_index_from_string("11") == 11);
+        assert_se(pcr_index_from_string("kernel-config") == 12);
+        assert_se(pcr_index_from_string("12") == 12);
+        assert_se(pcr_index_from_string("sysexts") == 13);
+        assert_se(pcr_index_from_string("13") == 13);
+        assert_se(pcr_index_from_string("shim-policy") == 14);
+        assert_se(pcr_index_from_string("14") == 14);
+        assert_se(pcr_index_from_string("system-identity") == 15);
+        assert_se(pcr_index_from_string("15") == 15);
+        assert_se(pcr_index_from_string("debug") == 16);
+        assert_se(pcr_index_from_string("16") == 16);
+        assert_se(pcr_index_from_string("application-support") == 23);
+        assert_se(pcr_index_from_string("23") == 23);
+        assert_se(pcr_index_from_string("hello") == -EINVAL);
+        assert_se(pcr_index_from_string("8") == 8);
+        assert_se(pcr_index_from_string("44") == -EINVAL);
+        assert_se(pcr_index_from_string("-5") == -EINVAL);
 }
 
 TEST(tpm2_util_pbkdf2_hmac_sha256) {
