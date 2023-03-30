@@ -60,6 +60,9 @@
     files. Some metadata is attached to core files in the form of extended attributes, so the core files are
     useful for some purposes even without the full metadata available in the journal entry.</para>
 
+    <para>For further details see <ulink url="https://systemd.io/COREDUMP">systemd Coredump
+    Handling</ulink>.</para>
+
     <refsect2>
       <title>Invocation of <command>systemd-coredump</command></title>
 
@@ -431,7 +434,8 @@ user.coredump.exe="/usr/lib64/firefox/firefox"
       <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-sysctl.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      <citerefentry><refentrytitle>systemd-sysctl.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <ulink url="https://systemd.io/COREDUMP">systemd Coredump Handling</ulink>
     </para>
   </refsect1>
 </refentry>
