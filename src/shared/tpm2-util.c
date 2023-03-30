@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <ctype.h>
+
 #include "alloc-util.h"
 #include "constants.h"
 #include "cryptsetup-util.h"
@@ -2354,6 +2356,12 @@ int tpm2_pcr_mask_from_string(const char *arg, uint32_t *ret_mask) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse PCR list: %s", arg);
 
+                if (isalpha(pcr[0])) {
+                r = named_pcr(pcr, &n);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse register name: %s", pcr);
+                }
+                else {
                 r = safe_atou(pcr, &n);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse PCR number: %s", pcr);
@@ -2361,7 +2369,7 @@ int tpm2_pcr_mask_from_string(const char *arg, uint32_t *ret_mask) {
                         return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
                                                "PCR number out of range (valid range 0…%u): %u",
                                                TPM2_PCRS_MAX - 1, n);
-
+                }
                 SET_BIT(mask, n);;
         }
 
