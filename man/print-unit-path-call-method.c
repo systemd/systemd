@@ -28,7 +28,7 @@ static int log_error(int error, const char *message) {
 
 int main(int argc, char **argv) {
   _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-  _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
+  _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
   _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
   int r;
 
@@ -36,16 +36,7 @@ int main(int argc, char **argv) {
   if (r < 0)
     return log_error(r, "Failed to acquire bus");
 
-  r = sd_bus_message_new_method_call(bus, &m,
-                                     DESTINATION, PATH, INTERFACE, MEMBER);
-  if (r < 0)
-    return log_error(r, "Failed to create bus message");
-
-  r = sd_bus_message_append(m, "u", (unsigned) getpid());
-  if (r < 0)
-    return log_error(r, "Failed to append to bus message");
-
-  r = sd_bus_call(bus, m, -1, &error, &reply);
+  r = sd_bus_call_method(bus, DESTINATION, PATH, INTERFACE,  MEMBER, &error, &reply, "u", (unsigned) getpid());
   if (r < 0)
     return log_error(r, MEMBER " call failed");
 
