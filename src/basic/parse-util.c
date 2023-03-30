@@ -732,3 +732,40 @@ int parse_loadavg_fixed_point(const char *s, loadavg_t *ret) {
 
         return store_loadavg_fixed_point(i, f, ret);
 }
+
+int named_pcr(char *pcr, unsigned *n){
+        if (streq(pcr, "corefirmware"))
+                *n = 0;
+        else if (streq(pcr, "platformconfig"))
+                *n = 1;
+        else if (streq(pcr, "extcode"))
+                *n = 2;
+        else if (streq(pcr, "extfirmware"))
+                *n = 3;
+        else if (streq(pcr, "bootloader"))
+                *n = 4;
+        else if (streq(pcr, "gptpartition"))
+                *n = 5;
+        else if (streq(pcr, "powerstate"))
+                *n = 6;
+        else if (streq(pcr, "secureboot"))
+                *n = 7;
+        else if (streq(pcr, "linuxkernel"))
+                *n = 9;
+        else if (streq(pcr, "imastate"))
+                *n = 10;
+        else if (streq(pcr, "systemdkernel"))
+                *n = 11;
+        else if (streq(pcr, "systemdboot"))
+                *n = 12;
+        else if (streq(pcr, "systemdstub"))
+                *n = 13;
+        else if (streq(pcr, "shimcerts"))
+                *n = 14;
+        else if (streq(pcr, "lukskey"))
+                *n = 15;
+        else
+                return -EINVAL;
+
+        return 0;
+}
