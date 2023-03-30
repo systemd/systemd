@@ -195,7 +195,7 @@ int chaseat(
         }
 
         /* If we get AT_FDCWD, we always resolve symlinks relative to the host's root. Only if a positive
-         * directory file descriptor is provided will we look at CHASE_AT_RESOLVE_IN_ROOT to determine
+         * directory file descriptor is provided we will look at CHASE_AT_RESOLVE_IN_ROOT to determine
          * whether to resolve symlinks in it or not. */
         if (dir_fd >= 0 && FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT))
                 root_fd = openat(dir_fd, ".", O_CLOEXEC|O_DIRECTORY|O_PATH);
