@@ -5336,7 +5336,7 @@ static int context_open_copy_block_paths(
                                 devt = st.st_dev;
                         else {
                                 /* Special support for btrfs */
-                                r = btrfs_get_block_device_fd(source_fd, &devt);
+                                r = btrfs_get_block_device_at(source_fd, "", &devt);
                                 if (r == -EUCLEAN)
                                         return btrfs_log_dev_root(LOG_ERR, r, opened);
                                 if (r < 0)
@@ -6199,7 +6199,7 @@ static int acquire_root_devno(
 
                 devno = st.st_dev;
                 if (major(devno) == 0) {
-                        r = btrfs_get_block_device_fd(fd, &devno);
+                        r = btrfs_get_block_device_at(fd, "", &devno);
                         if (r == -ENOTTY) /* not btrfs */
                                 return -ENODEV;
                         if (r < 0)
