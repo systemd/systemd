@@ -9,6 +9,7 @@
 #include "data-fd-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
@@ -631,6 +632,122 @@ TEST(dir_fd_is_root) {
 
         assert_se((fd = open(y, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
         assert_se(dir_fd_is_root(fd) == 0);
+}
+
+TEST(fd_get_path) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        _cleanup_free_ char *p = NULL, *q = NULL, *saved_cwd = NULL;
+
+        tfd = mkdtemp_open(NULL, O_PATH, &t);
+        assert_se(tfd >= 0);
+        assert_se(fd_get_path(tfd, &p) >= 0);
+        assert_se(streq(p, t));
+
+        p = mfree(p);
+
+        assert_se(safe_getcwd(&saved_cwd) >= 0);
+        assert_se(chdir(t) >= 0);
+
+        assert_se(fd_get_path(AT_FDCWD, &p) >= 0);
+        assert_se(streq(p, t));
+
+        p = mfree(p);
+
+        assert_se(q = path_join(t, "regular"));
+        assert_se(touch(q) >= 0);
+        assert_se(mkdirat_parents(tfd, "subdir/symlink", 0755) >= 0);
+        assert_se(symlinkat("../regular", tfd, "subdir/symlink") >= 0);
+        assert_se(symlinkat("subdir", tfd, "symdir") >= 0);
+
+        fd = openat(tfd, "regular", O_CLOEXEC|O_PATH);
+        assert_se(fd >= 0);
+        assert_se(fd_get_path(fd, &p) >= 0);
+        assert_se(streq(p, q));
+
+        p = mfree(p);
+        fd = safe_close(fd);
+
+        fd = openat(AT_FDCWD, "regular", O_CLOEXEC|O_PATH);
+        assert_se(fd >= 0);
+        assert_se(fd_get_path(fd, &p) >= 0);
+        assert_se(streq(p, q));
+
+        p = mfree(p);
+        fd = safe_close(fd);
+
+        fd = openat(tfd, "subdir/symlink", O_CLOEXEC|O_PATH);
+        assert_se(fd >= 0);
+        assert_se(fd_verify_regular(fd) >= 0);
+        assert_se(fd_get_path(fd, &p) >= 0);
+        assert_se(streq(p, q));
+
+        p = mfree(p);
+        fd = safe_close(fd);
+
+        fd = openat(AT_FDCWD, "subdir/symlink", O_CLOEXEC|O_PATH);
+        assert_se(fd >= 0);
+        assert_se(fd_verify_regular(fd) >= 0);
+        assert_se(fd_get_path(fd, &p) >= 0);
+        assert_se(streq(p, q));
+
+        p = mfree(p);
+        fd = safe_close(fd);
+
+        fd = openat(tfd, "symdir//./symlink", O_CLOEXEC|O_PATH);
+        assert_se(fd >= 0);
+        assert_se(fd_verify_regular(fd) >= 0);
+        assert_se(fd_get_path(fd, &p) >= 0);
+        assert_se(streq(p, q));
+
+        p = mfree(p);
+        fd = safe_close(fd);
+
+        fd = openat(AT_FDCWD, "symdir//./symlink", O_CLOEXEC|O_PATH);
+        assert_se(fd >= 0);
+        assert_se(fd_verify_regular(fd) >= 0);
+        assert_se(fd_get_path(fd, &p) >= 0);
+        assert_se(streq(p, q));
+
+        p = mfree(p);
+        q = mfree(q);
+        fd = safe_close(fd);
+
+        assert_se(q = path_join(t, "subdir/symlink"));
+        fd = openat(tfd, "subdir/symlink", O_CLOEXEC|O_PATH|O_NOFOLLOW);
+        assert_se(fd >= 0);
+        assert_se(fd_verify_regular(fd) == -ELOOP);
+        assert_se(fd_get_path(fd, &p) >= 0);
+        assert_se(streq(p, q));
+
+        p = mfree(p);
+        fd = safe_close(fd);
+
+        fd = openat(AT_FDCWD, "subdir/symlink", O_CLOEXEC|O_PATH|O_NOFOLLOW);
+        assert_se(fd >= 0);
+        assert_se(fd_verify_regular(fd) == -ELOOP);
+        assert_se(fd_get_path(fd, &p) >= 0);
+        assert_se(streq(p, q));
+
+        p = mfree(p);
+        fd = safe_close(fd);
+
+        fd = openat(tfd, "symdir//./symlink", O_CLOEXEC|O_PATH|O_NOFOLLOW);
+        assert_se(fd >= 0);
+        assert_se(fd_verify_regular(fd) == -ELOOP);
+        assert_se(fd_get_path(fd, &p) >= 0);
+        assert_se(streq(p, q));
+
+        p = mfree(p);
+        fd = safe_close(fd);
+
+        fd = openat(AT_FDCWD, "symdir//./symlink", O_CLOEXEC|O_PATH|O_NOFOLLOW);
+        assert_se(fd >= 0);
+        assert_se(fd_verify_regular(fd) == -ELOOP);
+        assert_se(fd_get_path(fd, &p) >= 0);
+        assert_se(streq(p, q));
+
+        assert_se(chdir(saved_cwd) >= 0);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
