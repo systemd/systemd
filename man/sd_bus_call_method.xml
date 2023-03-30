@@ -127,6 +127,19 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Make a call to a D-Bus method that takes a single parameter</title>
+
+      <programlisting><xi:include href="print-unit-path-call-method.c" parse="text" /></programlisting>
+      <para>This defines a minimally useful program that will open a connection to the bus, call a method,
+      wait for the reply, and finally extract and print the answer. It does error handling and proper
+      memory management.</para>
+    </example>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>
