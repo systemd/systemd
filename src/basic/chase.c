@@ -539,10 +539,10 @@ int chase(
         if (fd < 0)
                 return -errno;
 
-        flags |= CHASE_AT_RESOLVE_IN_ROOT;
-        flags &= ~CHASE_PREFIX_ROOT;
+        if (!empty_or_root(root))
+                flags |= CHASE_AT_RESOLVE_IN_ROOT;
 
-        r = chaseat(fd, path, flags, ret_path ? &p : NULL, ret_fd ? &pfd : NULL);
+        r = chaseat(fd, path, flags & ~CHASE_PREFIX_ROOT, ret_path ? &p : NULL, ret_fd ? &pfd : NULL);
         if (r < 0)
                 return r;
 
