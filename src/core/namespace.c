@@ -1423,19 +1423,20 @@ static int apply_one_mount(
                 if (isempty(host_os_release_id))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'ID' field not found or empty in 'os-release' data of OS tree '%s': %m", empty_to_root(root_directory));
 
-                r = load_extension_release_pairs(mount_entry_source(m), extension_name, /* relax_extension_release_check= */ false, &extension_release);
+                r = load_extension_release_pairs(mount_entry_source(m), IMAGE_EXTENSION, extension_name, /* relax_extension_release_check= */ false, &extension_release);
                 if (r == -ENOENT && m->ignore)
                         return 0;
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse directory %s extension-release metadata: %m", extension_name);
 
-                r = extension_release_validate(
+                r = release_file_validate(
                                 extension_name,
                                 host_os_release_id,
                                 host_os_release_version_id,
                                 host_os_release_sysext_level,
                                 /* host_sysext_scope */ NULL, /* Leave empty, we need to accept both system and portable */
-                                extension_release);
+                                extension_release,
+                                IMAGE_EXTENSION);
                 if (r == 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Directory %s extension-release metadata does not match the root's", extension_name);
                 if (r < 0)
@@ -2155,7 +2156,7 @@ int setup_namespace(
         }
 
         if (n_extension_images > 0 || !strv_isempty(extension_directories)) {
-                r = parse_env_extension_hierarchies(&hierarchies);
+                r = parse_env_extension_hierarchies(&hierarchies, "SYSTEMD_SYSEXT_HIERARCHIES");
                 if (r < 0)
                         return r;
         }
