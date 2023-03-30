@@ -649,6 +649,11 @@ TEST(fd_get_path) {
         assert_se(safe_getcwd(&saved_cwd) >= 0);
         assert_se(chdir(t) >= 0);
 
+        assert_se(fd_get_path(AT_FDCWD, &p) >= 0);
+        assert_se(streq(p, t));
+
+        p = mfree(p);
+
         assert_se(q = path_join(t, "regular"));
         assert_se(touch(q) >= 0);
         assert_se(mkdirat_parents(tfd, "subdir/symlink", 0755) >= 0);
