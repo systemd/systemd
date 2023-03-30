@@ -1,0 +1,18 @@
+name: Make a Github release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          draft: ${{ github.repository == 'systemd/systemd' }}
