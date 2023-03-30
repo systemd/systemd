@@ -4397,6 +4397,44 @@ static int collect_open_file_fds(
         return 0;
 }
 
+static bool exec_context_need_unprivileged_private_users(const ExecContext *context, const Manager *manager) {
+        assert(context);
+        assert(manager);
+
+        /* These options require PrivateUsers= when used in user units, as we need to be in a user namespace
+         * to have permission to enable them when not running as root. If we have effective CAP_SYS_ADMIN
+         * (system manager) then we have privileges and don't need this. */
+        if (MANAGER_IS_SYSTEM(manager))
+                return false;
+
+        return context->private_users ||
+               context->private_tmp ||
+               context->private_devices ||
+               context->private_network ||
+               context->network_namespace_path ||
+               context->private_ipc ||
+               context->ipc_namespace_path ||
+               context->private_mounts ||
+               context->mount_apivfs ||
+               context->n_bind_mounts > 0 ||
+               context->n_temporary_filesystems > 0 ||
+               context->root_directory ||
+               !strv_isempty(context->extension_directories) ||
+               context->protect_system != PROTECT_SYSTEM_NO ||
+               context->protect_home != PROTECT_HOME_NO ||
+               context->protect_kernel_tunables ||
+               context->protect_kernel_modules ||
+               context->protect_kernel_logs ||
+               context->protect_control_groups ||
+               context->protect_clock ||
+               context->protect_hostname ||
+               !strv_isempty(context->read_write_paths) ||
+               !strv_isempty(context->read_only_paths) ||
+               !strv_isempty(context->inaccessible_paths) ||
+               !strv_isempty(context->exec_paths) ||
+               !strv_isempty(context->no_exec_paths);
+}
+
 static int exec_child(
                 Unit *unit,
                 const ExecCommand *command,
@@ -5030,17 +5068,22 @@ static int exec_child(
                 }
         }
 
-        if (needs_sandboxing && context->private_users && have_effective_cap(CAP_SYS_ADMIN) <= 0) {
+        if (needs_sandboxing && exec_context_need_unprivileged_private_users(context, unit->manager)) {
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
                  * set up the all of the other namespaces (i.e. network, mount, UTS) without a user namespace. */
 
-                userns_set_up = true;
                 r = setup_private_users(saved_uid, saved_gid, uid, gid);
-                if (r < 0) {
+                /* If it was requested explicitly and we can't set it up, fail early. Otherwise, continue and let
+                 * the actual requested operations fail (or silently continue). */
+                if (r < 0 && context->private_users) {
                         *exit_status = EXIT_USER;
                         return log_unit_error_errno(unit, r, "Failed to set up user namespacing for unprivileged user: %m");
                 }
+                if (r < 0)
+                        log_unit_info_errno(unit, r, "Failed to set up user namespacing for unprivileged user, ignoring: %m");
+                else
+                        userns_set_up = true;
         }
 
         if (exec_needs_network_namespace(context) && runtime && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
