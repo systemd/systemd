@@ -85,7 +85,7 @@ simple_tests += files(
 tests += [
         {
                 'sources' : files('test-inhibit.c'),
-                'type' : 'manual',
+                'type' : 'unsafe',
         },
         {
                 'sources' : files('test-login-tables.c'),
