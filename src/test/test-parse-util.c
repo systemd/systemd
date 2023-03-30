@@ -922,4 +922,23 @@ TEST(parse_loadavg_fixed_point) {
         assert_se(parse_loadavg_fixed_point("", &fp) == -EINVAL);
 }
 
+TEST(pcr_from_string) {
+        assert_se(pcr_number_from_string("core-firmware") == 0);
+        assert_se(pcr_number_from_string("platform-config") == 1);
+        assert_se(pcr_number_from_string("external-code") == 2);
+        assert_se(pcr_number_from_string("external-firmware") == 3);
+        assert_se(pcr_number_from_string("boot-loader") == 4);
+        assert_se(pcr_number_from_string("boot-loader-config") == 5);
+        assert_se(pcr_number_from_string("host-platform") == 6);
+        assert_se(pcr_number_from_string("secure-boot-policy") == 7);
+        assert_se(pcr_number_from_string("kernel-initrd") == 9);
+        assert_se(pcr_number_from_string("ima") == 10);
+        assert_se(pcr_number_from_string("kernel-image-phase") == 11);
+        assert_se(pcr_number_from_string("kernel-config") == 12);
+        assert_se(pcr_number_from_string("sysext-image") == 13);
+        assert_se(pcr_number_from_string("shim-policy") == 14);
+        assert_se(pcr_number_from_string("system-identity") == 15);
+        assert_se(pcr_number_from_string("hello") == -EINVAL);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
