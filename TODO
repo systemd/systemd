@@ -1310,10 +1310,6 @@ Features:
 * busctl: maybe expose a verb "ping" for pinging a dbus service to see if it
   exists and responds.
 
-* Maybe add a separate GPT partition type to the discoverable partition spec
-  for "hibernate" partitions, that are exactly like swap partitions but only
-  activated right before hibernation and thus never used for regular swapping.
-
 * socket units: allow creating a udev monitor socket with ListenDevices= or so,
   with matches, then activate app through that passing socket over
 
@@ -1362,9 +1358,6 @@ Features:
   https://bugs.freedesktop.org/show_bug.cgi?id=69447
 
 * teach parse_timestamp() timezones like the calendar spec already knows it
-
-* beef up hibernation to optionally do swapon/swapoff immediately before/after
-  the hibernation
 
 * beef up s2h to implement a battery watch loop: instead of entering
   hibernation unconditionally after coming back from resume make a decision
