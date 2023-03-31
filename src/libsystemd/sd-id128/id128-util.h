@@ -18,8 +18,11 @@ typedef enum Id128FormatFlag {
         ID128_SYNC_ON_WRITE = 1 << 2, /* Sync the file after write. Used only when writing an ID. */
 } Id128FormatFlag;
 
-int id128_read_fd(int fd, Id128FormatFlag f, sd_id128_t *ret);
-int id128_read(const char *root, const char *p, Id128FormatFlag f, sd_id128_t *ret);
+int id128_read_at(int dir_fd, const char *path, Id128FormatFlag f, sd_id128_t *ret);
+int id128_read(const char *root, const char *path, Id128FormatFlag f, sd_id128_t *ret);
+static inline int id128_read_fd(int fd, Id128FormatFlag f, sd_id128_t *ret) {
+        return id128_read_at(fd, "", f, ret);
+}
 
 int id128_write_fd(int fd, Id128FormatFlag f, sd_id128_t id);
 int id128_write(const char *p, Id128FormatFlag f, sd_id128_t id);
