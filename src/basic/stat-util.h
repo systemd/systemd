@@ -79,6 +79,8 @@ bool statx_mount_same(const struct new_statx *a, const struct new_statx *b);
 
 int statx_fallback(int dfd, const char *path, int flags, unsigned mask, struct statx *sx);
 
+int xstatfsat(int dir_fd, const char *path, struct statfs *ret);
+
 #if HAS_FEATURE_MEMORY_SANITIZER
 #  warning "Explicitly initializing struct statx, to work around msan limitation. Please remove as soon as msan has been updated to not require this."
 #  define STRUCT_STATX_DEFINE(var)              \
