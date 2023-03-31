@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <fcntl.h>
 #include <stdbool.h>
 
 #include "sd-id128.h"
@@ -20,7 +21,10 @@ typedef enum Id128Flag {
 } Id128Flag;
 
 int id128_read_fd(int fd, Id128Flag f, sd_id128_t *ret);
-int id128_read(const char *path, Id128Flag f, sd_id128_t *ret);
+int id128_read_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t *ret);
+static inline int id128_read(const char *path, Id128Flag f, sd_id128_t *ret) {
+        return id128_read_at(AT_FDCWD, path, f, ret);
+}
 
 int id128_write_fd(int fd, Id128Flag f, sd_id128_t id);
 int id128_write(const char *path, Id128Flag f, sd_id128_t id);
