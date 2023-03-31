@@ -1602,14 +1602,25 @@
           <term><varname>ConditionControlGroupController=</varname></term>
 
           <listitem><para>Check whether given cgroup controllers (e.g. <literal>cpu</literal>) are available
-          for use on the system.</para>
+          for use on the system or whether the legacy v1 cgroup or the modern v2 cgroup hierarchy is used.
+          </para>
 
           <para>Multiple controllers may be passed with a space separating them; in this case the condition
           will only pass if all listed controllers are available for use. Controllers unknown to systemd are
-          ignored. Valid controllers are <literal>cpu</literal>, <literal>cpuset</literal>,
-          <literal>io</literal>, <literal>memory</literal>, and <literal>pids</literal>. Even if available in
-          the kernel, a particular controller may not be available if it was disabled on the kernel command
-          line with <varname>cgroup_disable=controller</varname>.</para></listitem>
+          ignored. Valid controllers are <literal>cpu</literal>, <literal>cpuacct</literal>,
+          <literal>io</literal>, <literal>blkio</literal>, <literal>memory</literal>,
+          <literal>devices</literal>, and <literal>pids</literal>. Even if available in the kernel, a
+          particular controller may not be available if it was disabled on the kernel command line with
+          <varname>cgroup_disable=controller</varname>.</para>
+
+          <para>Alternatively, two special strings <literal>v1</literal> and <literal>v2</literal> may be
+          specified (without any controller names). <literal>v2</literal> will pass if the unified v2 cgroup
+          hierarchy is used, and <literal>v1</literal> will pass if the legacy v1 hierarchy or the hybrid
+          hierarchy are used (see the discussion of <varname>systemd.unified_cgroup_hierarchy</varname> and
+          <varname>systemd.legacy_systemd_cgroup_controller</varname> in
+          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for more information).</para>
+          </listitem>
         </varlistentry>
 
         <varlistentry>
