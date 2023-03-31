@@ -24,6 +24,11 @@ int id128_read(const char *root, const char *p, Id128FormatFlag f, sd_id128_t *r
 int id128_write_fd(int fd, Id128FormatFlag f, sd_id128_t id);
 int id128_write(const char *p, Id128FormatFlag f, sd_id128_t id);
 
+int id128_get_machine_impl(const char *root, sd_id128_t *ret);
+static inline int id128_get_machine(const char *root, sd_id128_t *ret) {
+        return root ? id128_get_machine_impl(root, ret) : sd_id128_get_machine(ret);
+}
+
 void id128_hash_func(const sd_id128_t *p, struct siphash *state);
 int id128_compare_func(const sd_id128_t *a, const sd_id128_t *b) _pure_;
 extern const struct hash_ops id128_hash_ops;
