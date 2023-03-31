@@ -20,6 +20,7 @@ typedef enum Id128Flag {
 } Id128Flag;
 
 int id128_read_fd(int fd, Id128Flag f, sd_id128_t *ret);
+int id128_read_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t *ret);
 int id128_read(const char *root, const char *path, Id128Flag f, sd_id128_t *ret);
 
 int id128_write_fd(int fd, Id128Flag f, sd_id128_t id);
