@@ -72,13 +72,7 @@ static int log_prohibited_symlink(int fd, ChaseFlags flags) {
                                  strna(n1));
 }
 
-int chaseat(
-                int dir_fd,
-                const char *path,
-                ChaseFlags flags,
-                char **ret_path,
-                int *ret_fd) {
-
+int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int *ret_fd) {
         _cleanup_free_ char *buffer = NULL, *done = NULL;
         _cleanup_close_ int fd = -EBADF, root_fd = -EBADF;
         unsigned max_follow = CHASE_MAX; /* how many symlinks to follow before giving up and returning ELOOP */
@@ -164,6 +158,20 @@ int chaseat(
          *    the mount point is emitted. CHASE_WARN cannot be used in PID 1.
          */
 
+        if (FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT)) {
+                /* If we get AT_FDCWD or dir_fd points to "/", then we always resolve symlinks relative to
+                 * the host's root. Hence, CHASE_AT_RESOLVE_IN_ROOT is meaningless. */
+
+                if (dir_fd >= 0)
+                        r = dir_fd_is_root(dir_fd);
+                else
+                        r = true;
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        flags &= ~CHASE_AT_RESOLVE_IN_ROOT;
+        }
+
         if (!(flags &
               (CHASE_AT_RESOLVE_IN_ROOT|CHASE_NONEXISTENT|CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_STEP|
                CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755)) &&
@@ -195,7 +203,7 @@ int chaseat(
         }
 
         /* If we get AT_FDCWD, we always resolve symlinks relative to the host's root. Only if a positive
-         * directory file descriptor is provided will we look at CHASE_AT_RESOLVE_IN_ROOT to determine
+         * directory file descriptor is provided we will look at CHASE_AT_RESOLVE_IN_ROOT to determine
          * whether to resolve symlinks in it or not. */
         if (dir_fd >= 0 && FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT))
                 root_fd = openat(dir_fd, ".", O_CLOEXEC|O_DIRECTORY|O_PATH);
@@ -468,13 +476,7 @@ chased_one:
         return 0;
 }
 
-int chase(
-                const char *path,
-                const char *original_root,
-                ChaseFlags flags,
-                char **ret_path,
-                int *ret_fd) {
-
+int chase(const char *path, const char *original_root, ChaseFlags flags, char **ret_path, int *ret_fd) {
         _cleanup_free_ char *root = NULL, *absolute = NULL, *p = NULL;
         _cleanup_close_ int fd = -EBADF, pfd = -EBADF;
         int r;
@@ -517,18 +519,18 @@ int chase(
         path = path_startswith(absolute, empty_to_root(root));
         if (!path)
                 return log_full_errno(flags & CHASE_WARN ? LOG_WARNING : LOG_DEBUG,
-                                        SYNTHETIC_ERRNO(ECHRNG),
-                                        "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
-                                        absolute, empty_to_root(root));
+                                      SYNTHETIC_ERRNO(ECHRNG),
+                                      "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
+                                      absolute, empty_to_root(root));
 
         fd = open(empty_to_root(root), O_CLOEXEC|O_DIRECTORY|O_PATH);
         if (fd < 0)
                 return -errno;
 
-        flags |= CHASE_AT_RESOLVE_IN_ROOT;
-        flags &= ~CHASE_PREFIX_ROOT;
+        if (!empty_or_root(root))
+                flags |= CHASE_AT_RESOLVE_IN_ROOT;
 
-        r = chaseat(fd, path, flags, ret_path ? &p : NULL, ret_fd ? &pfd : NULL);
+        r = chaseat(fd, path, flags & ~CHASE_PREFIX_ROOT, ret_path ? &p : NULL, ret_fd ? &pfd : NULL);
         if (r < 0)
                 return r;
 
@@ -558,13 +560,7 @@ int chase(
         return r;
 }
 
-int chase_and_open(
-                const char *path,
-                const char *root,
-                ChaseFlags chase_flags,
-                int open_flags,
-                char **ret_path) {
-
+int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, int open_flags, char **ret_path) {
         _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL, *fname = NULL;
         mode_t mode = open_flags & O_DIRECTORY ? 0755 : 0644;
@@ -589,14 +585,13 @@ int chase_and_open(
         if (isempty(q))
                 q = ".";
 
-        r = path_extract_filename(q, &fname);
-        if (r < 0 && r != -EADDRNOTAVAIL)
-                return r;
+        if (!FLAGS_SET(chase_flags, CHASE_PARENT)) {
+                r = path_extract_filename(q, &fname);
+                if (r < 0 && r != -EADDRNOTAVAIL)
+                        return r;
+        }
 
-        if (FLAGS_SET(chase_flags, CHASE_PARENT) || r == -EADDRNOTAVAIL)
-                r = fd_reopen(path_fd, open_flags);
-        else
-                r = xopenat(path_fd, fname, open_flags|O_NOFOLLOW, mode);
+        r = xopenat(path_fd, strempty(fname), open_flags|O_NOFOLLOW, mode);
         if (r < 0)
                 return r;
 
@@ -606,13 +601,7 @@ int chase_and_open(
         return r;
 }
 
-int chase_and_opendir(
-                const char *path,
-                const char *root,
-                ChaseFlags chase_flags,
-                char **ret_path,
-                DIR **ret_dir) {
-
+int chase_and_opendir(const char *path, const char *root, ChaseFlags chase_flags, char **ret_path, DIR **ret_dir) {
         _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         DIR *d;
@@ -648,13 +637,7 @@ int chase_and_opendir(
         return 0;
 }
 
-int chase_and_stat(
-                const char *path,
-                const char *root,
-                ChaseFlags chase_flags,
-                char **ret_path,
-                struct stat *ret_stat) {
-
+int chase_and_stat(const char *path, const char *root, ChaseFlags chase_flags, char **ret_path, struct stat *ret_stat) {
         _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
@@ -683,13 +666,7 @@ int chase_and_stat(
         return 0;
 }
 
-int chase_and_access(
-                const char *path,
-                const char *root,
-                ChaseFlags chase_flags,
-                int access_mode,
-                char **ret_path) {
-
+int chase_and_access(const char *path, const char *root, ChaseFlags chase_flags, int access_mode, char **ret_path) {
         _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
@@ -753,13 +730,7 @@ int chase_and_fopen_unlocked(
         return 0;
 }
 
-int chase_and_unlink(
-                const char *path,
-                const char *root,
-                ChaseFlags chase_flags,
-                int unlink_flags,
-                char **ret_path) {
-
+int chase_and_unlink(const char *path, const char *root, ChaseFlags chase_flags, int unlink_flags, char **ret_path) {
         _cleanup_free_ char *p = NULL, *fname = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
@@ -796,13 +767,7 @@ int chase_and_open_parent(const char *path, const char *root, ChaseFlags chase_f
         return pfd;
 }
 
-int chase_and_openat(
-                int dir_fd,
-                const char *path,
-                ChaseFlags chase_flags,
-                int open_flags,
-                char **ret_path) {
-
+int chase_and_openat(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, char **ret_path) {
         _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL, *fname = NULL;
         mode_t mode = open_flags & O_DIRECTORY ? 0755 : 0644;
@@ -821,14 +786,13 @@ int chase_and_openat(
         if (r < 0)
                 return r;
 
-        r = path_extract_filename(p, &fname);
-        if (r < 0 && r != -EDESTADDRREQ)
-                return r;
+        if (!FLAGS_SET(chase_flags, CHASE_PARENT)) {
+                r = path_extract_filename(p, &fname);
+                if (r < 0 && r != -EADDRNOTAVAIL)
+                        return r;
+        }
 
-        if (FLAGS_SET(chase_flags, CHASE_PARENT) || r == -EDESTADDRREQ)
-                r = fd_reopen(path_fd, open_flags);
-        else
-                r = xopenat(path_fd, fname, open_flags|O_NOFOLLOW, mode);
+        r = xopenat(path_fd, strempty(fname), open_flags|O_NOFOLLOW, mode);
         if (r < 0)
                 return r;
 
@@ -838,13 +802,7 @@ int chase_and_openat(
         return r;
 }
 
-int chase_and_opendirat(
-                int dir_fd,
-                const char *path,
-                ChaseFlags chase_flags,
-                char **ret_path,
-                DIR **ret_dir) {
-
+int chase_and_opendirat(int dir_fd, const char *path, ChaseFlags chase_flags, char **ret_path, DIR **ret_dir) {
         _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         DIR *d;
@@ -880,13 +838,7 @@ int chase_and_opendirat(
         return 0;
 }
 
-int chase_and_statat(
-                int dir_fd,
-                const char *path,
-                ChaseFlags chase_flags,
-                char **ret_path,
-                struct stat *ret_stat) {
-
+int chase_and_statat(int dir_fd, const char *path, ChaseFlags chase_flags, char **ret_path, struct stat *ret_stat) {
         _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
@@ -915,13 +867,7 @@ int chase_and_statat(
         return 0;
 }
 
-int chase_and_accessat(
-                int dir_fd,
-                const char *path,
-                ChaseFlags chase_flags,
-                int access_mode,
-                char **ret_path) {
-
+int chase_and_accessat(int dir_fd, const char *path, ChaseFlags chase_flags, int access_mode, char **ret_path) {
         _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
@@ -985,13 +931,7 @@ int chase_and_fopenat_unlocked(
         return 0;
 }
 
-int chase_and_unlinkat(
-                int dir_fd,
-                const char *path,
-                ChaseFlags chase_flags,
-                int unlink_flags,
-                char **ret_path) {
-
+int chase_and_unlinkat(int dir_fd, const char *path, ChaseFlags chase_flags, int unlink_flags, char **ret_path) {
         _cleanup_free_ char *p = NULL, *fname = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
@@ -1016,12 +956,7 @@ int chase_and_unlinkat(
         return 0;
 }
 
-int chase_and_open_parent_at(
-                int dir_fd,
-                const char *path,
-                ChaseFlags chase_flags,
-                char **ret_filename) {
-
+int chase_and_open_parent_at(int dir_fd, const char *path, ChaseFlags chase_flags, char **ret_filename) {
         int pfd, r;
 
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));

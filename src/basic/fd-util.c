@@ -534,6 +534,11 @@ bool fdname_is_valid(const char *s) {
 int fd_get_path(int fd, char **ret) {
         int r;
 
+        assert(fd >= 0 || fd == AT_FDCWD);
+
+        if (fd == AT_FDCWD)
+                return safe_getcwd(ret);
+
         r = readlink_malloc(FORMAT_PROC_FD_PATH(fd), ret);
         if (r == -ENOENT) {
                 /* ENOENT can mean two things: that the fd does not exist or that /proc is not mounted. Let's make
@@ -934,4 +939,17 @@ int dir_fd_is_root(int dir_fd) {
          * $ mount --bind /tmp/x /tmp/x/y
          */
         return statx_inode_same(&st.sx, &pst.sx) && statx_mount_same(&st.nsx, &pst.nsx);
+}
+
+const char *accmode_to_string(int flags) {
+        switch (flags & O_ACCMODE) {
+        case O_RDONLY:
+                return "ro";
+        case O_WRONLY:
+                return "wo";
+        case O_RDWR:
+                return "rw";
+        default:
+                return NULL;
+        }
 }

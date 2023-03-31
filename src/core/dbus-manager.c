@@ -2840,6 +2840,10 @@ static int method_set_show_status(sd_bus_message *message, void *userdata, sd_bu
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int method_dump_unit_descriptor_store(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_generic_unit_operation(message, userdata, error, bus_service_method_dump_file_descriptor_store, 0);
+}
+
 const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -3384,6 +3388,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_RESULT("a(us)", users),
                                 method_get_dynamic_users,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("DumpUnitFileDescriptorStore",
+                                SD_BUS_ARGS("s", name),
+                                SD_BUS_RESULT("a(suuutuusu)", entries),
+                                method_dump_unit_descriptor_store,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_SIGNAL_WITH_ARGS("UnitNew",

@@ -11,6 +11,7 @@ systemd_analyze_sources = files(
         'analyze-dot.c',
         'analyze-dump.c',
         'analyze-exit-status.c',
+        'analyze-fdstore.c',
         'analyze-filesystems.c',
         'analyze-inspect-elf.c',
         'analyze-log-control.c',

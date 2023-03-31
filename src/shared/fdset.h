@@ -13,6 +13,7 @@ FDSet* fdset_new(void);
 FDSet* fdset_free(FDSet *s);
 
 int fdset_put(FDSet *s, int fd);
+int fdset_consume(FDSet *s, int fd);
 int fdset_put_dup(FDSet *s, int fd);
 
 bool fdset_contains(FDSet *s, int fd);
@@ -23,6 +24,8 @@ int fdset_new_fill(FDSet **ret);
 int fdset_new_listen_fds(FDSet **ret, bool unset);
 
 int fdset_cloexec(FDSet *fds, bool b);
+
+int fdset_to_array(FDSet *fds, int **ret);
 
 int fdset_close_others(FDSet *fds);
 

@@ -273,6 +273,8 @@ node /org/freedesktop/systemd1 {
       LookupDynamicUserByUID(in  u uid,
                              out s name);
       GetDynamicUsers(out a(us) users);
+      DumpUnitFileDescriptorStore(in  s name,
+                                  out a(suuutuusu) entries);
     signals:
       UnitNew(s id,
               o unit);
@@ -974,6 +976,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="GetDynamicUsers()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="DumpUnitFileDescriptorStore()"/>
+
     <variablelist class="dbus-signal" generated="True" extra-ref="UnitNew"/>
 
     <variablelist class="dbus-signal" generated="True" extra-ref="UnitRemoved"/>
@@ -1531,6 +1535,11 @@ node /org/freedesktop/systemd1 {
       <ulink url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface">New Control Group
       Interface</ulink> for more information how to make use of this functionality for resource control
       purposes.</para>
+
+      <para><function>DumpUnitFileDescriptorStore()</function> returns an array with information about the
+      file descriptors currently in the file descriptor store of the specified unit. This call is equivalent
+      to <function>DumpFileDescriptorStore()</function> on the
+      <interfacename>org.freedesktop.systemd1.Service</interfacename>. For further details, see below.</para>
     </refsect2>
 
     <refsect2>
@@ -2548,6 +2557,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
                  in  b read_only,
                  in  b mkdir,
                  in  a(ss) options);
+      DumpFileDescriptorStore(out a(suuutuusu) entries);
       GetProcesses(out a(sus) processes);
       AttachProcesses(in  s subcgroup,
                       in  au pids);
@@ -2568,7 +2578,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t RestartUSecMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly t RestartUSecCurrent = ...;
+      readonly t RestartUSecNext = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t TimeoutStartUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -3198,7 +3208,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property RestartUSecMax is not documented!-->
 
-    <!--property RestartUSecCurrent is not documented!-->
+    <!--property RestartUSecNext is not documented!-->
 
     <!--property TimeoutStartFailureMode is not documented!-->
 
@@ -3742,6 +3752,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-method" generated="True" extra-ref="MountImage()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="DumpFileDescriptorStore()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="GetProcesses()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="AttachProcesses()"/>
@@ -3762,7 +3774,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestartUSecMax"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="RestartUSecCurrent"/>
+    <variablelist class="dbus-property" generated="True" extra-ref="RestartUSecNext"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TimeoutStartUSec"/>
 
@@ -4393,6 +4405,16 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       directly on the Manager object has the advantage of not requiring a <function>GetUnit()</function> call
       to get the unit object for a specific unit name. Calling the methods on the Manager object is hence a round
       trip optimization.</para>
+
+      <para><function>DumpFileDescriptorStore()</function> returns an array with information about the file
+      descriptors currently in the file descriptor store of the service. Each entry consists of a file
+      descriptor name (i.e. the <varname>FDNAME=</varname> field), the file descriptor inode type and access
+      mode as integer (i.e. a <type>mode_t</type> value, flags such as <constant>S_IFREG</constant>,
+      <constant>S_IRUSR</constant>, …), the major and minor numbers of the device number of the file system
+      backing the inode of the file descriptor, the inode number, the major and minor numbers of the device
+      number if this refers to a character or block device node, a file system path pointing to the inode,
+      and the file descriptor flags (i.e. <constant>O_RDWR</constant>, <constant>O_RDONLY</constant>,
+      …).</para>
     </refsect2>
 
     <refsect2>

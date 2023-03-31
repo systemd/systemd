@@ -158,7 +158,6 @@ struct Service {
 
         /* Runtime data of the execution context */
         ExecRuntime *exec_runtime;
-        DynamicCreds dynamic_creds;
 
         pid_t main_pid, control_pid;
 
@@ -207,7 +206,6 @@ struct Service {
         ServiceFDStore *fd_store;
         size_t n_fd_store;
         unsigned n_fd_store_max;
-        unsigned n_keep_fd_store;
 
         char *usb_function_descriptors;
         char *usb_function_strings;
@@ -247,7 +245,7 @@ extern const UnitVTable service_vtable;
 int service_set_socket_fd(Service *s, int fd, struct Socket *socket, struct SocketPeer *peer, bool selinux_context_net);
 void service_close_socket_fd(Service *s);
 
-usec_t service_restart_usec(Service *s);
+usec_t service_restart_usec_next(Service *s);
 
 const char* service_restart_to_string(ServiceRestart i) _const_;
 ServiceRestart service_restart_from_string(const char *s) _pure_;
