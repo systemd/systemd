@@ -3,8 +3,6 @@
 set -e
 
 TEST_DESCRIPTION="Test Memory Pressure handling"
-# Ignore gcov complaints caused by DynamicUser=true
-IGNORE_MISSING_COVERAGE=yes
 
 # shellcheck source=test/test-functions
 . "$TEST_BASE_DIR/test-functions"

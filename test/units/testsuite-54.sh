@@ -10,6 +10,7 @@ systemd-run -p LoadCredential=passwd:/etc/passwd \
             -p LoadCredential=shadow:/etc/shadow \
             -p SetCredential=dog:wuff \
             -p DynamicUser=1 \
+            --unit=test-54-unpriv.service \
             --wait \
             --pipe \
             cat '${CREDENTIALS_DIRECTORY}/passwd' '${CREDENTIALS_DIRECTORY}/shadow' '${CREDENTIALS_DIRECTORY}/dog' >/tmp/ts54-concat
@@ -77,11 +78,13 @@ fi
 # Verify that the creds are immutable
 systemd-run -p LoadCredential=passwd:/etc/passwd \
             -p DynamicUser=1 \
+            --unit=test-54-immutable-touch.service \
             --wait \
             touch '${CREDENTIALS_DIRECTORY}/passwd' \
     && { echo 'unexpected success'; exit 1; }
 systemd-run -p LoadCredential=passwd:/etc/passwd \
             -p DynamicUser=1 \
+            --unit=test-54-immutable-rm.service \
             --wait \
             rm '${CREDENTIALS_DIRECTORY}/passwd' \
     && { echo 'unexpected success'; exit 1; }
@@ -94,6 +97,7 @@ echo -n c >/tmp/ts54-creds/baz
 echo -n d >/tmp/ts54-creds/sub/qux
 systemd-run -p LoadCredential=cred:/tmp/ts54-creds \
             -p DynamicUser=1 \
+            --unit=test-54-dir.service \
             --wait \
             --pipe \
             cat '${CREDENTIALS_DIRECTORY}/cred_foo' \
