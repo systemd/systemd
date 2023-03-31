@@ -119,6 +119,15 @@ grep -q "^root:x:0:0:.*:/bin/barshell$" "$ROOT/etc/passwd"
 grep -q "^root:$ROOT_HASHED_PASSWORD2:" "$ROOT/etc/shadow"
 grep -q "hello.world=0" "$ROOT/etc/kernel/cmdline"
 
+# Test that --reset removes all files configured by firstboot.
+systemd-firstboot --root="$ROOT" --reset
+[[ ! -e "$ROOT/etc/locale.conf" ]]
+[[ ! -e "$ROOT/etc/vconsole.conf" ]]
+[[ ! -e "$ROOT/etc/localtime" ]]
+[[ ! -e "$ROOT/etc/hostname" ]]
+[[ ! -e "$ROOT/etc/machine-id" ]]
+[[ ! -e "$ROOT/etc/kernel/cmdline" ]]
+
 # --copy-* options
 rm -fr "$ROOT"
 mkdir "$ROOT"
