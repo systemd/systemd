@@ -282,14 +282,13 @@ void mangle_stub_cmdline(char16_t *cmdline) {
         }
 }
 
-EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, size_t off, size_t size, char **ret, size_t *ret_size) {
+EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, size_t off, size_t size, void **buf, size_t *ret_size) {
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
-        _cleanup_free_ char *buf = NULL;
         EFI_STATUS err;
 
         assert(dir);
         assert(name);
-        assert(ret);
+        assert(buf);
 
         err = dir->Open(dir, &handle, (char16_t*) name, EFI_FILE_MODE_READ, 0ULL);
         if (err != EFI_SUCCESS)
@@ -305,30 +304,84 @@ EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, size_t off, size_t siz
                 size = info->FileSize;
         }
 
+        size_t extra = 0;
+        void *read_buf = *buf;
+        _cleanup_free_ void *buf_owned = NULL;
+
+        if (!read_buf) {
+                /* If we are to allocate the buffer, add some extra bytes to guarantee the
+                 * result is NUL-terminated for both char and char16_t strings. */
+                extra = size % sizeof(char16_t) + sizeof(char16_t);
+                read_buf = buf_owned = xmalloc(size + extra);
+        }
+
+        /* Avoid asking the firmware for a zero-byte read. */
+        if (size == 0) {
+                if (buf_owned) {
+                        memset((uint8_t *) buf_owned, 0, extra);
+                        *buf = TAKE_PTR(buf_owned);
+                }
+                if (ret_size)
+                        *ret_size = 0;
+                return EFI_SUCCESS;
+        }
+
         if (off > 0) {
                 err = handle->SetPosition(handle, off);
                 if (err != EFI_SUCCESS)
                         return err;
         }
 
-        /* Allocate some extra bytes to guarantee the result is NUL-terminated for char and char16_t strings. */
-        size_t extra = size % sizeof(char16_t) + sizeof(char16_t);
+        err = handle->Read(handle, &size, read_buf);
+        if (!IN_SET(err, EFI_SUCCESS, EFI_BAD_BUFFER_SIZE))
+                return err;
 
-        buf = xmalloc(size + extra);
-        if (size > 0) {
-                err = handle->Read(handle, &size, buf);
+        /* Some firmwares cannot handle large file reads and will instead return EFI_BAD_BUFFER_SIZE.
+         * As a workaround, read such files in small chunks.
+         *
+         * https://github.com/systemd/systemd/issues/25911 */
+        if (err == EFI_BAD_BUFFER_SIZE) {
+                /* Handle is probably in a permanent bad state. Re-open the file. */
+                (void) handle->Close(handle);
+                handle = NULL;
+
+                err = dir->Open(dir, &handle, (char16_t *) name, EFI_FILE_MODE_READ, 0);
                 if (err != EFI_SUCCESS)
                         return err;
+
+                if (off > 0) {
+                        err = handle->SetPosition(handle, off);
+                        if (err != EFI_SUCCESS)
+                                return err;
+                }
+
+                size_t remaining = size;
+                size = 0;
+                while (remaining > 0) {
+                        size_t chunk = MIN(1024U * 1024U, remaining);
+
+                        err = handle->Read(handle, &chunk, (uint8_t *) read_buf + size);
+                        if (err != EFI_SUCCESS)
+                                return err;
+                        if (chunk == 0)
+                                /* Caller requested more bytes than are in file. */
+                                break;
+
+                        assert(chunk <= remaining);
+                        size += chunk;
+                        remaining -= chunk;
+                }
         }
 
-        /* Note that handle->Read() changes size to reflect the actually bytes read. */
-        memset(buf + size, 0, extra);
-
-        *ret = TAKE_PTR(buf);
+        if (buf_owned) {
+                /* Note that handle->Read() changes size to reflect the actually bytes read. */
+                memset((uint8_t *) read_buf + size, 0, extra);
+                *buf = TAKE_PTR(buf_owned);
+        }
         if (ret_size)
                 *ret_size = size;
 
-        return err;
+        return EFI_SUCCESS;
 }
 
 void print_at(size_t x, size_t y, size_t attr, const char16_t *str) {

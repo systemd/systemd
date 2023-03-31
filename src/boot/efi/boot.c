@@ -18,6 +18,7 @@
 #include "proto/simple-text-io.h"
 #include "random-seed.h"
 #include "secure-boot.h"
+#include "sha256.h"
 #include "shim.h"
 #include "ticks.h"
 #include "util.h"
@@ -1575,7 +1576,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .timeout_sec_efivar = TIMEOUT_UNSET,
         };
 
-        err = file_read(root_dir, u"\\loader\\loader.conf", 0, 0, &content, NULL);
+        err = file_read(root_dir, u"\\loader\\loader.conf", 0, 0, (void **) &content, NULL);
         if (err == EFI_SUCCESS)
                 config_defaults_load_from_file(config, content);
 
@@ -1654,7 +1655,7 @@ static void config_load_entries(
                 if (startswith(f->FileName, u"auto-"))
                         continue;
 
-                err = file_read(entries_dir, f->FileName, 0, 0, &content, NULL);
+                err = file_read(entries_dir, f->FileName, 0, 0, (void **) &content, NULL);
                 if (err == EFI_SUCCESS)
                         config_entry_add_type1(config, device, root_dir, u"\\loader\\entries", f->FileName, content, loaded_image_path);
         }
@@ -1855,7 +1856,7 @@ static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
                 NULL
         };
         size_t offset = 0, size = 0, read;
-        _cleanup_free_ char *content = NULL;
+        _cleanup_free_ void *content = NULL;
 
         assert(root_dir);
         assert(loader_path);
@@ -2045,7 +2046,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
 
 static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir) {
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
-        _cleanup_free_ char *bcd = NULL;
+        _cleanup_free_ void *bcd = NULL;
         char16_t *title = NULL;
         EFI_STATUS err;
         size_t len;
@@ -2058,9 +2059,9 @@ static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FIL
                 return;
 
         /* Try to find a better title. */
-        err = file_read(root_dir, u"\\EFI\\Microsoft\\Boot\\BCD", 0, 100*1024, &bcd, &len);
+        err = file_read(root_dir, u"\\EFI\\Microsoft\\Boot\\BCD", 0, 100 * 1024, &bcd, &len);
         if (err == EFI_SUCCESS)
-                title = get_bcd_title((uint8_t *) bcd, len);
+                title = get_bcd_title(bcd, len);
 
         ConfigEntry *e = config_entry_add_loader_auto(config, device, root_dir, NULL,
                                                       u"auto-windows", 'w', title ?: u"Windows Boot Manager",
@@ -2129,7 +2130,12 @@ static void config_entry_add_unified(
                 if (err != EFI_SUCCESS || szs[SECTION_OSREL] == 0)
                         continue;
 
-                err = file_read(linux_dir, f->FileName, offs[SECTION_OSREL], szs[SECTION_OSREL], &content, NULL);
+                err = file_read(linux_dir,
+                                f->FileName,
+                                offs[SECTION_OSREL],
+                                szs[SECTION_OSREL],
+                                (void **) &content,
+                                NULL);
                 if (err != EFI_SUCCESS)
                         continue;
 
@@ -2223,7 +2229,12 @@ static void config_entry_add_unified(
 
                 /* read the embedded cmdline file */
                 size_t cmdline_len;
-                err = file_read(linux_dir, f->FileName, offs[SECTION_CMDLINE], szs[SECTION_CMDLINE], &content, &cmdline_len);
+                err = file_read(linux_dir,
+                                f->FileName,
+                                offs[SECTION_CMDLINE],
+                                szs[SECTION_CMDLINE],
+                                (void **) &content,
+                                &cmdline_len);
                 if (err == EFI_SUCCESS) {
                         entry->options = xstrn8_to_16(content, cmdline_len);
                         mangle_stub_cmdline(entry->options);
@@ -2301,19 +2312,30 @@ static EFI_STATUS initrd_prepare(
                 if (info->FileSize == 0) /* Automatically skip over empty files */
                         continue;
 
-                size_t new_size, read_size = info->FileSize;
-                if (__builtin_add_overflow(size, read_size, &new_size))
+                size_t new_size, read_size;
+                if (__builtin_add_overflow(size, info->FileSize, &new_size))
                         return EFI_OUT_OF_RESOURCES;
                 initrd = xrealloc(initrd, size, new_size);
 
-                err = handle->Read(handle, &read_size, initrd + size);
+                (void) handle->Close(handle);
+                handle = NULL;
+
+                void *read_buf = initrd + size;
+                err = file_read(root, *i, 0, info->FileSize, &read_buf, &read_size);
                 if (err != EFI_SUCCESS)
                         return err;
 
-                /* Make sure the actual read size is what we expected. */
-                assert(size + read_size == new_size);
+                struct sha256_ctx hash;
+                sha256_init_ctx(&hash);
+                sha256_process_bytes(read_buf, read_size, &hash);
+                uint8_t sha256[SHA256_DIGEST_SIZE];
+                sha256_finish_ctx(&hash, sha256);
+                log_error("%ls: expected: %" PRIx64 ", got: %zx", *i, info->FileSize, read_size);
+                hexdump(u"sha256", sha256, SHA256_DIGEST_SIZE);
+
                 size = new_size;
         }
+        log_wait();
 
         if (entry->options) {
                 _cleanup_free_ char16_t *o = options;
