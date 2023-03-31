@@ -1546,7 +1546,8 @@ static int unit_add_mount_dependencies(Unit *u) {
 
 static int unit_add_oomd_dependencies(Unit *u) {
         CGroupContext *c;
-        bool wants_oomd;
+        CGroupMask mask;
+        int r;
 
         assert(u);
 
@@ -1557,8 +1558,18 @@ static int unit_add_oomd_dependencies(Unit *u) {
         if (!c)
                 return 0;
 
-        wants_oomd = (c->moom_swap == MANAGED_OOM_KILL || c->moom_mem_pressure == MANAGED_OOM_KILL);
+        bool wants_oomd = c->moom_swap == MANAGED_OOM_KILL || c->moom_mem_pressure == MANAGED_OOM_KILL;
         if (!wants_oomd)
+                return 0;
+
+        if (!cg_all_unified())
+                return 0;
+
+        r = cg_mask_supported(&mask);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine supported controllers: %m");
+
+        if (!FLAGS_SET(mask, CGROUP_MASK_MEMORY))
                 return 0;
 
         return unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, "systemd-oomd.service", true, UNIT_DEPENDENCY_FILE);
