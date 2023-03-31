@@ -18,6 +18,7 @@
 #include "proto/simple-text-io.h"
 #include "random-seed.h"
 #include "secure-boot.h"
+#include "sha256.h"
 #include "shim.h"
 #include "ticks.h"
 #include "util.h"
@@ -2324,10 +2325,17 @@ static EFI_STATUS initrd_prepare(
                 if (err != EFI_SUCCESS)
                         return err;
 
-                /* Make sure the actual read size is what we expected. */
-                assert(size + read_size == new_size);
+                struct sha256_ctx hash;
+                sha256_init_ctx(&hash);
+                sha256_process_bytes(read_buf, read_size, &hash);
+                uint8_t sha256[SHA256_DIGEST_SIZE];
+                sha256_finish_ctx(&hash, sha256);
+                log_error("%ls: expected: %" PRIx64 ", got: %zx", *i, info->FileSize, read_size);
+                hexdump(u"sha256", sha256, SHA256_DIGEST_SIZE);
+
                 size = new_size;
         }
+        log_wait();
 
         if (entry->options) {
                 _cleanup_free_ char16_t *o = options;
