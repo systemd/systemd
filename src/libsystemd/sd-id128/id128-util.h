@@ -18,11 +18,22 @@ typedef enum Id128FormatFlag {
         ID128_SYNC_ON_WRITE = 1 << 2, /* Sync the file after write. Used only when writing an ID. */
 } Id128FormatFlag;
 
-int id128_read_fd(int fd, Id128FormatFlag f, sd_id128_t *ret);
-int id128_read(const char *root, const char *p, Id128FormatFlag f, sd_id128_t *ret);
+int id128_read_at(int dir_fd, const char *path, Id128FormatFlag f, sd_id128_t *ret);
+int id128_read(const char *root, const char *path, Id128FormatFlag f, sd_id128_t *ret);
+static inline int id128_read_fd(int fd, Id128FormatFlag f, sd_id128_t *ret) {
+        return id128_read_at(fd, "", f, ret);
+}
 
-int id128_write_fd(int fd, Id128FormatFlag f, sd_id128_t id);
-int id128_write(const char *p, Id128FormatFlag f, sd_id128_t id);
+int id128_write_at(int dir_fd, const char *path, Id128FormatFlag f, sd_id128_t id);
+int id128_write(const char *root, const char *path, Id128FormatFlag f, sd_id128_t id);
+static inline int id128_write_fd(int fd, Id128FormatFlag f, sd_id128_t id) {
+        return id128_write_at(fd, "", f, id);
+}
+
+int id128_get_machine_impl(const char *root, sd_id128_t *ret);
+static inline int id128_get_machine(const char *root, sd_id128_t *ret) {
+        return root ? id128_get_machine_impl(root, ret) : sd_id128_get_machine(ret);
+}
 
 void id128_hash_func(const sd_id128_t *p, struct siphash *state);
 int id128_compare_func(const sd_id128_t *a, const sd_id128_t *b) _pure_;

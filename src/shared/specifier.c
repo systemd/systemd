@@ -187,17 +187,7 @@ int specifier_machine_id(char specifier, const void *data, const char *root, con
 
         assert(ret);
 
-        if (root) {
-                _cleanup_close_ int fd = -EBADF;
-
-                fd = chase_and_open("/etc/machine-id", root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
-                if (fd < 0)
-                        /* Translate error for missing os-release file to EUNATCH. */
-                        return fd == -ENOENT ? -EUNATCH : fd;
-
-                r = id128_read_fd(fd, ID128_FORMAT_PLAIN, &id);
-        } else
-                r = sd_id128_get_machine(&id);
+        r = id128_get_machine(root, &id);
         if (r < 0)
                 return r;
 
