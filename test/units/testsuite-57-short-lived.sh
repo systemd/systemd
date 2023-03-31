@@ -4,7 +4,7 @@ set -ex
 
 if [ -f /tmp/testsuite-57.counter ] ; then
     read -r counter < /tmp/testsuite-57.counter
-    counter=$(("$counter" + 1))
+    counter=$((counter + 1))
 else
     counter=0
 fi
