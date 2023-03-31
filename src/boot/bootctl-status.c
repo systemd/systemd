@@ -207,7 +207,7 @@ static int enumerate_binaries(
                 return log_error_errno(r, "Failed to read \"%s/%s\": %m", esp_path, path);
 
         FOREACH_DIRENT(de, d, break) {
-                _cleanup_free_ char *v = NULL;
+                _cleanup_free_ char *v = NULL, *filename = NULL;
                 _cleanup_close_ int fd = -EBADF;
 
                 if (!endswith_no_case(de->d_name, ".efi"))
@@ -216,15 +216,23 @@ static int enumerate_binaries(
                 if (prefix && !startswith_no_case(de->d_name, prefix))
                         continue;
 
+                filename = path_join(p, de->d_name);
+                if (!filename)
+                        return log_oom();
+                LOG_SET_PREFIX(filename);
+
                 fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to open \"%s/%s\" for reading: %m", p, de->d_name);
+                        return log_error_errno(errno, "Failed to open file for reading: %m");
 
                 r = get_file_version(fd, &v);
+                if (r == -ESRCH) /* Not the file we are looking for. */
+                        continue;
                 if (r < 0)
                         return r;
 
-                if (*previous) { /* let's output the previous entry now, since now we know that there will be one more, and can draw the tree glyph properly */
+                if (*previous) { /* Let's output the previous entry now, since now we know that there will be
+                                  * one more, and can draw the tree glyph properly. */
                         printf("         %s %s%s\n",
                                *is_first ? "File:" : "     ",
                                special_glyph(SPECIAL_GLYPH_TREE_BRANCH), *previous);
