@@ -455,6 +455,20 @@ int statx_fallback(int dfd, const char *path, int flags, unsigned mask, struct s
         return 0;
 }
 
+int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
+        int fd;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(path);
+        assert(ret);
+
+        fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC|O_NOCTTY, 0);
+        if (fd < 0)
+                return fd;
+
+        return RET_NERRNO(fstatfs(fd, ret));
+}
+
 void inode_hash_func(const struct stat *q, struct siphash *state) {
         siphash24_compress(&q->st_dev, sizeof(q->st_dev), state);
         siphash24_compress(&q->st_ino, sizeof(q->st_ino), state);

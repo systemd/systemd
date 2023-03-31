@@ -44,7 +44,7 @@ static int fd_get_devnum(int fd, BlockDeviceLookupFlag flags, dev_t *ret) {
                 /* If major(st.st_dev) is zero, this might mean we are backed by btrfs, which needs special
                  * handing, to get the backing device node. */
 
-                r = btrfs_get_block_device_fd(fd, &devnum);
+                r = btrfs_get_block_device_at(fd, "", &devnum);
                 if (r == -ENOTTY) /* not btrfs */
                         return -ENOTBLK;
                 if (r < 0)
@@ -273,7 +273,7 @@ int get_block_device_fd(int fd, dev_t *ret) {
                 return 1;
         }
 
-        r = btrfs_get_block_device_fd(fd, ret);
+        r = btrfs_get_block_device_at(fd, "", ret);
         if (r > 0)
                 return 1;
         if (r != -ENOTTY) /* not btrfs */
