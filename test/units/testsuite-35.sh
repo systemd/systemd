@@ -591,7 +591,7 @@ test_ambient_caps() {
     # CAP_CHOWN | CAP_KILL
     MASK=$(((1 << 0) | (1 << 5)))
 
-    if [ $(("$BND" & "$MASK")) -ne "$MASK" ] ; then
+    if [ $((BND & MASK)) -ne "$MASK" ] ; then
         echo "CAP_CHOWN or CAP_KILL not available in bounding set, skipping test." >&2
         return
     fi
