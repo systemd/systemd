@@ -32,6 +32,9 @@ static inline int id128_write(const char *path, Id128Flag f, sd_id128_t id) {
         return id128_write_at(AT_FDCWD, path, f, id);
 }
 
+int id128_get_machine(const char *root, sd_id128_t *ret);
+int id128_get_machine_at(int rfd, sd_id128_t *ret);
+
 void id128_hash_func(const sd_id128_t *p, struct siphash *state);
 int id128_compare_func(const sd_id128_t *a, const sd_id128_t *b) _pure_;
 extern const struct hash_ops id128_hash_ops;

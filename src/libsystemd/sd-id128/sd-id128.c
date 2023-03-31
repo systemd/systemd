@@ -7,6 +7,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "chase.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
 #include "hmac.h"
@@ -15,6 +16,7 @@
 #include "macro.h"
 #include "missing_syscall.h"
 #include "missing_threads.h"
+#include "path-util.h"
 #include "random-util.h"
 #include "stat-util.h"
 #include "user-util.h"
@@ -134,6 +136,38 @@ _public_ int sd_id128_get_machine(sd_id128_t *ret) {
         if (ret)
                 *ret = saved_machine_id;
         return 0;
+}
+
+int id128_get_machine_at(int rfd, sd_id128_t *ret) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(rfd >= 0 || rfd == AT_FDCWD);
+
+        r = dir_fd_is_root_or_cwd(rfd);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return sd_id128_get_machine(ret);
+
+        fd = chase_and_openat(rfd, "/etc/machine-id", CHASE_AT_RESOLVE_IN_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+        if (fd < 0)
+                return fd;
+
+        return id128_read_fd(fd, ID128_FORMAT_PLAIN | ID128_REFUSE_NULL, ret);
+}
+
+int id128_get_machine(const char *root, sd_id128_t *ret) {
+        _cleanup_close_ int fd = -EBADF;
+
+        if (empty_or_root(root))
+                return sd_id128_get_machine(ret);
+
+        fd = chase_and_open("/etc/machine-id", root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+        if (fd < 0)
+                return fd;
+
+        return id128_read_fd(fd, ID128_FORMAT_PLAIN | ID128_REFUSE_NULL, ret);
 }
 
 _public_ int sd_id128_get_boot(sd_id128_t *ret) {
