@@ -122,13 +122,19 @@ int id128_read(const char *root, const char *path, Id128FormatFlag f, sd_id128_t
         return id128_read_at(dir_fd, filename, f, ret);
 }
 
-int id128_write_fd(int fd, Id128FormatFlag f, sd_id128_t id) {
+int id128_write_at(int dir_fd, const char *path, Id128FormatFlag f, sd_id128_t id) {
         char buffer[SD_ID128_UUID_STRING_MAX + 1]; /* +1 is for trailing newline */
+        _cleanup_close_ int fd = -EBADF;
         size_t sz;
         int r;
 
-        assert(fd >= 0);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(path);
         assert(IN_SET((f & ID128_FORMAT_ANY), ID128_FORMAT_PLAIN, ID128_FORMAT_UUID));
+
+        fd = xopenat(dir_fd, path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC, 0444);
+        if (fd < 0)
+                return fd;
 
         if (FLAGS_SET(f, ID128_FORMAT_PLAIN)) {
                 assert_se(sd_id128_to_string(id, buffer));
@@ -152,14 +158,17 @@ int id128_write_fd(int fd, Id128FormatFlag f, sd_id128_t id) {
         return 0;
 }
 
-int id128_write(const char *p, Id128FormatFlag f, sd_id128_t id) {
-        _cleanup_close_ int fd = -EBADF;
+int id128_write(const char *root, const char *path, Id128FormatFlag f, sd_id128_t id) {
+        _cleanup_free_ char *filename = NULL;
+        _cleanup_close_ int dir_fd = -EBADF;
 
-        fd = open(p, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC, 0444);
-        if (fd < 0)
-                return -errno;
+        assert(path);
 
-        return id128_write_fd(fd, f, id);
+        dir_fd = chase_and_open_parent(path, root, CHASE_PREFIX_ROOT, &filename);
+        if (dir_fd < 0)
+                return dir_fd;
+
+        return id128_write_at(dir_fd, filename, f, id);
 }
 
 void id128_hash_func(const sd_id128_t *p, struct siphash *state) {
