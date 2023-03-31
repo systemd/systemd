@@ -142,6 +142,6 @@ and
 $ mkdir -p /etc/systemd/system.conf.d
 $ cat >/etc/systemd/system.conf.d/50-coredump.conf <<EOF
 [Manager]
-DefaultLimitCORE=0
+DefaultLimitCORE=0:infinity
 EOF
 ```
