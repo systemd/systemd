@@ -121,22 +121,61 @@ _public_ int sd_id128_string_equal(const char *s, sd_id128_t id) {
         return sd_id128_equal(parsed, id);
 }
 
-_public_ int sd_id128_get_machine(sd_id128_t *ret) {
+int id128_get_machine_at(int dir_fd, sd_id128_t *ret) {
         static thread_local sd_id128_t saved_machine_id = {};
+        sd_id128_t id;
+        bool cache;
         int r;
 
-        if (sd_id128_is_null(saved_machine_id)) {
-                r = id128_read(NULL, "/etc/machine-id", ID128_FORMAT_PLAIN, &saved_machine_id);
-                if (r < 0)
-                        return r;
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
-                if (sd_id128_is_null(saved_machine_id))
-                        return -ENOMEDIUM;
+        r = dir_fd_is_root_or_cwd(dir_fd);
+        if (r < 0)
+                return r;
+        cache = r;
+
+        if (cache && !sd_id128_is_null(saved_machine_id)) {
+                if (ret)
+                        *ret = saved_machine_id;
+                return 0;
         }
 
+        r = id128_read_at(dir_fd, "/etc/machine-id", ID128_FORMAT_PLAIN, &id);
+        if (r < 0)
+                return r;
+
+        if (sd_id128_is_null(id))
+                return -ENOMEDIUM;
+
+        if (cache)
+                saved_machine_id = id;
+
         if (ret)
-                *ret = saved_machine_id;
+                *ret = id;
         return 0;
+}
+
+int id128_get_machine(const char *root, sd_id128_t *ret) {
+        sd_id128_t id;
+        int r;
+
+        if (!root)
+                return id128_get_machine_at(AT_FDCWD, ret);
+
+        r = id128_read(root, "/etc/machine-id", ID128_FORMAT_PLAIN, &id);
+        if (r < 0)
+                return r;
+
+        if (sd_id128_is_null(id))
+                return -ENOMEDIUM;
+
+        if (ret)
+                *ret = id;
+        return 0;
+}
+
+_public_ int sd_id128_get_machine(sd_id128_t *ret) {
+        return id128_get_machine_at(AT_FDCWD, ret);
 }
 
 _public_ int sd_id128_get_boot(sd_id128_t *ret) {
