@@ -139,7 +139,7 @@ _busctl() {
         fi
     done
 
-    n=$(($COMP_CWORD - $i))
+    n=$((COMP_CWORD - i))
 
     if [[ -z ${verb-} ]]; then
         comps=${VERBS[*]}
