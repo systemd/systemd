@@ -141,9 +141,6 @@ Features:
   way noone can create files there with these uids and we enforce they are only
   used transiently, never persistently.
 
-* set MS_NOSYMFOLLOW for ESP and XBOOTLDR mounts both in gpt-generator and in
-  dissect.c
-
 * rework loopback support in fstab: when "loop" option is used, then
   instantiate a new systemd-loop@.service for the source path, set the
   lo_file_name field for it to something recognizable derived from the fstab
@@ -600,9 +597,6 @@ Features:
   sig using squashfs-tools-ng's library. Maybe just systemd-repart called under
   a new name with a built-in config?
 
-* gpt-auto: generate mount units that reference partitions via
-  /dev/disk/by-diskseq/… so that they can't be swapped out behind our back.
-
 * lock down acceptable encrypted credentials at boot, via simple allowlist,
   maybe on kernel command line:
   systemd.import_encrypted_creds=foobar.waldo,tmpfiles.extra to protect locked
@@ -616,9 +610,6 @@ Features:
 
 * chase(): refuse resolution if trailing slash is specified on input,
   but final node is not a directory
-
-* chase(): add new flag that simply refuses all symlink use in a path,
-  then use that for accessing XBOOTLDR/ESP
 
 * document in boot loader spec that symlinks in XBOOTLDR/ESP are not OK even if
   non-VFAT fs is used.
@@ -749,9 +740,6 @@ Features:
 
 * implement varlink introspection
 
-* we should probably drop all use of prefix_roota() and friends, and use
-  chase() instead
-
 * make persistent restarts easier by adding a new setting OpenPersistentFile=
   or so, which allows opening one or more files that is "persistent" across
   service restarts, hot reboot, cold reboots (depending on configuration): the
@@ -792,7 +780,7 @@ Features:
   not unprivileged code.
 
 * given that /etc/ssh/ssh_config.d/ is a thing now, ship a drop-in for that
-  that hooks up userbdctl ssh-key stuff.
+  that hooks up userdbctl ssh-key stuff.
 
 * maybe add support for binding and connecting AF_UNIX sockets in the file
   system outside of the 108ch limit. When connecting, open O_PATH fd to socket
@@ -864,10 +852,6 @@ Features:
   signal for setting service log level, that carries the level via the
   sigqueue() data parameter. Enable this via unit file setting.
 
-* firstboot: maybe just default to C.UTF-8 locale if nothing is set, so that we
-  don't query this unnecessarily in entirely uninitialized
-  containers. (i.e. containers with empty /etc).
-
 * sd_notify/vsock: maybe support binding to AF_VSOCK in Type=notify services,
   then passing $NOTIFY_SOCKET and $NOTIFY_GUESTCID with PID1's cid (typically
   fixed to "2", i.e. the official host cid) and the expected guest cid, for the
@@ -876,8 +860,8 @@ Features:
   directly to host service manager.
 
 * maybe write a tool that binds an AF_VFSOCK socket, then invokes qemu,
-  extending the command line to enable vsock on the VM, and using fw_cfg to
-  configure socket address.
+  extending the command line to enable vsock on the VM, and using SMBIOS
+  credentials to configure socket address.
 
 * sd-boot: add menu item for shutdown? or hotkey?
 
@@ -908,7 +892,7 @@ Features:
 
 * sd-boot: maybe add support for embedding the various auxiliary resources we
   look for right in the sd-boot binary. i.e. take inspiration from sd-stub
-  logic: allow combining sd-boot via objcopy with kernels to enumerate, .conf
+  logic: allow combining sd-boot via ukify with kernels to enumerate, .conf
   files, drivers, keys to enroll and so on. Then, add whatever we find that way
   to the menu. Usecase: allow building a single PE image you can boot into via
   UEFI HTTP boot.
@@ -972,8 +956,6 @@ Features:
 
 * kernel-install:
   - add --all switch for rerunning kernel-install for all installed kernels
-  - maybe add env var that shortcuts kernel-install for installers that want to
-    call it at the end only
 
 * doc: prep a document explaining resolved's internal objects, i.e. Query
   vs. Question vs. Transaction vs. Stream and so on.
@@ -1224,7 +1206,7 @@ Features:
 
 * introduce a new group to own TPM devices
 
-* cyptsetup: add option for automatically removing empty password slot on boot
+* cryptsetup: add option for automatically removing empty password slot on boot
 
 * cryptsetup: optionally, when run during boot-up and password is never
   entered, and we are on battery power (or so), power off machine again
@@ -1951,11 +1933,6 @@ Features:
 
 * mount: turn dependency information from /proc/self/mountinfo into dependency information between systemd units.
 
-* systemd-firstboot: make sure to always use chase() before
-  reading/writing files
-
-* firstboot: make it useful to be run immediately after yum --installroot to set up a machine. (most specifically, make --copy-root-password work even if /etc/passwd already exists
-
 * EFI:
   - honor language efi variables for default language selection (if there are any?)
   - honor timezone efi variables for default timezone selection (if there are any?)
@@ -2025,7 +2002,7 @@ Features:
   - check if we can make journalctl by default use --follow mode inside of less if called without args?
   - maybe add API to send pairs of iovecs via sd_journal_send
   - journal: add a setgid "systemd-journal" utility to invoke from libsystemd-journal, which passes fds via STDOUT and does PK access
-  - journactl: support negative filtering, i.e. FOOBAR!="waldo",
+  - journalctl: support negative filtering, i.e. FOOBAR!="waldo",
     and !FOOBAR for events without FOOBAR.
   - journal: store timestamp of journal_file_set_offline() in the header,
     so it is possible to display when the file was last synced.
@@ -2253,11 +2230,6 @@ Features:
 * introduce an option (or replacement) for "systemctl show" that outputs all
   properties as JSON, similar to busctl's new JSON output. In contrast to that
   it should skip the variant type string though.
-
-* add an explicit "vertical" mode to format-table, so that "systemctl
-  status"-like outputs (i.e. with a series of field names left and values
-  right) become genuine first class citizens, and we gain automatic, sane JSON
-  output for them.
 
 * Add a "systemctl list-units --by-slice" mode or so, which rearranges the
   output of "systemctl list-units" slightly by showing the tree structure of
