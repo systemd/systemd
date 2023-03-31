@@ -1,13 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
-
+#include "fileio.h"
 #include "fs-util.h"
 #include "log.h"
+#include "mkdir.h"
 #include "os-util.h"
+#include "path-util.h"
+#include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 TEST(path_is_os_tree) {
         assert_se(path_is_os_tree("/") > 0);
@@ -53,6 +57,50 @@ TEST(parse_os_release) {
         assert_se(foobar == NULL);
 
         assert_se(unsetenv("SYSTEMD_OS_RELEASE") == 0);
+}
+
+TEST(parse_extension_release) {
+        /* Let's assume that we have a valid extension image */
+        _cleanup_free_ char *id = NULL, *id2 = NULL,
+                            *version_id = NULL, *foobar = NULL,
+                            *a = NULL, *b = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *tempdir = NULL;
+
+        int r = mkdtemp_malloc("/tmp/test-os-util.XXXXXX", &tempdir);
+        if (r < 0)
+                log_error_errno(r, "Failed to setup working directory: %m");
+
+        assert_se(a = path_join(tempdir, "/usr/lib/extension-release.d/extension-release.test"));
+        assert_se(mkdir_parents(a, 0777) >= 0);
+
+        r = write_string_file(a, "ID=the-id  \n VERSION_ID=the-version-id", WRITE_STRING_FILE_CREATE);
+        if (r < 0)
+                log_error_errno(r, "Failed to write file: %m");
+
+        assert_se(parse_extension_release(tempdir, IMAGE_EXTENSION, false, "test", "ID", &id, "VERSION_ID", &version_id) == 0);
+        log_info("ID: %s VERSION_ID: %s", id, version_id);
+        assert_se(streq(id, "the-id"));
+        assert_se(streq(version_id, "the-version-id"));
+
+        assert_se(b = path_join(tempdir, "/etc/confext-release.d/confext-release.tester"));
+        assert_se(mkdir_parents(b, 0777) >= 0);
+
+        r = write_string_file(b, "ID=\"ignored\" \n ID=\"the-id\" \n VERSION_ID='the-version-id'", WRITE_STRING_FILE_CREATE);
+        if (r < 0)
+                log_error_errno(r, "Failed to write file: %m");
+
+        assert_se(parse_extension_release(tempdir, IMAGE_CONFEXT, false, "tester", "ID", &id, "VERSION_ID", &version_id) == 0);
+        log_info("ID: %s VERSION_ID: %s", id, version_id);
+        assert_se(streq(id, "the-id"));
+        assert_se(streq(version_id, "the-version-id"));
+
+        assert_se(parse_extension_release(tempdir, IMAGE_CONFEXT, false, "tester", "FOOBAR", &foobar) == 0);
+        log_info("FOOBAR: %s", strnull(foobar));
+        assert_se(foobar == NULL);
+
+        assert_se(parse_extension_release(tempdir, IMAGE_EXTENSION, false, "test", "FOOBAR", &foobar) == 0);
+        log_info("FOOBAR: %s", strnull(foobar));
+        assert_se(foobar == NULL);
 }
 
 TEST(load_os_release_pairs) {
