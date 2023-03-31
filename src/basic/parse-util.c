@@ -732,3 +732,38 @@ int parse_loadavg_fixed_point(const char *s, loadavg_t *ret) {
 
         return store_loadavg_fixed_point(i, f, ret);
 }
+
+int named_pcr(char *pcr, unsigned *n) {
+        bool found = false;
+        static const struct {
+                const char *str;
+                unsigned u;
+        } table[] = {
+                {"corefirmware", 0},
+                {"platformconfig", 1},
+                {"extcode", 2},
+                {"extfirmware", 3},
+                {"bootloader", 4},
+                {"gptpartition", 5},
+                {"powerstate", 6},
+                {"secureboot", 7},
+                {"linuxkernel", 9},
+                {"imastate", 10},
+                {"systemdkernel", 11},
+                {"systemdboot", 12},
+                {"systemdstub", 13},
+                {"shimcerts", 14},
+                {"lukskey", 15}
+        };
+        for (size_t i=0; i < ELEMENTSOF(table); i++) {
+                if (streq(pcr, table[i].str)) {
+                        *n = table[i].u;
+                        found = true;
+                        break;
+                }
+        }
+        if (!found)
+                return -EINVAL;
+
+        return 0;
+}
