@@ -450,6 +450,21 @@ class PeError(Exception):
 def pe_add_sections(uki: UKI, output: str):
     pe = pefile.PE(uki.executable, fast_load=True)
 
+    # Old stubs do not have the symbol/string table stripped, even though image files should not have one.
+    symbol_table = pe.FILE_HEADER.PointerToSymbolTable
+    if symbol_table != 0:
+        symbol_table_size = 18 * pe.FILE_HEADER.NumberOfSymbols
+        string_table_size = pe.get_dword_from_offset(symbol_table + symbol_table_size)
+        if string_table_size is not None:
+            symbol_table_size += string_table_size
+
+        # Let's be safe and only strip it if it's at the end of the file.
+        if symbol_table + symbol_table_size == len(pe.__data__):
+            pe.__data__ = pe.__data__[:symbol_table]
+            pe.FILE_HEADER.PointerToSymbolTable = 0
+            pe.FILE_HEADER.NumberOfSymbols = 0
+            pe.FILE_HEADER.IMAGE_FILE_LOCAL_SYMS_STRIPPED = True
+
     # Old stubs might have been stripped, leading to unaligned raw data values, so let's fix them up here.
     for i, section in enumerate(pe.sections):
         oldp = section.PointerToRawData
