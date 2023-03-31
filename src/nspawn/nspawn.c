@@ -2207,7 +2207,7 @@ static int setup_boot_id(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate random boot id: %m");
 
-        r = id128_write(path, ID128_FORMAT_UUID, rnd);
+        r = id128_write(NULL, path, ID128_FORMAT_UUID, rnd);
         if (r < 0)
                 return log_error_errno(r, "Failed to write boot id: %m");
 
@@ -2828,7 +2828,6 @@ static int mount_tunnel_open(void) {
 }
 
 static int setup_machine_id(const char *directory) {
-        sd_id128_t id;
         int r;
 
         /* If the UUID in the container is already set, then that's what counts, and we use. If it isn't set, and the
@@ -2838,7 +2837,7 @@ static int setup_machine_id(const char *directory) {
          * in the container and our idea of the container UUID will always be in sync (at least if PID 1 in the
          * container behaves nicely). */
 
-        r = id128_read(directory, "/etc/machine-id", ID128_FORMAT_PLAIN, &id);
+        r = id128_get_machine(directory, &arg_uuid);
         if (r < 0) {
                 if (!ERRNO_IS_MACHINE_ID_UNSET(r)) /* If the file is missing, empty, or uninitialized, we don't mind */
                         return log_error_errno(r, "Failed to read machine ID from container image: %m");
@@ -2848,12 +2847,6 @@ static int setup_machine_id(const char *directory) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to acquire randomized machine UUID: %m");
                 }
-        } else {
-                if (sd_id128_is_null(id))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Machine ID in container image is zero, refusing.");
-
-                arg_uuid = id;
         }
 
         return 0;

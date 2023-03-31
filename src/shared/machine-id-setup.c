@@ -27,22 +27,15 @@
 #include "virt.h"
 
 static int generate_machine_id(const char *root, sd_id128_t *ret) {
-        const char *dbus_machine_id;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(ret);
 
         /* First, try reading the D-Bus machine id, unless it is a symlink */
-        dbus_machine_id = prefix_roota(root, "/var/lib/dbus/machine-id");
-        fd = open(dbus_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
-        if (fd >= 0) {
-                if (id128_read_fd(fd, ID128_FORMAT_PLAIN, ret) >= 0) {
-                        log_info("Initializing machine ID from D-Bus machine ID.");
-                        return 0;
-                }
-
-                fd = safe_close(fd);
+        if (id128_read(root, "/var/lib/dbus/machine-id", ID128_FORMAT_PLAIN, ret) >= 0) {
+                log_info("Initializing machine ID from D-Bus machine ID.");
+                return 0;
         }
 
         if (isempty(root) && running_in_chroot() <= 0) {
@@ -167,7 +160,7 @@ int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_
         run_machine_id = prefix_roota(root, "/run/machine-id");
 
         WITH_UMASK(0022)
-                r = id128_write(run_machine_id, ID128_FORMAT_PLAIN, machine_id);
+                r = id128_write(NULL, run_machine_id, ID128_FORMAT_PLAIN, machine_id);
         if (r < 0) {
                 (void) unlink(run_machine_id);
                 return log_error_errno(r, "Cannot write %s: %m", run_machine_id);
@@ -260,7 +253,7 @@ int machine_id_commit(const char *root) {
                 return r;
 
         /* Update a persistent version of etc_machine_id */
-        r = id128_write(etc_machine_id, ID128_FORMAT_PLAIN | ID128_SYNC_ON_WRITE, id);
+        r = id128_write(NULL, etc_machine_id, ID128_FORMAT_PLAIN | ID128_SYNC_ON_WRITE, id);
         if (r < 0)
                 return log_error_errno(r, "Cannot write %s. This is mandatory to get a persistent machine ID: %m", etc_machine_id);
 
