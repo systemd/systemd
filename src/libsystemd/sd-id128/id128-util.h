@@ -25,8 +25,11 @@ static inline int id128_read_fd(int fd, Id128Flag f, sd_id128_t *ret) {
         return id128_read_at(fd, "", f, ret);
 }
 
-int id128_write_fd(int fd, Id128Flag f, sd_id128_t id);
-int id128_write(const char *p, Id128Flag f, sd_id128_t id);
+int id128_write_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t id);
+int id128_write(const char *root, const char *path, Id128Flag f, sd_id128_t id);
+static inline int id128_write_fd(int fd, Id128Flag f, sd_id128_t id) {
+        return id128_write_at(fd, "", f, id);
+}
 
 int id128_get_machine_at(int rfd, sd_id128_t *ret);
 int id128_get_machine_internal(const char *root, sd_id128_t *ret);
