@@ -6,6 +6,7 @@
 
 #include "chase.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hexdecoct.h"
 #include "id128-util.h"
 #include "io-util.h"
@@ -100,6 +101,21 @@ int id128_read_fd(int fd, Id128Flag f, sd_id128_t *ret) {
 
         r = sd_id128_from_string(buffer, ret);
         return r == -EINVAL ? -EUCLEAN : r;
+}
+
+int id128_read_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t *ret) {
+        _cleanup_close_ int fd = -EBADF;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(path);
+
+        fd = chase_and_openat(dir_fd, path,
+                              CHASE_AT_RESOLVE_IN_ROOT | (FLAGS_SET(f, ID128_NOFOLLOW) ? CHASE_NOFOLLOW : 0),
+                              O_RDONLY|O_CLOEXEC|O_NOCTTY, /* ret_path = */ NULL);
+        if (fd < 0)
+                return fd;
+
+        return id128_read_fd(fd, f, ret);
 }
 
 int id128_read(const char *root, const char *path, Id128Flag f, sd_id128_t *ret) {
