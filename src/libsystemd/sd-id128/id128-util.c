@@ -148,14 +148,20 @@ int id128_write_fd(int fd, Id128Flag f, sd_id128_t id) {
         return 0;
 }
 
-int id128_write(const char *path, Id128Flag f, sd_id128_t id) {
-        _cleanup_close_ int fd = -EBADF;
+int id128_write_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t id) {
+        _cleanup_close_ int pfd = -EBADF, fd = -EBADF;
+        _cleanup_free_ char *filename = NULL;
 
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(path);
 
-        fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC|(FLAGS_SET(f, ID128_NOFOLLOW) ? O_NOFOLLOW : 0), 0444);
+        pfd = chase_and_open_parent_at(dir_fd, path, CHASE_AT_RESOLVE_IN_ROOT | (FLAGS_SET(f, ID128_NOFOLLOW) ? CHASE_NOFOLLOW : 0), &filename);
+        if (dir_fd < 0)
+                return dir_fd;
+
+        fd = xopenat(pfd, filename, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC|O_NOFOLLOW, 0444);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return id128_write_fd(fd, f, id);
 }
