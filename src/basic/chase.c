@@ -742,11 +742,13 @@ int chase_and_unlink(const char *path, const char *root, ChaseFlags chase_flags,
         if (fd < 0)
                 return fd;
 
-        r = path_extract_filename(p, &fname);
-        if (r < 0)
-                return r;
+        if (!FLAGS_SET(chase_flags, CHASE_EXTRACT_FILENAME)) {
+                r = path_extract_filename(p, &fname);
+                if (r < 0)
+                        return r;
+        }
 
-        if (unlinkat(fd, fname, unlink_flags) < 0)
+        if (unlinkat(fd, fname ?: p, unlink_flags) < 0)
                 return -errno;
 
         if (ret_path)
@@ -943,11 +945,13 @@ int chase_and_unlinkat(int dir_fd, const char *path, ChaseFlags chase_flags, int
         if (fd < 0)
                 return fd;
 
-        r = path_extract_filename(p, &fname);
-        if (r < 0)
-                return r;
+        if (!FLAGS_SET(chase_flags, CHASE_EXTRACT_FILENAME)) {
+                r = path_extract_filename(p, &fname);
+                if (r < 0)
+                        return r;
+        }
 
-        if (unlinkat(fd, fname, unlink_flags) < 0)
+        if (unlinkat(fd, fname ?: p, unlink_flags) < 0)
                 return -errno;
 
         if (ret_path)
