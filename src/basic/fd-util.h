@@ -2,6 +2,7 @@
 #pragma once
 
 #include <dirent.h>
+#include <fcntl.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/socket.h>
@@ -101,6 +102,9 @@ int read_nr_open(void);
 int fd_get_diskseq(int fd, uint64_t *ret);
 
 int dir_fd_is_root(int dir_fd);
+static inline int dir_fd_is_root_or_cwd(int dir_fd) {
+        return dir_fd == AT_FDCWD ? true : dir_fd_is_root(dir_fd);
+}
 
 /* The maximum length a buffer for a /proc/self/fd/<fd> path needs */
 #define PROC_FD_PATH_MAX \
