@@ -161,10 +161,7 @@ int chaseat_full(int dir_fd, const char *path, ChaseFlags flags, char **ret_path
                 /* If we get AT_FDCWD or dir_fd points to "/", then we always resolve symlinks relative to
                  * the host's root. Hence, CHASE_AT_RESOLVE_IN_ROOT is meaningless. */
 
-                if (dir_fd >= 0)
-                        r = dir_fd_is_root(dir_fd);
-                else
-                        r = true;
+                r = dir_fd_is_root_or_cwd(dir_fd);
                 if (r < 0)
                         return r;
                 if (r > 0)

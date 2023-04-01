@@ -432,10 +432,7 @@ int find_esp_and_warn_at(
 
         assert(rfd >= 0 || rfd == AT_FDCWD);
 
-        if (rfd >= 0)
-                r = dir_fd_is_root(rfd);
-        else
-                r = true;
+        r = dir_fd_is_root_or_cwd(rfd);
         if (r < 0)
                 return log_error_errno(r, "Failed to check if directory file descriptor is root: %m");
         if (r == 0)
