@@ -61,7 +61,7 @@ int id128_read_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t *ret) {
          *     -ENOPKG:    "uninitialized" or "uninitialized\n",
          *     -EUCLEAN:   other invalid strings. */
 
-        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY, 0);
+        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY|(FLAGS_SET(f, ID128_NOFOLLOW) ? O_NOFOLLOW : 0), 0);
         if (fd < 0)
                 return fd;
 
@@ -115,11 +115,13 @@ int id128_read(const char *root, const char *path, Id128Flag f, sd_id128_t *ret)
 
         assert(path);
 
-        r = chase(path, root, CHASE_PREFIX_ROOT, /* ret_path = */ NULL, &fd);
+        r = chase(path, root, CHASE_PREFIX_ROOT | (FLAGS_SET(f, ID128_NOFOLLOW) ? CHASE_NOFOLLOW : 0), /* ret_path = */ NULL, &fd);
         if (r < 0)
                 return r;
 
-        return id128_read_fd(fd, f, ret);
+        /* We have already resolved symlinks in the path, hence it is not necessary to follow symlinks any
+         * more, and we can set O_NOFOLLOW when opening the file in id128_write_at(). */
+        return id128_read_fd(fd, f | ID128_NOFOLLOW, ret);
 }
 
 int id128_write_fd(int fd, Id128Flag f, sd_id128_t id) {
@@ -155,7 +157,7 @@ int id128_write_fd(int fd, Id128Flag f, sd_id128_t id) {
 int id128_write(const char *p, Id128Flag f, sd_id128_t id) {
         _cleanup_close_ int fd = -EBADF;
 
-        fd = open(p, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC, 0444);
+        fd = open(p, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC|(FLAGS_SET(f, ID128_NOFOLLOW) ? O_NOFOLLOW : 0), 0444);
         if (fd < 0)
                 return -errno;
 
