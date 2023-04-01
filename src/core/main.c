@@ -2863,8 +2863,8 @@ int main(int argc, char *argv[]) {
                                         goto finish;
                         }
 
-                        if (mac_selinux_init() < 0) {
-                                error_message = "Failed to initialize SELinux support";
+                        if (mac_init() < 0) {
+                                error_message = "Failed to initialize MAC support";
                                 goto finish;
                         }
 
@@ -2936,8 +2936,8 @@ int main(int argc, char *argv[]) {
                  * operate. */
                 capability_ambient_set_apply(0, /* also_inherit= */ false);
 
-                if (mac_selinux_init() < 0) {
-                        error_message = "Failed to initialize SELinux support";
+                if (mac_init() < 0) {
+                        error_message = "Failed to initialize MAC support";
                         goto finish;
                 }
         }

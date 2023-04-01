@@ -37,9 +37,9 @@ static void test_loading(void) {
         log_info("============ %s ==========", __func__);
 
         n1 = now(CLOCK_MONOTONIC);
-        r = mac_selinux_init();
+        r = mac_init();
         n2 = now(CLOCK_MONOTONIC);
-        log_info_errno(r, "mac_selinux_init → %d %.2fs (%m)", r, (n2 - n1)/1e6);
+        log_info_errno(r, "mac_init → %d %.2fs (%m)", r, (n2 - n1)/1e6);
 }
 
 static void test_cleanup(void) {

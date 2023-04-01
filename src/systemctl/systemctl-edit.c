@@ -335,7 +335,7 @@ int verb_edit(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = mac_selinux_init();
+        r = mac_init();
         if (r < 0)
                 return r;
 
