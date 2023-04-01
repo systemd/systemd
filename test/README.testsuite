@@ -262,3 +262,39 @@ More about query suites here: https://codeql.github.com/docs/codeql-cli/creating
 The results are then located in the `results.csv` file as a comma separated
 values list (obviously), which is the most human-friendly output format the
 CodeQL utility provides (so far).
+
+Code coverage
+=============
+
+We have a daily cron job in CentOS CI which runs all unit and integration tests,
+collects coverage using gcov/lcov, and uploads the report to Coveralls[0]. In
+order to collect the most accurate coverage information, some measures have
+to be taken regarding sandboxing, namely:
+
+ - ProtectSystem= and ProtectHome= need to be turned off
+ - the $BUILD_DIR with necessary .gcno files needs to be present in the image
+   and needs to be writable by all processes
+
+The first point is relatively easy to handle and is handled automagically by
+our test "framework" by creating necessary dropins.
+
+Making the $BUILD_DIR accessible to _everything_ is slightly more complicated.
+First, and foremost, the $BUILD_DIR has a POSIX ACL that makes it writable
+to everyone. However, this is not enough in some cases, like for services
+that use DynamicUser=yes, since that implies ProtectSystem=strict that can't
+be turned off. A solution to this is to use ReadWritePaths=$BUILD_DIR, which
+works for the majority of cases, but can't be turned on globally, since
+ReadWritePaths= creates its own mount namespace which might break some
+services. Hence, the ReadWritePaths=$BUILD_DIR is enabled for all services
+with the `test-` prefix (i.e. test-foo.service or test-foo-bar.service), both
+in the system and the user managers.
+
+So, if you're considering writing an integration test that makes use
+of DynamicUser=yes, or other sandboxing stuff that implies it, please prefix
+the test unit (be it a static one or a transient one created via systemd-run),
+with `test-`, unless the test unit needs to be able to install mount points
+in the main mount namespace - in that case use IGNORE_MISSING_COVERAGE=yes
+in the test definition (i.e. TEST-*-NAME/test.sh), which will skip the post-test
+check for missing coverage for the respective test.
+
+[0] https://coveralls.io/github/systemd/systemd
