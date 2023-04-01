@@ -11,11 +11,12 @@
 bool id128_is_valid(const char *s) _pure_;
 
 typedef enum Id128FormatFlag {
-        ID128_FORMAT_PLAIN = 1 << 0,  /* formatted as 32 hex chars as-is */
-        ID128_FORMAT_UUID  = 1 << 1,  /* formatted as 36 character uuid string */
-        ID128_FORMAT_ANY   = ID128_FORMAT_PLAIN | ID128_FORMAT_UUID,
+        ID128_FORMAT_PLAIN  = 1 << 0,  /* formatted as 32 hex chars as-is */
+        ID128_FORMAT_UUID   = 1 << 1,  /* formatted as 36 character uuid string */
+        ID128_FORMAT_ANY    = ID128_FORMAT_PLAIN | ID128_FORMAT_UUID,
 
         ID128_SYNC_ON_WRITE = 1 << 2, /* Sync the file after write. Used only when writing an ID. */
+        ID128_NOFOLLOW      = 1 << 3, /* When open a file, do not follow symlink. */
 } Id128FormatFlag;
 
 int id128_read_at(int dir_fd, const char *path, Id128FormatFlag f, sd_id128_t *ret);
