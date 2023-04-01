@@ -24,7 +24,6 @@ typedef enum ChaseFlags {
                                              * full path is still stored in ret_path and only the returned
                                              * file descriptor will point to the parent directory. */
         CHASE_MKDIR_0755         = 1 << 11, /* Create any missing parent directories in the given path. */
-        CHASE_EXTRACT_FILENAME   = 1 << 12, /* Only return the last component of the resolved path */
 } ChaseFlags;
 
 bool unsafe_transition(const struct stat *a, const struct stat *b);
@@ -32,7 +31,10 @@ bool unsafe_transition(const struct stat *a, const struct stat *b);
 /* How many iterations to execute before returning -ELOOP */
 #define CHASE_MAX 32
 
-int chase(const char *path_with_prefix, const char *root, ChaseFlags chase_flags, char **ret_path, int *ret_fd);
+int chase_full(const char *path_with_prefix, const char *root, ChaseFlags chase_flags, char **ret_path, char **ret_filename, int *ret_fd);
+static inline int chase(const char *path_with_prefix, const char *root, ChaseFlags chase_flags, char **ret_path, int *ret_fd) {
+        return chase_full(path_with_prefix, root, chase_flags, ret_path, NULL, ret_fd);
+}
 
 int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, int open_flags, char **ret_path);
 int chase_and_opendir(const char *path, const char *root, ChaseFlags chase_flags, char **ret_path, DIR **ret_dir);
@@ -42,7 +44,10 @@ int chase_and_fopen_unlocked(const char *path, const char *root, ChaseFlags chas
 int chase_and_unlink(const char *path, const char *root, ChaseFlags chase_flags, int unlink_flags, char **ret_path);
 int chase_and_open_parent(const char *path, const char *root, ChaseFlags chase_flags, char **ret_filename);
 
-int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int *ret_fd);
+int chaseat_full(int dir_fd, const char *path, ChaseFlags chase_flags, char **ret_path, char **ret_filename, int *ret_fd);
+static inline int chaseat(int dir_fd, const char *path, ChaseFlags chase_flags, char **ret_path, int *ret_fd) {
+        return chaseat_full(dir_fd, path, chase_flags, ret_path, NULL, ret_fd);
+}
 
 int chase_and_openat(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, char **ret_path);
 int chase_and_opendirat(int dir_fd, const char *path, ChaseFlags chase_flags, char **ret_path, DIR **ret_dir);
@@ -51,4 +56,3 @@ int chase_and_accessat(int dir_fd, const char *path, ChaseFlags chase_flags, int
 int chase_and_fopenat_unlocked(int dir_fd, const char *path, ChaseFlags chase_flags, const char *open_flags, char **ret_path, FILE **ret_file);
 int chase_and_unlinkat(int dir_fd, const char *path, ChaseFlags chase_flags, int unlink_flags, char **ret_path);
 int chase_and_open_parent_at(int dir_fd, const char *path, ChaseFlags chase_flags, char **ret_filename);
-
