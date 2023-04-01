@@ -675,17 +675,7 @@ static int link_get_property(
         if (r < 0)
                 return r;
 
-        return sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.network1",
-                        path,
-                        "org.freedesktop.DBus.Properties",
-                        "Get",
-                        error,
-                        reply,
-                        "ss",
-                        iface,
-                        propname);
+        return sd_bus_get_property(bus, "org.freedesktop.network1", path, iface, propname, error, reply, "ss");
 }
 
 static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
