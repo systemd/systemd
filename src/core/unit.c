@@ -4310,20 +4310,18 @@ static const char* unit_drop_in_dir(Unit *u, UnitWriteFlags flags) {
         return NULL;
 }
 
-char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf) {
+const char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf) {
+        assert(s);
         assert(!FLAGS_SET(flags, UNIT_ESCAPE_EXEC_SYNTAX | UNIT_ESCAPE_C));
+        assert(buf);
 
         _cleanup_free_ char *t = NULL;
 
-        if (!s)
-                return NULL;
-
-        /* Escapes the input string as requested. Returns the escaped string. If 'buf' is specified then the
-         * allocated return buffer pointer is also written to *buf, except if no escaping was necessary, in
-         * which case *buf is set to NULL, and the input pointer is returned as-is. This means the return
-         * value always contains a properly escaped version, but *buf when passed only contains a pointer if
-         * an allocation was necessary. If *buf is not specified, then the return value always needs to be
-         * freed. Callers can use this to optimize memory allocations. */
+        /* Returns a string with any escaping done. If no escaping was necessary, *buf is set to NULL, and
+         * the input pointer is returned as-is. If an allocation was needed, the return buffer pointer is
+         * written to *buf. This means the return value always contains a properly escaped version, but *buf
+         * only contains a pointer if an allocation was made. Callers can use this to optimize memory
+         * allocations. */
 
         if (flags & UNIT_ESCAPE_SPECIFIERS) {
                 t = specifier_escape(s);
@@ -4353,12 +4351,8 @@ char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf) {
                 s = t;
         }
 
-        if (buf) {
-                *buf = TAKE_PTR(t);
-                return (char*) s;
-        }
-
-        return TAKE_PTR(t) ?: strdup(s);
+        *buf = TAKE_PTR(t);
+        return s;
 }
 
 char* unit_concat_strv(char **l, UnitWriteFlags flags) {
