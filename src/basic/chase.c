@@ -72,7 +72,7 @@ static int log_prohibited_symlink(int fd, ChaseFlags flags) {
                                  strna(n1));
 }
 
-int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int *ret_fd) {
+int chaseat_full(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, char **ret_filename, int *ret_fd) {
         _cleanup_free_ char *buffer = NULL, *done = NULL;
         _cleanup_close_ int fd = -EBADF, root_fd = -EBADF;
         unsigned max_follow = CHASE_MAX; /* how many symlinks to follow before giving up and returning ELOOP */
@@ -83,8 +83,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
 
         assert(path);
         assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
-        assert(!FLAGS_SET(flags, CHASE_STEP|CHASE_EXTRACT_FILENAME));
-        assert(!FLAGS_SET(flags, CHASE_TRAIL_SLASH|CHASE_EXTRACT_FILENAME));
+        assert(!FLAGS_SET(flags, CHASE_STEP) || !ret_filename);
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
         /* Either the file may be missing, or we return an fd to the final object, but both make no sense */
@@ -172,7 +171,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         if (!(flags &
               (CHASE_AT_RESOLVE_IN_ROOT|CHASE_NONEXISTENT|CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_STEP|
                CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755)) &&
-            !ret_path && ret_fd) {
+            !ret_path && !ret_filename && ret_fd) {
 
                 /* Shortcut the ret_fd case if the caller isn't interested in the actual path and has no root
                  * set and doesn't care about any of the other special features we provide either. */
@@ -409,24 +408,33 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         return r;
         }
 
-        if (ret_path) {
-                if (FLAGS_SET(flags, CHASE_EXTRACT_FILENAME) && done) {
-                        _cleanup_free_ char *f = NULL;
+        if (ret_path && !done) {
+                done = strdup(append_trail_slash ? "./" : ".");
+                if (!done)
+                        return -ENOMEM;
+        }
 
+        if (ret_filename) {
+                _cleanup_free_ char *f = NULL;
+
+                if (done) {
                         r = path_extract_filename(done, &f);
                         if (r < 0 && r != -EADDRNOTAVAIL)
                                 return r;
-
-                        /* If we get EADDRNOTAVAIL we clear done and it will get reinitialized by the next block. */
-                        free_and_replace(done, f);
+                        /* If we get EADDRNOTAVAIL, "." will be returned. */
                 }
 
-                if (!done) {
-                        done = strdup(append_trail_slash ? "./" : ".");
-                        if (!done)
+                if (!f) {
+                        f = strdup(".");
+                        if (!f)
                                 return -ENOMEM;
                 }
 
+                *ret_filename = TAKE_PTR(f);
+        }
+
+        if (ret_path) {
+                assert(done);
                 *ret_path = TAKE_PTR(done);
         }
 
@@ -473,8 +481,8 @@ chased_one:
         return 0;
 }
 
-int chase(const char *path, const char *original_root, ChaseFlags flags, char **ret_path, int *ret_fd) {
-        _cleanup_free_ char *root = NULL, *absolute = NULL, *p = NULL;
+int chase_full(const char *path, const char *original_root, ChaseFlags flags, char **ret_path, char **ret_filename, int *ret_fd) {
+        _cleanup_free_ char *root = NULL, *absolute = NULL, *p = NULL, *f = NULL;
         _cleanup_close_ int fd = -EBADF, pfd = -EBADF;
         int r;
 
@@ -527,29 +535,28 @@ int chase(const char *path, const char *original_root, ChaseFlags flags, char **
         if (!empty_or_root(root))
                 flags |= CHASE_AT_RESOLVE_IN_ROOT;
 
-        r = chaseat(fd, path, flags & ~CHASE_PREFIX_ROOT, ret_path ? &p : NULL, ret_fd ? &pfd : NULL);
+        r = chaseat_full(fd, path, flags & ~CHASE_PREFIX_ROOT, ret_path ? &p : NULL, ret_filename ? &f : NULL, ret_fd ? &pfd : NULL);
         if (r < 0)
                 return r;
 
         if (ret_path) {
-                if (!FLAGS_SET(flags, CHASE_EXTRACT_FILENAME)) {
-                        _cleanup_free_ char *q = NULL;
+                _cleanup_free_ char *q = NULL;
 
-                        q = path_join(empty_to_root(root), p);
-                        if (!q)
+                q = path_join(empty_to_root(root), p);
+                if (!q)
+                        return -ENOMEM;
+
+                path_simplify(q);
+
+                if (FLAGS_SET(flags, CHASE_TRAIL_SLASH) && ENDSWITH_SET(path, "/", "/."))
+                        if (!strextend(&q, "/"))
                                 return -ENOMEM;
 
-                        path_simplify(q);
-
-                        if (FLAGS_SET(flags, CHASE_TRAIL_SLASH) && ENDSWITH_SET(path, "/", "/."))
-                                if (!strextend(&q, "/"))
-                                        return -ENOMEM;
-
-                        free_and_replace(p, q);
-                }
-
-                *ret_path = TAKE_PTR(p);
+                *ret_path = TAKE_PTR(q);
         }
+
+        if (ret_filename)
+                *ret_filename = TAKE_PTR(f);
 
         if (ret_fd)
                 *ret_fd = TAKE_FD(pfd);
@@ -762,7 +769,7 @@ int chase_and_open_parent(const char *path, const char *root, ChaseFlags chase_f
 
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
 
-        r = chase(path, root, CHASE_PARENT|CHASE_EXTRACT_FILENAME|chase_flags, ret_filename, &pfd);
+        r = chase_full(path, root, CHASE_PARENT|chase_flags, NULL, ret_filename, &pfd);
         if (r < 0)
                 return r;
 
@@ -968,7 +975,7 @@ int chase_and_open_parent_at(int dir_fd, const char *path, ChaseFlags chase_flag
 
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
 
-        r = chaseat(dir_fd, path, CHASE_PARENT|CHASE_EXTRACT_FILENAME|chase_flags, ret_filename, &pfd);
+        r = chaseat_full(dir_fd, path, CHASE_PARENT|chase_flags, NULL, ret_filename, &pfd);
         if (r < 0)
                 return r;
 
