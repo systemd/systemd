@@ -73,6 +73,7 @@ int unit_symlink_name_compatible(const char *symlink, const char *target, bool i
 int unit_validate_alias_symlink_or_warn(int log_level, const char *filename, const char *target) {
         const char *src, *dst;
         _cleanup_free_ char *src_instance = NULL, *dst_instance = NULL;
+        char *temp = NULL;
         UnitType src_unit_type, dst_unit_type;
         UnitNameFlags src_name_type, dst_name_type;
 
@@ -87,8 +88,10 @@ int unit_validate_alias_symlink_or_warn(int log_level, const char *filename, con
          * -ELOOP for an alias to self.
          */
 
-        src = basename(filename);
-        dst = basename(target);
+        path_extract_filename(filename, &temp);
+        src = temp;
+        path_extract_filename(target, &temp);
+        dst = temp;
 
         /* src checks */
 
@@ -581,7 +584,7 @@ int unit_file_build_name_map(
         HASHMAP_FOREACH_KEY(dummy, src, ids) {
                 _cleanup_free_ char *inst = NULL, *dst_inst = NULL;
                 const char *dst;
-
+                char *temp = NULL;
                 r = unit_ids_map_get(ids, src, &dst);
                 if (r < 0)
                         continue;
@@ -589,7 +592,8 @@ int unit_file_build_name_map(
                 if (null_or_empty_path(dst) != 0)
                         continue;
 
-                dst = basename(dst);
+                path_extract_filename(dst, &temp);
+                dst = temp;
 
                 /* If we have an symlink from an instance name to a template name, it is an alias just for
                  * this specific instance, foo@id.service ↔ template@id.service. */
@@ -762,7 +766,9 @@ int unit_file_find_fragment(
         }
 
         if (fragment && ret_names) {
-                const char *fragment_basename = basename(fragment);
+                char *temp = NULL;
+                path_extract_filename(fragment, &temp);
+                const char *fragment_basename = temp;
 
                 if (!streq(fragment_basename, unit_name)) {
                         /* Add names based on the fragment name to the set of names */

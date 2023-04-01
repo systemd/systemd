@@ -4,6 +4,7 @@
 #include "ether-addr-util.h"
 #include "networkd-manager.h"
 #include "networkd-network-bus.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -65,7 +66,7 @@ static char *network_bus_path(Network *network) {
         if (!name)
                 return NULL;
 
-        networkname = basename(name);
+        path_extract_filename(name, &networkname);
 
         d = strrchr(networkname, '.');
         if (!d)

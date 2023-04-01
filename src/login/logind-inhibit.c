@@ -31,6 +31,7 @@ static void inhibitor_remove_fifo(Inhibitor *i);
 
 int inhibitor_new(Inhibitor **ret, Manager *m, const char* id) {
         _cleanup_(inhibitor_freep) Inhibitor *i = NULL;
+        char *temp = NULL;
         int r;
 
         assert(ret);
@@ -53,7 +54,8 @@ int inhibitor_new(Inhibitor **ret, Manager *m, const char* id) {
         if (!i->state_file)
                 return -ENOMEM;
 
-        i->id = basename(i->state_file);
+        path_extract_filename(i->state_file, &temp);
+        i->id = temp;
 
         r = hashmap_put(m->inhibitors, i->id, i);
         if (r < 0)

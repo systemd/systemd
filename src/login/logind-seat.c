@@ -27,6 +27,7 @@
 
 int seat_new(Seat** ret, Manager *m, const char *id) {
         _cleanup_(seat_freep) Seat *s = NULL;
+        char *temp = NULL;
         int r;
 
         assert(ret);
@@ -48,7 +49,8 @@ int seat_new(Seat** ret, Manager *m, const char *id) {
         if (!s->state_file)
                 return -ENOMEM;
 
-        s->id = basename(s->state_file);
+        path_extract_filename(s->state_file, &temp);
+        s->id = temp;
 
         r = hashmap_put(m->seats, s->id, s);
         if (r < 0)
