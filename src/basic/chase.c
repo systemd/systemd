@@ -563,11 +563,16 @@ int chase(const char *path, const char *original_root, ChaseFlags flags, char **
 int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, int open_flags, char **ret_path) {
         _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL, *fname = NULL;
-        mode_t mode = open_flags & O_DIRECTORY ? 0755 : 0644;
         const char *q;
+        mode_t mode;
         int r;
 
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
+
+        if (FLAGS_SET(chase_flags, CHASE_PARENT))
+                open_flags |= O_DIRECTORY;
+
+        mode = open_flags & O_DIRECTORY ? 0755 : 0644;
 
         if (empty_or_root(root) && !ret_path &&
             (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
@@ -581,17 +586,17 @@ int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, i
                 return r;
         assert(path_fd >= 0);
 
-        assert_se(q = path_startswith(p, empty_to_root(root)));
-        if (isempty(q))
-                q = ".";
+        if (FLAGS_SET(chase_flags, CHASE_PARENT))
+                q = "";
 
-        if (!FLAGS_SET(chase_flags, CHASE_PARENT)) {
-                r = path_extract_filename(q, &fname);
+        else if (!FLAGS_SET(chase_flags, CHASE_EXTRACT_FILENAME)) {
+                r = path_extract_filename(p, &fname);
                 if (r < 0 && r != -EADDRNOTAVAIL)
                         return r;
+                q = fname;
         }
 
-        r = xopenat(path_fd, strempty(fname), open_flags|O_NOFOLLOW, mode);
+        r = xopenat(path_fd, q ?: strempty(p), open_flags|O_NOFOLLOW, mode);
         if (r < 0)
                 return r;
 
@@ -770,10 +775,16 @@ int chase_and_open_parent(const char *path, const char *root, ChaseFlags chase_f
 int chase_and_openat(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, char **ret_path) {
         _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL, *fname = NULL;
-        mode_t mode = open_flags & O_DIRECTORY ? 0755 : 0644;
+        const char *q;
+        mode_t mode;
         int r;
 
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
+
+        if (FLAGS_SET(chase_flags, CHASE_PARENT))
+                open_flags |= O_DIRECTORY;
+
+        mode = open_flags & O_DIRECTORY ? 0755 : 0644;
 
         if (dir_fd == AT_FDCWD && !ret_path &&
             (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
@@ -786,13 +797,17 @@ int chase_and_openat(int dir_fd, const char *path, ChaseFlags chase_flags, int o
         if (r < 0)
                 return r;
 
-        if (!FLAGS_SET(chase_flags, CHASE_PARENT)) {
+        if (FLAGS_SET(chase_flags, CHASE_PARENT))
+                q = "";
+
+        else if (!FLAGS_SET(chase_flags, CHASE_EXTRACT_FILENAME)) {
                 r = path_extract_filename(p, &fname);
                 if (r < 0 && r != -EADDRNOTAVAIL)
                         return r;
+                q = fname;
         }
 
-        r = xopenat(path_fd, strempty(fname), open_flags|O_NOFOLLOW, mode);
+        r = xopenat(path_fd, q ?: strempty(p), open_flags|O_NOFOLLOW, mode);
         if (r < 0)
                 return r;
 
