@@ -121,6 +121,28 @@ _public_ int sd_id128_string_equal(const char *s, sd_id128_t id) {
         return sd_id128_equal(parsed, id);
 }
 
+int id128_get_machine_at(int rfd, sd_id128_t *ret) {
+        sd_id128_t id;
+        int r;
+
+        assert(rfd >= 0 || rfd == AT_FDCWD);
+
+        /* This is typically useful when operating with --root= or --machine= positional argument.
+         * Unlike id128_get_machine(), this does not cache the result even if rfd points to the root
+         * directory, and does not follow symlinks in the path. */
+
+        r = id128_read_at(rfd, "etc/machine-id", ID128_FORMAT_PLAIN | ID128_NOFOLLOW, &id);
+        if (r < 0)
+                return r;
+
+        if (sd_id128_is_null(id))
+                return -ENOMEDIUM;
+
+        if (ret)
+                *ret = id;
+        return 0;
+}
+
 int id128_get_machine_internal(const char *root, sd_id128_t *ret) {
         sd_id128_t id;
         int r;
