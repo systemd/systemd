@@ -334,7 +334,7 @@ static int process_locale(int rfd) {
         assert(rfd >= 0);
 
         pfd = chase_and_open_parent_at(rfd, "/etc/locale.conf",
-                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN,
+                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
                                        &f);
         if (pfd < 0)
                 return log_error_errno(pfd, "Failed to chase /etc/locale.conf: %m");
@@ -423,7 +423,7 @@ static int process_keymap(int rfd) {
         assert(rfd >= 0);
 
         pfd = chase_and_open_parent_at(rfd, "/etc/vconsole.conf",
-                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN,
+                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
                                        &f);
         if (pfd < 0)
                 return log_error_errno(pfd, "Failed to chase /etc/vconsole.conf: %m");
@@ -647,7 +647,7 @@ static int process_machine_id(int rfd) {
         assert(rfd >= 0);
 
         pfd = chase_and_open_parent_at(rfd, "/etc/machine-id",
-                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN,
+                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
                                        &f);
         if (pfd < 0)
                 return log_error_errno(pfd, "Failed to chase /etc/machine-id: %m");
@@ -1064,7 +1064,7 @@ static int process_kernel_cmdline(int rfd) {
         assert(rfd >= 0);
 
         pfd = chase_and_open_parent_at(rfd, "/etc/kernel/cmdline",
-                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN,
+                                       CHASE_AT_RESOLVE_IN_ROOT|CHASE_MKDIR_0755|CHASE_WARN|CHASE_NOFOLLOW,
                                        &f);
         if (pfd < 0)
                 return log_error_errno(pfd, "Failed to chase /etc/kernel/cmdline: %m");
