@@ -144,7 +144,7 @@ int enable_sysv_units(const char *verb, char **args) {
                         NULL,
                 };
 
-                _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL, *v = NULL;
+                _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL, *v = NULL, *temp = NULL;
                 bool found_native = false, found_sysv;
                 const char *name;
                 unsigned c = 1;
@@ -200,7 +200,8 @@ int enable_sysv_units(const char *verb, char **args) {
                         return log_oom();
 
                 argv[c++] = v;
-                argv[c++] = basename(p);
+                path_extract_filename(p, &temp);
+                argv[c++] = temp;
                 argv[c] = NULL;
 
                 l = strv_join((char**)argv, " ");

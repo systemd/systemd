@@ -47,6 +47,7 @@ static void session_restore_vt(Session *s);
 
 int session_new(Session **ret, Manager *m, const char *id) {
         _cleanup_(session_freep) Session *s = NULL;
+        _cleanup_free_ char *temp = NULL;
         int r;
 
         assert(ret);
@@ -72,7 +73,8 @@ int session_new(Session **ret, Manager *m, const char *id) {
         if (!s->state_file)
                 return -ENOMEM;
 
-        s->id = basename(s->state_file);
+        path_extract_filename(s->state_file, &temp);
+        s->id = temp;
 
         s->devices = hashmap_new(&devt_hash_ops);
         if (!s->devices)
