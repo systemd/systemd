@@ -417,10 +417,10 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         _cleanup_free_ char *f = NULL;
 
                         r = path_extract_filename(done, &f);
-                        if (r < 0 && r != -EDESTADDRREQ)
+                        if (r < 0 && r != -EADDRNOTAVAIL)
                                 return r;
 
-                        /* If we get EDESTADDRREQ we clear done and it will get reinitialized by the next block. */
+                        /* If we get EADDRNOTAVAIL we clear done and it will get reinitialized by the next block. */
                         free_and_replace(done, f);
                 }
 
