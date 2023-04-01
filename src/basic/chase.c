@@ -585,7 +585,7 @@ int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, i
         if (isempty(q))
                 q = ".";
 
-        if (!FLAGS_SET(chase_flags, CHASE_PARENT)) {
+        if (!FLAGS_SET(chase_flags, CHASE_EXTRACT_FILENAME)) {
                 r = path_extract_filename(q, &fname);
                 if (r < 0 && r != -EADDRNOTAVAIL)
                         return r;
@@ -786,7 +786,7 @@ int chase_and_openat(int dir_fd, const char *path, ChaseFlags chase_flags, int o
         if (r < 0)
                 return r;
 
-        if (!FLAGS_SET(chase_flags, CHASE_PARENT)) {
+        if (!FLAGS_SET(chase_flags, CHASE_EXTRACT_FILENAME)) {
                 r = path_extract_filename(p, &fname);
                 if (r < 0 && r != -EADDRNOTAVAIL)
                         return r;
