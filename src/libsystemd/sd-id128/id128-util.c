@@ -102,12 +102,12 @@ int id128_read_fd(int fd, Id128FormatFlag f, sd_id128_t *ret) {
         return r == -EINVAL ? -EUCLEAN : r;
 }
 
-int id128_read(const char *root, const char *p, Id128FormatFlag f, sd_id128_t *ret) {
+int id128_read(const char *root, const char *path, Id128FormatFlag f, sd_id128_t *ret) {
         _cleanup_close_ int fd = -EBADF;
 
-        assert(p);
+        assert(path);
 
-        fd = chase_and_open(p, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, /* ret_path = */ NULL);
+        fd = chase_and_open(path, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, /* ret_path = */ NULL);
         if (fd < 0)
                 return fd;
 
@@ -144,10 +144,12 @@ int id128_write_fd(int fd, Id128FormatFlag f, sd_id128_t id) {
         return 0;
 }
 
-int id128_write(const char *p, Id128FormatFlag f, sd_id128_t id) {
+int id128_write(const char *path, Id128FormatFlag f, sd_id128_t id) {
         _cleanup_close_ int fd = -EBADF;
 
-        fd = open(p, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC, 0444);
+        assert(path);
+
+        fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC, 0444);
         if (fd < 0)
                 return -errno;
 
