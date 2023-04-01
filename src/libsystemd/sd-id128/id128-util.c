@@ -107,7 +107,9 @@ int id128_read(const char *root, const char *path, Id128Flag f, sd_id128_t *ret)
 
         assert(path);
 
-        fd = chase_and_open(path, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, /* ret_path = */ NULL);
+        fd = chase_and_open(path, root,
+                            CHASE_PREFIX_ROOT | (FLAGS_SET(f, ID128_NOFOLLOW) ? CHASE_NOFOLLOW : 0),
+                            O_RDONLY|O_CLOEXEC|O_NOCTTY, /* ret_path = */ NULL);
         if (fd < 0)
                 return fd;
 
@@ -149,7 +151,7 @@ int id128_write(const char *path, Id128Flag f, sd_id128_t id) {
 
         assert(path);
 
-        fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC, 0444);
+        fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC|(FLAGS_SET(f, ID128_NOFOLLOW) ? O_NOFOLLOW : 0), 0444);
         if (fd < 0)
                 return -errno;
 
