@@ -72,7 +72,7 @@ int session_new(Session **ret, Manager *m, const char *id) {
         if (!s->state_file)
                 return -ENOMEM;
 
-        s->id = basename(s->state_file);
+        path_extract_filename(s->state_file, (char**)&(s->id));
 
         s->devices = hashmap_new(&devt_hash_ops);
         if (!s->devices)

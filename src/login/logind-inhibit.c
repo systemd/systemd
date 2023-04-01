@@ -53,7 +53,7 @@ int inhibitor_new(Inhibitor **ret, Manager *m, const char* id) {
         if (!i->state_file)
                 return -ENOMEM;
 
-        i->id = basename(i->state_file);
+        path_extract_filename(i->state_file, (char**)&(i->id));
 
         r = hashmap_put(m->inhibitors, i->id, i);
         if (r < 0)
