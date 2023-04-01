@@ -1173,23 +1173,9 @@ int image_read_metadata(Image *i) {
 
                 path = mfree(path);
 
-                r = chase("/etc/machine-id", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, NULL);
-                if (r < 0 && r != -ENOENT)
-                        log_debug_errno(r, "Failed to chase /etc/machine-id in image %s: %m", i->name);
-                else if (r >= 0) {
-                        _cleanup_close_ int fd = -EBADF;
-
-                        fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                        if (fd < 0)
-                                log_debug_errno(errno, "Failed to open %s: %m", path);
-                        else {
-                                r = id128_read_fd(fd, ID128_FORMAT_PLAIN, &machine_id);
-                                if (r < 0)
-                                        log_debug_errno(r, "Image %s contains invalid machine ID.", i->name);
-                        }
-                }
-
-                path = mfree(path);
+                r = id128_get_machine(i->path, &machine_id);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read machine ID in image %s, ignoring: %m", i->name);
 
                 r = chase("/etc/machine-info", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path, NULL);
                 if (r < 0 && r != -ENOENT)
