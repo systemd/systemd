@@ -134,7 +134,7 @@ static int acquire_bus(sd_bus **ret) {
 static int get_description(sd_bus *bus, JsonVariant **ret) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        const char *text = NULL;
+        const char *text;
         int r;
 
         r = bus_call_method(bus, bus_network_mgr, "Describe", &error, &reply, NULL);
@@ -665,8 +665,8 @@ static int link_get_property(
                 const char *iface,
                 const char *propname) {
 
-        char ifindex_str[DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *path = NULL;
+        char ifindex_str[DECIMAL_STR_MAX(int)];
         int r;
 
         xsprintf(ifindex_str, "%i", link->ifindex);
@@ -762,6 +762,7 @@ static void acquire_wlan_link_info(LinkInfo *link) {
 static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, LinkInfo **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
+        _cleanup_free_ bool *matched_patterns = NULL;
         _cleanup_close_ int fd = -EBADF;
         size_t c = 0;
         int r;
@@ -781,7 +782,6 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate links: %m");
 
-        _cleanup_free_ bool *matched_patterns = NULL;
         if (patterns) {
                 matched_patterns = new0(bool, strv_length(patterns));
                 if (!matched_patterns)
@@ -923,24 +923,21 @@ static int list_links(int argc, char *argv[], void *userdata) {
 
 /* IEEE Organizationally Unique Identifier vendor string */
 static int ieee_oui(sd_hwdb *hwdb, const struct ether_addr *mac, char **ret) {
+        _cleanup_free_ char *desc = NULL;
         const char *description;
-        char modalias[STRLEN("OUI:XXYYXXYYXXYY") + 1], *desc;
+        char modalias[STRLEN("OUI:XXYYXXYYXXYY") + 1];
         int r;
 
         assert(ret);
 
-        if (!hwdb)
-                return -EINVAL;
-
-        if (!mac)
+        if (!hwdb || !mac)
                 return -EINVAL;
 
         /* skip commonly misused 00:00:00 (Xerox) prefix */
         if (memcmp(mac, "\0\0\0", 3) == 0)
                 return -EINVAL;
 
-        xsprintf(modalias, "OUI:" ETHER_ADDR_FORMAT_STR,
-                 ETHER_ADDR_FORMAT_VAL(*mac));
+        xsprintf(modalias, "OUI:" ETHER_ADDR_FORMAT_STR, ETHER_ADDR_FORMAT_VAL(*mac));
 
         r = sd_hwdb_get(hwdb, modalias, "ID_OUI_FROM_DATABASE", &description);
         if (r < 0)
@@ -950,7 +947,7 @@ static int ieee_oui(sd_hwdb *hwdb, const struct ether_addr *mac, char **ret) {
         if (!desc)
                 return -ENOMEM;
 
-        *ret = desc;
+        *ret = TAKE_PTR(desc);
 
         return 0;
 }
@@ -961,7 +958,8 @@ static int get_gateway_description(
                 int ifindex,
                 int family,
                 union in_addr_union *gateway,
-                char **gateway_description) {
+                char **ret) {
+
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         int r;
 
@@ -969,7 +967,7 @@ static int get_gateway_description(
         assert(ifindex >= 0);
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(gateway);
-        assert(gateway_description);
+        assert(ret);
 
         r = sd_rtnl_message_new_neigh(rtnl, &req, RTM_GETNEIGH, ifindex, family);
         if (r < 0)
@@ -991,35 +989,37 @@ static int get_gateway_description(
 
                 r = sd_netlink_message_get_errno(m);
                 if (r < 0) {
-                        log_error_errno(r, "got error: %m");
+                        log_error_errno(r, "Failed to get netlink message, ignoring: %m");
                         continue;
                 }
 
                 r = sd_netlink_message_get_type(m, &type);
                 if (r < 0) {
-                        log_error_errno(r, "could not get type: %m");
+                        log_error_errno(r, "Failed to get netlink message type, ignoring: %m");
                         continue;
                 }
 
                 if (type != RTM_NEWNEIGH) {
-                        log_error("type is not RTM_NEWNEIGH");
+                        log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Got unexpected netlink message type %u, ignoring",
+                                        type);
                         continue;
                 }
 
                 r = sd_rtnl_message_neigh_get_family(m, &fam);
                 if (r < 0) {
-                        log_error_errno(r, "could not get family: %m");
+                        log_error_errno(r, "Failed to get rtnl family, ignoring: %m");
                         continue;
                 }
 
                 if (fam != family) {
-                        log_error("family is not correct");
+                        log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Got invalid rtnl family %d, ignoring", fam);
                         continue;
                 }
 
                 r = sd_rtnl_message_neigh_get_ifindex(m, &ifi);
                 if (r < 0) {
-                        log_error_errno(r, "could not get ifindex: %m");
+                        log_error_errno(r, "Failed to get rtnl ifindex, ignoring: %m");
                         continue;
                 }
 
@@ -1027,18 +1027,21 @@ static int get_gateway_description(
                         continue;
 
                 switch (fam) {
+
                 case AF_INET:
                         r = sd_netlink_message_read_in_addr(m, NDA_DST, &gw.in);
                         if (r < 0)
                                 continue;
 
                         break;
+
                 case AF_INET6:
                         r = sd_netlink_message_read_in6_addr(m, NDA_DST, &gw.in6);
                         if (r < 0)
                                 continue;
 
                         break;
+
                 default:
                         continue;
                 }
@@ -1050,7 +1053,7 @@ static int get_gateway_description(
                 if (r < 0)
                         continue;
 
-                r = ieee_oui(hwdb, &mac, gateway_description);
+                r = ieee_oui(hwdb, &mac, ret);
                 if (r < 0)
                         continue;
 
@@ -1197,7 +1200,7 @@ static int dump_address_labels(sd_netlink *rtnl) {
 
                 r = sd_netlink_message_get_errno(m);
                 if (r < 0) {
-                        log_error_errno(r, "got error: %m");
+                        log_error_errno(r, "Failed to get netlink message, ignoring: %m");
                         continue;
                 }
 
@@ -1239,21 +1242,20 @@ static int list_address_labels(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
-        dump_address_labels(rtnl);
-
-        return 0;
+        return dump_address_labels(rtnl);
 }
 
 static int open_lldp_neighbors(int ifindex, FILE **ret) {
+        _cleanup_fclose_ FILE *f = NULL;
         char p[STRLEN("/run/systemd/netif/lldp/") + DECIMAL_STR_MAX(int)];
-        FILE *f;
 
         xsprintf(p, "/run/systemd/netif/lldp/%i", ifindex);
+
         f = fopen(p, "re");
         if (!f)
                 return -errno;
 
-        *ret = f;
+        *ret = TAKE_PTR(f);
         return 0;
 }
 
