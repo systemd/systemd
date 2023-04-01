@@ -922,4 +922,23 @@ TEST(parse_loadavg_fixed_point) {
         assert_se(parse_loadavg_fixed_point("", &fp) == -EINVAL);
 }
 
+TEST(pcr_from_string) {
+        assert_se(pcr_number_from_string((char*)"corefirmware") == 0);
+        assert_se(pcr_number_from_string((char*)"platformconfig") == 1);
+        assert_se(pcr_number_from_string((char*)"extcode") == 2);
+        assert_se(pcr_number_from_string((char*)"extfirmware") == 3);
+        assert_se(pcr_number_from_string((char*)"bootloader") == 4);
+        assert_se(pcr_number_from_string((char*)"gptpartition") == 5);
+        assert_se(pcr_number_from_string((char*)"powerstate") == 6);
+        assert_se(pcr_number_from_string((char*)"secureboot") == 7);
+        assert_se(pcr_number_from_string((char*)"linuxkernel") == 9);
+        assert_se(pcr_number_from_string((char*)"imastate") == 10);
+        assert_se(pcr_number_from_string((char*)"systemdkernel") == 11);
+        assert_se(pcr_number_from_string((char*)"systemdboot") == 12);
+        assert_se(pcr_number_from_string((char*)"systemdstub") == 13);
+        assert_se(pcr_number_from_string((char*)"shimcerts") == 14);
+        assert_se(pcr_number_from_string((char*)"lukskey") == 15);
+        assert_se(pcr_number_from_string((char*)"hello") == -EINVAL);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
