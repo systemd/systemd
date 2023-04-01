@@ -121,17 +121,30 @@ _public_ int sd_id128_string_equal(const char *s, sd_id128_t id) {
         return sd_id128_equal(parsed, id);
 }
 
+int id128_get_machine_impl(const char *root, sd_id128_t *ret) {
+        sd_id128_t id;
+        int r;
+
+        r = id128_read(root, "/etc/machine-id", ID128_FORMAT_PLAIN, &id);
+        if (r < 0)
+                return r;
+
+        if (sd_id128_is_null(id))
+                return -ENOMEDIUM;
+
+        if (ret)
+                *ret = id;
+        return 0;
+}
+
 _public_ int sd_id128_get_machine(sd_id128_t *ret) {
         static thread_local sd_id128_t saved_machine_id = {};
         int r;
 
         if (sd_id128_is_null(saved_machine_id)) {
-                r = id128_read(NULL, "/etc/machine-id", ID128_FORMAT_PLAIN, &saved_machine_id);
+                r = id128_get_machine_impl(NULL, &saved_machine_id);
                 if (r < 0)
                         return r;
-
-                if (sd_id128_is_null(saved_machine_id))
-                        return -ENOMEDIUM;
         }
 
         if (ret)
