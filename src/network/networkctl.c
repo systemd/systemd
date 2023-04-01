@@ -825,8 +825,8 @@ static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, Lin
         typesafe_qsort(links, c, link_info_compare);
 
         if (bus)
-                for (size_t j = 0; j < c; j++)
-                        (void) acquire_link_bitrates(bus, links + j);
+                FOREACH_ARRAY(link, links, c)
+                        (void) acquire_link_bitrates(bus, link);
 
         *ret = TAKE_PTR(links);
 
@@ -884,24 +884,24 @@ static int list_links(int argc, char *argv[], void *userdata) {
         assert_se(cell = table_get_cell(table, 0, 1));
         (void) table_set_ellipsize_percent(table, cell, 100);
 
-        for (int i = 0; i < c; i++) {
+        FOREACH_ARRAY(link, links, c) {
                 _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
-                const char *on_color_operational, *on_color_setup;
                 _cleanup_free_ char *t = NULL;
+                const char *on_color_operational, *on_color_setup;
 
-                (void) sd_network_link_get_operational_state(links[i].ifindex, &operational_state);
-                operational_state_to_color(links[i].name, operational_state, &on_color_operational, NULL);
+                (void) sd_network_link_get_operational_state(link->ifindex, &operational_state);
+                operational_state_to_color(link->name, operational_state, &on_color_operational, NULL);
 
-                (void) sd_network_link_get_setup_state(links[i].ifindex, &setup_state);
+                (void) sd_network_link_get_setup_state(link->ifindex, &setup_state);
                 setup_state_to_color(setup_state, &on_color_setup, NULL);
 
-                r = net_get_type_string(links[i].sd_device, links[i].iftype, &t);
+                r = net_get_type_string(links->sd_device, link->iftype, &t);
                 if (r == -ENOMEM)
                         return log_oom();
 
                 r = table_add_many(table,
-                                   TABLE_INT, links[i].ifindex,
-                                   TABLE_STRING, links[i].name,
+                                   TABLE_INT, link->ifindex,
+                                   TABLE_STRING, link->name,
                                    TABLE_STRING, t,
                                    TABLE_STRING, operational_state,
                                    TABLE_SET_COLOR, on_color_operational,
@@ -1076,37 +1076,33 @@ static int dump_list(Table *table, const char *prefix, char * const *l) {
         return 0;
 }
 
-static int dump_gateways(
-                sd_netlink *rtnl,
-                sd_hwdb *hwdb,
-                Table *table,
-                int ifindex) {
-        _cleanup_free_ struct local_address *local = NULL;
+static int dump_gateways(sd_netlink *rtnl, sd_hwdb *hwdb, Table *table, int ifindex) {
+        _cleanup_free_ struct local_address *local_addrs = NULL;
         _cleanup_strv_free_ char **buf = NULL;
         int r, n;
 
         assert(rtnl);
         assert(table);
 
-        n = local_gateways(rtnl, ifindex, AF_UNSPEC, &local);
+        n = local_gateways(rtnl, ifindex, AF_UNSPEC, &local_addrs);
         if (n <= 0)
                 return n;
 
-        for (int i = 0; i < n; i++) {
+        FOREACH_ARRAY(local, local_addrs, n) {
                 _cleanup_free_ char *description = NULL;
 
-                r = get_gateway_description(rtnl, hwdb, local[i].ifindex, local[i].family, &local[i].address, &description);
+                r = get_gateway_description(rtnl, hwdb, local->ifindex, local->family, &local->address, &description);
                 if (r < 0)
                         log_debug_errno(r, "Could not get description of gateway, ignoring: %m");
 
                 /* Show interface name for the entry if we show entries for all interfaces */
                 r = strv_extendf(&buf, "%s%s%s%s%s%s",
-                                 IN_ADDR_TO_STRING(local[i].family, &local[i].address),
+                                 IN_ADDR_TO_STRING(local->family, &local->address),
                                  description ? " (" : "",
                                  strempty(description),
                                  description ? ")" : "",
                                  ifindex <= 0 ? " on " : "",
-                                 ifindex <= 0 ? FORMAT_IFNAME_FULL(local[i].ifindex, FORMAT_IFNAME_IFINDEX_WITH_PERCENT) : "");
+                                 ifindex <= 0 ? FORMAT_IFNAME_FULL(local->ifindex, FORMAT_IFNAME_IFINDEX_WITH_PERCENT) : "");
                 if (r < 0)
                         return log_oom();
         }
@@ -1120,7 +1116,7 @@ static int dump_addresses(
                 Table *table,
                 int ifindex) {
 
-        _cleanup_free_ struct local_address *local = NULL;
+        _cleanup_free_ struct local_address *local_addrs = NULL;
         _cleanup_strv_free_ char **buf = NULL;
         struct in_addr dhcp4_address = {};
         int r, n;
@@ -1128,27 +1124,27 @@ static int dump_addresses(
         assert(rtnl);
         assert(table);
 
-        n = local_addresses(rtnl, ifindex, AF_UNSPEC, &local);
+        n = local_addresses(rtnl, ifindex, AF_UNSPEC, &local_addrs);
         if (n <= 0)
                 return n;
 
         if (lease)
                 (void) sd_dhcp_lease_get_address(lease, &dhcp4_address);
 
-        for (int i = 0; i < n; i++) {
+        FOREACH_ARRAY(local, local_addrs, n) {
                 struct in_addr server_address;
                 bool dhcp4 = false;
 
-                if (local[i].family == AF_INET && in4_addr_equal(&local[i].address.in, &dhcp4_address))
+                if (local->family == AF_INET && in4_addr_equal(&local->address.in, &dhcp4_address))
                         dhcp4 = sd_dhcp_lease_get_server_identifier(lease, &server_address) >= 0;
 
                 r = strv_extendf(&buf, "%s%s%s%s%s%s",
-                                 IN_ADDR_TO_STRING(local[i].family, &local[i].address),
+                                 IN_ADDR_TO_STRING(local->family, &local->address),
                                  dhcp4 ? " (DHCP4 via " : "",
                                  dhcp4 ? IN4_ADDR_TO_STRING(&server_address) : "",
                                  dhcp4 ? ")" : "",
                                  ifindex <= 0 ? " on " : "",
-                                 ifindex <= 0 ? FORMAT_IFNAME_FULL(local[i].ifindex, FORMAT_IFNAME_IFINDEX_WITH_PERCENT) : "");
+                                 ifindex <= 0 ? FORMAT_IFNAME_FULL(local->ifindex, FORMAT_IFNAME_IFINDEX_WITH_PERCENT) : "");
                 if (r < 0)
                         return log_oom();
         }
@@ -2575,14 +2571,14 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         table_set_minimum_width(table, cell, 11);
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
-        for (int i = 0; i < c; i++) {
+        FOREACH_ARRAY(link, links, c) {
                 _cleanup_fclose_ FILE *f = NULL;
 
-                r = open_lldp_neighbors(links[i].ifindex, &f);
+                r = open_lldp_neighbors(links->ifindex, &f);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to open LLDP data for %i, ignoring: %m", links[i].ifindex);
+                        log_warning_errno(r, "Failed to open LLDP data for %i, ignoring: %m", links->ifindex);
                         continue;
                 }
 
@@ -2611,7 +2607,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
                         }
 
                         r = table_add_many(table,
-                                           TABLE_STRING, links[i].name,
+                                           TABLE_STRING, link->name,
                                            TABLE_STRING, chassis_id,
                                            TABLE_STRING, system_name,
                                            TABLE_STRING, capabilities,
