@@ -2407,10 +2407,9 @@ int bus_unit_set_properties(
         assert(u);
         assert(message);
 
-        /* We iterate through the array twice. First run we just check
-         * if all passed data is valid, second run actually applies
-         * it. This is to implement transaction-like behaviour without
-         * actually providing full transactions. */
+        /* We iterate through the array twice. First run just checks if all passed data is valid, second run
+         * actually applies it. This implements transaction-like behaviour without actually providing full
+         * transactions. */
 
         r = sd_bus_message_enter_container(message, 'a', "(sv)");
         if (r < 0)

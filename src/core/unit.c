@@ -4333,8 +4333,8 @@ char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf) {
                 s = t;
         }
 
-        /* We either do c-escaping or shell-escaping, to additionally escape characters that we parse for
-         * ExecStart= and friend, i.e. '$' and ';' and quotes. */
+        /* We either do C-escaping or shell-escaping, to additionally escape characters that we parse for
+         * ExecStart= and friends, i.e. '$' and ';' and quotes. */
 
         if (flags & UNIT_ESCAPE_EXEC_SYNTAX) {
                 char *t2 = shell_escape(s, "$;'\"");

@@ -4655,8 +4655,7 @@ static int exec_child(
                 return log_unit_error_errno(unit, r, "Failed to determine $HOME for user: %m");
         }
 
-        /* If a socket is connected to STDIN/STDOUT/STDERR, we
-         * must sure to drop O_NONBLOCK */
+        /* If a socket is connected to STDIN/STDOUT/STDERR, we must drop O_NONBLOCK */
         if (socket_fd >= 0)
                 (void) fd_nonblock(socket_fd, false);
 
@@ -5197,9 +5196,10 @@ static int exec_child(
         }
 #endif
 
-        /* We repeat the fd closing here, to make sure that nothing is leaked from the PAM modules. Note that we are
-         * more aggressive this time since socket_fd and the netns and ipcns fds we don't need anymore. We do keep the exec_fd
-         * however if we have it as we want to keep it open until the final execve(). */
+        /* We repeat the fd closing here, to make sure that nothing is leaked from the PAM modules. Note that
+         * we are more aggressive this time, since we don't need socket_fd and the netns and ipcns fds any
+         * more. We do keep exec_fd however, if we have it, since we need to keep it open until the final
+         * execve(). */
 
         r = close_all_fds(keep_fds, n_keep_fds);
         if (r >= 0)
@@ -5221,9 +5221,9 @@ static int exec_child(
         if (needs_sandboxing) {
                 uint64_t bset;
 
-                /* Set the RTPRIO resource limit to 0, but only if nothing else was explicitly
-                 * requested. (Note this is placed after the general resource limit initialization, see
-                 * above, in order to take precedence.) */
+                /* Set the RTPRIO resource limit to 0, but only if nothing else was explicitly requested.
+                 * (Note this is placed after the general resource limit initialization, see above, in order
+                 * to take precedence.) */
                 if (context->restrict_realtime && !context->rlimit[RLIMIT_RTPRIO]) {
                         if (setrlimit(RLIMIT_RTPRIO, &RLIMIT_MAKE_CONST(0)) < 0) {
                                 *exit_status = EXIT_LIMITS;
