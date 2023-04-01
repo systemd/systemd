@@ -964,7 +964,7 @@ ExecRuntime *unit_get_exec_runtime(Unit *u) _pure_;
 
 int unit_setup_exec_runtime(Unit *u);
 
-char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf);
+const char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf);
 char* unit_concat_strv(char **l, UnitWriteFlags flags);
 
 int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const char *data);
