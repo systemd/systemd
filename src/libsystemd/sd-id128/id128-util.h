@@ -16,6 +16,7 @@ typedef enum Id128Flag {
         ID128_FORMAT_ANY    = ID128_FORMAT_PLAIN | ID128_FORMAT_UUID,
 
         ID128_SYNC_ON_WRITE = 1 << 2, /* Sync the file after write. Used only when writing an ID. */
+        ID128_NOFOLLOW      = 1 << 3, /* When we open a file, symlink will not be followed. */
 } Id128Flag;
 
 int id128_read_fd(int fd, Id128Flag f, sd_id128_t *ret);
