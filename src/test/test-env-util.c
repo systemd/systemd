@@ -452,4 +452,13 @@ TEST(getenv_steal_erase) {
         assert_se(r > 0);
 }
 
+TEST(strv_env_name_is_valid) {
+        char *valid_env_names[] = {"HOME", "USER", "SHELL", "PATH", NULL};
+        char *invalid_env_names[] = {"", "PATH", "home", "user", "SHELL", NULL};
+        char *repeated_env_names[] = {"HOME", "USER", "SHELL", "USER", NULL};
+        assert_se(strv_env_name_is_valid(valid_env_names));
+        assert_se(!strv_env_name_is_valid(invalid_env_names));
+        assert_se(!strv_env_name_is_valid(repeated_env_names));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
