@@ -71,7 +71,7 @@ int unit_symlink_name_compatible(const char *symlink, const char *target, bool i
 }
 
 int unit_validate_alias_symlink_or_warn(int log_level, const char *filename, const char *target) {
-        const char *src, *dst;
+        _cleanup_free_ char *src = NULL, *dst = NULL;
         _cleanup_free_ char *src_instance = NULL, *dst_instance = NULL;
         UnitType src_unit_type, dst_unit_type;
         UnitNameFlags src_name_type, dst_name_type;
@@ -87,8 +87,8 @@ int unit_validate_alias_symlink_or_warn(int log_level, const char *filename, con
          * -ELOOP for an alias to self.
          */
 
-        src = basename(filename);
-        dst = basename(target);
+        path_extract_filename(filename, &src);
+        path_extract_filename(target, &dst);
 
         /* src checks */
 
@@ -762,7 +762,8 @@ int unit_file_find_fragment(
         }
 
         if (fragment && ret_names) {
-                const char *fragment_basename = basename(fragment);
+                _cleanup_free_ char *fragment_basename = NULL;
+                path_extract_filename(fragment, &fragment_basename);
 
                 if (!streq(fragment_basename, unit_name)) {
                         /* Add names based on the fragment name to the set of names */
