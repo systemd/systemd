@@ -355,6 +355,31 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         which match the file are reconfigured.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term>
+          <command>edit</command>
+          <replaceable>FILE</replaceable>|<replaceable>DEVICE</replaceable>…
+        </term>
+        <listitem><para>Edit network configuration files. If no network config file matching
+        the given name is found, a new one will be created under <filename>/etc/</filename>.
+        Specially, if the name is prefixed by <literal>@</literal>, it will be treated as
+        a network interface, and editing will be performed on the associated network file, if any.</para>
+
+        <para>If <option>--drop-in=</option> is specified, edit the drop-in file instead of
+        the main configuration file. Unless <option>--no-reload</option> is specified,
+        <command>systemd-networkd</command> will be reloaded after the edit of the
+        <filename>.network</filename> or <filename>.netdev</filename> files finishes.
+        The same applies for <filename>.link</filename> files and <command>systemd-udevd</command>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>cat</command>
+          <replaceable>FILE</replaceable>|<replaceable>DEVICE</replaceable>…
+        </term>
+        <listitem><para>Show network configuration files. This command honors
+        the <literal>@</literal> prefix in the same way as <command>edit</command>.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -402,6 +427,26 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         <listitem>
           <para>When used with <command>status</command>, controls the number of journal lines to show,
           counting from the most recent ones. Takes a positive integer argument. Defaults to 10.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--drop-in=</option></term>
+        <replaceable>NAME</replaceable>
+
+        <listitem>
+          <para>When used with <command>edit</command>, edit the drop-in file <replaceable>NAME</replaceable>
+          instead of the main configuration file.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-reload</option></term>
+
+        <listitem>
+          <para>When used with <command>edit</command>, <command>systemd-networkd</command>
+          or <command>systemd-udevd</command> will not be reloaded or triggered after
+          the editing finishes.</para>
         </listitem>
       </varlistentry>
 
