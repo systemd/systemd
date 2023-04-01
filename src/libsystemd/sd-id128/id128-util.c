@@ -40,7 +40,7 @@ bool id128_is_valid(const char *s) {
         return false;
 }
 
-int id128_read_fd(int fd, Id128FormatFlag f, sd_id128_t *ret) {
+int id128_read_fd(int fd, Id128Flag f, sd_id128_t *ret) {
         char buffer[SD_ID128_UUID_STRING_MAX + 1]; /* +1 is for trailing newline */
         ssize_t l;
         int r;
@@ -101,7 +101,7 @@ int id128_read_fd(int fd, Id128FormatFlag f, sd_id128_t *ret) {
         return r == -EINVAL ? -EUCLEAN : r;
 }
 
-int id128_read(const char *path, Id128FormatFlag f, sd_id128_t *ret) {
+int id128_read(const char *path, Id128Flag f, sd_id128_t *ret) {
         _cleanup_close_ int fd = -EBADF;
 
         assert(path);
@@ -113,7 +113,7 @@ int id128_read(const char *path, Id128FormatFlag f, sd_id128_t *ret) {
         return id128_read_fd(fd, f, ret);
 }
 
-int id128_write_fd(int fd, Id128FormatFlag f, sd_id128_t id) {
+int id128_write_fd(int fd, Id128Flag f, sd_id128_t id) {
         char buffer[SD_ID128_UUID_STRING_MAX + 1]; /* +1 is for trailing newline */
         size_t sz;
         int r;
@@ -143,7 +143,7 @@ int id128_write_fd(int fd, Id128FormatFlag f, sd_id128_t id) {
         return 0;
 }
 
-int id128_write(const char *path, Id128FormatFlag f, sd_id128_t id) {
+int id128_write(const char *path, Id128Flag f, sd_id128_t id) {
         _cleanup_close_ int fd = -EBADF;
 
         assert(path);
