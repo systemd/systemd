@@ -427,14 +427,14 @@ int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ex_opts) {
         _cleanup_strv_free_ char **ret_opts = NULL;
         ExecCommandFlags it = flags;
         const char *str;
-        int i, r;
+        int r;
 
         assert(ex_opts);
 
         if (flags < 0)
                 return flags;
 
-        for (i = 0; it != 0; it &= ~(1 << i), i++) {
+        for (unsigned i = 0; it != 0; it &= ~(1 << i), i++)
                 if (FLAGS_SET(flags, (1 << i))) {
                         str = exec_command_flags_to_string(1 << i);
                         if (!str)
@@ -444,7 +444,6 @@ int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ex_opts) {
                         if (r < 0)
                                 return r;
                 }
-        }
 
         *ex_opts = TAKE_PTR(ret_opts);
 
@@ -466,9 +465,7 @@ static const char* const exec_command_strings[] = {
 };
 
 const char* exec_command_flags_to_string(ExecCommandFlags i) {
-        size_t idx;
-
-        for (idx = 0; idx < ELEMENTSOF(exec_command_strings); idx++)
+        for (size_t idx = 0; idx < ELEMENTSOF(exec_command_strings); idx++)
                 if (i == (1 << idx))
                         return exec_command_strings[idx];
 
