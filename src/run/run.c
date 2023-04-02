@@ -45,6 +45,7 @@ static const char *arg_unit = NULL;
 static const char *arg_description = NULL;
 static const char *arg_slice = NULL;
 static bool arg_slice_inherit = false;
+static bool arg_expand_environment = true;
 static bool arg_send_sighup = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
@@ -102,6 +103,8 @@ static int help(void) {
                "     --description=TEXT           Description for unit\n"
                "     --slice=SLICE                Run in the specified slice\n"
                "     --slice-inherit              Inherit the slice\n"
+               "     --expand-environment=BOOL    Control server-side expansion of environment\n"
+               "                                  variables\n"
                "     --no-block                   Do not wait until operation finished\n"
                "  -r --remain-after-exit          Leave service around until explicitly stopped\n"
                "     --wait                       Wait until service stopped again\n"
@@ -168,6 +171,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DESCRIPTION,
                 ARG_SLICE,
                 ARG_SLICE_INHERIT,
+                ARG_EXPAND_ENVIRONMENT,
                 ARG_SEND_SIGHUP,
                 ARG_SERVICE_TYPE,
                 ARG_EXEC_USER,
@@ -192,47 +196,48 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",              no_argument,       NULL, 'h'                   },
-                { "version",           no_argument,       NULL, ARG_VERSION           },
-                { "user",              no_argument,       NULL, ARG_USER              },
-                { "system",            no_argument,       NULL, ARG_SYSTEM            },
-                { "scope",             no_argument,       NULL, ARG_SCOPE             },
-                { "unit",              required_argument, NULL, 'u'                   },
-                { "description",       required_argument, NULL, ARG_DESCRIPTION       },
-                { "slice",             required_argument, NULL, ARG_SLICE             },
-                { "slice-inherit",     no_argument,       NULL, ARG_SLICE_INHERIT     },
-                { "remain-after-exit", no_argument,       NULL, 'r'                   },
-                { "send-sighup",       no_argument,       NULL, ARG_SEND_SIGHUP       },
-                { "host",              required_argument, NULL, 'H'                   },
-                { "machine",           required_argument, NULL, 'M'                   },
-                { "service-type",      required_argument, NULL, ARG_SERVICE_TYPE      },
-                { "wait",              no_argument,       NULL, ARG_WAIT              },
-                { "uid",               required_argument, NULL, ARG_EXEC_USER         },
-                { "gid",               required_argument, NULL, ARG_EXEC_GROUP        },
-                { "nice",              required_argument, NULL, ARG_NICE              },
-                { "setenv",            required_argument, NULL, 'E'                   },
-                { "property",          required_argument, NULL, 'p'                   },
-                { "tty",               no_argument,       NULL, 't'                   }, /* deprecated alias */
-                { "pty",               no_argument,       NULL, 't'                   },
-                { "pipe",              no_argument,       NULL, 'P'                   },
-                { "quiet",             no_argument,       NULL, 'q'                   },
-                { "on-active",         required_argument, NULL, ARG_ON_ACTIVE         },
-                { "on-boot",           required_argument, NULL, ARG_ON_BOOT           },
-                { "on-startup",        required_argument, NULL, ARG_ON_STARTUP        },
-                { "on-unit-active",    required_argument, NULL, ARG_ON_UNIT_ACTIVE    },
-                { "on-unit-inactive",  required_argument, NULL, ARG_ON_UNIT_INACTIVE  },
-                { "on-calendar",       required_argument, NULL, ARG_ON_CALENDAR       },
-                { "on-timezone-change",no_argument,       NULL, ARG_ON_TIMEZONE_CHANGE},
-                { "on-clock-change",   no_argument,       NULL, ARG_ON_CLOCK_CHANGE   },
-                { "timer-property",    required_argument, NULL, ARG_TIMER_PROPERTY    },
-                { "path-property",     required_argument, NULL, ARG_PATH_PROPERTY     },
-                { "socket-property",   required_argument, NULL, ARG_SOCKET_PROPERTY   },
-                { "no-block",          no_argument,       NULL, ARG_NO_BLOCK          },
-                { "no-ask-password",   no_argument,       NULL, ARG_NO_ASK_PASSWORD   },
-                { "collect",           no_argument,       NULL, 'G'                   },
-                { "working-directory", required_argument, NULL, ARG_WORKING_DIRECTORY },
-                { "same-dir",          no_argument,       NULL, 'd'                   },
-                { "shell",             no_argument,       NULL, 'S'                   },
+                { "help",               no_argument,       NULL, 'h'                    },
+                { "version",            no_argument,       NULL, ARG_VERSION            },
+                { "user",               no_argument,       NULL, ARG_USER               },
+                { "system",             no_argument,       NULL, ARG_SYSTEM             },
+                { "scope",              no_argument,       NULL, ARG_SCOPE              },
+                { "unit",               required_argument, NULL, 'u'                    },
+                { "description",        required_argument, NULL, ARG_DESCRIPTION        },
+                { "slice",              required_argument, NULL, ARG_SLICE              },
+                { "slice-inherit",      no_argument,       NULL, ARG_SLICE_INHERIT      },
+                { "remain-after-exit",  no_argument,       NULL, 'r'                    },
+                { "expand-environment", required_argument, NULL, ARG_EXPAND_ENVIRONMENT },
+                { "send-sighup",        no_argument,       NULL, ARG_SEND_SIGHUP        },
+                { "host",               required_argument, NULL, 'H'                    },
+                { "machine",            required_argument, NULL, 'M'                    },
+                { "service-type",       required_argument, NULL, ARG_SERVICE_TYPE       },
+                { "wait",               no_argument,       NULL, ARG_WAIT               },
+                { "uid",                required_argument, NULL, ARG_EXEC_USER          },
+                { "gid",                required_argument, NULL, ARG_EXEC_GROUP         },
+                { "nice",               required_argument, NULL, ARG_NICE               },
+                { "setenv",             required_argument, NULL, 'E'                    },
+                { "property",           required_argument, NULL, 'p'                    },
+                { "tty",                no_argument,       NULL, 't'                    }, /* deprecated alias */
+                { "pty",                no_argument,       NULL, 't'                    },
+                { "pipe",               no_argument,       NULL, 'P'                    },
+                { "quiet",              no_argument,       NULL, 'q'                    },
+                { "on-active",          required_argument, NULL, ARG_ON_ACTIVE          },
+                { "on-boot",            required_argument, NULL, ARG_ON_BOOT            },
+                { "on-startup",         required_argument, NULL, ARG_ON_STARTUP         },
+                { "on-unit-active",     required_argument, NULL, ARG_ON_UNIT_ACTIVE     },
+                { "on-unit-inactive",   required_argument, NULL, ARG_ON_UNIT_INACTIVE   },
+                { "on-calendar",        required_argument, NULL, ARG_ON_CALENDAR        },
+                { "on-timezone-change", no_argument,       NULL, ARG_ON_TIMEZONE_CHANGE },
+                { "on-clock-change",    no_argument,       NULL, ARG_ON_CLOCK_CHANGE    },
+                { "timer-property",     required_argument, NULL, ARG_TIMER_PROPERTY     },
+                { "path-property",      required_argument, NULL, ARG_PATH_PROPERTY      },
+                { "socket-property",    required_argument, NULL, ARG_SOCKET_PROPERTY    },
+                { "no-block",           no_argument,       NULL, ARG_NO_BLOCK           },
+                { "no-ask-password",    no_argument,       NULL, ARG_NO_ASK_PASSWORD    },
+                { "collect",            no_argument,       NULL, 'G'                    },
+                { "working-directory",  required_argument, NULL, ARG_WORKING_DIRECTORY  },
+                { "same-dir",           no_argument,       NULL, 'd'                    },
+                { "shell",              no_argument,       NULL, 'S'                    },
                 {},
         };
 
@@ -282,6 +287,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SLICE_INHERIT:
                         arg_slice_inherit = true;
+                        break;
+
+                case ARG_EXPAND_ENVIRONMENT:
+                        r = parse_boolean_argument("--expand-environment=", optarg, &arg_expand_environment);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_SEND_SIGHUP:
@@ -716,6 +727,11 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
         bool send_term = false;
         int r;
 
+        /* We disable environment expansion on the server side via ExecStartEx=:.
+         * ExecStartEx was added relatively recently (v243), and some bugs were fixed only later.
+         * So use that feature only if required. It will fail with older systemds. */
+        bool use_ex_prop = !arg_expand_environment;
+
         assert(m);
 
         r = transient_unit_set_properties(m, UNIT_SERVICE, arg_property);
@@ -847,19 +863,23 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "s", "ExecStart");
+                r = sd_bus_message_append(m, "s",
+                                          use_ex_prop ? "ExecStartEx" : "ExecStart");
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_open_container(m, 'v', "a(sasb)");
+                r = sd_bus_message_open_container(m, 'v',
+                                                  use_ex_prop ? "a(sasas)" : "a(sasb)");
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_open_container(m, 'a', "(sasb)");
+                r = sd_bus_message_open_container(m, 'a',
+                                                  use_ex_prop ? "(sasas)" : "(sasb)");
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_open_container(m, 'r', "sasb");
+                r = sd_bus_message_open_container(m, 'r',
+                                                  use_ex_prop ? "sasas" : "sasb");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -871,7 +891,12 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "b", false);
+                if (use_ex_prop)
+                        r = sd_bus_message_append_strv(
+                                        m,
+                                        STRV_MAKE(arg_expand_environment ? NULL : "no-env-expand"));
+                else
+                        r = sd_bus_message_append(m, "b", false);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1158,6 +1183,29 @@ static int make_transient_service_unit(
         return 0;
 }
 
+static int bus_call_with_hint(
+                sd_bus *bus,
+                sd_bus_message *message,
+                const char *name,
+                sd_bus_message **reply) {
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        r = sd_bus_call(bus, message, 0, &error, reply);
+        if (r < 0) {
+                log_error_errno(r, "Failed to start transient %s unit: %s", name, bus_error_message(&error, r));
+
+                if (!arg_expand_environment &&
+                    sd_bus_error_has_names(&error,
+                                           SD_BUS_ERROR_UNKNOWN_PROPERTY,
+                                           SD_BUS_ERROR_PROPERTY_READ_ONLY))
+                        log_notice_errno(r, "Hint: --expand-environment=no is not supported by old systemd");
+        }
+
+        return r;
+}
+
 static int start_transient_service(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1245,9 +1293,9 @@ static int start_transient_service(sd_bus *bus) {
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = bus_call_with_hint(bus, m, "service", &reply);
         if (r < 0)
-                return log_error_errno(r, "Failed to start transient service unit: %s", bus_error_message(&error, r));
+                return r;
 
         if (w) {
                 const char *object;
@@ -1660,7 +1708,6 @@ static int make_transient_trigger_unit(
 }
 
 static int start_transient_trigger(sd_bus *bus, const char *suffix) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *trigger = NULL, *service = NULL;
@@ -1728,9 +1775,9 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = bus_call_with_hint(bus, m, suffix + 1, &reply);
         if (r < 0)
-                return log_error_errno(r, "Failed to start transient %s unit: %s", suffix + 1, bus_error_message(&error, r));
+                return r;
 
         r = sd_bus_message_read(reply, "o", &object);
         if (r < 0)
