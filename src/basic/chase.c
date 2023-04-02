@@ -566,6 +566,11 @@ int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, i
 
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
 
+        if (FLAGS_SET(chase_flags, CHASE_PARENT))
+                open_flags |= O_DIRECTORY;
+
+        mode = open_flags & O_DIRECTORY ? 0755 : 0644;
+
         if (empty_or_root(root) && !ret_path &&
             (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
                 /* Shortcut this call if none of the special features of this call are requested */
@@ -771,6 +776,11 @@ int chase_and_openat(int dir_fd, const char *path, ChaseFlags chase_flags, int o
         int r;
 
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
+
+        if (FLAGS_SET(chase_flags, CHASE_PARENT))
+                open_flags |= O_DIRECTORY;
+
+        mode = open_flags & O_DIRECTORY ? 0755 : 0644;
 
         if (dir_fd == AT_FDCWD && !ret_path &&
             (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
