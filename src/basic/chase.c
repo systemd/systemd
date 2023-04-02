@@ -734,22 +734,17 @@ int chase_and_fopen_unlocked(
 }
 
 int chase_and_unlink(const char *path, const char *root, ChaseFlags chase_flags, int unlink_flags, char **ret_path) {
-        _cleanup_free_ char *p = NULL, *fname = NULL;
+        _cleanup_free_ char *p = NULL, *f = NULL;
         _cleanup_close_ int fd = -EBADF;
-        int r;
 
         assert(path);
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT)));
 
-        fd = chase_and_open(path, root, chase_flags|CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY|O_CLOEXEC, &p);
+        fd = chase_and_open_full(path, root, chase_flags|CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY|O_CLOEXEC, &p, &f);
         if (fd < 0)
                 return fd;
 
-        r = path_extract_filename(p, &fname);
-        if (r < 0)
-                return r;
-
-        if (unlinkat(fd, fname, unlink_flags) < 0)
+        if (unlinkat(fd, f, unlink_flags) < 0)
                 return -errno;
 
         if (ret_path)
@@ -937,22 +932,17 @@ int chase_and_fopenat_unlocked(
 }
 
 int chase_and_unlinkat(int dir_fd, const char *path, ChaseFlags chase_flags, int unlink_flags, char **ret_path) {
-        _cleanup_free_ char *p = NULL, *fname = NULL;
+        _cleanup_free_ char *p = NULL, *f = NULL;
         _cleanup_close_ int fd = -EBADF;
-        int r;
 
         assert(path);
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT)));
 
-        fd = chase_and_openat(dir_fd, path, chase_flags|CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY|O_CLOEXEC, &p);
+        fd = chase_and_openat_full(dir_fd, path, chase_flags|CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY|O_CLOEXEC, &p, &f);
         if (fd < 0)
                 return fd;
 
-        r = path_extract_filename(p, &fname);
-        if (r < 0)
-                return r;
-
-        if (unlinkat(fd, fname, unlink_flags) < 0)
+        if (unlinkat(fd, f, unlink_flags) < 0)
                 return -errno;
 
         if (ret_path)
