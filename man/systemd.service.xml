@@ -356,11 +356,8 @@
 
       <varlistentry>
         <term><varname>ExecStart=</varname></term>
-        <listitem><para>Commands with their arguments that are
-        executed when this service is started. The value is split into
-        zero or more command lines according to the rules described
-        below (see section "Command Lines" below).
-        </para>
+        <listitem><para>Commands that are executed when this service is started. The value is split into zero
+        or more command lines according to the rules described in the section "Command Lines" below.</para>
 
         <para>Unless <varname>Type=</varname> is <option>oneshot</option>, exactly one command must be given. When
         <varname>Type=oneshot</varname> is used, zero or more commands may be specified. Commands may be specified by
@@ -370,66 +367,6 @@
         specified, then the service must have <varname>RemainAfterExit=yes</varname> and at least one
         <varname>ExecStop=</varname> line set. (Services lacking both <varname>ExecStart=</varname> and
         <varname>ExecStop=</varname> are not valid.)</para>
-
-        <para>For each of the specified commands, the first argument must be either an absolute path to an executable
-        or a simple file name without any slashes. Optionally, this filename may be prefixed with a number of special
-        characters:</para>
-
-        <table>
-          <title>Special executable prefixes</title>
-
-          <tgroup cols='2'>
-            <colspec colname='prefix'/>
-            <colspec colname='meaning'/>
-
-            <thead>
-              <row>
-                <entry>Prefix</entry>
-                <entry>Effect</entry>
-              </row>
-            </thead>
-            <tbody>
-              <row>
-                <entry><literal>@</literal></entry>
-                <entry>If the executable path is prefixed with <literal>@</literal>, the second specified token will be passed as <literal>argv[0]</literal> to the executed process (instead of the actual filename), followed by the further arguments specified.</entry>
-              </row>
-
-              <row>
-                <entry><literal>-</literal></entry>
-                <entry>If the executable path is prefixed with <literal>-</literal>, an exit code of the command normally considered a failure (i.e. non-zero exit status or abnormal exit due to signal) is recorded, but has no further effect and is considered equivalent to success.</entry>
-              </row>
-
-              <row>
-                <entry><literal>:</literal></entry>
-                <entry>If the executable path is prefixed with <literal>:</literal>, environment variable substitution (as described by the "Command Lines" section below) is not applied.</entry>
-              </row>
-
-              <row>
-                <entry><literal>+</literal></entry>
-                <entry>If the executable path is prefixed with <literal>+</literal> then the process is executed with full privileges. In this mode privilege restrictions configured with <varname>User=</varname>, <varname>Group=</varname>, <varname>CapabilityBoundingSet=</varname> or the various file system namespacing options (such as <varname>PrivateDevices=</varname>, <varname>PrivateTmp=</varname>) are not applied to the invoked command line (but still affect any other <varname>ExecStart=</varname>, <varname>ExecStop=</varname>, … lines). However, note that this will not bypass options that apply to the whole control group, such as <varname>DevicePolicy=</varname>, see <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry> for the full list.</entry>
-              </row>
-
-              <row>
-                <entry><literal>!</literal></entry>
-
-                <entry>Similar to the <literal>+</literal> character discussed above this permits invoking command lines with elevated privileges. However, unlike <literal>+</literal> the <literal>!</literal> character exclusively alters the effect of <varname>User=</varname>, <varname>Group=</varname> and <varname>SupplementaryGroups=</varname>, i.e. only the stanzas that affect user and group credentials. Note that this setting may be combined with <varname>DynamicUser=</varname>, in which case a dynamic user/group pair is allocated before the command is invoked, but credential changing is left to the executed process itself.</entry>
-              </row>
-
-              <row>
-                <entry><literal>!!</literal></entry>
-
-                <entry>This prefix is very similar to <literal>!</literal>, however it only has an effect on systems lacking support for ambient process capabilities, i.e. without support for <varname>AmbientCapabilities=</varname>. It's intended to be used for unit files that take benefit of ambient capabilities to run processes with minimal privileges wherever possible while remaining compatible with systems that lack ambient capabilities support. Note that when <literal>!!</literal> is used, and a system lacking ambient capability support is detected any configured <varname>SystemCallFilter=</varname> and <varname>CapabilityBoundingSet=</varname> stanzas are implicitly modified, in order to permit spawned processes to drop credentials and capabilities themselves, even if this is configured to not be allowed. Moreover, if this prefix is used and a system lacking ambient capability support is detected <varname>AmbientCapabilities=</varname> will be skipped and not be applied. On systems supporting ambient capabilities, <literal>!!</literal> has no effect and is redundant.</entry>
-              </row>
-            </tbody>
-          </tgroup>
-        </table>
-
-        <para><literal>@</literal>, <literal>-</literal>, <literal>:</literal>, and one of
-        <literal>+</literal>/<literal>!</literal>/<literal>!!</literal> may be used together and they can appear in any
-        order. However, only one of <literal>+</literal>, <literal>!</literal>, <literal>!!</literal> may be used at a
-        time. Note that these prefixes are also supported for the other command line settings,
-        i.e. <varname>ExecStartPre=</varname>, <varname>ExecStartPost=</varname>, <varname>ExecReload=</varname>,
-        <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname>.</para>
 
         <para>If more than one command is specified, the commands are
         invoked sequentially in the order they appear in the unit
@@ -1294,6 +1231,73 @@
 
     <para>The command to execute may contain spaces, but control characters are not allowed.</para>
 
+    <para>Each command may be prefixed with a number of special characters:</para>
+
+    <table>
+      <title>Special executable prefixes</title>
+
+      <tgroup cols='2'>
+        <colspec colname='prefix'/>
+        <colspec colname='meaning'/>
+
+        <thead>
+          <row>
+            <entry>Prefix</entry>
+            <entry>Effect</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry><literal>@</literal></entry>
+            <entry>If the executable path is prefixed with <literal>@</literal>, the second specified token will be passed as <literal>argv[0]</literal> to the executed process (instead of the actual filename), followed by the further arguments specified.</entry>
+          </row>
+
+          <row>
+            <entry><literal>-</literal></entry>
+            <entry>If the executable path is prefixed with <literal>-</literal>, an exit code of the command normally considered a failure (i.e. non-zero exit status or abnormal exit due to signal) is recorded, but has no further effect and is considered equivalent to success.</entry>
+          </row>
+
+          <row>
+            <entry><literal>:</literal></entry>
+            <entry>If the executable path is prefixed with <literal>:</literal>, environment variable substitution (as described by the "Command Lines" section below) is not applied.</entry>
+          </row>
+
+          <row>
+            <entry><literal>+</literal></entry>
+            <entry>If the executable path is prefixed with <literal>+</literal> then the process is executed with full privileges. In this mode privilege restrictions configured with <varname>User=</varname>, <varname>Group=</varname>, <varname>CapabilityBoundingSet=</varname> or the various file system namespacing options (such as <varname>PrivateDevices=</varname>, <varname>PrivateTmp=</varname>) are not applied to the invoked command line (but still affect any other <varname>ExecStart=</varname>, <varname>ExecStop=</varname>, … lines). However, note that this will not bypass options that apply to the whole control group, such as <varname>DevicePolicy=</varname>, see <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry> for the full list.</entry>
+          </row>
+
+          <row>
+            <entry><literal>!</literal></entry>
+
+            <entry>Similar to the <literal>+</literal> character discussed above this permits invoking command lines with elevated privileges. However, unlike <literal>+</literal> the <literal>!</literal> character exclusively alters the effect of <varname>User=</varname>, <varname>Group=</varname> and <varname>SupplementaryGroups=</varname>, i.e. only the stanzas that affect user and group credentials. Note that this setting may be combined with <varname>DynamicUser=</varname>, in which case a dynamic user/group pair is allocated before the command is invoked, but credential changing is left to the executed process itself.</entry>
+          </row>
+
+          <row>
+            <entry><literal>!!</literal></entry>
+
+            <entry>This prefix is very similar to <literal>!</literal>, however it only has an effect on systems lacking support for ambient process capabilities, i.e. without support for <varname>AmbientCapabilities=</varname>. It's intended to be used for unit files that take benefit of ambient capabilities to run processes with minimal privileges wherever possible while remaining compatible with systems that lack ambient capabilities support. Note that when <literal>!!</literal> is used, and a system lacking ambient capability support is detected any configured <varname>SystemCallFilter=</varname> and <varname>CapabilityBoundingSet=</varname> stanzas are implicitly modified, in order to permit spawned processes to drop credentials and capabilities themselves, even if this is configured to not be allowed. Moreover, if this prefix is used and a system lacking ambient capability support is detected <varname>AmbientCapabilities=</varname> will be skipped and not be applied. On systems supporting ambient capabilities, <literal>!!</literal> has no effect and is redundant.</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para><literal>@</literal>, <literal>-</literal>, <literal>:</literal>, and one of
+    <literal>+</literal>/<literal>!</literal>/<literal>!!</literal> may be used together and they can appear in any
+    order. However, only one of <literal>+</literal>, <literal>!</literal>, <literal>!!</literal> may be used at a
+    time.</para>
+
+    <para>For each command, the first argument must be either an absolute path to an executable or a simple
+    file name without any slashes. If the command is not a full (absolute) path, it will be resolved to a
+    full path using a fixed search path determined at compilation time. Searched directories include
+    <filename>/usr/local/bin/</filename>, <filename>/usr/bin/</filename>, <filename>/bin/</filename> on
+    systems using split <filename>/usr/bin/</filename> and <filename>/bin/</filename> directories, and their
+    <filename>sbin/</filename> counterparts on systems using split <filename>bin/</filename> and
+    <filename>sbin/</filename>. It is thus safe to use just the executable name in case of executables
+    located in any of the "standard" directories, and an absolute path must be used in other cases. Using an
+    absolute path is recommended to avoid ambiguity. Hint: this search path may be queried using
+    <command>systemd-path search-binaries-default</command>.</para>
+
     <para>The command line accepts <literal>%</literal> specifiers as described in
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
@@ -1307,17 +1311,6 @@
     variable split at whitespace, resulting in zero or more arguments.
     For this type of expansion, quotes are respected when splitting
     into words, and afterwards removed.</para>
-
-    <para>If the command is not a full (absolute) path, it will be resolved to a full path using a
-    fixed search path determined at compilation time. Searched directories include
-    <filename>/usr/local/bin/</filename>, <filename>/usr/bin/</filename>, <filename>/bin/</filename>
-    on systems using split <filename>/usr/bin/</filename> and <filename>/bin/</filename>
-    directories, and their <filename>sbin/</filename> counterparts on systems using split
-    <filename>bin/</filename> and <filename>sbin/</filename>. It is thus safe to use just the
-    executable name in case of executables located in any of the "standard" directories, and an
-    absolute path must be used in other cases. Using an absolute path is recommended to avoid
-    ambiguity. Hint: this search path may be queried using
-    <command>systemd-path search-binaries-default</command>.</para>
 
     <para>Example:</para>
 
