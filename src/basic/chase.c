@@ -162,10 +162,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 /* If we get AT_FDCWD or dir_fd points to "/", then we always resolve symlinks relative to
                  * the host's root. Hence, CHASE_AT_RESOLVE_IN_ROOT is meaningless. */
 
-                if (dir_fd >= 0)
-                        r = dir_fd_is_root(dir_fd);
-                else
-                        r = true;
+                r = dir_fd_is_root_or_cwd(dir_fd);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -417,10 +414,10 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         _cleanup_free_ char *f = NULL;
 
                         r = path_extract_filename(done, &f);
-                        if (r < 0 && r != -EDESTADDRREQ)
+                        if (r < 0 && r != -EADDRNOTAVAIL)
                                 return r;
 
-                        /* If we get EDESTADDRREQ we clear done and it will get reinitialized by the next block. */
+                        /* If we get EADDRNOTAVAIL we clear done and it will get reinitialized by the next block. */
                         free_and_replace(done, f);
                 }
 
@@ -585,7 +582,7 @@ int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, i
         if (isempty(q))
                 q = ".";
 
-        if (!FLAGS_SET(chase_flags, CHASE_PARENT)) {
+        if (!FLAGS_SET(chase_flags, CHASE_EXTRACT_FILENAME)) {
                 r = path_extract_filename(q, &fname);
                 if (r < 0 && r != -EADDRNOTAVAIL)
                         return r;
@@ -708,7 +705,7 @@ int chase_and_fopen_unlocked(
         int mode_flags, r;
 
         assert(path);
-        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT)));
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
         assert(open_flags);
         assert(ret_file);
 
@@ -736,17 +733,19 @@ int chase_and_unlink(const char *path, const char *root, ChaseFlags chase_flags,
         int r;
 
         assert(path);
-        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT)));
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
 
         fd = chase_and_open(path, root, chase_flags|CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY|O_CLOEXEC, &p);
         if (fd < 0)
                 return fd;
 
-        r = path_extract_filename(p, &fname);
-        if (r < 0)
-                return r;
+        if (!FLAGS_SET(chase_flags, CHASE_EXTRACT_FILENAME)) {
+                r = path_extract_filename(p, &fname);
+                if (r < 0)
+                        return r;
+        }
 
-        if (unlinkat(fd, fname, unlink_flags) < 0)
+        if (unlinkat(fd, fname ?: p, unlink_flags) < 0)
                 return -errno;
 
         if (ret_path)
@@ -786,7 +785,7 @@ int chase_and_openat(int dir_fd, const char *path, ChaseFlags chase_flags, int o
         if (r < 0)
                 return r;
 
-        if (!FLAGS_SET(chase_flags, CHASE_PARENT)) {
+        if (!FLAGS_SET(chase_flags, CHASE_EXTRACT_FILENAME)) {
                 r = path_extract_filename(p, &fname);
                 if (r < 0 && r != -EADDRNOTAVAIL)
                         return r;
@@ -909,7 +908,7 @@ int chase_and_fopenat_unlocked(
         int mode_flags, r;
 
         assert(path);
-        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT)));
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
         assert(open_flags);
         assert(ret_file);
 
@@ -937,17 +936,19 @@ int chase_and_unlinkat(int dir_fd, const char *path, ChaseFlags chase_flags, int
         int r;
 
         assert(path);
-        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP|CHASE_PARENT)));
+        assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
 
         fd = chase_and_openat(dir_fd, path, chase_flags|CHASE_PARENT|CHASE_NOFOLLOW, O_PATH|O_DIRECTORY|O_CLOEXEC, &p);
         if (fd < 0)
                 return fd;
 
-        r = path_extract_filename(p, &fname);
-        if (r < 0)
-                return r;
+        if (!FLAGS_SET(chase_flags, CHASE_EXTRACT_FILENAME)) {
+                r = path_extract_filename(p, &fname);
+                if (r < 0)
+                        return r;
+        }
 
-        if (unlinkat(fd, fname, unlink_flags) < 0)
+        if (unlinkat(fd, fname ?: p, unlink_flags) < 0)
                 return -errno;
 
         if (ret_path)
