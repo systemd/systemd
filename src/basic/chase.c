@@ -560,11 +560,16 @@ int chase(const char *path, const char *original_root, ChaseFlags flags, char **
 int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, int open_flags, char **ret_path) {
         _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL, *fname = NULL;
-        mode_t mode = open_flags & O_DIRECTORY ? 0755 : 0644;
         const char *q;
+        mode_t mode;
         int r;
 
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
+
+        if (FLAGS_SET(chase_flags, CHASE_PARENT))
+                open_flags |= O_DIRECTORY;
+
+        mode = open_flags & O_DIRECTORY ? 0755 : 0644;
 
         if (empty_or_root(root) && !ret_path &&
             (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
@@ -767,10 +772,15 @@ int chase_and_open_parent(const char *path, const char *root, ChaseFlags chase_f
 int chase_and_openat(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, char **ret_path) {
         _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL, *fname = NULL;
-        mode_t mode = open_flags & O_DIRECTORY ? 0755 : 0644;
+        mode_t mode;
         int r;
 
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
+
+        if (FLAGS_SET(chase_flags, CHASE_PARENT))
+                open_flags |= O_DIRECTORY;
+
+        mode = open_flags & O_DIRECTORY ? 0755 : 0644;
 
         if (dir_fd == AT_FDCWD && !ret_path &&
             (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
