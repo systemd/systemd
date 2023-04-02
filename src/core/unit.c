@@ -3465,7 +3465,7 @@ static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bu
 
         e = sd_bus_message_get_error(message);
         if (e) {
-                if (!sd_bus_error_has_name(e, "org.freedesktop.DBus.Error.NameHasNoOwner")) {
+                if (!sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER)) {
                         r = sd_bus_error_get_errno(e);
                         log_unit_error_errno(u, r,
                                              "Unexpected error response from GetNameOwner(): %s",
