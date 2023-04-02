@@ -36,7 +36,10 @@ static inline int chase(const char *path_with_prefix, const char *root, ChaseFla
         return chase_full(path_with_prefix, root, chase_flags, ret_path, NULL, ret_fd);
 }
 
-int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, int open_flags, char **ret_path);
+int chase_and_open_full(const char *path, const char *root, ChaseFlags chase_flags, int open_flags, char **ret_path, char **ret_filename);
+static inline int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, int open_flags, char **ret_path) {
+        return chase_and_open_full(path, root, chase_flags, open_flags, ret_path, NULL);
+}
 int chase_and_opendir(const char *path, const char *root, ChaseFlags chase_flags, char **ret_path, DIR **ret_dir);
 int chase_and_stat(const char *path, const char *root, ChaseFlags chase_flags, char **ret_path, struct stat *ret_stat);
 int chase_and_access(const char *path, const char *root, ChaseFlags chase_flags, int access_mode, char **ret_path);
@@ -49,7 +52,10 @@ static inline int chaseat(int dir_fd, const char *path, ChaseFlags chase_flags, 
         return chaseat_full(dir_fd, path, chase_flags, ret_path, NULL, ret_fd);
 }
 
-int chase_and_openat(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, char **ret_path);
+int chase_and_openat_full(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, char **ret_path, char **ret_filename);
+static inline int chase_and_openat(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, char **ret_path) {
+        return chase_and_openat_full(dir_fd, path, chase_flags, open_flags, ret_path, NULL);
+}
 int chase_and_opendirat(int dir_fd, const char *path, ChaseFlags chase_flags, char **ret_path, DIR **ret_dir);
 int chase_and_statat(int dir_fd, const char *path, ChaseFlags chase_flags, char **ret_path, struct stat *ret_stat);
 int chase_and_accessat(int dir_fd, const char *path, ChaseFlags chase_flags, int access_mode, char **ret_path);
