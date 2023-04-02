@@ -92,6 +92,13 @@
     Consider using the <option>exec</option> service type (i.e. <option>--property=Type=exec</option>) to
     ensure that <command>systemd-run</command> returns successfully only if the specified command line has
     been successfully started.</para>
+
+    <para>Variable expansion is <emphasis>not</emphasis> performed by <command>systemd-run</command> or the
+    manager. (This mimicks what happens when commands are executed using a shell directly, and also what
+    happens when commands are executed via <citerefentry
+    project='man-pages'><refentrytitle>sudo</refentrytitle><manvolnum>8</manvolnum></citerefentry>: variable
+    expansion is performed by the shell before the command is executed or passed to <command>sudo</command>
+    for execution.)</para>
   </refsect1>
 
   <refsect1>
@@ -533,7 +540,7 @@ There is a screen on:
 
       <programlisting>$ systemd-run --user --wait true
 $ systemd-run --user --wait -p SuccessExitStatus=11 bash -c 'exit 11'
-$ systemd-run --user --wait -p SuccessExitStatus=SIGUSR1 bash -c 'kill -SIGUSR1 $$$$'</programlisting>
+$ systemd-run --user --wait -p SuccessExitStatus=SIGUSR1 bash -c 'kill -SIGUSR1 $$'</programlisting>
 
       <para>Those three invocations will succeed, i.e. terminate with an exit code of 0.</para>
     </example>

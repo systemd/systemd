@@ -876,7 +876,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                         return bus_log_create_error(r);
 
                 if (use_ex_prop)
-                        r = sd_bus_message_append_strv(m, NULL);
+                        r = sd_bus_message_append_strv(m, STRV_MAKE("no-env-expand"));
                 else
                         r = sd_bus_message_append(m, "b", false);
                 if (r < 0)
