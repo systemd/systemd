@@ -1109,10 +1109,7 @@ static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
         return 0;
 }
 
-static int start_transient_service(
-                sd_bus *bus,
-                int *retval) {
-
+static int start_transient_service(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
@@ -1121,7 +1118,6 @@ static int start_transient_service(
         int r;
 
         assert(bus);
-        assert(retval);
 
         if (arg_stdio == ARG_STDIO_PTY) {
 
@@ -1360,16 +1356,15 @@ static int start_transient_service(
                 /* Try to propagate the service's return value. But if the service defines
                  * e.g. SuccessExitStatus, honour this, and return 0 to mean "success". */
                 if (streq_ptr(c.result, "success"))
-                        *retval = 0;
-                else if (streq_ptr(c.result, "exit-code") && c.exit_status > 0)
-                        *retval = c.exit_status;
-                else if (streq_ptr(c.result, "signal"))
-                        *retval = EXIT_EXCEPTION;
-                else
-                        *retval = EXIT_FAILURE;
+                        return EXIT_SUCCESS;
+                if (streq_ptr(c.result, "exit-code") && c.exit_status > 0)
+                        return c.exit_status;
+                if (streq_ptr(c.result, "signal"))
+                        return EXIT_EXCEPTION;
+                return EXIT_FAILURE;
         }
 
-        return 0;
+        return EXIT_SUCCESS;
 }
 
 static int acquire_invocation_id(sd_bus *bus, sd_id128_t *ret) {
@@ -1555,10 +1550,7 @@ static int start_transient_scope(sd_bus *bus) {
         return log_error_errno(errno, "Failed to execute: %m");
 }
 
-static int start_transient_trigger(
-                sd_bus *bus,
-                const char *suffix) {
-
+static int start_transient_trigger(sd_bus *bus, const char *suffix) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
@@ -1707,7 +1699,7 @@ static int start_transient_trigger(
                         log_info("Will run service as unit: %s", service);
         }
 
-        return 0;
+        return EXIT_SUCCESS;
 }
 
 static bool shall_make_executable_absolute(void) {
@@ -1726,7 +1718,7 @@ static bool shall_make_executable_absolute(void) {
 static int run(int argc, char* argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *description = NULL;
-        int r, retval = EXIT_SUCCESS;
+        int r;
 
         log_show_color(true);
         log_parse_environment();
@@ -1773,19 +1765,14 @@ static int run(int argc, char* argv[]) {
                 return bus_log_connect_error(r, arg_transport);
 
         if (arg_scope)
-                r = start_transient_scope(bus);
-        else if (arg_path_property)
-                r = start_transient_trigger(bus, ".path");
-        else if (arg_socket_property)
-                r = start_transient_trigger(bus, ".socket");
-        else if (arg_with_timer)
-                r = start_transient_trigger(bus, ".timer");
-        else
-                r = start_transient_service(bus, &retval);
-        if (r < 0)
-                return r;
-
-        return retval;
+                return start_transient_scope(bus);
+        if (arg_path_property)
+                return start_transient_trigger(bus, ".path");
+        if (arg_socket_property)
+                return start_transient_trigger(bus, ".socket");
+        if (arg_with_timer)
+                return start_transient_trigger(bus, ".timer");
+        return start_transient_service(bus);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
