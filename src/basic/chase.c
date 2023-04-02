@@ -564,10 +564,9 @@ int chase_full(const char *path, const char *original_root, ChaseFlags flags, ch
         return r;
 }
 
-int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, int open_flags, char **ret_path) {
+int chase_and_open_full(const char *path, const char *root, ChaseFlags chase_flags, int open_flags, char **ret_path, char **ret_filename) {
         _cleanup_close_ int path_fd = -EBADF;
-        _cleanup_free_ char *p = NULL, *fname = NULL;
-        const char *q;
+        _cleanup_free_ char *p = NULL, *f = NULL;
         mode_t mode;
         int r;
 
@@ -585,27 +584,22 @@ int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, i
                                           open_flags | (FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0),
                                           mode));
 
-        r = chase(path, root, CHASE_PARENT|chase_flags, &p, &path_fd);
+        r = chase_full(path, root, CHASE_PARENT|chase_flags, &p, &f, &path_fd);
         if (r < 0)
                 return r;
+
         assert(path_fd >= 0);
+        assert(f);
 
-        assert_se(q = path_startswith(p, empty_to_root(root)));
-        if (isempty(q))
-                q = ".";
-
-        if (!FLAGS_SET(chase_flags, CHASE_PARENT)) {
-                r = path_extract_filename(q, &fname);
-                if (r < 0 && r != -EADDRNOTAVAIL)
-                        return r;
-        }
-
-        r = xopenat(path_fd, strempty(fname), open_flags|O_NOFOLLOW, mode);
+        r = xopenat(path_fd, FLAGS_SET(chase_flags, CHASE_PARENT) ? "." : f, open_flags|O_NOFOLLOW, mode);
         if (r < 0)
                 return r;
 
         if (ret_path)
                 *ret_path = TAKE_PTR(p);
+
+        if (ret_filename)
+                *ret_filename = TAKE_PTR(f);
 
         return r;
 }
@@ -776,9 +770,9 @@ int chase_and_open_parent(const char *path, const char *root, ChaseFlags chase_f
         return pfd;
 }
 
-int chase_and_openat(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, char **ret_path) {
+int chase_and_openat_full(int dir_fd, const char *path, ChaseFlags chase_flags, int open_flags, char **ret_path, char **ret_filename) {
         _cleanup_close_ int path_fd = -EBADF;
-        _cleanup_free_ char *p = NULL, *fname = NULL;
+        _cleanup_free_ char *p = NULL, *f = NULL;
         mode_t mode;
         int r;
 
@@ -796,22 +790,19 @@ int chase_and_openat(int dir_fd, const char *path, ChaseFlags chase_flags, int o
                                           open_flags | (FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0),
                                           mode));
 
-        r = chaseat(dir_fd, path, chase_flags|CHASE_PARENT, &p, &path_fd);
+        r = chaseat_full(dir_fd, path, chase_flags|CHASE_PARENT, &p, &f, &path_fd);
         if (r < 0)
                 return r;
 
-        if (!FLAGS_SET(chase_flags, CHASE_PARENT)) {
-                r = path_extract_filename(p, &fname);
-                if (r < 0 && r != -EADDRNOTAVAIL)
-                        return r;
-        }
-
-        r = xopenat(path_fd, strempty(fname), open_flags|O_NOFOLLOW, mode);
+        r = xopenat(path_fd, FLAGS_SET(chase_flags, CHASE_PARENT) ? "." : f, open_flags|O_NOFOLLOW, mode);
         if (r < 0)
                 return r;
 
         if (ret_path)
                 *ret_path = TAKE_PTR(p);
+
+        if (ret_filename)
+                *ret_filename = TAKE_PTR(f);
 
         return r;
 }
