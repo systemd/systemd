@@ -712,7 +712,7 @@ static int transient_kill_set_properties(sd_bus_message *m) {
         return 0;
 }
 
-static int transient_service_set_properties(sd_bus_message *m, const char *pty_path) {
+static int transient_service_set_properties(sd_bus_message *m, const char *pty_path, bool use_ex_prop) {
         bool send_term = false;
         int r;
 
@@ -847,19 +847,23 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "s", "ExecStart");
+                r = sd_bus_message_append(m, "s",
+                                          use_ex_prop ? "ExecStartEx" : "ExecStart");
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_open_container(m, 'v', "a(sasb)");
+                r = sd_bus_message_open_container(m, 'v',
+                                                  use_ex_prop ? "a(sasas)" : "a(sasb)");
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_open_container(m, 'a', "(sasb)");
+                r = sd_bus_message_open_container(m, 'a',
+                                                  use_ex_prop ? "(sasas)" : "(sasb)");
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_open_container(m, 'r', "sasb");
+                r = sd_bus_message_open_container(m, 'r',
+                                                  use_ex_prop ? "sasas" : "sasb");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -871,7 +875,10 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "b", false);
+                if (use_ex_prop)
+                        r = sd_bus_message_append_strv(m, NULL);
+                else
+                        r = sd_bus_message_append(m, "b", false);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1113,7 +1120,8 @@ static int make_transient_service_unit(
                 sd_bus *bus,
                 sd_bus_message **message,
                 const char *service,
-                const char *pty_path) {
+                const char *pty_path,
+                bool use_ex_prop) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
@@ -1136,7 +1144,7 @@ static int make_transient_service_unit(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = transient_service_set_properties(m, pty_path);
+        r = transient_service_set_properties(m, pty_path, use_ex_prop);
         if (r < 0)
                 return r;
 
@@ -1234,13 +1242,27 @@ static int start_transient_service(sd_bus *bus) {
                         return r;
         }
 
-        r = make_transient_service_unit(bus, &m, service, pty_path);
+        r = make_transient_service_unit(bus, &m, service, pty_path, /* use_ex_prop= */ true);
         if (r < 0)
                 return r;
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0 &&
+            sd_bus_error_has_names(&error,
+                                   SD_BUS_ERROR_UNKNOWN_PROPERTY,
+                                   SD_BUS_ERROR_PROPERTY_READ_ONLY)) {
+                log_debug_errno(r, "Failed to start transient service unit with new property names: %s", bus_error_message(&error, r));
+
+                /* For compatibility with old systemd, let's try again using old property names. */
+                m = sd_bus_message_unref(m);
+                r = make_transient_service_unit(bus, &m, service, pty_path, /* use_ex_prop= */ false);
+                if (r < 0)
+                                return r;
+
+                r = sd_bus_call(bus, m, 0, &error, &reply);
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to start transient service unit: %s", bus_error_message(&error, r));
 
@@ -1573,7 +1595,8 @@ static int make_transient_trigger_unit(
                 sd_bus_message **message,
                 const char *suffix,
                 const char *trigger,
-                const char *service) {
+                const char *service,
+                bool use_ex_prop) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
@@ -1628,7 +1651,7 @@ static int make_transient_trigger_unit(
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = transient_service_set_properties(m, NULL);
+                r = transient_service_set_properties(m, NULL, use_ex_prop);
                 if (r < 0)
                         return r;
 
@@ -1711,13 +1734,28 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
                         return log_error_errno(r, "Failed to change unit suffix: %m");
         }
 
-        r = make_transient_trigger_unit(bus, &m, suffix, trigger, service);
+        r = make_transient_trigger_unit(bus, &m, suffix, trigger, service, /* use_ex_prop= */ true);
         if (r < 0)
                 return r;
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0 &&
+            sd_bus_error_has_names(&error,
+                                   SD_BUS_ERROR_UNKNOWN_PROPERTY,
+                                   SD_BUS_ERROR_PROPERTY_READ_ONLY)) {
+                log_debug_errno(r, "Failed to start transient %s unit with new property names: %s",
+                                suffix + 1, bus_error_message(&error, r));
+
+                /* For compatibility with old systemd, let's try again using old property names. */
+                m = sd_bus_message_unref(m);
+                r = make_transient_trigger_unit(bus, &m, suffix, trigger, service, /* use_ex_prop= */ false);
+                if (r < 0)
+                                return r;
+
+                r = sd_bus_call(bus, m, 0, &error, &reply);
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to start transient %s unit: %s", suffix + 1, bus_error_message(&error, r));
 
