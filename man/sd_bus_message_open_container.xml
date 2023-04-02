@@ -91,7 +91,7 @@
     with <function>sd_bus_message_enter_container()</function>. It behaves mostly the same as
     <function>sd_bus_message_close_container()</function>. Note that
     <function>sd_bus_message_exit_container()</function> may only be called after iterating through all
-    members of the container, i.e. reading or skipping them. Use
+    members of the container, i.e. reading or skipping over them. Use
     <citerefentry><refentrytitle>sd_bus_message_skip</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     to skip over fields of a container in order to be able to exit the container with
     <function>sd_bus_message_exit_container()</function> without reading all members.</para>
@@ -119,6 +119,20 @@
 
           <listitem><para><parameter>m</parameter> or <parameter>contents</parameter> are
           <constant>NULL</constant> or <parameter>type</parameter> is invalid.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EBADMSG</constant></term>
+
+          <listitem><para>Message <parameter>m</parameter> has invalid structure.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENXIO</constant></term>
+
+          <listitem><para>Message <parameter>m</parameter> does not have a container of type
+          <parameter>type</parameter> at the current position, or the contents do not match
+          <parameter>contents</parameter>.</para></listitem>
         </varlistentry>
 
         <varlistentry>
