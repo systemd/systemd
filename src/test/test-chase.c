@@ -511,25 +511,25 @@ TEST(chaseat) {
 
         assert_se(chaseat(tfd, "i/../p", CHASE_MKDIR_0755, NULL, NULL) == -ENOENT);
 
-        /* Test CHASE_FILENAME */
+        /* Test ret_filename */
 
-        assert_se(chaseat(tfd, "chase/parent", CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT|CHASE_NOFOLLOW|CHASE_EXTRACT_FILENAME, &result, &fd) >= 0);
+        assert_se(chaseat_full(tfd, "chase/parent", CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT|CHASE_NOFOLLOW, NULL, &result, &fd) >= 0);
         assert_se(faccessat(fd, result, F_OK, AT_SYMLINK_NOFOLLOW) >= 0);
         assert_se(streq(result, "parent"));
         fd = safe_close(fd);
         result = mfree(result);
 
-        assert_se(chaseat(tfd, "chase", CHASE_PARENT|CHASE_AT_RESOLVE_IN_ROOT|CHASE_EXTRACT_FILENAME, &result, &fd) >= 0);
+        assert_se(chaseat_full(tfd, "chase", CHASE_PARENT|CHASE_AT_RESOLVE_IN_ROOT, NULL, &result, &fd) >= 0);
         assert_se(faccessat(fd, result, F_OK, 0) >= 0);
         assert_se(streq(result, "chase"));
         fd = safe_close(fd);
         result = mfree(result);
 
-        assert_se(chaseat(tfd, "/", CHASE_PARENT|CHASE_AT_RESOLVE_IN_ROOT|CHASE_EXTRACT_FILENAME, &result, NULL) >= 0);
+        assert_se(chaseat_full(tfd, "/", CHASE_PARENT|CHASE_AT_RESOLVE_IN_ROOT, NULL, &result, NULL) >= 0);
         assert_se(streq(result, "."));
         result = mfree(result);
 
-        assert_se(chaseat(tfd, ".", CHASE_PARENT|CHASE_AT_RESOLVE_IN_ROOT|CHASE_EXTRACT_FILENAME, &result, NULL) >= 0);
+        assert_se(chaseat_full(tfd, ".", CHASE_PARENT|CHASE_AT_RESOLVE_IN_ROOT, NULL, &result, NULL) >= 0);
         assert_se(streq(result, "."));
         result = mfree(result);
 
