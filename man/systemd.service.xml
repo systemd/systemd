@@ -1249,7 +1249,7 @@
         <tbody>
           <row>
             <entry><literal>@</literal></entry>
-            <entry>If the executable path is prefixed with <literal>@</literal>, the second specified token will be passed as <literal>argv[0]</literal> to the executed process (instead of the actual filename), followed by the further arguments specified.</entry>
+            <entry>If the executable path is prefixed with <literal>@</literal>, the second specified token will be passed as <constant>argv[0]</constant> to the executed process (instead of the actual filename), followed by the further arguments specified.</entry>
           </row>
 
           <row>
@@ -1361,6 +1361,17 @@ ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
     each time with one argument: <literal>one</literal> and
     <literal>two two</literal>, respectively. Because two commands are
     specified, <varname>Type=oneshot</varname> must be used.</para>
+
+    <para>Example:</para>
+
+    <programlisting>Type=oneshot
+ExecStart=:echo $USER ; -false ; +:@true $TEST</programlisting>
+
+    <para>This will execute <command>/usr/bin/echo</command> with the literal argument
+    <literal>$USER</literal> (<literal>:</literal> suppresses variable expansion), and then
+    <command>/usr/bin/false</command> (the return value will be ignored because <literal>-</literal>
+    suppresses checking of the return value), and <command>/usr/bin/true</command> (with elevated privileges,
+    with <literal>$TEST</literal> as <constant>argv[0]</constant>).</para>
 
     <para>Example:</para>
 
