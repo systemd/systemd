@@ -4397,6 +4397,18 @@ static int collect_open_file_fds(
         return 0;
 }
 
+static void log_command_line(Unit *unit, const char *msg, const char *executable, char **argv) {
+        if (!DEBUG_LOGGING)
+                return;
+
+        _cleanup_free_ char *cmdline = quote_command_line(argv, SHELL_ESCAPE_EMPTY);
+
+        log_unit_struct(unit, LOG_DEBUG,
+                        "EXECUTABLE=%s", executable,
+                        LOG_UNIT_MESSAGE(unit, "%s: %s", msg, strnull(cmdline)),
+                        LOG_UNIT_INVOCATION_ID(unit));
+}
+
 static int exec_child(
                 Unit *unit,
                 const ExecCommand *command,
@@ -5496,19 +5508,7 @@ static int exec_child(
         } else
                 final_argv = command->argv;
 
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *line = NULL;
-
-                line = quote_command_line(final_argv, SHELL_ESCAPE_EMPTY);
-                if (!line) {
-                        *exit_status = EXIT_MEMORY;
-                        return log_oom();
-                }
-
-                log_unit_struct(unit, LOG_DEBUG,
-                                "EXECUTABLE=%s", executable,
-                                LOG_UNIT_MESSAGE(unit, "Executing: %s", line));
-        }
+        log_command_line(unit, "Executing", executable, final_argv);
 
         if (exec_fd >= 0) {
                 uint8_t hot = 1;
@@ -5555,7 +5555,6 @@ int exec_spawn(Unit *unit,
         _cleanup_free_ char *subcgroup_path = NULL;
         _cleanup_strv_free_ char **files_env = NULL;
         size_t n_storage_fds = 0, n_socket_fds = 0;
-        _cleanup_free_ char *line = NULL;
         pid_t pid;
 
         assert(unit);
@@ -5593,21 +5592,13 @@ int exec_spawn(Unit *unit,
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to load environment files: %m");
 
-        line = quote_command_line(command->argv, SHELL_ESCAPE_EMPTY);
-        if (!line)
-                return log_oom();
-
         /* Fork with up-to-date SELinux label database, so the child inherits the up-to-date db
            and, until the next SELinux policy changes, we save further reloads in future children. */
         mac_selinux_maybe_reload();
 
-        log_unit_struct(unit, LOG_DEBUG,
-                        LOG_UNIT_MESSAGE(unit, "About to execute %s", line),
-                        "EXECUTABLE=%s", command->path, /* We won't know the real executable path until we create
-                                                           the mount namespace in the child, but we want to log
-                                                           from the parent, so we need to use the (possibly
-                                                           inaccurate) path here. */
-                        LOG_UNIT_INVOCATION_ID(unit));
+        /* We won't know the real executable path until we create the mount namespace in the child, but we
+           want to log from the parent, so we use the possibly inaccurate path here. */
+        log_command_line(unit, "About to execute", command->path, command->argv);
 
         if (params->cgroup_path) {
                 r = exec_parameters_get_cgroup_path(params, &subcgroup_path);
@@ -6895,7 +6886,7 @@ void exec_command_append_list(ExecCommand **l, ExecCommand *e) {
                 end = LIST_FIND_TAIL(command, *l);
                 LIST_INSERT_AFTER(command, *l, end, e);
         } else
-              *l = e;
+                *l = e;
 }
 
 int exec_command_set(ExecCommand *c, const char *path, ...) {
