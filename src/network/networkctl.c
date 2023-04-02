@@ -120,12 +120,12 @@ static int acquire_bus(sd_bus **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect system bus: %m");
 
-        r = check_netns_match(bus);
-        if (r < 0)
-                return r;
-
-        if (!networkd_is_running())
-                fprintf(stderr, "WARNING: systemd-networkd is not running, output will be incomplete.\n\n");
+        if (networkd_is_running()) {
+                r = check_netns_match(bus);
+                if (r < 0)
+                        return r;
+        } else
+                log_warning("systemd-networkd is not running, output might be incomplete.");
 
         *ret = TAKE_PTR(bus);
         return 0;
