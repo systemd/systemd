@@ -1109,6 +1109,50 @@ static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
         return 0;
 }
 
+static int make_transient_service_unit(
+                sd_bus *bus,
+                sd_bus_message **message,
+                const char *service,
+                const char *pty_path) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r;
+
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* Name and mode */
+        r = sd_bus_message_append(m, "ss", service, "fail");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* Properties */
+        r = sd_bus_message_open_container(m, 'a', "(sv)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = transient_service_set_properties(m, pty_path);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* Auxiliary units */
+        r = sd_bus_message_append(m, "a(sa(sv))", 0);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        *message = TAKE_PTR(m);
+        return 0;
+}
+
 static int start_transient_service(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1190,36 +1234,9 @@ static int start_transient_service(sd_bus *bus) {
                         return r;
         }
 
-        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        /* Name and mode */
-        r = sd_bus_message_append(m, "ss", service, "fail");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        /* Properties */
-        r = sd_bus_message_open_container(m, 'a', "(sv)");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = transient_service_set_properties(m, pty_path);
+        r = make_transient_service_unit(bus, &m, service, pty_path);
         if (r < 0)
                 return r;
-
-        r = sd_bus_message_close_container(m);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        /* Auxiliary units */
-        r = sd_bus_message_append(m, "a(sa(sv))", 0);
-        if (r < 0)
-                return bus_log_create_error(r);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
@@ -1551,67 +1568,15 @@ static int start_transient_scope(sd_bus *bus) {
         return log_error_errno(errno, "Failed to execute: %m");
 }
 
-static int start_transient_trigger(sd_bus *bus, const char *suffix) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
-        _cleanup_free_ char *trigger = NULL, *service = NULL;
-        const char *object = NULL;
+static int make_transient_trigger_unit(
+                sd_bus *bus,
+                sd_bus_message **message,
+                const char *suffix,
+                const char *trigger,
+                const char *service) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
-
-        assert(bus);
-
-        r = bus_wait_for_jobs_new(bus, &w);
-        if (r < 0)
-                return log_oom();
-
-        if (arg_unit) {
-                switch (unit_name_to_type(arg_unit)) {
-
-                case UNIT_SERVICE:
-                        service = strdup(arg_unit);
-                        if (!service)
-                                return log_oom();
-
-                        r = unit_name_change_suffix(service, suffix, &trigger);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to change unit suffix: %m");
-                        break;
-
-                case UNIT_TIMER:
-                        trigger = strdup(arg_unit);
-                        if (!trigger)
-                                return log_oom();
-
-                        r = unit_name_change_suffix(trigger, ".service", &service);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to change unit suffix: %m");
-                        break;
-
-                default:
-                        r = unit_name_mangle_with_suffix(arg_unit, "as unit",
-                                                         arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
-                                                         ".service", &service);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to mangle unit name: %m");
-
-                        r = unit_name_mangle_with_suffix(arg_unit, "as trigger",
-                                                         arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
-                                                         suffix, &trigger);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to mangle unit name: %m");
-
-                        break;
-                }
-        } else {
-                r = make_unit_name(bus, UNIT_SERVICE, &service);
-                if (r < 0)
-                        return r;
-
-                r = unit_name_change_suffix(service, suffix, &trigger);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to change unit suffix: %m");
-        }
 
         r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
         if (r < 0)
@@ -1679,6 +1644,76 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
         r = sd_bus_message_close_container(m);
         if (r < 0)
                 return bus_log_create_error(r);
+
+        *message = TAKE_PTR(m);
+        return 0;
+}
+
+static int start_transient_trigger(sd_bus *bus, const char *suffix) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+        _cleanup_free_ char *trigger = NULL, *service = NULL;
+        const char *object = NULL;
+        int r;
+
+        assert(bus);
+
+        r = bus_wait_for_jobs_new(bus, &w);
+        if (r < 0)
+                return log_oom();
+
+        if (arg_unit) {
+                switch (unit_name_to_type(arg_unit)) {
+
+                case UNIT_SERVICE:
+                        service = strdup(arg_unit);
+                        if (!service)
+                                return log_oom();
+
+                        r = unit_name_change_suffix(service, suffix, &trigger);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to change unit suffix: %m");
+                        break;
+
+                case UNIT_TIMER:
+                        trigger = strdup(arg_unit);
+                        if (!trigger)
+                                return log_oom();
+
+                        r = unit_name_change_suffix(trigger, ".service", &service);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to change unit suffix: %m");
+                        break;
+
+                default:
+                        r = unit_name_mangle_with_suffix(arg_unit, "as unit",
+                                                         arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
+                                                         ".service", &service);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to mangle unit name: %m");
+
+                        r = unit_name_mangle_with_suffix(arg_unit, "as trigger",
+                                                         arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
+                                                         suffix, &trigger);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to mangle unit name: %m");
+
+                        break;
+                }
+        } else {
+                r = make_unit_name(bus, UNIT_SERVICE, &service);
+                if (r < 0)
+                        return r;
+
+                r = unit_name_change_suffix(service, suffix, &trigger);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to change unit suffix: %m");
+        }
+
+        r = make_transient_trigger_unit(bus, &m, suffix, trigger, service);
+        if (r < 0)
+                return r;
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
