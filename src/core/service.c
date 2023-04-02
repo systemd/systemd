@@ -875,7 +875,6 @@ static int service_load(Unit *u) {
 }
 
 static void service_dump(Unit *u, FILE *f, const char *prefix) {
-        ServiceExecCommand c;
         Service *s = SERVICE(u);
         const char *prefix2;
 
@@ -977,8 +976,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         kill_context_dump(&s->kill_context, f, prefix);
         exec_context_dump(&s->exec_context, f, prefix);
 
-        for (c = 0; c < _SERVICE_EXEC_COMMAND_MAX; c++) {
-
+        for (ServiceExecCommand c = 0; c < _SERVICE_EXEC_COMMAND_MAX; c++) {
                 if (!s->exec_command[c])
                         continue;
 
