@@ -162,7 +162,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
 
-                r = id128_read(arg_root, "/etc/machine-id", ID128_FORMAT_PLAIN, &id);
+                r = id128_get_machine(arg_root, &id);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read machine ID back: %m");
         } else {
