@@ -176,7 +176,7 @@ _public_ int sd_id128_get_boot(sd_id128_t *ret) {
         int r;
 
         if (sd_id128_is_null(saved_boot_id)) {
-                r = id128_read(NULL, "/proc/sys/kernel/random/boot_id", ID128_FORMAT_UUID, &saved_boot_id);
+                r = id128_read("/proc/sys/kernel/random/boot_id", ID128_FORMAT_UUID, &saved_boot_id);
                 if (r == -ENOENT && proc_mounted() == 0)
                         return -ENOSYS;
                 if (r < 0)
