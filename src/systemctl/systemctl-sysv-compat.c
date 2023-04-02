@@ -200,7 +200,7 @@ int enable_sysv_units(const char *verb, char **args) {
                         return log_oom();
 
                 argv[c++] = v;
-                argv[c++] = basename(p);
+                path_extract_filename(p, (char**)&(argv[c++]));
                 argv[c] = NULL;
 
                 l = strv_join((char**)argv, " ");
