@@ -37,7 +37,7 @@ case "$COMMAND" in
         for ucode in "intel-ucode.img" "amd-ucode.img" "intel-uc.img" "amd-uc.img" "early_ucode.cpio" "microcode.cpio"; do
             for dir in "$KERNEL_INSTALL_BOOT_ROOT" "/boot"; do
                 if [ -f "${dir}/${ucode}" ]; then
-                    install "${dir}/${ucode}" "${KERNEL_INSTALL_STAGING_AREA}/early-cpio_${ucode}" || {
+                    install "${dir}/${ucode}" "${KERNEL_INSTALL_STAGING_AREA}/early-cpio-${ucode}" || {
                         echo "Error: could not copy '$ucode' to the staging area." >&2
                         exit 1
                         }
