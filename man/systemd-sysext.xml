@@ -84,9 +84,8 @@
     them they may optionally carry Verity authentication information.</para>
 
     <para>System extensions are automatically looked for in the directories
-    <filename>/etc/extensions/</filename>, <filename>/run/extensions/</filename>,
-    <filename>/var/lib/extensions/</filename>, <filename>/usr/lib/extensions/</filename> and
-    <filename>/usr/local/lib/extensions/</filename>. The first two listed directories are not suitable for
+    <filename>/etc/extensions/</filename>, <filename>/run/extensions/</filename> and
+    <filename>/var/lib/extensions/</filename>. The first two listed directories are not suitable for
     carrying large binary images, however are still useful for carrying symlinks to them. The primary place
     for installing system extensions is <filename>/var/lib/extensions/</filename>. Any directories found in
     these search directories are considered directory based extension images, any files with the
