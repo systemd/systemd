@@ -4332,10 +4332,17 @@ const char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf)
         }
 
         /* We either do C-escaping or shell-escaping, to additionally escape characters that we parse for
-         * ExecStart= and friends, i.e. '$' and ';' and quotes. */
+         * ExecStart= and friends, i.e. '$' and quotes. */
 
         if (flags & UNIT_ESCAPE_EXEC_SYNTAX) {
-                char *t2 = shell_escape(s, "$;'\"");
+                char *t2;
+
+                t2 = strreplace(s, "$", "$$");
+                if (!t2)
+                        return NULL;
+                free_and_replace(t, t2);
+
+                t2 = shell_escape(t, "\"");
                 if (!t2)
                         return NULL;
                 free_and_replace(t, t2);
@@ -4343,7 +4350,9 @@ const char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf)
                 s = t;
 
         } else if (flags & UNIT_ESCAPE_C) {
-                char *t2 = cescape(s);
+                char *t2;
+
+                t2 = cescape(s);
                 if (!t2)
                         return NULL;
                 free_and_replace(t, t2);
