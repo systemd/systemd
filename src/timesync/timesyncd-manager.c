@@ -524,9 +524,17 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         receive = ntp_ts_to_d(&ntpmsg.recv_time);
         trans = ntp_ts_to_d(&ntpmsg.trans_time);
         dest = ts_to_d(recv_time) + OFFSET_1900_1970;
+        precision = exp2(ntpmsg.precision);
 
         offset = ((receive - origin) + (trans - dest)) / 2;
         delay = (dest - origin) - (trans - receive);
+
+        if (offset < -precision)
+            offset += precision;
+        else if (offset > precision)
+            offset -= precision;
+        else
+            offset = 0;
 
         spike = manager_sample_spike_detection(m, offset, delay);
 
