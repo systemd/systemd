@@ -44,7 +44,7 @@ if [ "$COMMAND" = "add" ]; then
     for ucode in "intel-ucode.img" "amd-ucode.img" "intel-uc.img" "amd-uc.img" "early_ucode.cpio" "microcode.cpio"; do
         for dir in "$KERNEL_INSTALL_BOOT_ROOT" "/boot"; do
             if [ -f "${dir}/${ucode}" ]; then
-                [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Found microcode image /boot/$ucode"
+                [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Found microcode image ${dir}/${ucode}"
                 ARGS="$ARGS ${dir}/${ucode}"
             fi
         done
