@@ -153,7 +153,7 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
     echo "linux      $KERNEL_ENTRY"
 
     have_initrd=
-    for initrd in "${@}" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
+    find "$@" "${KERNEL_INSTALL_STAGING_AREA}" -maxdepth 1 -type f -name "initrd*" | sort -Vu | while read -r initrd; do
         [ -f "$initrd" ] || continue
         echo "initrd     $ENTRY_DIR/${initrd##*/}"
         have_initrd=yes
