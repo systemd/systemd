@@ -536,6 +536,31 @@ There is a screen on:
     </example>
 
     <example>
+      <title>Variable expansion</title>
+
+      <programlisting>$ systemd-run -t echo "a=$TERM" 'b=$TERM'
+a=xterm-256color b=$TERM
+      </programlisting>
+      <para>The first argument is expanded by the shell (double quotes), but the second one is not expanded
+      by the shell (single quotes). <command>echo</command> is called with
+      [<literal>/usr/bin/echo</literal>, <literal>a=xterm-256color</literal>, <literal>b=$TERM</literal>]
+      as the argument array.</para>
+
+      <para>To force shell variable expansion within the service environment, a shell must be used
+      explicitly. This is also useful for redirection or other shell constructs:</para>
+
+      <programlisting>$ systemd-run -t bash -c 'echo $SHELL $$ >/dev/stdout'
+/bin/bash 12345
+      </programlisting>
+
+      <para>The last argument is passed expanded by the <command>bash</command> shell which is started by the
+      service unit. <literal>$SHELL</literal> is expanded to the path of the shell, and <literal>$$</literal>
+      is expanded to the process number of the shell, and then those strings are passed to the
+      <command>echo</command> built-in and printed to standard output (which in this case is connected to the
+      calling terminal).</para>
+    </example>
+
+    <example>
       <title>Return value</title>
 
       <programlisting>$ systemd-run --user --wait true
