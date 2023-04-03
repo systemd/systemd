@@ -16,6 +16,7 @@
 #include "parse-util.h"
 #include "process-util.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -732,3 +733,23 @@ int parse_loadavg_fixed_point(const char *s, loadavg_t *ret) {
 
         return store_loadavg_fixed_point(i, f, ret);
 }
+
+static const char* const pcr_number_table[_PCR_MAX] = {
+        [PCR_CORE_FIRMWARE]          = "core-firmware",
+        [PCR_PLATFORM_CONFIG]        = "platform-config",
+        [PCR_EXTERNAL_CODE]          = "external-code",
+        [PCR_EXTERNAL_FIRMWARE]      = "external-firmware",
+        [PCR_BOOT_LOADER]            = "boot-loader",
+        [PCR_BOOT_GPT]               = "boot-gpt",
+        [PCR_POWER_STATE]            = "power-state",
+        [PCR_SECURE_BOOT_POLICY]     = "secure-boot-policy",
+        [PCR_KERNEL_INITRD]          = "kernel-initrd",
+        [PCR_IMA]                    = "ima",
+        [PCR_KERNEL_IMAGE_PHASE]     = "kernel-image-phase",
+        [PCR_KERNEL_CONFIGURATION]   = "kernel-configuration",
+        [PCR_SYSEXT_IMAGE]           = "sysext-image",
+        [PCR_SHIM_POLICY]            = "shim-policy",
+        [PCR_SYSTEM_IDENTITY]        = "system-identity",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(pcr_number, Pcr);
