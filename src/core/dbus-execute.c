@@ -1516,6 +1516,9 @@ int bus_set_transient_exec_command(
         unsigned n = 0;
         int r;
 
+        /* Drop Ex from the written setting. E.g. ExecStart=, not ExecStartEx=. */
+        const char *written_name = is_ex_prop ? strndupa(name, strlen(name) - 2) : name;
+
         r = sd_bus_message_enter_container(message, 'a', is_ex_prop ? "(sasas)" : "(sasb)");
         if (r < 0)
                 return r;
@@ -1597,31 +1600,32 @@ int bus_set_transient_exec_command(
                 if (!f)
                         return -ENOMEM;
 
-                fprintf(f, "%s=\n", name);
+                fprintf(f, "%s=\n", written_name);
 
                 LIST_FOREACH(command, c, *exec_command) {
                         _cleanup_free_ char *a = NULL, *exec_chars = NULL;
+                        UnitWriteFlags esc_flags = UNIT_ESCAPE_SPECIFIERS |
+                                (FLAGS_SET(c->flags, EXEC_COMMAND_NO_ENV_EXPAND) ? UNIT_ESCAPE_EXEC_SYNTAX : UNIT_ESCAPE_EXEC_SYNTAX_ENV);
 
                         exec_chars = exec_command_flags_to_exec_chars(c->flags);
                         if (!exec_chars)
                                 return -ENOMEM;
 
-                        a = unit_concat_strv(c->argv, UNIT_ESCAPE_SPECIFIERS|UNIT_ESCAPE_EXEC_SYNTAX_ENV);
+                        a = unit_concat_strv(c->argv, esc_flags);
                         if (!a)
                                 return -ENOMEM;
 
                         if (streq_ptr(c->path, c->argv ? c->argv[0] : NULL))
-                                fprintf(f, "%s=%s%s\n", name, exec_chars, a);
+                                fprintf(f, "%s=%s%s\n", written_name, exec_chars, a);
                         else {
                                 _cleanup_free_ char *t = NULL;
                                 const char *p;
 
-                                p = unit_escape_setting(c->path,
-                                                        UNIT_ESCAPE_SPECIFIERS|UNIT_ESCAPE_EXEC_SYNTAX_ENV, &t);
+                                p = unit_escape_setting(c->path, esc_flags, &t);
                                 if (!p)
                                         return -ENOMEM;
 
-                                fprintf(f, "%s=%s@%s %s\n", name, exec_chars, p, a);
+                                fprintf(f, "%s=%s@%s %s\n", written_name, exec_chars, p, a);
                         }
                 }
 
@@ -1629,7 +1633,7 @@ int bus_set_transient_exec_command(
                 if (r < 0)
                         return r;
 
-                unit_write_setting(u, flags, name, buf);
+                unit_write_setting(u, flags, written_name, buf);
         }
 
         return 1;
