@@ -157,12 +157,12 @@ if [ "$COMMAND" = "add" ]; then
     # Sign kernel
     if [ -n "$UKI_SIGNKERNEL" ]; then
         case "$UKI_SIGNKERNEL" in
-        [Yy]*) ARGS="$ARGS --sign-kernel"
-            ;;
-        [Nn]*) ARGS="$ARGS --no-sign-kernel"
-            ;;
-        *) [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Skipping, UKI_SIGNKERNEL must be set to 'Y' or 'N'"
-            ;;
+            [Yy]*) ARGS="$ARGS --sign-kernel"
+                ;;
+            [Nn]*) ARGS="$ARGS --no-sign-kernel"
+                ;;
+            *) [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Skipping, UKI_SIGNKERNEL must be set to 'Y' or 'N'"
+                ;;
         esac
     fi
 
