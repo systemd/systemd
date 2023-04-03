@@ -1,0 +1,178 @@
+#!/bin/sh
+# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
+# ex: ts=8 sw=4 sts=4 et filetype=sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+set -e
+
+# TODO
+# log messages
+# Measure and output '/etc/systemd/tpm2-pcr-signature.json'  
+# better home for UKI_PCRPRIVATEKEY
+# detect available PCR banks
+# phases
+# sections
+
+COMMAND="${1:?}"
+KERNEL_VERSION="${2:?}"
+KERNEL_IMAGE="$4"
+INITRD_OPTIONS_SHIFT=4
+
+DEFAULT_PCRPRIVATEKEY="/etc/systemd/tpm2-pcr-private.pem" 
+DEFAULT_PCRPUBLICKEY="/etc/systemd/tpm2-pcr-public-key.pem"
+
+# Exit if UKI layout is not desired, or if Ukify is not the desired generator
+[ "$KERNEL_INSTALL_LAYOUT" = "uki" ] && [ "$KERNEL_INSTALL_UKI_GENERATOR" = "ukify" ] || exit 0
+
+# Only do things when adding a kernel
+if [ "$COMMAND" = "add" ]; then
+
+    UKIFY="/usr/lib/systemd/ukify"
+    ARGS="$KERNEL_IMAGE"
+
+    # microcode (can be replaced by early-cpios in Ssaging area if https://github.com/systemd/systemd/pull/27111 is accepted)
+    for ucode in "intel-ucode.img" "amd-ucode.img" "intel-uc.img" "amd-uc.img" "early_ucode.cpio" "microcode.cpio"; do
+        for dir in "$KERNEL_INSTALL_BOOT_ROOT" "/boot"; do
+            if [ -f "${dir}/${ucode}" ]; then
+                [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Found microcode image /boot/$ucode"
+                ARGS="$ARGS ${dir}/${ucode}"
+            fi
+        done
+    done
+    
+    # initrd    
+    shift "$INITRD_OPTIONS_SHIFT"
+    # All files listed as arguments, and staged files starting with "initrd" are installed as initrds.    
+    for initrd in "$@" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
+        [ -f "$initrd" ] && ARGS="$ARGS $initrd"
+    done
+    
+    # command line
+    if [ -n "$UKI_CMDLINE" ]; then
+        case "$UKI_CMDLINE" in
+            @*) [ -f "${UKI_CMDLINE#@}" ] && ARGS="$ARGS --cmdline=$UKI_CMDLINE"
+                ;;
+            *) ARGS="$ARGS --cmdline=$UKI_CMDLINE"
+                ;;
+        esac
+    elif [ -n "$KERNEL_INSTALL_CONF_ROOT" ]; then
+        if [ -f "$KERNEL_INSTALL_CONF_ROOT/cmdline" ]; then
+            ARG_CMDLINE="$(tr -s "$IFS" ' ' <"$KERNEL_INSTALL_CONF_ROOT/cmdline")"
+        fi
+    elif [ -f /etc/kernel/cmdline ]; then
+        ARG_CMDLINE="$(tr -s "$IFS" ' ' </etc/kernel/cmdline)"
+    elif [ -f /usr/lib/kernel/cmdline ]; then
+        ARG_CMDLINE="$(tr -s "$IFS" ' ' </usr/lib/kernel/cmdline)"
+    else
+        ARG_CMDLINE="$(tr -s "$IFS" '\n' </proc/cmdline | grep -ve '^BOOT_IMAGE=' -e '^initrd=' | tr '\n' ' ')"
+    fi
+    [ -n "$ARG_CMDLINE" ] && ARGS="$ARGS ${ARG_CMDLINE% }"
+
+    # os-release
+    if [ -n "$UKI_OSRELEASE" ]; then
+        case "$UKI_OSRELEASE" in
+            @*) [ -f "${UKI_OSRELEASE#@}" ] && ARGS="$ARGS --os-release=$UKI_OSRELEASE"
+                ;;
+            *) ARGS="$ARGS --os-release=$UKI_OSRELEASE"
+                ;;
+        esac
+    fi
+
+    # devicetree
+    if [ -n "$UKI_DEVICETREE" ]; then
+        [ -f "$UKI_DEVICETREE" ] && ARGS="$ARGS --devicetree=$UKI_DEVICETREE"
+    fi
+ 	
+    # SPLASH
+    if [ -n "$UKI_SPLASH" ]; then
+        [ -f "$UKI_SPLASH" ] && ARGS="$ARGS --splash=$UKI_SPLASH"
+    fi
+  	
+    # PCRPKEY
+    if [ -n "$UKI_PCRPKEY" ]; then
+        [ -f "$UKI_PCRPKEY" ] && ARGS="$ARGS --pcrpkey=$UKI_PCRPKEY"
+    fi
+
+    # Add uname to avoid useless detection 
+    [ -n "$KERNEL_VERSION" ] && ARGS="$ARGS --uname=$KERNEL_VERSION"
+
+    # TODO --section=NAME:TEXT|@PATH    
+    
+    # Add PCR keys if supplied, or detected. Public key is optional. Otherwise create the keys.
+    if [ -n "$UKI_PCRPRIVATEKEY" ]; then
+        [ -f "$UKI_PCRPRIVATEKEY" ] || {
+            echo "Error: $UKI_PCRPRIVATEKEY not a file." >&2
+            exit 1
+        }
+        if [ -n "$UKI_PCRPUBLICKEY" ]; then
+            [ -f "$UKI_PCRPUBLICKEY" ] || {
+            echo "Error: $UKI_PCRPUBLICKEY not a file." >&2
+            exit 1
+        }
+	fi
+    elif [ -f "$DEFAULT_PCRPRIVATEKEY" ]; then
+        UKI_PCRPRIVATEKEY="$DEFAULT_PCRPRIVATEKEY"
+        if [ -f "$DEFAULT_PCRPUBLICKEY" ]; then
+            UKI_PCRPUBLICKEY="$DEFAULT_PCRPUBLICKEY"
+        fi
+    else
+        openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$DEFAULT_PCRPRIVATEKEY" || {
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "No PCR signing key, skipping."
+            exit 0
+        }
+        chmod 400 "$DEFAULT_PCRPRIVATEKEY"
+        openssl rsa -pubout -in "$DEFAULT_PCRPRIVATEKEY" -out "$DEFAULT_PCRPUBLICKEY"
+    fi
+    
+    [ -n "$UKI_PCRPRIVATEKEY" ] && [ -n "$UKI_PCRPUBLICKEY" ] && ARGS="$ARGS --pcr-private-key=$UKI_PCRPRIVATEKEY --pcr-public-key=$UKI_PCRPUBLICKEY"
+    
+    # TODO --phases (could be included above)
+    
+    # PCR banks
+    [ -n "$UKI_BANKS" ] && ARGS="$ARGS --pcr-banks=$UKI_BANKS"
+  
+    # Add SecureBoot keys if detected
+    if [ -n "$UKI_SBKEY" ] && [ -n "$UKI_SBCERT" ]; then
+        ARGS="$ARGS --secureboot-private-key=$UKI_SBKEY --secureboot-certificate=$UKI_SBCERT"
+	fi
+	
+    # Signing engine
+    [ -n "$UKI_SIGNENGINE" ] && ARGS="$ARGS --signing-engine=$UKI_SIGNENGINE"
+
+    # Sign kernel
+    if [ -n "$UKI_SIGNKERNEL" ]; then
+        case "$UKI_SIGNKERNEL" in
+        [Yy]*) ARGS="$ARGS --sign-kernel"
+            ;;
+        [Nn]*) ARGS="$ARGS --no-sign-kernel"
+            ;;
+        *) [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Skipping, UKI_SIGNKERNEL must be set to 'Y' or 'N'"
+            ;;
+        esac
+    fi
+
+    # Tools
+    if [ -n "$UKI_TOOLS" ]; then
+        [ -d "$UKI_TOOLS" ] && ARGS="$ARGS --tools=$UKI_TOOLS"
+    fi
+    
+    ARGS="$ARGS --output=$KERNEL_INSTALL_STAGING_AREA/uki.efi"
+    "$UKIFY" "$ARGS"
+fi
+
+
