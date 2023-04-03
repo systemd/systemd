@@ -820,7 +820,7 @@ int conservative_renameat(
         _cleanup_close_ int old_fd = -EBADF, new_fd = -EBADF;
         struct stat old_stat, new_stat;
 
-        /* Renames the old path to thew new path, much like renameat() — except if both are regular files and
+        /* Renames the old path to the new path, much like renameat() — except if both are regular files and
          * have the exact same contents and basic file attributes already. In that case remove the new file
          * instead. This call is useful for reducing inotify wakeups on files that are updated but don't
          * actually change. This function is written in a style that we rather rename too often than suppress
@@ -1000,7 +1000,7 @@ int parse_cifs_service(
 
 int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
         _cleanup_close_ int fd = -EBADF, parent_fd = -EBADF;
-        _cleanup_free_ char *fname = NULL;
+        _cleanup_free_ char *fname = NULL, *parent = NULL;
         int r;
 
         /* Creates a directory with mkdirat() and then opens it, in the "most atomic" fashion we can
@@ -1015,19 +1015,13 @@ int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
         /* Note that O_DIRECTORY|O_NOFOLLOW is implied, but we allow specifying it anyway. The following
          * flags actually make sense to specify: O_CLOEXEC, O_EXCL, O_NOATIME, O_PATH */
 
-        if (isempty(path))
-                return -EINVAL;
-
-        if (!filename_is_valid(path)) {
-                _cleanup_free_ char *parent = NULL;
-
-                /* If this is not a valid filename, it's a path. Let's open the parent directory then, so
-                 * that we can pin it, and operate below it. */
-
-                r = path_extract_directory(path, &parent);
-                if (r < 0)
+        /* If this is not a valid filename, it's a path. Let's open the parent directory then, so
+         * that we can pin it, and operate below it. */
+        r = path_extract_directory(path, &parent);
+        if (r < 0) {
+                if (!IN_SET(r, -EDESTADDRREQ, -EADDRNOTAVAIL))
                         return r;
-
+        } else {
                 r = path_extract_filename(path, &fname);
                 if (r < 0)
                         return r;

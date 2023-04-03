@@ -545,7 +545,7 @@ static sd_device *handle_ap(sd_device *parent, char **path) {
 
 static int find_real_nvme_parent(sd_device *dev, sd_device **ret) {
         _cleanup_(sd_device_unrefp) sd_device *nvme = NULL;
-        const char *sysname, *end;
+        const char *sysname, *end, *devpath;
         int r;
 
         /* If the device belongs to "nvme-subsystem" (not to be confused with "nvme"), which happens when
@@ -576,6 +576,14 @@ static int find_real_nvme_parent(sd_device *dev, sd_device **ret) {
         r = sd_device_new_from_subsystem_sysname(&nvme, "nvme", sysname);
         if (r < 0)
                 return r;
+
+        r = sd_device_get_devpath(nvme, &devpath);
+        if (r < 0)
+                return r;
+
+        /* If the 'real parent' is (still) virtual, e.g. for nvmf disks, refuse to set ID_PATH. */
+        if (path_startswith(devpath, "/devices/virtual/"))
+                return -ENXIO;
 
         *ret = TAKE_PTR(nvme);
         return 0;

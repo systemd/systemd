@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/wait.h>
+#include <unistd.h>
 
 #include "sd-event.h"
 
@@ -806,6 +807,25 @@ TEST(inotify_process_buffered_data) {
         assert_se(sd_event_dispatch(e) > 0);
         assert_se(sd_event_prepare(e) == 0);
         assert_se(sd_event_wait(e, 0) == 0);
+}
+
+TEST(fork) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        int r;
+
+        assert_se(sd_event_default(&e) >= 0);
+        assert_se(sd_event_prepare(e) == 0);
+
+        /* Check that after a fork the cleanup functions return NULL */
+        r = safe_fork("(bus-fork-test)", FORK_WAIT|FORK_LOG, NULL);
+        if (r == 0) {
+                assert_se(e);
+                assert_se(sd_event_ref(e) == NULL);
+                assert_se(sd_event_unref(e) == NULL);
+                _exit(EXIT_SUCCESS);
+        }
+
+        assert_se(r >= 0);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

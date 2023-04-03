@@ -400,7 +400,9 @@ mouse:usb:v046dpc08b:name:Logitech G502 HERO Gaming Mouse:*
 # Logitech G502 X (Wired)
 mouse:usb:v046dpc098:name:Logitech, Inc. G502 X LIGHTSPEED:*
 # Logitech G502 X (Wireless)
-mouse:usb:v046dpc547:name:Logitech USB Receiver:*
+# The USB receiver is also used by other mice. See #27118.
+# If you want to enable the entry, please copy below to your custom hwdb file.
+#mouse:usb:v046dpc547:name:Logitech USB Receiver:*
  MOUSE_DPI=1200@1000 *2400@1000 3200@1000 6400@1000
 
 # Logitech G700 Laser Mouse (Wired)

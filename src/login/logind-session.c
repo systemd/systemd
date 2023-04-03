@@ -197,7 +197,7 @@ static void session_save_devices(Session *s, FILE *f) {
         if (!hashmap_isempty(s->devices)) {
                 fprintf(f, "DEVICES=");
                 HASHMAP_FOREACH(sd, s->devices)
-                        fprintf(f, "%u:%u ", major(sd->dev), minor(sd->dev));
+                        fprintf(f, DEVNUM_FORMAT_STR " ", DEVNUM_FORMAT_VAL(sd->dev));
                 fprintf(f, "\n");
         }
 }
@@ -1132,6 +1132,23 @@ int session_set_display(Session *s, const char *display) {
         return 1;
 }
 
+int session_set_tty(Session *s, const char *tty) {
+        int r;
+
+        assert(s);
+        assert(tty);
+
+        r = free_and_strdup(&s->tty, tty);
+        if (r <= 0)  /* 0 means the strings were equal */
+                return r;
+
+        session_save(s);
+
+        session_send_changed(s, "TTY", NULL);
+
+        return 1;
+}
+
 static int session_dispatch_fifo(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
         Session *s = ASSERT_PTR(userdata);
 
@@ -1348,6 +1365,9 @@ error:
 
 static void session_restore_vt(Session *s) {
         int r;
+
+        if (s->vtfd < 0)
+                return;
 
         r = vt_restore(s->vtfd);
         if (r == -EIO) {

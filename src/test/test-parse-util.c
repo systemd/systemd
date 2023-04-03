@@ -865,6 +865,19 @@ TEST(parse_errno) {
         assert_se(parse_errno("EINVALaaa") == -EINVAL);
 }
 
+TEST(parse_fd) {
+        assert_se(parse_fd("0") == 0);
+        assert_se(parse_fd("1") == 1);
+
+        assert_se(parse_fd("-1") == -EBADF);
+        assert_se(parse_fd("-3") == -EBADF);
+
+        assert_se(parse_fd("") == -EINVAL);
+        assert_se(parse_fd("12.3") == -EINVAL);
+        assert_se(parse_fd("123junk") == -EINVAL);
+        assert_se(parse_fd("junk123") == -EINVAL);
+}
+
 TEST(parse_mtu) {
         uint32_t mtu = 0;
 

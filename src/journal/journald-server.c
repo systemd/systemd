@@ -866,6 +866,7 @@ static bool shall_try_append_again(JournalFile *f, int r) {
         case -EBADMSG:         /* Corrupted                     */
         case -ENODATA:         /* Truncated                     */
         case -ESHUTDOWN:       /* Already archived              */
+        case -EADDRNOTAVAIL:   /* Referenced object offset out of bounds */
                 log_ratelimit_info_errno(r, JOURNAL_LOG_RATELIMIT, "%s: Journal file corrupted, rotating.", f->path);
                 return true;
 
@@ -935,10 +936,9 @@ static void server_write_to_journal(
                 if (!f)
                         return;
 
-                if (journal_file_rotate_suggested(f->file, s->max_file_usec, LOG_INFO)) {
-                        log_ratelimit_info(JOURNAL_LOG_RATELIMIT,
-                                           "%s: Journal header limits reached or header out-of-date, rotating.",
-                                           f->file->path);
+                if (journal_file_rotate_suggested(f->file, s->max_file_usec, LOG_DEBUG)) {
+                        log_debug("%s: Journal header limits reached or header out-of-date, rotating.",
+                                  f->file->path);
                         rotate = true;
                 }
         }

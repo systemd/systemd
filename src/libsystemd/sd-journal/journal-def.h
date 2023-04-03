@@ -38,7 +38,8 @@ typedef enum ObjectType {
         OBJECT_FIELD_HASH_TABLE,
         OBJECT_ENTRY_ARRAY,
         OBJECT_TAG,
-        _OBJECT_TYPE_MAX
+        _OBJECT_TYPE_MAX,
+        _OBJECT_TYPE_INVALID = -EINVAL,
 } ObjectType;
 
 /* Object flags (note that src/basic/compress.h uses the same values for the compression types) */

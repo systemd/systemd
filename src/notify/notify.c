@@ -215,11 +215,9 @@ static int parse_argv(int argc, char *argv[]) {
                         _cleanup_close_ int owned_fd = -EBADF;
                         int fdnr;
 
-                        r = safe_atoi(optarg, &fdnr);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse file descriptor: %s", optarg);
+                        fdnr = parse_fd(optarg);
                         if (fdnr < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "File descriptor can't be negative: %i", fdnr);
+                                return log_error_errno(fdnr, "Failed to parse file descriptor: %s", optarg);
 
                         if (!passed) {
                                 /* Take possession of all passed fds */
@@ -447,7 +445,7 @@ static int run(int argc, char* argv[]) {
         arg_fds = fdset_free(arg_fds); /* Close before we execute anything */
 
         if (!arg_no_block) {
-                r = sd_notify_barrier(0, 5 * USEC_PER_SEC);
+                r = sd_pid_notify_barrier(source_pid, /* unset_environment= */ false, 5 * USEC_PER_SEC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to invoke barrier: %m");
                 if (r == 0)
@@ -467,6 +465,11 @@ static int run(int argc, char* argv[]) {
                 return log_error_errno(errno, "Failed to execute command line: %s", cmdline);
         }
 
+        /* The DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE() boilerplate will send the exit status via
+         * sd_notify(). Which is normally fine, but very confusing in systemd-notify, whose purpose is to
+         * send user-controllable notification messages, and not implicit ones. Let's turn if off, by
+         * unsetting the $NOTIFY_SOCKET environment variable. */
+        (void) unsetenv("NOTIFY_SOCKET");
         return 0;
 }
 

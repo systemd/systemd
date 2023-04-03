@@ -476,16 +476,15 @@ static void read_credentials(Manager *m) {
         if (!m->read_resolv_conf)
                 return;
 
-        r = read_credential_strings_many(
-                        "network.dns", &dns,
-                        "network.search_domains", &domains);
-        if (r < 0 && !IN_SET(r, -ENXIO, -ENOENT))
+        r = read_credential_strings_many("network.dns", &dns,
+                                         "network.search_domains", &domains);
+        if (r < 0)
                 log_warning_errno(r, "Failed to read credentials, ignoring: %m");
 
         if (dns) {
                 r = manager_parse_dns_server_string_and_warn(m, DNS_SERVER_SYSTEM, dns);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to parse credential provided DNS server string '%s', ignoring.", dns);
+                        log_warning_errno(r, "Failed to parse credential network.dns '%s', ignoring.", dns);
 
                 m->read_resolv_conf = false;
         }
@@ -493,7 +492,7 @@ static void read_credentials(Manager *m) {
         if (domains) {
                 r = manager_parse_search_domains_and_warn(m, domains);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to parse credential provided search domain string '%s', ignoring.", domains);
+                        log_warning_errno(r, "Failed to parse credential network.search_domains '%s', ignoring.", domains);
 
                 m->read_resolv_conf = false;
         }

@@ -1,0 +1,193 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+# This is a build script for OS image generation using mkosi (https://github.com/systemd/mkosi).
+# Simply invoke "mkosi" in the project directory to build an OS image.
+
+# If mkosi.builddir/ exists mkosi will set $BUILDDIR to it, let's then use it
+# as out-of-tree build dir. Otherwise, let's make up our own builddir.
+[ -z "$BUILDDIR" ] && BUILDDIR="$PWD"/build
+
+# Let's make sure we're using stuff from the build directory first if available there.
+PATH="$BUILDDIR:$PATH"
+export PATH
+
+# The bpftool script shipped by Ubuntu tries to find the actual program to run via querying `uname -r` and
+# using the current kernel version. This obviously doesn't work in containers. As a workaround, we override
+# the ubuntu script with a symlink to the first bpftool program we can find.
+for bpftool in /usr/lib/linux-tools/*/bpftool; do
+    [ -x "$bpftool" ] || continue
+    ln -sf "$bpftool" "$BUILDDIR"/bpftool
+    break
+done
+
+# CentOS Stream 8 includes bpftool 4.18.0 which is lower than what we need. However, they've backported the
+# specific feature we need ("gen skeleton") to this version, so we replace bpftool with a script that reports
+# version 5.6.0 to satisfy meson which makes bpf work on CentOS Stream 8 as well.
+if [ "$(grep '^ID=' /etc/os-release)" = "ID=\"centos\"" ] && [ "$(grep '^VERSION=' /etc/os-release)" = "VERSION=\"8\"" ]; then
+    cat >"$BUILDDIR"/bpftool <<EOF
+#!/bin/sh
+if [ "\$1" = --version ]; then
+    echo 5.6.0
+else
+    exec /usr/sbin/bpftool \$@
+fi
+EOF
+    chmod +x "$BUILDDIR"/bpftool
+fi
+
+if [ ! -f "$BUILDDIR"/build.ninja ]; then
+    sysvinit_path=$(realpath /etc/init.d)
+
+    init_path=$(realpath /sbin/init 2>/dev/null)
+    if [ -z "$init_path" ]; then
+        rootprefix=""
+    else
+        rootprefix=${init_path%/lib/systemd/systemd}
+        rootprefix=/${rootprefix#/}
+    fi
+
+    CONFIGURE_OPTS=(
+        -D sysvinit-path="$sysvinit_path"
+        -D rootprefix="$rootprefix"
+        -D default-timeout-sec="${DEFAULT_TIMEOUT_SEC:-10}"
+        -D default-user-timeout-sec="${DEFAULT_TIMEOUT_SEC:-10}"
+        -D man=false
+        -D translations=false
+        -D version-tag="${VERSION_TAG}"
+        -D mode=developer
+        -D b_sanitize="${SANITIZERS:-none}"
+        -D install-tests=true
+        -D tests=unsafe
+        -D slow-tests=true
+        -D utmp=true
+        -D hibernate=true
+        -D ldconfig=true
+        -D resolve=true
+        -D efi=true
+        -D tpm=true
+        -D environment-d=true
+        -D binfmt=true
+        -D repart=true
+        -D sysupdate=true
+        -D coredump=true
+        -D pstore=true
+        -D oomd=true
+        -D logind=true
+        -D hostnamed=true
+        -D localed=true
+        -D machined=true
+        -D portabled=true
+        -D sysext=true
+        -D userdb=true
+        -D homed=true
+        -D networkd=true
+        -D timedated=true
+        -D timesyncd=true
+        -D remote=true
+        -D nss-myhostname=true
+        -D nss-mymachines=true
+        -D nss-resolve=true
+        -D nss-systemd=true
+        -D firstboot=true
+        -D randomseed=true
+        -D backlight=true
+        -D vconsole=true
+        -D quotacheck=true
+        -D sysusers=true
+        -D tmpfiles=true
+        -D importd=true
+        -D hwdb=true
+        -D rfkill=true
+        -D xdg-autostart=true
+        -D translations=true
+        -D polkit=true
+        -D acl=true
+        -D audit=true
+        -D blkid=true
+        -D fdisk=true
+        -D kmod=true
+        -D pam=true
+        -D pwquality=true
+        -D microhttpd=true
+        -D libcryptsetup=true
+        -D libcurl=true
+        -D idn=true
+        -D libidn2=true
+        -D qrencode=true
+        -D gcrypt=true
+        -D gnutls=true
+        -D openssl=true
+        -D cryptolib=openssl
+        -D p11kit=true
+        -D libfido2=true
+        -D tpm2=true
+        -D elfutils=true
+        -D zstd=true
+        -D xkbcommon=true
+        -D pcre2=true
+        -D glib=true
+        -D dbus=true
+        -D bootloader=true
+        -D kernel-install=true
+        -D analyze=true
+        -D bpf-framework=true
+        -D ukify=true
+    )
+
+    # On debian-like systems the library directory is not /usr/lib64 but /usr/lib/<arch-triplet>/.
+    # It is important to use the right one especially for cryptsetup plugins, otherwise they will be
+    # installed in the wrong directory and not be found by cryptsetup. Assume native build.
+    if grep -q -e "ID=debian" -e "ID_LIKE=debian" /etc/os-release && command -v dpkg 2>/dev/null; then
+        CONFIGURE_OPTS+=(
+            -D rootlibdir="/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
+            -D pamlibdir="/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/security"
+        )
+    fi
+
+    # Set various uids and gids for which Fedora has "soft static" allocations.
+    # Without this, we would get warning about mismatched sysusers.d entries
+    # between the files that we and Fedora's setup package install.
+    if grep -q '^ID=fedora' /etc/os-release; then
+        CONFIGURE_OPTS+=(
+            -Dadm-gid=4
+            -Daudio-gid=63
+            -Dcdrom-gid=11
+            -Ddialout-gid=18
+            -Ddisk-gid=6
+            -Dinput-gid=104
+            -Dkmem-gid=9
+            -Dkvm-gid=36
+            -Dlp-gid=7
+            -Drender-gid=105
+            -Dsgx-gid=106
+            -Dtape-gid=33
+            -Dtty-gid=5
+            -Dusers-gid=100
+            -Dutmp-gid=22
+            -Dvideo-gid=39
+            -Dwheel-gid=10
+            -Dsystemd-journal-gid=190
+            -Dsystemd-network-uid=192
+            -Dsystemd-resolve-uid=193
+        )
+    fi
+
+    ( set -x; meson setup "$BUILDDIR" "${CONFIGURE_OPTS[@]}" )
+fi
+
+( set -x; ninja -C "$BUILDDIR" "$@" )
+if [ "$WITH_TESTS" = 1 ]; then
+    if [ -n "$SANITIZERS" ]; then
+        export ASAN_OPTIONS="$MKOSI_ASAN_OPTIONS"
+        export UBSAN_OPTIONS="$MKOSI_UBSAN_OPTIONS"
+        TIMEOUT_MULTIPLIER=3
+    else
+        TIMEOUT_MULTIPLIER=1
+    fi
+
+    ( set -x; meson test -C "$BUILDDIR" --print-errorlogs --timeout-multiplier=$TIMEOUT_MULTIPLIER )
+fi
+
+( set -x; meson install -C "$BUILDDIR" --quiet --no-rebuild --only-changed )

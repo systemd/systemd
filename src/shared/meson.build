@@ -105,6 +105,7 @@ shared_sources = files(
         'logs-show.c',
         'loop-util.c',
         'loopback-setup.c',
+        'lsm-util.c',
         'machine-id-setup.c',
         'machine-pool.c',
         'macvlan-util.c',
@@ -225,7 +226,7 @@ if conf.get('ENABLE_NSCD') == 1
         shared_sources += files('nscd-flush.c')
 endif
 
-if conf.get('HAVE_LIBFIDO2') == 1
+if conf.get('HAVE_LIBFIDO2') == 1 and conf.get('HAVE_LIBCRYPTSETUP') == 1
         shared_sources += files('cryptsetup-fido2.c')
 endif
 

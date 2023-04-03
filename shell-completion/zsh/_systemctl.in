@@ -29,6 +29,8 @@
         "show:Show properties of one or more units/jobs or the manager"
         "cat:Show the source unit files and drop-ins"
         "set-property:Sets one or more properties of a unit"
+        "service-log-level:Get or set the logging threshold for service"
+        "service-log-target:Get or set the logging target for service"
         "help:Show documentation for specified units"
         "reset-failed:Reset failed state for all, one, or more units"
         "list-dependencies:Show unit dependency tree"
@@ -160,8 +162,8 @@ __systemctl()
     if ( [[ ${+_sys_all_units} -eq 0 ]] || _cache_invalid SYS_ALL_UNITS$_sys_service_mgr ) ||
            ! _retrieve_cache SYS_ALL_UNITS$_sys_service_mgr;
     then
-        _sys_all_units=( ${${(f)"$(__systemctl list-units --all "$PREFIX*" )"}%% *} )
-        _store_cache SYS_ALL_UNITS$_sys_service_mgr _sys_all_units
+        _sys_all_units=( ${${(f)"$(__systemctl list-units --all)"}%% *} )
+        _store_cache SYS_ALL_UNITS$_sys_service_mgr _sys_all_unis
     fi
 }
 
@@ -174,7 +176,7 @@ __systemctl()
     if ( [[ ${+_sys_really_all_units} -eq 0 ]] || _cache_invalid SYS_REALLY_ALL_UNITS$_sys_service_mgr ) ||
            ! _retrieve_cache SYS_REALLY_ALL_UNITS$_sys_service_mgr;
     then
-        all_unit_files=( ${${(f)"$(__systemctl list-unit-files "$PREFIX*" )"}%% *} )
+        all_unit_files=( ${${(f)"$(__systemctl list-unit-files)"}%% *} )
         _systemctl_all_units
         really_all_units=($_sys_all_units $all_unit_files)
         _sys_really_all_units=(${(u)really_all_units})
@@ -193,22 +195,22 @@ __systemctl()
 
 (( $+functions[_systemctl_get_non_template_names] )) ||
     _systemctl_get_non_template_names() { echo -E - ${^${(R)${(f)"$(
-    __systemctl list-unit-files "$PREFIX*"
-    __systemctl list-units --all "$PREFIX*"
+    __systemctl list-unit-files
+    __systemctl list-units --all
   )"}:#*@.*}%%[[:space:]]*} }
 
 (( $+functions[_systemctl_get_template_names] )) ||
-    _systemctl_get_template_names() { echo -E - ${^${(M)${(f)"$(__systemctl list-unit-files "$PREFIX*" )"}##*@.[^[:space:]]##}%%@.*}\@ }
+    _systemctl_get_template_names() { echo -E - ${^${(M)${(f)"$(__systemctl list-unit-files)"}##*@.[^[:space:]]##}%%@.*}\@ }
 
 (( $+functions[_systemctl_active_units] )) ||
-    _systemctl_active_units()  {_sys_active_units=(  ${${(f)"$(__systemctl list-units "$PREFIX*" )"}%% *} )}
+    _systemctl_active_units()  {_sys_active_units=(  ${${(f)"$(__systemctl list-units)"}%% *} )}
 
 (( $+functions[_systemctl_startable_units] )) ||
     _systemctl_startable_units(){
         _sys_startable_units=( $( _filter_units_by_property ActiveState inactive $(
                                       _filter_units_by_property CanStart yes ${${${(f)"$(
-      __systemctl list-unit-files --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient "$PREFIX*"
-      __systemctl list-units --state inactive,failed "$PREFIX*"
+      __systemctl list-unit-files --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient
+      __systemctl list-units --state inactive,failed
     )"}:#*@.*}%%[[:space:]]*}
                                                             )) )
     }
@@ -216,19 +218,19 @@ __systemctl()
 (( $+functions[_systemctl_restartable_units] )) ||
     _systemctl_restartable_units(){
         _sys_restartable_units=( $( _filter_units_by_property CanStart yes ${${${(f)"$(
-    __systemctl list-unit-files --state enabled,disabled,static "$PREFIX*"
-    __systemctl list-units "$PREFIX*"
+    __systemctl list-unit-files --state enabled,disabled,static
+    __systemctl list-units
   )"}:#*@.*}%%[[:space:]]*} ) )
     }
 
 (( $+functions[_systemctl_failed_units] )) ||
-    _systemctl_failed_units()  {_sys_failed_units=( ${${(f)"$(__systemctl list-units --state=failed "$PREFIX*" )"}%% *} ) }
+    _systemctl_failed_units()  {_sys_failed_units=( ${${(f)"$(__systemctl list-units --state=failed)"}%% *} ) }
 
 (( $+functions[_systemctl_unit_state] )) ||
     _systemctl_unit_state() {
         setopt localoptions extendedglob
         typeset -gA _sys_unit_state
-        _sys_unit_state=( ${=${${(f)"$(__systemctl list-unit-files "$PREFIX*" )"}%%[[:space:]]#}% *} )
+        _sys_unit_state=( ${=${${(f)"$(__systemctl list-unit-files)"}%%[[:space:]]#}% *} )
     }
 
 local fun
@@ -301,6 +303,30 @@ for fun in stop kill try-restart condrestart ; do
     }
 done
 
+(( $+functions[_systemctl_service-log-level] )) ||
+    _systemctl_service-log-level() {
+        local -a log_levels=( emerg alert crit err warning notice info debug )
+        local _sys_active_units; _systemctl_active_units
+        if (( CURRENT == 2 )); then
+            _wanted systemd-units expl 'active unit' \
+                compadd "$@" -a - _sys_active_units || _message "no units found"
+        else
+            compadd "$@" -a - log_levels
+        fi
+}
+
+(( $+functions[_systemctl_service-log-target] )) ||
+    _systemctl_service-log-target() {
+        local -a log_targets=( console kmsg journal syslog null auto )
+        local _sys_active_units; _systemctl_active_units
+        if (( CURRENT == 2 )); then
+            _wanted systemd-units expl 'active unit' \
+                compadd "$@" -a - _sys_active_units || _message "no units found"
+        else
+            compadd "$@" -a - log_targets
+        fi
+}
+
 # Completion functions for ISOLATABLE_UNITS
 (( $+functions[_systemctl_isolate] )) || _systemctl_isolate()
 {
@@ -351,7 +377,7 @@ done
 (( $+functions[_systemctl_set-default] )) || _systemctl_set-default()
 {
     _wanted systemd-targets expl target \
-            compadd "$@" - ${${(f)"$(__systemctl list-unit-files --type target --all "$PREFIX*" )"}%% *} ||
+            compadd "$@" - ${${(f)"$(__systemctl list-unit-files --type target --all)"}%% *} ||
         _message "no targets found"
 }
 

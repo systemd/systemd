@@ -50,7 +50,6 @@ int parse_pid(const char *s, pid_t* ret_pid) {
         int r;
 
         assert(s);
-        assert(ret_pid);
 
         r = safe_atolu(s, &ul);
         if (r < 0)
@@ -64,7 +63,8 @@ int parse_pid(const char *s, pid_t* ret_pid) {
         if (!pid_is_valid(pid))
                 return -ERANGE;
 
-        *ret_pid = pid;
+        if (ret_pid)
+                *ret_pid = pid;
         return 0;
 }
 
@@ -331,6 +331,21 @@ int parse_errno(const char *t) {
                 return -ERANGE;
 
         return e;
+}
+
+int parse_fd(const char *t) {
+        int r, fd;
+
+        assert(t);
+
+        r = safe_atoi(t, &fd);
+        if (r < 0)
+                return r;
+
+        if (fd < 0)
+                return -EBADF;
+
+        return fd;
 }
 
 static const char *mangle_base(const char *s, unsigned *base) {

@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "sd-journal.h"
 
 #include "chattr-util.h"
+#include "journal-internal.h"
 #include "log.h"
 #include "parse-util.h"
+#include "process-util.h"
 #include "rm-rf.h"
 #include "tests.h"
 
@@ -34,6 +38,21 @@ int main(int argc, char *argv[]) {
 
                 r = sd_journal_open_directory(&j, t, 0);
                 assert_se(r == 0);
+
+                assert_se(sd_journal_seek_head(j) == 0);
+                assert_se(j->current_location.type == LOCATION_HEAD);
+
+                r = safe_fork("(journal-fork-test)", FORK_WAIT|FORK_LOG, NULL);
+                if (r == 0) {
+                        assert_se(j);
+                        assert_se(sd_journal_get_realtime_usec(j, NULL) == -ECHILD);
+                        assert_se(sd_journal_seek_tail(j) == -ECHILD);
+                        assert_se(j->current_location.type == LOCATION_HEAD);
+                        sd_journal_close(j);
+                        _exit(EXIT_SUCCESS);
+                }
+
+                assert_se(r >= 0);
 
                 sd_journal_close(j);
 

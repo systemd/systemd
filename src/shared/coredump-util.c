@@ -46,7 +46,7 @@ int coredump_filter_mask_from_string(const char *s, uint64_t *ret) {
                 }
 
                 if (streq(n, "all")) {
-                        m = UINT64_MAX;
+                        m = COREDUMP_FILTER_MASK_ALL;
                         continue;
                 }
 
@@ -158,9 +158,9 @@ int parse_auxv(int log_level,
 }
 
 int set_coredump_filter(uint64_t value) {
-        char t[STRLEN("0xFFFFFFFF")];
+        char t[HEXADECIMAL_STR_MAX(uint64_t)];
 
-        sprintf(t, "0x%"PRIx64, value);
+        xsprintf(t, "0x%"PRIx64, value);
 
         return write_string_file("/proc/self/coredump_filter", t,
                                  WRITE_STRING_FILE_VERIFY_ON_FAILURE|WRITE_STRING_FILE_DISABLE_BUFFER);

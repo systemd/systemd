@@ -13,6 +13,7 @@
 #include "bus-error.h"
 #include "constants.h"
 #include "env-util.h"
+#include "initrd-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "process-util.h"
@@ -43,12 +44,12 @@ static int reload_manager(sd_bus *bus) {
         return 0;
 }
 
-static int default_target_is_inactive(sd_bus *bus) {
+static int target_is_inactive(sd_bus *bus, const char *target) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL, *state = NULL;
         int r;
 
-        path = unit_dbus_path_from_name(SPECIAL_DEFAULT_TARGET);
+        path = unit_dbus_path_from_name(target);
         if (!path)
                 return log_oom();
 
@@ -65,11 +66,11 @@ static int default_target_is_inactive(sd_bus *bus) {
         return streq_ptr(state, "inactive");
 }
 
-static int start_default_target(sd_bus *bus) {
+static int start_target(sd_bus *bus, const char *target) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
-        log_info("Starting "SPECIAL_DEFAULT_TARGET);
+        log_info("Starting %s", target);
 
         /* Start this unit only if we can replace basic.target with it */
         r = bus_call_method(
@@ -78,10 +79,10 @@ static int start_default_target(sd_bus *bus) {
                         "StartUnit",
                         &error,
                         NULL,
-                        "ss", SPECIAL_DEFAULT_TARGET, "isolate");
+                        "ss", target, "isolate");
 
         if (r < 0)
-                return log_error_errno(r, "Failed to start "SPECIAL_DEFAULT_TARGET": %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to start %s: %s", target, bus_error_message(&error, r));
 
         return 0;
 }
@@ -105,8 +106,7 @@ static int fork_wait(const char* const cmdline[]) {
 
 static void print_mode(const char* mode) {
         printf("You are in %s mode. After logging in, type \"journalctl -xb\" to view\n"
-                "system logs, \"systemctl reboot\" to reboot, \"systemctl default\" or \"exit\"\n"
-                "to boot into default mode.\n", mode);
+               "system logs, \"systemctl reboot\" to reboot, or \"exit\"\n" "to continue bootup.\n", mode);
         fflush(stdout);
 }
 
@@ -140,15 +140,17 @@ static int run(int argc, char *argv[]) {
                 if (reload_manager(bus) < 0)
                         goto fallback;
 
-                r = default_target_is_inactive(bus);
+                const char *target = in_initrd() ? SPECIAL_INITRD_TARGET : SPECIAL_DEFAULT_TARGET;
+
+                r = target_is_inactive(bus, target);
                 if (r < 0)
                         goto fallback;
                 if (!r) {
-                        log_warning(SPECIAL_DEFAULT_TARGET" is not inactive. Please review the "SPECIAL_DEFAULT_TARGET" setting.\n");
+                        log_warning("%s is not inactive. Please review the %s setting.\n", target, target);
                         goto fallback;
                 }
 
-                if (start_default_target(bus) >= 0)
+                if (start_target(bus, target) >= 0)
                         break;
 
         fallback:

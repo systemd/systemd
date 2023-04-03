@@ -9,13 +9,14 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 
 TEST_RET(add_acls_for_user) {
-        char fn[] = "/tmp/test-empty.XXXXXX";
+        _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-empty.XXXXXX";
         _cleanup_close_ int fd = -EBADF;
         char *cmd;
         uid_t uid;
@@ -65,7 +66,6 @@ TEST_RET(add_acls_for_user) {
         cmd = strjoina("getfacl -p ", fn);
         assert_se(system(cmd) == 0);
 
-        (void) unlink(fn);
         return 0;
 }
 

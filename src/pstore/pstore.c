@@ -174,6 +174,9 @@ static int append_dmesg(PStoreEntry *pe, const char *subdir1, const char *subdir
 
         assert(pe);
 
+        if (arg_storage != PSTORE_STORAGE_EXTERNAL)
+                return 0;
+
         if (pe->content_size == 0)
                 return 0;
 
@@ -196,7 +199,7 @@ static int append_dmesg(PStoreEntry *pe, const char *subdir1, const char *subdir
 static int process_dmesg_files(PStoreList *list) {
         /* Move files, reconstruct dmesg.txt */
         _cleanup_free_ char *erst_subdir = NULL;
-        uint64_t last_record_id = 0;
+        unsigned long long last_record_id = 0;
 
         /* When dmesg is written into pstore, it is done so in small chunks, whatever the exchange buffer
          * size is with the underlying pstore backend (ie. EFI may be ~2KiB), which means an example
@@ -252,9 +255,9 @@ static int process_dmesg_files(PStoreList *list) {
                 } else if ((p = startswith(pe->dirent.d_name, "dmesg-erst-"))) {
                         /* For the ERST backend, the record is a monotonically increasing number, seeded as
                          * a timestamp. See linux/drivers/acpi/apei/erst.c in erst_writer(). */
-                        uint64_t record_id;
+                        unsigned long long record_id;
 
-                        if (safe_atou64(p, &record_id) < 0)
+                        if (safe_atollu_full(p, 10, &record_id) < 0)
                                 continue;
                         if (last_record_id - 1 != record_id)
                                 /* A discontinuity in the number has been detected, this current record id

@@ -45,6 +45,24 @@ if grep -q cgroup2 /proc/filesystems ; then
     # Check that unprivileged delegation works for scopes
     test_scope_unpriv_delegation
 
+    # Verify that DelegateSubgroup= affects ownership correctly
+    U="test-subgroup-$RANDOM.service"
+    systemd-run --wait --unit="$U" -p "DynamicUser=1" -p "Delegate=pids" -p "DelegateSubgroup=foo" \
+                test -w "/sys/fs/cgroup/system.slice/$U" -a \
+                     -w "/sys/fs/cgroup/system.slice/$U/foo"
+
+    # Check that for the subgroup also attributes that aren't covered by
+    # regular (i.e. main cgroup) delegation ownership rules are delegated properly
+    if test -f /sys/fs/cgroup/cgroup.max.depth ; then
+        U="test-subgroup-$RANDOM.service"
+        systemd-run --wait --unit="$U" -p "DynamicUser=1" -p "Delegate=pids" -p "DelegateSubgroup=zzz" \
+                    test -w "/sys/fs/cgroup/system.slice/$U/zzz/cgroup.max.depth"
+    fi
+
+    # Check that the invoked process itsel is also in the subgroup
+    U="test-subgroup-$RANDOM.service"
+    systemd-run --wait --unit="$U" -p "DynamicUser=1" -p "Delegate=pids" -p "DelegateSubgroup=bar" \
+                grep -q -x -F "0::/system.slice/$U/bar" /proc/self/cgroup
 else
     echo "Skipping TEST-19-DELEGATE, as the kernel doesn't actually support cgroup v2" >&2
 fi

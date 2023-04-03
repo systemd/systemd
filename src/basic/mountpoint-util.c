@@ -63,7 +63,7 @@ int name_to_handle_at_loop(
 
                 h->handle_bytes = n;
 
-                if (name_to_handle_at(fd, path, h, &mnt_id, flags) >= 0) {
+                if (name_to_handle_at(fd, strempty(path), h, &mnt_id, flags) >= 0) {
 
                         if (ret_handle)
                                 *ret_handle = TAKE_PTR(h);
@@ -95,7 +95,7 @@ int name_to_handle_at_loop(
                 /* The buffer was too small. Size the new buffer by what name_to_handle_at() returned. */
                 n = h->handle_bytes;
 
-                /* paranoia: check for overlow (note that .handle_bytes is unsigned only) */
+                /* paranoia: check for overflow (note that .handle_bytes is unsigned only) */
                 if (n > UINT_MAX - offsetof(struct file_handle, f_handle))
                         return -EOVERFLOW;
         }
@@ -123,7 +123,7 @@ static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *ret_mn
 
         r = read_full_virtual_file(path, &fdinfo, NULL);
         if (r == -ENOENT) /* The fdinfo directory is a relatively new addition */
-                return -EOPNOTSUPP;
+                return proc_mounted() > 0 ? -EOPNOTSUPP : -ENOSYS;
         if (r < 0)
                 return r;
 
@@ -280,7 +280,7 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
 
 fallback_fdinfo:
         r = fd_fdinfo_mnt_id(fd, filename, flags, &mount_id);
-        if (IN_SET(r, -EOPNOTSUPP, -EACCES, -EPERM))
+        if (IN_SET(r, -EOPNOTSUPP, -EACCES, -EPERM, -ENOSYS))
                 goto fallback_fstat;
         if (r < 0)
                 return r;
@@ -362,11 +362,10 @@ int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(path);
         assert(ret);
 
         if (statx(dir_fd,
-                  path,
+                  strempty(path),
                   (isempty(path) ? AT_EMPTY_PATH : AT_SYMLINK_NOFOLLOW) |
                   AT_NO_AUTOMOUNT |    /* don't trigger automounts, mnt_id is a local concept */
                   AT_STATX_DONT_SYNC,  /* don't go to the network, mnt_id is a local concept */
@@ -549,6 +548,8 @@ int dev_is_devtmpfs(void) {
                 return r;
 
         r = fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo);
+        if (r == -ENOENT)
+                return proc_mounted() > 0 ? -ENOENT : -ENOSYS;
         if (r < 0)
                 return r;
 
@@ -722,7 +723,7 @@ int mount_option_supported(const char *fstype, const char *key, const char *valu
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        /* Checks if the specified file system supports a mount option. Returns > 0 if it suppors it, == 0 if
+        /* Checks if the specified file system supports a mount option. Returns > 0 if it supports it, == 0 if
          * it does not. Return -EAGAIN if we can't determine it. And any other error otherwise. */
 
         assert(fstype);

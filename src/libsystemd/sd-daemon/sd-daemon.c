@@ -601,14 +601,14 @@ finish:
         return r;
 }
 
-_public_ int sd_notify_barrier(int unset_environment, uint64_t timeout) {
+_public_ int sd_pid_notify_barrier(pid_t pid, int unset_environment, uint64_t timeout) {
         _cleanup_close_pair_ int pipe_fd[2] = PIPE_EBADF;
         int r;
 
         if (pipe2(pipe_fd, O_CLOEXEC) < 0)
                 return -errno;
 
-        r = sd_pid_notify_with_fds(0, unset_environment, "BARRIER=1", &pipe_fd[1], 1);
+        r = sd_pid_notify_with_fds(pid, unset_environment, "BARRIER=1", &pipe_fd[1], 1);
         if (r <= 0)
                 return r;
 
@@ -621,6 +621,10 @@ _public_ int sd_notify_barrier(int unset_environment, uint64_t timeout) {
                 return -ETIMEDOUT;
 
         return 1;
+}
+
+_public_ int sd_notify_barrier(int unset_environment, uint64_t timeout) {
+        return sd_pid_notify_barrier(0, unset_environment, timeout);
 }
 
 _public_ int sd_pid_notify(pid_t pid, int unset_environment, const char *state) {
@@ -665,6 +669,36 @@ _public_ int sd_notifyf(int unset_environment, const char *format, ...) {
         }
 
         return sd_pid_notify(0, unset_environment, p);
+}
+
+_public_ int sd_pid_notifyf_with_fds(
+                pid_t pid,
+                int unset_environment,
+                const int *fds, size_t n_fds,
+                const char *format, ...) {
+
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        /* Paranoia check: we traditionally used 'unsigned' as array size, but we nowadays more correctly use
+         * 'size_t'. sd_pid_notifyf_with_fds() and sd_pid_notify_with_fds() are from different eras, hence
+         * differ in this. Let's catch resulting incompatibilites early, even though they are pretty much
+         * theoretic only */
+        if (n_fds > UINT_MAX)
+                return -E2BIG;
+
+        if (format) {
+                va_list ap;
+
+                va_start(ap, format);
+                r = vasprintf(&p, format, ap);
+                va_end(ap);
+
+                if (r < 0 || !p)
+                        return -ENOMEM;
+        }
+
+        return sd_pid_notify_with_fds(pid, unset_environment, p, fds, n_fds);
 }
 
 _public_ int sd_booted(void) {

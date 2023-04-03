@@ -4,7 +4,7 @@ set -eux
 set -o pipefail
 
 systemd-run --wait -p FailureAction=poweroff true
-systemd-run --wait -p SuccessAction=poweroff false && { echo 'unexpected success'; exit 1; }
+(! systemd-run --wait -p SuccessAction=poweroff false)
 
 if ! test -f /firstphase ; then
     echo OK >/firstphase

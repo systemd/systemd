@@ -286,7 +286,7 @@ struct sd_bus {
         struct memfd_cache memfd_cache[MEMFD_CACHE_MAX];
         unsigned n_memfd_cache;
 
-        pid_t original_pid;
+        uint64_t origin_id;
         pid_t busexec_pid;
 
         unsigned iteration_counter;
@@ -362,7 +362,7 @@ bool path_complex_pattern(const char *pattern, const char *value) _pure_;
 bool namespace_simple_pattern(const char *pattern, const char *value) _pure_;
 bool path_simple_pattern(const char *pattern, const char *value) _pure_;
 
-int bus_message_type_from_string(const char *s, uint8_t *u) _pure_;
+int bus_message_type_from_string(const char *s, uint8_t *u);
 const char *bus_message_type_to_string(uint8_t u) _pure_;
 
 #define error_name_is_valid interface_name_is_valid
@@ -377,7 +377,7 @@ int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m);
 
 int bus_rqueue_make_room(sd_bus *bus);
 
-bool bus_pid_changed(sd_bus *bus);
+bool bus_origin_changed(sd_bus *bus);
 
 char *bus_address_escape(const char *v);
 

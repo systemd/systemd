@@ -3258,16 +3258,34 @@ static int setup_credentials_internal(
                 return r;
 
         if (workspace_mounted) {
-                /* Make workspace read-only now, so that any bind mount we make from it defaults to read-only too */
-                r = mount_nofollow_verbose(LOG_DEBUG, NULL, workspace, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL);
-                if (r < 0)
-                        return r;
+                bool install;
 
-                /* And mount it to the final place, read-only */
+                /* Determine if we should actually install the prepared mount in the final location by bind
+                 * mounting it there. We do so only if the mount is not established there already, and if the
+                 * mount is actually non-empty (i.e. carries at least one credential). Not that in the best
+                 * case we are doing all this in a mount namespace, thus noone else will see that we
+                 * allocated a file system we are getting rid of again here. */
                 if (final_mounted)
-                        r = umount_verbose(LOG_DEBUG, workspace, MNT_DETACH|UMOUNT_NOFOLLOW);
-                else
+                        install = false; /* already installed */
+                else {
+                        r = dir_is_empty(where, /* ignore_hidden_or_backup= */ false);
+                        if (r < 0)
+                                return r;
+
+                        install = r == 0; /* install only if non-empty */
+                }
+
+                if (install) {
+                        /* Make workspace read-only now, so that any bind mount we make from it defaults to read-only too */
+                        r = mount_nofollow_verbose(LOG_DEBUG, NULL, workspace, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL);
+                        if (r < 0)
+                                return r;
+
+                        /* And mount it to the final place, read-only */
                         r = mount_nofollow_verbose(LOG_DEBUG, workspace, final, NULL, MS_MOVE, NULL);
+                } else
+                        /* Otherwise get rid of it */
+                        r = umount_verbose(LOG_DEBUG, workspace, MNT_DETACH|UMOUNT_NOFOLLOW);
                 if (r < 0)
                         return r;
         } else {
@@ -3405,6 +3423,11 @@ static int setup_credentials(
                 _exit(EXIT_FAILURE);
         }
 
+        /* If the credentials dir is empty and not a mount point, then there's no point in having it. Let's
+         * try to remove it. This matters in particular if we created the dir as mount point but then didn't
+         * actually end up mounting anything on it. In that case we'd rather have ENOENT than EACCESS being
+         * seen by users when trying access this inode. */
+        (void) rmdir(p);
         return 0;
 }
 
@@ -4178,8 +4201,12 @@ static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p
         return 0;
 }
 
-static int exec_parameters_get_cgroup_path(const ExecParameters *params, char **ret) {
-        bool using_subcgroup;
+static int exec_parameters_get_cgroup_path(
+                const ExecParameters *params,
+                const CGroupContext *c,
+                char **ret) {
+
+        const char *subgroup = NULL;
         char *p;
 
         assert(params);
@@ -4197,16 +4224,22 @@ static int exec_parameters_get_cgroup_path(const ExecParameters *params, char **
          * this is not necessary, the cgroup is still empty. We distinguish these cases with the EXEC_CONTROL_CGROUP
          * flag, which is only passed for the former statements, not for the latter. */
 
-        using_subcgroup = FLAGS_SET(params->flags, EXEC_CONTROL_CGROUP|EXEC_CGROUP_DELEGATE|EXEC_IS_CONTROL);
-        if (using_subcgroup)
-                p = path_join(params->cgroup_path, ".control");
+        if (FLAGS_SET(params->flags, EXEC_CGROUP_DELEGATE) && (FLAGS_SET(params->flags, EXEC_CONTROL_CGROUP) || c->delegate_subgroup)) {
+                if (FLAGS_SET(params->flags, EXEC_IS_CONTROL))
+                        subgroup = ".control";
+                else
+                        subgroup = c->delegate_subgroup;
+        }
+
+        if (subgroup)
+                p = path_join(params->cgroup_path, subgroup);
         else
                 p = strdup(params->cgroup_path);
         if (!p)
                 return -ENOMEM;
 
         *ret = p;
-        return using_subcgroup;
+        return !!subgroup;
 }
 
 static int exec_context_cpu_affinity_from_numa(const ExecContext *c, CPUSet *ret) {
@@ -4705,7 +4738,7 @@ static int exec_child(
         if (params->cgroup_path) {
                 _cleanup_free_ char *p = NULL;
 
-                r = exec_parameters_get_cgroup_path(params, &p);
+                r = exec_parameters_get_cgroup_path(params, cgroup_context, &p);
                 if (r < 0) {
                         *exit_status = EXIT_CGROUP;
                         return log_unit_error_errno(unit, r, "Failed to acquire cgroup path: %m");
@@ -4880,10 +4913,25 @@ static int exec_child(
                  * touch a single hierarchy too. */
 
                 if (params->flags & EXEC_CGROUP_DELEGATE) {
+                        _cleanup_free_ char *p = NULL;
+
                         r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, uid, gid);
                         if (r < 0) {
                                 *exit_status = EXIT_CGROUP;
                                 return log_unit_error_errno(unit, r, "Failed to adjust control group access: %m");
+                        }
+
+                        r = exec_parameters_get_cgroup_path(params, cgroup_context, &p);
+                        if (r < 0) {
+                                *exit_status = EXIT_CGROUP;
+                                return log_unit_error_errno(unit, r, "Failed to acquire cgroup path: %m");
+                        }
+                        if (r > 0) {
+                                r = cg_set_access_recursive(SYSTEMD_CGROUP_CONTROLLER, p, uid, gid);
+                                if (r < 0) {
+                                        *exit_status = EXIT_CGROUP;
+                                        return log_unit_error_errno(unit, r, "Failed to adjust control subgroup access: %m");
+                                }
                         }
                 }
 
@@ -5635,18 +5683,16 @@ int exec_spawn(Unit *unit,
         log_command_line(unit, "About to execute", command->path, command->argv);
 
         if (params->cgroup_path) {
-                r = exec_parameters_get_cgroup_path(params, &subcgroup_path);
+                r = exec_parameters_get_cgroup_path(params, cgroup_context, &subcgroup_path);
                 if (r < 0)
                         return log_unit_error_errno(unit, r, "Failed to acquire subcgroup path: %m");
-                if (r > 0) { /* We are using a child cgroup */
+                if (r > 0) {
+                        /* If there's a subcgroup, then let's create it here now (the main cgroup was already
+                         * realized by the unit logic) */
+
                         r = cg_create(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path);
                         if (r < 0)
-                                return log_unit_error_errno(unit, r, "Failed to create control group '%s': %m", subcgroup_path);
-
-                        /* Normally we would not propagate the xattrs to children but since we created this
-                         * sub-cgroup internally we should do it. */
-                        cgroup_oomd_xattr_apply(unit, subcgroup_path);
-                        cgroup_log_xattr_apply(unit, subcgroup_path);
+                                return log_unit_error_errno(unit, r, "Failed to create subcgroup '%s': %m", subcgroup_path);
                 }
         }
 
@@ -7292,7 +7338,7 @@ int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char 
         } else if (streq(key, "netns-socket-0")) {
                 int fd;
 
-                if (safe_atoi(value, &fd) < 0 || !fdset_contains(fds, fd)) {
+                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd)) {
                         log_unit_debug(u, "Failed to parse netns socket value: %s", value);
                         return 0;
                 }
@@ -7303,7 +7349,7 @@ int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char 
         } else if (streq(key, "netns-socket-1")) {
                 int fd;
 
-                if (safe_atoi(value, &fd) < 0 || !fdset_contains(fds, fd)) {
+                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd)) {
                         log_unit_debug(u, "Failed to parse netns socket value: %s", value);
                         return 0;
                 }
@@ -7376,9 +7422,9 @@ int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fd
                 n = strcspn(v, " ");
                 buf = strndupa_safe(v, n);
 
-                r = safe_atoi(buf, &netns_fdpair[0]);
-                if (r < 0)
-                        return log_debug_errno(r, "Unable to parse exec-runtime specification netns-socket-0=%s: %m", buf);
+                netns_fdpair[0] = parse_fd(buf);
+                if (netns_fdpair[0] < 0)
+                        return log_debug_errno(netns_fdpair[0], "Unable to parse exec-runtime specification netns-socket-0=%s: %m", buf);
                 if (!fdset_contains(fds, netns_fdpair[0]))
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
                                                "exec-runtime specification netns-socket-0= refers to unknown fd %d: %m", netns_fdpair[0]);
@@ -7395,9 +7441,9 @@ int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fd
                 n = strcspn(v, " ");
                 buf = strndupa_safe(v, n);
 
-                r = safe_atoi(buf, &netns_fdpair[1]);
-                if (r < 0)
-                        return log_debug_errno(r, "Unable to parse exec-runtime specification netns-socket-1=%s: %m", buf);
+                netns_fdpair[1] = parse_fd(buf);
+                if (netns_fdpair[1] < 0)
+                        return log_debug_errno(netns_fdpair[1], "Unable to parse exec-runtime specification netns-socket-1=%s: %m", buf);
                 if (!fdset_contains(fds, netns_fdpair[1]))
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
                                                "exec-runtime specification netns-socket-1= refers to unknown fd %d: %m", netns_fdpair[1]);
@@ -7414,9 +7460,9 @@ int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fd
                 n = strcspn(v, " ");
                 buf = strndupa_safe(v, n);
 
-                r = safe_atoi(buf, &ipcns_fdpair[0]);
-                if (r < 0)
-                        return log_debug_errno(r, "Unable to parse exec-runtime specification ipcns-socket-0=%s: %m", buf);
+                ipcns_fdpair[0] = parse_fd(buf);
+                if (ipcns_fdpair[0] < 0)
+                        return log_debug_errno(ipcns_fdpair[0], "Unable to parse exec-runtime specification ipcns-socket-0=%s: %m", buf);
                 if (!fdset_contains(fds, ipcns_fdpair[0]))
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
                                                "exec-runtime specification ipcns-socket-0= refers to unknown fd %d: %m", ipcns_fdpair[0]);
@@ -7433,9 +7479,9 @@ int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fd
                 n = strcspn(v, " ");
                 buf = strndupa_safe(v, n);
 
-                r = safe_atoi(buf, &ipcns_fdpair[1]);
-                if (r < 0)
-                        return log_debug_errno(r, "Unable to parse exec-runtime specification ipcns-socket-1=%s: %m", buf);
+                ipcns_fdpair[1] = parse_fd(buf);
+                if (ipcns_fdpair[1] < 0)
+                        return log_debug_errno(ipcns_fdpair[1], "Unable to parse exec-runtime specification ipcns-socket-1=%s: %m", buf);
                 if (!fdset_contains(fds, ipcns_fdpair[1]))
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
                                                "exec-runtime specification ipcns-socket-1= refers to unknown fd %d: %m", ipcns_fdpair[1]);

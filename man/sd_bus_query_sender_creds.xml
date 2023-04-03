@@ -103,7 +103,7 @@
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The bus of <parameter>m</parameter> was created in a different process.
+          <listitem><para>The bus of <parameter>m</parameter> was created in a different process, library or module instance.
           </para></listitem>
         </varlistentry>
 

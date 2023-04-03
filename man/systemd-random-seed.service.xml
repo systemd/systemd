@@ -23,7 +23,7 @@
 
   <refsynopsisdiv>
     <para><filename>systemd-random-seed.service</filename></para>
-    <para><filename>/usr/lib/systemd/random-seed</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-random-seed</filename></para>
   </refsynopsisdiv>
 
   <refsect1>

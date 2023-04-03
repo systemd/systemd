@@ -109,12 +109,12 @@ install -Dt "$OUT/src/shared/" \
 # Most i386 libraries have to be brought to the runtime environment somehow. Ideally they
 # should be linked statically but since it isn't possible another way to keep them close
 # to the fuzz targets is used here. The dependencies are copied to "$OUT/src/shared" and
-# then `rpath` is tweaked to make it possible for the linker to find them there. "$OUT/src/shared"
+# then 'rpath' is tweaked to make it possible for the linker to find them there. "$OUT/src/shared"
 # is chosen because the runtime search path of all the fuzz targets already points to it
 # to load "libsystemd-shared" and "libsystemd-core". Stuff like that should be avoided on
 # x86_64 because it tends to break coverage reports, fuzz-introspector, CIFuzz and so on.
 if [[ "$ARCHITECTURE" == i386 ]]; then
-    for lib_path in $(ldd "$OUT"/src/shared/libsystemd-shared-*.so | perl -lne 'print $1 if m{=>\s+(/lib\S+)}'); do
+    for lib_path in $(ldd "$OUT"/src/shared/libsystemd-shared-*.so | awk '/=> \/lib/ { print $3 }'); do
         lib_name=$(basename "$lib_path")
         cp "$lib_path" "$OUT/src/shared"
         patchelf --set-rpath \$ORIGIN "$OUT/src/shared/$lib_name"

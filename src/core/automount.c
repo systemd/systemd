@@ -938,7 +938,7 @@ static int automount_deserialize_item(Unit *u, const char *key, const char *valu
         } else if (streq(key, "pipe-fd")) {
                 int fd;
 
-                if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse pipe-fd value: %s", value);
                 else {
                         safe_close(a->pipe_fd);

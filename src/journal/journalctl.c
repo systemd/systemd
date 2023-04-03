@@ -26,6 +26,7 @@
 #include "chase.h"
 #include "chattr-util.h"
 #include "constants.h"
+#include "devnum-util.h"
 #include "dissect-image.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -194,7 +195,7 @@ static int add_matches_for_device(sd_journal *j, const char *devpath) {
 
         r = sd_device_new_from_stat_rdev(&device, &st);
         if (r < 0)
-                return log_error_errno(r, "Failed to get device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
+                return log_error_errno(r, "Failed to get device from devnum " DEVNUM_FORMAT_STR ": %m", DEVNUM_FORMAT_VAL(st.st_rdev));
 
         for (d = device; d; ) {
                 _cleanup_free_ char *match = NULL;
@@ -224,7 +225,7 @@ static int add_matches_for_device(sd_journal *j, const char *devpath) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to stat() device node \"%s\": %m", devnode);
 
-                        r = asprintf(&match1, "_KERNEL_DEVICE=%c%u:%u", S_ISBLK(st.st_mode) ? 'b' : 'c', major(st.st_rdev), minor(st.st_rdev));
+                        r = asprintf(&match1, "_KERNEL_DEVICE=%c" DEVNUM_FORMAT_STR, S_ISBLK(st.st_mode) ? 'b' : 'c', DEVNUM_FORMAT_VAL(st.st_rdev));
                         if (r < 0)
                                 return log_oom();
 

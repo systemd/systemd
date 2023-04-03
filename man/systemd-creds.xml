@@ -228,7 +228,8 @@
 
         <listitem><para>When specified with <command>encrypt</command> controls whether to show the encrypted
         credential as <varname>SetCredentialEncrypted=</varname> setting that may be pasted directly into a
-        unit file.</para></listitem>
+        unit file. Has effect only when used together with <option>--name=</option> and <literal>-</literal>
+        as the output file.</para></listitem>
       </varlistentry>
 
       <varlistentry>

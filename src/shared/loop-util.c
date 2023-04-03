@@ -47,9 +47,7 @@ static void cleanup_clear_loop_close(int *fd) {
 static int loop_is_bound(int fd) {
         struct loop_info64 info;
 
-        assert(fd >= 0);
-
-        if (ioctl(fd, LOOP_GET_STATUS64, &info) < 0) {
+        if (ioctl(ASSERT_FD(fd), LOOP_GET_STATUS64, &info) < 0) {
                 if (errno == ENXIO)
                         return false; /* not bound! */
 
@@ -77,10 +75,9 @@ static int get_current_uevent_seqnum(uint64_t *ret) {
 static int open_lock_fd(int primary_fd, int operation) {
         _cleanup_close_ int lock_fd = -EBADF;
 
-        assert(primary_fd >= 0);
         assert(IN_SET(operation & ~LOCK_NB, LOCK_SH, LOCK_EX));
 
-        lock_fd = fd_reopen(primary_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        lock_fd = fd_reopen(ASSERT_FD(primary_fd), O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (lock_fd < 0)
                 return lock_fd;
 
@@ -440,11 +437,10 @@ static int loop_device_make_internal(
         int r, f_flags;
         struct stat st;
 
-        assert(fd >= 0);
         assert(ret);
         assert(IN_SET(open_flags, O_RDWR, O_RDONLY));
 
-        if (fstat(fd, &st) < 0)
+        if (fstat(ASSERT_FD(fd), &st) < 0)
                 return -errno;
 
         if (S_ISBLK(st.st_mode)) {
@@ -961,9 +957,7 @@ int loop_device_open_from_fd(
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         int r;
 
-        assert(fd >= 0);
-
-        r = block_device_new_from_fd(fd, 0, &dev);
+        r = block_device_new_from_fd(ASSERT_FD(fd), 0, &dev);
         if (r < 0)
                 return r;
 
@@ -997,13 +991,11 @@ static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
         dev_t devno;
         int r;
 
-        assert(partition_fd >= 0);
-
         /* Resizes the partition the loopback device refer to (assuming it refers to one instead of an actual
          * loopback device), and changes the offset, if needed. This is a fancy wrapper around
          * BLKPG_RESIZE_PARTITION. */
 
-        if (fstat(partition_fd, &st) < 0)
+        if (fstat(ASSERT_FD(partition_fd), &st) < 0)
                 return -errno;
 
         assert(S_ISBLK(st.st_mode));
@@ -1108,9 +1100,7 @@ int loop_device_flock(LoopDevice *d, int operation) {
 
         /* If we had no lock fd so far, create one and lock it right-away */
         if (d->lock_fd < 0) {
-                assert(d->fd >= 0);
-
-                d->lock_fd = open_lock_fd(d->fd, operation);
+                d->lock_fd = open_lock_fd(ASSERT_FD(d->fd), operation);
                 if (d->lock_fd < 0)
                         return d->lock_fd;
 
@@ -1123,12 +1113,11 @@ int loop_device_flock(LoopDevice *d, int operation) {
 
 int loop_device_sync(LoopDevice *d) {
         assert(d);
-        assert(d->fd >= 0);
 
         /* We also do this implicitly in loop_device_unref(). Doing this explicitly here has the benefit that
          * we can check the return value though. */
 
-        return RET_NERRNO(fsync(d->fd));
+        return RET_NERRNO(fsync(ASSERT_FD(d->fd)));
 }
 
 int loop_device_set_autoclear(LoopDevice *d, bool autoclear) {
@@ -1136,7 +1125,7 @@ int loop_device_set_autoclear(LoopDevice *d, bool autoclear) {
 
         assert(d);
 
-        if (ioctl(d->fd, LOOP_GET_STATUS64, &info) < 0)
+        if (ioctl(ASSERT_FD(d->fd), LOOP_GET_STATUS64, &info) < 0)
                 return -errno;
 
         if (autoclear == FLAGS_SET(info.lo_flags, LO_FLAGS_AUTOCLEAR))
@@ -1167,7 +1156,7 @@ int loop_device_set_filename(LoopDevice *d, const char *name) {
         if (name && strlen(name) >= sizeof(info.lo_file_name))
                 return -ENOBUFS;
 
-        if (ioctl(d->fd, LOOP_GET_STATUS64, &info) < 0)
+        if (ioctl(ASSERT_FD(d->fd), LOOP_GET_STATUS64, &info) < 0)
                 return -errno;
 
         if (strneq((char*) info.lo_file_name, strempty(name), sizeof(info.lo_file_name)))

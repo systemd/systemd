@@ -71,4 +71,25 @@ TEST(log2i) {
         assert_se(log2i(INT_MAX) == sizeof(int)*8-2);
 }
 
+TEST(popcount) {
+        uint16_t u16a = 0x0000;
+        uint16_t u16b = 0xFFFF;
+        uint32_t u32a = 0x00000010;
+        uint32_t u32b = 0xFFFFFFFF;
+        uint64_t u64a = 0x0000000000000010;
+        uint64_t u64b = 0x0100000000100010;
+
+        assert_se(popcount(u16a) == 0);
+        assert_se(popcount(u16b) == 16);
+        assert_se(popcount(u32a) == 1);
+        assert_se(popcount(u32b) == 32);
+        assert_se(popcount(u64a) == 1);
+        assert_se(popcount(u64b) == 3);
+
+        /* This would fail:
+         * error: ‘_Generic’ selector of type ‘int’ is not compatible with any association
+         * assert_se(popcount(0x10) == 1);
+         */
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);

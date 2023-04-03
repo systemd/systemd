@@ -1002,13 +1002,9 @@ static int parse_argv(int argc, char *argv[]) {
                         int fd;
                         FILE *f;
 
-                        r = safe_atoi(optarg, &fd);
-                        if (r < 0)
-                                log_error_errno(r, "Failed to parse deserialize option \"%s\": %m", optarg);
+                        fd = parse_fd(optarg);
                         if (fd < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid deserialize fd: %d",
-                                                       fd);
+                                return log_error_errno(fd, "Failed to parse serialization fd \"%s\": %m", optarg);
 
                         (void) fd_cloexec(fd, true);
 
@@ -1797,7 +1793,7 @@ static int do_reexecute(
                 broadcast_signal(SIGTERM, false, true, arg_default_timeout_stop_usec);
 
                 /* And switch root with MS_MOVE, because we remove the old directory afterwards and detach it. */
-                r = switch_root(switch_root_dir, "/mnt", true, MS_MOVE);
+                r = switch_root(switch_root_dir, /* old_root_after= */ NULL, MS_MOVE);
                 if (r < 0)
                         log_error_errno(r, "Failed to switch root, trying to continue: %m");
         }
@@ -2798,12 +2794,18 @@ int main(int argc, char *argv[]) {
                                         error_message = "Failed to mount early API filesystems";
                                         goto finish;
                                 }
+                        }
 
-                                /* Let's open the log backend a second time, in case the first time didn't
-                                 * work. Quite possibly we have mounted /dev just now, so /dev/kmsg became
-                                 * available, and it previously wasn't. */
-                                log_open();
+                        /* We might have just mounted /proc, so let's try to parse the kernel
+                         * command line log arguments immediately. */
+                        log_parse_environment();
 
+                        /* Let's open the log backend a second time, in case the first time didn't
+                         * work. Quite possibly we have mounted /dev just now, so /dev/kmsg became
+                         * available, and it previously wasn't. */
+                        log_open();
+
+                        if (!skip_setup) {
                                 disable_printk_ratelimit();
 
                                 r = initialize_security(

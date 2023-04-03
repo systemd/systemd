@@ -23,6 +23,7 @@
 #include "path-util.h"
 #include "signal-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "user-util.h"
 
 static int property_get_user(
@@ -421,10 +422,45 @@ static int method_set_display(sd_bus_message *message, void *userdata, sd_bus_er
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int method_set_tty(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Session *s = ASSERT_PTR(userdata);
+        int fd, r, flags;
+        _cleanup_free_ char *q = NULL;
+
+        assert(message);
+
+        r = sd_bus_message_read(message, "h", &fd);
+        if (r < 0)
+                return r;
+
+        if (!session_is_controller(s, sd_bus_message_get_sender(message)))
+                return sd_bus_error_set(error, BUS_ERROR_NOT_IN_CONTROL, "You must be in control of this session to set tty");
+
+        assert(fd >= 0);
+
+        flags = fcntl(fd, F_GETFL, 0);
+        if (flags < 0)
+                return -errno;
+        if ((flags & O_ACCMODE) != O_RDWR)
+                return -EACCES;
+        if (FLAGS_SET(flags, O_PATH))
+                return -ENOTTY;
+
+        r = getttyname_malloc(fd, &q);
+        if (r < 0)
+                return r;
+
+        r = session_set_tty(s, q);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 static int method_take_device(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = ASSERT_PTR(userdata);
         uint32_t major, minor;
-        SessionDevice *sd;
+        _cleanup_(session_device_freep) SessionDevice *sd = NULL;
         dev_t dev;
         int r;
 
@@ -456,18 +492,16 @@ static int method_take_device(sd_bus_message *message, void *userdata, sd_bus_er
 
         r = session_device_save(sd);
         if (r < 0)
-                goto error;
+                return r;
 
         r = sd_bus_reply_method_return(message, "hb", sd->fd, !sd->active);
         if (r < 0)
-                goto error;
+                return r;
 
         session_save(s);
-        return 1;
+        TAKE_PTR(sd);
 
-error:
-        session_device_free(sd);
-        return r;
+        return 1;
 }
 
 static int method_release_device(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -908,6 +942,11 @@ static const sd_bus_vtable session_vtable[] = {
                                 SD_BUS_ARGS("s", display),
                                 SD_BUS_NO_RESULT,
                                 method_set_display,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetTTY",
+                                SD_BUS_ARGS("h", tty_fd),
+                                SD_BUS_NO_RESULT,
+                                method_set_tty,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("TakeDevice",
                                 SD_BUS_ARGS("u", major, "u", minor),

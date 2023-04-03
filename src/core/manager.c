@@ -1600,6 +1600,7 @@ static void manager_clear_jobs_and_units(Manager *m) {
         assert(!m->stop_when_unneeded_queue);
         assert(!m->start_when_upheld_queue);
         assert(!m->stop_when_bound_queue);
+        assert(!m->release_resources_queue);
 
         assert(hashmap_isempty(m->jobs));
         assert(hashmap_isempty(m->units));
@@ -1800,7 +1801,7 @@ static void manager_distribute_fds(Manager *m, FDSet *fds) {
         }
 }
 
-static bool manager_dbus_is_running(Manager *m, bool deserialized) {
+bool manager_dbus_is_running_full(Manager *m, bool deserialized) {
         Unit *u;
 
         assert(m);
@@ -1821,7 +1822,11 @@ static bool manager_dbus_is_running(Manager *m, bool deserialized) {
         u = manager_get_unit(m, SPECIAL_DBUS_SERVICE);
         if (!u)
                 return false;
-        if (!IN_SET((deserialized ? SERVICE(u)->deserialized_state : SERVICE(u)->state), SERVICE_RUNNING, SERVICE_RELOAD))
+        if (!IN_SET((deserialized ? SERVICE(u)->deserialized_state : SERVICE(u)->state),
+                    SERVICE_RUNNING,
+                    SERVICE_RELOAD,
+                    SERVICE_RELOAD_NOTIFY,
+                    SERVICE_RELOAD_SIGNAL))
                 return false;
 
         return true;
@@ -1838,7 +1843,7 @@ static void manager_setup_bus(Manager *m) {
                 (void) bus_init_system(m);
 
         /* Let's connect to the bus now, but only if the unit is supposed to be up */
-        if (manager_dbus_is_running(m, MANAGER_IS_RELOADING(m))) {
+        if (manager_dbus_is_running_full(m, MANAGER_IS_RELOADING(m))) {
                 (void) bus_init_api(m);
 
                 if (MANAGER_IS_SYSTEM(m))
@@ -2018,7 +2023,7 @@ int manager_add_job(
                 sd_bus_error *error,
                 Job **ret) {
 
-        Transaction *tr;
+        _cleanup_(transaction_abort_and_freep) Transaction *tr = NULL;
         int r;
 
         assert(m);
@@ -2047,23 +2052,23 @@ int manager_add_job(
                                                  IN_SET(mode, JOB_IGNORE_DEPENDENCIES, JOB_IGNORE_REQUIREMENTS),
                                                  mode == JOB_IGNORE_DEPENDENCIES, error);
         if (r < 0)
-                goto tr_abort;
+                return r;
 
         if (mode == JOB_ISOLATE) {
                 r = transaction_add_isolate_jobs(tr, m);
                 if (r < 0)
-                        goto tr_abort;
+                        return r;
         }
 
         if (mode == JOB_TRIGGERING) {
                 r = transaction_add_triggering_jobs(tr, unit);
                 if (r < 0)
-                        goto tr_abort;
+                        return r;
         }
 
         r = transaction_activate(tr, m, mode, affected_jobs, error);
         if (r < 0)
-                goto tr_abort;
+                return r;
 
         log_unit_debug(unit,
                        "Enqueued job %s/%s as %u", unit->id,
@@ -2072,13 +2077,8 @@ int manager_add_job(
         if (ret)
                 *ret = tr->anchor_job;
 
-        transaction_free(tr);
+        tr = transaction_free(tr);
         return 0;
-
-tr_abort:
-        transaction_abort(tr);
-        transaction_free(tr);
-        return r;
 }
 
 int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, sd_bus_error *e, Job **ret) {
@@ -2116,7 +2116,7 @@ int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name,
 
 int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error *e) {
         int r;
-        Transaction *tr;
+        _cleanup_(transaction_abort_and_freep) Transaction *tr = NULL;
 
         assert(m);
         assert(unit);
@@ -2130,22 +2130,17 @@ int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error 
         /* We need an anchor job */
         r = transaction_add_job_and_dependencies(tr, JOB_NOP, unit, NULL, false, false, true, true, e);
         if (r < 0)
-                goto tr_abort;
+                return r;
 
         /* Failure in adding individual dependencies is ignored, so this always succeeds. */
         transaction_add_propagate_reload_jobs(tr, unit, tr->anchor_job, mode == JOB_IGNORE_DEPENDENCIES, e);
 
         r = transaction_activate(tr, m, mode, NULL, e);
         if (r < 0)
-                goto tr_abort;
+                return r;
 
-        transaction_free(tr);
+        tr = transaction_free(tr);
         return 0;
-
-tr_abort:
-        transaction_abort(tr);
-        transaction_free(tr);
-        return r;
 }
 
 Job *manager_get_job(Manager *m, uint32_t id) {
@@ -2530,11 +2525,10 @@ static bool manager_process_barrier_fd(char * const *tags, FDSet *fds) {
 
         /* nothing else must be sent when using BARRIER=1 */
         if (strv_contains(tags, "BARRIER=1")) {
-                if (strv_length(tags) == 1) {
-                        if (fdset_size(fds) != 1)
-                                log_warning("Got incorrect number of fds with BARRIER=1, closing them.");
-                } else
+                if (strv_length(tags) != 1)
                         log_warning("Extra notification messages sent with BARRIER=1, ignoring everything.");
+                else if (fdset_size(fds) != 1)
+                        log_warning("Got incorrect number of fds with BARRIER=1, closing them.");
 
                 /* Drop the message if BARRIER=1 was found */
                 return true;
@@ -2678,8 +2672,10 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         }
 
         /* Possibly a barrier fd, let's see. */
-        if (manager_process_barrier_fd(tags, fds))
+        if (manager_process_barrier_fd(tags, fds)) {
+                log_debug("Received barrier notification message from PID " PID_FMT ".", ucred->pid);
                 return 0;
+        }
 
         /* Increase the generation counter used for filtering out duplicate unit invocations. */
         m->notifygen++;
@@ -2939,7 +2935,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 break;
 
         case SIGUSR1:
-                if (manager_dbus_is_running(m, false)) {
+                if (manager_dbus_is_running(m)) {
                         log_info("Trying to reconnect to bus...");
 
                         (void) bus_init_api(m);
@@ -3968,6 +3964,7 @@ static int manager_execute_generators(Manager *m, char **paths, bool remount_ro)
 }
 
 static int manager_run_generators(Manager *m) {
+        ForkFlags flags = FORK_RESET_SIGNALS | FORK_WAIT | FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE;
         _cleanup_strv_free_ char **paths = NULL;
         int r;
 
@@ -3998,9 +3995,12 @@ static int manager_run_generators(Manager *m) {
                 goto finish;
         }
 
-        r = safe_fork("(sd-gens)",
-                      FORK_RESET_SIGNALS | FORK_WAIT | FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE | FORK_PRIVATE_TMP,
-                      NULL);
+        /* On some systems /tmp/ doesn't exist, and on some other systems we cannot create it at all. Avoid
+         * trying to mount a private tmpfs on it as there's no one size fits all. */
+        if (is_dir("/tmp", /* follow= */ false) > 0)
+                flags |= FORK_PRIVATE_TMP;
+
+        r = safe_fork("(sd-gens)", flags, NULL);
         if (r == 0) {
                 r = manager_execute_generators(m, paths, /* remount_ro= */ true);
                 _exit(r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE);
@@ -4140,7 +4140,7 @@ void manager_recheck_dbus(Manager *m) {
         if (MANAGER_IS_RELOADING(m))
                 return; /* don't check while we are reloading… */
 
-        if (manager_dbus_is_running(m, false)) {
+        if (manager_dbus_is_running(m)) {
                 (void) bus_init_api(m);
 
                 if (MANAGER_IS_SYSTEM(m))

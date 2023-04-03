@@ -169,7 +169,7 @@ static int switch_root_initramfs(void) {
          * /run/initramfs/shutdown will take care of these.
          * Also do not detach the old root, because /run/initramfs/shutdown needs to access it.
          */
-        return switch_root("/run/initramfs", "/oldroot", false, MS_BIND);
+        return switch_root("/run/initramfs", "/oldroot", MS_BIND);
 }
 
 /* Read the following fields from /proc/meminfo:
@@ -337,6 +337,12 @@ int main(int argc, char *argv[]) {
         _cleanup_free_ char *cgroup = NULL;
         char *arguments[3];
         int cmd, r;
+
+        /* Close random fds we might have get passed, just for paranoia, before we open any new fds, for
+         * example for logging. After all this tool's purpose is about detaching any pinned resources, and
+         * open file descriptors are the primary way to pin resources. Note that we don't really expect any
+         * fds to be passed here. */
+        (void) close_all_fds(NULL, 0);
 
         /* The log target defaults to console, but the original systemd process will pass its log target in through a
          * command line argument, which will override this default. Also, ensure we'll never log to the journal or

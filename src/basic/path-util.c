@@ -22,7 +22,7 @@
 #include "time-util.h"
 
 int path_split_and_make_absolute(const char *p, char ***ret) {
-        char **l;
+        _cleanup_strv_free_ char **l = NULL;
         int r;
 
         assert(p);
@@ -33,12 +33,10 @@ int path_split_and_make_absolute(const char *p, char ***ret) {
                 return -ENOMEM;
 
         r = path_strv_make_absolute_cwd(l);
-        if (r < 0) {
-                strv_free(l);
+        if (r < 0)
                 return r;
-        }
 
-        *ret = l;
+        *ret = TAKE_PTR(l);
         return r;
 }
 
@@ -93,34 +91,6 @@ int path_make_absolute_cwd(const char *p, char **ret) {
 
                 c = path_join(cwd, p);
         }
-        if (!c)
-                return -ENOMEM;
-
-        *ret = c;
-        return 0;
-}
-
-int path_prefix_root_cwd(const char *p, const char *root, char **ret) {
-        _cleanup_free_ char *root_abs = NULL;
-        char *c;
-        int r;
-
-        assert(p);
-        assert(ret);
-
-        /* Unlike path_make_absolute(), this always prefixes root path if specified.
-         * The root path is always simplified, but the provided path will not.
-         * This is useful for prefixing the result of chaseat(). */
-
-        if (empty_or_root(root))
-                return path_make_absolute_cwd(p, ret);
-
-        r = path_make_absolute_cwd(root, &root_abs);
-        if (r < 0)
-                return r;
-
-        path_simplify(root_abs);
-        c = path_join(root_abs, p);
         if (!c)
                 return -ENOMEM;
 

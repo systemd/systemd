@@ -645,12 +645,12 @@ void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds) {
                 return;
         }
 
-        if (safe_atoi(s0, &fd0) < 0 || !fdset_contains(fds, fd0)) {
+        if ((fd0 = parse_fd(s0)) < 0 || !fdset_contains(fds, fd0)) {
                 log_debug("Unable to process dynamic user fd specification.");
                 return;
         }
 
-        if (safe_atoi(s1, &fd1) < 0 || !fdset_contains(fds, fd1)) {
+        if ((fd1 = parse_fd(s1)) < 0 || !fdset_contains(fds, fd1)) {
                 log_debug("Unable to process dynamic user fd specification.");
                 return;
         }

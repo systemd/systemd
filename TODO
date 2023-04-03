@@ -129,12 +129,19 @@ Deprecations and removals:
 
 Features:
 
+* mount most file systems with a restrictive uidmap. e.g. mount /usr/ with a
+  uidmap that blocks out anything outside 0…1000 (i.e. system users) and similar.
+
+* mount the root fs with MS_NOSUID by default, and then mount /usr/ without
+  both so that suid executables can only be placed there. Do this already in
+  the initrd. If /usr/ is not split out create a bind mount automatically.
+
 * rework journalctl -M to be based on a machined method that generates a mount
   fd of the relevant journal dirs in the container with uidmapping applied to
   allow the host to read it, while making everything read-only.
 
 * fix our various hwdb lookup keys to end with ":" again. The original idea was
-  that hwdb patters can match arbitrary fields with expressions like
+  that hwdb patterns can match arbitrary fields with expressions like
   "*:foobar:*", to wildcard match both the start and the end of the string.
   This only works safely for later extensions of the string if the strings
   always end in a colon. This requires updating our udev rules, as well as
@@ -142,7 +149,7 @@ Features:
 
 * mount /tmp/ and /var/tmp with a uidmap applied that blocks out "nobody" user
   among other things such as dynamic uid ranges for containers and so on. That
-  way noone can create files there with these uids and we enforce they are only
+  way no one can create files there with these uids and we enforce they are only
   used transiently, never persistently.
 
 * rework loopback support in fstab: when "loop" option is used, then
@@ -188,7 +195,7 @@ Features:
 
 * journald: also collect CLOCK_BOOTTIME timestamps per log entry. Then, derive
   "corrected" CLOCK_REALTIME information on display from that and the timestamp
-  info of the newest entry of the specificy boot (as identified by the boot
+  info of the newest entry of the specific boot (as identified by the boot
   ID). This way, if a system comes up without a valid clock but acquires a
   better clock later, we can "fix" older entry timestamps on display, by
   calculating backwards. We cannot use CLOCK_MONOTONIC for this, since it does
@@ -833,9 +840,7 @@ Features:
   virtio-fs.
 
 * for vendor-built signed initrds:
-  - kernel-install should be able to install pre-built unified kernel images in
-    type #2 drop-in dir in the ESP.
-  - kernel-install should be able install encrypted creds automatically for
+  - kernel-install should be able to install encrypted creds automatically for
     machine id, root pw, rootfs uuid, resume partition uuid, and place next to
     EFI kernel, for sd-stub to pick them up. These creds should be locked to
     the TPM, and bind to the right PCR the kernel is measured to.
@@ -1216,10 +1221,6 @@ Features:
 
 * Add service setting to run a service within the specified VRF. i.e. do the
   equivalent of "ip vrf exec".
-
-* change SwitchRoot() implementation in PID 1 to use pivot_root(".", "."), as
-  documented in the pivot_root(2) man page, so that we can drop the /oldroot
-  temporary dir.
 
 * special case some calls of chase() to use openat2() internally, so
   that the kernel does what we otherwise do.
@@ -1911,9 +1912,6 @@ Features:
   - show whether UEFI audit mode is available
   - teach it to prepare an ESP wholesale, i.e. with mkfs.vfat invocation
   - teach it to copy in unified kernel images and maybe type #1 boot loader spec entries from host
-
-* kernel-install:
-  - optionally, support generating type #2 entries instead of type #1, including signing them
 
 * logind:
   - logind: optionally, ignore idle-hint logic for autosuspend, block suspend as long as a session is around

@@ -431,50 +431,46 @@ int bind_remount_one_with_mountinfo(
         return 0;
 }
 
-static int mount_switch_root_pivot(const char *path, int fd_newroot) {
-        _cleanup_close_ int fd_oldroot = -EBADF;
+static int mount_switch_root_pivot(int fd_newroot, const char *path) {
+        assert(fd_newroot >= 0);
+        assert(path);
 
-        fd_oldroot = open("/", O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
-        if (fd_oldroot < 0)
-                return log_debug_errno(errno, "Failed to open old rootfs");
+        /* Change into the new rootfs. */
+        if (fchdir(fd_newroot) < 0)
+                return log_debug_errno(errno, "Failed to change into new rootfs '%s': %m", path);
 
         /* Let the kernel tuck the new root under the old one. */
         if (pivot_root(".", ".") < 0)
                 return log_debug_errno(errno, "Failed to pivot root to new rootfs '%s': %m", path);
 
-        /* At this point the new root is tucked under the old root. If we want
-         * to unmount it we cannot be fchdir()ed into it. So escape back to the
-         * old root. */
-        if (fchdir(fd_oldroot) < 0)
-                return log_debug_errno(errno, "Failed to change back to old rootfs: %m");
-
-        /* Note, usually we should set mount propagation up here but we'll
-         * assume that the caller has already done that. */
-
-        /* Get rid of the old root and reveal our brand new root. */
+        /* Get rid of the old root and reveal our brand new root. (This will always operate on the top-most
+         * mount on our cwd, regardless what our current directory actually points to.) */
         if (umount2(".", MNT_DETACH) < 0)
                 return log_debug_errno(errno, "Failed to unmount old rootfs: %m");
 
-        if (fchdir(fd_newroot) < 0)
-                return log_debug_errno(errno, "Failed to switch to new rootfs '%s': %m", path);
-
         return 0;
 }
 
-static int mount_switch_root_move(const char *path) {
-        if (mount(path, "/", NULL, MS_MOVE, NULL) < 0)
+static int mount_switch_root_move(int fd_newroot, const char *path) {
+        assert(fd_newroot >= 0);
+        assert(path);
+
+        /* Change into the new rootfs. */
+        if (fchdir(fd_newroot) < 0)
+                return log_debug_errno(errno, "Failed to change into new rootfs '%s': %m", path);
+
+        /* Move the new root fs */
+        if (mount(".", "/", NULL, MS_MOVE, NULL) < 0)
                 return log_debug_errno(errno, "Failed to move new rootfs '%s': %m", path);
 
+        /* Also change chroot dir */
         if (chroot(".") < 0)
                 return log_debug_errno(errno, "Failed to chroot to new rootfs '%s': %m", path);
 
-        if (chdir("/"))
-                return log_debug_errno(errno, "Failed to chdir to new rootfs '%s': %m", path);
-
         return 0;
 }
 
-int mount_switch_root(const char *path, unsigned long mount_propagation_flag) {
+int mount_switch_root_full(const char *path, unsigned long mount_propagation_flag, bool force_ms_move) {
         _cleanup_close_ int fd_newroot = -EBADF;
         int r;
 
@@ -485,19 +481,20 @@ int mount_switch_root(const char *path, unsigned long mount_propagation_flag) {
         if (fd_newroot < 0)
                 return log_debug_errno(errno, "Failed to open new rootfs '%s': %m", path);
 
-        /* Change into the new rootfs. */
-        if (fchdir(fd_newroot) < 0)
-                return log_debug_errno(errno, "Failed to change into new rootfs '%s': %m", path);
-
-        r = mount_switch_root_pivot(path, fd_newroot);
-        if (r < 0) {
-                /* Failed to pivot_root() fallback to MS_MOVE. For example, this may happen if the
-                 * rootfs is an initramfs in which case pivot_root() isn't supported. */
-                log_debug_errno(r, "Failed to pivot into new rootfs '%s': %m", path);
-                r = mount_switch_root_move(path);
+        if (!force_ms_move) {
+                r = mount_switch_root_pivot(fd_newroot, path);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to pivot into new rootfs '%s', will try to use MS_MOVE instead: %m", path);
+                        force_ms_move = true;
+                }
         }
-        if (r < 0)
-                return log_debug_errno(r, "Failed to switch to new rootfs '%s': %m", path);
+        if (force_ms_move) {
+                /* Failed to pivot_root() fallback to MS_MOVE. For example, this may happen if the rootfs is
+                 * an initramfs in which case pivot_root() isn't supported. */
+                r = mount_switch_root_move(fd_newroot, path);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to switch to new rootfs '%s' with MS_MOVE: %m", path);
+        }
 
         /* Finally, let's establish the requested propagation flags. */
         if (mount_propagation_flag == 0)
@@ -1080,12 +1077,15 @@ int make_mount_point(const char *path) {
         return 1;
 }
 
-static int make_userns(uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping) {
+int make_userns(uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping) {
         _cleanup_close_ int userns_fd = -EBADF;
         _cleanup_free_ char *line = NULL;
 
         /* Allocates a userns file descriptor with the mapping we need. For this we'll fork off a child
          * process whose only purpose is to give us a new user namespace. It's killed when we got it. */
+
+        if (!userns_shift_range_valid(uid_shift, uid_range))
+                return -EINVAL;
 
         if (IN_SET(idmapping, REMOUNT_IDMAPPING_NONE, REMOUNT_IDMAPPING_HOST_ROOT)) {
                 if (asprintf(&line, UID_FMT " " UID_FMT " " UID_FMT "\n", 0u, uid_shift, uid_range) < 0)
@@ -1125,30 +1125,20 @@ static int make_userns(uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdm
         return TAKE_FD(userns_fd);
 }
 
-int remount_idmap(
+int remount_idmap_fd(
                 const char *p,
-                uid_t uid_shift,
-                uid_t uid_range,
-                uid_t owner,
-                RemountIdmapping idmapping) {
+                int userns_fd) {
 
-        _cleanup_close_ int mount_fd = -EBADF, userns_fd = -EBADF;
+        _cleanup_close_ int mount_fd = -EBADF;
         int r;
 
         assert(p);
-
-        if (!userns_shift_range_valid(uid_shift, uid_range))
-                return -EINVAL;
+        assert(userns_fd >= 0);
 
         /* Clone the mount point */
         mount_fd = open_tree(-1, p, OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC);
         if (mount_fd < 0)
                 return log_debug_errno(errno, "Failed to open tree of mounted filesystem '%s': %m", p);
-
-        /* Create a user namespace mapping */
-        userns_fd = make_userns(uid_shift, uid_range, owner, idmapping);
-        if (userns_fd < 0)
-                return userns_fd;
 
         /* Set the user namespace mapping attribute on the cloned mount point */
         if (mount_setattr(mount_fd, "", AT_EMPTY_PATH | AT_RECURSIVE,
@@ -1168,6 +1158,16 @@ int remount_idmap(
                 return log_debug_errno(errno, "Failed to attach UID mapped mount to '%s': %m", p);
 
         return 0;
+}
+
+int remount_idmap(const char *p, uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping) {
+        _cleanup_close_ int userns_fd = -EBADF;
+
+        userns_fd = make_userns(uid_shift, uid_range, owner, idmapping);
+        if (userns_fd < 0)
+                return userns_fd;
+
+        return remount_idmap_fd(p, userns_fd);
 }
 
 typedef struct SubMount {

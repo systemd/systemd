@@ -284,9 +284,10 @@ static int server_init(Server *s, unsigned n_sockets) {
 
 static int process_event(Server *s, struct epoll_event *ev) {
         int r;
-        Fifo *f;
+        _cleanup_(fifo_freep) Fifo *f = NULL;
 
         assert(s);
+        assert(ev);
 
         if (!(ev->events & EPOLLIN))
                 return log_info_errno(SYNTHETIC_ERRNO(EIO),
@@ -294,11 +295,10 @@ static int process_event(Server *s, struct epoll_event *ev) {
 
         f = (Fifo*) ev->data.ptr;
         r = fifo_process(f);
-        if (r < 0) {
-                log_info_errno(r, "Got error on fifo: %m");
-                fifo_free(f);
-                return r;
-        }
+        if (r < 0)
+                return log_info_errno(r, "Got error on fifo: %m");
+
+        TAKE_PTR(f);
 
         return 0;
 }

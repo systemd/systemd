@@ -81,6 +81,14 @@
       </listitem>
     </varlistentry>
 
+    <varlistentry id='log-ratelimit-kmsg'>
+      <term><varname>$SYSTEMD_LOG_RATELIMIT_KMSG</varname></term>
+
+      <listitem><para id='log-ratelimit-kmsg-body'> Whether to ratelimit kmsg or not. Takes a boolean.
+      Defaults to <literal>true</literal>. If disabled, systemd will not ratelimit messages written to kmsg.
+      </para></listitem>
+    </varlistentry>
+
     <varlistentry id='pager'>
       <term><varname>$SYSTEMD_PAGER</varname></term>
 

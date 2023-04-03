@@ -304,13 +304,13 @@ static int token_bucket_filter_verify(QDisc *qdisc) {
 
         if (tbf->limit > 0 && tbf->latency > 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: Specifying both LimitSize= and LatencySec= is not allowed. "
+                                         "%s: Specifying both LimitBytes= and LatencySec= is not allowed. "
                                          "Ignoring [TokenBucketFilter] section from line %u.",
                                          qdisc->section->filename, qdisc->section->line);
 
         if (tbf->limit == 0 && tbf->latency == 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: Either LimitSize= or LatencySec= is required. "
+                                         "%s: Either LimitBytes= or LatencySec= is required. "
                                          "Ignoring [TokenBucketFilter] section from line %u.",
                                          qdisc->section->filename, qdisc->section->line);
 
@@ -322,7 +322,7 @@ static int token_bucket_filter_verify(QDisc *qdisc) {
 
         if (tbf->burst == 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: Burst= is mandatory. "
+                                         "%s: BurstBytes= is mandatory. "
                                          "Ignoring [TokenBucketFilter] section from line %u.",
                                          qdisc->section->filename, qdisc->section->line);
 

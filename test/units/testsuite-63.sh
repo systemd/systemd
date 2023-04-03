@@ -3,6 +3,9 @@
 set -ex
 set -o pipefail
 
+# shellcheck source=test/units/assert.sh
+. "$(dirname "$0")"/assert.sh
+
 systemctl log-level debug
 
 # Test that a path unit continuously triggering a service that fails condition checks eventually fails with
@@ -12,10 +15,10 @@ systemctl start test63.path
 touch /tmp/test63
 
 # Make sure systemd has sufficient time to hit the trigger limit for test63.path.
-sleep 2
+# shellcheck disable=SC2016
+timeout 30 bash -c 'while ! test "$(systemctl show test63.path -P ActiveState)" = failed; do sleep .2; done'
 test "$(systemctl show test63.service -P ActiveState)" = inactive
 test "$(systemctl show test63.service -P Result)" = success
-test "$(systemctl show test63.path -P ActiveState)" = failed
 test "$(systemctl show test63.path -P Result)" = trigger-limit-hit
 
 # Test that starting the service manually doesn't affect the path unit.
@@ -40,6 +43,42 @@ test "$(busctl --json=short get-property org.freedesktop.systemd1 /org/freedeskt
 systemctl stop test63-glob.path test63-glob.service
 
 test "$(busctl --json=short get-property org.freedesktop.systemd1 /org/freedesktop/systemd1/unit/test63_2dglob_2eservice org.freedesktop.systemd1.Unit ActivationDetails)" = '{"type":"a(ss)","data":[]}'
+
+# tests for issue https://github.com/systemd/systemd/issues/24577#issuecomment-1522628906
+rm -f /tmp/hoge
+systemctl start test63-issue-24577.path
+systemctl status -n 0 test63-issue-24577.path
+systemctl status -n 0 test63-issue-24577.service || :
+systemctl list-jobs
+output=$(systemctl list-jobs --no-legend)
+assert_not_in "test63-issue-24577.service" "$output"
+assert_not_in "test63-issue-24577-dep.service" "$output"
+
+touch /tmp/hoge
+systemctl status -n 0 test63-issue-24577.path
+systemctl status -n 0 test63-issue-24577.service || :
+systemctl list-jobs
+output=$(systemctl list-jobs --no-legend)
+assert_in "test63-issue-24577.service" "$output"
+assert_in "test63-issue-24577-dep.service" "$output"
+
+# even if the service is stopped, it will be soon retriggered.
+systemctl stop test63-issue-24577.service
+systemctl status -n 0 test63-issue-24577.path
+systemctl status -n 0 test63-issue-24577.service || :
+systemctl list-jobs
+output=$(systemctl list-jobs --no-legend)
+assert_in "test63-issue-24577.service" "$output"
+assert_in "test63-issue-24577-dep.service" "$output"
+
+rm -f /tmp/hoge
+systemctl stop test63-issue-24577.service
+systemctl status -n 0 test63-issue-24577.path
+systemctl status -n 0 test63-issue-24577.service || :
+systemctl list-jobs
+output=$(systemctl list-jobs --no-legend)
+assert_not_in "test63-issue-24577.service" "$output"
+assert_in "test63-issue-24577-dep.service" "$output"
 
 systemctl log-level info
 

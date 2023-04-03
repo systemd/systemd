@@ -16,6 +16,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "build.h"
 #include "device-nodes.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -26,7 +27,6 @@
 #include "strv.h"
 #include "strxcpyx.h"
 #include "udev-util.h"
-#include "version.h"
 
 static const struct option options[] = {
         { "device",             required_argument, NULL, 'd' },
@@ -297,7 +297,7 @@ static int set_options(int argc, char **argv,
                         break;
 
                 case 'V':
-                        printf("%s\n", GIT_VERSION);
+                        version();
                         exit(EXIT_SUCCESS);
 
                 case 'x':

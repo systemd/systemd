@@ -168,7 +168,7 @@
         <varlistentry id='ECHILD'>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The journal object was created in a different process.</para></listitem>
+          <listitem><para>The journal object was created in a different process, library or module instance.</para></listitem>
         </varlistentry>
 
         <varlistentry id='EADDRNOTAVAIL'>

@@ -38,7 +38,7 @@ test "$(stat -c %U:%G:%a /tmp/f/1)" = "daemon:daemon:666"
 mkfifo /tmp/f/fifo
 chmod 644 /tmp/f/fifo
 
-systemd-tmpfiles --create - <<EOF && { echo 'unexpected success'; exit 1; }
+(! systemd-tmpfiles --create -) <<EOF
 f     /tmp/f/fifo    0666 daemon daemon - This string should not be written
 EOF
 
@@ -49,7 +49,7 @@ test "$(stat -c %U:%G:%a /tmp/f/fifo)" = "root:root:644"
 ln -s missing /tmp/f/dangling
 ln -s /tmp/file-owned-by-root /tmp/f/symlink
 
-systemd-tmpfiles --create - <<EOF && { echo 'unexpected success'; exit 1; }
+(! systemd-tmpfiles --create -) <<EOF
 f     /tmp/f/dangling    0644 daemon daemon - -
 f     /tmp/f/symlink     0644 daemon daemon - -
 EOF
@@ -71,12 +71,12 @@ f     /tmp/f/ro-fs/foo    0644 - - - - This string should not be written
 EOF
 test -f /tmp/f/ro-fs/foo; test ! -s /tmp/f/ro-fs/foo
 
-systemd-tmpfiles --create - <<EOF && { echo 'unexpected success'; exit 1; }
+(! systemd-tmpfiles --create -) <<EOF
 f     /tmp/f/ro-fs/foo    0666 - - - -
 EOF
 test "$(stat -c %U:%G:%a /tmp/f/fifo)" = "root:root:644"
 
-systemd-tmpfiles --create - <<EOF && { echo 'unexpected success'; exit 1; }
+(! systemd-tmpfiles --create -) <<EOF
 f     /tmp/f/ro-fs/bar    0644 - - - -
 EOF
 test ! -e /tmp/f/ro-fs/bar
@@ -86,7 +86,7 @@ mkdir /tmp/f/daemon
 ln -s /root /tmp/f/daemon/unsafe-symlink
 chown -R --no-dereference daemon:daemon /tmp/f/daemon
 
-systemd-tmpfiles --create - <<EOF && { echo 'unexpected success'; exit 1; }
+(! systemd-tmpfiles --create -) <<EOF
 f     /tmp/f/daemon/unsafe-symlink/exploit    0644 daemon daemon - -
 EOF
 test ! -e /tmp/f/daemon/unsafe-symlink/exploit
@@ -116,7 +116,7 @@ test "$(stat -c %U:%G:%a /tmp/F/truncated-with-content)" = "daemon:daemon:666"
 ### unspecified in the other cases.
 mkfifo /tmp/F/fifo
 
-systemd-tmpfiles --create - <<EOF && { echo 'unexpected success'; exit 1; }
+(! systemd-tmpfiles --create -) <<EOF
 F     /tmp/F/fifo                0644 - - - -
 EOF
 
@@ -126,7 +126,7 @@ test -p /tmp/F/fifo
 ln -s missing /tmp/F/dangling
 ln -s /tmp/file-owned-by-root /tmp/F/symlink
 
-systemd-tmpfiles --create - <<EOF && { echo 'unexpected success'; exit 1; }
+(! systemd-tmpfiles --create -) <<EOF
 f     /tmp/F/dangling    0644 daemon daemon - -
 f     /tmp/F/symlink     0644 daemon daemon - -
 EOF
@@ -149,11 +149,11 @@ EOF
 test -f /tmp/F/ro-fs/foo; test ! -s /tmp/F/ro-fs/foo
 
 echo "truncating is not allowed anymore" >/tmp/F/rw-fs/foo
-systemd-tmpfiles --create - <<EOF && { echo 'unexpected success'; exit 1; }
+(! systemd-tmpfiles --create -) <<EOF
 F     /tmp/F/ro-fs/foo    0644 - - - -
 EOF
 
-systemd-tmpfiles --create - <<EOF && { echo 'unexpected success'; exit 1; }
+(! systemd-tmpfiles --create -) <<EOF
 F     /tmp/F/ro-fs/foo    0644 - - - - This string should not be written
 EOF
 test -f /tmp/F/ro-fs/foo
@@ -161,13 +161,13 @@ grep -q 'truncating is not allowed' /tmp/F/ro-fs/foo
 
 # Trying to change the perms should fail.
 : >/tmp/F/rw-fs/foo
-systemd-tmpfiles --create - <<EOF && { echo 'unexpected success'; exit 1; }
+(! systemd-tmpfiles --create -) <<EOF
 F     /tmp/F/ro-fs/foo    0666 - - - -
 EOF
 test "$(stat -c %U:%G:%a /tmp/F/ro-fs/foo)" = "root:root:644"
 
 ### Try to create a new file.
-systemd-tmpfiles --create - <<EOF && { echo 'unexpected success'; exit 1; }
+(! systemd-tmpfiles --create -) <<EOF
 F     /tmp/F/ro-fs/bar    0644 - - - -
 EOF
 test ! -e /tmp/F/ro-fs/bar
@@ -177,7 +177,7 @@ mkdir /tmp/F/daemon
 ln -s /root /tmp/F/daemon/unsafe-symlink
 chown -R --no-dereference daemon:daemon /tmp/F/daemon
 
-systemd-tmpfiles --create - <<EOF && { echo 'unexpected success'; exit 1; }
+(! systemd-tmpfiles --create -) <<EOF
 F     /tmp/F/daemon/unsafe-symlink/exploit    0644 daemon daemon - -
 EOF
 test ! -e /tmp/F/daemon/unsafe-symlink/exploit
@@ -195,7 +195,7 @@ EOF
 test ! -e /tmp/w/unexistent
 
 ### no argument given -> fails.
-systemd-tmpfiles --create - <<EOF && { echo 'unexpected success'; exit 1; }
+(! systemd-tmpfiles --create -) <<EOF
 w     /tmp/w/unexistent    0644 - - - -
 EOF
 
@@ -240,7 +240,7 @@ mkdir /tmp/w/daemon
 ln -s /root /tmp/w/daemon/unsafe-symlink
 chown -R --no-dereference daemon:daemon /tmp/w/daemon
 
-systemd-tmpfiles --create - <<EOF && { echo 'unexpected success'; exit 1; }
+(! systemd-tmpfiles --create -) <<EOF
 f     /tmp/w/daemon/unsafe-symlink/exploit    0644 daemon daemon - -
 EOF
 test ! -e /tmp/w/daemon/unsafe-symlink/exploit

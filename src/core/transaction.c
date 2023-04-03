@@ -34,7 +34,7 @@ static void transaction_delete_unit(Transaction *tr, Unit *u) {
                 transaction_delete_job(tr, j, true);
 }
 
-void transaction_abort(Transaction *tr) {
+static void transaction_abort(Transaction *tr) {
         Job *j;
 
         assert(tr);
@@ -662,7 +662,7 @@ static int transaction_apply(
                         /* j has been merged into a previously installed job */
                         if (tr->anchor_job == j)
                                 tr->anchor_job = installed_job;
-                        hashmap_remove(m->jobs, UINT32_TO_PTR(j->id));
+                        hashmap_remove_value(m->jobs, UINT32_TO_PTR(j->id), j);
                         job_free(j);
                         j = installed_job;
                 }
@@ -683,7 +683,7 @@ static int transaction_apply(
 rollback:
 
         HASHMAP_FOREACH(j, tr->jobs)
-                hashmap_remove(m->jobs, UINT32_TO_PTR(j->id));
+                hashmap_remove_value(m->jobs, UINT32_TO_PTR(j->id), j);
 
         return r;
 }
@@ -1199,8 +1199,21 @@ Transaction *transaction_new(bool irreversible) {
         return tr;
 }
 
-void transaction_free(Transaction *tr) {
+Transaction *transaction_free(Transaction *tr) {
+        if (!tr)
+                return NULL;
+
         assert(hashmap_isempty(tr->jobs));
         hashmap_free(tr->jobs);
-        free(tr);
+
+        return mfree(tr);
+}
+
+Transaction *transaction_abort_and_free(Transaction *tr) {
+        if (!tr)
+                return NULL;
+
+        transaction_abort(tr);
+
+        return transaction_free(tr);
 }

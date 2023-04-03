@@ -301,7 +301,7 @@ int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum) 
         if (major(devnum) == 0)
                 return -ENODEV;
 
-        if (asprintf(&syspath, "/sys/dev/%s/%u:%u", t, major(devnum), minor(devnum)) < 0)
+        if (asprintf(&syspath, "/sys/dev/%s/" DEVNUM_FORMAT_STR, t, DEVNUM_FORMAT_VAL(devnum)) < 0)
                 return -ENOMEM;
 
         r = sd_device_new_from_syspath(&dev, syspath);
@@ -1654,9 +1654,9 @@ int device_get_device_id(sd_device *device, const char **ret) {
 
                 if (sd_device_get_devnum(device, &devnum) >= 0) {
                         /* use dev_t — b259:131072, c254:0 */
-                        if (asprintf(&id, "%c%u:%u",
+                        if (asprintf(&id, "%c" DEVNUM_FORMAT_STR,
                                      streq(subsystem, "block") ? 'b' : 'c',
-                                     major(devnum), minor(devnum)) < 0)
+                                     DEVNUM_FORMAT_VAL(devnum)) < 0)
                                 return -ENOMEM;
                 } else if (sd_device_get_ifindex(device, &ifindex) >= 0) {
                         /* use netdev ifindex — n3 */

@@ -300,8 +300,16 @@ int bpf_program_cgroup_detach(BPFProgram *p) {
         return 0;
 }
 
-int bpf_map_new(enum bpf_map_type type, size_t key_size, size_t value_size, size_t max_entries, uint32_t flags) {
+int bpf_map_new(
+                const char *name,
+                enum bpf_map_type type,
+                size_t key_size,
+                size_t value_size,
+                size_t max_entries,
+                uint32_t flags) {
+
         union bpf_attr attr;
+        const char *n = name;
 
         zero(attr);
         attr.map_type = type;
@@ -309,6 +317,13 @@ int bpf_map_new(enum bpf_map_type type, size_t key_size, size_t value_size, size
         attr.value_size = value_size;
         attr.max_entries = max_entries;
         attr.map_flags = flags;
+
+        /* The map name is primarily informational for debugging purposes, and typically too short
+         * to carry the full unit name, hence we employ a trivial lossy escaping to make it fit
+         * (truncation + only alphanumerical, "." and "_" are allowed as per
+         * https://www.kernel.org/doc/html/next/bpf/maps.html#usage-notes) */
+        for (size_t i = 0; i < sizeof(attr.map_name) - 1 && *n; i++, n++)
+                attr.map_name[i] = strchr(ALPHANUMERICAL ".", *n) ? *n : '_';
 
         return RET_NERRNO(bpf(BPF_MAP_CREATE, &attr, sizeof(attr)));
 }
@@ -434,11 +449,9 @@ int bpf_program_deserialize_attachment(const char *v, FDSet *fds, BPFProgram **b
         if (r == 0)
                 return -EINVAL;
 
-        r = safe_atoi(sfd, &ifd);
-        if (r < 0)
-                return r;
+        ifd = parse_fd(sfd);
         if (ifd < 0)
-                return -EBADF;
+                return r;
 
         /* Extract second word: the attach type */
         r = extract_first_word(&v, &sat, NULL, 0);
@@ -452,6 +465,9 @@ int bpf_program_deserialize_attachment(const char *v, FDSet *fds, BPFProgram **b
                 return at;
 
         /* The rest is the path */
+        if (isempty(v))
+                return -EINVAL;
+
         l = cunescape(v, 0, &unescaped);
         if (l < 0)
                 return l;

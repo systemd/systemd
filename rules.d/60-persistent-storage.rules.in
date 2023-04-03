@@ -38,7 +38,7 @@ KERNEL=="nvme*[0-9]n*[0-9]", ENV{DEVTYPE}=="disk", ATTRS{wwid}=="?*", ENV{ID_WWN
 KERNEL=="nvme*[0-9]n*[0-9]", ENV{DEVTYPE}=="disk", ATTRS{model}=="?*", ENV{ID_MODEL}="$attr{model}"
 KERNEL=="nvme*[0-9]n*[0-9]", ENV{DEVTYPE}=="disk", ATTRS{firmware_rev}=="?*", ENV{ID_REVISION}="$attr{firmware_rev}"
 KERNEL=="nvme*[0-9]n*[0-9]", ENV{DEVTYPE}=="disk", ATTRS{nsid}=="?*", ENV{ID_NSID}="$attr{nsid}"
-# obsolete symlink with non-escaped characters, kept for backward compatiblity
+# obsolete symlink with non-escaped characters, kept for backward compatibility
 KERNEL=="nvme*[0-9]n*[0-9]", ENV{DEVTYPE}=="disk", ENV{ID_MODEL}=="?*", ENV{ID_SERIAL_SHORT}=="?*", \
   ENV{ID_MODEL}!="*/*", ENV{ID_SERIAL_SHORT}!="*/*", \
   ENV{ID_SERIAL}="$env{ID_MODEL}_$env{ID_SERIAL_SHORT}", SYMLINK+="disk/by-id/nvme-$env{ID_SERIAL}"
@@ -52,7 +52,7 @@ KERNEL=="nvme*[0-9]n*[0-9]p*[0-9]", ENV{DEVTYPE}=="partition", ATTRS{serial}=="?
 KERNEL=="nvme*[0-9]n*[0-9]p*[0-9]", ENV{DEVTYPE}=="partition", ATTRS{model}=="?*", ENV{ID_MODEL}="$attr{model}"
 KERNEL=="nvme*[0-9]n*[0-9]p*[0-9]", ENV{DEVTYPE}=="partition", ATTRS{firmware_rev}=="?*", ENV{ID_REVISION}="$attr{firmware_rev}"
 KERNEL=="nvme*[0-9]n*[0-9]p*[0-9]", ENV{DEVTYPE}=="partition", ATTRS{nsid}=="?*", ENV{ID_NSID}="$attr{nsid}"
-# obsolete symlink with non-escaped characters, kept for backward compatiblity
+# obsolete symlink with non-escaped characters, kept for backward compatibility
 KERNEL=="nvme*[0-9]n*[0-9]p*[0-9]", ENV{DEVTYPE}=="partition", ENV{ID_MODEL}=="?*", ENV{ID_SERIAL_SHORT}=="?*", \
   ENV{ID_MODEL}!="*/*", ENV{ID_SERIAL_SHORT}!="*/*", \
   ENV{ID_SERIAL}="$env{ID_MODEL}_$env{ID_SERIAL_SHORT}", SYMLINK+="disk/by-id/nvme-$env{ID_SERIAL}-part%n"

@@ -61,7 +61,7 @@ jobs:
           - distro: ubuntu
             release: jammy
           - distro: fedora
-            release: "37"
+            release: "38"
           - distro: fedora
             release: rawhide
           - distro: opensuse
@@ -73,7 +73,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
-    - uses: systemd/mkosi@268a9374d5a93a4021db6521a39db2c2ed9fd755
+    - uses: systemd/mkosi@3008c7e9383669b7fb6f6afe556c6fd28f28f8f4
 
     - name: Configure
       run: |
@@ -100,11 +100,11 @@ jobs:
     - name: Generate secure boot key
       run: mkosi genkey
 
-    - name: Build ${{ matrix.distro }}
-      run: mkosi
-
     - name: Show ${{ matrix.distro }} image summary
       run: mkosi summary
+
+    - name: Build ${{ matrix.distro }}
+      run: mkosi
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
       run: sudo mkosi boot

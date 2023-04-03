@@ -193,12 +193,12 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
                 r = verb_trivial_method(argc, argv, userdata);
         else {
                 /* First try logind, to allow authentication with polkit */
-                if (IN_SET(a,
-                           ACTION_POWEROFF,
-                           ACTION_REBOOT,
-                           ACTION_KEXEC,
-                           ACTION_HALT)) {
+                switch (a) {
 
+                case ACTION_POWEROFF:
+                case ACTION_REBOOT:
+                case ACTION_KEXEC:
+                case ACTION_HALT:
                         if (arg_when == 0)
                                 r = logind_reboot(a);
                         else if (arg_when != USEC_INFINITY)
@@ -214,24 +214,30 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
                          * between operation with and without logind, we explicitly enable non-blocking mode
                          * for this, as logind's shutdown operations are always non-blocking. */
                         arg_no_block = true;
+                        break;
 
-                } else if (IN_SET(a,
-                                  ACTION_SUSPEND,
-                                  ACTION_HIBERNATE,
-                                  ACTION_HYBRID_SLEEP,
-                                  ACTION_SUSPEND_THEN_HIBERNATE)) {
+                case ACTION_SUSPEND:
+                case ACTION_HIBERNATE:
+                case ACTION_HYBRID_SLEEP:
+                case ACTION_SUSPEND_THEN_HIBERNATE:
 
                         r = logind_reboot(a);
                         if (r >= 0 || IN_SET(r, -EACCES, -EOPNOTSUPP, -EINPROGRESS))
                                 return r;
 
                         arg_no_block = true;
+                        break;
 
-                } else if (a == ACTION_EXIT)
+                case ACTION_EXIT:
                         /* Since exit is so close in behaviour to power-off/reboot, let's also make
                          * it asynchronous, in order to not confuse the user needlessly with unexpected
                          * behaviour. */
                         arg_no_block = true;
+                        break;
+
+                default:
+                        ;
+                }
 
                 r = verb_start(argc, argv, userdata);
         }

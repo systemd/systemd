@@ -544,6 +544,7 @@ assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 
 decl_headers = '''
+#include <dirent.h>
 #include <uchar.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
@@ -553,6 +554,7 @@ foreach decl : ['char16_t',
                 'char32_t',
                 'struct mount_attr',
                 'struct statx',
+                'struct dirent64',
                ]
 
         # We get -1 if the size cannot be determined
@@ -701,8 +703,9 @@ stat = find_program('stat')
 ln = find_program('ln')
 git = find_program('git', required : false)
 env = find_program('env')
-perl = find_program('perl', required : false)
 rsync = find_program('rsync', required : false)
+diff = find_program('diff')
+find = find_program('find')
 meson_make_symlink = project_source_root + '/tools/meson-make-symlink.sh'
 
 mkdir_p = 'mkdir -p $DESTDIR/@0@'
@@ -1966,6 +1969,118 @@ pymod = import('python')
 python = pymod.find_installation('python3', required : true, modules : ['jinja2'])
 python_39 = python.language_version().version_compare('>=3.9')
 
+############################################################
+
+if conf.get('BPF_FRAMEWORK') == 1
+        bpf_clang_flags = [
+                '-std=gnu11',
+                '-Wno-compare-distinct-pointer-types',
+                '-fno-stack-protector',
+                '-O2',
+                '-target',
+                'bpf',
+                '-g',
+                '-c',
+        ]
+
+        bpf_gcc_flags = [
+                '-std=gnu11',
+                '-fno-stack-protector',
+                '-O2',
+                '-mkernel=5.2',
+                '-mcpu=v3',
+                '-mco-re',
+                '-gbtf',
+                '-c',
+        ]
+
+        # Generate defines that are appropriate to tell the compiler what architecture
+        # we're compiling for. By default we just map meson's cpu_family to __<cpu_family>__.
+        # This dictionary contains the exceptions where this doesn't work.
+        #
+        # C.f. https://mesonbuild.com/Reference-tables.html#cpu-families
+        # and src/basic/missing_syscall_def.h.
+        cpu_arch_defines = {
+                'ppc'     : ['-D__powerpc__'],
+                'ppc64'   : ['-D__powerpc64__', '-D_CALL_ELF=2'],
+                'riscv32' : ['-D__riscv', '-D__riscv_xlen=32'],
+                'riscv64' : ['-D__riscv', '-D__riscv_xlen=64'],
+                'x86'     : ['-D__i386__'],
+
+                # For arm, assume hardware fp is available.
+                'arm'     : ['-D__arm__', '-D__ARM_PCS_VFP'],
+        }
+
+        bpf_arch_flags = cpu_arch_defines.get(host_machine.cpu_family(),
+                                              ['-D__@0@__'.format(host_machine.cpu_family())])
+        if bpf_compiler == 'gcc'
+                bpf_arch_flags += ['-m' + host_machine.endian() + '-endian']
+        endif
+
+        libbpf_include_dir = libbpf.get_variable(pkgconfig : 'includedir')
+
+        bpf_o_unstripped_cmd = []
+        if bpf_compiler == 'clang'
+                bpf_o_unstripped_cmd += [
+                        clang,
+                        bpf_clang_flags,
+                        bpf_arch_flags,
+                ]
+        elif bpf_compiler == 'gcc'
+                bpf_o_unstripped_cmd += [
+                        bpf_gcc,
+                        bpf_gcc_flags,
+                        bpf_arch_flags,
+                ]
+        endif
+
+        bpf_o_unstripped_cmd += ['-I.']
+
+        if not meson.is_cross_build() and bpf_compiler == 'clang'
+                target_triplet_cmd = run_command('gcc', '-dumpmachine', check: false)
+                if target_triplet_cmd.returncode() == 0
+                        target_triplet = target_triplet_cmd.stdout().strip()
+                        bpf_o_unstripped_cmd += [
+                                '-isystem',
+                                '/usr/include/@0@'.format(target_triplet)
+                        ]
+                endif
+        endif
+
+        bpf_o_unstripped_cmd += [
+                '-idirafter',
+                libbpf_include_dir,
+                '@INPUT@',
+                '-o',
+                '@OUTPUT@'
+        ]
+
+        if bpftool_strip
+                bpf_o_cmd = [
+                        bpftool,
+                        'gen',
+                        'object',
+                        '@OUTPUT@',
+                        '@INPUT@'
+                ]
+        elif bpf_compiler == 'clang'
+                bpf_o_cmd = [
+                        llvm_strip,
+                        '-g',
+                        '@INPUT@',
+                        '-o',
+                        '@OUTPUT@'
+                ]
+        endif
+
+        skel_h_cmd = [
+                bpftool,
+                'gen',
+                'skeleton',
+                '@INPUT@'
+        ]
+endif
+
 #####################################################################
 
 efi_arch = {
@@ -2018,7 +2133,7 @@ endif
 conf.set10('ENABLE_UKIFY', want_ukify)
 
 ############################################################
-#
+
 elf2efi_lds = project_source_root / 'tools/elf2efi.lds'
 elf2efi_py = find_program('tools/elf2efi.py')
 export_dbus_interfaces_py = find_program('tools/dbus_exporter.py')
@@ -2063,6 +2178,9 @@ public_programs = []
 
 # D-Bus introspection XML export
 dbus_programs = []
+
+# A list of boot stubs. Required for testing of ukify.
+boot_stubs = []
 
 basic_includes = include_directories(
         'src/basic',
@@ -2393,7 +2511,9 @@ exe = executable(
                         versiondep],
         install_rpath : rootpkglibdir,
         install : conf.get('ENABLE_ANALYZE') == 1)
-public_programs += exe
+if conf.get('ENABLE_ANALYZE') == 1
+        public_programs += exe
+endif
 
 if want_tests != 'false'
         test('test-compare-versions',
@@ -3892,20 +4012,21 @@ if enable_sysusers
                      args : exe.full_path())
         endif
 
+        exe = executable(
+                'systemd-sysusers.standalone',
+                'src/sysusers/sysusers.c',
+                include_directories : includes,
+                c_args : '-DSTANDALONE',
+                link_with : [libshared_static,
+                             libbasic,
+                             libbasic_gcrypt,
+                             libsystemd_static],
+                dependencies : [userspace,
+                                versiondep],
+                build_by_default: have_standalone_binaries,
+                install : have_standalone_binaries,
+                install_dir : rootbindir)
         if have_standalone_binaries
-                exe = executable(
-                        'systemd-sysusers.standalone',
-                        'src/sysusers/sysusers.c',
-                        include_directories : includes,
-                        c_args : '-DSTANDALONE',
-                        link_with : [libshared_static,
-                                     libbasic,
-                                     libbasic_gcrypt,
-                                     libsystemd_static],
-                        dependencies : [userspace,
-                                        versiondep],
-                        install : true,
-                        install_dir : rootbindir)
                 public_programs += exe
 
                 if want_tests != 'false'
@@ -3938,21 +4059,22 @@ if conf.get('ENABLE_TMPFILES') == 1
                      args : exe.full_path())
         endif
 
+        exe = executable(
+                'systemd-tmpfiles.standalone',
+                systemd_tmpfiles_sources,
+                include_directories : includes,
+                c_args : '-DSTANDALONE',
+                link_with : [libshared_static,
+                             libbasic,
+                             libbasic_gcrypt,
+                             libsystemd_static],
+                dependencies : [libacl,
+                                userspace,
+                                versiondep],
+                build_by_default: have_standalone_binaries,
+                install : have_standalone_binaries,
+                install_dir : rootbindir)
         if have_standalone_binaries
-                exe = executable(
-                        'systemd-tmpfiles.standalone',
-                        systemd_tmpfiles_sources,
-                        include_directories : includes,
-                        c_args : '-DSTANDALONE',
-                        link_with : [libshared_static,
-                                     libbasic,
-                                     libbasic_gcrypt,
-                                     libsystemd_static],
-                        dependencies : [libacl,
-                                        userspace,
-                                        versiondep],
-                        install : true,
-                        install_dir : rootbindir)
                 public_programs += exe
 
                 if want_tests != 'false'
@@ -4052,26 +4174,27 @@ if conf.get('ENABLE_REPART') == 1
                 install_dir : rootbindir)
         public_programs += exe
 
+        exe = executable(
+                'systemd-repart.standalone',
+                systemd_repart_sources,
+                include_directories : includes,
+                c_args : '-DSTANDALONE',
+                link_with : [libshared_static,
+                             libbasic,
+                             libbasic_gcrypt,
+                             libsystemd_static,
+                             libshared_fdisk],
+                dependencies : [libblkid,
+                                libfdisk,
+                                libopenssl,
+                                threads,
+                                userspace,
+                                versiondep],
+                build_by_default: have_standalone_binaries,
+                install_rpath : rootpkglibdir,
+                install : have_standalone_binaries,
+                install_dir : rootbindir)
         if have_standalone_binaries
-                exe = executable(
-                        'systemd-repart.standalone',
-                        systemd_repart_sources,
-                        include_directories : includes,
-                        c_args : '-DSTANDALONE',
-                        link_with : [libshared_static,
-                                     libbasic,
-                                     libbasic_gcrypt,
-                                     libsystemd_static,
-                                     libshared_fdisk],
-                        dependencies : [libblkid,
-                                        libfdisk,
-                                        libopenssl,
-                                        threads,
-                                        userspace,
-                                        versiondep],
-                        install_rpath : rootpkglibdir,
-                        install : true,
-                        install_dir : rootbindir)
                 public_programs += exe
         endif
 endif
@@ -4088,21 +4211,23 @@ executable(
         install : true,
         install_dir : rootlibexecdir)
 
+executable(
+        'systemd-shutdown.standalone',
+        systemd_shutdown_sources,
+        include_directories : includes,
+        c_args : '-DSTANDALONE',
+        link_with : [libshared_static,
+                     libbasic,
+                     libsystemd_static],
+        dependencies : [libmount,
+                        userspace,
+                        versiondep],
+        build_by_default: have_standalone_binaries,
+        install_rpath : rootpkglibdir,
+        install : have_standalone_binaries,
+        install_dir : rootlibexecdir)
 if have_standalone_binaries
-        executable(
-                'systemd-shutdown.standalone',
-                systemd_shutdown_sources,
-                include_directories : includes,
-                c_args : '-DSTANDALONE',
-                link_with : [libshared_static,
-                             libbasic,
-                             libsystemd_static],
-                dependencies : [libmount,
-                                userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootlibexecdir)
+        public_programs += exe
 endif
 
 executable(
@@ -4231,7 +4356,7 @@ executable(
         install : true,
         install_dir : rootlibexecdir)
 
-exe = custom_target(
+kernel_install = custom_target(
         'kernel-install',
         input : kernel_install_in,
         output : 'kernel-install',
@@ -4239,25 +4364,32 @@ exe = custom_target(
         install : want_kernel_install,
         install_mode : 'rwxr-xr-x',
         install_dir : bindir)
-public_programs += exe
-
-if want_tests != 'false' and want_kernel_install
-        test('test-kernel-install',
-             test_kernel_install_sh,
-             env : test_env,
-             args : [exe.full_path(), loaderentry_install])
+if want_kernel_install
+        public_programs += exe
 endif
 
-if want_ukify
-   exe = custom_target(
+ukify = custom_target(
         'ukify',
         input : 'src/ukify/ukify.py',
         output : 'ukify',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
-        install : true,
+        install : want_ukify,
         install_mode : 'rwxr-xr-x',
         install_dir : rootlibexecdir)
-   public_programs += exe
+if want_ukify
+   public_programs += ukify
+endif
+
+if want_tests != 'false' and want_kernel_install
+        args = [kernel_install.full_path(), loaderentry_install, uki_copy_install]
+        if want_ukify and boot_stubs.length() > 0
+                args += [ukify.full_path(), ukify_install, boot_stubs[0]]
+        endif
+
+        test('test-kernel-install',
+             test_kernel_install_sh,
+             env : test_env,
+             args : args)
 endif
 
 ############################################################
@@ -4285,6 +4417,7 @@ foreach test : simple_tests
         tests += { 'sources' : [test] }
 endforeach
 
+TESTS = {}
 foreach test : tests
         sources = test.get('sources')
         condition = test.get('condition', '')
@@ -4331,11 +4464,13 @@ foreach test : tests
                 message('@0@ is an unsafe test'.format(name))
         elif want_tests != 'false'
                 test(name, exe,
-                        env : test_env,
-                        timeout : test.get('timeout', 30),
-                        suite : suite,
-                        is_parallel : test.get('parallel', true))
+                     env : test_env,
+                     timeout : test.get('timeout', 30),
+                     suite : suite,
+                     is_parallel : test.get('parallel', true))
         endif
+
+        TESTS += { name : exe }
 endforeach
 
 exe = executable(
@@ -4395,6 +4530,16 @@ exe = executable(
         install_dir : unittestsdir)
 if want_tests != 'false' and static_libudev_pic
         test('test-libudev-static-sym', exe)
+endif
+
+if want_tests != 'false'
+        udev_rule_runner = TESTS['udev-rule-runner'].full_path()
+
+        test('test-udev',
+             test_udev_py,
+             args : ['-v'],
+             env : ['UDEV_RULE_RUNNER=@0@'.format(udev_rule_runner)],
+             timeout : 180)
 endif
 
 ############################################################
@@ -4595,7 +4740,7 @@ if git.found()
         all_files = run_command(
                 env, '-u', 'GIT_WORK_TREE',
                 git, '--git-dir=@0@/.git'.format(project_source_root),
-                     'ls-files', ':/*.[ch]',
+                     'ls-files', ':/*.[ch]', ':/*.cc',
                 check : false)
         if all_files.returncode() == 0
                 all_files = files(all_files.stdout().split())
@@ -4607,17 +4752,26 @@ if git.found()
                 run_target(
                         'ctags',
                         command : [env, 'ctags', '--tag-relative=never', '-o', '@0@/tags'.format(project_source_root)] + all_files)
-        endif
-endif
 
-if git.found()
+                ############################################
+
+                if want_tests != 'false' and conf.get('BUILD_MODE_DEVELOPER') == 1
+                        test('check-includes',
+                             files('tools/check-includes.py'),
+                             args: all_files,
+                             env : ['PROJECT_SOURCE_ROOT=@0@'.format(project_source_root)])
+                endif
+        endif
+
+        ####################################################
+
         git_contrib_sh = find_program('tools/git-contrib.sh')
         run_target(
                 'git-contrib',
                 command : [git_contrib_sh])
-endif
 
-if git.found()
+        ####################################################
+
         git_head = run_command(
                 git, '--git-dir=@0@/.git'.format(project_source_root),
                      'rev-parse', 'HEAD',

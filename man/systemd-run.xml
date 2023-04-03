@@ -92,6 +92,11 @@
     Consider using the <option>exec</option> service type (i.e. <option>--property=Type=exec</option>) to
     ensure that <command>systemd-run</command> returns successfully only if the specified command line has
     been successfully started.</para>
+
+    <para>After <command>systemd-run</command> passes the command to the service manager, the manager
+    performs variable expansion. This means that dollar characters (<literal>$</literal>) which should not be
+    expanded need to be escaped as <literal>$$</literal>. Expansion can also be disabled using
+    <varname>--expand-environment=no</varname>.</para>
   </refsect1>
 
   <refsect1>
@@ -166,6 +171,25 @@
         <option>--slice=</option> argument is <filename>bar</filename>, the unit will be placed under the
         <filename>foo-bar.slice</filename>.</para>
 
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--expand-environment=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Expand environment variables in command arguments. If enabled (the default),
+        environment variables specified as <literal>${<replaceable>VARIABLE</replaceable>}</literal> will be
+        expanded in the same way as in commands specified via <varname>ExecStart=</varname> in units. With
+        <varname>--scope</varname>, this expansion is performed by <command>systemd-run</command> itself, and
+        in other cases by the service manager that spawns the command. Note that this is similar to, but not
+        the same as variable expansion in
+        <citerefentry project='man-pages'><refentrytitle>bash</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        and other shells.</para>
+
+        <para>See
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for a description of variable expansion. Disabling variable expansion is useful if the specified
+        command includes or may include a <literal>$</literal> sign.</para>
         </listitem>
       </varlistentry>
 
@@ -529,11 +553,48 @@ There is a screen on:
     </example>
 
     <example>
+      <title>Variable expansion by the manager</title>
+
+      <programlisting>$ systemd-run -t echo "&lt;${INVOCATION_ID}>" '&lt;${INVOCATION_ID}>'
+      &lt;> &lt;5d0149bfa2c34b79bccb13074001eb20>
+      </programlisting>
+
+      <para>The first argument is expanded by the shell (double quotes), but the second one is not expanded
+      by the shell (single quotes). <command>echo</command> is called with [<literal>/usr/bin/echo</literal>,
+      <literal>[]</literal>, <literal>[${INVOCATION_ID}]</literal>] as the argument array, and then
+      <command>systemd</command> generates <varname>${INVOCATION_ID}</varname> and substitutes it in the
+      command-line. This substitution could not be done on the client side, because the target ID that will
+      be set for the service isn't known before the call is made.</para>
+    </example>
+
+    <example>
+      <title>Variable expansion and output redirection using a shell</title>
+
+      <para>Variable expansion by <command>systemd</command> can be disabled with
+      <varname>--expand-environment=no</varname>.</para>
+
+      <para>Disabling variable expansion can be useful if the command to execute contains dollar characters
+      and escaping them would be inconvenient. For example, when a shell is used:</para>
+
+      <programlisting>$ systemd-run --expand-environment=no -t bash \
+      -c 'echo $SHELL $$ >/dev/stdout'
+/bin/bash 12345
+      </programlisting>
+
+      <para>The last argument is passed verbatim to the <command>bash</command> shell which is started by the
+      service unit. The shell expands <literal>$SHELL</literal> to the path of the shell, and
+      <literal>$$</literal> to its process number, and then those strings are passed to the
+      <command>echo</command> built-in and printed to standard output (which in this case is connected to the
+      calling terminal).</para>
+    </example>
+
+    <example>
       <title>Return value</title>
 
       <programlisting>$ systemd-run --user --wait true
 $ systemd-run --user --wait -p SuccessExitStatus=11 bash -c 'exit 11'
-$ systemd-run --user --wait -p SuccessExitStatus=SIGUSR1 bash -c 'kill -SIGUSR1 $$$$'</programlisting>
+$ systemd-run --user --wait -p SuccessExitStatus=SIGUSR1 --expand-environment=no \
+      bash -c 'kill -SIGUSR1 $$'</programlisting>
 
       <para>Those three invocations will succeed, i.e. terminate with an exit code of 0.</para>
     </example>

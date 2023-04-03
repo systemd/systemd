@@ -27,9 +27,9 @@ inspect() {
 }
 
 wait_for_state() {
-    for ((i = 0; i < 10; i++)) ; do
+    for i in {1..10}; do
+        (( i > 1 )) && sleep 0.5
         homectl inspect "$1" | grep -qF "State: $2" && break
-        sleep .5
     done
 }
 
@@ -153,14 +153,12 @@ if ! systemd-detect-virt -cq ; then
 fi
 
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
-PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz \
-    && { echo 'unexpected success'; exit 1; }
+(! PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz)
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- touch /home/test-user/xyz
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- rm /home/test-user/xyz
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
-PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz \
-    && { echo 'unexpected success'; exit 1; }
+(! PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz)
 
 wait_for_state test-user inactive
 homectl remove test-user

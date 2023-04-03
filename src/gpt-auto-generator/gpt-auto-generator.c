@@ -753,19 +753,19 @@ static int enumerate_partitions(dev_t devnum) {
                         arg_image_policy ?: &image_policy_host,
                         DISSECT_IMAGE_GPT_ONLY|
                         DISSECT_IMAGE_USR_NO_ROOT|
-                        DISSECT_IMAGE_DISKSEQ_DEVNODE,
+                        DISSECT_IMAGE_DISKSEQ_DEVNODE|
+                        DISSECT_IMAGE_ALLOW_EMPTY,
                         /* NB! Unlike most other places where we dissect block devices we do not use
                          * DISSECT_IMAGE_ADD_PARTITION_DEVICES here: we want that the kernel finds the
                          * devices, and udev probes them before we mount them via .mount units much later
                          * on. And thus we also don't set DISSECT_IMAGE_PIN_PARTITION_DEVICES here, because
                          * we don't actually mount anything immediately. */
                         &m);
-        if (r == -ENOPKG) {
-                log_debug_errno(r, "No suitable partition table found on block device %s, ignoring.", devname);
-                return 0;
+        if (r < 0) {
+                bool ok = r == -ENOPKG;
+                dissect_log_error(ok ? LOG_DEBUG : LOG_ERR, r, devname, NULL);
+                return ok ? 0 : r;
         }
-        if (r < 0)
-                return log_error_errno(r, "Failed to dissect partition table of block device %s: %m", devname);
 
         if (m->partitions[PARTITION_SWAP].found) {
                 k = add_partition_swap(m->partitions + PARTITION_SWAP);

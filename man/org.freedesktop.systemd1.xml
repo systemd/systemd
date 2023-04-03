@@ -2468,10 +2468,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <varname>IgnoreOnIsolate</varname>, <varname>IgnoreOnSnapshot</varname> map directly to the
       corresponding configuration booleans in the unit file.</para>
 
-      <para><varname>DefaultControlGroup</varname> contains the main control group of this unit as a
-      string. This refers to a group in systemd's own <literal>name=systemd</literal> hierarchy, which
-      systemd uses to watch and manipulate the unit and all its processes.</para>
-
       <para><varname>NeedDaemonReload</varname> is a boolean that indicates whether the configuration file
       this unit is loaded from (i.e. <varname>FragmentPath</varname> or <varname>SourcePath</varname>) has
       changed since the configuration was read and hence whether a configuration reload is recommended.
@@ -2712,6 +2708,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly b Delegate = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly as DelegateControllers = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s DelegateSubgroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b CPUAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -3942,6 +3940,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateControllers"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="DelegateSubgroup"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CPUAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUWeight"/>
@@ -4544,6 +4544,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       memory controller is reached. It will take into consideration limits on all parent slices, other than the
       limits set on the unit itself.</para>
 
+      <para><varname>DelegateSubgroup</varname> contains the cgroup subgroup to place invoked unit processes
+      in. As configured by the option of the same name in unit files. This is set to the empty string when it
+      does not apply or no subgroup has been configured.</para>
+
       <para><varname>RuntimeDirectorySymlink</varname>, <varname>StateDirectorySymlink</varname>,
       <varname>CacheDirectorySymlink</varname> and  <varname>LogsDirectorySymlink</varname> respectively
       implement the destination parameter of the unit files settings <varname>RuntimeDirectory</varname>,
@@ -4714,6 +4718,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly b Delegate = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly as DelegateControllers = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s DelegateSubgroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b CPUAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -5936,6 +5942,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateControllers"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="DelegateSubgroup"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CPUAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUWeight"/>
@@ -6587,6 +6595,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly b Delegate = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly as DelegateControllers = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s DelegateSubgroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b CPUAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -7655,6 +7665,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateControllers"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="DelegateSubgroup"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CPUAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUWeight"/>
@@ -8433,6 +8445,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       readonly b Delegate = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly as DelegateControllers = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s DelegateSubgroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b CPUAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -9473,6 +9487,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateControllers"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="DelegateSubgroup"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CPUAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUWeight"/>
@@ -10111,6 +10127,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly as DelegateControllers = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s DelegateSubgroup = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b CPUAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUWeight = ...;
@@ -10456,6 +10474,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateControllers"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="DelegateSubgroup"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CPUAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUWeight"/>
@@ -10655,6 +10675,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       readonly b Delegate = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly as DelegateControllers = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly s DelegateSubgroup = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b CPUAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -11050,6 +11072,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="Delegate"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DelegateControllers"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DelegateSubgroup"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CPUAccounting"/>
 

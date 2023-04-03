@@ -11,7 +11,7 @@ journalctl -o cat --namespace=foobar >/tmp/hello-world
 journalctl -o cat >/tmp/no-hello-world
 
 grep "^hello world$" /tmp/hello-world
-grep "^hello world$" /tmp/no-hello-world && { echo 'unexpected success'; exit 1; }
+(! grep "^hello world$" /tmp/no-hello-world)
 
 systemd-analyze log-level info
 

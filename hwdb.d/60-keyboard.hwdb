@@ -398,7 +398,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:*
  KEYBOARD_KEY_88=!                                      # wireless switch
  KEYBOARD_KEY_9e=!f21
 
-# Dell Latitude E7*
+# Dell Latitude E[67]*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*E6*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*E7*:*
  KEYBOARD_KEY_88=unknown                                # Fn-PrtScr rfkill - handled in HW
 
@@ -632,7 +633,7 @@ evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHPElitex21013G3:*
  KEYBOARD_KEY_97=brightnessup
 
 # HP Laptop 15s-eq0023nl
-evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHPLaptop15s-eq0*:sku9MG38EA#ABZ:*
+evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHPLaptop15s-eq0*:sku9MG38EA*ABZ:*
  KEYBOARD_KEY_9d=102nd                                  # Greater than/Less than
 
 # Elitebook

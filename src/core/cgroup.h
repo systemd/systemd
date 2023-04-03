@@ -133,6 +133,7 @@ struct CGroupContext {
         bool delegate;
         CGroupMask delegate_controllers;
         CGroupMask disable_controllers;
+        char *delegate_subgroup;
 
         /* For unified hierarchy */
         uint64_t cpu_weight;
@@ -290,7 +291,7 @@ void unit_invalidate_cgroup_members_masks(Unit *u);
 void unit_add_family_to_cgroup_realize_queue(Unit *u);
 
 const char *unit_get_realized_cgroup_path(Unit *u, CGroupMask mask);
-char *unit_default_cgroup_path(const Unit *u);
+int unit_default_cgroup_path(const Unit *u, char **ret);
 int unit_set_cgroup_path(Unit *u, const char *path);
 int unit_pick_cgroup_path(Unit *u);
 

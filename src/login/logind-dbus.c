@@ -867,7 +867,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                 do {
                         id = mfree(id);
 
-                        if (asprintf(&id, "c%lu", ++m->session_counter) < 0)
+                        if (asprintf(&id, "c%" PRIu64, ++m->session_counter) < 0)
                                 return -ENOMEM;
 
                 } while (hashmap_contains(m->sessions, id));
@@ -3274,7 +3274,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
         do {
                 id = mfree(id);
 
-                if (asprintf(&id, "%lu", ++m->inhibit_counter) < 0)
+                if (asprintf(&id, "%" PRIu64, ++m->inhibit_counter) < 0)
                         return -ENOMEM;
 
         } while (hashmap_get(m->inhibitors, id));

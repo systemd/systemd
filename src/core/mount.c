@@ -34,6 +34,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "unit.h"
+#include "utf8.h"
 
 #define RETRY_UMOUNT_MAX 32
 
@@ -274,13 +275,35 @@ static int update_parameters_proc_self_mountinfo(
 
         p = &m->parameters_proc_self_mountinfo;
 
-        r = free_and_strdup(&p->what, what);
-        if (r < 0)
-                return r;
+        if (what && !utf8_is_valid(what)) {
+                _cleanup_free_ char *what_escaped = NULL;
 
-        q = free_and_strdup(&p->options, options);
-        if (q < 0)
-                return q;
+                what_escaped = utf8_escape_invalid(what);
+                if (!what_escaped)
+                        return -ENOMEM;
+
+                r = !streq_ptr(p->what, what_escaped);
+                free_and_replace(p->what, what_escaped);
+        } else {
+                r = free_and_strdup(&p->what, what);
+                if (r < 0)
+                        return r;
+        }
+
+        if (options && !utf8_is_valid(options)) {
+                _cleanup_free_ char *options_escaped = NULL;
+
+                options_escaped = utf8_escape_invalid(options);
+                if (!options_escaped)
+                        return -ENOMEM;
+
+                q = !streq_ptr(p->options, options_escaped);
+                free_and_replace(p->options, options_escaped);
+        } else {
+                q = free_and_strdup(&p->options, options);
+                if (q < 0)
+                        return q;
+        }
 
         w = free_and_strdup(&p->fstype, fstype);
         if (w < 0)
@@ -885,7 +908,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
         cgroup_context_dump(UNIT(m), f, prefix);
 }
 
-static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
+static int mount_spawn(Mount *m, ExecCommand *c, pid_t *ret_pid) {
 
         _cleanup_(exec_params_clear) ExecParameters exec_params = {
                 .flags     = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
@@ -899,7 +922,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
 
         assert(m);
         assert(c);
-        assert(_pid);
+        assert(ret_pid);
 
         r = unit_prepare_exec(UNIT(m));
         if (r < 0)
@@ -927,8 +950,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 return r;
 
-        *_pid = pid;
-
+        *ret_pid = pid;
         return 0;
 }
 

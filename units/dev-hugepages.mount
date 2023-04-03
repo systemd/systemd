@@ -21,3 +21,4 @@ ConditionVirtualization=!private-users
 What=hugetlbfs
 Where=/dev/hugepages
 Type=hugetlbfs
+Options=nosuid,nodev

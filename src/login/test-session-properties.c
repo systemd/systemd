@@ -6,10 +6,16 @@
  * ./test-session-properties /org/freedesktop/login1/session/_32
  */
 
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-locator.h"
+#include "path-util.h"
 #include "string-util.h"
+#include "terminal-util.h"
 #include "tests.h"
 
 static BusLocator session;
@@ -92,6 +98,32 @@ TEST(set_display) {
         display = mfree(display);
         assert_se(bus_get_property_string(bus, &session, "Display", NULL, &display) >= 0);
         assert_se(isempty(display));
+}
+
+/* Tests org.freedesktop.logind.Session SetTTY */
+TEST(set_tty) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus* bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *tty = NULL;
+        const char *path = "/dev/tty2"; /* testsuite uses tty2 */
+        int fd;
+
+        fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY);
+        assert_se(fd >= 0);
+
+        assert_se(sd_bus_open_system(&bus) >= 0);
+
+        /* tty can only be set by the session controller (which we're not ATM) */
+        assert_se(bus_call_method(bus, &session, "SetTTY", &error, NULL, "h", fd) < 0);
+        assert_se(sd_bus_error_has_name(&error, BUS_ERROR_NOT_IN_CONTROL));
+
+        assert_se(bus_call_method(bus, &session, "TakeControl", NULL, NULL, "b", true) >= 0);
+
+        /* tty can be set */
+        assert_se(bus_call_method(bus, &session, "SetTTY", NULL, NULL, "h", fd) >= 0);
+        tty = mfree(tty);
+        assert_se(bus_get_property_string(bus, &session, "TTY", NULL, &tty) >= 0);
+        assert_se(streq(tty, "tty2"));
 }
 
 static int intro(void) {

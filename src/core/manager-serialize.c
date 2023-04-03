@@ -266,7 +266,7 @@ static void manager_deserialize_uid_refs_one_internal(
 
         r = parse_uid(value, &uid);
         if (r < 0 || uid == 0) {
-                log_debug("Unable to parse UID/GID reference serialization: " UID_FMT, uid);
+                log_debug("Unable to parse UID/GID reference serialization: %s", value);
                 return;
         }
 
@@ -476,7 +476,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 } else if ((val = startswith(l, "notify-fd="))) {
                         int fd;
 
-                        if (safe_atoi(val, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
                                 log_notice("Failed to parse notify fd, ignoring: \"%s\"", val);
                         else {
                                 m->notify_event_source = sd_event_source_disable_unref(m->notify_event_source);
@@ -492,7 +492,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 } else if ((val = startswith(l, "cgroups-agent-fd="))) {
                         int fd;
 
-                        if (safe_atoi(val, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
                                 log_notice("Failed to parse cgroups agent fd, ignoring.: %s", val);
                         else {
                                 m->cgroups_agent_event_source = sd_event_source_disable_unref(m->cgroups_agent_event_source);
