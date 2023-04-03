@@ -477,6 +477,11 @@ tests += [
                 'base' : test_core_base,
         },
         {
+                'sources' : files('test-core-unit.c'),
+                'dependencies' : common_test_dependencies,
+                'base' : test_core_base,
+        },
+        {
                 'sources' : files('test-emergency-action.c'),
                 'base' : test_core_base,
         },
