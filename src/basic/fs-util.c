@@ -824,7 +824,7 @@ int conservative_renameat(
          * have the exact same contents and basic file attributes already. In that case remove the new file
          * instead. This call is useful for reducing inotify wakeups on files that are updated but don't
          * actually change. This function is written in a style that we rather rename too often than suppress
-         * too much. i.e. whenever we are in doubt we rather rename than fail. After all reducing inotify
+         * too much. I.e. whenever we are in doubt, we rather rename than fail. After all reducing inotify
          * events is an optimization only, not more. */
 
         old_fd = openat(olddirfd, oldpath, O_CLOEXEC|O_RDONLY|O_NOCTTY|O_NOFOLLOW);
