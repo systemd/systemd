@@ -1,0 +1,52 @@
+#!/bin/sh
+# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
+# ex: ts=8 sw=4 sts=4 et filetype=sh
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+set -e
+
+COMMAND="${1:?}"
+ENTRY_DIR_ABS="${3:?}"
+
+case "$COMMAND" in
+    remove)
+        [ "$KERNEL_INSTALL_LAYOUT" = "bls" ] || exit 0
+
+        for ucode in "${ENTRY_DIR_ABS}"/early-cpio*; do
+            [ -f "$ucode" ] || continue
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Removing $ucode"
+            rm -f "$ucode"
+        done
+        ;;
+    add)
+        for ucode in "intel-ucode.img" "amd-ucode.img" "intel-uc.img" "amd-uc.img" "early_ucode.cpio" "microcode.cpio"; do
+            for dir in "$KERNEL_INSTALL_BOOT_ROOT" "/boot"; do
+                if [ -f "${dir}/${ucode}" ]; then
+                    install "${dir}/${ucode}" "${KERNEL_INSTALL_STAGING_AREA}/early-cpio-${ucode}" || {
+                        echo "Error: could not copy '$ucode' to the staging area." >&2
+                        exit 1
+                        }
+                fi
+            done
+        done
+        ;;
+    *)
+        exit 0
+        ;;
+esac
+
