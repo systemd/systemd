@@ -712,7 +712,7 @@ static int transient_kill_set_properties(sd_bus_message *m) {
         return 0;
 }
 
-static int transient_service_set_properties(sd_bus_message *m, const char *pty_path) {
+static int transient_service_set_properties(sd_bus_message *m, const char *pty_path, bool use_ex_prop) {
         bool send_term = false;
         int r;
 
@@ -847,19 +847,23 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "s", "ExecStart");
+                r = sd_bus_message_append(m, "s",
+                                          use_ex_prop ? "ExecStartEx" : "ExecStart");
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_open_container(m, 'v', "a(sasb)");
+                r = sd_bus_message_open_container(m, 'v',
+                                                  use_ex_prop ? "a(sasas)" : "a(sasb)");
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_open_container(m, 'a', "(sasb)");
+                r = sd_bus_message_open_container(m, 'a',
+                                                  use_ex_prop ? "(sasas)" : "(sasb)");
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_open_container(m, 'r', "sasb");
+                r = sd_bus_message_open_container(m, 'r',
+                                                  use_ex_prop ? "sasas" : "sasb");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -871,7 +875,10 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "b", false);
+                if (use_ex_prop)
+                        r = sd_bus_message_append_strv(m, STRV_MAKE("no-env-expand"));
+                else
+                        r = sd_bus_message_append(m, "b", false);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1109,10 +1116,52 @@ static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
         return 0;
 }
 
-static int start_transient_service(
+static int make_transient_service_unit(
                 sd_bus *bus,
-                int *retval) {
+                sd_bus_message **message,
+                const char *service,
+                const char *pty_path,
+                bool use_ex_prop) {
 
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r;
+
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* Name and mode */
+        r = sd_bus_message_append(m, "ss", service, "fail");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* Properties */
+        r = sd_bus_message_open_container(m, 'a', "(sv)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = transient_service_set_properties(m, pty_path, use_ex_prop);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* Auxiliary units */
+        r = sd_bus_message_append(m, "a(sa(sv))", 0);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        *message = TAKE_PTR(m);
+        return 0;
+}
+
+static int start_transient_service(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
@@ -1121,7 +1170,6 @@ static int start_transient_service(
         int r;
 
         assert(bus);
-        assert(retval);
 
         if (arg_stdio == ARG_STDIO_PTY) {
 
@@ -1194,40 +1242,27 @@ static int start_transient_service(
                         return r;
         }
 
-        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        /* Name and mode */
-        r = sd_bus_message_append(m, "ss", service, "fail");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        /* Properties */
-        r = sd_bus_message_open_container(m, 'a', "(sv)");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = transient_service_set_properties(m, pty_path);
+        r = make_transient_service_unit(bus, &m, service, pty_path, /* use_ex_prop= */ true);
         if (r < 0)
                 return r;
-
-        r = sd_bus_message_close_container(m);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        /* Auxiliary units */
-        r = sd_bus_message_append(m, "a(sa(sv))", 0);
-        if (r < 0)
-                return bus_log_create_error(r);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0 &&
+            sd_bus_error_has_names(&error,
+                                   SD_BUS_ERROR_UNKNOWN_PROPERTY,
+                                   SD_BUS_ERROR_PROPERTY_READ_ONLY)) {
+                log_debug_errno(r, "Failed to start transient service unit with new property names: %s", bus_error_message(&error, r));
+
+                /* For compatibility with old systemd, let's try again using old property names. */
+                m = sd_bus_message_unref(m);
+                r = make_transient_service_unit(bus, &m, service, pty_path, /* use_ex_prop= */ false);
+                if (r < 0)
+                                return r;
+
+                r = sd_bus_call(bus, m, 0, &error, &reply);
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to start transient service unit: %s", bus_error_message(&error, r));
 
@@ -1360,16 +1395,16 @@ static int start_transient_service(
                 /* Try to propagate the service's return value. But if the service defines
                  * e.g. SuccessExitStatus, honour this, and return 0 to mean "success". */
                 if (streq_ptr(c.result, "success"))
-                        *retval = 0;
+                        return EXIT_SUCCESS;
                 else if (streq_ptr(c.result, "exit-code") && c.exit_status > 0)
-                        *retval = c.exit_status;
+                        return c.exit_status;
                 else if (streq_ptr(c.result, "signal"))
-                        *retval = EXIT_EXCEPTION;
+                        return EXIT_EXCEPTION;
                 else
-                        *retval = EXIT_FAILURE;
+                        return EXIT_FAILURE;
         }
 
-        return 0;
+        return EXIT_SUCCESS;
 }
 
 static int acquire_invocation_id(sd_bus *bus, sd_id128_t *ret) {
@@ -1555,10 +1590,89 @@ static int start_transient_scope(sd_bus *bus) {
         return log_error_errno(errno, "Failed to execute: %m");
 }
 
-static int start_transient_trigger(
+static int make_transient_trigger_unit(
                 sd_bus *bus,
-                const char *suffix) {
+                sd_bus_message **message,
+                const char *suffix,
+                const char *trigger,
+                const char *service,
+                bool use_ex_prop) {
 
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r;
+
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* Name and Mode */
+        r = sd_bus_message_append(m, "ss", trigger, "fail");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* Properties */
+        r = sd_bus_message_open_container(m, 'a', "(sv)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (streq(suffix, ".path"))
+                r = transient_unit_set_properties(m, UNIT_PATH, arg_path_property);
+        else if (streq(suffix, ".socket"))
+                r = transient_unit_set_properties(m, UNIT_SOCKET, arg_socket_property);
+        else if (streq(suffix, ".timer"))
+                r = transient_timer_set_properties(m);
+        else
+                assert_not_reached();
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'a', "(sa(sv))");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (!strv_isempty(arg_cmdline)) {
+                r = sd_bus_message_open_container(m, 'r', "sa(sv)");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "s", service);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'a', "(sv)");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = transient_service_set_properties(m, NULL, use_ex_prop);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        *message = TAKE_PTR(m);
+        return 0;
+}
+
+static int start_transient_trigger(sd_bus *bus, const char *suffix) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
@@ -1620,76 +1734,28 @@ static int start_transient_trigger(
                         return log_error_errno(r, "Failed to change unit suffix: %m");
         }
 
-        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        /* Name and Mode */
-        r = sd_bus_message_append(m, "ss", trigger, "fail");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        /* Properties */
-        r = sd_bus_message_open_container(m, 'a', "(sv)");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        if (streq(suffix, ".path"))
-                r = transient_unit_set_properties(m, UNIT_PATH, arg_path_property);
-        else if (streq(suffix, ".socket"))
-                r = transient_unit_set_properties(m, UNIT_SOCKET, arg_socket_property);
-        else if (streq(suffix, ".timer"))
-                r = transient_timer_set_properties(m);
-        else
-                assert_not_reached();
+        r = make_transient_trigger_unit(bus, &m, suffix, trigger, service, /* use_ex_prop= */ true);
         if (r < 0)
                 return r;
-
-        r = sd_bus_message_close_container(m);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_open_container(m, 'a', "(sa(sv))");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        if (!strv_isempty(arg_cmdline)) {
-                r = sd_bus_message_open_container(m, 'r', "sa(sv)");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_append(m, "s", service);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_open_container(m, 'a', "(sv)");
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = transient_service_set_properties(m, NULL);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_close_container(m);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                r = sd_bus_message_close_container(m);
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
-
-        r = sd_bus_message_close_container(m);
-        if (r < 0)
-                return bus_log_create_error(r);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0 &&
+            sd_bus_error_has_names(&error,
+                                   SD_BUS_ERROR_UNKNOWN_PROPERTY,
+                                   SD_BUS_ERROR_PROPERTY_READ_ONLY)) {
+                log_debug_errno(r, "Failed to start transient %s unit with new property names: %s",
+                                suffix + 1, bus_error_message(&error, r));
+
+                /* For compatibility with old systemd, let's try again using old property names. */
+                m = sd_bus_message_unref(m);
+                r = make_transient_trigger_unit(bus, &m, suffix, trigger, service, /* use_ex_prop= */ false);
+                if (r < 0)
+                                return r;
+
+                r = sd_bus_call(bus, m, 0, &error, &reply);
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to start transient %s unit: %s", suffix + 1, bus_error_message(&error, r));
 
@@ -1707,7 +1773,7 @@ static int start_transient_trigger(
                         log_info("Will run service as unit: %s", service);
         }
 
-        return 0;
+        return EXIT_SUCCESS;
 }
 
 static bool shall_make_executable_absolute(void) {
@@ -1726,7 +1792,7 @@ static bool shall_make_executable_absolute(void) {
 static int run(int argc, char* argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *description = NULL;
-        int r, retval = EXIT_SUCCESS;
+        int r;
 
         log_show_color(true);
         log_parse_environment();
@@ -1773,19 +1839,15 @@ static int run(int argc, char* argv[]) {
                 return bus_log_connect_error(r, arg_transport);
 
         if (arg_scope)
-                r = start_transient_scope(bus);
+                return start_transient_scope(bus);
         else if (arg_path_property)
-                r = start_transient_trigger(bus, ".path");
+                return start_transient_trigger(bus, ".path");
         else if (arg_socket_property)
-                r = start_transient_trigger(bus, ".socket");
+                return start_transient_trigger(bus, ".socket");
         else if (arg_with_timer)
-                r = start_transient_trigger(bus, ".timer");
+                return start_transient_trigger(bus, ".timer");
         else
-                r = start_transient_service(bus, &retval);
-        if (r < 0)
-                return r;
-
-        return retval;
+                return start_transient_service(bus);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

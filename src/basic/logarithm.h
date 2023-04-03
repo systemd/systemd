@@ -30,6 +30,10 @@ static inline unsigned u32ctz(uint32_t n) {
 #endif
 }
 
+static inline unsigned popcount(unsigned n) {
+        return __builtin_popcount(n);
+}
+
 #define CONST_LOG2U(x) ((x) > 1 ? __SIZEOF_INT__ * 8 - __builtin_clz(x) - 1 : 0)
 #define NONCONST_LOG2U(x) ({                                             \
                 unsigned _x = (x);                                       \

@@ -635,7 +635,8 @@ static int bus_service_set_transient_property(
                 return bus_set_transient_exit_status(u, name, &s->success_status, message, flags, error);
 
         ci = service_exec_command_from_string(name);
-        ci = (ci >= 0) ? ci : service_exec_ex_command_from_string(name);
+        if (ci < 0)
+                ci = service_exec_ex_command_from_string(name);
         if (ci >= 0)
                 return bus_set_transient_exec_command(u, name, &s->exec_command[ci], message, flags, error);
 
@@ -723,7 +724,7 @@ int bus_service_set_property(
                 return r;
 
         if (u->transient && u->load_state == UNIT_STUB) {
-                /* This is a transient unit, let's load a little more */
+                /* This is a transient unit, let's allow a little more */
 
                 r = bus_service_set_transient_property(s, name, message, flags, error);
                 if (r != 0)

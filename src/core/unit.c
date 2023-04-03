@@ -36,6 +36,7 @@
 #include "load-dropin.h"
 #include "load-fragment.h"
 #include "log.h"
+#include "logarithm.h"
 #include "macro.h"
 #include "missing_audit.h"
 #include "mkdir-label.h"
@@ -3465,7 +3466,7 @@ static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bu
 
         e = sd_bus_message_get_error(message);
         if (e) {
-                if (!sd_bus_error_has_name(e, "org.freedesktop.DBus.Error.NameHasNoOwner")) {
+                if (!sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER)) {
                         r = sd_bus_error_get_errno(e);
                         log_unit_error_errno(u, r,
                                              "Unexpected error response from GetNameOwner(): %s",
@@ -4310,20 +4311,18 @@ static const char* unit_drop_in_dir(Unit *u, UnitWriteFlags flags) {
         return NULL;
 }
 
-char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf) {
-        assert(!FLAGS_SET(flags, UNIT_ESCAPE_EXEC_SYNTAX | UNIT_ESCAPE_C));
+const char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf) {
+        assert(s);
+        assert(popcount(flags & (UNIT_ESCAPE_EXEC_SYNTAX_ENV | UNIT_ESCAPE_EXEC_SYNTAX | UNIT_ESCAPE_C)) <= 1);
+        assert(buf);
 
         _cleanup_free_ char *t = NULL;
 
-        if (!s)
-                return NULL;
-
-        /* Escapes the input string as requested. Returns the escaped string. If 'buf' is specified then the
-         * allocated return buffer pointer is also written to *buf, except if no escaping was necessary, in
-         * which case *buf is set to NULL, and the input pointer is returned as-is. This means the return
-         * value always contains a properly escaped version, but *buf when passed only contains a pointer if
-         * an allocation was necessary. If *buf is not specified, then the return value always needs to be
-         * freed. Callers can use this to optimize memory allocations. */
+        /* Returns a string with any escaping done. If no escaping was necessary, *buf is set to NULL, and
+         * the input pointer is returned as-is. If an allocation was needed, the return buffer pointer is
+         * written to *buf. This means the return value always contains a properly escaped version, but *buf
+         * only contains a pointer if an allocation was made. Callers can use this to optimize memory
+         * allocations. */
 
         if (flags & UNIT_ESCAPE_SPECIFIERS) {
                 t = specifier_escape(s);
@@ -4333,11 +4332,20 @@ char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf) {
                 s = t;
         }
 
-        /* We either do c-escaping or shell-escaping, to additionally escape characters that we parse for
-         * ExecStart= and friend, i.e. '$' and ';' and quotes. */
+        /* We either do C-escaping or shell-escaping, to additionally escape characters that we parse for
+         * ExecStart= and friends, i.e. '$' and quotes. */
 
-        if (flags & UNIT_ESCAPE_EXEC_SYNTAX) {
-                char *t2 = shell_escape(s, "$;'\"");
+        if (flags & (UNIT_ESCAPE_EXEC_SYNTAX_ENV | UNIT_ESCAPE_EXEC_SYNTAX)) {
+                char *t2;
+
+                if (flags & UNIT_ESCAPE_EXEC_SYNTAX_ENV) {
+                        t2 = strreplace(s, "$", "$$");
+                        if (!t2)
+                                return NULL;
+                        free_and_replace(t, t2);
+                }
+
+                t2 = shell_escape(t ?: s, "\"");
                 if (!t2)
                         return NULL;
                 free_and_replace(t, t2);
@@ -4345,7 +4353,9 @@ char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf) {
                 s = t;
 
         } else if (flags & UNIT_ESCAPE_C) {
-                char *t2 = cescape(s);
+                char *t2;
+
+                t2 = cescape(s);
                 if (!t2)
                         return NULL;
                 free_and_replace(t, t2);
@@ -4353,12 +4363,8 @@ char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf) {
                 s = t;
         }
 
-        if (buf) {
-                *buf = TAKE_PTR(t);
-                return (char*) s;
-        }
-
-        return TAKE_PTR(t) ?: strdup(s);
+        *buf = TAKE_PTR(t);
+        return (char*) s;
 }
 
 char* unit_concat_strv(char **l, UnitWriteFlags flags) {
