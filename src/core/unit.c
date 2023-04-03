@@ -4312,7 +4312,7 @@ static const char* unit_drop_in_dir(Unit *u, UnitWriteFlags flags) {
 
 const char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf) {
         assert(s);
-        assert(!FLAGS_SET(flags, UNIT_ESCAPE_EXEC_SYNTAX | UNIT_ESCAPE_C));
+        assert(!FLAGS_SET(flags, UNIT_ESCAPE_EXEC_SYNTAX_ENV | UNIT_ESCAPE_C));
         assert(buf);
 
         _cleanup_free_ char *t = NULL;
@@ -4334,7 +4334,7 @@ const char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf)
         /* We either do C-escaping or shell-escaping, to additionally escape characters that we parse for
          * ExecStart= and friends, i.e. '$' and quotes. */
 
-        if (flags & UNIT_ESCAPE_EXEC_SYNTAX) {
+        if (flags & UNIT_ESCAPE_EXEC_SYNTAX_ENV) {
                 char *t2;
 
                 t2 = strreplace(s, "$", "$$");
