@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-#include "macro.h"
-
 /* Note: log2(0) == log2(1) == 0 here and below. */
 
 #define CONST_LOG2ULL(x) ((x) > 1 ? (unsigned) __builtin_clzll(x) ^ 63U : 0)
@@ -29,6 +27,14 @@ static inline unsigned u32ctz(uint32_t n) {
 #  error "Wut?"
 #endif
 }
+
+#define popcount(n)                                             \
+        _Generic((n),                                           \
+                 unsigned char: __builtin_popcount(n),          \
+                 unsigned short: __builtin_popcount(n),         \
+                 unsigned: __builtin_popcount(n),               \
+                 unsigned long: __builtin_popcountl(n),         \
+                 unsigned long long: __builtin_popcountll(n))
 
 #define CONST_LOG2U(x) ((x) > 1 ? __SIZEOF_INT__ * 8 - __builtin_clz(x) - 1 : 0)
 #define NONCONST_LOG2U(x) ({                                             \
