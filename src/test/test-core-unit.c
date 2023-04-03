@@ -41,13 +41,13 @@ static void test_unit_escape_setting_one(
 
 TEST(unit_escape_setting) {
         test_unit_escape_setting_one("/sbin/sbash", NULL, NULL);
-        test_unit_escape_setting_one("$", "\\$", "$");
-        test_unit_escape_setting_one("$$", "\\$\\$", "$$");
-        test_unit_escape_setting_one("'", "\\'", NULL);
+        test_unit_escape_setting_one("$", "$$", "$");
+        test_unit_escape_setting_one("$$", "$$$$", "$$");
+        test_unit_escape_setting_one("'", "'", "\\'");
         test_unit_escape_setting_one("\"", "\\\"", NULL);
         test_unit_escape_setting_one("\t", "\\t", NULL);
         test_unit_escape_setting_one(" ", NULL, NULL);
-        test_unit_escape_setting_one("$;'\"\t\n", "\\$\\;\\'\\\"\\t\\n", "$;\\'\\\"\\t\\n");
+        test_unit_escape_setting_one("$;'\"\t\n", "$$;'\\\"\\t\\n", "$;\\'\\\"\\t\\n");
 }
 
 static void test_unit_concat_strv_one(
@@ -89,7 +89,7 @@ TEST(unit_concat_strv) {
                                   NULL);
         test_unit_concat_strv_one(STRV_MAKE("a", " ", "$", "$$", ""),
                                   "\"a\" \" \" \"$\" \"$$\" \"\"",
-                                  "\"a\" \" \" \"\\$\" \"\\$\\$\" \"\"",
+                                  "\"a\" \" \" \"$$\" \"$$$$\" \"\"",
                                   NULL);
         test_unit_concat_strv_one(STRV_MAKE("\n", " ", "\t"),
                                   "\"\n\" \" \" \"\t\"",
