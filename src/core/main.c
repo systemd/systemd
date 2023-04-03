@@ -2744,7 +2744,7 @@ static bool early_skip_setup_check(int argc, char *argv[]) {
         for (int i = 1; i < argc; i++)
                 if (streq(argv[i], "--switched-root"))
                         return false; /* If we switched root, don't skip the setup. */
-                else if (startswith(argv[i], "--deserialize"))
+                else if (startswith(argv[i], "--deserialize=") || streq(argv[i], "--deserialize"))
                         found_deserialize = true;
 
         return found_deserialize; /* When we are deserializing, then we are reexecuting, hence avoid the extensive setup */
