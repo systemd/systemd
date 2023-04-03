@@ -2761,8 +2761,6 @@ static int service_stop(Unit *u) {
                 /* Unknown state, or unit_stop() should already have handled these */
                 assert_not_reached();
         }
-
-
 }
 
 static int service_reload(Unit *u) {
