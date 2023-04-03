@@ -28,6 +28,8 @@ INITRD_OPTIONS_SHIFT=4
 # Default paths
 DEFAULT_PCRPRIVATEKEY="/etc/systemd/tpm2-pcr-private.pem" 
 DEFAULT_PCRPUBLICKEY="/etc/systemd/tpm2-pcr-public-key.pem"
+DEFAULT_SBKEY="/usr/share/secureboot/keys/db/db.key"
+DEFAULT_SBCERT="/usr/share/secureboot/keys/db/db.pem"
 
 # Exit if UKI layout is not desired, or if Ukify is not the desired generator
 [ "$KERNEL_INSTALL_LAYOUT" = "uki" ] && [ "$KERNEL_INSTALL_UKI_GENERATOR" = "ukify" ] || exit 0
@@ -148,8 +150,12 @@ if [ "$COMMAND" = "add" ]; then
   
     # Add SecureBoot keys if detected
     if [ -n "$UKI_SBKEY" ] && [ -n "$UKI_SBCERT" ]; then
-        ARGS="$ARGS --secureboot-private-key=$UKI_SBKEY --secureboot-certificate=$UKI_SBCERT"
+        [ -f "$UKI_SBKEY" ] && [ -f "$UKI_SBCERT" ] && ARGS="$ARGS --secureboot-private-key=$UKI_SBKEY --secureboot-certificate=$UKI_SBCERT"
+    # If not use default paths if keys exist
+    else 
+        [ -f "$DEFAULT_SBKEY" ] && [ -f "$DEFAULT_SBCERT" ] && ARGS="$ARGS --secureboot-private-key=$DEFAULT_SBKEY --secureboot-certificate=$DEFAULT_SBCERT"
     fi
+
 	
     # Signing engine
     [ -n "$UKI_SIGNENGINE" ] && ARGS="$ARGS --signing-engine=$UKI_SIGNENGINE"
