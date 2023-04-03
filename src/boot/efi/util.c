@@ -282,6 +282,44 @@ void mangle_stub_cmdline(char16_t *cmdline) {
         }
 }
 
+EFI_STATUS chunked_read(EFI_FILE *file, size_t *size, void *buf) {
+        EFI_STATUS err;
+
+        assert(file);
+        assert(size);
+        assert(buf);
+
+        /* This is a drop-in replacement for EFI_FILE->Read() with the same API behavior.
+         * Some broken firmwares cannot handle large file reads and will instead return
+         * an error. As a workaround, read such files in small chunks.
+         * Note that we cannot just try reading the whole file first on such firmware as
+         * that will permanently break the handle even if it is re-opened.
+         *
+         * https://github.com/systemd/systemd/issues/25911 */
+
+        if (*size == 0)
+                return EFI_SUCCESS;
+
+        size_t read = 0, remaining = *size;
+        while (remaining > 0) {
+                size_t chunk = MIN(1024U * 1024U, remaining);
+
+                err = file->Read(file, &chunk, (uint8_t *) buf + read);
+                if (err != EFI_SUCCESS)
+                        return err;
+                if (chunk == 0)
+                        /* Caller requested more bytes than are in file. */
+                        break;
+
+                assert(chunk <= remaining);
+                read += chunk;
+                remaining -= chunk;
+        }
+
+        *size = read;
+        return EFI_SUCCESS;
+}
+
 EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, size_t off, size_t size, char **ret, size_t *ret_size) {
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
         _cleanup_free_ char *buf = NULL;
@@ -315,13 +353,11 @@ EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, size_t off, size_t siz
         size_t extra = size % sizeof(char16_t) + sizeof(char16_t);
 
         buf = xmalloc(size + extra);
-        if (size > 0) {
-                err = handle->Read(handle, &size, buf);
-                if (err != EFI_SUCCESS)
-                        return err;
-        }
+        err = chunked_read(handle, &size, buf);
+        if (err != EFI_SUCCESS)
+                return err;
 
-        /* Note that handle->Read() changes size to reflect the actually bytes read. */
+        /* Note that chunked_read() changes size to reflect the actual bytes read. */
         memset(buf + size, 0, extra);
 
         *ret = TAKE_PTR(buf);
