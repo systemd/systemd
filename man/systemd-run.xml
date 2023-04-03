@@ -549,6 +549,42 @@ There is a screen on:
     </example>
 
     <example>
+      <title>Variable expansion by the manager</title>
+
+      <programlisting>$ systemd-run -t echo "&lt;${INVOCATION_ID}>" '&lt;${INVOCATION_ID}>'
+      &lt;> &lt;5d0149bfa2c34b79bccb13074001eb20>
+      </programlisting>
+
+      <para>The first argument is expanded by the shell (double quotes), but the second one is not expanded
+      by the shell (single quotes). <command>echo</command> is called with [<literal>/usr/bin/echo</literal>,
+      <literal>[]</literal>, <literal>[${INVOCATION_ID}]</literal>] as the argument array, and then
+      <command>systemd</command> generates <varname>${INVOCATION_ID}</varname> and substitutes it in the
+      command-line. This substitution could not be done on the client side, because the target ID that will
+      be set for the service isn't known before the call is made.</para>
+    </example>
+
+    <example>
+      <title>Variable expansion and output redirection using a shell</title>
+
+      <para>Variable expansion by <command>systemd</command> can be disabled with
+      <varname>--expand-environment=no</varname>.</para>
+
+      <para>Disabling variable expansion can be useful if the command to execute contains dollar characters
+      and escaping them would be inconvenient. For example, when a shell is used:</para>
+
+      <programlisting>$ systemd-run --expand-environment=no -t bash \
+      -c 'echo $SHELL $$ >/dev/stdout'
+/bin/bash 12345
+      </programlisting>
+
+      <para>The last argument is passed verbatim to the <command>bash</command> shell which is started by the
+      service unit. The shell expands <literal>$SHELL</literal> to the path of the shell, and
+      <literal>$$</literal> to its process number, and then those strings are passed to the
+      <command>echo</command> built-in and printed to standard output (which in this case is connected to the
+      calling terminal).</para>
+    </example>
+
+    <example>
       <title>Return value</title>
 
       <programlisting>$ systemd-run --user --wait true
