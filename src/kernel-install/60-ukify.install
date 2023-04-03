@@ -45,7 +45,7 @@ if [ "$COMMAND" = "add" ]; then
     UKIFY="/usr/lib/systemd/ukify"
     ARGS="$KERNEL_IMAGE"
 
-    # microcode (can be replaced by early-cpios in Ssaging area if https://github.com/systemd/systemd/pull/27111 is accepted)
+    # microcode (can be replaced by early-cpios in staging area if https://github.com/systemd/systemd/pull/27111 is accepted)
     for ucode in "intel-ucode.img" "amd-ucode.img" "intel-uc.img" "amd-uc.img" "early_ucode.cpio" "microcode.cpio"; do
         for dir in "$KERNEL_INSTALL_BOOT_ROOT" "/boot"; do
             if [ -f "${dir}/${ucode}" ]; then
