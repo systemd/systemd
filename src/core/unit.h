@@ -542,8 +542,11 @@ typedef enum UnitWriteFlags {
         /* Escape elements of ExecStart= syntax, incl. prevention of variable expansion */
         UNIT_ESCAPE_EXEC_SYNTAX_ENV = 1 << 4,
 
+        /* Escape elements of ExecStart=: syntax (no variable expansion) */
+        UNIT_ESCAPE_EXEC_SYNTAX     = 1 << 5,
+
         /* Apply C escaping before writing */
-        UNIT_ESCAPE_C               = 1 << 5,
+        UNIT_ESCAPE_C               = 1 << 6,
 } UnitWriteFlags;
 
 /* Returns true if neither persistent, nor runtime storage is requested, i.e. this is a check invocation only */
