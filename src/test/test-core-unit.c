@@ -26,7 +26,7 @@ static void test_unit_escape_setting_one(
         assert_se(a == NULL);
         assert_se(t == s);
 
-        assert_se(t = unit_escape_setting(s, UNIT_ESCAPE_EXEC_SYNTAX, &b));
+        assert_se(t = unit_escape_setting(s, UNIT_ESCAPE_EXEC_SYNTAX_ENV, &b));
         assert_se(b_esc = cescape(t));
         log_debug("%s: [%s] → [%s]", __func__, s_esc, b_esc);
         assert_se(b == NULL || streq(b, t));
@@ -71,7 +71,7 @@ static void test_unit_concat_strv_one(
         log_debug("%s: [%s] → [%s]", __func__, s_esc, a_esc);
         assert_se(streq(a, expected_none));
 
-        assert_se(b = unit_concat_strv(s, UNIT_ESCAPE_EXEC_SYNTAX));
+        assert_se(b = unit_concat_strv(s, UNIT_ESCAPE_EXEC_SYNTAX_ENV));
         assert_se(b_esc = cescape(b));
         log_debug("%s: [%s] → [%s]", __func__, s_esc, b_esc);
         assert_se(streq(b, expected_exec));
