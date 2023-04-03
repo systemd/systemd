@@ -3960,6 +3960,8 @@ static int partition_populate_directory(Partition *p, Hashmap *denylist, char **
 
         assert(ret);
 
+        log_info("Populating %s filesystem.", p->format);
+
         r = var_tmp_dir(&vt);
         if (r < 0)
                 return log_error_errno(r, "Could not determine temporary directory: %m");
@@ -3980,6 +3982,8 @@ static int partition_populate_directory(Partition *p, Hashmap *denylist, char **
         if (r < 0)
                 return r;
 
+        log_info("Successfully populated %s filesystem.", p->format);
+
         *ret = TAKE_PTR(root);
         return 0;
 }
@@ -3990,7 +3994,7 @@ static int partition_populate_filesystem(Partition *p, const char *node, Hashmap
         assert(p);
         assert(node);
 
-        log_info("Populating %s filesystem with files.", p->format);
+        log_info("Populating %s filesystem.", p->format);
 
         /* We copy in a child process, since we have to mount the fs for that, and we don't want that fs to
          * appear in the host namespace. Hence we fork a child that has its own file system namespace and
@@ -4027,7 +4031,7 @@ static int partition_populate_filesystem(Partition *p, const char *node, Hashmap
                 _exit(EXIT_SUCCESS);
         }
 
-        log_info("Successfully populated %s filesystem with files.", p->format);
+        log_info("Successfully populated %s filesystem.", p->format);
         return 0;
 }
 
@@ -5443,6 +5447,7 @@ static int context_minimize(Context *context) {
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
                 _cleanup_strv_free_ char **extra_mkfs_options = NULL;
                 _cleanup_close_ int fd = -EBADF;
+                _cleanup_free_ char *hint = NULL;
                 sd_id128_t fs_uuid;
                 uint64_t fsz;
 
@@ -5463,6 +5468,11 @@ static int context_minimize(Context *context) {
 
                 assert(!p->copy_blocks_path);
 
+                (void) partition_hint(p, context->node, &hint);
+
+                log_info("Pre-populating %s filesystem of partition %s twice to calculate minimal partition size",
+                         p->format, strna(hint));
+
                 r = make_copy_files_denylist(context, p, &denylist);
                 if (r < 0)
                         return r;
@@ -5471,9 +5481,9 @@ static int context_minimize(Context *context) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate temporary file path: %m");
 
-                if (fstype_is_ro(p->format))
+                if (fstype_is_ro(p->format)) {
                         fs_uuid = p->fs_uuid;
-                else {
+                } else {
                         fd = open(temp, O_CREAT|O_EXCL|O_CLOEXEC|O_RDWR|O_NOCTTY, 0600);
                         if (fd < 0)
                                 return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
@@ -5520,6 +5530,14 @@ static int context_minimize(Context *context) {
                 /* Read-only filesystems are minimal from the first try because they create and size the
                  * loopback file for us. */
                 if (fstype_is_ro(p->format)) {
+                        struct stat st;
+
+                        if (stat(temp, &st) < 0)
+                                return log_error_errno(errno, "Failed to stat temporary file: %m");
+
+                        log_info("Minimal partition size of %s filesystem of partition %s is %s",
+                                 p->format, strna(hint), FORMAT_BYTES(st.st_size));
+
                         p->copy_blocks_path = TAKE_PTR(temp);
                         p->copy_blocks_path_is_our_file = true;
                         continue;
@@ -5552,6 +5570,9 @@ static int context_minimize(Context *context) {
                 fsz = round_up_size(fsz + (fsz / 2), context->grain_size);
                 if (minimal_size_by_fs_name(p->format) != UINT64_MAX)
                         fsz = MAX(minimal_size_by_fs_name(p->format), fsz);
+
+                log_info("Minimal partition size of %s filesystem of partition %s is %s",
+                         p->format, strna(hint), FORMAT_BYTES(fsz));
 
                 d = loop_device_unref(d);
 
