@@ -238,13 +238,13 @@ static int verify_esp_udev(
 }
 
 static int verify_fsroot_dir(
-                int dir_fd,
-                const char *path,
+                int dir_fd,           /* points to the parent directory of the target directory */
+                const char *dir_name, /* the name of the target directory */
+                const char *path,     /* the full path of the target directory, used only for logging */
                 bool searching,
                 bool unprivileged_mode,
                 dev_t *ret_dev) {
 
-        _cleanup_free_ char *f = NULL;
         STRUCT_NEW_STATX_DEFINE(sxa);
         STRUCT_NEW_STATX_DEFINE(sxb);
         int r;
@@ -253,17 +253,10 @@ static int verify_fsroot_dir(
          * major/minor of the device, if it is. */
 
         assert(dir_fd >= 0);
+        assert(dir_name);
         assert(path);
 
-        /* We pass the full path from the root directory file descriptor so we can use it for logging, but
-         * dir_fd points to the parent directory of the final component of the given path, so we extract the
-         * filename and operate on that. */
-
-        r = path_extract_filename(path, &f);
-        if (r < 0 && r != -EADDRNOTAVAIL)
-                return log_error_errno(r, "Failed to extract filename of %s: %m", path);
-
-        r = statx_fallback(dir_fd, strempty(f), AT_SYMLINK_NOFOLLOW|(isempty(f) ? AT_EMPTY_PATH : 0),
+        r = statx_fallback(dir_fd, dir_name, AT_SYMLINK_NOFOLLOW,
                            STATX_TYPE|STATX_INO|STATX_MNT_ID, &sxa.sx);
         if (r < 0)
                 return log_full_errno((searching && r == -ENOENT) ||
@@ -305,7 +298,7 @@ success:
                 return 0;
 
         if (sxa.sx.stx_dev_major == 0) /* Hmm, maybe a btrfs device, and the caller asked for the backing device? Then let's try to get it. */
-                return btrfs_get_block_device_at(dir_fd, strempty(f), ret_dev);
+                return btrfs_get_block_device_at(dir_fd, dir_name, ret_dev);
 
         *ret_dev = makedev(sxa.sx.stx_dev_major, sxa.sx.stx_dev_minor);
         return 0;
@@ -324,7 +317,7 @@ static int verify_esp(
 
         bool relax_checks, searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING),
              unprivileged_mode = FLAGS_SET(flags, VERIFY_ESP_UNPRIVILEGED_MODE);
-        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ char *p = NULL, *f = NULL;
         _cleanup_close_ int pfd = -EBADF;
         dev_t devid = 0;
         int r;
@@ -346,21 +339,16 @@ static int verify_esp(
         /* Non-root user can only check the status, so if an error occurred in the following, it does not cause any
          * issues. Let's also, silence the error messages. */
 
-        r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT, &p, &pfd);
+        r = chaseat_full(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT, &p, &f, &pfd);
         if (r < 0)
                 return log_full_errno((searching && r == -ENOENT) ||
                                       (unprivileged_mode && ERRNO_IS_PRIVILEGE(r)) ? LOG_DEBUG : LOG_ERR,
                                       r, "Failed to open parent directory of \"%s\": %m", path);
 
         if (!relax_checks) {
-                _cleanup_free_ char *f = NULL;
                 struct statfs sfs;
 
-                r = path_extract_filename(p, &f);
-                if (r < 0 && r != -EADDRNOTAVAIL)
-                        return log_error_errno(r, "Failed to extract filename of %s: %m", p);
-
-                r = xstatfsat(pfd, strempty(f), &sfs);
+                r = xstatfsat(pfd, f, &sfs);
                 if (r < 0)
                         /* If we are searching for the mount point, don't generate a log message if we can't find the path */
                         return log_full_errno((searching && r == -ENOENT) ||
@@ -377,7 +365,7 @@ static int verify_esp(
                 relax_checks ||
                 detect_container() > 0;
 
-        r = verify_fsroot_dir(pfd, p, searching, unprivileged_mode, relax_checks ? NULL : &devid);
+        r = verify_fsroot_dir(pfd, f, p, searching, unprivileged_mode, relax_checks ? NULL : &devid);
         if (r < 0)
                 return r;
 
@@ -444,10 +432,7 @@ int find_esp_and_warn_at(
 
         assert(rfd >= 0 || rfd == AT_FDCWD);
 
-        if (rfd >= 0)
-                r = dir_fd_is_root(rfd);
-        else
-                r = true;
+        r = dir_fd_is_root_or_cwd(rfd);
         if (r < 0)
                 return log_error_errno(r, "Failed to check if directory file descriptor is root: %m");
         if (r == 0)
@@ -729,7 +714,7 @@ static int verify_xbootldr(
                 sd_id128_t *ret_uuid,
                 dev_t *ret_devid) {
 
-        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ char *p = NULL, *f = NULL;
         _cleanup_close_ int pfd = -EBADF;
         bool relax_checks;
         dev_t devid = 0;
@@ -738,7 +723,7 @@ static int verify_xbootldr(
         assert(rfd >= 0 || rfd == AT_FDCWD);
         assert(path);
 
-        r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT, &p, &pfd);
+        r = chaseat_full(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT, &p, &f, &pfd);
         if (r < 0)
                 return log_full_errno((searching && r == -ENOENT) ||
                                       (unprivileged_mode && ERRNO_IS_PRIVILEGE(r)) ? LOG_DEBUG : LOG_ERR,
@@ -748,7 +733,7 @@ static int verify_xbootldr(
                 getenv_bool("SYSTEMD_RELAX_XBOOTLDR_CHECKS") > 0 ||
                 detect_container() > 0;
 
-        r = verify_fsroot_dir(pfd, p, searching, unprivileged_mode, relax_checks ? NULL : &devid);
+        r = verify_fsroot_dir(pfd, f, p, searching, unprivileged_mode, relax_checks ? NULL : &devid);
         if (r < 0)
                 return r;
 
