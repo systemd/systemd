@@ -3408,7 +3408,7 @@ fail:
 }
 
 static int service_demand_pid_file(Service *s) {
-        PathSpec *ps;
+        _cleanup_free_ PathSpec *ps = NULL;
 
         assert(s->pid_file);
         assert(!s->pid_file_pathspec);
@@ -3417,21 +3417,21 @@ static int service_demand_pid_file(Service *s) {
         if (!ps)
                 return -ENOMEM;
 
-        ps->unit = UNIT(s);
-        ps->path = strdup(s->pid_file);
-        if (!ps->path) {
-                free(ps);
+        *ps = (PathSpec) {
+                .unit = UNIT(s),
+                .path = strdup(s->pid_file),
+                /* PATH_CHANGED would not be enough. There are daemons (sendmail) that keep their PID file
+                 * open all the time. */
+                .type = PATH_MODIFIED,
+                .inotify_fd = -EBADF,
+        };
+
+        if (!ps->path)
                 return -ENOMEM;
-        }
 
         path_simplify(ps->path);
 
-        /* PATH_CHANGED would not be enough. There are daemons (sendmail) that
-         * keep their PID file open all the time. */
-        ps->type = PATH_MODIFIED;
-        ps->inotify_fd = -EBADF;
-
-        s->pid_file_pathspec = ps;
+        s->pid_file_pathspec = TAKE_PTR(ps);
 
         return service_watch_pid_file(s);
 }
