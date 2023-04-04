@@ -211,11 +211,7 @@ function is_xattr_supported() {
     END=$(date '+%Y-%m-%d %T.%6N')
     systemctl stop text_xattr
 
-    if journalctl -q -u "text_xattr" -S "$START" -U "$END" --grep "Failed to set 'user.journald_log_filter_patterns' xattr.*not supported$"; then
-        return 1
-    fi
-
-    return 0
+    ! journalctl -q -u "text_xattr" -S "$START" -U "$END" --grep "Failed to set 'user.journald_log_filter_patterns' xattr.*not supported$"
 }
 
 if is_xattr_supported; then
