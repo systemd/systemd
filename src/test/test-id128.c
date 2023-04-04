@@ -287,6 +287,16 @@ TEST(id128_at) {
         i = SD_ID128_NULL;
         assert_se(id128_read(p, ID128_FORMAT_PLAIN, &i) >= 0);
         assert_se(sd_id128_equal(id, i));
+
+        /* id128_get_machine_at() */
+        i = SD_ID128_NULL;
+        assert_se(id128_get_machine_at(tfd, &i) >= 0);
+        assert_se(sd_id128_equal(id, i));
+
+        /* id128_get_machine() */
+        i = SD_ID128_NULL;
+        assert_se(id128_get_machine(t, &i) >= 0);
+        assert_se(sd_id128_equal(id, i));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
