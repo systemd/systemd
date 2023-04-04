@@ -129,6 +129,10 @@ Deprecations and removals:
 
 Features:
 
+* Add new RuntimeDirectoryPreserve= mode that cleans up the runtime directory
+  like we clean up the fdstore: once the unit is dead and has no jobs queued
+  anymore.
+
 * fix our various hwdb lookup keys to end with ":" again. The original idea was
   that hwdb patters can match arbitrary fields with expressions like
   "*:foobar:*", to wildcard match both the start and the end of the string.
