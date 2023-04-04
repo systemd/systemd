@@ -126,12 +126,9 @@ _public_ int sd_id128_get_machine(sd_id128_t *ret) {
         int r;
 
         if (sd_id128_is_null(saved_machine_id)) {
-                r = id128_read("/etc/machine-id", ID128_FORMAT_PLAIN, &saved_machine_id);
+                r = id128_read("/etc/machine-id", ID128_FORMAT_PLAIN | ID128_REFUSE_NULL, &saved_machine_id);
                 if (r < 0)
                         return r;
-
-                if (sd_id128_is_null(saved_machine_id))
-                        return -ENOMEDIUM;
         }
 
         if (ret)
@@ -144,14 +141,11 @@ _public_ int sd_id128_get_boot(sd_id128_t *ret) {
         int r;
 
         if (sd_id128_is_null(saved_boot_id)) {
-                r = id128_read("/proc/sys/kernel/random/boot_id", ID128_FORMAT_UUID, &saved_boot_id);
+                r = id128_read("/proc/sys/kernel/random/boot_id", ID128_FORMAT_UUID | ID128_REFUSE_NULL, &saved_boot_id);
                 if (r == -ENOENT && proc_mounted() == 0)
                         return -ENOSYS;
                 if (r < 0)
                         return r;
-
-                if (sd_id128_is_null(saved_boot_id))
-                        return -ENOMEDIUM;
         }
 
         if (ret)
