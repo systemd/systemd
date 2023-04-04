@@ -479,12 +479,9 @@ TEST(getenv_steal_erase) {
 }
 
 TEST(strv_env_name_is_valid) {
-        const char *valid_env_names[] = {"HOME", "USER", "SHELL", "PATH", NULL};
-        const char *invalid_env_names[] = {"", "PATH", "home", "user", "SHELL", NULL};
-        const char *repeated_env_names[] = {"HOME", "USER", "SHELL", "USER", NULL};
-        assert_se(strv_env_name_is_valid((char **) valid_env_names));
-        assert_se(!strv_env_name_is_valid((char **) invalid_env_names));
-        assert_se(!strv_env_name_is_valid((char **) repeated_env_names));
+        assert_se(strv_env_name_is_valid(STRV_MAKE("HOME", "USER", "SHELL", "PATH")));
+        assert_se(!strv_env_name_is_valid(STRV_MAKE("", "PATH", "home", "user", "SHELL")));
+        assert_se(!strv_env_name_is_valid(STRV_MAKE("HOME", "USER", "SHELL", "USER")));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
