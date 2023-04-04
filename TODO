@@ -129,6 +129,10 @@ Deprecations and removals:
 
 Features:
 
+* rework journalctl -M to be based on a machined method that generates a mount
+  fd of the relevant journal dirs in the container with uidmapping applied to
+  allow the host to read it, while making everything read-only.
+
 * Add new RuntimeDirectoryPreserve= mode that cleans up the runtime directory
   like we clean up the fdstore: once the unit is dead and has no jobs queued
   anymore.
