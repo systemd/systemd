@@ -2393,7 +2393,7 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                 if (r < 0) {
                         /* We failed to activate the new service, but it still exists. Let's make sure the
                          * service closes and forgets the connection fd again, immediately. */
-                        service_close_socket_fd(SERVICE(service));
+                        service_release_socket_fd(SERVICE(service));
                         goto fail;
                 }
 
