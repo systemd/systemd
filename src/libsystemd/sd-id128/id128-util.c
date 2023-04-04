@@ -4,8 +4,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "chase.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hexdecoct.h"
 #include "id128-util.h"
 #include "io-util.h"
@@ -41,8 +41,9 @@ bool id128_is_valid(const char *s) {
         return false;
 }
 
-int id128_read_fd(int fd, Id128FormatFlag f, sd_id128_t *ret) {
+int id128_read_fd(int fd, Id128Flag f, sd_id128_t *ret) {
         char buffer[SD_ID128_UUID_STRING_MAX + 1]; /* +1 is for trailing newline */
+        sd_id128_t id;
         ssize_t l;
         int r;
 
@@ -98,29 +99,43 @@ int id128_read_fd(int fd, Id128FormatFlag f, sd_id128_t *ret) {
                 return -EUCLEAN;
         }
 
-        r = sd_id128_from_string(buffer, ret);
-        return r == -EINVAL ? -EUCLEAN : r;
+        r = sd_id128_from_string(buffer, &id);
+        if (r == -EINVAL)
+                return -EUCLEAN;
+        if (r < 0)
+                return r;
+
+        if (FLAGS_SET(f, ID128_REFUSE_NULL) && sd_id128_is_null(id))
+                return -ENOMEDIUM;
+
+        if (ret)
+                *ret = id;
+        return 0;
 }
 
-int id128_read(const char *root, const char *p, Id128FormatFlag f, sd_id128_t *ret) {
+int id128_read_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t *ret) {
         _cleanup_close_ int fd = -EBADF;
 
-        assert(p);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(path);
 
-        fd = chase_and_open(p, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, /* ret_path = */ NULL);
+        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY|(FLAGS_SET(f, ID128_NOFOLLOW) ? O_NOFOLLOW : 0), 0);
         if (fd < 0)
                 return fd;
 
         return id128_read_fd(fd, f, ret);
 }
 
-int id128_write_fd(int fd, Id128FormatFlag f, sd_id128_t id) {
+int id128_write_fd(int fd, Id128Flag f, sd_id128_t id) {
         char buffer[SD_ID128_UUID_STRING_MAX + 1]; /* +1 is for trailing newline */
         size_t sz;
         int r;
 
         assert(fd >= 0);
         assert(IN_SET((f & ID128_FORMAT_ANY), ID128_FORMAT_PLAIN, ID128_FORMAT_UUID));
+
+        if (FLAGS_SET(f, ID128_REFUSE_NULL) && sd_id128_is_null(id))
+                return -ENOMEDIUM;
 
         if (FLAGS_SET(f, ID128_FORMAT_PLAIN)) {
                 assert_se(sd_id128_to_string(id, buffer));
@@ -144,12 +159,15 @@ int id128_write_fd(int fd, Id128FormatFlag f, sd_id128_t id) {
         return 0;
 }
 
-int id128_write(const char *p, Id128FormatFlag f, sd_id128_t id) {
+int id128_write_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t id) {
         _cleanup_close_ int fd = -EBADF;
 
-        fd = open(p, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC, 0444);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(path);
+
+        fd = xopenat(dir_fd, path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC|(FLAGS_SET(f, ID128_NOFOLLOW) ? O_NOFOLLOW : 0), 0444);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return id128_write_fd(fd, f, id);
 }
@@ -187,9 +205,9 @@ int id128_get_product(sd_id128_t *ret) {
         /* Reads the systems product UUID from DMI or devicetree (where it is located on POWER). This is
          * particularly relevant in VM environments, where VM managers typically place a VM uuid there. */
 
-        r = id128_read(NULL, "/sys/class/dmi/id/product_uuid", ID128_FORMAT_UUID, &uuid);
+        r = id128_read("/sys/class/dmi/id/product_uuid", ID128_FORMAT_UUID, &uuid);
         if (r == -ENOENT)
-                r = id128_read(NULL, "/proc/device-tree/vm,uuid", ID128_FORMAT_UUID, &uuid);
+                r = id128_read("/proc/device-tree/vm,uuid", ID128_FORMAT_UUID, &uuid);
         if (r < 0)
                 return r;
 
