@@ -558,7 +558,7 @@ static int tpm2_make_primary(
         if (use_srk_model) {
                 r = make_lock_file("/run/systemd/tpm2-srk-init", LOCK_EX, &srk_lock);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to take network zone lock: %m");
+                        return log_error_errno(r, "Failed to take TPM SRK lock: %m");
         }
 
         /* Find existing SRK and use it if present */
@@ -573,7 +573,7 @@ static int tpm2_make_primary(
 
                         if (alg != 0 && alg != got_alg)
                                 log_warning("Caller asked for specific algorithm %u, but existing SRK is %u, ignoring",
-                                                alg, got_alg);
+                                            alg, got_alg);
 
                         if (ret_alg)
                                 *ret_alg = alg;
