@@ -23,13 +23,21 @@ static int broadcast_groups_get(sd_netlink *nl) {
         assert(nl);
         assert(nl->fd >= 0);
 
+        log_debug("NETLINK_LIST_MEMBERSHIPS");
+
         if (getsockopt(nl->fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, NULL, &len) < 0) {
+                log_debug("NETLINK_LIST_MEMBERSHIPS A: %i", errno);
+
                 if (errno != ENOPROTOOPT)
                         return -errno;
+
+                log_debug("NETLINK_LIST_MEMBERSHIPS B: %i", errno);
 
                 nl->broadcast_group_dont_leave = true;
                 return 0;
         }
+
+        log_debug("NETLINK_LIST_MEMBERSHIPS C: %i", errno);
 
         if (len == 0)
                 return 0;
