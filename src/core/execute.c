@@ -2412,6 +2412,8 @@ static int setup_private_users(uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
 }
 
 static bool exec_directory_is_private(const ExecContext *context, ExecDirectoryType type) {
+        assert(context);
+
         if (!context->dynamic_user)
                 return false;
 
