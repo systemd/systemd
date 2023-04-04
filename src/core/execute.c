@@ -2412,6 +2412,8 @@ static int setup_private_users(uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
 }
 
 static bool exec_directory_is_private(const ExecContext *context, ExecDirectoryType type) {
+        assert(context);
+
         if (!context->dynamic_user)
                 return false;
 
@@ -7594,6 +7596,23 @@ void exec_directory_sort(ExecDirectory *d) {
                                 d->items[i].only_create = true;
                                 break;
                         }
+}
+
+ExecCleanMask exec_clean_mask_from_string(const char *s) {
+        ExecDirectoryType t;
+
+        assert(s);
+
+        if (streq(s, "all"))
+                return EXEC_CLEAN_ALL;
+        if (streq(s, "fdstore"))
+                return EXEC_CLEAN_FDSTORE;
+
+        t = exec_resource_type_from_string(s);
+        if (t < 0)
+                return (ExecCleanMask) t;
+
+        return 1U << t;
 }
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(exec_set_credential_hash_ops, char, string_hash_func, string_compare_func, ExecSetCredential, exec_set_credential_free);
