@@ -1186,7 +1186,7 @@ install_suse_systemd() {
         ddebug "Install files from package $p"
         while read -r f; do
             [ -e "$f" ] || continue
-            [ ! -L "$file" ] && [ -d "$file" ] && continue
+            [ ! -L "$f" ] && [ -d "$f" ] && continue
             inst "$f"
         done < <(rpm -ql "$p")
     done
