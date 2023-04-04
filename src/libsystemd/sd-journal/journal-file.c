@@ -27,6 +27,7 @@
 #include "journal-internal.h"
 #include "lookup3.h"
 #include "memory-util.h"
+#include "missing_threads.h"
 #include "path-util.h"
 #include "prioq.h"
 #include "random-util.h"
@@ -313,27 +314,37 @@ JournalFile* journal_file_close(JournalFile *f) {
 }
 
 static bool keyed_hash_requested(void) {
+        static thread_local int cached = -1;
         int r;
 
-        r = getenv_bool("SYSTEMD_JOURNAL_KEYED_HASH");
-        if (r >= 0)
-                return r;
-        if (r != -ENXIO)
-                log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_KEYED_HASH environment variable, ignoring: %m");
+        if (cached < 0) {
+                r = getenv_bool("SYSTEMD_JOURNAL_KEYED_HASH");
+                if (r < 0) {
+                        if (r != -ENXIO)
+                                log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_KEYED_HASH environment variable, ignoring: %m");
+                        cached = true;
+                } else
+                        cached = r;
+        }
 
-        return true;
+        return cached;
 }
 
 static bool compact_mode_requested(void) {
+        static thread_local int cached = -1;
         int r;
 
-        r = getenv_bool("SYSTEMD_JOURNAL_COMPACT");
-        if (r >= 0)
-                return r;
-        if (r != -ENXIO)
-                log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_COMPACT environment variable, ignoring: %m");
+        if (cached < 0) {
+                r = getenv_bool("SYSTEMD_JOURNAL_COMPACT");
+                if (r < 0) {
+                        if (r != -ENXIO)
+                                log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_COMPACT environment variable, ignoring: %m");
+                        cached = true;
+                } else
+                        cached = r;
+        }
 
-        return true;
+        return cached;
 }
 
 static int journal_file_init_header(
