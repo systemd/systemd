@@ -290,4 +290,24 @@ rm -rf "$JTMP"
 
 rm /tmp/lb1
 
+# https://bugzilla.redhat.com/show_bug.cgi?id=2183546
+mkdir /run/systemd/system/systemd-journald.service.d
+for c in "NONE" "XZ" "LZ4" "ZSTD"; do
+    cat >/run/systemd/system/systemd-journald.service.d/compress.conf <<EOF
+[Service]
+Environment=SYSTEMD_JOURNAL_COMPRESS=${c}
+EOF
+    systemctl daemon-reload
+    systemctl restart systemd-journald.service
+
+    ID=$(systemd-id128 new)
+    systemd-cat -t "$ID" /bin/sh -c "echo hoge with ${c}"
+    journalctl --sync
+    ID=$(cat /etc/machine-id)
+    SYSTEMD_LOG_LEVEL=debug journalctl --verify --quiet --file /var/log/journal/"$ID"/system.journal 2>&1 | grep -q -F "compress=${c}"
+done
+
+rm /run/systemd/system/systemd-journald.service.d/compress.conf
+systemctl daemon-reload
+
 touch /testok
