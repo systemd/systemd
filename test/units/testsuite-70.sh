@@ -268,6 +268,22 @@ systemd-cryptenroll --tpm2-public-key-pcrs=key $img_2 && { echo 'unexpected succ
 
 systemd-cryptenroll --tpm2-pcrs=key $img_2 && { echo 'unexpected success'; exit 1; }
 
+systemd-cryptenroll --tpm2-pcrs=44+8 $img_2 && { echo 'unexpected success'; exit 1; }
+
+systemd-cryptenroll --tpm2-pcrs=8 $img_2
+
+systemd-cryptenroll --tpm2-pcrs=hello $img_2 && { echo 'unexpected success'; exit 1; }
+
+systemd-cryptenroll --tpm2-pcrs=boot-loader+boot-loader-config $img_2
+
+systemd-cryptenroll --tpm2-pcrs=7+host-platform $img_2
+
+systemd-cryptenroll --tpm2-pcrs=8+boot-loader-config+11 $img_2
+
+systemd-cryptenroll --tpm2-pcrs=5+boot-loader-config+11 $img_2
+
+systemd-cryptenroll --tpm2-pcrs=5+5+11 $img_2
+
 #wipe_slots
 systemd-cryptenroll --wipe-slot $img_2 && { echo 'unexpected success'; exit 1; }
 
