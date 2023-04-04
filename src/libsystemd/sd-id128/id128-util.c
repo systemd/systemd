@@ -43,6 +43,7 @@ bool id128_is_valid(const char *s) {
 
 int id128_read_fd(int fd, Id128Flag f, sd_id128_t *ret) {
         char buffer[SD_ID128_UUID_STRING_MAX + 1]; /* +1 is for trailing newline */
+        sd_id128_t id;
         ssize_t l;
         int r;
 
@@ -98,8 +99,18 @@ int id128_read_fd(int fd, Id128Flag f, sd_id128_t *ret) {
                 return -EUCLEAN;
         }
 
-        r = sd_id128_from_string(buffer, ret);
-        return r == -EINVAL ? -EUCLEAN : r;
+        r = sd_id128_from_string(buffer, &id);
+        if (r == -EINVAL)
+                return -EUCLEAN;
+        if (r < 0)
+                return r;
+
+        if (FLAGS_SET(f, ID128_REFUSE_NULL) && sd_id128_is_null(id))
+                return -ENOMEDIUM;
+
+        if (ret)
+                *ret = id;
+        return 0;
 }
 
 int id128_read_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t *ret) {
@@ -108,7 +119,7 @@ int id128_read_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t *ret) {
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(path);
 
-        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY, 0);
+        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY|(FLAGS_SET(f, ID128_NOFOLLOW) ? O_NOFOLLOW : 0), 0);
         if (fd < 0)
                 return fd;
 
@@ -122,6 +133,9 @@ int id128_write_fd(int fd, Id128Flag f, sd_id128_t id) {
 
         assert(fd >= 0);
         assert(IN_SET((f & ID128_FORMAT_ANY), ID128_FORMAT_PLAIN, ID128_FORMAT_UUID));
+
+        if (FLAGS_SET(f, ID128_REFUSE_NULL) && sd_id128_is_null(id))
+                return -ENOMEDIUM;
 
         if (FLAGS_SET(f, ID128_FORMAT_PLAIN)) {
                 assert_se(sd_id128_to_string(id, buffer));
@@ -151,7 +165,7 @@ int id128_write_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t id) {
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(path);
 
-        fd = xopenat(dir_fd, path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC, 0444);
+        fd = xopenat(dir_fd, path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_TRUNC|(FLAGS_SET(f, ID128_NOFOLLOW) ? O_NOFOLLOW : 0), 0444);
         if (fd < 0)
                 return fd;
 
