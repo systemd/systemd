@@ -207,38 +207,29 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_VERSION:
                         return version();
 
-                case ARG_FIDO2_WITH_PIN: {
-                        bool lock_with_pin;
-
-                        r = parse_boolean_argument("--fido2-with-client-pin=", optarg, &lock_with_pin);
+                case ARG_FIDO2_WITH_PIN:
+                        r = parse_boolean_argument("--fido2-with-client-pin=", optarg, NULL);
                         if (r < 0)
                                 return r;
 
-                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_PIN, lock_with_pin);
+                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_PIN, r);
                         break;
-                }
 
-                case ARG_FIDO2_WITH_UP: {
-                        bool lock_with_up;
-
-                        r = parse_boolean_argument("--fido2-with-user-presence=", optarg, &lock_with_up);
+                case ARG_FIDO2_WITH_UP:
+                        r = parse_boolean_argument("--fido2-with-user-presence=", optarg, NULL);
                         if (r < 0)
                                 return r;
 
-                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UP, lock_with_up);
+                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UP, r);
                         break;
-                }
 
-                case ARG_FIDO2_WITH_UV: {
-                        bool lock_with_uv;
-
-                        r = parse_boolean_argument("--fido2-with-user-verification=", optarg, &lock_with_uv);
+                case ARG_FIDO2_WITH_UV:
+                        r = parse_boolean_argument("--fido2-with-user-verification=", optarg, NULL);
                         if (r < 0)
                                 return r;
 
-                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UV, lock_with_uv);
+                        SET_FLAG(arg_fido2_lock_with, FIDO2ENROLL_UV, r);
                         break;
-                }
 
                 case ARG_PASSWORD:
                         if (arg_enroll_type >= 0)

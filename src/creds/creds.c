@@ -807,13 +807,11 @@ static int parse_argv(int argc, char *argv[]) {
                         if (isempty(optarg) || streq(optarg, "auto"))
                                 arg_newline = -1;
                         else {
-                                bool b;
-
-                                r = parse_boolean_argument("--newline=", optarg, &b);
+                                r = parse_boolean_argument("--newline=", optarg, NULL);
                                 if (r < 0)
                                         return r;
 
-                                arg_newline = b;
+                                arg_newline = r;
                         }
                         break;
 
