@@ -45,8 +45,5 @@ case "$COMMAND" in
             done
         done
         ;;
-    *)
-        exit 0
-        ;;
 esac
 
