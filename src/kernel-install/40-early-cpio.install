@@ -21,29 +21,17 @@
 set -e
 
 COMMAND="${1:?}"
-ENTRY_DIR_ABS="${3:?}"
 
-case "$COMMAND" in
-    remove)
-        [ "$KERNEL_INSTALL_LAYOUT" = "bls" ] || exit 0
-
-        for ucode in "${ENTRY_DIR_ABS}"/early-cpio*; do
-            [ -f "$ucode" ] || continue
-            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Removing $ucode"
-            rm -f "$ucode"
+if [ "$COMMAND" = "add" ]; then
+    for ucode in "intel-ucode.img" "amd-ucode.img" "intel-uc.img" "amd-uc.img" "early_ucode.cpio" "microcode.cpio"; do
+        for dir in "$KERNEL_INSTALL_BOOT_ROOT" "/boot"; do
+        if [ -f "${dir}/${ucode}" ]; then
+            install "${dir}/${ucode}" "${KERNEL_INSTALL_STAGING_AREA}/early-cpio-${ucode}" || {
+                echo "Error: could not copy '$ucode' to the staging area." >&2
+                exit 1
+            }
+        fi
         done
-        ;;
-    add)
-        for ucode in "intel-ucode.img" "amd-ucode.img" "intel-uc.img" "amd-uc.img" "early_ucode.cpio" "microcode.cpio"; do
-            for dir in "$KERNEL_INSTALL_BOOT_ROOT" "/boot"; do
-                if [ -f "${dir}/${ucode}" ]; then
-                    install "${dir}/${ucode}" "${KERNEL_INSTALL_STAGING_AREA}/early-cpio-${ucode}" || {
-                            echo "Error: could not copy '$ucode' to the staging area." >&2
-                            exit 1
-                        }
-                fi
-            done
-        done
-        ;;
-esac
+    done
+fi
 
