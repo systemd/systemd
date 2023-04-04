@@ -347,6 +347,48 @@ static bool compact_mode_requested(void) {
         return cached;
 }
 
+#if HAVE_COMPRESSION
+static Compression getenv_compression(void) {
+        Compression c;
+        const char *e;
+        int r;
+
+        e = getenv("SYSTEMD_JOURNAL_COMPRESS");
+        if (!e)
+                return DEFAULT_COMPRESSION;
+
+        r = parse_boolean(e);
+        if (r >= 0)
+                return r ? DEFAULT_COMPRESSION : COMPRESSION_NONE;
+
+        c = compression_from_string(e);
+        if (c < 0) {
+                log_debug_errno(c, "Failed to parse SYSTEMD_JOURNAL_COMPRESS value, ignoring: %s", e);
+                return DEFAULT_COMPRESSION;
+        }
+
+        if (!compression_supported(c)) {
+                log_debug("Unsupported compression algorithm specified, ignoring: %s", e);
+                return DEFAULT_COMPRESSION;
+        }
+
+        return c;
+}
+#endif
+
+static Compression compression_requested(void) {
+#if HAVE_COMPRESSION
+        static thread_local Compression cached = _COMPRESSION_INVALID;
+
+        if (cached < 0)
+                cached = getenv_compression();
+
+        return cached;
+#else
+        return COMPRESSION_NONE;
+#endif
+}
+
 static int journal_file_init_header(
                 JournalFile *f,
                 JournalFileFlags file_flags,
@@ -366,7 +408,7 @@ static int journal_file_init_header(
         Header h = {
                 .header_size = htole64(ALIGN64(sizeof(h))),
                 .incompatible_flags = htole32(
-                                FLAGS_SET(file_flags, JOURNAL_COMPRESS) * COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(DEFAULT_COMPRESSION) |
+                                FLAGS_SET(file_flags, JOURNAL_COMPRESS) * COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(compression_requested()) |
                                 keyed_hash_requested() * HEADER_INCOMPATIBLE_KEYED_HASH |
                                 compact_mode_requested() * HEADER_INCOMPATIBLE_COMPACT),
                 .compatible_flags = htole32(
