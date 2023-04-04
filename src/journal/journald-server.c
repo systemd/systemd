@@ -2124,7 +2124,7 @@ static int vl_method_synchronize(Varlink *link, JsonVariant *parameters, Varlink
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
 
-        log_info("Received client request to rotate journal.");
+        log_info("Received client request to sync journal.");
 
         /* We don't do the main work now, but instead enqueue a deferred event loop job which will do
          * it. That job is scheduled at low priority, so that we return from this method call only after all
