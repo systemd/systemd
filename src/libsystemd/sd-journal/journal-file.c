@@ -1630,24 +1630,31 @@ static int journal_file_append_field(
 }
 
 static Compression maybe_compress_payload(JournalFile *f, uint8_t *dst, const uint8_t *src, uint64_t size, size_t *rsize) {
-        Compression compression = COMPRESSION_NONE;
-
         assert(f);
         assert(f->header);
 
 #if HAVE_COMPRESSION
-        if (JOURNAL_FILE_COMPRESS(f) && size >= f->compress_threshold_bytes) {
-                compression = compress_blob(src, size, dst, size - 1, rsize);
-                if (compression > 0)
-                        log_debug("Compressed data object %"PRIu64" -> %zu using %s",
-                                  size, *rsize, compression_to_string(compression));
-                else
-                        /* Compression didn't work, we don't really care why, let's continue without compression */
-                        compression = COMPRESSION_NONE;
-        }
-#endif
+        Compression c;
+        int r;
 
-        return compression;
+        c = JOURNAL_FILE_COMPRESSION(f);
+        if (c == COMPRESSION_NONE || size < f->compress_threshold_bytes)
+                return COMPRESSION_NONE;
+
+        r = compress_blob_explicit(c, src, size, dst, size - 1, rsize);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to compress data object using %s, ignoring: %m", compression_to_string(c));
+                /* Compression didn't work, we don't really care why, let's continue without compression */
+                return COMPRESSION_NONE;
+        }
+
+        assert(r == c);
+        log_debug("Compressed data object %"PRIu64" -> %zu using %s", size, *rsize, compression_to_string(c));
+
+        return c;
+#else
+        return COMPRESSION_NONE;
+#endif
 }
 
 static int journal_file_append_data(
@@ -3967,20 +3974,21 @@ int journal_file_open(
         f->close_fd = true;
 
         if (DEBUG_LOGGING) {
-                static int last_seal = -1, last_compress = -1, last_keyed_hash = -1;
+                static int last_seal = -1, last_keyed_hash = -1;
+                static Compression last_compression = _COMPRESSION_INVALID;
                 static uint64_t last_bytes = UINT64_MAX;
 
                 if (last_seal != JOURNAL_HEADER_SEALED(f->header) ||
                     last_keyed_hash != JOURNAL_HEADER_KEYED_HASH(f->header) ||
-                    last_compress != JOURNAL_FILE_COMPRESS(f) ||
+                    last_compression != JOURNAL_FILE_COMPRESSION(f) ||
                     last_bytes != f->compress_threshold_bytes) {
 
                         log_debug("Journal effective settings seal=%s keyed_hash=%s compress=%s compress_threshold_bytes=%s",
                                   yes_no(JOURNAL_HEADER_SEALED(f->header)), yes_no(JOURNAL_HEADER_KEYED_HASH(f->header)),
-                                  yes_no(JOURNAL_FILE_COMPRESS(f)), FORMAT_BYTES(f->compress_threshold_bytes));
+                                  compression_to_string(JOURNAL_FILE_COMPRESSION(f)), FORMAT_BYTES(f->compress_threshold_bytes));
                         last_seal = JOURNAL_HEADER_SEALED(f->header);
                         last_keyed_hash = JOURNAL_HEADER_KEYED_HASH(f->header);
-                        last_compress = JOURNAL_FILE_COMPRESS(f);
+                        last_compression = JOURNAL_FILE_COMPRESSION(f);
                         last_bytes = f->compress_threshold_bytes;
                 }
         }

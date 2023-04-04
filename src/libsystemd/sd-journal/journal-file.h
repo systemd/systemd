@@ -321,10 +321,16 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log
 int journal_file_map_data_hash_table(JournalFile *f);
 int journal_file_map_field_hash_table(JournalFile *f);
 
-static inline bool JOURNAL_FILE_COMPRESS(JournalFile *f) {
+static inline Compression JOURNAL_FILE_COMPRESSION(JournalFile *f) {
         assert(f);
-        return JOURNAL_HEADER_COMPRESSED_XZ(f->header) || JOURNAL_HEADER_COMPRESSED_LZ4(f->header) ||
-                        JOURNAL_HEADER_COMPRESSED_ZSTD(f->header);
+
+        if (JOURNAL_HEADER_COMPRESSED_XZ(f->header))
+                return COMPRESSION_XZ;
+        if (JOURNAL_HEADER_COMPRESSED_LZ4(f->header))
+                return COMPRESSION_LZ4;
+        if (JOURNAL_HEADER_COMPRESSED_ZSTD(f->header))
+                return COMPRESSION_ZSTD;
+        return COMPRESSION_NONE;
 }
 
 uint64_t journal_file_hash_data(JournalFile *f, const void *data, size_t sz);
