@@ -723,7 +723,7 @@ int bus_service_set_property(
                 return r;
 
         if (u->transient && u->load_state == UNIT_STUB) {
-                /* This is a transient unit, let's load a little more */
+                /* This is a transient unit, let's allow a little more */
 
                 r = bus_service_set_transient_property(s, name, message, flags, error);
                 if (r != 0)
