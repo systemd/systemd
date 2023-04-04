@@ -1407,10 +1407,9 @@ static int service_collect_fds(
 
                 /* Pass the per-connection socket */
 
-                rfds = new(int, 1);
+                rfds = newdup(int, &s->socket_fd, 1);
                 if (!rfds)
                         return -ENOMEM;
-                rfds[0] = s->socket_fd;
 
                 rfd_names = strv_new("connection");
                 if (!rfd_names)
