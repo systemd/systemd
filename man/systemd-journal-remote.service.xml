@@ -227,6 +227,7 @@
 
     <variablelist>
       <varlistentry>
+        <term><option>-o <replaceable>FILE</replaceable></option></term>
         <term><option>--output=<replaceable>FILE</replaceable></option></term>
 
         <listitem><para>Will write to this journal file. The filename
@@ -238,6 +239,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-o <replaceable>DIR</replaceable></option></term>
         <term><option>--output=<replaceable>DIR</replaceable></option></term>
 
         <listitem><para>Will create journal files underneath directory
