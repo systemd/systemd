@@ -177,11 +177,12 @@
       <varlistentry>
         <term><option>--expand-environment=<replaceable>BOOL</replaceable></option></term>
 
-        <listitem><para>Expand environment variables in command arguments. If enabled (the default), the
-        service manager that spawns the actual command will expand variables specified as
-        <literal>${<replaceable>VARIABLE</replaceable>}</literal> in the same way as in commands specied via
-        <varname>ExecStart=</varname> in units. Note that this is similar to, but not the same as variable
-        expansion in
+        <listitem><para>Expand environment variables in command arguments. If enabled (the default),
+        environment variables specified as <literal>${<replaceable>VARIABLE</replaceable>}</literal> will be
+        expanded in the same way as in commands specified via <varname>ExecStart=</varname> in units. With
+        <varname>--scope</varname>, this expansion is performed by <command>systemd-run</command> itself, and
+        in other cases by the service manager that spawns the command. Note that this is similar to, but not
+        the same as variable expansion in
         <citerefentry project='man-pages'><refentrytitle>bash</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         and other shells.</para>
 
