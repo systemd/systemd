@@ -38,8 +38,8 @@ case "$COMMAND" in
             for dir in "$KERNEL_INSTALL_BOOT_ROOT" "/boot"; do
                 if [ -f "${dir}/${ucode}" ]; then
                     install "${dir}/${ucode}" "${KERNEL_INSTALL_STAGING_AREA}/early-cpio-${ucode}" || {
-                        echo "Error: could not copy '$ucode' to the staging area." >&2
-                        exit 1
+                            echo "Error: could not copy '$ucode' to the staging area." >&2
+                            exit 1
                         }
                 fi
             done
