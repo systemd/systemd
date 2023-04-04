@@ -396,6 +396,7 @@ static bool unit_success_failure_handler_has_jobs(Unit *unit) {
 
 void unit_release_resources(Unit *u) {
         UnitActiveState state;
+        ExecContext *ec;
 
         assert(u);
 
@@ -411,6 +412,10 @@ void unit_release_resources(Unit *u) {
 
         if (unit_will_restart(u))
                 return;
+
+        ec = unit_get_exec_context(u);
+        if (ec && ec->runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART)
+                exec_context_destroy_runtime_directory(ec, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
 
         if (UNIT_VTABLE(u)->release_resources)
                 UNIT_VTABLE(u)->release_resources(u);
@@ -582,6 +587,21 @@ void unit_submit_to_stop_when_bound_queue(Unit *u) {
         u->in_stop_when_bound_queue = true;
 }
 
+static bool unit_can_release_resources(Unit *u) {
+        ExecContext *ec;
+
+        assert(u);
+
+        if (UNIT_VTABLE(u)->release_resources)
+                return true;
+
+        ec = unit_get_exec_context(u);
+        if (ec && ec->runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART)
+                return true;
+
+        return false;
+}
+
 void unit_submit_to_release_resources_queue(Unit *u) {
         assert(u);
 
@@ -594,7 +614,7 @@ void unit_submit_to_release_resources_queue(Unit *u) {
         if (u->perpetual)
                 return;
 
-        if (!UNIT_VTABLE(u)->release_resources)
+        if (!unit_can_release_resources(u))
                 return;
 
         LIST_PREPEND(release_resources_queue, u->manager->release_resources_queue, u);
@@ -5863,8 +5883,8 @@ void unit_destroy_runtime_data(Unit *u, const ExecContext *context) {
         assert(u);
         assert(context);
 
-        if (context->runtime_directory_preserve_mode == EXEC_PRESERVE_NO ||
-            (context->runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART && !unit_will_restart(u)))
+        /* EXEC_PRESERVE_RESTART is handled via unit_release_resources()! */
+        if (context->runtime_directory_preserve_mode == EXEC_PRESERVE_NO)
                 exec_context_destroy_runtime_directory(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
 
         exec_context_destroy_credentials(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME], u->id);
