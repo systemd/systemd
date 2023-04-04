@@ -1514,8 +1514,6 @@ Features:
 * maybe rework get_user_creds() to query the user database if $SHELL is used
   for root, but only then.
 
-* be stricter with fds we receive for the fdstore: close them asynchronously
-
 * calenderspec: add support for week numbers and day numbers within a
   year. This would allow us to define "bi-weekly" triggers safely.
 
