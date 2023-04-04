@@ -1035,10 +1035,8 @@ int decrypt_credential_and_warn(
                                     le32toh(z->size));
                 }
 
-                /*
-                 * TODO: Add the SRK data to the credential structure so it can be plumbed
-                 * through and used to verify the TPM session.
-                 */
+                 // TODO: Add the SRK data to the credential structure so it can be plumbed
+                 // through and used to verify the TPM session.
                 r = tpm2_unseal(tpm2_device,
                                 le64toh(t->pcr_mask),
                                 le16toh(t->pcr_bank),

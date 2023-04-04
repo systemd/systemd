@@ -142,7 +142,7 @@ int enroll_tpm2(struct crypt_device *cd,
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *signature_json = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
-        _cleanup_(freep) void *srk_buf = NULL;
+        _cleanup_free_ void *srk_buf = NULL;
         size_t secret_size, blob_size, hash_size, pubkey_size = 0, srk_buf_size = 0;
         _cleanup_free_ void *blob = NULL, *hash = NULL, *pubkey = NULL;
         uint16_t pcr_bank, primary_alg;
