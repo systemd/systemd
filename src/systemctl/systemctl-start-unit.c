@@ -162,7 +162,14 @@ fail:
         if (arg_action != ACTION_SYSTEMCTL)
                 return r;
 
-        log_error_errno(r, "Failed to %s %s: %s", job_type, name, bus_error_message(error, r));
+        if (sd_bus_error_has_name(error, BUS_ERROR_UNIT_MASKED) &&
+            STR_IN_SET(method, "TryRestartUnit", "ReloadOrTryRestartUnit")) {
+                /* Ignore masked unit if try-* is requested */
+
+                log_debug_errno(r, "Failed to %s %s, ignoring: %s", job_type, name, bus_error_message(error, r));
+                return 0;
+        } else
+                log_error_errno(r, "Failed to %s %s: %s", job_type, name, bus_error_message(error, r));
 
         if (!sd_bus_error_has_names(error, BUS_ERROR_NO_SUCH_UNIT,
                                            BUS_ERROR_UNIT_MASKED,
@@ -359,7 +366,6 @@ int verb_start(int argc, char *argv[], void *userdata) {
 
         if (arg_marked)
                 ret = enqueue_marked_jobs(bus, w);
-
         else
                 STRV_FOREACH(name, names) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
