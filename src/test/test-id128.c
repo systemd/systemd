@@ -287,6 +287,36 @@ TEST(id128_at) {
         i = SD_ID128_NULL;
         assert_se(id128_read(p, ID128_FORMAT_PLAIN, &i) >= 0);
         assert_se(sd_id128_equal(id, i));
+
+        /* id128_get_machine_at() */
+        i = SD_ID128_NULL;
+        assert_se(id128_get_machine_at(tfd, &i) >= 0);
+        assert_se(sd_id128_equal(id, i));
+
+        /* id128_get_machine() */
+        i = SD_ID128_NULL;
+        assert_se(id128_get_machine(t, &i) >= 0);
+        assert_se(sd_id128_equal(id, i));
+}
+
+TEST(ID128_REFUSE_NULL) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        sd_id128_t id;
+
+        tfd = mkdtemp_open(NULL, O_PATH, &t);
+        assert_se(tfd >= 0);
+
+        assert_se(id128_write_at(tfd, "zero-id", ID128_FORMAT_PLAIN | ID128_REFUSE_NULL, (sd_id128_t) {}) == -ENOMEDIUM);
+        assert_se(unlinkat(tfd, "zero-id", 0) >= 0);
+        assert_se(id128_write_at(tfd, "zero-id", ID128_FORMAT_PLAIN, (sd_id128_t) {}) >= 0);
+
+        assert_se(sd_id128_randomize(&id) == 0);
+        assert_se(!sd_id128_equal(id, SD_ID128_NULL));
+        assert_se(id128_read_at(tfd, "zero-id", ID128_FORMAT_PLAIN, &id) >= 0);
+        assert_se(sd_id128_equal(id, SD_ID128_NULL));
+
+        assert_se(id128_read_at(tfd, "zero-id", ID128_FORMAT_PLAIN | ID128_REFUSE_NULL, &id) == -ENOMEDIUM);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
