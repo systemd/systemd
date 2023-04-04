@@ -31,6 +31,7 @@ typedef enum UnifiedSection {
         UNIFIED_SECTION_DTB,
         UNIFIED_SECTION_PCRSIG,
         UNIFIED_SECTION_PCRPKEY,
+        UNIFIED_SECTION_CMDLIST,
         _UNIFIED_SECTION_MAX,
 } UnifiedSection;
 
