@@ -931,7 +931,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                              "state\n"
                                              "cache\n"
                                              "logs\n"
-                                             "configuration");
+                                             "configuration\n"
+                                             "fdstore");
                                         return 0;
                                 }
 

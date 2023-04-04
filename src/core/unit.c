@@ -394,29 +394,48 @@ static bool unit_success_failure_handler_has_jobs(Unit *unit) {
         return false;
 }
 
+void unit_release_resources(Unit *u) {
+        UnitActiveState state;
+        ExecContext *ec;
+
+        assert(u);
+
+        if (u->job || u->nop_job)
+                return;
+
+        if (u->perpetual)
+                return;
+
+        state = unit_active_state(u);
+        if (!IN_SET(state, UNIT_INACTIVE, UNIT_FAILED))
+                return;
+
+        if (unit_will_restart(u))
+                return;
+
+        ec = unit_get_exec_context(u);
+        if (ec && ec->runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART)
+                exec_context_destroy_runtime_directory(ec, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+
+        if (UNIT_VTABLE(u)->release_resources)
+                UNIT_VTABLE(u)->release_resources(u);
+}
+
 bool unit_may_gc(Unit *u) {
         UnitActiveState state;
         int r;
 
         assert(u);
 
-        /* Checks whether the unit is ready to be unloaded for garbage collection.
-         * Returns true when the unit may be collected, and false if there's some
-         * reason to keep it loaded.
+        /* Checks whether the unit is ready to be unloaded for garbage collection.  Returns true when the
+         * unit may be collected, and false if there's some reason to keep it loaded.
          *
-         * References from other units are *not* checked here. Instead, this is done
-         * in unit_gc_sweep(), but using markers to properly collect dependency loops.
+         * References from other units are *not* checked here. Instead, this is done in unit_gc_sweep(), but
+         * using markers to properly collect dependency loops.
          */
 
         if (u->job || u->nop_job)
                 return false;
-
-        state = unit_active_state(u);
-
-        /* If the unit is inactive and failed and no job is queued for it, then release its runtime resources */
-        if (UNIT_IS_INACTIVE_OR_FAILED(state) &&
-            UNIT_VTABLE(u)->release_resources)
-                UNIT_VTABLE(u)->release_resources(u);
 
         if (u->perpetual)
                 return false;
@@ -424,7 +443,10 @@ bool unit_may_gc(Unit *u) {
         if (sd_bus_track_count(u->bus_track) > 0)
                 return false;
 
-        /* But we keep the unit object around for longer when it is referenced or configured to not be gc'ed */
+        state = unit_active_state(u);
+
+        /* But we keep the unit object around for longer when it is referenced or configured to not be
+         * gc'ed */
         switch (u->collect_mode) {
 
         case COLLECT_INACTIVE:
@@ -458,10 +480,10 @@ bool unit_may_gc(Unit *u) {
                         return false;
         }
 
-        if (UNIT_VTABLE(u)->may_gc && !UNIT_VTABLE(u)->may_gc(u))
-                return false;
+        if (!UNIT_VTABLE(u)->may_gc)
+                return true;
 
-        return true;
+        return UNIT_VTABLE(u)->may_gc(u);
 }
 
 void unit_add_to_load_queue(Unit *u) {
@@ -563,6 +585,40 @@ void unit_submit_to_stop_when_bound_queue(Unit *u) {
 
         LIST_PREPEND(stop_when_bound_queue, u->manager->stop_when_bound_queue, u);
         u->in_stop_when_bound_queue = true;
+}
+
+static bool unit_can_release_resources(Unit *u) {
+        ExecContext *ec;
+
+        assert(u);
+
+        if (UNIT_VTABLE(u)->release_resources)
+                return true;
+
+        ec = unit_get_exec_context(u);
+        if (ec && ec->runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART)
+                return true;
+
+        return false;
+}
+
+void unit_submit_to_release_resources_queue(Unit *u) {
+        assert(u);
+
+        if (u->in_release_resources_queue)
+                return;
+
+        if (u->job || u->nop_job)
+                return;
+
+        if (u->perpetual)
+                return;
+
+        if (!unit_can_release_resources(u))
+                return;
+
+        LIST_PREPEND(release_resources_queue, u->manager->release_resources_queue, u);
+        u->in_release_resources_queue = true;
 }
 
 static void unit_clear_dependencies(Unit *u) {
@@ -780,6 +836,9 @@ Unit* unit_free(Unit *u) {
 
         if (u->in_stop_when_bound_queue)
                 LIST_REMOVE(stop_when_bound_queue, u->manager->stop_when_bound_queue, u);
+
+        if (u->in_release_resources_queue)
+                LIST_REMOVE(release_resources_queue, u->manager->release_resources_queue, u);
 
         bpf_firewall_close(u);
 
@@ -2567,7 +2626,6 @@ static bool unit_process_job(Job *j, UnitActiveState ns, UnitNotifyFlags flags) 
         assert(j);
 
         if (j->state == JOB_WAITING)
-
                 /* So we reached a different state for this job. Let's see if we can run it now if it failed previously
                  * due to EAGAIN. */
                 job_add_to_run_queue(j);
@@ -2771,6 +2829,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
 
                 /* Maybe the unit should be GC'ed now? */
                 unit_add_to_gc_queue(u);
+
+                /* Maybe we can release some resources now? */
+                unit_submit_to_release_resources_queue(u);
         }
 
         if (UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
@@ -5828,8 +5889,8 @@ void unit_destroy_runtime_data(Unit *u, const ExecContext *context) {
         assert(u);
         assert(context);
 
-        if (context->runtime_directory_preserve_mode == EXEC_PRESERVE_NO ||
-            (context->runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART && !unit_will_restart(u)))
+        /* EXEC_PRESERVE_RESTART is handled via unit_release_resources()! */
+        if (context->runtime_directory_preserve_mode == EXEC_PRESERVE_NO)
                 exec_context_destroy_runtime_directory(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
 
         exec_context_destroy_credentials(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME], u->id);

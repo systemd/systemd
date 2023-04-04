@@ -195,6 +195,9 @@ struct Manager {
         /* Units that have BindsTo= another unit, and might need to be shutdown because the bound unit is not active. */
         LIST_HEAD(Unit, stop_when_bound_queue);
 
+        /* Units that have resources open, and where it might be good to check if they can be release now */
+        LIST_HEAD(Unit, release_resources_queue);
+
         sd_event *event;
 
         /* This maps PIDs we care about to units that are interested in. We allow multiple units to be interested in

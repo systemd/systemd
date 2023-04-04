@@ -1,0 +1,7 @@
+[Service]
+Type=notify
+FileDescriptorStoreMax=10
+FileDescriptorStorePreserve=restart
+ExecStart=/usr/lib/systemd/tests/testdata/testsuite-80.units/fdstore-pin.sh 0
+StandardOutput=journal+console
+StandardError=journal+console

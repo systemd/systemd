@@ -206,6 +206,7 @@ struct Service {
         ServiceFDStore *fd_store;
         size_t n_fd_store;
         unsigned n_fd_store_max;
+        ExecPreserveMode fd_store_preserve_mode;
 
         char *usb_function_descriptors;
         char *usb_function_strings;
@@ -243,7 +244,7 @@ static inline usec_t service_get_watchdog_usec(Service *s) {
 extern const UnitVTable service_vtable;
 
 int service_set_socket_fd(Service *s, int fd, struct Socket *socket, struct SocketPeer *peer, bool selinux_context_net);
-void service_close_socket_fd(Service *s);
+void service_release_socket_fd(Service *s);
 
 usec_t service_restart_usec_next(Service *s);
 
