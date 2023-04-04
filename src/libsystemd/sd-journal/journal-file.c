@@ -27,6 +27,7 @@
 #include "journal-internal.h"
 #include "lookup3.h"
 #include "memory-util.h"
+#include "missing_threads.h"
 #include "path-util.h"
 #include "prioq.h"
 #include "random-util.h"
@@ -313,27 +314,77 @@ JournalFile* journal_file_close(JournalFile *f) {
 }
 
 static bool keyed_hash_requested(void) {
+        static thread_local int cached = -1;
         int r;
 
-        r = getenv_bool("SYSTEMD_JOURNAL_KEYED_HASH");
-        if (r >= 0)
-                return r;
-        if (r != -ENXIO)
-                log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_KEYED_HASH environment variable, ignoring: %m");
+        if (cached < 0) {
+                r = getenv_bool("SYSTEMD_JOURNAL_KEYED_HASH");
+                if (r < 0) {
+                        if (r != -ENXIO)
+                                log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_KEYED_HASH environment variable, ignoring: %m");
+                        cached = true;
+                } else
+                        cached = r;
+        }
 
-        return true;
+        return cached;
 }
 
 static bool compact_mode_requested(void) {
+        static thread_local int cached = -1;
         int r;
 
-        r = getenv_bool("SYSTEMD_JOURNAL_COMPACT");
-        if (r >= 0)
-                return r;
-        if (r != -ENXIO)
-                log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_COMPACT environment variable, ignoring: %m");
+        if (cached < 0) {
+                r = getenv_bool("SYSTEMD_JOURNAL_COMPACT");
+                if (r < 0) {
+                        if (r != -ENXIO)
+                                log_debug_errno(r, "Failed to parse $SYSTEMD_JOURNAL_COMPACT environment variable, ignoring: %m");
+                        cached = true;
+                } else
+                        cached = r;
+        }
 
-        return true;
+        return cached;
+}
+
+static Compression getenv_compression(void) {
+        Compression c;
+        const char *e;
+        int r;
+
+        e = getenv("SYSTEMD_JOURNAL_COMPRESS");
+        if (!e)
+                return DEFAULT_COMPRESSION;
+
+        r = parse_boolean(e);
+        if (r >= 0)
+                return r ? DEFAULT_COMPRESSION : COMPRESSION_NONE;
+
+        c = compression_from_string(e);
+        if (c < 0) {
+                log_debug_errno(c, "Failed to parse SYSTEMD_JOURNAL_COMPRESS value, ignoring: %s", e);
+                return DEFAULT_COMPRESSION;
+        }
+
+        if (!compression_supported(c)) {
+                log_debug("Unsupported compression algorithm specified, ignoring: %s", e);
+                return DEFAULT_COMPRESSION;
+        }
+
+        return c;
+}
+
+static Compression compression_requested(void) {
+#if HAVE_COMPRESSION
+        static thread_local Compression cached = _COMPRESSION_INVALID;
+
+        if (cached < 0)
+                cached = getenv_compression();
+
+        return cached;
+#else
+        return COMPRESSION_NONE;
+#endif
 }
 
 static int journal_file_init_header(
@@ -355,7 +406,7 @@ static int journal_file_init_header(
         Header h = {
                 .header_size = htole64(ALIGN64(sizeof(h))),
                 .incompatible_flags = htole32(
-                                FLAGS_SET(file_flags, JOURNAL_COMPRESS) * COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(DEFAULT_COMPRESSION) |
+                                FLAGS_SET(file_flags, JOURNAL_COMPRESS) * COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(compression_requested()) |
                                 keyed_hash_requested() * HEADER_INCOMPATIBLE_KEYED_HASH |
                                 compact_mode_requested() * HEADER_INCOMPATIBLE_COMPACT),
                 .compatible_flags = htole32(
@@ -1619,24 +1670,27 @@ static int journal_file_append_field(
 }
 
 static Compression maybe_compress_payload(JournalFile *f, uint8_t *dst, const uint8_t *src, uint64_t size, size_t *rsize) {
-        Compression compression = COMPRESSION_NONE;
-
         assert(f);
         assert(f->header);
 
 #if HAVE_COMPRESSION
-        if (JOURNAL_FILE_COMPRESS(f) && size >= f->compress_threshold_bytes) {
-                compression = compress_blob(src, size, dst, size - 1, rsize);
-                if (compression > 0)
-                        log_debug("Compressed data object %"PRIu64" -> %zu using %s",
-                                  size, *rsize, compression_to_string(compression));
-                else
-                        /* Compression didn't work, we don't really care why, let's continue without compression */
-                        compression = COMPRESSION_NONE;
-        }
-#endif
+        Compression c = JOURNAL_FILE_COMPRESSION(f);
 
-        return compression;
+        if (c == COMPRESSION_NONE || size < f->compress_threshold_bytes)
+                return COMPRESSION_NONE;
+
+        c = compress_blob_explicit(c, src, size, dst, size - 1, rsize);
+        if (c < 0 || c == COMPRESSION_NONE)
+                /* Compression didn't work, we don't really care why, let's continue without compression */
+                return COMPRESSION_NONE;
+
+        log_debug("Compressed data object %"PRIu64" -> %zu using %s",
+                  size, *rsize, compression_to_string(c));
+
+        return c;
+#else
+        return COMPRESSION_NONE;
+#endif
 }
 
 static int journal_file_append_data(
@@ -3956,20 +4010,21 @@ int journal_file_open(
         f->close_fd = true;
 
         if (DEBUG_LOGGING) {
-                static int last_seal = -1, last_compress = -1, last_keyed_hash = -1;
+                static int last_seal = -1, last_keyed_hash = -1;
+                static Compression last_compression = _COMPRESSION_INVALID;
                 static uint64_t last_bytes = UINT64_MAX;
 
                 if (last_seal != JOURNAL_HEADER_SEALED(f->header) ||
                     last_keyed_hash != JOURNAL_HEADER_KEYED_HASH(f->header) ||
-                    last_compress != JOURNAL_FILE_COMPRESS(f) ||
+                    last_compression != JOURNAL_FILE_COMPRESSION(f) ||
                     last_bytes != f->compress_threshold_bytes) {
 
                         log_debug("Journal effective settings seal=%s keyed_hash=%s compress=%s compress_threshold_bytes=%s",
                                   yes_no(JOURNAL_HEADER_SEALED(f->header)), yes_no(JOURNAL_HEADER_KEYED_HASH(f->header)),
-                                  yes_no(JOURNAL_FILE_COMPRESS(f)), FORMAT_BYTES(f->compress_threshold_bytes));
+                                  compression_to_string(JOURNAL_FILE_COMPRESSION(f)), FORMAT_BYTES(f->compress_threshold_bytes));
                         last_seal = JOURNAL_HEADER_SEALED(f->header);
                         last_keyed_hash = JOURNAL_HEADER_KEYED_HASH(f->header);
-                        last_compress = JOURNAL_FILE_COMPRESS(f);
+                        last_compression = JOURNAL_FILE_COMPRESSION(f);
                         last_bytes = f->compress_threshold_bytes;
                 }
         }
