@@ -389,7 +389,7 @@ static void service_fd_store_unlink(ServiceFDStore *fs) {
         sd_event_source_disable_unref(fs->event_source);
 
         free(fs->fdname);
-        safe_close(fs->fd);
+        asynchronous_close(fs->fd);
         free(fs);
 }
 
@@ -415,9 +415,9 @@ static void service_release_stdio_fd(Service *s) {
 
         log_unit_debug(UNIT(s), "Releasing stdin/stdout/stderr file descriptors.");
 
-        s->stdin_fd = safe_close(s->stdin_fd);
-        s->stdout_fd = safe_close(s->stdout_fd);
-        s->stderr_fd = safe_close(s->stderr_fd);
+        s->stdin_fd = asynchronous_close(s->stdin_fd);
+        s->stdout_fd = asynchronous_close(s->stdout_fd);
+        s->stderr_fd = asynchronous_close(s->stderr_fd);
 }
 static void service_done(Unit *u) {
         Service *s = SERVICE(u);
@@ -500,7 +500,7 @@ static int service_add_fd_store(Service *s, int fd, const char *name, bool do_po
                 if (r < 0)
                         return r;
                 if (r > 0) {
-                        safe_close(fd);
+                        asynchronous_close(fd);
                         return 0; /* fd already included */
                 }
         }
@@ -543,7 +543,7 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name, bo
         assert(s);
 
         while (fdset_size(fds) > 0) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(asynchronous_closep) int fd = -EBADF;
 
                 fd = fdset_steal_first(fds);
                 if (fd < 0)
@@ -558,7 +558,8 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name, bo
                         return log_unit_error_errno(UNIT(s), r, "Failed to add fd to store: %m");
                 if (r > 0)
                         log_unit_debug(UNIT(s), "Added fd %i (%s) to fd store.", fd, strna(name));
-                fd = -EBADF;
+
+                TAKE_FD(fd);
         }
 
         return 0;
