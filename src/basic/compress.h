@@ -2,6 +2,7 @@
 #pragma once
 
 #include <errno.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <unistd.h>
 
@@ -16,6 +17,8 @@ typedef enum Compression {
 
 const char* compression_to_string(Compression compression);
 Compression compression_from_string(const char *compression);
+
+bool compression_supported(Compression c);
 
 int compress_blob_xz(const void *src, uint64_t src_size,
                      void *dst, size_t dst_alloc_size, size_t *dst_size);
