@@ -521,13 +521,13 @@ Features:
 * add support for asymmetric LUKS2 TPM based encryption. i.e. allow preparing
   an encrypted image on some host given a public key belonging to a specific
   other host, so that only hosts possessing the private key in the TPM2 chip
-  can decrypt the volume key and activate the volume. Usecase: systemd-syscfg
-  for a central orchestrator to generate syscfg images securely that can only
+  can decrypt the volume key and activate the volume. Usecase: systemd-confext
+  for a central orchestrator to generate confext images securely that can only
   be activated on one specific host (which can be used for installing a bunch
   of creds in /etc/credstore/ for example). Extending on this: allow binding
   LUKS2 TPM based encryption also to the TPM2 internal clock. Net result:
-  prepare a syscfg image that can only be activated on a specific host that
-  runs a specific software in a specific time window. syscfg would be
+  prepare a confext image that can only be activated on a specific host that
+  runs a specific software in a specific time window. confext would be
   automatically invalidated outside of it.
 
 * maybe add a "systemd-report" tool, that generates a TPM2-backed "report" of
@@ -538,17 +538,17 @@ Features:
   this: have the report tool upload these reports every 3min somewhere. Then
   have the orchestrator collect these reports centrally over a 3min time
   window, and use them to determine what which node should now start/stop what,
-  and generate a small syscfg for each node, that uses Uphold= to pin services
-  on each node.  The syscfg would be encrypted using the asymmetric encryption
+  and generate a small confext for each node, that uses Uphold= to pin services
+  on each node.  The confext would be encrypted using the asymmetric encryption
   proposed above, so that it can only be activated on the specific host, if the
   software is in a good state, and within a specific time frame. Then run a
   loop on each node that sends report to orchestrator and then sysupdate to
-  update syscfg.  Orchestrator would be stateless, i.e. operate on desired
+  update confext.  Orchestrator would be stateless, i.e. operate on desired
   config and collected reports in the last 3min time window only, and thus can
   be trivially scaled up since all instances of the orchestrator should come to
   the same conclusions given the same inputs of reports/desired workload info.
   Could also be used to deliver Wireguard secrets and thus to clients, thus
-  permitting zero-trust networking: secrets are rolled over via syscfg updates,
+  permitting zero-trust networking: secrets are rolled over via confext updates,
   and via the time window TPM logic invalidated if node doesn't keep itself
   updated, or becomes corrupted in some way.
 
@@ -597,7 +597,7 @@ Features:
   keyring, so that the kernel does this validation for us for verity and kernel
   modules
 
-* for systemd-syscfg: add a tool that can generate suitable DDIs with verity +
+* for systemd-confext: add a tool that can generate suitable DDIs with verity +
   sig using squashfs-tools-ng's library. Maybe just systemd-repart called under
   a new name with a built-in config?
 
@@ -914,7 +914,7 @@ Features:
 
 * sysext: measure all activated sysext into a TPM PCR
 
-* maybe add a "syscfg" concept, that is almost entirely identical to "sysext",
+* maybe add a "confext" concept, that is almost entirely identical to "sysext",
   but operates on /etc/ instead of /usr/ and /opt/. Use case would be: trusted,
   authenticated, atomic, additive configuration management primitive: drop in a
   configuration bundle, and activate it, so that it is instantly visible,
