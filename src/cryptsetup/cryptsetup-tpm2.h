@@ -82,6 +82,8 @@ static inline int acquire_tpm2_key(
                 size_t policy_hash_size,
                 const void *salt,
                 size_t salt_size,
+                const void *srk_buf,
+                size_t salt_srk_buf_size,
                 TPM2Flags flags,
                 usec_t until,
                 bool headless,
@@ -109,6 +111,8 @@ static inline int find_tpm2_auto_data(
                 size_t *ret_policy_hash_size,
                 void **ret_salt,
                 size_t *ret_salt_size,
+                void **ret_srk_buf,
+                size_t *ret_srk_size,
                 TPM2Flags *ret_flags,
                 int *ret_keyslot,
                 int *ret_token) {
