@@ -1861,6 +1861,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
                 /* This block is (optionally) done with the reloading counter bumped */
                 _unused_ _cleanup_(manager_reloading_stopp) Manager *reloading = NULL;
 
+                /* Make sure we don't have a left-over from a previous run */
+                if (!serialization)
+                        (void) rm_rf(m->lookup_paths.transient, 0);
+
                 /* If we will deserialize make sure that during enumeration this is already known, so we increase the
                  * counter here already */
                 if (serialization)
