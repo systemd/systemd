@@ -200,7 +200,7 @@ static int service_set_main_pid(Service *s, pid_t pid) {
         return 0;
 }
 
-void service_close_socket_fd(Service *s) {
+void service_release_socket_fd(Service *s) {
         assert(s);
 
         if (s->socket_fd < 0 && !UNIT_ISSET(s->accept_socket) && !s->socket_peer)
@@ -454,8 +454,6 @@ static void service_done(Unit *u) {
         s->usb_function_descriptors = mfree(s->usb_function_descriptors);
         s->usb_function_strings = mfree(s->usb_function_strings);
 
-        service_close_socket_fd(s);
-
         service_stop_watchdog(s);
 
         s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
@@ -463,8 +461,9 @@ static void service_done(Unit *u) {
 
         s->bus_name_pid_lookup_slot = sd_bus_slot_unref(s->bus_name_pid_lookup_slot);
 
-        service_release_fd_store(s);
+        service_release_socket_fd(s);
         service_release_stdio_fd(s);
+        service_release_fd_store(s);
 }
 
 static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
@@ -4974,7 +4973,7 @@ static void service_release_resources(Unit *u) {
 
         log_unit_debug(u, "Releasing resources...");
 
-        service_close_socket_fd(s);
+        service_release_socket_fd(s);
         service_release_stdio_fd(s);
 
         if (s->fd_store_preserve_mode != EXEC_PRESERVE_YES)
