@@ -545,6 +545,7 @@ int config_parse_config_file(
 
         _cleanup_strv_free_ char **dropins = NULL, **dropin_dirs = NULL;
         char **conf_paths = CONF_PATHS_STRV("");
+        const char *sysconf_file = NULL;
         int r;
 
         assert(conf_file);
@@ -575,8 +576,9 @@ int config_parse_config_file(
         if (r < 0)
                 return r;
 
-        const char *sysconf_file = strjoina(PKGSYSCONFDIR, "/", conf_file);
-
+#if PARSE_MAIN_CONFIG_FILES
+        sysconf_file = strjoina(PKGSYSCONFDIR, "/", conf_file);
+#endif
         return config_parse_many_files(STRV_MAKE_CONST(sysconf_file), dropins,
                                        sections, lookup, table, flags, userdata, NULL);
 }
