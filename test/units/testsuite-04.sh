@@ -74,10 +74,10 @@ journalctl -b -o export --output-fields=MESSAGE,FOO --output-fields=PRIORITY,MES
 grep -q '^__CURSOR=' /output
 grep -q '^MESSAGE=foo$' /output
 grep -q '^PRIORITY=6$' /output
-grep '^FOO=' /output && { echo 'unexpected success'; exit 1; }
-grep '^SYSLOG_FACILITY=' /output && { echo 'unexpected success'; exit 1; }
+(! grep '^FOO=' /output)
+(! grep '^SYSLOG_FACILITY=' /output)
 
-# `-b all` negates earlier use of -b (-b and -m are otherwise exclusive)
+# '-b all' negates earlier use of -b (-b and -m are otherwise exclusive)
 journalctl -b -1 -b all -m >/dev/null
 
 # -b always behaves like -b0
