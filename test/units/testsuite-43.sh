@@ -34,13 +34,12 @@ runas testuser systemd-run --wait --user --unit=test-unprotected-home \
 test -e /home/testuser/works.txt
 
 # Confirm that creating a file in home is blocked under read-only
-runas testuser systemd-run --wait --user --unit=test-protect-home-read-only \
+(! runas testuser systemd-run --wait --user --unit=test-protect-home-read-only \
     -p PrivateUsers=yes -p ProtectHome=read-only \
     -P bash -c '
         test -e /home/testuser/works.txt || exit 10
         touch /home/testuser/blocked.txt && exit 11
-    ' \
-        && { echo 'unexpected success'; exit 1; }
+    ' )
 test ! -e /home/testuser/blocked.txt
 
 # Check that tmpfs hides the whole directory
@@ -62,10 +61,9 @@ runas testuser systemd-run --wait --user --unit=test-protect-home-yes \
 # namespace (no CAP_SETGID in the parent namespace to write the additional
 # mapping of the user supplied group and thus cannot change groups to an
 # unmapped group ID)
-runas testuser systemd-run --wait --user --unit=test-group-fail \
+(! runas testuser systemd-run --wait --user --unit=test-group-fail \
     -p PrivateUsers=yes -p Group=daemon \
-    -P true \
-    && { echo 'unexpected success'; exit 1; }
+    -P true )
 
 # Check that with a new user namespace we can bind mount
 # files and use a different root directory
@@ -93,31 +91,26 @@ runas testuser systemd-run --wait --user --unit=test-network \
     -p PrivateUsers=yes -p PrivateNetwork=yes \
     /bin/sh -x -c '! ip link | grep -E "^[0-9]+: " | grep -Ev ": (lo|(erspan|gre|gretap|ip_vti|ip6_vti|ip6gre|ip6tnl|sit|tunl)0@.*):"'
 
-runas testuser systemd-run --wait --user --unit=test-hostname \
+(! runas testuser systemd-run --wait --user --unit=test-hostname \
     -p PrivateUsers=yes -p ProtectHostname=yes \
-    hostnamectl hostname foo \
-    && { echo 'unexpected success'; exit 1; }
+    hostnamectl hostname foo )
 
-runas testuser systemd-run --wait --user --unit=test-clock \
+(! runas testuser systemd-run --wait --user --unit=test-clock \
     -p PrivateUsers=yes -p ProtectClock=yes \
-    timedatectl set-time "2012-10-30 18:17:16" \
-    && { echo 'unexpected success'; exit 1; }
+    timedatectl set-time "2012-10-30 18:17:16" )
 
-runas testuser systemd-run --wait --user --unit=test-kernel-tunable \
+(! runas testuser systemd-run --wait --user --unit=test-kernel-tunable \
     -p PrivateUsers=yes -p ProtectKernelTunables=yes \
-    sh -c "echo 0 >/proc/sys/user/max_user_namespaces" \
-    && { echo 'unexpected success'; exit 1; }
+    sh -c "echo 0 >/proc/sys/user/max_user_namespaces" )
 
-runas testuser systemd-run --wait --user --unit=test-kernel-mod \
+(! runas testuser systemd-run --wait --user --unit=test-kernel-mod \
     -p PrivateUsers=yes -p ProtectKernelModules=yes \
-    sh -c "modprobe -r overlay && modprobe overlay" \
-    && { echo 'unexpected success'; exit 1; }
+    sh -c "modprobe -r overlay && modprobe overlay" )
 
 if sysctl kernel.dmesg_restrict=0; then
-    runas testuser systemd-run --wait --user --unit=test-kernel-log \
+    (! runas testuser systemd-run --wait --user --unit=test-kernel-log \
         -p PrivateUsers=yes -p ProtectKernelLogs=yes -p LogNamespace=yes \
-        dmesg \
-        && { echo 'unexpected success'; exit 1; }
+        dmesg )
 fi
 
 unsquashfs -no-xattrs -d /tmp/img /usr/share/minimal_0.raw

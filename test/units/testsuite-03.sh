@@ -34,11 +34,11 @@ grep 'hello\.service' /root/list-jobs.txt && exit 1
 systemctl stop sleep.service hello-after-sleep.target
 
 # Some basic testing that --show-transaction does something useful
-systemctl is-active systemd-importd && { echo 'unexpected success'; exit 1; }
+(! systemctl is-active systemd-importd)
 systemctl -T start systemd-importd
 systemctl is-active systemd-importd
 systemctl --show-transaction stop systemd-importd
-systemctl is-active systemd-importd && { echo 'unexpected success'; exit 1; }
+(! systemctl is-active systemd-importd)
 
 # Test for a crash when enqueuing a JOB_NOP when other job already exists
 systemctl start --no-block hello-after-sleep.target
@@ -95,7 +95,7 @@ ELAPSED=$((END_SEC-START_SEC))
 
 # wait5fail fails, so systemctl should fail
 START_SEC=$(date -u '+%s')
-systemctl start --wait wait2.service wait5fail.service && { echo 'unexpected success'; exit 1; }
+(! systemctl start --wait wait2.service wait5fail.service)
 END_SEC=$(date -u '+%s')
 ELAPSED=$((END_SEC-START_SEC))
 [[ "$ELAPSED" -ge 5 ]] && [[ "$ELAPSED" -le 7 ]] || exit 1
