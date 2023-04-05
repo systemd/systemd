@@ -360,6 +360,13 @@ static void varlink_detach_event_sources(Varlink *v) {
         v->defer_event_source = sd_event_source_disable_unref(v->defer_event_source);
 }
 
+static void varlink_clear_current(Varlink *v) {
+        assert(v);
+
+        /* Clears the currently processed incoming message */
+        v->current = json_variant_unref(v->current);
+}
+
 static void varlink_clear(Varlink *v) {
         assert(v);
 
@@ -370,7 +377,7 @@ static void varlink_clear(Varlink *v) {
         v->input_buffer = mfree(v->input_buffer);
         v->output_buffer = mfree(v->output_buffer);
 
-        v->current = json_variant_unref(v->current);
+        varlink_clear_current(v);
 
         v->event = sd_event_unref(v->event);
 }
@@ -760,7 +767,7 @@ static int varlink_dispatch_reply(Varlink *v) {
                                 log_debug_errno(r, "Reply callback returned error, ignoring: %m");
                 }
 
-                v->current = json_variant_unref(v->current);
+                varlink_clear_current(v);
 
                 if (v->state == VARLINK_PROCESSING_REPLY) {
 
@@ -900,7 +907,7 @@ static int varlink_dispatch_method(Varlink *v) {
 
         case VARLINK_PROCESSED_METHOD: /* Method call is fully processed */
         case VARLINK_PROCESSING_METHOD_ONEWAY: /* ditto */
-                v->current = json_variant_unref(v->current);
+                varlink_clear_current(v);
                 varlink_set_state(v, VARLINK_IDLE_SERVER);
                 break;
 
@@ -1476,7 +1483,7 @@ int varlink_call(
 
         assert(v->n_pending == 0); /* n_pending can't be > 0 if we are in VARLINK_IDLE_CLIENT state */
 
-        v->current = json_variant_unref(v->current);
+        varlink_clear_current(v);
 
         r = varlink_sanitize_parameters(&parameters);
         if (r < 0)
@@ -1591,7 +1598,7 @@ int varlink_reply(Varlink *v, JsonVariant *parameters) {
                 /* We just replied to a method call that was let hanging for a while (i.e. we were outside of
                  * the varlink_dispatch_method() stack frame), which means with this reply we are ready to
                  * process further messages. */
-                v->current = json_variant_unref(v->current);
+                varlink_clear_current(v);
                 varlink_set_state(v, VARLINK_IDLE_SERVER);
         } else
                 /* We replied to a method call from within the varlink_dispatch_method() stack frame), which
@@ -1647,7 +1654,7 @@ int varlink_error(Varlink *v, const char *error_id, JsonVariant *parameters) {
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
         if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE)) {
-                v->current = json_variant_unref(v->current);
+                varlink_clear_current(v);
                 varlink_set_state(v, VARLINK_IDLE_SERVER);
         } else
                 varlink_set_state(v, VARLINK_PROCESSED_METHOD);
