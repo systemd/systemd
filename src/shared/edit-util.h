@@ -3,6 +3,9 @@
 
 #include <stdbool.h>
 
+#define DROPIN_MARKER_START "### Anything between here and the comment below will become the contents of the drop-in file"
+#define DROPIN_MARKER_END "### Edits below this comment will be discarded"
+
 typedef struct EditFile EditFile;
 typedef struct EditFileContext EditFileContext;
 
