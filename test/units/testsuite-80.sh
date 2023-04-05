@@ -53,6 +53,7 @@ cat >> "$MYSCRIPT" <<'EOF'
 #!/usr/bin/env bash
 set -eux
 set -o pipefail
+test "$FDSTORE" -eq 7
 N="/tmp/$RANDOM"
 echo $RANDOM > "$N"
 systemd-notify --fd=4 --fdname=quux --pid=parent 4< "$N"
