@@ -6,6 +6,7 @@
 
 #include "sd-event.h"
 
+#include "data-fd-util.h"
 #include "fd-util.h"
 #include "json.h"
 #include "rm-rf.h"
@@ -48,6 +49,55 @@ static int method_something(Varlink *link, JsonVariant *parameters, VarlinkMetho
         return varlink_reply(link, ret);
 }
 
+static void test_fd(int fd, const void *buf, size_t n) {
+        char rbuf[n + 1];
+        ssize_t m;
+
+        m = read(fd, rbuf, n + 1);
+
+        assert_se(memcmp_nn(buf, n, rbuf, m) == 0);
+}
+
+static int method_passfd(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        _cleanup_(json_variant_unrefp) JsonVariant *ret = NULL;
+        JsonVariant *a;
+        int r;
+
+        a = json_variant_by_key(parameters, "fd");
+        if (!a)
+                return varlink_error(link, "io.test.BadParameters", NULL);
+
+        assert_se(streq_ptr(json_variant_string(a), "whoop"));
+
+        int xx = varlink_peek_fd(link, 0),
+                yy = varlink_peek_fd(link, 1),
+                zz = varlink_peek_fd(link, 2);
+
+        log_info("%i %i %i", xx, yy, zz);
+
+        test_fd(xx, "foo", 3);
+        test_fd(yy, "bar", 3);
+        test_fd(zz, "quux", 4);
+
+        _cleanup_close_ int vv = acquire_data_fd("miau", 4, 0);
+        _cleanup_close_ int ww = acquire_data_fd("wuff", 4, 0);
+
+        assert_se(vv >= 0);
+        assert_se(ww >= 0);
+
+        r = json_build(&ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("yo", JSON_BUILD_INTEGER(88))));
+        if (r < 0)
+                return r;
+
+        assert_se(varlink_push_fd(link, vv) == 0);
+        assert_se(varlink_push_fd(link, ww) == 1);
+
+        TAKE_FD(vv);
+        TAKE_FD(ww);
+
+        return varlink_reply(link, ret);
+}
+
 static int method_done(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
         if (++n_done == 2)
@@ -77,6 +127,8 @@ static int on_connect(VarlinkServer *s, Varlink *link, void *userdata) {
 
         assert_se(varlink_get_peer_uid(link, &uid) >= 0);
         assert_se(getuid() == uid);
+        assert_se(varlink_set_allow_fd_passing_input(link, true) >= 0);
+        assert_se(varlink_set_allow_fd_passing_output(link, true) >= 0);
 
         return 0;
 }
@@ -151,10 +203,35 @@ static void *thread(void *arg) {
 
         assert_se(varlink_connect_address(&c, arg) >= 0);
         assert_se(varlink_set_description(c, "thread-client") >= 0);
+        assert_se(varlink_set_allow_fd_passing_input(c, true) >= 0);
+        assert_se(varlink_set_allow_fd_passing_output(c, true) >= 0);
 
         assert_se(varlink_call(c, "io.test.DoSomething", i, &o, &e, NULL) >= 0);
         assert_se(json_variant_integer(json_variant_by_key(o, "sum")) == 88 + 99);
         assert_se(!e);
+
+        int fd1 = acquire_data_fd("foo", 3, 0);
+        int fd2 = acquire_data_fd("bar", 3, 0);
+        int fd3 = acquire_data_fd("quux", 4, 0);
+
+        assert_se(fd1 >= 0);
+        assert_se(fd2 >= 0);
+        assert_se(fd3 >= 0);
+
+        assert_se(varlink_push_fd(c, fd1) == 0);
+        assert_se(varlink_push_fd(c, fd2) == 1);
+        assert_se(varlink_push_fd(c, fd3) == 2);
+
+        assert_se(varlink_callb(c, "io.test.PassFD", &o, &e, NULL, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("fd", JSON_BUILD_STRING("whoop")))) >= 0);
+
+        int fd4 = varlink_peek_fd(c, 0);
+        int fd5 = varlink_peek_fd(c, 1);
+
+        assert_se(fd4 >= 0);
+        assert_se(fd5 >= 0);
+
+        test_fd(fd4, "miau", 4);
+        test_fd(fd5, "wuff", 4);
 
         assert_se(varlink_callb(c, "io.test.IDontExist", &o, &e, NULL, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("x", JSON_BUILD_REAL(5.5)))) >= 0);
         assert_se(streq_ptr(json_variant_string(json_variant_by_key(o, "method")), "io.test.IDontExist"));
@@ -211,6 +288,7 @@ int main(int argc, char *argv[]) {
         assert_se(varlink_server_new(&s, VARLINK_SERVER_ACCOUNT_UID) >= 0);
         assert_se(varlink_server_set_description(s, "our-server") >= 0);
 
+        assert_se(varlink_server_bind_method(s, "io.test.PassFD", method_passfd) >= 0);
         assert_se(varlink_server_bind_method(s, "io.test.DoSomething", method_something) >= 0);
         assert_se(varlink_server_bind_method(s, "io.test.Done", method_done) >= 0);
         assert_se(varlink_server_bind_connect(s, on_connect) >= 0);
