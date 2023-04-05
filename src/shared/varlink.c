@@ -128,7 +128,6 @@ struct Varlink {
         VarlinkReply reply_callback;
 
         JsonVariant *current;
-        JsonVariant *reply;
 
         struct ucred ucred;
         bool ucred_acquired:1;
@@ -372,7 +371,6 @@ static void varlink_clear(Varlink *v) {
         v->output_buffer = mfree(v->output_buffer);
 
         v->current = json_variant_unref(v->current);
-        v->reply = json_variant_unref(v->reply);
 
         v->event = sd_event_unref(v->event);
 }
@@ -1478,6 +1476,8 @@ int varlink_call(
 
         assert(v->n_pending == 0); /* n_pending can't be > 0 if we are in VARLINK_IDLE_CLIENT state */
 
+        v->current = json_variant_unref(v->current);
+
         r = varlink_sanitize_parameters(&parameters);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
@@ -1514,17 +1514,14 @@ int varlink_call(
         case VARLINK_CALLED:
                 assert(v->current);
 
-                json_variant_unref(v->reply);
-                v->reply = TAKE_PTR(v->current);
-
                 varlink_set_state(v, VARLINK_IDLE_CLIENT);
                 assert(v->n_pending == 1);
                 v->n_pending--;
 
                 if (ret_parameters)
-                        *ret_parameters = json_variant_by_key(v->reply, "parameters");
+                        *ret_parameters = json_variant_by_key(v->current, "parameters");
                 if (ret_error_id)
-                        *ret_error_id = json_variant_string(json_variant_by_key(v->reply, "error"));
+                        *ret_error_id = json_variant_string(json_variant_by_key(v->current, "error"));
                 if (ret_flags)
                         *ret_flags = 0;
 
