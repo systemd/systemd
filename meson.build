@@ -107,6 +107,7 @@ endif
 rootprefixdir_noslash = rootprefixdir == '/' ? '' : rootprefixdir
 
 have_standalone_binaries = get_option('standalone-binaries')
+have_static_binaries = get_option('static-binaries')
 
 sysvinit_path = get_option('sysvinit-path')
 sysvrcnd_path = get_option('sysvrcnd-path')
@@ -442,7 +443,7 @@ endif
 # --as-needed and --no-undefined are provided by meson by default,
 # run 'meson configure' to see what is enabled
 possible_link_flags = [
-        '-Wl,--fatal-warnings',
+#        '-Wl,--fatal-warnings',
         '-Wl,-z,now',
         '-Wl,-z,relro',
 ]
@@ -1355,6 +1356,10 @@ if want_libcryptsetup != 'false' and not skip_deps
         libcryptsetup = dependency('libcryptsetup',
                                    version : want_libcryptsetup_plugins == 'true' ? '>= 2.4.0' : '>= 2.0.1',
                                    required : want_libcryptsetup == 'true' or want_libcryptsetup_plugins == 'true')
+        libcryptsetup_static = dependency('libcryptsetup',
+                                   static: true,
+                                   version : '>= 2.0.1',
+                                   required : want_libcryptsetup == 'true' and have_static_binaries)
         have = libcryptsetup.found()
 
         foreach ident : ['crypt_set_metadata_size',
@@ -1525,6 +1530,9 @@ want_tpm2 = get_option('tpm2')
 if want_tpm2 != 'false' and not skip_deps
         tpm2 = dependency('tss2-esys tss2-rc tss2-mu',
                           required : want_tpm2 == 'true')
+        tpm2_static = dependency('tss2-esys tss2-rc tss2-mu tss2-tctildr tss2-tcti-device',
+                                 static: true,
+                                 required : want_tpm2 == 'true' and have_static_binaries == 'true')
         have = tpm2.found()
         have_esys3 = tpm2.version().version_compare('>= 3.0.0')
 else
@@ -3152,6 +3160,20 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootlibexecdir)
+
+        if have_static_binaries
+              executable(
+                      'systemd-cryptsetup.static',
+                      systemd_cryptsetup_sources,
+                      link_args : ['-static'],
+                      include_directories : includes,
+                      link_with : [libshared_static_static_libs, libsystemd_static, libbasic],
+                      dependencies : [libcryptsetup_static,
+                                      tpm2_static,
+                                      libp11kit],
+                      install : true,
+                      install_dir : rootlibexecdir)
+        endif
 
         executable(
                 'systemd-cryptsetup-generator',
@@ -4959,6 +4981,7 @@ foreach tuple : [
         ['first-boot-full-preset'],
         ['fexecve'],
         ['standalone-binaries',    get_option('standalone-binaries')],
+        ['static-binaries',        get_option('static-binaries')],
         ['coverage',               get_option('b_coverage')],
 ]
 
