@@ -317,6 +317,9 @@ conf.set('UPDATE_HELPER_USER_TIMEOUT_SEC',                    get_option('update
 
 conf.set10('FIRST_BOOT_FULL_PRESET',                          get_option('first-boot-full-preset'))
 
+parse_main_config_files = get_option('parse-main-config-files')
+conf.set10('PARSE_MAIN_CONFIG_FILES',                         parse_main_config_files)
+
 #####################################################################
 
 cc = meson.get_compiler('c')
