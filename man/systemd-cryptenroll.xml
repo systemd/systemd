@@ -58,6 +58,162 @@
 
     <para>The tool supports only LUKS2 volumes, as it stores token meta-information in the LUKS2 JSON token
     area, which is not available in other encryption formats.</para>
+
+    <refsect2>
+      <title>TPM2 PCRs and policies</title>
+
+      <para>PCRs allow binding of the encryption of secrets to specific software versions and system state,
+      so that the enrolled key is only accessible (may be "unsealed") if specific trusted software and/or
+      configuration is used. Such bindings may be created with the option <option>--tpm2-pcrs=</option>
+      described below.</para>
+
+      <para>Secrets may also be bound indirectly: a signed policy for a state of some combination of PCR
+      values is provided, and the secret is bound to the public part of the key used to sign this policy.
+      This means that the owner of a key can generate a sequence of signed policies, for specific software
+      versions and system states, and the secret can be decrypted as long as the machine state matches one of
+      those policies. For example, a vendor may provide such a policy for each kernel+initrd update, allowing
+      users to encrypt secrets so that they can be decrypted when running any kernel+initrd signed by the
+      vendor. Such bindings may be created with the options <option>--tpm2-public-key=</option>,
+      <option>--tpm2-public-key-pcrs=</option>, <option>--tpm2-signature=</option> described below.
+      </para>
+
+      <para>See <ulink url="https://uapi-group.org/specifications/specs/linux_tpm_pcr_registry/">Linux TPM
+      PCR Registry</ulink> for an authoritative list of PCRs and how they are updated. The table below
+      contains a quick reference, describing in particular the PCRs modified by systemd.</para>
+
+      <table>
+        <title>Well-known PCR Definitions</title>
+
+        <!-- See: https://trustedcomputinggroup.org/resource/pc-client-specific-platform-firmware-profile-specification/ -->
+        <!-- See: https://github.com/rhboot/shim/blob/main/README.tpm -->
+        <!-- See: https://www.gnu.org/software/grub/manual/grub/html_node/Measured-Boot.html -->
+        <!-- See: https://sourceforge.net/p/linux-ima/wiki/Home/ -->
+        <!-- See: https://github.com/tianocore-docs/edk2-TrustedBootChain/blob/main/4_Other_Trusted_Boot_Chains.md -->
+        <!-- See: https://wiki.archlinux.org/title/Trusted_Platform_Module#Accessing_PCR_registers -->
+
+        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+          <colspec colname="pcr" />
+          <colspec colname="name" />
+          <colspec colname="definition" />
+
+          <thead>
+            <row>
+              <entry>PCR</entry>
+              <entry>name</entry>
+              <entry>Explanation</entry>
+            </row>
+          </thead>
+
+          <tbody>
+            <row>
+              <entry>0</entry>
+              <entry>platform-code</entry>
+              <entry>Core system firmware executable code; changes on firmware updates</entry>
+            </row>
+
+            <row>
+              <entry>1</entry>
+              <entry>platform-config</entry>
+              <entry>Core system firmware data/host platform configuration; typically contains serial and model numbers, changes on basic hardware/CPU/RAM replacements</entry>
+            </row>
+
+            <row>
+              <entry>2</entry>
+              <entry>external-code</entry>
+              <entry>Extended or pluggable executable code; includes option ROMs on pluggable hardware</entry>
+            </row>
+
+            <row>
+              <entry>3</entry>
+              <entry>external-config</entry>
+              <entry>Extended or pluggable firmware data; includes information about pluggable hardware</entry>
+            </row>
+
+            <row>
+              <entry>4</entry>
+              <entry>boot-loader-code</entry>
+              <entry>Boot loader and additional drivers, PE binaries invoked by the boot loader; changes on boot loader updates. <citerefentry><refentrytitle>sd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures system extension images read from the ESP here too (see <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>).</entry>
+            </row>
+
+            <row>
+              <entry>5</entry>
+              <entry>boot-loader-config</entry>
+              <entry>GPT/Partition table; changes when the partitions are added, modified, or removed</entry>
+            </row>
+
+            <row>
+              <entry>7</entry>
+              <entry>secure-boot-policy</entry>
+              <entry>Secure Boot state; changes when UEFI SecureBoot mode is enabled/disabled, or firmware certificates (PK, KEK, db, dbx, …) changes.</entry>
+            </row>
+
+            <row>
+              <entry>9</entry>
+              <entry>kernel-initrd</entry>
+              <entry>The Linux kernel measures all initrds it receives into this PCR.</entry>
+              <!-- Strictly speaking only Linux >= 5.17 using the LOAD_FILE2 protocol, see https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=f046fff8bc4c4d8f8a478022e76e40b818f692df -->
+            </row>
+
+            <row>
+              <entry>10</entry>
+              <entry>ima</entry>
+              <entry>The IMA project measures its runtime state into this PCR.</entry>
+            </row>
+
+            <row>
+              <entry>11</entry>
+              <entry>kernel-boot</entry>
+              <entry><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures the ELF kernel image, embedded initrd and other payload of the PE image it is placed in into this PCR. <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> measures boot phase strings into this PCR at various milestones of the boot process.</entry>
+            </row>
+
+            <row>
+              <entry>12</entry>
+              <entry>kernel-config</entry>
+              <entry><citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures the kernel command line into this PCR. <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures any manually specified kernel command line (i.e. a kernel command line that overrides the one embedded in the unified PE image) and loaded credentials into this PCR.</entry>
+            </row>
+
+            <row>
+              <entry>13</entry>
+              <entry>sysexts</entry>
+              <entry><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures any <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> images it passes to the booted kernel into this PCR.</entry>
+            </row>
+
+            <row>
+              <entry>14</entry>
+              <entry>shim-policy</entry>
+              <entry>The shim project measures its "MOK" certificates and hashes into this PCR.</entry>
+            </row>
+
+            <row>
+              <entry>15</entry>
+              <entry>system-identity</entry>
+              <entry><citerefentry><refentrytitle>systemd-cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry> optionally measures the volume key of activated LUKS volumes into this PCR. <citerefentry><refentrytitle>systemd-pcrmachine.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> measures the <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> into this PCR. <citerefentry><refentrytitle>systemd-pcrfs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> measures mount points, file system UUIDs, labels, partion UUIDs of the root and <filename>/var/</filename> filesystems into this PCR.</entry>
+            </row>
+
+            <row>
+              <entry>16</entry>
+              <entry>debug</entry>
+              <entry>Debug</entry>
+            </row>
+
+            <row>
+              <entry>23</entry>
+              <entry>application-support</entry>
+              <entry>Application Support</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
+
+      <para>In general, encrypted volumes would be bound to some combination of PCRs 7, 11, and 14 (if
+      shim/MOK is used). In order to allow firmware and OS version updates, it is typically not advisable to
+      use PCRs such as 0 and 2, since the program code they cover should already be covered indirectly
+      through the certificates measured into PCR 7. Validation through certificates hashes is typically
+      preferable over validation through direct measurements as it is less brittle in context of OS/firmware
+      updates: the measurements will change on every update, but signatures should remain unchanged. See the
+      <ulink url="https://uapi-group.org/specifications/specs/linux_tpm_pcr_registry/">Linux TPM PCR
+      Registry</ulink> for more discussion.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -234,154 +390,15 @@
       <varlistentry>
         <term><option>--tpm2-pcrs=</option><arg rep="repeat">PCR</arg></term>
 
-        <listitem><para>Configures the TPM2 PCRs (Platform Configuration Registers) to bind the enrollment
-        requested via <option>--tpm2-device=</option> to. Takes a <literal>+</literal> separated list of
-        numeric PCR indexes in the range 0…23. If not used, defaults to PCR 7 only. If an empty string is
-        specified, binds the enrollment to no PCRs at all.
-        Registers may also be specified using string aliases.</para>
-        <para>For instance <option>--tpm2-pcrs=boot-loader-code+platform-config+boot-loader-config</option> to bind to the registers
-         4, 1, and 5. Check the PCR definitions table below for a full list
-        of available string aliases.
-        PCRs allow binding the enrollment to specific
-        software versions and system state, so that the enrolled unlocking key is only accessible (may be
-        "unsealed") if specific trusted software and/or configuration is used.</para>
+        <listitem><para>Configures the TPM2 PCRs (Platform Configuration Registers) to bind to when
+        enrollment is requested via <option>--tpm2-device=</option>. Takes a list of PCR names or numeric
+        indices in the range 0…23. Multiple PCR indexes are separated by <literal>+</literal>. If not
+        specified, the default is to use PCR 7 only. If an empty string is specified, binds the enrollment to
+        no PCRs at all. See the table above for a list of available PCRs.</para>
 
-        <table>
-          <title>Well-known PCR Definitions</title>
-
-          <!-- See: https://trustedcomputinggroup.org/resource/pc-client-specific-platform-firmware-profile-specification/ -->
-          <!-- See: https://github.com/rhboot/shim/blob/main/README.tpm -->
-          <!-- See: https://www.gnu.org/software/grub/manual/grub/html_node/Measured-Boot.html -->
-          <!-- See: https://sourceforge.net/p/linux-ima/wiki/Home/ -->
-          <!-- See: https://github.com/tianocore-docs/edk2-TrustedBootChain/blob/main/4_Other_Trusted_Boot_Chains.md -->
-          <!-- See: https://wiki.archlinux.org/title/Trusted_Platform_Module#Accessing_PCR_registers -->
-
-          <tgroup cols='3' align='left' colsep='1' rowsep='1'>
-            <colspec colname="pcr" />
-            <colspec colname="string_alias" />
-            <colspec colname="definition" />
-
-            <thead>
-              <row>
-                <entry>PCR</entry>
-                <entry>alias</entry>
-                <entry>Explanation</entry>
-              </row>
-            </thead>
-
-            <tbody>
-              <row>
-                <entry>0</entry>
-                <entry>platform-code</entry>
-                <entry>Core system firmware executable code; changes on firmware updates</entry>
-              </row>
-
-              <row>
-                <entry>1</entry>
-                <entry>platform-config</entry>
-                <entry>Core system firmware data/host platform configuration; typically contains serial and model numbers, changes on basic hardware/CPU/RAM replacements</entry>
-              </row>
-
-              <row>
-                <entry>2</entry>
-                <entry>external-code</entry>
-                <entry>Extended or pluggable executable code; includes option ROMs on pluggable hardware</entry>
-              </row>
-
-              <row>
-                <entry>3</entry>
-                <entry>external-config</entry>
-                <entry>Extended or pluggable firmware data; includes information about pluggable hardware</entry>
-              </row>
-
-              <row>
-                <entry>4</entry>
-                <entry>boot-loader-code</entry>
-                <entry>Boot loader and additional drivers; changes on boot loader updates. The shim project will measure the PE binary it chain loads into this PCR. If the Linux kernel is invoked as UEFI PE binary, it is measured here, too. <citerefentry><refentrytitle>sd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures system extension images read from the ESP here too (see <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>).</entry>
-              </row>
-
-              <row>
-                <entry>5</entry>
-                <entry>boot-loader-config</entry>
-                <entry>GPT/Partition table; changes when the partitions are added, modified or removed</entry>
-              </row>
-
-              <row>
-                <entry>7</entry>
-                <entry>secure-boot-policy</entry>
-                <entry>Secure Boot state; changes when UEFI SecureBoot mode is enabled/disabled, or firmware certificates (PK, KEK, db, dbx, …) changes. The shim project will measure most of its (non-MOK) certificates and SBAT data into this PCR.</entry>
-              </row>
-
-              <!-- Grub measures all its commands and the kernel command line into PCR 8… -->
-              <!-- Grub measures all files it reads (including kernel image, initrd, …) into PCR 9… -->
-
-              <row>
-                <entry>9</entry>
-                <entry>kernel-initrd</entry>
-                <entry>The Linux kernel measures all initrds it receives into this PCR.</entry>
-                <!-- Strictly speaking only Linux >= 5.17 using the LOAD_FILE2 protocol, see https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=f046fff8bc4c4d8f8a478022e76e40b818f692df -->
-              </row>
-
-              <row>
-                <entry>10</entry>
-                <entry>ima</entry>
-                <entry>The IMA project measures its runtime state into this PCR.</entry>
-              </row>
-
-              <row>
-                <entry>11</entry>
-                <entry>kernel-boot</entry>
-                <entry><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures the ELF kernel image, embedded initrd and other payload of the PE image it is placed in into this PCR. Unlike PCR 4 (where the same data should be measured into), this PCR value should be easy to pre-calculate, as this only contains static parts of the PE binary. Use this PCR to bind TPM policies to a specific kernel image, possibly with an embedded initrd. <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> measures boot phase strings into this PCR at various milestones of the boot process.</entry>
-              </row>
-
-              <row>
-                <entry>12</entry>
-                <entry>kernel-config</entry>
-                <entry><citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures the kernel command line into this PCR. <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures any manually specified kernel command line (i.e. a kernel command line that overrides the one embedded in the unified PE image) and loaded credentials into this PCR. (Note that if <command>systemd-boot</command> and <command>systemd-stub</command> are used in combination the command line might be measured twice!)</entry>
-              </row>
-
-              <row>
-                <entry>13</entry>
-                <entry>sysexts</entry>
-                <entry><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> measures any <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> images it loads and passed to the booted kernel into this PCR.</entry>
-              </row>
-
-              <row>
-                <entry>14</entry>
-                <entry>shim-policy</entry>
-                <entry>The shim project measures its "MOK" certificates and hashes into this PCR.</entry>
-              </row>
-
-              <row>
-                <entry>15</entry>
-                <entry>system-identity</entry>
-                <entry><citerefentry><refentrytitle>systemd-cryptsetup</refentrytitle><manvolnum>7</manvolnum></citerefentry> optionally measures the volume key of activated LUKS volumes into this PCR.</entry>
-              </row>
-
-              <row>
-                <entry>16</entry>
-                <entry>debug</entry>
-                <entry>Debug</entry>
-              </row>
-
-              <row>
-                <entry>23</entry>
-                <entry>application-support</entry>
-                <entry>Application Support</entry>
-              </row>
-            </tbody>
-          </tgroup>
-        </table>
-
-        <para>For most applications it should be sufficient to bind against PCR 7 (and possibly PCR 14, if
-        shim/MOK is desired), as this includes measurements of the trusted certificates (and possibly hashes)
-        that are used to validate all components of the boot process up to and including the OS kernel. In
-        order to simplify firmware and OS version updates it's typically not advisable to include PCRs such
-        as 0 and 2 in the binding of the enrollment, since the program code they cover should already be
-        protected indirectly through the certificates measured into PCR 7. Validation through these
-        certificates is typically preferable over validation through direct measurements as it is less
-        brittle in context of OS/firmware updates: the measurements will change on every update, but code
-        signatures likely will validate against pre-existing certificates.</para></listitem>
+        <para>Example: <option>--tpm2-pcrs=boot-loader-code+platform-config+boot-loader-config</option>
+        specifies that PCR registers 4, 1, and 5 should be used.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -422,20 +439,21 @@
         <option>--tpm2-public-key-pcrs=</option>: the former binds decryption to the current, specific PCR
         values; the latter binds decryption to any set of PCR values for which a signature by the specified
         public key can be provided. The latter is hence more useful in scenarios where software updates shell
-        be possible without losing access to all previously encrypted LUKS2 volumes.
-        Like with <option>--tpm2-pcrs=</option>, string aliases as defined in the table above can also be used
-        to specify the registers, for instance <option>--tpm2-public-key-pcrs=boot-loader-code+system-identity</option>.</para>
+        be possible without losing access to all previously encrypted LUKS2 volumes. Like with
+        <option>--tpm2-pcrs=</option>, names defined in the table above can also be used to specify the
+        registers, for instance
+        <option>--tpm2-public-key-pcrs=boot-loader-code+system-identity</option>.</para>
 
-        <para>The <option>--tpm2-signature=</option> option takes a path to a TPM2 PCR signature file
-        as generated by the
+        <para>The <option>--tpm2-signature=</option> option takes a path to a TPM2 PCR signature file as
+        generated by the
         <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        tool. If this is not specified explicitly a suitable signature file
+        tool. If this is not specified explicitly, a suitable signature file
         <filename>tpm2-pcr-signature.json</filename> is searched for in <filename>/etc/systemd/</filename>,
-        <filename>/run/systemd/</filename>, <filename>/usr/lib/systemd/</filename> (in this order) and
-        used. If a signature file is specified or found it is used to verify if the volume can be unlocked
-        with it given the current PCR state, before the new slot is written to disk. This is intended as
-        safety net to ensure that access to a volume is not lost if a public key is enrolled for which no
-        valid signature for the current PCR state is available. If the supplied signature does not unlock the
+        <filename>/run/systemd/</filename>, <filename>/usr/lib/systemd/</filename> (in this order) and used.
+        If a signature file is specified or found it is used to verify if the volume can be unlocked with it
+        given the current PCR state, before the new slot is written to disk. This is intended as safety net
+        to ensure that access to a volume is not lost if a public key is enrolled for which no valid
+        signature for the current PCR state is available. If the supplied signature does not unlock the
         current PCR state and public key combination, no slot is enrolled and the operation will fail. If no
         signature file is specified or found no such safety verification is done.</para></listitem>
       </varlistentry>
