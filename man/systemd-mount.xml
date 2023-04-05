@@ -227,7 +227,7 @@
 
         <listitem><para>This option only has an effect in automount mode,
         and controls whether the automount unit shall be bound to the backing device's lifetime. If set, the
-        automount point will be removed automatically when the backing device vanishes. By default the automount point
+        automount unit will be stopped and removed automatically when the backing device vanishes. By default the automount unit
         stays around, and subsequent accesses will block until backing device is replugged. This option has no effect
         in case of non-device mounts, such as network or virtual file system mounts.</para>
 
