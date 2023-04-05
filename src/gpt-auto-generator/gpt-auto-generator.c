@@ -25,7 +25,6 @@
 #include "gpt.h"
 #include "image-policy.h"
 #include "initrd-util.h"
-#include "mkdir.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -108,7 +107,7 @@ static int add_cryptsetup(
 
                 r = efi_stub_measured(LOG_WARNING);
                 if (r == 0)
-                        log_debug("Will not measure volume key of volume '%s', because not booted via systemd-stub with measurements enabled.", id);
+                        log_debug("Will not measure volume key of volume '%s', not booted via systemd-stub with measurements enabled.", id);
                 else if (r > 0) {
                         if (!strextend_with_separator(&options, ",", "tpm2-measure-pcr=yes"))
                                 return log_oom();
@@ -127,8 +126,7 @@ static int add_cryptsetup(
         if (r < 0)
                 return r;
 
-        const char *dmname;
-        dmname = strjoina("dev-mapper-", e, ".device");
+        const char *dmname = strjoina("dev-mapper-", e, ".device");
 
         if (require) {
                 r = generator_add_symlink(arg_dest, "cryptsetup.target", "requires", n);
@@ -159,7 +157,8 @@ static int add_cryptsetup(
 
         return 0;
 #else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Partition is encrypted, but the project was compiled without libcryptsetup support");
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Partition is encrypted, but systemd-gpt-auto-generator was compiled without libcryptsetup support");
 #endif
 }
 
@@ -279,12 +278,13 @@ static int add_mount(
 static int path_is_busy(const char *where) {
         int r;
 
+        assert(where);
+
         /* already a mountpoint; generators run during reload */
         r = path_is_mount_point(where, NULL, AT_SYMLINK_FOLLOW);
         if (r > 0)
                 return false;
-
-        /* the directory might not exist on a stateless system */
+        /* The directory will be created by the mount or automount unit when it is started. */
         if (r == -ENOENT)
                 return false;
 
@@ -293,13 +293,17 @@ static int path_is_busy(const char *where) {
 
         /* not a mountpoint but it contains files */
         r = dir_is_empty(where, /* ignore_hidden_or_backup= */ false);
-        if (r < 0)
+        if (r == -ENOTDIR) {
+                log_debug("\"%s\" is not a directory, ignoring.", where);
+                return true;
+        } else if (r < 0)
                 return log_warning_errno(r, "Cannot check if \"%s\" is empty: %m", where);
-        if (r > 0)
-                return false;
+        else if (r == 0) {
+                log_debug("\"%s\" already populated, ignoring.", where);
+                return true;
+        }
 
-        log_debug("\"%s\" already populated, ignoring.", where);
-        return true;
+        return false;
 }
 
 static int add_partition_mount(
@@ -467,6 +471,45 @@ static int add_automount(
         return generator_add_symlink(arg_dest, SPECIAL_LOCAL_FS_TARGET, "wants", unit);
 }
 
+static int slash_boot_in_fstab(void) {
+        static int cache = -1;
+
+        if (cache >= 0)
+                return cache;
+
+        cache = fstab_is_mount_point("/boot");
+        if (cache < 0)
+                return log_error_errno(cache, "Failed to parse fstab: %m");
+        return cache;
+}
+
+static int slash_efi_in_fstab(void) {
+        static int cache = -1;
+
+        if (cache >= 0)
+                return cache;
+
+        cache = fstab_is_mount_point("/efi");
+        if (cache < 0)
+                return log_error_errno(cache, "Failed to parse fstab: %m");
+        return cache;
+}
+
+static bool slash_boot_exists(void) {
+        static int cache = -1;
+
+        if (cache >= 0)
+                return cache;
+
+        if (access("/boot", F_OK) >= 0)
+                return (cache = true);
+        if (errno != ENOENT)
+                log_error_errno(errno, "Failed to determine whether /boot/ exists, assuming no: %m");
+        else
+                log_debug_errno(errno, "/boot/: %m");
+        return (cache = false);
+}
+
 static int add_partition_xbootldr(DissectedPartition *p) {
         _cleanup_free_ char *options = NULL;
         int r;
@@ -478,11 +521,11 @@ static int add_partition_xbootldr(DissectedPartition *p) {
                 return 0;
         }
 
-        r = fstab_is_mount_point("/boot");
+        r = slash_boot_in_fstab();
         if (r < 0)
-                return log_error_errno(r, "Failed to parse fstab: %m");
+                return r;
         if (r > 0) {
-                log_debug("/boot specified in fstab, ignoring XBOOTLDR partition.");
+                log_debug("/boot/ specified in fstab, ignoring XBOOTLDR partition.");
                 return 0;
         }
 
@@ -500,17 +543,18 @@ static int add_partition_xbootldr(DissectedPartition *p) {
                         &options,
                         /* ret_ms_flags= */ NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine default mount options for Boot Loader Partition: %m");
+                return log_error_errno(r, "Failed to determine default mount options for /boot/: %m");
 
-        return add_automount("boot",
-                             p->node,
-                             "/boot",
-                             p->fstype,
-                             /* rw= */ true,
-                             /* growfs= */ false,
-                             options,
-                             "Boot Loader Partition",
-                             120 * USEC_PER_SEC);
+        return add_automount(
+                        "boot",
+                        p->node,
+                        "/boot",
+                        p->fstype,
+                        /* rw= */ true,
+                        /* growfs= */ false,
+                        options,
+                        "Boot Loader Partition",
+                        120 * USEC_PER_SEC);
 }
 
 #if ENABLE_EFI
@@ -526,42 +570,41 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
                 return 0;
         }
 
-        /* If /efi exists we'll use that. Otherwise we'll use /boot, as that's usually the better choice, but
-         * only if there's no explicit XBOOTLDR partition around. */
-        if (access("/efi", F_OK) < 0) {
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to determine whether /efi exists: %m");
-
-                /* Use /boot as fallback, but only if there's no XBOOTLDR partition and /boot exists */
-                if (!has_xbootldr) {
-                        if (access("/boot", F_OK) < 0) {
-                                if (errno != ENOENT)
-                                        return log_error_errno(errno, "Failed to determine whether /boot exists: %m");
-                        } else {
+        /* If /boot/ is present, unused, and empty, we'll take that.
+         * Otherwise, if /efi/ is unused and empty (or missing), we'll take that.
+         * Otherwise, we do nothing.
+         */
+        if (!has_xbootldr && slash_boot_exists()) {
+                r = slash_boot_in_fstab();
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        r = path_is_busy("/boot");
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
                                 esp_path = "/boot";
                                 id = "boot";
                         }
                 }
         }
-        if (!esp_path)
+
+        if (!esp_path) {
+                r = slash_efi_in_fstab();
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 0;
+
+                r = path_is_busy("/efi");
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 0;
+
                 esp_path = "/efi";
-        if (!id)
                 id = "efi";
-
-        /* We create an .automount which is not overridden by the .mount from the fstab generator. */
-        r = fstab_is_mount_point(esp_path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse fstab: %m");
-        if (r > 0) {
-                log_debug("%s specified in fstab, ignoring.", esp_path);
-                return 0;
         }
-
-        r = path_is_busy(esp_path);
-        if (r < 0)
-                return r;
-        if (r > 0)
-                return 0;
 
         if (is_efi_boot()) {
                 sd_id128_t loader_uuid;
@@ -591,17 +634,18 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
                         &options,
                         /* ret_ms_flags= */ NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine default mount options for EFI System Partition: %m");
+                return log_error_errno(r, "Failed to determine default mount options for %s: %m", esp_path);
 
-        return add_automount(id,
-                             p->node,
-                             esp_path,
-                             p->fstype,
-                             /* rw= */ true,
-                             /* growfs= */ false,
-                             options,
-                             "EFI System Partition Automount",
-                             120 * USEC_PER_SEC);
+        return add_automount(
+                        id,
+                        p->node,
+                        esp_path,
+                        p->fstype,
+                        /* rw= */ true,
+                        /* growfs= */ false,
+                        options,
+                        "EFI System Partition Automount",
+                        120 * USEC_PER_SEC);
 }
 #else
 static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
