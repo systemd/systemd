@@ -3476,8 +3476,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <varlistentry>
           <term><varname>$NOTIFY_SOCKET</varname></term>
 
-          <listitem><para>The socket
-          <function>sd_notify()</function> talks to. See
+          <listitem><para>The socket <function>sd_notify()</function> talks to. See
           <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
           </para></listitem>
         </varlistentry>
@@ -3797,6 +3796,19 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           and the data to write into it. See <ulink url="https://systemd.io/MEMORY_PRESSURE">Memory Pressure
           Handling</ulink> for details about these variables and the service protocol data they
           convey.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>$FDSTORE</varname></term>
+
+          <listitem><para>If the file descriptor store is enabled for a service
+          (i.e. <varname>FileDescriptorStoreMax=</varname> is set to a non-zero value, see
+          <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details), this environment variable will be set to the maximum number of permitted entries, as
+          per the setting. Applications may check this environment variable before sending file descriptors
+          to the service manager via <function>sd_pid_notify_with_fds()</function> (see
+          <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+          details).</para></listitem>
         </varlistentry>
 
       </variablelist>
