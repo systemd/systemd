@@ -103,7 +103,7 @@ systemd-run -p LoadCredential=cred:/tmp/ts54-creds \
         '${CREDENTIALS_DIRECTORY}/cred_bar' \
         '${CREDENTIALS_DIRECTORY}/cred_baz' \
         '${CREDENTIALS_DIRECTORY}/cred_sub_qux' >/tmp/ts54-concat
-( echo -n abcd ) | cmp /tmp/ts54-concat
+cmp /tmp/ts54-concat <(echo -n abcd)
 rm /tmp/ts54-concat
 rm -rf /tmp/ts54-creds
 
