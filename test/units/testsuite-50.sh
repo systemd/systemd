@@ -7,7 +7,7 @@ set -o pipefail
 
 export SYSTEMD_LOG_LEVEL=debug
 
-cleanup() {(
+cleanup() {
     set +ex
 
     if [ -z "${image_dir}" ]; then
@@ -17,7 +17,7 @@ cleanup() {(
     umount "${image_dir}/app1"
     umount "${image_dir}/app-nodistro"
     rm -rf "${image_dir}"
-)}
+}
 
 udevadm control --log-level=debug
 
@@ -482,6 +482,17 @@ test ! -e "/dev/loop/by-ref/$name"
 # Detach by backing inode
 systemd-dissect --detach "${image}.raw"
 (! systemd-dissect --detach "${image}.raw")
+
+# check for confext functionality
+mkdir -p /run/confexts/test/etc/extension-release.d
+echo "ID=_any" >/run/confexts/test/etc/extension-release.d/extension-release.test
+echo "ARCHITECTURE=_any" >>/run/confexts/test/etc/extension-release.d/extension-release.test
+echo "MARKER_CONFEXT_123" >/run/confexts/test/etc/testfile
+systemd-confext merge
+grep -q -F "MARKER_CONFEXT_123" /etc/testfile
+systemd-confext status
+systemd-confext unmerge
+rm -rf /run/confexts/
 
 echo OK >/testok
 
