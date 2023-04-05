@@ -398,8 +398,8 @@ systemctl is-active testservice-50e.service
 
 # ExtensionDirectories will set up an overlay
 mkdir -p "${image_dir}/app0" "${image_dir}/app1" "${image_dir}/app-nodistro"
-systemd-run -P --property ExtensionDirectories="${image_dir}/nonexistent" --property RootImage="${image}.raw" cat /opt/script0.sh && { echo 'unexpected success'; exit 1; }
-systemd-run -P --property ExtensionDirectories="${image_dir}/app0" --property RootImage="${image}.raw" cat /opt/script0.sh && { echo 'unexpected success'; exit 1; }
+(! systemd-run -P --property ExtensionDirectories="${image_dir}/nonexistent" --property RootImage="${image}.raw" cat /opt/script0.sh)
+(! systemd-run -P --property ExtensionDirectories="${image_dir}/app0" --property RootImage="${image}.raw" cat /opt/script0.sh)
 systemd-dissect --mount /usr/share/app0.raw "${image_dir}/app0"
 systemd-dissect --mount /usr/share/app1.raw "${image_dir}/app1"
 systemd-dissect --mount /usr/share/app-nodistro.raw "${image_dir}/app-nodistro"
@@ -446,7 +446,7 @@ mkdir -p /run/extensions/app-reject/usr/lib/{extension-release.d/,systemd/system
 echo "ID=_any" >/run/extensions/app-reject/usr/lib/extension-release.d/extension-release.app-reject
 echo "ID=_any" >/run/extensions/app-reject/usr/lib/os-release
 touch /run/extensions/app-reject/usr/lib/systemd/system/other_file
-systemd-sysext merge && { echo 'unexpected success'; exit 1; }
+(! systemd-sysext merge)
 test ! -e /usr/lib/systemd/system/some_file
 test ! -e /usr/lib/systemd/system/other_file
 systemd-sysext unmerge
@@ -515,14 +515,14 @@ mkdir -p /run/confexts/test/etc/extension-release.d
 echo "ID=_any" >/run/confexts/test/etc/extension-release.d/extension-release.test
 echo "ARCHITECTURE=_any" >>/run/confexts/test/etc/extension-release.d/extension-release.test
 echo "MARKER_CONFEXT_123" >/run/confexts/test/etc/testfile
-cat <<EOF>/run/confexts/test/etc/testscript
+cat <<EOF >/run/confexts/test/etc/testscript
 #!/bin/bash
 echo "This should not happen"
 EOF
 chmod +x /run/confexts/test/etc/testscript
 systemd-confext merge
 grep -q -F "MARKER_CONFEXT_123" /etc/testfile
-/etc/testscript && { echo 'unexpected success'; exit 1; }
+(! /etc/testscript)
 systemd-confext status
 systemd-confext unmerge
 rm -rf /run/confexts/
