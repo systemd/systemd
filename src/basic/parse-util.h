@@ -11,6 +11,28 @@
 
 typedef unsigned long loadavg_t;
 
+#define TPM2_PCRS_MAX 24U
+
+typedef enum PcrIndex {
+        PCR_CORE_FIRMWARE      = 0,
+        PCR_PLATFORM_CONFIG    = 1,
+        PCR_EXTERNAL_CODE      = 2,
+        PCR_EXTERNAL_FIRMWARE  = 3,
+        PCR_BOOT_LOADER        = 4,
+        PCR_BOOT_LOADER_CONFIG = 5,
+        PCR_POWER_EVENTS       = 6,
+        PCR_SECURE_BOOT_POLICY = 7,
+        PCR_KERNEL_INITRD      = 9,
+        PCR_IMA                = 10,
+        PCR_KERNEL_BOOT        = 11,
+        PCR_KERNEL_CONFIG      = 12,
+        PCR_SYSTEXTS           = 13,
+        PCR_SHIM_POLICY        = 14,
+        PCR_SYSTEM_IDENTITY    = 15,
+        _PCR_INDEX_MAX_DEFINED = TPM2_PCRS_MAX,
+        _PCR_INDEX_INVALID     = -EINVAL,
+} PcrIndex;
+
 int parse_boolean(const char *v) _pure_;
 int parse_pid(const char *s, pid_t* ret_pid);
 int parse_mode(const char *s, mode_t *ret);
@@ -151,3 +173,4 @@ int parse_oom_score_adjust(const char *s, int *ret);
  * to a loadavg_t. */
 int store_loadavg_fixed_point(unsigned long i, unsigned long f, loadavg_t *ret);
 int parse_loadavg_fixed_point(const char *s, loadavg_t *ret);
+int pcr_index_from_string(const char *s);
