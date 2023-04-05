@@ -63,9 +63,14 @@ static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
          * because extension images are supposed to extend /usr/, so you get into recursive races, especially
          * with directory-based extensions, as the kernel's OverlayFS explicitly checks for this and errors
          * out with -ELOOP if it finds that a lowerdir= is a child of another lowerdir=. */
-        [IMAGE_EXTENSION] = "/etc/extensions\0"             /* only place symlinks here */
-                            "/run/extensions\0"             /* and here too */
-                            "/var/lib/extensions\0",        /* the main place for images */
+        [IMAGE_SYSEXT] =    "/etc/extensions\0"            /* only place symlinks here */
+                            "/run/extensions\0"            /* and here too */
+                            "/var/lib/extensions\0",       /* the main place for images */
+
+        [IMAGE_CONFEXT] =   "/run/confexts\0"              /* only place symlinks here */
+                            "/var/lib/confexts\0"          /* the main place for images */
+                            "/usr/local/lib/confexts\0"
+                            "/usr/lib/confexts\0",
 };
 
 static Image *image_free(Image *i) {
@@ -1152,7 +1157,7 @@ int image_read_metadata(Image *i) {
                 _cleanup_free_ char *hostname = NULL;
                 _cleanup_free_ char *path = NULL;
 
-                if (i->class == IMAGE_EXTENSION) {
+                if (i->class == IMAGE_SYSEXT) {
                         r = extension_has_forbidden_content(i->path);
                         if (r < 0)
                                 return r;
@@ -1190,7 +1195,7 @@ int image_read_metadata(Image *i) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to read os-release in image, ignoring: %m");
 
-                r = load_extension_release_pairs(i->path, i->name, /* relax_extension_release_check= */ false, &extension_release);
+                r = load_extension_release_pairs(i->path, i->class, i->name, /* relax_extension_release_check= */ false, &extension_release);
                 if (r < 0)
                         log_debug_errno(r, "Failed to read extension-release in image, ignoring: %m");
 
@@ -1325,7 +1330,8 @@ DEFINE_STRING_TABLE_LOOKUP(image_type, ImageType);
 static const char* const image_class_table[_IMAGE_CLASS_MAX] = {
         [IMAGE_MACHINE] = "machine",
         [IMAGE_PORTABLE] = "portable",
-        [IMAGE_EXTENSION] = "extension",
+        [IMAGE_SYSEXT] = "extension",
+        [IMAGE_CONFEXT] = "confext"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(image_class, ImageClass);

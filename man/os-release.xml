@@ -443,6 +443,17 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>CONFEXT_LEVEL=</varname></term>
+
+          <listitem><para>Semantically the same as <varname>SYSEXT_LEVEL=</varname> but for confext images.
+          See <filename>/etc/extension-release.d/extension-release.<replaceable>IMAGE</replaceable></filename>
+          for more information.</para>
+
+          <para>Examples: <literal>CONFEXT_LEVEL=2</literal>, <literal>CONFEXT_LEVEL=15.14</literal>.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>SYSEXT_SCOPE=</varname></term>
           <listitem><para>Takes a space-separated list of one or more of the strings
           <literal>system</literal>, <literal>initrd</literal> and <literal>portable</literal>. This field is
@@ -451,6 +462,12 @@
           images. If unspecified, <literal>SYSEXT_SCOPE=system portable</literal> is implied, i.e. any system
           extension without this field is applicable to regular systems and to portable service environments,
           but not to initrd environments.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>CONFEXT_SCOPE=</varname></term>
+
+          <listitem><para>Semantically the same as <varname>SYSEXT_SCOPE=</varname> but for confext images.</para></listitem>
         </varlistentry>
 
         <varlistentry>
