@@ -693,7 +693,7 @@ _public_ int sd_bus_get_name_creds(
                                                 "s",
                                                 unique ?: name);
                                 if (r < 0) {
-                                        if (!sd_bus_error_has_name(&error, "org.freedesktop.DBus.Error.SELinuxSecurityContextUnknown"))
+                                        if (!sd_bus_error_has_name(&error, SD_BUS_ERROR_SELINUX_SECURITY_CONTEXT_UNKNOWN))
                                                 return r;
 
                                         /* no data is fine */

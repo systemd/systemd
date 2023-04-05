@@ -138,14 +138,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 /* Empty argument or explicit string "masked" for default behaviour. */
                                 arg_flags &= ~(ASK_PASSWORD_ECHO|ASK_PASSWORD_SILENT);
                         else {
-                                bool b;
-
-                                r = parse_boolean_argument("--echo=", optarg, &b);
+                                r = parse_boolean_argument("--echo=", optarg, NULL);
                                 if (r < 0)
                                         return r;
 
-                                SET_FLAG(arg_flags, ASK_PASSWORD_ECHO, b);
-                                SET_FLAG(arg_flags, ASK_PASSWORD_SILENT, !b);
+                                SET_FLAG(arg_flags, ASK_PASSWORD_ECHO, r);
+                                SET_FLAG(arg_flags, ASK_PASSWORD_SILENT, !r);
                         }
                         break;
 
@@ -195,13 +193,11 @@ static int parse_argv(int argc, char *argv[]) {
         if (isempty(emoji) || streq(emoji, "auto"))
                 SET_FLAG(arg_flags, ASK_PASSWORD_HIDE_EMOJI, FLAGS_SET(arg_flags, ASK_PASSWORD_ECHO));
         else {
-                bool b;
-
-                r = parse_boolean_argument("--emoji=", emoji, &b);
+                r = parse_boolean_argument("--emoji=", emoji, NULL);
                 if (r < 0)
                          return r;
 
-                SET_FLAG(arg_flags, ASK_PASSWORD_HIDE_EMOJI, !b);
+                SET_FLAG(arg_flags, ASK_PASSWORD_HIDE_EMOJI, !r);
         }
 
         if (argc > optind) {

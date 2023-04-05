@@ -4909,24 +4909,14 @@ static int context_read_seed(Context *context, const char *root) {
                 return 0;
 
         if (!arg_randomize) {
-                _cleanup_close_ int fd = -EBADF;
-
-                fd = chase_and_open("/etc/machine-id", root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC, NULL);
-                if (fd == -ENOENT)
-                        log_info("No machine ID set, using randomized partition UUIDs.");
-                else if (fd < 0)
-                        return log_error_errno(fd, "Failed to determine machine ID of image: %m");
-                else {
-                        r = id128_read_fd(fd, ID128_FORMAT_PLAIN, &context->seed);
-                        if (r < 0) {
-                                if (!ERRNO_IS_MACHINE_ID_UNSET(r))
-                                        return log_error_errno(r, "Failed to parse machine ID of image: %m");
-
-                                log_info("No machine ID set, using randomized partition UUIDs.");
-                        }
-
+                r = id128_get_machine(root, &context->seed);
+                if (r >= 0)
                         return 0;
-                }
+
+                if (!ERRNO_IS_MACHINE_ID_UNSET(r))
+                        return log_error_errno(r, "Failed to parse machine ID of image: %m");
+
+                log_info("No machine ID set, using randomized partition UUIDs.");
         }
 
         r = sd_id128_randomize(&context->seed);

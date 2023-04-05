@@ -248,7 +248,6 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         int c, r;
-        bool b;
 
         assert(argc >= 0);
         assert(argv);
@@ -338,11 +337,11 @@ static int parse_argv(int argc, char *argv[]) {
                         if (streq(optarg, "auto"))  /* retained for backwards compatibility */
                                 arg_make_entry_directory = -1; /* yes if machine-id is permanent */
                         else {
-                                r = parse_boolean_argument("--make-entry-directory=", optarg, &b);
+                                r = parse_boolean_argument("--make-entry-directory=", optarg, NULL);
                                 if (r < 0)
                                         return r;
 
-                                arg_make_entry_directory = b;
+                                arg_make_entry_directory = r;
                         }
                         break;
 
@@ -366,7 +365,8 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         if (strlen(optarg) > EFI_BOOT_OPTION_DESCRIPTION_MAX)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "--efi-boot-option-description= too long: %zu > %zu", strlen(optarg), EFI_BOOT_OPTION_DESCRIPTION_MAX);
+                                                       "--efi-boot-option-description= too long: %zu > %zu",
+                                                       strlen(optarg), EFI_BOOT_OPTION_DESCRIPTION_MAX);
                         r = free_and_strdup_warn(&arg_efi_boot_option_description, optarg);
                         if (r < 0)
                                 return r;

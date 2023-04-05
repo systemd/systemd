@@ -129,9 +129,9 @@ Deprecations and removals:
 
 Features:
 
-* Add new RuntimeDirectoryPreserve= mode that cleans up the runtime directory
-  like we clean up the fdstore: once the unit is dead and has no jobs queued
-  anymore.
+* rework journalctl -M to be based on a machined method that generates a mount
+  fd of the relevant journal dirs in the container with uidmapping applied to
+  allow the host to read it, while making everything read-only.
 
 * fix our various hwdb lookup keys to end with ":" again. The original idea was
   that hwdb patters can match arbitrary fields with expressions like
@@ -1535,10 +1535,6 @@ Features:
   doing disk usage calculations and so on.
 
 * deprecate RootDirectoryStartOnly= in favour of a new ExecStart= prefix char
-
-* add a new RuntimeDirectoryPreserve= mode that defines a similar lifecycle for
-  the runtime dir as we maintain for the fdstore: i.e. keep it around as long
-  as the unit is running or has a job queued.
 
 * support projid-based quota in machinectl for containers
 
