@@ -15,7 +15,7 @@ cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-uran
 systemd-cryptenroll --unlock-key-file=/tmp/passphrase --tpm2-device=auto $img
 
 # Enroll unlock with default PCR policy
-env PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto $img
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto $img
 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1
 /usr/lib/systemd/systemd-cryptsetup detach test-volume
 
@@ -25,33 +25,33 @@ tpm2_pcrextend 7:sha256=00000000000000000000000000000000000000000000000000000000
 
 # Enroll unlock with PCR+PIN policy
 systemd-cryptenroll --wipe-slot=tpm2 $img
-env PASSWORD=passphrase NEWPIN=123456 systemd-cryptenroll --tpm2-device=auto --tpm2-with-pin=true $img
-env PIN=123456 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1
+PASSWORD=passphrase NEWPIN=123456 systemd-cryptenroll --tpm2-device=auto --tpm2-with-pin=true $img
+PIN=123456 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1
 /usr/lib/systemd/systemd-cryptsetup detach test-volume
 
 # Check failure with wrong PIN
-(! env PIN=123457 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1 )
+(! PIN=123457 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1 )
 
 
 # Check LUKS2 token plugin unlock (i.e. without specifying tpm2-device=auto)
 if cryptsetup --help | grep -q 'LUKS2 external token plugin support is compiled-in' && \
          [ -f "$(cryptsetup --help | sed -n -r 's/.*LUKS2 external token plugin path: (.*)\./\1/p')/libcryptsetup-token-systemd-tpm2.so" ]; then
-    env PIN=123456 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - headless=1
+    PIN=123456 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - headless=1
     /usr/lib/systemd/systemd-cryptsetup detach test-volume
 
     # Check failure with wrong PIN
-    (! env PIN=123457 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - headless=1 )
+    (! PIN=123457 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - headless=1 )
 else
     echo 'cryptsetup has no LUKS2 token plugin support, skipping'
 fi
 
 # Check failure with wrong PCR (and correct PIN)
 tpm2_pcrextend 7:sha256=0000000000000000000000000000000000000000000000000000000000000000
-(! env PIN=123456 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1 )
+(! PIN=123456 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1 )
 
 # Enroll unlock with PCR 0+7
 systemd-cryptenroll --wipe-slot=tpm2 $img
-env PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+7 $img
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+7 $img
 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1
 /usr/lib/systemd/systemd-cryptsetup detach test-volume
 
