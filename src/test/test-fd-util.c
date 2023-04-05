@@ -597,13 +597,17 @@ TEST(dir_fd_is_root) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
+        assert_se(dir_fd_is_root_or_cwd(AT_FDCWD) > 0);
+
         assert_se((fd = open("/", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
         assert_se(dir_fd_is_root(fd) > 0);
+        assert_se(dir_fd_is_root_or_cwd(fd) > 0);
 
         fd = safe_close(fd);
 
         assert_se((fd = open("/usr", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
         assert_se(dir_fd_is_root(fd) == 0);
+        assert_se(dir_fd_is_root_or_cwd(fd) == 0);
 
         r = detach_mount_namespace();
         if (r < 0)
@@ -622,16 +626,19 @@ TEST(dir_fd_is_root) {
 
         assert_se((fd = open(tmp, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
         assert_se(dir_fd_is_root(fd) == 0);
+        assert_se(dir_fd_is_root_or_cwd(fd) == 0);
 
         fd = safe_close(fd);
 
         assert_se((fd = open(x, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
         assert_se(dir_fd_is_root(fd) == 0);
+        assert_se(dir_fd_is_root_or_cwd(fd) == 0);
 
         fd = safe_close(fd);
 
         assert_se((fd = open(y, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
         assert_se(dir_fd_is_root(fd) == 0);
+        assert_se(dir_fd_is_root_or_cwd(fd) == 0);
 }
 
 TEST(fd_get_path) {
