@@ -7,7 +7,7 @@ set -o pipefail
 
 export SYSTEMD_LOG_LEVEL=debug
 
-cleanup() {(
+cleanup() {
     set +ex
 
     if [ -z "${image_dir}" ]; then
@@ -17,7 +17,7 @@ cleanup() {(
     umount "${image_dir}/app1"
     umount "${image_dir}/app-nodistro"
     rm -rf "${image_dir}"
-)}
+}
 
 udevadm control --log-level=debug
 
