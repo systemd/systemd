@@ -317,6 +317,9 @@ typedef struct Unit {
         /* Queue of units that have a BindTo= dependency on some other unit, and should possibly be shut down */
         LIST_FIELDS(Unit, stop_when_bound_queue);
 
+        /* Queue of units that should be checked if they can release resources now */
+        LIST_FIELDS(Unit, release_resources_queue);
+
         /* PIDs we keep an eye on. Note that a unit might have many
          * more, but these are the ones we care enough about to
          * process SIGCHLD for */
@@ -479,6 +482,7 @@ typedef struct Unit {
         bool in_stop_when_unneeded_queue:1;
         bool in_start_when_upheld_queue:1;
         bool in_stop_when_bound_queue:1;
+        bool in_release_resources_queue:1;
 
         bool sent_dbus_new_signal:1;
 
@@ -832,6 +836,8 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c);
 int unit_choose_id(Unit *u, const char *name);
 int unit_set_description(Unit *u, const char *description);
 
+void unit_release_resources(Unit *u);
+
 bool unit_may_gc(Unit *u);
 
 static inline bool unit_is_extrinsic(Unit *u) {
@@ -853,6 +859,7 @@ void unit_add_to_target_deps_queue(Unit *u);
 void unit_submit_to_stop_when_unneeded_queue(Unit *u);
 void unit_submit_to_start_when_upheld_queue(Unit *u);
 void unit_submit_to_stop_when_bound_queue(Unit *u);
+void unit_submit_to_release_resources_queue(Unit *u);
 
 int unit_merge(Unit *u, Unit *other);
 int unit_merge_by_name(Unit *u, const char *other);
