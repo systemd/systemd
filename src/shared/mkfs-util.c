@@ -479,6 +479,13 @@ int make_filesystem(
         if (extra_mkfs_args && strv_extend_strv(&argv, extra_mkfs_args, false) < 0)
                 return log_oom();
 
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *j = NULL;
+
+                j = strv_join(argv, " ");
+                log_debug("Executing mkfs command: %s", strna(j));
+        }
+
         r = safe_fork_full(
                         "(mkfs)",
                         stdio_fds,
