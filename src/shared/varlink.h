@@ -107,6 +107,17 @@ int varlink_error_errno(Varlink *v, int error);
 int varlink_notify(Varlink *v, JsonVariant *parameters);
 int varlink_notifyb(Varlink *v, ...);
 
+/* Write outgoing fds into the socket (to be associated with the next enqueued message) */
+int varlink_push_fd(Varlink *v, int fd);
+int varlink_dup_fd(Varlink *v, int fd);
+
+/* Read incoming fds from the socket (associated with the currently handled message) */
+int varlink_peek_fd(Varlink *v, size_t i);
+int varlink_take_fd(Varlink *v, size_t i);
+
+int varlink_set_allow_fd_passing_input(Varlink *v, bool b);
+int varlink_set_allow_fd_passing_output(Varlink *v, bool b);
+
 /* Bind a disconnect, reply or timeout callback */
 int varlink_bind_reply(Varlink *v, VarlinkReply reply);
 
@@ -163,14 +174,18 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_close_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_flush_close_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServer *, varlink_server_unref);
 
+/* These are local errors that never cross the wire, and are our own invention */
 #define VARLINK_ERROR_DISCONNECTED "io.systemd.Disconnected"
 #define VARLINK_ERROR_TIMEOUT "io.systemd.TimedOut"
 #define VARLINK_ERROR_PROTOCOL "io.systemd.Protocol"
 #define VARLINK_ERROR_SYSTEM "io.systemd.System"
 
+/* These are errors defined in the Varlink spec */
 #define VARLINK_ERROR_INTERFACE_NOT_FOUND "org.varlink.service.InterfaceNotFound"
 #define VARLINK_ERROR_METHOD_NOT_FOUND "org.varlink.service.MethodNotFound"
 #define VARLINK_ERROR_METHOD_NOT_IMPLEMENTED "org.varlink.service.MethodNotImplemented"
 #define VARLINK_ERROR_INVALID_PARAMETER "org.varlink.service.InvalidParameter"
+
+/* These are errors we came up with and squatted the namespace with */
 #define VARLINK_ERROR_SUBSCRIPTION_TAKEN "org.varlink.service.SubscriptionTaken"
 #define VARLINK_ERROR_PERMISSION_DENIED "org.varlink.service.PermissionDenied"
