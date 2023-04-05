@@ -18,7 +18,7 @@ static EFI_STATUS load_one_driver(
         assert(loaded_image);
         assert(fname);
 
-        spath = xasprintf("\\EFI\\systemd\\drivers\\%ls", fname);
+        spath = xasprintf("\\EFI\\" BOOTLOADER_VENDOR "\\drivers\\%ls", fname);
         err = make_file_device_path(loaded_image->DeviceHandle, spath, &path);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error making file device path: %m");

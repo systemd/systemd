@@ -293,7 +293,7 @@ static int mkdir_one(const char *prefix, const char *suffix) {
 static const char *const esp_subdirs[] = {
         /* The directories to place in the ESP */
         "EFI",
-        "EFI/systemd",
+        "EFI/" BOOTLOADER_VENDOR,
         "EFI/BOOT",
         "loader",
         NULL
@@ -348,7 +348,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
                                        root ? " under directory " : "",
                                        strempty(root));
 
-        q = path_join("/EFI/systemd/", dest_name);
+        q = path_join("/EFI/" BOOTLOADER_VENDOR, dest_name);
         if (!q)
                 return log_oom();
 
@@ -638,7 +638,7 @@ static int remove_from_order(uint16_t slot) {
 }
 
 static const char *pick_efi_boot_option_description(void) {
-        return arg_efi_boot_option_description ?: "Linux Boot Manager";
+        return arg_efi_boot_option_description ?: BOOTLOADER_DESCRIPTION;
 }
 
 static int install_variables(
@@ -720,7 +720,7 @@ static int are_we_installed(const char *esp_path) {
          *  → It specifically checks for systemd-boot, not for other boot loaders (which a check for
          *    /boot/loader/entries would do). */
 
-        _cleanup_free_ char *p = path_join(esp_path, "/EFI/systemd/");
+        _cleanup_free_ char *p = path_join(esp_path, "/EFI/" BOOTLOADER_VENDOR);
         if (!p)
                 return log_oom();
 
@@ -822,7 +822,7 @@ int verb_install(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
-        char *path = strjoina("/EFI/systemd/systemd-boot", arch, ".efi");
+        char *path = strjoina("/EFI/" BOOTLOADER_VENDOR "/systemd-boot", arch, ".efi");
         return install_variables(arg_esp_path, part, pstart, psize, uuid, path, install, graceful);
 }
 
@@ -916,7 +916,7 @@ static int remove_binaries(const char *esp_path) {
         const char *p;
         int r, q;
 
-        p = prefix_roota(esp_path, "/EFI/systemd");
+        p = prefix_roota(esp_path, "/EFI/" BOOTLOADER_VENDOR);
         r = rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
 
         q = remove_boot_efi(esp_path);
@@ -1061,7 +1061,7 @@ int verb_remove(int argc, char *argv[], void *userdata) {
                 return r;
         }
 
-        char *path = strjoina("/EFI/systemd/systemd-boot", get_efi_arch(), ".efi");
+        char *path = strjoina("/EFI/" BOOTLOADER_VENDOR "/systemd-boot", get_efi_arch(), ".efi");
         q = remove_variables(uuid, path, true);
         if (q < 0 && r >= 0)
                 r = q;
