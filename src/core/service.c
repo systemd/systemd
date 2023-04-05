@@ -1677,7 +1677,7 @@ static int service_spawn_internal(
         if (r < 0)
                 return r;
 
-        our_env = new0(char*, 12);
+        our_env = new0(char*, 13);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1686,6 +1686,10 @@ static int service_spawn_internal(
                         return -ENOMEM;
 
                 exec_params.notify_socket = UNIT(s)->manager->notify_socket;
+
+                if (s->n_fd_store_max > 0)
+                        if (asprintf(our_env + n_env++, "FDSTORE=%u", s->n_fd_store_max) < 0)
+                                return -ENOMEM;
         }
 
         if (s->main_pid > 0)
