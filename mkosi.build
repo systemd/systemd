@@ -178,14 +178,15 @@ if [ -d mkosi.kernel/ ]; then
             tools/testing/selftests/bpf/config.x86_64 \
             tools/testing/selftests/bpf/config
 
-    make O="$BUILDDIR" -j "$(nproc)"
+    # Make sure systemd-boot boots this kernel and not the distro provided one by overriding the version.
+    make O="$BUILDDIR" VERSION=99 -j "$(nproc)"
 
-    KERNEL_RELEASE=$(make O="$BUILDDIR" -s kernelrelease)
+    KERNEL_RELEASE=$(make O="$BUILDDIR" VERSION=99 -s kernelrelease)
     mkdir -p "$DESTDIR/usr/lib/modules/$KERNEL_RELEASE"
-    make O="$BUILDDIR" INSTALL_MOD_PATH="$DESTDIR/usr" modules_install
-    make O="$BUILDDIR" INSTALL_PATH="$DESTDIR/usr/lib/modules/$KERNEL_RELEASE" install
+    make O="$BUILDDIR" VERSION=99 INSTALL_MOD_PATH="$DESTDIR/usr" modules_install
+    make O="$BUILDDIR" VERSION=99 INSTALL_PATH="$DESTDIR/usr/lib/modules/$KERNEL_RELEASE" install
     mkdir -p "$DESTDIR/usr/lib/kernel/selftests"
-    make -C tools/testing/selftests -j "$(nproc)" O="$BUILDDIR" KSFT_INSTALL_PATH="$DESTDIR/usr/lib/kernel/selftests" SKIP_TARGETS="" install
+    make -C tools/testing/selftests -j "$(nproc)" O="$BUILDDIR" VERSION=99 KSFT_INSTALL_PATH="$DESTDIR/usr/lib/kernel/selftests" SKIP_TARGETS="" install
 
     ln -sf /usr/lib/kernel/selftests/bpf/bpftool "$DESTDIR/usr/bin/bpftool"
 fi
