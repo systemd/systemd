@@ -698,10 +698,12 @@ static int parse_fstab(bool initrd) {
                         }
 
                         if (sysfs_check < 0) {
-                                r = getenv_bool_secure("SYSTEMD_SYSFS_CHECK");
-                                if (r < 0 && r != -ENXIO)
-                                        log_debug_errno(r, "Failed to parse $SYSTEMD_SYSFS_CHECK, ignoring: %m");
-                                sysfs_check = r != 0;
+                                int ret;
+
+                                ret = getenv_bool_secure("SYSTEMD_SYSFS_CHECK");
+                                if (ret < 0 && ret != -ENXIO)
+                                        log_debug_errno(ret, "Failed to parse $SYSTEMD_SYSFS_CHECK, ignoring: %m");
+                                sysfs_check = ret != 0;
                         }
 
                         if (sysfs_check && is_device_path(what)) {
