@@ -61,6 +61,7 @@ static enum {
         ACTION_COPY_FROM,
         ACTION_COPY_TO,
         ACTION_DISCOVER,
+        ACTION_VALIDATE,
 } arg_action = ACTION_DISSECT;
 static char *arg_image = NULL;
 static char *arg_path = NULL;
@@ -83,6 +84,7 @@ static bool arg_rmdir = false;
 static bool arg_in_memory = false;
 static char **arg_argv = NULL;
 static char *arg_loop_ref = NULL;
+static ImagePolicy* arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_path, freep);
@@ -126,6 +128,8 @@ static int help(void) {
                "                          'base64:'\n"
                "     --verity-data=PATH   Specify data file with hash tree for verity if it is\n"
                "                          not embedded in IMAGE\n"
+               "     --image-policy=POLICY\n"
+               "                          Specify image dissection policy\n"
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
                "     --loop-ref=NAME      Set reference string for loopback device\n"
@@ -145,6 +149,7 @@ static int help(void) {
                "  -x --copy-from          Copy files from image to host\n"
                "  -a --copy-to            Copy files from host to image\n"
                "     --discover           Discover DDIs in well known directories\n"
+               "     --validate           Validate image and image policy\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -221,6 +226,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ATTACH,
                 ARG_DETACH,
                 ARG_LOOP_REF,
+                ARG_IMAGE_POLICY,
+                ARG_VALIDATE,
         };
 
         static const struct option options[] = {
@@ -250,6 +257,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "json",          required_argument, NULL, ARG_JSON          },
                 { "discover",      no_argument,       NULL, ARG_DISCOVER      },
                 { "loop-ref",      required_argument, NULL, ARG_LOOP_REF      },
+                { "image-policy",  required_argument, NULL, ARG_IMAGE_POLICY  },
+                { "validate",      no_argument,       NULL, ARG_VALIDATE      },
                 {}
         };
 
@@ -457,6 +466,22 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_IMAGE_POLICY: {
+                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+
+                        r = image_policy_from_string(optarg, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
+
+                        image_policy_free(arg_image_policy);
+                        arg_image_policy = TAKE_PTR(p);
+                        break;
+                }
+
+                case ARG_VALIDATE:
+                        arg_action = ACTION_VALIDATE;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -476,7 +501,8 @@ static int parse_argv(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
 
-                arg_flags |= DISSECT_IMAGE_READ_ONLY;
+                /* when dumping image info be even more liberal than otherwise, do not even require a single valid partition */
+                arg_flags |= DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_ALLOW_EMPTY;
                 break;
 
         case ACTION_MOUNT:
@@ -593,7 +619,19 @@ static int parse_argv(int argc, char *argv[]) {
                 if (optind != argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected no argument.");
+                break;
 
+        case ACTION_VALIDATE:
+                if (optind + 1 != argc)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Expected an image file path as only argument.");
+
+                r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+                if (r < 0)
+                        return r;
+
+                arg_flags |= DISSECT_IMAGE_READ_ONLY;
+                arg_flags &= ~(DISSECT_IMAGE_PIN_PARTITION_DEVICES|DISSECT_IMAGE_ADD_PARTITION_DEVICES);
                 break;
 
         default:
@@ -1689,6 +1727,31 @@ static int action_detach(const char *path) {
         return 0;
 }
 
+static int action_validate(void) {
+        int r;
+
+        r = dissect_image_file_and_warn(
+                        arg_image,
+                        &arg_verity_settings,
+                        NULL,
+                        arg_image_policy,
+                        arg_flags,
+                        NULL);
+        if (r < 0)
+                return r;
+
+        if (isatty(STDOUT_FILENO) && emoji_enabled())
+                printf("%s ", special_glyph(SPECIAL_GLYPH_SPARKLES));
+
+        printf("%sOK%s", ansi_highlight_green(), ansi_normal());
+
+        if (isatty(STDOUT_FILENO) && emoji_enabled())
+                printf(" %s", special_glyph(SPECIAL_GLYPH_SPARKLES));
+
+        putc('\n', stdout);
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
@@ -1731,6 +1794,9 @@ static int run(int argc, char *argv[]) {
                                                                 * available we turn off partition table
                                                                 * support */
 
+        if (arg_action == ACTION_VALIDATE)
+                return action_validate();
+
         open_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR;
         loop_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN;
 
@@ -1750,7 +1816,8 @@ static int run(int argc, char *argv[]) {
         r = dissect_loop_device_and_warn(
                         d,
                         &arg_verity_settings,
-                        NULL,
+                        /* mount_options= */ NULL,
+                        arg_image_policy,
                         arg_flags,
                         &m);
         if (r < 0)

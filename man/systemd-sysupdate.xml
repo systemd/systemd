@@ -229,6 +229,8 @@
         inside the specified disk image.</para></listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="image-policy-open" />
+
       <varlistentry>
         <term><option>--instances-max=</option></term>
         <term><option>-m</option></term>
