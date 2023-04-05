@@ -1791,7 +1791,7 @@ int dissected_image_mount(
                                 if (r < 0)
                                         return r;
                                 if (r == 0) {
-                                        r = path_is_extension_tree(where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_SYSEXT_CHECK));
+                                        r = path_is_extension_tree(IMAGE_SYSEXT, where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_SYSEXT_CHECK));
                                         if (r < 0)
                                                 return r;
                                         if (r > 0)
@@ -3054,7 +3054,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                                  * we allow a fallback that matches on the first extension-release
                                  * file found in the directory, if one named after the image cannot
                                  * be found first. */
-                                r = open_extension_release(t, m->image_name, /* relax_extension_release_check= */ false, NULL, &fd);
+                                r = open_extension_release(t, IMAGE_SYSEXT, m->image_name, /* relax_extension_release_check= */ false, NULL, &fd);
                                 if (r < 0)
                                         fd = r; /* Propagate the error. */
                                 break;
@@ -3606,7 +3606,7 @@ int verity_dissect_and_mount(
 
                 assert(!isempty(required_host_os_release_id));
 
-                r = load_extension_release_pairs(dest, dissected_image->image_name, relax_extension_release_check, &extension_release);
+                r = load_extension_release_pairs(dest, IMAGE_SYSEXT, dissected_image->image_name, relax_extension_release_check, &extension_release);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse image %s extension-release metadata: %m", dissected_image->image_name);
 
@@ -3616,7 +3616,8 @@ int verity_dissect_and_mount(
                                 required_host_os_release_version_id,
                                 required_host_os_release_sysext_level,
                                 required_sysext_scope,
-                                extension_release);
+                                extension_release,
+                                IMAGE_SYSEXT);
                 if (r == 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Image %s extension-release metadata does not match the root's", dissected_image->image_name);
                 if (r < 0)
