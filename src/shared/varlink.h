@@ -107,6 +107,17 @@ int varlink_error_errno(Varlink *v, int error);
 int varlink_notify(Varlink *v, JsonVariant *parameters);
 int varlink_notifyb(Varlink *v, ...);
 
+/* Write outgoing fds into the socket (to be associated with the next enqueued message) */
+int varlink_push_fd(Varlink *v, int fd);
+int varlink_dup_fd(Varlink *v, int fd);
+
+/* Read incoming fds from the socket (associated with the currently handled message) */
+int varlink_peek_fd(Varlink *v, size_t i);
+int varlink_take_fd(Varlink *v, size_t i);
+
+int varlink_set_allow_fd_passing_input(Varlink *v, bool b);
+int varlink_set_allow_fd_passing_output(Varlink *v, bool b);
+
 /* Bind a disconnect, reply or timeout callback */
 int varlink_bind_reply(Varlink *v, VarlinkReply reply);
 

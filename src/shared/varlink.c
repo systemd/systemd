@@ -81,6 +81,15 @@ typedef enum VarlinkState {
                VARLINK_PENDING_METHOD,                  \
                VARLINK_PENDING_METHOD_MORE)
 
+typedef struct VarlinkJsonQueue VarlinkJsonQueue;
+
+struct VarlinkJsonQueue {
+        LIST_FIELDS(VarlinkJsonQueue, queue);
+        JsonVariant *data;
+        size_t n_fds;
+        int fds[];
+};
+
 struct Varlink {
         unsigned n_ref;
 
@@ -125,6 +134,23 @@ struct Varlink {
         size_t output_buffer_index;
         size_t output_buffer_size;
 
+        int *input_fds; /* file descriptors associated with the data in input_buffer (for fd passing) */
+        size_t n_input_fds;
+
+        int *output_fds; /* file descriptors associated with the data in output_buffer (for fd passing) */
+        size_t n_output_fds;
+
+        /* Further messages to output not yet formatted into text, and thus not included in output_buffer
+         * yet. We keep them separate from output_buffer, to not violate fd message boundaries: we want that
+         * each fd that is sent is associated with its fds, and that fds cannot be accidentally associated
+         * with preceeding or following messages. */
+        LIST_HEAD(VarlinkJsonQueue, output_queue);
+        VarlinkJsonQueue *output_queue_end;
+
+        /* The fds to associate with the next message that is enqueued */
+        int *pushed_fds;
+        size_t n_pushed_fds;
+
         VarlinkReply reply_callback;
 
         JsonVariant *current;
@@ -136,6 +162,11 @@ struct Varlink {
         bool read_disconnected:1;
         bool prefer_read_write:1;
         bool got_pollhup:1;
+
+        bool allow_fd_passing_input:1;
+        bool allow_fd_passing_output:1;
+
+        int af; /* address family if socket; AF_UNSPEC if not socket; negative if not known */
 
         usec_t timestamp;
         usec_t timeout;
@@ -222,12 +253,45 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(varlink_state, VarlinkState);
 #define varlink_server_log(s, fmt, ...) \
         log_debug("%s: " fmt, varlink_server_description(s), ##__VA_ARGS__)
 
+static int varlink_format_queue(Varlink *v);
+
 static inline const char *varlink_description(Varlink *v) {
         return (v ? v->description : NULL) ?: "varlink";
 }
 
 static inline const char *varlink_server_description(VarlinkServer *s) {
         return (s ? s->description : NULL) ?: "varlink";
+}
+
+static VarlinkJsonQueue *varlink_json_queue_free(VarlinkJsonQueue *q) {
+        if (!q)
+                return NULL;
+
+        json_variant_unref(q->data);
+        close_many(q->fds, q->n_fds);
+
+        return mfree(q);
+}
+
+static VarlinkJsonQueue *varlink_json_queue_new(JsonVariant *m, const int fds[], size_t n_fds) {
+        VarlinkJsonQueue *q;
+
+        assert(m);
+        assert(fds || n_fds == 0);
+
+        q = malloc(offsetof(VarlinkJsonQueue, fds) + sizeof(int) * n_fds);
+        if (!q)
+                return NULL;
+
+        *q = (VarlinkJsonQueue) {
+                .data = json_variant_ref(m),
+                .n_fds = n_fds,
+        };
+
+        if (n_fds > 0)
+                memcpy(q->fds, fds, n_fds * sizeof(int));
+
+        return TAKE_PTR(q);
 }
 
 static void varlink_set_state(Varlink *v, VarlinkState state) {
@@ -264,7 +328,9 @@ static int varlink_new(Varlink **ret) {
                 .ucred = UCRED_INVALID,
 
                 .timestamp = USEC_INFINITY,
-                .timeout = VARLINK_DEFAULT_TIMEOUT_USEC
+                .timeout = VARLINK_DEFAULT_TIMEOUT_USEC,
+
+                .af = -1,
         };
 
         *ret = v;
@@ -288,6 +354,7 @@ int varlink_connect_address(Varlink **ret, const char *address) {
                 return log_debug_errno(errno, "Failed to create AF_UNIX socket: %m");
 
         v->fd = fd_move_above_stdio(v->fd);
+        v->af = AF_UNIX;
 
         r = sockaddr_un_set_path(&sockaddr.un, address);
         if (r < 0) {
@@ -338,6 +405,7 @@ int varlink_connect_fd(Varlink **ret, int fd) {
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
         v->fd = fd;
+        v->af = -1,
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
         /* Note that if this function is called we assume the passed socket (if it is one) is already
@@ -365,6 +433,10 @@ static void varlink_clear_current(Varlink *v) {
 
         /* Clears the currently processed incoming message */
         v->current = json_variant_unref(v->current);
+
+        close_many(v->input_fds, v->n_input_fds);
+        v->input_fds = mfree(v->input_fds);
+        v->n_input_fds = 0;
 }
 
 static void varlink_clear(Varlink *v) {
@@ -374,10 +446,29 @@ static void varlink_clear(Varlink *v) {
 
         v->fd = safe_close(v->fd);
 
+        varlink_clear_current(v);
+
         v->input_buffer = mfree(v->input_buffer);
         v->output_buffer = mfree(v->output_buffer);
 
         varlink_clear_current(v);
+
+        close_many(v->output_fds, v->n_output_fds);
+        v->output_fds = mfree(v->output_fds);
+        v->n_output_fds = 0;
+
+        close_many(v->pushed_fds, v->n_pushed_fds);
+        v->pushed_fds = mfree(v->pushed_fds);
+        v->n_pushed_fds = 0;
+
+        while (v->output_queue) {
+                VarlinkJsonQueue *q = v->output_queue;
+
+                LIST_REMOVE(queue, v->output_queue, q);
+                varlink_json_queue_free(q);
+        }
+
+        v->output_queue_end = NULL;
 
         v->event = sd_event_unref(v->event);
 }
@@ -446,6 +537,7 @@ disconnect:
 
 static int varlink_write(Varlink *v) {
         ssize_t n;
+        int r;
 
         assert(v);
 
@@ -454,25 +546,53 @@ static int varlink_write(Varlink *v) {
         if (v->connecting) /* Writing while we are still wait for a non-blocking connect() to complete will
                             * result in ENOTCONN, hence exit early here */
                 return 0;
-        if (v->output_buffer_size == 0)
-                return 0;
         if (v->write_disconnected)
+                return 0;
+
+        /* If needed let's convert some output queue json variants into text form */
+        r = varlink_format_queue(v);
+        if (r < 0)
+                return r;
+
+        if (v->output_buffer_size == 0)
                 return 0;
 
         assert(v->fd >= 0);
 
-        /* We generally prefer recv()/send() (mostly because of MSG_NOSIGNAL) but also want to be compatible
-         * with non-socket IO, hence fall back automatically.
-         *
-         * Use a local variable to help gcc figure out that we set 'n' in all cases. */
-        bool prefer_write = v->prefer_read_write;
-        if (!prefer_write) {
-                n = send(v->fd, v->output_buffer + v->output_buffer_index, v->output_buffer_size, MSG_DONTWAIT|MSG_NOSIGNAL);
-                if (n < 0 && errno == ENOTSOCK)
-                        prefer_write = v->prefer_read_write = true;
+        if (v->n_output_fds > 0) { /* If we shall send fds along, we must use sendmsg() */
+                struct iovec iov = {
+                        .iov_base = v->output_buffer + v->output_buffer_index,
+                        .iov_len = v->output_buffer_size,
+                };
+                struct msghdr mh = {
+                        .msg_iov = &iov,
+                        .msg_iovlen = 1,
+                        .msg_controllen = CMSG_SPACE(sizeof(int) * v->n_output_fds),
+                };
+
+                mh.msg_control = alloca0(mh.msg_controllen);
+
+                struct cmsghdr *control = CMSG_FIRSTHDR(&mh);
+                control->cmsg_len = CMSG_LEN(sizeof(int) * v->n_output_fds);
+                control->cmsg_level = SOL_SOCKET;
+                control->cmsg_type = SCM_RIGHTS;
+                memcpy(CMSG_DATA(control), v->output_fds, sizeof(int) * v->n_output_fds);
+
+                n = sendmsg(v->fd, &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
+        } else {
+                /* We generally prefer recv()/send() (mostly because of MSG_NOSIGNAL) but also want to be compatible
+                 * with non-socket IO, hence fall back automatically.
+                 *
+                 * Use a local variable to help gcc figure out that we set 'n' in all cases. */
+                bool prefer_write = v->prefer_read_write;
+                if (!prefer_write) {
+                        n = send(v->fd, v->output_buffer + v->output_buffer_index, v->output_buffer_size, MSG_DONTWAIT|MSG_NOSIGNAL);
+                        if (n < 0 && errno == ENOTSOCK)
+                                prefer_write = v->prefer_read_write = true;
+                }
+                if (prefer_write)
+                        n = write(v->fd, v->output_buffer + v->output_buffer_index, v->output_buffer_size);
         }
-        if (prefer_write)
-                n = write(v->fd, v->output_buffer + v->output_buffer_index, v->output_buffer_size);
         if (n < 0) {
                 if (errno == EAGAIN)
                         return 0;
@@ -494,13 +614,22 @@ static int varlink_write(Varlink *v) {
         else
                 v->output_buffer_index += n;
 
+        close_many(v->output_fds, v->n_output_fds);
+        v->n_output_fds = 0;
+
         v->timestamp = now(CLOCK_MONOTONIC);
         return 1;
 }
 
+#define VARLINK_FDS_MAX (16U*1024U)
+
 static int varlink_read(Varlink *v) {
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int) * VARLINK_FDS_MAX)) control;
+        struct iovec iov;
+        struct msghdr mh;
         size_t rs;
         ssize_t n;
+        void *p;
 
         assert(v);
 
@@ -544,16 +673,31 @@ static int varlink_read(Varlink *v) {
                 }
         }
 
+        p = v->input_buffer + v->input_buffer_index + v->input_buffer_size;
         rs = MALLOC_SIZEOF_SAFE(v->input_buffer) - (v->input_buffer_index + v->input_buffer_size);
 
-        bool prefer_read = v->prefer_read_write;
-        if (!prefer_read) {
-                n = recv(v->fd, v->input_buffer + v->input_buffer_index + v->input_buffer_size, rs, MSG_DONTWAIT);
-                if (n < 0 && errno == ENOTSOCK)
-                        prefer_read = v->prefer_read_write = true;
+        if (v->allow_fd_passing_input) {
+                iov = (struct iovec) {
+                        .iov_base = p,
+                        .iov_len = rs,
+                };
+                mh = (struct msghdr) {
+                        .msg_iov = &iov,
+                        .msg_iovlen = 1,
+                        .msg_control = &control,
+                        .msg_controllen = sizeof(control),
+                };
+                n = recvmsg_safe(v->fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        } else {
+                bool prefer_read = v->prefer_read_write;
+                if (!prefer_read) {
+                        n = recv(v->fd, p, rs, MSG_DONTWAIT);
+                        if (n < 0 && errno == ENOTSOCK)
+                                prefer_read = v->prefer_read_write = true;
+                }
+                if (prefer_read)
+                        n = read(v->fd, p, rs);
         }
-        if (prefer_read)
-                n = read(v->fd, v->input_buffer + v->input_buffer_index + v->input_buffer_size, rs);
         if (n < 0) {
                 if (errno == EAGAIN)
                         return 0;
@@ -566,8 +710,42 @@ static int varlink_read(Varlink *v) {
                 return -errno;
         }
         if (n == 0) { /* EOF */
+
+                if (v->allow_fd_passing_input)
+                        cmsg_close_all(&mh);
+
                 v->read_disconnected = true;
                 return 1;
+        }
+
+        if (v->allow_fd_passing_input) {
+                struct cmsghdr* cmsg;
+
+                cmsg = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, (socklen_t) -1);
+                if (cmsg) {
+                        size_t add;
+
+                        /* We only allow file descriptors to be passed along with the first byte of a
+                         * message. If they are passed with any other byte this is a protocol violation. */
+                        if (v->input_buffer_size != 0) {
+                                cmsg_close_all(&mh);
+                                return -EPROTO;
+                        }
+
+                        add = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+                        if (add > INT_MAX - v->n_input_fds) {
+                                cmsg_close_all(&mh);
+                                return -EBADF;
+                        }
+
+                        if (!GREEDY_REALLOC(v->input_fds, v->n_input_fds + add)) {
+                                cmsg_close_all(&mh);
+                                return -ENOMEM;
+                        }
+
+                        memcpy_safe(v->input_fds + v->n_input_fds, CMSG_TYPED_DATA(cmsg, int), add * sizeof(int));
+                        v->n_input_fds += add;
+                }
         }
 
         v->input_buffer_size += n;
@@ -1255,7 +1433,7 @@ Varlink* varlink_flush_close_unref(Varlink *v) {
         return varlink_close_unref(v);
 }
 
-static int varlink_enqueue_json(Varlink *v, JsonVariant *m) {
+static int varlink_format_json(Varlink *v, JsonVariant *m) {
         _cleanup_free_ char *text = NULL;
         int r;
 
@@ -1300,6 +1478,69 @@ static int varlink_enqueue_json(Varlink *v, JsonVariant *m) {
                 free_and_replace(v->output_buffer, n);
                 v->output_buffer_size = new_size;
                 v->output_buffer_index = 0;
+        }
+
+        return 0;
+}
+
+static int varlink_enqueue_json(Varlink *v, JsonVariant *m) {
+        VarlinkJsonQueue *q;
+
+        assert(v);
+        assert(m);
+
+        /* If ther eare no file descriptors to be queued and no queue entries yet we can shortcut things and
+         * append this entry directly to the output buffer */
+        if (v->n_pushed_fds == 0 && !v->output_queue)
+                return varlink_format_json(v, m);
+
+        /* Otherwise add a queue entry for this */
+        q = varlink_json_queue_new(m, v->pushed_fds, v->n_pushed_fds);
+        if (!q)
+                return -ENOMEM;
+
+        v->n_pushed_fds = 0; /* fds now belong to the queue entry */
+
+        LIST_INSERT_AFTER(queue, v->output_queue, v->output_queue_end, q);
+        v->output_queue_end = q;
+        return 0;
+}
+
+static int varlink_format_queue(Varlink *v) {
+        int r;
+
+        assert(v);
+
+        /* Takes entries out of the output queue and formats them into the output buffer. But only if this would not corrupt or fd message boundaries */
+
+        while (v->output_queue) {
+                _cleanup_free_ int *array = NULL;
+                VarlinkJsonQueue *q = v->output_queue;
+
+                if (v->n_output_fds > 0) /* unwritten fds? if we'd add more we'd corrupt the fd message boundaries, hence wait */
+                        return 0;
+
+                if (q->n_fds > 0) {
+                        array = newdup(int, q->fds, q->n_fds);
+                        if (!array)
+                                return -ENOMEM;
+                }
+
+                r = varlink_format_json(v, q->data);
+                if (r < 0)
+                        return r;
+
+                /* Take possession of the queue element's fds */
+                free(v->output_fds);
+                v->output_fds = TAKE_PTR(array);
+                v->n_output_fds = q->n_fds;
+                q->n_fds = 0;
+
+                LIST_REMOVE(queue, v->output_queue, q);
+                if (!v->output_queue)
+                        v->output_queue_end = NULL;
+
+                varlink_json_queue_free(q);
         }
 
         return 0;
@@ -1483,6 +1724,8 @@ int varlink_call(
 
         assert(v->n_pending == 0); /* n_pending can't be > 0 if we are in VARLINK_IDLE_CLIENT state */
 
+        /* If there was still a reply pinned from a previou call, now it's the time to get rid of it, so that
+         * we can assign a new reply soon */
         varlink_clear_current(v);
 
         r = varlink_sanitize_parameters(&parameters);
@@ -2026,6 +2269,144 @@ sd_event *varlink_get_event(Varlink *v) {
         assert_return(v, NULL);
 
         return v->event;
+}
+
+int varlink_push_fd(Varlink *v, int fd) {
+        int i;
+
+        assert_return(v, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
+
+        /* Takes an fd to send along with the *next* varlink message sent via this varlink connection. This
+         * takes ownership of the specified fd. Use varlink_dup_fd() below to duplicate the fd first. */
+
+        if (!v->allow_fd_passing_output)
+                return -EPERM;
+
+        if (v->n_pushed_fds >= INT_MAX)
+                return -ENOMEM;
+
+        if (!GREEDY_REALLOC(v->pushed_fds, v->n_pushed_fds + 1))
+                return -ENOMEM;
+
+        i = (int) v->n_pushed_fds;
+        v->pushed_fds[v->n_pushed_fds++] = fd;
+        return i;
+}
+
+int varlink_dup_fd(Varlink *v, int fd) {
+        _cleanup_close_ int dp = -1;
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
+
+        /* Like varlink_push_fd() but duplicates the specified fd instead of taking possession of it */
+
+        dp = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (dp < 0)
+                return -errno;
+
+        r = varlink_push_fd(v, dp);
+        if (r < 0)
+                return r;
+
+        TAKE_FD(dp);
+        return r;
+}
+
+int varlink_peek_fd(Varlink *v, size_t i) {
+        assert_return(v, -EINVAL);
+
+        /* Returns one of the file descriptors that were received along witht the current message. This does
+         * not duplicate the fd nor invalidate it, it hence remains in our possession. */
+
+        if (!v->allow_fd_passing_input)
+                return -EPERM;
+
+        if (i >= v->n_input_fds)
+                return -ENXIO;
+
+        return v->input_fds[i];
+}
+
+int varlink_take_fd(Varlink *v, size_t i) {
+        assert_return(v, -EINVAL);
+
+        /* Similar to varlink_peek_fd() but the file descriptor's ownership is passed to the caller, and
+         * we'll invalidate the reference to it under our possession. If called twice in a row will return
+         * -EBADF */
+
+        if (!v->allow_fd_passing_input)
+                return -EPERM;
+
+        if (i >= v->n_input_fds)
+                return -ENXIO;
+
+        return TAKE_FD(v->input_fds[i]);
+}
+
+static int verify_unix_socket(Varlink *v) {
+        assert(v);
+
+        if (v->af < 0) {
+                struct stat st;
+
+                if (fstat(v->fd, &st) < 0)
+                        return -errno;
+                if (!S_ISSOCK(st.st_mode)) {
+                        v->af = AF_UNSPEC;
+                        return -ENOTSOCK;
+                }
+
+                v->af = socket_get_family(v->fd);
+                if (v->af < 0)
+                        return v->af;
+        }
+
+        return v->af == AF_UNIX ? 0 : -ENOMEDIUM;
+}
+
+int varlink_set_allow_fd_passing_input(Varlink *v, bool b) {
+        int r;
+
+        assert_return(v, -EINVAL);
+
+        if (v->allow_fd_passing_input == b)
+                return 0;
+
+        if (!b) {
+                v->allow_fd_passing_input = false;
+                return 1;
+        }
+
+        r = verify_unix_socket(v);
+        if (r < 0)
+                return r;
+
+        v->allow_fd_passing_input = true;
+        return 0;
+}
+
+int varlink_set_allow_fd_passing_output(Varlink *v, bool b) {
+        int r;
+
+        assert_return(v, -EINVAL);
+
+        if (v->allow_fd_passing_output == b)
+                return 0;
+
+        if (!b) {
+                v->allow_fd_passing_output = false;
+                return 1;
+        }
+
+        r = verify_unix_socket(v);
+        if (r < 0)
+                return r;
+
+        v->allow_fd_passing_output = true;
+        return 0;
 }
 
 int varlink_server_new(VarlinkServer **ret, VarlinkServerFlags flags) {
