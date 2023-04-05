@@ -163,14 +163,18 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_close_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_flush_close_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServer *, varlink_server_unref);
 
+/* These are local errors that never cross the wire, and are our own invention */
 #define VARLINK_ERROR_DISCONNECTED "io.systemd.Disconnected"
 #define VARLINK_ERROR_TIMEOUT "io.systemd.TimedOut"
 #define VARLINK_ERROR_PROTOCOL "io.systemd.Protocol"
 #define VARLINK_ERROR_SYSTEM "io.systemd.System"
 
+/* These are errors defined in the Varlink spec */
 #define VARLINK_ERROR_INTERFACE_NOT_FOUND "org.varlink.service.InterfaceNotFound"
 #define VARLINK_ERROR_METHOD_NOT_FOUND "org.varlink.service.MethodNotFound"
 #define VARLINK_ERROR_METHOD_NOT_IMPLEMENTED "org.varlink.service.MethodNotImplemented"
 #define VARLINK_ERROR_INVALID_PARAMETER "org.varlink.service.InvalidParameter"
+
+/* These are errors we came up with and squatted the namespace with */
 #define VARLINK_ERROR_SUBSCRIPTION_TAKEN "org.varlink.service.SubscriptionTaken"
 #define VARLINK_ERROR_PERMISSION_DENIED "org.varlink.service.PermissionDenied"
