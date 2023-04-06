@@ -1479,7 +1479,7 @@ int device_add_devlink(sd_device *device, const char *devlink) {
         assert(device);
         assert(devlink);
 
-        r = set_put_strdup(&device->devlinks, devlink);
+        r = set_put_strdup_full(&device->devlinks, &path_hash_ops_free, devlink);
         if (r < 0)
                 return r;
 
