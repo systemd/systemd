@@ -1454,9 +1454,7 @@ static int get_settings_path(const char *name, char **ret_path) {
 }
 
 static int edit_settings(int argc, char *argv[], void *userdata) {
-        _cleanup_(edit_file_context_done) EditFileContext context = {
-                .remove_parent = false,
-        };
+        _cleanup_(edit_file_context_done) EditFileContext context = {};
         int r;
 
         if (!on_tty())
