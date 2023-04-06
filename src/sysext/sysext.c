@@ -510,7 +510,15 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                                 }
                         }
 
-                        r = mount_nofollow_verbose(LOG_ERR, img->path, p, NULL, MS_BIND, NULL);
+                        /* Make individual confexts directories noexec, as code should be shipped via
+                         * sysexts. Note that we can't quite make the whole overlay noexec, as there are
+                         * still executable scripts shipped in the base /etc. */
+                        r = mount_nofollow_verbose(LOG_ERR,
+                                                   img->path,
+                                                   p,
+                                                   NULL,
+                                                   MS_BIND | (arg_image_class == IMAGE_CONFEXT ? MS_NOEXEC : 0),
+                                                   NULL);
                         if (r < 0)
                                 return r;
 
