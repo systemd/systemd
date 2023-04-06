@@ -41,10 +41,10 @@ STATIC_DESTRUCTOR_REGISTER(runtime_dir, rm_rf_physical_and_freep);
 
 TEST_RET(unit_file_get_set) {
         int r;
-        Hashmap *h;
+        _cleanup_(hashmap_freep) Hashmap *h = NULL;
         UnitFileList *p;
 
-        h = hashmap_new(&string_hash_ops);
+        h = hashmap_new(&unit_file_list_hash_ops_free);
         assert_se(h);
 
         r = unit_file_get_list(RUNTIME_SCOPE_SYSTEM, NULL, h, NULL, NULL);
@@ -58,8 +58,6 @@ TEST_RET(unit_file_get_set) {
 
         HASHMAP_FOREACH(p, h)
                 printf("%s = %s\n", p->path, unit_file_state_to_string(p->state));
-
-        unit_file_list_free(h);
 
         return 0;
 }
