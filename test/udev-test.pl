@@ -1808,9 +1808,9 @@ EOF
                                 not_exp_name    => "bad",
                        }],
                 rules           => <<EOF
-KERNEL=="sda", TAG=""
-TAGS=="|foo", SYMLINK+="found"
-TAGS=="aaa|bbb", SYMLINK+="bad"
+KERNEL=="sda", ENV{HOGE}=""
+ENV{HOGE}=="|foo", SYMLINK+="found"
+ENV{HOGE}=="aaa|bbb", SYMLINK+="bad"
 EOF
         },
         {
@@ -1836,9 +1836,9 @@ EOF
                                 not_exp_name    => "bad",
                         }],
                 rules           => <<EOF
-KERNEL=="sda", TAG=""
-TAGS=="foo||bar", SYMLINK+="found"
-TAGS=="aaa|bbb", SYMLINK+="bad"
+KERNEL=="sda", ENV{HOGE}=""
+ENV{HOGE}=="foo||bar", SYMLINK+="found"
+ENV{HOGE}=="aaa|bbb", SYMLINK+="bad"
 EOF
         },
         {
@@ -1864,9 +1864,9 @@ EOF
                                 not_exp_name    => "bad",
                         }],
                 rules           => <<EOF
-KERNEL=="sda", TAG=""
-TAGS=="foo|", SYMLINK+="found"
-TAGS=="aaa|bbb", SYMLINK+="bad"
+KERNEL=="sda", ENV{HOGE}=""
+ENV{HOGE}=="foo|", SYMLINK+="found"
+ENV{HOGE}=="aaa|bbb", SYMLINK+="bad"
 EOF
         },
         {
@@ -1881,6 +1881,22 @@ EOF
 KERNEL=="sda", TAG="c"
 TAGS=="foo||bar||c", SYMLINK+="found"
 TAGS=="aaa||bbb||ccc", SYMLINK+="bad"
+EOF
+        },
+        {
+                desc            => "TAG refuses an empty string",
+                devices => [
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
+                                exp_links       => ["found"],
+                                not_exp_name    => "bad",
+                        }],
+                rules           => <<EOF
+KERNEL=="sda", TAG+="", TAG+="foo"
+TAGS=="", SYMLINK+="bad"
+TAGS=="foo|", SYMLINK+="found"
+TAGS=="aaa|", SYMLINK+="bad"
+TAGS=="aaa|bbb", SYMLINK+="bad"
 EOF
         },
         {
