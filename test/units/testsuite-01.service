@@ -1,10 +1,13 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 [Unit]
 Description=TEST-01-BASIC
-After=multi-user.target
+# Order the test unit after systemd-update-utmp-runlevel.service, since
+# the service doesn't play well with daemon-reexec
+# See: https://github.com/systemd/systemd/issues/27167
+After=multi-user.target systemd-update-utmp-runlevel.service
 Wants=systemd-resolved.service systemd-networkd.service
 
 [Service]
 ExecStartPre=rm -f /failed /testok
-ExecStart=sh -e -x -c 'systemctl --state=failed --no-legend --no-pager >/failed ; systemctl daemon-reload ; echo OK >/testok'
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
 Type=oneshot

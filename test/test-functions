@@ -220,6 +220,7 @@ BASICTOOLS=(
     sh
     sleep
     stat
+    stty
     su
     sulogin
     sysctl
@@ -262,7 +263,6 @@ DEBUGTOOLS=(
     route
     sort
     strace
-    stty
     tty
     vi
     /usr/libexec/vi
