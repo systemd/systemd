@@ -2582,6 +2582,11 @@ static int udev_rule_apply_token_to_event(
                                 next = skip_leading_chars(next, NULL);
                         }
 
+                        if (path_is_safe(p)) {
+                                log_event_warning(dev, token, "Unsafe path specified in SYMLINK=, ignoring: %s", p);
+                                continue;
+                        }
+
                         strscpyl_full(filename, sizeof(filename), &truncated, "/dev/", p, NULL);
                         if (truncated)
                                 continue;
