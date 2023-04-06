@@ -2273,7 +2273,7 @@ int device_cache_sysattr_value(sd_device *device, const char *key, char *value) 
                         return -ENOMEM;
         }
 
-        r = hashmap_ensure_put(&device->sysattr_values, &string_hash_ops_free_free, new_key, value);
+        r = hashmap_ensure_put(&device->sysattr_values, &path_hash_ops_free_free, new_key, value);
         if (r < 0)
                 return r;
 
