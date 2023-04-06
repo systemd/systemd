@@ -2554,17 +2554,18 @@ static int udev_rule_apply_token_to_event(
                 if (IN_SET(token->op, OP_ASSIGN, OP_ASSIGN_FINAL))
                         device_cleanup_devlinks(dev);
 
-                /* allow multiple symlinks separated by spaces */
-                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), event->esc != ESCAPE_NONE, &truncated);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf),
+                                               /* replace_whitespace = */ event->esc != ESCAPE_NONE, &truncated);
                 if (truncated) {
                         log_event_truncated(dev, token, "symbolic link path", token->value, "SYMLINK", /* is_match = */ false);
                         break;
                 }
 
+                /* By default or string_escape=none, allow multiple symlinks separated by spaces. */
                 if (event->esc == ESCAPE_UNSET)
-                        count = udev_replace_chars(buf, "/ ");
+                        count = udev_replace_chars(buf, /* allow = */ "/ ");
                 else if (event->esc == ESCAPE_REPLACE)
-                        count = udev_replace_chars(buf, "/");
+                        count = udev_replace_chars(buf, /* allow = */ "/");
                 else
                         count = 0;
                 if (count > 0)
