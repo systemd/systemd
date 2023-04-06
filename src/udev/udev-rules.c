@@ -35,7 +35,7 @@
 #include "user-util.h"
 #include "virt.h"
 
-#define RULES_DIRS (const char* const*) CONF_PATHS_STRV("udev/rules.d")
+#define RULES_DIRS ((const char* const*) CONF_PATHS_STRV("udev/rules.d"))
 
 typedef enum {
         OP_MATCH,        /* == */
