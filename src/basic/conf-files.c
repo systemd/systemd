@@ -120,7 +120,9 @@ static int files_add(
 }
 
 static int base_cmp(char * const *a, char * const *b) {
-        return strcmp(basename(*a), basename(*b));
+        assert(a);
+        assert(b);
+        return path_compare_filename(*a, *b);
 }
 
 static int copy_sorted_files_from_hashmap(Hashmap *fh, char ***ret) {
