@@ -316,6 +316,7 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                 .marker_start = DROPIN_MARKER_START,
                 .marker_end = DROPIN_MARKER_END,
                 .remove_parent = !arg_full,
+                .overwrite_with_origin = true,
         };
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;

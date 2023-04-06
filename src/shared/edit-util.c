@@ -128,9 +128,11 @@ static int create_edit_temp_file(EditFile *e) {
         has_original = e->original_path && access(e->original_path, F_OK) >= 0;
         has_target = access(e->path, F_OK) >= 0;
 
-        if (has_original)
+        if (has_original && (!has_target || e->context->overwrite_with_origin))
+                /* We are asked to overwrite target with original_path or target doesn't exist. */
                 source = e->original_path;
         else if (has_target)
+                /* Target exists and shouldn't be overwritten. */
                 source = e->path;
         else
                 /* We have no original file nor target file to use as source. The temp file will be empty. */
