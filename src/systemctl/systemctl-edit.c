@@ -13,9 +13,6 @@
 #include "systemctl.h"
 #include "terminal-util.h"
 
-#define EDIT_MARKER_START "### Anything between here and the comment below will become the contents of the drop-in file"
-#define EDIT_MARKER_END "### Edits below this comment will be discarded"
-
 int verb_cat(int argc, char *argv[], void *userdata) {
         _cleanup_(hashmap_freep) Hashmap *cached_name_map = NULL, *cached_id_map = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
@@ -316,9 +313,10 @@ static int find_paths_to_edit(
 
 int verb_edit(int argc, char *argv[], void *userdata) {
         _cleanup_(edit_file_context_done) EditFileContext context = {
-                .marker_start = EDIT_MARKER_START,
-                .marker_end = EDIT_MARKER_END,
+                .marker_start = DROPIN_MARKER_START,
+                .marker_end = DROPIN_MARKER_END,
                 .remove_parent = !arg_full,
+                .overwrite_with_origin = true,
         };
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
