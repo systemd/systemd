@@ -1718,7 +1718,9 @@
         <term><varname>Endpoint=</varname></term>
         <listitem>
           <para>Sets an endpoint IP address or hostname, followed by a colon, and then
-          a port number. This endpoint will be updated automatically once to
+          a port number. IPv6 address must be in the square brackets. For example,
+          <literal>111.222.333.444:51820</literal> for IPv4 and <literal>[1111:2222::3333]:51820</literal>
+          for IPv6 address. This endpoint will be updated automatically once to
           the most recent source IP address and port of correctly
           authenticated packets from the peer at configuration time.</para>
         </listitem>
