@@ -274,9 +274,9 @@
         <term><option>--discover</option></term>
 
         <listitem><para>Show a list of DDIs in well-known directories. This will show machine, portable
-        service and system extension disk images in the usual directories
+        service and system/configuration extension disk images in the usual directories
         <filename>/usr/lib/machines/</filename>, <filename>/usr/lib/portables/</filename>,
-        <filename>/usr/lib/extensions/</filename>, <filename>/var/lib/machines/</filename>,
+        <filename>/usr/lib/confexts/</filename>, <filename>/var/lib/machines/</filename>,
         <filename>/var/lib/portables/</filename>, <filename>/var/lib/extensions/</filename> and so
         on.</para></listitem>
       </varlistentry>
