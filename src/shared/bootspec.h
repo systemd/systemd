@@ -79,6 +79,7 @@ typedef struct BootConfig {
         }
 
 const char* boot_entry_type_to_string(BootEntryType);
+const char* boot_entry_type_json_to_string(BootEntryType);
 
 BootEntry* boot_config_find_entry(BootConfig *config, const char *id);
 
