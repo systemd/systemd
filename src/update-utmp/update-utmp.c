@@ -24,6 +24,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "utmp-wtmp.h"
+#include "verbs.h"
 
 typedef struct Context {
         sd_bus *bus;
@@ -111,10 +112,10 @@ static int get_current_runlevel(Context *c) {
         return 0;
 }
 
-static int on_reboot(Context *c) {
+static int on_reboot(int argc, char *argv[], void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        usec_t t, boottime;
         int r = 0, q;
-        usec_t t;
-        usec_t boottime;
 
         assert(c);
 
@@ -145,7 +146,8 @@ static int on_reboot(Context *c) {
         return r;
 }
 
-static int on_shutdown(Context *c) {
+static int on_shutdown(int argc, char *argv[], void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
         int r = 0, q;
 
         assert(c);
@@ -167,7 +169,8 @@ static int on_shutdown(Context *c) {
         return r;
 }
 
-static int on_runlevel(Context *c) {
+static int on_runlevel(int argc, char *argv[], void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
         int r = 0, q, previous, runlevel;
 
         assert(c);
@@ -219,16 +222,19 @@ static int on_runlevel(Context *c) {
 }
 
 static int run(int argc, char *argv[]) {
+        static const Verb verbs[] = {
+                { "reboot",   1, 1, 0, on_reboot   },
+                { "shutdown", 1, 1, 0, on_shutdown },
+                { "runlevel", 1, 1, 0, on_runlevel },
+                {}
+        };
+
         _cleanup_(context_clear) Context c = {
 #if HAVE_AUDIT
                 .audit_fd = -EBADF,
 #endif
         };
         int r;
-
-        if (argc != 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program requires one argument.");
 
         log_setup();
 
@@ -245,13 +251,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get D-Bus connection: %m");
 
-        if (streq(argv[1], "reboot"))
-                return on_reboot(&c);
-        if (streq(argv[1], "shutdown"))
-                return on_shutdown(&c);
-        if (streq(argv[1], "runlevel"))
-                return on_runlevel(&c);
-        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown command %s", argv[1]);
+        return dispatch_verb(argc, argv, verbs, &c);
 }
 
 DEFINE_MAIN_FUNCTION(run);
