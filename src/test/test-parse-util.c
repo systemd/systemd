@@ -11,6 +11,7 @@
 #include "parse-util.h"
 #include "string-util.h"
 #include "tests.h"
+#include "tpm2-util.h"
 
 TEST(parse_boolean) {
         assert_se(parse_boolean("1") == 1);
@@ -920,6 +921,57 @@ TEST(parse_loadavg_fixed_point) {
         assert_se(parse_loadavg_fixed_point("1.2.3", &fp) == -EINVAL);
         assert_se(parse_loadavg_fixed_point(".", &fp) == -EINVAL);
         assert_se(parse_loadavg_fixed_point("", &fp) == -EINVAL);
+}
+
+TEST(pcr_index_from_string) {
+        assert_se(pcr_index_from_string("platform-code") == 0);
+        assert_se(pcr_index_from_string("0") == 0);
+        assert_se(pcr_index_from_string("platform-config") == 1);
+        assert_se(pcr_index_from_string("1") == 1);
+        assert_se(pcr_index_from_string("external-code") == 2);
+        assert_se(pcr_index_from_string("2") == 2);
+        assert_se(pcr_index_from_string("external-config") == 3);
+        assert_se(pcr_index_from_string("3") == 3);
+        assert_se(pcr_index_from_string("boot-loader-code") == 4);
+        assert_se(pcr_index_from_string("4") == 4);
+        assert_se(pcr_index_from_string("boot-loader-config") == 5);
+        assert_se(pcr_index_from_string("5") == 5);
+        assert_se(pcr_index_from_string("secure-boot-policy") == 7);
+        assert_se(pcr_index_from_string("7") == 7);
+        assert_se(pcr_index_from_string("kernel-initrd") == 9);
+        assert_se(pcr_index_from_string("9") == 9);
+        assert_se(pcr_index_from_string("ima") == 10);
+        assert_se(pcr_index_from_string("10") == 10);
+        assert_se(pcr_index_from_string("kernel-boot") == 11);
+        assert_se(pcr_index_from_string("11") == 11);
+        assert_se(pcr_index_from_string("kernel-config") == 12);
+        assert_se(pcr_index_from_string("12") == 12);
+        assert_se(pcr_index_from_string("sysexts") == 13);
+        assert_se(pcr_index_from_string("13") == 13);
+        assert_se(pcr_index_from_string("shim-policy") == 14);
+        assert_se(pcr_index_from_string("14") == 14);
+        assert_se(pcr_index_from_string("system-identity") == 15);
+        assert_se(pcr_index_from_string("15") == 15);
+        assert_se(pcr_index_from_string("application-support") == 23);
+        assert_se(pcr_index_from_string("23") == 23);
+        assert_se(pcr_index_from_string("hello") == -EINVAL);
+        assert_se(pcr_index_from_string("8") == 8);
+        assert_se(pcr_index_from_string("44") == -EINVAL);
+}
+
+TEST(tpm2_pcr_mask_from_string) {
+uint32_t k;
+
+        assert_se(tpm2_pcr_mask_from_string("7+application-support", &k) == 0);
+        assert_se(tpm2_pcr_mask_from_string("8+boot-loader-code,11", &k) == 0);
+        assert_se(tpm2_pcr_mask_from_string("6+boot-loader-code,44", &k) == -EINVAL);
+        assert_se(tpm2_pcr_mask_from_string("7,shim-policy,4", &k) == 0);
+        assert_se(tpm2_pcr_mask_from_string("sysexts,shim-policy+kernel-boot", &k) == 0);
+        assert_se(tpm2_pcr_mask_from_string("sysexts,shim+kernel-boot", &k) == -EINVAL);
+        assert_se(tpm2_pcr_mask_from_string("sysexts+17+23", &k) == 0);
+        assert_se(tpm2_pcr_mask_from_string("sysexts+24", &k) == 0);
+        assert_se(tpm2_pcr_mask_from_string("sysexts+25", &k) == -EINVAL);
+        assert_se(tpm2_pcr_mask_from_string("sysexts+-17", &k) == -EINVAL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

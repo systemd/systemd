@@ -2610,14 +2610,10 @@ int tpm2_pcr_mask_from_string(const char *arg, uint32_t *ret_mask) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse PCR list: %s", arg);
 
-                r = safe_atou(pcr, &n);
+                r = pcr_index_from_string(pcr);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse PCR number: %s", pcr);
-                if (n >= TPM2_PCRS_MAX)
-                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
-                                               "PCR number out of range (valid range 0…%u): %u",
-                                               TPM2_PCRS_MAX - 1, n);
-
+                        return log_error_errno(r, "Failed to parse specified PCR or specified PCR is out of range: %s", pcr);
+                n = r;
                 SET_BIT(mask, n);;
         }
 
