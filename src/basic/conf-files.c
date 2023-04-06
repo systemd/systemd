@@ -23,26 +23,19 @@
 #include "terminal-util.h"
 
 static int files_add(
-                Hashmap **h,
+                DIR *dir,
+                const char *dirpath,
+                Hashmap **files,
                 Set **masked,
                 const char *suffix,
-                const char *root,
-                unsigned flags,
-                const char *path) {
+                unsigned flags) {
 
-        _cleanup_free_ char *dirpath = NULL;
-        _cleanup_closedir_ DIR *dir = NULL;
         int r;
 
-        assert(h);
+        assert(dir);
+        assert(dirpath);
+        assert(files);
         assert(masked);
-        assert(path);
-
-        r = chase_and_opendir(path, root, CHASE_PREFIX_ROOT, &dirpath, &dir);
-        if (r == -ENOENT)
-                return 0;
-        if (r < 0)
-                return log_debug_errno(r, "Failed to open directory '%s/%s': %m", empty_or_root(root) ? "" : root, dirpath);
 
         FOREACH_DIRENT(de, dir, return -errno) {
                 _cleanup_free_ char *n = NULL, *p = NULL;
@@ -53,7 +46,7 @@ static int files_add(
                         continue;
 
                 /* Has this file already been found in an earlier directory? */
-                if (hashmap_contains(*h, de->d_name)) {
+                if (hashmap_contains(*files, de->d_name)) {
                         log_debug("Skipping overridden file '%s/%s'.", dirpath, de->d_name);
                         continue;
                 }
@@ -107,13 +100,13 @@ static int files_add(
                         return -ENOMEM;
 
                 if ((flags & CONF_FILES_BASENAME))
-                        r = hashmap_ensure_put(h, &string_hash_ops_free, n, n);
+                        r = hashmap_ensure_put(files, &string_hash_ops_free, n, n);
                 else {
                         p = path_join(dirpath, de->d_name);
                         if (!p)
                                 return -ENOMEM;
 
-                        r = hashmap_ensure_put(h, &string_hash_ops_free_free, n, p);
+                        r = hashmap_ensure_put(files, &string_hash_ops_free_free, n, p);
                 }
                 if (r < 0)
                         return r;
@@ -130,12 +123,12 @@ static int base_cmp(char * const *a, char * const *b) {
         return strcmp(basename(*a), basename(*b));
 }
 
-static int conf_files_list_strv_internal(
+int conf_files_list_strv(
                 char ***ret,
                 const char *suffix,
                 const char *root,
                 unsigned flags,
-                char **dirs) {
+                const char * const *dirs) {
 
         _cleanup_hashmap_free_ Hashmap *fh = NULL;
         _cleanup_set_free_ Set *masked = NULL;
@@ -145,16 +138,22 @@ static int conf_files_list_strv_internal(
 
         assert(ret);
 
-        /* This alters the dirs string array */
-        if (!path_strv_resolve_uniq(dirs, root))
-                return -ENOMEM;
-
         STRV_FOREACH(p, dirs) {
-                r = files_add(&fh, &masked, suffix, root, flags, *p);
+                _cleanup_closedir_ DIR *dir = NULL;
+                _cleanup_free_ char *path = NULL;
+
+                r = chase_and_opendir(*p, root, CHASE_PREFIX_ROOT, &path, &dir);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                log_debug_errno(r, "Failed to chase and open directory '%s', ignoring: %m", *p);
+                        continue;
+                }
+
+                r = files_add(dir, path, &fh, &masked, suffix, flags);
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0)
-                        log_debug_errno(r, "Failed to search for files in %s, ignoring: %m", *p);
+                        log_debug_errno(r, "Failed to search for files in '%s', ignoring: %m", path);
         }
 
         sv = hashmap_get_strv(fh);
@@ -240,28 +239,8 @@ int conf_files_insert(char ***strv, const char *root, char **dirs, const char *p
         return r;
 }
 
-int conf_files_list_strv(char ***ret, const char *suffix, const char *root, unsigned flags, const char* const* dirs) {
-        _cleanup_strv_free_ char **copy = NULL;
-
-        assert(ret);
-
-        copy = strv_copy((char**) dirs);
-        if (!copy)
-                return -ENOMEM;
-
-        return conf_files_list_strv_internal(ret, suffix, root, flags, copy);
-}
-
 int conf_files_list(char ***ret, const char *suffix, const char *root, unsigned flags, const char *dir) {
-        _cleanup_strv_free_ char **dirs = NULL;
-
-        assert(ret);
-
-        dirs = strv_new(dir);
-        if (!dirs)
-                return -ENOMEM;
-
-        return conf_files_list_strv_internal(ret, suffix, root, flags, dirs);
+        return conf_files_list_strv(ret, suffix, root, flags, STRV_MAKE_CONST(dir));
 }
 
 int conf_files_list_nulstr(char ***ret, const char *suffix, const char *root, unsigned flags, const char *dirs) {
@@ -273,7 +252,7 @@ int conf_files_list_nulstr(char ***ret, const char *suffix, const char *root, un
         if (!d)
                 return -ENOMEM;
 
-        return conf_files_list_strv_internal(ret, suffix, root, flags, d);
+        return conf_files_list_strv(ret, suffix, root, flags, (const char**) d);
 }
 
 int conf_files_list_with_replacement(
