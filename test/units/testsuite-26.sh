@@ -92,8 +92,6 @@ systemctl list-sockets --legend=no -a "*journal*"
 systemctl list-sockets --show-types
 systemctl list-sockets --state=listening
 systemctl list-timers -a -l
-systemctl list-unit-files
-systemctl list-unit-files "*journal*"
 systemctl list-jobs
 systemctl list-jobs --after
 systemctl list-jobs --before
@@ -104,6 +102,14 @@ systemctl list-dependencies multi-user.target --state=active
 systemctl list-dependencies sysinit.target --state=mounted --all
 systemctl list-paths
 systemctl list-paths --legend=no -a "systemd*"
+
+test_list_unit_files() {
+    systemctl list-unit-files "$@"
+    systemctl list-unit-files "$@" "*journal*"
+}
+
+test_list_unit_files
+test_list_unit_files --root=/
 
 # is-* verbs
 # Should return 4 for a missing unit file
@@ -132,45 +138,55 @@ systemctl stop "$UNIT_NAME"
 (! systemctl is-active "$UNIT_NAME")
 
 # enable/disable/preset
-(! systemctl is-enabled "$UNIT_NAME")
-systemctl enable "$UNIT_NAME"
-systemctl is-enabled -l "$UNIT_NAME"
-# We created a preset file for this unit above with a "disable" policy
-systemctl preset "$UNIT_NAME"
-(! systemctl is-enabled "$UNIT_NAME")
-systemctl reenable "$UNIT_NAME"
-systemctl is-enabled "$UNIT_NAME"
-systemctl preset --preset-mode=enable-only "$UNIT_NAME"
-systemctl is-enabled "$UNIT_NAME"
-systemctl preset --preset-mode=disable-only "$UNIT_NAME"
-(! systemctl is-enabled "$UNIT_NAME")
-systemctl enable --runtime "$UNIT_NAME"
-[[ -e "/run/systemd/system/multi-user.target.wants/$UNIT_NAME" ]]
-systemctl is-enabled "$UNIT_NAME"
-systemctl disable "$UNIT_NAME"
-# The unit should be still enabled, as we didn't use the --runtime switch
-systemctl is-enabled "$UNIT_NAME"
-systemctl disable --runtime "$UNIT_NAME"
-(! systemctl is-enabled "$UNIT_NAME")
+test_enable_disable_preset() {
+    (! systemctl is-enabled "$@" "$UNIT_NAME")
+    systemctl enable "$@" "$UNIT_NAME"
+    systemctl is-enabled "$@" -l "$UNIT_NAME"
+    # We created a preset file for this unit above with a "disable" policy
+    systemctl preset "$@" "$UNIT_NAME"
+    (! systemctl is-enabled "$@" "$UNIT_NAME")
+    systemctl reenable "$@" "$UNIT_NAME"
+    systemctl is-enabled "$@" "$UNIT_NAME"
+    systemctl preset "$@" --preset-mode=enable-only "$UNIT_NAME"
+    systemctl is-enabled "$@" "$UNIT_NAME"
+    systemctl preset "$@" --preset-mode=disable-only "$UNIT_NAME"
+    (! systemctl is-enabled "$@" "$UNIT_NAME")
+    systemctl enable "$@" --runtime "$UNIT_NAME"
+    [[ -e "/run/systemd/system/multi-user.target.wants/$UNIT_NAME" ]]
+    systemctl is-enabled "$@" "$UNIT_NAME"
+    systemctl disable "$@" "$UNIT_NAME"
+    # The unit should be still enabled, as we didn't use the --runtime switch
+    systemctl is-enabled "$@" "$UNIT_NAME"
+    systemctl disable "$@" --runtime "$UNIT_NAME"
+    (! systemctl is-enabled "$@" "$UNIT_NAME")
+}
+
+test_enable_disable_preset
+test_enable_disable_preset --root=/
 
 # mask/unmask/revert
-systemctl disable "$UNIT_NAME"
-[[ "$(systemctl is-enabled "$UNIT_NAME")" == disabled ]]
-systemctl mask "$UNIT_NAME"
-[[ "$(systemctl is-enabled "$UNIT_NAME")" == masked ]]
-systemctl unmask "$UNIT_NAME"
-[[ "$(systemctl is-enabled "$UNIT_NAME")" == disabled ]]
-systemctl mask "$UNIT_NAME"
-[[ "$(systemctl is-enabled "$UNIT_NAME")" == masked ]]
-systemctl revert "$UNIT_NAME"
-[[ "$(systemctl is-enabled "$UNIT_NAME")" == disabled ]]
-systemctl mask --runtime "$UNIT_NAME"
-[[ "$(systemctl is-enabled "$UNIT_NAME")" == masked-runtime ]]
-# This should be a no-op without the --runtime switch
-systemctl unmask "$UNIT_NAME"
-[[ "$(systemctl is-enabled "$UNIT_NAME")" == masked-runtime ]]
-systemctl unmask --runtime "$UNIT_NAME"
-[[ "$(systemctl is-enabled "$UNIT_NAME")" == disabled ]]
+test_mask_unmask_revert() {
+    systemctl disable "$@" "$UNIT_NAME"
+    [[ "$(systemctl is-enabled "$@" "$UNIT_NAME")" == disabled ]]
+    systemctl mask "$@" "$UNIT_NAME"
+    [[ "$(systemctl is-enabled "$@" "$UNIT_NAME")" == masked ]]
+    systemctl unmask "$@" "$UNIT_NAME"
+    [[ "$(systemctl is-enabled "$@" "$UNIT_NAME")" == disabled ]]
+    systemctl mask "$@" "$UNIT_NAME"
+    [[ "$(systemctl is-enabled "$@" "$UNIT_NAME")" == masked ]]
+    systemctl revert "$@" "$UNIT_NAME"
+    [[ "$(systemctl is-enabled "$@" "$UNIT_NAME")" == disabled ]]
+    systemctl mask "$@" --runtime "$UNIT_NAME"
+    [[ "$(systemctl is-enabled "$@" "$UNIT_NAME")" == masked-runtime ]]
+    # This should be a no-op without the --runtime switch
+    systemctl unmask "$@" "$UNIT_NAME"
+    [[ "$(systemctl is-enabled "$@" "$UNIT_NAME")" == masked-runtime ]]
+    systemctl unmask "$@" --runtime "$UNIT_NAME"
+    [[ "$(systemctl is-enabled "$@" "$UNIT_NAME")" == disabled ]]
+}
+
+test_mask_unmask_revert
+test_mask_unmask_revert --root=/
 
 # add-wants/add-requires
 (! systemctl show -P Wants "$UNIT_NAME" | grep "systemd-journald.service")
@@ -229,11 +245,16 @@ for value in pretty us µs utc us+utc µs+utc; do
 done
 
 # set-default/get-default
-target="$(systemctl get-default)"
-systemctl set-default emergency.target
-[[ "$(systemctl get-default)" == emergency.target ]]
-systemctl set-default "$target"
-[[ "$(systemctl get-default)" == "$target" ]]
+test_get_set_default() {
+    target="$(systemctl get-default "$@")"
+    systemctl set-default "$@" emergency.target
+    [[ "$(systemctl get-default "$@")" == emergency.target ]]
+    systemctl set-default "$@" "$target"
+    [[ "$(systemctl get-default "$@")" == "$target" ]]
+}
+
+test_get_set_default
+test_get_set_default --root=/
 
 # show/status
 systemctl show --property ""
