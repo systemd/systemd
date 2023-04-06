@@ -1473,34 +1473,58 @@ int device_add_tag(sd_device *device, const char *tag, bool both) {
         return 0;
 }
 
+static char *prefix_dev(const char *p) {
+        assert(p);
+
+        if (path_startswith(p, "/dev/"))
+                return strdup(p);
+
+        return path_join("/dev/", p);
+}
+
 int device_add_devlink(sd_device *device, const char *devlink) {
+        char *p;
         int r;
 
         assert(device);
         assert(devlink);
 
-        r = set_put_strdup(&device->devlinks, devlink);
+        if (!path_is_safe(devlink))
+                return -EINVAL;
+
+        p = prefix_dev(devlink);
+        if (!p)
+                return -ENOMEM;
+
+        path_simplify(p);
+
+        r = set_ensure_consume(&device->devlinks, &path_hash_ops_free, p);
         if (r < 0)
                 return r;
 
         device->devlinks_generation++;
         device->property_devlinks_outdated = true;
 
-        return 0;
+        return r; /* return 1 when newly added, 0 when already exists */
 }
 
-void device_remove_devlink(sd_device *device, const char *devlink) {
-        _cleanup_free_ char *s = NULL;
+int device_remove_devlink(sd_device *device, const char *devlink) {
+        _cleanup_free_ char *p = NULL, *s = NULL;
 
         assert(device);
         assert(devlink);
 
-        s = set_remove(device->devlinks, devlink);
+        p = prefix_dev(devlink);
+        if (!p)
+                return -ENOMEM;
+
+        s = set_remove(device->devlinks, p);
         if (!s)
-                return;
+                return 0; /* does not exist */
 
         device->devlinks_generation++;
         device->property_devlinks_outdated = true;
+        return 1; /* removed */
 }
 
 bool device_has_devlink(sd_device *device, const char *devlink) {
