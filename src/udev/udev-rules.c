@@ -2587,6 +2587,13 @@ static int udev_rule_apply_token_to_event(
                         if (truncated)
                                 continue;
 
+                        path_simplify(path);
+
+                        if (!path_is_safe(path)) {
+                                log_event_warning(dev, token, "Unsafe path specified in SYMLINK=, ignoring: %s", path);
+                                continue;
+                        }
+
                         if (token->op == OP_REMOVE) {
                                 device_remove_devlink(dev, path);
                                 log_event_debug(dev, token, "Dropped SYMLINK '%s'", path);
