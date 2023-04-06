@@ -103,6 +103,9 @@ int edit_files_add(
 
 static int create_edit_temp_file(EditFile *e) {
         _cleanup_(unlink_and_freep) char *temp = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        const char *source;
+        bool has_original, has_target;
         unsigned line = 1;
         int r;
 
@@ -114,62 +117,42 @@ static int create_edit_temp_file(EditFile *e) {
         if (e->temp)
                 return 0;
 
-        r = tempfn_random(e->path, NULL, &temp);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine temporary filename for \"%s\": %m", e->path);
-
         r = mkdir_parents_label(e->path, 0755);
         if (r < 0)
-                return log_error_errno(r, "Failed to create parent directories for \"%s\": %m", e->path);
+                return log_error_errno(r, "Failed to create parent directories for '%s': %m", e->path);
 
-        if (!e->original_path && !e->comment_paths) {
-                r = mac_selinux_create_file_prepare(e->path, S_IFREG);
-                if (r < 0)
-                        return r;
+        r = fopen_temporary_label(e->path, e->path, &f, &temp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create temporary file for '%s': %m", e->path);
 
-                r = touch(temp);
-                mac_selinux_create_file_clear();
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create temporary file \"%s\": %m", temp);
-        }
+        if (fchmod(fileno(f), 0644) < 0)
+                return log_error_errno(errno, "Failed to change mode of temporary file '%s': %m", temp);
 
-        if (e->original_path) {
-                r = mac_selinux_create_file_prepare(e->path, S_IFREG);
-                if (r < 0)
-                        return r;
+        has_original = e->original_path && access(e->original_path, F_OK) >= 0;
+        has_target = access(e->path, F_OK) >= 0;
 
-                r = copy_file(e->original_path, temp, 0, 0644, COPY_REFLINK);
-                if (r == -ENOENT) {
-                        r = touch(temp);
-                        mac_selinux_create_file_clear();
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create temporary file \"%s\": %m", temp);
-                } else {
-                        mac_selinux_create_file_clear();
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create temporary file for \"%s\": %m", e->path);
+        if (has_original && (!has_target || e->context->overwrite_with_origin))
+                /* We are asked to overwrite target with original_path or target doesn't exist. */
+                source = e->original_path;
+        else if (has_target)
+                /* Target exists and shouldn't be overwritten. */
+                source = e->path;
+        else
+                /* We have no original file nor target file to use as source. The temp file will be empty. */
+                goto finish;
+
+        if (!comment_paths) {
+                r = copy_file_fd(source, fileno(f), COPY_REFLINK);
+                if (r < 0) {
+                        assert(r != -ENOENT);
+                        return log_error_errno(r, "Failed to copy file '%s' to temporary file '%s': %m", source, temp);
                 }
-        }
+        } else {
+                _cleanup_free_ char *source_contents = NULL;
 
-        if (e->comment_paths) {
-                _cleanup_free_ char *target_contents = NULL;
-                _cleanup_fclose_ FILE *f = NULL;
-
-                r = mac_selinux_create_file_prepare(e->path, S_IFREG);
+                r = read_full_file(source, &source_contents, NULL);
                 if (r < 0)
-                        return r;
-
-                f = fopen(temp, "we");
-                mac_selinux_create_file_clear();
-                if (!f)
-                        return log_error_errno(errno, "Failed to open temporary file \"%s\": %m", temp);
-
-                if (fchmod(fileno(f), 0644) < 0)
-                        return log_error_errno(errno, "Failed to change mode of temporary file \"%s\": %m", temp);
-
-                r = read_full_file(e->path, &target_contents, NULL);
-                if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to read target file \"%s\": %m", e->path);
+                        return log_error_errno(r, "Failed to read source file '%s': %m", source);
 
                 fprintf(f,
                         "### Editing %s\n"
@@ -180,44 +163,44 @@ static int create_edit_temp_file(EditFile *e) {
                         "%s\n",
                         e->path,
                         e->context->marker_start,
-                        strempty(target_contents),
-                        target_contents && endswith(target_contents, "\n") ? "" : "\n",
+                        strempty(source_contents),
+                        source_contents && endswith(source_contents, "\n") ? "" : "\n",
                         e->context->marker_end);
 
                 line = 4; /* Start editing at the contents area */
 
-                /* Add a comment with the contents of the original files */
                 STRV_FOREACH(path, e->comment_paths) {
-                        _cleanup_free_ char *contents = NULL;
+                        _cleanup_free_ char *comment = NULL;
 
-                        /* Skip the file that's being edited, already processed in above */
-                        if (path_equal(*path, e->path))
+                        /* Skip the file which is being edited and the source file (can be the same) */
+                        if (PATH_IN_SET(*path, e->path, source))
                                 continue;
 
-                        r = read_full_file(*path, &contents, NULL);
+                        r = read_full_file(*path, &comment, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to read original file \"%s\": %m", *path);
+                                return log_error_errno(r, "Failed to read comment file '%s': %m", *path);
 
                         fprintf(f, "\n\n### %s", *path);
-                        if (!isempty(contents)) {
-                                _cleanup_free_ char *commented_contents = NULL;
 
-                                commented_contents = strreplace(strstrip(contents), "\n", "\n# ");
-                                if (!commented_contents)
+                        if (!isempty(comment)) {
+                                _cleanup_free_ char *c = NULL;
+
+                                c = strreplace(strstrip(comment), "\n", "\n# ");
+                                if (!c)
                                         return log_oom();
 
-                                fprintf(f, "\n# %s", commented_contents);
+                                fprintf(f, "\n# %s", c);
                         }
                 }
-
-                r = fflush_and_check(f);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create temporary file \"%s\": %m", temp);
         }
+
+finish:
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write to temporary file '%s': %m", temp);
 
         e->temp = TAKE_PTR(temp);
         e->line = line;
-
         return 0;
 }
 
@@ -310,7 +293,7 @@ static int strip_edit_temp_file(EditFile *e) {
 
         r = read_full_file(e->temp, &old_contents, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to read temporary file \"%s\": %m", e->temp);
+                return log_error_errno(r, "Failed to read temporary file '%s': %m", e->temp);
 
         if (e->context->marker_start) {
                 /* Trim out the lines between the two markers */
@@ -344,7 +327,7 @@ static int strip_edit_temp_file(EditFile *e) {
 
         r = write_string_file(e->temp, new_contents, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_TRUNCATE | WRITE_STRING_FILE_AVOID_NEWLINE);
         if (r < 0)
-                return log_error_errno(r, "Failed to modify temporary file \"%s\": %m", e->temp);
+                return log_error_errno(r, "Failed to strip temporary file '%s': %m", e->temp);
 
         return 1; /* Contents have real changes and are changed after stripping */
 }
@@ -377,7 +360,10 @@ int do_edit_files_and_install(EditFileContext *context) {
 
                 r = RET_NERRNO(rename(i->temp, i->path));
                 if (r < 0)
-                        return log_error_errno(r, "Failed to rename \"%s\" to \"%s\": %m", i->temp, i->path);
+                        return log_error_errno(r,
+                                               "Failed to rename temporary file '%s' to target file '%s': %m",
+                                               i->temp,
+                                               i->path);
                 i->temp = mfree(i->temp);
 
                 log_info("Successfully installed edited file '%s'.", i->path);
