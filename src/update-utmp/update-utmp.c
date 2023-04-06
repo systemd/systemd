@@ -20,6 +20,7 @@
 #include "macro.h"
 #include "main-func.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "strv.h"
@@ -76,35 +77,59 @@ static int get_current_runlevel(Context *c) {
                 { '3', SPECIAL_MULTI_USER_TARGET },
                 { '1', SPECIAL_RESCUE_TARGET     },
         };
-
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(c);
 
-        for (size_t i = 0; i < ELEMENTSOF(table); i++) {
-                _cleanup_free_ char *state = NULL, *path = NULL;
+        for (unsigned n_attempts = 0;;) {
+                for (size_t i = 0; i < ELEMENTSOF(table); i++) {
+                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                        _cleanup_free_ char *state = NULL, *path = NULL;
 
-                path = unit_dbus_path_from_name(table[i].special);
-                if (!path)
-                        return log_oom();
+                        path = unit_dbus_path_from_name(table[i].special);
+                        if (!path)
+                                return log_oom();
 
-                r = sd_bus_get_property_string(
-                                c->bus,
-                                "org.freedesktop.systemd1",
-                                path,
-                                "org.freedesktop.systemd1.Unit",
-                                "ActiveState",
-                                &error,
-                                &state);
+                        r = sd_bus_get_property_string(
+                                        c->bus,
+                                        "org.freedesktop.systemd1",
+                                        path,
+                                        "org.freedesktop.systemd1.Unit",
+                                        "ActiveState",
+                                        &error,
+                                        &state);
+                        if ((r == -ENOTCONN ||
+                             sd_bus_error_has_names(&error,
+                                                    SD_BUS_ERROR_NO_REPLY,
+                                                    SD_BUS_ERROR_DISCONNECTED)) &&
+                            ++n_attempts < 64) {
+
+                                /* systemd might have dropped off momentarily, let's not make this an error,
+                                 * and wait some random time. Let's pick a random time in the range 0ms…250ms,
+                                 * linearly scaled by the number of failed attempts. */
+
+                                usec_t usec = random_u64_range(UINT64_C(10) * USEC_PER_MSEC +
+                                                               UINT64_C(240) * USEC_PER_MSEC * n_attempts/64);
+                                log_debug_errno(r, "Failed to get state of %s, retrying after %s: %s",
+                                                table[i].special, FORMAT_TIMESPAN(usec, USEC_PER_MSEC), bus_error_message(&error, r));
+                                (void) usleep(usec);
+                                goto reconnect;
+                        }
+                        if (r < 0)
+                                return log_warning_errno(r, "Failed to get state of %s: %s", table[i].special, bus_error_message(&error, r));
+
+                        if (STR_IN_SET(state, "active", "reloading"))
+                                return table[i].runlevel;
+                }
+
+                return 0;
+
+reconnect:
+                c->bus = sd_bus_flush_close_unref(c->bus);
+                r = bus_connect_system_systemd(&c->bus);
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to get state: %s", bus_error_message(&error, r));
-
-                if (STR_IN_SET(state, "active", "reloading"))
-                        return table[i].runlevel;
+                        return log_error_errno(r, "Failed to reconnect system bus: %m");
         }
-
-        return 0;
 }
 
 static int on_reboot(int argc, char *argv[], void *userdata) {
