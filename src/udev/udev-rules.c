@@ -2575,7 +2575,7 @@ static int udev_rule_apply_token_to_event(
 
                 p = skip_leading_chars(buf, NULL);
                 while (!isempty(p)) {
-                        char filename[UDEV_PATH_SIZE], *next;
+                        char path[UDEV_PATH_SIZE], *next;
 
                         next = strchr(p, ' ');
                         if (next) {
@@ -2583,19 +2583,19 @@ static int udev_rule_apply_token_to_event(
                                 next = skip_leading_chars(next, NULL);
                         }
 
-                        strscpyl_full(filename, sizeof(filename), &truncated, "/dev/", p, NULL);
+                        strscpyl_full(path, sizeof(path), &truncated, "/dev/", p, NULL);
                         if (truncated)
                                 continue;
 
                         if (token->op == OP_REMOVE) {
-                                device_remove_devlink(dev, filename);
-                                log_event_debug(dev, token, "Dropped SYMLINK '%s'", p);
+                                device_remove_devlink(dev, path);
+                                log_event_debug(dev, token, "Dropped SYMLINK '%s'", path);
                         } else {
-                                r = device_add_devlink(dev, filename);
+                                r = device_add_devlink(dev, path);
                                 if (r < 0)
-                                        return log_event_error_errno(dev, token, r, "Failed to add devlink '%s': %m", filename);
+                                        return log_event_error_errno(dev, token, r, "Failed to add devlink '%s': %m", path);
 
-                                log_event_debug(dev, token, "Added SYMLINK '%s'", p);
+                                log_event_debug(dev, token, "Added SYMLINK '%s'", path);
                         }
 
                         p = next;
