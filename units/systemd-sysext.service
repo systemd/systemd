@@ -25,7 +25,8 @@ Before=shutdown.target initrd-switch-root.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=systemd-sysext merge
+ExecStart=systemd-sysext refresh
+ExecReload=systemd-sysext refresh
 ExecStop=systemd-sysext unmerge
 
 [Install]
