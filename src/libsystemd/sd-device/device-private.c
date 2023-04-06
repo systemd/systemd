@@ -351,6 +351,8 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
                                 return r;
                         if (r == 0)
                                 break;
+                        if (isempty(word))
+                                continue;
 
                         r = device_add_tag(device, word, streq(key, "CURRENT_TAGS"));
                         if (r < 0)

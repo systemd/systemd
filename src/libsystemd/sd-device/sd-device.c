@@ -1439,7 +1439,7 @@ _public_ int sd_device_get_diskseq(sd_device *device, uint64_t *ret) {
 static bool is_valid_tag(const char *tag) {
         assert(tag);
 
-        return !strchr(tag, ':') && !strchr(tag, ' ');
+        return in_charset(tag, ALPHANUMERICAL "-_") && filename_is_valid(tag);
 }
 
 int device_add_tag(sd_device *device, const char *tag, bool both) {
