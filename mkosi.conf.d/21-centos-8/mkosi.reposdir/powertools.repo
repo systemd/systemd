@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
 [powertools-hotfixes]
 name=powertools-hotfixes
 mirrorlist=http://mirrorlist.centos.org/?release=$stream&arch=$basearch&repo=PowerTools
