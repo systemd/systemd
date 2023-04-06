@@ -72,11 +72,9 @@ static int get_current_runlevel(Context *c) {
                 const int runlevel;
                 const char *special;
         } table[] = {
-                /* The first target of this list that is active or has
-                 * a job scheduled wins. We prefer runlevels 5 and 3
-                 * here over the others, since these are the main
-                 * runlevels used on Fedora. It might make sense to
-                 * change the order on some distributions. */
+                /* The first target of this list that is active or has a job scheduled wins. We prefer
+                 * runlevels 5 and 3 here over the others, since these are the main runlevels used on Fedora.
+                 * It might make sense to change the order on some distributions. */
                 { '5', SPECIAL_GRAPHICAL_TARGET  },
                 { '3', SPECIAL_MULTI_USER_TARGET },
                 { '1', SPECIAL_RESCUE_TARGET     },
@@ -117,8 +115,7 @@ static int on_reboot(int argc, char *argv[], void *userdata) {
         usec_t t, boottime;
         int r = 0, q;
 
-        /* We finished start-up, so let's write the utmp
-         * record and send the audit msg */
+        /* We finished start-up, so let's write the utmp record and send the audit msg. */
 
 #if HAVE_AUDIT
         if (c->audit_fd >= 0)
@@ -127,15 +124,13 @@ static int on_reboot(int argc, char *argv[], void *userdata) {
                         r = log_error_errno(errno, "Failed to send audit message: %m");
 #endif
 
-        /* If this call fails it will return 0, which
-         * utmp_put_reboot() will then fix to the current time */
+        /* If this call fails it will return 0, which utmp_put_reboot() will then fix to the current time. */
         t = get_startup_monotonic_time(c);
         boottime = map_clock_usec(t, CLOCK_MONOTONIC, CLOCK_REALTIME);
-        /* We query the recorded monotonic time here (instead of the system clock CLOCK_REALTIME),
-         * even though we actually want the system clock time. That's because there's a likely
-         * chance that the system clock wasn't set right during early boot. By manually converting
-         * the monotonic clock to the system clock here we can compensate
-         * for incorrectly set clocks during early boot. */
+        /* We query the recorded monotonic time here (instead of the system clock CLOCK_REALTIME), even
+         * though we actually want the system clock time. That's because there's a likely chance that the
+         * system clock wasn't set right during early boot. By manually converting the monotonic clock to the
+         * system clock here we can compensate for incorrectly set clocks during early boot. */
 
         q = utmp_put_reboot(boottime);
         if (q < 0)
@@ -147,8 +142,7 @@ static int on_reboot(int argc, char *argv[], void *userdata) {
 static int on_shutdown(int argc, char *argv[], void *userdata) {
         int r = 0, q;
 
-        /* We started shut-down, so let's write the utmp
-         * record and send the audit msg */
+        /* We started shut-down, so let's write the utmp record and send the audit msg. */
 
 #if HAVE_AUDIT
         Context *c = ASSERT_PTR(userdata);
@@ -170,8 +164,7 @@ static int on_runlevel(int argc, char *argv[], void *userdata) {
         Context *c = ASSERT_PTR(userdata);
         int r = 0, q, previous, runlevel;
 
-        /* We finished changing runlevel, so let's write the
-         * utmp record and send the audit msg */
+        /* We finished changing runlevel, so let's write the utmp record and send the audit msg. */
 
         /* First, get last runlevel */
         q = utmp_get_runlevel(&previous, NULL);
