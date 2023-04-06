@@ -3446,7 +3446,7 @@ static int compile_bind_mounts(
                 char ***ret_empty_directories) {
 
         _cleanup_strv_free_ char **empty_directories = NULL;
-        BindMount *bind_mounts;
+        BindMount *bind_mounts = NULL;
         size_t n, h = 0;
         int r;
 
@@ -3455,6 +3455,8 @@ static int compile_bind_mounts(
         assert(ret_bind_mounts);
         assert(ret_n_bind_mounts);
         assert(ret_empty_directories);
+
+        CLEANUP_ARRAY(bind_mounts, h, bind_mount_free_many);
 
         n = context->n_bind_mounts;
         for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
@@ -3478,24 +3480,19 @@ static int compile_bind_mounts(
 
         for (size_t i = 0; i < context->n_bind_mounts; i++) {
                 BindMount *item = context->bind_mounts + i;
-                char *s, *d;
+                _cleanup_free_ char *s = NULL, *d = NULL;
 
                 s = strdup(item->source);
-                if (!s) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!s)
+                        return -ENOMEM;
 
                 d = strdup(item->destination);
-                if (!d) {
-                        free(s);
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!d)
+                        return -ENOMEM;
 
                 bind_mounts[h++] = (BindMount) {
-                        .source = s,
-                        .destination = d,
+                        .source = TAKE_PTR(s),
+                        .destination = TAKE_PTR(d),
                         .read_only = item->read_only,
                         .recursive = item->recursive,
                         .ignore_enoent = item->ignore_enoent,
@@ -3518,18 +3515,16 @@ static int compile_bind_mounts(
                          * tmpfs that makes it accessible and is empty except for the submounts we do this for. */
 
                         private_root = path_join(params->prefix[t], "private");
-                        if (!private_root) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
+                        if (!private_root)
+                                return -ENOMEM;
 
                         r = strv_consume(&empty_directories, private_root);
                         if (r < 0)
-                                goto finish;
+                                return r;
                 }
 
                 for (size_t i = 0; i < context->directories[t].n_items; i++) {
-                        char *s, *d;
+                        _cleanup_free_ char *s = NULL, *d = NULL;
 
                         /* When one of the parent directories is in the list, we cannot create the symlink
                          * for the child directory. See also the comments in setup_exec_directory(). */
@@ -3540,10 +3535,8 @@ static int compile_bind_mounts(
                                 s = path_join(params->prefix[t], "private", context->directories[t].items[i].path);
                         else
                                 s = path_join(params->prefix[t], context->directories[t].items[i].path);
-                        if (!s) {
-                                r = -ENOMEM;
-                                goto finish;
-                        }
+                        if (!s)
+                                return -ENOMEM;
 
                         if (exec_directory_is_private(context, t) &&
                             exec_context_with_rootfs(context))
@@ -3553,15 +3546,12 @@ static int compile_bind_mounts(
                                 d = path_join(params->prefix[t], context->directories[t].items[i].path);
                         else
                                 d = strdup(s);
-                        if (!d) {
-                                free(s);
-                                r = -ENOMEM;
-                                goto finish;
-                        }
+                        if (!d)
+                                return -ENOMEM;
 
                         bind_mounts[h++] = (BindMount) {
-                                .source = s,
-                                .destination = d,
+                                .source = TAKE_PTR(s),
+                                .destination = TAKE_PTR(d),
                                 .read_only = false,
                                 .nosuid = context->dynamic_user, /* don't allow suid/sgid when DynamicUser= is on */
                                 .recursive = true,
@@ -3572,15 +3562,11 @@ static int compile_bind_mounts(
 
         assert(h == n);
 
-        *ret_bind_mounts = bind_mounts;
+        *ret_bind_mounts = TAKE_PTR(bind_mounts);
         *ret_n_bind_mounts = n;
         *ret_empty_directories = TAKE_PTR(empty_directories);
 
         return (int) n;
-
-finish:
-        bind_mount_free_many(bind_mounts, h);
-        return r;
 }
 
 /* ret_symlinks will contain a list of pairs src:dest that describes
@@ -3704,6 +3690,8 @@ static int apply_mount_namespace(
 
         assert(context);
 
+        CLEANUP_ARRAY(bind_mounts, n_bind_mounts, bind_mount_free_many);
+
         if (params->flags & EXEC_APPLY_CHROOT) {
                 root_image = context->root_image;
 
@@ -3718,20 +3706,18 @@ static int apply_mount_namespace(
         /* Symlinks for exec dirs are set up after other mounts, before they are made read-only. */
         r = compile_symlinks(context, params, &symlinks);
         if (r < 0)
-                goto finalize;
+                return r;
 
         /* We need to make the pressure path writable even if /sys/fs/cgroups is made read-only, as the
          * service will need to write to it in order to start the notifications. */
         if (context->protect_control_groups && memory_pressure_path && !streq(memory_pressure_path, "/dev/null")) {
                 read_write_paths_cleanup = strv_copy(context->read_write_paths);
-                if (!read_write_paths_cleanup) {
-                        r = -ENOMEM;
-                        goto finalize;
-                }
+                if (!read_write_paths_cleanup)
+                        return -ENOMEM;
 
                 r = strv_extend(&read_write_paths_cleanup, memory_pressure_path);
                 if (r < 0)
-                        goto finalize;
+                        return r;
 
                 read_write_paths = read_write_paths_cleanup;
         } else
@@ -3793,35 +3779,25 @@ static int apply_mount_namespace(
             params->prefix[EXEC_DIRECTORY_RUNTIME] &&
             FLAGS_SET(params->flags, EXEC_WRITE_CREDENTIALS)) {
                 creds_path = path_join(params->prefix[EXEC_DIRECTORY_RUNTIME], "credentials", u->id);
-                if (!creds_path) {
-                        r = -ENOMEM;
-                        goto finalize;
-                }
+                if (!creds_path)
+                        return -ENOMEM;
         }
 
         if (MANAGER_IS_SYSTEM(u->manager)) {
                 propagate_dir = path_join("/run/systemd/propagate/", u->id);
-                if (!propagate_dir) {
-                        r = -ENOMEM;
-                        goto finalize;
-                }
+                if (!propagate_dir)
+                        return -ENOMEM;
 
                 incoming_dir = strdup("/run/systemd/incoming");
-                if (!incoming_dir) {
-                        r = -ENOMEM;
-                        goto finalize;
-                }
+                if (!incoming_dir)
+                        return -ENOMEM;
 
                 extension_dir = strdup("/run/systemd/unit-extensions");
-                if (!extension_dir) {
-                        r = -ENOMEM;
-                        goto finalize;
-                }
+                if (!extension_dir)
+                        return -ENOMEM;
         } else
-                if (asprintf(&extension_dir, "/run/user/" UID_FMT "/systemd/unit-extensions", geteuid()) < 0) {
-                        r = -ENOMEM;
-                        goto finalize;
-                }
+                if (asprintf(&extension_dir, "/run/user/" UID_FMT "/systemd/unit-extensions", geteuid()) < 0)
+                        return -ENOMEM;
 
         r = setup_namespace(root_dir, root_image, context->root_image_options,
                             &ns_info, read_write_paths,
@@ -3868,16 +3844,12 @@ static int apply_mount_namespace(
                                        "Bind mounts: %zu, temporary filesystems: %zu, root directory: %s, root image: %s, dynamic user: %s",
                                        n_bind_mounts, context->n_temporary_filesystems, yes_no(root_dir), yes_no(root_image), yes_no(context->dynamic_user));
 
-                        r = -EOPNOTSUPP;
-                } else {
+                        return -EOPNOTSUPP;
+                } else
                         log_unit_debug(u, "Failed to set up namespace, assuming containerized execution and ignoring.");
-                        r = 0;
-                }
         }
 
-finalize:
-        bind_mount_free_many(bind_mounts, n_bind_mounts);
-        return r;
+        return 0;
 }
 
 static int apply_working_directory(
