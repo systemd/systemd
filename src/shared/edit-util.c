@@ -291,7 +291,7 @@ static int strip_edit_temp_file(EditFile *e) {
 
         r = read_full_file(e->temp, &old_contents, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to read temporary file \"%s\": %m", e->temp);
+                return log_error_errno(r, "Failed to read temporary file '%s': %m", e->temp);
 
         if (e->context->marker_start) {
                 /* Trim out the lines between the two markers */
@@ -325,7 +325,7 @@ static int strip_edit_temp_file(EditFile *e) {
 
         r = write_string_file(e->temp, new_contents, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_TRUNCATE | WRITE_STRING_FILE_AVOID_NEWLINE);
         if (r < 0)
-                return log_error_errno(r, "Failed to modify temporary file \"%s\": %m", e->temp);
+                return log_error_errno(r, "Failed to strip temporary file '%s': %m", e->temp);
 
         return 1; /* Contents have real changes and are changed after stripping */
 }
@@ -358,7 +358,10 @@ int do_edit_files_and_install(EditFileContext *context) {
 
                 r = RET_NERRNO(rename(i->temp, i->path));
                 if (r < 0)
-                        return log_error_errno(r, "Failed to rename \"%s\" to \"%s\": %m", i->temp, i->path);
+                        return log_error_errno(r,
+                                               "Failed to rename temporary file '%s' to target file '%s': %m",
+                                               i->temp,
+                                               i->path);
                 i->temp = mfree(i->temp);
 
                 log_info("Successfully installed edited file '%s'.", i->path);
