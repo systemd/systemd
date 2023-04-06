@@ -110,7 +110,7 @@ static int get_current_runlevel(Context *c) {
 static int on_reboot(int argc, char *argv[], void *userdata) {
         Context *c = ASSERT_PTR(userdata);
         usec_t t = 0, boottime;
-        int r = 0, q;
+        int r, q = 0;
 
         assert(c);
 
@@ -120,7 +120,7 @@ static int on_reboot(int argc, char *argv[], void *userdata) {
         if (c->audit_fd >= 0)
                 if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_BOOT, "", "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
                     errno != EPERM)
-                        r = log_error_errno(errno, "Failed to send audit message: %m");
+                        q = log_error_errno(errno, "Failed to send audit message: %m");
 #endif
 
         /* If this call fails, then utmp_put_reboot() will fix to the current time. */
@@ -131,16 +131,16 @@ static int on_reboot(int argc, char *argv[], void *userdata) {
          * system clock wasn't set right during early boot. By manually converting the monotonic clock to the
          * system clock here we can compensate for incorrectly set clocks during early boot. */
 
-        q = utmp_put_reboot(boottime);
-        if (q < 0)
-                r = log_error_errno(q, "Failed to write utmp record: %m");
+        r = utmp_put_reboot(boottime);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write utmp record: %m");
 
-        return r;
+        return q;
 }
 
 static int on_shutdown(int argc, char *argv[], void *userdata) {
         Context *c = ASSERT_PTR(userdata);
-        int r = 0, q;
+        int r, q = 0;
 
         assert(c);
 
@@ -150,30 +150,30 @@ static int on_shutdown(int argc, char *argv[], void *userdata) {
         if (c->audit_fd >= 0)
                 if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_SHUTDOWN, "", "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
                     errno != EPERM)
-                        r = log_error_errno(errno, "Failed to send audit message: %m");
+                        q = log_error_errno(errno, "Failed to send audit message: %m");
 #endif
 
-        q = utmp_put_shutdown();
-        if (q < 0)
-                r = log_error_errno(q, "Failed to write utmp record: %m");
+        r = utmp_put_shutdown();
+        if (r < 0)
+                return log_error_errno(r, "Failed to write utmp record: %m");
 
-        return r;
+        return q;
 }
 
 static int on_runlevel(int argc, char *argv[], void *userdata) {
         Context *c = ASSERT_PTR(userdata);
-        int r = 0, q, previous, runlevel;
+        int r, q = 0, previous, runlevel;
 
         assert(c);
 
         /* We finished changing runlevel, so let's write the utmp record and send the audit msg. */
 
         /* First, get last runlevel */
-        q = utmp_get_runlevel(&previous, NULL);
+        r = utmp_get_runlevel(&previous, NULL);
 
-        if (q < 0) {
-                if (!IN_SET(q, -ESRCH, -ENOENT))
-                        return log_error_errno(q, "Failed to get current runlevel: %m");
+        if (r < 0) {
+                if (!IN_SET(r, -ESRCH, -ENOENT))
+                        return log_error_errno(r, "Failed to get current runlevel: %m");
 
                 previous = 0;
         }
@@ -200,15 +200,15 @@ static int on_runlevel(int argc, char *argv[], void *userdata) {
 
                 if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_RUNLEVEL, s,
                                                 "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 && errno != EPERM)
-                        r = log_error_errno(errno, "Failed to send audit message: %m");
+                        q = log_error_errno(errno, "Failed to send audit message: %m");
         }
 #endif
 
-        q = utmp_put_runlevel(runlevel, previous);
-        if (q < 0 && !IN_SET(q, -ESRCH, -ENOENT))
-                return log_error_errno(q, "Failed to write utmp record: %m");
+        r = utmp_put_runlevel(runlevel, previous);
+        if (r < 0 && !IN_SET(r, -ESRCH, -ENOENT))
+                return log_error_errno(r, "Failed to write utmp record: %m");
 
-        return r;
+        return q;
 }
 
 static int run(int argc, char *argv[]) {
