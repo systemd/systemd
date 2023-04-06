@@ -2541,7 +2541,7 @@ static int udev_rule_apply_token_to_event(
                 break;
         }
         case TK_A_DEVLINK: {
-                char buf[UDEV_PATH_SIZE], *p;
+                char buf[UDEV_PATH_SIZE];
                 bool truncated;
                 size_t count;
 
@@ -2573,39 +2573,38 @@ static int udev_rule_apply_token_to_event(
                                         "Replaced %zu character(s) from result of SYMLINK=\"%s\"",
                                         count, token->value);
 
-                p = skip_leading_chars(buf, NULL);
-                while (!isempty(p)) {
-                        char filename[UDEV_PATH_SIZE], *next;
+                for (const char *p = buf;;) {
+                        _cleanup_free_ char *word = NULL, *path = NULL;
 
-                        next = strchr(p, ' ');
-                        if (next) {
-                                *next++ = '\0';
-                                next = skip_leading_chars(next, NULL);
+                        r = extract_first_word(&p, &word, NULL, 0);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to extract first path in SYMLINK=, ignoring: %m");
+                                break;
                         }
 
-                        if (path_is_safe(p)) {
-                                log_event_warning(dev, token, "Unsafe path specified in SYMLINK=, ignoring: %s", p);
+                        if (path_is_safe(word)) {
+                                log_event_warning(dev, token, "Unsafe path specified in SYMLINK=, ignoring: %s", word);
                                 continue;
                         }
 
-                        strscpyl_full(filename, sizeof(filename), &truncated, "/dev/", p, NULL);
-                        if (truncated)
-                                continue;
+                        path = path_join("/dev/", word);
+                        if (!path)
+                                return log_oom();
 
-                        path_simplify(filename);
+                        path_simplify(path);
 
                         if (token->op == OP_REMOVE) {
-                                device_remove_devlink(dev, filename);
-                                log_event_debug(dev, token, "Dropped SYMLINK '%s'", p);
+                                device_remove_devlink(dev, path);
+                                log_event_debug(dev, token, "Dropped SYMLINK '%s'", path);
                         } else {
-                                r = device_add_devlink(dev, filename);
+                                r = device_add_devlink(dev, path);
                                 if (r < 0)
-                                        return log_event_error_errno(dev, token, r, "Failed to add devlink '%s': %m", filename);
+                                        return log_event_error_errno(dev, token, r, "Failed to add devlink '%s': %m", path);
 
-                                log_event_debug(dev, token, "Added SYMLINK '%s'", p);
+                                log_event_debug(dev, token, "Added SYMLINK '%s'", path);
                         }
-
-                        p = next;
                 }
                 break;
         }
