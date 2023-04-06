@@ -2574,9 +2574,9 @@ static int udev_rule_apply_token_to_event(
                                         count, token->value);
 
                 for (const char *p = buf;;) {
-                        _cleanup_free_ char *word = NULL, *path = NULL;
+                        _cleanup_free_ char *path = NULL;
 
-                        r = extract_first_word(&p, &word, NULL, 0);
+                        r = extract_first_word(&p, &path, NULL, 0);
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0) {
@@ -2586,19 +2586,22 @@ static int udev_rule_apply_token_to_event(
                         if (r == 0)
                                 break;
 
-                        path = path_join("/dev/", word);
-                        if (!path)
-                                return log_oom();
-
                         if (token->op == OP_REMOVE) {
-                                device_remove_devlink(dev, path);
-                                log_event_debug(dev, token, "Dropped SYMLINK '%s'", path);
+                                r = device_remove_devlink(dev, path);
+                                if (r == -ENOMEM)
+                                        return log_oom();
+                                if (r < 0)
+                                        log_event_warning_errno(dev, token, r, "Failed to remove devlink '%s', ignoring: %m", path);
+                                else if (r > 0)
+                                        log_event_debug(dev, token, "Dropped SYMLINK '%s'", path);
                         } else {
                                 r = device_add_devlink(dev, path);
+                                if (r == -ENOMEM)
+                                        return log_oom();
                                 if (r < 0)
-                                        return log_event_error_errno(dev, token, r, "Failed to add devlink '%s': %m", path);
-
-                                log_event_debug(dev, token, "Added SYMLINK '%s'", path);
+                                        log_event_warning_errno(dev, token, r, "Failed to add devlink '%s', ignoring: %m", path);
+                                else if (r > 0)
+                                        log_event_debug(dev, token, "Added SYMLINK '%s'", path);
                         }
                 }
                 break;
