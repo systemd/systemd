@@ -2592,6 +2592,8 @@ static int udev_rule_apply_token_to_event(
                         if (truncated)
                                 continue;
 
+                        path_simplify(filename);
+
                         if (token->op == OP_REMOVE) {
                                 device_remove_devlink(dev, filename);
                                 log_event_debug(dev, token, "Dropped SYMLINK '%s'", p);
