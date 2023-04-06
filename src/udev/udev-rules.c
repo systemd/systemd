@@ -2487,16 +2487,14 @@ static int udev_rule_apply_token_to_event(
                 if (token->op == OP_ASSIGN)
                         device_cleanup_tags(dev);
 
-                if (buf[strspn(buf, ALPHANUMERICAL "-_")] != '\0') {
-                        log_event_error(dev, token, "Invalid tag name '%s', ignoring", buf);
-                        break;
-                }
                 if (token->op == OP_REMOVE)
                         device_remove_tag(dev, buf);
                 else {
                         r = device_add_tag(dev, buf, true);
+                        if (r == -ENOMEM)
+                                return log_oom();
                         if (r < 0)
-                                return log_event_error_errno(dev, token, r, "Failed to add tag '%s': %m", buf);
+                                log_event_warning_errno(dev, token, r, "Failed to add tag '%s', ignoring: %m", buf);
                 }
                 break;
         }
