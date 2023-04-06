@@ -97,8 +97,15 @@ static int get_current_runlevel(Context *c) {
                                 "ActiveState",
                                 &error,
                                 &state);
+                if (sd_bus_error_has_names(&error,
+                                           SD_BUS_ERROR_NO_REPLY,
+                                           SD_BUS_ERROR_DISCONNECTED)) {
+                        /* systemd might have dropped off momentarily, let's not make this an error. */
+                        log_debug_errno(r, "Failed to get state of %s, ignoring: %s", table[i].special, bus_error_message(&error, r));
+                        continue;
+                }
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to get state: %s", bus_error_message(&error, r));
+                        return log_warning_errno(r, "Failed to get state of %s: %s", table[i].special, bus_error_message(&error, r));
 
                 if (STR_IN_SET(state, "active", "reloading"))
                         return table[i].runlevel;
