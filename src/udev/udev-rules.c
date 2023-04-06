@@ -2539,7 +2539,7 @@ static int udev_rule_apply_token_to_event(
                 break;
         }
         case TK_A_DEVLINK: {
-                char buf[UDEV_PATH_SIZE], *p;
+                char buf[UDEV_PATH_SIZE];
                 bool truncated;
                 size_t count;
 
@@ -2571,15 +2571,18 @@ static int udev_rule_apply_token_to_event(
                                         "Replaced %zu character(s) from result of SYMLINK=\"%s\"",
                                         count, token->value);
 
-                p = skip_leading_chars(buf, NULL);
-                while (!isempty(p)) {
-                        char path[UDEV_PATH_SIZE], *next;
+                for (const char *p = buf;;) {
+                        _cleanup_free_ char *word = NULL, *path = NULL;
 
-                        next = strchr(p, ' ');
-                        if (next) {
-                                *next++ = '\0';
-                                next = skip_leading_chars(next, NULL);
+                        r = extract_first_word(&p, &word, NULL, 0);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to extract first path in SYMLINK=, ignoring: %m");
+                                break;
                         }
+                        if (r == 0)
+                                break;
 
                         if (token->op == OP_REMOVE) {
                                 r = device_remove_devlink(dev, path);
@@ -2598,8 +2601,6 @@ static int udev_rule_apply_token_to_event(
                                 if (r > 0)
                                         log_event_debug(dev, token, "Added SYMLINK '%s'", path);
                         }
-
-                        p = next;
                 }
                 break;
         }
