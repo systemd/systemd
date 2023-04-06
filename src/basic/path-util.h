@@ -66,15 +66,18 @@ char *path_startswith_full(const char *path, const char *prefix, bool accept_dot
 static inline char* path_startswith(const char *path, const char *prefix) {
         return path_startswith_full(path, prefix, true);
 }
-int path_compare(const char *a, const char *b) _pure_;
 
+int path_compare(const char *a, const char *b) _pure_;
 static inline bool path_equal(const char *a, const char *b) {
         return path_compare(a, b) == 0;
 }
 
+int path_compare_filename(const char *a, const char *b);
+static inline bool path_equal_filename(const char *a, const char *b) {
+        return path_compare_filename(a, b) == 0;
+}
+
 bool path_equal_or_files_same(const char *a, const char *b, int flags);
-/* Compares only the last portion of the input paths, ie: the filenames */
-bool path_equal_filename(const char *a, const char *b);
 
 char* path_extend_internal(char **x, ...);
 #define path_extend(x, ...) path_extend_internal(x, __VA_ARGS__, POINTER_MAX)

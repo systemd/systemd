@@ -46,11 +46,6 @@ TEST(path) {
         assert_se(!path_equal_ptr("/a", "/b"));
         assert_se(!path_equal_ptr("/a", NULL));
         assert_se(!path_equal_ptr(NULL, "/a"));
-
-        assert_se(path_equal_filename("/a/c", "/b/c"));
-        assert_se(path_equal_filename("/a", "/a"));
-        assert_se(!path_equal_filename("/a/b", "/a/c"));
-        assert_se(!path_equal_filename("/b", "/c"));
 }
 
 static void test_path_simplify_one(const char *in, const char *out) {
@@ -148,6 +143,55 @@ TEST(path_compare) {
         test_path_compare_one("/foo/aaa", "/foo/b/a", -1);
         test_path_compare_one("/foo/a", "/foo/aaa", -1);
         test_path_compare_one("/foo/a/b", "/foo/aaa", -1);
+}
+
+static void test_path_compare_filename_one(const char *a, const char *b, int expected) {
+        int r;
+
+        assert_se(path_compare_filename(a, a) == 0);
+        assert_se(path_compare_filename(b, b) == 0);
+
+        r = path_compare_filename(a, b);
+        assert_se((r > 0) == (expected > 0) && (r < 0) == (expected < 0));
+        r = path_compare_filename(b, a);
+        assert_se((r < 0) == (expected > 0) && (r > 0) == (expected < 0));
+
+        assert_se(path_equal_filename(a, a) == 1);
+        assert_se(path_equal_filename(b, b) == 1);
+        assert_se(path_equal_filename(a, b) == (expected == 0));
+        assert_se(path_equal_filename(b, a) == (expected == 0));
+}
+
+TEST(path_compare_filename) {
+        test_path_compare_filename_one("/goo", "/goo", 0);
+        test_path_compare_filename_one("/goo", "/goo", 0);
+        test_path_compare_filename_one("//goo", "/goo", 0);
+        test_path_compare_filename_one("//goo/////", "/goo", 0);
+        test_path_compare_filename_one("goo/////", "goo", 0);
+        test_path_compare_filename_one("/goo/boo", "/goo//boo", 0);
+        test_path_compare_filename_one("//goo/boo", "/goo/boo//", 0);
+        test_path_compare_filename_one("//goo/././//./boo//././//", "/goo/boo//.", 0);
+        test_path_compare_filename_one("/.", "//.///", -1);
+        test_path_compare_filename_one("/x", "x/", 0);
+        test_path_compare_filename_one("x/", "/", 1);
+        test_path_compare_filename_one("/x/./y", "x/y", 0);
+        test_path_compare_filename_one("/x/./y", "/x/y", 0);
+        test_path_compare_filename_one("/x/./././y", "/x/y/././.", 0);
+        test_path_compare_filename_one("./x/./././y", "./x/y/././.", 0);
+        test_path_compare_filename_one(".", "./.", -1);
+        test_path_compare_filename_one(".", "././.", -1);
+        test_path_compare_filename_one("./..", ".", 1);
+        test_path_compare_filename_one("x/.y", "x/y", -1);
+        test_path_compare_filename_one("foo", "/foo", 0);
+        test_path_compare_filename_one("/foo", "/foo/bar", 1);
+        test_path_compare_filename_one("/foo/aaa", "/foo/b", -1);
+        test_path_compare_filename_one("/foo/aaa", "/foo/b/a", 1);
+        test_path_compare_filename_one("/foo/a", "/foo/aaa", -1);
+        test_path_compare_filename_one("/foo/a/b", "/foo/aaa", 1);
+        test_path_compare_filename_one("/a/c", "/b/c", 0);
+        test_path_compare_filename_one("/a", "/a", 0);
+        test_path_compare_filename_one("/a/b", "/a/c", -1);
+        test_path_compare_filename_one("/b", "/c", -1);
 }
 
 TEST(path_equal_root) {

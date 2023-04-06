@@ -491,25 +491,33 @@ bool path_equal_or_files_same(const char *a, const char *b, int flags) {
         return path_equal(a, b) || files_same(a, b, flags) > 0;
 }
 
-bool path_equal_filename(const char *a, const char *b) {
-        _cleanup_free_ char *a_basename = NULL, *b_basename = NULL;
-        int r;
+int path_compare_filename(const char *a, const char *b) {
+        _cleanup_free_ char *fa = NULL, *fb = NULL;
+        int r, j, k;
 
-        assert(a);
-        assert(b);
+        /* Order NULL before non-NULL */
+        r = CMP(!!a, !!b);
+        if (r != 0)
+                return r;
 
-        r = path_extract_filename(a, &a_basename);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to parse basename of %s: %m", a);
-                return false;
-        }
-        r = path_extract_filename(b, &b_basename);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to parse basename of %s: %m", b);
-                return false;
-        }
+        j = path_extract_filename(a, &fa);
+        k = path_extract_filename(b, &fb);
 
-        return path_equal(a_basename, b_basename);
+        /* When one of paths is "." or root, then order it earlier. */
+        r = CMP(j != -EADDRNOTAVAIL, k != -EADDRNOTAVAIL);
+        if (r != 0)
+                return r;
+
+        /* When one of paths is invalid (or we get OOM), order invalid path after valid one. */
+        r = CMP(j < 0, k < 0);
+        if (r != 0)
+                return r;
+
+        /* fallback to use strcmp() if both paths are invalid. */
+        if (j < 0)
+                return strcmp(a, b);
+
+        return strcmp(fa, fb);
 }
 
 char* path_extend_internal(char **x, ...) {
