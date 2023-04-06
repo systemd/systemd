@@ -515,8 +515,14 @@ mkdir -p /run/confexts/test/etc/extension-release.d
 echo "ID=_any" >/run/confexts/test/etc/extension-release.d/extension-release.test
 echo "ARCHITECTURE=_any" >>/run/confexts/test/etc/extension-release.d/extension-release.test
 echo "MARKER_CONFEXT_123" >/run/confexts/test/etc/testfile
+cat <<EOF>/run/confexts/test/etc/testscript
+#!/bin/bash
+echo "This should not happen"
+EOF
+chmod +x /run/confexts/test/etc/testscript
 systemd-confext merge
 grep -q -F "MARKER_CONFEXT_123" /etc/testfile
+/etc/testscript && { echo 'unexpected success'; exit 1; }
 systemd-confext status
 systemd-confext unmerge
 rm -rf /run/confexts/
