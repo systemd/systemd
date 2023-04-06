@@ -391,6 +391,10 @@ static int install_binaries(const char *esp_path, const char *arch, bool force) 
         /* If we had a root directory to try, we didn't find it and we are in auto mode, retry on the host */
         if (r == -ENOENT && root && arg_install_source == ARG_INSTALL_SOURCE_AUTO)
                 r = chase_and_opendir(BOOTLIBDIR, NULL, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &path, &d);
+        if (r == -ENOENT && arg_graceful) {
+                log_debug("Source directory does not exist, ignoring.");
+                return 0;
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to open boot loader directory %s%s: %m", strempty(root), BOOTLIBDIR);
 
