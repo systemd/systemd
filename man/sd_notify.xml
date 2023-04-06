@@ -238,25 +238,29 @@
       <varlistentry>
         <term>FDSTORE=1</term>
 
-        <listitem><para>Stores additional file descriptors in the service manager. File descriptors sent this way will
-        be maintained per-service by the service manager and will later be handed back using the usual file descriptor
-        passing logic at the next invocation of the service (e.g. when it is restarted), see
-        <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>.  This is
-        useful for implementing services that can restart after an explicit request or a crash without losing
-        state. Any open sockets and other file descriptors which should not be closed during the restart may be stored
-        this way. Application state can either be serialized to a file in <filename>/run/</filename>, or better, stored
-        in a <citerefentry><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry> memory
-        file descriptor. Note that the service manager will accept messages for a service only if its
+        <listitem><para>Stores additional file descriptors in the service manager. File descriptors sent this
+        way will be maintained per-service by the service manager and will later be handed back using the
+        usual file descriptor passing logic at the next invocation of the service (e.g. when it is
+        restarted), see
+        <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        This is useful for implementing services that can restart after an explicit request or a crash
+        without losing state. Any open sockets and other file descriptors which should not be closed during
+        the restart may be stored this way. Application state can either be serialized to a file in
+        <filename>/run/</filename>, or better, stored in a
+        <citerefentry><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        memory file descriptor. Note that the service manager will accept messages for a service only if its
         <varname>FileDescriptorStoreMax=</varname> setting is non-zero (defaults to zero, see
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>). If
         <varname>FDPOLL=0</varname> is not set and the file descriptors sent are pollable (see
-        <citerefentry><refentrytitle>epoll_ctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>), then any
-        <constant>EPOLLHUP</constant> or <constant>EPOLLERR</constant> event seen on them will result in their
-        automatic removal from the store. Multiple arrays of file descriptors may be sent in separate messages, in
-        which case the arrays are combined. Note that the service manager removes duplicate (pointing to the same
-        object) file descriptors before passing them to the service. When a service is stopped, its file descriptor
-        store is discarded and all file descriptors in it are closed. Use <function>sd_pid_notify_with_fds()</function>
-        to send messages with <literal>FDSTORE=1</literal>, see below.</para></listitem>
+        <citerefentry><refentrytitle>epoll_ctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>), then
+        any <constant>EPOLLHUP</constant> or <constant>EPOLLERR</constant> event seen on them will result in
+        their automatic removal from the store. Multiple arrays of file descriptors may be sent in separate
+        messages, in which case the arrays are combined. Note that the service manager removes duplicate
+        (pointing to the same object) file descriptors before passing them to the service. When a service is
+        stopped, its file descriptor store is discarded and all file descriptors in it are closed. Use
+        <function>sd_pid_notify_with_fds()</function> to send messages with <literal>FDSTORE=1</literal>, see
+        below. The service manager will set the <varname>$FDSTORE</varname> environment variable for services
+        that have the file descriptor store enabled.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -348,19 +352,14 @@
     <function>sd_notify()</function> and
     <function>sd_notifyf()</function>.</para>
 
-    <para><function>sd_pid_notify_with_fds()</function> is similar to
-    <function>sd_pid_notify()</function> but takes an additional array
-    of file descriptors. These file descriptors are sent along the
-    notification message to the service manager. This is particularly
-    useful for sending <literal>FDSTORE=1</literal> messages, as
-    described above. The additional arguments are a pointer to the
-    file descriptor array plus the number of file descriptors in the
-    array. If the number of file descriptors is passed as 0, the call
-    is fully equivalent to <function>sd_pid_notify()</function>, i.e.
-    no file descriptors are passed. Note that sending file descriptors
-    to the service manager on messages that do not expect them (i.e.
-    without <literal>FDSTORE=1</literal>) they are immediately closed
-    on reception.</para>
+    <para><function>sd_pid_notify_with_fds()</function> is similar to <function>sd_pid_notify()</function>
+    but takes an additional array of file descriptors. These file descriptors are sent along the notification
+    message to the service manager. This is particularly useful for sending <literal>FDSTORE=1</literal>
+    messages, as described above. The additional arguments are a pointer to the file descriptor array plus
+    the number of file descriptors in the array. If the number of file descriptors is passed as 0, the call
+    is fully equivalent to <function>sd_pid_notify()</function>, i.e.  no file descriptors are passed. Note
+    that sending file descriptors to the service manager on messages that do not expect them (i.e.  without
+    <literal>FDSTORE=1</literal>) they are immediately closed on reception.</para>
 
     <para><function>sd_notify_barrier()</function> allows the caller to
     synchronize against reception of previously sent notification messages
