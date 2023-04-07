@@ -212,13 +212,37 @@ EOF
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
                                 exp_links       => ["boot_disk1", "boot_diskXY1"],
-                                not_exp_links   => ["boot_diskXX1", "hoge"],
+                                not_exp_links   => ["boot_diskXX1"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", ATTRS{scsi_level}=="6", ATTRS{rev}=="4.06", ATTRS{type}=="0", ATTRS{queue_depth}=="32", SYMLINK+="boot_diskXX%n"
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", ATTRS{scsi_level}=="6", ATTRS{rev}=="4.06", ATTRS{type}=="0", ATTRS{queue_depth}=="1", SYMLINK+="boot_diskXY%n"
-SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", ATTRS{scsi_level}=="6", ATTRS{rev}=="4.06", ATTRS{type}=="0", SYMLINK+="boot_disk%n", SYMLINK+="hoge"
-SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", ATTRS{scsi_level}=="6", ATTRS{rev}=="4.06", ATTRS{type}=="0", SYMLINK-="hoge"
+SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", ATTRS{scsi_level}=="6", ATTRS{rev}=="4.06", ATTRS{type}=="0", SYMLINK+="boot_disk%n"
+EOF
+        },
+        {
+                desc            => "SYMLINK tests",
+                devices => [
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
+                                exp_links       => ["link1", "link2/foo", "link3/aaa/bbb",
+                                                    "default___replace_test/foo_aaa",
+                                                    "string_escape___replace/foo_bbb",
+                                                    "env_with_space",
+                                                    "default/replace/mode_foo__hoge",
+                                                    "replace_env_harder_foo__hoge"],
+                                not_exp_links   => ["removed", "unsafe/../../path"],
+                        }],
+                rules           => <<EOF
+SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK+="removed"
+SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK-="removed"
+SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK+="unsafe/../../path"
+SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK+="link1 link2/foo link3/aaa/bbb"
+SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK+="default?;;replace%%test/foo'aaa"
+SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", OPTIONS="string_escape=replace", SYMLINK+="string_escape   replace/foo%%bbb"
+SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", ENV{.HOGE}="env    with    space", SYMLINK+="%E{.HOGE}"
+SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", ENV{.HOGE}="default/replace/mode?foo;;hoge", SYMLINK+="%E{.HOGE}"
+SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", OPTIONS="string_escape=replace", ENV{.HOGE}="replace/env/harder?foo;;hoge", SYMLINK+="%E{.HOGE}"
 EOF
         },
         {
@@ -1784,9 +1808,9 @@ EOF
                                 not_exp_name    => "bad",
                        }],
                 rules           => <<EOF
-KERNEL=="sda", TAG=""
-TAGS=="|foo", SYMLINK+="found"
-TAGS=="aaa|bbb", SYMLINK+="bad"
+KERNEL=="sda", ENV{HOGE}=""
+ENV{HOGE}=="|foo", SYMLINK+="found"
+ENV{HOGE}=="aaa|bbb", SYMLINK+="bad"
 EOF
         },
         {
@@ -1812,9 +1836,9 @@ EOF
                                 not_exp_name    => "bad",
                         }],
                 rules           => <<EOF
-KERNEL=="sda", TAG=""
-TAGS=="foo||bar", SYMLINK+="found"
-TAGS=="aaa|bbb", SYMLINK+="bad"
+KERNEL=="sda", ENV{HOGE}=""
+ENV{HOGE}=="foo||bar", SYMLINK+="found"
+ENV{HOGE}=="aaa|bbb", SYMLINK+="bad"
 EOF
         },
         {
@@ -1840,9 +1864,9 @@ EOF
                                 not_exp_name    => "bad",
                         }],
                 rules           => <<EOF
-KERNEL=="sda", TAG=""
-TAGS=="foo|", SYMLINK+="found"
-TAGS=="aaa|bbb", SYMLINK+="bad"
+KERNEL=="sda", ENV{HOGE}=""
+ENV{HOGE}=="foo|", SYMLINK+="found"
+ENV{HOGE}=="aaa|bbb", SYMLINK+="bad"
 EOF
         },
         {
@@ -1857,6 +1881,25 @@ EOF
 KERNEL=="sda", TAG="c"
 TAGS=="foo||bar||c", SYMLINK+="found"
 TAGS=="aaa||bbb||ccc", SYMLINK+="bad"
+EOF
+        },
+        {
+                desc            => "TAG refuses invalid string",
+                devices => [
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
+                                exp_links       => ["valid", "found"],
+                                not_exp_links   => ["empty", "invalid_char", "path", "bad", "bad2"],
+                        }],
+                rules           => <<EOF
+KERNEL=="sda", TAG+="", TAG+="invalid.char", TAG+="path/is/also/invalid", TAG+="valid"
+TAGS=="", SYMLINK+="empty"
+TAGS=="invalid.char", SYMLINK+="invalid_char"
+TAGS=="path/is/also/invalid", SYMLINK+="path"
+TAGS=="valid", SYMLINK+="valid"
+TAGS=="valid|", SYMLINK+="found"
+TAGS=="aaa|", SYMLINK+="bad"
+TAGS=="aaa|bbb", SYMLINK+="bad2"
 EOF
         },
         {
