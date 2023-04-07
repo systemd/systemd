@@ -1762,10 +1762,14 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         const char *method;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
+        bool enable;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        method = streq(argv[0], "enable") ? "EnableUnitFiles" : "DisableUnitFiles";
+        enable = streq(argv[0], "enable");
+        method = enable ? "EnableUnitFiles" : "DisableUnitFiles";
 
         r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, method);
         if (r < 0)
@@ -1775,7 +1779,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        if (streq(argv[0], "enable")) {
+        if (enable) {
                 r = sd_bus_message_append(m, "s", "machines.target");
                 if (r < 0)
                         return bus_log_create_error(r);
@@ -1805,7 +1809,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        if (streq(argv[0], "enable"))
+        if (enable)
                 r = sd_bus_message_append(m, "bb", false, false);
         else
                 r = sd_bus_message_append(m, "b", false);
@@ -1816,7 +1820,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enable or disable unit: %s", bus_error_message(&error, r));
 
-        if (streq(argv[0], "enable")) {
+        if (enable) {
                 r = sd_bus_message_read(reply, "b", NULL);
                 if (r < 0)
                         return bus_log_parse_error(r);
@@ -1824,39 +1828,30 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
 
         r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, &changes, &n_changes);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = bus_call_method(bus, bus_systemd_mgr, "Reload", &error, NULL, NULL);
-        if (r < 0) {
-                log_error("Failed to reload daemon: %s", bus_error_message(&error, r));
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to reload daemon: %s", bus_error_message(&error, r));
 
         if (arg_now) {
                 _cleanup_strv_free_ char **new_args = NULL;
 
-                new_args = strv_new(streq(argv[0], "enable") ? "start" : "poweroff");
-                if (!new_args) {
-                        r = log_oom();
-                        goto finish;
-                }
+                new_args = strv_new(enable ? "start" : "poweroff");
+                if (!new_args)
+                        return log_oom();
 
                 r = strv_extend_strv(&new_args, argv + 1, /* filter_duplicates = */ false);
-                if (r < 0) {
-                        log_oom();
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_oom();
 
-                if (streq(argv[0], "enable"))
-                        r = start_machine(strv_length(new_args), new_args, userdata);
-                else
-                        r = poweroff_machine(strv_length(new_args), new_args, userdata);
+                if (enable)
+                        return start_machine(strv_length(new_args), new_args, userdata);
+
+                return poweroff_machine(strv_length(new_args), new_args, userdata);
         }
 
-finish:
-        install_changes_free(changes, n_changes);
-
-        return r;
+        return 0;
 }
 
 static int match_log_message(sd_bus_message *m, void *userdata, sd_bus_error *error) {
