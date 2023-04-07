@@ -56,6 +56,6 @@ run_and_list() {
     local out_dir="${2:?}"
 
     rm -fr "${out_dir:?}"/*
-    "$generator" "$out_dir"
+    SYSTEMD_LOG_LEVEL="${SYSTEMD_LOG_LEVEL:-debug}" "$generator" "$out_dir"
     ls -lR "$out_dir"
 }
