@@ -46,7 +46,7 @@ monitor_check_rr() (
 
 # Test for resolvectl, resolvconf
 systemctl unmask systemd-resolved.service
-systemctl start systemd-resolved.service
+systemctl enable --now systemd-resolved.service
 systemctl service-log-level systemd-resolved.service debug
 ip link add hoge type dummy
 ip link add hoge.foo type dummy
