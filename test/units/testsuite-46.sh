@@ -27,9 +27,9 @@ inspect() {
 }
 
 wait_for_state() {
-    for ((i = 0; i < 10; i++)) ; do
+    for i in {1..10}; do
+        (( i > 1 )) && sleep 0.5
         homectl inspect "$1" | grep -qF "State: $2" && break
-        sleep .5
     done
 }
 
