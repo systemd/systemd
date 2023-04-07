@@ -512,6 +512,9 @@ run_qemu() {
         read -ra user_qemu_options <<< "$QEMU_OPTIONS"
         qemu_options+=("${user_qemu_options[@]}")
     fi
+    if [[ -v QEMU_OPTIONS_ARRAY ]]; then
+        qemu_options+=("${QEMU_OPTIONS_ARRAY[@]}")
+    fi
 
     if [[ -n "${KERNEL_APPEND:=}" ]]; then
         local user_kernel_append
