@@ -206,8 +206,8 @@ restore_keymap() {
 
 wait_vconsole_setup() {
     local i ss
-    for ((i = 0; i < 20; i++)); do
-        if (( i != 0 )); then sleep .5; fi
+    for i in {1..20}; do
+        (( i > 1 )) && sleep 0.5
         ss="$(systemctl --property SubState --value show systemd-vconsole-setup.service)"
         if [[ "$ss" == "exited" || "$ss" == "dead" || "$ss" == "condition" ]]; then
             return 0

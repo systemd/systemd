@@ -15,7 +15,7 @@ KERNEL!="null", GOTO="test-end"
 ACTION=="remove", GOTO="test-end"
 
 # add 100 * 100byte of properties
-$(for ((i = 0; i < 100; i++)); do printf 'ENV{XXX%03i}="0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"\n' "$i"; done)
+$(for i in {1..100}; do printf 'ENV{XXX%03i}="0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"\n' "$i"; done)
 
 LABEL="test-end"
 EOF
@@ -46,7 +46,7 @@ for _ in {1..40}; do
     fi
 
     FOUND=1
-    for ((i = 0; i < 100; i++)); do
+    for i in {1..100}; do
         if ! grep -F "$(printf 'XXX%03i=0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789' "$i")" "$TMPDIR"/monitor.txt; then
             FOUND=
             break
