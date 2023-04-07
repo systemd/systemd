@@ -59,7 +59,7 @@ KERNEL=="nvme*[0-9]n*[0-9]p*[0-9]", ENV{DEVTYPE}=="partition", ENV{ID_MODEL}=="?
 # obsolete symlink that might get overridden on adding a new nvme controller, kept for backward compatibility
 KERNEL=="nvme*[0-9]n*[0-9]p*[0-9]", ENV{DEVTYPE}=="partition", ENV{ID_MODEL}=="?*", ENV{ID_SERIAL_SHORT}=="?*", \
   OPTIONS="string_escape=replace", ENV{ID_SERIAL}="$env{ID_MODEL}_$env{ID_SERIAL_SHORT}", SYMLINK+="disk/by-id/nvme-$env{ID_SERIAL}-part%n"
-KERNEL=="nvme*[0-9]n*[0-9]p*[0-9]", ENV{DEVTYPE}=="partition", ENV{ID_MODEL}=="?*", ENV{ID_SERIAL_SHORT}=="?*",  ENV{ID_NSID}=="?*", \
+KERNEL=="nvme*[0-9]n*[0-9]p*[0-9]", ENV{DEVTYPE}=="partition", ENV{ID_MODEL}=="?*", ENV{ID_SERIAL_SHORT}=="?*", ENV{ID_NSID}=="?*", \
   OPTIONS="string_escape=replace", ENV{ID_SERIAL}="$env{ID_MODEL}_$env{ID_SERIAL_SHORT}_$env{ID_NSID}", SYMLINK+="disk/by-id/nvme-$env{ID_SERIAL}-part%n"
 
 # virtio-blk
