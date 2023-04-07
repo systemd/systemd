@@ -174,8 +174,54 @@ testcase_megasas2_basic() {
 }
 
 testcase_nvme_basic() {
+    local expected_symlinks=()
+    local i
+
+    for (( i = 0; i < 5; i++ )); do
+        expected_symlinks+=(
+            # both replace mode provides the same devlink
+            /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef"$i"
+            # with nsid
+            /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_deadbeef"$i"_1
+        )
+    done
+    for (( i = 5; i < 10; i++ )); do
+        expected_symlinks+=(
+            # old replace mode
+            /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl__deadbeef_"$i"
+            # newer replace mode
+            /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_____deadbeef__"$i"
+            # with nsid
+            /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_____deadbeef__"$i"_1
+        )
+    done
+    for (( i = 10; i < 15; i++ )); do
+        expected_symlinks+=(
+            # old replace mode does not provide devlink, as serial contains "/"
+            # newer replace mode
+            /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_____dead_beef_"$i"
+            # with nsid
+            /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_____dead_beef_"$i"_1
+        )
+    done
+    for (( i = 15; i < 20; i++ )); do
+        expected_symlinks+=(
+            # old replace mode does not provide devlink, as serial contains "/"
+            # newer replace mode
+            /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_dead_.._.._beef_"$i"
+            # with nsid
+            /dev/disk/by-id/nvme-QEMU_NVMe_Ctrl_dead_.._.._beef_"$i"_1
+        )
+    done
+
+    udevadm settle
+    ls /dev/disk/by-id
+    for i in "${expected_symlinks[@]}"; do
+        udevadm wait --settle --timeout=30 "$i"
+    done
+
     lsblk --noheadings | grep "^nvme"
-    [[ "$(lsblk --noheadings | grep -c "^nvme")" -ge 28 ]]
+    [[ "$(lsblk --noheadings | grep -c "^nvme")" -ge 20 ]]
 }
 
 testcase_nvme_subsystem() {
