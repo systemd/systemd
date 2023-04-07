@@ -170,10 +170,9 @@ static int on_runlevel(int argc, char *argv[], void *userdata) {
 
         /* First, get last runlevel */
         r = utmp_get_runlevel(&previous, NULL);
-
         if (r < 0) {
                 if (!IN_SET(r, -ESRCH, -ENOENT))
-                        return log_error_errno(r, "Failed to get current runlevel: %m");
+                        return log_error_errno(r, "Failed to get the last runlevel from utmp: %m");
 
                 previous = 0;
         }
@@ -183,7 +182,7 @@ static int on_runlevel(int argc, char *argv[], void *userdata) {
         if (runlevel < 0)
                 return runlevel;
         if (runlevel == 0) {
-                log_warning("Failed to get new runlevel, utmp update skipped.");
+                log_warning("Failed to get the current runlevel, utmp update skipped.");
                 return 0;
         }
 
