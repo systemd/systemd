@@ -125,6 +125,27 @@ static int base_cmp(char * const *a, char * const *b) {
         return path_compare_filename(*a, *b);
 }
 
+static int copy_and_sort_files_from_hashmap(Hashmap *fh, char ***ret) {
+        _cleanup_free_ char **sv = NULL;
+        char **files;
+
+        assert(ret);
+
+        sv = hashmap_get_strv(fh);
+        if (!sv)
+                return -ENOMEM;
+
+        /* The entries in the array given by hashmap_get_strv() are still owned by the hashmap. */
+        files = strv_copy(sv);
+        if (!files)
+                return -ENOMEM;
+
+        typesafe_qsort(files, strv_length(files), base_cmp);
+
+        *ret = files;
+        return 0;
+}
+
 int conf_files_list_strv(
                 char ***ret,
                 const char *suffix,
@@ -134,8 +155,6 @@ int conf_files_list_strv(
 
         _cleanup_hashmap_free_ Hashmap *fh = NULL;
         _cleanup_set_free_ Set *masked = NULL;
-        _cleanup_strv_free_ char **files = NULL;
-        _cleanup_free_ char **sv = NULL;
         int r;
 
         assert(ret);
@@ -158,19 +177,7 @@ int conf_files_list_strv(
                         log_debug_errno(r, "Failed to search for files in '%s', ignoring: %m", path);
         }
 
-        sv = hashmap_get_strv(fh);
-        if (!sv)
-                return -ENOMEM;
-
-        /* The entries in the array given by hashmap_get_strv() are still owned by the hashmap. */
-        files = strv_copy(sv);
-        if (!files)
-                return -ENOMEM;
-
-        typesafe_qsort(files, strv_length(files), base_cmp);
-        *ret = TAKE_PTR(files);
-
-        return 0;
+        return copy_and_sort_files_from_hashmap(fh, ret);
 }
 
 int conf_files_insert(char ***strv, const char *root, char **dirs, const char *path) {
