@@ -43,10 +43,6 @@ typedef enum {
         READ_FULL_FILE_FAIL_WHEN_LARGER    = 1 << 5, /* fail loading if file is larger than specified size */
 } ReadFullFileFlags;
 
-int fopen_unlocked_at(int dir_fd, const char *path, const char *options, int flags, FILE **ret);
-static inline int fopen_unlocked(const char *path, const char *options, FILE **ret) {
-        return fopen_unlocked_at(AT_FDCWD, path, options, 0, ret);
-}
 int fdopen_unlocked(int fd, const char *options, FILE **ret);
 int take_fdopen_unlocked(int *fd, const char *options, FILE **ret);
 FILE* take_fdopen(int *fd, const char *options);
@@ -107,7 +103,29 @@ int executable_is_script(const char *path, char **interpreter);
 int get_proc_field(const char *filename, const char *pattern, const char *terminator, char **field);
 
 DIR *xopendirat(int dirfd, const char *name, int flags);
-int xfopenat(int dir_fd, const char *path, const char *mode, int flags, FILE **ret);
+
+typedef enum XfopenFlags {
+        XFOPEN_UNLOCKED = 1 << 0, /* call __fsetlocking(FSETLOCKING_BYCALLER) after opened */
+        XFOPEN_SOCKET   = 1 << 1, /* also try to open unix socket */
+} XfopenFlags;
+
+int xfopenat_full(
+                int dir_fd,
+                const char *path,
+                const char *mode,
+                int open_flags,
+                XfopenFlags flags,
+                const char *bind_name,
+                FILE **ret);
+static inline int xfopenat(int dir_fd, const char *path, const char *mode, int open_flags, FILE **ret) {
+        return xfopenat_full(dir_fd, path, mode, open_flags, 0, NULL, ret);
+}
+static inline int fopen_unlocked_at(int dir_fd, const char *path, const char *mode, int open_flags, FILE **ret) {
+        return xfopenat_full(dir_fd, path, mode, open_flags, XFOPEN_UNLOCKED, NULL, ret);
+}
+static inline int fopen_unlocked(const char *path, const char *mode, FILE **ret) {
+        return fopen_unlocked_at(AT_FDCWD, path, mode, 0, ret);
+}
 
 int fdopen_independent(int fd, const char *mode, FILE **ret);
 
