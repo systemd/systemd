@@ -212,8 +212,8 @@ start_mon() {
 }
 
 wait_mon() {
-    for ((i = 0; i < 10; i++)); do
-        if (( i != 0 )); then sleep 1; fi
+    for i in {1..10}; do
+        (( i > 1 )) && sleep 1
         if grep -q "$1" "$mon"; then break; fi
     done
     assert_in "$2" "$(cat "$mon")"
@@ -243,8 +243,8 @@ EOF
 
     echo 'disable NTP'
     timedatectl set-ntp false
-    for ((i = 0; i < 10; i++)); do
-        if (( i != 0 )); then sleep 1; fi
+    for i in {1..10}; do
+        (( i > 1 )) && sleep 1
         if [[ "$(systemctl show systemd-timesyncd --property ActiveState)" == "ActiveState=inactive" ]]; then
             break;
         fi
@@ -258,8 +258,8 @@ EOF
     timedatectl set-ntp true
     wait_mon "NTP" "BOOLEAN true"
     assert_ntp "true"
-    for ((i = 0; i < 10; i++)); do
-        if (( i != 0 )); then sleep 1; fi
+    for i in {1..10}; do
+        (( i > 1 )) && sleep 1
         if [[ "$(systemctl show systemd-timesyncd --property ActiveState)" == "ActiveState=active" ]]; then
             break;
         fi
