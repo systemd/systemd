@@ -3,33 +3,29 @@
 set -eux
 set -o pipefail
 
-STTY_ORIGINAL="$(stty --file=/dev/console --save)"
-
-at_exit() {
-    set +e
-    stty --file=/dev/console "${STTY_ORIGINAL:?}"
-}
-
-trap at_exit EXIT
-
-# Do one reexec beforehand to get /dev/console into some predictable state
-systemctl daemon-reexec
-
-# Check if we do skip the early setup when doing daemon-reexec
+# Check if we properly differentiate between a full systemd setup and a "light"
+# version of it that's done during daemon-reexec
+#
 # See: https://github.com/systemd/systemd/issues/27106
-#
-# Change a couple of console settings, do a reexec, and then check if our
-# changes persisted, since we reset the terminal stuff only on "full" reexec
-#
-# Relevant function: reset_terminal_fd() from terminal-util.cs
-stty --file=/dev/console brkint igncr inlcr istrip iuclc -icrnl -imaxbel -iutf8 \
-     kill ^K quit ^I
-STTY_NEW="$(stty --file=/dev/console --save)"
-systemctl daemon-reexec
-diff <(echo "$STTY_NEW") <(stty --file=/dev/console --save)
+if systemd-detect-virt -q --container; then
+    # We initialize /run/systemd/container only during a full setup
+    test -e /run/systemd/container
+    cp -afv /run/systemd/container /tmp/container
+    rm -fv /run/systemd/container
+    systemctl daemon-reexec
+    test ! -e /run/systemd/container
+    cp -afv /tmp/container /run/systemd/container
+else
+    # We bring the loopback netdev up only during a full setup, so it should
+    # not get brought back up during reexec if we disable it beforehand
+    [[ "$(ip -o link show lo)" =~ LOOPBACK,UP ]]
+    ip link set lo down
+    [[ "$(ip -o link show lo)" =~ state\ DOWN ]]
+    systemctl daemon-reexec
+    [[ "$(ip -o link show lo)" =~ state\ DOWN ]]
+    ip link set lo up
 
-if ! systemd-detect-virt -qc; then
-    # We also disable coredumps when doing a "full" reexec, so check for that too
+    # We also disable coredumps only during a full setup
     sysctl -w kernel.core_pattern=dont-overwrite-me
     systemctl daemon-reexec
     diff <(echo dont-overwrite-me) <(sysctl --values kernel.core_pattern)
