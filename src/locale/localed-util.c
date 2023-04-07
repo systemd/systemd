@@ -948,6 +948,7 @@ static int locale_gen_locale_supported(const char *locale_entry) {
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
+                char *l;
 
                 r = read_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
@@ -955,8 +956,8 @@ static int locale_gen_locale_supported(const char *locale_entry) {
                 if (r == 0)
                         return 0;
 
-                line = strstrip(line);
-                if (strcaseeq_ptr(line, locale_entry))
+                l = strstrip(line);
+                if (strcaseeq_ptr(l, locale_entry))
                         return 1;
         }
 }
@@ -1034,14 +1035,13 @@ int locale_gen_enable_locale(const char *locale) {
                                 continue;
                         }
 
-                        line = strstrip(line);
-                        if (isempty(line)) {
+                        line_locale = strstrip(line);
+                        if (isempty(line_locale)) {
                                 fputc('\n', fw);
                                 first_line = false;
                                 continue;
                         }
 
-                        line_locale = line;
                         if (line_locale[0] == '#')
                                 line_locale = strstrip(line_locale + 1);
                         else if (strcaseeq_ptr(line_locale, locale_entry))
