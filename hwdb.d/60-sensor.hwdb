@@ -809,6 +809,14 @@ sensor:modalias:acpi:BMI0160*:dmi:*:rnONEXPLAYER:rvrV01:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
 
 #########################################
+# Passion
+#########################################
+
+# Passion P612F
+sensor:modalias:acpi:MXC6655*:dmi:*:svnDefaultstring*:pnP612F:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
+#########################################
 # Peaq
 #########################################
 sensor:modalias:acpi:SMO8500*:dmi:*:svnPEAQ:pnPEAQPMMC1010MD99187:*
