@@ -669,6 +669,27 @@ static void unit_done(Unit *u) {
                 cgroup_context_done(cc);
 }
 
+static int unit_transfer_cgroup_to_parent_slice(Unit *u, Unit *slice) {
+        int r;
+
+        if (!slice)
+                return 0;
+
+        if (u->in_cgroup_empty_queue && u->cgroup_path) {
+                r = strv_extend(&slice->empty_cgroups, u->cgroup_path);
+                if (r < 0)
+                        return log_unit_error_errno(slice, r, "Failed to add empty cgroup to vector: %m");
+
+                LIST_REMOVE(cgroup_empty_queue, u->manager->cgroup_empty_queue, u);
+                u->in_cgroup_empty_queue = false;
+
+                if (!slice->in_cgroup_empty_queue)
+                        LIST_PREPEND(cgroup_empty_queue, slice->manager->cgroup_empty_queue, slice);
+        }
+
+        return 0;
+}
+
 Unit* unit_free(Unit *u) {
         Unit *slice;
         char *t;
@@ -729,6 +750,8 @@ Unit* unit_free(Unit *u) {
         bpf_link_free(u->ipv4_socket_bind_link);
         bpf_link_free(u->ipv6_socket_bind_link);
 #endif
+
+        (void) unit_transfer_cgroup_to_parent_slice(u, slice);
 
         unit_release_cgroup(u);
 
@@ -812,6 +835,8 @@ Unit* unit_free(Unit *u) {
         free(u->id);
 
         activation_details_unref(u->activation_details);
+
+        u->empty_cgroups = strv_free(u->empty_cgroups);
 
         return mfree(u);
 }
