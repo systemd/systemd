@@ -13,6 +13,7 @@
 
 #include "alloc-util.h"
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "bus-util.h"
 #include "format-util.h"
 #include "log.h"
@@ -24,6 +25,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "utmp-wtmp.h"
+#include "verbs.h"
 
 typedef struct Context {
         sd_bus *bus;
@@ -43,27 +45,23 @@ static void context_clear(Context *c) {
 #endif
 }
 
-static usec_t get_startup_monotonic_time(Context *c) {
+static usec_t get_startup_monotonic_time(Context *c, usec_t *ret) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        usec_t t = 0;
         int r;
 
         assert(c);
+        assert(ret);
 
-        r = sd_bus_get_property_trivial(
+        r = bus_get_property_trivial(
                         c->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
+                        bus_systemd_mgr,
                         "UserspaceTimestampMonotonic",
                         &error,
-                        't', &t);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get timestamp: %s", bus_error_message(&error, r));
-                return 0;
-        }
+                        't', ret);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to get timestamp, ignoring: %s", bus_error_message(&error, r));
 
-        return t;
+        return 0;
 }
 
 static int get_current_runlevel(Context *c) {
@@ -71,11 +69,9 @@ static int get_current_runlevel(Context *c) {
                 const int runlevel;
                 const char *special;
         } table[] = {
-                /* The first target of this list that is active or has
-                 * a job scheduled wins. We prefer runlevels 5 and 3
-                 * here over the others, since these are the main
-                 * runlevels used on Fedora. It might make sense to
-                 * change the order on some distributions. */
+                /* The first target of this list that is active or has a job scheduled wins. We prefer
+                 * runlevels 5 and 3 here over the others, since these are the main runlevels used on Fedora.
+                 * It might make sense to change the order on some distributions. */
                 { '5', SPECIAL_GRAPHICAL_TARGET  },
                 { '3', SPECIAL_MULTI_USER_TARGET },
                 { '1', SPECIAL_RESCUE_TARGET     },
@@ -101,8 +97,15 @@ static int get_current_runlevel(Context *c) {
                                 "ActiveState",
                                 &error,
                                 &state);
+                if (sd_bus_error_has_names(&error,
+                                           SD_BUS_ERROR_NO_REPLY,
+                                           SD_BUS_ERROR_DISCONNECTED)) {
+                        /* systemd might have dropped off momentarily, let's not make this an error. */
+                        log_debug_errno(r, "Failed to get state of %s, ignoring: %s", table[i].special, bus_error_message(&error, r));
+                        continue;
+                }
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to get state: %s", bus_error_message(&error, r));
+                        return log_warning_errno(r, "Failed to get state of %s: %s", table[i].special, bus_error_message(&error, r));
 
                 if (STR_IN_SET(state, "active", "reloading"))
                         return table[i].runlevel;
@@ -111,76 +114,73 @@ static int get_current_runlevel(Context *c) {
         return 0;
 }
 
-static int on_reboot(Context *c) {
-        int r = 0, q;
-        usec_t t;
-        usec_t boottime;
+static int on_reboot(int argc, char *argv[], void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        usec_t t = 0, boottime;
+        int r, q = 0;
 
         assert(c);
 
-        /* We finished start-up, so let's write the utmp
-         * record and send the audit msg */
+        /* We finished start-up, so let's write the utmp record and send the audit msg. */
 
 #if HAVE_AUDIT
         if (c->audit_fd >= 0)
                 if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_BOOT, "", "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
                     errno != EPERM)
-                        r = log_error_errno(errno, "Failed to send audit message: %m");
+                        q = log_error_errno(errno, "Failed to send audit message: %m");
 #endif
 
-        /* If this call fails it will return 0, which
-         * utmp_put_reboot() will then fix to the current time */
-        t = get_startup_monotonic_time(c);
+        /* If this call fails, then utmp_put_reboot() will fix to the current time. */
+        (void) get_startup_monotonic_time(c, &t);
         boottime = map_clock_usec(t, CLOCK_MONOTONIC, CLOCK_REALTIME);
-        /* We query the recorded monotonic time here (instead of the system clock CLOCK_REALTIME),
-         * even though we actually want the system clock time. That's because there's a likely
-         * chance that the system clock wasn't set right during early boot. By manually converting
-         * the monotonic clock to the system clock here we can compensate
-         * for incorrectly set clocks during early boot. */
+        /* We query the recorded monotonic time here (instead of the system clock CLOCK_REALTIME), even
+         * though we actually want the system clock time. That's because there's a likely chance that the
+         * system clock wasn't set right during early boot. By manually converting the monotonic clock to the
+         * system clock here we can compensate for incorrectly set clocks during early boot. */
 
-        q = utmp_put_reboot(boottime);
-        if (q < 0)
-                r = log_error_errno(q, "Failed to write utmp record: %m");
+        r = utmp_put_reboot(boottime);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write utmp record: %m");
 
-        return r;
+        return q;
 }
 
-static int on_shutdown(Context *c) {
-        int r = 0, q;
+static int on_shutdown(int argc, char *argv[], void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        int r, q = 0;
 
         assert(c);
 
-        /* We started shut-down, so let's write the utmp
-         * record and send the audit msg */
+        /* We started shut-down, so let's write the utmp record and send the audit msg. */
 
 #if HAVE_AUDIT
         if (c->audit_fd >= 0)
                 if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_SHUTDOWN, "", "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
                     errno != EPERM)
-                        r = log_error_errno(errno, "Failed to send audit message: %m");
+                        q = log_error_errno(errno, "Failed to send audit message: %m");
 #endif
 
-        q = utmp_put_shutdown();
-        if (q < 0)
-                r = log_error_errno(q, "Failed to write utmp record: %m");
+        r = utmp_put_shutdown();
+        if (r < 0)
+                return log_error_errno(r, "Failed to write utmp record: %m");
 
-        return r;
+        return q;
 }
 
-static int on_runlevel(Context *c) {
-        int r = 0, q, previous, runlevel;
+static int on_runlevel(int argc, char *argv[], void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        int r, q = 0, previous, runlevel;
 
         assert(c);
 
-        /* We finished changing runlevel, so let's write the
-         * utmp record and send the audit msg */
+        /* We finished changing runlevel, so let's write the utmp record and send the audit msg. */
 
         /* First, get last runlevel */
-        q = utmp_get_runlevel(&previous, NULL);
+        r = utmp_get_runlevel(&previous, NULL);
 
-        if (q < 0) {
-                if (!IN_SET(q, -ESRCH, -ENOENT))
-                        return log_error_errno(q, "Failed to get current runlevel: %m");
+        if (r < 0) {
+                if (!IN_SET(r, -ESRCH, -ENOENT))
+                        return log_error_errno(r, "Failed to get current runlevel: %m");
 
                 previous = 0;
         }
@@ -207,28 +207,31 @@ static int on_runlevel(Context *c) {
 
                 if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_RUNLEVEL, s,
                                                 "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 && errno != EPERM)
-                        r = log_error_errno(errno, "Failed to send audit message: %m");
+                        q = log_error_errno(errno, "Failed to send audit message: %m");
         }
 #endif
 
-        q = utmp_put_runlevel(runlevel, previous);
-        if (q < 0 && !IN_SET(q, -ESRCH, -ENOENT))
-                return log_error_errno(q, "Failed to write utmp record: %m");
+        r = utmp_put_runlevel(runlevel, previous);
+        if (r < 0 && !IN_SET(r, -ESRCH, -ENOENT))
+                return log_error_errno(r, "Failed to write utmp record: %m");
 
-        return r;
+        return q;
 }
 
 static int run(int argc, char *argv[]) {
+        static const Verb verbs[] = {
+                { "reboot",   1, 1, 0, on_reboot   },
+                { "shutdown", 1, 1, 0, on_shutdown },
+                { "runlevel", 1, 1, 0, on_runlevel },
+                {}
+        };
+
         _cleanup_(context_clear) Context c = {
 #if HAVE_AUDIT
                 .audit_fd = -EBADF,
 #endif
         };
         int r;
-
-        if (argc != 2)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program requires one argument.");
 
         log_setup();
 
@@ -238,20 +241,14 @@ static int run(int argc, char *argv[]) {
         /* If the kernel lacks netlink or audit support, don't worry about it. */
         c.audit_fd = audit_open();
         if (c.audit_fd < 0)
-                log_full_errno(IN_SET(errno, EAFNOSUPPORT, EPROTONOSUPPORT) ? LOG_DEBUG : LOG_ERR,
-                               errno, "Failed to connect to audit log: %m");
+                log_full_errno(IN_SET(errno, EAFNOSUPPORT, EPROTONOSUPPORT) ? LOG_DEBUG : LOG_WARNING,
+                               errno, "Failed to connect to audit log, ignoring: %m");
 #endif
         r = bus_connect_system_systemd(&c.bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to get D-Bus connection: %m");
 
-        if (streq(argv[1], "reboot"))
-                return on_reboot(&c);
-        if (streq(argv[1], "shutdown"))
-                return on_shutdown(&c);
-        if (streq(argv[1], "runlevel"))
-                return on_runlevel(&c);
-        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown command %s", argv[1]);
+        return dispatch_verb(argc, argv, verbs, &c);
 }
 
 DEFINE_MAIN_FUNCTION(run);
