@@ -8,8 +8,8 @@ set -o pipefail
 
 wait_service_active() {(
     set +ex
-    for (( i = 0; i < 20; i++ )); do
-        if (( i != 0 )); then sleep 0.5; fi
+    for i in {1..20}; do
+        (( i > 1 )) && sleep 0.5
         if systemctl --quiet is-active "${1?}"; then
             return 0
         fi
@@ -19,8 +19,8 @@ wait_service_active() {(
 
 wait_service_inactive() {(
     set +ex
-    for (( i = 0; i < 20; i++ )); do
-        if (( i != 0 )); then sleep 0.5; fi
+    for i in {1..20}; do
+        (( i > 1 )) && sleep 0.5
         systemctl --quiet is-active "${1?}"
         if [[ "$?" == "3" ]]; then
             return 0

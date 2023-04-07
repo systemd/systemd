@@ -330,8 +330,8 @@ EOF
     systemctl restart getty@tty2.service
 
     # check session
-    for ((i = 0; i < 30; i++)); do
-        (( i != 0 )) && sleep 1
+    for i in {1..30}; do
+        (( i > 1 )) && sleep 1
         check_session && break
     done
     check_session
