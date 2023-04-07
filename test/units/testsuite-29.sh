@@ -29,7 +29,7 @@ if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
     STATE_DIRECTORY=/var/lib/
 fi
 # Bump the timeout if we're running with plain QEMU
-[[ "$(systemd-detect-virt -v)" == "qemu" ]] && TIMEOUT=60 || TIMEOUT=30
+[[ "$(systemd-detect-virt -v)" == "qemu" ]] && TIMEOUT=90 || TIMEOUT=30
 
 systemd-dissect --no-pager /usr/share/minimal_0.raw | grep -q '✓ portable service'
 systemd-dissect --no-pager /usr/share/minimal_1.raw | grep -q '✓ portable service'
