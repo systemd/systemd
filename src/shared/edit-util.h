@@ -3,6 +3,9 @@
 
 #include <stdbool.h>
 
+#define DROPIN_MARKER_START "### Anything between here and the comment below will become the contents of the drop-in file"
+#define DROPIN_MARKER_END "### Edits below this comment will be discarded"
+
 typedef struct EditFile EditFile;
 typedef struct EditFileContext EditFileContext;
 
@@ -21,6 +24,7 @@ struct EditFileContext {
         const char *marker_start;
         const char *marker_end;
         bool remove_parent;
+        bool overwrite_with_origin; /* whether to always overwrite target with original file */
 };
 
 void edit_file_context_done(EditFileContext *context);
