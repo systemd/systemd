@@ -3110,8 +3110,8 @@ static int on_cgroup_empty_event(sd_event_source *s, void *userdata) {
         if (!u)
                 return 0;
 
-        assert(u->in_cgroup_empty_queue);
-        u->in_cgroup_empty_queue = false;
+        assert(u->in_cgroup_empty_queue || !strv_isempty(u->empty_cgroups));
+
         LIST_REMOVE(cgroup_empty_queue, m->cgroup_empty_queue, u);
 
         if (m->cgroup_empty_queue) {
@@ -3121,14 +3121,37 @@ static int on_cgroup_empty_event(sd_event_source *s, void *userdata) {
                         log_debug_errno(r, "Failed to reenable cgroup empty event source, ignoring: %m");
         }
 
-        /* Update state based on OOM kills before we notify about cgroup empty event */
-        (void) unit_check_oom(u);
-        (void) unit_check_oomd_kill(u);
+        if (u->in_cgroup_empty_queue) {
+                u->in_cgroup_empty_queue = false;
 
-        unit_add_to_gc_queue(u);
+                /* Update state based on OOM kills before we notify about cgroup empty event */
+                (void) unit_check_oom(u);
+                (void) unit_check_oomd_kill(u);
 
-        if (UNIT_VTABLE(u)->notify_cgroup_empty)
-                UNIT_VTABLE(u)->notify_cgroup_empty(u);
+                unit_add_to_gc_queue(u);
+
+                if (UNIT_VTABLE(u)->notify_cgroup_empty)
+                        UNIT_VTABLE(u)->notify_cgroup_empty(u);
+        }
+
+        if (!strv_isempty(u->empty_cgroups)) {
+                STRV_FOREACH(cgroup_path, u->empty_cgroups) {
+                        if (!*cgroup_path)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "null cgroup path in empty_cgroups vector.");
+
+                        r = cg_trim_everywhere(u->manager->cgroup_supported, *cgroup_path, true);
+                        if (r < 0)
+                                /* One reason we could have failed here is, that the cgroup still contains a process.
+                                * However, if the cgroup becomes removable at a later time, it might be removed when
+                                * the containing slice is stopped. So even if we failed now, this unit shouldn't assume
+                                * that the cgroup is still realized the next time it is started. Do not return early
+                                * on error, continue cleanup. */
+                                log_unit_full_errno(u, r == -EBUSY ? LOG_DEBUG : LOG_WARNING, r, "Failed to destroy cgroup %s, ignoring: %m", empty_to_root(*cgroup_path));
+                }
+
+                u->empty_cgroups = strv_free(u->empty_cgroups);
+        }
 
         return 0;
 }
