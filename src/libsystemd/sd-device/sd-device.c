@@ -1439,7 +1439,7 @@ _public_ int sd_device_get_diskseq(sd_device *device, uint64_t *ret) {
 static bool is_valid_tag(const char *tag) {
         assert(tag);
 
-        return !strchr(tag, ':') && !strchr(tag, ' ');
+        return !strchr(tag, ':') && !strchr(tag, ' ') && filename_is_valid(tag);
 }
 
 int device_add_tag(sd_device *device, const char *tag, bool both) {
@@ -1479,7 +1479,10 @@ int device_add_devlink(sd_device *device, const char *devlink) {
         assert(device);
         assert(devlink);
 
-        r = set_put_strdup(&device->devlinks, devlink);
+        if (!path_is_safe(devlink))
+                return -EINVAL;
+
+        r = set_put_strdup_full(&device->devlinks, &path_hash_ops_free, devlink);
         if (r < 0)
                 return r;
 
@@ -2270,7 +2273,7 @@ int device_cache_sysattr_value(sd_device *device, const char *key, char *value) 
                         return -ENOMEM;
         }
 
-        r = hashmap_ensure_put(&device->sysattr_values, &string_hash_ops_free_free, new_key, value);
+        r = hashmap_ensure_put(&device->sysattr_values, &path_hash_ops_free_free, new_key, value);
         if (r < 0)
                 return r;
 
