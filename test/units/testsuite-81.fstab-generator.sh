@@ -7,8 +7,6 @@ set -o pipefail
 # shellcheck source=test/units/generator-utils.sh
 . "$(dirname "$0")/generator-utils.sh"
 
-export SYSTEMD_LOG_LEVEL=debug
-
 GENERATOR_BIN="/usr/lib/systemd/system-generators/systemd-fstab-generator"
 NETWORK_FS_RX="^(afs|ceph|cifs|gfs|gfs2|ncp|ncpfs|nfs|nfs4|ocfs2|orangefs|pvfs2|smb3|smbfs|davfs|glusterfs|lustre|sshfs)$"
 OUT_DIR="$(mktemp -d /tmp/fstab-generator.XXX)"

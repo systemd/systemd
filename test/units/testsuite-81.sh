@@ -5,8 +5,6 @@ set -o pipefail
 
 : >/failed
 
-systemctl log-level debug
-
 for script in "${0%.sh}".*.sh; do
     echo "Running $script"
     "./$script"
