@@ -65,6 +65,16 @@ static const char* const compression_table[_COMPRESSION_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(compression, Compression);
 
+bool compression_supported(Compression c) {
+        static const unsigned supported =
+                (1U << COMPRESSION_NONE) |
+                (1U << COMPRESSION_XZ) * HAVE_XZ |
+                (1U << COMPRESSION_LZ4) * HAVE_LZ4 |
+                (1U << COMPRESSION_ZSTD) * HAVE_ZSTD;
+
+        return c >= 0 && c < _COMPRESSION_MAX && FLAGS_SET(supported, 1U << c);
+}
+
 int compress_blob_xz(const void *src, uint64_t src_size,
                      void *dst, size_t dst_alloc_size, size_t *dst_size) {
 #if HAVE_XZ
