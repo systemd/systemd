@@ -1067,7 +1067,8 @@ static void test_read_virtual_file_one(size_t max_size) {
                                   IN_SET(r,
                                          -ENOENT,  /* Some of the files might be absent */
                                          -EINVAL,  /* too small reads from /proc/self/pagemap trigger EINVAL */
-                                         -EFBIG)); /* /proc/kcore and /proc/self/pagemap should be too large */
+                                         -EFBIG,   /* /proc/kcore and /proc/self/pagemap should be too large */
+                                         -EBADF)); /* /proc/kcore is masked when we are running in docker. */
                 } else
                         log_info("read_virtual_file(\"%s\", %zu): %s (%zu bytes)", filename, max_size, r ? "non-truncated" : "truncated", size);
         }
