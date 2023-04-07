@@ -2487,7 +2487,7 @@ static int udev_rule_apply_token_to_event(
                 if (token->op == OP_ASSIGN)
                         device_cleanup_tags(dev);
 
-                if (buf[strspn(buf, ALPHANUMERICAL "-_")] != '\0') {
+                if (buf[strspn(buf, ALPHANUMERICAL "-_")] != '\0' || !filename_is_valid(buf)) {
                         log_event_error(dev, token, "Invalid tag name '%s', ignoring", buf);
                         break;
                 }
