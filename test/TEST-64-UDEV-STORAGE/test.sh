@@ -88,6 +88,8 @@ _image_cleanup() {
     # Clean up certain "problematic" files which may be left over by failing tests
     : >"${initdir:?}/etc/fstab"
     : >"${initdir:?}/etc/crypttab"
+    # Clear previous assignment
+    QEMU_OPTIONS_ARRAY=()
 }
 
 test_run_one() {
@@ -193,15 +195,34 @@ testcase_nvme_basic() {
     local i
     local qemu_opts=()
 
-    for i in {0..27}; do
+    for (( i = 0; i < 5; i++ )); do
         qemu_opts+=(
-            "-device nvme,drive=nvme$i,serial=deadbeef$i,num_queues=8"
-            "-drive format=raw,cache=unsafe,file=${TESTDIR:?}/disk$i.img,if=none,id=nvme$i"
+            "-device" "nvme,drive=nvme$i,serial=deadbeef$i,num_queues=8"
+            "-drive" "format=raw,cache=unsafe,file=${TESTDIR:?}/disk$i.img,if=none,id=nvme$i"
+        )
+    done
+    for (( i = 5; i < 10; i++ )); do
+        qemu_opts+=(
+            "-device" "nvme,drive=nvme$i,serial=    deadbeef  $i   ,num_queues=8"
+            "-drive" "format=raw,cache=unsafe,file=${TESTDIR:?}/disk$i.img,if=none,id=nvme$i"
+        )
+    done
+    for (( i = 10; i < 15; i++ )); do
+        qemu_opts+=(
+            "-device" "nvme,drive=nvme$i,serial=    dead/beef/$i   ,num_queues=8"
+            "-drive" "format=raw,cache=unsafe,file=${TESTDIR:?}/disk$i.img,if=none,id=nvme$i"
+        )
+    done
+    for (( i = 15; i < 20; i++ )); do
+        qemu_opts+=(
+            "-device" "nvme,drive=nvme$i,serial=dead/../../beef/$i,num_queues=8"
+            "-drive" "format=raw,cache=unsafe,file=${TESTDIR:?}/disk$i.img,if=none,id=nvme$i"
         )
     done
 
     KERNEL_APPEND="systemd.setenv=TEST_FUNCTION_NAME=${FUNCNAME[0]} ${USER_KERNEL_APPEND:-}"
-    QEMU_OPTIONS="${qemu_opts[*]} ${USER_QEMU_OPTIONS:-}"
+    QEMU_OPTIONS="${USER_QEMU_OPTIONS}"
+    QEMU_OPTIONS_ARRAY=("${qemu_opts[@]}")
     test_run_one "${1:?}"
 }
 
