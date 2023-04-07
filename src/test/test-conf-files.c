@@ -8,89 +8,151 @@
 
 #include "alloc-util.h"
 #include "conf-files.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "macro.h"
 #include "mkdir.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
-#include "user-util.h"
-
-static void setup_test_dir(char *tmp_dir, const char *files, ...) {
-        va_list ap;
-
-        assert_se(mkdtemp(tmp_dir));
-
-        va_start(ap, files);
-        while (files) {
-                _cleanup_free_ char *path;
-
-                assert_se(path = path_join(tmp_dir, files));
-                assert_se(write_string_file(path, "foobar", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
-
-                files = va_arg(ap, const char *);
-        }
-        va_end(ap);
-}
-
-static void test_conf_files_list_one(bool use_root) {
-        char tmp_dir[] = "/tmp/test-conf-files-XXXXXX";
-        _cleanup_strv_free_ char **found_files = NULL, **found_files2 = NULL;
-        const char *root_dir, *search, *expect_a, *expect_b, *expect_c, *mask;
-
-        log_info("/* %s(%s) */", __func__, yes_no(use_root));
-
-        setup_test_dir(tmp_dir,
-                       "/dir/a.conf",
-                       "/dir/b.conf",
-                       "/dir/c.foo",
-                       NULL);
-
-        mask = strjoina(tmp_dir, "/dir/d.conf");
-        assert_se(symlink("/dev/null", mask) >= 0);
-
-        if (use_root) {
-                root_dir = tmp_dir;
-                search = "/dir";
-        } else {
-                root_dir = NULL;
-                search = strjoina(tmp_dir, "/dir");
-        }
-
-        expect_a = strjoina(tmp_dir, "/dir/a.conf");
-        expect_b = strjoina(tmp_dir, "/dir/b.conf");
-        expect_c = strjoina(tmp_dir, "/dir/c.foo");
-
-        log_debug("/* Check when filtered by suffix */");
-
-        assert_se(conf_files_list(&found_files, ".conf", root_dir, CONF_FILES_FILTER_MASKED, search) == 0);
-        strv_print(found_files);
-
-        assert_se(found_files);
-        assert_se(streq_ptr(found_files[0], expect_a));
-        assert_se(streq_ptr(found_files[1], expect_b));
-        assert_se(!found_files[2]);
-
-        log_debug("/* Check when unfiltered */");
-        assert_se(conf_files_list(&found_files2, NULL, root_dir, CONF_FILES_FILTER_MASKED, search) == 0);
-        strv_print(found_files2);
-
-        assert_se(found_files2);
-        assert_se(streq_ptr(found_files2[0], expect_a));
-        assert_se(streq_ptr(found_files2[1], expect_b));
-        assert_se(streq_ptr(found_files2[2], expect_c));
-        assert_se(!found_files2[3]);
-
-        assert_se(rm_rf(tmp_dir, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
-}
+#include "tmpfile-util.h"
 
 TEST(conf_files_list) {
-        test_conf_files_list_one(false);
-        test_conf_files_list_one(true);
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_strv_free_ char **result = NULL;
+        const char *search1, *search2, *search1_a, *search1_b, *search1_c, *search2_aa;
+
+        tfd = mkdtemp_open("/tmp/test-conf-files-XXXXXX", O_PATH, &t);
+        assert(tfd >= 0);
+
+        assert_se(mkdirat(tfd, "dir1", 0755) >= 0);
+        assert_se(mkdirat(tfd, "dir2", 0755) >= 0);
+
+        search1 = strjoina(t, "/dir1/");
+        search2 = strjoina(t, "/dir2/");
+
+        FOREACH_STRING(p, "a.conf", "b.conf", "c.foo") {
+                _cleanup_free_ char *path = NULL;
+
+                assert_se(path = path_join(search1, p));
+                assert_se(write_string_file(path, "foobar", WRITE_STRING_FILE_CREATE) >= 0);
+        }
+
+        assert_se(symlinkat("/dev/null", tfd, "dir1/m.conf") >= 0);
+
+        FOREACH_STRING(p, "a.conf", "aa.conf", "m.conf") {
+                _cleanup_free_ char *path = NULL;
+
+                assert_se(path = path_join(search2, p));
+                assert_se(write_string_file(path, "hogehoge", WRITE_STRING_FILE_CREATE) >= 0);
+        }
+
+        search1_a = strjoina(search1, "a.conf");
+        search1_b = strjoina(search1, "b.conf");
+        search1_c = strjoina(search1, "c.foo");
+        search2_aa = strjoina(search2, "aa.conf");
+
+        /* search dir1 without suffix */
+        assert_se(conf_files_list(&result, NULL, NULL, CONF_FILES_FILTER_MASKED, search1) >= 0);
+        strv_print(result);
+        assert_se(strv_equal(result, STRV_MAKE(search1_a, search1_b, search1_c)));
+
+        result = strv_free(result);
+
+        assert_se(conf_files_list(&result, NULL, t, CONF_FILES_FILTER_MASKED, "/dir1/") >= 0);
+        strv_print(result);
+        assert_se(strv_equal(result, STRV_MAKE(search1_a, search1_b, search1_c)));
+
+        result = strv_free(result);
+
+        assert_se(conf_files_list_at(&result, NULL, AT_FDCWD, CONF_FILES_FILTER_MASKED, search1) >= 0);
+        strv_print(result);
+        assert_se(strv_equal(result, STRV_MAKE(search1_a, search1_b, search1_c)));
+
+        result = strv_free(result);
+
+        assert_se(conf_files_list_at(&result, NULL, tfd, CONF_FILES_FILTER_MASKED, "/dir1/") >= 0);
+        strv_print(result);
+        assert_se(strv_equal(result, STRV_MAKE("dir1/a.conf", "dir1/b.conf", "dir1/c.foo")));
+
+        result = strv_free(result);
+
+        /* search dir1 with suffix */
+        assert_se(conf_files_list(&result, ".conf", NULL, CONF_FILES_FILTER_MASKED, search1) >= 0);
+        strv_print(result);
+        assert_se(strv_equal(result, STRV_MAKE(search1_a, search1_b)));
+
+        result = strv_free(result);
+
+        assert_se(conf_files_list(&result, ".conf", t, CONF_FILES_FILTER_MASKED, "/dir1/") >= 0);
+        strv_print(result);
+        assert_se(strv_equal(result, STRV_MAKE(search1_a, search1_b)));
+
+        result = strv_free(result);
+
+        assert_se(conf_files_list_at(&result, ".conf", AT_FDCWD, CONF_FILES_FILTER_MASKED, search1) >= 0);
+        strv_print(result);
+        assert_se(strv_equal(result, STRV_MAKE(search1_a, search1_b)));
+
+        result = strv_free(result);
+
+        assert_se(conf_files_list_at(&result, ".conf", tfd, CONF_FILES_FILTER_MASKED, "/dir1/") >= 0);
+        strv_print(result);
+        assert_se(strv_equal(result, STRV_MAKE("dir1/a.conf", "dir1/b.conf")));
+
+        result = strv_free(result);
+
+        /* search two dirs */
+        assert_se(conf_files_list_strv(&result, ".conf", NULL, CONF_FILES_FILTER_MASKED, STRV_MAKE_CONST(search1, search2)) >= 0);
+        strv_print(result);
+        assert_se(strv_equal(result, STRV_MAKE(search1_a, search2_aa, search1_b)));
+
+        result = strv_free(result);
+
+        assert_se(conf_files_list_strv(&result, ".conf", t, CONF_FILES_FILTER_MASKED, STRV_MAKE_CONST("/dir1/", "/dir2/")) >= 0);
+        strv_print(result);
+        assert_se(strv_equal(result, STRV_MAKE(search1_a, search2_aa, search1_b)));
+
+        result = strv_free(result);
+
+        assert_se(conf_files_list_strv_at(&result, ".conf", AT_FDCWD, CONF_FILES_FILTER_MASKED, STRV_MAKE_CONST(search1, search2)) >= 0);
+        strv_print(result);
+        assert_se(strv_equal(result, STRV_MAKE(search1_a, search2_aa, search1_b)));
+
+        result = strv_free(result);
+
+        assert_se(conf_files_list_strv_at(&result, ".conf", tfd, CONF_FILES_FILTER_MASKED, STRV_MAKE_CONST("/dir1/", "/dir2/")) >= 0);
+        strv_print(result);
+        assert_se(strv_equal(result, STRV_MAKE("dir1/a.conf", "dir2/aa.conf", "dir1/b.conf")));
+
+        result = strv_free(result);
+
+        /* filename only */
+        assert_se(conf_files_list_strv(&result, ".conf", NULL, CONF_FILES_FILTER_MASKED | CONF_FILES_BASENAME, STRV_MAKE_CONST(search1, search2)) >= 0);
+        strv_print(result);
+        assert_se(strv_equal(result, STRV_MAKE("a.conf", "aa.conf", "b.conf")));
+
+        result = strv_free(result);
+
+        assert_se(conf_files_list_strv(&result, ".conf", t, CONF_FILES_FILTER_MASKED | CONF_FILES_BASENAME, STRV_MAKE_CONST("/dir1/", "/dir2/")) >= 0);
+        strv_print(result);
+        assert_se(strv_equal(result, STRV_MAKE("a.conf", "aa.conf", "b.conf")));
+
+        result = strv_free(result);
+
+        assert_se(conf_files_list_strv_at(&result, ".conf", AT_FDCWD, CONF_FILES_FILTER_MASKED | CONF_FILES_BASENAME, STRV_MAKE_CONST(search1, search2)) >= 0);
+        strv_print(result);
+        assert_se(strv_equal(result, STRV_MAKE("a.conf", "aa.conf", "b.conf")));
+
+        result = strv_free(result);
+
+        assert_se(conf_files_list_strv_at(&result, ".conf", tfd, CONF_FILES_FILTER_MASKED | CONF_FILES_BASENAME, STRV_MAKE_CONST("/dir1/", "/dir2/")) >= 0);
+        strv_print(result);
+        assert_se(strv_equal(result, STRV_MAKE("a.conf", "aa.conf", "b.conf")));
 }
 
 static void test_conf_files_insert_one(const char *root) {
