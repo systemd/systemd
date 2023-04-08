@@ -220,18 +220,8 @@ int open_extension_release(const char *root, ImageClass image_class, const char 
         if (r < 0)
                 return r;
 
-        if (ret_fd) {
-                int real_fd;
-
-                /* Convert the O_PATH fd into a proper, readable one */
-                real_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                safe_close(fd);
-                if (real_fd < 0)
-                        return real_fd;
-
-                *ret_fd = real_fd;
-        }
-
+        if (ret_fd)
+                *ret_fd = TAKE_FD(fd);
         if (ret_path)
                 *ret_path = TAKE_PTR(q);
 
