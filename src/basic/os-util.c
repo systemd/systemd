@@ -14,10 +14,20 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 #include "xattr-util.h"
+
+static const char* const image_class_table[_IMAGE_CLASS_MAX] = {
+        [IMAGE_MACHINE]  = "machine",
+        [IMAGE_PORTABLE] = "portable",
+        [IMAGE_SYSEXT]   = "extension",
+        [IMAGE_CONFEXT]  = "confext",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(image_class, ImageClass);
 
 /* Helper struct for naming simplicity and reusability */
 static const struct {
