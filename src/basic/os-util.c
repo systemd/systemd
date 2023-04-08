@@ -218,7 +218,7 @@ int open_extension_release(const char *root, ImageClass image_class, const char 
         } else {
                 const char *var = secure_getenv("SYSTEMD_OS_RELEASE");
                 if (var)
-                        r = chase(var, root, 0, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
+                        r = chase(var, root, CHASE_PREFIX_ROOT, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
                 else
                         FOREACH_STRING(path, "/etc/os-release", "/usr/lib/os-release") {
                                 r = chase(path, root, CHASE_PREFIX_ROOT, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
