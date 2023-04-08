@@ -151,7 +151,7 @@ int open_extension_release(
         _cleanup_free_ char *q = NULL;
         int r;
 
-        assert(!extension || (image_class >= 0 && image_class < _IMAGE_CLASS_MAX));
+        assert(!extension || IN_SET(image_class, IMAGE_SYSEXT, IMAGE_CONFEXT));
 
         if (!extension)
                 return open_os_release(root, ret_path, ret_fd);
