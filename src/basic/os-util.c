@@ -162,82 +162,83 @@ int open_extension_release(
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "The extension name %s is invalid.", extension);
 
         extension_full_path = strjoina(image_class_release_info[image_class].release_file_path_prefix, extension);
-        r = chase(extension_full_path, root, CHASE_PREFIX_ROOT, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
+        r = chase(extension_full_path, root, CHASE_PREFIX_ROOT, ret_path, ret_fd);
         log_full_errno_zerook(LOG_DEBUG, MIN(r, 0), "Checking for %s: %m", extension_full_path);
+        if (r != -ENOENT)
+                return r;
 
         /* Cannot find the expected extension-release file? The image filename might have been mangled on
          * deployment, so fallback to checking for any file in the extension-release.d directory, and return
          * the first one with a user.extension-release xattr instead. The user.extension-release.strict
          * xattr is checked to ensure the author of the image considers it OK if names do not match. */
-        if (r == -ENOENT) {
-                _cleanup_free_ char *extension_release_dir_path = NULL;
-                _cleanup_closedir_ DIR *extension_release_dir = NULL;
 
-                r = chase_and_opendir(image_class_release_info[image_class].release_file_directory, root, CHASE_PREFIX_ROOT,
-                                      &extension_release_dir_path, &extension_release_dir);
-                if (r < 0)
-                        return log_debug_errno(r, "Cannot open %s%s, ignoring: %m", root, image_class_release_info[image_class].release_file_directory);
+        _cleanup_free_ char *extension_release_dir_path = NULL;
+        _cleanup_closedir_ DIR *extension_release_dir = NULL;
 
-                r = -ENOENT;
-                FOREACH_DIRENT(de, extension_release_dir, return -errno) {
-                        int k;
+        r = chase_and_opendir(image_class_release_info[image_class].release_file_directory, root, CHASE_PREFIX_ROOT,
+                              &extension_release_dir_path, &extension_release_dir);
+        if (r < 0)
+                return log_debug_errno(r, "Cannot open %s%s, ignoring: %m", root, image_class_release_info[image_class].release_file_directory);
 
-                        if (!IN_SET(de->d_type, DT_REG, DT_UNKNOWN))
+        r = -ENOENT;
+        FOREACH_DIRENT(de, extension_release_dir, return -errno) {
+                int k;
+
+                if (!IN_SET(de->d_type, DT_REG, DT_UNKNOWN))
+                        continue;
+
+                const char *image_name = startswith(de->d_name, "extension-release.");
+                if (!image_name)
+                        continue;
+
+                if (!image_name_is_valid(image_name)) {
+                        log_debug("%s/%s is not a valid release file name, ignoring.",
+                                  extension_release_dir_path, de->d_name);
+                        continue;
+                }
+
+                /* We already chased the directory, and checked that this is a real file, so we shouldn't
+                 * fail to open it. */
+                _cleanup_close_ int extension_release_fd = openat(dirfd(extension_release_dir),
+                                                                  de->d_name,
+                                                                  O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                if (extension_release_fd < 0)
+                        return log_debug_errno(errno,
+                                               "Failed to open release file %s/%s: %m",
+                                               extension_release_dir_path,
+                                               de->d_name);
+
+                /* Really ensure it is a regular file after we open it. */
+                if (fd_verify_regular(extension_release_fd) < 0) {
+                        log_debug("%s/%s is not a regular file, ignoring.", extension_release_dir_path, de->d_name);
+                        continue;
+                }
+
+                if (!relax_extension_release_check) {
+                        k = extension_release_strict_xattr_value(extension_release_fd,
+                                                                 extension_release_dir_path,
+                                                                 de->d_name);
+                        if (k != 0)
                                 continue;
+                }
 
-                        const char *image_name = startswith(de->d_name, "extension-release.");
-                        if (!image_name)
-                                continue;
+                /* We already found what we were looking for, but there's another candidate? We treat this as
+                 * an error, as we want to enforce that there are no ambiguities in case we are in the
+                 * fallback path. */
+                if (r == 0) {
+                        r = -ENOTUNIQ;
+                        break;
+                }
 
-                        if (!image_name_is_valid(image_name)) {
-                                log_debug("%s/%s is not a valid release file name, ignoring.",
-                                          extension_release_dir_path, de->d_name);
-                                continue;
-                        }
+                r = 0; /* Found it! */
 
-                        /* We already chased the directory, and checked that
-                         * this is a real file, so we shouldn't fail to open it. */
-                        _cleanup_close_ int extension_release_fd = openat(dirfd(extension_release_dir),
-                                                                          de->d_name,
-                                                                          O_PATH|O_CLOEXEC|O_NOFOLLOW);
-                        if (extension_release_fd < 0)
-                                return log_debug_errno(errno,
-                                                       "Failed to open release file %s/%s: %m",
-                                                       extension_release_dir_path,
-                                                       de->d_name);
+                if (ret_fd)
+                        fd = TAKE_FD(extension_release_fd);
 
-                        /* Really ensure it is a regular file after we open it. */
-                        if (fd_verify_regular(extension_release_fd) < 0) {
-                                log_debug("%s/%s is not a regular file, ignoring.", extension_release_dir_path, de->d_name);
-                                continue;
-                        }
-
-                        if (!relax_extension_release_check) {
-                                k = extension_release_strict_xattr_value(extension_release_fd,
-                                                                         extension_release_dir_path,
-                                                                         de->d_name);
-                                if (k != 0)
-                                        continue;
-                        }
-
-                        /* We already found what we were looking for, but there's another candidate?
-                         * We treat this as an error, as we want to enforce that there are no ambiguities
-                         * in case we are in the fallback path. */
-                        if (r == 0) {
-                                r = -ENOTUNIQ;
-                                break;
-                        }
-
-                        r = 0; /* Found it! */
-
-                        if (ret_fd)
-                                fd = TAKE_FD(extension_release_fd);
-
-                        if (ret_path) {
-                                q = path_join(extension_release_dir_path, de->d_name);
-                                if (!q)
-                                        return -ENOMEM;
-                        }
+                if (ret_path) {
+                        q = path_join(extension_release_dir_path, de->d_name);
+                        if (!q)
+                                return -ENOMEM;
                 }
         }
         if (r < 0)
