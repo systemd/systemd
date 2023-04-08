@@ -238,40 +238,16 @@ int open_extension_release(const char *root, ImageClass image_class, const char 
         return 0;
 }
 
-int fopen_extension_release(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, char **ret_path, FILE **ret_file) {
-        _cleanup_free_ char *p = NULL;
-        _cleanup_close_ int fd = -EBADF;
-        FILE *f;
-        int r;
-
-        if (!ret_file)
-                return open_extension_release(root, image_class, extension, relax_extension_release_check, ret_path, NULL);
-
-        r = open_extension_release(root, image_class, extension, relax_extension_release_check, ret_path ? &p : NULL, &fd);
-        if (r < 0)
-                return r;
-
-        f = take_fdopen(&fd, "r");
-        if (!f)
-                return -errno;
-
-        if (ret_path)
-                *ret_path = TAKE_PTR(p);
-        *ret_file = f;
-
-        return 0;
-}
-
 static int parse_release_internal(const char *root, ImageClass image_class, bool relax_extension_release_check, const char *extension, va_list ap) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
-        r = fopen_extension_release(root, image_class, extension, relax_extension_release_check, &p, &f);
+        r = open_extension_release(root, image_class, extension, relax_extension_release_check, &p, &fd);
         if (r < 0)
                 return r;
 
-        return parse_env_filev(f, p, ap);
+        return parse_env_file_fdv(fd, p, ap);
 }
 
 int _parse_extension_release(const char *root, ImageClass image_class, bool relax_extension_release_check, const char *extension, ...) {
@@ -329,15 +305,15 @@ int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char
 }
 
 int load_extension_release_pairs(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, char ***ret) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
-        r = fopen_extension_release(root, image_class, extension, relax_extension_release_check, &p, &f);
+        r = open_extension_release(root, image_class, extension, relax_extension_release_check, &p, &fd);
         if (r < 0)
                 return r;
 
-        return load_env_file_pairs(f, p, ret);
+        return load_env_file_pairs_fd(fd, p, ret);
 }
 
 int os_release_support_ended(const char *support_end, bool quiet, usec_t *ret_eol) {
