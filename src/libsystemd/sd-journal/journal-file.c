@@ -1671,7 +1671,7 @@ static int journal_file_append_field(
         return 0;
 }
 
-static Compression maybe_compress_payload(JournalFile *f, uint8_t *dst, const uint8_t *src, uint64_t size, size_t *rsize) {
+static int maybe_compress_payload(JournalFile *f, uint8_t *dst, const uint8_t *src, uint64_t size, size_t *rsize) {
         assert(f);
         assert(f->header);
 
@@ -1681,21 +1681,17 @@ static Compression maybe_compress_payload(JournalFile *f, uint8_t *dst, const ui
 
         c = JOURNAL_FILE_COMPRESSION(f);
         if (c == COMPRESSION_NONE || size < f->compress_threshold_bytes)
-                return COMPRESSION_NONE;
+                return 0;
 
-        r = compress_blob_explicit(c, src, size, dst, size - 1, rsize);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to compress data object using %s, ignoring: %m", compression_to_string(c));
-                /* Compression didn't work, we don't really care why, let's continue without compression */
-                return COMPRESSION_NONE;
-        }
+        r = compress_blob(c, src, size, dst, size - 1, rsize);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to compress data object using %s, ignoring: %m", compression_to_string(c));
 
-        assert(r == c);
         log_debug("Compressed data object %"PRIu64" -> %zu using %s", size, *rsize, compression_to_string(c));
 
-        return c;
+        return 1; /* compressed */
 #else
-        return COMPRESSION_NONE;
+        return 0;
 #endif
 }
 
@@ -1709,7 +1705,6 @@ static int journal_file_append_data(
         uint64_t hash, p, osize;
         Object *o, *fo;
         size_t rsize = 0;
-        Compression c;
         const void *eq;
         int r;
 
@@ -1737,13 +1732,18 @@ static int journal_file_append_data(
 
         o->data.hash = htole64(hash);
 
-        c = maybe_compress_payload(f, journal_file_data_payload_field(f, o), data, size, &rsize);
+        r = maybe_compress_payload(f, journal_file_data_payload_field(f, o), data, size, &rsize);
+        if (r <= 0)
+                /* We don't really care failures, let's continue without compression */
+                memcpy_safe(journal_file_data_payload_field(f, o), data, size);
+        else {
+                Compression c = JOURNAL_FILE_COMPRESSION(f);
 
-        if (c != COMPRESSION_NONE) {
+                assert(c >= 0 && c < _COMPRESSION_MAX && c != COMPRESSION_NONE);
+
                 o->object.size = htole64(journal_file_data_payload_offset(f) + rsize);
                 o->object.flags |= COMPRESSION_TO_OBJECT_FLAG(c);
-        } else
-                memcpy_safe(journal_file_data_payload_field(f, o), data, size);
+        }
 
         r = journal_file_link_data(f, o, p, hash);
         if (r < 0)
