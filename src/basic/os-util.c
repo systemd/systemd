@@ -112,9 +112,18 @@ static int extension_release_strict_xattr_value(int extension_release_fd, const 
         return false;
 }
 
-int open_extension_release(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, char **ret_path, int *ret_fd) {
+int open_extension_release_at(
+                int rfd,
+                ImageClass image_class,
+                const char *extension,
+                bool relax_extension_release_check,
+                char **ret_path,
+                int *ret_fd) {
+
         _cleanup_free_ char *q = NULL;
         int r, fd;
+
+        assert(rfd >= 0 || rfd == AT_FDCWD);
 
         if (extension) {
                 assert(image_class >= 0);
@@ -127,7 +136,7 @@ int open_extension_release(const char *root, ImageClass image_class, const char 
                                                "The extension name %s is invalid.", extension);
 
                 extension_full_path = strjoina(image_class_release_info[image_class].release_file_path_prefix, extension);
-                r = chase(extension_full_path, root, CHASE_PREFIX_ROOT, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
+                r = chaseat(rfd, extension_full_path, CHASE_AT_RESOLVE_IN_ROOT, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
                 log_full_errno_zerook(LOG_DEBUG, MIN(r, 0), "Checking for %s: %m", extension_full_path);
 
                 /* Cannot find the expected extension-release file? The image filename might have been
@@ -139,10 +148,10 @@ int open_extension_release(const char *root, ImageClass image_class, const char 
                         _cleanup_free_ char *extension_release_dir_path = NULL;
                         _cleanup_closedir_ DIR *extension_release_dir = NULL;
 
-                        r = chase_and_opendir(image_class_release_info[image_class].release_file_directory, root, CHASE_PREFIX_ROOT,
-                                              &extension_release_dir_path, &extension_release_dir);
+                        r = chase_and_opendirat(rfd, image_class_release_info[image_class].release_file_directory, CHASE_AT_RESOLVE_IN_ROOT,
+                                                &extension_release_dir_path, &extension_release_dir);
                         if (r < 0)
-                                return log_debug_errno(r, "Cannot open %s%s, ignoring: %m", root, image_class_release_info[image_class].release_file_directory);
+                                return log_debug_errno(r, "Cannot open %s, ignoring: %m", image_class_release_info[image_class].release_file_directory);
 
                         r = -ENOENT;
                         FOREACH_DIRENT(de, extension_release_dir, return -errno) {
@@ -209,10 +218,10 @@ int open_extension_release(const char *root, ImageClass image_class, const char 
         } else {
                 const char *var = secure_getenv("SYSTEMD_OS_RELEASE");
                 if (var)
-                        r = chase(var, root, 0, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
+                        r = chaseat(rfd, var, CHASE_AT_RESOLVE_IN_ROOT, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
                 else
                         FOREACH_STRING(path, "/etc/os-release", "/usr/lib/os-release") {
-                                r = chase(path, root, CHASE_PREFIX_ROOT, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
+                                r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
                                 if (r != -ENOENT)
                                         break;
                         }
@@ -228,6 +237,61 @@ int open_extension_release(const char *root, ImageClass image_class, const char 
         return 0;
 }
 
+int open_extension_release(
+                const char *root,
+                ImageClass image_class,
+                const char *extension,
+                bool relax_extension_release_check,
+                char **ret_path,
+                int *ret_fd) {
+
+        _cleanup_close_ int rfd = -EBADF;
+
+        rfd = open(empty_to_root(root), O_CLOEXEC | O_DIRECTORY | O_PATH);
+        if (rfd < 0)
+                return -errno;
+
+        return open_extension_release_at(rfd, image_class, extension, relax_extension_release_check, ret_path, ret_fd);
+}
+
+static int parse_extension_release_atv(
+                int rfd,
+                ImageClass image_class,
+                const char *extension,
+                bool relax_extension_release_check,
+                va_list ap) {
+
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(rfd >= 0 || rfd == AT_FDCWD);
+
+        r = open_extension_release_at(rfd, image_class, extension, relax_extension_release_check, &p, &fd);
+        if (r < 0)
+                return r;
+
+        return parse_env_file_fdv(fd, p, ap);
+}
+
+int parse_extension_release_at_sentinel(
+                int rfd,
+                ImageClass image_class,
+                const char *extension,
+                bool relax_extension_release_check,
+                ...) {
+
+        va_list ap;
+        int r;
+
+        assert(rfd >= 0 || rfd == AT_FDCWD);
+
+        va_start(ap, relax_extension_release_check);
+        r = parse_extension_release_atv(rfd, image_class, extension, relax_extension_release_check, ap);
+        va_end(ap);
+        return r;
+}
+
 int parse_extension_release_sentinel(
                 const char *root,
                 ImageClass image_class,
@@ -235,17 +299,16 @@ int parse_extension_release_sentinel(
                 bool relax_extension_release_check,
                 ...) {
 
-        _cleanup_close_ int fd = -EBADF;
-        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int rfd = -EBADF;
         va_list ap;
         int r;
 
-        r = open_extension_release(root, image_class, extension, relax_extension_release_check, &p, &fd);
-        if (r < 0)
-                return r;
+        rfd = open(empty_to_root(root), O_CLOEXEC | O_DIRECTORY | O_PATH);
+        if (rfd < 0)
+                return -errno;
 
         va_start(ap, relax_extension_release_check);
-        r = parse_env_file_fdv(fd, p, ap);
+        r = parse_extension_release_atv(rfd, image_class, extension, relax_extension_release_check, ap);
         va_end(ap);
         return r;
 }
