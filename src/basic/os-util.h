@@ -29,9 +29,7 @@ static inline int path_is_os_tree(const char *path) {
 }
 
 int open_extension_release(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, char **ret_path, int *ret_fd);
-static inline int open_os_release(const char *root, char **ret_path, int *ret_fd) {
-        return open_extension_release(root, _IMAGE_CLASS_INVALID, NULL, false, ret_path, ret_fd);
-}
+int open_os_release(const char *root, char **ret_path, int *ret_fd);
 
 int _parse_extension_release(const char *root, ImageClass image_class, bool relax_extension_release_check, const char *extension, ...) _sentinel_;
 int _parse_os_release(const char *root, ...) _sentinel_;
