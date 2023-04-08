@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 #include "time-util.h"
+
 typedef enum ImageClass {
         IMAGE_MACHINE,
         IMAGE_PORTABLE,
