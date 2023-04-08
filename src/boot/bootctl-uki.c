@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fcntl.h>
+
 #include "alloc-util.h"
 #include "bootctl-uki.h"
 #include "kernel-image.h"
@@ -8,7 +10,7 @@ int verb_kernel_identify(int argc, char *argv[], void *userdata) {
         KernelImageType t;
         int r;
 
-        r = inspect_kernel(argv[1], &t, NULL, NULL, NULL);
+        r = inspect_kernel(AT_FDCWD, argv[1], &t, NULL, NULL, NULL);
         if (r < 0)
                 return r;
 
@@ -21,7 +23,7 @@ int verb_kernel_inspect(int argc, char *argv[], void *userdata) {
         KernelImageType t;
         int r;
 
-        r = inspect_kernel(argv[1], &t, &cmdline, &uname, &pname);
+        r = inspect_kernel(AT_FDCWD, argv[1], &t, &cmdline, &uname, &pname);
         if (r < 0)
                 return r;
 

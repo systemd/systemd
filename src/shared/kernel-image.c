@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "fd-util.h"
+#include "fileio.h"
 #include "env-file.h"
 #include "kernel-image.h"
 #include "os-util.h"
@@ -255,6 +256,7 @@ static int inspect_uki(
 }
 
 int inspect_kernel(
+                int dir_fd,
                 const char *filename,
                 KernelImageType *ret_type,
                 char **ret_cmdline,
@@ -267,11 +269,12 @@ int inspect_kernel(
         KernelImageType t;
         int r;
 
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(filename);
 
-        f = fopen(filename, "re");
-        if (!f)
-                return log_error_errno(errno, "Failed to open kernel image file '%s': %m", filename);
+        r = xfopenat(dir_fd, filename, "re", 0, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open kernel image file '%s': %m", filename);
 
         r = pe_sections(f, &sections, &scount);
         if (r < 0)

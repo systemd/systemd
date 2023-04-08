@@ -16,6 +16,7 @@ typedef enum KernelImageType {
 const char* kernel_image_type_to_string(KernelImageType t) _const_;
 
 int inspect_kernel(
+                int dir_fd,
                 const char *filename,
                 KernelImageType *ret_type,
                 char **ret_cmdline,
