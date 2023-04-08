@@ -127,8 +127,7 @@ int open_extension_release(const char *root, ImageClass image_class, const char 
         int r, fd;
 
         if (extension) {
-                assert(image_class >= 0);
-                assert(image_class < _IMAGE_CLASS_MAX);
+                assert(IN_SET(image_class, IMAGE_SYSEXT, IMAGE_CONFEXT));
 
                 const char *extension_full_path;
 
