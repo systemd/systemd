@@ -123,8 +123,9 @@ static int extension_release_strict_xattr_value(int extension_release_fd, const 
 }
 
 int open_extension_release(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, char **ret_path, int *ret_fd) {
+        _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *q = NULL;
-        int r, fd;
+        int r;
 
         if (extension) {
                 assert(image_class >= 0);
