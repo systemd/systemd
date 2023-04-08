@@ -354,18 +354,19 @@ int write_string_filef(
         return write_string_file(fn, p, flags);
 }
 
-int read_one_line_file(const char *fn, char **line) {
+int read_one_line_file_at(int dir_fd, const char *filename, char **ret) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
-        assert(fn);
-        assert(line);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(filename);
+        assert(ret);
 
-        r = fopen_unlocked(fn, "re", &f);
+        r = fopen_unlocked_at(dir_fd, filename, "re", 0, &f);
         if (r < 0)
                 return r;
 
-        return read_line(f, LONG_LINE_MAX, line);
+        return read_line(f, LONG_LINE_MAX, ret);
 }
 
 int verify_file_at(int dir_fd, const char *fn, const char *blob, bool accept_extra_nl) {

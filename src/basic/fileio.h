@@ -71,7 +71,10 @@ static inline int write_string_file(const char *fn, const char *line, WriteStrin
 
 int write_string_filef(const char *fn, WriteStringFileFlags flags, const char *format, ...) _printf_(3, 4);
 
-int read_one_line_file(const char *filename, char **line);
+int read_one_line_file_at(int dir_fd, const char *filename, char **ret);
+static inline int read_one_line_file(const char *filename, char **ret) {
+        return read_one_line_file_at(AT_FDCWD, filename, ret);
+}
 int read_full_file_full(int dir_fd, const char *filename, uint64_t offset, size_t size, ReadFullFileFlags flags, const char *bind_name, char **ret_contents, size_t *ret_size);
 static inline int read_full_file_at(int dir_fd, const char *filename, char **ret_contents, size_t *ret_size) {
         return read_full_file_full(dir_fd, filename, UINT64_MAX, SIZE_MAX, 0, NULL, ret_contents, ret_size);
