@@ -359,6 +359,23 @@ int parse_env_filev(
         return r;
 }
 
+int parse_env_file_fdv(int fd, const char *fname, va_list ap) {
+        _cleanup_fclose_ FILE *f = NULL;
+        va_list aq;
+        int r;
+
+        assert(fd >= 0);
+
+        r = fdopen_independent(fd, "re", &f);
+        if (r < 0)
+                return r;
+
+        va_copy(aq, ap);
+        r = parse_env_file_internal(f, fname, parse_env_file_push, &aq);
+        va_end(aq);
+        return r;
+}
+
 int parse_env_file_sentinel(
                 FILE *f,
                 const char *fname,
@@ -381,18 +398,13 @@ int parse_env_file_fd_sentinel(
                 const char *fname, /* only used for logging */
                 ...) {
 
-        _cleanup_fclose_ FILE *f = NULL;
         va_list ap;
         int r;
 
         assert(fd >= 0);
 
-        r = fdopen_independent(fd, "re", &f);
-        if (r < 0)
-                return r;
-
         va_start(ap, fname);
-        r = parse_env_filev(f, fname, ap);
+        r = parse_env_file_fdv(fd, fname, ap);
         va_end(ap);
 
         return r;
