@@ -147,9 +147,11 @@ int open_extension_release(
                 char **ret_path,
                 int *ret_fd) {
 
-        _cleanup_close_ int fd = -EBADF;
-        _cleanup_free_ char *q = NULL;
+        _cleanup_free_ char *dir_path = NULL, *path_found = NULL;
+        _cleanup_close_ int fd_found = -EBADF;
+        _cleanup_closedir_ DIR *dir = NULL;
         bool found = false;
+        const char *p;
         int r;
 
         assert(!extension || (image_class >= 0 && image_class < _IMAGE_CLASS_MAX));
@@ -160,14 +162,12 @@ int open_extension_release(
         if (!IN_SET(image_class, IMAGE_SYSEXT, IMAGE_CONFEXT))
                 return -EINVAL;
 
-        const char *extension_full_path;
-
         if (!image_name_is_valid(extension))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "The extension name %s is invalid.", extension);
 
-        extension_full_path = strjoina(image_class_release_info[image_class].release_file_path_prefix, extension);
-        r = chase(extension_full_path, root, CHASE_PREFIX_ROOT, ret_path, ret_fd);
-        log_full_errno_zerook(LOG_DEBUG, MIN(r, 0), "Checking for %s: %m", extension_full_path);
+        p = strjoina(image_class_release_info[image_class].release_file_path_prefix, extension);
+        r = chase(p, root, CHASE_PREFIX_ROOT, ret_path, ret_fd);
+        log_full_errno_zerook(LOG_DEBUG, MIN(r, 0), "Checking for %s: %m", p);
         if (r != -ENOENT)
                 return r;
 
@@ -176,55 +176,43 @@ int open_extension_release(
          * the first one with a user.extension-release xattr instead. The user.extension-release.strict
          * xattr is checked to ensure the author of the image considers it OK if names do not match. */
 
-        _cleanup_free_ char *extension_release_dir_path = NULL;
-        _cleanup_closedir_ DIR *extension_release_dir = NULL;
-
-        r = chase_and_opendir(image_class_release_info[image_class].release_file_directory, root, CHASE_PREFIX_ROOT,
-                              &extension_release_dir_path, &extension_release_dir);
+        p = image_class_release_info[image_class].release_file_directory;
+        r = chase_and_opendir(p, root, CHASE_PREFIX_ROOT, &dir_path, &dir);
         if (r < 0)
-                return log_debug_errno(r, "Cannot open %s%s, ignoring: %m", root, image_class_release_info[image_class].release_file_directory);
+                return log_debug_errno(r, "Cannot open %s%s, ignoring: %m", root, p);
 
-        FOREACH_DIRENT(de, extension_release_dir, return -errno) {
-                int k;
+        FOREACH_DIRENT(de, dir, return -errno) {
+                _cleanup_close_ int fd = -EBADF;
+                const char *image_name;
 
                 if (!IN_SET(de->d_type, DT_REG, DT_UNKNOWN))
                         continue;
 
-                const char *image_name = startswith(de->d_name, "extension-release.");
+                image_name = startswith(de->d_name, "extension-release.");
                 if (!image_name)
                         continue;
 
                 if (!image_name_is_valid(image_name)) {
-                        log_debug("%s/%s is not a valid release file name, ignoring.",
-                                  extension_release_dir_path, de->d_name);
+                        log_debug("%s/%s is not a valid release file name, ignoring.", dir_path, de->d_name);
                         continue;
                 }
 
                 /* We already chased the directory, and checked that this is a real file, so we shouldn't
                  * fail to open it. */
-                _cleanup_close_ int extension_release_fd = openat(dirfd(extension_release_dir),
-                                                                  de->d_name,
-                                                                  O_PATH|O_CLOEXEC|O_NOFOLLOW);
-                if (extension_release_fd < 0)
-                        return log_debug_errno(errno,
-                                               "Failed to open release file %s/%s: %m",
-                                               extension_release_dir_path,
-                                               de->d_name);
+                fd = openat(dirfd(dir), de->d_name, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                if (fd < 0)
+                        return log_debug_errno(errno, "Failed to open release file %s/%s: %m", dir_path, de->d_name);
 
                 /* Really ensure it is a regular file after we open it. */
-                r = fd_verify_regular(extension_release_fd);
+                r = fd_verify_regular(fd);
                 if (r < 0) {
-                        log_debug_errno(r, "%s/%s is not a regular file, ignoring: %m", extension_release_dir_path, de->d_name);
+                        log_debug_errno(r, "%s/%s is not a regular file, ignoring: %m", dir_path, de->d_name);
                         continue;
                 }
 
-                if (!relax_extension_release_check) {
-                        k = extension_release_strict_xattr_value(extension_release_fd,
-                                                                 extension_release_dir_path,
-                                                                 de->d_name);
-                        if (k != 0)
-                                continue;
-                }
+                if (!relax_extension_release_check &&
+                    extension_release_strict_xattr_value(fd, dir_path, de->d_name) != 0)
+                        continue;
 
                 /* We already found what we were looking for, but there's another candidate? We treat this as
                  * an error, as we want to enforce that there are no ambiguities in case we are in the
@@ -235,11 +223,11 @@ int open_extension_release(
                 found = true;
 
                 if (ret_fd)
-                        fd = TAKE_FD(extension_release_fd);
+                        fd_found = TAKE_FD(fd);
 
                 if (ret_path) {
-                        q = path_join(extension_release_dir_path, de->d_name);
-                        if (!q)
+                        path_found = path_join(dir_path, de->d_name);
+                        if (!path_found)
                                 return -ENOMEM;
                 }
         }
@@ -247,9 +235,9 @@ int open_extension_release(
                 return -ENOENT;
 
         if (ret_fd)
-                *ret_fd = TAKE_FD(fd);
+                *ret_fd = TAKE_FD(fd_found);
         if (ret_path)
-                *ret_path = TAKE_PTR(q);
+                *ret_path = TAKE_PTR(path_found);
 
         return 0;
 }
