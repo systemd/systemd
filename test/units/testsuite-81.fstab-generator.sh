@@ -289,9 +289,6 @@ check_fstab_mount_units() {
     done
 }
 
-# TODO
-#   - kernel arguments
-
 : "fstab-generator: regular"
 printf "%s\n" "${FSTAB_GENERAL_ROOT[@]}" >"$FSTAB"
 cat "$FSTAB"
@@ -362,3 +359,43 @@ SYSTEMD_FSTAB="$FSTAB" SYSTEMD_PROC_CMDLINE="rd.fstab=0" run_and_list "$GENERATO
 SYSTEMD_FSTAB="$FSTAB" check_fstab_mount_units FSTAB_MINIMAL "$OUT_DIR"
 SYSTEMD_IN_INITRD=1 SYSTEMD_FSTAB="$FSTAB" SYSTEMD_PROC_CMDLINE="rd.fstab=0" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
 (! SYSTEMD_IN_INITRD=1 SYSTEMD_FSTAB="$FSTAB" check_fstab_mount_units FSTAB_MINIMAL "$OUT_DIR")
+
+: "fstab-generator: kernel args - systemd.swap=0"
+printf "%s\n" "${FSTAB_GENERAL_ROOT[@]}" >"$FSTAB"
+cat "$FSTAB"
+SYSTEMD_FSTAB="$FSTAB" SYSTEMD_PROC_CMDLINE="systemd.swap=0" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+# No swap units should get created here
+[[ "$(find "$OUT_DIR" -name "*.swap" | wc -l)" -eq 0 ]]
+
+# Possible TODO
+#   - combine the rootfs & usrfs arguments and mix them with fstab entries
+#   - systemd.volatile=
+: "fstab-generator: kernel args - root= + rootfstype= + rootflags="
+# shellcheck disable=SC2034
+EXPECTED_FSTAB=(
+    "/dev/disk/by-label/rootfs  /    ext4    noexec,ro   0 1"
+)
+CMDLINE="root=LABEL=rootfs rootfstype=ext4 rootflags=noexec"
+SYSTEMD_IN_INITRD=1 SYSTEMD_FSTAB=/dev/null SYSTEMD_SYSROOT_FSTAB=/dev/null SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+# The /proc/cmdline here is a dummy value to tell the in_initrd_host() function
+# we're parsing host's fstab, but it's all on the kernel cmdline instead
+SYSTEMD_IN_INITRD=1 SYSTEMD_SYSROOT_FSTAB=/proc/cmdline check_fstab_mount_units EXPECTED_FSTAB "$OUT_DIR"
+
+# This is a very basic sanity test that involves manual checks, since adding it
+# to the check_fstab_mount_units() function would make it way too complex
+# (yet another possible TODO)
+: "fstab-generator: kernel args - mount.usr= + mount.usrfstype= + mount.usrflags="
+CMDLINE="mount.usr=UUID=be780f43-8803-4a76-9732-02ceda6e9808 mount.usrfstype=ext4 mount.usrflags=noexec,nodev"
+SYSTEMD_IN_INITRD=1 SYSTEMD_FSTAB=/dev/null SYSTEMD_SYSROOT_FSTAB=/dev/null SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+cat "$OUT_DIR/sysroot-usr.mount" "$OUT_DIR/sysusr-usr.mount"
+# The general idea here is to mount the device to /sysusr/usr and then
+# bind-mount /sysusr/usr to /sysroot/usr
+grep -qE "^What=/dev/disk/by-uuid/be780f43-8803-4a76-9732-02ceda6e9808$" "$OUT_DIR/sysusr-usr.mount"
+grep -qE "^Where=/sysusr/usr$" "$OUT_DIR/sysusr-usr.mount"
+grep -qE "^Type=ext4$" "$OUT_DIR/sysusr-usr.mount"
+grep -qE "^Options=noexec,nodev,ro$" "$OUT_DIR/sysusr-usr.mount"
+link_eq "$OUT_DIR/initrd-usr-fs.target.requires/sysusr-usr.mount" "../sysusr-usr.mount"
+grep -qE "^What=/sysusr/usr$" "$OUT_DIR/sysroot-usr.mount"
+grep -qE "^Where=/sysroot/usr$" "$OUT_DIR/sysroot-usr.mount"
+grep -qE "^Options=bind$" "$OUT_DIR/sysroot-usr.mount"
+link_eq "$OUT_DIR/initrd-fs.target.requires/sysroot-usr.mount" "../sysroot-usr.mount"
