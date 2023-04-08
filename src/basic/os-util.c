@@ -55,8 +55,6 @@ int path_is_extension_tree(ImageClass image_class, const char *path, const char 
         int r;
 
         assert(path);
-        assert(image_class >= 0);
-        assert(image_class < _IMAGE_CLASS_MAX);
 
         /* Does the path exist at all? If not, generate an error immediately. This is useful so that a missing root dir
          * always results in -ENOENT, and we can properly distinguish the case where the whole root doesn't exist from
@@ -295,7 +293,7 @@ int _parse_os_release(const char *root, ...) {
         int r;
 
         va_start(ap, root);
-        r = parse_release_internal(root, -1, /* relax_extension_release_check= */ false, NULL, ap);
+        r = parse_release_internal(root, _IMAGE_CLASS_INVALID, /* relax_extension_release_check= */ false, NULL, ap);
         va_end(ap);
 
         return r;
