@@ -128,7 +128,7 @@ int open_os_release(const char *root, char **ret_path, int *ret_fd) {
 
         e = secure_getenv("SYSTEMD_OS_RELEASE");
         if (e)
-                return chase(e, root, 0, ret_path, ret_fd);
+                return chase(e, root, CHASE_PREFIX_ROOT, ret_path, ret_fd);
 
         FOREACH_STRING(path, "/etc/os-release", "/usr/lib/os-release") {
                 r = chase(path, root, CHASE_PREFIX_ROOT, ret_path, ret_fd);
