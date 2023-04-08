@@ -228,40 +228,25 @@ int open_extension_release(const char *root, ImageClass image_class, const char 
         return 0;
 }
 
-static int parse_release_internal(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, va_list ap) {
+int parse_extension_release_sentinel(
+                const char *root,
+                ImageClass image_class,
+                const char *extension,
+                bool relax_extension_release_check,
+                ...) {
+
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *p = NULL;
+        va_list ap;
         int r;
 
         r = open_extension_release(root, image_class, extension, relax_extension_release_check, &p, &fd);
         if (r < 0)
                 return r;
 
-        return parse_env_file_fdv(fd, p, ap);
-}
-
-int _parse_extension_release(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, ...) {
-        va_list ap;
-        int r;
-
-        assert(image_class >= 0);
-        assert(image_class < _IMAGE_CLASS_MAX);
-
         va_start(ap, relax_extension_release_check);
-        r = parse_release_internal(root, image_class, extension, relax_extension_release_check, ap);
+        r = parse_env_file_fdv(fd, p, ap);
         va_end(ap);
-
-        return r;
-}
-
-int _parse_os_release(const char *root, ...) {
-        va_list ap;
-        int r;
-
-        va_start(ap, root);
-        r = parse_release_internal(root, _IMAGE_CLASS_INVALID, NULL, /* relax_extension_release_check= */ false, ap);
-        va_end(ap);
-
         return r;
 }
 

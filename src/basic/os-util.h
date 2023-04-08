@@ -32,10 +32,11 @@ static inline int open_os_release(const char *root, char **ret_path, int *ret_fd
         return open_extension_release(root, _IMAGE_CLASS_INVALID, NULL, false, ret_path, ret_fd);
 }
 
-int _parse_extension_release(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, ...) _sentinel_;
-int _parse_os_release(const char *root, ...) _sentinel_;
-#define parse_extension_release(root, image_class, extension, relax_extension_release_check, ...) _parse_extension_release(root, image_class, extension, relax_extension_release_check, __VA_ARGS__, NULL)
-#define parse_os_release(root, ...) _parse_os_release(root, __VA_ARGS__, NULL)
+int parse_extension_release_sentinel(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, ...) _sentinel_;
+#define parse_extension_release(root, image_class, extension, relax_extension_release_check, ...) \
+        parse_extension_release_sentinel(root, image_class, extension, relax_extension_release_check, __VA_ARGS__, NULL)
+#define parse_os_release(root, ...)                                     \
+        parse_extension_release_sentinel(root, _IMAGE_CLASS_INVALID, NULL, false, __VA_ARGS__, NULL)
 
 int load_extension_release_pairs(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, char ***ret);
 static inline int load_os_release_pairs(const char *root, char ***ret) {
