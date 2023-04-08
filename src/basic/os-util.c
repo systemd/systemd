@@ -209,8 +209,9 @@ int open_extension_release(
                                                de->d_name);
 
                 /* Really ensure it is a regular file after we open it. */
-                if (fd_verify_regular(extension_release_fd) < 0) {
-                        log_debug("%s/%s is not a regular file, ignoring.", extension_release_dir_path, de->d_name);
+                r = fd_verify_regular(extension_release_fd);
+                if (r < 0) {
+                        log_debug_errno(r, "%s/%s is not a regular file, ignoring: %m", extension_release_dir_path, de->d_name);
                         continue;
                 }
 
