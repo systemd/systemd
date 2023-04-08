@@ -301,7 +301,7 @@ static void test_copy_bytes_regular_file_one(const char *src, bool try_reflink, 
 
         log_info("%s try_reflink=%s max_bytes=%" PRIu64, __func__, yes_no(try_reflink), max_bytes);
 
-        fd = open(src, O_RDONLY | O_CLOEXEC | O_NOCTTY);
+        fd = open(src, O_CLOEXEC | O_PATH);
         assert_se(fd >= 0);
 
         fd2 = mkostemp_safe(fn2);
