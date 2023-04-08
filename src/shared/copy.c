@@ -157,6 +157,7 @@ int copy_bytes_full(
                 copy_progress_bytes_t progress,
                 void *userdata) {
 
+        _cleanup_close_ int fdf_opened = -EBADF, fdt_opened = -EBADF;
         bool try_cfr = true, try_sendfile = true, try_splice = true, copied_something = false;
         int r, nonblock_pipe = -1;
         size_t m = SSIZE_MAX; /* that is the maximum that sendfile and c_f_r accept */
@@ -176,6 +177,13 @@ int copy_bytes_full(
                 *ret_remains = NULL;
         if (ret_remains_size)
                 *ret_remains_size = 0;
+
+        fdf = fd_reopen_condition(fdf, O_CLOEXEC | O_NOCTTY | O_RDONLY, O_PATH, &fdf_opened);
+        if (fdf < 0)
+                return fdf;
+        fdt = fd_reopen_condition(fdt, O_CLOEXEC | O_NOCTTY | O_RDWR, O_PATH, &fdt_opened);
+        if (fdt < 0)
+                return fdt;
 
         /* Try btrfs reflinks first. This only works on regular, seekable files, hence let's check the file offsets of
          * source and destination first. */
