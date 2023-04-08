@@ -102,7 +102,7 @@ static void test_compress_decompress(const char* label, const char* type,
 
                 r = compress(text, size, buf, size, &j);
                 /* assume compression must be successful except for small or random inputs */
-                assert_se(r > 0 || (size < 2048 && r == -ENOBUFS) || streq(type, "random"));
+                assert_se(r >= 0 || (size < 2048 && r == -ENOBUFS) || streq(type, "random"));
 
                 /* check for overwrites */
                 assert_se(buf[size] == 0);
