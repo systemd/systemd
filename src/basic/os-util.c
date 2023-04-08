@@ -14,10 +14,20 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 #include "xattr-util.h"
+
+static const char* const image_class_table[_IMAGE_CLASS_MAX] = {
+        [IMAGE_MACHINE]  = "machine",
+        [IMAGE_PORTABLE] = "portable",
+        [IMAGE_SYSEXT]   = "extension",
+        [IMAGE_CONFEXT]  = "confext",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(image_class, ImageClass);
 
 /* Helper struct for naming simplicity and reusability */
 static const struct {
@@ -55,8 +65,6 @@ int path_is_extension_tree(ImageClass image_class, const char *path, const char 
         int r;
 
         assert(path);
-        assert(image_class >= 0);
-        assert(image_class < _IMAGE_CLASS_MAX);
 
         /* Does the path exist at all? If not, generate an error immediately. This is useful so that a missing root dir
          * always results in -ENOENT, and we can properly distinguish the case where the whole root doesn't exist from
@@ -114,13 +122,21 @@ static int extension_release_strict_xattr_value(int extension_release_fd, const 
         return false;
 }
 
-int open_extension_release(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, char **ret_path, int *ret_fd) {
+int open_extension_release_at(
+                int rfd,
+                ImageClass image_class,
+                const char *extension,
+                bool relax_extension_release_check,
+                char **ret_path,
+                int *ret_fd) {
+
         _cleanup_free_ char *q = NULL;
         int r, fd;
 
+        assert(rfd >= 0 || rfd == AT_FDCWD);
+
         if (extension) {
-                assert(image_class >= 0);
-                assert(image_class < _IMAGE_CLASS_MAX);
+                assert(IN_SET(image_class, IMAGE_SYSEXT, IMAGE_CONFEXT));
 
                 const char *extension_full_path;
 
@@ -129,7 +145,7 @@ int open_extension_release(const char *root, ImageClass image_class, const char 
                                                "The extension name %s is invalid.", extension);
 
                 extension_full_path = strjoina(image_class_release_info[image_class].release_file_path_prefix, extension);
-                r = chase(extension_full_path, root, CHASE_PREFIX_ROOT, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
+                r = chaseat(rfd, extension_full_path, CHASE_AT_RESOLVE_IN_ROOT, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
                 log_full_errno_zerook(LOG_DEBUG, MIN(r, 0), "Checking for %s: %m", extension_full_path);
 
                 /* Cannot find the expected extension-release file? The image filename might have been
@@ -141,10 +157,10 @@ int open_extension_release(const char *root, ImageClass image_class, const char 
                         _cleanup_free_ char *extension_release_dir_path = NULL;
                         _cleanup_closedir_ DIR *extension_release_dir = NULL;
 
-                        r = chase_and_opendir(image_class_release_info[image_class].release_file_directory, root, CHASE_PREFIX_ROOT,
-                                              &extension_release_dir_path, &extension_release_dir);
+                        r = chase_and_opendirat(rfd, image_class_release_info[image_class].release_file_directory, CHASE_AT_RESOLVE_IN_ROOT,
+                                                &extension_release_dir_path, &extension_release_dir);
                         if (r < 0)
-                                return log_debug_errno(r, "Cannot open %s%s, ignoring: %m", root, image_class_release_info[image_class].release_file_directory);
+                                return log_debug_errno(r, "Cannot open %s, ignoring: %m", image_class_release_info[image_class].release_file_directory);
 
                         r = -ENOENT;
                         FOREACH_DIRENT(de, extension_release_dir, return -errno) {
@@ -211,10 +227,10 @@ int open_extension_release(const char *root, ImageClass image_class, const char 
         } else {
                 const char *var = secure_getenv("SYSTEMD_OS_RELEASE");
                 if (var)
-                        r = chase(var, root, 0, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
+                        r = chaseat(rfd, var, CHASE_AT_RESOLVE_IN_ROOT, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
                 else
                         FOREACH_STRING(path, "/etc/os-release", "/usr/lib/os-release") {
-                                r = chase(path, root, CHASE_PREFIX_ROOT, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
+                                r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
                                 if (r != -ENOENT)
                                         break;
                         }
@@ -222,95 +238,88 @@ int open_extension_release(const char *root, ImageClass image_class, const char 
         if (r < 0)
                 return r;
 
-        if (ret_fd) {
-                int real_fd;
-
-                /* Convert the O_PATH fd into a proper, readable one */
-                real_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                safe_close(fd);
-                if (real_fd < 0)
-                        return real_fd;
-
-                *ret_fd = real_fd;
-        }
-
+        if (ret_fd)
+                *ret_fd = TAKE_FD(fd);
         if (ret_path)
                 *ret_path = TAKE_PTR(q);
 
         return 0;
 }
 
-int fopen_extension_release(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, char **ret_path, FILE **ret_file) {
-        _cleanup_free_ char *p = NULL;
-        _cleanup_close_ int fd = -EBADF;
-        FILE *f;
-        int r;
+int open_extension_release(
+                const char *root,
+                ImageClass image_class,
+                const char *extension,
+                bool relax_extension_release_check,
+                char **ret_path,
+                int *ret_fd) {
 
-        if (!ret_file)
-                return open_extension_release(root, image_class, extension, relax_extension_release_check, ret_path, NULL);
+        _cleanup_close_ int rfd = -EBADF;
 
-        r = open_extension_release(root, image_class, extension, relax_extension_release_check, ret_path ? &p : NULL, &fd);
-        if (r < 0)
-                return r;
-
-        f = take_fdopen(&fd, "r");
-        if (!f)
+        rfd = open(empty_to_root(root), O_CLOEXEC | O_DIRECTORY | O_PATH);
+        if (rfd < 0)
                 return -errno;
 
-        if (ret_path)
-                *ret_path = TAKE_PTR(p);
-        *ret_file = f;
-
-        return 0;
+        return open_extension_release_at(rfd, image_class, extension, relax_extension_release_check, ret_path, ret_fd);
 }
 
-static int parse_release_internal(const char *root, ImageClass image_class, bool relax_extension_release_check, const char *extension, va_list ap) {
-        _cleanup_fclose_ FILE *f = NULL;
+static int parse_extension_release_atv(
+                int rfd,
+                ImageClass image_class,
+                const char *extension,
+                bool relax_extension_release_check,
+                va_list ap) {
+
+        _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
-        r = fopen_extension_release(root, image_class, extension, relax_extension_release_check, &p, &f);
+        assert(rfd >= 0 || rfd == AT_FDCWD);
+
+        r = open_extension_release_at(rfd, image_class, extension, relax_extension_release_check, &p, &fd);
         if (r < 0)
                 return r;
 
-        return parse_env_filev(f, p, ap);
+        return parse_env_file_fdv(fd, p, ap);
 }
 
-int _parse_extension_release(const char *root, ImageClass image_class, bool relax_extension_release_check, const char *extension, ...) {
+int parse_extension_release_at_sentinel(
+                int rfd,
+                ImageClass image_class,
+                bool relax_extension_release_check,
+                const char *extension,
+                ...) {
+
         va_list ap;
         int r;
 
-        assert(image_class >= 0);
-        assert(image_class < _IMAGE_CLASS_MAX);
+        assert(rfd >= 0 || rfd == AT_FDCWD);
 
         va_start(ap, extension);
-        r = parse_release_internal(root, image_class, relax_extension_release_check, extension, ap);
+        r = parse_extension_release_atv(rfd, image_class, extension, relax_extension_release_check, ap);
         va_end(ap);
-
         return r;
 }
 
-int _parse_os_release(const char *root, ...) {
+int parse_extension_release_sentinel(
+                const char *root,
+                ImageClass image_class,
+                bool relax_extension_release_check,
+                const char *extension,
+                ...) {
+
+        _cleanup_close_ int rfd = -EBADF;
         va_list ap;
         int r;
 
-        va_start(ap, root);
-        r = parse_release_internal(root, -1, /* relax_extension_release_check= */ false, NULL, ap);
+        rfd = open(empty_to_root(root), O_CLOEXEC | O_DIRECTORY | O_PATH);
+        if (rfd < 0)
+                return -errno;
+
+        va_start(ap, extension);
+        r = parse_extension_release_atv(rfd, image_class, extension, relax_extension_release_check, ap);
         va_end(ap);
-
         return r;
-}
-
-int load_os_release_pairs(const char *root, char ***ret) {
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *p = NULL;
-        int r;
-
-        r = fopen_os_release(root, &p, &f);
-        if (r < 0)
-                return r;
-
-        return load_env_file_pairs(f, p, ret);
 }
 
 int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char ***ret) {
@@ -343,18 +352,15 @@ int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char
 }
 
 int load_extension_release_pairs(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, char ***ret) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
-        assert(image_class >= 0);
-        assert(image_class < _IMAGE_CLASS_MAX);
-
-        r = fopen_extension_release(root, image_class, extension, relax_extension_release_check, &p, &f);
+        r = open_extension_release(root, image_class, extension, relax_extension_release_check, &p, &fd);
         if (r < 0)
                 return r;
 
-        return load_env_file_pairs(f, p, ret);
+        return load_env_file_pairs_fd(fd, p, ret);
 }
 
 int os_release_support_ended(const char *support_end, bool quiet, usec_t *ret_eol) {
