@@ -43,7 +43,9 @@ int _parse_os_release(const char *root, ...) _sentinel_;
 #define parse_os_release(root, ...) _parse_os_release(root, __VA_ARGS__, NULL)
 
 int load_extension_release_pairs(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, char ***ret);
-int load_os_release_pairs(const char *root, char ***ret);
+static inline int load_os_release_pairs(const char *root, char ***ret) {
+        return load_extension_release_pairs(root, _IMAGE_CLASS_INVALID, NULL, false, ret);
+}
 int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char ***ret);
 
 int os_release_support_ended(const char *support_end, bool quiet, usec_t *ret_eol);
