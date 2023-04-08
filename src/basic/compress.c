@@ -107,7 +107,7 @@ int compress_blob_xz(const void *src, uint64_t src_size,
                 return -ENOBUFS;
 
         *dst_size = out_pos;
-        return COMPRESSION_XZ;
+        return 0;
 #else
         return -EPROTONOSUPPORT;
 #endif
@@ -137,7 +137,7 @@ int compress_blob_lz4(const void *src, uint64_t src_size,
         unaligned_write_le64(dst, src_size);
         *dst_size = r + 8;
 
-        return COMPRESSION_LZ4;
+        return 0;
 #else
         return -EPROTONOSUPPORT;
 #endif
@@ -160,7 +160,7 @@ int compress_blob_zstd(
                 return zstd_ret_to_errno(k);
 
         *dst_size = k;
-        return COMPRESSION_ZSTD;
+        return 0;
 #else
         return -EPROTONOSUPPORT;
 #endif
@@ -626,7 +626,7 @@ int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncom
                                           s.total_in, s.total_out,
                                           (double) s.total_out / s.total_in * 100);
 
-                                return COMPRESSION_XZ;
+                                return 0;
                         }
                 }
         }
@@ -717,7 +717,7 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unco
                   total_in, total_out,
                   (double) total_out / total_in * 100);
 
-        return COMPRESSION_LZ4;
+        return 0;
 #else
         return -EPROTONOSUPPORT;
 #endif
@@ -961,7 +961,7 @@ int compress_stream_zstd(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unc
                 log_debug("ZSTD compression finished (%" PRIu64 " -> %" PRIu64 " bytes)",
                           in_bytes, max_bytes - left);
 
-        return COMPRESSION_ZSTD;
+        return 0;
 #else
         return -EPROTONOSUPPORT;
 #endif
