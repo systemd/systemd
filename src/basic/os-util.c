@@ -228,7 +228,7 @@ int open_extension_release(const char *root, ImageClass image_class, const char 
         return 0;
 }
 
-static int parse_release_internal(const char *root, ImageClass image_class, bool relax_extension_release_check, const char *extension, va_list ap) {
+static int parse_release_internal(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, va_list ap) {
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
@@ -240,15 +240,15 @@ static int parse_release_internal(const char *root, ImageClass image_class, bool
         return parse_env_file_fdv(fd, p, ap);
 }
 
-int _parse_extension_release(const char *root, ImageClass image_class, bool relax_extension_release_check, const char *extension, ...) {
+int _parse_extension_release(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, ...) {
         va_list ap;
         int r;
 
         assert(image_class >= 0);
         assert(image_class < _IMAGE_CLASS_MAX);
 
-        va_start(ap, extension);
-        r = parse_release_internal(root, image_class, relax_extension_release_check, extension, ap);
+        va_start(ap, relax_extension_release_check);
+        r = parse_release_internal(root, image_class, extension, relax_extension_release_check, ap);
         va_end(ap);
 
         return r;
@@ -259,7 +259,7 @@ int _parse_os_release(const char *root, ...) {
         int r;
 
         va_start(ap, root);
-        r = parse_release_internal(root, _IMAGE_CLASS_INVALID, /* relax_extension_release_check= */ false, NULL, ap);
+        r = parse_release_internal(root, _IMAGE_CLASS_INVALID, NULL, /* relax_extension_release_check= */ false, ap);
         va_end(ap);
 
         return r;
