@@ -33,11 +33,6 @@ static inline int open_os_release(const char *root, char **ret_path, int *ret_fd
         return open_extension_release(root, _IMAGE_CLASS_INVALID, NULL, false, ret_path, ret_fd);
 }
 
-int fopen_extension_release(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, char **ret_path, FILE **ret_file);
-static inline int fopen_os_release(const char *root, char **ret_path, FILE **ret_file) {
-        return fopen_extension_release(root, _IMAGE_CLASS_INVALID, NULL, false, ret_path, ret_file);
-}
-
 int _parse_extension_release(const char *root, ImageClass image_class, bool relax_extension_release_check, const char *extension, ...) _sentinel_;
 int _parse_os_release(const char *root, ...) _sentinel_;
 #define parse_extension_release(root, image_class, relax_extension_release_check, extension, ...) _parse_extension_release(root, image_class, relax_extension_release_check, extension, __VA_ARGS__, NULL)
