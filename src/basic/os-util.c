@@ -156,6 +156,9 @@ int open_extension_release(
         if (!extension)
                 return open_os_release(root, ret_path, ret_fd);
 
+        if (!IN_SET(image_class, IMAGE_SYSEXT, IMAGE_CONFEXT))
+                return -EINVAL;
+
         const char *extension_full_path;
 
         if (!image_name_is_valid(extension))
