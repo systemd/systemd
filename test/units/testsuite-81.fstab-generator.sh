@@ -63,7 +63,7 @@ FSTAB_GENERAL=(
 
 FSTAB_GENERAL_ROOT=(
     # rootfs with bunch of options we should ignore and fsck enabled
-    "/dev/test1     /                                   ext4        noauto,nofail,automount,x-systemd.wanted-by=foo,x-systemd.required-by=bar 0 1"
+    "/dev/test1     /                                   ext4        noauto,nofail,x-systemd.automount,x-systemd.wanted-by=foo,x-systemd.required-by=bar 0 1"
     "${FSTAB_GENERAL[@]}"
 )
 
@@ -249,8 +249,14 @@ check_fstab_mount_units() {
             elif [[ "$opt" == x-systemd.automount ]]; then
                 # The $unit should have an accompanying automount unit
                 supp="$(systemd-escape --suffix=automount --path "$where")"
-                test -e "$out_dir/$supp"
-                link_eq "$out_dir/local-fs.target.requires/$supp" "../$supp"
+                if [[ "$where" == / ]]; then
+                    # This option is ignored for rootfs mounts
+                    test ! -e "$out_dir/$supp"
+                    (! link_eq "$out_dir/local-fs.target.requires/$supp" "../$supp")
+                else
+                    test -e "$out_dir/$supp"
+                    link_eq "$out_dir/local-fs.target.requires/$supp" "../$supp"
+                fi
             elif [[ "$opt" =~ ^x-systemd.idle-timeout= ]]; then
                 # The timeout applies to the automount unit, not the original
                 # mount one
