@@ -29,6 +29,12 @@ else
     sysctl -w kernel.core_pattern=dont-overwrite-me
     systemctl daemon-reexec
     diff <(echo dont-overwrite-me) <(sysctl --values kernel.core_pattern)
+
+    # Check that the early setup is actually skipped on reexec.
+    # If the early setup is done more than once, then several timestamps,
+    # e.g. SecurityStartTimestamp, are re-initialized, and causes an ABRT
+    # of systemd-analyze blame. See issue #27187.
+    systemd-analyze blame
 fi
 
 # Collect failed units & do one daemon-reload to a basic sanity check
