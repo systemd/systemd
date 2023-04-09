@@ -47,10 +47,10 @@ typedef struct UnitTimes {
         usec_t time;
 } UnitTimes;
 
-int acquire_boot_times(sd_bus *bus, BootTimes **ret);
+int acquire_boot_times(sd_bus *bus, bool require_finished, BootTimes **ret);
 int pretty_boot_time(sd_bus *bus, char **ret);
 
 UnitTimes* unit_times_free_array(UnitTimes *t);
 DEFINE_TRIVIAL_CLEANUP_FUNC(UnitTimes*, unit_times_free_array);
 
-int acquire_time_data(sd_bus *bus, UnitTimes **out);
+int acquire_time_data(sd_bus *bus, bool require_finished, UnitTimes **out);
