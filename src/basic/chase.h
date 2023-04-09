@@ -22,7 +22,9 @@ typedef enum ChaseFlags {
         CHASE_PROHIBIT_SYMLINKS  = 1 << 9,  /* Refuse all symlinks */
         CHASE_PARENT             = 1 << 10, /* Chase the parent directory of the given path. Note that the
                                              * full path is still stored in ret_path and only the returned
-                                             * file descriptor will point to the parent directory. */
+                                             * file descriptor will point to the parent directory. Note that
+                                             * the result path is the root or '.', then the file descriptor
+                                             * also points to the result path even if this flag is set. */
         CHASE_MKDIR_0755         = 1 << 11, /* Create any missing parent directories in the given path. */
         CHASE_EXTRACT_FILENAME   = 1 << 12, /* Only return the last component of the resolved path */
 } ChaseFlags;
@@ -51,4 +53,3 @@ int chase_and_accessat(int dir_fd, const char *path, ChaseFlags chase_flags, int
 int chase_and_fopenat_unlocked(int dir_fd, const char *path, ChaseFlags chase_flags, const char *open_flags, char **ret_path, FILE **ret_file);
 int chase_and_unlinkat(int dir_fd, const char *path, ChaseFlags chase_flags, int unlink_flags, char **ret_path);
 int chase_and_open_parent_at(int dir_fd, const char *path, ChaseFlags chase_flags, char **ret_filename);
-
