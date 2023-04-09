@@ -93,7 +93,7 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned level, 
 
         typesafe_qsort(deps, strv_length(deps), list_dependencies_compare);
 
-        r = acquire_boot_times(bus, &boot);
+        r = acquire_boot_times(bus, /* require_finished = */ true, &boot);
         if (r < 0)
                 return r;
 
@@ -178,7 +178,7 @@ static int list_dependencies(sd_bus *bus, const char *name) {
 
         times = hashmap_get(unit_times_hashmap, id);
 
-        r = acquire_boot_times(bus, &boot);
+        r = acquire_boot_times(bus, /* require_finished = */ true, &boot);
         if (r < 0)
                 return r;
 
@@ -205,7 +205,7 @@ int verb_critical_chain(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport);
 
-        n = acquire_time_data(bus, &times);
+        n = acquire_time_data(bus, /* require_finished = */ true, &times);
         if (n <= 0)
                 return n;
 
