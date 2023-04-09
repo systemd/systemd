@@ -77,7 +77,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         _cleanup_close_ int fd = -EBADF, root_fd = -EBADF;
         unsigned max_follow = CHASE_MAX; /* how many symlinks to follow before giving up and returning ELOOP */
         bool exists = true, append_trail_slash = false;
-        struct stat previous_stat;
+        struct stat st; /* stat obtained from fd */
         const char *todo;
         int r;
 
@@ -218,7 +218,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         if (fd < 0)
                 return -errno;
 
-        if (fstat(fd, &previous_stat) < 0)
+        if (fstat(fd, &st) < 0)
                 return -errno;
 
         if (flags & CHASE_TRAIL_SLASH)
@@ -227,7 +227,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         for (todo = buffer;;) {
                 _cleanup_free_ char *first = NULL;
                 _cleanup_close_ int child = -EBADF;
-                struct stat st;
+                struct stat st_child;
                 const char *e;
 
                 r = path_find_first_component(&todo, /* accept_dot_dot= */ true, &e);
@@ -248,6 +248,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 if (path_equal(first, "..")) {
                         _cleanup_free_ char *parent = NULL;
                         _cleanup_close_ int fd_parent = -EBADF;
+                        struct stat st_parent;
 
                         /* If we already are at the top, then going up will not change anything. This is
                          * in-line with how the kernel handles this. */
@@ -258,12 +259,12 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         if (fd_parent < 0)
                                 return -errno;
 
-                        if (fstat(fd_parent, &st) < 0)
+                        if (fstat(fd_parent, &st_parent) < 0)
                                 return -errno;
 
                         /* If we opened the same directory, that means we're at the host root directory, so
                          * going up won't change anything. */
-                        if (st.st_dev == previous_stat.st_dev && st.st_ino == previous_stat.st_ino)
+                        if (st_parent.st_dev == st.st_dev && st_parent.st_ino == st.st_ino)
                                 continue;
 
                         r = path_extract_directory(done, &parent);
@@ -279,18 +280,16 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         if (flags & CHASE_STEP)
                                 goto chased_one;
 
-                        if (flags & CHASE_SAFE) {
-                                if (unsafe_transition(&previous_stat, &st))
-                                        return log_unsafe_transition(fd, fd_parent, path, flags);
-
-                                previous_stat = st;
-                        }
+                        if (flags & CHASE_SAFE &&
+                            unsafe_transition(&st, &st_parent))
+                                return log_unsafe_transition(fd, fd_parent, path, flags);
 
                         if (FLAGS_SET(flags, CHASE_PARENT) && isempty(todo))
                                 break;
 
+                        /* update fd and stat */
+                        st = st_parent;
                         close_and_replace(fd, fd_parent);
-
                         continue;
                 }
 
@@ -322,19 +321,18 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                                 return r;
                 }
 
-                if (fstat(child, &st) < 0)
+                if (fstat(child, &st_child) < 0)
                         return -errno;
-                if ((flags & CHASE_SAFE) &&
-                    unsafe_transition(&previous_stat, &st))
-                        return log_unsafe_transition(fd, child, path, flags);
 
-                previous_stat = st;
+                if ((flags & CHASE_SAFE) &&
+                    unsafe_transition(&st, &st_child))
+                        return log_unsafe_transition(fd, child, path, flags);
 
                 if ((flags & CHASE_NO_AUTOFS) &&
                     fd_is_fs_type(child, AUTOFS_SUPER_MAGIC) > 0)
                         return log_autofs_mount_point(child, path, flags);
 
-                if (S_ISLNK(st.st_mode) && !((flags & CHASE_NOFOLLOW) && isempty(todo))) {
+                if (S_ISLNK(st_child.st_mode) && !((flags & CHASE_NOFOLLOW) && isempty(todo))) {
                         _cleanup_free_ char *destination = NULL;
 
                         if (flags & CHASE_PROHIBIT_SYMLINKS)
@@ -361,15 +359,12 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                                 if (fd < 0)
                                         return fd;
 
-                                if (flags & CHASE_SAFE) {
-                                        if (fstat(fd, &st) < 0)
-                                                return -errno;
+                                if (fstat(fd, &st) < 0)
+                                        return -errno;
 
-                                        if (unsafe_transition(&previous_stat, &st))
-                                                return log_unsafe_transition(child, fd, path, flags);
-
-                                        previous_stat = st;
-                                }
+                                if (flags & CHASE_SAFE &&
+                                    unsafe_transition(&st_child, &st))
+                                        return log_unsafe_transition(child, fd, path, flags);
 
                                 r = free_and_strdup(&done, need_absolute ? "/" : NULL);
                                 if (r < 0)
@@ -398,6 +393,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         break;
 
                 /* And iterate again, but go one directory further down. */
+                st = st_child;
                 close_and_replace(fd, child);
         }
 
