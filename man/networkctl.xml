@@ -375,6 +375,25 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         </term>
         <listitem><para>Show the specified network configuration files.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>edit-link</command>
+          <replaceable>DEVICE</replaceable>
+        </term>
+        <listitem><para>Edit network configuration files for the given link.
+
+        This command honors <option>--drop-in=</option> and <option>--no-reload</option> in the same way
+        as <command>edit</command>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>cat-link</command>
+          <replaceable>DEVICE</replaceable>
+        </term>
+        <listitem><para>Show network configuration files for the given link.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -438,8 +457,9 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         <term><option>--no-reload</option></term>
 
         <listitem>
-          <para>When used with <command>edit</command>, <command>systemd-networkd</command> or
-          <command>systemd-udevd</command> will not be reloaded after the editing finishes.</para>
+          <para>When used with <command>edit</command> or <command>edit-link</command>,
+          <command>systemd-networkd</command> or <command>systemd-udevd</command> will not
+          be reloaded after the editing finishes.</para>
         </listitem>
       </varlistentry>
 
