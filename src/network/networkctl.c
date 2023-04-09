@@ -86,6 +86,8 @@ static int check_netns_match(sd_bus *bus) {
         uint64_t id;
         int r;
 
+        assert(bus);
+
         r = bus_get_property_trivial(bus, bus_network_mgr, "NamespaceId", &error, 't', &id);
         if (r < 0) {
                 log_debug_errno(r, "Failed to query network namespace of networkd, ignoring: %s", bus_error_message(&error, r));
@@ -137,6 +139,9 @@ static int get_description(sd_bus *bus, JsonVariant **ret) {
         const char *text;
         int r;
 
+        assert(bus);
+        assert(ret);
+
         r = bus_call_method(bus, bus_network_mgr, "Describe", &error, &reply, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to get description: %s", bus_error_message(&error, r));
@@ -156,6 +161,8 @@ static int dump_manager_description(sd_bus *bus) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         int r;
 
+        assert(bus);
+
         r = get_description(bus, &v);
         if (r < 0)
                 return r;
@@ -164,12 +171,15 @@ static int dump_manager_description(sd_bus *bus) {
         return 0;
 }
 
-static int dump_link_description(sd_bus *bus, char **patterns) {
+static int dump_link_description(sd_bus *bus, char * const *patterns) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_free_ bool *matched_patterns = NULL;
         JsonVariant *i;
         size_t c = 0;
         int r;
+
+        assert(bus);
+        assert(patterns);
 
         r = get_description(bus, &v);
         if (r < 0)
@@ -229,7 +239,12 @@ static int dump_link_description(sd_bus *bus, char **patterns) {
         return 0;
 }
 
-static void operational_state_to_color(const char *name, const char *state, const char **on, const char **off) {
+static void operational_state_to_color(
+                const char *name,
+                const char *state,
+                const char **on,
+                const char **off) {
+
         if (STRPTR_IN_SET(state, "routable", "enslaved") ||
             (streq_ptr(name, "lo") && streq_ptr(state, "carrier"))) {
                 if (on)
@@ -539,7 +554,12 @@ static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
         return 0;
 }
 
-static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns, bool matched_patterns[]) {
+static int decode_link(
+                sd_netlink_message *m,
+                LinkInfo *info,
+                char * const *patterns,
+                bool matched_patterns[]) {
+
         _cleanup_strv_free_ char **altnames = NULL;
         const char *name, *qdisc;
         int ifindex, r;
@@ -669,6 +689,14 @@ static int link_get_property(
         char ifindex_str[DECIMAL_STR_MAX(int)];
         int r;
 
+        assert(bus);
+        assert(link);
+        assert(link->ifindex >= 0);
+        assert(error);
+        assert(reply);
+        assert(iface);
+        assert(propname);
+
         xsprintf(ifindex_str, "%i", link->ifindex);
 
         r = sd_bus_path_encode("/org/freedesktop/network1/link", ifindex_str, &path);
@@ -682,6 +710,9 @@ static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
+
+        assert(bus);
+        assert(link);
 
         r = link_get_property(bus, link, &error, &reply, "org.freedesktop.network1.Link", "BitRates");
         if (r < 0) {
@@ -710,7 +741,11 @@ static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
 }
 
 static void acquire_ether_link_info(int *fd, LinkInfo *link) {
-        if (ethtool_get_link_info(fd, link->name,
+        assert(fd);
+        assert(link);
+
+        if (ethtool_get_link_info(fd,
+                                  link->name,
                                   &link->autonegotiation,
                                   &link->speed,
                                   &link->duplex,
@@ -722,6 +757,8 @@ static void acquire_wlan_link_info(LinkInfo *link) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *genl = NULL;
         const char *type = NULL;
         int r, k = 0;
+
+        assert(link);
 
         if (link->sd_device)
                 (void) sd_device_get_devtype(link->sd_device, &type);
@@ -749,7 +786,7 @@ static void acquire_wlan_link_info(LinkInfo *link) {
         link->has_wlan_link_info = r > 0 || k > 0;
 }
 
-static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char **patterns, LinkInfo **ret) {
+static int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char * const *patterns, LinkInfo **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         _cleanup_free_ bool *matched_patterns = NULL;
@@ -1056,6 +1093,8 @@ static int get_gateway_description(
 static int dump_list(Table *table, const char *prefix, char * const *l) {
         int r;
 
+        assert(table);
+
         if (strv_isempty(l))
                 return 0;
 
@@ -1239,6 +1278,9 @@ static int open_lldp_neighbors(int ifindex, FILE **ret) {
         _cleanup_fclose_ FILE *f = NULL;
         char p[STRLEN("/run/systemd/netif/lldp/") + DECIMAL_STR_MAX(int)];
 
+        assert(ifindex >= 0);
+        assert(ret);
+
         xsprintf(p, "/run/systemd/netif/lldp/%i", ifindex);
 
         f = fopen(p, "re");
@@ -1330,6 +1372,11 @@ static int dump_dhcp_leases(Table *table, const char *prefix, sd_bus *bus, const
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
+        assert(table);
+        assert(prefix);
+        assert(bus);
+        assert(link);
+
         r = link_get_property(bus, link, &error, &reply, "org.freedesktop.network1.DHCPServer", "Leases");
         if (r < 0) {
                 bool quiet = sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY);
@@ -1417,6 +1464,7 @@ static int dump_dhcp_leases(Table *table, const char *prefix, sd_bus *bus, const
 static int dump_ifindexes(Table *table, const char *prefix, const int *ifindexes) {
         int r;
 
+        assert(table);
         assert(prefix);
 
         if (!ifindexes || ifindexes[0] <= 0)
@@ -1448,6 +1496,9 @@ static int dump_ifindexes(Table *table, const char *prefix, const int *ifindexes
 
 static int dump_statistics(Table *table, const LinkInfo *info) {
         int r;
+
+        assert(table);
+        assert(info);
 
         if (!arg_stats)
                 return 0;
@@ -1612,6 +1663,7 @@ static int link_status_one(
         TableCell *cell;
         int r;
 
+        assert(bus);
         assert(rtnl);
         assert(info);
 
@@ -2629,6 +2681,7 @@ static int link_delete_send_message(sd_netlink *rtnl, int index) {
         int r;
 
         assert(rtnl);
+        assert(index >= 0);
 
         r = sd_rtnl_message_new_link(rtnl, &req, RTM_DELLINK, index);
         if (r < 0)
@@ -2646,6 +2699,7 @@ static int link_up_down_send_message(sd_netlink *rtnl, char *command, int index)
         int r;
 
         assert(rtnl);
+        assert(index >= 0);
 
         r = sd_rtnl_message_new_link(rtnl, &req, RTM_SETLINK, index);
         if (r < 0)
@@ -2739,6 +2793,10 @@ static int link_renew_one(sd_bus *bus, int index, const char *name) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
+        assert(bus);
+        assert(index >= 0);
+        assert(name);
+
         r = bus_call_method(bus, bus_network_mgr, "RenewLink", &error, NULL, "i", index);
         if (r < 0)
                 return log_error_errno(r, "Failed to renew dynamic configuration of interface %s: %s",
@@ -2772,6 +2830,10 @@ static int link_renew(int argc, char *argv[], void *userdata) {
 static int link_force_renew_one(sd_bus *bus, int index, const char *name) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
+
+        assert(bus);
+        assert(index >= 0);
+        assert(name);
 
         r = bus_call_method(bus, bus_network_mgr, "ForceRenewLink", &error, NULL, "i", index);
         if (r < 0)
@@ -2900,7 +2962,6 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
