@@ -11,13 +11,15 @@ export SYSTEMD_LOG_LEVEL=debug
 
 # Sanity checks
 #
-# We can't really test time, blame, critical-chain and plot verbs here, as
+# We can't really test time, critical-chain and plot verbs here, as
 # the testsuite service is a part of the boot transaction, so let's assume
 # they fail
 systemd-analyze || :
 systemd-analyze time || :
-systemd-analyze blame || :
 systemd-analyze critical-chain || :
+# blame
+systemd-analyze blame
+systemd-run --wait --user --pipe -M testuser@.host systemd-analyze blame
 # plot
 systemd-analyze plot >/dev/null || :
 systemd-analyze plot --json=pretty >/dev/null || :
