@@ -26,7 +26,9 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "conf-files.h"
 #include "device-util.h"
+#include "edit-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
 #include "ethtool-util.h"
@@ -50,6 +52,8 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "path-lookup.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "set.h"
 #include "socket-netlink.h"
@@ -74,11 +78,15 @@
 
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
+static bool arg_no_reload = false;
 static bool arg_all = false;
 static bool arg_stats = false;
 static bool arg_full = false;
 static unsigned arg_lines = 10;
+static const char *arg_drop_in = NULL;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+
+STATIC_DESTRUCTOR_REGISTER(arg_drop_in, unsetp);
 
 static int check_netns_match(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -120,12 +128,12 @@ static int acquire_bus(sd_bus **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect system bus: %m");
 
-        r = check_netns_match(bus);
-        if (r < 0)
-                return r;
-
-        if (!networkd_is_running())
-                fprintf(stderr, "WARNING: systemd-networkd is not running, output will be incomplete.\n\n");
+        if (networkd_is_running()) {
+                r = check_netns_match(bus);
+                if (r < 0)
+                        return r;
+        } else
+                log_warning("systemd-networkd is not running, output might be incomplete.");
 
         *ret = TAKE_PTR(bus);
         return 0;
@@ -2857,6 +2865,361 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int get_arg_drop_in(char **ret) {
+        _cleanup_free_ char *drop_in = NULL;
+
+        assert(ret);
+
+        if (isempty(arg_drop_in))
+                return 0;
+        else if (!endswith(arg_drop_in, ".conf")) {
+                drop_in = strjoin(arg_drop_in, ".conf");
+        } else
+                drop_in = strdup(arg_drop_in);
+        if (!drop_in)
+                return log_oom();
+
+        if (!filename_is_valid(drop_in))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid drop-in file name '%s'.", drop_in);
+
+        *ret = TAKE_PTR(drop_in);
+        return 1;
+}
+
+static int get_config_files_by_name(const char *name, char **ret_path, char ***ret_dropins) {
+        _cleanup_strv_free_ char **dropins = NULL, **dropin_dirs = NULL;
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(name);
+        assert(ret_path);
+
+        if (!ENDSWITH_SET(name, ".network", ".netdev", ".link"))
+                return -EINVAL;
+
+        STRV_FOREACH(i, NETWORK_DIRS) {
+                _cleanup_free_ char *p = NULL;
+
+                p = path_join(*i, name);
+                if (!p)
+                        return -ENOMEM;
+
+                r = strv_extendf(&dropin_dirs, "%s.d", p);
+                if (r < 0)
+                        return r;
+
+                if (!path && access(p, F_OK) >= 0)
+                        path = TAKE_PTR(p);
+        }
+
+        if (!path)
+                return -ENOENT;
+
+        if (!ret_dropins) {
+                *ret_path = TAKE_PTR(path);
+                return 0;
+        }
+
+        r = conf_files_list_strv(&dropins, ".conf", NULL, 0, (const char* const*) dropin_dirs);
+        if (r < 0)
+                return r;
+
+        *ret_path = TAKE_PTR(path);
+        *ret_dropins = TAKE_PTR(dropins);
+
+        return 0;
+}
+
+static int get_dropin_by_name(
+                const char *name,
+                char * const *dropins,
+                char **ret) {
+
+        assert(name);
+        assert(dropins);
+        assert(ret);
+
+        STRV_FOREACH(i, dropins)
+                if (path_equal_filename(*i, name)) {
+                        _cleanup_free_ char *d = NULL;
+
+                        d = strdup(*i);
+                        if (!d)
+                                return -ENOMEM;
+
+                        *ret = TAKE_PTR(d);
+                        return 1;
+                }
+
+        return 0;
+}
+
+static int add_config_to_edit(
+                EditFileContext *context,
+                const char *main,
+                const char *drop_in,
+                char * const *dropins) {
+
+        _cleanup_free_ char *new_main = NULL, *dropin_path = NULL, *old_dropin = NULL;
+        _cleanup_strv_free_ char **comment_paths = NULL;
+        int r;
+
+        assert(context);
+        assert(main);
+
+        if (path_startswith(main, "/usr")) {
+                _cleanup_free_ char *name = NULL;
+
+                r = path_extract_filename(main, &name);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from '%s': %m", main);
+
+                new_main = path_join(NETWORK_DIRS[0], name);
+                if (!new_main)
+                        return log_oom();
+        }
+
+        if (!drop_in)
+                return edit_files_add(context, new_main ?: main, main, NULL);
+
+        assert(dropins);
+
+        r = get_dropin_by_name(drop_in, dropins, &old_dropin);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire drop-in '%s': %m", drop_in);
+
+        if (r > 0 && !path_startswith(old_dropin, "/usr"))
+                /* An existing drop-in is found and not in /usr/. Let's edit it directly. */
+                dropin_path = TAKE_PTR(old_dropin);
+        else {
+                /* No drop-in was found or an existing drop-in resides in /usr/. Let's create
+                 * a new drop-in file. */
+                _cleanup_free_ char *dropin_dir = NULL;
+
+                dropin_dir = strjoin(new_main ?: main, ".d");
+                if (!dropin_dir)
+                        return log_oom();
+
+                dropin_path = path_join(dropin_dir, drop_in);
+                if (!dropin_path)
+                        return log_oom();
+        }
+
+        comment_paths = strv_new(main);
+        if (!comment_paths)
+                return log_oom();
+
+        r = strv_extend_strv(&comment_paths, dropins, /* filter_duplicates = */ false);
+        if (r < 0)
+                return log_oom();
+
+        return edit_files_add(context, dropin_path, old_dropin, comment_paths);
+}
+
+static int verb_edit(int argc, char *argv[], void *userdata) {
+        _cleanup_(edit_file_context_done) EditFileContext context = {
+                .marker_start = DROPIN_MARKER_START,
+                .marker_end = DROPIN_MARKER_END,
+                .remove_parent = !!arg_drop_in,
+        };
+        _cleanup_free_ char *drop_in = NULL;
+        int r;
+
+        if (!on_tty())
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit network config files if not on a tty.");
+
+        r = mac_selinux_init();
+        if (r < 0)
+                return r;
+
+        r = get_arg_drop_in(&drop_in);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(name, strv_skip(argv, 1)) {
+                _cleanup_strv_free_ char **dropins = NULL;
+                _cleanup_free_ char *path = NULL;
+
+                r = get_config_files_by_name(*name, &path, &dropins);
+                if (r == -ENOENT) {
+                        if (drop_in)
+                                return log_error_errno(r, "Cannot find network config '%s'.", *name);
+
+                        log_debug("No existing network config '%s' found, creating a new file.", *name);
+
+                        path = path_join(NETWORK_DIRS[0], *name);
+                        if (!path)
+                                return log_oom();
+
+                        r = edit_files_add(&context, path, NULL, NULL);
+                        if (r < 0)
+                                return r;
+                        continue;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get the path of network config '%s': %m", *name);
+
+                r = add_config_to_edit(&context, path, drop_in, dropins);
+                if (r < 0)
+                        return r;
+        }
+
+        r = do_edit_files_and_install(&context);
+        if (r < 0)
+                return r;
+
+        if (!arg_no_reload) {
+                if (networkd_is_running())
+                        return verb_reload(0, NULL, userdata);
+                else {
+                        log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "systemd-networkd is not running, skipping reload.");
+                        return 0;
+                }
+        }
+
+        return 0;
+}
+
+static int verb_cat(int argc, char *argv[], void *userdata) {
+        int r = 0;
+
+        pager_open(arg_pager_flags);
+
+        STRV_FOREACH(name, strv_skip(argv, 1)) {
+                _cleanup_strv_free_ char **dropins = NULL;
+                _cleanup_free_ char *path = NULL;
+                int q;
+
+                q = get_config_files_by_name(*name, &path, &dropins);
+                if (q == -ENOENT) {
+                        log_error_errno(q, "Cannot find network config file '%s'.", *name);
+                        r = r < 0 ? r : q;
+                        continue;
+                }
+                if (q < 0) {
+                        log_error_errno(q, "Failed to get the path of network config '%s': %m", *name);
+                        return r < 0 ? r : q;
+                }
+
+                q = cat_files(path, dropins, /* flags = */ 0);
+                if (q < 0)
+                        return r < 0 ? r : q;
+        }
+
+        return r;
+}
+
+static int get_config_files_by_link(
+                sd_bus *bus,
+                const char *link,
+                char **ret_path,
+                char ***ret_dropins) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_strv_free_ char **dropins = NULL;
+        _cleanup_free_ char *path = NULL;
+        int r, ifindex;
+
+        assert(bus);
+        assert(link);
+        assert(ret_path);
+        assert(ret_dropins);
+
+        r = bus_call_method(bus, bus_network_mgr, "GetLinkByName", &error, &reply, "s", link);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get link '%s': %s", link, bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "io", &ifindex, NULL);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_network_link_get_network_file(ifindex, &path);
+        if (r == -ENODATA)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "Link '%s' has no associated network config file.",
+                                       link);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get network config file for link '%s': %m", link);
+
+        r = sd_network_link_get_network_file_dropins(ifindex, &dropins);
+        if (r < 0 && r != -ENODATA)
+                return log_error_errno(r, "Failed to get network config drop-ins for link '%s': %m", link);
+
+        *ret_path = TAKE_PTR(path);
+        *ret_dropins = TAKE_PTR(dropins);
+        return 0;
+}
+
+static int verb_edit_link(int argc, char *argv[], void *userdata) {
+        _cleanup_(edit_file_context_done) EditFileContext context = {
+                .marker_start = DROPIN_MARKER_START,
+                .marker_end = DROPIN_MARKER_END,
+                .remove_parent = !!arg_drop_in,
+        };
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_strv_free_ char **dropins = NULL;
+        _cleanup_free_ char *drop_in = NULL, *path = NULL;
+        int r;
+
+        if (!on_tty())
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit network config files if not on a tty.");
+
+        if (!networkd_is_running())
+                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Cannot edit link if systemd-networkd is not running.");
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        r = mac_selinux_init();
+        if (r < 0)
+                return r;
+
+        r = get_arg_drop_in(&drop_in);
+        if (r < 0)
+                return r;
+
+        r = get_config_files_by_link(bus, argv[1], &path, &dropins);
+        if (r < 0)
+                return r;
+
+        r = add_config_to_edit(&context, path, drop_in, dropins);
+        if (r < 0)
+                return r;
+
+        r = do_edit_files_and_install(&context);
+        if (r < 0)
+                return r;
+
+        if (!arg_no_reload)
+                return verb_reload(0, NULL, userdata);
+
+        return 0;
+}
+
+static int verb_cat_link(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_strv_free_ char **dropins = NULL;
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        if (!networkd_is_running())
+                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Cannot cat link if systemd-networkd is not running.");
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        r = get_config_files_by_link(bus, argv[1], &path, &dropins);
+        if (r < 0)
+                return r;
+
+        pager_open(arg_pager_flags);
+
+        return cat_files(path, dropins, /* flags = */ 0);
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -2879,6 +3242,10 @@ static int help(void) {
                "  forcerenew DEVICES...  Trigger DHCP reconfiguration of all connected clients\n"
                "  reconfigure DEVICES... Reconfigure interfaces\n"
                "  reload                 Reload .network and .netdev files\n"
+               "  edit                   Edit network configuration files\n"
+               "  cat                    Show network configuration files\n"
+               "  edit-link              Edit network configuration files for the given link\n"
+               "  cat-link               Show network configuration files for the given link\n"
                "\nOptions:\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
@@ -2890,6 +3257,8 @@ static int help(void) {
                "  -n --lines=INTEGER     Number of journal entries to show\n"
                "     --json=pretty|short|off\n"
                "                         Generate JSON output\n"
+               "     --no-reload         Do not reload systemd-networkd after editing config\n"
+               "     --drop-in=NAME      Edit specified drop-in instead of main config file\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -2906,6 +3275,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
                 ARG_JSON,
+                ARG_NO_RELOAD,
+                ARG_DROP_IN,
         };
 
         static const struct option options[] = {
@@ -2918,6 +3289,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "full",      no_argument,       NULL, 'l'           },
                 { "lines",     required_argument, NULL, 'n'           },
                 { "json",      required_argument, NULL, ARG_JSON      },
+                { "no-reload", no_argument,       NULL, ARG_NO_RELOAD },
+                { "drop-in",   required_argument, NULL, ARG_DROP_IN   },
                 {}
         };
 
@@ -2942,6 +3315,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_LEGEND:
                         arg_legend = false;
+                        break;
+
+                case ARG_NO_RELOAD:
+                        arg_no_reload = true;
+                        break;
+
+                case ARG_DROP_IN:
+                        arg_drop_in = optarg;
                         break;
 
                 case 'a':
@@ -2981,17 +3362,21 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int networkctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "list",        VERB_ANY, VERB_ANY, VERB_DEFAULT, list_links          },
-                { "status",      VERB_ANY, VERB_ANY, 0,            link_status         },
-                { "lldp",        VERB_ANY, VERB_ANY, 0,            link_lldp_status    },
-                { "label",       1,        1,        0,            list_address_labels },
-                { "delete",      2,        VERB_ANY, 0,            link_delete         },
-                { "up",          2,        VERB_ANY, 0,            link_up_down        },
-                { "down",        2,        VERB_ANY, 0,            link_up_down        },
-                { "renew",       2,        VERB_ANY, 0,            link_renew          },
-                { "forcerenew",  2,        VERB_ANY, 0,            link_force_renew    },
-                { "reconfigure", 2,        VERB_ANY, 0,            verb_reconfigure    },
-                { "reload",      1,        1,        0,            verb_reload         },
+                { "list",        VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY, list_links          },
+                { "status",      VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              link_status         },
+                { "lldp",        VERB_ANY, VERB_ANY, 0,                             link_lldp_status    },
+                { "label",       1,        1,        0,                             list_address_labels },
+                { "delete",      2,        VERB_ANY, 0,                             link_delete         },
+                { "up",          2,        VERB_ANY, 0,                             link_up_down        },
+                { "down",        2,        VERB_ANY, 0,                             link_up_down        },
+                { "renew",       2,        VERB_ANY, VERB_ONLINE_ONLY,              link_renew          },
+                { "forcerenew",  2,        VERB_ANY, VERB_ONLINE_ONLY,              link_force_renew    },
+                { "reconfigure", 2,        VERB_ANY, VERB_ONLINE_ONLY,              verb_reconfigure    },
+                { "reload",      1,        1,        VERB_ONLINE_ONLY,              verb_reload         },
+                { "edit",        2,        VERB_ANY, 0,                             verb_edit           },
+                { "cat",         2,        VERB_ANY, 0,                             verb_cat            },
+                { "edit-link",   2,        2,        VERB_ONLINE_ONLY,              verb_edit_link      },
+                { "cat-link",    2,        2,        VERB_ONLINE_ONLY,              verb_cat_link       },
                 {}
         };
 
