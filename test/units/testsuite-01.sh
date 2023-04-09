@@ -35,4 +35,10 @@ fi
 systemctl --state=failed --no-legend --no-pager | tee /failed
 systemctl daemon-reload
 
+# Check that the early setup is actually skipped on reexec.
+# If the early setup is done more than once, then several timestamps,
+# e.g. SecurityStartTimestamp, are re-initialized, and causes an ABRT
+# of systemd-analyze blame. See issue #27187.
+systemd-analyze blame
+
 echo OK >/testok
