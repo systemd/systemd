@@ -398,7 +398,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         }
 
         if (flags & CHASE_PARENT) {
-                r = fd_verify_directory(fd);
+                r = stat_verify_directory(&st);
                 if (r < 0)
                         return r;
         }
