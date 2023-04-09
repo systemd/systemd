@@ -3357,21 +3357,21 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int networkctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "list",        VERB_ANY, VERB_ANY, VERB_DEFAULT, list_links          },
-                { "status",      VERB_ANY, VERB_ANY, 0,            link_status         },
-                { "lldp",        VERB_ANY, VERB_ANY, 0,            link_lldp_status    },
-                { "label",       1,        1,        0,            list_address_labels },
-                { "delete",      2,        VERB_ANY, 0,            link_delete         },
-                { "up",          2,        VERB_ANY, 0,            link_up_down        },
-                { "down",        2,        VERB_ANY, 0,            link_up_down        },
-                { "renew",       2,        VERB_ANY, 0,            link_renew          },
-                { "forcerenew",  2,        VERB_ANY, 0,            link_force_renew    },
-                { "reconfigure", 2,        VERB_ANY, 0,            verb_reconfigure    },
-                { "reload",      1,        1,        0,            verb_reload         },
-                { "edit",        2,        VERB_ANY, 0,            verb_edit           },
-                { "cat",         2,        VERB_ANY, 0,            verb_cat            },
-                { "edit-link",   2,        2,        0,            verb_edit_link      },
-                { "cat-link",    2,        2,        0,            verb_cat_link       },
+                { "list",        VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY, list_links          },
+                { "status",      VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              link_status         },
+                { "lldp",        VERB_ANY, VERB_ANY, 0,                             link_lldp_status    },
+                { "label",       1,        1,        0,                             list_address_labels },
+                { "delete",      2,        VERB_ANY, 0,                             link_delete         },
+                { "up",          2,        VERB_ANY, 0,                             link_up_down        },
+                { "down",        2,        VERB_ANY, 0,                             link_up_down        },
+                { "renew",       2,        VERB_ANY, VERB_ONLINE_ONLY,              link_renew          },
+                { "forcerenew",  2,        VERB_ANY, VERB_ONLINE_ONLY,              link_force_renew    },
+                { "reconfigure", 2,        VERB_ANY, VERB_ONLINE_ONLY,              verb_reconfigure    },
+                { "reload",      1,        1,        VERB_ONLINE_ONLY,              verb_reload         },
+                { "edit",        2,        VERB_ANY, 0,                             verb_edit           },
+                { "cat",         2,        VERB_ANY, 0,                             verb_cat            },
+                { "edit-link",   2,        2,        VERB_ONLINE_ONLY,              verb_edit_link      },
+                { "cat-link",    2,        2,        VERB_ONLINE_ONLY,              verb_cat_link       },
                 {}
         };
 
