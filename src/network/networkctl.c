@@ -3109,6 +3109,112 @@ static int verb_cat(int argc, char *argv[], void *userdata) {
         return r;
 }
 
+static int get_config_files_by_link(
+                sd_bus *bus,
+                const char *link,
+                char **ret_path,
+                char ***ret_dropins) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_strv_free_ char **dropins = NULL;
+        _cleanup_free_ char *path = NULL;
+        int r, ifindex;
+
+        assert(bus);
+        assert(link);
+        assert(ret_path);
+
+        r = bus_call_method(bus, bus_network_mgr, "GetLinkByName", &error, &reply, "s", link);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get link '%s': %s", link, bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "is", &ifindex, NULL);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_network_link_get_network_file(ifindex, &path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get network config file for link '%s': %m", link);
+
+        r = sd_network_link_get_network_file_dropins(ifindex, &dropins);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get network config drop-ins for link '%s': %m", link);
+
+        *ret_path = TAKE_PTR(path);
+        *ret_dropins = TAKE_PTR(dropins);
+        return 0;
+}
+
+static int verb_edit_link(int argc, char *argv[], void *userdata) {
+        _cleanup_(edit_file_context_done) EditFileContext context = {
+                .marker_start = DROPIN_MARKER_START,
+                .marker_end = DROPIN_MARKER_END,
+                .remove_parent = !!arg_drop_in,
+        };
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_strv_free_ char **dropins = NULL;
+        _cleanup_free_ char *drop_in = NULL, *path = NULL;
+        int r;
+
+        if (!on_tty())
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit network config files if not on a tty.");
+
+        if (!networkd_is_running())
+                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Cannot edit link if systemd-networkd is not running.");
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        r = mac_selinux_init();
+        if (r < 0)
+                return r;
+
+        r = get_arg_drop_in(&drop_in);
+        if (r < 0)
+                return r;
+
+        r = get_config_files_by_link(bus, argv[1], &path, &dropins);
+        if (r < 0)
+                return r;
+
+        r = add_config_to_edit(&context, path, drop_in, dropins);
+        if (r < 0)
+                return r;
+
+        r = do_edit_files_and_install(&context);
+        if (r < 0)
+                return r;
+
+        if (!arg_no_reload)
+                return verb_reload(0, NULL, userdata);
+
+        return 0;
+}
+
+static int verb_cat_link(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_strv_free_ char **dropins = NULL;
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        if (!networkd_is_running())
+                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Cannot cat link if systemd-networkd is not running.");
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        r = get_config_files_by_link(bus, argv[1], &path, &dropins);
+        if (r < 0)
+                return r;
+
+        pager_open(arg_pager_flags);
+
+        return cat_files(path, dropins, /* flags = */ 0);
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -3133,6 +3239,8 @@ static int help(void) {
                "  reload                 Reload .network and .netdev files\n"
                "  edit                   Edit network configuration files\n"
                "  cat                    Show network configuration files\n"
+               "  edit-link              Edit network configuration files for the given link\n"
+               "  cat-link               Show network configuration files for the given link\n"
                "\nOptions:\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
@@ -3262,6 +3370,8 @@ static int networkctl_main(int argc, char *argv[]) {
                 { "reload",      1,        1,        0,            verb_reload         },
                 { "edit",        2,        VERB_ANY, 0,            verb_edit           },
                 { "cat",         2,        VERB_ANY, 0,            verb_cat            },
+                { "edit-link",   2,        2,        0,            verb_edit_link      },
+                { "cat-link",    2,        2,        0,            verb_cat_link       },
                 {}
         };
 
