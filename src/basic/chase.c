@@ -176,7 +176,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
 
                 /* Shortcut the ret_fd case if the caller isn't interested in the actual path and has no root
                  * set and doesn't care about any of the other special features we provide either. */
-                r = openat(dir_fd, buffer ?: path, O_PATH|O_CLOEXEC|((flags & CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
+                r = openat(dir_fd, path, O_PATH|O_CLOEXEC|((flags & CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
                 if (r < 0)
                         return -errno;
 
@@ -184,11 +184,9 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 return 0;
         }
 
-        if (!buffer) {
-                buffer = strdup(path);
-                if (!buffer)
-                        return -ENOMEM;
-        }
+        buffer = strdup(path);
+        if (!buffer)
+                return -ENOMEM;
 
         /* If we receive an absolute path together with AT_FDCWD, we need to return an absolute path, because
          * a relative path would be interpreted relative to the current working directory. */
