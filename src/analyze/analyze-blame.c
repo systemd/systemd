@@ -16,7 +16,7 @@ int verb_blame(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_connect_error(r, arg_transport);
 
-        n = acquire_time_data(bus, &times);
+        n = acquire_time_data(bus, /* require_finished = */ false, &times);
         if (n <= 0)
                 return n;
 
