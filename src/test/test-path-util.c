@@ -494,6 +494,45 @@ TEST(fsck_exists) {
         assert_se(fsck_exists_for_fstype("/../bin/") == 0);
 }
 
+TEST(path_prefix_root_cwd) {
+        _cleanup_free_ char *cwd = NULL, *ret = NULL, *expected = NULL;
+
+        assert_se(safe_getcwd(&cwd) >= 0);
+
+        assert_se(path_prefix_root_cwd("hoge", NULL, &ret) >= 0);
+        assert_se(expected = path_join(cwd, "hoge"));
+        assert_se(streq(ret, expected));
+
+        ret = mfree(ret);
+        expected = mfree(expected);
+
+        assert_se(path_prefix_root_cwd("/hoge", NULL, &ret) >= 0);
+        assert_se(streq(ret, "/hoge"));
+
+        ret = mfree(ret);
+
+        assert_se(path_prefix_root_cwd("hoge", "/a/b//./c///", &ret) >= 0);
+        assert_se(streq(ret, "/a/b/c/hoge"));
+
+        ret = mfree(ret);
+
+        assert_se(path_prefix_root_cwd("hoge", "a/b//./c///", &ret) >= 0);
+        assert_se(expected = path_join(cwd, "/a/b/c/hoge"));
+        assert_se(streq(ret, expected));
+
+        ret = mfree(ret);
+        expected = mfree(expected);
+
+        assert_se(path_prefix_root_cwd("/../hoge/aaa/../././b", "/a/b//./c///", &ret) >= 0);
+        assert_se(streq(ret, "/a/b/c/../hoge/aaa/../././b"));
+
+        ret = mfree(ret);
+
+        assert_se(path_prefix_root_cwd("/../hoge/aaa/../././b", "a/b//./c///", &ret) >= 0);
+        assert_se(expected = path_join(cwd, "/a/b/c/../hoge/aaa/../././b"));
+        assert_se(streq(ret, expected));
+}
+
 static void test_path_make_relative_one(const char *from, const char *to, const char *expected) {
         _cleanup_free_ char *z = NULL;
         int r;
