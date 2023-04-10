@@ -2501,7 +2501,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       condition is a trigger condition, whether the condition is reversed, the right hand side of the
       condition (e.g. the path in case of <varname>ConditionPathExists</varname>), and the status. The status
       can be 0, in which case the condition hasn't been checked yet, a positive value, in which case the
-      condition passed, or a negative value, in which case the condition failed. Currently only 0, +1, and -1
+      condition passed, or a negative value, in which case the condition is not met. Currently only 0, +1, and -1
       are used, but additional values may be used in the future, retaining the meaning of
       zero/positive/negative values.</para>
 
