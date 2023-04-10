@@ -901,6 +901,8 @@ static const char *skip_slash_or_dot_backward(const char *path, const char *q) {
                         continue;
                 if (q > path && strneq(q - 1, "/.", 2))
                         continue;
+                if (q == path && *q == '.')
+                        continue;
                 break;
         }
         return q;
@@ -924,6 +926,12 @@ int path_find_last_component(const char *path, bool accept_dot_dot, const char *
         *   Output: next: "///bbbbb/cc//././"
         *           ret: "bbbbb/cc//././"
         *           return value: 5 (== strlen("bbbbb"))
+        *
+        *   Input:  path: "//.//aaa///bbbbb/cc//././"
+        *           next: "///bbbbb/cc//././"
+        *   Output: next: "//.//aaa///bbbbb/cc//././" (next == path)
+        *           ret: "aaa///bbbbb/cc//././"
+        *           return value: 3 (== strlen("aaa"))
         *
         *   Input:  path: "/", ".", "", or NULL
         *   Output: next: equivalent to path
