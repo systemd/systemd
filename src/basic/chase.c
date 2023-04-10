@@ -262,10 +262,16 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         if (fstat(fd_parent, &st_parent) < 0)
                                 return -errno;
 
-                        /* If we opened the same directory, that means we're at the host root directory, so
+                        /* If we opened the same directory, that _may_ indicate that we're at the host root
+                         * directory. Let's confirm that in more detail with dir_fd_is_root(). And if so,
                          * going up won't change anything. */
-                        if (stat_inode_same(&st_parent, &st))
-                                continue;
+                        if (stat_inode_same(&st_parent, &st)) {
+                                r = dir_fd_is_root(fd);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0)
+                                        continue;
+                        }
 
                         r = path_extract_directory(done, &parent);
                         if (r >= 0 || r == -EDESTADDRREQ)
