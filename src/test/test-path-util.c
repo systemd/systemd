@@ -676,9 +676,10 @@ static void test_path_find_first_component_one(
                 r = path_find_first_component(&p, accept_dot_dot, &e);
                 if (r <= 0) {
                         if (r == 0) {
-                                if (path)
+                                if (path) {
                                         assert_se(p == path + strlen_ptr(path));
-                                else
+                                        assert_se(isempty(p));
+                                } else
                                         assert_se(!p);
                                 assert_se(!e);
                         }
@@ -691,6 +692,15 @@ static void test_path_find_first_component_one(
                 assert_se(strcspn(e, "/") == (size_t) r);
                 assert_se(strlen_ptr(*expected) == (size_t) r);
                 assert_se(strneq(e, *expected++, r));
+
+                assert_se(p);
+                log_debug("p=%s", p);
+                if (!isempty(*expected))
+                        assert_se(startswith(p, *expected));
+                else if (ret >= 0) {
+                        assert_se(p == path + strlen_ptr(path));
+                        assert_se(isempty(p));
+                }
         }
 }
 
@@ -712,7 +722,7 @@ TEST(path_find_first_component) {
         test_path_find_first_component_one("././//.///aa/bbb//./ccc", false, STRV_MAKE("aa", "bbb", "ccc"), 0);
         test_path_find_first_component_one("././//.///aa/.../../bbb//./ccc/.", false, STRV_MAKE("aa", "..."), -EINVAL);
         test_path_find_first_component_one("//./aaa///.//./.bbb/..///c.//d.dd///..eeee/.", false, STRV_MAKE("aaa", ".bbb"), -EINVAL);
-        test_path_find_first_component_one("a/foo./b", false, STRV_MAKE("a", "foo.", "b"), 0);
+        test_path_find_first_component_one("a/foo./b//././/", false, STRV_MAKE("a", "foo.", "b"), 0);
 
         test_path_find_first_component_one(NULL, true, NULL, 0);
         test_path_find_first_component_one("", true, NULL, 0);
@@ -728,7 +738,7 @@ TEST(path_find_first_component) {
         test_path_find_first_component_one("././//.///aa/bbb//./ccc", true, STRV_MAKE("aa", "bbb", "ccc"), 0);
         test_path_find_first_component_one("././//.///aa/.../../bbb//./ccc/.", true, STRV_MAKE("aa", "...", "..", "bbb", "ccc"), 0);
         test_path_find_first_component_one("//./aaa///.//./.bbb/..///c.//d.dd///..eeee/.", true, STRV_MAKE("aaa", ".bbb", "..", "c.", "d.dd", "..eeee"), 0);
-        test_path_find_first_component_one("a/foo./b", true, STRV_MAKE("a", "foo.", "b"), 0);
+        test_path_find_first_component_one("a/foo./b//././/", true, STRV_MAKE("a", "foo.", "b"), 0);
 
         memset(foo, 'a', sizeof(foo) -1);
         char_array_0(foo);
@@ -770,6 +780,15 @@ static void test_path_find_last_component_one(
                 assert_se(strcspn(e, "/") == (size_t) r);
                 assert_se(strlen_ptr(*expected) == (size_t) r);
                 assert_se(strneq(e, *expected++, r));
+
+                assert_se(next);
+                log_debug("path=%s\nnext=%s", path, next);
+                if (!isempty(*expected)) {
+                        assert_se(next < path + strlen(path));
+                        assert_se(next >= path + strlen(*expected));
+                        assert_se(startswith(next - strlen(*expected), *expected));
+                } else if (ret >= 0)
+                        assert_se(next == path);
         }
 }
 
