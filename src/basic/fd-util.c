@@ -903,6 +903,14 @@ int dir_fd_is_root(int dir_fd) {
         if (r < 0)
                 return r;
 
+        r = statx_fallback(dir_fd, "..", 0, STATX_TYPE|STATX_INO|STATX_MNT_ID, &pst.sx);
+        if (r < 0)
+                return r;
+
+        /* First, compare inode. If these are different, the fd does not point to the root directory "/". */
+        if (!statx_inode_same(&st.sx, &pst.sx))
+                return false;
+
         if (!FLAGS_SET(st.nsx.stx_mask, STATX_MNT_ID)) {
                 int mntid;
 
@@ -914,10 +922,6 @@ int dir_fd_is_root(int dir_fd) {
                 st.nsx.stx_mnt_id = mntid;
                 st.nsx.stx_mask |= STATX_MNT_ID;
         }
-
-        r = statx_fallback(dir_fd, "..", 0, STATX_TYPE|STATX_INO|STATX_MNT_ID, &pst.sx);
-        if (r < 0)
-                return r;
 
         if (!FLAGS_SET(pst.nsx.stx_mask, STATX_MNT_ID)) {
                 int mntid;
@@ -931,14 +935,14 @@ int dir_fd_is_root(int dir_fd) {
                 pst.nsx.stx_mask |= STATX_MNT_ID;
         }
 
-        /* If the parent directory is the same inode, the fd points to the root directory "/". We also check
-         * that the mount ids are the same. Otherwise, a construct like the following could be used to trick
-         * us:
+        /* Even if the parent directory has the same inode, the fd may not point to the root directory "/",
+         * and we also need to check that the mount ids are the same. Otherwise, a construct like the
+         * following could be used to trick us:
          *
          * $ mkdir /tmp/x /tmp/x/y
          * $ mount --bind /tmp/x /tmp/x/y
          */
-        return statx_inode_same(&st.sx, &pst.sx) && statx_mount_same(&st.nsx, &pst.nsx);
+        return statx_mount_same(&st.nsx, &pst.nsx);
 }
 
 const char *accmode_to_string(int flags) {
