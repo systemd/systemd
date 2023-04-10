@@ -17,7 +17,16 @@ static void subtract_timestamp(usec_t *a, usec_t b) {
         }
 }
 
-int acquire_boot_times(sd_bus *bus, BootTimes **ret) {
+static int log_not_finished(usec_t finish_time) {
+        return log_error_errno(SYNTHETIC_ERRNO(EINPROGRESS),
+                               "Bootup is not yet finished (org.freedesktop.systemd1.Manager.FinishTimestampMonotonic=%"PRIu64").\n"
+                               "Please try again later.\n"
+                               "Hint: Use 'systemctl%s list-jobs' to see active jobs",
+                               finish_time,
+                               arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? "" : " --user");
+}
+
+int acquire_boot_times(sd_bus *bus, bool require_finished, BootTimes **ret) {
         static const struct bus_properties_map property_map[] = {
                 { "FirmwareTimestampMonotonic",               "t", NULL, offsetof(BootTimes, firmware_time)                 },
                 { "LoaderTimestampMonotonic",                 "t", NULL, offsetof(BootTimes, loader_time)                   },
@@ -44,8 +53,14 @@ int acquire_boot_times(sd_bus *bus, BootTimes **ret) {
         static bool cached = false;
         int r;
 
-        if (cached)
-                goto finish;
+        if (cached) {
+                if (require_finished && times.finish_time <= 0)
+                        return log_not_finished(times.finish_time);
+
+                if (ret)
+                        *ret = &times;
+                return 0;
+        }
 
         assert_cc(sizeof(usec_t) == sizeof(uint64_t));
 
@@ -61,13 +76,8 @@ int acquire_boot_times(sd_bus *bus, BootTimes **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get timestamp properties: %s", bus_error_message(&error, r));
 
-        if (times.finish_time <= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINPROGRESS),
-                                       "Bootup is not yet finished (org.freedesktop.systemd1.Manager.FinishTimestampMonotonic=%"PRIu64").\n"
-                                       "Please try again later.\n"
-                                       "Hint: Use 'systemctl%s list-jobs' to see active jobs",
-                                       times.finish_time,
-                                       arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? "" : " --user");
+        if (require_finished && times.finish_time <= 0)
+                return log_not_finished(times.finish_time);
 
         if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM && times.security_start_time > 0) {
                 /* security_start_time is set when systemd is not running under container environment. */
@@ -85,7 +95,8 @@ int acquire_boot_times(sd_bus *bus, BootTimes **ret) {
                 times.firmware_time = times.loader_time = times.kernel_time = times.initrd_time =
                         times.userspace_time = times.security_start_time = times.security_finish_time = 0;
 
-                subtract_timestamp(&times.finish_time, times.reverse_offset);
+                if (times.finish_time > 0)
+                        subtract_timestamp(&times.finish_time, times.reverse_offset);
 
                 subtract_timestamp(&times.generators_start_time, times.reverse_offset);
                 subtract_timestamp(&times.generators_finish_time, times.reverse_offset);
@@ -96,8 +107,8 @@ int acquire_boot_times(sd_bus *bus, BootTimes **ret) {
 
         cached = true;
 
-finish:
-        *ret = &times;
+        if (ret)
+                *ret = &times;
         return 0;
 }
 
@@ -132,7 +143,7 @@ int pretty_boot_time(sd_bus *bus, char **ret) {
         BootTimes *t;
         int r;
 
-        r = acquire_boot_times(bus, &t);
+        r = acquire_boot_times(bus, /* require_finished = */ true, &t);
         if (r < 0)
                 return r;
 
@@ -214,7 +225,7 @@ UnitTimes* unit_times_free_array(UnitTimes *t) {
         return mfree(t);
 }
 
-int acquire_time_data(sd_bus *bus, UnitTimes **out) {
+int acquire_time_data(sd_bus *bus, bool require_finished, UnitTimes **out) {
         static const struct bus_properties_map property_map[] = {
                 { "InactiveExitTimestampMonotonic",  "t", NULL, offsetof(UnitTimes, activating)   },
                 { "ActiveEnterTimestampMonotonic",   "t", NULL, offsetof(UnitTimes, activated)    },
@@ -225,12 +236,12 @@ int acquire_time_data(sd_bus *bus, UnitTimes **out) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(unit_times_free_arrayp) UnitTimes *unit_times = NULL;
-        BootTimes *boot_times = NULL;
+        BootTimes *boot_times;
         size_t c = 0;
         UnitInfo u;
         int r;
 
-        r = acquire_boot_times(bus, &boot_times);
+        r = acquire_boot_times(bus, require_finished, &boot_times);
         if (r < 0)
                 return r;
 
