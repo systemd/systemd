@@ -168,10 +168,22 @@ void hexdump(const char16_t *prefix, const void *data, size_t size);
 #  define notify_debugger(i, w)
 #endif
 
+/* On x86 the compiler assumes a different incoming stack alignment than what we get.
+ * This will cause long long variables to be misaligned when building with
+ * '-mlong-double' (for correct struct layouts). Normally, the compiler realigns the
+ * stack itself on entry, but we have to do this ourselves here as the compiler does
+ * not know that this is our entry point. */
+#ifdef __i386__
+#  define _realign_stack_ __attribute__((force_align_arg_pointer))
+#else
+#  define _realign_stack_
+#endif
+
 #define DEFINE_EFI_MAIN_FUNCTION(func, identity, wait_for_debugger)                    \
         EFI_SYSTEM_TABLE *ST;                                                          \
         EFI_BOOT_SERVICES *BS;                                                         \
         EFI_RUNTIME_SERVICES *RT;                                                      \
+        _realign_stack_                                                                \
         EFIAPI EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *system_table);  \
         EFIAPI EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *system_table) { \
                 ST = system_table;                                                     \

@@ -213,15 +213,16 @@ efi_c_args_alt = [efi_c_args, '-DEFI_MACHINE_TYPE_NAME="' + efi_arch_alt + '"']
 efi_c_ld_args_primary = efi_c_ld_args
 efi_c_ld_args_alt = efi_c_ld_args
 
-efi_c_args_primary += {
+efi_arch_c_args = {
         'aarch64' : ['-mgeneral-regs-only'],
         'arm'     : ['-mgeneral-regs-only'],
         'x86_64'  : ['-march=x86-64', '-mno-red-zone', '-mgeneral-regs-only'],
-        'x86'     : ['-march=i686', '-mgeneral-regs-only'],
-}.get(host_machine.cpu_family(), [])
+        'x86'     : ['-march=i686', '-mgeneral-regs-only', '-malign-double'],
+}
+efi_c_args_primary += efi_arch_c_args.get(host_machine.cpu_family(), [])
 
 if efi_arch_alt == 'ia32'
-        efi_c_args_alt += ['-m32', '-march=i686', '-mgeneral-regs-only']
+        efi_c_args_alt += ['-m32', efi_arch_c_args['x86']]
         efi_c_ld_args_alt += '-m32'
 endif
 
