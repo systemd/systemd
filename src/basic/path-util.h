@@ -60,6 +60,7 @@ int path_split_and_make_absolute(const char *p, char ***ret);
 char* path_make_absolute(const char *p, const char *prefix);
 int safe_getcwd(char **ret);
 int path_make_absolute_cwd(const char *p, char **ret);
+int path_prefix_root_cwd(const char *p, const char *root, char **ret);
 int path_make_relative(const char *from, const char *to, char **ret);
 int path_make_relative_parent(const char *from_child, const char *to, char **ret);
 char *path_startswith_full(const char *path, const char *prefix, bool accept_dot_dot) _pure_;

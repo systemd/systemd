@@ -45,8 +45,7 @@ All tools:
 
 * `$SYSTEMD_OS_RELEASE` — if set, use this path instead of `/etc/os-release` or
   `/usr/lib/os-release`. When operating under some root (e.g. `systemctl
-  --root=…`), the path is taken relative to the outside root. Only useful for
-  debugging.
+  --root=…`), the path is prefixed with the root. Only useful for debugging.
 
 * `$SYSTEMD_FSTAB` — if set, use this path instead of `/etc/fstab`. Only useful
   for debugging.
