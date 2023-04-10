@@ -540,11 +540,9 @@ int find_esp_and_warn(
                 return r;
 
         if (ret_path) {
-                char *q = path_join(empty_to_root(root), p);
-                if (!q)
-                        return -ENOMEM;
-
-                *ret_path = TAKE_PTR(q);
+                r = path_prefix_root_cwd(p, root, ret_path);
+                if (r < 0)
+                        return r;
         }
         if (ret_part)
                 *ret_part = part;
@@ -861,11 +859,9 @@ int find_xbootldr_and_warn(
                 return r;
 
         if (ret_path) {
-                char *q = path_join(empty_to_root(root), p);
-                if (!q)
-                        return -ENOMEM;
-
-                *ret_path = TAKE_PTR(q);
+                r = path_prefix_root_cwd(p, root, ret_path);
+                if (r < 0)
+                        return r;
         }
         if (ret_uuid)
                 *ret_uuid = uuid;
