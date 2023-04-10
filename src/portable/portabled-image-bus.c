@@ -83,9 +83,9 @@ static int append_fd(sd_bus_message *m, PortableMetadata *d) {
         if (d) {
                 assert(d->fd >= 0);
 
-                f = take_fdopen(&d->fd, "r");
-                if (!f)
-                        return -errno;
+                r = fdopen_independent(d->fd, "r", &f);
+                if (r < 0)
+                        return r;
 
                 r = read_full_stream(f, &buf, &n);
                 if (r < 0)
