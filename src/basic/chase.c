@@ -493,18 +493,19 @@ int chase(const char *path, const char *original_root, ChaseFlags flags, char **
                         return r;
 
                 /* Simplify the root directory, so that it has no duplicate slashes and nothing at the
-                 * end. While we won't resolve the root path we still simplify it. Note that dropping the
-                 * trailing slash should not change behaviour, since when opening it we specify O_DIRECTORY
-                 * anyway. Moreover at the end of this function after processing everything we'll always turn
-                 * the empty string back to "/". */
-                delete_trailing_chars(root, "/");
+                 * end. While we won't resolve the root path we still simplify it. */
                 path_simplify(root);
+
+                assert(path_is_absolute(root));
+                assert(!empty_or_root(root));
 
                 if (flags & CHASE_PREFIX_ROOT) {
                         absolute = path_join(root, path);
                         if (!absolute)
                                 return -ENOMEM;
                 }
+
+                flags |= CHASE_AT_RESOLVE_IN_ROOT;
         }
 
         if (!absolute) {
@@ -523,9 +524,6 @@ int chase(const char *path, const char *original_root, ChaseFlags flags, char **
         fd = open(empty_to_root(root), O_CLOEXEC|O_DIRECTORY|O_PATH);
         if (fd < 0)
                 return -errno;
-
-        if (!empty_or_root(root))
-                flags |= CHASE_AT_RESOLVE_IN_ROOT;
 
         r = chaseat(fd, path, flags & ~CHASE_PREFIX_ROOT, ret_path ? &p : NULL, ret_fd ? &pfd : NULL);
         if (r < 0)
