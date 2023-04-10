@@ -264,7 +264,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
 
                         /* If we opened the same directory, that means we're at the host root directory, so
                          * going up won't change anything. */
-                        if (st_parent.st_dev == st.st_dev && st_parent.st_ino == st.st_ino)
+                        if (stat_inode_same(&st_parent, &st))
                                 continue;
 
                         r = path_extract_directory(done, &parent);
