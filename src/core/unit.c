@@ -1890,12 +1890,12 @@ int unit_start(Unit *u, ActivationDetails *details) {
         if (UNIT_VTABLE(u)->once_only && dual_timestamp_is_set(&u->inactive_enter_timestamp))
                 return -ESTALE;
 
-        /* If the conditions failed, don't do anything at all. If we already are activating this call might
+        /* If the conditions were unmet, don't do anything at all. If we already are activating this call might
          * still be useful to speed up activation in case there is some hold-off time, but we don't want to
          * recheck the condition in that case. */
         if (state != UNIT_ACTIVATING &&
             !unit_test_condition(u))
-                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(ECOMM), "Starting requested but condition failed. Not starting unit.");
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(ECOMM), "Starting requested but condition not met. Not starting unit.");
 
         /* If the asserts failed, fail the entire job */
         if (state != UNIT_ACTIVATING &&

@@ -516,7 +516,7 @@ static void print_status_info(
         if (!i->condition_result && i->condition_timestamp > 0) {
                 int n = 0;
 
-                printf("  Condition: start %scondition failed%s at %s; %s\n",
+                printf("  Condition: start %scondition unmet%s at %s; %s\n",
                        ansi_highlight_yellow(), ansi_normal(),
                        FORMAT_TIMESTAMP_STYLE(i->condition_timestamp, arg_timestamp_style),
                        FORMAT_TIMESTAMP_RELATIVE(i->condition_timestamp));
