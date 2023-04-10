@@ -100,6 +100,34 @@ int path_make_absolute_cwd(const char *p, char **ret) {
         return 0;
 }
 
+int path_prefix_root_cwd(const char *p, const char *root, char **ret) {
+        _cleanup_free_ char *root_abs = NULL;
+        char *c;
+        int r;
+
+        assert(p);
+        assert(ret);
+
+        /* Unlike path_make_absolute(), this always prefixes root path if specified.
+         * The root path is always simplified, but the provided path will not.
+         * This is useful for prefixing the result of chaseat(). */
+
+        if (empty_or_root(root))
+                return path_make_absolute_cwd(p, ret);
+
+        r = path_make_absolute_cwd(root, &root_abs);
+        if (r < 0)
+                return r;
+
+        path_simplify(root_abs);
+        c = path_join(root_abs, p);
+        if (!c)
+                return -ENOMEM;
+
+        *ret = c;
+        return 0;
+}
+
 int path_make_relative(const char *from, const char *to, char **ret) {
         _cleanup_free_ char *result = NULL;
         unsigned n_parents;
