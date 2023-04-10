@@ -8,12 +8,12 @@
 #include "string-util.h"
 #include "utf8.h"
 
-int allow_listed_char_for_devnode(char c, const char *white) {
+int allow_listed_char_for_devnode(char c, const char *additional) {
         return
                 ascii_isdigit(c) ||
                 ascii_isalpha(c) ||
                 strchr("#+-.:=@_", c) ||
-                (white && strchr(white, c));
+                (additional && strchr(additional, c));
 }
 
 int encode_devnode_name(const char *str, char *str_enc, size_t len) {
