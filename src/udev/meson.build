@@ -116,6 +116,7 @@ udev_progs = [['ata_id/ata_id.c'],
               ['cdrom_id/cdrom_id.c'],
               ['fido_id/fido_id.c',
                'fido_id/fido_id_desc.c'],
+              ['iocost/iocost.c'],
               ['scsi_id/scsi_id.c',
                'scsi_id/scsi_serial.c'],
               ['v4l_id/v4l_id.c'],
@@ -148,6 +149,8 @@ endforeach
 
 if install_sysconfdir_samples
         install_data('udev.conf',
+                     install_dir : sysconfdir / 'udev')
+        install_data('iocost/iocost.conf',
                      install_dir : sysconfdir / 'udev')
 endif
 
