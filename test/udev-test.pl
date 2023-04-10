@@ -2148,7 +2148,7 @@ TAGS=="aaa", SYMLINK+="bad"
                     EOF
         },
         {
-                desc            => "continuations with white only line",
+                desc            => "continuations with space only line",
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
