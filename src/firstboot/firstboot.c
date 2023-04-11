@@ -98,11 +98,13 @@ static bool press_any_key(void) {
         return k != 'q';
 }
 
-static void print_welcome(void) {
+static void print_welcome(int rfd) {
         _cleanup_free_ char *pretty_name = NULL, *os_name = NULL, *ansi_color = NULL;
         static bool done = false;
         const char *pn, *ac;
         int r;
+
+        assert(rfd >= 0);
 
         if (!arg_welcome)
                 return;
@@ -110,11 +112,10 @@ static void print_welcome(void) {
         if (done)
                 return;
 
-        r = parse_os_release(
-                        arg_root,
-                        "PRETTY_NAME", &pretty_name,
-                        "NAME", &os_name,
-                        "ANSI_COLOR", &ansi_color);
+        r = parse_os_release_at(rfd,
+                                "PRETTY_NAME", &pretty_name,
+                                "NAME", &os_name,
+                                "ANSI_COLOR", &ansi_color);
         if (r < 0)
                 log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to read os-release file, ignoring: %m");
@@ -244,18 +245,22 @@ static int should_configure(int dir_fd, const char *filename) {
         return arg_force; /* exists, but if --force was given we should still configure the file. */
 }
 
-static bool locale_is_ok(const char *name) {
-
-        if (arg_root)
-                return locale_is_valid(name);
-
+static bool locale_is_installed_bool(const char *name) {
         return locale_is_installed(name) > 0;
 }
 
-static int prompt_locale(void) {
+static bool locale_is_ok(int rfd, const char *name) {
+        assert(rfd >= 0);
+
+        return dir_fd_is_root(rfd) ? locale_is_installed_bool(name) : locale_is_valid(name);
+}
+
+static int prompt_locale(int rfd) {
         _cleanup_strv_free_ char **locales = NULL;
         bool acquired_from_creds = false;
         int r;
+
+        assert(rfd >= 0);
 
         if (arg_locale || arg_locale_messages)
                 return 0;
@@ -302,10 +307,13 @@ static int prompt_locale(void) {
                         /* Not setting arg_locale_message here, since it defaults to LANG anyway */
                 }
         } else {
-                print_welcome();
+                bool (*is_valid)(const char *name) = dir_fd_is_root(rfd) ? locale_is_installed_bool
+                                                                         : locale_is_valid;
+
+                print_welcome(rfd);
 
                 r = prompt_loop("Please enter system locale name or number",
-                                locales, 60, locale_is_ok, &arg_locale);
+                                locales, 60, is_valid, &arg_locale);
                 if (r < 0)
                         return r;
 
@@ -313,7 +321,7 @@ static int prompt_locale(void) {
                         return 0;
 
                 r = prompt_loop("Please enter system message locale name or number",
-                                locales, 60, locale_is_ok, &arg_locale_messages);
+                                locales, 60, is_valid, &arg_locale_messages);
                 if (r < 0)
                         return r;
 
@@ -361,7 +369,7 @@ static int process_locale(int rfd) {
                 }
         }
 
-        r = prompt_locale();
+        r = prompt_locale(rfd);
         if (r < 0)
                 return r;
 
@@ -383,9 +391,11 @@ static int process_locale(int rfd) {
         return 0;
 }
 
-static int prompt_keymap(void) {
+static int prompt_keymap(int rfd) {
         _cleanup_strv_free_ char **kmaps = NULL;
         int r;
+
+        assert(rfd >= 0);
 
         if (arg_keymap)
                 return 0;
@@ -409,7 +419,7 @@ static int prompt_keymap(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read keymaps: %m");
 
-        print_welcome();
+        print_welcome(rfd);
 
         return prompt_loop("Please enter system keymap name or number",
                            kmaps, 60, keymap_is_valid, &arg_keymap);
@@ -450,7 +460,7 @@ static int process_keymap(int rfd) {
                 }
         }
 
-        r = prompt_keymap();
+        r = prompt_keymap(rfd);
         if (r == -ENOENT)
                 return 0; /* don't fail if no keymaps are installed */
         if (r < 0)
@@ -473,9 +483,11 @@ static bool timezone_is_valid_log_error(const char *name) {
         return timezone_is_valid(name, LOG_ERR);
 }
 
-static int prompt_timezone(void) {
+static int prompt_timezone(int rfd) {
         _cleanup_strv_free_ char **zones = NULL;
         int r;
+
+        assert(rfd >= 0);
 
         if (arg_timezone)
                 return 0;
@@ -497,7 +509,7 @@ static int prompt_timezone(void) {
         if (r < 0)
                 return log_error_errno(r, "Cannot query timezone list: %m");
 
-        print_welcome();
+        print_welcome(rfd);
 
         r = prompt_loop("Please enter timezone name or number",
                         zones, 30, timezone_is_valid_log_error, &arg_timezone);
@@ -548,7 +560,7 @@ static int process_timezone(int rfd) {
                 }
         }
 
-        r = prompt_timezone();
+        r = prompt_timezone(rfd);
         if (r < 0)
                 return r;
 
@@ -565,8 +577,10 @@ static int process_timezone(int rfd) {
         return 0;
 }
 
-static int prompt_hostname(void) {
+static int prompt_hostname(int rfd) {
         int r;
+
+        assert(rfd >= 0);
 
         if (arg_hostname)
                 return 0;
@@ -576,7 +590,7 @@ static int prompt_hostname(void) {
                 return 0;
         }
 
-        print_welcome();
+        print_welcome(rfd);
         putchar('\n');
 
         for (;;) {
@@ -624,7 +638,7 @@ static int process_hostname(int rfd) {
         if (r <= 0)
                 return r;
 
-        r = prompt_hostname();
+        r = prompt_hostname(rfd);
         if (r < 0)
                 return r;
 
@@ -673,9 +687,11 @@ static int process_machine_id(int rfd) {
         return 0;
 }
 
-static int prompt_root_password(void) {
+static int prompt_root_password(int rfd) {
         const char *msg1, *msg2;
         int r;
+
+        assert(rfd >= 0);
 
         if (arg_root_password)
                 return 0;
@@ -688,7 +704,7 @@ static int prompt_root_password(void) {
                 return 0;
         }
 
-        print_welcome();
+        print_welcome(rfd);
         putchar('\n');
 
         msg1 = strjoina(special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), " Please enter a new root password (empty to skip):");
@@ -755,6 +771,8 @@ static int find_shell(int rfd, const char *path) {
 static int prompt_root_shell(int rfd) {
         int r;
 
+        assert(rfd >= 0);
+
         if (arg_root_shell)
                 return 0;
 
@@ -771,7 +789,7 @@ static int prompt_root_shell(int rfd) {
                 return 0;
         }
 
-        print_welcome();
+        print_welcome(rfd);
         putchar('\n');
 
         for (;;) {
@@ -797,7 +815,7 @@ static int prompt_root_shell(int rfd) {
         return 0;
 }
 
-static int write_root_passwd(int etc_fd, const char *password, const char *shell) {
+static int write_root_passwd(int rfd, int etc_fd, const char *password, const char *shell) {
         _cleanup_fclose_ FILE *original = NULL, *passwd = NULL;
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL;
         int r;
@@ -842,7 +860,7 @@ static int write_root_passwd(int etc_fd, const char *password, const char *shell
                         .pw_gid = 0,
                         .pw_gecos = (char *) "Super User",
                         .pw_dir = (char *) "/root",
-                        .pw_shell = (char *) (shell ?: default_root_shell(arg_root)),
+                        .pw_shell = (char *) (shell ?: default_root_shell_at(rfd)),
                 };
 
                 if (errno != ENOENT)
@@ -1023,7 +1041,7 @@ static int process_root_account(int rfd) {
                 arg_root_password_is_hashed = true;
         }
 
-        r = prompt_root_password();
+        r = prompt_root_password(rfd);
         if (r < 0)
                 return r;
 
@@ -1043,7 +1061,7 @@ static int process_root_account(int rfd) {
         else
                 password = hashed_password = PASSWORD_LOCKED_AND_INVALID;
 
-        r = write_root_passwd(pfd, password, arg_root_shell);
+        r = write_root_passwd(rfd, pfd, password, arg_root_shell);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/passwd: %m");
 
@@ -1465,14 +1483,6 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        /* We check if the specified locale strings are valid down here, so that we can take --root= into
-         * account when looking for the locale files. */
-
-        if (arg_locale && !locale_is_ok(arg_locale))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not installed.", arg_locale);
-        if (arg_locale_messages && !locale_is_ok(arg_locale_messages))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not installed.", arg_locale_messages);
-
         if (arg_delete_root_password && (arg_copy_root_password || arg_root_password || arg_prompt_root_password))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--delete-root-password cannot be combined with other root password options");
@@ -1540,6 +1550,14 @@ static int run(int argc, char *argv[]) {
         }
 
         LOG_SET_PREFIX(arg_image ?: arg_root);
+
+        /* We check these conditions here instead of in parse_argv() so that we can take the root directory
+         * into account. */
+
+        if (arg_locale && !locale_is_ok(rfd, arg_locale))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not installed.", arg_locale);
+        if (arg_locale_messages && !locale_is_ok(rfd, arg_locale_messages))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not installed.", arg_locale_messages);
 
         if (arg_root_shell) {
                 r = find_shell(rfd, arg_root_shell);
