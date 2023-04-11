@@ -14,10 +14,20 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 #include "xattr-util.h"
+
+static const char* const image_class_table[_IMAGE_CLASS_MAX] = {
+        [IMAGE_MACHINE]  = "machine",
+        [IMAGE_PORTABLE] = "portable",
+        [IMAGE_SYSEXT]   = "extension",
+        [IMAGE_CONFEXT]  = "confext",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(image_class, ImageClass);
 
 /* Helper struct for naming simplicity and reusability */
 static const struct {
@@ -55,8 +65,6 @@ int path_is_extension_tree(ImageClass image_class, const char *path, const char 
         int r;
 
         assert(path);
-        assert(image_class >= 0);
-        assert(image_class < _IMAGE_CLASS_MAX);
 
         /* Does the path exist at all? If not, generate an error immediately. This is useful so that a missing root dir
          * always results in -ENOENT, and we can properly distinguish the case where the whole root doesn't exist from
@@ -295,22 +303,10 @@ int _parse_os_release(const char *root, ...) {
         int r;
 
         va_start(ap, root);
-        r = parse_release_internal(root, -1, /* relax_extension_release_check= */ false, NULL, ap);
+        r = parse_release_internal(root, _IMAGE_CLASS_INVALID, /* relax_extension_release_check= */ false, NULL, ap);
         va_end(ap);
 
         return r;
-}
-
-int load_os_release_pairs(const char *root, char ***ret) {
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *p = NULL;
-        int r;
-
-        r = fopen_os_release(root, &p, &f);
-        if (r < 0)
-                return r;
-
-        return load_env_file_pairs(f, p, ret);
 }
 
 int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char ***ret) {
@@ -346,9 +342,6 @@ int load_extension_release_pairs(const char *root, ImageClass image_class, const
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
-
-        assert(image_class >= 0);
-        assert(image_class < _IMAGE_CLASS_MAX);
 
         r = fopen_extension_release(root, image_class, extension, relax_extension_release_check, &p, &f);
         if (r < 0)
