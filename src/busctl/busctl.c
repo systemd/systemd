@@ -2307,6 +2307,7 @@ static int help(void) {
                "     --verbose             Show result values in long format\n"
                "     --json=MODE           Output as JSON\n"
                "  -j                       Same as --json=pretty on tty, --json=short otherwise\n"
+               "     --xml-interface       Dump the XML description in introspect command\n"
                "     --expect-reply=BOOL   Expect a method call reply\n"
                "     --auto-start=BOOL     Auto-start destination service\n"
                "     --allow-interactive-authorization=BOOL\n"
