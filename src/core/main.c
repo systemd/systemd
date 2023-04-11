@@ -3105,6 +3105,10 @@ finish:
                 error_message = "Failed to execute shutdown binary";
         }
 
+        /* This is primarily useful when running systemd in a VM, as it provides the user running the VM with
+         * a mechanism to pick up systemd's exit status in the VM. */
+        (void) sd_notifyf(0, "EXIT_STATUS=%i", retval);
+
         watchdog_free_device();
         arg_watchdog_device = mfree(arg_watchdog_device);
 
