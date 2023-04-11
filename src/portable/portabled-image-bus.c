@@ -316,6 +316,8 @@ int bus_image_common_attach(
         assert(message);
         assert(name_or_path || image);
 
+        CLEANUP_ARRAY(changes, n_changes, portable_changes_free);
+
         if (!m) {
                 assert(image);
                 m = image->userdata;
@@ -390,13 +392,9 @@ int bus_image_common_attach(
                         &n_changes,
                         error);
         if (r < 0)
-                goto finish;
+                return r;
 
-        r = reply_portable_changes(message, changes, n_changes);
-
-finish:
-        portable_changes_free(changes, n_changes);
-        return r;
+        return reply_portable_changes(message, changes, n_changes);
 }
 
 static int bus_image_method_attach(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -417,6 +415,8 @@ static int bus_image_method_detach(
         int r;
 
         assert(message);
+
+        CLEANUP_ARRAY(changes, n_changes, portable_changes_free);
 
         if (sd_bus_message_is_method_call(message, NULL, "DetachWithExtensions")) {
                 r = sd_bus_message_read_strv(message, &extension_images);
@@ -470,13 +470,9 @@ static int bus_image_method_detach(
                         &n_changes,
                         error);
         if (r < 0)
-                goto finish;
+                return r;
 
-        r = reply_portable_changes(message, changes, n_changes);
-
-finish:
-        portable_changes_free(changes, n_changes);
-        return r;
+        return reply_portable_changes(message, changes, n_changes);
 }
 
 int bus_image_common_remove(
@@ -648,6 +644,10 @@ int bus_image_common_reattach(
         assert(message);
         assert(name_or_path || image);
 
+        CLEANUP_ARRAY(changes_detached, n_changes_detached, portable_changes_free);
+        CLEANUP_ARRAY(changes_attached, n_changes_attached, portable_changes_free);
+        CLEANUP_ARRAY(changes_gone, n_changes_gone, portable_changes_free);
+
         if (!m) {
                 assert(image);
                 m = image->userdata;
@@ -721,7 +721,7 @@ int bus_image_common_reattach(
                         &n_changes_detached,
                         error);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = portable_attach(
                         sd_bus_message_get_bus(message),
@@ -734,7 +734,7 @@ int bus_image_common_reattach(
                         &n_changes_attached,
                         error);
         if (r < 0)
-                goto finish;
+                return r;
 
         /* We want to return the list of units really removed by the detach,
          * and not added again by the attach */
@@ -742,22 +742,14 @@ int bus_image_common_reattach(
                                        changes_detached, n_changes_detached,
                                        &changes_gone, &n_changes_gone);
         if (r < 0)
-                goto finish;
+                return r;
 
         /* First, return the units that are gone (so that the caller can stop them)
          * Then, return the units that are changed/added (so that the caller can
          * start/restart/enable them) */
-        r = reply_portable_changes_pair(message,
-                                        changes_gone, n_changes_gone,
-                                        changes_attached, n_changes_attached);
-        if (r < 0)
-                goto finish;
-
-finish:
-        portable_changes_free(changes_detached, n_changes_detached);
-        portable_changes_free(changes_attached, n_changes_attached);
-        portable_changes_free(changes_gone, n_changes_gone);
-        return r;
+        return reply_portable_changes_pair(message,
+                                           changes_gone, n_changes_gone,
+                                           changes_attached, n_changes_attached);
 }
 
 static int bus_image_method_reattach(sd_bus_message *message, void *userdata, sd_bus_error *error) {
