@@ -130,7 +130,7 @@ int verb_set_default(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to set default target: %s", bus_error_message(&error, r));
 
-                r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, &changes, &n_changes);
+                r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet);
                 if (r < 0)
                         return r;
 

@@ -1755,14 +1755,10 @@ static int start_machine(int argc, char *argv[], void *userdata) {
 static int enable_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        InstallChange *changes = NULL;
-        size_t n_changes = 0;
         const char *method;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
         bool enable;
-
-        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
@@ -1824,7 +1820,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
                         return bus_log_parse_error(r);
         }
 
-        r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, &changes, &n_changes);
+        r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet);
         if (r < 0)
                 return r;
 
