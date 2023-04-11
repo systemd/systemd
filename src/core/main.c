@@ -3096,6 +3096,12 @@ finish:
         __lsan_do_leak_check();
 #endif
 
+        /* If we're running in a container, we can communicate the exit status normally. When we're running
+         * in a VM, that's not possible so we propagate the exit status via the notify socket instead if one
+         * is configured. */
+        if (detect_container() == 0)
+                (void) sd_notifyf(false, "EXIT_STATUS=%i", retval);
+
         /* Try to invoke the shutdown binary unless we already failed.
          * If we failed above, we want to freeze after finishing cleanup. */
         if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM &&
