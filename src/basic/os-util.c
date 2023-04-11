@@ -122,190 +122,240 @@ static int extension_release_strict_xattr_value(int extension_release_fd, const 
         return false;
 }
 
-int open_extension_release(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, char **ret_path, int *ret_fd) {
-        _cleanup_free_ char *q = NULL;
-        int r, fd;
-
-        if (extension) {
-                assert(image_class >= 0);
-                assert(image_class < _IMAGE_CLASS_MAX);
-
-                const char *extension_full_path;
-
-                if (!image_name_is_valid(extension))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "The extension name %s is invalid.", extension);
-
-                extension_full_path = strjoina(image_class_release_info[image_class].release_file_path_prefix, extension);
-                r = chase(extension_full_path, root, CHASE_PREFIX_ROOT, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
-                log_full_errno_zerook(LOG_DEBUG, MIN(r, 0), "Checking for %s: %m", extension_full_path);
-
-                /* Cannot find the expected extension-release file? The image filename might have been
-                 * mangled on deployment, so fallback to checking for any file in the extension-release.d
-                 * directory, and return the first one with a user.extension-release xattr instead.
-                 * The user.extension-release.strict xattr is checked to ensure the author of the image
-                 * considers it OK if names do not match. */
-                if (r == -ENOENT) {
-                        _cleanup_free_ char *extension_release_dir_path = NULL;
-                        _cleanup_closedir_ DIR *extension_release_dir = NULL;
-
-                        r = chase_and_opendir(image_class_release_info[image_class].release_file_directory, root, CHASE_PREFIX_ROOT,
-                                              &extension_release_dir_path, &extension_release_dir);
-                        if (r < 0)
-                                return log_debug_errno(r, "Cannot open %s%s, ignoring: %m", root, image_class_release_info[image_class].release_file_directory);
-
-                        r = -ENOENT;
-                        FOREACH_DIRENT(de, extension_release_dir, return -errno) {
-                                int k;
-
-                                if (!IN_SET(de->d_type, DT_REG, DT_UNKNOWN))
-                                        continue;
-
-                                const char *image_name = startswith(de->d_name, "extension-release.");
-                                if (!image_name)
-                                        continue;
-
-                                if (!image_name_is_valid(image_name)) {
-                                        log_debug("%s/%s is not a valid release file name, ignoring.",
-                                                  extension_release_dir_path, de->d_name);
-                                        continue;
-                                }
-
-                                /* We already chased the directory, and checked that
-                                 * this is a real file, so we shouldn't fail to open it. */
-                                _cleanup_close_ int extension_release_fd = openat(dirfd(extension_release_dir),
-                                                                                  de->d_name,
-                                                                                  O_PATH|O_CLOEXEC|O_NOFOLLOW);
-                                if (extension_release_fd < 0)
-                                        return log_debug_errno(errno,
-                                                               "Failed to open release file %s/%s: %m",
-                                                               extension_release_dir_path,
-                                                               de->d_name);
-
-                                /* Really ensure it is a regular file after we open it. */
-                                if (fd_verify_regular(extension_release_fd) < 0) {
-                                        log_debug("%s/%s is not a regular file, ignoring.", extension_release_dir_path, de->d_name);
-                                        continue;
-                                }
-
-                                if (!relax_extension_release_check) {
-                                        k = extension_release_strict_xattr_value(extension_release_fd,
-                                                                                 extension_release_dir_path,
-                                                                                 de->d_name);
-                                        if (k != 0)
-                                                continue;
-                                }
-
-                                /* We already found what we were looking for, but there's another candidate?
-                                 * We treat this as an error, as we want to enforce that there are no ambiguities
-                                 * in case we are in the fallback path. */
-                                if (r == 0) {
-                                        r = -ENOTUNIQ;
-                                        break;
-                                }
-
-                                r = 0; /* Found it! */
-
-                                if (ret_fd)
-                                        fd = TAKE_FD(extension_release_fd);
-
-                                if (ret_path) {
-                                        q = path_join(extension_release_dir_path, de->d_name);
-                                        if (!q)
-                                                return -ENOMEM;
-                                }
-                        }
-                }
-        } else {
-                const char *var = secure_getenv("SYSTEMD_OS_RELEASE");
-                if (var)
-                        r = chase(var, root, 0, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
-                else
-                        FOREACH_STRING(path, "/etc/os-release", "/usr/lib/os-release") {
-                                r = chase(path, root, CHASE_PREFIX_ROOT, ret_path ? &q : NULL, ret_fd ? &fd : NULL);
-                                if (r != -ENOENT)
-                                        break;
-                        }
-        }
-        if (r < 0)
-                return r;
-
-        if (ret_fd) {
-                int real_fd;
-
-                /* Convert the O_PATH fd into a proper, readable one */
-                real_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                safe_close(fd);
-                if (real_fd < 0)
-                        return real_fd;
-
-                *ret_fd = real_fd;
-        }
-
-        if (ret_path)
-                *ret_path = TAKE_PTR(q);
-
-        return 0;
-}
-
-int fopen_extension_release(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, char **ret_path, FILE **ret_file) {
-        _cleanup_free_ char *p = NULL;
-        _cleanup_close_ int fd = -EBADF;
-        FILE *f;
+int open_os_release_at(int rfd, char **ret_path, int *ret_fd) {
+        const char *e;
         int r;
 
-        if (!ret_file)
-                return open_extension_release(root, image_class, extension, relax_extension_release_check, ret_path, NULL);
+        assert(rfd >= 0 || rfd == AT_FDCWD);
 
-        r = open_extension_release(root, image_class, extension, relax_extension_release_check, ret_path ? &p : NULL, &fd);
-        if (r < 0)
-                return r;
+        e = secure_getenv("SYSTEMD_OS_RELEASE");
+        if (e)
+                return chaseat(rfd, e, CHASE_AT_RESOLVE_IN_ROOT, ret_path, ret_fd);
 
-        f = take_fdopen(&fd, "r");
-        if (!f)
+        FOREACH_STRING(path, "/etc/os-release", "/usr/lib/os-release") {
+                r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT, ret_path, ret_fd);
+                if (r != -ENOENT)
+                        return r;
+        }
+
+        return -ENOENT;
+}
+
+int open_os_release(const char *root, char **ret_path, int *ret_fd) {
+        _cleanup_close_ int rfd = -EBADF, fd = -EBADF;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        rfd = open(empty_to_root(root), O_CLOEXEC | O_DIRECTORY | O_PATH);
+        if (rfd < 0)
                 return -errno;
 
-        if (ret_path)
-                *ret_path = TAKE_PTR(p);
-        *ret_file = f;
+        r = open_os_release_at(rfd, ret_path ? &p : NULL, ret_fd ? &fd : NULL);
+        if (r < 0)
+                return r;
+
+        if (ret_path) {
+                r = path_prefix_root_cwd(p, root, ret_path);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_fd)
+                *ret_fd = TAKE_FD(fd);
 
         return 0;
 }
 
-static int parse_release_internal(const char *root, ImageClass image_class, bool relax_extension_release_check, const char *extension, va_list ap) {
-        _cleanup_fclose_ FILE *f = NULL;
+int open_extension_release_at(
+                int rfd,
+                ImageClass image_class,
+                const char *extension,
+                bool relax_extension_release_check,
+                char **ret_path,
+                int *ret_fd) {
+
+        _cleanup_free_ char *dir_path = NULL, *path_found = NULL;
+        _cleanup_close_ int fd_found = -EBADF;
+        _cleanup_closedir_ DIR *dir = NULL;
+        bool found = false;
+        const char *p;
+        int r;
+
+        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(!extension || IN_SET(image_class, IMAGE_SYSEXT, IMAGE_CONFEXT));
+
+        if (!extension)
+                return open_os_release_at(rfd, ret_path, ret_fd);
+
+        if (!image_name_is_valid(extension))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "The extension name %s is invalid.", extension);
+
+        p = strjoina(image_class_release_info[image_class].release_file_path_prefix, extension);
+        r = chaseat(rfd, p, CHASE_AT_RESOLVE_IN_ROOT, ret_path, ret_fd);
+        log_full_errno_zerook(LOG_DEBUG, MIN(r, 0), "Checking for %s: %m", p);
+        if (r != -ENOENT)
+                return r;
+
+        /* Cannot find the expected extension-release file? The image filename might have been mangled on
+         * deployment, so fallback to checking for any file in the extension-release.d directory, and return
+         * the first one with a user.extension-release xattr instead. The user.extension-release.strict
+         * xattr is checked to ensure the author of the image considers it OK if names do not match. */
+
+        p = image_class_release_info[image_class].release_file_directory;
+        r = chase_and_opendirat(rfd, p, CHASE_AT_RESOLVE_IN_ROOT, &dir_path, &dir);
+        if (r < 0)
+                return log_debug_errno(r, "Cannot open %s, ignoring: %m", p);
+
+        FOREACH_DIRENT(de, dir, return -errno) {
+                _cleanup_close_ int fd = -EBADF;
+                const char *image_name;
+
+                if (!IN_SET(de->d_type, DT_REG, DT_UNKNOWN))
+                        continue;
+
+                image_name = startswith(de->d_name, "extension-release.");
+                if (!image_name)
+                        continue;
+
+                if (!image_name_is_valid(image_name)) {
+                        log_debug("%s/%s is not a valid release file name, ignoring.", dir_path, de->d_name);
+                        continue;
+                }
+
+                /* We already chased the directory, and checked that this is a real file, so we shouldn't
+                 * fail to open it. */
+                fd = openat(dirfd(dir), de->d_name, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+                if (fd < 0)
+                        return log_debug_errno(errno, "Failed to open release file %s/%s: %m", dir_path, de->d_name);
+
+                /* Really ensure it is a regular file after we open it. */
+                r = fd_verify_regular(fd);
+                if (r < 0) {
+                        log_debug_errno(r, "%s/%s is not a regular file, ignoring: %m", dir_path, de->d_name);
+                        continue;
+                }
+
+                if (!relax_extension_release_check &&
+                    extension_release_strict_xattr_value(fd, dir_path, de->d_name) != 0)
+                        continue;
+
+                /* We already found what we were looking for, but there's another candidate? We treat this as
+                 * an error, as we want to enforce that there are no ambiguities in case we are in the
+                 * fallback path. */
+                if (found)
+                        return -ENOTUNIQ;
+
+                found = true;
+
+                if (ret_fd)
+                        fd_found = TAKE_FD(fd);
+
+                if (ret_path) {
+                        path_found = path_join(dir_path, de->d_name);
+                        if (!path_found)
+                                return -ENOMEM;
+                }
+        }
+        if (!found)
+                return -ENOENT;
+
+        if (ret_fd)
+                *ret_fd = TAKE_FD(fd_found);
+        if (ret_path)
+                *ret_path = TAKE_PTR(path_found);
+
+        return 0;
+}
+
+int open_extension_release(
+                const char *root,
+                ImageClass image_class,
+                const char *extension,
+                bool relax_extension_release_check,
+                char **ret_path,
+                int *ret_fd) {
+
+        _cleanup_close_ int rfd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
-        r = fopen_extension_release(root, image_class, extension, relax_extension_release_check, &p, &f);
+        rfd = open(empty_to_root(root), O_CLOEXEC | O_DIRECTORY | O_PATH);
+        if (rfd < 0)
+                return -errno;
+
+        r = open_extension_release_at(rfd, image_class, extension, relax_extension_release_check,
+                                      ret_path ? &p : NULL, ret_fd ? &fd : NULL);
         if (r < 0)
                 return r;
 
-        return parse_env_filev(f, p, ap);
+        if (ret_path) {
+                r = path_prefix_root_cwd(p, root, ret_path);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_fd)
+                *ret_fd = TAKE_FD(fd);
+
+        return 0;
 }
 
-int _parse_extension_release(const char *root, ImageClass image_class, bool relax_extension_release_check, const char *extension, ...) {
+static int parse_extension_release_atv(
+                int rfd,
+                ImageClass image_class,
+                const char *extension,
+                bool relax_extension_release_check,
+                va_list ap) {
+
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(rfd >= 0 || rfd == AT_FDCWD);
+
+        r = open_extension_release_at(rfd, image_class, extension, relax_extension_release_check, &p, &fd);
+        if (r < 0)
+                return r;
+
+        return parse_env_file_fdv(fd, p, ap);
+}
+
+int parse_extension_release_at_sentinel(
+                int rfd,
+                ImageClass image_class,
+                bool relax_extension_release_check,
+                const char *extension,
+                ...) {
+
         va_list ap;
         int r;
 
-        assert(image_class >= 0);
-        assert(image_class < _IMAGE_CLASS_MAX);
+        assert(rfd >= 0 || rfd == AT_FDCWD);
 
         va_start(ap, extension);
-        r = parse_release_internal(root, image_class, relax_extension_release_check, extension, ap);
+        r = parse_extension_release_atv(rfd, image_class, extension, relax_extension_release_check, ap);
         va_end(ap);
-
         return r;
 }
 
-int _parse_os_release(const char *root, ...) {
+int parse_extension_release_sentinel(
+                const char *root,
+                ImageClass image_class,
+                bool relax_extension_release_check,
+                const char *extension,
+                ...) {
+
+        _cleanup_close_ int rfd = -EBADF;
         va_list ap;
         int r;
 
-        va_start(ap, root);
-        r = parse_release_internal(root, _IMAGE_CLASS_INVALID, /* relax_extension_release_check= */ false, NULL, ap);
-        va_end(ap);
+        rfd = open(empty_to_root(root), O_CLOEXEC | O_DIRECTORY | O_PATH);
+        if (rfd < 0)
+                return -errno;
 
+        va_start(ap, extension);
+        r = parse_extension_release_atv(rfd, image_class, extension, relax_extension_release_check, ap);
+        va_end(ap);
         return r;
 }
 
@@ -339,15 +389,15 @@ int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char
 }
 
 int load_extension_release_pairs(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, char ***ret) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
-        r = fopen_extension_release(root, image_class, extension, relax_extension_release_check, &p, &f);
+        r = open_extension_release(root, image_class, extension, relax_extension_release_check, &p, &fd);
         if (r < 0)
                 return r;
 
-        return load_env_file_pairs(f, p, ret);
+        return load_env_file_pairs_fd(fd, p, ret);
 }
 
 int os_release_support_ended(const char *support_end, bool quiet, usec_t *ret_eol) {
