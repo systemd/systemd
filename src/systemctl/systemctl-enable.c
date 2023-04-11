@@ -235,7 +235,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                                 return bus_log_parse_error(r);
                 }
 
-                r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, &changes, &n_changes);
+                r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet);
                 if (r < 0)
                         return r;
 
