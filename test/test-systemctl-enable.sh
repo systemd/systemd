@@ -695,4 +695,4 @@ cat >"$root/etc/os-release2" <<EOF
 ID='the-id2'
 EOF
 
-SYSTEMD_OS_RELEASE="$root/etc/os-release2" check_alias o 'the-id2'
+SYSTEMD_OS_RELEASE="/etc/os-release2" check_alias o 'the-id2'

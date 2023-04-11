@@ -75,7 +75,7 @@ TEST(parse_extension_release) {
         if (r < 0)
                 log_error_errno(r, "Failed to write file: %m");
 
-        assert_se(parse_extension_release(tempdir, IMAGE_SYSEXT, false, "test", "ID", &id, "VERSION_ID", &version_id) == 0);
+        assert_se(parse_extension_release(tempdir, IMAGE_SYSEXT, "test", false, "ID", &id, "VERSION_ID", &version_id) == 0);
         log_info("ID: %s VERSION_ID: %s", id, version_id);
         assert_se(streq(id, "the-id"));
         assert_se(streq(version_id, "the-version-id"));
@@ -87,16 +87,16 @@ TEST(parse_extension_release) {
         if (r < 0)
                 log_error_errno(r, "Failed to write file: %m");
 
-        assert_se(parse_extension_release(tempdir, IMAGE_CONFEXT, false, "tester", "ID", &id, "VERSION_ID", &version_id) == 0);
+        assert_se(parse_extension_release(tempdir, IMAGE_CONFEXT, "tester", false, "ID", &id, "VERSION_ID", &version_id) == 0);
         log_info("ID: %s VERSION_ID: %s", id, version_id);
         assert_se(streq(id, "the-id"));
         assert_se(streq(version_id, "the-version-id"));
 
-        assert_se(parse_extension_release(tempdir, IMAGE_CONFEXT, false, "tester", "FOOBAR", &foobar) == 0);
+        assert_se(parse_extension_release(tempdir, IMAGE_CONFEXT, "tester", false, "FOOBAR", &foobar) == 0);
         log_info("FOOBAR: %s", strnull(foobar));
         assert_se(foobar == NULL);
 
-        assert_se(parse_extension_release(tempdir, IMAGE_SYSEXT, false, "test", "FOOBAR", &foobar) == 0);
+        assert_se(parse_extension_release(tempdir, IMAGE_SYSEXT, "test", false, "FOOBAR", &foobar) == 0);
         log_info("FOOBAR: %s", strnull(foobar));
         assert_se(foobar == NULL);
 }
