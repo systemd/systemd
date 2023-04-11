@@ -11,12 +11,8 @@ int verb_add_dependency(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
         _cleanup_free_ char *target = NULL;
         const char *verb = argv[0];
-        InstallChange *changes = NULL;
-        size_t n_changes = 0;
         UnitDependency dep;
         int r;
-
-        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
         if (!argv[1])
                 return 0;
@@ -39,6 +35,11 @@ int verb_add_dependency(int argc, char *argv[], void *userdata) {
                 assert_not_reached();
 
         if (install_client_side()) {
+                InstallChange *changes = NULL;
+                size_t n_changes = 0;
+
+                CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
                 r = unit_file_add_dependency(arg_runtime_scope, unit_file_flags_from_args(), arg_root, names, target, dep, &changes, &n_changes);
                 install_changes_dump(r, "add dependency on", changes, n_changes, arg_quiet);
                 if (r < 0)
