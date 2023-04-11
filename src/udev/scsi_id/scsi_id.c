@@ -32,8 +32,10 @@ static const struct option options[] = {
         { "device",             required_argument, NULL, 'd' },
         { "config",             required_argument, NULL, 'f' },
         { "page",               required_argument, NULL, 'p' },
-        { "blacklisted",        no_argument,       NULL, 'b' },
-        { "whitelisted",        no_argument,       NULL, 'g' },
+        { "denylisted",         no_argument,       NULL, 'b' },
+        { "allowlisted",        no_argument,       NULL, 'g' },
+        { "blacklisted",        no_argument,       NULL, 'b' }, /* backward compat */
+        { "whitelisted",        no_argument,       NULL, 'g' }, /* backward compat */
         { "replace-whitespace", no_argument,       NULL, 'u' },
         { "sg-version",         required_argument, NULL, 's' },
         { "verbose",            no_argument,       NULL, 'v' },
@@ -222,8 +224,8 @@ static void help(void) {
                "  -f --config=                     Location of config file\n"
                "  -p --page=0x80|0x83|pre-spc3-83  SCSI page (0x80, 0x83, pre-spc3-83)\n"
                "  -s --sg-version=3|4              Use SGv3 or SGv4\n"
-               "  -b --blacklisted                 Treat device as blacklisted\n"
-               "  -g --whitelisted                 Treat device as whitelisted\n"
+               "  -b --denylisted                  Treat device as denylisted\n"
+               "  -g --allowlisted                 Treat device as allowlisted\n"
                "  -u --replace-whitespace          Replace all whitespace by underscores\n"
                "  -v --verbose                     Verbose logging\n"
                "  -x --export                      Print values as environment keys\n",
