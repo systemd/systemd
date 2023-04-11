@@ -36,7 +36,6 @@ EFI_MOUNT="${EFI_MOUNT:-$(bootctl -x 2>/dev/null || echo /boot)}"
 # To force creating a new image from scratch (eg: to encrypt it), also define
 # TEST_FORCE_NEWIMAGE=1 in the test setup script.
 IMAGE_NAME=${IMAGE_NAME:-default}
-STRIP_BINARIES="${STRIP_BINARIES:-yes}"
 TEST_REQUIRE_INSTALL_TESTS="${TEST_REQUIRE_INSTALL_TESTS:-1}"
 TEST_PARALLELIZE="${TEST_PARALLELIZE:-0}"
 TEST_SUPPORTING_SERVICES_SHOULD_BE_MASKED="${TEST_SUPPORTING_SERVICES_SHOULD_BE_MASKED:-1}"
@@ -298,7 +297,6 @@ IS_BUILT_WITH_ASAN=$(is_built_with_asan "$SYSTEMD_JOURNALD" && echo yes || echo 
 IS_BUILT_WITH_COVERAGE=$(is_built_with_coverage && echo yes || echo no)
 
 if get_bool "$IS_BUILT_WITH_ASAN"; then
-    STRIP_BINARIES=no
     SKIP_INITRD="${SKIP_INITRD:-yes}"
     PATH_TO_INIT=$ROOTLIBDIR/systemd-under-asan
     QEMU_MEM="${QEMU_MEM:-2G}"
@@ -773,7 +771,6 @@ setup_basic_environment() {
     install_testuser
     has_user_dbus_socket && install_user_dbus
     setup_selinux
-    strip_binaries
     instmods veth
     install_depmod_files
     generate_module_dependencies
@@ -1354,8 +1351,8 @@ create_empty_image() {
     fi
 
     # Partition sizes are in MiBs
-    local root_size=1000
-    local data_size=50
+    local root_size=768
+    local data_size=100
     if ! get_bool "$NO_BUILD"; then
         if meson configure "${BUILD_DIR:?}" | grep 'static-lib\|standalone-binaries' | awk '{ print $2 }' | grep -q 'true'; then
             root_size=$((root_size+=200))
@@ -1367,10 +1364,7 @@ create_empty_image() {
             root_size=$((root_size+=250))
         fi
     fi
-    if ! get_bool "$STRIP_BINARIES"; then
-        root_size=$((4 * root_size))
-        data_size=$((2 * data_size))
-    fi
+
     if [ "$IMAGE_NAME" = "repart" ]; then
         root_size=$((root_size+=1000))
     fi
@@ -1733,17 +1727,6 @@ check_result_qemu_unittests() {
     _umount_dir "$initdir"
 
     return $ret
-}
-
-strip_binaries() {
-    dinfo "Strip binaries"
-    if ! get_bool "$STRIP_BINARIES"; then
-        dinfo "STRIP_BINARIES == no, keeping binaries unstripped"
-        return 0
-    fi
-    while read -r bin; do
-        strip --strip-unneeded "$bin" |& grep -vi 'file format not recognized' | ddebug || :
-    done < <(find "${initdir:?}" -executable -not -path '*/lib/modules/*.ko' -type f)
 }
 
 create_rc_local() {
