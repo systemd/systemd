@@ -933,7 +933,7 @@ evdev:input:b0003v17EFp6009*
  KEYBOARD_KEY_090010=f20                                # Microphone mute button; should be micmute
 
 # Lenovo 3000
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*3000*:*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*3000*:pvr*
  KEYBOARD_KEY_8b=switchvideomode                        # Fn+F7 video
  KEYBOARD_KEY_96=wlan                                   # Fn+F5 wireless
  KEYBOARD_KEY_97=sleep                                  # Fn+F4 suspend
@@ -945,7 +945,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn0769AP2:pvr3000N200:*
  KEYBOARD_KEY_b4=prog1
 
 # Lenovo IdeaPad
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*:*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pnS10-*:*
  KEYBOARD_KEY_81=rfkill                                 # does nothing in BIOS
  KEYBOARD_KEY_83=display_off                            # BIOS toggles screen state
@@ -960,7 +960,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrIdeaPad5*:*
  KEYBOARD_KEY_81=insert
 
 # Thinkpad X200_Tablet
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrThinkPad*X2*T*:*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrThinkPad*X2*T*:rvn*
  KEYBOARD_KEY_5d=menu
  KEYBOARD_KEY_63=fn
  KEYBOARD_KEY_66=screenlock
@@ -969,7 +969,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrThinkPad*X2*T*:*
  KEYBOARD_KEY_6c=direction                              # rotate screen
 
 # ThinkPad X6 Tablet
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrThinkPad*X6*Tablet*:*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:pvrThinkPad*X6*Tablet*:rvn*
  KEYBOARD_KEY_6c=direction                              # rotate
  KEYBOARD_KEY_68=leftmeta                               # toolbox
  KEYBOARD_KEY_6b=esc                                    # escape
@@ -993,20 +993,20 @@ evdev:name:Ideapad extra buttons:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:*
  KEYBOARD_KEY_42=f23
  KEYBOARD_KEY_43=f22
 
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*Y550*:*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*Y550*:pvr*
  KEYBOARD_KEY_95=media
  KEYBOARD_KEY_a3=play
 
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*U300s*:*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*IdeaPad*U300s*:pvr*
  KEYBOARD_KEY_f1=f21
  KEYBOARD_KEY_ce=f20                                    # micmute
 
-evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:*
+evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:pvr*
  KEYBOARD_KEY_a0=!mute
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup
 
-evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPadFlex5*:*
+evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPadFlex5*:pvr*
  KEYBOARD_KEY_a0=!mute
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup
@@ -1025,11 +1025,11 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:pn81Q7*:pvrLenovoYogaS940:*
  KEYBOARD_KEY_b0=!volumeup
 
 # Lenovo Y50-70
-evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*20378*:*
+evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*20378*:pvr*
  KEYBOARD_KEY_f3=f21                                    # Fn+F6 (toggle touchpad)
 
 # V480
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*Lenovo*V480*:*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*Lenovo*V480*:pvr*
  KEYBOARD_KEY_f1=f21
 
 # Lenovo ThinkCentre M800z/M820z/M920z AIO machines
