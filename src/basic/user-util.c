@@ -156,19 +156,30 @@ bool is_nologin_shell(const char *shell) {
                            "/usr/bin/true");
 }
 
-const char* default_root_shell(const char *root) {
+const char* default_root_shell_at(int rfd) {
         /* We want to use the preferred shell, i.e. DEFAULT_USER_SHELL, which usually
          * will be /bin/bash. Fall back to /bin/sh if DEFAULT_USER_SHELL is not found,
          * or any access errors. */
 
-        int r = chase(DEFAULT_USER_SHELL, root, CHASE_PREFIX_ROOT, NULL, NULL);
+        assert(rfd >= 0 || rfd == AT_FDCWD);
+
+        int r = chaseat(rfd, DEFAULT_USER_SHELL, CHASE_AT_RESOLVE_IN_ROOT, NULL, NULL);
         if (r < 0 && r != -ENOENT)
-                log_debug_errno(r, "Failed to look up shell '%s%s%s': %m",
-                                strempty(root), root ? "/" : "", DEFAULT_USER_SHELL);
+                log_debug_errno(r, "Failed to look up shell '%s': %m", DEFAULT_USER_SHELL);
         if (r > 0)
                 return DEFAULT_USER_SHELL;
 
         return "/bin/sh";
+}
+
+const char *default_root_shell(const char *root) {
+        _cleanup_close_ int rfd = -EBADF;
+
+        rfd = open(empty_to_root(root), O_CLOEXEC | O_DIRECTORY | O_PATH);
+        if (rfd < 0)
+                return "/bin/sh";
+
+        return default_root_shell_at(rfd);
 }
 
 static int synthesize_user_creds(
