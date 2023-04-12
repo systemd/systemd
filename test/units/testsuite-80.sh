@@ -76,6 +76,7 @@ systemctl stop "$MYUNIT"
 rm "$MYSCRIPT"
 
 systemd-analyze log-level debug
+systemd-analyze log-target console
 
 # Test fdstore pinning (this will pull in fdstore-pin.service fdstore-nopin.service)
 systemctl start fdstore-pin.target

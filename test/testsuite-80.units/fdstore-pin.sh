@@ -24,7 +24,7 @@ if [ "$N" -eq 0 ] ; then
     test "${LISTEN_FDS:-0}" -eq 0
     test ! -e "$FILE"
     echo waldi > "$FILE"
-    systemd-notify --fd=3 3< "$FILE"
+    systemd-notify --fd=3 --fdname="fd-$N-$PINNED" 3< "$FILE"
 elif [ "$N" -eq 1 ] || { [ "$N" -eq 2 ] && [ "$PINNED" -eq 1 ]; } ; then
     # Second iteration, or iteration with pinning on
     test "${LISTEN_FDS:-0}" -eq 1
