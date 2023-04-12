@@ -21,6 +21,7 @@
                 r = impl;                                               \
                 if (r < 0)                                              \
                         (void) sd_notifyf(0, "ERRNO=%i", -r);           \
+                (void) sd_notifyf(0, "EXIT_STATUS=%i", ret);            \
                 ask_password_agent_close();                             \
                 polkit_agent_close();                                   \
                 pager_close();                                          \
