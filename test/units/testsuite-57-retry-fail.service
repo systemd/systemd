@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Failed Dependency Unit
+# Bump up the start limit logic, so that we can be restarted frequently enough
+#StartLimitBurst=100
+#StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# ExecStart=/bin/sleep 5
+ExecStart=/bin/sh -c "if [ -f /tmp/testsuite-57-retry-fail ]; then exit 0; else exit 1; fi"
+Restart=no

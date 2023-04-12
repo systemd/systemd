@@ -517,52 +517,58 @@ void unit_add_to_dbus_queue(Unit *u) {
         u->in_dbus_queue = true;
 }
 
-void unit_submit_to_stop_when_unneeded_queue(Unit *u) {
-        assert(u);
+int unit_submit_to_stop_when_unneeded_queue(sd_event_source *s, uint64_t usec, void *userdata) {
+        Unit *u = ASSERT_PTR(userdata);
 
         if (u->in_stop_when_unneeded_queue)
-                return;
+                return 0;
 
         if (!u->stop_when_unneeded)
-                return;
+                return 0;
 
         if (!UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
-                return;
+                return 0;
 
         LIST_PREPEND(stop_when_unneeded_queue, u->manager->stop_when_unneeded_queue, u);
         u->in_stop_when_unneeded_queue = true;
+
+        return 0;
 }
 
-void unit_submit_to_start_when_upheld_queue(Unit *u) {
-        assert(u);
+int unit_submit_to_start_when_upheld_queue(sd_event_source *s, uint64_t usec, void *userdata) {
+        Unit *u = ASSERT_PTR(userdata);
 
         if (u->in_start_when_upheld_queue)
-                return;
+                return 0;
 
         if (!UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)))
-                return;
+                return 0;
 
         if (!unit_has_dependency(u, UNIT_ATOM_START_STEADILY, NULL))
-                return;
+                return 0;
 
         LIST_PREPEND(start_when_upheld_queue, u->manager->start_when_upheld_queue, u);
         u->in_start_when_upheld_queue = true;
+
+        return 0;
 }
 
-void unit_submit_to_stop_when_bound_queue(Unit *u) {
-        assert(u);
+int unit_submit_to_stop_when_bound_queue(sd_event_source *s, uint64_t usec, void *userdata) {
+        Unit *u = ASSERT_PTR(userdata);
 
         if (u->in_stop_when_bound_queue)
-                return;
+                return 0;
 
         if (!UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
-                return;
+                return 0;
 
         if (!unit_has_dependency(u, UNIT_ATOM_CANNOT_BE_ACTIVE_WITHOUT, NULL))
-                return;
+                return 0;
 
         LIST_PREPEND(stop_when_bound_queue, u->manager->stop_when_bound_queue, u);
         u->in_stop_when_bound_queue = true;
+
+        return 0;
 }
 
 static void unit_clear_dependencies(Unit *u) {
@@ -675,6 +681,8 @@ Unit* unit_free(Unit *u) {
 
         if (!u)
                 return NULL;
+
+        sd_event_source_disable_unref(u->auto_start_stop_event_source);
 
         u->transient_file = safe_fclose(u->transient_file);
 
@@ -2169,7 +2177,7 @@ static void check_unneeded_dependencies(Unit *u) {
         /* Add all units this unit depends on to the queue that processes StopWhenUnneeded= behaviour. */
 
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_ADD_STOP_WHEN_UNNEEDED_QUEUE)
-                unit_submit_to_stop_when_unneeded_queue(other);
+                (void) unit_submit_to_stop_when_unneeded_queue(NULL, 0, other);
 }
 
 static void check_uphold_dependencies(Unit *u) {
@@ -2179,7 +2187,7 @@ static void check_uphold_dependencies(Unit *u) {
         /* Add all units this unit depends on to the queue that processes Uphold= behaviour. */
 
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_ADD_START_WHEN_UPHELD_QUEUE)
-                unit_submit_to_start_when_upheld_queue(other);
+                (void) unit_submit_to_start_when_upheld_queue(NULL, 0, other);
 }
 
 static void check_bound_by_dependencies(Unit *u) {
@@ -2189,7 +2197,7 @@ static void check_bound_by_dependencies(Unit *u) {
         /* Add all units this unit depends on to the queue that processes BindsTo= stop behaviour. */
 
         UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_ADD_CANNOT_BE_ACTIVE_WITHOUT_QUEUE)
-                unit_submit_to_stop_when_bound_queue(other);
+                (void) unit_submit_to_stop_when_bound_queue(NULL, 0, other);
 }
 
 static void retroactively_start_dependencies(Unit *u) {
@@ -2767,7 +2775,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
                 check_bound_by_dependencies(u);
 
                 /* Maybe someone wants us to remain up? */
-                unit_submit_to_start_when_upheld_queue(u);
+                (void) unit_submit_to_start_when_upheld_queue(NULL, 0, u);
 
                 /* Maybe the unit should be GC'ed now? */
                 unit_add_to_gc_queue(u);
@@ -2778,12 +2786,12 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
                 check_uphold_dependencies(u);
 
                 /* Maybe we finished startup and are now ready for being stopped because unneeded? */
-                unit_submit_to_stop_when_unneeded_queue(u);
+                (void) unit_submit_to_stop_when_unneeded_queue(NULL, 0, u);
 
                 /* Maybe we finished startup, but something we needed has vanished? Let's die then. (This happens
                  * when something BindsTo= to a Type=oneshot unit, as these units go directly from starting to
                  * inactive, without ever entering started.) */
-                unit_submit_to_stop_when_bound_queue(u);
+                (void) unit_submit_to_stop_when_bound_queue(NULL, 0, u);
         }
 }
 
@@ -5269,7 +5277,7 @@ void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
                                 unit_add_to_gc_queue(other);
 
                                 /* The unit 'other' may not be wanted by the unit 'u'. */
-                                unit_submit_to_stop_when_unneeded_queue(other);
+                                (void) unit_submit_to_stop_when_unneeded_queue(NULL, 0, other);
 
                                 done = false;
                                 break;

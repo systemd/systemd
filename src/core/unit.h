@@ -347,6 +347,7 @@ typedef struct Unit {
 
         /* Make sure we never enter endless loops with the StopWhenUnneeded=, BindsTo=, Uphold= logic */
         RateLimit auto_start_stop_ratelimit;
+        sd_event_source *auto_start_stop_event_source;
 
         /* Reference to a specific UID/GID */
         uid_t ref_uid;
@@ -850,9 +851,10 @@ void unit_add_to_dbus_queue(Unit *u);
 void unit_add_to_cleanup_queue(Unit *u);
 void unit_add_to_gc_queue(Unit *u);
 void unit_add_to_target_deps_queue(Unit *u);
-void unit_submit_to_stop_when_unneeded_queue(Unit *u);
-void unit_submit_to_start_when_upheld_queue(Unit *u);
-void unit_submit_to_stop_when_bound_queue(Unit *u);
+/* Will be used as event callbacks, so match the signature of sd_event_time_handler_t */
+int unit_submit_to_stop_when_unneeded_queue(sd_event_source *s, uint64_t usec, void *userdata);
+int unit_submit_to_start_when_upheld_queue(sd_event_source *s, uint64_t usec, void *userdata);
+int unit_submit_to_stop_when_bound_queue(sd_event_source *s, uint64_t usec, void *userdata);
 
 int unit_merge(Unit *u, Unit *other);
 int unit_merge_by_name(Unit *u, const char *other);
