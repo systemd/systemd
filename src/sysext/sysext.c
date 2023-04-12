@@ -45,12 +45,14 @@ static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_force = false;
+static ImagePolicy *arg_image_policy = NULL;
 
 /* Is set to IMAGE_CONFEXT when systemd is called with the confext functionality instead of the default */
 static ImageClass arg_image_class = IMAGE_SYSEXT;
 
 STATIC_DESTRUCTOR_REGISTER(arg_hierarchies, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 /* Helper struct for naming simplicity and reusability */
 static const struct {
@@ -441,6 +443,24 @@ static int strverscmp_improvedp(char *const* a, char *const* b) {
         return strverscmp_improved(*a, *b);
 }
 
+static const ImagePolicy *pick_image_policy(const Image *img) {
+        assert(img);
+        assert(img->path);
+
+        /* Explicitly specified policy always wins */
+        if (arg_image_policy)
+                return arg_image_policy;
+
+        /* If located in /.extra/sysext/ in the initrd, then it was placed there by systemd-stub, and was
+         * picked up from an untrusted ESP. Thus, require a stricter policy by default for them. (For the
+         * other directories we assume the appropriate level of trust was already established already.  */
+
+        if (in_initrd() && path_startswith(img->path, "/.extra/sysext/"))
+                return &image_policy_sysext_strict;
+
+        return &image_policy_sysext;
+}
+
 static int merge_subprocess(Hashmap *images, const char *workspace) {
         _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL, *host_os_release_sysext_level = NULL,
             *host_os_release_confext_level = NULL, *buf = NULL;
@@ -558,7 +578,8 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         r = dissect_loop_device_and_warn(
                                         d,
                                         &verity_settings,
-                                        NULL,
+                                        /* mount_options= */ NULL,
+                                        pick_image_policy(img),
                                         flags,
                                         &m);
                         if (r < 0)
@@ -770,7 +791,7 @@ static int image_discover_and_read_metadata(Hashmap **ret_images) {
                 return log_error_errno(r, "Failed to discover images: %m");
 
         HASHMAP_FOREACH(img, images) {
-                r = image_read_metadata(img);
+                r = image_read_metadata(img, &image_policy_sysext);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read metadata for image %s: %m", img->name);
         }
@@ -922,6 +943,8 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
                "     --force              Ignore version incompatibilities\n"
+               "     --image-policy=POLICY\n"
+               "                          Specify disk image dissection policy\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -942,16 +965,18 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ROOT,
                 ARG_JSON,
                 ARG_FORCE,
+                ARG_IMAGE_POLICY,
         };
 
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
-                { "no-legend", no_argument,       NULL, ARG_NO_LEGEND },
-                { "root",      required_argument, NULL, ARG_ROOT      },
-                { "json",      required_argument, NULL, ARG_JSON      },
-                { "force",     no_argument,       NULL, ARG_FORCE     },
+                { "help",         no_argument,       NULL, 'h'              },
+                { "version",      no_argument,       NULL, ARG_VERSION      },
+                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
+                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND    },
+                { "root",         required_argument, NULL, ARG_ROOT         },
+                { "json",         required_argument, NULL, ARG_JSON         },
+                { "force",        no_argument,       NULL, ARG_FORCE        },
+                { "image-policy", required_argument, NULL, ARG_IMAGE_POLICY },
                 {}
         };
 
@@ -995,6 +1020,17 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_force = true;
                         break;
 
+                case ARG_IMAGE_POLICY: {
+                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+
+                        r = image_policy_from_string(optarg, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
+
+                        image_policy_free(arg_image_policy);
+                        arg_image_policy = TAKE_PTR(p);
+                        break;
+                }
                 case '?':
                         return -EINVAL;
 

@@ -60,7 +60,7 @@ int bus_image_common_get_os_release(
                 return 1;
 
         if (!image->metadata_valid) {
-                r = image_read_metadata(image);
+                r = image_read_metadata(image, &image_policy_service);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to read image metadata: %m");
         }
@@ -163,6 +163,7 @@ int bus_image_common_get_metadata(
                         image->path,
                         matches,
                         extension_images,
+                        /* image_policy= */ NULL,
                         flags,
                         &os_release,
                         &extension_releases,
@@ -387,6 +388,7 @@ int bus_image_common_attach(
                         matches,
                         profile,
                         extension_images,
+                        /* image_policy= */ NULL,
                         flags,
                         &changes,
                         &n_changes,
@@ -729,6 +731,7 @@ int bus_image_common_reattach(
                         matches,
                         profile,
                         extension_images,
+                        /* image_policy= */ NULL,
                         flags,
                         &changes_attached,
                         &n_changes_attached,

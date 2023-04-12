@@ -1,0 +1,191 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd.image-policy">
+
+  <refentryinfo>
+    <title>systemd.image-policy</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd.image-policy</refentrytitle>
+    <manvolnum>7</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd.image-policy</refname>
+    <refpurpose>Disk Image Dissection Policy</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>In systemd, whenever a disk image (DDI) implementing the <ulink
+    url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable
+    Partitions Specification</ulink> is activated, a policy may be specified controlling which partitions to
+    mount and what kind of cryptographic protection to require. Such a disk image dissection policy is a
+    string that contains per-partition-type rules, separated by colons (<literal>:</literal>). The individual
+    rules consist of a partition identifier, an equal sign (<literal>=</literal>), and one or more flags
+    which may be set per partition. If multiple flags are specified per partition they are separated by a
+    plus sign (<literal>+</literal>).</para>
+
+    <para>The partition identifiers currently defined are: <option>root</option>, <option>usr</option>,
+    <option>home</option>, <option>srv</option>, <option>esp</option>, <option>xbootldr</option>,
+    <option>swap</option>, <option>root-verity</option>, <option>root-verity-sig</option>,
+    <option>usr-verity</option>, <option>usr-verity-sig</option>, <option>tmp</option>,
+    <option>var</option>. These identifiers match the relevant partition types in the Discoverable Partitions
+    Specification, but are agnostic to CPU architectures. If the partition identifier is left empty it
+    defines the <emphasis>default</emphasis> policy for partitions defined in the Discoverable Parition
+    Specification for which no policy flags are explicitly listed in the policy string.</para>
+
+    <para>The following partition policy flags are defined that dictate the existence/absence, the use, and
+    the protection level of partitions:</para>
+
+    <itemizedlist>
+      <listitem><para><option>unprotected</option> for partitions that shall exist and be used, but shall
+      come without cryptographic protection, lacking both Verity authentication and LUKS
+      encryption.</para></listitem>
+
+      <listitem><para><option>verity</option> for partitions that shall exist and be used, with Verity
+      authentication. (Note: if a DDI image carries a data partition, along with a Verity partition and a
+      signature partition for it, and only the <option>verity</option> flag is set – and
+      <option>signed</option> is not –, then the image will be set up with Verity, but the signature data will
+      not be used. Or in other words: any DDI with a set of partitions that qualify for
+      <option>signature</option> also implicitly qualifies for <option>verity</option>, and in fact
+      <option>unprotected</option>).</para></listitem>
+
+      <listitem><para><option>signed</option> for partitions that shall exist and be used, with Verity
+      authentication, which are also accompanied by a PKCS#7 signature of the Verity root
+      hash.</para></listitem>
+
+      <listitem><para><option>encrypted</option> for partitions which shall exist and be used and are
+      encrypted with LUKS.</para></listitem>
+
+      <listitem><para><option>unused</option> for partitions that shall exist but shall not be
+      used.</para></listitem>
+
+      <listitem><para><option>absent</option> for partitions that shall not exist on the
+      image.</para></listitem>
+    </itemizedlist>
+
+    <para>By setting a combination of the flags above, alternatives can be declared. For example the
+    combination <literal>unused+absent</literal> means: the partition may exist (in which case it shall not
+    be used) or may be absent. The combination of
+    <literal>unprotected+verity+signed+encrypted+unused+absent</literal> may be specified via the special
+    shortcut <literal>open</literal>, and indicates that the partition may exist or may be absent, but if it
+    exists is used, regardless of the protection level.</para>
+
+    <para>As special rule: if none of the flags above are set for a listed partition identifier, the default
+    policy of <option>open</option> is implied, i.e. setting none of these flags listed above means
+    effectively all flags listed above will be set.</para>
+
+    <para>The following partition policy flags are defined that dictate the state of specific GPT partition
+    flags:</para>
+
+    <itemizedlist>
+      <listitem><para><option>read-only-off</option>, <option>read-only-on</option> to require that the
+      partitions have the read-only partition flag off or on.</para></listitem>
+
+      <listitem><para><option>growfs-off</option>, <option>growfs-on</option> to require that the
+      partitions have the growfs partition flag off or on.</para></listitem>
+    </itemizedlist>
+
+    <para>If both <option>read-only-off</option> and <option>read-only-on</option> are set for a partition,
+    then the state of the read-only flag on the partition is not dictated by the policy. Setting neither flag
+    is equivalent to setting both, i.e. setting neither of these two flags means effectively both will be
+    set. A similar logic applies to <option>growfs-off</option>/<option>growfs-on</option>.</para>
+
+    <para>If partitions are not listed within an image policy string, the default policy flags are applied
+    (configurable via an empty partition identifier, see above). If no default policy flags are configured in
+    the policy string, it is implied to be <literal>absent+unused</literal>, except for the Verity partition
+    and their signature partitions where the policy is automatically derived from minimal protection level of
+    the data partition they protect, as encoded in the policy.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Special Policies</title>
+
+    <para>The special image policy string <literal>*</literal> is short for "use everything", i.e. is
+    equivalent to:</para>
+
+    <programlisting>=verity+signed+encrypted+unprotected+unused+absent</programlisting>
+
+    <para>The special image policy string <literal>-</literal> is short for "use nothing", i.e. is equivalent
+    to:</para>
+
+    <programlisting>=unused+absent</programlisting>
+
+    <para>The special image policy string <literal>~</literal> is short for "everything must be absent",
+    i.e. is equivalent to:</para>
+
+    <programlisting>=absent</programlisting>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Use</title>
+
+    <para>Most systemd components that support operating with disk images support a
+    <option>--image-policy=</option> command line option to specify the image policy to use, and default to
+    relatively open policies by default (typically the <literal>*</literal> policy, as described above),
+    under the assumption that trust in disk images is established before the images are passed to the program
+    in question.</para>
+
+    <para>For the host image itself
+    <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    is responsible for processing the GPT partition table and making use of the included discoverable
+    partitions. It accepts an image policy via the kernel command line option
+    <option>systemd.image-policy=</option>.</para>
+
+    <para>Note that image policies do not dictate how the components will mount and use disk images — they
+    only dictate which parts to avoid and which protection level and arrangement to require while
+    mounting/using them. For example,
+    <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> only
+    cares for the <filename>/usr/</filename> and <filename>/opt/</filename> trees inside a disk image, and
+    thus ignores any <filename>/home/</filename> partitions (and similar) in all cases, which might be
+    included in the image, regardless whether the configured image policy would allow access to it or
+    not. Similar,
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> is not
+    going to make use of any discovered swap device, regardless if the policy would allow that or not.</para>
+
+    <para>Use the <command>image-policy</command> command of the
+    <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>8</manvolnum></citerefentry> tool
+    to analyze image policy strings, and determine what a specific policy string means for a specific
+    partition.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para>The following image policy string dictates one read-only Verity-enabled <filename>/usr/</filename>
+    partition must exist, plus encrypted root and swap partitions. All other partitions are ignored:</para>
+
+    <programlisting>usr=verity+read-only-on:root=encrypted:swap=encrypted</programlisting>
+
+    <para>The following image policy string dictates an encrypted, writable root file system, and optional
+    <filename>/srv/</filename> file system that must be encrypted if it exists and no swap partition may
+    exist:</para>
+
+    <programlisting>root=encrypted+read-only-off:srv=encrypted+absent:swap=absent</programlisting>
+
+    <para>The following image policy string dictates a single root partition that may be encrypted, but
+    doesn't have to be, and ignores swap partitions, and uses all other partitions if they are available, possibly with encryption.</para>
+
+    <programlisting>root=unprotected+encrypted:swap=absent+unused:=unprotected+encrypted+absent</programlisting>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
