@@ -73,7 +73,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
-    - uses: systemd/mkosi@ee7f2950a25fdaaa7027937c5d9f3df6761e9fd9
+    - uses: systemd/mkosi@779484101987048b820b07a6111bcb0e8d5ebc1d
 
     - name: Configure
       run: |
@@ -92,6 +92,9 @@ jobs:
                                systemd.journald.max_level_console=debug
                                # udev's debug log output is very verbose, so up it to info in CI.
                                udev.log_level=info
+
+        [Host]
+        ExtraSearchPaths=!*
         EOF
 
     - name: Generate secure boot key
