@@ -2708,14 +2708,13 @@ int bus_append_unit_property_assignment_many(sd_bus_message *m, UnitType t, char
         return 0;
 }
 
-int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, InstallChange **changes, size_t *n_changes) {
+int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet) {
         const char *type, *path, *source;
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
         int r;
 
-        /* changes is dereferenced when calling install_changes_dump() later,
-         * so we have to make sure this is not NULL. */
-        assert(changes);
-        assert(n_changes);
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sss)");
         if (r < 0)
@@ -2733,7 +2732,7 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, In
                         continue;
                 }
 
-                r = install_changes_add(changes, n_changes, t, path, source);
+                r = install_changes_add(&changes, &n_changes, t, path, source);
                 if (r < 0)
                         return r;
         }
@@ -2744,7 +2743,8 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet, In
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        install_changes_dump(0, NULL, *changes, *n_changes, quiet);
+        install_changes_dump(0, NULL, changes, n_changes, quiet);
+
         return 0;
 }
 

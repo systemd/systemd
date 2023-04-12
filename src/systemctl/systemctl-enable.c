@@ -64,13 +64,9 @@ static int normalize_names(char **names) {
 int verb_enable(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
         const char *verb = argv[0];
-        InstallChange *changes = NULL;
-        size_t n_changes = 0;
         int carries_install_info = -1;
         bool ignore_carries_install_info = arg_quiet || arg_no_warn;
         int r;
-
-        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
         if (!argv[1])
                 return 0;
@@ -106,6 +102,10 @@ int verb_enable(int argc, char *argv[], void *userdata) {
 
         if (install_client_side()) {
                 UnitFileFlags flags;
+                InstallChange *changes = NULL;
+                size_t n_changes = 0;
+
+                CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
                 flags = unit_file_flags_from_args();
                 if (streq(verb, "enable")) {
@@ -235,7 +235,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                                 return bus_log_parse_error(r);
                 }
 
-                r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, &changes, &n_changes);
+                r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet);
                 if (r < 0)
                         return r;
 
