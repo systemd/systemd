@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "boot-entry.h"
+#include "chase.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "id128-util.h"
 #include "os-util.h"
@@ -12,10 +14,12 @@ bool boot_entry_token_valid(const char *p) {
         return utf8_is_valid(p) && string_is_safe(p) && filename_is_valid(p);
 }
 
-static int entry_token_load(const char *root, const char *etc_kernel, BootEntryTokenType *type, char **token) {
+static int entry_token_load(int rfd, const char *etc_kernel, BootEntryTokenType *type, char **token) {
         _cleanup_free_ char *buf = NULL, *p = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
+        assert(rfd >= 0 || rfd == AT_FDCWD);
         assert(type);
         assert(*type == BOOT_ENTRY_TOKEN_AUTO);
         assert(token);
@@ -23,13 +27,17 @@ static int entry_token_load(const char *root, const char *etc_kernel, BootEntryT
         if (!etc_kernel)
                 return 0;
 
-        p = path_join(root, etc_kernel, "entry-token");
+        p = path_join(etc_kernel, "entry-token");
         if (!p)
                 return log_oom();
 
-        r = read_one_line_file(p, &buf);
+        r = chase_and_fopenat_unlocked(rfd, p, CHASE_AT_RESOLVE_IN_ROOT, "re", NULL, &f);
         if (r == -ENOENT)
                 return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to chase and open '%s': %m", p);
+
+        r = read_line(f, NAME_MAX, &buf);
         if (r < 0)
                 return log_error_errno(r, "Failed to read %s: %m", p);
 
@@ -65,27 +73,28 @@ static int entry_token_from_machine_id(sd_id128_t machine_id, BootEntryTokenType
         return 1;
 }
 
-static int entry_token_from_os_release(const char *root, BootEntryTokenType *type, char **token) {
+static int entry_token_from_os_release(int rfd, BootEntryTokenType *type, char **token) {
         _cleanup_free_ char *id = NULL, *image_id = NULL;
         int r;
 
+        assert(rfd >= 0 || rfd == AT_FDCWD);
         assert(type);
         assert(IN_SET(*type, BOOT_ENTRY_TOKEN_AUTO, BOOT_ENTRY_TOKEN_OS_IMAGE_ID, BOOT_ENTRY_TOKEN_OS_ID));
         assert(token);
 
         switch (*type) {
         case BOOT_ENTRY_TOKEN_AUTO:
-                r = parse_os_release(root,
-                                     "IMAGE_ID", &image_id,
-                                     "ID",       &id);
+                r = parse_os_release_at(rfd,
+                                        "IMAGE_ID", &image_id,
+                                        "ID",       &id);
                 break;
 
         case BOOT_ENTRY_TOKEN_OS_IMAGE_ID:
-                r = parse_os_release(root, "IMAGE_ID", &image_id);
+                r = parse_os_release_at(rfd, "IMAGE_ID", &image_id);
                 break;
 
         case BOOT_ENTRY_TOKEN_OS_ID:
-                r = parse_os_release(root, "ID", &id);
+                r = parse_os_release_at(rfd, "ID", &id);
                 break;
 
         default:
@@ -94,7 +103,7 @@ static int entry_token_from_os_release(const char *root, BootEntryTokenType *typ
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to load %s/etc/os-release: %m", strempty(root));
+                return log_error_errno(r, "Failed to load /etc/os-release: %m");
 
         if (!isempty(image_id) && boot_entry_token_valid(image_id)) {
                 *token = TAKE_PTR(image_id);
@@ -111,15 +120,17 @@ static int entry_token_from_os_release(const char *root, BootEntryTokenType *typ
         return 0;
 }
 
-int boot_entry_token_ensure(
-                const char *root,
+int boot_entry_token_ensure_at(
+                int rfd,
                 const char *etc_kernel,
                 sd_id128_t machine_id,
+                bool machine_id_is_random,
                 BootEntryTokenType *type,
                 char **token) {
 
         int r;
 
+        assert(rfd >= 0 || rfd == AT_FDCWD);
         assert(type);
         assert(token);
 
@@ -129,21 +140,28 @@ int boot_entry_token_ensure(
         switch (*type) {
 
         case BOOT_ENTRY_TOKEN_AUTO:
-                r = entry_token_load(root, etc_kernel, type, token);
+                r = entry_token_load(rfd, etc_kernel, type, token);
                 if (r != 0)
                         return r;
 
-                r = entry_token_from_machine_id(machine_id, type, token);
+                if (!machine_id_is_random) {
+                        r = entry_token_from_machine_id(machine_id, type, token);
+                        if (r != 0)
+                                return r;
+                }
+
+                r = entry_token_from_os_release(rfd, type, token);
                 if (r != 0)
                         return r;
 
-                r = entry_token_from_os_release(root, type, token);
-                if (r != 0)
-                        return r;
+                if (machine_id_is_random) {
+                        r = entry_token_from_machine_id(machine_id, type, token);
+                        if (r != 0)
+                                return r;
+                }
 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "No machine ID set, and %s/etc/os-release carries no ID=/IMAGE_ID= fields.",
-                                       strempty(root));
+                                       "No machine ID set, and /etc/os-release carries no ID=/IMAGE_ID= fields.");
 
         case BOOT_ENTRY_TOKEN_MACHINE_ID:
                 r = entry_token_from_machine_id(machine_id, type, token);
@@ -153,22 +171,20 @@ int boot_entry_token_ensure(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No machine ID set.");
 
         case BOOT_ENTRY_TOKEN_OS_IMAGE_ID:
-                r = entry_token_from_os_release(root, type, token);
+                r = entry_token_from_os_release(rfd, type, token);
                 if (r != 0)
                         return r;
 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "IMAGE_ID= field not set in %s/etc/os-release.",
-                                       strempty(root));
+                                       "IMAGE_ID= field not set in /etc/os-release.");
 
         case BOOT_ENTRY_TOKEN_OS_ID:
-                r = entry_token_from_os_release(root, type, token);
+                r = entry_token_from_os_release(rfd, type, token);
                 if (r != 0)
                         return r;
 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "ID= field not set in %s/etc/os-release.",
-                                       strempty(root));
+                                       "ID= field not set in /etc/os-release.");
 
         case BOOT_ENTRY_TOKEN_LITERAL:
                 /* In this case, the token should be already set by the user input. */
@@ -177,6 +193,28 @@ int boot_entry_token_ensure(
         default:
                 assert_not_reached();
         }
+}
+
+int boot_entry_token_ensure(
+                const char *root,
+                const char *etc_kernel,
+                sd_id128_t machine_id,
+                bool machine_id_is_random,
+                BootEntryTokenType *type,
+                char **token) {
+
+        assert(token);
+
+        if (*token)
+                return 0; /* Already set. */
+
+        _cleanup_close_ int rfd = -EBADF;
+
+        rfd = open(empty_to_root(root), O_CLOEXEC | O_DIRECTORY | O_PATH);
+        if (rfd < 0)
+                return -errno;
+
+        return boot_entry_token_ensure_at(rfd, etc_kernel, machine_id, machine_id_is_random, type, token);
 }
 
 int parse_boot_entry_token_type(const char *s, BootEntryTokenType *type, char **token) {

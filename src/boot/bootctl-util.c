@@ -120,6 +120,7 @@ int settle_entry_token(void) {
                         arg_root,
                         etc_kernel(),
                         arg_machine_id,
+                        /* machine_id_is_random = */ false,
                         &arg_entry_token_type,
                         &arg_entry_token);
         if (r < 0)
