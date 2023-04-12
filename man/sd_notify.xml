@@ -181,6 +181,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term>EXIT_STATUS=…</term>
+
+        <listitem><para>If a service exits, the return value of its <function>main()</function> function.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>MAINPID=…</term>
 
         <listitem><para>The main process ID (PID) of the service, in
