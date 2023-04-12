@@ -1503,6 +1503,12 @@ int device_add_devlink(sd_device *device, const char *devlink) {
         assert(device);
         assert(devlink);
 
+        r = sd_device_get_devname(device, NULL);
+        if (r == -ENOENT) /* The device does not have device node. */
+                return -EOPNOTSUPP;
+        if (r < 0)
+                return r;
+
         r = mangle_devname(devlink, &p);
         if (r < 0)
                 return r;
