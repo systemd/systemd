@@ -3096,6 +3096,8 @@ finish:
         __lsan_do_leak_check();
 #endif
 
+        if (r < 0)
+                (void) sd_notifyf(0, "ERRNO=%i", -r);
 
         /* Try to invoke the shutdown binary unless we already failed.
          * If we failed above, we want to freeze after finishing cleanup. */
