@@ -569,6 +569,32 @@ int device_set_ifindex(sd_device *device, const char *name) {
         return 0;
 }
 
+static int mangle_devname(const char *p, char **ret) {
+        char *q;
+
+        assert(p);
+        assert(ret);
+
+        if (!path_is_safe(p))
+                return -EINVAL;
+
+        /* When the path is absolute, it must start with "/dev/", but ignore "/dev/" itself. */
+        if (path_is_absolute(p)) {
+                if (isempty(path_startswith(p, "/dev/")))
+                        return -EINVAL;
+
+                q = strdup(p);
+        } else
+                q = path_join("/dev/", p);
+        if (!q)
+                return -ENOMEM;
+
+        path_simplify(q);
+
+        *ret = q;
+        return 0;
+}
+
 int device_set_devname(sd_device *device, const char *devname) {
         _cleanup_free_ char *t = NULL;
         int r;
@@ -576,12 +602,9 @@ int device_set_devname(sd_device *device, const char *devname) {
         assert(device);
         assert(devname);
 
-        if (devname[0] != '/')
-                t = strjoin("/dev/", devname);
-        else
-                t = strdup(devname);
-        if (!t)
-                return -ENOMEM;
+        r = mangle_devname(devname, &t);
+        if (r < 0)
+                return r;
 
         r = device_add_property_internal(device, "DEVNAME", t);
         if (r < 0)
@@ -1326,7 +1349,7 @@ _public_ int sd_device_get_devname(sd_device *device, const char **devname) {
         if (!device->devname)
                 return -ENOENT;
 
-        assert(path_startswith(device->devname, "/dev/"));
+        assert(!isempty(path_startswith(device->devname, "/dev/")));
 
         if (devname)
                 *devname = device->devname;
@@ -1473,15 +1496,6 @@ int device_add_tag(sd_device *device, const char *tag, bool both) {
         return 0;
 }
 
-static char *prefix_dev(const char *p) {
-        assert(p);
-
-        if (path_startswith(p, "/dev/"))
-                return strdup(p);
-
-        return path_join("/dev/", p);
-}
-
 int device_add_devlink(sd_device *device, const char *devlink) {
         char *p;
         int r;
@@ -1489,14 +1503,9 @@ int device_add_devlink(sd_device *device, const char *devlink) {
         assert(device);
         assert(devlink);
 
-        if (!path_is_safe(devlink))
-                return -EINVAL;
-
-        p = prefix_dev(devlink);
-        if (!p)
-                return -ENOMEM;
-
-        path_simplify(p);
+        r = mangle_devname(devlink, &p);
+        if (r < 0)
+                return r;
 
         r = set_ensure_consume(&device->devlinks, &path_hash_ops_free, p);
         if (r < 0)
@@ -1510,13 +1519,14 @@ int device_add_devlink(sd_device *device, const char *devlink) {
 
 int device_remove_devlink(sd_device *device, const char *devlink) {
         _cleanup_free_ char *p = NULL, *s = NULL;
+        int r;
 
         assert(device);
         assert(devlink);
 
-        p = prefix_dev(devlink);
-        if (!p)
-                return -ENOMEM;
+        r = mangle_devname(devlink, &p);
+        if (r < 0)
+                return r;
 
         s = set_remove(device->devlinks, p);
         if (!s)
