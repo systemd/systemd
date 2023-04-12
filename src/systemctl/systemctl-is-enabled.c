@@ -14,6 +14,8 @@ static int show_installation_targets_client_side(const char *name) {
         char **p;
         int r;
 
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
         p = STRV_MAKE(name);
         flags = UNIT_FILE_DRY_RUN |
                 (arg_runtime ? UNIT_FILE_RUNTIME : 0);
