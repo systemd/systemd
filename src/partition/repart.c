@@ -1998,6 +1998,28 @@ static int derive_uuid(sd_id128_t base, const char *token, sd_id128_t *ret) {
         return 0;
 }
 
+static int context_open_and_lock_backing_fd(Context *context, const char *node) {
+        _cleanup_close_ int fd = -EBADF;
+
+        assert(context);
+        assert(node);
+
+        if (context->backing_fd >= 0)
+                return 0;
+
+        fd = open(node, O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open device '%s': %m", node);
+
+        /* Tell udev not to interfere while we are processing the device */
+        if (flock(fd, arg_dry_run ? LOCK_SH : LOCK_EX) < 0)
+                return log_error_errno(errno, "Failed to lock device '%s': %m", node);
+
+        log_debug("Device %s opened and locked.", node);
+        context->backing_fd = TAKE_FD(fd);
+        return 1;
+}
+
 static int context_load_partition_table(Context *context) {
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
@@ -2026,11 +2048,9 @@ static int context_load_partition_table(Context *context) {
         else {
                 uint32_t ssz;
 
-                if (context->backing_fd < 0) {
-                        context->backing_fd = open(context->node, O_RDONLY|O_CLOEXEC);
-                        if (context->backing_fd < 0)
-                                return log_error_errno(errno, "Failed to open device '%s': %m", context->node);
-                }
+                r = context_open_and_lock_backing_fd(context, context->node);
+                if (r < 0)
+                        return r;
 
                 /* Auto-detect sector size if not specified. */
                 r = probe_sector_size_prefer_ioctl(context->backing_fd, &ssz);
@@ -2075,13 +2095,9 @@ static int context_load_partition_table(Context *context) {
 
         if (context->backing_fd < 0) {
                 /* If we have no fd referencing the device yet, make a copy of the fd now, so that we have one */
-                context->backing_fd = fd_reopen(fdisk_get_devfd(c), O_RDONLY|O_CLOEXEC);
-                if (context->backing_fd < 0)
-                        return log_error_errno(context->backing_fd, "Failed to duplicate fdisk fd: %m");
-
-                /* Tell udev not to interfere while we are processing the device */
-                if (flock(context->backing_fd, arg_dry_run ? LOCK_SH : LOCK_EX) < 0)
-                        return log_error_errno(errno, "Failed to lock block device: %m");
+                r = context_open_and_lock_backing_fd(context, FORMAT_PROC_FD_PATH(fdisk_get_devfd(c)));
+                if (r < 0)
+                        return r;
         }
 
         /* The offsets/sizes libfdisk returns to us will be in multiple of the sector size of the
@@ -6198,7 +6214,7 @@ static int acquire_root_devno(
                 char **ret,
                 int *ret_fd) {
 
-        _cleanup_free_ char *found_path = NULL;
+        _cleanup_free_ char *found_path = NULL, *node = NULL;
         dev_t devno, fd_devno = MODE_INVALID;
         _cleanup_close_ int fd = -EBADF;
         struct stat st;
@@ -6253,13 +6269,22 @@ static int acquire_root_devno(
         if (r < 0)
                 log_debug_errno(r, "Failed to find whole disk block device for '%s', ignoring: %m", p);
 
-        r = devname_from_devnum(S_IFBLK, devno, ret);
+        r = devname_from_devnum(S_IFBLK, devno, &node);
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine canonical path for '%s': %m", p);
 
         /* Only if we still look at the same block device we can reuse the fd. Otherwise return an
          * invalidated fd. */
-        *ret_fd = fd_devno != MODE_INVALID && fd_devno == devno ? TAKE_FD(fd) : -1;
+        if (fd_devno != MODE_INVALID && fd_devno == devno) {
+                /* Tell udev not to interfere while we are processing the device */
+                if (flock(fd, arg_dry_run ? LOCK_SH : LOCK_EX) < 0)
+                        return log_error_errno(errno, "Failed to lock device '%s': %m", node);
+
+                *ret_fd = TAKE_FD(fd);
+        } else
+                *ret_fd = -EBADF;
+
+        *ret = TAKE_PTR(node);
         return 0;
 }
 
