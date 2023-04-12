@@ -45,6 +45,7 @@ static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_force = false;
+static bool arg_noexec = true;
 static ImagePolicy *arg_image_policy = NULL;
 
 /* Is set to IMAGE_CONFEXT when systemd is called with the confext functionality instead of the default */
@@ -287,6 +288,7 @@ static int mount_overlayfs(
                 char **layers) {
 
         _cleanup_free_ char *options = NULL;
+        unsigned long flags = MS_RDONLY;
         bool separator = false;
         int r;
 
@@ -309,8 +311,15 @@ static int mount_overlayfs(
                 separator = true;
         }
 
+        /* confexts are nosuid by default, even if they are exec */
+        if (arg_image_class == IMAGE_CONFEXT)
+                flags |= MS_NOSUID;
+
+        if (arg_image_class == IMAGE_CONFEXT && arg_noexec)
+                flags |= MS_NOEXEC;
+
         /* Now mount the actual overlayfs */
-        r = mount_nofollow_verbose(LOG_ERR, image_class_info[arg_image_class].short_identifier, where, "overlay", MS_RDONLY, options);
+        r = mount_nofollow_verbose(LOG_ERR, image_class_info[arg_image_class].short_identifier, where, "overlay", flags, options);
         if (r < 0)
                 return r;
 
@@ -533,14 +542,28 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                                 }
                         }
 
-                        r = mount_nofollow_verbose(LOG_ERR, img->path, p, NULL, MS_BIND, NULL);
+                        /* Make individual confexts directories noexec, as code should be shipped via
+                         * sysexts. Note that we can't quite make the whole overlay noexec, as there are
+                         * still executable scripts shipped in the base /etc. */
+                        r = mount_nofollow_verbose(LOG_ERR,
+                                                   img->path,
+                                                   p,
+                                                   NULL,
+                                                   MS_BIND,
+                                                   NULL);
                         if (r < 0)
                                 return r;
 
                         /* Make this a read-only bind mount */
-                        r = bind_remount_recursive(p, MS_RDONLY, MS_RDONLY, NULL);
+                        r = bind_remount_recursive(p, MS_RDONLY, MS_RDONLY|MS_NOEXEC, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to make bind mount '%s' read-only: %m", p);
+
+                        if (arg_image_class == IMAGE_CONFEXT) {
+                                r = bind_remount_recursive(p, MS_NOEXEC, MS_RDONLY|MS_NOEXEC, NULL);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to make bind mount '%s' noexec: %m", p);
+                        }
 
                         break;
 
@@ -948,6 +971,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --force              Ignore version incompatibilities\n"
                "     --image-policy=POLICY\n"
                "                          Specify disk image dissection policy\n"
+               "     --noexec=BOOL        Whether to mount confexts with noexec\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -969,6 +993,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_JSON,
                 ARG_FORCE,
                 ARG_IMAGE_POLICY,
+                ARG_NOEXEC,
         };
 
         static const struct option options[] = {
@@ -980,6 +1005,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "json",         required_argument, NULL, ARG_JSON         },
                 { "force",        no_argument,       NULL, ARG_FORCE        },
                 { "image-policy", required_argument, NULL, ARG_IMAGE_POLICY },
+                { "noexec",       required_argument, NULL, ARG_NOEXEC       },
                 {}
         };
 
@@ -1034,6 +1060,16 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_image_policy = TAKE_PTR(p);
                         break;
                 }
+
+                case ARG_NOEXEC:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --noexec= argument: %s", optarg);
+
+                        arg_noexec = r;
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
