@@ -1208,6 +1208,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_ROOT,
                 ARG_IMAGE,
+                ARG_IMAGE_POLICY,
                 ARG_LOCALE,
                 ARG_LOCALE_MESSAGES,
                 ARG_KEYMAP,
@@ -1237,7 +1238,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DELETE_ROOT_PASSWORD,
                 ARG_WELCOME,
                 ARG_RESET,
-                ARG_IMAGE_POLICY,
         };
 
         static const struct option options[] = {
@@ -1245,6 +1245,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",                 no_argument,       NULL, ARG_VERSION                 },
                 { "root",                    required_argument, NULL, ARG_ROOT                    },
                 { "image",                   required_argument, NULL, ARG_IMAGE                   },
+                { "image-policy",            required_argument, NULL, ARG_IMAGE_POLICY            },
                 { "locale",                  required_argument, NULL, ARG_LOCALE                  },
                 { "locale-messages",         required_argument, NULL, ARG_LOCALE_MESSAGES         },
                 { "keymap",                  required_argument, NULL, ARG_KEYMAP                  },
@@ -1274,7 +1275,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "delete-root-password",    no_argument,       NULL, ARG_DELETE_ROOT_PASSWORD    },
                 { "welcome",                 required_argument, NULL, ARG_WELCOME                 },
                 { "reset",                   no_argument,       NULL, ARG_RESET                   },
-                { "image-policy",            required_argument, NULL, ARG_IMAGE_POLICY            },
                 {}
         };
 
@@ -1301,6 +1301,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_IMAGE:
                         r = parse_path_argument(optarg, false, &arg_image);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE_POLICY:
+                        r = parse_image_policy_argument(optarg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
@@ -1481,17 +1487,6 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_reset = true;
                         break;
 
-                case ARG_IMAGE_POLICY: {
-                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
-
-                        r = image_policy_from_string(optarg, &p);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
-
-                        image_policy_free(arg_image_policy);
-                        arg_image_policy = TAKE_PTR(p);
-                        break;
-                }
                 case '?':
                         return -EINVAL;
 

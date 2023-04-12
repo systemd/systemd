@@ -888,20 +888,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 arg_root_rw = true;
         else if (proc_cmdline_key_streq(key, "ro") && !value)
                 arg_root_rw = false;
-        else if (proc_cmdline_key_streq(key, "systemd.image_policy")) {
-                _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
-
-                if (proc_cmdline_value_missing(key, value))
-                        return 0;
-
-                r = image_policy_from_string(value, &p);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse image policy: %s", value);
-
-                image_policy_free(arg_image_policy);
-                arg_image_policy = TAKE_PTR(p);
-                return 0;
-        }
+        else if (proc_cmdline_key_streq(key, "systemd.image_policy"))
+                return parse_image_policy_argument(optarg, &arg_image_policy);
 
         return 0;
 }
