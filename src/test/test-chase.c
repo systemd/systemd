@@ -497,15 +497,21 @@ TEST(chaseat) {
 
         /* Test CHASE_MKDIR_0755 */
 
-        assert_se(chaseat(tfd, "m/k/d/i/r", CHASE_MKDIR_0755|CHASE_NONEXISTENT, &result, NULL) >= 0);
+        assert_se(chaseat(tfd, "m/k/d/i/r", CHASE_MKDIR_0755|CHASE_PARENT, &result, NULL) >= 0);
         assert_se(faccessat(tfd, "m/k/d/i", F_OK, 0) >= 0);
         assert_se(RET_NERRNO(faccessat(tfd, "m/k/d/i/r", F_OK, 0)) == -ENOENT);
         assert_se(streq(result, "m/k/d/i/r"));
         result = mfree(result);
 
-        assert_se(chaseat(tfd, "m/../q", CHASE_MKDIR_0755|CHASE_NONEXISTENT, &result, NULL) >= 0);
+        assert_se(chaseat(tfd, "m/../q", CHASE_MKDIR_0755|CHASE_PARENT, &result, NULL) >= 0);
         assert_se(faccessat(tfd, "m", F_OK, 0) >= 0);
         assert_se(RET_NERRNO(faccessat(tfd, "q", F_OK, 0)) == -ENOENT);
+        assert_se(streq(result, "q"));
+        result = mfree(result);
+
+        assert_se(chaseat(tfd, "m/../q", CHASE_MKDIR_0755, &result, NULL) >= 0);
+        assert_se(faccessat(tfd, "m", F_OK, 0) >= 0);
+        assert_se(faccessat(tfd, "q", F_OK, 0) >= 0);
         assert_se(streq(result, "q"));
         result = mfree(result);
 
