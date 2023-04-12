@@ -19,6 +19,11 @@ void release_lock_file(LockFile *f);
 
 #define LOCK_FILE_INIT { .dir_fd = -EBADF, .fd = -EBADF }
 
+void bsd_unlockpp(int **fd);
+
+#define CLEANUP_BSD_UNLOCK(fd)                                  \
+        _cleanup_(bsd_unlockpp) _unused_ int *CONCATENATE(_cleanup_bsd_unlock_, UNIQ) = &(fd);
+
 /* POSIX locks with the same interface as flock(). */
 int posix_lock(int fd, int operation);
 void posix_unlockpp(int **fd);

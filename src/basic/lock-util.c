@@ -99,6 +99,16 @@ void release_lock_file(LockFile *f) {
         f->operation = 0;
 }
 
+void bsd_unlockpp(int **fd) {
+        assert(fd);
+
+        if (!*fd || **fd < 0)
+                return;
+
+        (void) flock(**fd, LOCK_UN);
+        *fd = NULL;
+}
+
 static int fcntl_lock(int fd, int operation, bool ofd) {
         int cmd, type, r;
 
