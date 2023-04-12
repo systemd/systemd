@@ -1051,6 +1051,8 @@ finish:
                         job_add_to_gc_queue(other->job);
                 }
 
+        (void) unit_submit_to_start_when_upheld_queue(NULL, 0, u);
+
         manager_check_finished(u->manager);
 
         return 0;
