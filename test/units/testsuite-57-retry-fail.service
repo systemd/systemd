@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Failed Dependency Unit
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c "if [ -f /tmp/testsuite-57-retry-fail ]; then exit 0; else exit 1; fi"
+Restart=no
