@@ -171,6 +171,8 @@ struct Varlink {
         bool allow_fd_passing_input:1;
         bool allow_fd_passing_output:1;
 
+        bool output_buffer_sensitive:1; /* whether to erase the output buffer after writing it to the socket */
+
         int af; /* address family if socket; AF_UNSPEC if not socket; negative if not known */
 
         usec_t timestamp;
@@ -453,7 +455,7 @@ static void varlink_clear(Varlink *v) {
         varlink_clear_current(v);
 
         v->input_buffer = mfree(v->input_buffer);
-        v->output_buffer = mfree(v->output_buffer);
+        v->output_buffer = v->output_buffer_sensitive ? erase_and_free(v->output_buffer) : mfree(v->output_buffer);
 
         varlink_clear_current(v);
 
@@ -610,11 +612,15 @@ static int varlink_write(Varlink *v) {
                 return -errno;
         }
 
+        if (v->output_buffer_sensitive)
+                explicit_bzero_safe(v->output_buffer + v->output_buffer_index, n);
+
         v->output_buffer_size -= n;
 
-        if (v->output_buffer_size == 0)
+        if (v->output_buffer_size == 0) {
                 v->output_buffer_index = 0;
-        else
+                v->output_buffer_sensitive = false; /* We can reset the sensitive flag once the buffer is empty */
+        } else
                 v->output_buffer_index += n;
 
         close_many(v->output_fds, v->n_output_fds);
@@ -1437,7 +1443,7 @@ Varlink* varlink_flush_close_unref(Varlink *v) {
 }
 
 static int varlink_format_json(Varlink *v, JsonVariant *m) {
-        _cleanup_free_ char *text = NULL;
+        _cleanup_(erase_and_freep) char *text = NULL;
         int r;
 
         assert(v);
@@ -1467,7 +1473,6 @@ static int varlink_format_json(Varlink *v, JsonVariant *m) {
 
                 memcpy(v->output_buffer + v->output_buffer_size, text, r + 1);
                 v->output_buffer_size += r + 1;
-
         } else {
                 char *n;
                 const size_t new_size = v->output_buffer_size + r + 1;
@@ -1482,6 +1487,11 @@ static int varlink_format_json(Varlink *v, JsonVariant *m) {
                 v->output_buffer_size = new_size;
                 v->output_buffer_index = 0;
         }
+
+        if (json_variant_is_sensitive(m))
+                v->output_buffer_sensitive = true; /* Propagate sensitive flag */
+        else
+                text = mfree(text); /* No point in the erase_and_free() destructor declared above */
 
         return 0;
 }
