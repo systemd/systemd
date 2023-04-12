@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "boot-entry.h"
+#include "chase.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "id128-util.h"
 #include "os-util.h"
@@ -14,6 +16,7 @@ bool boot_entry_token_valid(const char *p) {
 
 static int entry_token_load(const char *root, const char *etc_kernel, BootEntryTokenType *type, char **token) {
         _cleanup_free_ char *buf = NULL, *p = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(type);
@@ -23,13 +26,17 @@ static int entry_token_load(const char *root, const char *etc_kernel, BootEntryT
         if (!etc_kernel)
                 return 0;
 
-        p = path_join(root, etc_kernel, "entry-token");
+        p = path_join(etc_kernel, "entry-token");
         if (!p)
                 return log_oom();
 
-        r = read_one_line_file(p, &buf);
+        r = chase_and_fopen_unlocked(p, root, CHASE_PREFIX_ROOT, "re", NULL, &f);
         if (r == -ENOENT)
                 return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to chase and open '%s': %m", p);
+
+        r = read_line(f, NAME_MAX, &buf);
         if (r < 0)
                 return log_error_errno(r, "Failed to read %s: %m", p);
 
