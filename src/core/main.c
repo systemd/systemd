@@ -3096,6 +3096,9 @@ finish:
         __lsan_do_leak_check();
 #endif
 
+        if (r < 0)
+                (void) sd_notifyf(0, "ERRNO=%i", -r);
+
         /* Try to invoke the shutdown binary unless we already failed.
          * If we failed above, we want to freeze after finishing cleanup. */
         if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM &&
@@ -3104,6 +3107,10 @@ finish:
                 log_error_errno(r, "Failed to execute shutdown binary, %s: %m", getpid_cached() == 1 ? "freezing" : "quitting");
                 error_message = "Failed to execute shutdown binary";
         }
+
+        /* This is primarily useful when running systemd in a VM, as it provides the user running the VM with
+         * a mechanism to pick up systemd's exit status in the VM. */
+        (void) sd_notifyf(0, "EXIT_STATUS=%i", retval);
 
         watchdog_free_device();
         arg_watchdog_device = mfree(arg_watchdog_device);
