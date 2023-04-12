@@ -281,6 +281,8 @@ static int method_detach_image(sd_bus_message *message, void *userdata, sd_bus_e
 
         assert(message);
 
+        CLEANUP_ARRAY(changes, n_changes, portable_changes_free);
+
         /* Note that we do not redirect detaching to the image object here, because we want to allow that users can
          * detach already deleted images too, in case the user already deleted an image before properly detaching
          * it. */
@@ -339,13 +341,9 @@ static int method_detach_image(sd_bus_message *message, void *userdata, sd_bus_e
                         &n_changes,
                         error);
         if (r < 0)
-                goto finish;
+                return r;
 
-        r = reply_portable_changes(message, changes, n_changes);
-
-finish:
-        portable_changes_free(changes, n_changes);
-        return r;
+        return reply_portable_changes(message, changes, n_changes);
 }
 
 static int method_reattach_image(sd_bus_message *message, void *userdata, sd_bus_error *error) {
