@@ -3611,7 +3611,7 @@ int unit_file_preset_all(
         return execute_preset(file_flags, &plus, &minus, &lp, config_path, NULL, mode, changes, n_changes);
 }
 
-static UnitFileList* unit_file_list_free_one(UnitFileList *f) {
+static UnitFileList* unit_file_list_free(UnitFileList *f) {
         if (!f)
                 return NULL;
 
@@ -3619,7 +3619,7 @@ static UnitFileList* unit_file_list_free_one(UnitFileList *f) {
         return mfree(f);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(UnitFileList*, unit_file_list_free_one);
+DEFINE_TRIVIAL_CLEANUP_FUNC(UnitFileList*, unit_file_list_free);
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         unit_file_list_hash_ops_free,
@@ -3627,7 +3627,7 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         string_hash_func,
         string_compare_func,
         UnitFileList,
-        unit_file_list_free_one);
+        unit_file_list_free);
 
 int unit_file_get_list(
                 RuntimeScope scope,
@@ -3663,7 +3663,7 @@ int unit_file_get_list(
                 }
 
                 FOREACH_DIRENT(de, d, return -errno) {
-                        _cleanup_(unit_file_list_free_onep) UnitFileList *f = NULL;
+                        _cleanup_(unit_file_list_freep) UnitFileList *f = NULL;
 
                         if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
                                 continue;
