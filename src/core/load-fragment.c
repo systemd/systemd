@@ -800,7 +800,7 @@ int config_parse_exec_coredump_filter(
         }
 
         c->coredump_filter |= f;
-        c->oom_score_adjust_set = true;
+        c->coredump_filter_set = true;
         return 0;
 }
 
