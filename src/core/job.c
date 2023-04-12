@@ -1051,6 +1051,10 @@ finish:
                         job_add_to_gc_queue(other->job);
                 }
 
+        /* Ensure that when an upheld unit activation job fails we requeue it, if it still needs to be
+         * uphold. If there are no state changes in the uphelder, it would not be retried otherwise. */
+        (void) unit_submit_to_start_when_upheld_queue(u);
+
         manager_check_finished(u->manager);
 
         return 0;
