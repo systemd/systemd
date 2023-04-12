@@ -63,6 +63,7 @@ static const struct {
         const char *level_env;
         const char *scope_env;
         const char *name_env;
+        const ImagePolicy *default_image_policy;
 } image_class_info[_IMAGE_CLASS_MAX] = {
         [IMAGE_SYSEXT] = {
                 .dot_directory_name = ".systemd-sysext",
@@ -72,6 +73,7 @@ static const struct {
                 .level_env = "SYSEXT_LEVEL",
                 .scope_env = "SYSEXT_SCOPE",
                 .name_env = "SYSTEMD_SYSEXT_HIERARCHIES",
+                .default_image_policy = &image_policy_sysext,
         },
         [IMAGE_CONFEXT] = {
                 .dot_directory_name = ".systemd-confext",
@@ -81,6 +83,7 @@ static const struct {
                 .level_env = "CONFEXT_LEVEL",
                 .scope_env = "CONFEXT_SCOPE",
                 .name_env = "SYSTEMD_CONFEXT_HIERARCHIES",
+                .default_image_policy = &image_policy_confext,
         }
 };
 
@@ -458,7 +461,7 @@ static const ImagePolicy *pick_image_policy(const Image *img) {
         if (in_initrd() && path_startswith(img->path, "/.extra/sysext/"))
                 return &image_policy_sysext_strict;
 
-        return &image_policy_sysext;
+        return image_class_info[img->class].default_image_policy;
 }
 
 static int merge_subprocess(Hashmap *images, const char *workspace) {
