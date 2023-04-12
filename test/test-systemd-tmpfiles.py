@@ -202,6 +202,27 @@ def test_hard_cleanup(*, user):
 def test_base64():
     test_content('f~ {} - - - - UGlmZgpQYWZmClB1ZmYgCg==', "Piff\nPaff\nPuff \n", user=False)
 
+def test_conditionalized_execute_bit():
+    c = subprocess.run(exe_with_args + ['--version', '|', 'grep', '-F', '+ACL'], shell=True, stdout=subprocess.DEVNULL)
+    if c.returncode != 0:
+        return 0
+
+    d = tempfile.TemporaryDirectory(prefix='test-acl.', dir=temp_dir.name)
+    temp = d.name + '/cond_exec'
+    os.close(os.open(temp, os.O_CREAT))
+    os.chmod(temp, 644)
+
+    test_line(f"a {temp} - - - - u:root:Xwr", user=False, returncode=0)
+    c = subprocess.run(["getfacl", "-Ec", temp],
+                       stdout=subprocess.PIPE, universal_newlines=True)
+    assert "user:root:rw-" in c.stdout
+
+    os.chmod(temp, 755)
+    test_line(f"a+ {temp} - - - - u:root:Xwr,g:root:rX", user=False, returncode=0)
+    c = subprocess.run(["getfacl", "-Ec", temp],
+                       stdout=subprocess.PIPE, universal_newlines=True)
+    assert "user:root:rwx" in c.stdout and "group:root:r-x" in c.stdout
+
 if __name__ == '__main__':
     test_invalids(user=False)
     test_invalids(user=True)
@@ -214,3 +235,5 @@ if __name__ == '__main__':
     test_hard_cleanup(user=True)
 
     test_base64()
+
+    test_conditionalized_execute_bit()
