@@ -884,6 +884,7 @@ static int timer_can_clean(Unit *u, ExecCleanMask *ret) {
         Timer *t = TIMER(u);
 
         assert(t);
+        assert(ret);
 
         *ret = t->persistent ? EXEC_CLEAN_STATE : 0;
         return 0;
