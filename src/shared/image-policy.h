@@ -3,6 +3,7 @@
 
 typedef struct ImagePolicy ImagePolicy;
 
+#include "conf-parser.h"
 #include "dissect-image.h"
 #include "errno-list.h"
 
@@ -96,3 +97,6 @@ static inline ImagePolicy* image_policy_free(ImagePolicy *p) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(ImagePolicy*, image_policy_free);
+
+CONFIG_PARSER_PROTOTYPE(config_parse_image_policy);
+int parse_image_policy_argument(const char *s, ImagePolicy **policy);

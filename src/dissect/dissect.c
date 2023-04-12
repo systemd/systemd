@@ -466,17 +466,11 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                case ARG_IMAGE_POLICY: {
-                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
-
-                        r = image_policy_from_string(optarg, &p);
+                case ARG_IMAGE_POLICY:
+                        r = parse_image_policy_argument(optarg, &arg_image_policy);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
-
-                        image_policy_free(arg_image_policy);
-                        arg_image_policy = TAKE_PTR(p);
+                                return r;
                         break;
-                }
 
                 case ARG_VALIDATE:
                         arg_action = ACTION_VALIDATE;

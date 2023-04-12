@@ -60,9 +60,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_ROOT,
                 ARG_IMAGE,
+                ARG_IMAGE_POLICY,
                 ARG_COMMIT,
                 ARG_PRINT,
-                ARG_IMAGE_POLICY,
         };
 
         static const struct option options[] = {
@@ -70,9 +70,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",      no_argument,       NULL, ARG_VERSION      },
                 { "root",         required_argument, NULL, ARG_ROOT         },
                 { "image",        required_argument, NULL, ARG_IMAGE        },
+                { "image-policy", required_argument, NULL, ARG_IMAGE_POLICY },
                 { "commit",       no_argument,       NULL, ARG_COMMIT       },
                 { "print",        no_argument,       NULL, ARG_PRINT        },
-                { "image-policy", required_argument, NULL, ARG_IMAGE_POLICY },
                 {}
         };
 
@@ -103,6 +103,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_IMAGE_POLICY:
+                        r = parse_image_policy_argument(optarg, &arg_image_policy);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case ARG_COMMIT:
                         arg_commit = true;
                         break;
@@ -111,17 +117,6 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_print = true;
                         break;
 
-                case ARG_IMAGE_POLICY: {
-                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
-
-                        r = image_policy_from_string(optarg, &p);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
-
-                        image_policy_free(arg_image_policy);
-                        arg_image_policy = TAKE_PTR(p);
-                        break;
-                }
                 case '?':
                         return -EINVAL;
 

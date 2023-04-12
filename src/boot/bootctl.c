@@ -211,6 +211,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BOOT_PATH,
                 ARG_ROOT,
                 ARG_IMAGE,
+                ARG_IMAGE_POLICY,
                 ARG_INSTALL_SOURCE,
                 ARG_VERSION,
                 ARG_NO_VARIABLES,
@@ -222,7 +223,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ARCH_ALL,
                 ARG_EFI_BOOT_OPTION_DESCRIPTION,
                 ARG_DRY_RUN,
-                ARG_IMAGE_POLICY,
         };
 
         static const struct option options[] = {
@@ -233,6 +233,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "boot-path",                   required_argument, NULL, ARG_BOOT_PATH                   },
                 { "root",                        required_argument, NULL, ARG_ROOT                        },
                 { "image",                       required_argument, NULL, ARG_IMAGE                       },
+                { "image-policy",                required_argument, NULL, ARG_IMAGE_POLICY                },
                 { "install-source",              required_argument, NULL, ARG_INSTALL_SOURCE              },
                 { "print-esp-path",              no_argument,       NULL, 'p'                             },
                 { "print-path",                  no_argument,       NULL, 'p'                             }, /* Compatibility alias */
@@ -249,7 +250,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "all-architectures",           no_argument,       NULL, ARG_ARCH_ALL                    },
                 { "efi-boot-option-description", required_argument, NULL, ARG_EFI_BOOT_OPTION_DESCRIPTION },
                 { "dry-run",                     no_argument,       NULL, ARG_DRY_RUN                     },
-                { "image-policy",                required_argument, NULL, ARG_IMAGE_POLICY                },
                 {}
         };
 
@@ -288,6 +288,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_IMAGE:
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE_POLICY:
+                        r = parse_image_policy_argument(optarg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
@@ -381,18 +387,6 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_DRY_RUN:
                         arg_dry_run = true;
                         break;
-
-                case ARG_IMAGE_POLICY: {
-                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
-
-                        r = image_policy_from_string(optarg, &p);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
-
-                        image_policy_free(arg_image_policy);
-                        arg_image_policy = TAKE_PTR(p);
-                        break;
-                }
 
                 case '?':
                         return -EINVAL;

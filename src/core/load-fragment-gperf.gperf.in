@@ -263,6 +263,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include <stddef.h>
 #include "all-units.h"
 #include "conf-parser.h"
+#include "image-policy.h"
 #include "in-addr-prefix-util.h"
 #include "load-fragment.h"
 %}

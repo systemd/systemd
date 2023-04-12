@@ -292,6 +292,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_REQUIRE,
                 ARG_ROOT,
                 ARG_IMAGE,
+                ARG_IMAGE_POLICY,
                 ARG_SYSTEM,
                 ARG_USER,
                 ARG_GLOBAL,
@@ -311,7 +312,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PROFILE,
                 ARG_TABLE,
                 ARG_NO_LEGEND,
-                ARG_IMAGE_POLICY,
         };
 
         static const struct option options[] = {
@@ -322,6 +322,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "require",          no_argument,       NULL, ARG_REQUIRE          },
                 { "root",             required_argument, NULL, ARG_ROOT             },
                 { "image",            required_argument, NULL, ARG_IMAGE            },
+                { "image-policy",     required_argument, NULL, ARG_IMAGE_POLICY     },
                 { "recursive-errors", required_argument, NULL, ARG_RECURSIVE_ERRORS },
                 { "offline",          required_argument, NULL, ARG_OFFLINE          },
                 { "threshold",        required_argument, NULL, ARG_THRESHOLD        },
@@ -344,7 +345,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "profile",          required_argument, NULL, ARG_PROFILE          },
                 { "table",            optional_argument, NULL, ARG_TABLE            },
                 { "no-legend",        optional_argument, NULL, ARG_NO_LEGEND        },
-                { "image-policy",     required_argument, NULL, ARG_IMAGE_POLICY     },
                 {}
         };
 
@@ -386,6 +386,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_IMAGE:
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE_POLICY:
+                        r = parse_image_policy_argument(optarg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
@@ -527,18 +533,6 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_NO_LEGEND:
                         arg_legend = false;
                         break;
-
-                case ARG_IMAGE_POLICY: {
-                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
-
-                        r = image_policy_from_string(optarg, &p);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
-
-                        image_policy_free(arg_image_policy);
-                        arg_image_policy = TAKE_PTR(p);
-                        break;
-                }
 
                 case '?':
                         return -EINVAL;
