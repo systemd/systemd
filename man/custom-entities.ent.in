@@ -17,5 +17,5 @@
 <!ENTITY DEFAULT_DNS_OVER_TLS_MODE "{{DEFAULT_DNS_OVER_TLS_MODE_STR}}">
 <!ENTITY DEFAULT_TIMEOUT "{{DEFAULT_TIMEOUT_SEC}} s">
 <!ENTITY DEFAULT_USER_TIMEOUT "{{DEFAULT_USER_TIMEOUT_SEC}} s">
-<!ENTITY fedora_latest_version "36">
-<!ENTITY fedora_cloud_release "1.5">
+<!ENTITY fedora_latest_version "37">
+<!ENTITY fedora_cloud_release "1.7">
