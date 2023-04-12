@@ -77,25 +77,20 @@
 
   <refsect1>
     <title>Description</title>
-    <para><function>sd_notify()</function> may be called by a service
-    to notify the service manager about state changes. It can be used
-    to send arbitrary information, encoded in an
-    environment-block-like string. Most importantly, it can be used for
-    start-up completion notification.</para>
 
-    <para>If the <parameter>unset_environment</parameter> parameter is
-    non-zero, <function>sd_notify()</function> will unset the
-    <varname>$NOTIFY_SOCKET</varname> environment variable before
-    returning (regardless of whether the function call itself
-    succeeded or not). Further calls to
-    <function>sd_notify()</function> will then fail, but the variable
-    is no longer inherited by child processes.</para>
+    <para><function>sd_notify()</function> may be called by a service to notify the service manager about
+    state changes. It can be used to send arbitrary information, encoded in an environment-block-like
+    string. Most importantly, it can be used for start-up completion notification.</para>
 
-    <para>The <parameter>state</parameter> parameter should contain a
-    newline-separated list of variable assignments, similar in style
-    to an environment block. A trailing newline is implied if none is
-    specified. The string may contain any kind of variable
-    assignments, but the following shall be considered
+    <para>If the <parameter>unset_environment</parameter> parameter is non-zero,
+    <function>sd_notify()</function> will unset the <varname>$NOTIFY_SOCKET</varname> environment variable
+    before returning (regardless of whether the function call itself succeeded or not). Further calls to
+    <function>sd_notify()</function> will then fail, but the variable is no longer inherited by child
+    processes.</para>
+
+    <para>The <parameter>state</parameter> parameter should contain a newline-separated list of variable
+    assignments, similar in style to an environment block. A trailing newline is implied if none is
+    specified. The string may contain any kind of variable assignments, but the following shall be considered
     well-known:</para>
 
     <variablelist>
@@ -136,102 +131,95 @@
       <varlistentry>
         <term>STOPPING=1</term>
 
-        <listitem><para>Tells the service manager that the service is
-        beginning its shutdown. This is useful to allow the service
-        manager to track the service's internal state, and present it
-        to the user.</para></listitem>
+        <listitem><para>Tells the service manager that the service is beginning its shutdown. This is useful
+        to allow the service manager to track the service's internal state, and present it to the
+        user.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term>STATUS=…</term>
 
-        <listitem><para>Passes a single-line UTF-8 status string back
-        to the service manager that describes the service state. This
-        is free-form and can be used for various purposes: general
-        state feedback, fsck-like programs could pass completion
-        percentages and failing programs could pass a human-readable
-        error message. Example: <literal>STATUS=Completed 66% of file
-        system check…</literal></para></listitem>
+        <listitem><para>Passes a single-line UTF-8 status string back to the service manager that describes
+        the service state. This is free-form and can be used for various purposes: general state feedback,
+        fsck-like programs could pass completion percentages and failing programs could pass a human-readable
+        error message. Example: <literal>STATUS=Completed 66% of file system
+        check…</literal></para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term>NOTIFYACCESS=…</term>
 
-        <listitem><para>Reset the access to the service status notification
-        socket during runtime, overriding <varname>NotifyAccess=</varname> setting
-        in the service unit file. See <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details, specifically <literal>NotifyAccess=</literal> for a list of
-        accepted values.</para></listitem>
+        <listitem><para>Reset the access to the service status notification socket during runtime, overriding
+        <varname>NotifyAccess=</varname> setting in the service unit file. See
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details, specifically <literal>NotifyAccess=</literal> for a list of accepted
+        values.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term>ERRNO=…</term>
 
-        <listitem><para>If a service fails, the errno-style error
-        code, formatted as string. Example: <literal>ERRNO=2</literal>
-        for ENOENT.</para></listitem>
+        <listitem><para>If a service fails, the errno-style error code, formatted as string. Example:
+        <literal>ERRNO=2</literal> for ENOENT.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term>BUSERROR=…</term>
 
-        <listitem><para>If a service fails, the D-Bus error-style
-        error code. Example:
+        <listitem><para>If a service fails, the D-Bus error-style error code. Example:
         <literal>BUSERROR=org.freedesktop.DBus.Error.TimedOut</literal></para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term>MAINPID=…</term>
 
-        <listitem><para>The main process ID (PID) of the service, in
-        case the service manager did not fork off the process itself.
-        Example: <literal>MAINPID=4711</literal></para></listitem>
+        <listitem><para>The main process ID (PID) of the service, in case the service manager did not fork
+        off the process itself.  Example: <literal>MAINPID=4711</literal></para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term>WATCHDOG=1</term>
 
-        <listitem><para>Tells the service manager to update the
-        watchdog timestamp. This is the keep-alive ping that services
-        need to issue in regular intervals if
-        <varname>WatchdogSec=</varname> is enabled for it. See
+        <listitem><para>Tells the service manager to update the watchdog timestamp. This is the keep-alive
+        ping that services need to issue in regular intervals if <varname>WatchdogSec=</varname> is enabled
+        for it. See
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for information how to enable this functionality and
         <citerefentry><refentrytitle>sd_watchdog_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        for the details of how the service can check whether the
-        watchdog is enabled. </para></listitem>
+        for the details of how the service can check whether the watchdog is enabled. </para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term>WATCHDOG=trigger</term>
 
-        <listitem><para>Tells the service manager that the service detected an internal error that should be handled by
-        the configured watchdog options. This will trigger the same behaviour as if <varname>WatchdogSec=</varname> is
-        enabled and the service did not send <literal>WATCHDOG=1</literal> in time. Note that
-        <varname>WatchdogSec=</varname> does not need to be enabled for <literal>WATCHDOG=trigger</literal> to trigger
-        the watchdog action. See
-        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-        information about the watchdog behavior. </para></listitem>
+        <listitem><para>Tells the service manager that the service detected an internal error that should be
+        handled by the configured watchdog options. This will trigger the same behaviour as if
+        <varname>WatchdogSec=</varname> is enabled and the service did not send <literal>WATCHDOG=1</literal>
+        in time. Note that <varname>WatchdogSec=</varname> does not need to be enabled for
+        <literal>WATCHDOG=trigger</literal> to trigger the watchdog action. See
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for information about the watchdog behavior. </para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term>WATCHDOG_USEC=…</term>
 
-        <listitem><para>Reset <varname>watchdog_usec</varname> value during runtime.
-        Notice that this is not available when using <function>sd_event_set_watchdog()</function>
-        or <function>sd_watchdog_enabled()</function>.
-        Example : <literal>WATCHDOG_USEC=20000000</literal></para></listitem>
+        <listitem><para>Reset <varname>watchdog_usec</varname> value during runtime.  Notice that this is not
+        available when using <function>sd_event_set_watchdog()</function> or
+        <function>sd_watchdog_enabled()</function>.  Example :
+        <literal>WATCHDOG_USEC=20000000</literal></para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term>EXTEND_TIMEOUT_USEC=…</term>
 
         <listitem><para>Tells the service manager to extend the startup, runtime or shutdown service timeout
-        corresponding the current state. The value specified is a time in microseconds during which the service must
-        send a new message. A service timeout will occur if the message isn't received, but only if the runtime of the
-        current state is beyond the original maximum times of <varname>TimeoutStartSec=</varname>, <varname>RuntimeMaxSec=</varname>,
-        and <varname>TimeoutStopSec=</varname>.
-        See <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        corresponding the current state. The value specified is a time in microseconds during which the
+        service must send a new message. A service timeout will occur if the message isn't received, but only
+        if the runtime of the current state is beyond the original maximum times of
+        <varname>TimeoutStartSec=</varname>, <varname>RuntimeMaxSec=</varname>, and
+        <varname>TimeoutStopSec=</varname>.  See
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for effects on the service timeouts.</para></listitem>
       </varlistentry>
 
@@ -266,33 +254,37 @@
       <varlistentry>
         <term>FDSTOREREMOVE=1</term>
 
-        <listitem><para>Removes file descriptors from the file descriptor store. This field needs to be combined with
-        <varname>FDNAME=</varname> to specify the name of the file descriptors to remove.</para></listitem>
+        <listitem><para>Removes file descriptors from the file descriptor store. This field needs to be
+        combined with <varname>FDNAME=</varname> to specify the name of the file descriptors to
+        remove.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term>FDNAME=…</term>
 
-        <listitem><para>When used in combination with <varname>FDSTORE=1</varname>, specifies a name for the submitted
-        file descriptors. When used with <varname>FDSTOREREMOVE=1</varname>, specifies the name for the file
-        descriptors to remove. This name is passed to the service during activation, and may be queried using
+        <listitem><para>When used in combination with <varname>FDSTORE=1</varname>, specifies a name for the
+        submitted file descriptors. When used with <varname>FDSTOREREMOVE=1</varname>, specifies the name for
+        the file descriptors to remove. This name is passed to the service during activation, and may be
+        queried using
         <citerefentry><refentrytitle>sd_listen_fds_with_names</refentrytitle><manvolnum>3</manvolnum></citerefentry>. File
         descriptors submitted without this field set, will implicitly get the name <literal>stored</literal>
-        assigned. Note that, if multiple file descriptors are submitted at once, the specified name will be assigned to
-        all of them. In order to assign different names to submitted file descriptors, submit them in separate
-        invocations of <function>sd_pid_notify_with_fds()</function>. The name may consist of arbitrary ASCII
-        characters except control characters or <literal>:</literal>. It may not be longer than 255 characters. If a
-        submitted name does not follow these restrictions, it is ignored.</para></listitem>
+        assigned. Note that, if multiple file descriptors are submitted at once, the specified name will be
+        assigned to all of them. In order to assign different names to submitted file descriptors, submit
+        them in separate invocations of <function>sd_pid_notify_with_fds()</function>. The name may consist
+        of arbitrary ASCII characters except control characters or <literal>:</literal>. It may not be longer
+        than 255 characters. If a submitted name does not follow these restrictions, it is
+        ignored.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term>FDPOLL=0</term>
 
-        <listitem><para>When used in combination with <varname>FDSTORE=1</varname>, disables polling of the stored
-        file descriptors regardless of whether or not they are pollable. As this option disables automatic cleanup
-        of the stored file descriptors on EPOLLERR and EPOLLHUP, care must be taken to ensure proper manual cleanup.
-        Use of this option is not generally recommended except for when automatic cleanup has unwanted behavior such
-        as prematurely discarding file descriptors from the store.</para></listitem>
+        <listitem><para>When used in combination with <varname>FDSTORE=1</varname>, disables polling of the
+        stored file descriptors regardless of whether or not they are pollable. As this option disables
+        automatic cleanup of the stored file descriptors on EPOLLERR and EPOLLHUP, care must be taken to
+        ensure proper manual cleanup.  Use of this option is not generally recommended except for when
+        automatic cleanup has unwanted behavior such as prematurely discarding file descriptors from the
+        store.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -309,23 +301,22 @@
       </varlistentry>
     </variablelist>
 
-    <para>It is recommended to prefix variable names that are not
-    listed above with <varname>X_</varname> to avoid namespace
-    clashes.</para>
+    <para>It is recommended to prefix variable names that are not listed above with <varname>X_</varname> to
+    avoid namespace clashes.</para>
 
-    <para>Note that systemd will accept status data sent from a
-    service only if the <varname>NotifyAccess=</varname> option is
-    correctly set in the service definition file. See
-    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for details.</para>
+    <para>Note that systemd will accept status data sent from a service only if the
+    <varname>NotifyAccess=</varname> option is correctly set in the service definition file. See
+    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details.</para>
 
-    <para>Note that <function>sd_notify()</function> notifications may be attributed to units correctly only if either
-    the sending process is still around at the time PID 1 processes the message, or if the sending process is
-    explicitly runtime-tracked by the service manager. The latter is the case if the service manager originally forked
-    off the process, i.e. on all processes that match <varname>NotifyAccess=</varname><option>main</option> or
-    <varname>NotifyAccess=</varname><option>exec</option>. Conversely, if an auxiliary process of the unit sends an
-    <function>sd_notify()</function> message and immediately exits, the service manager might not be able to properly
-    attribute the message to the unit, and thus will ignore it, even if
+    <para>Note that <function>sd_notify()</function> notifications may be attributed to units correctly only
+    if either the sending process is still around at the time PID 1 processes the message, or if the sending
+    process is explicitly runtime-tracked by the service manager. The latter is the case if the service
+    manager originally forked off the process, i.e. on all processes that match
+    <varname>NotifyAccess=</varname><option>main</option> or
+    <varname>NotifyAccess=</varname><option>exec</option>. Conversely, if an auxiliary process of the unit
+    sends an <function>sd_notify()</function> message and immediately exits, the service manager might not be
+    able to properly attribute the message to the unit, and thus will ignore it, even if
     <varname>NotifyAccess=</varname><option>all</option> is set for it.</para>
 
     <para>Hence, to eliminate all race conditions involving lookup of the client's unit and attribution of notifications
@@ -335,22 +326,15 @@
     service manager, otherwise this synchronization mechanism is unnecessary for attribution of notifications to the
     unit.</para>
 
-    <para><function>sd_notifyf()</function> is similar to
-    <function>sd_notify()</function> but takes a
-    <function>printf()</function>-like format string plus
-    arguments.</para>
+    <para><function>sd_notifyf()</function> is similar to <function>sd_notify()</function> but takes a
+    <function>printf()</function>-like format string plus arguments.</para>
 
-    <para><function>sd_pid_notify()</function> and
-    <function>sd_pid_notifyf()</function> are similar to
-    <function>sd_notify()</function> and
-    <function>sd_notifyf()</function> but take a process ID (PID) to
-    use as originating PID for the message as first argument. This is
-    useful to send notification messages on behalf of other processes,
-    provided the appropriate privileges are available. If the PID
-    argument is specified as 0, the process ID of the calling process
-    is used, in which case the calls are fully equivalent to
-    <function>sd_notify()</function> and
-    <function>sd_notifyf()</function>.</para>
+    <para><function>sd_pid_notify()</function> and <function>sd_pid_notifyf()</function> are similar to
+    <function>sd_notify()</function> and <function>sd_notifyf()</function> but take a process ID (PID) to use
+    as originating PID for the message as first argument. This is useful to send notification messages on
+    behalf of other processes, provided the appropriate privileges are available. If the PID argument is
+    specified as 0, the process ID of the calling process is used, in which case the calls are fully
+    equivalent to <function>sd_notify()</function> and <function>sd_notifyf()</function>.</para>
 
     <para><function>sd_pid_notify_with_fds()</function> is similar to <function>sd_pid_notify()</function>
     but takes an additional array of file descriptors. These file descriptors are sent along the notification
@@ -361,10 +345,9 @@
     that file descriptors sent to the service manager on a message without <literal>FDSTORE=1</literal> are
     immediately closed on reception.</para>
 
-    <para><function>sd_notify_barrier()</function> allows the caller to
-    synchronize against reception of previously sent notification messages
-    and uses the <varname>BARRIER=1</varname> command. It takes a relative
-    <varname>timeout</varname> value in microseconds which is passed to
+    <para><function>sd_notify_barrier()</function> allows the caller to synchronize against reception of
+    previously sent notification messages and uses the <varname>BARRIER=1</varname> command. It takes a
+    relative <varname>timeout</varname> value in microseconds which is passed to
     <citerefentry><refentrytitle>ppoll</refentrytitle><manvolnum>2</manvolnum>
     </citerefentry>. A value of UINT64_MAX is interpreted as infinite timeout.
     </para>
@@ -373,14 +356,15 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On failure, these calls return a negative errno-style error code. If <varname>$NOTIFY_SOCKET</varname> was
-    not set and hence no status message could be sent, 0 is returned. If the status was sent, these functions return a
-    positive value. In order to support both service managers that implement this scheme and those which do not, it is
-    generally recommended to ignore the return value of this call. Note that the return value simply indicates whether
-    the notification message was enqueued properly, it does not reflect whether the message could be processed
+    <para>On failure, these calls return a negative errno-style error code. If
+    <varname>$NOTIFY_SOCKET</varname> was not set and hence no status message could be sent, 0 is
+    returned. If the status was sent, these functions return a positive value. In order to support both
+    service managers that implement this scheme and those which do not, it is generally recommended to ignore
+    the return value of this call. Note that the return value simply indicates whether the notification
+    message was enqueued properly, it does not reflect whether the message could be processed
     successfully. Specifically, no error is returned when a file descriptor is attempted to be stored using
-    <varname>FDSTORE=1</varname> but the service is not actually configured to permit storing of file descriptors (see
-    above).</para>
+    <varname>FDSTORE=1</varname> but the service is not actually configured to permit storing of file
+    descriptors (see above).</para>
   </refsect1>
 
   <refsect1>
@@ -389,27 +373,21 @@
     <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
     <xi:include href="threads-aware.xml" xpointer="getenv"/>
 
-    <para>These functions send a single datagram with the
-    state string as payload to the socket referenced in the
-    <varname>$NOTIFY_SOCKET</varname> environment variable. If the
-    first character of <varname>$NOTIFY_SOCKET</varname> is
-    <literal>/</literal> or <literal>@</literal>, the string is understood
-    as an <constant>AF_UNIX</constant> or Linux abstract namespace socket
-    (respectively), and in both cases the datagram is accompanied by the
-    process credentials of the sending service, using SCM_CREDENTIALS. If
-    the string starts with <literal>vsock:</literal> then the string is
-    understood as an <constant>AF_VSOCK</constant> address, which is useful
-    for hypervisors/VMMs or other processes on the host to receive a
-    notification when a virtual machine has finished booting. Note that in
-    case the hypervisor does not support <constant>SOCK_DGRAM</constant>
-    over <constant>AF_VSOCK</constant>, <constant>SOCK_SEQPACKET</constant>
-    will be used instead. The address should be in the form:
-    <literal>vsock:CID:PORT</literal>. Note that unlike other uses of vsock,
-    the CID is mandatory and cannot be <literal>VMADDR_CID_ANY</literal>.
-    Note that PID1 will send the VSOCK packets from a privileged port
-    (i.e.: lower than 1024), as an attempt to address concerns that unprivileged
-    processes in the guest might try to send malicious notifications to the
-    host, driving it to make destructive decisions based on them.</para>
+    <para>These functions send a single datagram with the state string as payload to the socket referenced in
+    the <varname>$NOTIFY_SOCKET</varname> environment variable. If the first character of
+    <varname>$NOTIFY_SOCKET</varname> is <literal>/</literal> or <literal>@</literal>, the string is
+    understood as an <constant>AF_UNIX</constant> or Linux abstract namespace socket (respectively), and in
+    both cases the datagram is accompanied by the process credentials of the sending service, using
+    SCM_CREDENTIALS. If the string starts with <literal>vsock:</literal> then the string is understood as an
+    <constant>AF_VSOCK</constant> address, which is useful for hypervisors/VMMs or other processes on the
+    host to receive a notification when a virtual machine has finished booting. Note that in case the
+    hypervisor does not support <constant>SOCK_DGRAM</constant> over <constant>AF_VSOCK</constant>,
+    <constant>SOCK_SEQPACKET</constant> will be used instead. The address should be in the form:
+    <literal>vsock:CID:PORT</literal>. Note that unlike other uses of vsock, the CID is mandatory and cannot
+    be <literal>VMADDR_CID_ANY</literal>.  Note that PID1 will send the VSOCK packets from a privileged port
+    (i.e.: lower than 1024), as an attempt to address concerns that unprivileged processes in the guest might
+    try to send malicious notifications to the host, driving it to make destructive decisions based on
+    them.</para>
   </refsect1>
 
   <refsect1>
@@ -419,11 +397,9 @@
       <varlistentry>
         <term><varname>$NOTIFY_SOCKET</varname></term>
 
-        <listitem><para>Set by the service manager for supervised
-        processes for status and start-up completion notification.
-        This environment variable specifies the socket
-        <function>sd_notify()</function> talks to. See above for
-        details.</para></listitem>
+        <listitem><para>Set by the service manager for supervised processes for status and start-up
+        completion notification.  This environment variable specifies the socket
+        <function>sd_notify()</function> talks to. See above for details.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -434,8 +410,8 @@
     <example>
       <title>Start-up Notification</title>
 
-      <para>When a service finished starting up, it might issue the
-      following call to notify the service manager:</para>
+      <para>When a service finished starting up, it might issue the following call to notify the service
+      manager:</para>
 
       <programlisting>sd_notify(0, "READY=1");</programlisting>
     </example>
@@ -443,8 +419,7 @@
     <example>
       <title>Extended Start-up Notification</title>
 
-      <para>A service could send the following after completing
-      initialization:</para>
+      <para>A service could send the following after completing initialization:</para>
 
       <programlisting>
 sd_notifyf(0, "READY=1\n"
@@ -468,9 +443,8 @@ sd_notifyf(0, "STATUS=Failed to start up: %s\n"
     <example>
       <title>Store a File Descriptor in the Service Manager</title>
 
-      <para>To store an open file descriptor in the service manager,
-      in order to continue operation after a service restart without
-      losing state, use <literal>FDSTORE=1</literal>:</para>
+      <para>To store an open file descriptor in the service manager, in order to continue operation after a
+      service restart without losing state, use <literal>FDSTORE=1</literal>:</para>
 
       <programlisting>sd_pid_notify_with_fds(0, 0, "FDSTORE=1\nFDNAME=foobar", &amp;fd, 1);</programlisting>
     </example>
@@ -478,12 +452,10 @@ sd_notifyf(0, "STATUS=Failed to start up: %s\n"
     <example>
       <title>Eliminating race conditions</title>
 
-      <para>When the client sending the notifications is not spawned
-      by the service manager, it may exit too quickly and the service
-      manager may fail to attribute them correctly to the unit. To
-      prevent such races, use <function>sd_notify_barrier()</function>
-      to synchronize against reception of all notifications sent before
-      this call is made.</para>
+      <para>When the client sending the notifications is not spawned by the service manager, it may exit too
+      quickly and the service manager may fail to attribute them correctly to the unit. To prevent such
+      races, use <function>sd_notify_barrier()</function> to synchronize against reception of all
+      notifications sent before this call is made.</para>
 
       <programlisting>
 sd_notify(0, "READY=1");
