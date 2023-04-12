@@ -4,28 +4,15 @@
 #include "util.h"
 #include "vmm.h"
 
-#ifdef __x86_64__
+#if defined(__i386__) || defined(__x86_64__)
 static uint64_t ticks_read(void) {
-        uint64_t a, d;
-
         /* The TSC might or might not be virtualized in VMs (and thus might not be accurate or start at zero
          * at boot), depending on hypervisor and CPU functionality. If it's not virtualized it's not useful
          * for keeping time, hence don't attempt to use it. */
         if (in_hypervisor())
                 return 0;
 
-        __asm__ volatile ("rdtsc" : "=a" (a), "=d" (d));
-        return (d << 32) | a;
-}
-#elif defined(__i386__)
-static uint64_t ticks_read(void) {
-        uint64_t val;
-
-        if (in_hypervisor())
-                return 0;
-
-        __asm__ volatile ("rdtsc" : "=A" (val));
-        return val;
+        return __builtin_ia32_rdtsc();
 }
 #elif defined(__aarch64__)
 static uint64_t ticks_read(void) {
