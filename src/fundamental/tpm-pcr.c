@@ -13,5 +13,6 @@ const char* const unified_sections[_UNIFIED_SECTION_MAX + 1] = {
         [UNIFIED_SECTION_DTB]     = ".dtb",
         [UNIFIED_SECTION_PCRSIG]  = ".pcrsig",
         [UNIFIED_SECTION_PCRPKEY] = ".pcrpkey",
+        [UNIFIED_SECTION_CMDALLW] = ".cmdallw",
         NULL,
 };

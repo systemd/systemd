@@ -136,16 +136,16 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
 static bool use_load_options(
                 EFI_HANDLE stub_image,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
-                bool have_cmdline,
+                const char16_t *allowlist,
                 char16_t **ret) {
 
         assert(stub_image);
         assert(loaded_image);
         assert(ret);
 
-        /* We only allow custom command lines if we aren't in secure boot or if no cmdline was baked into
+        /* We only allow custom command lines if we aren't in secure boot or if an allowlist was baked into
          * the stub image. */
-        if (secure_boot_enabled() && have_cmdline)
+        if (secure_boot_enabled() && (!allowlist || *allowlist == '\0'))
                 return false;
 
         /* We also do a superficial check whether first character of passed command line
@@ -180,6 +180,77 @@ static bool use_load_options(
         return true;
 }
 
+struct str_token {
+        const char16_t *param;
+        size_t len; /* \0 not included */
+};
+
+static inline bool isspace(char16_t c) {
+        return c == ' ' || c == '\r' || c == '\t' || c == '\n';
+}
+
+static bool next_param(const char16_t **start, struct str_token *found) {
+        const char16_t *ptr = NULL, *el = *start;
+
+        while (*el != '\0') {
+                if (isspace(*el)) {
+                        if (ptr)
+                                break;
+                } else {
+                        if (!ptr)
+                                ptr = el;
+                }
+                el++;
+        }
+
+        *start = el;
+        if (ptr) {
+                found->param = ptr;
+                found->len = el - ptr;
+                return true;
+        }
+        return false;
+}
+
+static int match(struct str_token *cmd, struct str_token *alw, bool is_hardcoded) {
+        if (is_hardcoded) {
+                /* it's useless if length differ */
+                if (alw->len != cmd->len)
+                        return false;
+        }
+        if (cmd->len < alw->len)
+                return false;
+        return strncmp16(cmd->param, alw->param, alw->len) == 0;
+}
+
+static bool match_with_allowlist(const char16_t *allowlist_str, struct str_token *cmd) {
+        struct str_token alw;
+
+        while (next_param(&allowlist_str, &alw)) {
+                if (match(cmd, &alw, *(allowlist_str-1) != '='))
+                        return true;
+        }
+
+        return false;
+}
+
+static bool check_cmdline(const char16_t *cmdline, const char16_t *allowlist) {
+        struct str_token cmd;
+
+        if (!secure_boot_enabled())
+                return true;
+
+        if (!cmdline || *cmdline == '\0' || !allowlist || *allowlist == '\0')
+                return false;
+
+        while (next_param(&cmdline, &cmd)) {
+                if(!match_with_allowlist(allowlist, &cmd))
+                        return false;
+        }
+
+        return true;
+}
+
 static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL;
         size_t credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
@@ -188,7 +259,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         size_t addrs[_UNIFIED_SECTION_MAX] = {}, szs[_UNIFIED_SECTION_MAX] = {};
-        _cleanup_free_ char16_t *cmdline = NULL;
+        _cleanup_free_ char16_t *cmdline = NULL, *allowlist = NULL, *uki_cmdline = NULL;
         int sections_measured = -1, parameters_measured = -1;
         bool sysext_measured = false, m;
         uint64_t loader_features = 0;
@@ -262,7 +333,20 @@ static EFI_STATUS run(EFI_HANDLE image) {
         /* Show splash screen as early as possible */
         graphics_splash((const uint8_t*) loaded_image->ImageBase + addrs[UNIFIED_SECTION_SPLASH], szs[UNIFIED_SECTION_SPLASH]);
 
-        if (use_load_options(image, loaded_image, szs[UNIFIED_SECTION_CMDLINE] > 0, &cmdline)) {
+        allowlist = xstrn8_to_16((char *) loaded_image->ImageBase + addrs[UNIFIED_SECTION_CMDALLW],
+                                 szs[UNIFIED_SECTION_CMDALLW]);
+
+        /* load builtin .cmdline to @uki_cmdline */
+        if (szs[UNIFIED_SECTION_CMDLINE] > 0) {
+                uki_cmdline = xstrn8_to_16(
+                                (char *) loaded_image->ImageBase + addrs[UNIFIED_SECTION_CMDLINE],
+                                szs[UNIFIED_SECTION_CMDLINE]);
+                mangle_stub_cmdline(uki_cmdline);
+        }
+
+        /* Load options to @cmdline.
+         * check the load options: if they don't match the allowlist, fall back to uki_cmdline */
+        if (use_load_options(image, loaded_image, allowlist, &cmdline) && check_cmdline(cmdline, allowlist)) {
                 /* Let's measure the passed kernel command line into the TPM. Note that this possibly
                  * duplicates what we already did in the boot menu, if that was already used. However, since
                  * we want the boot menu to support an EFI binary, and want to this stub to be usable from
@@ -270,17 +354,21 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 m = false;
                 (void) tpm_log_load_options(cmdline, &m);
                 parameters_measured = m;
-        } else if (szs[UNIFIED_SECTION_CMDLINE] > 0) {
-                cmdline = xstrn8_to_16(
-                                (char *) loaded_image->ImageBase + addrs[UNIFIED_SECTION_CMDLINE],
-                                szs[UNIFIED_SECTION_CMDLINE]);
-                mangle_stub_cmdline(cmdline);
+        } else {
+                free(cmdline);
+                cmdline = TAKE_PTR(uki_cmdline);
+                printf("Using the trusted UKI kernel command line stored in .cmdline section\n");
         }
 
+        /* check SMBIOS parameters */
         const char *extra = smbios_find_oem_string("io.systemd.stub.kernel-cmdline-extra");
         if (extra) {
-                _cleanup_free_ char16_t *tmp = TAKE_PTR(cmdline), *extra16 = xstr8_to_16(extra);
-                cmdline = xasprintf("%ls %ls", tmp, extra16);
+                _cleanup_free_ char16_t *extra16 = xstr8_to_16(extra);
+                if (check_cmdline(extra16, allowlist)) {
+                        _cleanup_free_ char16_t *tmp = TAKE_PTR(cmdline);
+                        cmdline = xasprintf("%ls %ls", tmp, extra16);
+                } else
+                        printf("Command line provided via smbios does not pass .cmdallw checks, not appended\n");
         }
 
         export_variables(loaded_image);
