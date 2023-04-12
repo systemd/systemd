@@ -366,9 +366,9 @@ static int display_user(int argc, char *argv[], void *userdata) {
                         uid_t uid;
 
                         if (parse_uid(*i, &uid) >= 0)
-                                r = userdb_by_uid(uid, arg_userdb_flags, &ur);
+                                r = userdb_by_uid(NULL, uid, arg_userdb_flags, &ur);
                         else
-                                r = userdb_by_name(*i, arg_userdb_flags, &ur);
+                                r = userdb_by_name(NULL, *i, arg_userdb_flags, &ur);
                         if (r < 0) {
                                 if (r == -ESRCH)
                                         log_error_errno(r, "User %s does not exist.", *i);
@@ -393,7 +393,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
-                r = userdb_all(arg_userdb_flags, &iterator);
+                r = userdb_all(NULL, arg_userdb_flags, &iterator);
                 if (r == -ENOLINK) /* ENOLINK → Didn't find answer without Varlink, and didn't try Varlink because was configured to off. */
                         log_debug_errno(r, "No entries found. (Didn't check via Varlink.)");
                 else if (r == -ESRCH) /* ESRCH → Couldn't find any suitable entry, but we checked all sources */
@@ -669,9 +669,9 @@ static int display_group(int argc, char *argv[], void *userdata) {
                         gid_t gid;
 
                         if (parse_gid(*i, &gid) >= 0)
-                                r = groupdb_by_gid(gid, arg_userdb_flags, &gr);
+                                r = groupdb_by_gid(NULL, gid, arg_userdb_flags, &gr);
                         else
-                                r = groupdb_by_name(*i, arg_userdb_flags, &gr);
+                                r = groupdb_by_name(NULL, *i, arg_userdb_flags, &gr);
                         if (r < 0) {
                                 if (r == -ESRCH)
                                         log_error_errno(r, "Group %s does not exist.", *i);
@@ -696,7 +696,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
-                r = groupdb_all(arg_userdb_flags, &iterator);
+                r = groupdb_all(NULL, arg_userdb_flags, &iterator);
                 if (r == -ENOLINK)
                         log_debug_errno(r, "No entries found. (Didn't check via Varlink.)");
                 else if (r == -ESRCH)
@@ -835,11 +835,11 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
                         if (streq(argv[0], "users-in-group")) {
-                                r = membershipdb_by_group(*i, arg_userdb_flags, &iterator);
+                                r = membershipdb_by_group(NULL, *i, arg_userdb_flags, &iterator);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to enumerate users in group: %m");
                         } else if (streq(argv[0], "groups-of-user")) {
-                                r = membershipdb_by_user(*i, arg_userdb_flags, &iterator);
+                                r = membershipdb_by_user(NULL, *i, arg_userdb_flags, &iterator);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to enumerate groups of user: %m");
                         } else
@@ -864,7 +864,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
         else {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
 
-                r = membershipdb_all(arg_userdb_flags, &iterator);
+                r = membershipdb_all(NULL, arg_userdb_flags, &iterator);
                 if (r == -ENOLINK)
                         log_debug_errno(r, "No entries found. (Didn't check via Varlink.)");
                 else if (r == -ESRCH)
@@ -1005,7 +1005,7 @@ static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
                 chain_invocation = NULL;
         }
 
-        r = userdb_by_name(argv[1], arg_userdb_flags, &ur);
+        r = userdb_by_name(NULL, argv[1], arg_userdb_flags, &ur);
         if (r == -ESRCH)
                 log_error_errno(r, "User %s does not exist.", argv[1]);
         else if (r == -EHOSTDOWN)
