@@ -1051,6 +1051,12 @@ finish:
                         job_add_to_gc_queue(other->job);
                 }
 
+        /* Ensure that when an upheld/unneeded/bound unit activation job fails we requeue it, if it still
+         * necessary. If there are no state changes in the triggerer, it would not be retried otherwise. */
+        unit_submit_to_start_when_upheld_queue(u);
+        unit_submit_to_stop_when_bound_queue(u);
+        unit_submit_to_stop_when_unneeded_queue(u);
+
         manager_check_finished(u->manager);
 
         return 0;
