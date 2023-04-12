@@ -281,11 +281,13 @@
         <listitem><para>Takes an image policy string as argument, as per
         <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
         policy is enforced when operating on system extension disk images. If not specified defaults to
-        <literal>root=verity+signed+encrypted+unprotected+absent:usr=verity+signed+encrypted+unprotected+absent</literal>,
-        i.e. only the root and <filename>/usr/</filename> file systems in the image are used. When run in the
-        initrd and operating on a system extension image stored in the <filename>/.extra/sysext/</filename>
-        directory a slightly stricter policy is used by default:
-        <literal>root=signed+absent:usr=signed+absent</literal>, see above for details.</para></listitem>
+        <literal>root=verity+signed+encrypted+unprotected+absent:usr=verity+signed+encrypted+unprotected+absent</literal>
+        for system extensions, i.e. only the root and <filename>/usr/</filename> file systems in the image
+        are used. For configuration extensions defaults to
+        <literal>root=verity+signed+encrypted+unprotected+absent</literal>.  When run in the initrd and
+        operating on a system extension image stored in the <filename>/.extra/sysext/</filename> directory a
+        slightly stricter policy is used by default: <literal>root=signed+absent:usr=signed+absent</literal>,
+        see above for details.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />
