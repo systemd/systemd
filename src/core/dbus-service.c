@@ -294,6 +294,29 @@ int bus_service_method_dump_file_descriptor_store(sd_bus_message *message, void 
         return sd_bus_send(NULL, reply, NULL);
 }
 
+#if __SIZEOF_SIZE_T__ == 8
+static int property_get_size_as_uint32(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        size_t *value = ASSERT_PTR(userdata);
+        uint32_t sz = *value >= UINT32_MAX ? UINT32_MAX : (uint32_t) *value;
+
+        /* Returns a size_t as a D-Bus "u" type, i.e. as 32bit value, even if size_t is 64bit. We'll saturate if it doesn't fit. */
+
+        return sd_bus_message_append_basic(reply, 'u', &sz);
+}
+#elif __SIZEOF_SIZE_T__ == 4
+#define property_get_size_as_uint32 NULL
+#else
+#error "Unexpected size of size_t"
+#endif
+
 const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Type", "s", property_get_type, offsetof(Service, type), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -325,7 +348,8 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("ControlPID", "u", bus_property_get_pid, offsetof(Service, control_pid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("BusName", "s", NULL, offsetof(Service, bus_name), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FileDescriptorStoreMax", "u", bus_property_get_unsigned, offsetof(Service, n_fd_store_max), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("NFileDescriptorStore", "u", bus_property_get_unsigned, offsetof(Service, n_fd_store), 0),
+        SD_BUS_PROPERTY("NFileDescriptorStore", "u", property_get_size_as_uint32, offsetof(Service, n_fd_store), 0),
+        SD_BUS_PROPERTY("FileDescriptorStorePreserve", "s", bus_property_get_exec_preserve_mode, offsetof(Service, fd_store_preserve_mode), 0),
         SD_BUS_PROPERTY("StatusText", "s", NULL, offsetof(Service, status_text), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("StatusErrno", "i", bus_property_get_int, offsetof(Service, status_errno), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Service, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -575,6 +599,9 @@ static int bus_service_set_transient_property(
 
         if (streq(name, "FileDescriptorStoreMax"))
                 return bus_set_transient_unsigned(u, name, &s->n_fd_store_max, message, flags, error);
+
+        if (streq(name, "FileDescriptorStorePreserve"))
+                return bus_set_transient_exec_preserve_mode(u, name, &s->fd_store_preserve_mode, message, flags, error);
 
         if (streq(name, "NotifyAccess"))
                 return bus_set_transient_notify_access(u, name, &s->notify_access, message, flags, error);
