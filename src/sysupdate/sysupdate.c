@@ -1241,9 +1241,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_JSON,
                 ARG_ROOT,
                 ARG_IMAGE,
+                ARG_IMAGE_POLICY,
                 ARG_REBOOT,
                 ARG_VERIFY,
-                ARG_IMAGE_POLICY,
         };
 
         static const struct option options[] = {
@@ -1257,10 +1257,10 @@ static int parse_argv(int argc, char *argv[]) {
                 { "json",              required_argument, NULL, ARG_JSON              },
                 { "root",              required_argument, NULL, ARG_ROOT              },
                 { "image",             required_argument, NULL, ARG_IMAGE             },
+                { "image-policy",      required_argument, NULL, ARG_IMAGE_POLICY      },
                 { "reboot",            no_argument,       NULL, ARG_REBOOT            },
                 { "component",         required_argument, NULL, 'C'                   },
                 { "verify",            required_argument, NULL, ARG_VERIFY            },
-                { "image-policy",      required_argument, NULL, ARG_IMAGE_POLICY      },
                 {}
         };
 
@@ -1325,6 +1325,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_IMAGE_POLICY:
+                        r = parse_image_policy_argument(optarg, &arg_image_policy);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case ARG_REBOOT:
                         arg_reboot = true;
                         break;
@@ -1358,17 +1364,6 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_IMAGE_POLICY: {
-                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
-
-                        r = image_policy_from_string(optarg, &p);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
-
-                        image_policy_free(arg_image_policy);
-                        arg_image_policy = TAKE_PTR(p);
-                        break;
-                }
                 case '?':
                         return -EINVAL;
 

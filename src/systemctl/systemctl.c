@@ -428,6 +428,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_NO_WALL,
                 ARG_ROOT,
                 ARG_IMAGE,
+                ARG_IMAGE_POLICY,
                 ARG_NO_RELOAD,
                 ARG_KILL_WHOM,
                 ARG_KILL_VALUE,
@@ -454,7 +455,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_NO_WARN,
                 ARG_DROP_IN,
                 ARG_WHEN,
-                ARG_IMAGE_POLICY,
         };
 
         static const struct option options[] = {
@@ -490,6 +490,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "no-warn",             no_argument,       NULL, ARG_NO_WARN             },
                 { "root",                required_argument, NULL, ARG_ROOT                },
                 { "image",               required_argument, NULL, ARG_IMAGE               },
+                { "image-policy",        required_argument, NULL, ARG_IMAGE_POLICY        },
                 { "force",               no_argument,       NULL, 'f'                     },
                 { "no-reload",           no_argument,       NULL, ARG_NO_RELOAD           },
                 { "kill-whom",           required_argument, NULL, ARG_KILL_WHOM           },
@@ -520,7 +521,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "marked",              no_argument,       NULL, ARG_MARKED              },
                 { "drop-in",             required_argument, NULL, ARG_DROP_IN             },
                 { "when",                required_argument, NULL, ARG_WHEN                },
-                { "image-policy",        required_argument, NULL, ARG_IMAGE_POLICY        },
                 {}
         };
 
@@ -702,6 +702,12 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_IMAGE:
                         r = parse_path_argument(optarg, false, &arg_image);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE_POLICY:
+                        r = parse_image_policy_argument(optarg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
@@ -1008,18 +1014,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                                        "Invalid timestamp '%s' specified for --when=.", optarg);
 
                         break;
-
-                case ARG_IMAGE_POLICY: {
-                        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
-
-                        r = image_policy_from_string(optarg, &p);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse image policy: %s", optarg);
-
-                        image_policy_free(arg_image_policy);
-                        arg_image_policy = TAKE_PTR(p);
-                        break;
-                }
 
                 case '.':
                         /* Output an error mimicking getopt, and print a hint afterwards */

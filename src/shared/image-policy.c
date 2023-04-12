@@ -601,6 +601,69 @@ int image_policy_equivalent(const ImagePolicy *a, const ImagePolicy *b) {
         return true;
 }
 
+int config_parse_image_policy(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(image_policy_freep) ImagePolicy *np = NULL;
+        ImagePolicy **p = ASSERT_PTR(data);
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *p = image_policy_free(*p);
+                return 0;
+        }
+
+        r = image_policy_from_string(rvalue, &np);
+        if (r == -ENOTUNIQ)
+                return log_syntax(unit, LOG_ERR, filename, line, r, "Duplicate rule in image policy, refusing: %s", rvalue);
+        if (r == -EBADSLT)
+                return log_syntax(unit, LOG_ERR, filename, line, r, "Unknown partition type in image policy, refusing: %s", rvalue);
+        if (r == -EBADRQC)
+                return log_syntax(unit, LOG_ERR, filename, line, r, "Unknown partition policy flag in image policy, refusing: %s", rvalue);
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse image policy, refusing: %s", rvalue);
+
+        return free_and_replace_full(*p, np, image_policy_free);
+}
+
+int parse_image_policy_argument(const char *s, ImagePolicy **policy) {
+        _cleanup_(image_policy_freep) ImagePolicy *np = NULL;
+        int r;
+
+        assert(s);
+        assert(policy);
+
+        /*
+         * This function is intended to be used in command line parsers.
+         *
+         * NOTE THAT THIS WILL FREE THE PREVIOUS ARGUMENT POINTER ON SUCCESS!
+         * Hence, do not pass in uninitialized pointers.
+         */
+
+        r = image_policy_from_string(s, &np);
+        if (r == -ENOTUNIQ)
+                return log_error_errno(r, "Duplicate rule in image policy: %s", s);
+        if (r == -EBADSLT)
+                return log_error_errno(r, "Unknown partition type in image policy: %s", s);
+        if (r == -EBADRQC)
+                return log_error_errno(r, "Unknown partition policy flag in image policy: %s", s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse image policy: %s", s);
+
+        return free_and_replace_full(*policy, np, image_policy_free);
+}
+
 const ImagePolicy image_policy_allow = {
         /* Allow policy */
         .n_policies = 0,
