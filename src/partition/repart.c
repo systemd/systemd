@@ -4822,7 +4822,7 @@ static int context_split(Context *context) {
 
 static int context_write_partition_table(Context *context) {
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *original_table = NULL;
-        int capable, r;
+        int capable, fd, r;
 
         assert(context);
 
@@ -4884,7 +4884,9 @@ static int context_write_partition_table(Context *context) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write partition table: %m");
 
-        capable = blockdev_partscan_enabled(fdisk_get_devfd(context->fdisk_context));
+        fd = fdisk_get_devfd(context->fdisk_context);
+
+        capable = blockdev_partscan_enabled(fd);
         if (capable == -ENOTBLK)
                 log_debug("Not telling kernel to reread partition table, since we are not operating on a block device.");
         else if (capable < 0)
@@ -4892,9 +4894,14 @@ static int context_write_partition_table(Context *context) {
         else if (capable > 0) {
                 log_info("Telling kernel to reread partition table.");
 
-                if (context->from_scratch)
+                if (context->from_scratch) {
+                        if (flock(fd, LOCK_EX) < 0)
+                                return log_error_errno(r, "Failed to lock block device: %m");
+
+                        CLEANUP_BSD_UNLOCK(fd);
+
                         r = fdisk_reread_partition_table(context->fdisk_context);
-                else
+                } else
                         r = fdisk_reread_changes(context->fdisk_context, original_table);
                 if (r < 0)
                         return log_error_errno(r, "Failed to reread partition table: %m");
