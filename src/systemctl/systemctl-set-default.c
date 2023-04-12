@@ -95,14 +95,10 @@ int verb_get_default(int argc, char *argv[], void *userdata) {
 
 int verb_set_default(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *unit = NULL;
-        InstallChange *changes = NULL;
-        size_t n_changes = 0;
         int r;
 
         assert(argc >= 2);
         assert(argv);
-
-        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
         r = unit_name_mangle_with_suffix(argv[1], "set-default",
                                          arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
@@ -111,6 +107,11 @@ int verb_set_default(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
         if (install_client_side()) {
+                InstallChange *changes = NULL;
+                size_t n_changes = 0;
+
+                CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
                 r = unit_file_set_default(arg_runtime_scope, UNIT_FILE_FORCE, arg_root, unit, &changes, &n_changes);
                 install_changes_dump(r, "set default", changes, n_changes, arg_quiet);
                 if (r < 0)
@@ -130,7 +131,7 @@ int verb_set_default(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to set default target: %s", bus_error_message(&error, r));
 
-                r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet, &changes, &n_changes);
+                r = bus_deserialize_and_dump_unit_file_changes(reply, arg_quiet);
                 if (r < 0)
                         return r;
 
