@@ -14,6 +14,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
+
 #include "alloc-util.h"
 #include "async.h"
 #include "binfmt-util.h"
@@ -569,6 +571,10 @@ int main(int argc, char *argv[]) {
          * will result. */
         if (!in_container)
                 sync_with_progress();
+
+        /* This is primarily useful when running systemd in a VM, as it provides the user running the VM with
+         * a mechanism to pick up systemd's exit status in the VM. */
+        (void) sd_notifyf(0, "EXIT_STATUS=%i", arg_exit_code);
 
         if (streq(arg_verb, "exit")) {
                 if (in_container) {
