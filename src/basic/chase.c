@@ -308,7 +308,8 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         if (!isempty(todo) && !path_is_safe(todo))
                                 return r;
 
-                        if (FLAGS_SET(flags, CHASE_MKDIR_0755) && !isempty(todo)) {
+                        if (FLAGS_SET(flags, CHASE_MKDIR_0755) &&
+                            !(FLAGS_SET(flags, CHASE_PARENT) && isempty(todo))) {
                                 child = xopenat(fd, first, O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC, 0755);
                                 if (child < 0)
                                         return child;
