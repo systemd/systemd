@@ -79,12 +79,10 @@ static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
 static const char* const image_search_path_initrd[_IMAGE_CLASS_MAX] = {
         /* (entries that aren't listed here will get the same search path as for the non initrd-case) */
 
-        [IMAGE_SYSEXT] = "/etc/extensions\0"             /* only place symlinks here */
-                         "/run/extensions\0"             /* and here too */
-                         "/var/lib/extensions\0"         /* the main place for images */
-                         "/usr/local/lib/extensions\0"
-                         "/usr/lib/extensions\0"
-                         "/.extra/sysext\0"              /* put sysext picked up by systemd-stub last, since not trusted */
+        [IMAGE_SYSEXT] =    "/etc/extensions\0"            /* only place symlinks here */
+                            "/run/extensions\0"            /* and here too */
+                            "/var/lib/extensions\0"        /* the main place for images */
+                            "/.extra/sysext\0"             /* put sysext picked up by systemd-stub last, since not trusted */
 };
 
 static Image *image_free(Image *i) {
