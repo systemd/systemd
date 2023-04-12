@@ -641,6 +641,16 @@ const ImagePolicy image_policy_sysext_strict = {
         .default_flags = PARTITION_POLICY_IGNORE,
 };
 
+const ImagePolicy image_policy_confext = {
+        /* For configuraiton extensions, honour root file system, and ignore everything else. After all, we
+         * are only interested in the /etc/ tree anyway, and that's really the only place it can be. */
+        .n_policies = 1,
+        .policies = {
+                { PARTITION_ROOT,     PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ABSENT },
+        },
+        .default_flags = PARTITION_POLICY_IGNORE,
+};
+
 const ImagePolicy image_policy_container = {
         /* For systemd-nspawn containers we use all partitions, with the exception of swap */
         .n_policies = 8,
