@@ -481,6 +481,7 @@ static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *us
 }
 
 static int service_add_fd_store(Service *s, int fd, const char *name, bool do_poll) {
+        struct stat st;
         ServiceFDStore *fs;
         int r;
 
@@ -489,16 +490,22 @@ static int service_add_fd_store(Service *s, int fd, const char *name, bool do_po
         assert(s);
         assert(fd >= 0);
 
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        log_unit_debug(UNIT(s), "Trying to stash fd for dev=" DEVNUM_FORMAT_STR "/inode=%" PRIu64, DEVNUM_FORMAT_VAL(st.st_dev), (uint64_t) st.st_ino);
+
         if (s->n_fd_store >= s->n_fd_store_max)
-                return -EXFULL; /* Our store is full.
-                                 * Use this errno rather than E[NM]FILE to distinguish from
-                                 * the case where systemd itself hits the file limit. */
+                /* Our store is full.  Use this errno rather than E[NM]FILE to distinguish from the case
+                 * where systemd itself hits the file limit. */
+                return log_unit_debug_errno(UNIT(s), SYNTHETIC_ERRNO(EXFULL), "Hit fd store limit.");
 
         LIST_FOREACH(fd_store, i, s->fd_store) {
                 r = same_fd(i->fd, fd);
                 if (r < 0)
                         return r;
                 if (r > 0) {
+                        log_unit_debug(UNIT(s), "Suppressing duplicate fd in fd store.");
                         asynchronous_close(fd);
                         return 0; /* fd already included */
                 }
