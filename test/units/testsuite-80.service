@@ -6,3 +6,5 @@ Description=TEST-80-NOTIFYACCESS
 ExecStartPre=rm -f /failed /testok
 ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
 Type=oneshot
+StandardOutput=journal+console
+StandardError=journal+console

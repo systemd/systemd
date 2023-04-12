@@ -326,6 +326,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("BusName", "s", NULL, offsetof(Service, bus_name), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FileDescriptorStoreMax", "u", bus_property_get_unsigned, offsetof(Service, n_fd_store_max), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NFileDescriptorStore", "u", bus_property_get_unsigned, offsetof(Service, n_fd_store), 0),
+        SD_BUS_PROPERTY("FileDescriptorStorePreserve", "s", bus_property_get_exec_preserve_mode, offsetof(Service, fd_store_preserve_mode), 0),
         SD_BUS_PROPERTY("StatusText", "s", NULL, offsetof(Service, status_text), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("StatusErrno", "i", bus_property_get_int, offsetof(Service, status_errno), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Service, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -575,6 +576,9 @@ static int bus_service_set_transient_property(
 
         if (streq(name, "FileDescriptorStoreMax"))
                 return bus_set_transient_unsigned(u, name, &s->n_fd_store_max, message, flags, error);
+
+        if (streq(name, "FileDescriptorStorePreserve"))
+                return bus_set_transient_exec_preserve_mode(u, name, &s->fd_store_preserve_mode, message, flags, error);
 
         if (streq(name, "NotifyAccess"))
                 return bus_set_transient_notify_access(u, name, &s->notify_access, message, flags, error);

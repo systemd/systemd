@@ -48,6 +48,8 @@ assert_eq "$(systemctl show notify.service -p NotifyAccess --value)" "all"
 
 rm /tmp/syncfifo1 /tmp/syncfifo2
 
+# Now test basic fdstore behaviour
+
 MYSCRIPT="/tmp/myscript$RANDOM.sh"
 cat >> "$MYSCRIPT" <<'EOF'
 #!/usr/bin/env bash
@@ -73,6 +75,56 @@ systemd-analyze fdstore "$MYUNIT" --json=short | grep -P -q '\[{"fdname":"quux",
 
 systemctl stop "$MYUNIT"
 rm "$MYSCRIPT"
+
+systemd-analyze log-level debug
+systemd-analyze log-target console
+
+# Test fdstore pinning (this will pull in fdstore-pin.service fdstore-nopin.service)
+systemctl start fdstore-pin.target
+
+assert_eq "$(systemctl show fdstore-pin.service -P FileDescriptorStorePreserve)" yes
+assert_eq "$(systemctl show fdstore-nopin.service -P FileDescriptorStorePreserve)" restart
+assert_eq "$(systemctl show fdstore-pin.service -P SubState)" running
+assert_eq "$(systemctl show fdstore-nopin.service -P SubState)" running
+assert_eq "$(systemctl show fdstore-pin.service -P NFileDescriptorStore)" 1
+assert_eq "$(systemctl show fdstore-nopin.service -P NFileDescriptorStore)" 1
+
+# The file descriptor store should survive service restarts
+systemctl restart fdstore-pin.service fdstore-nopin.service
+
+assert_eq "$(systemctl show fdstore-pin.service -P NFileDescriptorStore)" 1
+assert_eq "$(systemctl show fdstore-nopin.service -P NFileDescriptorStore)" 1
+assert_eq "$(systemctl show fdstore-pin.service -P SubState)" running
+assert_eq "$(systemctl show fdstore-nopin.service -P SubState)" running
+
+# It should not survive the service stop plus a later start (unless pinned)
+systemctl stop fdstore-pin.service fdstore-nopin.service
+
+assert_eq "$(systemctl show fdstore-pin.service -P NFileDescriptorStore)" 1
+assert_eq "$(systemctl show fdstore-nopin.service -P NFileDescriptorStore)" 0
+assert_eq "$(systemctl show fdstore-pin.service -P SubState)" dead-resources-pinned
+assert_eq "$(systemctl show fdstore-nopin.service -P SubState)" dead
+
+systemctl start fdstore-pin.service fdstore-nopin.service
+
+assert_eq "$(systemctl show fdstore-pin.service -P NFileDescriptorStore)" 1
+assert_eq "$(systemctl show fdstore-nopin.service -P NFileDescriptorStore)" 0
+assert_eq "$(systemctl show fdstore-pin.service -P SubState)" running
+assert_eq "$(systemctl show fdstore-nopin.service -P SubState)" running
+
+systemctl stop fdstore-pin.service fdstore-nopin.service
+
+assert_eq "$(systemctl show fdstore-pin.service -P NFileDescriptorStore)" 1
+assert_eq "$(systemctl show fdstore-nopin.service -P NFileDescriptorStore)" 0
+assert_eq "$(systemctl show fdstore-pin.service -P SubState)" dead-resources-pinned
+assert_eq "$(systemctl show fdstore-nopin.service -P SubState)" dead
+
+systemctl clean fdstore-pin.service --what=fdstore
+
+assert_eq "$(systemctl show fdstore-pin.service -P NFileDescriptorStore)" 0
+assert_eq "$(systemctl show fdstore-nopin.service -P NFileDescriptorStore)" 0
+assert_eq "$(systemctl show fdstore-pin.service -P SubState)" dead
+assert_eq "$(systemctl show fdstore-nopin.service -P SubState)" dead
 
 touch /testok
 rm /failed
