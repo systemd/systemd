@@ -1409,6 +1409,48 @@ static unsigned manager_dispatch_gc_job_queue(Manager *m) {
         return n;
 }
 
+static int manager_ratelimit_requeue(sd_event_source *s, uint64_t usec, void *userdata) {
+        Unit *u = userdata;
+
+        assert(u);
+        assert(s == u->auto_start_stop_event_source);
+
+        u->auto_start_stop_event_source = sd_event_source_unref(u->auto_start_stop_event_source);
+
+        /* Re-queue to all queues, if the rate limit hit we might have been throttled on any of them. */
+        unit_submit_to_stop_when_unneeded_queue(u);
+        unit_submit_to_start_when_upheld_queue(u);
+        unit_submit_to_stop_when_bound_queue(u);
+
+        return 0;
+}
+
+static int manager_ratelimit_check_and_queue(Unit *u) {
+        int r;
+
+        assert(u);
+
+        if (ratelimit_below(&u->auto_start_stop_ratelimit))
+                return 1;
+
+        /* Already queued, no need to requeue */
+        if (u->auto_start_stop_event_source)
+                return 0;
+
+        r = sd_event_add_time(
+                        u->manager->event,
+                        &u->auto_start_stop_event_source,
+                        CLOCK_MONOTONIC,
+                        ratelimit_end(&u->auto_start_stop_ratelimit),
+                        0,
+                        manager_ratelimit_requeue,
+                        u);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to queue timer on event loop: %m");
+
+        return 0;
+}
+
 static unsigned manager_dispatch_stop_when_unneeded_queue(Manager *m) {
         unsigned n = 0;
         Unit *u;
@@ -1433,8 +1475,11 @@ static unsigned manager_dispatch_stop_when_unneeded_queue(Manager *m) {
                 /* If stopping a unit fails continuously we might enter a stop loop here, hence stop acting on the
                  * service being unnecessary after a while. */
 
-                if (!ratelimit_below(&u->auto_start_stop_ratelimit)) {
-                        log_unit_warning(u, "Unit not needed anymore, but not stopping since we tried this too often recently.");
+                r = manager_ratelimit_check_and_queue(u);
+                if (r <= 0) {
+                        log_unit_warning(u,
+                                         "Unit not needed anymore, but not stopping since we tried this too often recently.%s",
+                                         r == 0 ? " Will retry later." : "");
                         continue;
                 }
 
@@ -1472,8 +1517,12 @@ static unsigned manager_dispatch_start_when_upheld_queue(Manager *m) {
                 /* If stopping a unit fails continuously we might enter a stop loop here, hence stop acting on the
                  * service being unnecessary after a while. */
 
-                if (!ratelimit_below(&u->auto_start_stop_ratelimit)) {
-                        log_unit_warning(u, "Unit needs to be started because active unit %s upholds it, but not starting since we tried this too often recently.", culprit->id);
+                r = manager_ratelimit_check_and_queue(u);
+                if (r <= 0) {
+                        log_unit_warning(u,
+                                         "Unit needs to be started because active unit %s upholds it, but not starting since we tried this too often recently.%s",
+                                         culprit->id,
+                                         r == 0 ? " Will retry later." : "");
                         continue;
                 }
 
@@ -1510,8 +1559,12 @@ static unsigned manager_dispatch_stop_when_bound_queue(Manager *m) {
                 /* If stopping a unit fails continuously we might enter a stop loop here, hence stop acting on the
                  * service being unnecessary after a while. */
 
-                if (!ratelimit_below(&u->auto_start_stop_ratelimit)) {
-                        log_unit_warning(u, "Unit needs to be stopped because it is bound to inactive unit %s it, but not stopping since we tried this too often recently.", culprit->id);
+                r = manager_ratelimit_check_and_queue(u);
+                if (r <= 0) {
+                        log_unit_warning(u,
+                                         "Unit needs to be stopped because it is bound to inactive unit %s it, but not stopping since we tried this too often recently.%s",
+                                         culprit->id,
+                                         r == 0 ? " Will retry later." : "");
                         continue;
                 }
 

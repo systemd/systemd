@@ -732,6 +732,8 @@ Unit* unit_free(Unit *u) {
         if (!u)
                 return NULL;
 
+        sd_event_source_disable_unref(u->auto_start_stop_event_source);
+
         u->transient_file = safe_fclose(u->transient_file);
 
         if (!MANAGER_IS_RELOADING(u->manager))

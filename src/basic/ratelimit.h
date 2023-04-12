@@ -23,3 +23,5 @@ static inline bool ratelimit_configured(RateLimit *rl) {
 bool ratelimit_below(RateLimit *r);
 
 unsigned ratelimit_num_dropped(RateLimit *r);
+
+usec_t ratelimit_end(const RateLimit *rl);

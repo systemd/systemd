@@ -350,6 +350,7 @@ typedef struct Unit {
 
         /* Make sure we never enter endless loops with the StopWhenUnneeded=, BindsTo=, Uphold= logic */
         RateLimit auto_start_stop_ratelimit;
+        sd_event_source *auto_start_stop_event_source;
 
         /* Reference to a specific UID/GID */
         uid_t ref_uid;
