@@ -27,6 +27,33 @@ done
 systemctl stop testsuite-57-uphold.service
 
 # Idea is this:
+#    1. we start testsuite-57-retry-uphold.service
+#    2. which through Uphold= starts testsuite-57-retry-upheld.service
+#    3. which through Requires= starts testsuite-57-retry-fail.service
+#    4. which fails as /tmp/testsuite-57-retry-fail does not exist, so testsuite-57-retry-upheld.service
+#       is no longer restarted
+#    5. we create /tmp/testsuite-57-retry-fail
+#    6. now testsuite-57-retry-upheld.service will be restarted since upheld, and its dependency will
+#       be satisfied
+
+rm -f /tmp/testsuite-57-retry-fail
+systemctl start testsuite-57-retry-uphold.service
+
+while ! systemctl is-failed testsuite-57-retry-fail.service ; do
+    sleep .5
+done
+
+systemctl is-active testsuite-57-retry-upheld.service && { echo 'unexpected success'; exit 1; }
+
+touch /tmp/testsuite-57-retry-fail
+
+while ! systemctl is-active testsuite-57-retry-upheld.service ; do
+    sleep .5
+done
+
+systemctl stop testsuite-57-retry-uphold.service testsuite-57-retry-fail.service testsuite-57-retry-upheld.service
+
+# Idea is this:
 #    1. we start testsuite-57-prop-stop-one.service
 #    2. which through Wants=/After= pulls in testsuite-57-prop-stop-two.service as well
 #    3. testsuite-57-prop-stop-one.service then sleeps indefinitely
