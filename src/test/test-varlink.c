@@ -54,7 +54,7 @@ static void test_fd(int fd, const void *buf, size_t n) {
         ssize_t m;
 
         m = read(fd, rbuf, n + 1);
-
+        assert_se(m >= 0);
         assert_se(memcmp_nn(buf, n, rbuf, m) == 0);
 }
 
@@ -74,6 +74,10 @@ static int method_passfd(Varlink *link, JsonVariant *parameters, VarlinkMethodFl
                 zz = varlink_peek_fd(link, 2);
 
         log_info("%i %i %i", xx, yy, zz);
+
+        assert_se(xx >= 0);
+        assert_se(yy >= 0);
+        assert_se(zz >= 0);
 
         test_fd(xx, "foo", 3);
         test_fd(yy, "bar", 3);
