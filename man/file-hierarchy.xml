@@ -737,7 +737,7 @@
           </row>
           <row>
       <entry><filename>/var/log/<replaceable>package</replaceable>/</filename></entry>
-      <entry>Persistent log data of the package. As above, the package should make sure to create this directory if necessary, possibly using <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> or <varname>LogsDirectory=</varname> (see <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>), as it might be missing.</entry>
+      <entry>Persistent log data of the package. As above, the package should make sure to create this directory if necessary, possibly using <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> or <varname>LogsDirectory=</varname> (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>), as it might be missing.</entry>
           </row>
           <row>
       <entry><filename>/var/spool/<replaceable>package</replaceable>/</filename></entry>
