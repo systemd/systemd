@@ -217,8 +217,15 @@ typedef struct {
         bool initialized;
 } UnitFilePresets;
 
+typedef enum {
+        PRESET_UNKNOWN,
+        PRESET_ENABLE,
+        PRESET_DISABLE,
+        PRESET_IGNORE,
+} PresetAction;
+
 void unit_file_presets_freep(UnitFilePresets *p);
-int unit_file_query_preset(RuntimeScope scope, const char *root_dir, const char *name, UnitFilePresets *cached);
+PresetAction unit_file_query_preset(RuntimeScope scope, const char *root_dir, const char *name, UnitFilePresets *cached);
 
 const char *unit_file_state_to_string(UnitFileState s) _const_;
 UnitFileState unit_file_state_from_string(const char *s) _pure_;
