@@ -4231,7 +4231,7 @@ executable(
         install : true,
         install_dir : rootlibexecdir)
 
-exe = custom_target(
+kernel_install = custom_target(
         'kernel-install',
         input : kernel_install_in,
         output : 'kernel-install',
@@ -4239,17 +4239,10 @@ exe = custom_target(
         install : want_kernel_install,
         install_mode : 'rwxr-xr-x',
         install_dir : bindir)
-public_programs += exe
-
-if want_tests != 'false' and want_kernel_install
-        test('test-kernel-install',
-             test_kernel_install_sh,
-             env : test_env,
-             args : [exe.full_path(), loaderentry_install])
-endif
+public_programs += kernel_install
 
 if want_ukify
-   exe = custom_target(
+   ukify = custom_target(
         'ukify',
         input : 'src/ukify/ukify.py',
         output : 'ukify',
@@ -4257,7 +4250,19 @@ if want_ukify
         install : true,
         install_mode : 'rwxr-xr-x',
         install_dir : rootlibexecdir)
-   public_programs += exe
+   public_programs += ukify
+endif
+
+if want_tests != 'false' and want_kernel_install
+        args = [kernel_install.full_path(), loaderentry_install, uki_copy_install]
+        if want_ukify
+                args += [ukify.full_path(), ukify_install]
+        endif
+
+        test('test-kernel-install',
+             test_kernel_install_sh,
+             env : test_env,
+             args : args)
 endif
 
 ############################################################
