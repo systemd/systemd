@@ -4092,7 +4092,7 @@ UnitFileState unit_get_unit_file_state(Unit *u) {
         return u->unit_file_state;
 }
 
-int unit_get_unit_file_preset(Unit *u) {
+PresetAction unit_get_unit_file_preset(Unit *u) {
         int r;
 
         assert(u);

@@ -582,6 +582,7 @@ TEST(preset_and_list) {
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) == -ENOENT);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) == -ENOENT);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) == -ENOENT);
 
         p = strjoina(root, "/usr/lib/systemd/system/preset-yes.service");
         assert_se(write_string_file(p,
@@ -593,13 +594,20 @@ TEST(preset_and_list) {
                                     "[Install]\n"
                                     "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
 
+        p = strjoina(root, "/usr/lib/systemd/system/preset-ignore.service");
+        assert_se(write_string_file(p,
+                                    "[Install]\n"
+                                    "WantedBy=multi-user.target\n", WRITE_STRING_FILE_CREATE) >= 0);
+
         p = strjoina(root, "/usr/lib/systemd/system-preset/test.preset");
         assert_se(write_string_file(p,
                                     "enable *-yes.*\n"
+                                    "ignore *-ignore.*\n"
                                     "disable *\n", WRITE_STRING_FILE_CREATE) >= 0);
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
         assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-yes.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
         assert_se(n_changes == 1);
@@ -612,6 +620,7 @@ TEST(preset_and_list) {
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
         assert_se(unit_file_disable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-yes.service"), &changes, &n_changes) >= 0);
         assert_se(n_changes == 1);
@@ -623,6 +632,7 @@ TEST(preset_and_list) {
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
         assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-no.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
         assert_se(n_changes == 0);
@@ -631,6 +641,7 @@ TEST(preset_and_list) {
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
         assert_se(unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, 0, root, UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
 
@@ -652,6 +663,7 @@ TEST(preset_and_list) {
 
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-yes.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
         assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-no.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_DISABLED);
 
         assert_se(h = hashmap_new(&unit_file_list_hash_ops_free));
         assert_se(unit_file_get_list(RUNTIME_SCOPE_SYSTEM, root, h, NULL, NULL) >= 0);
@@ -674,6 +686,13 @@ TEST(preset_and_list) {
         }
 
         assert_se(got_yes && got_no);
+
+        assert_se(unit_file_enable(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-ignore.service"), &changes, &n_changes) >= 0);
+        assert_se(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, root, STRV_MAKE("preset-ignore.service"), UNIT_FILE_PRESET_FULL, &changes, &n_changes) >= 0);
+        assert_se(unit_file_get_state(RUNTIME_SCOPE_SYSTEM, root, "preset-ignore.service", &state) >= 0 && state == UNIT_FILE_ENABLED);
+
+        install_changes_free(changes, n_changes);
+        changes = NULL; n_changes = 0;
 }
 
 TEST(revert) {
