@@ -1417,7 +1417,7 @@ int server_process_datagram(
         size_t label_len = 0, m;
         Server *s = ASSERT_PTR(userdata);
         struct ucred *ucred = NULL;
-        struct timeval *tv = NULL;
+        struct timeval tv_buf, *tv = NULL;
         struct cmsghdr *cmsg;
         char *label = NULL;
         struct iovec iovec;
@@ -1493,10 +1493,10 @@ int server_process_datagram(
                         label = CMSG_TYPED_DATA(cmsg, char);
                         label_len = cmsg->cmsg_len - CMSG_LEN(0);
                 } else if (cmsg->cmsg_level == SOL_SOCKET &&
-                           cmsg->cmsg_type == SO_TIMESTAMP &&
+                           cmsg->cmsg_type == SCM_TIMESTAMP &&
                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval))) {
                         assert(!tv);
-                        tv = CMSG_TYPED_DATA(cmsg, struct timeval);
+                        tv = memcpy(&tv_buf, CMSG_DATA(cmsg), sizeof(struct timeval));
                 } else if (cmsg->cmsg_level == SOL_SOCKET &&
                          cmsg->cmsg_type == SCM_RIGHTS) {
                         assert(!fds);
