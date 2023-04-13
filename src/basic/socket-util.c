@@ -1171,6 +1171,18 @@ struct cmsghdr* cmsg_find(struct msghdr *mh, int level, int type, socklen_t leng
         return NULL;
 }
 
+void* cmsg_find_and_copy_data(struct msghdr *mh, int level, int type, void *buf, size_t buf_len) {
+        struct cmsghdr *cmsg;
+
+        assert(mh);
+
+        cmsg = cmsg_find(mh, level, type, buf_len == SIZE_MAX ? (socklen_t) -1 : CMSG_LEN(buf_len));
+        if (!cmsg)
+                return NULL;
+
+        return memcpy_safe(buf, CMSG_DATA(cmsg), buf_len == SIZE_MAX ? cmsg->cmsg_len : buf_len);
+}
+
 int socket_ioctl_fd(void) {
         int fd;
 
