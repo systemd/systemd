@@ -1306,19 +1306,10 @@ static int server_receive_message(sd_event_source *s, int fd,
         if ((size_t) len < sizeof(DHCPMessage))
                 return 0;
 
-        CMSG_FOREACH(cmsg, &msg)
-                if (cmsg->cmsg_level == IPPROTO_IP &&
-                    cmsg->cmsg_type == IP_PKTINFO &&
-                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct in_pktinfo))) {
-                        struct in_pktinfo *info = CMSG_TYPED_DATA(cmsg, struct in_pktinfo);
-
-                        /* TODO figure out if this can be done as a filter on
-                         * the socket, like for IPv6 */
-                        if (server->ifindex != info->ipi_ifindex)
-                                return 0;
-
-                        break;
-                }
+        /* TODO figure out if this can be done as a filter on the socket, like for IPv6 */
+        struct pktinfo *info = CMSG_FIND_DATA(&msg, IPPROTO_IP, IP_PKTINFO, struct in_pktinfo);
+        if (info && info->ipi_ifindex != server->ifindex)
+                return 0;
 
         if (sd_dhcp_server_is_in_relay_mode(server)) {
                 r = dhcp_server_relay_message(server, message, len - sizeof(DHCPMessage), buflen);
