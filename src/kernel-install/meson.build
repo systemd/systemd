@@ -1,11 +1,19 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 kernel_install_in = files('kernel-install.in')
-loaderentry_install_in = files('90-loaderentry.install.in')
+
+ukify_install = custom_target(
+        '60-ukify.install',
+        input : '60-ukify.install.in',
+        output : '60-ukify.install',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+        install : want_kernel_install,
+        install_mode : 'rwxr-xr-x',
+        install_dir : kernelinstalldir)
 
 loaderentry_install = custom_target(
         '90-loaderentry.install',
-        input : loaderentry_install_in,
+        input : '90-loaderentry.install.in',
         output : '90-loaderentry.install',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : want_kernel_install,
