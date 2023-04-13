@@ -104,12 +104,15 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
                         if (r < 0) {
                                 unit_preset_str = "n/a";
                                 on_preset_color = underline ? on_underline : ansi_normal();
-                        } else if (r == 0) {
+                        } else if (r == PRESET_DISABLE) {
                                 unit_preset_str = "disabled";
                                 on_preset_color = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
-                        } else {
+                        } else if (r == PRESET_ENABLE) {
                                 unit_preset_str = "enabled";
                                 on_preset_color = underline ? ansi_highlight_green_underline() : ansi_highlight_green();
+                        } else if (r == PRESET_IGNORE) {
+                                unit_preset_str = "ignored";
+                                on_preset_color = underline ? ansi_highlight_yellow_underline() : ansi_highlight_yellow();
                         }
 
                         r = table_add_many(table,
