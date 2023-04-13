@@ -398,8 +398,8 @@ systemctl is-active testservice-50e.service
 
 # ExtensionDirectories will set up an overlay
 mkdir -p "${image_dir}/app0" "${image_dir}/app1" "${image_dir}/app-nodistro"
-systemd-run -P --property ExtensionDirectories="${image_dir}/nonexistent" --property RootImage="${image}.raw" cat /opt/script0.sh && { echo 'unexpected success'; exit 1; }
-systemd-run -P --property ExtensionDirectories="${image_dir}/app0" --property RootImage="${image}.raw" cat /opt/script0.sh && { echo 'unexpected success'; exit 1; }
+(! systemd-run -P --property ExtensionDirectories="${image_dir}/nonexistent" --property RootImage="${image}.raw" cat /opt/script0.sh )
+(! systemd-run -P --property ExtensionDirectories="${image_dir}/app0" --property RootImage="${image}.raw" cat /opt/script0.sh )
 systemd-dissect --mount /usr/share/app0.raw "${image_dir}/app0"
 systemd-dissect --mount /usr/share/app1.raw "${image_dir}/app1"
 systemd-dissect --mount /usr/share/app-nodistro.raw "${image_dir}/app-nodistro"
@@ -446,7 +446,7 @@ mkdir -p /run/extensions/app-reject/usr/lib/{extension-release.d/,systemd/system
 echo "ID=_any" >/run/extensions/app-reject/usr/lib/extension-release.d/extension-release.app-reject
 echo "ID=_any" >/run/extensions/app-reject/usr/lib/os-release
 touch /run/extensions/app-reject/usr/lib/systemd/system/other_file
-systemd-sysext merge && { echo 'unexpected success'; exit 1; }
+(! systemd-sysext merge)
 test ! -e /usr/lib/systemd/system/some_file
 test ! -e /usr/lib/systemd/system/other_file
 systemd-sysext unmerge
@@ -489,7 +489,7 @@ systemd-dissect --detach "$LOOP"
 # Note, sizeof_field(struct loop_info64, lo_file_name) == 64,
 # and --loop-ref accepts upto 63 characters, and udev creates symlink
 # based on the name when it has upto _62_ characters.
-name="$(for (( i = 0; i < 62; i++ )); do echo -n 'x'; done)"
+name="$(for i in {1..62}; do echo -n 'x'; done)"
 LOOP="$(systemd-dissect --attach --loop-ref="$name" "${image}.raw")"
 udevadm trigger -w "$LOOP"
 
@@ -499,7 +499,7 @@ test "/dev/loop/by-ref/$name" -ef "$LOOP"
 # Detach by the /dev/loop/by-ref symlink
 systemd-dissect --detach "/dev/loop/by-ref/$name"
 
-name="$(for (( i = 0; i < 63; i++ )); do echo -n 'x'; done)"
+name="$(for i in {1..63}; do echo -n 'x'; done)"
 LOOP="$(systemd-dissect --attach --loop-ref="$name" "${image}.raw")"
 udevadm trigger -w "$LOOP"
 
