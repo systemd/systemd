@@ -62,23 +62,23 @@
   <refsect1>
     <title>Preset File Format</title>
 
-    <para>The preset files contain a list of directives consisting of
-    either the word <literal>enable</literal> or
-    <literal>disable</literal> followed by a space and a unit name
-    (possibly with shell style wildcards), separated by newlines.
-    Empty lines and lines whose first non-whitespace character is <literal>#</literal> or
-    <literal>;</literal> are ignored. Multiple instance names for unit
-    templates may be specified as a space separated list at the end of
-    the line instead of the customary position between <literal>@</literal>
-    and the unit suffix.</para>
+    <para>The preset files contain a list of directives, one per line. Empty lines and lines whose first
+    non-whitespace character is <literal>#</literal> or <literal>;</literal> are ignored.  Each directive
+    consists of one of the words <literal>enable</literal>, <literal>disable</literal>, or
+    <literal>ignore</literal>, followed by whitespace and a unit name. The unit name may contain shell-style
+    wildcards.</para>
+
+    <para>For the enable directive for template units, one or more instance names may be specified as a
+    space-separated list after the unit name. In this case, those instances will be enabled instead of the
+    instance specified via DefaultInstance= in the unit.</para>
 
     <para>Presets must refer to the "real" unit file, and not to any aliases. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for a description of unit aliasing.</para>
 
-    <para>Two different directives are understood:
-    <literal>enable</literal> may be used to enable units by default,
-    <literal>disable</literal> to disable units by default.</para>
+    <para>Three different directives are understood: <literal>enable</literal> may be used to enable units by
+    default, <literal>disable</literal> to disable units by default, and <literal>ignore</literal> to ignore
+    units and leave existing configuration intact.</para>
 
     <para>If multiple lines apply to a unit name, the first matching
     one takes precedence over all others.</para>
