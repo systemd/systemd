@@ -182,10 +182,15 @@ int flush_accept(int fd);
         })
 
 struct cmsghdr* cmsg_find(struct msghdr *mh, int level, int type, socklen_t length);
+void* cmsg_find_and_copy_data(struct msghdr *mh, int level, int type, void *buf, size_t buf_len);
 
 /* Type-safe, dereferencing version of cmsg_find() */
 #define CMSG_FIND_DATA(mh, level, type, ctype)                          \
         CMSG_TYPED_DATA(cmsg_find(mh, level, type, CMSG_LEN(sizeof(ctype))), ctype)
+
+/* Type-safe version of cmsg_find_and_copy_data() */
+#define CMSG_FIND_AND_COPY_DATA(mh, level, cmsg_type, type)             \
+        (type*) cmsg_find_and_copy_data(mh, level, cmsg_type, &(type){}, sizeof(type))
 
 /* Resolves to a type that can carry cmsghdr structures. Make sure things are properly aligned, i.e. the type
  * itself is placed properly in memory and the size is also aligned to what's appropriate for "cmsghdr"
