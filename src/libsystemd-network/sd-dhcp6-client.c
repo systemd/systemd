@@ -1276,7 +1276,6 @@ static int client_receive_message(
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),
         };
-        struct cmsghdr *cmsg;
         triple_timestamp t = {};
         _cleanup_free_ DHCP6Message *message = NULL;
         struct in6_addr *server_address = NULL;
@@ -1320,12 +1319,9 @@ static int client_receive_message(
                 server_address = &sa.in6.sin6_addr;
         }
 
-        CMSG_FOREACH(cmsg, &msg) {
-                if (cmsg->cmsg_level == SOL_SOCKET &&
-                    cmsg->cmsg_type == SO_TIMESTAMP &&
-                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval)))
-                        triple_timestamp_from_realtime(&t, timeval_load(CMSG_TYPED_DATA(cmsg, struct timeval)));
-        }
+        struct timeval *tv = CMSG_FIND_AND_COPY_DATA(&msg, SOL_SOCKET, SCM_TIMESTAMP, struct timeval);
+        if (tv)
+                triple_timestamp_from_realtime(&t, timeval_load(tv));
 
         if (client->transaction_id != (message->transaction_id & htobe32(0x00ffffff)))
                 return 0;
