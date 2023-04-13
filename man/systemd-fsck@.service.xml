@@ -51,17 +51,17 @@
     <para><filename>systemd-fsck</filename> does not know any details
     about specific filesystems, and simply executes file system
     checkers specific to each filesystem type
-    (<filename>/sbin/fsck.<replaceable>type</replaceable></filename>). These checkers will decide if
+    (<filename>fsck.<replaceable>type</replaceable></filename>). These checkers will decide if
     the filesystem should actually be checked based on the time since
     last check, number of mounts, unclean unmount, etc.</para>
 
     <para><filename>systemd-fsck-root.service</filename> and <filename>systemd-fsck-usr.service</filename>
-    will activate <filename>reboot.target</filename> if <filename>/sbin/fsck</filename> returns the "System
-    should reboot" condition, or <filename>emergency.target</filename> if <filename>/sbin/fsck</filename>
+    will activate <filename>reboot.target</filename> if <filename>fsck</filename> returns the "System
+    should reboot" condition, or <filename>emergency.target</filename> if <filename>fsck</filename>
     returns the "Filesystem errors left uncorrected" condition.</para>
 
     <para><filename>systemd-fsck@.service</filename> will fail if
-    <filename>/sbin/fsck</filename> returns with either "System should reboot"
+    <filename>fsck</filename> returns with either "System should reboot"
     or "Filesystem errors left uncorrected" conditions. For filesystems
     listed in <filename>/etc/fstab</filename> without <literal>nofail</literal>
     or <literal>noauto</literal> options, <literal>local-fs.target</literal>

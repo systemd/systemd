@@ -345,6 +345,7 @@ static int run(int argc, char *argv[]) {
         if (r == 0) {
                 char dash_c[STRLEN("-C") + DECIMAL_STR_MAX(int) + 1];
                 int progress_socket = -1;
+                _cleanup_free_ char *fsck_path = NULL;
                 const char *cmdline[9];
                 int i = 0;
 
@@ -365,7 +366,10 @@ static int run(int argc, char *argv[]) {
                 } else
                         dash_c[0] = 0;
 
-                cmdline[i++] = "/sbin/fsck";
+                r = find_executable("fsck", &fsck_path);
+                if (r < 0)
+                        return r;
+                cmdline[i++] = fsck_path;
                 cmdline[i++] =  arg_repair;
                 cmdline[i++] = "-T";
 
