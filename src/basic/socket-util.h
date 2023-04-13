@@ -175,9 +175,16 @@ int flush_accept(int fd);
 #define CMSG_FOREACH(cmsg, mh)                                          \
         for ((cmsg) = CMSG_FIRSTHDR(mh); (cmsg); (cmsg) = CMSG_NXTHDR((mh), (cmsg)))
 
+/* Returns the cmsghdr's data pointer, but safely cast to the specified type. Does two alignment checks: one
+ * at compile time, that the requested type has a smaller or same alignment as 'struct cmsghdr', and one
+ * during runtime, that the actual pointer matches the alignment too. This is supposed to catch cases such as
+ * 'struct timeval' is embedded into 'struct cmsghdr' on architectures where the alignment of the former is 8
+ * bytes (because of a 64bit time_t), but of the latter is 4 bytes (because size_t is 32bit), such as
+ * riscv32. */
 #define CMSG_TYPED_DATA(cmsg, type)                                     \
         ({                                                              \
                 struct cmsghdr *_cmsg = cmsg;                           \
+                assert_cc(__alignof__(type) <= __alignof__(struct cmsghdr)); \
                 _cmsg ? CAST_ALIGN_PTR(type, CMSG_DATA(_cmsg)) : (type*) NULL; \
         })
 
