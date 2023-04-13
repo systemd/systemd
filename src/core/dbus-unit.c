@@ -237,7 +237,7 @@ static int property_get_unit_file_preset(
 
         return sd_bus_message_append(reply, "s",
                                      r < 0 ? NULL:
-                                     r > 0 ? "enabled" : "disabled");
+                                     r == PRESET_ENABLE ? "enabled" : r == PRESET_DISABLE ? "disabled" : "ignored");
 }
 
 static int property_get_job(
