@@ -147,7 +147,7 @@ static int dns_stream_identify(DnsStream *s) {
                         switch (cmsg->cmsg_type) {
 
                         case IPV6_PKTINFO: {
-                                struct in6_pktinfo *i = (struct in6_pktinfo*) CMSG_DATA(cmsg);
+                                struct in6_pktinfo *i = CMSG_TYPED_DATA(cmsg, struct in6_pktinfo);
 
                                 if (s->ifindex <= 0)
                                         s->ifindex = i->ipi6_ifindex;
@@ -155,7 +155,7 @@ static int dns_stream_identify(DnsStream *s) {
                         }
 
                         case IPV6_HOPLIMIT:
-                                s->ttl = *(int *) CMSG_DATA(cmsg);
+                                s->ttl = *CMSG_TYPED_DATA(cmsg, int);
                                 break;
                         }
 
@@ -165,7 +165,7 @@ static int dns_stream_identify(DnsStream *s) {
                         switch (cmsg->cmsg_type) {
 
                         case IP_PKTINFO: {
-                                struct in_pktinfo *i = (struct in_pktinfo*) CMSG_DATA(cmsg);
+                                struct in_pktinfo *i = CMSG_TYPED_DATA(cmsg, struct in_pktinfo);
 
                                 if (s->ifindex <= 0)
                                         s->ifindex = i->ipi_ifindex;
@@ -173,7 +173,7 @@ static int dns_stream_identify(DnsStream *s) {
                         }
 
                         case IP_TTL:
-                                s->ttl = *(int *) CMSG_DATA(cmsg);
+                                s->ttl = *CMSG_TYPED_DATA(cmsg, int);
                                 break;
                         }
                 }

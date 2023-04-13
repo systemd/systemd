@@ -1094,7 +1094,7 @@ static int process_socket(int fd) {
                         }
 
                         assert(input_fd < 0);
-                        input_fd = *(int*) CMSG_DATA(found);
+                        input_fd = *CMSG_TYPED_DATA(found, int);
                         break;
                 } else
                         cmsg_close_all(&mh);

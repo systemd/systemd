@@ -1981,7 +1981,7 @@ static int client_receive_message_raw(
 
         cmsg = cmsg_find(&msg, SOL_PACKET, PACKET_AUXDATA, CMSG_LEN(sizeof(struct tpacket_auxdata)));
         if (cmsg) {
-                struct tpacket_auxdata *aux = (struct tpacket_auxdata*) CMSG_DATA(cmsg);
+                struct tpacket_auxdata *aux = CMSG_TYPED_DATA(cmsg, struct tpacket_auxdata);
                 checksum = !(aux->tp_status & TP_STATUS_CSUMNOTREADY);
         }
 

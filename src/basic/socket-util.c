@@ -1047,7 +1047,7 @@ ssize_t receive_one_fd_iov(
         }
 
         if (found)
-                *ret_fd = *(int*) CMSG_DATA(found);
+                *ret_fd = *CMSG_TYPED_DATA(found, int);
         else
                 *ret_fd = -EBADF;
 

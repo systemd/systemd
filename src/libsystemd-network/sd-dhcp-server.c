@@ -1310,7 +1310,7 @@ static int server_receive_message(sd_event_source *s, int fd,
                 if (cmsg->cmsg_level == IPPROTO_IP &&
                     cmsg->cmsg_type == IP_PKTINFO &&
                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct in_pktinfo))) {
-                        struct in_pktinfo *info = (struct in_pktinfo*)CMSG_DATA(cmsg);
+                        struct in_pktinfo *info = CMSG_TYPED_DATA(cmsg, struct in_pktinfo);
 
                         /* TODO figure out if this can be done as a filter on
                          * the socket, like for IPv6 */

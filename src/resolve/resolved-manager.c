@@ -834,7 +834,7 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
                         switch (cmsg->cmsg_type) {
 
                         case IPV6_PKTINFO: {
-                                struct in6_pktinfo *i = (struct in6_pktinfo*) CMSG_DATA(cmsg);
+                                struct in6_pktinfo *i = CMSG_TYPED_DATA(cmsg, struct in6_pktinfo);
 
                                 if (p->ifindex <= 0)
                                         p->ifindex = i->ipi6_ifindex;
@@ -844,11 +844,11 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
                         }
 
                         case IPV6_HOPLIMIT:
-                                p->ttl = *(int *) CMSG_DATA(cmsg);
+                                p->ttl = *CMSG_TYPED_DATA(cmsg, int);
                                 break;
 
                         case IPV6_RECVFRAGSIZE:
-                                p->fragsize = *(int *) CMSG_DATA(cmsg);
+                                p->fragsize = *CMSG_TYPED_DATA(cmsg, int);
                                 break;
                         }
                 } else if (cmsg->cmsg_level == IPPROTO_IP) {
@@ -857,7 +857,7 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
                         switch (cmsg->cmsg_type) {
 
                         case IP_PKTINFO: {
-                                struct in_pktinfo *i = (struct in_pktinfo*) CMSG_DATA(cmsg);
+                                struct in_pktinfo *i = CMSG_TYPED_DATA(cmsg, struct in_pktinfo);
 
                                 if (p->ifindex <= 0)
                                         p->ifindex = i->ipi_ifindex;
@@ -867,11 +867,11 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
                         }
 
                         case IP_TTL:
-                                p->ttl = *(int *) CMSG_DATA(cmsg);
+                                p->ttl = *CMSG_TYPED_DATA(cmsg, int);
                                 break;
 
                         case IP_RECVFRAGSIZE:
-                                p->fragsize = *(int *) CMSG_DATA(cmsg);
+                                p->fragsize = *CMSG_TYPED_DATA(cmsg, int);
                                 break;
                         }
                 }

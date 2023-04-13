@@ -192,7 +192,7 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *ret_dst,
                 if (cmsg->cmsg_level == SOL_IPV6 &&
                     cmsg->cmsg_type == IPV6_HOPLIMIT &&
                     cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
-                        int hops = *(int*) CMSG_DATA(cmsg);
+                        int hops = *CMSG_TYPED_DATA(cmsg, int);
 
                         if (hops != 255)
                                 return -EMULTIHOP;
@@ -201,7 +201,7 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *ret_dst,
                 if (cmsg->cmsg_level == SOL_SOCKET &&
                     cmsg->cmsg_type == SO_TIMESTAMP &&
                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval)))
-                        triple_timestamp_from_realtime(&t, timeval_load((struct timeval*) CMSG_DATA(cmsg)));
+                        triple_timestamp_from_realtime(&t, timeval_load(CMSG_TYPED_DATA(cmsg, struct timeval)));
         }
 
         if (!triple_timestamp_is_set(&t))
