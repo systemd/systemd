@@ -23,6 +23,25 @@ function wait_for()
     fi
 }
 
+function wait_for_timeout()
+{
+    local unit="$1"
+    local time="$2"
+
+    while [[ $time -gt 0 ]]; do
+        if [[ "$(systemctl show --property=Result $unit)" == "Result=timeout" ]]; then
+            return 0
+        fi
+
+        sleep 1
+        time=$((time - 1))
+    done
+
+    journalctl -u "$unit" >>"$TESTLOG"
+
+    return 1
+}
+
 # This checks all stages, start, runtime and stop, can be extended by
 # EXTEND_TIMEOUT_USEC
 
@@ -43,6 +62,53 @@ wait_for success_stop
 wait_for fail_start startfail
 wait_for fail_stop stopfail
 wait_for fail_runtime runtimefail
+
+# These ensure that RuntimeMaxSec is honored for scope and service units
+# when they are created.
+runtime_max_sec=5
+
+systemd-run \
+    --property=RuntimeMaxSec=${runtime_max_sec}s \
+    -u runtime-max-sec-test-1.service \
+    /usr/bin/sh -c "while true; do sleep 1; done"
+wait_for_timeout runtime-max-sec-test-1.service $((runtime_max_sec + 2))
+
+systemd-run \
+    --property=RuntimeMaxSec=${runtime_max_sec}s \
+    --scope \
+    -u runtime-max-sec-test-2.scope \
+    /usr/bin/sh -c "while true; do sleep 1; done" &
+wait_for_timeout runtime-max-sec-test-2.scope $((runtime_max_sec + 2))
+
+# These ensure that RuntimeMaxSec is honored for scope and service
+# units if the value is changed and then the manager is reloaded.
+systemd-run \
+    -u runtime-max-sec-test-3.service \
+    /usr/bin/sh -c "while true; do sleep 1; done"
+mkdir -p /etc/systemd/system/runtime-max-sec-test-3.service.d/
+cat > /etc/systemd/system/runtime-max-sec-test-3.service.d/override.conf << EOF
+[Service]
+RuntimeMaxSec=${runtime_max_sec}s
+EOF
+systemctl daemon-reload
+wait_for_timeout runtime-max-sec-test-3.service $((runtime_max_sec + 2))
+
+systemd-run \
+    --scope \
+    -u runtime-max-sec-test-4.scope \
+    /usr/bin/sh -c "while true; do sleep 1; done" &
+
+# Wait until the unit is running to avoid race with creating the override.
+until systemctl is-active runtime-max-sec-test-4.scope; do
+    sleep 1
+done
+mkdir -p /etc/systemd/system/runtime-max-sec-test-4.scope.d/
+cat > /etc/systemd/system/runtime-max-sec-test-4.scope.d/override.conf << EOF
+[Scope]
+RuntimeMaxSec=${runtime_max_sec}s
+EOF
+systemctl daemon-reload
+wait_for_timeout runtime-max-sec-test-4.scope $((runtime_max_sec + 2))
 
 if [[ -f "$TESTLOG" ]]; then
     # no mv
