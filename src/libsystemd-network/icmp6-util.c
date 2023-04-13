@@ -199,9 +199,11 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *ret_dst,
                 }
 
                 if (cmsg->cmsg_level == SOL_SOCKET &&
-                    cmsg->cmsg_type == SO_TIMESTAMP &&
-                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval)))
-                        triple_timestamp_from_realtime(&t, timeval_load(CMSG_TYPED_DATA(cmsg, struct timeval)));
+                    cmsg->cmsg_type == SCM_TIMESTAMP &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval))) {
+                        struct timeval *tv = memcpy(&(struct timeval) {}, CMSG_DATA(cmsg), sizeof(struct timeval));
+                        triple_timestamp_from_realtime(&t, timeval_load(tv));
+                }
         }
 
         if (!triple_timestamp_is_set(&t))
