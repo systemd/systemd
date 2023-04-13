@@ -49,6 +49,21 @@ static bool output_show_unit_file(const UnitFileList *u, char **states, char **p
         return true;
 }
 
+static const char* preset_action_to_color(PresetAction action, bool underline) {
+        assert(action >= 0);
+
+        switch (action) {
+        case PRESET_ENABLE:
+                return underline ? ansi_highlight_green_underline() : ansi_highlight_green();
+        case PRESET_DISABLE:
+                return underline ? ansi_highlight_red_underline() : ansi_highlight_red();
+        case PRESET_IGNORE:
+                return underline ? ansi_highlight_yellow_underline() : ansi_highlight_yellow();
+        default:
+                return NULL;
+        }
+}
+
 static int output_unit_file_list(const UnitFileList *units, unsigned c) {
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_(unit_file_presets_done) UnitFilePresets presets = {};
@@ -98,22 +113,14 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
                         return table_log_add_error(r);
 
                 if (show_preset_for_state(u->state)) {
-                        const char *unit_preset_str, *on_preset_color;
+                        const char *on_preset_color = underline ? on_underline : ansi_normal();
 
                         r = unit_file_query_preset(arg_runtime_scope, arg_root, id, &presets);
-                        if (r < 0) {
-                                unit_preset_str = "n/a";
-                                on_preset_color = underline ? on_underline : ansi_normal();
-                        } else if (r == 0) {
-                                unit_preset_str = "disabled";
-                                on_preset_color = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
-                        } else {
-                                unit_preset_str = "enabled";
-                                on_preset_color = underline ? ansi_highlight_green_underline() : ansi_highlight_green();
-                        }
+                        if (r >= 0)
+                                on_preset_color = preset_action_to_color(r, underline);
 
                         r = table_add_many(table,
-                                           TABLE_STRING, unit_preset_str,
+                                           TABLE_STRING, strna(preset_action_to_string(r)),
                                            TABLE_SET_BOTH_COLORS, strempty(on_preset_color));
                 } else
                         r = table_add_many(table,

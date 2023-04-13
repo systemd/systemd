@@ -235,9 +235,7 @@ static int property_get_unit_file_preset(
 
         r = unit_get_unit_file_preset(u);
 
-        return sd_bus_message_append(reply, "s",
-                                     r < 0 ? NULL:
-                                     r > 0 ? "enabled" : "disabled");
+        return sd_bus_message_append(reply, "s", preset_action_to_string(r));
 }
 
 static int property_get_job(

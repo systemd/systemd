@@ -217,8 +217,20 @@ typedef struct {
         bool initialized;
 } UnitFilePresets;
 
+typedef enum PresetAction {
+        PRESET_UNKNOWN,
+        PRESET_ENABLE,
+        PRESET_DISABLE,
+        PRESET_IGNORE,
+        _PRESET_ACTION_MAX,
+        _PRESET_ACTION_INVALID = -EINVAL,
+        _PRESET_ACTION_ERRNO_MAX = -ERRNO_MAX, /* Ensure this type covers the whole negative errno range */
+} PresetAction;
+
+const char *preset_action_to_string(PresetAction action);
+
 void unit_file_presets_done(UnitFilePresets *p);
-int unit_file_query_preset(RuntimeScope scope, const char *root_dir, const char *name, UnitFilePresets *cached);
+PresetAction unit_file_query_preset(RuntimeScope scope, const char *root_dir, const char *name, UnitFilePresets *cached);
 
 const char *unit_file_state_to_string(UnitFileState s) _const_;
 UnitFileState unit_file_state_from_string(const char *s) _pure_;
