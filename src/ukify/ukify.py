@@ -4,7 +4,7 @@
 # pylint: disable=missing-docstring,invalid-name,import-outside-toplevel
 # pylint: disable=consider-using-with,unspecified-encoding,line-too-long
 # pylint: disable=too-many-locals,too-many-statements,too-many-return-statements
-# pylint: disable=too-many-branches
+# pylint: disable=too-many-branches,fixme
 
 import argparse
 import collections
@@ -658,7 +658,7 @@ def parse_args(args=None):
         description='Build and sign Unified Kernel Images',
         allow_abbrev=False,
         usage='''\
-usage: ukify [options…] [linux [initrd…]]
+ukify [options…] [LINUX INITRD…]
        ukify -h | --help
 ''')
 
@@ -666,10 +666,12 @@ usage: ukify [options…] [linux [initrd…]]
     p.error = lambda message: p.exit(2, f'{p.prog}: error: {message}\n')
 
     p.add_argument('linux',
+                   metavar='LINUX',
                    type=pathlib.Path,
                    nargs="?",
                    help='vmlinuz file [.linux section]')
     p.add_argument('initrd',
+                   metavar='INITRD…',
                    type=pathlib.Path,
                    nargs='*',
                    help='initrd files [.initrd section]')
