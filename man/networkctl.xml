@@ -18,7 +18,7 @@
 
   <refnamediv>
     <refname>networkctl</refname>
-    <refpurpose>Query the status of network links</refpurpose>
+    <refpurpose>Query or modify the status of network links</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -33,7 +33,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>networkctl</command> may be used to introspect the
+    <para><command>networkctl</command> may be used to query or modify the
     state of the network links as seen by
     <command>systemd-networkd</command>.  Please refer to
     <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
