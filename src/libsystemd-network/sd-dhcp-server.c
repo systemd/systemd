@@ -407,7 +407,7 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
                    rather than binding the socket. This will be mostly useful
                    when we gain support for arbitrary number of server addresses
                  */
-                pktinfo = (struct in_pktinfo*) CMSG_DATA(cmsg);
+                pktinfo = CMSG_TYPED_DATA(cmsg, struct in_pktinfo);
                 assert(pktinfo);
 
                 pktinfo->ipi_ifindex = server->ifindex;
