@@ -25,7 +25,8 @@ typedef enum ChaseFlags {
                                              * file descriptor will point to the parent directory. Note that
                                              * the result path is the root or '.', then the file descriptor
                                              * also points to the result path even if this flag is set. */
-        CHASE_MKDIR_0755         = 1 << 11, /* Create any missing parent directories in the given path. */
+        CHASE_MKDIR_0755         = 1 << 11, /* Create any missing directories in the given path. If specified
+                                             * with CHASE_PARENT, only parent directories are created. */
         CHASE_EXTRACT_FILENAME   = 1 << 12, /* Only return the last component of the resolved path */
 } ChaseFlags;
 
