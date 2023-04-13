@@ -177,7 +177,7 @@ int flush_accept(int fd);
 
 #define CMSG_TYPED_DATA(cmsg, type)                                     \
         ({                                                              \
-                struct cmsghdr *_cmsg = cmsg;                           \
+                struct cmsghdr *_cmsg = (cmsg);                         \
                 _cmsg ? CAST_ALIGN_PTR(type, CMSG_DATA(_cmsg)) : (type*) NULL; \
         })
 
