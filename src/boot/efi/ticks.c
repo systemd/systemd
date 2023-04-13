@@ -5,6 +5,7 @@
 #include "vmm.h"
 
 #if defined(__i386__) || defined(__x86_64__)
+#  include <cpuid.h>
 
 static uint64_t ticks_read_arch(void) {
         /* The TSC might or might not be virtualized in VMs (and thus might not be accurate or start at zero
@@ -17,7 +18,35 @@ static uint64_t ticks_read_arch(void) {
 }
 
 static uint64_t ticks_freq_arch(void) {
-        return 0;
+        /* Detect TSC frequency from CPUID information if available. */
+
+        unsigned max_leaf, ebx, ecx, edx;
+        if (__get_cpuid(0, &max_leaf, &ebx, &ecx, &edx) == 0)
+                return 0;
+
+        /* Leaf 0x15 is Intel only. */
+        if (max_leaf < 0x15 || ebx != signature_INTEL_ebx || ecx != signature_INTEL_ecx ||
+            edx != signature_INTEL_edx)
+                return 0;
+
+        unsigned denominator, numerator, crystal_hz;
+        __cpuid(0x15, denominator, numerator, crystal_hz, edx);
+        if (denominator == 0 || numerator == 0)
+                return 0;
+
+        uint64_t freq = crystal_hz;
+        if (crystal_hz == 0) {
+                /* If the crystal frquency is not available, try to deduce it from
+                 * the processor frequency leaf if available. */
+                if (max_leaf < 0x16)
+                        return 0;
+
+                unsigned core_mhz;
+                __cpuid(0x16, core_mhz, ebx, ecx, edx);
+                freq = core_mhz * 1000ULL * 1000ULL * denominator / numerator;
+        }
+
+        return freq * numerator / denominator;
 }
 
 #elif defined(__aarch64__)
