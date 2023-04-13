@@ -151,7 +151,8 @@
     <command>confext</command> will extend only <filename>/etc</filename>. Files and directories contained
     in the confext images outside of the <filename>/etc/</filename> hierarchy are <emphasis>not</emphasis>
     merged, and hence have no effect when included in the image. Formats for these images are of the
-    same as sysext images.</para>
+    same as sysext images. The merged hierarchy will be mounted with <literal>nosuid</literal> and
+    (if not disabled via <option>--noexec=false</option>) <literal>noexec</literal>.</para>
 
     <para>Confexts are looked for in the directories <filename>/run/confexts/</filename>,
     <filename>/var/lib/confexts/</filename>, <filename>/usr/lib/confexts/</filename> and
@@ -288,6 +289,14 @@
         operating on a system extension image stored in the <filename>/.extra/sysext/</filename> directory a
         slightly stricter policy is used by default: <literal>root=signed+absent:usr=signed+absent</literal>,
         see above for details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--noexec=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>When merging configuration extensions into <filename>/etc/</filename> the
+        <literal>MS_NOEXEC</literal> mount flag is used by default. This option can be used to disable
+        it.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />

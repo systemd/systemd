@@ -45,6 +45,7 @@ static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_force = false;
+static int arg_noexec = -1;
 static ImagePolicy *arg_image_policy = NULL;
 
 /* Is set to IMAGE_CONFEXT when systemd is called with the confext functionality instead of the default */
@@ -64,6 +65,7 @@ static const struct {
         const char *scope_env;
         const char *name_env;
         const ImagePolicy *default_image_policy;
+        unsigned long default_mount_flags;
 } image_class_info[_IMAGE_CLASS_MAX] = {
         [IMAGE_SYSEXT] = {
                 .dot_directory_name = ".systemd-sysext",
@@ -74,6 +76,7 @@ static const struct {
                 .scope_env = "SYSEXT_SCOPE",
                 .name_env = "SYSTEMD_SYSEXT_HIERARCHIES",
                 .default_image_policy = &image_policy_sysext,
+                .default_mount_flags = MS_RDONLY|MS_NODEV,
         },
         [IMAGE_CONFEXT] = {
                 .dot_directory_name = ".systemd-confext",
@@ -84,6 +87,7 @@ static const struct {
                 .scope_env = "CONFEXT_SCOPE",
                 .name_env = "SYSTEMD_CONFEXT_HIERARCHIES",
                 .default_image_policy = &image_policy_confext,
+                .default_mount_flags = MS_RDONLY|MS_NODEV|MS_NOSUID|MS_NOEXEC,
         }
 };
 
@@ -288,6 +292,7 @@ static int mount_overlayfs(
 
         _cleanup_free_ char *options = NULL;
         bool separator = false;
+        unsigned long flags;
         int r;
 
         assert(where);
@@ -309,8 +314,12 @@ static int mount_overlayfs(
                 separator = true;
         }
 
+        flags = image_class_info[arg_image_class].default_mount_flags;
+        if (arg_noexec >= 0)
+                SET_FLAG(flags, MS_NOEXEC, arg_noexec);
+
         /* Now mount the actual overlayfs */
-        r = mount_nofollow_verbose(LOG_ERR, image_class_info[arg_image_class].short_identifier, where, "overlay", MS_RDONLY, options);
+        r = mount_nofollow_verbose(LOG_ERR, image_class_info[arg_image_class].short_identifier, where, "overlay", flags, options);
         if (r < 0)
                 return r;
 
@@ -948,6 +957,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --force              Ignore version incompatibilities\n"
                "     --image-policy=POLICY\n"
                "                          Specify disk image dissection policy\n"
+               "     --noexec=BOOL        Whether to mount extension overlay with noexec\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -969,6 +979,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_JSON,
                 ARG_FORCE,
                 ARG_IMAGE_POLICY,
+                ARG_NOEXEC,
         };
 
         static const struct option options[] = {
@@ -980,6 +991,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "json",         required_argument, NULL, ARG_JSON         },
                 { "force",        no_argument,       NULL, ARG_FORCE        },
                 { "image-policy", required_argument, NULL, ARG_IMAGE_POLICY },
+                { "noexec",       required_argument, NULL, ARG_NOEXEC       },
                 {}
         };
 
@@ -1027,6 +1039,14 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_image_policy_argument(optarg, &arg_image_policy);
                         if (r < 0)
                                 return r;
+                        break;
+
+                case ARG_NOEXEC:
+                        r = parse_boolean_argument("--noexec", optarg, NULL);
+                        if (r < 0)
+                                return r;
+
+                        arg_noexec = r;
                         break;
 
                 case '?':
