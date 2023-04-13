@@ -20,10 +20,12 @@ loaderentry_install = custom_target(
         install_mode : 'rwxr-xr-x',
         install_dir : kernelinstalldir)
 
-kernel_install_files = files(
-        '50-depmod.install',
-        '90-uki-copy.install',
-)
+uki_copy_install = files('90-uki-copy.install')
+
+kernel_install_files = [
+        files('50-depmod.install'),
+        uki_copy_install,
+]
 
 if want_kernel_install
         install_data(kernel_install_files,
