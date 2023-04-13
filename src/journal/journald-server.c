@@ -1417,7 +1417,7 @@ int server_process_datagram(
         size_t label_len = 0, m;
         Server *s = ASSERT_PTR(userdata);
         struct ucred *ucred = NULL;
-        struct timeval *tv = NULL;
+        struct timeval tv_buf, *tv = NULL;
         struct cmsghdr *cmsg;
         char *label = NULL;
         struct iovec iovec;
@@ -1486,21 +1486,21 @@ int server_process_datagram(
                     cmsg->cmsg_type == SCM_CREDENTIALS &&
                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
                         assert(!ucred);
-                        ucred = (struct ucred*) CMSG_DATA(cmsg);
+                        ucred = CMSG_TYPED_DATA(cmsg, struct ucred);
                 } else if (cmsg->cmsg_level == SOL_SOCKET &&
                          cmsg->cmsg_type == SCM_SECURITY) {
                         assert(!label);
-                        label = (char*) CMSG_DATA(cmsg);
+                        label = CMSG_TYPED_DATA(cmsg, char);
                         label_len = cmsg->cmsg_len - CMSG_LEN(0);
                 } else if (cmsg->cmsg_level == SOL_SOCKET &&
-                           cmsg->cmsg_type == SO_TIMESTAMP &&
+                           cmsg->cmsg_type == SCM_TIMESTAMP &&
                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval))) {
                         assert(!tv);
-                        tv = (struct timeval*) CMSG_DATA(cmsg);
+                        tv = memcpy(&tv_buf, CMSG_DATA(cmsg), sizeof(struct timeval));
                 } else if (cmsg->cmsg_level == SOL_SOCKET &&
                          cmsg->cmsg_type == SCM_RIGHTS) {
                         assert(!fds);
-                        fds = (int*) CMSG_DATA(cmsg);
+                        fds = CMSG_TYPED_DATA(cmsg, int);
                         n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
                 }
 

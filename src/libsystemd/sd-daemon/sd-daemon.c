@@ -567,7 +567,7 @@ _public_ int sd_pid_notify_with_fds(
                         cmsg->cmsg_type = SCM_CREDENTIALS;
                         cmsg->cmsg_len = CMSG_LEN(sizeof(struct ucred));
 
-                        ucred = (struct ucred*) CMSG_DATA(cmsg);
+                        ucred = CMSG_TYPED_DATA(cmsg, struct ucred);
                         ucred->pid = pid != 0 ? pid : getpid_cached();
                         ucred->uid = getuid();
                         ucred->gid = getgid();
