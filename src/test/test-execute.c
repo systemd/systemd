@@ -401,9 +401,9 @@ static void test_exec_ignoresigpipe(Manager *m) {
 static void test_exec_privatetmp(Manager *m) {
         assert_se(touch("/tmp/test-exec_privatetmp") >= 0);
 
-        test(m, "exec-privatetmp-yes.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-privatetmp-yes.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-privatetmp-no.service", 0, CLD_EXITED);
-        test(m, "exec-privatetmp-disabled-by-prefix.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-privatetmp-disabled-by-prefix.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 
         unlink("/tmp/test-exec_privatetmp");
 }
@@ -420,10 +420,10 @@ static void test_exec_privatedevices(Manager *m) {
                 return;
         }
 
-        test(m, "exec-privatedevices-yes.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-privatedevices-yes.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-privatedevices-no.service", 0, CLD_EXITED);
-        test(m, "exec-privatedevices-disabled-by-prefix.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
-        test(m, "exec-privatedevices-yes-with-group.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-privatedevices-disabled-by-prefix.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+        test(m, "exec-privatedevices-yes-with-group.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 
         /* We use capsh to test if the capabilities are
          * properly set, so be sure that it exists */
@@ -433,10 +433,10 @@ static void test_exec_privatedevices(Manager *m) {
                 return;
         }
 
-        test(m, "exec-privatedevices-yes-capability-mknod.service", 0, CLD_EXITED);
-        test(m, "exec-privatedevices-no-capability-mknod.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
-        test(m, "exec-privatedevices-yes-capability-sys-rawio.service", 0, CLD_EXITED);
-        test(m, "exec-privatedevices-no-capability-sys-rawio.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-privatedevices-yes-capability-mknod.service", can_unshare || MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+        test(m, "exec-privatedevices-no-capability-mknod.service", 0, CLD_EXITED);
+        test(m, "exec-privatedevices-yes-capability-sys-rawio.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+        test(m, "exec-privatedevices-no-capability-sys-rawio.service", 0, CLD_EXITED);
 }
 
 static void test_exec_protecthome(Manager *m) {
@@ -466,23 +466,23 @@ static void test_exec_protectkernelmodules(Manager *m) {
                 return;
         }
 
-        test(m, "exec-protectkernelmodules-no-capabilities.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
-        test(m, "exec-protectkernelmodules-yes-capabilities.service", 0, CLD_EXITED);
-        test(m, "exec-protectkernelmodules-yes-mount-propagation.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-protectkernelmodules-no-capabilities.service", 0, CLD_EXITED);
+        test(m, "exec-protectkernelmodules-yes-capabilities.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+        test(m, "exec-protectkernelmodules-yes-mount-propagation.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 }
 
 static void test_exec_readonlypaths(Manager *m) {
 
-        test(m, "exec-readonlypaths-simple.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-readonlypaths-simple.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 
         if (path_is_read_only_fs("/var") > 0) {
                 log_notice("Directory /var is readonly, skipping remaining tests in %s", __func__);
                 return;
         }
 
-        test(m, "exec-readonlypaths.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-readonlypaths.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-readonlypaths-with-bindpaths.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
-        test(m, "exec-readonlypaths-mount-propagation.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-readonlypaths-mount-propagation.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 }
 
 static void test_exec_readwritepaths(Manager *m) {
@@ -492,7 +492,7 @@ static void test_exec_readwritepaths(Manager *m) {
                 return;
         }
 
-        test(m, "exec-readwritepaths-mount-propagation.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-readwritepaths-mount-propagation.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 }
 
 static void test_exec_inaccessiblepaths(Manager *m) {
@@ -502,14 +502,14 @@ static void test_exec_inaccessiblepaths(Manager *m) {
                 return;
         }
 
-        test(m, "exec-inaccessiblepaths-sys.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-inaccessiblepaths-sys.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 
         if (path_is_read_only_fs("/") > 0) {
                 log_notice("Root directory is readonly, skipping remaining tests in %s", __func__);
                 return;
         }
 
-        test(m, "exec-inaccessiblepaths-mount-propagation.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-inaccessiblepaths-mount-propagation.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 }
 
 static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -687,14 +687,14 @@ static void test_exec_mount_apivfs(Manager *m) {
 
         assert_se(mkdir_p("/tmp/test-exec-mount-apivfs-no/root", 0755) >= 0);
 
-        test(m, "exec-mount-apivfs-no.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+        test(m, "exec-mount-apivfs-no.service", can_unshare || !MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
 
         (void) rm_rf("/tmp/test-exec-mount-apivfs-no/root", REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
 static void test_exec_noexecpaths(Manager *m) {
 
-        test(m, "exec-noexecpaths-simple.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-noexecpaths-simple.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 }
 
 static void test_exec_temporaryfilesystem(Manager *m) {
@@ -964,8 +964,8 @@ static void test_exec_passenvironment(Manager *m) {
 }
 
 static void test_exec_umask(Manager *m) {
-        test(m, "exec-umask-default.service", 0, CLD_EXITED);
-        test(m, "exec-umask-0177.service", 0, CLD_EXITED);
+        test(m, "exec-umask-default.service", can_unshare || MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+        test(m, "exec-umask-0177.service", can_unshare || MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
 }
 
 static void test_exec_runtimedirectory(Manager *m) {
@@ -1012,7 +1012,7 @@ static void test_exec_capabilityboundingset(Manager *m) {
 }
 
 static void test_exec_basic(Manager *m) {
-        test(m, "exec-basic.service", 0, CLD_EXITED);
+        test(m, "exec-basic.service", can_unshare || MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
 }
 
 static void test_exec_ambientcapabilities(Manager *m) {
@@ -1052,7 +1052,7 @@ static void test_exec_ambientcapabilities(Manager *m) {
 }
 
 static void test_exec_privatenetwork(Manager *m) {
-        int r, status;
+        int r;
 
         r = find_executable("ip", NULL);
         if (r < 0) {
@@ -1060,9 +1060,8 @@ static void test_exec_privatenetwork(Manager *m) {
                 return;
         }
 
-        status = can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_NETWORK : EXIT_FAILURE;
-        test(m, "exec-privatenetwork-yes-privatemounts-no.service", status, CLD_EXITED);
-        test(m, "exec-privatenetwork-yes-privatemounts-yes.service", status, CLD_EXITED);
+        test(m, "exec-privatenetwork-yes-privatemounts-no.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_NETWORK : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-privatenetwork-yes-privatemounts-yes.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_NETWORK : EXIT_NAMESPACE, CLD_EXITED);
 }
 
 static void test_exec_networknamespacepath(Manager *m) {
@@ -1075,7 +1074,7 @@ static void test_exec_networknamespacepath(Manager *m) {
         }
 
         test(m, "exec-networknamespacepath-privatemounts-no.service", MANAGER_IS_SYSTEM(m) ? EXIT_SUCCESS : EXIT_FAILURE, CLD_EXITED);
-        test(m, "exec-networknamespacepath-privatemounts-yes.service", can_unshare ? EXIT_SUCCESS : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-networknamespacepath-privatemounts-yes.service", can_unshare ? EXIT_SUCCESS : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 }
 
 static void test_exec_oomscoreadjust(Manager *m) {
@@ -1105,12 +1104,12 @@ static void test_exec_unsetenvironment(Manager *m) {
 }
 
 static void test_exec_specifier(Manager *m) {
-        test(m, "exec-specifier.service", 0, CLD_EXITED);
+        test(m, "exec-specifier.service", can_unshare || MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
         if (MANAGER_IS_SYSTEM(m))
                 test(m, "exec-specifier-system.service", 0, CLD_EXITED);
         else
                 test(m, "exec-specifier-user.service", 0, CLD_EXITED);
-        test(m, "exec-specifier@foo-bar.service", 0, CLD_EXITED);
+        test(m, "exec-specifier@foo-bar.service", can_unshare || MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
         test(m, "exec-specifier-interpolation.service", 0, CLD_EXITED);
 }
 
