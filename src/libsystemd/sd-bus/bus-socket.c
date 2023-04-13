@@ -604,7 +604,7 @@ static int bus_socket_read_auth(sd_bus *b) {
                                  * protocol? Somebody is playing games with
                                  * us. Close them all, and fail */
                                 j = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
-                                close_many((int*) CMSG_DATA(cmsg), j);
+                                close_many(CMSG_TYPED_DATA(cmsg, int), j);
                                 return -EIO;
                         } else
                                 log_debug("Got unexpected auxiliary data with level=%d and type=%d",
@@ -1268,18 +1268,18 @@ int bus_socket_read_message(sd_bus *bus) {
                                          * isn't actually enabled? Close them,
                                          * and fail */
 
-                                        close_many((int*) CMSG_DATA(cmsg), n);
+                                        close_many(CMSG_TYPED_DATA(cmsg, int), n);
                                         return -EIO;
                                 }
 
                                 f = reallocarray(bus->fds, bus->n_fds + n, sizeof(int));
                                 if (!f) {
-                                        close_many((int*) CMSG_DATA(cmsg), n);
+                                        close_many(CMSG_TYPED_DATA(cmsg, int), n);
                                         return -ENOMEM;
                                 }
 
                                 for (i = 0; i < n; i++)
-                                        f[bus->n_fds++] = fd_move_above_stdio(((int*) CMSG_DATA(cmsg))[i]);
+                                        f[bus->n_fds++] = fd_move_above_stdio(CMSG_TYPED_DATA(cmsg, int)[i]);
                                 bus->fds = f;
                         } else
                                 log_debug("Got unexpected auxiliary data with level=%d and type=%d",
