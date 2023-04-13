@@ -74,10 +74,10 @@ journalctl -b -o export --output-fields=MESSAGE,FOO --output-fields=PRIORITY,MES
 grep -q '^__CURSOR=' /output
 grep -q '^MESSAGE=foo$' /output
 grep -q '^PRIORITY=6$' /output
-grep '^FOO=' /output && { echo 'unexpected success'; exit 1; }
-grep '^SYSLOG_FACILITY=' /output && { echo 'unexpected success'; exit 1; }
+(! grep '^FOO=' /output)
+(! grep '^SYSLOG_FACILITY=' /output)
 
-# `-b all` negates earlier use of -b (-b and -m are otherwise exclusive)
+# '-b all' negates earlier use of -b (-b and -m are otherwise exclusive)
 journalctl -b -1 -b all -m >/dev/null
 
 # -b always behaves like -b0
@@ -211,11 +211,7 @@ function is_xattr_supported() {
     END=$(date '+%Y-%m-%d %T.%6N')
     systemctl stop text_xattr
 
-    if journalctl -q -u "text_xattr" -S "$START" -U "$END" --grep "Failed to set 'user.journald_log_filter_patterns' xattr.*not supported$"; then
-        return 1
-    fi
-
-    return 0
+    ! journalctl -q -u "text_xattr" -S "$START" -U "$END" --grep "Failed to set 'user.journald_log_filter_patterns' xattr.*not supported$"
 }
 
 if is_xattr_supported; then
@@ -278,9 +274,9 @@ test "$SEQNUM2" -gt "$SEQNUM1"
 JTMP="/var/tmp/jtmp-$RANDOM"
 mkdir "$JTMP"
 
-( cd /test-journals/1 && for f in *.zst ; do unzstd < "$f" > "$JTMP/${f%.zst}" ; done )
+( cd /test-journals/1 && for f in *.zst; do unzstd "$f" -o "$JTMP/${f%.zst}"; done )
 
-journalctl --directory="$JTMP" --list-boots --output=json > /tmp/lb1
+journalctl --directory="$JTMP" --list-boots --output=json >/tmp/lb1
 
 diff -u /tmp/lb1 - <<'EOF'
 [{"index":-3,"boot_id":"5ea5fc4f82a14186b5332a788ef9435e","first_entry":1666569600994371,"last_entry":1666584266223608},{"index":-2,"boot_id":"bea6864f21ad4c9594c04a99d89948b0","first_entry":1666584266731785,"last_entry":1666584347230411},{"index":-1,"boot_id":"4c708e1fd0744336be16f3931aa861fb","first_entry":1666584348378271,"last_entry":1666584354649355},{"index":0,"boot_id":"35e8501129134edd9df5267c49f744a4","first_entry":1666584356661527,"last_entry":1666584438086856}]
