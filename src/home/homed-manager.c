@@ -1096,7 +1096,7 @@ static ssize_t read_datagram(
                     cmsg->cmsg_type == SCM_CREDENTIALS &&
                     cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
                         assert(!sender);
-                        sender = (struct ucred*) CMSG_DATA(cmsg);
+                        sender = CMSG_TYPED_DATA(cmsg, struct ucred);
                 }
 
                 if (cmsg->cmsg_level == SOL_SOCKET &&
@@ -1108,7 +1108,7 @@ static ssize_t read_datagram(
                         }
 
                         assert(passed_fd < 0);
-                        passed_fd = *(int*) CMSG_DATA(cmsg);
+                        passed_fd = *CMSG_TYPED_DATA(cmsg, int);
                 }
         }
 
