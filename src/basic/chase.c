@@ -85,13 +85,14 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
         assert(!FLAGS_SET(flags, CHASE_STEP|CHASE_EXTRACT_FILENAME));
         assert(!FLAGS_SET(flags, CHASE_TRAIL_SLASH|CHASE_EXTRACT_FILENAME));
+        assert(!FLAGS_SET(flags, CHASE_MKDIR_0755) || (flags & (CHASE_NONEXISTENT | CHASE_PARENT)) != 0);
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
         /* Either the file may be missing, or we return an fd to the final object, but both make no sense */
-        if ((flags & CHASE_NONEXISTENT))
+        if (FLAGS_SET(flags, CHASE_NONEXISTENT))
                 assert(!ret_fd);
 
-        if ((flags & CHASE_STEP))
+        if (FLAGS_SET(flags, CHASE_STEP))
                 assert(!ret_fd);
 
         if (isempty(path))
@@ -176,7 +177,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
 
                 /* Shortcut the ret_fd case if the caller isn't interested in the actual path and has no root
                  * set and doesn't care about any of the other special features we provide either. */
-                r = openat(dir_fd, path, O_PATH|O_CLOEXEC|((flags & CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
+                r = openat(dir_fd, path, O_PATH|O_CLOEXEC|(FLAGS_SET(flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
                 if (r < 0)
                         return -errno;
 
@@ -221,7 +222,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        if (flags & CHASE_TRAIL_SLASH)
+        if (FLAGS_SET(flags, CHASE_TRAIL_SLASH))
                 append_trail_slash = ENDSWITH_SET(buffer, "/", "/.");
 
         for (todo = buffer;;) {
@@ -283,10 +284,10 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         } else
                                 return r;
 
-                        if (flags & CHASE_STEP)
+                        if (FLAGS_SET(flags, CHASE_STEP))
                                 goto chased_one;
 
-                        if (flags & CHASE_SAFE &&
+                        if (FLAGS_SET(flags, CHASE_SAFE) &&
                             unsafe_transition(&st, &st_parent))
                                 return log_unsafe_transition(fd, fd_parent, path, flags);
 
@@ -317,7 +318,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                                         return -ENOMEM;
 
                                 break;
-                        } else if (flags & CHASE_NONEXISTENT) {
+                        } else if (FLAGS_SET(flags, CHASE_NONEXISTENT)) {
                                 if (!path_extend(&done, first, todo))
                                         return -ENOMEM;
 
@@ -330,18 +331,18 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 if (fstat(child, &st_child) < 0)
                         return -errno;
 
-                if ((flags & CHASE_SAFE) &&
+                if (FLAGS_SET(flags, CHASE_SAFE) &&
                     unsafe_transition(&st, &st_child))
                         return log_unsafe_transition(fd, child, path, flags);
 
-                if ((flags & CHASE_NO_AUTOFS) &&
+                if (FLAGS_SET(flags, CHASE_NO_AUTOFS) &&
                     fd_is_fs_type(child, AUTOFS_SUPER_MAGIC) > 0)
                         return log_autofs_mount_point(child, path, flags);
 
-                if (S_ISLNK(st_child.st_mode) && !((flags & CHASE_NOFOLLOW) && isempty(todo))) {
+                if (S_ISLNK(st_child.st_mode) && !(FLAGS_SET(flags, CHASE_NOFOLLOW) && isempty(todo))) {
                         _cleanup_free_ char *destination = NULL;
 
-                        if (flags & CHASE_PROHIBIT_SYMLINKS)
+                        if (FLAGS_SET(flags, CHASE_PROHIBIT_SYMLINKS))
                                 return log_prohibited_symlink(child, flags);
 
                         /* This is a symlink, in this case read the destination. But let's make sure we
@@ -368,7 +369,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                                 if (fstat(fd, &st) < 0)
                                         return -errno;
 
-                                if (flags & CHASE_SAFE &&
+                                if (FLAGS_SET(flags, CHASE_SAFE) &&
                                     unsafe_transition(&st_child, &st))
                                         return log_unsafe_transition(child, fd, path, flags);
 
@@ -385,7 +386,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         free_and_replace(buffer, destination);
                         todo = buffer;
 
-                        if (flags & CHASE_STEP)
+                        if (FLAGS_SET(flags, CHASE_STEP))
                                 goto chased_one;
 
                         continue;
@@ -403,7 +404,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 close_and_replace(fd, child);
         }
 
-        if (flags & CHASE_PARENT) {
+        if (FLAGS_SET(flags, CHASE_PARENT)) {
                 r = stat_verify_directory(&st);
                 if (r < 0)
                         return r;
@@ -438,7 +439,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 *ret_fd = TAKE_FD(fd);
         }
 
-        if (flags & CHASE_STEP)
+        if (FLAGS_SET(flags, CHASE_STEP))
                 return 1;
 
         return exists;
@@ -499,7 +500,7 @@ int chase(const char *path, const char *original_root, ChaseFlags flags, char **
                 assert(path_is_absolute(root));
                 assert(!empty_or_root(root));
 
-                if (flags & CHASE_PREFIX_ROOT) {
+                if (FLAGS_SET(flags, CHASE_PREFIX_ROOT)) {
                         absolute = path_join(root, path);
                         if (!absolute)
                                 return -ENOMEM;
@@ -516,7 +517,7 @@ int chase(const char *path, const char *original_root, ChaseFlags flags, char **
 
         path = path_startswith(absolute, empty_to_root(root));
         if (!path)
-                return log_full_errno(flags & CHASE_WARN ? LOG_WARNING : LOG_DEBUG,
+                return log_full_errno(FLAGS_SET(flags, CHASE_WARN) ? LOG_WARNING : LOG_DEBUG,
                                       SYNTHETIC_ERRNO(ECHRNG),
                                       "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
                                       absolute, empty_to_root(root));
