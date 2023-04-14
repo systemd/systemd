@@ -256,6 +256,9 @@ typedef struct Unit {
         /* JOB_NOP jobs are special and can be installed without disturbing the real job. */
         Job *nop_job;
 
+        /* Protects from GC during rtemplate handle restart */
+        bool rtemplate_job;
+
         /* The slot used for watching NameOwnerChanged signals */
         sd_bus_slot *match_bus_slot;
         sd_bus_slot *get_name_owner_slot;

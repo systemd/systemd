@@ -488,7 +488,7 @@ bool unit_may_gc(Unit *u) {
          * using markers to properly collect dependency loops.
          */
 
-        if (u->job || u->nop_job)
+        if (u->job || u->nop_job || u->rtemplate_job)
                 return false;
 
         if (u->perpetual)
@@ -2741,7 +2741,12 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(ns))
                         job_finish_and_invalidate(j, JOB_DONE, true, false);
-                else if (j->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
+                else if (j->type == JOB_RESTART && j->unit_next && UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
+                        /* We expect SERVICE_RUNNING_PASSIVE */
+                        if (ns == UNIT_ACTIVE)
+                                job_finish_and_invalidate(j, JOB_DONE, true, false);
+                        /* SERVICE_PASSIVATE job runs... */
+                } else if (j->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
                         unexpected = true;
                         job_finish_and_invalidate(j, JOB_FAILED, true, false);
                 }

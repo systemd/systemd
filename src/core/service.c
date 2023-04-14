@@ -55,7 +55,7 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_START] = UNIT_ACTIVATING,
         [SERVICE_START_POST] = UNIT_ACTIVATING,
         [SERVICE_RUNNING] = UNIT_ACTIVE,
-        [SERVICE_PASSIVATE] = UNIT_ACTIVE,
+        [SERVICE_PASSIVATE] = UNIT_RELOADING,
         [SERVICE_RUNNING_PASSIVE]= UNIT_ACTIVE, /* d'oh */
         [SERVICE_EXITED] = UNIT_ACTIVE,
         [SERVICE_RELOAD] = UNIT_RELOADING,
@@ -87,7 +87,7 @@ static const UnitActiveState state_translation_table_idle[_SERVICE_STATE_MAX] = 
         [SERVICE_START] = UNIT_ACTIVE,
         [SERVICE_START_POST] = UNIT_ACTIVE,
         [SERVICE_RUNNING] = UNIT_ACTIVE,
-        [SERVICE_PASSIVATE] = UNIT_ACTIVE,
+        [SERVICE_PASSIVATE] = UNIT_RELOADING,
         [SERVICE_RUNNING_PASSIVE]= UNIT_ACTIVE, /* d'oh */
         [SERVICE_EXITED] = UNIT_ACTIVE,
         [SERVICE_RELOAD] = UNIT_RELOADING,
@@ -2897,8 +2897,31 @@ static int service_start(Unit *u) {
 
 static int service_stop(Unit *u) {
         Service *s = SERVICE(u);
+        Service *h_service;
 
         assert(s);
+
+        // XXX move below NOPs
+        if (service_rtemplate_handle(s, &h_service) > 0 &&
+            UNIT(h_service)->job && UNIT(h_service)->job->type == JOB_RESTART &&
+            UNIT_DEREF(h_service->current_gen_service) == u) {
+                /* Forwarded restart/stop from handle service to us */
+                Job *h_job = UNIT(h_service)->job;
+                Unit *un;
+                int r;
+
+                r = unit_new_next_generation(u->manager, u, u->id, &un);
+                if (r < 0)
+                        return r;
+                unit_add_to_load_queue(un);
+                log_unit_debug(UNIT(h_service), "preloading %s", un->id);
+
+                h_job->unit_next = un;
+                h_job->unit_next->rtemplate_job = true;
+
+                service_enter_passivate(s, SERVICE_SUCCESS);
+                return 1;
+        }
 
         /* Don't create restart jobs from manual stops. */
         s->forbid_restart = true;
