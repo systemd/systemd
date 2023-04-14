@@ -894,7 +894,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                         return 0;
                 }
 
-                assert((uintptr_t) group % __alignof__(struct nexthop_grp) == 0);
+                assert((uintptr_t) group % alignof(struct nexthop_grp) == 0);
 
                 n_group = raw_group_size / sizeof(struct nexthop_grp);
                 for (size_t i = 0; i < n_group; i++) {
