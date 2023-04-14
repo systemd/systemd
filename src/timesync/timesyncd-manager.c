@@ -411,7 +411,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 .msg_name = &server_addr,
                 .msg_namelen = sizeof(server_addr),
         };
-        struct timespec *recv_time = NULL;
+        struct timespec *recv_time;
         triple_timestamp dts;
         ssize_t len;
         double origin, receive, trans, dest, delay, offset, root_distance;
@@ -446,7 +446,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 return 0;
         }
 
-        recv_time = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_TIMESTAMPNS, struct timespec);
+        recv_time = CMSG_FIND_AND_COPY_DATA(&msghdr, SOL_SOCKET, SCM_TIMESTAMPNS, struct timespec);
         if (!recv_time)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Packet timestamp missing.");
 

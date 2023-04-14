@@ -1017,7 +1017,7 @@ static int manager_ipv4_send(
                 cmsg->cmsg_level = IPPROTO_IP;
                 cmsg->cmsg_type = IP_PKTINFO;
 
-                pi = (struct in_pktinfo*) CMSG_DATA(cmsg);
+                pi = CMSG_TYPED_DATA(cmsg, struct in_pktinfo);
                 pi->ipi_ifindex = ifindex;
 
                 if (source)
@@ -1073,7 +1073,7 @@ static int manager_ipv6_send(
                 cmsg->cmsg_level = IPPROTO_IPV6;
                 cmsg->cmsg_type = IPV6_PKTINFO;
 
-                pi = (struct in6_pktinfo*) CMSG_DATA(cmsg);
+                pi = CMSG_TYPED_DATA(cmsg, struct in6_pktinfo);
                 pi->ipi6_ifindex = ifindex;
 
                 if (source)
