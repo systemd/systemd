@@ -667,6 +667,36 @@ _public_ int sd_notifyf(int unset_environment, const char *format, ...) {
         return sd_pid_notify(0, unset_environment, p);
 }
 
+int sd_pid_notifyf_with_fds(
+                pid_t pid,
+                int unset_environment,
+                const int *fds, size_t n_fds,
+                const char *format, ...) {
+
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        /* Paranoia check: we traditionally used 'unsigned' as array size, but we nowadays more correctly use
+         * 'size_t'. sd_pid_notifyf_with_fds() and sd_pid_notify_with_fds() are from different eras, hence
+         * differ in this. Let's catch resulting incompatibilites early, even though they are pretty much
+         * theoretic only */
+        if (n_fds > UINT_MAX)
+                return -E2BIG;
+
+        if (format) {
+                va_list ap;
+
+                va_start(ap, format);
+                r = vasprintf(&p, format, ap);
+                va_end(ap);
+
+                if (r < 0 || !p)
+                        return -ENOMEM;
+        }
+
+        return sd_pid_notify_with_fds(pid, unset_environment, p, fds, n_fds);
+}
+
 _public_ int sd_booted(void) {
         /* We test whether the runtime unit file directory has been
          * created. This takes place in mount-setup.c, so is
