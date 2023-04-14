@@ -29,6 +29,18 @@ static inline char* strstr_ptr(const char *haystack, const char *needle) {
         return strstr(haystack, needle);
 }
 
+static inline char *strstrafter(const char *haystack, const char *needle) {
+        char *p;
+
+        /* Returns NULL if not found, or pointer to first character after needle if found */
+
+        p = strstr_ptr(haystack, needle);
+        if (!p)
+                return NULL;
+
+        return p + strlen(needle);
+}
+
 static inline const char* strnull(const char *s) {
         return s ?: "(null)";
 }

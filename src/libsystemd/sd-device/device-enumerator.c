@@ -281,11 +281,10 @@ static int sound_device_compare(const char *devpath_a, const char *devpath_b) {
          * kernel makes this guarantee when creating those devices, and hence we should too when
          * enumerating them. */
 
-        sound_a = strstr(devpath_a, "/sound/card");
+        sound_a = strstrafter(devpath_a, "/sound/card");
         if (!sound_a)
                 return 0;
 
-        sound_a += STRLEN("/sound/card");
         sound_a = strchr(devpath_a, '/');
         if (!sound_a)
                 return 0;

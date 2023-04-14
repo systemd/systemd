@@ -149,9 +149,9 @@ int bus_property_get_rlimit(
                 s = is_soft ? strndupa_safe(property, is_soft - property) : property;
 
                 /* Skip over any prefix, such as "Default" */
-                assert_se(p = strstr(s, "Limit"));
+                assert_se(p = strstrafter(s, "Limit"));
 
-                z = rlimit_from_string(p + 5);
+                z = rlimit_from_string(p);
                 assert(z >= 0);
 
                 (void) getrlimit(z, &buf);
