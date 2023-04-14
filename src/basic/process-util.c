@@ -1467,6 +1467,20 @@ int get_oom_score_adjust(int *ret) {
         return 0;
 }
 
+int fd_is_pidfd(int fd) {
+        int r;
+
+        /* Returns true if the specified fd is a valid pid fd */
+
+        r = pidfd_get_pid(fd, NULL);
+        if (r == -ENOTTY)
+                return false;
+        if (IN_SET(r, -EREMOTE, -ESRCH) || r >= 0)
+                return true;
+
+        return r;
+}
+
 int pidfd_get_pid(int fd, pid_t *ret) {
         char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *fdinfo = NULL;

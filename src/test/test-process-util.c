@@ -821,6 +821,53 @@ TEST(get_process_ppid) {
         }
 }
 
+TEST(fd_is_pidfd) {
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_close_ int fd = -EBADF;
+        pid_t pid2;
+        int r;
+
+        assert_se(fd_is_pidfd(-77) == -EBADF);
+        assert_se(pidfd_get_pid(-77, &pid2) == -EBADF);
+
+        fd = open("/dev/null", O_RDONLY|O_CLOEXEC);
+        assert_se(fd >= 0);
+
+        assert_se(fd_is_pidfd(fd) == 0);
+        assert_se(pidfd_get_pid(fd, &pid2) == -ENOTTY);
+        fd = safe_close(fd);
+
+        assert_se(fd_is_pidfd(fd) == -EBADF);
+        assert_se(pidfd_get_pid(fd, &pid2) == -EBADF);
+
+        fd = pidfd_open(getpid_cached(), 0);
+        if (fd < 0 && ERRNO_IS_NOT_SUPPORTED(errno)) /* pidfds not available? */
+                return;
+
+        assert_se(fd >= 0);
+
+        assert_se(fd_is_pidfd(fd) > 0);
+        assert_se(pidfd_get_pid(fd, &pid2) >= 0);
+        assert_se(pid2 == getpid_cached());
+        fd = safe_close(fd);
+
+        r = safe_fork("(pidfdtest)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG, &pid);
+        assert_se(r >= 0);
+        if (r == 0)
+                freeze(); /* child */
+
+        fd = pidfd_open(pid, 0);
+        assert_se(fd >= 0);
+        assert_se(fd_is_pidfd(fd) > 0);
+        assert_se(pidfd_get_pid(fd, &pid2) >= 0);
+        assert_se(pid2 == pid);
+
+        sigkill_wait(TAKE_PID(pid));
+
+        assert_se(fd_is_pidfd(fd) > 0);
+        assert_se(pidfd_get_pid(fd, &pid2) == -ESRCH); /* reaped */
+}
+
 TEST(set_oom_score_adjust) {
         int a, b, r;
 
