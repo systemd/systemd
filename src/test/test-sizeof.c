@@ -17,16 +17,16 @@
 DISABLE_WARNING_TYPE_LIMITS;
 
 #define info_no_sign(t)                                                 \
-        printf("%s → %zu bits, %zu byte alignment\n", STRINGIFY(t),     \
+        printf("%s → %zu bits, %zu byte alignment\n", STRINGIFY(t),    \
                sizeof(t)*CHAR_BIT,                                      \
-               __alignof__(t))
+               alignof(t))
 
 #define info(t)                                                         \
-        printf("%s → %zu bits%s, %zu byte alignment\n", STRINGIFY(t),   \
+        printf("%s → %zu bits%s, %zu byte alignment\n", STRINGIFY(t),  \
                sizeof(t)*CHAR_BIT,                                      \
                strstr(STRINGIFY(t), "signed") ? "" :                    \
                (t)-1 < (t)0 ? ", signed" : ", unsigned",                \
-               __alignof__(t))
+               alignof(t))
 
 enum Enum {
         enum_value,
