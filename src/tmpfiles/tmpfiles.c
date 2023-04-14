@@ -3637,8 +3637,7 @@ static int parse_line(
         if (!GREEDY_REALLOC(existing->items, existing->n_items + 1))
                 return log_oom();
 
-        existing->items[existing->n_items++] = i;
-        i = (struct Item) {};
+        existing->items[existing->n_items++] = TAKE_STRUCT(i);
 
         /* Sort item array, to enforce stable ordering of application */
         typesafe_qsort(existing->items, existing->n_items, item_compare);

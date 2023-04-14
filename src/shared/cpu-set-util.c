@@ -181,9 +181,7 @@ int parse_cpu_set_full(
                 }
         }
 
-        /* On success, transfer ownership to the output variable */
-        *cpu_set = c;
-        c = (CPUSet) {};
+        *cpu_set = TAKE_STRUCT(c);
 
         return 0;
 }
@@ -211,8 +209,7 @@ int parse_cpu_set_extend(
         }
 
         if (!old->set) {
-                *old = cpuset;
-                cpuset = (CPUSet) {};
+                *old = TAKE_STRUCT(cpuset);
                 return 1;
         }
 
@@ -286,7 +283,6 @@ int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *set) {
                                 return r;
                 }
 
-        *set = s;
-        s = (CPUSet) {};
+        *set = TAKE_STRUCT(s);
         return 0;
 }
