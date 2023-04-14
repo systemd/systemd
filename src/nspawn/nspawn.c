@@ -4578,8 +4578,7 @@ static int merge_settings(Settings *settings, const char *path) {
                         log_warning("Ignoring CPUAffinity= setting, file '%s' is not trusted.", path);
                 else {
                         cpu_set_reset(&arg_cpu_set);
-                        arg_cpu_set = settings->cpu_set;
-                        settings->cpu_set = (CPUSet) {};
+                        arg_cpu_set = TAKE_STRUCT(settings->cpu_set);
                 }
         }
 

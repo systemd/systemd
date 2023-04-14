@@ -389,8 +389,7 @@ static int boot_entry_load_type1(
                         return log_syntax(NULL, LOG_ERR, tmp.path, line, r, "Error while parsing: %m");
         }
 
-        *entry = tmp;
-        tmp = (BootEntry) {};
+        *entry = TAKE_STRUCT(tmp);
         return 0;
 }
 
@@ -744,8 +743,7 @@ static int boot_entry_load_unified(
                         return log_oom();
         }
 
-        *ret = tmp;
-        tmp = (BootEntry) {};
+        *ret = TAKE_STRUCT(tmp);
         return 0;
 }
 

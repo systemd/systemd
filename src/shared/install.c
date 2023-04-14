@@ -3310,8 +3310,7 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
         }
 
         ps.initialized = true;
-        *presets = ps;
-        ps = (UnitFilePresets){};
+        *presets = TAKE_STRUCT(ps);
 
         return 0;
 }

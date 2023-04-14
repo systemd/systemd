@@ -71,8 +71,7 @@ void x11_context_replace(X11Context *dest, X11Context *src) {
         assert(src);
 
         x11_context_clear(dest);
-        *dest = *src;
-        *src = (X11Context) {};
+        *dest = TAKE_STRUCT(*src);
 }
 
 bool x11_context_isempty(const X11Context *xc) {
@@ -196,8 +195,7 @@ void vc_context_replace(VCContext *dest, VCContext *src) {
         assert(src);
 
         vc_context_clear(dest);
-        *dest = *src;
-        *src = (VCContext) {};
+        *dest = TAKE_STRUCT(*src);
 }
 
 bool vc_context_isempty(const VCContext *vc) {
