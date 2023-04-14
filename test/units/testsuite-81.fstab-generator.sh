@@ -7,8 +7,6 @@ set -o pipefail
 # shellcheck source=test/units/generator-utils.sh
 . "$(dirname "$0")/generator-utils.sh"
 
-export SYSTEMD_LOG_LEVEL=debug
-
 GENERATOR_BIN="/usr/lib/systemd/system-generators/systemd-fstab-generator"
 NETWORK_FS_RX="^(afs|ceph|cifs|gfs|gfs2|ncp|ncpfs|nfs|nfs4|ocfs2|orangefs|pvfs2|smb3|smbfs|davfs|glusterfs|lustre|sshfs)$"
 OUT_DIR="$(mktemp -d /tmp/fstab-generator.XXX)"
@@ -65,7 +63,7 @@ FSTAB_GENERAL=(
 
 FSTAB_GENERAL_ROOT=(
     # rootfs with bunch of options we should ignore and fsck enabled
-    "/dev/test1     /                                   ext4        noauto,nofail,automount,x-systemd.wanted-by=foo,x-systemd.required-by=bar 0 1"
+    "/dev/test1     /                                   ext4        noauto,nofail,x-systemd.automount,x-systemd.wanted-by=foo,x-systemd.required-by=bar 0 1"
     "${FSTAB_GENERAL[@]}"
 )
 
@@ -101,7 +99,7 @@ check_fstab_mount_units() {
     local what where fstype opts passno unit
     local item opt split_options filtered_options supp service device arg
     local array_name="${1:?}"
-    local out_dir="${2:?}"
+    local out_dir="${2:?}/normal"
     # Get a reference to the array from its name
     local -n fstab_entries="$array_name"
 
@@ -251,8 +249,14 @@ check_fstab_mount_units() {
             elif [[ "$opt" == x-systemd.automount ]]; then
                 # The $unit should have an accompanying automount unit
                 supp="$(systemd-escape --suffix=automount --path "$where")"
-                test -e "$out_dir/$supp"
-                link_eq "$out_dir/local-fs.target.requires/$supp" "../$supp"
+                if [[ "$where" == / ]]; then
+                    # This option is ignored for rootfs mounts
+                    test ! -e "$out_dir/$supp"
+                    (! link_eq "$out_dir/local-fs.target.requires/$supp" "../$supp")
+                else
+                    test -e "$out_dir/$supp"
+                    link_eq "$out_dir/local-fs.target.requires/$supp" "../$supp"
+                fi
             elif [[ "$opt" =~ ^x-systemd.idle-timeout= ]]; then
                 # The timeout applies to the automount unit, not the original
                 # mount one
@@ -284,9 +288,6 @@ check_fstab_mount_units() {
         done
     done
 }
-
-# TODO
-#   - kernel arguments
 
 : "fstab-generator: regular"
 printf "%s\n" "${FSTAB_GENERAL_ROOT[@]}" >"$FSTAB"
@@ -320,10 +321,10 @@ SYSTEMD_IN_INITRD=1 SYSTEMD_FSTAB=/dev/null SYSTEMD_SYSROOT_FSTAB="$FSTAB" check
 # Check the default stuff that we (almost) always create in initrd
 : "fstab-generator: initrd default"
 SYSTEMD_IN_INITRD=1 SYSTEMD_FSTAB=/dev/null SYSTEMD_SYSROOT_FSTAB=/dev/null run_and_list "$GENERATOR_BIN" "$OUT_DIR"
-test -e "$OUT_DIR/sysroot.mount"
-test -e "$OUT_DIR/systemd-fsck-root.service"
-link_eq "$OUT_DIR/initrd-root-fs.target.requires/sysroot.mount" "../sysroot.mount"
-link_eq "$OUT_DIR/initrd-root-fs.target.requires/sysroot.mount" "../sysroot.mount"
+test -e "$OUT_DIR/normal/sysroot.mount"
+test -e "$OUT_DIR/normal/systemd-fsck-root.service"
+link_eq "$OUT_DIR/normal/initrd-root-fs.target.requires/sysroot.mount" "../sysroot.mount"
+link_eq "$OUT_DIR/normal/initrd-root-fs.target.requires/sysroot.mount" "../sysroot.mount"
 
 : "fstab-generator: run as systemd-sysroot-fstab-check in initrd"
 ln -svf "$GENERATOR_BIN" /tmp/systemd-sysroot-fstab-check
@@ -358,3 +359,43 @@ SYSTEMD_FSTAB="$FSTAB" SYSTEMD_PROC_CMDLINE="rd.fstab=0" run_and_list "$GENERATO
 SYSTEMD_FSTAB="$FSTAB" check_fstab_mount_units FSTAB_MINIMAL "$OUT_DIR"
 SYSTEMD_IN_INITRD=1 SYSTEMD_FSTAB="$FSTAB" SYSTEMD_PROC_CMDLINE="rd.fstab=0" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
 (! SYSTEMD_IN_INITRD=1 SYSTEMD_FSTAB="$FSTAB" check_fstab_mount_units FSTAB_MINIMAL "$OUT_DIR")
+
+: "fstab-generator: kernel args - systemd.swap=0"
+printf "%s\n" "${FSTAB_GENERAL_ROOT[@]}" >"$FSTAB"
+cat "$FSTAB"
+SYSTEMD_FSTAB="$FSTAB" SYSTEMD_PROC_CMDLINE="systemd.swap=0" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+# No swap units should get created here
+[[ "$(find "$OUT_DIR" -name "*.swap" | wc -l)" -eq 0 ]]
+
+# Possible TODO
+#   - combine the rootfs & usrfs arguments and mix them with fstab entries
+#   - systemd.volatile=
+: "fstab-generator: kernel args - root= + rootfstype= + rootflags="
+# shellcheck disable=SC2034
+EXPECTED_FSTAB=(
+    "/dev/disk/by-label/rootfs  /    ext4    noexec,ro   0 1"
+)
+CMDLINE="root=LABEL=rootfs rootfstype=ext4 rootflags=noexec"
+SYSTEMD_IN_INITRD=1 SYSTEMD_FSTAB=/dev/null SYSTEMD_SYSROOT_FSTAB=/dev/null SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+# The /proc/cmdline here is a dummy value to tell the in_initrd_host() function
+# we're parsing host's fstab, but it's all on the kernel cmdline instead
+SYSTEMD_IN_INITRD=1 SYSTEMD_SYSROOT_FSTAB=/proc/cmdline check_fstab_mount_units EXPECTED_FSTAB "$OUT_DIR"
+
+# This is a very basic sanity test that involves manual checks, since adding it
+# to the check_fstab_mount_units() function would make it way too complex
+# (yet another possible TODO)
+: "fstab-generator: kernel args - mount.usr= + mount.usrfstype= + mount.usrflags="
+CMDLINE="mount.usr=UUID=be780f43-8803-4a76-9732-02ceda6e9808 mount.usrfstype=ext4 mount.usrflags=noexec,nodev"
+SYSTEMD_IN_INITRD=1 SYSTEMD_FSTAB=/dev/null SYSTEMD_SYSROOT_FSTAB=/dev/null SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+cat "$OUT_DIR/normal/sysroot-usr.mount" "$OUT_DIR/normal/sysusr-usr.mount"
+# The general idea here is to mount the device to /sysusr/usr and then
+# bind-mount /sysusr/usr to /sysroot/usr
+grep -qE "^What=/dev/disk/by-uuid/be780f43-8803-4a76-9732-02ceda6e9808$" "$OUT_DIR/normal/sysusr-usr.mount"
+grep -qE "^Where=/sysusr/usr$" "$OUT_DIR/normal/sysusr-usr.mount"
+grep -qE "^Type=ext4$" "$OUT_DIR/normal/sysusr-usr.mount"
+grep -qE "^Options=noexec,nodev,ro$" "$OUT_DIR/normal/sysusr-usr.mount"
+link_eq "$OUT_DIR/normal/initrd-usr-fs.target.requires/sysusr-usr.mount" "../sysusr-usr.mount"
+grep -qE "^What=/sysusr/usr$" "$OUT_DIR/normal/sysroot-usr.mount"
+grep -qE "^Where=/sysroot/usr$" "$OUT_DIR/normal/sysroot-usr.mount"
+grep -qE "^Options=bind$" "$OUT_DIR/normal/sysroot-usr.mount"
+link_eq "$OUT_DIR/normal/initrd-fs.target.requires/sysroot-usr.mount" "../sysroot-usr.mount"

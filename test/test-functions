@@ -195,6 +195,7 @@ BASICTOOLS=(
     losetup
     lz4cat
     mkfifo
+    mknod
     mktemp
     modprobe
     mount
