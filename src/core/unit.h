@@ -11,6 +11,7 @@
 #include "bpf-program.h"
 #include "condition.h"
 #include "emergency-action.h"
+#include "install.h"
 #include "list.h"
 #include "show-status.h"
 #include "set.h"
@@ -358,7 +359,7 @@ typedef struct Unit {
 
         /* Cached unit file state and preset */
         UnitFileState unit_file_state;
-        int unit_file_preset;
+        PresetAction unit_file_preset;
 
         /* Where the cpu.stat or cpuacct.usage was at the time the unit was started */
         nsec_t cpu_usage_base;
@@ -954,7 +955,7 @@ void unit_start_on_failure(Unit *u, const char *dependency_name, UnitDependencyA
 void unit_trigger_notify(Unit *u);
 
 UnitFileState unit_get_unit_file_state(Unit *u);
-int unit_get_unit_file_preset(Unit *u);
+PresetAction unit_get_unit_file_preset(Unit *u);
 
 Unit* unit_ref_set(UnitRef *ref, Unit *source, Unit *target);
 void unit_ref_unset(UnitRef *ref);
