@@ -559,12 +559,12 @@ int dev_is_devtmpfs(void) {
                 if (mid != mount_id)
                         continue;
 
-                e = strstr(line, " - ");
+                e = strstrafter(line, " - ");
                 if (!e)
                         continue;
 
                 /* accept any name that starts with the currently expected type */
-                if (startswith(e + 3, "devtmpfs"))
+                if (startswith(e, "devtmpfs"))
                         return true;
         }
 
