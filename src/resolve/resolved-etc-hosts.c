@@ -285,6 +285,8 @@ int etc_hosts_parse(EtcHosts *hosts, FILE *f) {
         unsigned nr = 0;
         int r;
 
+        assert(hosts);
+
         for (;;) {
                 _cleanup_free_ char *line = NULL;
                 char *l;
@@ -313,8 +315,7 @@ int etc_hosts_parse(EtcHosts *hosts, FILE *f) {
         strip_localhost(&t);
 
         etc_hosts_clear(hosts);
-        *hosts = t;
-        t = (EtcHosts) {}; /* prevent cleanup */
+        *hosts = TAKE_STRUCT(t);
         return 0;
 }
 

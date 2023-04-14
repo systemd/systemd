@@ -120,8 +120,7 @@ int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *ret) {
                         return r;
         }
 
-        *ret = s;
-        s = (CPUSet) {};
+        *ret = TAKE_STRUCT(s);
 
         return 0;
 }

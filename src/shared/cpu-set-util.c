@@ -145,6 +145,8 @@ int parse_cpu_set_full(
         _cleanup_(cpu_set_reset) CPUSet c = {};
         const char *p = ASSERT_PTR(rvalue);
 
+        assert(cpu_set);
+
         for (;;) {
                 _cleanup_free_ char *word = NULL;
                 unsigned cpu_lower, cpu_upper;
@@ -181,9 +183,7 @@ int parse_cpu_set_full(
                 }
         }
 
-        /* On success, transfer ownership to the output variable */
-        *cpu_set = c;
-        c = (CPUSet) {};
+        *cpu_set = TAKE_STRUCT(c);
 
         return 0;
 }
@@ -200,6 +200,8 @@ int parse_cpu_set_extend(
         _cleanup_(cpu_set_reset) CPUSet cpuset = {};
         int r;
 
+        assert(old);
+
         r = parse_cpu_set_full(rvalue, &cpuset, true, unit, filename, line, lvalue);
         if (r < 0)
                 return r;
@@ -211,8 +213,7 @@ int parse_cpu_set_extend(
         }
 
         if (!old->set) {
-                *old = cpuset;
-                cpuset = (CPUSet) {};
+                *old = TAKE_STRUCT(cpuset);
                 return 1;
         }
 
@@ -286,7 +287,6 @@ int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *set) {
                                 return r;
                 }
 
-        *set = s;
-        s = (CPUSet) {};
+        *set = TAKE_STRUCT(s);
         return 0;
 }
