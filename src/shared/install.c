@@ -78,14 +78,19 @@ static bool install_info_has_also(const InstallInfo *i) {
         return !strv_isempty(i->also);
 }
 
-void unit_file_presets_freep(UnitFilePresets *p) {
+static void unit_file_preset_rule_done(UnitFilePresetRule *rule) {
+        assert(rule);
+
+        free(rule->pattern);
+        strv_free(rule->instances);
+}
+
+void unit_file_presets_done(UnitFilePresets *p) {
         if (!p)
                 return;
 
-        for (size_t i = 0; i < p->n_rules; i++) {
-                free(p->rules[i].pattern);
-                strv_free(p->rules[i].instances);
-        }
+        FOREACH_ARRAY(rule, p->rules, p->n_rules)
+                unit_file_preset_rule_done(rule);
 
         free(p->rules);
         p->n_rules = 0;
@@ -3215,7 +3220,7 @@ static int presets_find_config(RuntimeScope scope, const char *root_dir, char **
 }
 
 static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePresets *presets) {
-        _cleanup_(unit_file_presets_freep) UnitFilePresets ps = {};
+        _cleanup_(unit_file_presets_done) UnitFilePresets ps = {};
         _cleanup_strv_free_ char **files = NULL;
         int r;
 
@@ -3241,7 +3246,7 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
 
                 for (;;) {
                         _cleanup_free_ char *line = NULL;
-                        UnitFilePresetRule rule = {};
+                        _cleanup_(unit_file_preset_rule_done) UnitFilePresetRule rule = {};
                         const char *parameter;
                         char *l;
 
@@ -3296,7 +3301,7 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
                                 if (!GREEDY_REALLOC(ps.rules, ps.n_rules + 1))
                                         return -ENOMEM;
 
-                                ps.rules[ps.n_rules++] = rule;
+                                ps.rules[ps.n_rules++] = TAKE_STRUCT(rule);
                                 continue;
                         }
 
@@ -3395,7 +3400,7 @@ static int query_presets(const char *name, const UnitFilePresets *presets, char 
 }
 
 int unit_file_query_preset(RuntimeScope scope, const char *root_dir, const char *name, UnitFilePresets *cached) {
-        _cleanup_(unit_file_presets_freep) UnitFilePresets tmp = {};
+        _cleanup_(unit_file_presets_done) UnitFilePresets tmp = {};
         int r;
 
         if (!cached)
@@ -3521,7 +3526,7 @@ int unit_file_preset(
 
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
-        _cleanup_(unit_file_presets_freep) UnitFilePresets presets = {};
+        _cleanup_(unit_file_presets_done) UnitFilePresets presets = {};
         const char *config_path;
         int r;
 
@@ -3560,7 +3565,7 @@ int unit_file_preset_all(
 
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
-        _cleanup_(unit_file_presets_freep) UnitFilePresets presets = {};
+        _cleanup_(unit_file_presets_done) UnitFilePresets presets = {};
         const char *config_path = NULL;
         int r;
 
