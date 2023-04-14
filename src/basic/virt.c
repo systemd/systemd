@@ -273,8 +273,8 @@ static Virtualization detect_vm_dmi(void) {
                                                 " assuming virtualized: %m");
                                 return VIRTUALIZATION_AMAZON;
                         }
-                        if (endswith(truncate_nl(s), ".metal")) {
-                                log_debug("DMI product name ends with '.metal', assuming no virtualization");
+                        if (strstr(s, ".metal")) {
+                                log_debug("DMI product name has '.metal', assuming no virtualization");
                                 return VIRTUALIZATION_NONE;
                         } else
                                 return VIRTUALIZATION_AMAZON;
