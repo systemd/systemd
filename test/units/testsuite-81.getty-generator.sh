@@ -27,10 +27,10 @@ if in_container; then
     PID1_ENVIRON="container_ttys=tty0 pts/0 /dev/tty0" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
 
     # console-getty.service is always pulled in in containers
-    link_endswith "$OUT_DIR/getty.target.wants/console-getty.service" "/lib/systemd/system/console-getty.service"
-    link_endswith "$OUT_DIR/getty.target.wants/container-getty@0.service" "/lib/systemd/system/container-getty@.service"
-    test ! -e "$OUT_DIR/getty.target.wants/container-getty@tty0.service"
-    test ! -h "$OUT_DIR/getty.target.wants/container-getty@tty0.service"
+    link_endswith "$OUT_DIR/normal/getty.target.wants/console-getty.service" "/lib/systemd/system/console-getty.service"
+    link_endswith "$OUT_DIR/normal/getty.target.wants/container-getty@0.service" "/lib/systemd/system/container-getty@.service"
+    test ! -e "$OUT_DIR/normal/getty.target.wants/container-getty@tty0.service"
+    test ! -h "$OUT_DIR/normal/getty.target.wants/container-getty@tty0.service"
 
     exit 0
 fi
@@ -68,12 +68,12 @@ mount -v --bind /tmp/dummy-active-consoles /sys/class/tty/console/active
 PID1_ENVIRON="SYSTEMD_GETTY_AUTO=foo" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
 for console in "${DUMMY_ACTIVE_CONSOLES[@]}"; do
     unit="$(systemd-escape --template serial-getty@.service "$console")"
-    link_endswith "$OUT_DIR/getty.target.wants/$unit" /lib/systemd/system/serial-getty@.service
+    link_endswith "$OUT_DIR/normal/getty.target.wants/$unit" "/lib/systemd/system/serial-getty@.service"
 done
 for console in "${DUMMY_INACTIVE_CONSOLES[@]}" /dev/notatty99; do
     unit="$(systemd-escape --template serial-getty@.service "$console")"
-    test ! -e "$OUT_DIR/getty.target.wants/$unit"
-    test ! -h "$OUT_DIR/getty.target.wants/$unit"
+    test ! -e "$OUT_DIR/normal/getty.target.wants/$unit"
+    test ! -h "$OUT_DIR/normal/getty.target.wants/$unit"
 done
 
 : "getty-generator: systemd.getty_auto=0 on kernel cmdline"

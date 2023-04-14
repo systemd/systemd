@@ -69,7 +69,8 @@ run_and_list() {
     fi
 
     rm -fr "${out_dir:?}"/*
-    SYSTEMD_LOG_LEVEL="${SYSTEMD_LOG_LEVEL:-debug}" "$generator" "$out_dir"
+    mkdir -p "$out_dir"/{normal,early,late}
+    SYSTEMD_LOG_LEVEL="${SYSTEMD_LOG_LEVEL:-debug}" "$generator" "$out_dir/normal" "$out_dir/early" "$out_dir/late"
     ls -lR "$out_dir"
 
     if [[ -n "${environ:-}" ]]; then
