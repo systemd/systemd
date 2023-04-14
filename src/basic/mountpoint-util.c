@@ -94,7 +94,9 @@ int name_to_handle_at_loop(
 
                 /* The buffer was too small. Size the new buffer by what name_to_handle_at() returned. */
                 n = h->handle_bytes;
-                if (offsetof(struct file_handle, f_handle) + n < n) /* check for addition overflow */
+
+                /* paranoia: check for overlow (note that .handle_bytes is unsigned only) */
+                if (n > UINT_MAX - offsetof(struct file_handle, f_handle))
                         return -EOVERFLOW;
         }
 }
@@ -213,9 +215,14 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
          * reported. Also, btrfs subvolumes have different st_dev, even though they aren't real mounts of
          * their own. */
 
-        if (statx(fd, filename, (FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? 0 : AT_SYMLINK_NOFOLLOW) |
-                                (flags & AT_EMPTY_PATH) |
-                                AT_NO_AUTOMOUNT, STATX_TYPE, &sx) < 0) {
+        if (statx(fd,
+                  filename,
+                  (FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? 0 : AT_SYMLINK_NOFOLLOW) |
+                  (flags & AT_EMPTY_PATH) |
+                  AT_NO_AUTOMOUNT |            /* don't trigger automounts – mounts are a local concept, hence no need to trigger automounts to determine STATX_ATTR_MOUNT_ROOT */
+                  AT_STATX_DONT_SYNC,          /* don't go to the network for this – for similar reasons */
+                  STATX_TYPE,
+                  &sx) < 0) {
                 if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
                         return -errno;
 
@@ -264,9 +271,9 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
         /* If the file handle for the directory we are interested in and its parent are identical,
          * we assume this is the root directory, which is a mount point. */
 
-        if (h->handle_bytes == h_parent->handle_bytes &&
-            h->handle_type == h_parent->handle_type &&
-            memcmp(h->f_handle, h_parent->f_handle, h->handle_bytes) == 0)
+        if (h->handle_type == h_parent->handle_type &&
+            memcmp_nn(h->f_handle, h->handle_bytes,
+                      h_parent->f_handle, h_parent->handle_bytes) == 0)
                 return 1;
 
         return mount_id != mount_id_parent;
@@ -360,7 +367,9 @@ int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
 
         if (statx(dir_fd,
                   path,
-                  AT_NO_AUTOMOUNT|(isempty(path) ? AT_EMPTY_PATH : AT_SYMLINK_NOFOLLOW),
+                  (isempty(path) ? AT_EMPTY_PATH : AT_SYMLINK_NOFOLLOW) |
+                  AT_NO_AUTOMOUNT |    /* don't trigger automounts, mnt_id is a local concept */
+                  AT_STATX_DONT_SYNC,  /* don't go to the network, mnt_id is a local concept */
                   STATX_MNT_ID,
                   &buf.sx) < 0) {
                 if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
