@@ -271,9 +271,9 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
         /* If the file handle for the directory we are interested in and its parent are identical,
          * we assume this is the root directory, which is a mount point. */
 
-        if (h->handle_bytes == h_parent->handle_bytes &&
-            h->handle_type == h_parent->handle_type &&
-            memcmp(h->f_handle, h_parent->f_handle, h->handle_bytes) == 0)
+        if (h->handle_type == h_parent->handle_type &&
+            memcmp_nn(h->f_handle, h->handle_bytes,
+                      h_parent->f_handle, h_parent->handle_bytes) == 0)
                 return 1;
 
         return mount_id != mount_id_parent;
