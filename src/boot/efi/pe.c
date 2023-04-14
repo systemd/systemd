@@ -191,7 +191,7 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
                 uint32_t entry_point;
         } _packed_ LinuxPeCompat1;
 
-        while (size >= sizeof(LinuxPeCompat1) && addr % __alignof__(LinuxPeCompat1) == 0) {
+        while (size >= sizeof(LinuxPeCompat1) && addr % alignof(LinuxPeCompat1) == 0) {
                 LinuxPeCompat1 *compat = (LinuxPeCompat1 *) ((uint8_t *) dos + addr);
 
                 if (compat->type == 0 || compat->size == 0 || compat->size > size)
