@@ -285,6 +285,8 @@ int etc_hosts_parse(EtcHosts *hosts, FILE *f) {
         unsigned nr = 0;
         int r;
 
+        assert(hosts);
+
         for (;;) {
                 _cleanup_free_ char *line = NULL;
                 char *l;
