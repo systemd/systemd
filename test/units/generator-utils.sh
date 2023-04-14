@@ -54,8 +54,26 @@ opt_filter_consumed() {(
 run_and_list() {
     local generator="${1:?}"
     local out_dir="${2:?}"
+    local environ
+
+    # If $PID1_ENVIRON is set temporarily overmount /proc/1/environ with
+    # a temporary file that contains contents of $PID1_ENVIRON. This is
+    # necessary in cases where the generator reads the environment through
+    # getenv_for_pid(1, ...) or similar like getty-generator does.
+    #
+    # Note: $PID1_ENVIRON should be a NUL separated list of env assignments
+    if [[ -n "${PID1_ENVIRON:-}" ]]; then
+        environ="$(mktemp)"
+        echo -ne "${PID1_ENVIRON}\0" >"${environ:?}"
+        mount -v --bind "$environ" /proc/1/environ
+    fi
 
     rm -fr "${out_dir:?}"/*
     SYSTEMD_LOG_LEVEL="${SYSTEMD_LOG_LEVEL:-debug}" "$generator" "$out_dir"
     ls -lR "$out_dir"
+
+    if [[ -n "${environ:-}" ]]; then
+        umount /proc/1/environ
+        rm -f "$environ"
+    fi
 }
