@@ -6,12 +6,13 @@
 #endif
 
 #include <limits.h>
+#include <stdalign.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #define _align_(x) __attribute__((__aligned__(x)))
-#define _alignas_(x) __attribute__((__aligned__(__alignof__(x))))
+#define _alignas_(x) __attribute__((__aligned__(alignof(x))))
 #define _alignptr_ __attribute__((__aligned__(sizeof(void *))))
 #define _cleanup_(x) __attribute__((__cleanup__(x)))
 #define _const_ __attribute__((__const__))
@@ -343,9 +344,9 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
 #define ALIGN_PTR(p) ((void*) ALIGN((uintptr_t) (p)))
 
 /* Checks if the specified pointer is aligned as appropriate for the specific type */
-#define IS_ALIGNED16(p) (((uintptr_t) p) % __alignof__(uint16_t) == 0)
-#define IS_ALIGNED32(p) (((uintptr_t) p) % __alignof__(uint32_t) == 0)
-#define IS_ALIGNED64(p) (((uintptr_t) p) % __alignof__(uint64_t) == 0)
+#define IS_ALIGNED16(p) (((uintptr_t) p) % alignof(uint16_t) == 0)
+#define IS_ALIGNED32(p) (((uintptr_t) p) % alignof(uint32_t) == 0)
+#define IS_ALIGNED64(p) (((uintptr_t) p) % alignof(uint64_t) == 0)
 
 /* Same as ALIGN_TO but callable in constant contexts. */
 #define CONST_ALIGN_TO(l, ali)                                         \
@@ -363,7 +364,7 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
 #define CAST_ALIGN_PTR(t, p)                                    \
         ({                                                      \
                 const void *_p = (p);                           \
-                assert(((uintptr_t) _p) % __alignof__(t) == 0); \
+                assert(((uintptr_t) _p) % alignof(t) == 0); \
                 (t *) _p;                                       \
         })
 
