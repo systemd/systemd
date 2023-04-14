@@ -120,7 +120,7 @@ static int acquire_bus(sd_bus **ret) {
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
-                return log_error_errno(r, "Failed to connect system bus: %m");
+                return log_error_errno(r, "Failed to connect to system bus: %m");
 
         if (networkd_is_running()) {
                 r = check_netns_match(bus);
