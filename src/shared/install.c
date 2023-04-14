@@ -89,8 +89,8 @@ void unit_file_presets_done(UnitFilePresets *p) {
         if (!p)
                 return;
 
-        for (size_t i = 0; i < p->n_rules; i++)
-                unit_file_preset_rule_done(&p->rules[i]);
+        FOREACH_ARRAY(rule, p->rules, p->n_rules)
+                unit_file_preset_rule_done(rule);
 
         free(p->rules);
         p->n_rules = 0;
