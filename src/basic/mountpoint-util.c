@@ -94,7 +94,9 @@ int name_to_handle_at_loop(
 
                 /* The buffer was too small. Size the new buffer by what name_to_handle_at() returned. */
                 n = h->handle_bytes;
-                if (offsetof(struct file_handle, f_handle) + n < n) /* check for addition overflow */
+
+                /* paranoia: check for overlow (note that .handle_bytes is unsigned only) */
+                if (n > UINT_MAX - offsetof(struct file_handle, f_handle))
                         return -EOVERFLOW;
         }
 }
