@@ -1,10 +1,25 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
 
 # pylint: disable=missing-docstring,invalid-name,import-outside-toplevel
 # pylint: disable=consider-using-with,unspecified-encoding,line-too-long
 # pylint: disable=too-many-locals,too-many-statements,too-many-return-statements
-# pylint: disable=too-many-branches
+# pylint: disable=too-many-branches,fixme
 
 import argparse
 import collections
@@ -657,7 +672,7 @@ def parse_args(args=None):
         description='Build and sign Unified Kernel Images',
         allow_abbrev=False,
         usage='''\
-usage: ukify [options…] linux initrd…
+ukify [options…] LINUX INITRD…
        ukify -h | --help
 ''')
 
@@ -665,9 +680,11 @@ usage: ukify [options…] linux initrd…
     p.error = lambda message: p.exit(2, f'{p.prog}: error: {message}\n')
 
     p.add_argument('linux',
+                   metavar='LINUX',
                    type=pathlib.Path,
                    help='vmlinuz file [.linux section]')
     p.add_argument('initrd',
+                   metavar='INITRD…',
                    type=pathlib.Path,
                    nargs='*',
                    help='initrd files [.initrd section]')
@@ -824,8 +841,8 @@ usage: ukify [options…] linux initrd…
     return opts
 
 
-def main():
-    opts = parse_args()
+def main(args=None):
+    opts = parse_args(args)
     check_inputs(opts)
     make_uki(opts)
 
