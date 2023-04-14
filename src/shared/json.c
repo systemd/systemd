@@ -20,6 +20,7 @@
 #include "macro.h"
 #include "math-util.h"
 #include "memory-util.h"
+#include "process-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -4676,6 +4677,26 @@ int json_dispatch_uid_gid(const char *name, JsonVariant *variant, JsonDispatchFl
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid UID/GID.", strna(name));
 
         *uid = k;
+        return 0;
+}
+
+int json_dispatch_pid(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        pid_t *pid = userdata;
+        uint64_t k;
+
+        if (json_variant_is_null(variant)) {
+                *pid = 0;
+                return 0;
+        }
+
+        if (!json_variant_is_unsigned(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
+
+        k = json_variant_unsigned(variant);
+        if (k > INT32_MAX || !pid_is_valid(k))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid PID.", strna(name));
+
+        *pid = k;
         return 0;
 }
 
