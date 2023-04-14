@@ -4006,20 +4006,21 @@ if enable_sysusers
                      args : exe.full_path())
         endif
 
+        exe = executable(
+                'systemd-sysusers.standalone',
+                'src/sysusers/sysusers.c',
+                include_directories : includes,
+                c_args : '-DSTANDALONE',
+                link_with : [libshared_static,
+                             libbasic,
+                             libbasic_gcrypt,
+                             libsystemd_static],
+                dependencies : [userspace,
+                                versiondep],
+                build_by_default: have_standalone_binaries,
+                install : have_standalone_binaries,
+                install_dir : rootbindir)
         if have_standalone_binaries
-                exe = executable(
-                        'systemd-sysusers.standalone',
-                        'src/sysusers/sysusers.c',
-                        include_directories : includes,
-                        c_args : '-DSTANDALONE',
-                        link_with : [libshared_static,
-                                     libbasic,
-                                     libbasic_gcrypt,
-                                     libsystemd_static],
-                        dependencies : [userspace,
-                                        versiondep],
-                        install : true,
-                        install_dir : rootbindir)
                 public_programs += exe
 
                 if want_tests != 'false'
@@ -4052,21 +4053,22 @@ if conf.get('ENABLE_TMPFILES') == 1
                      args : exe.full_path())
         endif
 
+        exe = executable(
+                'systemd-tmpfiles.standalone',
+                systemd_tmpfiles_sources,
+                include_directories : includes,
+                c_args : '-DSTANDALONE',
+                link_with : [libshared_static,
+                             libbasic,
+                             libbasic_gcrypt,
+                             libsystemd_static],
+                dependencies : [libacl,
+                                userspace,
+                                versiondep],
+                build_by_default: have_standalone_binaries,
+                install : have_standalone_binaries,
+                install_dir : rootbindir)
         if have_standalone_binaries
-                exe = executable(
-                        'systemd-tmpfiles.standalone',
-                        systemd_tmpfiles_sources,
-                        include_directories : includes,
-                        c_args : '-DSTANDALONE',
-                        link_with : [libshared_static,
-                                     libbasic,
-                                     libbasic_gcrypt,
-                                     libsystemd_static],
-                        dependencies : [libacl,
-                                        userspace,
-                                        versiondep],
-                        install : true,
-                        install_dir : rootbindir)
                 public_programs += exe
 
                 if want_tests != 'false'
@@ -4166,26 +4168,27 @@ if conf.get('ENABLE_REPART') == 1
                 install_dir : rootbindir)
         public_programs += exe
 
+        exe = executable(
+                'systemd-repart.standalone',
+                systemd_repart_sources,
+                include_directories : includes,
+                c_args : '-DSTANDALONE',
+                link_with : [libshared_static,
+                             libbasic,
+                             libbasic_gcrypt,
+                             libsystemd_static,
+                             libshared_fdisk],
+                dependencies : [libblkid,
+                                libfdisk,
+                                libopenssl,
+                                threads,
+                                userspace,
+                                versiondep],
+                build_by_default: have_standalone_binaries,
+                install_rpath : rootpkglibdir,
+                install : have_standalone_binaries,
+                install_dir : rootbindir)
         if have_standalone_binaries
-                exe = executable(
-                        'systemd-repart.standalone',
-                        systemd_repart_sources,
-                        include_directories : includes,
-                        c_args : '-DSTANDALONE',
-                        link_with : [libshared_static,
-                                     libbasic,
-                                     libbasic_gcrypt,
-                                     libsystemd_static,
-                                     libshared_fdisk],
-                        dependencies : [libblkid,
-                                        libfdisk,
-                                        libopenssl,
-                                        threads,
-                                        userspace,
-                                        versiondep],
-                        install_rpath : rootpkglibdir,
-                        install : true,
-                        install_dir : rootbindir)
                 public_programs += exe
         endif
 endif
@@ -4202,21 +4205,23 @@ executable(
         install : true,
         install_dir : rootlibexecdir)
 
+executable(
+        'systemd-shutdown.standalone',
+        systemd_shutdown_sources,
+        include_directories : includes,
+        c_args : '-DSTANDALONE',
+        link_with : [libshared_static,
+                     libbasic,
+                     libsystemd_static],
+        dependencies : [libmount,
+                        userspace,
+                        versiondep],
+        build_by_default: have_standalone_binaries,
+        install_rpath : rootpkglibdir,
+        install : have_standalone_binaries,
+        install_dir : rootlibexecdir)
 if have_standalone_binaries
-        executable(
-                'systemd-shutdown.standalone',
-                systemd_shutdown_sources,
-                include_directories : includes,
-                c_args : '-DSTANDALONE',
-                link_with : [libshared_static,
-                             libbasic,
-                             libsystemd_static],
-                dependencies : [libmount,
-                                userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootlibexecdir)
+        public_programs += exe
 endif
 
 executable(
