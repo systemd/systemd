@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "graphics.h"
+#include "logarithm.h"
 #include "proto/graphics-output.h"
 #include "splash.h"
 #include "unaligned-fundamental.h"
@@ -141,14 +142,14 @@ static void read_channel_maks(
                 channel_shift[R] = __builtin_ctz(dib->channel_mask_r);
                 channel_shift[G] = __builtin_ctz(dib->channel_mask_g);
                 channel_shift[B] = __builtin_ctz(dib->channel_mask_b);
-                channel_scale[R] = 0xff / ((1 << __builtin_popcount(dib->channel_mask_r)) - 1);
-                channel_scale[G] = 0xff / ((1 << __builtin_popcount(dib->channel_mask_g)) - 1);
-                channel_scale[B] = 0xff / ((1 << __builtin_popcount(dib->channel_mask_b)) - 1);
+                channel_scale[R] = 0xff / ((1 << popcount(dib->channel_mask_r)) - 1);
+                channel_scale[G] = 0xff / ((1 << popcount(dib->channel_mask_g)) - 1);
+                channel_scale[B] = 0xff / ((1 << popcount(dib->channel_mask_b)) - 1);
 
                 if (dib->size >= SIZEOF_BMP_DIB_RGBA && dib->channel_mask_a != 0) {
                         channel_mask[A] = dib->channel_mask_a;
                         channel_shift[A] = __builtin_ctz(dib->channel_mask_a);
-                        channel_scale[A] = 0xff / ((1 << __builtin_popcount(dib->channel_mask_a)) - 1);
+                        channel_scale[A] = 0xff / ((1 << popcount(dib->channel_mask_a)) - 1);
                 } else {
                         channel_mask[A] = 0;
                         channel_shift[A] = 0;
