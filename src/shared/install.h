@@ -217,7 +217,7 @@ typedef struct {
         bool initialized;
 } UnitFilePresets;
 
-void unit_file_presets_freep(UnitFilePresets *p);
+void unit_file_presets_done(UnitFilePresets *p);
 int unit_file_query_preset(RuntimeScope scope, const char *root_dir, const char *name, UnitFilePresets *cached);
 
 const char *unit_file_state_to_string(UnitFileState s) _const_;
