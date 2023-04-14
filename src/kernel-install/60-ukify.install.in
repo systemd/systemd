@@ -37,8 +37,9 @@ try:
 except (KeyError, ValueError):
     VERBOSE = False
 
-# Override location of ukify for testing and debugging.
+# Override location of ukify and the boot stub for testing and debugging.
 UKIFY = os.getenv('KERNEL_INSTALL_UKIFY', '/usr/lib/systemd/ukify')
+BOOT_STUB = os.getenv('KERNEL_INSTALL_BOOT_STUB')
 
 
 def shell_join(cmd):
@@ -158,6 +159,18 @@ def kernel_cmdline() -> str:
 def make_uki(opts, cmdline):
     output = opts.staging_area / 'uki.efi'
 
+    # Args must be strings here to not confuse argparse in ukify.parse_args().
+    args = [
+        opts.kernel_image,
+        *opts.initrd,
+        f'--uname={opts.kernel_version}',
+        f'--output={output}',
+        f'--cmdline={cmdline}',
+    ]
+
+    if BOOT_STUB:
+        args += [f'--stub={BOOT_STUB}']
+
     # Punish me harder.
     # We want this:
     #   ukify = importlib.machinery.SourceFileLoader('ukify', UKIFY).load_module()
@@ -168,15 +181,7 @@ def make_uki(opts, cmdline):
     # the "solution" is 4+ incomprehensible lines.
     # The solution with runpy gives a dictionary, which isn't great, but will do.
     ukify = runpy.run_path(UKIFY, run_name='ukify')
-
-    # We must pass strings here to not confuse argparse in ukify.parse_args().
-    ukify['main']([
-        opts.kernel_image,
-        *opts.initrd,
-        f'--uname={opts.kernel_version}',
-        f'--output={output}',
-        f'--cmdline={cmdline}',
-    ])
+    ukify['main'](args)
 
     log(f'{output} has been created')
 
