@@ -78,14 +78,19 @@ static bool install_info_has_also(const InstallInfo *i) {
         return !strv_isempty(i->also);
 }
 
+static void unit_file_preset_rule_done(UnitFilePresetRule *rule) {
+        assert(rule);
+
+        free(rule->pattern);
+        strv_free(rule->instances);
+}
+
 void unit_file_presets_freep(UnitFilePresets *p) {
         if (!p)
                 return;
 
-        for (size_t i = 0; i < p->n_rules; i++) {
-                free(p->rules[i].pattern);
-                strv_free(p->rules[i].instances);
-        }
+        for (size_t i = 0; i < p->n_rules; i++)
+                unit_file_preset_rule_done(&p->rules[i]);
 
         free(p->rules);
         p->n_rules = 0;
@@ -3241,7 +3246,7 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
 
                 for (;;) {
                         _cleanup_free_ char *line = NULL;
-                        UnitFilePresetRule rule = {};
+                        _cleanup_(unit_file_preset_rule_done) UnitFilePresetRule rule = {};
                         const char *parameter;
                         char *l;
 
@@ -3296,7 +3301,7 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
                                 if (!GREEDY_REALLOC(ps.rules, ps.n_rules + 1))
                                         return -ENOMEM;
 
-                                ps.rules[ps.n_rules++] = rule;
+                                ps.rules[ps.n_rules++] = TAKE_STRUCT(rule);
                                 continue;
                         }
 
