@@ -2629,7 +2629,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
 
                         assert(!fd_array);
-                        fd_array = (int*) CMSG_DATA(cmsg);
+                        fd_array = CMSG_TYPED_DATA(cmsg, int);
                         n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
 
                 } else if (cmsg->cmsg_level == SOL_SOCKET &&
@@ -2637,7 +2637,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                            cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
 
                         assert(!ucred);
-                        ucred = (struct ucred*) CMSG_DATA(cmsg);
+                        ucred = CMSG_TYPED_DATA(cmsg, struct ucred);
                 }
         }
 
