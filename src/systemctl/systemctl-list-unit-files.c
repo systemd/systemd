@@ -51,7 +51,7 @@ static bool output_show_unit_file(const UnitFileList *u, char **states, char **p
 
 static int output_unit_file_list(const UnitFileList *units, unsigned c) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        _cleanup_(unit_file_presets_freep) UnitFilePresets presets = {};
+        _cleanup_(unit_file_presets_done) UnitFilePresets presets = {};
         int r;
 
         table = table_new("unit file", "state", "preset");
