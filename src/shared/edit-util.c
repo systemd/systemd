@@ -300,10 +300,8 @@ static int strip_edit_temp_file(EditFile *e) {
 
                 assert(e->context->marker_end);
 
-                contents_start = strstr(old_contents, e->context->marker_start);
-                if (contents_start)
-                        contents_start += strlen(e->context->marker_start);
-                else
+                contents_start = strstrafter(old_contents, e->context->marker_start);
+                if (!contents_start)
                         contents_start = old_contents;
 
                 contents_end = strstr(contents_start, e->context->marker_end);
