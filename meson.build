@@ -2505,7 +2505,9 @@ exe = executable(
                         versiondep],
         install_rpath : rootpkglibdir,
         install : conf.get('ENABLE_ANALYZE') == 1)
-public_programs += exe
+if conf.get('ENABLE_ANALYZE') == 1
+        public_programs += exe
+endif
 
 if want_tests != 'false'
         test('test-compare-versions',
@@ -4351,7 +4353,9 @@ exe = custom_target(
         install : want_kernel_install,
         install_mode : 'rwxr-xr-x',
         install_dir : bindir)
-public_programs += exe
+if want_kernel_install
+        public_programs += exe
+endif
 
 if want_tests != 'false' and want_kernel_install
         test('test-kernel-install',
@@ -4360,15 +4364,15 @@ if want_tests != 'false' and want_kernel_install
              args : [exe.full_path(), loaderentry_install])
 endif
 
-if want_ukify
-   exe = custom_target(
+exe = custom_target(
         'ukify',
         input : 'src/ukify/ukify.py',
         output : 'ukify',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
-        install : true,
+        install : want_ukify,
         install_mode : 'rwxr-xr-x',
         install_dir : rootlibexecdir)
+if want_ukify
    public_programs += exe
 endif
 
