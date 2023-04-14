@@ -1,19 +1,21 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Fran Dieguez <frandieguez@gnome.org>, 2015.
+# Fran Diéguez <frandieguez@gnome.org>, 2023.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-10-20 10:35+0200\n"
-"PO-Revision-Date: 2019-12-29 22:30+0100\n"
+"PO-Revision-Date: 2023-04-14 18:20+0000\n"
 "Last-Translator: Fran Diéguez <frandieguez@gnome.org>\n"
-"Language-Team: gnome-l10n-gl@gnome.org\n"
+"Language-Team: Galician <https://translate.fedoraproject.org/projects/"
+"systemd/master/gl/>\n"
 "Language: gl\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Poedit 2.2.4\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 4.15.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -70,63 +72,58 @@ msgstr "Requírese autenticación para recargar o estado de systemd."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
-msgstr ""
+msgstr "Crear un área persoal"
 
 #: src/home/org.freedesktop.home1.policy:14
-#, fuzzy
 msgid "Authentication is required to create a user's home area."
-msgstr "Requírese autenticación para estabelecer os servidores NTP."
+msgstr "Requírese autenticación para crear un área persoal."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr ""
+msgstr "Eliminar un área persoal"
 
 #: src/home/org.freedesktop.home1.policy:24
-#, fuzzy
 msgid "Authentication is required to remove a user's home area."
-msgstr "Requírese autenticación para estabelecer os servidores NTP."
+msgstr "Requírese autenticación para eliminar un área persoal."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr ""
+msgstr "Comprobar as credenciais dun área persoal"
 
 #: src/home/org.freedesktop.home1.policy:34
-#, fuzzy
 msgid ""
 "Authentication is required to check credentials against a user's home area."
 msgstr ""
-"Requírese autenticación para anexar ou desanexar unha imaxe de servizo "
-"portábel."
+"Requírese autenticación para comprobar as credenciais do espazo persoal dun "
+"usuario."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr ""
+msgstr "Actualizar un espazo persoal"
 
 #: src/home/org.freedesktop.home1.policy:44
-#, fuzzy
 msgid "Authentication is required to update a user's home area."
-msgstr "Requírese autenticación para anexar un dispositivo a un asento."
+msgstr "Requírese autenticación para actualizar o espazo persoal dun usuario."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Resize a home area"
-msgstr ""
+msgstr "Redimensionar un espazo persoal"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
 msgid "Authentication is required to resize a user's home area."
-msgstr "Requírese autenticación para estabelecer os servidores NTP."
+msgstr ""
+"Requírese autenticación para redimensionar o espazo persoal dun usuario."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Change password of a home area"
-msgstr ""
+msgstr "Cambiar contrasinal dun espazo persoal"
 
 #: src/home/org.freedesktop.home1.policy:64
-#, fuzzy
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
-"Requírese autenticación para xestionar as sesións, usuarios e asentos "
-"activos."
+"Requírese autenticación para cambiar o contrasinal dun espazo persoal dun "
+"usuario."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
@@ -168,22 +165,19 @@ msgstr "Requírese autenticación para obter o UUID de produto."
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
-msgstr ""
+msgstr "Obter o número de serie do hardware"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
-#, fuzzy
 msgid "Authentication is required to get hardware serial number."
-msgstr "Requírese autenticación para estabelecer a hora do sistema."
+msgstr "Requírese autenticación para obter o número serie do hardware."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
-#, fuzzy
 msgid "Get system description"
-msgstr "Estabelecer o fuso horario"
+msgstr "Obter a descrición do sistema"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
-#, fuzzy
 msgid "Authentication is required to get system description."
-msgstr "Requírese autenticación para estabelecer o fuso horario do sistema."
+msgstr "Requírese autenticación para obter a descrición do sistema."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -334,13 +328,11 @@ msgstr ""
 "do sistema do interruptor da tapa."
 
 #: src/login/org.freedesktop.login1.policy:117
-#, fuzzy
 msgid "Allow applications to inhibit system handling of the reboot key"
 msgstr ""
-"Permitir ás aplicacións inhibir a xestión do sistema da tecla de acendido"
+"Permitir ás aplicacións inhibir a xestión do sistema da tecla de reinicio"
 
 #: src/login/org.freedesktop.login1.policy:118
-#, fuzzy
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the reboot key."
@@ -475,7 +467,6 @@ msgid "Halt the system while an application is inhibiting this"
 msgstr "Deter o sistema cando unha aplicación solicitou a súa inhibición"
 
 #: src/login/org.freedesktop.login1.policy:258
-#, fuzzy
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
@@ -623,12 +614,11 @@ msgstr "Requírese autenticación para estabelecer unha mensaxe de muro"
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
-msgstr ""
+msgstr "Cambiar sesión"
 
 #: src/login/org.freedesktop.login1.policy:407
-#, fuzzy
 msgid "Authentication is required to change the virtual terminal."
-msgstr "Requírese autenticación para deter o sistema."
+msgstr "Requírese autenticación para cambiar o terminal virtual."
 
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
@@ -813,12 +803,11 @@ msgstr "Requírese autenticación para restabelecer as preferencias de DNS."
 
 #: src/network/org.freedesktop.network1.policy:143
 msgid "DHCP server sends force renew message"
-msgstr ""
+msgstr "O servidor DHCP envía un mensaxe de renovación forzada"
 
 #: src/network/org.freedesktop.network1.policy:144
-#, fuzzy
 msgid "Authentication is required to send force renew message."
-msgstr "Requírese autenticación para estabelecer unha mensaxe de muro"
+msgstr "Requírese autenticación para enviar o mensaxe de renovación forzada."
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
@@ -983,12 +972,9 @@ msgstr ""
 "'$(unit)'."
 
 #: src/core/dbus-unit.c:762
-#, fuzzy
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
-msgstr ""
-"Requírese autenticación para enviarlle un sinal UNIX aos procesos de "
-"'$(unit)'."
+msgstr "Requírese autenticación para conxelar o proceso da unidade '$(unit)'."
 
 #~ msgid ""
 #~ "Authentication is required to halt the system while an application asked "
