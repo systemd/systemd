@@ -145,6 +145,8 @@ int parse_cpu_set_full(
         _cleanup_(cpu_set_reset) CPUSet c = {};
         const char *p = ASSERT_PTR(rvalue);
 
+        assert(cpu_set);
+
         for (;;) {
                 _cleanup_free_ char *word = NULL;
                 unsigned cpu_lower, cpu_upper;
@@ -197,6 +199,8 @@ int parse_cpu_set_extend(
 
         _cleanup_(cpu_set_reset) CPUSet cpuset = {};
         int r;
+
+        assert(old);
 
         r = parse_cpu_set_full(rvalue, &cpuset, true, unit, filename, line, lvalue);
         if (r < 0)
