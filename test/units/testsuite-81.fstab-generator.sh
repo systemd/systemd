@@ -99,7 +99,7 @@ check_fstab_mount_units() {
     local what where fstype opts passno unit
     local item opt split_options filtered_options supp service device arg
     local array_name="${1:?}"
-    local out_dir="${2:?}"
+    local out_dir="${2:?}/normal"
     # Get a reference to the array from its name
     local -n fstab_entries="$array_name"
 
@@ -321,10 +321,10 @@ SYSTEMD_IN_INITRD=1 SYSTEMD_FSTAB=/dev/null SYSTEMD_SYSROOT_FSTAB="$FSTAB" check
 # Check the default stuff that we (almost) always create in initrd
 : "fstab-generator: initrd default"
 SYSTEMD_IN_INITRD=1 SYSTEMD_FSTAB=/dev/null SYSTEMD_SYSROOT_FSTAB=/dev/null run_and_list "$GENERATOR_BIN" "$OUT_DIR"
-test -e "$OUT_DIR/sysroot.mount"
-test -e "$OUT_DIR/systemd-fsck-root.service"
-link_eq "$OUT_DIR/initrd-root-fs.target.requires/sysroot.mount" "../sysroot.mount"
-link_eq "$OUT_DIR/initrd-root-fs.target.requires/sysroot.mount" "../sysroot.mount"
+test -e "$OUT_DIR/normal/sysroot.mount"
+test -e "$OUT_DIR/normal/systemd-fsck-root.service"
+link_eq "$OUT_DIR/normal/initrd-root-fs.target.requires/sysroot.mount" "../sysroot.mount"
+link_eq "$OUT_DIR/normal/initrd-root-fs.target.requires/sysroot.mount" "../sysroot.mount"
 
 : "fstab-generator: run as systemd-sysroot-fstab-check in initrd"
 ln -svf "$GENERATOR_BIN" /tmp/systemd-sysroot-fstab-check
@@ -387,15 +387,15 @@ SYSTEMD_IN_INITRD=1 SYSTEMD_SYSROOT_FSTAB=/proc/cmdline check_fstab_mount_units 
 : "fstab-generator: kernel args - mount.usr= + mount.usrfstype= + mount.usrflags="
 CMDLINE="mount.usr=UUID=be780f43-8803-4a76-9732-02ceda6e9808 mount.usrfstype=ext4 mount.usrflags=noexec,nodev"
 SYSTEMD_IN_INITRD=1 SYSTEMD_FSTAB=/dev/null SYSTEMD_SYSROOT_FSTAB=/dev/null SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
-cat "$OUT_DIR/sysroot-usr.mount" "$OUT_DIR/sysusr-usr.mount"
+cat "$OUT_DIR/normal/sysroot-usr.mount" "$OUT_DIR/normal/sysusr-usr.mount"
 # The general idea here is to mount the device to /sysusr/usr and then
 # bind-mount /sysusr/usr to /sysroot/usr
-grep -qE "^What=/dev/disk/by-uuid/be780f43-8803-4a76-9732-02ceda6e9808$" "$OUT_DIR/sysusr-usr.mount"
-grep -qE "^Where=/sysusr/usr$" "$OUT_DIR/sysusr-usr.mount"
-grep -qE "^Type=ext4$" "$OUT_DIR/sysusr-usr.mount"
-grep -qE "^Options=noexec,nodev,ro$" "$OUT_DIR/sysusr-usr.mount"
-link_eq "$OUT_DIR/initrd-usr-fs.target.requires/sysusr-usr.mount" "../sysusr-usr.mount"
-grep -qE "^What=/sysusr/usr$" "$OUT_DIR/sysroot-usr.mount"
-grep -qE "^Where=/sysroot/usr$" "$OUT_DIR/sysroot-usr.mount"
-grep -qE "^Options=bind$" "$OUT_DIR/sysroot-usr.mount"
-link_eq "$OUT_DIR/initrd-fs.target.requires/sysroot-usr.mount" "../sysroot-usr.mount"
+grep -qE "^What=/dev/disk/by-uuid/be780f43-8803-4a76-9732-02ceda6e9808$" "$OUT_DIR/normal/sysusr-usr.mount"
+grep -qE "^Where=/sysusr/usr$" "$OUT_DIR/normal/sysusr-usr.mount"
+grep -qE "^Type=ext4$" "$OUT_DIR/normal/sysusr-usr.mount"
+grep -qE "^Options=noexec,nodev,ro$" "$OUT_DIR/normal/sysusr-usr.mount"
+link_eq "$OUT_DIR/normal/initrd-usr-fs.target.requires/sysusr-usr.mount" "../sysusr-usr.mount"
+grep -qE "^What=/sysusr/usr$" "$OUT_DIR/normal/sysroot-usr.mount"
+grep -qE "^Where=/sysroot/usr$" "$OUT_DIR/normal/sysroot-usr.mount"
+grep -qE "^Options=bind$" "$OUT_DIR/normal/sysroot-usr.mount"
+link_eq "$OUT_DIR/normal/initrd-fs.target.requires/sysroot-usr.mount" "../sysroot-usr.mount"
