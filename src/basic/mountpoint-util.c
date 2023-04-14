@@ -213,9 +213,14 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
          * reported. Also, btrfs subvolumes have different st_dev, even though they aren't real mounts of
          * their own. */
 
-        if (statx(fd, filename, (FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? 0 : AT_SYMLINK_NOFOLLOW) |
-                                (flags & AT_EMPTY_PATH) |
-                                AT_NO_AUTOMOUNT, STATX_TYPE, &sx) < 0) {
+        if (statx(fd,
+                  filename,
+                  (FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? 0 : AT_SYMLINK_NOFOLLOW) |
+                  (flags & AT_EMPTY_PATH) |
+                  AT_NO_AUTOMOUNT |            /* don't trigger automounts – mounts are a local concept, hence no need to trigger automounts to determine STATX_ATTR_MOUNT_ROOT */
+                  AT_STATX_DONT_SYNC,          /* don't go to the network for this – for similar reasons */
+                  STATX_TYPE,
+                  &sx) < 0) {
                 if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
                         return -errno;
 
@@ -360,7 +365,9 @@ int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
 
         if (statx(dir_fd,
                   path,
-                  AT_NO_AUTOMOUNT|(isempty(path) ? AT_EMPTY_PATH : AT_SYMLINK_NOFOLLOW),
+                  (isempty(path) ? AT_EMPTY_PATH : AT_SYMLINK_NOFOLLOW) |
+                  AT_NO_AUTOMOUNT |    /* don't trigger automounts, mnt_id is a local concept */
+                  AT_STATX_DONT_SYNC,  /* don't go to the network, mnt_id is a local concept */
                   STATX_MNT_ID,
                   &buf.sx) < 0) {
                 if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
