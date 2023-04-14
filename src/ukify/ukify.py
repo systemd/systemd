@@ -841,8 +841,8 @@ ukify [options…] LINUX INITRD…
     return opts
 
 
-def main():
-    opts = parse_args()
+def main(args=None):
+    opts = parse_args(args)
     check_inputs(opts)
     make_uki(opts)
 

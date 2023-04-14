@@ -24,8 +24,8 @@
 
 import argparse
 import os
+import runpy
 import shlex
-import subprocess
 import sys
 
 from pathlib import Path
@@ -158,17 +158,26 @@ def kernel_cmdline() -> str:
 def make_uki(opts, cmdline):
     output = opts.staging_area / 'uki.efi'
 
-    cmd = [
-        UKIFY,
+    # Punish me harder.
+    # We want this:
+    #   ukify = importlib.machinery.SourceFileLoader('ukify', UKIFY).load_module()
+    # but it throws a DeprecationWarning.
+    # https://stackoverflow.com/questions/67631/how-can-i-import-a-module-dynamically-given-the-full-path
+    # https://github.com/python/cpython/issues/65635
+    # offer "explanations", but to actually load a python file without a .py extension,
+    # the "solution" is 4+ incomprehensible lines.
+    # The solution with runpy gives a dictionary, which isn't great, but will do.
+    ukify = runpy.run_path(UKIFY, run_name='ukify')
+
+    # We must pass strings here to not confuse argparse in ukify.parse_args().
+    ukify['main']([
         opts.kernel_image,
         *opts.initrd,
         f'--uname={opts.kernel_version}',
         f'--output={output}',
         f'--cmdline={cmdline}',
-    ]
+    ])
 
-    log('+', shell_join(cmd))
-    subprocess.check_call(cmd)
     log(f'{output} has been created')
 
 def main():
