@@ -52,17 +52,20 @@ typedef struct {
         OrderedHashmap *have_processed;
 } InstallContext;
 
-typedef enum {
-        PRESET_UNKNOWN,
-        PRESET_ENABLE,
-        PRESET_DISABLE,
-} PresetAction;
-
 struct UnitFilePresetRule {
         char *pattern;
         PresetAction action;
         char **instances;
 };
+
+static const char *const preset_action_table[_PRESET_ACTION_MAX] = {
+        [PRESET_UNKNOWN] = "unknown",
+        [PRESET_ENABLE]  = "enabled",
+        [PRESET_DISABLE] = "disabled",
+        [PRESET_IGNORE]  = "ignored",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(preset_action, PresetAction);
 
 static bool install_info_has_rules(const InstallInfo *i) {
         assert(i);
@@ -3297,6 +3300,20 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
                                 };
                         }
 
+                        parameter = first_word(l, "ignore");
+                        if (parameter) {
+                                char *pattern;
+
+                                pattern = strdup(parameter);
+                                if (!pattern)
+                                        return -ENOMEM;
+
+                                rule = (UnitFilePresetRule) {
+                                        .pattern = pattern,
+                                        .action = PRESET_IGNORE,
+                                };
+                        }
+
                         if (rule.action) {
                                 if (!GREEDY_REALLOC(ps.rules, ps.n_rules + 1))
                                         return -ENOMEM;
@@ -3382,23 +3399,26 @@ static int query_presets(const char *name, const UnitFilePresets *presets, char 
         switch (action) {
         case PRESET_UNKNOWN:
                 log_debug("Preset files don't specify rule for %s. Enabling.", name);
-                return 1;
+                return PRESET_ENABLE;
         case PRESET_ENABLE:
                 if (instance_name_list && *instance_name_list)
                         STRV_FOREACH(s, *instance_name_list)
                                 log_debug("Preset files say enable %s.", *s);
                 else
                         log_debug("Preset files say enable %s.", name);
-                return 1;
+                return PRESET_ENABLE;
         case PRESET_DISABLE:
                 log_debug("Preset files say disable %s.", name);
-                return 0;
+                return PRESET_DISABLE;
+        case PRESET_IGNORE:
+                log_debug("Preset files say ignore %s.", name);
+                return PRESET_IGNORE;
         default:
                 assert_not_reached();
         }
 }
 
-int unit_file_query_preset(RuntimeScope scope, const char *root_dir, const char *name, UnitFilePresets *cached) {
+PresetAction unit_file_query_preset(RuntimeScope scope, const char *root_dir, const char *name, UnitFilePresets *cached) {
         _cleanup_(unit_file_presets_done) UnitFilePresets tmp = {};
         int r;
 
@@ -3492,7 +3512,7 @@ static int preset_prepare_one(
         if (r < 0)
                 return r;
 
-        if (r > 0) {
+        if (r == PRESET_ENABLE) {
                 if (instance_name_list)
                         STRV_FOREACH(s, instance_name_list) {
                                 r = install_info_discover_and_check(plus, lp, *s, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS,
@@ -3507,7 +3527,7 @@ static int preset_prepare_one(
                                 return r;
                 }
 
-        } else
+        } else if (r == PRESET_DISABLE)
                 r = install_info_discover(minus, lp, name, SEARCH_FOLLOW_CONFIG_SYMLINKS,
                                           &info, changes, n_changes);
 
