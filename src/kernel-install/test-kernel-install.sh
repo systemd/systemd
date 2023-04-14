@@ -11,6 +11,7 @@ loaderentry_install="${2:?}"
 uki_copy_install="${3:?}"
 ukify="${4:-}"
 ukify_install="${5:-}"
+boot_stub="${6:-}"
 if [[ -d "${PROJECT_BUILD_ROOT:-}" ]]; then
     bootctl="${PROJECT_BUILD_ROOT}/bootctl"
 else
@@ -45,6 +46,7 @@ export BOOT_ROOT="$D/boot"
 export BOOT_MNT="$D/boot"
 export MACHINE_ID='3e0484f3634a418b8e6a39e8828b03e3'
 export KERNEL_INSTALL_UKIFY="$ukify"
+export KERNEL_INSTALL_BOOT_STUB="$boot_stub"
 
 # Test type#1 installation
 "$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
