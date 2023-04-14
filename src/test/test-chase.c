@@ -509,7 +509,7 @@ TEST(chaseat) {
         assert_se(streq(result, "q"));
         result = mfree(result);
 
-        assert_se(chaseat(tfd, "i/../p", CHASE_MKDIR_0755, NULL, NULL) == -ENOENT);
+        assert_se(chaseat(tfd, "i/../p", CHASE_MKDIR_0755|CHASE_NONEXISTENT, NULL, NULL) == -ENOENT);
 
         /* Test CHASE_FILENAME */
 

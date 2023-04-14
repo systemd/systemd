@@ -24,8 +24,14 @@ typedef enum ChaseFlags {
                                              * full path is still stored in ret_path and only the returned
                                              * file descriptor will point to the parent directory. Note that
                                              * the result path is the root or '.', then the file descriptor
-                                             * also points to the result path even if this flag is set. */
-        CHASE_MKDIR_0755         = 1 << 11, /* Create any missing parent directories in the given path. */
+                                             * also points to the result path even if this flag is set.
+                                             * When this specified, chase() will succeed with 1 even if the
+                                             * file points to the last path component does not exist. */
+        CHASE_MKDIR_0755         = 1 << 11, /* Create any missing parent directories in the given path. This
+                                             * needs to be set with CHASE_NONEXISTENT and/or CHASE_PARENT.
+                                             * Note, chase_and_open() or friends always add CHASE_PARENT flag
+                                             * when internally call chase(), hence CHASE_MKDIR_0755 can be
+                                             * safely set without CHASE_NONEXISTENT and CHASE_PARENT. */
         CHASE_EXTRACT_FILENAME   = 1 << 12, /* Only return the last component of the resolved path */
 } ChaseFlags;
 

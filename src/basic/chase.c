@@ -85,6 +85,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
         assert(!FLAGS_SET(flags, CHASE_STEP|CHASE_EXTRACT_FILENAME));
         assert(!FLAGS_SET(flags, CHASE_TRAIL_SLASH|CHASE_EXTRACT_FILENAME));
+        assert(!FLAGS_SET(flags, CHASE_MKDIR_0755) || (flags & (CHASE_NONEXISTENT | CHASE_PARENT)) != 0);
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
         /* Either the file may be missing, or we return an fd to the final object, but both make no sense */
