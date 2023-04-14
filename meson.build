@@ -2064,6 +2064,9 @@ public_programs = []
 # D-Bus introspection XML export
 dbus_programs = []
 
+# A list of boot stubs. Required for testing of ukify.
+boot_stubs = []
+
 basic_includes = include_directories(
         'src/basic',
         'src/fundamental',
@@ -4264,8 +4267,8 @@ endif
 
 if want_tests != 'false' and want_kernel_install
         args = [kernel_install.full_path(), loaderentry_install, uki_copy_install]
-        if want_ukify
-                args += [ukify.full_path(), ukify_install]
+        if want_ukify and boot_stubs.length() > 0
+                args += [ukify.full_path(), ukify_install, boot_stubs[0]]
         endif
 
         test('test-kernel-install',

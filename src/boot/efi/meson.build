@@ -334,7 +334,7 @@ foreach efi_elf_binary : efi_elf_binaries
         # FIXME: Use build_tgt.name() with meson >= 0.54.0
         name = fs.name(efi_elf_binary.full_path()).split('.')[0]
         name += name.startswith('linux') ? '.efi.stub' : '.efi'
-        boot_targets += custom_target(
+        exe = custom_target(
                 name,
                 output : name,
                 input : efi_elf_binary,
@@ -351,6 +351,10 @@ foreach efi_elf_binary : efi_elf_binaries
                         '@INPUT@',
                         '@OUTPUT@',
                 ])
+        boot_targets += exe
+        if name.startswith('linux')
+                boot_stubs += exe
+        endif
 endforeach
 
 alias_target('systemd-boot', boot_targets)
