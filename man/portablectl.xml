@@ -169,6 +169,13 @@
         included. This command expects the path to the image as parameter, optionally followed by a list of unit file
         prefixes to consider, similar to the <command>attach</command> command described above.</para>
         </listitem>
+
+        <para>
+          Apart from its conventional format, the <filename>os-release</filename> can have an extra variable
+          <varname>PORTABLE_PRETTY_NAME</varname> to indicate a name for the service that is more specific
+          than just the name of the operating system.  For example, <literal>PORTABLE_PRETTY_NAME="My awesome
+          service"</literal>.
+        </para>
       </varlistentry>
 
       <varlistentry>
