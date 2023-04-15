@@ -7,6 +7,27 @@ set -o pipefail
 # shellcheck source=test/units/assert.sh
 . "$(dirname "$0")"/assert.sh
 
+test_timedatectl() {
+    timedatectl --no-pager --help
+    timedatectl --version
+
+    timedatectl
+    timedatectl --no-ask-password
+    timedatectl status --machine=testuser@.host
+    timedatectl status
+    timedatectl show
+    timedatectl show --all
+    timedatectl show -p NTP
+    timedatectl show -p NTP --value
+    timedatectl list-timezones
+
+    if ! systemd-detect-virt -qc; then
+        systemctl enable --runtime --now systemd-timesyncd
+        timedatectl timesync-status
+        timedatectl show-timesync
+    fi
+}
+
 restore_timezone() {
     if [[ -f /tmp/timezone.bak ]]; then
         mv /tmp/timezone.bak /etc/timezone
@@ -256,6 +277,7 @@ EOF
 
 : >/failed
 
+test_timedatectl
 test_timezone
 test_adjtime
 test_ntp
