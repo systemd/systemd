@@ -484,4 +484,39 @@ TEST(strv_env_name_is_valid) {
         assert_se(!strv_env_name_is_valid(STRV_MAKE("HOME", "USER", "SHELL", "USER")));
 }
 
+TEST(getenv_path_list) {
+        _cleanup_strv_free_ char **path_list = NULL;
+
+        /* Empty paths */
+        FOREACH_STRING(s, "", ":", ":::::", " : ::: :: :") {
+                assert_se(setenv("TEST_GETENV_PATH_LIST", s, 1) >= 0);
+                assert_se(getenv_path_list("TEST_GETENV_PATH_LIST", &path_list) == -EINVAL);
+                assert_se(!path_list);
+        }
+
+        /* Invalid paths */
+        FOREACH_STRING(s, ".", "..", "/../", "/", "/foo/bar/baz/../foo", "foo/bar/baz") {
+                assert_se(setenv("TEST_GETENV_PATH_LIST", s, 1) >= 0);
+                assert_se(getenv_path_list("TEST_GETENV_PATH_LIST", &path_list) == -EINVAL);
+                assert_se(!path_list);
+        }
+
+        /* Valid paths mixed with invalid ones */
+        assert_se(setenv("TEST_GETENV_PATH_LIST", "/foo:/bar/baz:/../:/hello", 1) >= 0);
+        assert_se(getenv_path_list("TEST_GETENV_PATH_LIST", &path_list) == -EINVAL);
+        assert_se(!path_list);
+
+        /* Finally some valid paths */
+        assert_se(setenv("TEST_GETENV_PATH_LIST", "/foo:/bar/baz:/hello/world:/path with spaces:/final", 1) >= 0);
+        assert_se(getenv_path_list("TEST_GETENV_PATH_LIST", &path_list) >= 0);
+        assert_se(streq(path_list[0], "/foo"));
+        assert_se(streq(path_list[1], "/bar/baz"));
+        assert_se(streq(path_list[2], "/hello/world"));
+        assert_se(streq(path_list[3], "/path with spaces"));
+        assert_se(streq(path_list[4], "/final"));
+        assert_se(path_list[5] == NULL);
+
+        assert_se(unsetenv("TEST_GETENV_PATH_LIST") >= 0);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
