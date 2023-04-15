@@ -33,6 +33,7 @@
 #include "procfs-util.h"
 #include "restrict-ifaces.h"
 #include "special.h"
+#include "service.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -111,13 +112,43 @@ bool unit_has_host_root_cgroup(Unit *u) {
         return unit_has_name(u, SPECIAL_ROOT_SLICE);
 }
 
+static bool unit_has_generation_cgroup_path(Unit *u) {
+        char *s, *path;
+        unsigned g = 0;
+
+        assert(u);
+
+        /* Only service units support RestartMode= and can run in multiple generations */
+        if (u->type != UNIT_SERVICE)
+                return false;
+
+        if (SERVICE(u)->generation == 0)
+                return false;
+
+        path = strdupa(u->cgroup_path);
+        s = strrchr(path, '/');
+
+        safe_atou(s+1, &g);
+        return g == SERVICE(u)->generation;
+}
+
 static int set_attribute_and_warn(Unit *u, const char *controller, const char *attribute, const char *value) {
+        char *path = u->cgroup_path;
         int r;
 
-        r = cg_set_attribute(controller, u->cgroup_path, attribute, value);
+        /* When cgroup path is set and points to most the recent generation we must set attribute for parent cgroup so it affects all running generations. */
+        if (u->cgroup_path && unit_has_generation_cgroup_path(u)) {
+                char *c;
+
+                path = strdupa(u->cgroup_path);
+                c = strrchr(path, '/');
+                *c = '\0';
+        }
+
+        r = cg_set_attribute(controller, path, attribute, value);
         if (r < 0)
                 log_unit_full_errno(u, LOG_LEVEL_CGROUP_WRITE(r), r, "Failed to set '%s' attribute on '%s' to '%.*s': %m",
-                                    strna(attribute), empty_to_root(u->cgroup_path), (int) strcspn(value, NEWLINE), value);
+                                    strna(attribute), empty_to_root(path), (int) strcspn(value, NEWLINE), value);
 
         return r;
 }
@@ -2089,6 +2120,7 @@ static const char *migrate_callback(CGroupMask mask, void *userdata) {
 
 char *unit_default_cgroup_path(const Unit *u) {
         _cleanup_free_ char *escaped = NULL, *slice_path = NULL;
+        char id[DECIMAL_STR_MAX(unsigned)] = {};
         Unit *slice;
         int r;
 
@@ -2108,7 +2140,15 @@ char *unit_default_cgroup_path(const Unit *u) {
         if (!escaped)
                 return NULL;
 
-        return path_join(empty_to_root(u->manager->cgroup_root), slice_path, escaped);
+        /* Service units that have RestartMode=keep have an extra path component with generation id. */
+        if (u->type == UNIT_SERVICE) {
+                Service *s = SERVICE((Unit*)u);
+
+                if (s->restart_mode == RESTART_MODE_KEEP && s->generation > 0)
+                        xsprintf(id, "%u", s->generation);
+        }
+
+        return path_join(empty_to_root(u->manager->cgroup_root), slice_path, escaped, id);
 }
 
 int unit_set_cgroup_path(Unit *u, const char *path) {

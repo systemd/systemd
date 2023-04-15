@@ -899,6 +899,37 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RestartMode=</varname></term>
+
+        <listitem><para>This option configures a restart behavior of the service. There are two values for this option.
+        The default value is <option>auto</option> which means no change to the restart behavior. The other possible
+        value is <option>keep</option> and when selected the restart operation doesn't stop currently running service
+        processes. Instead, the new generation of the service starts in its own sub-cgroup of the main service cgroup.
+        Sub-cgroups corresponding to service generations have numerical suffix as a last component of the cgroup path
+        (for example <literal>/sys/fs/cgroup/system.slice/foo.service/5</literal> is a cgroup path for the 5th
+        generation of <literal>foo.service</literal>). Previous service generations will continue running until they
+        voluntarility exit or explicit stop of the service is executed.</para>
+
+        <para><varname>KillMode=</varname> option has an influence on the stop behavior when <option>keep</option>
+        option is configured. <option>process</option> and <option>mixed</option> kill modes only kill main and control
+        processes that are executed in the latest generation's sub-cgroup. Furthermore, when <option>process</option>
+        kill mode is selected or explicit <varname>ExecStop=</varname> command is configured it is expected that
+        service itself will stop all currently running generations via a service specific mechanism (e.g. stop request
+        send via IPC message).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ExecRestart=</varname></term>
+
+        <listitem><para>Configures a control command that is executed on service restarts when
+        <varname>RestartMode=</varname> is set to <option>keep</option>. The main use case for the option is to allow
+        service specific mechnism for informing latest service generation that it should passivate (i.e. it should
+        stop accepting new client connections/requests, finish serving currently connected clients and exit after
+        connections/requests are served). Note, that restart command must be synchronous and should exit only after
+        the passivate request was acknowledged by the service.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SuccessExitStatus=</varname></term>
 
         <listitem><para>Takes a list of exit status definitions that, when returned by the main service
