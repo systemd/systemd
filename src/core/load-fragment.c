@@ -156,6 +156,7 @@ DEFINE_CONFIG_PARSE_PTR(config_parse_exec_mount_propagation_flag, mount_propagat
 DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_numa_policy, mpol, int, -1, "Invalid NUMA policy type");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_status_unit_format, status_unit_format, StatusUnitFormat, "Failed to parse status unit format");
 DEFINE_CONFIG_PARSE_ENUM_FULL(config_parse_socket_timestamping, socket_timestamping_from_string_harder, SocketTimestamping, "Failed to parse timestamping precision");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_restart_mode, restart_mode, RestartMode, "Failed to parse restart mode");
 
 int config_parse_cpu_shares(
                 const char *unit,
