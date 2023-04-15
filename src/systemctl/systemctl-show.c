@@ -230,6 +230,8 @@ typedef struct UnitStatusInfo {
         usec_t next_elapse_real;
         usec_t next_elapse_monotonic;
 
+        unsigned generation;
+
         /* Socket */
         unsigned n_accepted;
         unsigned n_connections;
@@ -783,32 +785,57 @@ static void print_status_info(
         if (i->cpu_usage_nsec != UINT64_MAX)
                 printf("        CPU: %s\n", FORMAT_TIMESPAN(i->cpu_usage_nsec / NSEC_PER_USEC, USEC_PER_MSEC));
 
-        if (i->control_group) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                static const char prefix[] = "             ";
-                unsigned c;
+        if (i->generation > 0) {
+                for (unsigned j = 1; j <= i->generation; j++) {
+                        _cleanup_free_ char *p = NULL, *cgroup_path = NULL;
+                        static const char prefix[] = "             ";
+                        unsigned c;
+                        char *s;
 
-                printf("     CGroup: %s\n", i->control_group);
+                        p = strdup(i->control_group);
+                        if (!p) {
+                                log_oom();
+                                continue;
+                        }
 
-                c = LESS_BY(columns(), strlen(prefix));
+                        s = strrchr(p, '/');
+                        if (s)
+                                *s = '\0';
 
-                r = unit_show_processes(bus, i->id, i->control_group, prefix, c, get_output_flags(), &error);
-                if (r == -EBADR && arg_transport == BUS_TRANSPORT_LOCAL) {
-                        unsigned k = 0;
-                        pid_t extra[2];
+                        (void) asprintf(&cgroup_path, "%s/%u", p, j);
 
-                        /* Fallback for older systemd versions where the GetUnitProcesses() call is not yet available */
+                        printf("     CGroup: %s\n", cgroup_path);
 
-                        if (i->main_pid > 0)
-                                extra[k++] = i->main_pid;
+                        c = LESS_BY(columns(), strlen(prefix));
 
-                        if (i->control_pid > 0)
-                                extra[k++] = i->control_pid;
+                        show_cgroup(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, prefix, c, get_output_flags());
+                }
+        } else if (i->control_group) {
+                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                        static const char prefix[] = "             ";
+                        unsigned c;
 
-                        show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, i->control_group, prefix, c, extra, k, get_output_flags());
-                } else if (r < 0)
-                        log_warning_errno(r, "Failed to dump process list for '%s', ignoring: %s",
-                                          i->id, bus_error_message(&error, r));
+                        printf("     CGroup: %s\n", i->control_group);
+
+                        c = LESS_BY(columns(), strlen(prefix));
+
+                        r = unit_show_processes(bus, i->id, i->control_group, prefix, c, get_output_flags(), &error);
+                        if (r == -EBADR && arg_transport == BUS_TRANSPORT_LOCAL) {
+                                unsigned k = 0;
+                                pid_t extra[2];
+
+                                /* Fallback for older systemd versions where the GetUnitProcesses() call is not yet available */
+
+                                if (i->main_pid > 0)
+                                        extra[k++] = i->main_pid;
+
+                                if (i->control_pid > 0)
+                                        extra[k++] = i->control_pid;
+
+                                show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, i->control_group, prefix, c, extra, k, get_output_flags());
+                        } else if (r < 0)
+                                log_warning_errno(r, "Failed to dump process list for '%s', ignoring: %s",
+                                                i->id, bus_error_message(&error, r));
         }
 
         if (i->id && arg_transport == BUS_TRANSPORT_LOCAL)
@@ -2012,6 +2039,7 @@ static int show_one(
                 { "Asserts",                        "a(sbbsi)",        map_asserts,    0                                                           },
                 { "NextElapseUSecRealtime",         "t",               NULL,           offsetof(UnitStatusInfo, next_elapse_real)                  },
                 { "NextElapseUSecMonotonic",        "t",               NULL,           offsetof(UnitStatusInfo, next_elapse_monotonic)             },
+                { "Generation",                     "u",               NULL,           offsetof(UnitStatusInfo, generation)                        },
                 { "NAccepted",                      "u",               NULL,           offsetof(UnitStatusInfo, n_accepted)                        },
                 { "NConnections",                   "u",               NULL,           offsetof(UnitStatusInfo, n_connections)                     },
                 { "NRefused",                       "u",               NULL,           offsetof(UnitStatusInfo, n_refused)                         },
@@ -2067,6 +2095,7 @@ static int show_one(
         _cleanup_set_free_ Set *found_properties = NULL;
         _cleanup_(unit_status_info_free) UnitStatusInfo info = {
                 .runtime_max_sec = USEC_INFINITY,
+                .generation = 0,
                 .memory_current = UINT64_MAX,
                 .memory_high = CGROUP_LIMIT_MAX,
                 .startup_memory_high = CGROUP_LIMIT_MAX,
