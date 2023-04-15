@@ -131,6 +131,14 @@ if systemctl --version | grep -q -- +OPENSSL ; then
     rm /tmp/test-54-plaintext /tmp/test-54-ciphertext
 fi
 
+# https://github.com/systemd/systemd/issues/27275
+systemd-run -p DynamicUser=yes -p 'LoadCredential=os:/etc/os-release' \
+            -p 'ExecStartPre=true' \
+            -p 'ExecStartPre=systemd-creds cat os' \
+            --wait \
+            --pipe \
+            true | cmp /etc/os-release
+
 systemd-analyze log-level info
 
 echo OK >/testok
