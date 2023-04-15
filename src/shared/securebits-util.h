@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <stdbool.h>
+
 #include "missing_securebits.h"
 
 int secure_bits_to_string_alloc(int i, char **s);
