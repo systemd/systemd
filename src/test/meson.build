@@ -141,6 +141,7 @@ simple_tests += files(
         'test-rm-rf.c',
         'test-sd-hwdb.c',
         'test-sd-path.c',
+        'test-secure-bits.c',
         'test-selinux.c',
         'test-serialize.c',
         'test-set.c',
