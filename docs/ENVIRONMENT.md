@@ -90,7 +90,7 @@ All tools:
 
 * `$SYSTEMD_UTF8=` — takes a boolean value, and overrides whether to generate
   non-ASCII special glyphs at various places (i.e. "→" instead of
-  "->"). Usually this is deterined automatically, based on $LC_CTYPE, but in
+  "->"). Usually this is determined automatically, based on `$LC_CTYPE`, but in
   scenarios where locale definitions are not installed it might make sense to
   override this check explicitly.
 
@@ -343,7 +343,7 @@ the journal instead of only when logging in debug mode.
 
 * `SOURCE_DATE_EPOCH` — if unset, the field of the date of last password change
   in `/etc/shadow` will be the number of days from Jan 1, 1970 00:00 UTC until
-  today. If SOURCE_DATE_EPOCH is set to a valid UNIX epoch value in seconds,
+  today. If `$SOURCE_DATE_EPOCH` is set to a valid UNIX epoch value in seconds,
   then the field will be the number of days until that time instead. This is to
   support creating bit-by-bit reproducible system images by choosing a
   reproducible value for the field of the date of last password change in
@@ -431,7 +431,7 @@ disk images with `--image=` or similar:
   specified defaults to something like: `ext4:btrfs:xfs:vfat:erofs:squashfs`
 
 * `$SYSTEMD_LOOP_DIRECT_IO` – takes a boolean, which controls whether to enable
-  LO_FLAGS_DIRECT_IO (i.e. direct IO + asynchronous IO) on loopback block
+  `LO_FLAGS_DIRECT_IO` (i.e. direct IO + asynchronous IO) on loopback block
   devices when opening them. Defaults to on, set this to "0" to disable this
   feature.
 

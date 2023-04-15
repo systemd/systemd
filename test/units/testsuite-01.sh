@@ -3,6 +3,9 @@
 set -eux
 set -o pipefail
 
+# Check if the colored --version output behaves correctly
+SYSTEMD_COLORS=256 systemctl --version
+
 # Check if we properly differentiate between a full systemd setup and a "light"
 # version of it that's done during daemon-reexec
 #
