@@ -14,6 +14,8 @@
 #include "hexdecoct.h"
 #include "hmac.h"
 #include "lock-util.h"
+#include "log.h"
+#include "logarithm.h"
 #include "memory-util.h"
 #include "openssl-util.h"
 #include "parse-util.h"
@@ -774,7 +776,7 @@ size_t tpm2_tpms_pcr_selection_weight(const TPMS_PCR_SELECTION *s) {
 
         uint32_t mask;
         tpm2_tpms_pcr_selection_to_mask(s, &mask);
-        return (size_t)__builtin_popcount(mask);
+        return popcount(mask);
 }
 
 /* Utility functions for TPML_PCR_SELECTION. */
