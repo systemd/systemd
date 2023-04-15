@@ -867,6 +867,9 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                 do {
                         id = mfree(id);
 
+                        if (_likely_(m->sessions_max !=0 && (UINT64_MAX / m->sessions_max) > (1<<3)))
+                                m->session_counter = m->session_counter >= (m->sessions_max << 3) ? 0 : m->session_counter;
+
                         if (asprintf(&id, "c%lu", ++m->session_counter) < 0)
                                 return -ENOMEM;
 
