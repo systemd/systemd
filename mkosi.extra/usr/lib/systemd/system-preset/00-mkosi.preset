@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+disable ssh.service
+disable sshd.service
+disable dnsmasq.service
+disable isc-dhcp-server.service
+disable isc-dhcp-server6.service

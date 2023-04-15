@@ -47,11 +47,6 @@ EOF
     systemctl mask systemd-hwdb-update.service
 fi
 
-# Make sure dnsmasq doesn't start on boot on Debian/Ubuntu.
-systemctl disable dnsmasq
-# Make sure sshd doesn't start on Opensuse.
-echo "disable sshd.service" > /usr/lib/systemd/system-preset/00-mkosi.preset
-
 if [ -n "$IMAGE_ID" ] ; then
     sed -n \
         -i \
