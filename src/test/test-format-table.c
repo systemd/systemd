@@ -583,6 +583,49 @@ TEST(path_basename) {
         assert_se(streq(formatted, "bar\nbar\nbaz\n"));
 }
 
+TEST(dup_cell) {
+        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_free_ char *formatted = NULL;
+
+        assert_se(t = table_new("foo", "bar", "x", "baz", ".", "%", "!", "~", "+"));
+        table_set_width(t, 75);
+
+        assert_se(table_add_many(t,
+                                 TABLE_STRING, "hello",
+                                 TABLE_UINT8, UINT8_C(42),
+                                 TABLE_UINT16, UINT16_C(666),
+                                 TABLE_UINT32, UINT32_C(253),
+                                 TABLE_PERCENT, 0,
+                                 TABLE_PATH_BASENAME, "/foo/bar",
+                                 TABLE_STRING, "aaa",
+                                 TABLE_STRING, "bbb",
+                                 TABLE_STRING, "ccc") >= 0);
+
+        /* Add the second row by duping cells */
+        for (size_t i = 0; i < table_get_columns(t); i++)
+                assert_se(table_dup_cell(t, table_get_cell(t, 1, i)) >= 0);
+
+        /* Another row, but dupe the last three strings from the same cell */
+        assert_se(table_add_many(t,
+                                 TABLE_STRING, "aaa",
+                                 TABLE_UINT8, UINT8_C(0),
+                                 TABLE_UINT16, UINT16_C(65535),
+                                 TABLE_UINT32, UINT32_C(4294967295),
+                                 TABLE_PERCENT, 100,
+                                 TABLE_PATH_BASENAME, "../") >= 0);
+
+        for (size_t i = 6; i < table_get_columns(t); i++)
+                assert_se(table_dup_cell(t, table_get_cell(t, 2, 0)) >= 0);
+
+        assert_se(table_format(t, &formatted) >= 0);
+        printf("%s\n", formatted);
+        assert_se(streq(formatted,
+                        "FOO     BAR   X       BAZ          .      %      !        ~        +\n"
+                        "hello   42    666     253          0%     bar    aaa      bbb      ccc\n"
+                        "hello   42    666     253          0%     bar    aaa      bbb      ccc\n"
+                        "aaa     0     65535   4294967295   100%   ../    hello    hello    hello\n"));
+}
+
 static int intro(void) {
         assert_se(setenv("SYSTEMD_COLORS", "0", 1) >= 0);
         assert_se(setenv("COLUMNS", "40", 1) >= 0);

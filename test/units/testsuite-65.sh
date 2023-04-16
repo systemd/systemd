@@ -150,6 +150,11 @@ systemd-analyze cat-config /etc/systemd/system.conf >/dev/null
 systemd-analyze cat-config systemd/system.conf systemd/journald.conf >/dev/null
 systemd-analyze cat-config systemd/system.conf foo/bar systemd/journald.conf >/dev/null
 systemd-analyze cat-config foo/bar
+# security
+systemd-analyze security
+systemd-analyze security --json=off
+systemd-analyze security --json=pretty | jq
+systemd-analyze security --json=short | jq
 
 if [[ ! -v ASAN_OPTIONS ]]; then
     # check that systemd-analyze cat-config paths work in a chroot
