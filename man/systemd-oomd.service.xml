@@ -47,7 +47,7 @@
     select a cgroup to terminate, and send <constant>SIGKILL</constant> to all processes in it. Note that
     only descendant cgroups are eligible candidates for killing; the unit with its property set to
     <option>kill</option> is not a candidate (unless one of its ancestors set their property to
-    <option>kill</option>). Also only leaf cgroups and cgroups with <filename>memory.oom.group</filename> set
+    <option>kill</option>). Also only leaf cgroups or cgroups with <filename>memory.oom.group</filename> set
     to <constant>1</constant> are eligible candidates; see <varname>OOMPolicy=</varname> in
     <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
