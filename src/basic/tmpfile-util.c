@@ -411,49 +411,65 @@ int flink_tmpfile(FILE *f, const char *path, const char *target, bool replace) {
         return link_tmpfile(fd, path, target, replace);
 }
 
-int mkdtemp_malloc(const char *template, char **ret) {
-        _cleanup_free_ char *p = NULL;
-        int r;
+static int tempfn_replace(char *template) {
+        static const char *a = ALPHANUMERICAL;
+        char *p;
 
-        assert(ret);
+        assert(template);
+
+        p = endswith(template, "XXXXXX");
+        if (!p)
+                return -EINVAL;
+
+        for (size_t i = 0; i < 6; i++)
+                p[i] = a[random_u64_range(STRLEN(ALPHANUMERICAL))];
+
+        return 0;
+}
+
+int mkdtemp_at(int dir_fd, const char *template, ChaseFlags chase_flags, int open_flags, char **ret_path, int *ret_fd) {
+        _cleanup_free_ char *p = NULL, *q = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        int r;
 
         if (template)
                 p = strdup(template);
         else {
-                const char *tmp;
-
-                r = tmp_dir(&tmp);
+                r = dir_fd_is_root_or_cwd(dir_fd);
                 if (r < 0)
                         return r;
+                if (r > 0) {
+                        const char *tmp;
 
-                p = path_join(tmp, "XXXXXX");
+                        r = tmp_dir(&tmp);
+                        if (r < 0)
+                                return r;
+
+                        p = path_join(tmp, "XXXXXX");
+                } else
+                        p = strdup("XXXXXX");
         }
         if (!p)
                 return -ENOMEM;
 
-        if (!mkdtemp(p))
-                return -errno;
-
-        *ret = TAKE_PTR(p);
-        return 0;
-}
-
-int mkdtemp_open(const char *template, int flags, char **ret) {
-        _cleanup_free_ char *p = NULL;
-        int fd, r;
-
-        r = mkdtemp_malloc(template, &p);
+        r = tempfn_replace(p);
         if (r < 0)
                 return r;
 
-        fd = RET_NERRNO(open(p, O_DIRECTORY|O_CLOEXEC|flags));
-        if (fd < 0) {
-                (void) rmdir(p);
+        fd = chase_and_openat(dir_fd, p, chase_flags, O_CLOEXEC | O_CREAT | O_DIRECTORY | open_flags, ret_path ? &q : NULL);
+        if (fd < 0)
                 return fd;
+
+        r = RET_NERRNO(chmod(FORMAT_PROC_FD_PATH(fd), 0700));
+        if (r < 0) {
+                fd = safe_close(fd);
+                (void) rmdir(q);
+                return r;
         }
 
-        if (ret)
-                *ret = TAKE_PTR(p);
-
-        return fd;
+        if (ret_path)
+                *ret_path = TAKE_PTR(q);
+        if (ret_fd)
+                *ret_fd = TAKE_FD(fd);
+        return 0;
 }

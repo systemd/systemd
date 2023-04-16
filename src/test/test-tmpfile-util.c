@@ -9,6 +9,7 @@
 #include "log.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "rm-rf.h"
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
@@ -301,6 +302,55 @@ TEST(link_tmpfile) {
         assert_se(streq(line, "waumiau"));
 
         assert_se(unlink(d) >= 0);
+}
+
+TEST(mkdtemp_at) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        _cleanup_free_ char *p = NULL;
+        struct stat st;
+
+        tfd = mkdtemp_open(NULL, O_PATH, &t);
+        assert_se(tfd >= 0);
+
+        assert_se(mkdtemp_at(tfd, "test-XXX", CHASE_AT_RESOLVE_IN_ROOT, O_PATH, &p, &fd) == -EINVAL);
+
+        assert_se(mkdtemp_at(tfd, NULL, CHASE_AT_RESOLVE_IN_ROOT, O_PATH, &p, &fd) >= 0);
+        assert_se(fstat(fd, &st) >= 0);
+        assert_se(stat_verify_directory(&st) >= 0);
+        assert_se((st.st_mode & 07777) == 0700);
+
+        p = mfree(p);
+        fd = safe_close(fd);
+
+        assert_se(mkdtemp_at(tfd, "test-XXXXXX", CHASE_AT_RESOLVE_IN_ROOT, O_PATH, &p, &fd) >= 0);
+        assert_se(startswith(p, "test-"));
+        assert_se(fstat(fd, &st) >= 0);
+        assert_se(stat_verify_directory(&st) >= 0);
+        assert_se((st.st_mode & 07777) == 0700);
+
+        p = mfree(p);
+        fd = safe_close(fd);
+
+        assert_se(mkdtemp_at(tfd, "hoge/test-XXXXXX", CHASE_AT_RESOLVE_IN_ROOT, O_PATH, &p, &fd) == -ENOENT);
+
+        assert_se(mkdtemp_at(tfd, "hoge/test-XXXXXX", CHASE_AT_RESOLVE_IN_ROOT | CHASE_MKDIR_0755, O_PATH, &p, &fd) >= 0);
+        assert_se(startswith(p, "hoge/test-"));
+        assert_se(fstat(fd, &st) >= 0);
+        assert_se(stat_verify_directory(&st) >= 0);
+        assert_se((st.st_mode & 07777) == 0700);
+        assert_se(fstatat(tfd, "hoge", &st, 0) >= 0);
+        assert_se(stat_verify_directory(&st) >= 0);
+        assert_se((st.st_mode & 07777) == 0755);
+
+        p = mfree(p);
+        fd = safe_close(fd);
+
+        assert_se(mkdtemp_at(tfd, "hoge/test2-XXXXXX", CHASE_AT_RESOLVE_IN_ROOT, O_PATH, &p, &fd) >= 0);
+        assert_se(startswith(p, "hoge/test2-"));
+        assert_se(fstat(fd, &st) >= 0);
+        assert_se(stat_verify_directory(&st) >= 0);
+        assert_se((st.st_mode & 07777) == 0700);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
