@@ -374,6 +374,11 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                                     unsafe_transition(&st_child, &st))
                                         return log_unsafe_transition(child, fd, path, flags);
 
+                                /* When CHASE_AT_RESOLVE_IN_ROOT is not set, now the chased path may be
+                                 * outside of the specified dir_fd. Let's make the result absolute. */
+                                if (!FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT))
+                                        need_absolute = true;
+
                                 r = free_and_strdup(&done, need_absolute ? "/" : NULL);
                                 if (r < 0)
                                         return r;
