@@ -190,8 +190,9 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 return -ENOMEM;
 
         /* If we receive an absolute path together with AT_FDCWD, we need to return an absolute path, because
-         * a relative path would be interpreted relative to the current working directory. */
-        bool need_absolute = dir_fd == AT_FDCWD && path_is_absolute(path);
+         * a relative path would be interpreted relative to the current working directory. Also, let's make
+         * the result absolute when the file descriptor of the root directory is specified. */
+        bool need_absolute = (dir_fd == AT_FDCWD && path_is_absolute(path)) || dir_fd_is_root(dir_fd) > 0;
         if (need_absolute) {
                 done = strdup("/");
                 if (!done)
