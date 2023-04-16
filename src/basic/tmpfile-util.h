@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include "chase.h"
+
 int fopen_temporary_at(int dir_fd, const char *path, FILE **ret_file, char **ret_path);
 static inline int fopen_temporary(const char *path, FILE **ret_file, char **ret_path) {
         return fopen_temporary_at(AT_FDCWD, path, ret_file, ret_path);
@@ -35,5 +37,18 @@ static inline int link_tmpfile(int fd, const char *path, const char *target, boo
 }
 int flink_tmpfile(FILE *f, const char *path, const char *target, bool replace);
 
-int mkdtemp_malloc(const char *template, char **ret);
-int mkdtemp_open(const char *template, int flags, char **ret);
+int mkdtemp_at(int dir_fd, const char *template, ChaseFlags chase_flags, int open_flags, char **ret_path, int *ret_fd);
+
+static inline int mkdtemp_malloc(const char *template, char **ret) {
+        return mkdtemp_at(AT_FDCWD, template, 0, O_PATH, ret, NULL);
+}
+
+static inline int mkdtemp_open(const char *template, int flags, char **ret) {
+        int fd, r;
+
+        r = mkdtemp_at(AT_FDCWD, template, 0, flags, ret, &fd);
+        if (r < 0)
+                return r;
+
+        return fd;
+}
