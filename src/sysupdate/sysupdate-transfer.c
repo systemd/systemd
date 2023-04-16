@@ -793,7 +793,6 @@ static int run_helper(
         if (r == 0) {
                 /* Child */
 
-                (void) unsetenv("NOTIFY_SOCKET");
                 execv(path, (char *const*) cmdline);
                 log_error_errno(errno, "Failed to execute %s tool: %m", path);
                 _exit(EXIT_FAILURE);
