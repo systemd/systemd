@@ -24,7 +24,9 @@ static inline int pam_bus_log_parse_error(pam_handle_t *handle, int r) {
         return pam_syslog_errno(handle, LOG_ERR, r, "Failed to parse bus message: %m");
 }
 
-int pam_acquire_bus_connection(pam_handle_t *handle, sd_bus **ret);
-int pam_release_bus_connection(pam_handle_t *handle);
+/* Use a different module name per different PAM module. They are all loaded in the same namespace, and this
+ * helps avoid a clash in the internal data structures of sd-bus. It will be used as key for cache items. */
+int pam_acquire_bus_connection(pam_handle_t *handle, const char *module_name, sd_bus **ret);
+int pam_release_bus_connection(pam_handle_t *handle, const char *module_name);
 
 void pam_cleanup_free(pam_handle_t *handle, void *data, int error_status);
