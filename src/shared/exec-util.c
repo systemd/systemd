@@ -80,6 +80,7 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid, b
 
 static int do_execute(
                 char* const* paths,
+                const char *root,
                 usec_t timeout,
                 gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
                 void* const callback_args[_STDOUT_CONSUME_MAX],
@@ -121,7 +122,7 @@ static int do_execute(
                 _cleanup_close_ int fd = -EBADF;
                 pid_t pid;
 
-                t = strdup(*path);
+                t = path_join(root, *path);
                 if (!t)
                         return log_oom();
 
@@ -207,6 +208,7 @@ static int do_execute(
 int execute_strv(
                 const char *name,
                 char* const* paths,
+                const char *root,
                 usec_t timeout,
                 gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
                 void* const callback_args[_STDOUT_CONSUME_MAX],
@@ -243,7 +245,7 @@ int execute_strv(
         if (r < 0)
                 return r;
         if (r == 0) {
-                r = do_execute(paths, timeout, callbacks, callback_args, fd, argv, envp, flags);
+                r = do_execute(paths, root, timeout, callbacks, callback_args, fd, argv, envp, flags);
                 _exit(r < 0 ? EXIT_FAILURE : r);
         }
 
@@ -295,7 +297,7 @@ int execute_directories(
                         return log_error_errno(r, "Failed to extract file name from '%s': %m", directories[0]);
         }
 
-        return execute_strv(name, paths, timeout, callbacks, callback_args, argv, envp, flags);
+        return execute_strv(name, paths, NULL, timeout, callbacks, callback_args, argv, envp, flags);
 }
 
 static int gather_environment_generate(int fd, void *arg) {

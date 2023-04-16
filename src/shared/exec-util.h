@@ -34,6 +34,7 @@ typedef enum ExecCommandFlags {
 int execute_strv(
                 const char *name,
                 char* const* paths,
+                const char *root,
                 usec_t timeout,
                 gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
                 void* const callback_args[_STDOUT_CONSUME_MAX],
