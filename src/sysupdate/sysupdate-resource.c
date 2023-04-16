@@ -284,7 +284,6 @@ static int download_manifest(
                         NULL
                 };
 
-                (void) unsetenv("NOTIFY_SOCKET");
                 execv(pull_binary_path(), (char *const*) cmdline);
                 log_error_errno(errno, "Failed to execute %s tool: %m", pull_binary_path());
                 _exit(EXIT_FAILURE);
