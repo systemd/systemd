@@ -93,6 +93,10 @@ static int do_execute(
         bool parallel_execution;
         int r;
 
+        /* Make sure what we execute doesn't inherit NOTIFY_SOCKET from the parent process and tries to send
+         * notify messages to that socket. */
+        assert_se(unsetenv("NOTIFY_SOCKET") == 0);
+
         /* We fork this all off from a child process so that we can somewhat cleanly make
          * use of SIGALRM to set a time limit.
          *

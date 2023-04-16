@@ -144,6 +144,8 @@ static int start_one_worker(Manager *m) {
                 char pids[DECIMAL_STR_MAX(pid_t)];
                 /* Child */
 
+                assert_se(unsetenv("NOTIFY_SOCKET") == 0);
+
                 if (m->listen_fd == 3) {
                         r = fd_cloexec(3, false);
                         if (r < 0) {
