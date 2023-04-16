@@ -1365,6 +1365,14 @@ int safe_fork_full(
                 }
         }
 
+        if (!FLAGS_SET(flags, FORK_KEEP_NOTIFY_SOCKET)) {
+                r = RET_NERRNO(unsetenv("NOTIFY_SOCKET"));
+                if (r < 0) {
+                        log_full_errno(prio, r, "Failed to unset $NOTIFY_SOCKET: %m");
+                        _exit(EXIT_FAILURE);
+                }
+        }
+
         if (ret_pid)
                 *ret_pid = getpid_cached();
 
