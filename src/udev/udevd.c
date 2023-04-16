@@ -706,8 +706,6 @@ static int worker_main(Manager *_manager, sd_device_monitor *monitor, sd_device 
         assert(monitor);
         assert(dev);
 
-        assert_se(unsetenv("NOTIFY_SOCKET") == 0);
-
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, -1) >= 0);
 
         /* Reset OOM score, we only protect the main daemon. */

@@ -156,6 +156,7 @@ typedef enum ForkFlags {
         FORK_FLUSH_STDIO        = 1 << 13, /* fflush() stdout (and stderr) before forking */
         FORK_NEW_USERNS         = 1 << 14, /* Run child in its own user namespace */
         FORK_CLOEXEC_OFF        = 1 << 15, /* In the child: turn off O_CLOEXEC on all fds in except_fds[] */
+        FORK_KEEP_NOTIFY_SOCKET = 1 << 16, /* Unless this specified, $NOTIFY_SOCKET will be unset. */
 } ForkFlags;
 
 int safe_fork_full(
