@@ -175,6 +175,7 @@ sleep 3
 systemctl kill --signal=SIGKILL systemd-journald
 sleep 3
 [[ ! -f "/i-lose-my-logs" ]]
+systemctl stop forever-print-hola
 
 # https://github.com/systemd/systemd/issues/15528
 journalctl --follow --file=/var/log/journal/*/* | head -n1 || [[ $? -eq 1 ]]
