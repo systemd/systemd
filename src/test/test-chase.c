@@ -457,7 +457,16 @@ TEST(chaseat) {
 
         fd = safe_close(fd);
 
-        /* If the file descriptor does not point to the root directory, the result will be relative. */
+        /* If the file descriptor does not point to the root directory, the result will be relative
+         * unless the result is outside of the specified file descriptor. */
+
+        assert_se(chaseat(tfd, "abc", 0, &result, NULL) >= 0);
+        assert_se(streq(result, "/usr"));
+        result = mfree(result);
+
+        assert_se(chaseat(tfd, "/abc", 0, &result, NULL) >= 0);
+        assert_se(streq(result, "/usr"));
+        result = mfree(result);
 
         assert_se(chaseat(tfd, "abc", CHASE_AT_RESOLVE_IN_ROOT, NULL, NULL) == -ENOENT);
         assert_se(chaseat(tfd, "/abc", CHASE_AT_RESOLVE_IN_ROOT, NULL, NULL) == -ENOENT);
