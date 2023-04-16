@@ -111,12 +111,26 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
          * given directory file descriptor, even if it is absolute. If the given directory file descriptor is
          * AT_FDCWD and "path" is absolute, it is interpreted relative to the root directory of the host.
          *
-         * If "dir_fd" is a valid directory fd, "path" is an absolute path and "ret_path" is not NULL, this
-         * functions returns a relative path in "ret_path" because openat() like functions generally ignore
-         * the directory fd if they are provided with an absolute path. On the other hand, if "dir_fd" is
-         * AT_FDCWD and "path" is an absolute path, we return an absolute path in "ret_path" because
-         * otherwise, if the caller passes the returned relative path to another openat() like function, it
-         * would be resolved relative to the current working directory instead of to "/".
+         * When "dir_fd" points to a non-root directory and CHASE_AT_RESOLVE_IN_ROOT is set, this function
+         * always returns a relative path in "ret_path", even if "path" is an absolute path, because openat()
+         * like functions generally ignore the directory fd if they are provided with an absolute path. When
+         * CHASE_AT_RESOLVE_IN_ROOT is not set, then this returns relative path to the specified file
+         * descriptor if all resolved symlinks are relative, otherwise absolute path will be returned. When
+         * "dir_fd" is AT_FDCWD and "path" is an absolute path, we return an absolute path in "ret_path"
+         * because otherwise, if the caller passes the returned relative path to another openat() like
+         * function, it would be resolved relative to the current working directory instead of to "/".
+         *
+         * Summary about the result path:
+         * - "dir_fd" points to the root directory
+         *    → result will be absolute
+         * - "dir_fd" points to a non-root directory, and CHASE_AT_RESOLVE_IN_ROOT is set
+         *    → relative
+         * - "dir_fd" points to a non-root directory, and CHASE_AT_RESOLVE_IN_ROOT is not set
+         *    → relative when all resolved symlinks are relative, otherwise absolute
+         * - "dir_fd" is AT_FDCWD, and "path" is absolute
+         *    → absolute
+         * - "dir_fd" is AT_FDCWD, and "path" is relative
+         *    → relative when all resolved symlinks are relative, otherwise absolute
          *
          * Algorithmically this operates on two path buffers: "done" are the components of the path we
          * already processed and resolved symlinks, "." and ".." of. "todo" are the components of the path we
@@ -190,8 +204,9 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 return -ENOMEM;
 
         /* If we receive an absolute path together with AT_FDCWD, we need to return an absolute path, because
-         * a relative path would be interpreted relative to the current working directory. */
-        bool need_absolute = dir_fd == AT_FDCWD && path_is_absolute(path);
+         * a relative path would be interpreted relative to the current working directory. Also, let's make
+         * the result absolute when the file descriptor of the root directory is specified. */
+        bool need_absolute = (dir_fd == AT_FDCWD && path_is_absolute(path)) || dir_fd_is_root(dir_fd) > 0;
         if (need_absolute) {
                 done = strdup("/");
                 if (!done)
@@ -372,6 +387,11 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                                 if (FLAGS_SET(flags, CHASE_SAFE) &&
                                     unsafe_transition(&st_child, &st))
                                         return log_unsafe_transition(child, fd, path, flags);
+
+                                /* When CHASE_AT_RESOLVE_IN_ROOT is not set, now the chased path may be
+                                 * outside of the specified dir_fd. Let's make the result absolute. */
+                                if (!FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT))
+                                        need_absolute = true;
 
                                 r = free_and_strdup(&done, need_absolute ? "/" : NULL);
                                 if (r < 0)
