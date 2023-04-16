@@ -651,6 +651,10 @@ sensor:modalias:i2c:bmc150_accel:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 1, 0; 0, 0, -1
  ACCEL_LOCATION=base
 
+# Yoga Tablet 2 851F/L
+sensor:modalias:acpi:ACCL0001*:dmi:*:svnLENOVO:pn60072:pvr851*:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
+
 # IdeaPad Duet 3 10IGL5 (82AT)
 sensor:modalias:acpi:SMO8B30*:dmi:*:svnLENOVO*:pn82AT:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
