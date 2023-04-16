@@ -451,7 +451,9 @@ static int bpf_firewall_prepare_access_maps(
         }
 
         if (n_ipv4 > 0) {
+                char *name = strjoina("fw4_", u->id);
                 ipv4_map_fd = bpf_map_new(
+                                name,
                                 BPF_MAP_TYPE_LPM_TRIE,
                                 offsetof(struct bpf_lpm_trie_key, data) + sizeof(uint32_t),
                                 sizeof(uint64_t),
@@ -462,7 +464,9 @@ static int bpf_firewall_prepare_access_maps(
         }
 
         if (n_ipv6 > 0) {
+                char *name = strjoina("fw6_", u->id);
                 ipv6_map_fd = bpf_map_new(
+                                name,
                                 BPF_MAP_TYPE_LPM_TRIE,
                                 offsetof(struct bpf_lpm_trie_key, data) + sizeof(uint32_t)*4,
                                 sizeof(uint64_t),
@@ -500,7 +504,8 @@ static int bpf_firewall_prepare_accounting_maps(Unit *u, bool enabled, int *fd_i
 
         if (enabled) {
                 if (*fd_ingress < 0) {
-                        r = bpf_map_new(BPF_MAP_TYPE_ARRAY, sizeof(int), sizeof(uint64_t), 2, 0);
+                        char *name = strjoina("ipi_", u->id);
+                        r = bpf_map_new(name, BPF_MAP_TYPE_ARRAY, sizeof(int), sizeof(uint64_t), 2, 0);
                         if (r < 0)
                                 return r;
 
@@ -508,8 +513,8 @@ static int bpf_firewall_prepare_accounting_maps(Unit *u, bool enabled, int *fd_i
                 }
 
                 if (*fd_egress < 0) {
-
-                        r = bpf_map_new(BPF_MAP_TYPE_ARRAY, sizeof(int), sizeof(uint64_t), 2, 0);
+                        char *name = strjoina("ipe_", u->id);
+                        r = bpf_map_new(name, BPF_MAP_TYPE_ARRAY, sizeof(int), sizeof(uint64_t), 2, 0);
                         if (r < 0)
                                 return r;
 
