@@ -345,7 +345,6 @@ static int run(int argc, char *argv[]) {
         if (r == 0) {
                 char dash_c[STRLEN("-C") + DECIMAL_STR_MAX(int) + 1];
                 int progress_socket = -1;
-                _cleanup_free_ char *fsck_path = NULL;
                 const char *cmdline[9];
                 int i = 0;
 
@@ -366,13 +365,7 @@ static int run(int argc, char *argv[]) {
                 } else
                         dash_c[0] = 0;
 
-                r = find_executable("fsck", &fsck_path);
-                if (r < 0) {
-                        log_error_errno(r, "Cannot find fsck binary: %m");
-                        _exit(FSCK_OPERATIONAL_ERROR);
-                }
-
-                cmdline[i++] = fsck_path;
+                cmdline[i++] = "fsck";
                 cmdline[i++] =  arg_repair;
                 cmdline[i++] = "-T";
 
@@ -395,7 +388,7 @@ static int run(int argc, char *argv[]) {
                 cmdline[i++] = device;
                 cmdline[i++] = NULL;
 
-                execv(cmdline[0], (char**) cmdline);
+                execvp(cmdline[0], (char**) cmdline);
                 _exit(FSCK_OPERATIONAL_ERROR);
         }
 
