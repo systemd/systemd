@@ -753,7 +753,8 @@ static int enumerate_partitions(dev_t devnum) {
                         arg_image_policy ?: &image_policy_host,
                         DISSECT_IMAGE_GPT_ONLY|
                         DISSECT_IMAGE_USR_NO_ROOT|
-                        DISSECT_IMAGE_DISKSEQ_DEVNODE,
+                        DISSECT_IMAGE_DISKSEQ_DEVNODE|
+                        DISSECT_IMAGE_ALLOW_EMPTY,
                         /* NB! Unlike most other places where we dissect block devices we do not use
                          * DISSECT_IMAGE_ADD_PARTITION_DEVICES here: we want that the kernel finds the
                          * devices, and udev probes them before we mount them via .mount units much later
