@@ -540,7 +540,7 @@ int find_esp_and_warn(
                 return r;
 
         if (ret_path) {
-                r = path_prefix_root_cwd(p, root, ret_path);
+                r = prefix_path_from_chaseat(p, root, ret_path);
                 if (r < 0)
                         return r;
         }
@@ -859,7 +859,7 @@ int find_xbootldr_and_warn(
                 return r;
 
         if (ret_path) {
-                r = path_prefix_root_cwd(p, root, ret_path);
+                r = prefix_path_from_chaseat(p, root, ret_path);
                 if (r < 0)
                         return r;
         }

@@ -911,10 +911,21 @@ int dir_fd_is_root(int dir_fd) {
         if (!statx_inode_same(&st.sx, &pst.sx))
                 return false;
 
+        /* Even if the parent directory has the same inode, the fd may not point to the root directory "/",
+         * and we also need to check that the mount ids are the same. Otherwise, a construct like the
+         * following could be used to trick us:
+         *
+         * $ mkdir /tmp/x /tmp/x/y
+         * $ mount --bind /tmp/x /tmp/x/y
+         */
+
         if (!FLAGS_SET(st.nsx.stx_mask, STATX_MNT_ID)) {
                 int mntid;
 
                 r = path_get_mnt_id_at(dir_fd, "", &mntid);
+                if (r == -ENOSYS) /* The kernel is too old and /proc is not mounted yet? Let's assume that
+                                   * the file system does not have the above trick. */
+                        return true;
                 if (r < 0)
                         return r;
                 assert(mntid >= 0);
@@ -927,6 +938,8 @@ int dir_fd_is_root(int dir_fd) {
                 int mntid;
 
                 r = path_get_mnt_id_at(dir_fd, "..", &mntid);
+                if (r == -ENOSYS)
+                        return true;
                 if (r < 0)
                         return r;
                 assert(mntid >= 0);
@@ -935,13 +948,6 @@ int dir_fd_is_root(int dir_fd) {
                 pst.nsx.stx_mask |= STATX_MNT_ID;
         }
 
-        /* Even if the parent directory has the same inode, the fd may not point to the root directory "/",
-         * and we also need to check that the mount ids are the same. Otherwise, a construct like the
-         * following could be used to trick us:
-         *
-         * $ mkdir /tmp/x /tmp/x/y
-         * $ mount --bind /tmp/x /tmp/x/y
-         */
         return statx_mount_same(&st.nsx, &pst.nsx);
 }
 
