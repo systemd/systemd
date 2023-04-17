@@ -648,4 +648,41 @@ static int intro(void) {
         return EXIT_SUCCESS;
 }
 
+TEST(chaseat_prefix_root) {
+        _cleanup_free_ char *cwd = NULL, *ret = NULL, *expected = NULL;
+
+        assert_se(safe_getcwd(&cwd) >= 0);
+
+        assert_se(chaseat_prefix_root("/hoge", NULL, &ret) >= 0);
+        assert_se(streq(ret, "/hoge"));
+
+        ret = mfree(ret);
+
+        assert_se(chaseat_prefix_root("/hoge", "a/b/c", &ret) >= 0);
+        assert_se(streq(ret, "/hoge"));
+
+        ret = mfree(ret);
+
+        assert_se(chaseat_prefix_root("hoge", "/a/b//./c///", &ret) >= 0);
+        assert_se(streq(ret, "/a/b/c/hoge"));
+
+        ret = mfree(ret);
+
+        assert_se(chaseat_prefix_root("hoge", "a/b//./c///", &ret) >= 0);
+        assert_se(expected = path_join(cwd, "a/b/c/hoge"));
+        assert_se(streq(ret, expected));
+
+        ret = mfree(ret);
+        expected = mfree(expected);
+
+        assert_se(chaseat_prefix_root("./hoge/aaa/../././b", "/a/b//./c///", &ret) >= 0);
+        assert_se(streq(ret, "/a/b/c/hoge/aaa/../././b"));
+
+        ret = mfree(ret);
+
+        assert_se(chaseat_prefix_root("./hoge/aaa/../././b", "a/b//./c///", &ret) >= 0);
+        assert_se(expected = path_join(cwd, "a/b/c/hoge/aaa/../././b"));
+        assert_se(streq(ret, expected));
+}
+
 DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);
