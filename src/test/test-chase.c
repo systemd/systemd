@@ -442,6 +442,43 @@ TEST(chaseat) {
         assert_se(streq(result, "/usr"));
         result = mfree(result);
 
+        /* If the file descriptor points to the root directory, the result will be absolute. */
+
+        fd = open("/", O_CLOEXEC | O_DIRECTORY | O_PATH);
+        assert_se(fd >= 0);
+
+        assert_se(chaseat(fd, p, 0, &result, NULL) >= 0);
+        assert_se(streq(result, "/usr"));
+        result = mfree(result);
+
+        assert_se(chaseat(fd, p, CHASE_AT_RESOLVE_IN_ROOT, &result, NULL) >= 0);
+        assert_se(streq(result, "/usr"));
+        result = mfree(result);
+
+        fd = safe_close(fd);
+
+        /* If the file descriptor does not point to the root directory, the result will be relative
+         * unless the result is outside of the specified file descriptor. */
+
+        assert_se(chaseat(tfd, "abc", 0, &result, NULL) >= 0);
+        assert_se(streq(result, "/usr"));
+        result = mfree(result);
+
+        assert_se(chaseat(tfd, "/abc", 0, &result, NULL) >= 0);
+        assert_se(streq(result, "/usr"));
+        result = mfree(result);
+
+        assert_se(chaseat(tfd, "abc", CHASE_AT_RESOLVE_IN_ROOT, NULL, NULL) == -ENOENT);
+        assert_se(chaseat(tfd, "/abc", CHASE_AT_RESOLVE_IN_ROOT, NULL, NULL) == -ENOENT);
+
+        assert_se(chaseat(tfd, "abc", CHASE_AT_RESOLVE_IN_ROOT | CHASE_NONEXISTENT, &result, NULL) >= 0);
+        assert_se(streq(result, "usr"));
+        result = mfree(result);
+
+        assert_se(chaseat(tfd, "/abc", CHASE_AT_RESOLVE_IN_ROOT | CHASE_NONEXISTENT, &result, NULL) >= 0);
+        assert_se(streq(result, "usr"));
+        result = mfree(result);
+
         /* Test that absolute path or not are the same when resolving relative to a directory file
          * descriptor and that we always get a relative path back. */
 
