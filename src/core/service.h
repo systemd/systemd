@@ -52,6 +52,7 @@ typedef enum ServiceExecCommand {
         SERVICE_EXEC_RELOAD,
         SERVICE_EXEC_STOP,
         SERVICE_EXEC_STOP_POST,
+        SERVICE_EXEC_RESTART,
         _SERVICE_EXEC_COMMAND_MAX,
         _SERVICE_EXEC_COMMAND_INVALID = -EINVAL,
 } ServiceExecCommand;
@@ -101,6 +102,14 @@ struct ServiceFDStore {
 
         LIST_FIELDS(ServiceFDStore, fd_store);
 };
+
+typedef enum RestartMode {
+        RESTART_MODE_AUTO,
+        RESTART_MODE_KEEP,
+
+        _RESTART_MODE_MAX,
+        _RESTART_MODE_INVALID = -EINVAL,
+} RestartMode;
 
 struct Service {
         Unit meta;
@@ -224,6 +233,9 @@ struct Service {
 
         int reload_signal;
         usec_t reload_begin_usec;
+
+        RestartMode restart_mode;
+        unsigned generation;
 };
 
 static inline usec_t service_timeout_abort_usec(Service *s) {
@@ -271,6 +283,9 @@ ServiceResult service_result_from_string(const char *s) _pure_;
 
 const char* service_timeout_failure_mode_to_string(ServiceTimeoutFailureMode i) _const_;
 ServiceTimeoutFailureMode service_timeout_failure_mode_from_string(const char *s) _pure_;
+
+const char* restart_mode_to_string(RestartMode i) _const_;
+RestartMode restart_mode_from_string(const char *s) _pure_;
 
 DEFINE_CAST(SERVICE, Service);
 

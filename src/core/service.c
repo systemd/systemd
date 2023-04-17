@@ -72,6 +72,7 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD_RESOURCES_PINNED] = UNIT_INACTIVE,
         [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING,
         [SERVICE_CLEANING] = UNIT_MAINTENANCE,
+        [SERVICE_RESTART] = UNIT_MAINTENANCE,
 };
 
 /* For Type=idle we never want to delay any other jobs, hence we
@@ -101,6 +102,7 @@ static const UnitActiveState state_translation_table_idle[_SERVICE_STATE_MAX] = 
         [SERVICE_DEAD_RESOURCES_PINNED] = UNIT_INACTIVE,
         [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING,
         [SERVICE_CLEANING] = UNIT_MAINTENANCE,
+        [SERVICE_RESTART] = UNIT_MAINTENANCE,
 };
 
 static int service_dispatch_inotify_io(sd_event_source *source, int fd, uint32_t events, void *userdata);
@@ -143,6 +145,9 @@ static void service_init(Unit *u) {
         s->reload_signal = SIGHUP;
 
         s->fd_store_preserve_mode = EXEC_PRESERVE_RESTART;
+
+        s->restart_mode = RESTART_MODE_AUTO;
+        s->generation = 0;
 }
 
 static void service_unwatch_control_pid(Service *s) {
@@ -1249,7 +1254,7 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
                     SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                     SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
-                    SERVICE_CLEANING)) {
+                    SERVICE_CLEANING, SERVICE_RESTART)) {
                 service_unwatch_control_pid(s);
                 s->control_command = NULL;
                 s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
@@ -1703,6 +1708,11 @@ static int service_spawn_internal(
                 if (asprintf(our_env + n_env++, "MAINPID="PID_FMT, s->main_pid) < 0)
                         return -ENOMEM;
 
+        if (s->generation > 0) {
+                if (asprintf(our_env + n_env++, "GENERATION_ID=%u", s->generation) < 0)
+                        return -ENOMEM;
+        }
+
         if (MANAGER_IS_USER(UNIT(s)->manager))
                 if (asprintf(our_env + n_env++, "MANAGERPID="PID_FMT, getpid_cached()) < 0)
                         return -ENOMEM;
@@ -2059,6 +2069,9 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
 
         /* Reset TTY ownership if necessary */
         exec_context_revert_tty(&s->exec_context);
+
+        /* Reset generation counter */
+        s->generation = 0;
 
         return;
 
@@ -2726,7 +2739,7 @@ static int service_start(Unit *u) {
         if (IN_SET(s->state, SERVICE_AUTO_RESTART, SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART))
                 return -EAGAIN;
 
-        assert(IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_DEAD_RESOURCES_PINNED));
+        assert(IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_DEAD_RESOURCES_PINNED, SERVICE_RESTART));
 
         r = unit_acquire_invocation_id(u);
         if (r < 0)
@@ -2748,6 +2761,14 @@ static int service_start(Unit *u) {
         s->watchdog_override_enable = false;
         s->watchdog_override_usec = USEC_INFINITY;
 
+        if (s->restart_mode == RESTART_MODE_KEEP) {
+                s->generation++;
+
+                /* Make sure we realize new cgroup for the next generation of the service. */
+                UNIT(s)->cgroup_path = mfree(UNIT(s)->cgroup_path);
+                UNIT(s)->cgroup_realized = false;
+        }
+
         exec_command_reset_status_list_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
         exec_status_reset(&s->main_exec_status);
 
@@ -2761,6 +2782,36 @@ static int service_start(Unit *u) {
 
         service_enter_condition(s);
         return 1;
+}
+
+static void service_enter_exec_restart(Service *s) {
+        int r;
+
+        assert(s);
+
+        service_unwatch_control_pid(s);
+
+        s->control_command = s->exec_command[SERVICE_EXEC_RESTART];
+        if (s->control_command) {
+
+                s->control_command_id = SERVICE_EXEC_RESTART;
+
+                r = service_spawn(s,
+                                  s->control_command,
+                                  s->timeout_start_usec,
+                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_APPLY_TTY_STDIN|EXEC_SETENV_MONITOR_RESULT|EXEC_WRITE_CREDENTIALS,
+                                  &s->control_pid);
+                if (r < 0)
+                        goto fail;
+
+                service_set_state(s, SERVICE_RESTART);
+        } else
+                service_set_state(s, SERVICE_RESTART);
+
+        return;
+fail:
+        log_unit_warning_errno(UNIT(s), r, "Failed to run 'exec-restart' task: %m");
+        service_enter_dead(s, SERVICE_FAILURE_RESOURCES, true);
 }
 
 static int service_stop(Unit *u) {
@@ -2807,6 +2858,15 @@ static int service_stop(Unit *u) {
 
         case SERVICE_RUNNING:
         case SERVICE_EXITED:
+                /* If we got here because of restart job and RestartMode=keep then don't stop the service but enter restart state instead. */
+                if (u->job->type == JOB_RESTART && s->restart_mode == RESTART_MODE_KEEP)
+                        service_enter_exec_restart(s);
+                else
+                        service_enter_stop(s, SERVICE_SUCCESS);
+
+                return 1;
+
+        case SERVICE_RESTART:
                 service_enter_stop(s, SERVICE_SUCCESS);
                 return 1;
 
@@ -4060,6 +4120,13 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 service_enter_dead(s, SERVICE_SUCCESS, false);
                                 break;
 
+                        case SERVICE_RESTART:
+                                if (f != SERVICE_SUCCESS)
+                                        log_unit_warning(u, "ExecRestart= command failed, ignoring.");
+
+                                service_start(UNIT(s));
+                                break;
+
                         default:
                                 assert_not_reached();
                         }
@@ -5078,6 +5145,13 @@ static const char* const service_timeout_failure_mode_table[_SERVICE_TIMEOUT_FAI
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_timeout_failure_mode, ServiceTimeoutFailureMode);
+
+static const char* const restart_mode_table[_RESTART_MODE_MAX] = {
+        [RESTART_MODE_AUTO] = "auto",
+        [RESTART_MODE_KEEP] = "keep",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(restart_mode, RestartMode);
 
 const UnitVTable service_vtable = {
         .object_size = sizeof(Service),
