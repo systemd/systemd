@@ -17,14 +17,14 @@
 
   <refnamediv>
     <refname>ukify</refname>
-    <refpurpose>Combine kernel and initrd into a signed Unified Kernel Image</refpurpose>
+    <refpurpose>Combine components into a signed Unified Kernel Image for UEFI systems</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <cmdsynopsis>
       <command>/usr/lib/systemd/ukify</command>
-      <arg choice="plain"><replaceable>LINUX</replaceable></arg>
-      <arg choice="plain" rep="repeat"><replaceable>INITRD</replaceable></arg>
+      <arg choice="opt"><replaceable>LINUX</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>INITRD</replaceable></arg>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
@@ -35,8 +35,8 @@
     <para>Note: this command is experimental for now. While it is intended to become a regular component of
     systemd, it might still change in behaviour and interface.</para>
 
-    <para><command>ukify</command> is a tool that combines a kernel and an initrd with
-    a UEFI boot stub to create a
+    <para><command>ukify</command> is a tool that combines components (e.g.: a kernel and an initrd with
+    a UEFI boot stub) to create a
     <ulink url="https://uapi-group.org/specifications/specs/unified_kernel_image/">Unified Kernel Image (UKI)</ulink>
     — a PE binary that can be executed by the firmware to start the embedded linux kernel.
     See <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
@@ -52,6 +52,9 @@
     <option>--uname=</option>,
     and <option>--section=</option>
     below.</para>
+
+    <para><command>ukify</command> can also be used to assemble a PE binary that is not executable but
+    contains auxiliary data, for example additional kernel command line entries.</para>
 
     <para>If PCR signing keys are provided via the <option>--pcr-public-key=</option> and
     <option>--pcr-private-key=</option> options, PCR values that will be seen after booting with the given
@@ -78,10 +81,9 @@
   <refsect1>
     <title>Options</title>
 
-    <para>Note that the <replaceable>LINUX</replaceable> positional argument is mandatory. The
-    <replaceable>INITRD</replaceable> positional arguments are optional. If more than one is specified, they
-    will all be combined into a single PE section. This is useful to for example prepend microcode before the
-    actual initrd.</para>
+    <para>The <replaceable>LINUX</replaceable> and <replaceable>INITRD</replaceable> positional arguments are
+    optional. If more than one <replaceable>INITRD</replaceable> are specified, they will all be combined into
+    a single PE section. This is useful to for example prepend microcode before the actual initrd.</para>
 
     <para>The following options are understood:</para>
 
@@ -295,6 +297,19 @@
       <constant>leave-initrd</constant>, <constant>sysinit</constant>, <constant>ready</constant>) with the
       key <filename index='false'>pcr-private-system-key.pem</filename>. The Linux binary and the resulting
       combined image will be signed with the SecureBoot key <filename index='false'>sb.key</filename>.</para>
+    </example>
+
+    <example>
+      <title>Kernel command line auxiliary PE</title>
+
+      <programlisting>ukify \
+      --secureboot-private-key=sb.key \
+      --secureboot-certificate=sb.cert \
+      --cmdline='debug' \
+      --output=debug.cmdline.efi
+      </programlisting>
+
+      <para>This creates a signed PE binary that contains an additional kernel command line parameter.</para>
     </example>
   </refsect1>
 

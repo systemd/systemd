@@ -206,6 +206,27 @@ def test_sections(kernel_initrd, tmpdir):
     for sect in 'text osrel cmdline linux initrd uname test'.split():
         assert re.search(fr'^\s*\d+\s+.{sect}\s+0', dump, re.MULTILINE)
 
+def test_addon(kernel_initrd, tmpdir):
+    output = f'{tmpdir}/addon.efi'
+    opts = ukify.parse_args([
+        f'--output={output}',
+        '--cmdline=ARG1 ARG2 ARG3',
+        '--section=.test:CONTENTZ',
+    ])
+
+    try:
+        ukify.check_inputs(opts)
+    except OSError as e:
+        pytest.skip(str(e))
+
+    ukify.make_uki(opts)
+
+    # let's check that objdump likes the resulting file
+    dump = subprocess.check_output(['objdump', '-h', output], text=True)
+
+    for sect in 'text cmdline test'.split():
+        assert re.search(fr'^\s*\d+\s+.{sect}\s+0', dump, re.MULTILINE)
+
 
 def unbase64(filename):
     tmp = tempfile.NamedTemporaryFile()
