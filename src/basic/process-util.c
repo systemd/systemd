@@ -1472,6 +1472,15 @@ int pidfd_get_pid(int fd, pid_t *ret) {
         char *p;
         int r;
 
+        /* Converts a pidfd into a pid. Well known errors:
+         *
+         *    -EBADF   → fd invalid
+         *    -ENOSYS  → /proc/ not mounted
+         *    -ENOTTY  → fd valid, but not a pidfd
+         *    -EREMOTE → fd valid, but pid is in another namespace we cannot translate to the local one
+         *    -ESRCH   → fd valid, but process is already reaped
+         */
+
         if (fd < 0)
                 return -EBADF;
 
@@ -1479,7 +1488,7 @@ int pidfd_get_pid(int fd, pid_t *ret) {
 
         r = read_full_virtual_file(path, &fdinfo, NULL);
         if (r == -ENOENT) /* if fdinfo doesn't exist we assume the process does not exist */
-                return -ESRCH;
+                return proc_mounted() > 0 ? -EBADF : -ENOSYS;
         if (r < 0)
                 return r;
 
@@ -1489,6 +1498,11 @@ int pidfd_get_pid(int fd, pid_t *ret) {
 
         p += strspn(p, WHITESPACE);
         p[strcspn(p, WHITESPACE)] = 0;
+
+        if (streq(p, "0"))
+                return -EREMOTE; /* PID is in foreign PID namespace? */
+        if (streq(p, "-1"))
+                return -ESRCH;   /* refers to reaped process? */
 
         return parse_pid(p, ret);
 }
