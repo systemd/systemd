@@ -551,7 +551,7 @@ def make_uki(opts):
         sbsign_invocation += ['--engine', opts.signing_engine]
 
     sign_kernel = opts.sign_kernel
-    if sign_kernel is None and opts.sb_key:
+    if sign_kernel is None and opts.linux is not None and opts.sb_key:
         # figure out if we should sign the kernel
         sbverify_tool = find_tool('sbverify', opts=opts)
 
@@ -583,7 +583,7 @@ def make_uki(opts):
     else:
         linux = opts.linux
 
-    if opts.uname is None:
+    if opts.uname is None and opts.linux is not None:
         print('Kernel version not specified, starting autodetection 😖.')
         opts.uname = Uname.scrape(opts.linux, opts=opts)
 
@@ -624,7 +624,8 @@ def make_uki(opts):
 
     # UKI creation
 
-    uki.add_section(Section.create('.linux', linux, measure=True))
+    if linux is not None:
+        uki.add_section(Section.create('.linux', linux, measure=True))
 
     if opts.sb_key:
         unsigned = tempfile.NamedTemporaryFile(prefix='uki')
@@ -657,7 +658,7 @@ def parse_args(args=None):
         description='Build and sign Unified Kernel Images',
         allow_abbrev=False,
         usage='''\
-usage: ukify [options…] linux initrd…
+usage: ukify [options…] [linux [initrd…]]
        ukify -h | --help
 ''')
 
@@ -666,6 +667,7 @@ usage: ukify [options…] linux initrd…
 
     p.add_argument('linux',
                    type=pathlib.Path,
+                   nargs="?",
                    help='vmlinuz file [.linux section]')
     p.add_argument('initrd',
                    type=pathlib.Path,
@@ -769,7 +771,8 @@ usage: ukify [options…] linux initrd…
 
     opts = p.parse_args(args)
 
-    path_is_readable(opts.linux)
+    if opts.linux is not None:
+        path_is_readable(opts.linux)
     for initrd in opts.initrd or ():
         path_is_readable(initrd)
     path_is_readable(opts.devicetree)
@@ -784,7 +787,7 @@ usage: ukify [options…] linux initrd…
 
     if opts.os_release is not None and opts.os_release.startswith('@'):
         opts.os_release = path_is_readable(opts.os_release[1:])
-    elif opts.os_release is None:
+    elif opts.os_release is None and opts.linux is not None:
         p = pathlib.Path('/etc/os-release')
         if not p.exists():
             p = path_is_readable('/usr/lib/os-release')
@@ -815,6 +818,8 @@ usage: ukify [options…] linux initrd…
         raise ValueError('--phases= specifications must match --pcr-private-key=')
 
     if opts.output is None:
+        if opts.linux is None:
+            raise ValueError('--output= must be specified when building a PE addon')
         suffix = '.efi' if opts.sb_key else '.unsigned.efi'
         opts.output = opts.linux.name + suffix
 
