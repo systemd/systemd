@@ -1061,6 +1061,40 @@ static bool address_available(sd_dhcp_server *server, be32_t address) {
         return true;
 }
 
+static int server_get_static_lease(sd_dhcp_server *server, const DHCPRequest *req, DHCPLease **ret) {
+        DHCPLease *static_lease;
+        _cleanup_free_ uint8_t *data = NULL;
+
+        assert(server);
+        assert(req);
+        assert(ret);
+
+        static_lease = hashmap_get(server->static_leases_by_client_id, &req->client_id);
+        if (static_lease) {
+                *ret = static_lease;
+                return 0;
+        }
+
+        /* when no lease is found based on the client id fall back to chaddr */
+        data = new(uint8_t, req->message->hlen + 1);
+        if (!data)
+                return -ENOMEM;
+
+        /* set client id type to 1: Ethernet Link-Layer (RFC 2132) */
+        data[0] = 0x01;
+        memcpy(data + 1, req->message->chaddr, req->message->hlen);
+
+        static_lease = hashmap_get(server->static_leases_by_client_id,
+                                   &(DHCPClientId) {
+                                           .length = req->message->hlen + 1,
+                                           .data = data,
+                                   });
+
+        *ret = static_lease;
+
+        return 0;
+}
+
 #define HASH_KEY SD_ID128_MAKE(0d,1d,fe,bd,f1,24,bd,b3,47,f1,dd,6e,73,21,93,30)
 
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, size_t length) {
@@ -1092,7 +1126,9 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                 return r;
 
         existing_lease = hashmap_get(server->bound_leases_by_client_id, &req->client_id);
-        static_lease = hashmap_get(server->static_leases_by_client_id, &req->client_id);
+        r = server_get_static_lease(server, req, &static_lease);
+        if (r < 0)
+                return r;
 
         switch (type) {
 
