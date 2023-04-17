@@ -30,6 +30,9 @@ SuccessAction=reboot
 ConditionPathExists=|/system-update
 ConditionPathIsSymbolicLink=|/system-update
 
+ConditionPathExists=|/etc/system-update
+ConditionPathIsSymbolicLink=|/etc/system-update
+
 [Service]
 Type=oneshot
-ExecStart=rm -fv /system-update
+ExecStart=rm -fv /system-update /etc/system-update
