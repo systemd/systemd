@@ -16,6 +16,7 @@
 #include "id128-util.h"
 #include "os-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "sync-util.h"
@@ -379,6 +380,79 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
         }
 
         return ret;
+}
+
+static int start_install_script(const char *script, const char* what, const char *esp_path, const char *arch,
+                bool force, char** ret_path) {
+        _cleanup_free_ char *line = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_pair_ int pfd[2];
+        int  r;
+        pid_t pid;
+
+        r = pipe2(pfd, O_CLOEXEC);
+        if (r < 0)
+                return r;
+
+        r = safe_fork_full(script,
+                           (int[]) { -EBADF, pfd[1], STDERR_FILENO },
+                           NULL,
+                           0,
+                           FORK_REARRANGE_STDIO|FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                           &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Child */
+                const char *cmdline[] = {
+                        script,
+                        what,
+                        "--esp", esp_path,
+                        "--arch", arch,
+                        "--vendor", BOOTLOADER_VENDOR,
+                        force ? "--force" : NULL,
+                        NULL
+                };
+
+                execv(script, (char *const*) cmdline);
+                log_error_errno(errno, "Failed to execute %s tool: %m", script);
+                _exit(EXIT_FAILURE);
+        }
+
+        safe_close(TAKE_FD(pfd[1]));
+
+        f = fdopen(pfd[0], "r");
+        if (!f)
+                return log_error_errno(errno, "Failed allocate FILE object: %m");
+
+        TAKE_FD(pfd[0]);
+
+        for (;ret_path;) {
+                _cleanup_free_ char *l = NULL;
+
+                r = read_line(f, LONG_LINE_MAX, &l);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                TAKE_PTR(line);
+                line = TAKE_PTR(l);
+        }
+
+        r = wait_for_terminate_and_check("sd-boot-install", pid, WAIT_LOG);
+        if (r < 0)
+                return r;
+        if (r != 0)
+                return -EPROTO;
+
+        if (ret_path) {
+                if (!line)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "Bootloader install script had no output");
+                *ret_path = TAKE_PTR(line);
+        }
+
+        return 0;
 }
 
 static int install_binaries(const char *esp_path, const char *arch, bool force) {
@@ -750,9 +824,14 @@ int verb_install(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        const char *arch = arg_arch_all ? "" : get_efi_arch();
+
         if (!install) {
                 /* If we are updating, don't do anything if sd-boot wasn't actually installed. */
-                r = are_we_installed(arg_esp_path);
+                if (access(BOOTLIBDIR "/sd-boot-install", F_OK) >= 0)
+                        r = start_install_script(BOOTLIBDIR "/sd-boot-install", "check", arg_esp_path, arch, install, NULL);
+                else
+                        r = are_we_installed(arg_esp_path);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -769,7 +848,7 @@ int verb_install(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        const char *arch = arg_arch_all ? "" : get_efi_arch();
+        _cleanup_free_ char *path = NULL;
 
         WITH_UMASK(0002) {
                 if (install) {
@@ -785,7 +864,10 @@ int verb_install(int argc, char *argv[], void *userdata) {
                                 return r;
                 }
 
-                r = install_binaries(arg_esp_path, arch, install);
+                if (access(BOOTLIBDIR "/sd-boot-install", F_OK) >= 0)
+                        r = start_install_script(BOOTLIBDIR "/sd-boot-install", "install", arg_esp_path, arch, install, &path);
+                else
+                        r = install_binaries(arg_esp_path, arch, install);
                 if (r < 0)
                         return r;
 
@@ -822,7 +904,11 @@ int verb_install(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
-        char *path = strjoina("/EFI/" BOOTLOADER_VENDOR "/systemd-boot", arch, ".efi");
+        log_debug("boot loader path %s", path);
+
+        if (!path)
+                path = strjoin("/EFI/" BOOTLOADER_VENDOR "/systemd-boot", arch, ".efi");
+
         return install_variables(arg_esp_path, part, pstart, psize, uuid, path, install, graceful);
 }
 
@@ -1009,7 +1095,13 @@ int verb_remove(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = remove_binaries(arg_esp_path);
+        const char *arch = arg_arch_all ? "" : get_efi_arch();
+        _cleanup_free_ char *path = NULL;
+
+        if (access(BOOTLIBDIR "/sd-boot-install", F_OK) >= 0)
+                r = start_install_script(BOOTLIBDIR "/sd-boot-install", "remove", arg_esp_path, arch, false, &path);
+        else
+                r = remove_binaries(arg_esp_path);
 
         q = remove_file(arg_esp_path, "/loader/loader.conf");
         if (q < 0 && r >= 0)
@@ -1061,7 +1153,9 @@ int verb_remove(int argc, char *argv[], void *userdata) {
                 return r;
         }
 
-        char *path = strjoina("/EFI/" BOOTLOADER_VENDOR "/systemd-boot", get_efi_arch(), ".efi");
+        if (!path)
+                path = strjoin("/EFI/" BOOTLOADER_VENDOR "/systemd-boot", arch, ".efi");
+
         q = remove_variables(uuid, path, true);
         if (q < 0 && r >= 0)
                 r = q;
