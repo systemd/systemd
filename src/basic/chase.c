@@ -494,8 +494,8 @@ chased_one:
         return 0;
 }
 
-int chase(const char *path, const char *original_root, ChaseFlags flags, char **ret_path, int *ret_fd) {
-        _cleanup_free_ char *root = NULL, *absolute = NULL, *p = NULL;
+int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path, int *ret_fd) {
+        _cleanup_free_ char *root_abs = NULL, *absolute = NULL, *p = NULL;
         _cleanup_close_ int fd = -EBADF, pfd = -EBADF;
         int r;
 
@@ -504,18 +504,17 @@ int chase(const char *path, const char *original_root, ChaseFlags flags, char **
         if (isempty(path))
                 return -EINVAL;
 
-        /* A root directory of "/" or "" is identical to none */
-        if (empty_or_root(original_root))
-                original_root = NULL;
-
-        if (original_root) {
-                r = path_make_absolute_cwd(original_root, &root);
+        /* A root directory of "/" or "" is identical to "/". */
+        if (empty_or_root(root))
+                root = "/";
+        else {
+                r = path_make_absolute_cwd(root, &root_abs);
                 if (r < 0)
                         return r;
 
                 /* Simplify the root directory, so that it has no duplicate slashes and nothing at the
                  * end. While we won't resolve the root path we still simplify it. */
-                path_simplify(root);
+                root = path_simplify(root_abs);
 
                 assert(path_is_absolute(root));
                 assert(!empty_or_root(root));
@@ -535,14 +534,14 @@ int chase(const char *path, const char *original_root, ChaseFlags flags, char **
                         return r;
         }
 
-        path = path_startswith(absolute, empty_to_root(root));
+        path = path_startswith(absolute, root);
         if (!path)
                 return log_full_errno(FLAGS_SET(flags, CHASE_WARN) ? LOG_WARNING : LOG_DEBUG,
                                       SYNTHETIC_ERRNO(ECHRNG),
                                       "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
-                                      absolute, empty_to_root(root));
+                                      absolute, root);
 
-        fd = open(empty_to_root(root), O_CLOEXEC|O_DIRECTORY|O_PATH);
+        fd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
         if (fd < 0)
                 return -errno;
 
@@ -554,7 +553,7 @@ int chase(const char *path, const char *original_root, ChaseFlags flags, char **
                 if (!FLAGS_SET(flags, CHASE_EXTRACT_FILENAME)) {
                         _cleanup_free_ char *q = NULL;
 
-                        q = path_join(empty_to_root(root), p);
+                        q = path_join(root, p);
                         if (!q)
                                 return -ENOMEM;
 
