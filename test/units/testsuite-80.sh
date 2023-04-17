@@ -88,9 +88,31 @@ assert_eq "$(systemctl show fdstore-nopin.service -P SubState)" running
 assert_eq "$(systemctl show fdstore-pin.service -P NFileDescriptorStore)" 1
 assert_eq "$(systemctl show fdstore-nopin.service -P NFileDescriptorStore)" 1
 
+# The file descriptor store should survive daemon-reload
+systemctl daemon-reload
+
+assert_eq "$(systemctl show fdstore-pin.service -P FileDescriptorStorePreserve)" yes
+assert_eq "$(systemctl show fdstore-nopin.service -P FileDescriptorStorePreserve)" restart
+assert_eq "$(systemctl show fdstore-pin.service -P SubState)" running
+assert_eq "$(systemctl show fdstore-nopin.service -P SubState)" running
+assert_eq "$(systemctl show fdstore-pin.service -P NFileDescriptorStore)" 1
+assert_eq "$(systemctl show fdstore-nopin.service -P NFileDescriptorStore)" 1
+
+# The file descriptor store should survive daemon-reexec
+systemctl daemon-reexec
+
+assert_eq "$(systemctl show fdstore-pin.service -P FileDescriptorStorePreserve)" yes
+assert_eq "$(systemctl show fdstore-nopin.service -P FileDescriptorStorePreserve)" restart
+assert_eq "$(systemctl show fdstore-pin.service -P SubState)" running
+assert_eq "$(systemctl show fdstore-nopin.service -P SubState)" running
+assert_eq "$(systemctl show fdstore-pin.service -P NFileDescriptorStore)" 1
+assert_eq "$(systemctl show fdstore-nopin.service -P NFileDescriptorStore)" 1
+
 # The file descriptor store should survive service restarts
 systemctl restart fdstore-pin.service fdstore-nopin.service
 
+assert_eq "$(systemctl show fdstore-pin.service -P FileDescriptorStorePreserve)" yes
+assert_eq "$(systemctl show fdstore-nopin.service -P FileDescriptorStorePreserve)" restart
 assert_eq "$(systemctl show fdstore-pin.service -P NFileDescriptorStore)" 1
 assert_eq "$(systemctl show fdstore-nopin.service -P NFileDescriptorStore)" 1
 assert_eq "$(systemctl show fdstore-pin.service -P SubState)" running
@@ -99,6 +121,8 @@ assert_eq "$(systemctl show fdstore-nopin.service -P SubState)" running
 # It should not survive the service stop plus a later start (unless pinned)
 systemctl stop fdstore-pin.service fdstore-nopin.service
 
+assert_eq "$(systemctl show fdstore-pin.service -P FileDescriptorStorePreserve)" yes
+assert_eq "$(systemctl show fdstore-nopin.service -P FileDescriptorStorePreserve)" restart
 assert_eq "$(systemctl show fdstore-pin.service -P NFileDescriptorStore)" 1
 assert_eq "$(systemctl show fdstore-nopin.service -P NFileDescriptorStore)" 0
 assert_eq "$(systemctl show fdstore-pin.service -P SubState)" dead-resources-pinned
@@ -106,6 +130,8 @@ assert_eq "$(systemctl show fdstore-nopin.service -P SubState)" dead
 
 systemctl start fdstore-pin.service fdstore-nopin.service
 
+assert_eq "$(systemctl show fdstore-pin.service -P FileDescriptorStorePreserve)" yes
+assert_eq "$(systemctl show fdstore-nopin.service -P FileDescriptorStorePreserve)" restart
 assert_eq "$(systemctl show fdstore-pin.service -P NFileDescriptorStore)" 1
 assert_eq "$(systemctl show fdstore-nopin.service -P NFileDescriptorStore)" 0
 assert_eq "$(systemctl show fdstore-pin.service -P SubState)" running
@@ -113,6 +139,48 @@ assert_eq "$(systemctl show fdstore-nopin.service -P SubState)" running
 
 systemctl stop fdstore-pin.service fdstore-nopin.service
 
+assert_eq "$(systemctl show fdstore-pin.service -P FileDescriptorStorePreserve)" yes
+assert_eq "$(systemctl show fdstore-nopin.service -P FileDescriptorStorePreserve)" restart
+assert_eq "$(systemctl show fdstore-pin.service -P NFileDescriptorStore)" 1
+assert_eq "$(systemctl show fdstore-nopin.service -P NFileDescriptorStore)" 0
+assert_eq "$(systemctl show fdstore-pin.service -P SubState)" dead-resources-pinned
+assert_eq "$(systemctl show fdstore-nopin.service -P SubState)" dead
+
+mv /usr/lib/systemd/tests/testdata/testsuite-80.units/fdstore-pin.service /tmp/.
+
+systemctl daemon-reload
+
+assert_eq "$(systemctl show fdstore-pin.service -P FileDescriptorStorePreserve)" yes
+assert_eq "$(systemctl show fdstore-nopin.service -P FileDescriptorStorePreserve)" restart
+assert_eq "$(systemctl show fdstore-pin.service -P NFileDescriptorStore)" 1
+assert_eq "$(systemctl show fdstore-nopin.service -P NFileDescriptorStore)" 0
+assert_eq "$(systemctl show fdstore-pin.service -P SubState)" dead-resources-pinned
+assert_eq "$(systemctl show fdstore-nopin.service -P SubState)" dead
+
+systemctl daemon-reexec
+
+assert_eq "$(systemctl show fdstore-pin.service -P FileDescriptorStorePreserve)" yes
+assert_eq "$(systemctl show fdstore-nopin.service -P FileDescriptorStorePreserve)" restart
+assert_eq "$(systemctl show fdstore-pin.service -P NFileDescriptorStore)" 1
+assert_eq "$(systemctl show fdstore-nopin.service -P NFileDescriptorStore)" 0
+assert_eq "$(systemctl show fdstore-pin.service -P SubState)" dead-resources-pinned
+assert_eq "$(systemctl show fdstore-nopin.service -P SubState)" dead
+
+mv /tmp/fdstore-pin.service /usr/lib/systemd/tests/testdata/testsuite-80.units/.
+
+systemctl daemon-reload
+
+assert_eq "$(systemctl show fdstore-pin.service -P FileDescriptorStorePreserve)" yes
+assert_eq "$(systemctl show fdstore-nopin.service -P FileDescriptorStorePreserve)" restart
+assert_eq "$(systemctl show fdstore-pin.service -P NFileDescriptorStore)" 1
+assert_eq "$(systemctl show fdstore-nopin.service -P NFileDescriptorStore)" 0
+assert_eq "$(systemctl show fdstore-pin.service -P SubState)" dead-resources-pinned
+assert_eq "$(systemctl show fdstore-nopin.service -P SubState)" dead
+
+systemctl daemon-reexec
+
+assert_eq "$(systemctl show fdstore-pin.service -P FileDescriptorStorePreserve)" yes
+assert_eq "$(systemctl show fdstore-nopin.service -P FileDescriptorStorePreserve)" restart
 assert_eq "$(systemctl show fdstore-pin.service -P NFileDescriptorStore)" 1
 assert_eq "$(systemctl show fdstore-nopin.service -P NFileDescriptorStore)" 0
 assert_eq "$(systemctl show fdstore-pin.service -P SubState)" dead-resources-pinned
@@ -120,6 +188,8 @@ assert_eq "$(systemctl show fdstore-nopin.service -P SubState)" dead
 
 systemctl clean fdstore-pin.service --what=fdstore
 
+assert_eq "$(systemctl show fdstore-pin.service -P FileDescriptorStorePreserve)" yes
+assert_eq "$(systemctl show fdstore-nopin.service -P FileDescriptorStorePreserve)" restart
 assert_eq "$(systemctl show fdstore-pin.service -P NFileDescriptorStore)" 0
 assert_eq "$(systemctl show fdstore-nopin.service -P NFileDescriptorStore)" 0
 assert_eq "$(systemctl show fdstore-pin.service -P SubState)" dead
