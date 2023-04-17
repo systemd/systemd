@@ -155,7 +155,7 @@ int open_os_release(const char *root, char **ret_path, int *ret_fd) {
                 return r;
 
         if (ret_path) {
-                r = path_prefix_root_cwd(p, root, ret_path);
+                r = prefix_path_from_chaseat(p, root, ret_path);
                 if (r < 0)
                         return r;
         }
@@ -292,7 +292,7 @@ int open_extension_release(
                 return r;
 
         if (ret_path) {
-                r = path_prefix_root_cwd(p, root, ret_path);
+                r = prefix_path_from_chaseat(p, root, ret_path);
                 if (r < 0)
                         return r;
         }

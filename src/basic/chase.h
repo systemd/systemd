@@ -42,6 +42,8 @@ bool unsafe_transition(const struct stat *a, const struct stat *b);
 
 int chase(const char *path_with_prefix, const char *root, ChaseFlags chase_flags, char **ret_path, int *ret_fd);
 
+int prefix_path_from_chaseat(const char *path, const char *root, char **ret);
+
 int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, int open_flags, char **ret_path);
 int chase_and_opendir(const char *path, const char *root, ChaseFlags chase_flags, char **ret_path, DIR **ret_dir);
 int chase_and_stat(const char *path, const char *root, ChaseFlags chase_flags, char **ret_path, struct stat *ret_stat);
