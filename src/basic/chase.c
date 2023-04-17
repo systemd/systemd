@@ -551,19 +551,27 @@ int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path,
 
         if (ret_path) {
                 if (!FLAGS_SET(flags, CHASE_EXTRACT_FILENAME)) {
-                        _cleanup_free_ char *q = NULL;
 
-                        q = path_join(root, p);
-                        if (!q)
-                                return -ENOMEM;
+                        /* When "root" points to the root directory, the result of chaseat() is always
+                         * absolute, hence it is not necessary to prefix with the root. When "root" points to
+                         * a non-root directory, the result path is always normalized and relative, hence
+                         * we can simply call path_join() and not necessary to call path_simplify().
+                         * Note that the result of chaseat() may start with "." (more specifically, it may be
+                         * "." or "./"), and we need to drop "." in that case. */
 
-                        path_simplify(q);
+                        if (empty_or_root(root))
+                                assert(path_is_relative(p));
+                        else {
+                                char *q;
 
-                        if (FLAGS_SET(flags, CHASE_TRAIL_SLASH) && ENDSWITH_SET(path, "/", "/."))
-                                if (!strextend(&q, "/"))
+                                assert(!path_is_relative(p));
+
+                                q = path_join(root, p + (*p == '.'));
+                                if (!q)
                                         return -ENOMEM;
 
-                        free_and_replace(p, q);
+                                free_and_replace(p, q);
+                        }
                 }
 
                 *ret_path = TAKE_PTR(p);
