@@ -2988,6 +2988,9 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (r < 0)
                 return r;
 
+        (void) serialize_item(f, "fd-store-preserve-mode", exec_preserve_mode_to_string(s->fd_store_preserve_mode));
+        (void) serialize_item_format(f, "n-fd-store-max", "%u", s->n_fd_store_max);
+
         LIST_FOREACH(fd_store, fs, s->fd_store) {
                 _cleanup_free_ char *c = NULL;
                 int copy;
@@ -3241,6 +3244,21 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         asynchronous_close(s->socket_fd);
                         s->socket_fd = fdset_remove(fds, fd);
                 }
+        } else if (streq(key, "n-fd-store-max")) {
+                unsigned n;
+
+                if (safe_atou(value, &n) < 0)
+                        log_unit_debug(u, "Failed to parse n-fd-store-max value: %s", value);
+                else
+                        s->n_fd_store_max = n;
+        } else if (streq(key, "fd-store-preserve-mode")) {
+                ExecPreserveMode e;
+
+                e = exec_preserve_mode_from_string(value);
+                if (e < 0)
+                        log_unit_debug(u, "Failed to parse fd-store-preserve-mode value: %s", value);
+                else
+                        s->fd_store_preserve_mode = e;
         } else if (streq(key, "fd-store-fd")) {
                 _cleanup_free_ char *fdv = NULL, *fdn = NULL, *fdp = NULL;
                 int fd;
