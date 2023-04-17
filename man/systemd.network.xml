@@ -1247,7 +1247,9 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
       <varlistentry>
         <term><varname>TypeOfService=</varname></term>
         <listitem>
-          <para>Takes a number between 0 and 255 that specifies the type of service to match.</para>
+          <para>Takes a number between 0 and 255 that specifies the Type Of Service (TOS) to match. The Type
+          of Service is also known as the Differentiated Services Code Point (DSCP). Only six bits are used;
+          in practice this number will be between 0 and 63.</para>
         </listitem>
       </varlistentry>
 
