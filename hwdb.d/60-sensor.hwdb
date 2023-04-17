@@ -193,6 +193,15 @@ sensor:modalias:acpi:BMI0160*:dmi:*:svnAYANEO:pn*NEXT*:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
+# BMAX
+#########################################
+
+# BMAX Y13
+sensor:modalias:acpi:KIOX010A:*:dmi:*:svnAMI:*:skuH2M6:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
+ ACCEL_LOCATION=display
+
+#########################################
 # Chuwi
 #########################################
 
