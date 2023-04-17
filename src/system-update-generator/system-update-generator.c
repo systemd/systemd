@@ -9,6 +9,7 @@
 #include "proc-cmdline.h"
 #include "special.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unit-file.h"
 
 /*
@@ -18,21 +19,22 @@
 static const char *arg_dest = NULL;
 
 static int generate_symlink(void) {
-        const char *p = NULL;
+        FOREACH_STRING(p, "/system-update", "/etc/system-update") {
+                if (laccess(p, F_OK) < 0) {
+                        if (errno == ENOENT)
+                               continue;
 
-        if (laccess("/system-update", F_OK) < 0) {
-                if (errno == ENOENT)
-                        return 0;
+                        return log_error_errno(errno, "Failed to check for system update: %m");
+                }
 
-                log_error_errno(errno, "Failed to check for system update: %m");
-                return -EINVAL;
+                p = strjoina(arg_dest, "/" SPECIAL_DEFAULT_TARGET);
+                if (symlink(SYSTEM_DATA_UNIT_DIR "/system-update.target", p) < 0)
+                        return log_error_errno(errno, "Failed to create symlink %s: %m", p);
+
+                return 1;
         }
 
-        p = strjoina(arg_dest, "/" SPECIAL_DEFAULT_TARGET);
-        if (symlink(SYSTEM_DATA_UNIT_DIR "/system-update.target", p) < 0)
-                return log_error_errno(errno, "Failed to create symlink %s: %m", p);
-
-        return 1;
+        return 0;
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
