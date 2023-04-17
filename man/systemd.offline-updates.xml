@@ -40,18 +40,20 @@
       </listitem>
 
       <listitem>
-        <para>When the user OK'ed the update, the symlink <filename>/system-update</filename> is
-        created that points to <filename index="false">/var/lib/system-update</filename> (or
-        wherever the directory with the upgrade files is located) and the system is rebooted. This
-        symlink is in the root directory, since we need to check for it very early at boot, at a
-        time where <filename>/var/</filename> is not available yet.</para>
+        <para>When the user OK'ed the update, the symlink <filename>/system-update</filename> or
+        <filename>/etc/system-update</filename> is created that points to
+        <filename index="false">/var/lib/system-update</filename> (or wherever the directory with
+        the upgrade files is located) and the system is rebooted. This symlink is in the root
+        directory, since we need to check for it very early at boot, at a time where
+        <filename>/var/</filename> is not available yet.</para>
       </listitem>
 
       <listitem>
         <para>Very early in the new boot
         <citerefentry><refentrytitle>systemd-system-update-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        checks whether <filename>/system-update</filename> exists. If so, it (temporarily and for
-        this boot only) redirects (i.e. symlinks) <filename>default.target</filename> to
+        checks whether <filename>/system-update</filename> or
+        <filename>/etc/system-update</filename> exists. If so, it (temporarily and for this boot
+        only) redirects (i.e. symlinks) <filename>default.target</filename> to
         <filename>system-update.target</filename>, a special target that pulls in the base system
         (i.e. <filename>sysinit.target</filename>, so that all file systems are mounted but little
         else) and the system update units.</para>
@@ -68,12 +70,13 @@
 
       <listitem>
         <para>As the first step, an update service should check if the
-        <filename>/system-update</filename> symlink points to the location used by that update
-        service. In case it does not exist or points to a different location, the service must exit
-        without error. It is possible for multiple update services to be installed, and for multiple
-        update services to be launched in parallel, and only the one that corresponds to the tool
-        that <emphasis>created</emphasis> the symlink before reboot should perform any actions. It
-        is unsafe to run multiple updates in parallel.</para>
+        <filename>/system-update</filename> or <filename>/etc/system-update</filename> symlink
+        points to the location used by that update service. In case it does not exist or points to a
+        different location, the service must exit without error. It is possible for multiple update
+        services to be installed, and for multiple update services to be launched in parallel, and
+        only the one that corresponds to the tool that <emphasis>created</emphasis> the symlink
+        before reboot should perform any actions. It is unsafe to run multiple updates in
+        parallel.</para>
       </listitem>
 
       <listitem>
@@ -88,14 +91,16 @@
         <para>The update scripts should exit only after the update is finished. It is expected
         that the service which performs the update will cause the machine to reboot after it
         is done. If the <filename>system-update.target</filename> is successfully reached, i.e.
-        all update services have run, and the <filename>/system-update</filename> symlink still
-        exists, it will be removed and the machine rebooted as a safety measure.</para>
+        all update services have run, and the <filename>/system-update</filename> or
+        <filename>/etc/system-update</filename> symlink still exists, it will be removed and
+        the machine rebooted as a safety measure.</para>
       </listitem>
 
       <listitem>
-        <para>After a reboot, now that the <filename>/system-update</filename> symlink is gone,
-        the generator won't redirect <filename>default.target</filename> anymore and the system
-        now boots into the default target again.</para>
+        <para>After a reboot, now that the <filename>/system-update</filename> and
+        <filename>/etc/system-update</filename> symlink is gone, the generator won't redirect
+        <filename>default.target</filename> anymore and the system now boots into the default
+        target again.</para>
       </listitem>
     </orderedlist>
   </refsect1>
@@ -115,8 +120,9 @@
       </listitem>
 
       <listitem>
-        <para>Make sure to remove the <filename>/system-update</filename> symlink as early as
-        possible in the update script to avoid reboot loops in case the update fails.</para>
+        <para>Make sure to remove the <filename>/system-update</filename> and
+        <filename>/etc/system-update</filename> symlinks as early as possible in the update
+        script to avoid reboot loops in case the update fails.</para>
       </listitem>
 
       <listitem>
