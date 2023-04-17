@@ -583,6 +583,37 @@ int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path,
         return r;
 }
 
+int chaseat_prefix_root(const char *path, const char *root, char **ret) {
+        char *q;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        /* This is mostly for prefixing the result of chaseat(). */
+
+        if (!path_is_absolute(path)) {
+                _cleanup_free_ char *root_abs = NULL;
+
+                /* If the dir_fd points to the root directory, chaseat() always returns an absolute path. */
+                assert(!empty_or_root(root));
+
+                r = path_make_absolute_cwd(root, &root_abs);
+                if (r < 0)
+                        return r;
+
+                root = path_simplify(root_abs);
+
+                q = path_join(root, path + (path[0] == '.' && IN_SET(path[1], '/', '\0')));
+        } else
+                q = strdup(path);
+        if (!q)
+                return -ENOMEM;
+
+        *ret = q;
+        return 0;
+}
+
 int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, int open_flags, char **ret_path) {
         _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL, *fname = NULL;
