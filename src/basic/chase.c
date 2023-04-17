@@ -111,12 +111,26 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
          * given directory file descriptor, even if it is absolute. If the given directory file descriptor is
          * AT_FDCWD and "path" is absolute, it is interpreted relative to the root directory of the host.
          *
-         * If "dir_fd" is a valid directory fd, "path" is an absolute path and "ret_path" is not NULL, this
-         * functions returns a relative path in "ret_path" because openat() like functions generally ignore
-         * the directory fd if they are provided with an absolute path. On the other hand, if "dir_fd" is
-         * AT_FDCWD and "path" is an absolute path, we return an absolute path in "ret_path" because
-         * otherwise, if the caller passes the returned relative path to another openat() like function, it
-         * would be resolved relative to the current working directory instead of to "/".
+         * When "dir_fd" points to a non-root directory and CHASE_AT_RESOLVE_IN_ROOT is set, this function
+         * always returns a relative path in "ret_path", even if "path" is an absolute path, because openat()
+         * like functions generally ignore the directory fd if they are provided with an absolute path. When
+         * CHASE_AT_RESOLVE_IN_ROOT is not set, then this returns relative path to the specified file
+         * descriptor if all resolved symlinks are relative, otherwise absolute path will be returned. When
+         * "dir_fd" is AT_FDCWD and "path" is an absolute path, we return an absolute path in "ret_path"
+         * because otherwise, if the caller passes the returned relative path to another openat() like
+         * function, it would be resolved relative to the current working directory instead of to "/".
+         *
+         * Summary about the result path:
+         * - "dir_fd" points to the root directory
+         *    → result will be absolute
+         * - "dir_fd" points to a non-root directory, and CHASE_AT_RESOLVE_IN_ROOT is set
+         *    → relative
+         * - "dir_fd" points to a non-root directory, and CHASE_AT_RESOLVE_IN_ROOT is not set
+         *    → relative when all resolved symlinks are relative, otherwise absolute
+         * - "dir_fd" is AT_FDCWD, and "path" is absolute
+         *    → absolute
+         * - "dir_fd" is AT_FDCWD, and "path" is relative
+         *    → relative when all resolved symlinks are relative, otherwise absolute
          *
          * Algorithmically this operates on two path buffers: "done" are the components of the path we
          * already processed and resolved symlinks, "." and ".." of. "todo" are the components of the path we
@@ -190,8 +204,9 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 return -ENOMEM;
 
         /* If we receive an absolute path together with AT_FDCWD, we need to return an absolute path, because
-         * a relative path would be interpreted relative to the current working directory. */
-        bool need_absolute = dir_fd == AT_FDCWD && path_is_absolute(path);
+         * a relative path would be interpreted relative to the current working directory. Also, let's make
+         * the result absolute when the file descriptor of the root directory is specified. */
+        bool need_absolute = (dir_fd == AT_FDCWD && path_is_absolute(path)) || dir_fd_is_root(dir_fd) > 0;
         if (need_absolute) {
                 done = strdup("/");
                 if (!done)
@@ -373,6 +388,11 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                                     unsafe_transition(&st_child, &st))
                                         return log_unsafe_transition(child, fd, path, flags);
 
+                                /* When CHASE_AT_RESOLVE_IN_ROOT is not set, now the chased path may be
+                                 * outside of the specified dir_fd. Let's make the result absolute. */
+                                if (!FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT))
+                                        need_absolute = true;
+
                                 r = free_and_strdup(&done, need_absolute ? "/" : NULL);
                                 if (r < 0)
                                         return r;
@@ -474,8 +494,8 @@ chased_one:
         return 0;
 }
 
-int chase(const char *path, const char *original_root, ChaseFlags flags, char **ret_path, int *ret_fd) {
-        _cleanup_free_ char *root = NULL, *absolute = NULL, *p = NULL;
+int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path, int *ret_fd) {
+        _cleanup_free_ char *root_abs = NULL, *absolute = NULL, *p = NULL;
         _cleanup_close_ int fd = -EBADF, pfd = -EBADF;
         int r;
 
@@ -484,18 +504,17 @@ int chase(const char *path, const char *original_root, ChaseFlags flags, char **
         if (isempty(path))
                 return -EINVAL;
 
-        /* A root directory of "/" or "" is identical to none */
-        if (empty_or_root(original_root))
-                original_root = NULL;
-
-        if (original_root) {
-                r = path_make_absolute_cwd(original_root, &root);
+        /* A root directory of "/" or "" is identical to "/". */
+        if (empty_or_root(root))
+                root = "/";
+        else {
+                r = path_make_absolute_cwd(root, &root_abs);
                 if (r < 0)
                         return r;
 
                 /* Simplify the root directory, so that it has no duplicate slashes and nothing at the
                  * end. While we won't resolve the root path we still simplify it. */
-                path_simplify(root);
+                root = path_simplify(root_abs);
 
                 assert(path_is_absolute(root));
                 assert(!empty_or_root(root));
@@ -515,14 +534,14 @@ int chase(const char *path, const char *original_root, ChaseFlags flags, char **
                         return r;
         }
 
-        path = path_startswith(absolute, empty_to_root(root));
+        path = path_startswith(absolute, root);
         if (!path)
                 return log_full_errno(FLAGS_SET(flags, CHASE_WARN) ? LOG_WARNING : LOG_DEBUG,
                                       SYNTHETIC_ERRNO(ECHRNG),
                                       "Specified path '%s' is outside of specified root directory '%s', refusing to resolve.",
-                                      absolute, empty_to_root(root));
+                                      absolute, root);
 
-        fd = open(empty_to_root(root), O_CLOEXEC|O_DIRECTORY|O_PATH);
+        fd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
         if (fd < 0)
                 return -errno;
 
@@ -532,19 +551,27 @@ int chase(const char *path, const char *original_root, ChaseFlags flags, char **
 
         if (ret_path) {
                 if (!FLAGS_SET(flags, CHASE_EXTRACT_FILENAME)) {
-                        _cleanup_free_ char *q = NULL;
 
-                        q = path_join(empty_to_root(root), p);
-                        if (!q)
-                                return -ENOMEM;
+                        /* When "root" points to the root directory, the result of chaseat() is always
+                         * absolute, hence it is not necessary to prefix with the root. When "root" points to
+                         * a non-root directory, the result path is always normalized and relative, hence
+                         * we can simply call path_join() and not necessary to call path_simplify().
+                         * Note that the result of chaseat() may start with "." (more specifically, it may be
+                         * "." or "./"), and we need to drop "." in that case. */
 
-                        path_simplify(q);
+                        if (empty_or_root(root))
+                                assert(path_is_relative(p));
+                        else {
+                                char *q;
 
-                        if (FLAGS_SET(flags, CHASE_TRAIL_SLASH) && ENDSWITH_SET(path, "/", "/."))
-                                if (!strextend(&q, "/"))
+                                assert(!path_is_relative(p));
+
+                                q = path_join(root, p + (*p == '.'));
+                                if (!q)
                                         return -ENOMEM;
 
-                        free_and_replace(p, q);
+                                free_and_replace(p, q);
+                        }
                 }
 
                 *ret_path = TAKE_PTR(p);
