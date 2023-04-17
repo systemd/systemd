@@ -1094,6 +1094,24 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
         existing_lease = hashmap_get(server->bound_leases_by_client_id, &req->client_id);
         static_lease = hashmap_get(server->static_leases_by_client_id, &req->client_id);
 
+        /* when no lease is found based on the client id fall back to chaddr */
+        if (!static_lease) {
+                DHCPClientId c;
+
+                c = (DHCPClientId) {
+                        .length = ETH_ALEN + 1,
+                        .data = new(uint8_t, ETH_ALEN + 1),
+                };
+                if (!c.data)
+                        return log_oom();
+
+                /* set client id type to 1: Ethernet Link-Layer (RFC 2132) */
+                c.data[0] = 0x01;
+                memcpy(c.data + 1, req->message->chaddr, ETH_ALEN);
+
+                static_lease = hashmap_get(server->static_leases_by_client_id, &c);
+        }
+
         switch (type) {
 
         case DHCP_DISCOVER: {
