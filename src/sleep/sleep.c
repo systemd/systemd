@@ -46,48 +46,11 @@
 static SleepOperation arg_operation = _SLEEP_OPERATION_INVALID;
 
 static int write_hibernate_location_info(const HibernateLocation *hibernate_location) {
-        char offset_str[DECIMAL_STR_MAX(uint64_t)];
-        const char *resume_str;
-        int r;
-
         assert(hibernate_location);
         assert(hibernate_location->swap);
+        assert(IN_SET(hibernate_location->swap->type, SWAP_BLOCK, SWAP_FILE));
 
-        resume_str = FORMAT_DEVNUM(hibernate_location->devno);
-
-        r = write_string_file("/sys/power/resume", resume_str, WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to write partition device to /sys/power/resume for '%s': '%s': %m",
-                                       hibernate_location->swap->path, resume_str);
-
-        log_debug("Wrote resume= value for %s to /sys/power/resume: %s", hibernate_location->swap->path, resume_str);
-
-        /* if it's a swap partition, we're done */
-        if (hibernate_location->swap->type == SWAP_BLOCK)
-                return 0;
-
-        assert(hibernate_location->swap->type == SWAP_FILE);
-
-        /* Only available in 4.17+ */
-        if (hibernate_location->offset > 0 && access("/sys/power/resume_offset", W_OK) < 0) {
-                if (errno == ENOENT) {
-                        log_debug("Kernel too old, can't configure resume_offset for %s, ignoring: %" PRIu64,
-                                  hibernate_location->swap->path, hibernate_location->offset);
-                        return 0;
-                }
-
-                return log_debug_errno(errno, "/sys/power/resume_offset not writable: %m");
-        }
-
-        xsprintf(offset_str, "%" PRIu64, hibernate_location->offset);
-        r = write_string_file("/sys/power/resume_offset", offset_str, WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to write swap file offset to /sys/power/resume_offset for '%s': '%s': %m",
-                                       hibernate_location->swap->path, offset_str);
-
-        log_debug("Wrote resume_offset= value for %s to /sys/power/resume_offset: %s", hibernate_location->swap->path, offset_str);
-
-        return 0;
+        return write_resume_config(hibernate_location->devno, hibernate_location->offset, hibernate_location->swap->path);
 }
 
 static int write_mode(char **modes) {
@@ -212,12 +175,14 @@ static int execute(
 
         /* Configure hibernation settings if we are supposed to hibernate */
         if (!strv_isempty(modes)) {
+                bool resume_set;
+
                 r = find_hibernate_location(&hibernate_location);
                 if (r < 0)
                         return log_error_errno(r, "Failed to find location to hibernate to: %m");
-                if (r == 0) { /* 0 means: no hibernation location was configured in the kernel so far, let's
-                               * do it ourselves then. > 0 means: kernel already had a configured hibernation
-                               * location which we shouldn't touch. */
+                resume_set = r > 0;
+
+                if (!resume_set) {
                         r = write_hibernate_location_info(hibernate_location);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to prepare for hibernation: %m");
