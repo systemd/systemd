@@ -282,10 +282,6 @@ units = [
         { 'file' : 'systemd-growfs@.service.in' },
         { 'file' : 'systemd-halt.service' },
         {
-          'file' : 'systemd-hibernate-resume@.service.in',
-          'conditions' : ['ENABLE_HIBERNATE'],
-        },
-        {
           'file' : 'systemd-hibernate.service.in',
           'conditions' : ['ENABLE_HIBERNATE'],
         },

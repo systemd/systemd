@@ -1,58 +1,55 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
-#include <stdio.h>
 #include <sys/stat.h>
 
-#include "alloc-util.h"
 #include "devnum-util.h"
-#include "fileio.h"
 #include "initrd-util.h"
 #include "log.h"
+#include "main-func.h"
+#include "parse-util.h"
+#include "sleep-util.h"
 
-int main(int argc, char *argv[]) {
+static const char *arg_resume_device = NULL;
+static uint64_t arg_resume_offset = 0; /* in memory pages */
+
+static int run(int argc, char *argv[]) {
         struct stat st;
-        const char *device;
         int r;
-
-        if (argc != 2) {
-                log_error("This program expects one argument.");
-                return EXIT_FAILURE;
-        }
 
         log_setup();
 
+        if (argc < 2 || argc > 3)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program expects one or two arguments.");
+
         umask(0022);
 
-        /* Refuse to run unless we are in an initrd() */
         if (!in_initrd())
-                return EXIT_SUCCESS;
+                return 0;
 
-        device = argv[1];
+        arg_resume_device = argv[1];
 
-        if (stat(device, &st) < 0) {
-                log_error_errno(errno, "Failed to stat '%s': %m", device);
-                return EXIT_FAILURE;
+        if (argc == 3) {
+                r = safe_atou64(argv[2], &arg_resume_offset);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse resume offset %s: %m", argv[2]);
         }
 
-        if (!S_ISBLK(st.st_mode)) {
-                log_error("Resume device '%s' is not a block device.", device);
-                return EXIT_FAILURE;
-        }
+        if (stat(arg_resume_device, &st) < 0)
+                return log_error_errno(errno, "Failed to stat resume device '%s': %m", arg_resume_device);
 
-        r = write_string_file("/sys/power/resume", FORMAT_DEVNUM(st.st_rdev), WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r < 0) {
-                log_error_errno(r, "Failed to write '" DEVNUM_FORMAT_STR "' to /sys/power/resume: %m", DEVNUM_FORMAT_VAL(st.st_rdev));
-                return EXIT_FAILURE;
-        }
+        if (!S_ISBLK(st.st_mode))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Resume device '%s' is not a block device.", arg_resume_device);
 
-        /*
-         * The write above shall not return.
-         *
-         * However, failed resume is a normal condition (may mean that there is
-         * no hibernation image).
-         */
+        /* The write shall not return if a resume takes place. */
+        r = write_resume_config(st.st_rdev, arg_resume_offset, arg_resume_device);
+        log_full_errno(r < 0 ? LOG_ERR : LOG_DEBUG,
+                       r < 0 ? r : SYNTHETIC_ERRNO(ENOENT),
+                       "Unable to resume from device '%s' (" DEVNUM_FORMAT_STR ") offset %" PRIu64 ", continuing boot process.",
+                       arg_resume_device, DEVNUM_FORMAT_VAL(st.st_rdev), arg_resume_offset);
 
-        log_info("Could not resume from '%s' (" DEVNUM_FORMAT_STR ").", device, DEVNUM_FORMAT_VAL(st.st_rdev));
-        return EXIT_SUCCESS;
+        return r;
 }
+
+DEFINE_MAIN_FUNCTION(run);
