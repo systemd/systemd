@@ -91,7 +91,7 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_MULTIPLICATION_SIGN]     = u8"×",
                         [SPECIAL_GLYPH_CIRCLE_ARROW]            = u8"↻",
                         [SPECIAL_GLYPH_BULLET]                  = u8"•",
-                        [SPECIAL_GLYPH_MU]                      = u8"μ",       /* actually called: GREEK SMALL LETTER MU */
+                        [SPECIAL_GLYPH_MU]                      = u8"µ",       /* actually called: MICRO SIGN */
                         [SPECIAL_GLYPH_CHECK_MARK]              = u8"✓",
                         [SPECIAL_GLYPH_CROSS_MARK]              = u8"✗",        /* actually called: BALLOT X */
                         [SPECIAL_GLYPH_LIGHT_SHADE]             = u8"░",

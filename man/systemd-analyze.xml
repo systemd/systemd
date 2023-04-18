@@ -564,15 +564,15 @@ Normalized form: Wed 2019-05-22 00:00:00 CEST
 
         <programlisting>$ systemd-analyze timespan 1s 300s '1year 0.000001s'
 Original: 1s
-      μs: 1000000
+      µs: 1000000
    Human: 1s
 
 Original: 300s
-      μs: 300000000
+      µs: 300000000
    Human: 5min
 
 Original: 1year 0.000001s
-      μs: 31557600000001
+      µs: 31557600000001
    Human: 1y 1us
 </programlisting>
       </example>
