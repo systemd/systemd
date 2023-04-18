@@ -1080,7 +1080,7 @@ static int add_sysroot_usr_mount_or_fallback(void) {
 
         /* OK, so we didn't write anything out for /sysusr/usr/ nor /sysroot/usr/. In this case, let's make
          * sure that initrd-usr-fs.target is at least ordered after sysroot.mount so that services that order
-         * themselves get the guarantee that /usr/ is definitely mounted somewhere. */
+         * themselves after it get the guarantee that /usr/ is definitely mounted somewhere. */
 
         return generator_add_symlink(
                         arg_dest,
