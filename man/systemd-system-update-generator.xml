@@ -30,7 +30,7 @@
     <para><filename>systemd-system-update-generator</filename> is a
     generator that automatically redirects the boot process to
     <filename>system-update.target</filename>, if
-    <filename>/system-update</filename> exists. This is required to
+    <filename>/system-update</filename> or <filename>/etc/system-update</filename> exists. This is required to
     implement the logic explained in the
     <citerefentry><refentrytitle>systemd.offline-updates</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
     </para>
