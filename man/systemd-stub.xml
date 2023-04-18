@@ -147,6 +147,13 @@
       directory of the initrd file hierarchy. This is supposed to be used to pass additional credentials to
       the initrd, regardless of the kernel being booted. The generated <command>cpio</command> archive is
       measured into TPM PCR 12 (if a TPM is present)</para></listitem>
+
+      <listitem><para>Additionally, files <filename>/loader/cmdlines/*.cmdline</filename> loaded and verified
+      as PE binaries, and a <literal>.cmdline</literal> section is parsed from them. In case Secure Boot is
+      enabled, these files will be validated using keys in DB or MoK, and will be rejected otherwise. This is
+      supposed to be used to pass additional kernel command line parameters, regardless of the kernel image
+      being booted, for example to allow platform vendors to ship platform-specific configuration. The loaded
+      command line options are sorted and measured into TPM PCR 12 (if a TPM is present)</para></listitem>
     </itemizedlist>
 
     <para>These mechanisms may be used to parameterize and extend trusted (i.e. signed), immutable initrd
