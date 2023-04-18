@@ -4,17 +4,24 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "sd-id128.h"
+
 #include "alloc-util.h"
-#include "dropin.h"
+#include "devnum-util.h"
+#include "efivars.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "fstab-util.h"
 #include "generator.h"
+#include "id128-util.h"
 #include "initrd-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "mkdir-label.h"
+#include "parse-util.h"
 #include "proc-cmdline.h"
 #include "special.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unit-name.h"
 
 static const char *arg_dest = NULL;
@@ -22,14 +29,16 @@ static char *arg_resume_device = NULL;
 static char *arg_resume_options = NULL;
 static char *arg_root_options = NULL;
 static bool arg_noresume = false;
+static uint64_t arg_resume_offset = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_resume_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_resume_options, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_options, freep);
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
+        int r;
 
-        if (streq(key, "resume")) {
+        if (proc_cmdline_key_streq(key, "resume")) {
                 char *s;
 
                 if (proc_cmdline_value_missing(key, value))
@@ -41,7 +50,16 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 free_and_replace(arg_resume_device, s);
 
-        } else if (streq(key, "resumeflags")) {
+        } else if (proc_cmdline_key_streq(key, "resume_offset")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = safe_atou64(value, &arg_resume_offset);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse resume_offset=%s: %m", value);
+
+        } else if (proc_cmdline_key_streq(key, "resumeflags")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
@@ -49,7 +67,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (!strextend_with_separator(&arg_resume_options, ",", value))
                         return log_oom();
 
-        } else if (streq(key, "rootflags")) {
+        } else if (proc_cmdline_key_streq(key, "rootflags")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
@@ -57,7 +75,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (!strextend_with_separator(&arg_root_options, ",", value))
                         return log_oom();
 
-        } else if (streq(key, "noresume")) {
+        } else if (proc_cmdline_key_streq(key, "noresume")) {
                 if (value) {
                         log_warning("\"noresume\" kernel command line switch specified with an argument, ignoring.");
                         return 0;
@@ -69,35 +87,107 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
+#if ENABLE_EFI_HIBERNATE_INFO
+static int parse_efi_hibernate_info(void) {
+        _cleanup_strv_free_ char **info_split = NULL;
+        _cleanup_free_ char *info = NULL, *device = NULL;
+        uint64_t offset;
+        char name[STRLEN("HibernateInfo-") + SD_ID128_STRING_MAX];
+        sd_id128_t machine_id = SD_ID128_NULL;
+        int r, log_level;
+
+        log_level = arg_resume_device ? LOG_DEBUG : LOG_ERR;
+
+        r = sd_id128_get_machine(&machine_id);
+        if (r < 0 && !ERRNO_IS_MACHINE_ID_UNSET(r))
+                return log_full_errno(log_level, r, "Failed to get machine-id: %m");
+
+        if (!sd_id128_is_null(machine_id))
+                xsprintf(name, "HibernateInfo-" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(machine_id));
+        else {
+                log_debug("Cannot use OS-specific HibernateInfo as machine-id is not set, proceeding anyway.");
+                strcpy(name, "HibernateInfo");
+        }
+
+        r = efi_get_variable_string(EFI_SYSTEMD_VARIABLE_STR(name), &info);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_full_errno(log_level, r, "Failed to get EFI variable '%s': %m", name);
+
+        info_split = strv_split(info, ":");
+        if (!info_split)
+                return log_oom();
+
+        if (strv_length(info_split) != 2)
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(EINVAL), "Failed to parse EFI variable '%s'.", name);
+
+        device = fstab_node_to_udev_node(info_split[0]);
+        if (!device)
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(ENODEV), "Failed to get resume device through HibernateInfo.");
+
+        r = safe_atou64(info_split[1], &offset);
+        if (r < 0)
+                return log_full_errno(log_level, r, "Failed to parse resume offset through HibernateInfo: %m");
+
+        if (!arg_resume_device) {
+                arg_resume_device = TAKE_PTR(device);
+                arg_resume_offset = offset;
+        } else {
+                if (!streq(arg_resume_device, device))
+                        log_warning("resume=%s mismatches with HibernateInfo device '%s', proceeding anyway.",
+                                    arg_resume_device, device);
+
+                if (arg_resume_offset != offset)
+                        log_warning("resume_offset=%" PRIu64 " mismatches with HibernateInfo offset %" PRIu64 ", proceeding anyway.",
+                                    arg_resume_offset, offset);
+        }
+
+        return 0;
+}
+#endif
+
 static int process_resume(void) {
-        _cleanup_free_ char *service_unit = NULL, *device_unit = NULL, *lnk = NULL;
+        _cleanup_free_ char *device_unit = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         if (!arg_resume_device)
                 return 0;
 
-        r = unit_name_from_path_instance("systemd-hibernate-resume", arg_resume_device, ".service",
-                                         &service_unit);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate unit name: %m");
-
-        lnk = strjoin(arg_dest, "/" SPECIAL_SYSINIT_TARGET ".wants/", service_unit);
-        if (!lnk)
-                return log_oom();
-
-        (void) mkdir_parents_label(lnk, 0755);
-        if (symlink(SYSTEM_DATA_UNIT_DIR "/systemd-hibernate-resume@.service", lnk) < 0)
-                return log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
-
         r = unit_name_from_path(arg_resume_device, ".device", &device_unit);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate unit name: %m");
+                return log_error_errno(r, "Failed to generate device unit name from path '%s': %m", arg_resume_device);
 
-        r = write_drop_in(arg_dest, device_unit, 40, "device-timeout",
-                          "# Automatically generated by systemd-hibernate-resume-generator\n\n"
-                          "[Unit]\nJobTimeoutSec=0");
+        r = generator_open_unit_file(arg_dest, NULL, SPECIAL_HIBERNATE_RESUME_SERVICE, &f);
         if (r < 0)
-                log_warning_errno(r, "Failed to write device timeout drop-in: %m");
+                return r;
+
+        fprintf(f,
+                "[Unit]\n"
+                "Description=Resume from hibernation\n"
+                "Documentation=man:systemd-hibernate-resume.service(8)\n"
+                "DefaultDependencies=no\n"
+                "BindsTo=%1$s\n"
+                "Wants=local-fs-pre.target\n"
+                "After=%1$s\n"
+                "Before=local-fs-pre.target\n"
+                "AssertPathExists=/etc/initrd-release\n"
+                "\n"
+                "[Service]\n"
+                "Type=oneshot\n"
+                "ExecStart=" ROOTLIBEXECDIR "/systemd-hibernate-resume %2$s %3$" PRIu64,
+                device_unit,
+                arg_resume_device,
+                arg_resume_offset);
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create " SPECIAL_HIBERNATE_RESUME_SERVICE ": %m");
+
+        r = generator_add_symlink(arg_dest, SPECIAL_SYSINIT_TARGET, "wants", SPECIAL_HIBERNATE_RESUME_SERVICE);
+        if (r < 0)
+                return r;
 
         r = generator_write_timeouts(arg_dest,
                                      arg_resume_device,
@@ -111,7 +201,7 @@ static int process_resume(void) {
 }
 
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
-        int r = 0;
+        int r;
 
         arg_dest = ASSERT_PTR(dest);
 
@@ -129,6 +219,18 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 log_notice("Found \"noresume\" on the kernel command line, quitting.");
                 return 0;
         }
+
+#if ENABLE_EFI_HIBERNATE_INFO
+        if (is_efi_boot()) {
+                r = parse_efi_hibernate_info();
+                if (r == -ENOMEM)
+                        return r;
+
+                r = efi_set_variable(EFI_SYSTEMD_VARIABLE(HibernateInfo), NULL, 0);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to clear EFI variable HibernateInfo, ignoring: %m");
+        }
+#endif
 
         return process_resume();
 }
