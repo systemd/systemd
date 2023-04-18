@@ -87,6 +87,12 @@
           <listitem><para>The bus connection was created in a different process.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EUCLEAN</constant></term>
+
+          <listitem><para>The bus connection was created in a different library or module instance.</para></listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
   </refsect1>
