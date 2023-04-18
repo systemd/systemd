@@ -438,6 +438,10 @@ option('dbus', type : 'combo', choices : ['auto', 'true', 'false'],
 
 option('bootloader', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'sd-boot/stub and userspace tools')
+option('bootloader-vendor', type : 'string', value : 'systemd',
+       description : 'boot loader vendor subdirectory')
+option('bootloader-description', type : 'string', value : 'Linux Boot Manager',
+       description : 'boot loader description for EFI boot variable')
 option('sbat-distro', type : 'string', value : 'auto',
        description : 'SBAT distribution ID, e.g. fedora, or auto for autodetection')
 option('sbat-distro-generation', type : 'integer', value : 1,
