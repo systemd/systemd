@@ -67,6 +67,10 @@ static int has_virtio_rng_recurse_dir_cb(
 static bool has_virtio_rng(void) {
         int r;
 
+        /* Directory traversal might be slow, hence let's do a cheap check first if it's even worth it */
+        if (detect_vm() == VIRTUALIZATION_NONE)
+                return false;
+
         r = recurse_dir_at(
                         AT_FDCWD,
                         "/sys/devices/pci0000:00",
