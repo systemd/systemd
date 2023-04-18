@@ -210,7 +210,7 @@ emergency.service    |              |              |
 
     Before any file systems are mounted, the manager will determine whether the system shall resume from
     hibernation or proceed with normal boot. This is accomplished by
-    <filename>systemd-hibernate-resume@.service</filename> which must be finished before
+    <filename>systemd-hibernate-resume.service</filename> which must be finished before
     <filename>local-fs-pre.target</filename>, so no filesystems can be mounted before the check is complete.
 
     When the root device becomes available,
