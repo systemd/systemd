@@ -194,7 +194,6 @@ in_units = [
         ['systemd-pstore.service',               'ENABLE_PSTORE'],
         ['systemd-fsck-root.service',            ''],
         ['systemd-fsck@.service',                ''],
-        ['systemd-hibernate-resume@.service',    'ENABLE_HIBERNATE'],
         ['systemd-hibernate.service',            'ENABLE_HIBERNATE'],
         ['systemd-hybrid-sleep.service',         'ENABLE_HIBERNATE'],
         ['systemd-suspend-then-hibernate.service', 'ENABLE_HIBERNATE'],
