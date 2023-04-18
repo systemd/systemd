@@ -2261,7 +2261,7 @@ static int do_queue_default_job(
 
         if (arg_default_unit)
                 unit = arg_default_unit;
-        else if (in_initrd())
+        else if (MANAGER_IS_SYSTEM(m) && in_initrd())
                 unit = SPECIAL_INITRD_TARGET;
         else
                 unit = SPECIAL_DEFAULT_TARGET;
