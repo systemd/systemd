@@ -108,6 +108,12 @@
         </varlistentry>
 
         <varlistentry>
+          <term><constant>-EUCLEAN</constant></term>
+
+          <listitem><para>The bus of <parameter>m</parameter> was created in a different library or module instance.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><constant>-EPERM</constant></term>
 
           <listitem><para>The message <parameter>m</parameter> is not sealed.</para></listitem>

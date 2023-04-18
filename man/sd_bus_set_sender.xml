@@ -79,6 +79,12 @@
         </varlistentry>
 
         <varlistentry>
+          <term><constant>-EUCLEAN</constant></term>
+
+          <listitem><para>The bus connection has been created in a different library or module instance.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><constant>-EPERM</constant></term>
 
           <listitem><para>The specified bus connection object is a not a direct but a brokered
