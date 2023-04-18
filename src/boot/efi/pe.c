@@ -239,7 +239,7 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address) {
         return EFI_SUCCESS;
 }
 
-EFI_STATUS pe_memory_locate_sections(const void *base, const char * const sections[], size_t *addrs, size_t *sizes) {
+static EFI_STATUS pe_memory_locate_sections_internal(const void *base, const char * const sections[], size_t *addrs, size_t *sizes, bool in_memory) {
         const DosFileHeader *dos;
         const PeFileHeader *pe;
         size_t offset;
@@ -263,9 +263,17 @@ EFI_STATUS pe_memory_locate_sections(const void *base, const char * const sectio
                         sections,
                         addrs,
                         sizes,
-                        /*in_memory=*/true);
+                        in_memory);
 
         return EFI_SUCCESS;
+}
+
+EFI_STATUS pe_memory_locate_sections(const void *base, const char * const sections[], size_t *addrs, size_t *sizes) {
+        return pe_memory_locate_sections_internal(base, sections, addrs, sizes, /*in_memory=*/true);
+}
+
+EFI_STATUS pe_memory_locate_sections_offsets(const void *base, const char * const sections[], size_t *offsets, size_t *sizes) {
+        return pe_memory_locate_sections_internal(base, sections, offsets, sizes, /*in_memory=*/false);
 }
 
 EFI_STATUS pe_file_locate_sections(
