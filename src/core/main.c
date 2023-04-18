@@ -2799,6 +2799,10 @@ int main(int argc, char *argv[]) {
                                         goto finish;
                                 }
 
+                                /* We might have just mounted /proc, so let's try to parse the kernel
+                                 * command line log arguments immediately. */
+                                log_parse_environment();
+
                                 /* Let's open the log backend a second time, in case the first time didn't
                                  * work. Quite possibly we have mounted /dev just now, so /dev/kmsg became
                                  * available, and it previously wasn't. */
