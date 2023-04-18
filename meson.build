@@ -1952,6 +1952,8 @@ conf.set10('ENABLE_TIMEDATECTL', get_option('timedated') or get_option('timesync
 
 conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', slow_tests)
 
+conf.set10('ENABLE_EFI_HIBERNATE_INFO', conf.get('ENABLE_EFI') == 1 and conf.get('HAVE_BLKID') == 1)
+
 ############################################################
 
 tests = []
@@ -3630,7 +3632,8 @@ executable(
         'src/sleep/sleep.c',
         include_directories : includes,
         link_with : [libshared],
-        dependencies : [userspace,
+        dependencies : [libblkid,
+                        userspace,
                         versiondep],
         install_rpath : rootpkglibdir,
         install : true,
