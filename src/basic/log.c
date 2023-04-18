@@ -552,7 +552,7 @@ static int write_to_kmsg(
         if (kmsg_fd < 0)
                 return 0;
 
-        if (!ratelimit_below(&ratelimit))
+        if (log_get_max_level() != LOG_DEBUG && !ratelimit_below(&ratelimit))
                 return 0;
 
         xsprintf(header_priority, "<%i>", level);
