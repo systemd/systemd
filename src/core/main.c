@@ -2736,6 +2736,10 @@ int main(int argc, char *argv[]) {
 
         assert_se(argc > 0 && !isempty(argv[0]));
 
+        /* If we're running in a container, let's immediately try to read logging arguments from our cmdline. */
+        if (getpid_cached() == 1 && detect_container() > 0)
+                log_parse_environment();
+
         /* SysV compatibility: redirect init → telinit */
         redirect_telinit(argc, argv);
 
@@ -2798,6 +2802,10 @@ int main(int argc, char *argv[]) {
                                         error_message = "Failed to mount early API filesystems";
                                         goto finish;
                                 }
+
+                                /* We might have just mounted /proc, so let's try to parse the kernel
+                                 * command line log arguments immediately. */
+                                log_parse_environment();
 
                                 /* Let's open the log backend a second time, in case the first time didn't
                                  * work. Quite possibly we have mounted /dev just now, so /dev/kmsg became
