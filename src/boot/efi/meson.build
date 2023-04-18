@@ -58,6 +58,8 @@ endif
 efi_conf = configuration_data()
 efi_conf.set10('ENABLE_TPM', get_option('tpm'))
 
+efi_conf.set_quoted('BOOTLOADER_VENDOR', get_option('bootloader-vendor'))
+
 foreach ctype : ['color-normal', 'color-entry', 'color-highlight', 'color-edit']
         c = get_option('efi-' + ctype).split(',')
         efi_conf.set(ctype.underscorify().to_upper(), 'EFI_TEXT_ATTR(@0@, @1@)'.format(

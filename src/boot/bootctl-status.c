@@ -273,7 +273,7 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
                 printf(" (/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ")", SD_ID128_FORMAT_VAL(partition));
         printf("\n");
 
-        r = enumerate_binaries(esp_path, "EFI/systemd", NULL, &last, &is_first);
+        r = enumerate_binaries(esp_path, "EFI/" BOOTLOADER_VENDOR, NULL, &last, &is_first);
         if (r < 0) {
                 printf("\n");
                 return r;
