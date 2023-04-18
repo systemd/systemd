@@ -2798,12 +2798,18 @@ int main(int argc, char *argv[]) {
                                         error_message = "Failed to mount early API filesystems";
                                         goto finish;
                                 }
+                        }
 
-                                /* Let's open the log backend a second time, in case the first time didn't
-                                 * work. Quite possibly we have mounted /dev just now, so /dev/kmsg became
-                                 * available, and it previously wasn't. */
-                                log_open();
+                        /* We might have just mounted /proc, so let's try to parse the kernel
+                         * command line log arguments immediately. */
+                        log_parse_environment();
 
+                        /* Let's open the log backend a second time, in case the first time didn't
+                         * work. Quite possibly we have mounted /dev just now, so /dev/kmsg became
+                         * available, and it previously wasn't. */
+                        log_open();
+
+                        if (!skip_setup) {
                                 disable_printk_ratelimit();
 
                                 r = initialize_security(
