@@ -40,6 +40,7 @@
       <command>kernel-install</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">inspect</arg>
+      <arg choice="opt"><replaceable>KERNEL-IMAGE</replaceable></arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -56,16 +57,17 @@
     below.</para>
 
     <para><command>kernel-install</command> will run the executable files ("plugins") located in the
-    directory <filename>/usr/lib/kernel/install.d/</filename> and the local administration directory
-    <filename>/etc/kernel/install.d/</filename>.  All files are collectively sorted and executed in lexical
+    directory <filename>/usr/lib/kernel/install.d/</filename>, the local administration directory
+    <filename>/etc/kernel/install.d/</filename>, and the volatile runtime directory
+    <filename>/run/kernel/install.d/</filename>. All files are collectively sorted and executed in lexical
     order, regardless of the directory in which they live. However, files with identical filenames replace
-    each other.  Files in <filename>/etc/kernel/install.d/</filename> take precedence over files with the
-    same name in <filename>/usr/lib/kernel/install.d/</filename>. This can be used to override a
-    system-supplied executables with a local file if needed; a symbolic link in
-    <filename>/etc/kernel/install.d/</filename> with the same name as an executable in
-    <filename>/usr/lib/kernel/install.d/</filename>, pointing to <filename>/dev/null</filename>, disables the
-    executable entirely. Executables must have the extension <literal>.install</literal>; other extensions
-    are ignored.</para>
+    each other. Files in <filename>/etc/kernel/install.d/</filename> have the highest priority, files in
+    <filename>/run/kernel/install.d/</filename> take precedence over files with the same name in
+    <filename>/usr/lib/kernel/install.d/</filename>. This can be used to override a system-supplied
+    executables with a local file if needed; a symbolic link in <filename>/etc/kernel/install.d/</filename>
+    with the same name as an executable in <filename>/usr/lib/kernel/install.d/</filename>, pointing to
+    <filename>/dev/null</filename>, disables the executable entirely (it is "masked"). Executables must have
+    the extension <literal>.install</literal>; other extensions are ignored.</para>
 
     <para>An executable placed in these directories should return <constant>0</constant> on success. It may
     also return <constant>77</constant> to cause the whole operation to terminate (executables later in
@@ -82,8 +84,9 @@
           <para>This command expects a kernel version string and a path to a kernel image file as arguments.
           Optionally, one or more initrd images may be specified as well (note that plugins might generate
           additional ones). <command>kernel-install</command> calls the executable files from
-          <filename>/usr/lib/kernel/install.d/*.install</filename> and
-          <filename>/etc/kernel/install.d/*.install</filename> (i.e. the plugins) with the following
+          <filename>/etc/kernel/install.d/*.install</filename>,
+          <filename>/run/kernel/install.d/*.install</filename>, and
+          <filename>/usr/lib/kernel/install.d/*.install</filename> (i.e. the plugins) with the following
           arguments:</para>
 
           <programlisting>add <replaceable>KERNEL-VERSION</replaceable> <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename> <replaceable>KERNEL-IMAGE</replaceable> [<replaceable>INITRD-FILE</replaceable> ...]</programlisting>
@@ -134,8 +137,9 @@
         <term><command>remove <replaceable>KERNEL-VERSION</replaceable></command></term>
         <listitem>
           <para>This command expects a kernel version string as single argument. This calls executables from
-          <filename>/usr/lib/kernel/install.d/*.install</filename> and
-          <filename>/etc/kernel/install.d/*.install</filename> with the following arguments:
+          <filename>/etc/kernel/install.d/*.install</filename>,
+          <filename>/run/kernel/install.d/*.install</filename>, and
+          <filename>/usr/lib/kernel/install.d/*.install</filename> with the following arguments:
           </para>
 
           <programlisting>remove <replaceable>KERNEL-VERSION</replaceable> <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename></programlisting>
@@ -158,7 +162,7 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><command>inspect</command></term>
+        <term><command>inspect [<replaceable>KERNEL-IMAGE</replaceable>]</command></term>
         <listitem>
           <para>Shows the various paths and parameters configured or auto-detected. In particular shows the
           values of the various <varname>$KERNEL_INSTALL_*</varname> environment variables listed
@@ -185,6 +189,67 @@
     <para>The following options are understood:</para>
 
     <variablelist>
+      <xi:include href="standard-options.xml" xpointer="esp-path"/>
+      <xi:include href="standard-options.xml" xpointer="boot-path"/>
+      <xi:include href="standard-options.xml" xpointer="root"/>
+      <xi:include href="standard-options.xml" xpointer="image"/>
+      <xi:include href="standard-options.xml" xpointer="image-policy-open"/>
+
+      <varlistentry>
+        <term><option>--make-entry-directory=yes|no|auto</option></term>
+        <listitem>
+          <para>Controls creation and deletion of the
+          <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>
+          Type #1 entry directory on the file system containing resources such as kernel and initrd images
+          during <option>add</option> and <option>remove</option>, respectively. The directory is named after
+          the entry token, and is placed immediately below the boot root directory. When
+          <literal>auto</literal>, the directory is created or removed only when the install layout is
+          <literal>bls</literal>. Defaults to <literal>auto</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--entry-token=</option></term>
+
+        <listitem>
+          <para>Controls how to name and identify boot loader entries for this kernel installation or
+          deletion. Takes one of <literal>auto</literal>, <literal>machine-id</literal>,
+          <literal>os-id</literal>, <literal>os-image-id</literal>, or an arbitrary string prefixed by
+          <literal>literal:</literal> as argument.</para>
+
+          <para>If set to <option>machine-id</option> the entries are named after the machine ID of the
+          running system (e.g. <literal>b0e793a9baf14b5fa13ecbe84ff637ac</literal>). See
+          <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+          details about the machine ID concept and file.</para>
+
+          <para>If set to <option>os-id</option> the entries are named after the OS ID of the running system,
+          i.e. the <varname>ID=</varname> field of
+          <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          (e.g. <literal>fedora</literal>). Similarly, if set to <option>os-image-id</option> the entries are
+          named after the OS image ID of the running system, i.e. the <varname>IMAGE_ID=</varname> field of
+          <filename>os-release</filename> (e.g. <literal>vendorx-cashier-system</literal>).</para>
+
+          <para>If set to <option>auto</option> (the default), the
+          <filename>/etc/kernel/entry-token</filename> (or
+          <filename>$KERNEL_INSTALL_CONF_ROOT/entry-token</filename>) file will be read if it exists, and the
+          stored value used. Otherwise if the local machine ID is initialized it is used. Otherwise
+          <varname>IMAGE_ID=</varname> from <filename>os-release</filename> will be used, if set. Otherwise,
+          <varname>ID=</varname> from <filename>os-release</filename> will be used, if set. Otherwise a
+          randomly generated machine ID is used.</para>
+
+          <para>Using the machine ID for naming the entries is generally preferable, however there are cases
+          where using the other identifiers is a good option. Specifically: if the identification data that
+          the machine ID entails shall not be stored on the (unencrypted) <varname>$BOOT_ROOT</varname>
+          partition, or if the ID shall be generated on first boot and is not known when the entries are
+          prepared. Note that using the machine ID has the benefit that multiple parallel installations of
+          the same OS can coexist on the same medium, and they can update their boot loader entries
+          independently. When using another identifier (such as the OS ID or the OS image ID), parallel
+          installations of the same OS would try to use the same entry name. To support parallel
+          installations, the installer must use a different entry token when adding a second installation.
+          </para>
+        </listitem>
+      </varlistentry>
+
       <varlistentry>
         <term><option>-v</option></term>
         <term><option>--verbose</option></term>
@@ -228,6 +293,10 @@
       few possible candidates below <varname>$BOOT</varname> are checked for Boot Loader Specification Type 1
       entry directories, and if found the entry token is derived from that. If that is not successful,
       <varname>$KERNEL_INSTALL_MACHINE_ID</varname> is used as fallback.</para>
+
+      <para><varname>$KERNEL_INSTALL_ROOT</varname> is set for the plugins to the absolute path of the
+      root directory specified by <option>--root=</option> or the mount point of the image specified by
+      <option>--image=</option>.</para>
 
       <para><varname>$KERNEL_INSTALL_BOOT_ROOT</varname> is set for the plugins to the absolute path of the
       root directory (mount point, usually) of the hierarchy where boot loader entries, kernel images, and
@@ -329,8 +398,9 @@
     <variablelist>
       <varlistentry>
         <term>
-          <filename>/usr/lib/kernel/install.d/*.install</filename>
           <filename>/etc/kernel/install.d/*.install</filename>
+          <filename>/run/kernel/install.d/*.install</filename>
+          <filename>/usr/lib/kernel/install.d/*.install</filename>
         </term>
           <listitem>
             <para>Drop-in files which are executed by kernel-install.</para>
@@ -400,15 +470,17 @@
       </varlistentry>
       <varlistentry>
         <term>
-          <filename>/usr/lib/kernel/install.conf</filename>
           <filename>/etc/kernel/install.conf</filename>
+          <filename>/run/kernel/install.conf</filename>
+          <filename>/usr/lib/kernel/install.conf</filename>
         </term>
           <listitem>
             <para>Configuration options for <command>kernel-install</command>, as a series of
             <varname>KEY=</varname><replaceable>VALUE</replaceable> assignments, compatible with shell
             syntax, following the same rules as described in
             <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            <filename>/etc/kernel/install.conf</filename> will be read if present, and
+            <filename>/etc/kernel/install.conf</filename> will be read if present, Otherwise,
+            <filename>/run/kernel/install.conf</filename> will be read if present, and
             <filename>/usr/lib/kernel/install.conf</filename> otherwise. This file is optional.
             <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the path.
             </para>
