@@ -135,6 +135,7 @@ fi
 systemd-run -p DynamicUser=yes -p 'LoadCredential=os:/etc/os-release' \
             -p 'ExecStartPre=true' \
             -p 'ExecStartPre=systemd-creds cat os' \
+            --unit=test-54-exec-start.service \
             --wait \
             --pipe \
             true | cmp /etc/os-release
