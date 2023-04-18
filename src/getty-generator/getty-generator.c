@@ -23,21 +23,15 @@
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 
-static int add_symlink(const char *wants, const char *fservice, const char *tservice) {
-        _cleanup_free_ char *from = NULL, *to = NULL;
+static int add_symlink(const char *fservice, const char *tservice) {
+        char *from, *to;
         int r;
 
-        assert(wants);
         assert(fservice);
         assert(tservice);
 
-        from = path_join(SYSTEM_DATA_UNIT_DIR, fservice);
-        if (!from)
-                return -ENOMEM;
-
-        to = path_join(arg_dest, wants, tservice);
-        if (!to)
-                return -ENOMEM;
+        from = strjoina(SYSTEM_DATA_UNIT_DIR "/", fservice);
+        to = strjoina(arg_dest, "/getty.target.wants/", tservice);
 
         (void) mkdir_parents_label(to, 0755);
 
@@ -53,7 +47,7 @@ static int add_symlink(const char *wants, const char *fservice, const char *tser
         return 0;
 }
 
-static int add_serial_getty(const char *wants ,const char *tty) {
+static int add_serial_getty(const char *tty) {
         _cleanup_free_ char *n = NULL;
         int r;
 
@@ -65,7 +59,7 @@ static int add_serial_getty(const char *wants ,const char *tty) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate service name: %m");
 
-        return add_symlink(wants, "serial-getty@.service", n);
+        return add_symlink("serial-getty@.service", n);
 }
 
 static int add_container_getty(const char *tty) {
@@ -80,7 +74,7 @@ static int add_container_getty(const char *tty) {
         if (r < 0)
                 return log_error_errno(r, "Failed to generate service name: %m");
 
-        return add_symlink("getty.target.wants", "container-getty@.service", n);
+        return add_symlink("container-getty@.service", n);
 }
 
 static int verify_tty(const char *name) {
@@ -113,7 +107,7 @@ static int run_container(void) {
 
         log_debug("Automatically adding console shell.");
 
-        r = add_symlink("getty.target.wants", "console-getty.service", "console-getty.service");
+        r = add_symlink("console-getty.service", "console-getty.service");
         if (r < 0)
                 return r;
 
@@ -215,7 +209,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 if (verify_tty(tty) < 0)
                         continue;
 
-                r = add_serial_getty("getty.target.wants", tty);
+                r = add_serial_getty(tty);
                 if (r < 0)
                         return r;
         }
@@ -230,11 +224,13 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                        "3270!tty1") {
                 _cleanup_free_ char *p = NULL;
 
-                p = strjoin("dev-", j, ".device.wants");
+                p = path_join("/sys/class/tty", j);
                 if (!p)
                         return -ENOMEM;
+                if (access(p, F_OK) < 0)
+                        continue;
 
-                r = add_serial_getty(p, j);
+                r = add_serial_getty(j);
                 if (r < 0)
                         return r;
         }
