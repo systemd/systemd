@@ -20,6 +20,7 @@
  * that way we become independent of /var being mounted */
 #define DEFAULT_SYSTEM_BUS_ADDRESS "unix:path=/run/dbus/system_bus_socket"
 #define DEFAULT_USER_BUS_ADDRESS_FMT "unix:path=%s/bus"
+#define BUS_OBJECT_NONCE_SIZE 16
 
 struct reply_callback {
         sd_bus_message_handler_t callback;
@@ -321,6 +322,9 @@ struct sd_bus {
 
         /* zero means use value specified by $SYSTEMD_BUS_TIMEOUT= environment variable or built-in default */
         usec_t method_call_timeout;
+
+        /* See static uint8_t bus_object_nonce[] in sd-bus.c */
+        uint8_t bus_object_nonce[BUS_OBJECT_NONCE_SIZE];
 };
 
 /* For method calls we timeout at 25s, like in the D-Bus reference implementation */
@@ -378,6 +382,7 @@ int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m);
 int bus_rqueue_make_room(sd_bus *bus);
 
 bool bus_pid_changed(sd_bus *bus);
+bool bus_nonce_changed(sd_bus *bus);
 
 char *bus_address_escape(const char *v);
 
