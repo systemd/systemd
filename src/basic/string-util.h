@@ -267,3 +267,8 @@ char *strdupspn(const char *a, const char *accept);
 char *strdupcspn(const char *a, const char *reject);
 
 char *find_line_startswith(const char *haystack, const char *needle);
+
+char *startswith_strv(const char *string, char **strv);
+
+#define STARTSWITH_SET(p, ...)                                  \
+        startswith_strv(p, STRV_MAKE(__VA_ARGS__))

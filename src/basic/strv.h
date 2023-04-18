@@ -200,18 +200,6 @@ static inline void strv_print(char * const *l) {
                 _x && strv_contains_case(STRV_MAKE(__VA_ARGS__), _x); \
         })
 
-#define STARTSWITH_SET(p, ...)                                  \
-        ({                                                      \
-                const char *_p = (p);                           \
-                char *_found = NULL;                            \
-                STRV_FOREACH(_i, STRV_MAKE(__VA_ARGS__)) {      \
-                        _found = startswith(_p, *_i);           \
-                        if (_found)                             \
-                                break;                          \
-                }                                               \
-                _found;                                         \
-        })
-
 #define ENDSWITH_SET(p, ...)                                    \
         ({                                                      \
                 const char *_p = (p);                           \
