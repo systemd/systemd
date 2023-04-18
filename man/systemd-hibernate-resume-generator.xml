@@ -32,7 +32,8 @@
     It instantiates the
     <citerefentry><refentrytitle>systemd-hibernate-resume@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     unit according to the value of <option>resume=</option> parameter
-    specified on the kernel command line, which will instruct the kernel
+    specified on the kernel command line, or the value of EFI variable
+    <varname>HibernateInfo</varname>, which will instruct the kernel
     to resume the system from the hibernation image on that device.</para>
   </refsect1>
 
