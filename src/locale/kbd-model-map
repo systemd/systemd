@@ -1,5 +1,6 @@
 # Originally generated from system-config-keyboard's model list.
 # consolelayout		xlayout	xmodel		xvariant	xoptions
+arabic			ara,us	pc105		-		terminate:ctrl_alt_bksp,grp:shift_toggle
 be-latin1		be	pc105		-		terminate:ctrl_alt_bksp
 bg_bds-utf8		bg,us	pc105		-		terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll
 bg_pho-utf8		bg,us	pc105		,phonetic	terminate:ctrl_alt_bksp,grp:shifts_toggle,grp_led:scroll
@@ -32,6 +33,7 @@ hu101			hu	pc105		qwerty		terminate:ctrl_alt_bksp
 hu			hu	pc105		-		terminate:ctrl_alt_bksp
 ie			ie	pc105		-		terminate:ctrl_alt_bksp
 il			il	pc105		-		terminate:ctrl_alt_bksp
+ir			ir	pc105		-		terminate:ctrl_alt_bksp
 is-latin1		is	pc105		-		terminate:ctrl_alt_bksp
 it2			it	pc105		-		terminate:ctrl_alt_bksp
 it-ibm			it	pc105		-		terminate:ctrl_alt_bksp
