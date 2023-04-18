@@ -28,6 +28,15 @@ command -v jq >/dev/null || {
 "$bootctl" -R || test "$?" -eq 80
 "$bootctl" -RR || test "$?" -eq 80
 
+# regression tests for
+# https://github.com/systemd/systemd/pull/27199#issuecomment-1511387731
+if ret=$("$bootctl" --print-esp-path); then
+    test "$ret" = "/efi" -o "$ret" = "/boot" -o "$ret" = "/boot/efi"
+fi
+if ret=$("bootctl" --print-boot-path); then
+    test "$ret" = "/efi" -o "$ret" = "/boot" -o "$ret" = "/boot/efi"
+fi
+
 if "$bootctl" -R > /dev/null ; then
     P=$("$bootctl" -R)
     PP=$("$bootctl" -RR)
