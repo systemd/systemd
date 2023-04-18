@@ -485,7 +485,7 @@ static int mount_add_default_ordering_dependencies(Mount *m, MountParameters *p,
                  * it's not technically part of the basic initrd filesystem itself, and so
                  * shouldn't inherit the default Before=local-fs.target dependency. However,
                  * these mounts still need to start after local-fs-pre.target, as a sync point
-                 * for things like systemd-hibernate-resume@.service that should start before
+                 * for things like systemd-hibernate-resume.service that should start before
                  * any mounts. */
 
                 after = SPECIAL_LOCAL_FS_PRE_TARGET;
