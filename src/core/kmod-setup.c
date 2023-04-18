@@ -11,6 +11,7 @@
 #include "macro.h"
 #include "recurse-dir.h"
 #include "string-util.h"
+#include "strv.h"
 #include "virt.h"
 
 #if HAVE_KMOD
@@ -57,10 +58,7 @@ static int has_virtio_rng_recurse_dir_cb(
                 return RECURSE_DIR_LEAVE_DIRECTORY;
         }
 
-        if (startswith(alias, "pci:v00001AF4d00001005"))
-                return 1;
-
-        if (startswith(alias, "pci:v00001AF4d00001044"))
+        if (STARTSWITH_SET(alias, "pci:v00001AF4d00001005", "pci:v00001AF4d00001044"))
                 return 1;
 
         return RECURSE_DIR_LEAVE_DIRECTORY;
@@ -68,6 +66,10 @@ static int has_virtio_rng_recurse_dir_cb(
 
 static bool has_virtio_rng(void) {
         int r;
+
+        /* Directory traversal might be slow, hence let's do a cheap check first if it's even worth it */
+        if (detect_vm() == VIRTUALIZATION_NONE)
+                return false;
 
         r = recurse_dir_at(
                         AT_FDCWD,
