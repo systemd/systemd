@@ -31,7 +31,7 @@ static void systemd_kmod_log(
         REENABLE_WARNING;
 }
 
-static int has_virtio_rng_recurse_dir_cb(
+static int match_modalias_recurse_dir_cb(
                 RecurseDirEvent event,
                 const char *path,
                 int dir_fd,
@@ -41,6 +41,7 @@ static int has_virtio_rng_recurse_dir_cb(
                 void *userdata) {
 
         _cleanup_free_ char *alias = NULL;
+        char **modaliases = ASSERT_PTR(userdata);
         int r;
 
         if (event != RECURSE_DIR_ENTRY)
@@ -58,7 +59,7 @@ static int has_virtio_rng_recurse_dir_cb(
                 return RECURSE_DIR_LEAVE_DIRECTORY;
         }
 
-        if (STARTSWITH_SET(alias, "pci:v00001AF4d00001005", "pci:v00001AF4d00001044"))
+        if (startswith_strv(alias, modaliases))
                 return 1;
 
         return RECURSE_DIR_LEAVE_DIRECTORY;
@@ -77,8 +78,8 @@ static bool has_virtio_rng(void) {
                         /* statx_mask= */ 0,
                         /* n_depth_max= */ 2,
                         RECURSE_DIR_ENSURE_TYPE,
-                        has_virtio_rng_recurse_dir_cb,
-                        NULL);
+                        match_modalias_recurse_dir_cb,
+                        STRV_MAKE("pci:v00001AF4d00001005", "pci:v00001AF4d00001044"));
         if (r < 0)
                 log_debug_errno(r, "Failed to determine whether host has virtio-rng device, ignoring: %m");
 
