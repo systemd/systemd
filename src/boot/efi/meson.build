@@ -255,6 +255,7 @@ systemd_boot_sources = files(
 stub_sources = files(
         'cpio.c',
         'linux.c',
+        'shim.c',
         'splash.c',
         'stub.c',
 )

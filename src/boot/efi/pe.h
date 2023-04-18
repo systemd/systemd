@@ -9,6 +9,12 @@ EFI_STATUS pe_memory_locate_sections(
                 size_t *addrs,
                 size_t *sizes);
 
+EFI_STATUS pe_memory_locate_sections_offsets(
+                const void *base,
+                const char * const sections[],
+                size_t *offsets,
+                size_t *sizes);
+
 EFI_STATUS pe_file_locate_sections(
                 EFI_FILE *dir,
                 const char16_t *path,
