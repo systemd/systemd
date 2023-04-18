@@ -1575,7 +1575,8 @@ int dissect_image_file(
 #endif
 }
 
-static int dissect_log_error(int r, const char *name, const VeritySettings *verity) {
+int dissect_log_error(int log_level, int r, const char *name, const VeritySettings *verity) {
+        assert(log_level >= 0 && log_level <= LOG_DEBUG);
         assert(name);
 
         switch (r) {
@@ -1620,7 +1621,7 @@ static int dissect_log_error(int r, const char *name, const VeritySettings *veri
                 return log_error_errno(r, "%s: no suitable partitions found.", name);
 
         default:
-                return log_error_errno(r, "Failed to dissect image '%s': %m", name);
+                return log_error_errno(r, "%s: cannot dissect image: %m", name);
         }
 }
 
@@ -1633,6 +1634,7 @@ int dissect_image_file_and_warn(
                 DissectedImage **ret) {
 
         return dissect_log_error(
+                        LOG_ERR,
                         dissect_image_file(path, verity, mount_options, image_policy, flags, ret),
                         path,
                         verity);
@@ -3560,6 +3562,7 @@ int dissect_loop_device_and_warn(
         assert(loop);
 
         return dissect_log_error(
+                        LOG_ERR,
                         dissect_loop_device(loop, verity, mount_options, image_policy, flags, ret),
                         loop->backing_file ?: loop->node,
                         verity);
