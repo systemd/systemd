@@ -151,6 +151,12 @@
         </varlistentry>
 
         <varlistentry>
+          <term><constant>-EUCLEAN</constant></term>
+
+          <listitem><para>The bus connection has been created in a different library or module instance.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><constant>-EPERM</constant></term>
 
           <listitem><para>The bus connection has already been started.</para></listitem>

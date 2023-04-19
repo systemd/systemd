@@ -18,6 +18,8 @@
 
 #define JOURNAL_LOG_RATELIMIT ((const RateLimit) { .interval = 60 * USEC_PER_SEC, .burst = 3 })
 
+#define JOURNAL_OBJECT_NONCE_SIZE 16
+
 typedef struct Match Match;
 typedef struct Location Location;
 typedef struct Directory Directory;
@@ -124,6 +126,8 @@ struct sd_journal {
         Hashmap *directories_by_wd;
 
         Hashmap *errors;
+
+        uint8_t journal_object_nonce[JOURNAL_OBJECT_NONCE_SIZE];
 };
 
 char *journal_make_match_string(sd_journal *j);

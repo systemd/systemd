@@ -206,6 +206,12 @@
         </varlistentry>
 
         <varlistentry>
+          <term><constant>-EUCLEAN</constant></term>
+
+          <listitem><para>The bus was created in a different library or module instance.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><constant>-ENOMEM</constant></term>
 
           <listitem><para>Memory allocation failed.</para></listitem>
