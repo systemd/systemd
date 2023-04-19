@@ -62,10 +62,16 @@ static void device_unset_sysfs(Device *d) {
         if (!d->sysfs)
                 return;
 
-        /* Remove this unit from the chain of devices which share the
-         * same sysfs path. */
+        /* Remove this unit from the chain of devices which share the same sysfs path. */
+
         devices = UNIT(d)->manager->devices_by_sysfs;
+        if (!devices)
+                return;
+
         first = hashmap_get(devices, d->sysfs);
+        if (!first)
+                return;
+
         LIST_REMOVE(same_sysfs, first, d);
 
         if (first)
