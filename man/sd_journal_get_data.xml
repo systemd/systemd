@@ -171,6 +171,12 @@
           <listitem><para>The journal object was created in a different process.</para></listitem>
         </varlistentry>
 
+        <varlistentry id='EUCLEAN'>
+          <term><constant>-EUCLEAN</constant></term>
+
+          <listitem><para>The journal object was created in a different library or module instance.</para></listitem>
+        </varlistentry>
+
         <varlistentry id='EADDRNOTAVAIL'>
           <term><constant>-EADDRNOTAVAIL</constant></term>
 
