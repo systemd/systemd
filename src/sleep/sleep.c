@@ -23,6 +23,7 @@
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "constants.h"
+#include "efivars.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -43,48 +44,69 @@
 
 static SleepOperation arg_operation = _SLEEP_OPERATION_INVALID;
 
-static int write_hibernate_location_info(const HibernateLocation *hibernate_location) {
-        char offset_str[DECIMAL_STR_MAX(uint64_t)];
+static int write_hibernate_location_info(const HibernateLocation *hibernate_location, bool efivar_only) {
+        _cleanup_free_ char *efi_hibernate_info = NULL;
         char resume_str[DECIMAL_STR_MAX(unsigned) * 2 + STRLEN(":")];
-        int r;
+        char offset_str[DECIMAL_STR_MAX(uint64_t)];
+        bool need_offset;
+        int r = 0;
 
         assert(hibernate_location);
         assert(hibernate_location->swap);
 
+        need_offset = streq(hibernate_location->swap->type, "file");
+
+        if (!need_offset && !streq(hibernate_location->swap->type, "partition"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid swap type for hibernation: %s",
+                                       hibernate_location->swap->type);
+
         xsprintf(resume_str, "%u:%u", major(hibernate_location->devno), minor(hibernate_location->devno));
-        r = write_string_file("/sys/power/resume", resume_str, WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to write partition device to /sys/power/resume for '%s': '%s': %m",
-                                       hibernate_location->swap->device, resume_str);
+        xsprintf(offset_str, "%" PRIu64, hibernate_location->offset);
 
-        log_debug("Wrote resume= value for %s to /sys/power/resume: %s", hibernate_location->swap->device, resume_str);
+#if ENABLE_EFI
+        if (is_efi_boot()) {
+                r = asprintf(&efi_hibernate_info, "%s%s%s", resume_str, need_offset ? "=" : "", strempty(offset_str));
+                if (r < 0)
+                        log_oom_debug();
+                else {
+                        r = efi_set_variable_string(EFI_SYSTEMD_VARIABLE(HibernateInfo), efi_hibernate_info);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to set EFI variable HibernateInfo, ignoring: %m");
+                }
+        }
+#endif
 
-        /* if it's a swap partition, we're done */
-        if (streq(hibernate_location->swap->type, "partition"))
+        if (efivar_only)
                 return r;
 
-        if (!streq(hibernate_location->swap->type, "file"))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid hibernate type: %s", hibernate_location->swap->type);
+        r = write_string_file("/sys/power/resume", resume_str, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_error_errno(r,
+                                       "Failed to write device '%s' to /sys/power/resume as '%s': %m",
+                                       hibernate_location->swap->device, resume_str);
+        log_debug("Wrote resume=%s for device '%s' to /sys/power/resume.", resume_str, hibernate_location->swap->device);
+
+        if (!need_offset)
+                return 0;
 
         /* Only available in 4.17+ */
         if (hibernate_location->offset > 0 && access("/sys/power/resume_offset", W_OK) < 0) {
-                if (errno == ENOENT) {
-                        log_debug("Kernel too old, can't configure resume_offset for %s, ignoring: %" PRIu64,
-                                  hibernate_location->swap->device, hibernate_location->offset);
-                        return 0;
-                }
+                if (errno == ENOENT)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Kernel too old, can't set resume_offset=%s for device '%s'.",
+                                               offset_str, hibernate_location->swap->device);
 
-                return log_debug_errno(errno, "/sys/power/resume_offset not writable: %m");
+                return log_error_errno(errno, "/sys/power/resume_offset not writable: %m");
         }
 
-        xsprintf(offset_str, "%" PRIu64, hibernate_location->offset);
         r = write_string_file("/sys/power/resume_offset", offset_str, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
-                return log_debug_errno(r, "Failed to write swap file offset to /sys/power/resume_offset for '%s': '%s': %m",
-                                       hibernate_location->swap->device, offset_str);
-
-        log_debug("Wrote resume_offset= value for %s to /sys/power/resume_offset: %s", hibernate_location->swap->device, offset_str);
+                return log_error_errno(r,
+                                       "Failed to write swap file offset %s to /sys/power/resume_offset for device '%s': %m",
+                                       offset_str, hibernate_location->swap->device);
+        log_debug("Wrote resume_offset=%s for device '%s' to /sys/power/resume_offset.",
+                  offset_str, hibernate_location->swap->device);
 
         return 0;
 }
@@ -217,16 +239,16 @@ static int execute(
 
         /* Configure hibernation settings if we are supposed to hibernate */
         if (!strv_isempty(modes)) {
+                bool resume_set;
+
                 r = find_hibernate_location(&hibernate_location);
                 if (r < 0)
                         return log_error_errno(r, "Failed to find location to hibernate to: %m");
-                if (r == 0) { /* 0 means: no hibernation location was configured in the kernel so far, let's
-                               * do it ourselves then. > 0 means: kernel already had a configured hibernation
-                               * location which we shouldn't touch. */
-                        r = write_hibernate_location_info(hibernate_location);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to prepare for hibernation: %m");
-                }
+                resume_set = r > 0;
+
+                r = write_hibernate_location_info(hibernate_location, resume_set);
+                if (r < 0 && !resume_set)
+                        return log_error_errno(r, "Failed to prepare for hibernation: %m");
 
                 r = write_mode(modes);
                 if (r < 0)
