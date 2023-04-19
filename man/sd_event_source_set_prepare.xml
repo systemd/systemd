@@ -109,6 +109,13 @@
         </varlistentry>
 
         <varlistentry>
+          <term><constant>-EUCLEAN</constant></term>
+
+          <listitem><para>The event loop has been created in a different library or module instance.</para></listitem>
+
+        </varlistentry>
+
+        <varlistentry>
           <term><constant>-EDOM</constant></term>
 
           <listitem><para>The specified event source has been created with
