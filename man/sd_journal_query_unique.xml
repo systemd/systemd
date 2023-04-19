@@ -129,6 +129,7 @@
       <variablelist>
         <xi:include href="sd_journal_get_data.xml" xpointer="EINVAL"/>
         <xi:include href="sd_journal_get_data.xml" xpointer="ECHILD"/>
+        <xi:include href="sd_journal_get_data.xml" xpointer="EUCLEAN"/>
         <xi:include href="sd_journal_get_data.xml" xpointer="EADDRNOTAVAIL"/>
         <xi:include href="sd_journal_get_data.xml" xpointer="ENOENT"/>
         <xi:include href="sd_journal_get_data.xml" xpointer="ENOBUFS"/>
