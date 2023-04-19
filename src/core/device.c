@@ -59,13 +59,15 @@ static void device_unset_sysfs(Device *d) {
 
         assert(d);
 
+        /* Remove this unit from the chain of devices which share the same sysfs path. */
+
         if (!d->sysfs)
                 return;
 
-        /* Remove this unit from the chain of devices which share the
-         * same sysfs path. */
-        devices = UNIT(d)->manager->devices_by_sysfs;
-        first = hashmap_get(devices, d->sysfs);
+        /* If Device.sysfs is already set, then the device unit should be already registered to
+         * Manager.devices_by_sysfs. See also device_set_sysfs(). */
+        devices = ASSERT_PTR(UNIT(d)->manager->devices_by_sysfs);
+        first = ASSERT_PTR(hashmap_get(devices, d->sysfs));
         LIST_REMOVE(same_sysfs, first, d);
 
         if (first)
