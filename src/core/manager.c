@@ -1600,6 +1600,7 @@ static void manager_clear_jobs_and_units(Manager *m) {
         assert(!m->stop_when_unneeded_queue);
         assert(!m->start_when_upheld_queue);
         assert(!m->stop_when_bound_queue);
+        assert(!m->release_resources_queue);
 
         assert(hashmap_isempty(m->jobs));
         assert(hashmap_isempty(m->units));
