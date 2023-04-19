@@ -1083,7 +1083,7 @@ node /org/freedesktop/login1/session/1 {
       ReleaseControl();
       SetType(in  s type);
       SetDisplay(in  s display);
-      SetTTY(in  s tty);
+      SetTTY(in  h tty_fd);
       TakeDevice(in  u major,
                  in  u minor,
                  out h fd,
@@ -1289,7 +1289,7 @@ node /org/freedesktop/login1/session/1 {
       <para><function>SetTTY()</function> allows the device name of the session to be changed. This is
       useful if the tty device is only known after authentication. It can only be called by session's
       current controller. If <function>TakeControl()</function> has not been called, this method will fail.
-      The only argument <varname>tty</varname> is the new tty device name.</para>
+      The only argument <varname>tty_fd</varname> is a file handle to the new tty device.</para>
 
       <para><function>TakeDevice()</function> allows a session controller to get a file descriptor for a
       specific device. Pass in the major and minor numbers of the character device and
