@@ -46,7 +46,7 @@
 
 /* Remove an item from the list */
 #define LIST_REMOVE(name,head,item)                                     \
-        ({                                                            \
+        ({                                                              \
                 typeof(*(head)) **_head = &(head), *_item = (item);     \
                 assert(_item);                                          \
                 if (_item->name##_next)                                 \
@@ -127,8 +127,11 @@
                 _b;                                                     \
         })
 
-#define LIST_JUST_US(name,item)                                         \
-        (!(item)->name##_prev && !(item)->name##_next)
+#define LIST_JUST_US(name, item)                                        \
+        ({                                                              \
+                typeof(*(item)) *_item = (item);                        \
+                !(_item)->name##_prev && !(_item)->name##_next;         \
+        })
 
 /* The type of the iterator 'i' is automatically determined by the type of 'head', and declared in the
  * loop. Hence, do not declare the same variable in the outer scope. Sometimes, we set 'head' through
