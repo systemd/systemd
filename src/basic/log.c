@@ -544,7 +544,8 @@ static int write_to_kmsg(
          * Note that this ratelimit is per-emitter, so we might still overwhelm /dev/kmsg with multiple
          * loggers.
          */
-        static thread_local RateLimit ratelimit = { 5 * USEC_PER_SEC, 200 };
+        static thread_local RateLimit ratelimit = { 5 * USEC_PER_SEC, 1000 };
+        static bool ratelimit_logged = false;
 
         char header_priority[2 + DECIMAL_STR_MAX(int) + 1],
              header_pid[4 + DECIMAL_STR_MAX(pid_t) + 1];
@@ -552,8 +553,14 @@ static int write_to_kmsg(
         if (kmsg_fd < 0)
                 return 0;
 
-        if (!ratelimit_below(&ratelimit))
-                return 0;
+        if (!ratelimit_below(&ratelimit)) {
+                if (ratelimit_logged)
+                        return 0;
+
+                buffer = "Too many messages being logged to kmsg, ignoring";
+                ratelimit_logged = true;
+        } else
+                ratelimit_logged = false;
 
         xsprintf(header_priority, "<%i>", level);
         xsprintf(header_pid, "["PID_FMT"]: ", getpid_cached());
