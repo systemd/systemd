@@ -1585,43 +1585,43 @@ int dissect_log_error(int log_level, int r, const char *name, const VeritySettin
                 return r;
 
         case -EOPNOTSUPP:
-                return log_error_errno(r, "Dissecting images is not supported, compiled without blkid support.");
+                return log_full_errno(log_level, r, "Dissecting images is not supported, compiled without blkid support.");
 
         case -ENOPKG:
-                return log_error_errno(r, "%s: Couldn't identify a suitable partition table or file system.", name);
+                return log_full_errno(log_level, r, "%s: Couldn't identify a suitable partition table or file system.", name);
 
         case -ENOMEDIUM:
-                return log_error_errno(r, "%s: The image does not pass os-release/extension-release validation.", name);
+                return log_full_errno(log_level, r, "%s: The image does not pass os-release/extension-release validation.", name);
 
         case -EADDRNOTAVAIL:
-                return log_error_errno(r, "%s: No root partition for specified root hash found.", name);
+                return log_full_errno(log_level, r, "%s: No root partition for specified root hash found.", name);
 
         case -ENOTUNIQ:
-                return log_error_errno(r, "%s: Multiple suitable root partitions found in image.", name);
+                return log_full_errno(log_level, r, "%s: Multiple suitable root partitions found in image.", name);
 
         case -ENXIO:
-                return log_error_errno(r, "%s: No suitable root partition found in image.", name);
+                return log_full_errno(log_level, r, "%s: No suitable root partition found in image.", name);
 
         case -EPROTONOSUPPORT:
-                return log_error_errno(r, "Device '%s' is a loopback block device with partition scanning turned off, please turn it on.", name);
+                return log_full_errno(log_level, r, "Device '%s' is a loopback block device with partition scanning turned off, please turn it on.", name);
 
         case -ENOTBLK:
-                return log_error_errno(r, "%s: Image is not a block device.", name);
+                return log_full_errno(log_level, r, "%s: Image is not a block device.", name);
 
         case -EBADR:
-                return log_error_errno(r,
-                                       "Combining partitioned images (such as '%s') with external Verity data (such as '%s') not supported. "
-                                       "(Consider setting $SYSTEMD_DISSECT_VERITY_SIDECAR=0 to disable automatic discovery of external Verity data.)",
-                                       name, strna(verity ? verity->data_path : NULL));
+                return log_full_errno(log_level, r,
+                                      "Combining partitioned images (such as '%s') with external Verity data (such as '%s') not supported. "
+                                      "(Consider setting $SYSTEMD_DISSECT_VERITY_SIDECAR=0 to disable automatic discovery of external Verity data.)",
+                                      name, strna(verity ? verity->data_path : NULL));
 
         case -ERFKILL:
-                return log_error_errno(r, "%s: image does not match image policy.", name);
+                return log_full_errno(log_level, r, "%s: image does not match image policy.", name);
 
         case -ENOMSG:
-                return log_error_errno(r, "%s: no suitable partitions found.", name);
+                return log_full_errno(log_level, r, "%s: no suitable partitions found.", name);
 
         default:
-                return log_error_errno(r, "%s: cannot dissect image: %m", name);
+                return log_full_errno(log_level, r, "%s: cannot dissect image: %m", name);
         }
 }
 
