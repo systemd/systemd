@@ -819,12 +819,12 @@ int find_legacy_keymap(const X11Context *xc, char **ret) {
                  * matches just the first layout.
                  */
 
-                l = strndup(xc->layout, strcspn(xc->layout, ","));
+                l = strdupcspn(xc->layout, ",");
                 if (!l)
                         return -ENOMEM;
 
                 if (!isempty(xc->variant)) {
-                        v = strndup(xc->variant, strcspn(xc->variant, ","));
+                        v = strdupcspn(xc->variant, ",");
                         if (!v)
                                 return -ENOMEM;
                 }
