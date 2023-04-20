@@ -1892,17 +1892,18 @@ static int mount_partition(
 
         if (!fstype)
                 return -EAFNOSUPPORT;
-        r = dissect_fstype_ok(fstype);
-        if (r < 0)
-                return r;
-        if (!r)
-                return -EIDRM; /* Recognizable error */
 
         /* We are looking at an encrypted partition? This either means stacked encryption, or the caller
          * didn't call dissected_image_decrypt() beforehand. Let's return a recognizable error for this
          * case. */
         if (streq(fstype, "crypto_LUKS"))
                 return -EUNATCH;
+
+        r = dissect_fstype_ok(fstype);
+        if (r < 0)
+                return r;
+        if (!r)
+                return -EIDRM; /* Recognizable error */
 
         rw = m->rw && !(flags & DISSECT_IMAGE_MOUNT_READ_ONLY);
 
