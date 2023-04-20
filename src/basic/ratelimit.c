@@ -10,7 +10,6 @@
 
 bool ratelimit_below(RateLimit *r) {
         usec_t ts;
-        bool good = false;
 
         assert(r);
 
@@ -21,22 +20,25 @@ bool ratelimit_below(RateLimit *r) {
 
         if (r->begin <= 0 ||
             usec_sub_unsigned(ts, r->begin) > r->interval) {
-                r->begin = ts;
+                r->begin = ts;  /* Start a new time window */
+                r->num = 1;     /* Reset counter */
+                return true;
+        }
 
-                /* Reset counter */
-                r->num = 0;
-                good = true;
-        } else if (r->num < r->burst)
-                good = true;
+        if (_unlikely_(r->num == UINT_MAX))
+                return false;
 
         r->num++;
-        return good;
+        return r->num <= r->burst;
 }
 
 unsigned ratelimit_num_dropped(RateLimit *r) {
         assert(r);
 
-        return r->num > r->burst ? r->num - r->burst : 0;
+        if (r->num == UINT_MAX) /* overflow, return as special case */
+                return UINT_MAX;
+
+        return LESS_BY(r->num, r->burst);
 }
 
 usec_t ratelimit_end(const RateLimit *rl) {
