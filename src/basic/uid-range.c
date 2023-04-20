@@ -10,6 +10,7 @@
 #include "format-util.h"
 #include "macro.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "uid-range.h"
@@ -258,6 +259,66 @@ int uid_range_load_userns(UidRange **ret, const char *path, UidRangeUsernsMode m
 
         *ret = TAKE_PTR(range);
         return 0;
+}
+
+int uid_range_load_userns_by_fd(UidRange **ret, int userns_fd, UidRangeUsernsMode mode) {
+        _cleanup_(close_pairp) int pfd[2] = EBADF_PAIR;
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        ssize_t n;
+        char x;
+        int r;
+
+        assert(ret);
+        assert(userns_fd >= 0);
+        assert(mode >= 0);
+        assert(mode < _UID_RANGE_USERNS_MODE_MAX);
+
+        if (pipe2(pfd, O_CLOEXEC) < 0)
+                return -errno;
+
+        r = safe_fork_full(
+                        "(sd-mkuserns)",
+                        /* stdio_fds= */ NULL,
+                        (const int[]) { pfd[1], userns_fd }, 2,
+                        FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL,
+                        &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Child. */
+
+                if (setns(userns_fd, CLONE_NEWUSER) < 0) {
+                        log_debug_errno(errno, "Failed to join userns: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                userns_fd = safe_close(userns_fd);
+
+                n = write(pfd[1], &(const char) { 'x' }, 1);
+                if (n < 0) {
+                        log_debug_errno(errno, "Failed to write to fifo: %m");
+                        _exit(EXIT_FAILURE);
+                }
+                assert(n == 1);
+
+                freeze();
+        }
+
+        pfd[1] = safe_close(pfd[1]);
+
+        n = read(pfd[0], &x, 1);
+        if (n < 0)
+                return -errno;
+        if (n == 0)
+                return -EPROTO;
+        assert(n == 1);
+        assert(x == 'x');
+
+        const char *p = procfs_file_alloca(
+                        pid,
+                        IN_SET(mode, UID_RANGE_USERNS_INSIDE, UID_RANGE_USERNS_OUTSIDE) ? "uid_map" : "gid_map");
+
+        return uid_range_load_userns(ret, p, mode);
 }
 
 bool uid_range_overlaps(const UidRange *range, uid_t start, uid_t nr) {
