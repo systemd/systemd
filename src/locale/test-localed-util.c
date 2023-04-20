@@ -30,13 +30,26 @@ TEST(find_converted_keymap) {
                         &(X11Context) {
                                 .layout  = (char*) "pl",
                                 .variant = (char*) "foobar",
-                        }, &ans) == 0);
+                        },
+                        /* ignore_xvariant= */ false,
+                        &ans) == 0);
         assert_se(ans == NULL);
+
+        assert_se(find_converted_keymap(
+                        &(X11Context) {
+                                .layout  = (char*) "pl",
+                                .variant = (char*) "foobar",
+                        },
+                        /* ignore_xvariant= */ true,
+                        &ans) == 1);
+        assert_se(streq(ans, "pl"));
 
         r = find_converted_keymap(
                         &(X11Context) {
                                 .layout  = (char*) "pl",
-                        }, &ans);
+                        },
+                        /* ignore_xvariant= */ false,
+                        &ans);
         if (r == 0) {
                 log_info("Skipping rest of %s: keymaps are not installed", __func__);
                 return;
@@ -49,8 +62,19 @@ TEST(find_converted_keymap) {
                         &(X11Context) {
                                 .layout  = (char*) "pl",
                                 .variant = (char*) "dvorak",
-                        }, &ans2) == 1);
+                        },
+                        /* ignore_xvariant= */ false,
+                        &ans2) == 1);
         assert_se(streq(ans2, "pl-dvorak"));
+
+        assert_se(find_converted_keymap(
+                        &(X11Context) {
+                                .layout  = (char*) "pl",
+                                .variant = (char*) "dvorak",
+                        },
+                        /* ignore_xvariant= */ true,
+                        &ans2) == 1);
+        assert_se(streq(ans2, "pl"));
 }
 
 TEST(find_legacy_keymap) {
@@ -90,6 +114,13 @@ TEST(vconsole_convert_to_x11) {
         assert_se(vconsole_convert_to_x11(&vc, &xc) >= 0);
         assert_se(streq(xc.layout, "es"));
         assert_se(streq(xc.variant, "dvorak"));
+        x11_context_clear(&xc);
+
+        log_info("/* test with unknown variant, new mapping (es:) */");
+        assert_se(free_and_strdup(&vc.keymap, "es-foobar") >= 0);
+        assert_se(vconsole_convert_to_x11(&vc, &xc) >= 0);
+        assert_se(streq(xc.layout, "es"));
+        assert_se(xc.variant == NULL);
         x11_context_clear(&xc);
 
         log_info("/* test with old mapping (fr:latin9) */");

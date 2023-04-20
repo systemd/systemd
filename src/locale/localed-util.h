@@ -61,7 +61,7 @@ static inline int vc_context_verify(const VCContext *vc) {
         return vc_context_verify_and_warn(vc, LOG_DEBUG, NULL);
 }
 
-int find_converted_keymap(const X11Context *xc, char **ret);
+int find_converted_keymap(const X11Context *xc, bool ignore_xvariant, char **ret);
 int find_legacy_keymap(const X11Context *xc, char **ret);
 int find_language_fallback(const char *lang, char **ret);
 
