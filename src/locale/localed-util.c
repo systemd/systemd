@@ -721,7 +721,12 @@ int vconsole_convert_to_x11(const VCContext *vc, X11Context *ret) {
 
         /* This sanity check seems redundant with the verification of the X11 layout done on the next
          * step. However xkbcommon is an optional dependency hence the verification might be a NOP.  */
-        r = find_converted_keymap(&xc, &converted);
+        r = find_converted_keymap(&xc, /* ignore_xvariant= */ false, &converted);
+        if (r == 0) {
+                /* If we still haven't find a match, try with no variant, it's still better than nothing.  */
+                xc.variant = NULL;
+                r = find_converted_keymap(&xc, /* ignore_xvariant= */ true, &converted);
+        }
         if (r < 0)
                 return r;
 
@@ -733,14 +738,14 @@ int vconsole_convert_to_x11(const VCContext *vc, X11Context *ret) {
         return x11_context_copy(ret, &xc);
 }
 
-int find_converted_keymap(const X11Context *xc, char **ret) {
+int find_converted_keymap(const X11Context *xc, bool ignore_xvariant, char **ret) {
         _cleanup_free_ char *n = NULL;
 
         assert(xc);
         assert(!isempty(xc->layout));
         assert(ret);
 
-        if (xc->variant)
+        if (!ignore_xvariant && xc->variant)
                 n = strjoin(xc->layout, "-", xc->variant);
         else
                 n = strdup(xc->layout);
@@ -866,6 +871,7 @@ int find_legacy_keymap(const X11Context *xc, char **ret) {
                                         .layout = l,
                                         .variant = v,
                                 },
+                                /* ignore_xvariant= */ false,
                                 &converted);
                 if (r < 0)
                         return r;
@@ -889,9 +895,14 @@ int x11_convert_to_vconsole(const X11Context *xc, VCContext *ret) {
                 return 0;
         }
 
-        r = find_converted_keymap(xc, &keymap);
-        if (r == 0)
+        r = find_converted_keymap(xc, /* ignore_xvariant= */ false, &keymap);
+        if (r == 0) {
                 r = find_legacy_keymap(xc, &keymap);
+                if (r == 0 && xc->variant)
+                        /* If we still haven't find a match, try with no variant, it's still better than
+                         * nothing.  */
+                        r = find_converted_keymap(xc, /* ignore_xvariant= */ true, &keymap);
+        }
         if (r < 0)
                 return r;
 
