@@ -33,6 +33,36 @@ static inline bool uid_range_contains(const UidRange *range, uid_t uid) {
 
 int uid_map_read_one(FILE *f, uid_t *ret_base, uid_t *ret_shift, uid_t *ret_range);
 
+static inline size_t uid_range_entries(const UidRange *range) {
+        return range ? range->n_entries : 0;
+}
+
+static inline unsigned uid_range_size(const UidRange *range) {
+        if (!range)
+                return 0;
+
+        unsigned n = 0;
+
+        FOREACH_ARRAY(e, range->entries, range->n_entries)
+                n += e->nr;
+
+        return n;
+}
+
+static inline bool uid_range_is_empty(const UidRange  *range) {
+
+        if (!range)
+                return true;
+
+        FOREACH_ARRAY(e, range->entries, range->n_entries)
+                if (e->nr > 0)
+                        return false;
+
+        return true;
+}
+
+bool uid_range_equal(const UidRange *a, const UidRange *b);
+
 typedef enum UidRangeUsernsMode {
         UID_RANGE_USERNS_INSIDE,
         UID_RANGE_USERNS_OUTSIDE,
