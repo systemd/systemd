@@ -204,7 +204,7 @@ int uid_map_read_one(FILE *f, uid_t *ret_base, uid_t *ret_shift, uid_t *ret_rang
         return 0;
 }
 
-int uid_range_load_userns(UidRange **ret, const char *path) {
+int uid_range_load_userns(UidRange **ret, const char *path, UidRangeUsernsMode mode) {
         _cleanup_(uid_range_freep) UidRange *range = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -216,9 +216,11 @@ int uid_range_load_userns(UidRange **ret, const char *path) {
          * To simplify things this will modify the passed array in case of later failure. */
 
         assert(ret);
+        assert(mode >= 0);
+        assert(mode < _UID_RANGE_USERNS_MODE_MAX);
 
         if (!path)
-                path = "/proc/self/uid_map";
+                path = IN_SET(mode, UID_RANGE_USERNS_INSIDE, UID_RANGE_USERNS_OUTSIDE) ? "/proc/self/uid_map" : "/proc/self/gid_map";
 
         f = fopen(path, "re");
         if (!f) {
@@ -243,7 +245,11 @@ int uid_range_load_userns(UidRange **ret, const char *path) {
                 if (r < 0)
                         return r;
 
-                r = uid_range_add_internal(&range, uid_base, uid_range, /* coalesce = */ false);
+                r = uid_range_add_internal(
+                                &range,
+                                IN_SET(mode, UID_RANGE_USERNS_INSIDE, GID_RANGE_USERNS_INSIDE) ? uid_base : uid_shift,
+                                uid_range,
+                                /* coalesce = */ false);
                 if (r < 0)
                         return r;
         }
