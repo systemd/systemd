@@ -190,10 +190,10 @@ int files_same(const char *filea, const char *fileb, int flags) {
         assert(fileb);
 
         if (fstatat(AT_FDCWD, filea, &a, flags) < 0)
-                return -errno;
+                return log_debug_errno(errno, "Cannot stat %s: %m", filea);
 
         if (fstatat(AT_FDCWD, fileb, &b, flags) < 0)
-                return -errno;
+                return log_debug_errno(errno, "Cannot stat %s: %m", fileb);
 
         return stat_inode_same(&a, &b);
 }
