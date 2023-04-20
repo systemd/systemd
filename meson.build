@@ -272,6 +272,7 @@ conf.set_quoted('SYSTEMD_TEST_DATA',                          testdata_dir)
 conf.set_quoted('SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH', bindir / 'systemd-tty-ask-password-agent')
 conf.set_quoted('SYSTEMD_UPDATE_HELPER_PATH',                 libexecdir / 'systemd-update-helper')
 conf.set_quoted('SYSTEMD_USERWORK_PATH',                      libexecdir / 'systemd-userwork')
+conf.set_quoted('SYSTEMD_NSRESOURCEWORK_PATH',                libexecdir / 'systemd-nsresourcework')
 conf.set_quoted('SYSTEMD_VERITYSETUP_PATH',                   libexecdir / 'systemd-veritysetup')
 conf.set_quoted('SYSTEM_CONFIG_UNIT_DIR',                     pkgsysconfdir / 'system')
 conf.set_quoted('SYSTEM_DATA_UNIT_DIR',                       systemunitdir)
@@ -1618,6 +1619,7 @@ foreach term : ['analyze',
                 'machined',
                 'networkd',
                 'nscd',
+                'nsresourced',
                 'nss-myhostname',
                 'nss-systemd',
                 'oomd',
@@ -2278,6 +2280,7 @@ subdir('src/mount')
 subdir('src/network')
 subdir('src/notify')
 subdir('src/nspawn')
+subdir('src/nsresourced')
 subdir('src/nss-myhostname')
 subdir('src/nss-mymachines')
 subdir('src/nss-resolve')
