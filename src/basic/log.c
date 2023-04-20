@@ -50,6 +50,7 @@ static void *log_syntax_callback_userdata = NULL;
 static LogTarget log_target = LOG_TARGET_CONSOLE;
 static int log_max_level = LOG_INFO;
 static int log_facility = LOG_DAEMON;
+static bool ratelimit_kmsg = true;
 
 static int console_fd = STDERR_FILENO;
 static int syslog_fd = -EBADF;
@@ -552,8 +553,12 @@ static int write_to_kmsg(
         if (kmsg_fd < 0)
                 return 0;
 
-        if (!ratelimit_below(&ratelimit))
-                return 0;
+        if (ratelimit_kmsg && !ratelimit_below(&ratelimit)) {
+                if (ratelimit_num_dropped(&ratelimit) > 1)
+                        return 0;
+
+                buffer = "Too many messages being logged to kmsg, ignoring";
+        }
 
         xsprintf(header_priority, "<%i>", level);
         xsprintf(header_pid, "["PID_FMT"]: ", getpid_cached());
@@ -1178,6 +1183,17 @@ int log_set_max_level_from_string(const char *e) {
         return 0;
 }
 
+static int log_set_ratelimit_kmsg_from_string(const char *e) {
+        int r;
+
+        r = parse_boolean(e);
+        if (r < 0)
+                return r;
+
+        ratelimit_kmsg = r;
+        return 0;
+}
+
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
 
         /*
@@ -1228,6 +1244,10 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (log_show_time_from_string(value ?: "1") < 0)
                         log_warning("Failed to parse log time setting '%s'. Ignoring.", value);
 
+        } else if (proc_cmdline_key_streq(key, "systemd.log_ratelimit_kmsg")) {
+
+                if (log_set_ratelimit_kmsg_from_string(value ?: "1") < 0)
+                        log_warning("Failed to parse log ratelimit kmsg boolean '%s'. Ignoring.", value);
         }
 
         return 0;
@@ -1268,6 +1288,10 @@ void log_parse_environment_variables(void) {
         e = getenv("SYSTEMD_LOG_TID");
         if (e && log_show_tid_from_string(e) < 0)
                 log_warning("Failed to parse log tid '%s'. Ignoring.", e);
+
+        e = getenv("SYSTEMD_LOG_RATELIMIT_KMSG");
+        if (e && log_set_ratelimit_kmsg_from_string(e) < 0)
+                log_warning("Failed to parse log ratelimit kmsg boolean '%s'. Ignoring.", e);
 }
 
 void log_parse_environment(void) {
