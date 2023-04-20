@@ -12,6 +12,7 @@ System and Service Manager
 [![CentOS CI - Arch (sanitizers)](https://jenkins-systemd.apps.ocp.cloud.ci.centos.org/buildStatus/icon?subject=CentOS%20CI%20-%20Arch%20(sanitizers)&job=upstream-vagrant-archlinux-sanitizers)](https://jenkins-systemd.apps.ocp.cloud.ci.centos.org/job/upstream-vagrant-archlinux-sanitizers/)<br/>
 [![CentOS CI - Rawhide (SELinux)](https://jenkins-systemd.apps.ocp.cloud.ci.centos.org/buildStatus/icon?subject=CentOS%20CI%20-%20Rawhide%20(SELinux)&job=upstream-vagrant-rawhide-selinux)](https://jenkins-systemd.apps.ocp.cloud.ci.centos.org/view/Upstream/job/upstream-vagrant-rawhide-selinux/)<br/>
 [![Fossies codespell report](https://fossies.org/linux/test/systemd-main.tar.gz/codespell.svg)](https://fossies.org/linux/test/systemd-main.tar.gz/codespell.html)</br>
+[![Weblate](https://translate.fedoraproject.org/widgets/systemd/-/master/svg-badge.svg)](https://translate.fedoraproject.org/engage/systemd/)</br>
 [![Coverage Status](https://coveralls.io/repos/github/systemd/systemd/badge.svg?branch=main)](https://coveralls.io/github/systemd/systemd?branch=main)</br>
 [![Packaging status](https://repology.org/badge/tiny-repos/systemd.svg)](https://repology.org/project/systemd/versions)</br>
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/systemd/systemd/badge)](https://api.securityscorecards.dev/projects/github.com/systemd/systemd)
