@@ -252,6 +252,21 @@ int probe_filesystem_full(
         if (!b)
                 return -ENOMEM;
 
+        /* The Linux kernel maintains separate block device caches for main ("whole") and partition block
+         * devices, which means making a change to one might not be reflected immediately when reading via
+         * the other. That's massively confusing when mixing accesses to such devices. Let's address this in
+         * a limited way: when probing a file system that is not at the beginning of the block device we
+         * apparently probe a partition via the main block device, and in that case let's first flush the
+         * main block device cache, so that we get the data that the per-partition block device last
+         * sync'ed on.
+         *
+         * This only works under the assumption that any tools that write to the partition block devices
+         * issue an syncfs()/fsync() on the device after making changes. Typically file system formatting
+         * tools that write a superblock onto a partition block device do that, however. */
+        if (offset != 0)
+                if (ioctl(fd, BLKFLSBUF, 0) < 0)
+                        log_debug_errno(errno, "Failed to flush block device cache, ignoring: %m");
+
         errno = 0;
         r = blkid_probe_set_device(
                         b,
