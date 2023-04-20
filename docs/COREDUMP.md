@@ -70,7 +70,7 @@ management and sandboxing.
 
 The `systemd-coredump` handler will extract a backtrace and [ELF packaging
 metadata](https://systemd.io/ELF_PACKAGE_METADATA) from any coredumps it
-receieves and log both. The information about coredumps stored in the journal
+receives and log both. The information about coredumps stored in the journal
 can be enumerated and queried with the
 [`coredumpctl`](https://www.freedesktop.org/software/systemd/man/coredumpctl.html)
 tool, for example for directly invoking a debugger such as `gdb` on a collected

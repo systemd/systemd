@@ -112,7 +112,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
         configuration for <filename>system.slice</filename> and <filename>user.slice</filename>, CPU
         resources will be split equally between them. Similarly, resources are allocated equally between
         children of <filename>user.slice</filename> and between the child slices beneath
-        <filename>user@1000.service</filename>. Assuming that there is no futher configuration of resources
+        <filename>user@1000.service</filename>. Assuming that there is no further configuration of resources
         or delegation below slices <filename>app.slice</filename> or <filename>session.slice</filename>, the
         <option>cpu</option> controller would not be enabled for units in those slices and CPU resources
         would be further allocated using other mechanisms, e.g. based on nice levels. The manager for user
