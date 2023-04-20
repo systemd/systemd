@@ -44,6 +44,7 @@ TEST(find_converted_keymap) {
 
         assert_se(r == 1);
         assert_se(streq(ans, "pl"));
+        ans = mfree(ans);
 
         assert_se(find_converted_keymap(
                         &(X11Context) {
@@ -73,6 +74,7 @@ TEST(find_legacy_keymap) {
 TEST(vconsole_convert_to_x11) {
         _cleanup_(x11_context_clear) X11Context xc = {};
         _cleanup_(vc_context_clear) VCContext vc = {};
+        int r;
 
         log_info("/* test empty keymap */");
         assert_se(vconsole_convert_to_x11(&vc, &xc) >= 0);
@@ -111,6 +113,34 @@ TEST(vconsole_convert_to_x11) {
         assert_se(vconsole_convert_to_x11(&vc, &xc) >= 0);
         assert_se(streq(xc.layout, "us"));
         assert_se(xc.variant == NULL);
+        x11_context_clear(&xc);
+
+        /* "gh" has no mapping in kbd-model-map and kbd provides a converted keymap for this layout. */
+        log_info("/* test with a converted keymap (gh:) */");
+        assert_se(free_and_strdup(&vc.keymap, "gh") >= 0);
+        r = vconsole_convert_to_x11(&vc, &xc);
+        if (r == 0) {
+                log_info("Skipping rest of %s: keymaps are not installed", __func__);
+                return;
+        }
+        assert_se(r > 0);
+        assert_se(streq(xc.layout, "gh"));
+        assert_se(xc.variant == NULL);
+        x11_context_clear(&xc);
+
+        log_info("/* test with converted keymap and with a known variant (gh:ewe) */");
+        assert_se(free_and_strdup(&vc.keymap, "gh-ewe") >= 0);
+        assert_se(vconsole_convert_to_x11(&vc, &xc) > 0);
+        assert_se(streq(xc.layout, "gh"));
+        assert_se(streq(xc.variant, "ewe"));
+        x11_context_clear(&xc);
+
+        log_info("/* test with converted keymap and with an unknown variant (gh:ewe) */");
+        assert_se(free_and_strdup(&vc.keymap, "gh-foobar") > 0);
+        assert_se(vconsole_convert_to_x11(&vc, &xc) > 0);
+        assert_se(streq(xc.layout, "gh"));
+        assert_se(xc.variant == NULL);
+        x11_context_clear(&xc);
 }
 
 TEST(x11_convert_to_vconsole) {
