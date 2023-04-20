@@ -15,6 +15,7 @@
 #include "varlink-io.systemd.Resolve.Monitor.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.UserDatabase.h"
+#include "varlink-io.systemd.UserRegistry.h"
 #include "varlink-io.systemd.oom.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-io.systemd.sysext.h"
@@ -125,6 +126,8 @@ TEST(parse_format) {
         test_parse_format_one(&vl_interface_org_varlink_service);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_UserDatabase);
+        print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_UserRegistry);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_Journal);
         print_separator();
