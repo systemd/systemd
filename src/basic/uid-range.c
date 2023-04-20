@@ -337,3 +337,23 @@ bool uid_range_overlaps(const UidRange *range, uid_t start, uid_t nr) {
 
         return false;
 }
+
+bool uid_range_equal(const UidRange *a, const UidRange *b) {
+        if (a == b)
+                return true;
+
+        if (!a || !b)
+                return false;
+
+        if (a->n_entries != b->n_entries)
+                return false;
+
+        for (size_t i = 0; i < a->n_entries; i++) {
+                if (a->entries[i].start != b->entries[i].start)
+                        return false;
+                if (a->entries[i].nr != b->entries[i].nr)
+                        return false;
+        }
+
+        return true;
+}
