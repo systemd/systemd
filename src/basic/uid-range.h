@@ -33,6 +33,13 @@ static inline bool uid_range_contains(const UidRange *range, uid_t uid) {
 
 int uid_map_read_one(FILE *f, uid_t *ret_base, uid_t *ret_shift, uid_t *ret_range);
 
-int uid_range_load_userns(UidRange **ret, const char *path);
+typedef enum UidRangeUsernsMode {
+        UID_RANGE_USERNS_INSIDE,
+        UID_RANGE_USERNS_OUTSIDE,
+        _UID_RANGE_USERNS_MODE_MAX,
+        _UID_RANGE_USERNS_MODE_INVALID = -EINVAL,
+} UidRangeUsernsMode;
+
+int uid_range_load_userns(UidRange **ret, const char *path, UidRangeUsernsMode mode);
 
 bool uid_range_overlaps(const UidRange *range, uid_t start, uid_t nr);
