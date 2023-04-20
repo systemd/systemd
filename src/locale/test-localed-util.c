@@ -44,6 +44,7 @@ TEST(find_converted_keymap) {
 
         assert_se(r == 1);
         assert_se(streq(ans, "pl"));
+        ans = mfree(ans);
 
         assert_se(find_converted_keymap(
                         &(X11Context) {
@@ -90,6 +91,13 @@ TEST(vconsole_convert_to_x11) {
         assert_se(vconsole_convert_to_x11(&vc, &xc) >= 0);
         assert_se(streq(xc.layout, "es"));
         assert_se(streq(xc.variant, "dvorak"));
+        x11_context_clear(&xc);
+
+        log_info("/* test with unknown variant, new mapping (es:) */");
+        assert_se(free_and_strdup(&vc.keymap, "es-foobar") >= 0);
+        assert_se(vconsole_convert_to_x11(&vc, &xc) >= 0);
+        assert_se(streq(xc.layout, "es"));
+        assert_se(xc.variant == NULL);
         x11_context_clear(&xc);
 
         log_info("/* test with old mapping (fr:latin9) */");
