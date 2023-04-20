@@ -50,6 +50,17 @@ int pam_syslog_pam_error(pam_handle_t *handle, int level, int error, const char 
 }
 
 static void cleanup_system_bus(pam_handle_t *handle, void *data, int error_status) {
+        /* The PAM_DATA_SILENT flag is the way that pam_end() communicates to the module stack that this
+         * invocation of pam_end() is not the final one, but in the process that is going to directly exec
+         * the child. This means we are being called after a fork(), and we do not want to try and clean
+         * up the sd-bus object, as it would affect the parent too and we'll hit an assertion. */
+        if (error_status & PAM_DATA_SILENT)
+                return (void) pam_syslog_pam_error(
+                                handle,
+                                LOG_ERR,
+                                SYNTHETIC_ERRNO(EUCLEAN),
+                                "Attempted to close sd-bus after fork, this should not happen.");
+
         sd_bus_flush_close_unref(data);
 }
 
