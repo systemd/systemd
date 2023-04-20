@@ -24,7 +24,11 @@ static inline int pam_bus_log_parse_error(pam_handle_t *handle, int r) {
         return pam_syslog_errno(handle, LOG_ERR, r, "Failed to parse bus message: %m");
 }
 
-int pam_acquire_bus_connection(pam_handle_t *handle, sd_bus **ret);
-int pam_release_bus_connection(pam_handle_t *handle);
+typedef struct PamBusData PamBusData;
+
+int pam_acquire_bus_connection(pam_handle_t *handle, const char *module, sd_bus **ret_bus, PamBusData **ret_bus_data);
+int pam_release_bus_connection(pam_handle_t *handle, const char *module);
+
+void pam_bus_data_disconnectp(PamBusData **d);
 
 void pam_cleanup_free(pam_handle_t *handle, void *data, int error_status);

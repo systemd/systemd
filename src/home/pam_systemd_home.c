@@ -91,7 +91,8 @@ static int parse_env(
 static int acquire_user_record(
                 pam_handle_t *handle,
                 const char *username,
-                UserRecord **ret_record) {
+                UserRecord **ret_record,
+                PamBusData **bus_data) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
@@ -140,7 +141,7 @@ static int acquire_user_record(
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_free_ char *generic_field = NULL, *json_copy = NULL;
 
-                r = pam_acquire_bus_connection(handle, &bus);
+                r = pam_acquire_bus_connection(handle, "pam_systemd_home", &bus, bus_data);
                 if (r != PAM_SUCCESS)
                         return r;
 
@@ -472,7 +473,8 @@ static int acquire_home(
                 pam_handle_t *handle,
                 bool please_authenticate,
                 bool please_suspend,
-                bool debug) {
+                bool debug,
+                PamBusData **bus_data) {
 
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL, *secret = NULL;
         bool do_auth = please_authenticate, home_not_active = false, home_locked = false;
@@ -513,11 +515,11 @@ static int acquire_home(
         if (r == PAM_SUCCESS && PTR_TO_FD(home_fd_ptr) >= 0)
                 return PAM_SUCCESS;
 
-        r = pam_acquire_bus_connection(handle, &bus);
+        r = pam_acquire_bus_connection(handle, "pam_systemd_home", &bus, bus_data);
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = acquire_user_record(handle, username, &ur);
+        r = acquire_user_record(handle, username, &ur, bus_data);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -698,7 +700,7 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
         if (debug)
                 pam_syslog(handle, LOG_DEBUG, "pam-systemd-homed authenticating");
 
-        return acquire_home(handle, /* please_authenticate= */ true, suspend_please, debug);
+        return acquire_home(handle, /* please_authenticate= */ true, suspend_please, debug, NULL);
 }
 
 _public_ PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const char **argv) {
@@ -710,6 +712,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 int flags,
                 int argc, const char **argv) {
 
+        /* Let's release the D-Bus connection once this function exits, after all the session might live
+         * quite a long time, and we are not going to process the bus connection in that time, so let's
+         * better close before the daemon kicks us off because we are not processing anything. */
+        _cleanup_(pam_bus_data_disconnectp) PamBusData *d = NULL;
         bool debug = false, suspend_please = false;
         int r;
 
@@ -725,7 +731,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (debug)
                 pam_syslog(handle, LOG_DEBUG, "pam-systemd-homed session start");
 
-        r = acquire_home(handle, /* please_authenticate = */ false, suspend_please, debug);
+        r = acquire_home(handle, /* please_authenticate = */ false, suspend_please, debug, &d);
         if (r == PAM_USER_UNKNOWN) /* Not managed by us? Don't complain. */
                 return PAM_SUCCESS;
         if (r != PAM_SUCCESS)
@@ -741,10 +747,6 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 return pam_syslog_pam_error(handle, LOG_ERR, r,
                                             "Failed to set PAM environment variable $SYSTEMD_HOME_SUSPEND: @PAMERR@");
 
-        /* Let's release the D-Bus connection, after all the session might live quite a long time, and we are
-         * not going to process the bus connection in that time, so let's better close before the daemon
-         * kicks us off because we are not processing anything. */
-        (void) pam_release_bus_connection(handle);
         return PAM_SUCCESS;
 }
 
@@ -784,7 +786,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = pam_acquire_bus_connection(handle, &bus);
+        r = pam_acquire_bus_connection(handle, "pam_systemd_home", &bus, NULL);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -831,11 +833,11 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
         if (debug)
                 pam_syslog(handle, LOG_DEBUG, "pam-systemd-homed account management");
 
-        r = acquire_home(handle, /* please_authenticate = */ false, please_suspend, debug);
+        r = acquire_home(handle, /* please_authenticate = */ false, please_suspend, debug, NULL);
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = acquire_user_record(handle, NULL, &ur);
+        r = acquire_user_record(handle, NULL, &ur, NULL);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -943,11 +945,11 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
         if (debug)
                 pam_syslog(handle, LOG_DEBUG, "pam-systemd-homed account management");
 
-        r = pam_acquire_bus_connection(handle, &bus);
+        r = pam_acquire_bus_connection(handle, "pam_systemd_home", &bus, NULL);
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = acquire_user_record(handle, NULL, &ur);
+        r = acquire_user_record(handle, NULL, &ur, NULL);
         if (r != PAM_SUCCESS)
                 return r;
 
