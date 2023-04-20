@@ -67,3 +67,11 @@ fi
 if grep -q -e "ID=debian" -e "ID_LIKE=debian" /etc/os-release; then
     echo "ignore *" >/usr/lib/systemd/system-preset/99-ignore.preset
 fi
+
+if grep -q "ID=fedora" /etc/os-release; then
+    authselect select minimal
+
+    if authselect list-features minimal | grep -q "with-homed"; then
+        authselect enable-feature with-homed
+    fi
+fi
