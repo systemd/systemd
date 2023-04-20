@@ -681,6 +681,11 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>$SYSTEMD_LOG_RATELIMIT_KMSG</varname></term>
+        <listitem><xi:include href="common-variables.xml" xpointer="log-ratelimit-kmsg" />
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>$XDG_CONFIG_HOME</varname></term>
         <term><varname>$XDG_CONFIG_DIRS</varname></term>
         <term><varname>$XDG_DATA_HOME</varname></term>
@@ -865,13 +870,16 @@
         <term><varname>systemd.log_target=</varname></term>
         <term><varname>systemd.log_time</varname></term>
         <term><varname>systemd.log_tid</varname></term>
+        <term><varname>systemd.log_ratelimit_kmsg</varname></term>
 
         <listitem><para>Controls log output, with the same effect as the
         <varname>$SYSTEMD_LOG_COLOR</varname>, <varname>$SYSTEMD_LOG_LEVEL</varname>,
         <varname>$SYSTEMD_LOG_LOCATION</varname>, <varname>$SYSTEMD_LOG_TARGET</varname>,
-        <varname>$SYSTEMD_LOG_TIME</varname>, and <varname>$SYSTEMD_LOG_TID</varname> environment variables
-        described above. <varname>systemd.log_color</varname>, <varname>systemd.log_location</varname>,
-        <varname>systemd.log_time</varname>, and <varname>systemd.log_tid=</varname> can be specified without
+        <varname>$SYSTEMD_LOG_TIME</varname>, <varname>$SYSTEMD_LOG_TID</varname> and
+        <varname>$SYSTEMD_LOG_RATELIMIT_KMSG</varname> environment variables described above.
+        <varname>systemd.log_color</varname>, <varname>systemd.log_location</varname>,
+        <varname>systemd.log_time</varname>, <varname>systemd.log_tid</varname> and
+        <varname>systemd.log_ratelimit_kmsg</varname> can be specified without
         an argument, with the same effect as a positive boolean.</para></listitem>
       </varlistentry>
 

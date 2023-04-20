@@ -1283,3 +1283,15 @@ char *find_line_startswith(const char *haystack, const char *needle) {
 
         return p + strlen(needle);
 }
+
+char *startswith_strv(const char *string, char **strv) {
+        char *found = NULL;
+
+        STRV_FOREACH(i, strv) {
+                found = startswith(string, *i);
+                if (found)
+                        break;
+        }
+
+        return found;
+}
