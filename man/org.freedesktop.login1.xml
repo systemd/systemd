@@ -1083,6 +1083,7 @@ node /org/freedesktop/login1/session/1 {
       ReleaseControl();
       SetType(in  s type);
       SetDisplay(in  s display);
+      SetTTY(in  s tty);
       TakeDevice(in  u major,
                  in  u minor,
                  out h fd,
@@ -1181,6 +1182,8 @@ node /org/freedesktop/login1/session/1 {
     <variablelist class="dbus-method" generated="True" extra-ref="SetType()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetDisplay()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetTTY()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="TakeDevice()"/>
 
@@ -1282,6 +1285,11 @@ node /org/freedesktop/login1/session/1 {
       useful if the display server is started as part of the session. It can only be called by session's current
       controller. If <function>TakeControl()</function> has not been called, this method will fail. The only argument
       <varname>display</varname> is the new display name.</para>
+
+      <para><function>SetTTY()</function> allows the device name of the session to be changed. This is
+      useful if the tty device is only known after authentication. It can only be called by session's
+      current controller. If <function>TakeControl()</function> has not been called, this method will fail.
+      The only argument <varname>tty</varname> is the new tty device name.</para>
 
       <para><function>TakeDevice()</function> allows a session controller to get a file descriptor for a
       specific device. Pass in the major and minor numbers of the character device and
