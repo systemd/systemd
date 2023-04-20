@@ -21,6 +21,12 @@ struct Manager {
         int listen_fd;
 
         RateLimit worker_ratelimit;
+
+        struct userns_restrict_bpf *userns_restrict_bpf;
+        struct ring_buffer *userns_restrict_bpf_ring_buffer;
+        sd_event_source *userns_restrict_bpf_ring_buffer_event_source;
+
+        int registry_fd;
 };
 
 int manager_new(Manager **ret);
