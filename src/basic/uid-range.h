@@ -33,6 +33,10 @@ static inline bool uid_range_contains(const UidRange *range, uid_t uid) {
 
 int uid_map_read_one(FILE *f, uid_t *ret_base, uid_t *ret_shift, uid_t *ret_range);
 
+static inline size_t uid_range_entries(const UidRange *range) {
+        return range ? range->n_entries : 0;
+}
+
 typedef enum UidRangeUsernsMode {
         UID_RANGE_USERNS_INSIDE,
         UID_RANGE_USERNS_OUTSIDE,
