@@ -140,6 +140,8 @@ option('remote', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 
        description : 'support for "journal over the network"')
 option('create-log-dirs', type : 'boolean',
        description : 'create /var/log/journal{,/remote}')
+option('nsresourced', type : 'boolean',
+       description : 'install the systemd-nsresourced stack')
 option('nss-myhostname', type : 'boolean',
        description : 'install nss-myhostname module')
 option('nss-mymachines', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
