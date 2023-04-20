@@ -451,7 +451,7 @@ def pairwise(iterable):
     return zip(a, b)
 
 
-class PeError(Exception):
+class PEError(Exception):
     pass
 
 
@@ -493,12 +493,12 @@ def pe_add_sections(uki: UKI, output: str):
 
     warnings = pe.get_warnings()
     if warnings:
-        raise PeError(f'pefile warnings treated as errors: {warnings}')
+        raise PEError(f'pefile warnings treated as errors: {warnings}')
 
     security = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_SECURITY']]
     if security.VirtualAddress != 0:
         # We could strip the signatures, but why would anyone sign the stub?
-        raise PeError(f'Stub image is signed, refusing.')
+        raise PEError('Stub image is signed, refusing.')
 
     for section in uki.sections:
         new_section = pefile.SectionStructure(pe.__IMAGE_SECTION_HEADER_format__, pe=pe)
@@ -506,7 +506,7 @@ def pe_add_sections(uki: UKI, output: str):
 
         offset = pe.sections[-1].get_file_offset() + new_section.sizeof()
         if offset + new_section.sizeof() > pe.OPTIONAL_HEADER.SizeOfHeaders:
-            raise PeError(f'Not enough header space to add section {section.name}.')
+            raise PEError(f'Not enough header space to add section {section.name}.')
 
         data = section.content.read_bytes()
 
