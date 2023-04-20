@@ -51,8 +51,36 @@ int pam_syslog_pam_error(pam_handle_t *handle, int level, int error, const char 
         return error;
 }
 
-static void cleanup_system_bus(pam_handle_t *handle, void *data, int error_status) {
-        sd_bus_flush_close_unref(data);
+/* A small structure we store inside the PAM session object, that allows us to resue bus connections but pins
+ * it to the process thoroughly. */
+struct PamBusData {
+        pid_t original_pid;
+        sd_bus *bus;
+        pam_handle_t *pam_handle;
+        char *cache_id;
+};
+
+static PamBusData *pam_bus_data_free(PamBusData *d) {
+        /* The actual destructor */
+        if (!d)
+                return NULL;
+
+        if (d->original_pid != getpid_cached())
+                return NULL;
+
+        sd_bus_flush_close_unref(d->bus);
+        free(d->cache_id);
+
+        /* Note: we don't destroy pam_handle here, because this object is pinned by the handle, and not vice versa! */
+
+        return mfree(d);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(PamBusData*, pam_bus_data_free);
+
+static void pam_bus_data_destroy(pam_handle_t *handle, void *data, int error_status) {
+        /* Destructor when called from PAM */
+        pam_bus_data_free(data);
 }
 
 static char* pam_make_bus_cache_id(const char *module_name) {
@@ -70,38 +98,84 @@ static char* pam_make_bus_cache_id(const char *module_name) {
         return id;
 }
 
-int pam_acquire_bus_connection(pam_handle_t *handle, const char *module_name, sd_bus **ret) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+void pam_bus_data_disconnectp(PamBusData **_d) {
+        PamBusData *d = *ASSERT_PTR(_d);
+        pam_handle_t *handle;
+        int r;
+
+        /* Disconnects the connection explicitly (for use via _cleanup_()) when called */
+
+        if (!d)
+                return;
+
+        if (d->original_pid != getpid_cached())
+                return;
+
+        handle = d->pam_handle; /* Keep a reference to the session even after 'd' might be invalidated */
+
+        r = pam_set_data(ASSERT_PTR(handle), ASSERT_PTR(d->cache_id), NULL, NULL);
+        if (r != PAM_SUCCESS)
+                pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to release PAM user record data, ignoring: @PAMERR@");
+
+        /* Note, the pam_set_data() call will invalidate 'd', don't access here anymore */
+}
+
+int pam_acquire_bus_connection(
+                pam_handle_t *handle,
+                const char *module_name,
+                sd_bus **ret_bus,
+                PamBusData **ret_pam_bus_data) {
+
+        _cleanup_(pam_bus_data_freep) PamBusData *d = NULL;
         _cleanup_free_ char *cache_id = NULL;
         int r;
 
         assert(handle);
         assert(module_name);
-        assert(ret);
+        assert(ret_bus);
 
         cache_id = pam_make_bus_cache_id(module_name);
         if (!cache_id)
                 return pam_log_oom(handle);
 
         /* We cache the bus connection so that we can share it between the session and the authentication hooks */
-        r = pam_get_data(handle, cache_id, (const void**) &bus);
-        if (r == PAM_SUCCESS && bus) {
-                *ret = sd_bus_ref(TAKE_PTR(bus)); /* Increase the reference counter, so that the PAM data stays valid */
-                return PAM_SUCCESS;
+        r = pam_get_data(handle, cache_id, (const void**) &d);
+        if (r == PAM_SUCCESS && d) {
+                if (d->original_pid != getpid_cached()) { /* Refuse reusing a bus from a different process */
+                        TAKE_PTR(d); /* don't delete */
+                        return PAM_SERVICE_ERR;
+                }
+
+                goto success;
         }
         if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get bus connection: @PAMERR@");
 
-        r = sd_bus_open_system(&bus);
+        d = new(PamBusData, 1);
+        if (!d)
+                return pam_log_oom(handle);
+
+        *d = (PamBusData) {
+                .original_pid = getpid_cached(),
+                .cache_id = TAKE_PTR(cache_id),
+                .pam_handle = handle,
+        };
+
+        r = sd_bus_open_system(&d->bus);
         if (r < 0)
                 return pam_syslog_errno(handle, LOG_ERR, r, "Failed to connect to system bus: %m");
 
-        r = pam_set_data(handle, cache_id, bus, cleanup_system_bus);
+        r = pam_set_data(handle, d->cache_id, d, pam_bus_data_destroy);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to set PAM bus data: @PAMERR@");
 
-        sd_bus_ref(bus);
-        *ret = TAKE_PTR(bus);
+success:
+        *ret_bus = sd_bus_ref(d->bus);
+
+        if (ret_pam_bus_data)
+                *ret_pam_bus_data = d;
+
+        TAKE_PTR(d); /* don't auto-destroy anymore, it's installed now */
 
         return PAM_SUCCESS;
 }
