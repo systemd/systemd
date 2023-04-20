@@ -273,15 +273,15 @@ test_vc_keymap() {
             assert_in "XKBVARIANT=intl" "$vc"
             assert_in "XKBOPTIONS=terminate:ctrl_alt_bksp" "$vc"
         elif [[ "$i" =~ ^us-.* ]]; then
-            assert_in "X11 Layout: .unset." "$output"
-            assert_not_in "X11 Model:" "$output"
-            assert_not_in "X11 Variant:" "$output"
-            assert_not_in "X11 Options:" "$output"
+            assert_in "X11 Layout: us" "$output"
+            assert_in "X11 Model: microsoftpro" "$output"
+            assert_in "X11 Variant:" "$output"
+            assert_in "X11 Options: terminate:ctrl_alt_bksp" "$output"
 
-            assert_not_in "XKBLAYOUT" "$vc"
-            assert_not_in "XKBMODEL" "$vc"
-            assert_not_in "XKBVARIANT" "$vc"
-            assert_not_in "XKBOPTIONS" "$vc"
+            assert_in "XKBLAYOUT=us" "$vc"
+            assert_in "XKBMODEL=microsoftpro" "$vc"
+            assert_in "XKBVARIANT=" "$vc"
+            assert_in "XKBOPTIONS=terminate:ctrl_alt_bksp" "$vc"
         fi
     done
 
