@@ -45,3 +45,4 @@ typedef enum UidRangeUsernsMode {
 } UidRangeUsernsMode;
 
 int uid_range_load_userns(UidRange **ret, const char *path, UidRangeUsernsMode mode);
+int uid_range_load_userns_by_fd(UidRange **ret, int userns_fd, UidRangeUsernsMode mode);
