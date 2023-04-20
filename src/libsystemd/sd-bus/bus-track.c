@@ -123,6 +123,7 @@ _public_ int sd_bus_track_new(
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(track, -EINVAL);
+        assert_return(!bus_nonce_changed(bus), -EUCLEAN);
 
         if (!bus->bus_client)
                 return -EINVAL;

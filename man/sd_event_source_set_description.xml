@@ -111,6 +111,13 @@
         </varlistentry>
 
         <varlistentry>
+          <term><constant>-EUCLEAN</constant></term>
+
+          <listitem><para>The event loop has been created in a different library or module instance.</para></listitem>
+
+        </varlistentry>
+
+        <varlistentry>
           <term><constant>-ENXIO</constant></term>
 
           <listitem><para>No name was set for the event source.</para></listitem>

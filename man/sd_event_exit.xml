@@ -113,6 +113,12 @@
         </varlistentry>
 
         <varlistentry>
+          <term><constant>-EUCLEAN</constant></term>
+
+          <listitem><para>The event loop was created in a different library or module instance.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><constant>-ESTALE</constant></term>
 
           <listitem><para>The event loop has exited already and all exit handlers are already processed.

@@ -275,6 +275,13 @@
         </varlistentry>
 
         <varlistentry>
+          <term><constant>-EUCLEAN</constant></term>
+
+          <listitem><para>The event loop has been created in a different library or module instance.</para></listitem>
+
+        </varlistentry>
+
+        <varlistentry>
           <term><constant>-EOPNOTSUPP</constant></term>
 
           <listitem><para>The selected clock is not supported by the event loop implementation.</para></listitem>
