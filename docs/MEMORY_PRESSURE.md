@@ -29,7 +29,7 @@ userspace process can detect mounting memory pressure early and release memory
 back to the kernel as it happens, relieving the memory pressure before it
 becomes too critical.
 
-The effects of memory pressure during runtime generaly are growing latencies
+The effects of memory pressure during runtime generally are growing latencies
 during operation: when a program requires memory but the system is busy writing
 out memory to (relatively slow) disks in order make some available, this
 generally surfaces in scheduling latencies, and applications and services will
@@ -146,8 +146,8 @@ is specifically useful for services that consist of multiple processes, and
 where each of them shall be able to release resources on memory pressure.
 
 The `POLLPRI`/`POLLIN` conditions will be triggered every time memory pressure
-is detected, but not continously. It is thus safe to keep `poll()`-ing on the
-same file descriptor continously, and executing resource release operations
+is detected, but not continuously. It is thus safe to keep `poll()`-ing on the
+same file descriptor continuously, and executing resource release operations
 whenever the file descriptor triggers without having to expect overloading the
 process.
 
