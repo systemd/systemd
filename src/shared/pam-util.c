@@ -50,18 +50,31 @@ int pam_syslog_pam_error(pam_handle_t *handle, int level, int error, const char 
 }
 
 static void cleanup_system_bus(pam_handle_t *handle, void *data, int error_status) {
+        /* The PAM_DATA_SILENT flag is the way that pam_end() communicates to the module stack that this
+         * invocation of pam_end() is not the final one, but in the process that is going to directly exec
+         * the child. This means we are being called after a fork(), and we do not want to try and clean
+         * up the sd-bus object, as the file descriptors (which are CLOEXEC) will be invalid, and we'll hit
+         * an assertion. */
+        if (error_status & PAM_DATA_SILENT)
+                return (void) pam_syslog_pam_error(
+                                handle,
+                                LOG_ERR,
+                                SYNTHETIC_ERRNO(EUCLEAN),
+                                "Attempted to close sd-bus after fork, this should not happen.");
+
         sd_bus_flush_close_unref(data);
 }
 
-int pam_acquire_bus_connection(pam_handle_t *handle, sd_bus **ret) {
+int pam_acquire_bus_connection(pam_handle_t *handle, const char *cache_id, sd_bus **ret) {
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         int r;
 
         assert(handle);
+        assert(cache_id);
         assert(ret);
 
         /* We cache the bus connection so that we can share it between the session and the authentication hooks */
-        r = pam_get_data(handle, "systemd-system-bus", (const void**) &bus);
+        r = pam_get_data(handle, cache_id, (const void**) &bus);
         if (r == PAM_SUCCESS && bus) {
                 *ret = sd_bus_ref(TAKE_PTR(bus)); /* Increase the reference counter, so that the PAM data stays valid */
                 return PAM_SUCCESS;
@@ -73,7 +86,7 @@ int pam_acquire_bus_connection(pam_handle_t *handle, sd_bus **ret) {
         if (r < 0)
                 return pam_syslog_errno(handle, LOG_ERR, r, "Failed to connect to system bus: %m");
 
-        r = pam_set_data(handle, "systemd-system-bus", bus, cleanup_system_bus);
+        r = pam_set_data(handle, cache_id, bus, cleanup_system_bus);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to set PAM bus data: @PAMERR@");
 
@@ -83,10 +96,12 @@ int pam_acquire_bus_connection(pam_handle_t *handle, sd_bus **ret) {
         return PAM_SUCCESS;
 }
 
-int pam_release_bus_connection(pam_handle_t *handle) {
+int pam_release_bus_connection(pam_handle_t *handle, const char *cache_id) {
         int r;
 
-        r = pam_set_data(handle, "systemd-system-bus", NULL, NULL);
+        assert(cache_id);
+
+        r = pam_set_data(handle, cache_id, NULL, NULL);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to release PAM user record data: @PAMERR@");
 
