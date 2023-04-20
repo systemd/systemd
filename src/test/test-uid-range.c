@@ -98,7 +98,7 @@ TEST(load_userns) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
-        r = uid_range_load_userns(&p, NULL);
+        r = uid_range_load_userns(&p, NULL, UID_RANGE_USERNS_INSIDE);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return;
 
@@ -121,7 +121,7 @@ TEST(load_userns) {
 
         p = uid_range_free(p);
 
-        assert_se(uid_range_load_userns(&p, fn) >= 0);
+        assert_se(uid_range_load_userns(&p, fn, UID_RANGE_USERNS_INSIDE) >= 0);
 
         assert_se(uid_range_contains(p, 0));
         assert_se(uid_range_contains(p, 19));
