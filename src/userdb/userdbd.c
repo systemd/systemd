@@ -34,7 +34,7 @@ static int run(int argc, char *argv[]) {
         if (argc != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
 
-        if (setenv("SYSTEMD_BYPASS_USERDB", "io.systemd.NameServiceSwitch:io.systemd.Multiplexer:io.systemd.DropIn", 1) < 0)
+        if (setenv("SYSTEMD_BYPASS_USERDB", "io.systemd.NameServiceSwitch:io.systemd.Multiplexer:io.systemd.DropIn:io.systemd.UserRegistry", 1) < 0)
                 return log_error_errno(errno, "Failed to set $SYSTEMD_BYPASS_USERDB: %m");
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
