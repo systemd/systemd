@@ -3006,7 +3006,7 @@ if conf.get('ENABLE_USERDB') == 1
         executable(
                 'systemd-userwork',
                 systemd_userwork_sources,
-                include_directories : includes,
+                include_directories : [ includes, userns_restrict_include ],
                 link_with : [libshared],
                 dependencies : [threads,
                                 userspace,
@@ -3018,7 +3018,7 @@ if conf.get('ENABLE_USERDB') == 1
         executable(
                 'systemd-userdbd',
                 systemd_userdbd_sources,
-                include_directories : includes,
+                include_directories : [ includes, userns_restrict_include ],
                 link_with : [libshared],
                 dependencies : [threads,
                                 userspace,
