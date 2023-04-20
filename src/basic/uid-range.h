@@ -33,6 +33,10 @@ static inline bool uid_range_contains(const UidRange *range, uid_t uid) {
 
 bool uid_range_overlaps(const UidRange *range, uid_t start, uid_t nr);
 
+static inline size_t uid_range_entries(const UidRange *range) {
+        return range ? range->n_entries : 0;
+}
+
 typedef enum UidRangeUsernsMode {
         UID_RANGE_USERNS_INSIDE,
         UID_RANGE_USERNS_OUTSIDE,
