@@ -428,7 +428,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 _cleanup_(uid_range_freep) UidRange *uid_range = NULL;
                 int boundary_lines, uid_map_lines;
 
-                r = uid_range_load_userns(&uid_range, "/proc/self/uid_map");
+                r = uid_range_load_userns(&uid_range, "/proc/self/uid_map", UID_RANGE_USERNS_INSIDE);
                 if (r < 0)
                         log_debug_errno(r, "Failed to load /proc/self/uid_map, ignoring: %m");
 
@@ -731,7 +731,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 _cleanup_(uid_range_freep) UidRange *gid_range = NULL;
                 int boundary_lines, gid_map_lines;
 
-                r = uid_range_load_userns(&gid_range, "/proc/self/gid_map");
+                r = uid_range_load_userns(&gid_range, "/proc/self/gid_map", UID_RANGE_USERNS_INSIDE);
                 if (r < 0)
                         log_debug_errno(r, "Failed to load /proc/self/gid_map, ignoring: %m");
 
