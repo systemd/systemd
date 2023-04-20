@@ -1779,6 +1779,8 @@ _public_ void sd_bus_close(sd_bus *bus) {
 _public_ sd_bus *sd_bus_close_unref(sd_bus *bus) {
         if (!bus)
                 return NULL;
+        if (bus_pid_changed(bus))
+                return NULL;
 
         sd_bus_close(bus);
 
@@ -1787,6 +1789,8 @@ _public_ sd_bus *sd_bus_close_unref(sd_bus *bus) {
 
 _public_ sd_bus* sd_bus_flush_close_unref(sd_bus *bus) {
         if (!bus)
+                return NULL;
+        if (bus_pid_changed(bus))
                 return NULL;
 
         /* Have to do this before flush() to prevent hang */
@@ -1805,7 +1809,30 @@ void bus_enter_closing(sd_bus *bus) {
         bus_set_state(bus, BUS_CLOSING);
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_bus, sd_bus, bus_free);
+/* Define manually so we can add the PID check */
+_public_ sd_bus *sd_bus_ref(sd_bus *bus) {
+        if (!bus)
+                return NULL;
+        if (bus_pid_changed(bus))
+                return NULL;
+
+        bus->n_ref++;
+
+        return bus;
+}
+
+_public_ sd_bus* sd_bus_unref(sd_bus *bus) {
+        if (!bus)
+                return NULL;
+        if (bus_pid_changed(bus))
+                return NULL;
+
+        assert(bus->n_ref > 0);
+        if (--bus->n_ref > 0)
+                return NULL;
+
+        return bus_free(bus);
+}
 
 _public_ int sd_bus_is_open(sd_bus *bus) {
         if (!bus)
