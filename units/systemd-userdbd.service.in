@@ -16,7 +16,7 @@ Before=sysinit.target
 DefaultDependencies=no
 
 [Service]
-CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_SYS_RESOURCE
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_SYS_RESOURCE CAP_BPF CAP_PERFMON CAP_SETGID CAP_SETUID CAP_SYS_ADMIN
 ExecStart={{LIBEXECDIR}}/systemd-userdbd
 IPAddressDeny=any
 LimitNOFILE={{HIGH_RLIMIT_NOFILE}}
@@ -32,13 +32,14 @@ ProtectKernelLogs=yes
 ProtectKernelModules=yes
 ProtectSystem=strict
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
-RestrictNamespaces=yes
 RestrictRealtime=yes
 RestrictSUIDSGID=yes
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
-SystemCallFilter=@system-service
+SystemCallFilter=@system-service bpf perf_event_open
 Type=notify
+NotifyAccess=all
+FileDescriptorStoreMax=4096
 {{SERVICE_WATCHDOG}}
 
 [Install]

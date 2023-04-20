@@ -1,20 +1,30 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mount.h>
 #include <sys/wait.h>
 
 #include "sd-daemon.h"
 
+#include "bpf-dlopen.h"
 #include "common-signal.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "missing_syscall.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "process-util.h"
+#include "recurse-dir.h"
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
+#include "strv.h"
 #include "umask-util.h"
+#include "unaligned.h"
 #include "userdbd-manager.h"
+#include "userns-restrict.h"
+#include "userns-util.h"
 
 #define LISTEN_TIMEOUT_USEC (25 * USEC_PER_SEC)
 
@@ -85,6 +95,7 @@ int manager_new(Manager **ret) {
                         .interval = 2 * USEC_PER_SEC,
                         .burst = 2500,
                 },
+                .registry_fd = -EBADF,
         };
 
         r = sd_event_new(&m->event);
@@ -123,6 +134,15 @@ Manager* manager_free(Manager *m) {
         set_free(m->workers_dynamic);
 
         m->deferred_start_worker_event_source = sd_event_source_unref(m->deferred_start_worker_event_source);
+
+        safe_close(m->listen_fd);
+
+        sd_event_source_disable_unref(m->userns_restrict_bpf_ring_buffer_event_source);
+        if (m->userns_restrict_bpf_ring_buffer)
+                sym_ring_buffer__free(m->userns_restrict_bpf_ring_buffer);
+        userns_restrict_bpf_free(m->userns_restrict_bpf);
+
+        safe_close(m->registry_fd);
 
         sd_event_unref(m->event);
 
@@ -183,9 +203,14 @@ static int start_one_worker(Manager *m) {
                         _exit(EXIT_FAILURE);
                 }
 
-
                 if (setenv("USERDB_FIXED_WORKER", one_zero(fixed), 1) < 0) {
                         log_error_errno(errno, "Failed to set $USERDB_FIXED_WORKER: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                /* Tell the workers whether to enable the userns API */
+                if (setenv("USERDB_USERNS_API", one_zero(m->userns_restrict_bpf), 1) < 0) {
+                        log_error_errno(errno, "Failed to set $USERDB_USERNS_API: %m");
                         _exit(EXIT_FAILURE);
                 }
 
@@ -263,57 +288,358 @@ static int start_workers(Manager *m, bool explicit_request) {
         return 0;
 }
 
-int manager_startup(Manager *m) {
+static void manager_release_userns_bpf(Manager *m, uint64_t inode) {
+        int r;
+
+        assert(m);
+
+        if (inode == 0)
+                return;
+
+        assert(m->userns_restrict_bpf);
+
+        r = userns_restrict_reset_by_inode(m->userns_restrict_bpf, inode);
+        if (r < 0)
+                return (void) log_warning_errno(r, "Failed to remove namespace inode from BPF map, ignoring: %m");
+}
+
+static void manager_release_userns_file(Manager *m, uint64_t inode, uid_t start_uid) {
+        assert(m);
+        assert(m->registry_fd >= 0);
+
+        if (inode != 0) {
+                _cleanup_free_ char *nfn = NULL;
+                if (asprintf(&nfn, "n%" PRIu64 ".userns", inode) < 0)
+                        return (void) log_oom();
+
+                if (unlinkat(m->registry_fd, nfn, 0) < 0)
+                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                                       "Failed to remove '%s', ignoring: %m", nfn);
+        }
+
+        if (uid_is_valid(start_uid)) {
+                _cleanup_free_ char *ufn = NULL;
+
+                if (asprintf(&ufn, "u" UID_FMT ".userns", start_uid) < 0)
+                        return (void) log_oom();
+
+                if (unlinkat(m->registry_fd, ufn, 0) < 0)
+                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                               "Failed to remove '%s', ignoring: %m", ufn);
+        }
+}
+
+static void manager_release_userns_fds(Manager *m, uint64_t inode) {
+        int r;
+
+        assert(m);
+        assert(inode != 0);
+
+        r = sd_notifyf(/* unset_environment= */ false,
+                       "FDSTOREREMOVE=1\n"
+                       "FDNAME=userns-%" PRIu64 "\n", inode);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send fd store removal message, ignoring: %m");
+}
+
+static void manager_release_userns_by_inode(Manager *m, uint64_t inode) {
+        _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
+        uid_t start_uid = UID_INVALID;
+        int r;
+
+        assert(m);
+        assert(inode != 0);
+
+        r = userns_load_json_by_userns_inode(m->registry_fd, inode, &userns_info);
+        if (r < 0)
+                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to find userns for inode %" PRIu64 ", ignoring: %m", inode);
+        else
+                start_uid = userns_info->start;
+
+        if (uid_is_valid(start_uid))
+                log_debug("Removing user namespace mapping %" PRIu64 " for UID " UID_FMT ".", inode, start_uid);
+        else
+                log_debug("Removing user namespace mapping %" PRIu64 ".", inode);
+
+        /* Remove the BPF rules */
+        manager_release_userns_bpf(m, inode);
+
+        /* Remove the resources file from disk */
+        manager_release_userns_file(m, inode, start_uid);
+
+        /* Remove the resources from the fdstore */
+        manager_release_userns_fds(m, inode);
+}
+
+static int manager_scan_registry(Manager *m, Set **registry_inodes) {
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        int r;
+
+        assert(m);
+        assert(registry_inodes);
+        assert(m->registry_fd >= 0);
+
+        r = readdir_all(m->registry_fd, RECURSE_DIR_IGNORE_DOT, &de);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate registry.");
+
+        for (size_t i = 0; i < de->n_entries; i++) {
+                struct dirent *dentry = de->entries[i];
+                _cleanup_free_ char *u = NULL;
+                const char *e, *p;
+                uint64_t inode;
+
+                p = startswith(dentry->d_name, "n");
+                if (!p)
+                        continue;
+
+                e = endswith(p, ".userns");
+                if (!e)
+                        continue;
+
+                u = strndup(p, e - u);
+                if (!u)
+                        return log_oom();
+
+                r = safe_atou64(u, &inode);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse userns inode number from '%s', skipping: %m", dentry->d_name);
+                        continue;
+                }
+
+                if (inode > UINT32_MAX) { /* namespace inode numbers are 23bit only right now */
+                        log_warning("userns inode number outside of 32bit range, skipping.");
+                        continue;
+                }
+
+                if (set_ensure_put(registry_inodes, NULL, UINT32_TO_PTR(inode)) < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
+static int manager_make_listen_socket(Manager *m) {
+        static const union sockaddr_union sockaddr = {
+                .un.sun_family = AF_UNIX,
+                .un.sun_path = "/run/systemd/userdb/io.systemd.Multiplexer",
+        };
+        int r;
+
+        assert(m);
+
+        if (m->listen_fd >= 0)
+                return 0;
+
+        r = mkdir_p("/run/systemd/userdb", 0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create /run/systemd/userdb: %m");
+
+        m->listen_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        if (m->listen_fd < 0)
+                return log_error_errno(errno, "Failed to bind on socket: %m");
+
+        (void) sockaddr_un_unlink(&sockaddr.un);
+
+        WITH_UMASK(0000)
+                if (bind(m->listen_fd, &sockaddr.sa, SOCKADDR_UN_LEN(sockaddr.un)) < 0)
+                        return log_error_errno(errno, "Failed to bind socket: %m");
+
+        FOREACH_STRING(alias,
+                       "/run/systemd/userdb/io.systemd.NameServiceSwitch",
+                       "/run/systemd/userdb/io.systemd.DropIn",
+                       "/run/systemd/userdb/io.systemd.UserRegistry") {
+
+                r = symlink_idempotent("io.systemd.Multiplexer", alias, false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to symlink '%s': %m", alias);
+        }
+
+        if (listen(m->listen_fd, SOMAXCONN) < 0)
+                return log_error_errno(errno, "Failed to listen on socket: %m");
+
+        return 1;
+}
+
+static int manager_scan_listen_fds(Manager *m, Set **fdstore_inodes) {
+        _cleanup_strv_free_ char **names = NULL;
         int n, r;
 
         assert(m);
-        assert(m->listen_fd < 0);
+        assert(fdstore_inodes);
 
-        n = sd_listen_fds(false);
+        n = sd_listen_fds_with_names(/* unset_environment= */ true, &names);
         if (n < 0)
                 return log_error_errno(n, "Failed to determine number of passed file descriptors: %m");
-        if (n > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected one listening fd, got %i.", n);
-        if (n == 1)
-                m->listen_fd = SD_LISTEN_FDS_START;
-        else {
-                static const union sockaddr_union sockaddr = {
-                        .un.sun_family = AF_UNIX,
-                        .un.sun_path = "/run/systemd/userdb/io.systemd.Multiplexer",
-                };
 
-                r = mkdir_p("/run/systemd/userdb", 0755);
+        for (int i = 0; i < n; i++) {
+                _cleanup_close_ int fd = SD_LISTEN_FDS_START + i; /* Take possession */
+                const char *e;
+
+                /* If this is a BPF allowlist related fd, just close it, but remember which start UIDs this covers */
+                e = startswith(names[i], "userns-");
+                if (e) {
+                        uint64_t inode;
+
+                        r = safe_atou64(e, &inode);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to parse UID from fd name '%s', ignoring: %m", e);
+                                continue;
+                        }
+
+                        if (inode > UINT32_MAX) {
+                                log_warning("Inode number outside of 32bit range, ignoring");
+                                continue;
+                        }
+
+                        if (set_ensure_put(fdstore_inodes, NULL, UINT32_TO_PTR(inode)) < 0)
+                                return log_oom();
+
+                        continue;
+                }
+
+                /* We don't check the name for the stream socket, for compatibility with older versions */
+                r = sd_is_socket(fd, AF_UNIX, SOCK_STREAM, 1);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to create /run/systemd/userdb: %m");
+                        return log_error_errno(r, "Failed to detect if passed file descriptor is a socket: %m");
+                if (r > 0) {
+                        if (m->listen_fd >= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ), "Passed more than one AF_UNIX/SOCK_STREAM socket, refusing.");
 
-                m->listen_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
-                if (m->listen_fd < 0)
-                        return log_error_errno(errno, "Failed to bind on socket: %m");
+                        m->listen_fd = TAKE_FD(fd);
+                        continue;
+                }
 
-                (void) sockaddr_un_unlink(&sockaddr.un);
-
-                WITH_UMASK(0000)
-                        if (bind(m->listen_fd, &sockaddr.sa, SOCKADDR_UN_LEN(sockaddr.un)) < 0)
-                                return log_error_errno(errno, "Failed to bind socket: %m");
-
-                r = symlink_idempotent("io.systemd.Multiplexer",
-                                       "/run/systemd/userdb/io.systemd.NameServiceSwitch", false);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bind io.systemd.Multiplexer: %m");
-
-                r = symlink_idempotent("io.systemd.Multiplexer",
-                                       "/run/systemd/userdb/io.systemd.DropIn", false);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bind io.systemd.Multiplexer: %m");
-
-                if (listen(m->listen_fd, SOMAXCONN_DELUXE) < 0)
-                        return log_error_errno(errno, "Failed to listen on socket: %m");
+                log_warning("Closing passed file descriptor %i (%s) we don't recognize.", fd, names[i]);
         }
+
+        return 0;
+}
+
+static int ringbuf_event(void *userdata, void *data, size_t size) {
+        Manager *m = ASSERT_PTR(userdata);
+        size_t n;
+
+        if ((size % sizeof(unsigned int)) != 0) /* Not multiples of "unsigned int"? */
+                return -EIO;
+
+        n = size / sizeof(unsigned int);
+        for (size_t i = 0; i < n; i++) {
+                const void *d;
+                uint64_t inode;
+
+                d = (const uint8_t*) data + i * sizeof(unsigned int);
+                inode = unaligned_read_ne32(d);
+
+                log_debug("Got BPF ring buffer notification that user namespace %" PRIu64 " is now dead.", inode);
+                manager_release_userns_by_inode(m, inode);
+        }
+
+        return 0;
+}
+
+static int on_ringbuf_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        r = sym_ring_buffer__poll(m->userns_restrict_bpf_ring_buffer, 0);
+        if (r < 0)
+                return log_error_errno(r, "Got failure reading from BPF ring buffer: %m");
+
+        return 0;
+}
+
+static int manager_setup_bpf(Manager *m) {
+        int rb_fd = -EBADF, poll_fd = -EBADF, r;
+
+        assert(m);
+        assert(!m->userns_restrict_bpf);
+        assert(!m->userns_restrict_bpf_ring_buffer);
+        assert(!m->userns_restrict_bpf_ring_buffer_event_source);
+
+        r = userns_restrict_install(/* pin= */ true, &m->userns_restrict_bpf);
+        if (r < 0) {
+                log_notice_errno(r, "Proceeding with user namespace interfaces disabled.");
+                return 0;
+        }
+
+        rb_fd = sym_bpf_map__fd(m->userns_restrict_bpf->maps.userns_ringbuf);
+        if (rb_fd < 0)
+                return log_error_errno(rb_fd, "Failed to get fd of ring buffer: %m");
+
+        m->userns_restrict_bpf_ring_buffer = sym_ring_buffer__new(rb_fd, ringbuf_event, m, NULL);
+        if (!m->userns_restrict_bpf_ring_buffer)
+                return log_error_errno(errno, "Failed to allocate BPF ring buffer object: %m");
+
+        poll_fd = sym_ring_buffer__epoll_fd(m->userns_restrict_bpf_ring_buffer);
+        if (poll_fd < 0)
+                return log_error_errno(poll_fd, "Failed to get poll fd of ring buffer: %m");
+
+        r = sd_event_add_io(
+                        m->event,
+                        &m->userns_restrict_bpf_ring_buffer_event_source,
+                        poll_fd,
+                        EPOLLIN,
+                        on_ringbuf_io,
+                        m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event source for BPF ring buffer: %m");
+
+        return 0;
+}
+
+int manager_startup(Manager *m) {
+        _cleanup_(set_freep) Set *fdstore_inodes = NULL, *registry_inodes = NULL;
+        void *p;
+        int r;
+
+        assert(m);
+        assert(m->registry_fd < 0);
+        assert(!m->userns_restrict_bpf);
+        assert(m->listen_fd < 0);
+
+        m->registry_fd = userns_open_registry_fd();
+        if (m->registry_fd < 0)
+                return log_error_errno(m->registry_fd, "Failed to open registry directory: %m");
+
+        r = manager_setup_bpf(m);
+        if (r < 0)
+                return r;
+
+        r = manager_scan_listen_fds(m, &fdstore_inodes);
+        if (r < 0)
+                return r;
+
+        r = manager_scan_registry(m, &registry_inodes);
+        if (r < 0)
+                return r;
+
+        /* If there are resources tied to UIDs not found in the registry, then release them */
+        SET_FOREACH(p, fdstore_inodes)  {
+                uint64_t inode;
+
+                if (set_contains(registry_inodes, p))
+                        continue;
+
+                inode = PTR_TO_UINT32(p);
+
+                log_debug("Found stale fd store entry for user namespace %" PRIu64 ", removing.", inode);
+                manager_release_userns_by_inode(m, inode);
+        }
+
+        r = manager_make_listen_socket(m);
+        if (r < 0)
+                return r;
 
         /* Let's make sure every accept() call on this socket times out after 25s. This allows workers to be
          * GC'ed on idle */
         if (setsockopt(m->listen_fd, SOL_SOCKET, SO_RCVTIMEO, TIMEVAL_STORE(LISTEN_TIMEOUT_USEC), sizeof(struct timeval)) < 0)
                 return log_error_errno(errno, "Failed to se SO_RCVTIMEO: %m");
 
-        return start_workers(m, /* explicit_request= */ false);
+        r = start_workers(m, /* explicit_request= */ false);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
