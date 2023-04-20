@@ -44,6 +44,7 @@ TEST(find_converted_keymap) {
 
         assert_se(r == 1);
         assert_se(streq(ans, "pl"));
+        ans = mfree(ans);
 
         assert_se(find_converted_keymap(
                         &(X11Context) {
@@ -73,6 +74,7 @@ TEST(find_legacy_keymap) {
 TEST(vconsole_convert_to_x11) {
         _cleanup_(x11_context_clear) X11Context xc = {};
         _cleanup_(vc_context_clear) VCContext vc = {};
+        int r;
 
         log_info("/* test empty keymap */");
         assert_se(vconsole_convert_to_x11(&vc, &xc) >= 0);
@@ -91,6 +93,18 @@ TEST(vconsole_convert_to_x11) {
         assert_se(streq(xc.layout, "es"));
         assert_se(streq(xc.variant, "dvorak"));
         x11_context_clear(&xc);
+
+        log_info("/* test with unknown variant, new mapping (es:) */");
+        assert_se(free_and_strdup(&vc.keymap, "es-foobar") >= 0);
+        r = vconsole_convert_to_x11(&vc, &xc);
+        if (r > 0) {
+                assert_se(streq(xc.layout, "es"));
+                assert_se(xc.variant == NULL);
+                x11_context_clear(&xc);
+        } else {
+                assert_se(r == 0);
+                log_info("Skipping test as kbd is not installed");
+        }
 
         log_info("/* test with old mapping (fr:latin9) */");
         assert_se(free_and_strdup(&vc.keymap, "fr-latin9") >= 0);
