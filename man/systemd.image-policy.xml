@@ -38,7 +38,7 @@
     <option>usr-verity</option>, <option>usr-verity-sig</option>, <option>tmp</option>,
     <option>var</option>. These identifiers match the relevant partition types in the Discoverable Partitions
     Specification, but are agnostic to CPU architectures. If the partition identifier is left empty it
-    defines the <emphasis>default</emphasis> policy for partitions defined in the Discoverable Parition
+    defines the <emphasis>default</emphasis> policy for partitions defined in the Discoverable Partitions
     Specification for which no policy flags are explicitly listed in the policy string.</para>
 
     <para>The following partition policy flags are defined that dictate the existence/absence, the use, and

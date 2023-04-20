@@ -538,7 +538,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <varname>StateDirectory=</varname>, <varname>CacheDirectory=</varname>,
             <varname>LogsDirectory=</varname> and <varname>RuntimeDirectory=</varname>, see
             <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-            for details. It may also be used to clear the file decriptor store as enabled via
+            for details. It may also be used to clear the file descriptor store as enabled via
             <varname>FileDescriptorStoreMax=</varname>, see
             <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
             for details.  For timer units this may be used to clear out the persistent timestamp data if

@@ -1143,7 +1143,7 @@ Name=dmz0</programlisting>
     <example>
       <title>(Re-)applying a .link file to an interface</title>
 
-      <para>After a new .link file has been created, or an exisiting .link file modified, the new settings
+      <para>After a new .link file has been created, or an existing .link file modified, the new settings
       may be applied to the matching interface with the following commands:</para>
 
       <programlisting>$ sudo udevadm control --reload
