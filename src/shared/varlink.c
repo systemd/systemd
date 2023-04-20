@@ -146,7 +146,7 @@ struct Varlink {
         /* Further messages to output not yet formatted into text, and thus not included in output_buffer
          * yet. We keep them separate from output_buffer, to not violate fd message boundaries: we want that
          * each fd that is sent is associated with its fds, and that fds cannot be accidentally associated
-         * with preceeding or following messages. */
+         * with preceding or following messages. */
         LIST_HEAD(VarlinkJsonQueueItem, output_queue);
         VarlinkJsonQueueItem *output_queue_tail;
 
@@ -1502,7 +1502,7 @@ static int varlink_enqueue_json(Varlink *v, JsonVariant *m) {
         assert(v);
         assert(m);
 
-        /* If ther are no file descriptors to be queued and no queue entries yet we can shortcut things and
+        /* If there are no file descriptors to be queued and no queue entries yet we can shortcut things and
          * append this entry directly to the output buffer */
         if (v->n_pushed_fds == 0 && !v->output_queue)
                 return varlink_format_json(v, m);
@@ -2351,7 +2351,7 @@ int varlink_reset_fds(Varlink *v) {
 int varlink_peek_fd(Varlink *v, size_t i) {
         assert_return(v, -EINVAL);
 
-        /* Returns one of the file descriptors that were received along witht the current message. This does
+        /* Returns one of the file descriptors that were received along with the current message. This does
          * not duplicate the fd nor invalidate it, it hence remains in our possession. */
 
         if (!v->allow_fd_passing_input)
