@@ -553,8 +553,12 @@ static int write_to_kmsg(
         if (kmsg_fd < 0)
                 return 0;
 
-        if (ratelimit_kmsg && !ratelimit_below(&ratelimit))
-                return 0;
+        if (ratelimit_kmsg && !ratelimit_below(&ratelimit)) {
+                if (ratelimit_num_dropped(&ratelimit) > 1)
+                        return 0;
+
+                buffer = "Too many messages being logged to kmsg, ignoring";
+        }
 
         xsprintf(header_priority, "<%i>", level);
         xsprintf(header_pid, "["PID_FMT"]: ", getpid_cached());
