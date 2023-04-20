@@ -1779,6 +1779,8 @@ _public_ void sd_bus_close(sd_bus *bus) {
 _public_ sd_bus *sd_bus_close_unref(sd_bus *bus) {
         if (!bus)
                 return NULL;
+        if (bus_pid_changed(bus))
+                return NULL;
 
         sd_bus_close(bus);
 
@@ -1787,6 +1789,8 @@ _public_ sd_bus *sd_bus_close_unref(sd_bus *bus) {
 
 _public_ sd_bus* sd_bus_flush_close_unref(sd_bus *bus) {
         if (!bus)
+                return NULL;
+        if (bus_pid_changed(bus))
                 return NULL;
 
         /* Have to do this before flush() to prevent hang */
