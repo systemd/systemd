@@ -685,6 +685,14 @@ units = [
           'conditions' : ['ENABLE_MNTFSD'],
         },
         {
+          'file' : 'systemd-nsresourced.service.in',
+          'conditions' : ['ENABLE_NSRESOURCED'],
+        },
+        {
+          'file' : 'systemd-nsresourced.socket',
+          'conditions' : ['ENABLE_NSRESOURCED'],
+        },
+        {
           'file' : 'systemd-vconsole-setup.service.in',
           'conditions' : ['ENABLE_VCONSOLE'],
         },
