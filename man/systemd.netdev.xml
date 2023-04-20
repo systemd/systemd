@@ -829,7 +829,7 @@
       <varlistentry>
         <term><varname>InheritInnerProtocol=</varname></term>
         <listitem>
-          <para>Takes a boolean. When true, inner Layer 3 protcol is set as Protocol Type in the GENEVE
+          <para>Takes a boolean. When true, inner Layer 3 protocol is set as Protocol Type in the GENEVE
           header instead of Ethernet. Defaults to false.</para>
         </listitem>
       </varlistentry>

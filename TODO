@@ -134,7 +134,7 @@ Features:
   allow the host to read it, while making everything read-only.
 
 * fix our various hwdb lookup keys to end with ":" again. The original idea was
-  that hwdb patters can match arbitrary fields with expressions like
+  that hwdb patterns can match arbitrary fields with expressions like
   "*:foobar:*", to wildcard match both the start and the end of the string.
   This only works safely for later extensions of the string if the strings
   always end in a colon. This requires updating our udev rules, as well as
@@ -142,7 +142,7 @@ Features:
 
 * mount /tmp/ and /var/tmp with a uidmap applied that blocks out "nobody" user
   among other things such as dynamic uid ranges for containers and so on. That
-  way noone can create files there with these uids and we enforce they are only
+  way no one can create files there with these uids and we enforce they are only
   used transiently, never persistently.
 
 * rework loopback support in fstab: when "loop" option is used, then
@@ -188,7 +188,7 @@ Features:
 
 * journald: also collect CLOCK_BOOTTIME timestamps per log entry. Then, derive
   "corrected" CLOCK_REALTIME information on display from that and the timestamp
-  info of the newest entry of the specificy boot (as identified by the boot
+  info of the newest entry of the specific boot (as identified by the boot
   ID). This way, if a system comes up without a valid clock but acquires a
   better clock later, we can "fix" older entry timestamps on display, by
   calculating backwards. We cannot use CLOCK_MONOTONIC for this, since it does

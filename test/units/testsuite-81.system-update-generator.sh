@@ -30,7 +30,7 @@ run_and_list "$GENERATOR_BIN" "$OUT_DIR"
 link_endswith "$OUT_DIR/early/default.target" "/lib/systemd/system/system-update.target"
 
 : "system-update-generator: kernel cmdline warnings"
-# We should warn if the default target is overriden on the kernel cmdline
+# We should warn if the default target is overridden on the kernel cmdline
 # by a runlevel or systemd.unit=, but still generate the symlink
 SYSTEMD_PROC_CMDLINE="systemd.unit=foo.bar 3" run_and_list "$GENERATOR_BIN" "$OUT_DIR" |& tee /tmp/system-update-generator.log
 link_endswith "$OUT_DIR/early/default.target" "/lib/systemd/system/system-update.target"

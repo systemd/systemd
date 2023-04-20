@@ -187,7 +187,7 @@
             <row>
               <entry>15</entry>
               <entry>system-identity</entry>
-              <entry><citerefentry><refentrytitle>systemd-cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry> optionally measures the volume key of activated LUKS volumes into this PCR. <citerefentry><refentrytitle>systemd-pcrmachine.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> measures the <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> into this PCR. <citerefentry><refentrytitle>systemd-pcrfs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> measures mount points, file system UUIDs, labels, partion UUIDs of the root and <filename>/var/</filename> filesystems into this PCR.</entry>
+              <entry><citerefentry><refentrytitle>systemd-cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry> optionally measures the volume key of activated LUKS volumes into this PCR. <citerefentry><refentrytitle>systemd-pcrmachine.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> measures the <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> into this PCR. <citerefentry><refentrytitle>systemd-pcrfs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> measures mount points, file system UUIDs, labels, partition UUIDs of the root and <filename>/var/</filename> filesystems into this PCR.</entry>
             </row>
 
             <row>

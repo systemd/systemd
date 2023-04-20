@@ -705,7 +705,7 @@ const ImagePolicy image_policy_sysext_strict = {
 };
 
 const ImagePolicy image_policy_confext = {
-        /* For configuraiton extensions, honour root file system, and ignore everything else. After all, we
+        /* For configuration extensions, honour root file system, and ignore everything else. After all, we
          * are only interested in the /etc/ tree anyway, and that's really the only place it can be. */
         .n_policies = 1,
         .policies = {

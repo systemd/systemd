@@ -1526,7 +1526,7 @@ check_coverage_reports() {
     #
     # Also, a note: some tests, like TEST-46, overmount /home with tmpfs, which
     # means if your build dir is under /home/your-user (which is usually the
-    # case) you might get bogus erorrs and missing coverage.
+    # case) you might get bogus errors and missing coverage.
     if ! get_bool "${IGNORE_MISSING_COVERAGE:=}" && \
        "${JOURNALCTL:?}" -q --no-pager -D "${root:?}/var/log/journal" --grep "profiling:.+?gcda:[Cc]annot open"; then
         derror "Detected possibly missing coverage, check the journal"

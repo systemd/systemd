@@ -95,7 +95,7 @@ int name_to_handle_at_loop(
                 /* The buffer was too small. Size the new buffer by what name_to_handle_at() returned. */
                 n = h->handle_bytes;
 
-                /* paranoia: check for overlow (note that .handle_bytes is unsigned only) */
+                /* paranoia: check for overflow (note that .handle_bytes is unsigned only) */
                 if (n > UINT_MAX - offsetof(struct file_handle, f_handle))
                         return -EOVERFLOW;
         }
@@ -724,7 +724,7 @@ int mount_option_supported(const char *fstype, const char *key, const char *valu
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        /* Checks if the specified file system supports a mount option. Returns > 0 if it suppors it, == 0 if
+        /* Checks if the specified file system supports a mount option. Returns > 0 if it supports it, == 0 if
          * it does not. Return -EAGAIN if we can't determine it. And any other error otherwise. */
 
         assert(fstype);
