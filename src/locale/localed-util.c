@@ -722,6 +722,11 @@ int vconsole_convert_to_x11(const VCContext *vc, X11Context *ret) {
         /* This sanity check seems redundant with the verification of the X11 layout done on the next
          * step. However xkbcommon is an optional dependency hence the verification might be a NOP.  */
         r = find_converted_keymap(&xc, &converted);
+        if (r == 0 && xc.variant) {
+                /* If we still haven't find a match, try with no variant, it's still better than nothing.  */
+                xc.variant = NULL;
+                r = find_converted_keymap(&xc, &converted);
+        }
         if (r < 0)
                 return r;
 
@@ -890,8 +895,17 @@ int x11_convert_to_vconsole(const X11Context *xc, VCContext *ret) {
         }
 
         r = find_converted_keymap(xc, &keymap);
-        if (r == 0)
+        if (r == 0) {
                 r = find_legacy_keymap(xc, &keymap);
+                if (r == 0 && xc->variant)
+                        /* If we still haven't find a match, try with no variant, it's still better than
+                         * nothing.  */
+                        r = find_converted_keymap(
+                                        &(X11Context) {
+                                                .layout = xc->layout,
+                                        },
+                                        &keymap);
+        }
         if (r < 0)
                 return r;
 
