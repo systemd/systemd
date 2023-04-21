@@ -4029,6 +4029,48 @@ int config_parse_delegate(
         return 0;
 }
 
+int config_parse_delegate_subgroup(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *p = NULL;
+        CGroupContext *c = data;
+        UnitType t;
+        int r;
+
+        t = unit_name_to_type(unit);
+        assert(t != _UNIT_TYPE_INVALID);
+
+        if (!unit_vtable[t]->can_delegate) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "DelegateSubgroup= setting not supported for this unit type, ignoring.");
+                return 0;
+        }
+
+        if (isempty(rvalue)) {
+                c->delegate_subgroup = mfree(c->delegate_subgroup);
+                return 0;
+        }
+
+        if (cg_needs_escape(rvalue)) { /* Insist that specified names don't need escaping */
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid control group name, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        r = free_and_strdup_warn(&c->delegate_subgroup, rvalue);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int config_parse_managed_oom_mode(
                 const char *unit,
                 const char *filename,

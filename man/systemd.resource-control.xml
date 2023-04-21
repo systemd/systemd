@@ -1148,10 +1148,11 @@ DeviceAllow=/dev/loop-control
         <term><varname>Delegate=</varname></term>
 
         <listitem>
-          <para>Turns on delegation of further resource control partitioning to processes of the unit. Units where this
-          is enabled may create and manage their own private subhierarchy of control groups below the control group of
-          the unit itself. For unprivileged services (i.e. those using the <varname>User=</varname> setting) the unit's
-          control group will be made accessible to the relevant user.</para>
+          <para>Turns on delegation of further resource control partitioning to processes of the unit. Units
+          where this is enabled may create and manage their own private subhierarchy of control groups below
+          the control group of the unit itself. For unprivileged services (i.e. those using the
+          <varname>User=</varname> setting) the unit's control group will be made accessible to the relevant
+          user.</para>
 
           <para>When enabled the service manager will refrain from manipulating control groups or moving
           processes below the unit's control group, so that a clear concept of ownership is established: the
@@ -1185,6 +1186,29 @@ DeviceAllow=/dev/loop-control
 
           <para>For further details on the delegation model consult <ulink
           url="https://systemd.io/CGROUP_DELEGATION">Control Group APIs and Delegation</ulink>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DelegateSubgroup=</varname></term>
+
+        <listitem>
+          <para>Place unit processes in the specified subgroup of the unit's control group. Takes a valid
+          control group name (not a path!) as parameter, or an empty string to turn this feature
+          off. Defaults to off. The control group name must be usable as filename and avoid conflicts with
+          the kernel's control group attribute files (i.e. <filename>cgroup.procs</filename> is not an
+          accepted name, since the kernel exposes a native control group attribute file by that name). This
+          option has no effect unless control group delegation is turned on via <varname>Delegate=</varname>,
+          see above. Note that this setting only applies to "main" processes of a unit, i.e. for services to
+          <varname>ExecStart=</varname>, but not for <varname>ExecReload=</varname> and similar. If
+          delegation is enabled, the latter are always placed inside a subgroup named
+          <filename>.control</filename>. The specified subgroup is automatically created (and potentially
+          ownership is pased to the unit's configured user/group) when a process is started in it.</para>
+
+          <para>This option is useful to avoid manually moving the invoked process into a subgroup after it
+          has been started. Since no processes should live in inner nodes of the control group tree it's
+          almost always necessary to run the main ("supervising") process of a unit that has delegation
+          turned on in a subgroup.</para>
         </listitem>
       </varlistentry>
 

@@ -435,6 +435,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Delegate", "b", bus_property_get_bool, offsetof(CGroupContext, delegate), 0),
         SD_BUS_PROPERTY("DelegateControllers", "as", property_get_delegate_controllers, 0, 0),
+        SD_BUS_PROPERTY("DelegateSubgroup", "s", NULL, offsetof(CGroupContext, delegate_subgroup), 0),
         SD_BUS_PROPERTY("CPUAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, cpu_accounting), 0),
         SD_BUS_PROPERTY("CPUWeight", "t", NULL, offsetof(CGroupContext, cpu_weight), 0),
         SD_BUS_PROPERTY("StartupCPUWeight", "t", NULL, offsetof(CGroupContext, startup_cpu_weight), 0),
@@ -532,6 +533,33 @@ static int bus_cgroup_set_transient_property(
                         c->delegate_controllers = b ? _CGROUP_MASK_ALL : 0;
 
                         unit_write_settingf(u, flags, name, "Delegate=%s", yes_no(b));
+                }
+
+                return 1;
+
+        } else if (streq(name, "DelegateSubgroup")) {
+                const char *s;
+
+                if (!UNIT_VTABLE(u)->can_delegate)
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Delegation not available for unit type");
+
+                r = sd_bus_message_read(message, "s", &s);
+                if (r < 0)
+                        return r;
+
+                if (!isempty(s) && cg_needs_escape(s))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid control group name: %s", s);
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        if (isempty(s))
+                                c->delegate_subgroup = mfree(c->delegate_subgroup);
+                        else {
+                                r = free_and_strdup_warn(&c->delegate_subgroup, s);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        unit_write_settingf(u, flags, name, "DelegateSubgroup=%s", s);
                 }
 
                 return 1;
