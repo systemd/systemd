@@ -17,6 +17,8 @@ struct Transaction {
 
 Transaction *transaction_new(bool irreversible);
 Transaction *transaction_free(Transaction *tr);
+Transaction *transaction_abort_and_free(Transaction *tr);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Transaction*, transaction_abort_and_free);
 
 void transaction_add_propagate_reload_jobs(Transaction *tr, Unit *unit, Job *by, bool ignore_order, sd_bus_error *e);
 int transaction_add_job_and_dependencies(
