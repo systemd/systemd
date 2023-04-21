@@ -746,7 +746,8 @@ char **replace_env_argv(char **argv, char **env) {
                 /* If $FOO appears as single word, replace it by the split up variable */
                 if ((*i)[0] == '$' && !IN_SET((*i)[1], '{', '$')) {
                         char *e;
-                        char **w, **m = NULL;
+                        char **w;
+                        _cleanup_(strv_freep) char **m = NULL;
                         size_t q;
 
                         e = strv_env_get(env, *i+1);
@@ -758,8 +759,7 @@ char **replace_env_argv(char **argv, char **env) {
                                         ret[k] = NULL;
                                         return NULL;
                                 }
-                        } else
-                                m = NULL;
+                        }
 
                         q = strv_length(m);
                         l = l + q - 1;
@@ -767,14 +767,13 @@ char **replace_env_argv(char **argv, char **env) {
                         w = reallocarray(ret, l + 1, sizeof(char *));
                         if (!w) {
                                 ret[k] = NULL;
-                                strv_free(m);
                                 return NULL;
                         }
 
                         ret = w;
                         if (m) {
                                 memcpy(ret + k, m, q * sizeof(char*));
-                                free(m);
+                                m = mfree(m);
                         }
 
                         k += q;
