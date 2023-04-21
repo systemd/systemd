@@ -117,6 +117,21 @@ node /org/freedesktop/LogControl1 {
   </refsect1>
 
   <refsect1>
+    <title>Example</title>
+
+    <example>
+      <title>Create a simple listener on the bus that implements LogControl1</title>
+
+      <programlisting><xi:include href="logcontrol-example.c" parse="text" /></programlisting>
+
+      <para>This creates a simple client on the bus (the user bus, when run as normal user). It implements
+      the LogControl1 interface by providing the required properties and allowing to set the writable ones.
+      It logs at the configured log level using
+      <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+    </example>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
