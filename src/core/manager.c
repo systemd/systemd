@@ -2120,7 +2120,7 @@ int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name,
 
 int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error *e) {
         int r;
-        Transaction *tr;
+        _cleanup_(transaction_abort_and_freep) Transaction *tr = NULL;
 
         assert(m);
         assert(unit);
@@ -2134,22 +2134,17 @@ int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error 
         /* We need an anchor job */
         r = transaction_add_job_and_dependencies(tr, JOB_NOP, unit, NULL, false, false, true, true, e);
         if (r < 0)
-                goto tr_abort;
+                return r;
 
         /* Failure in adding individual dependencies is ignored, so this always succeeds. */
         transaction_add_propagate_reload_jobs(tr, unit, tr->anchor_job, mode == JOB_IGNORE_DEPENDENCIES, e);
 
         r = transaction_activate(tr, m, mode, NULL, e);
         if (r < 0)
-                goto tr_abort;
+                return r;
 
-        transaction_free(tr);
+        tr = transaction_free(tr);
         return 0;
-
-tr_abort:
-        transaction_abort(tr);
-        transaction_free(tr);
-        return r;
 }
 
 Job *manager_get_job(Manager *m, uint32_t id) {
