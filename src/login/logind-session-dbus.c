@@ -424,7 +424,7 @@ static int method_set_display(sd_bus_message *message, void *userdata, sd_bus_er
 static int method_take_device(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = ASSERT_PTR(userdata);
         uint32_t major, minor;
-        SessionDevice *sd;
+        _cleanup_(session_device_freep) SessionDevice *sd = NULL;
         dev_t dev;
         int r;
 
@@ -456,18 +456,16 @@ static int method_take_device(sd_bus_message *message, void *userdata, sd_bus_er
 
         r = session_device_save(sd);
         if (r < 0)
-                goto error;
+                return r;
 
         r = sd_bus_reply_method_return(message, "hb", sd->fd, !sd->active);
         if (r < 0)
-                goto error;
+                return r;
 
         session_save(s);
-        return 1;
+        TAKE_PTR(sd);
 
-error:
-        session_device_free(sd);
-        return r;
+        return 1;
 }
 
 static int method_release_device(sd_bus_message *message, void *userdata, sd_bus_error *error) {

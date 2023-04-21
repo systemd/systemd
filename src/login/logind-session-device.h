@@ -29,6 +29,8 @@ struct SessionDevice {
 
 int session_device_new(Session *s, dev_t dev, bool open_device, SessionDevice **out);
 SessionDevice *session_device_free(SessionDevice *sd);
+DEFINE_TRIVIAL_CLEANUP_FUNC(SessionDevice*, session_device_free);
+
 void session_device_complete_pause(SessionDevice *sd);
 
 void session_device_resume_all(Session *s);
