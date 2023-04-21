@@ -411,7 +411,13 @@ static int portable_extract_by_path(
                         else
                                 flags |= DISSECT_IMAGE_VALIDATE_OS;
 
-                        r = dissected_image_mount(m, tmpdir, UID_INVALID, UID_INVALID, flags);
+                        r = dissected_image_mount(
+                                        m,
+                                        tmpdir,
+                                        /* uid_shift= */ UID_INVALID,
+                                        /* uid_range= */ UID_INVALID,
+                                        /* userns_fd= */ -EBADF,
+                                        flags);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to mount dissected image: %m");
                                 goto child_finish;

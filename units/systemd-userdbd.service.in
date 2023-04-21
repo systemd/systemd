@@ -39,6 +39,8 @@ SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
 Type=notify
+NotifyAccess=all
+FileDescriptorStoreMax=4096
 {{SERVICE_WATCHDOG}}
 
 [Install]

@@ -280,6 +280,7 @@ conf.set_quoted('SYSTEMD_TEST_DATA',                          testdata_dir)
 conf.set_quoted('SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH', rootbindir / 'systemd-tty-ask-password-agent')
 conf.set_quoted('SYSTEMD_UPDATE_HELPER_PATH',                 rootlibexecdir / 'systemd-update-helper')
 conf.set_quoted('SYSTEMD_USERWORK_PATH',                      rootlibexecdir / 'systemd-userwork')
+conf.set_quoted('SYSTEMD_MNTWORK_PATH',                       rootlibexecdir / 'systemd-mntwork')
 conf.set_quoted('SYSTEMD_VERITYSETUP_PATH',                   rootlibexecdir / 'systemd-veritysetup')
 conf.set_quoted('SYSTEM_CONFIG_UNIT_DIR',                     pkgsysconfdir / 'system')
 conf.set_quoted('SYSTEM_DATA_UNIT_DIR',                       systemunitdir)
@@ -1894,6 +1895,7 @@ foreach term : ['analyze',
                 'localed',
                 'logind',
                 'machined',
+                'mntfsd',
                 'networkd',
                 'nscd',
                 'nss-myhostname',
@@ -1965,6 +1967,118 @@ catalogs = []
 pymod = import('python')
 python = pymod.find_installation('python3', required : true, modules : ['jinja2'])
 python_39 = python.language_version().version_compare('>=3.9')
+
+############################################################
+
+if conf.get('BPF_FRAMEWORK') == 1
+        bpf_clang_flags = [
+                '-std=gnu11',
+                '-Wno-compare-distinct-pointer-types',
+                '-fno-stack-protector',
+                '-O2',
+                '-target',
+                'bpf',
+                '-g',
+                '-c',
+        ]
+
+        bpf_gcc_flags = [
+                '-std=gnu11',
+                '-fno-stack-protector',
+                '-O2',
+                '-mkernel=5.2',
+                '-mcpu=v3',
+                '-mco-re',
+                '-gbtf',
+                '-c',
+        ]
+
+        # Generate defines that are appropriate to tell the compiler what architecture
+        # we're compiling for. By default we just map meson's cpu_family to __<cpu_family>__.
+        # This dictionary contains the exceptions where this doesn't work.
+        #
+        # C.f. https://mesonbuild.com/Reference-tables.html#cpu-families
+        # and src/basic/missing_syscall_def.h.
+        cpu_arch_defines = {
+                'ppc'     : ['-D__powerpc__'],
+                'ppc64'   : ['-D__powerpc64__', '-D_CALL_ELF=2'],
+                'riscv32' : ['-D__riscv', '-D__riscv_xlen=32'],
+                'riscv64' : ['-D__riscv', '-D__riscv_xlen=64'],
+                'x86'     : ['-D__i386__'],
+
+                # For arm, assume hardware fp is available.
+                'arm'     : ['-D__arm__', '-D__ARM_PCS_VFP'],
+        }
+
+        bpf_arch_flags = cpu_arch_defines.get(host_machine.cpu_family(),
+                                              ['-D__@0@__'.format(host_machine.cpu_family())])
+        if bpf_compiler == 'gcc'
+                bpf_arch_flags += ['-m' + host_machine.endian() + '-endian']
+        endif
+
+        libbpf_include_dir = libbpf.get_variable(pkgconfig : 'includedir')
+
+        bpf_o_unstripped_cmd = []
+        if bpf_compiler == 'clang'
+                bpf_o_unstripped_cmd += [
+                        clang,
+                        bpf_clang_flags,
+                        bpf_arch_flags,
+                ]
+        elif bpf_compiler == 'gcc'
+                bpf_o_unstripped_cmd += [
+                        bpf_gcc,
+                        bpf_gcc_flags,
+                        bpf_arch_flags,
+                ]
+        endif
+
+        bpf_o_unstripped_cmd += ['-I.']
+
+        if not meson.is_cross_build() and bpf_compiler == 'clang'
+                target_triplet_cmd = run_command('gcc', '-dumpmachine', check: false)
+                if target_triplet_cmd.returncode() == 0
+                        target_triplet = target_triplet_cmd.stdout().strip()
+                        bpf_o_unstripped_cmd += [
+                                '-isystem',
+                                '/usr/include/@0@'.format(target_triplet)
+                        ]
+                endif
+        endif
+
+        bpf_o_unstripped_cmd += [
+                '-idirafter',
+                libbpf_include_dir,
+                '@INPUT@',
+                '-o',
+                '@OUTPUT@'
+        ]
+
+        if bpftool_strip
+                bpf_o_cmd = [
+                        bpftool,
+                        'gen',
+                        'object',
+                        '@OUTPUT@',
+                        '@INPUT@'
+                ]
+        elif bpf_compiler == 'clang'
+                bpf_o_cmd = [
+                        llvm_strip,
+                        '-g',
+                        '@INPUT@',
+                        '-o',
+                        '@OUTPUT@'
+                ]
+        endif
+
+        skel_h_cmd = [
+                bpftool,
+                'gen',
+                'skeleton',
+                '@INPUT@'
+        ]
+endif
 
 #####################################################################
 
@@ -2263,6 +2377,7 @@ subdir('src/kernel-install')
 subdir('src/locale')
 subdir('src/login')
 subdir('src/machine')
+subdir('src/mntfsd')
 subdir('src/network')
 subdir('src/nspawn')
 subdir('src/oom')
@@ -2861,11 +2976,37 @@ if conf.get('ENABLE_SYSEXT') == 1
                 install_dir : rootbindir)
 endif
 
+if conf.get('ENABLE_MNTFSD') == 1
+        executable(
+                'systemd-mntwork',
+                systemd_mntwork_sources,
+                include_directories : includes,
+                link_with : [libshared],
+                dependencies : [threads,
+                                userspace,
+                                versiondep],
+                install_rpath : rootpkglibdir,
+                install : true,
+                install_dir : rootlibexecdir)
+
+        executable(
+                'systemd-mntfsd',
+                systemd_mntfsd_sources,
+                include_directories : includes,
+                link_with : [libshared],
+                dependencies : [threads,
+                                userspace,
+                                versiondep],
+                install_rpath : rootpkglibdir,
+                install : true,
+                install_dir : rootlibexecdir)
+endif
+
 if conf.get('ENABLE_USERDB') == 1
         executable(
                 'systemd-userwork',
                 systemd_userwork_sources,
-                include_directories : includes,
+                include_directories : [ includes, userns_restrict_include ],
                 link_with : [libshared],
                 dependencies : [threads,
                                 userspace,
@@ -2877,7 +3018,7 @@ if conf.get('ENABLE_USERDB') == 1
         executable(
                 'systemd-userdbd',
                 systemd_userdbd_sources,
-                include_directories : includes,
+                include_directories : [ includes, userns_restrict_include ],
                 link_with : [libshared],
                 dependencies : [threads,
                                 userspace,
@@ -4785,6 +4926,7 @@ foreach tuple : [
         ['localed'],
         ['logind'],
         ['machined'],
+        ['mntfsd'],
         ['networkd'],
         ['nss-myhostname'],
         ['nss-mymachines'],
