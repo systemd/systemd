@@ -148,7 +148,7 @@ def kernel_initrd():
             linux = f"{item['root']}{item['linux']}"
             initrd = f"{item['root']}{item['initrd'][0]}"
         except (KeyError, IndexError):
-            pass
+            continue
         return [linux, initrd]
     else:
         return None
