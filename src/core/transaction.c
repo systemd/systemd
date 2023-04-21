@@ -1208,3 +1208,12 @@ Transaction *transaction_free(Transaction *tr) {
 
         return mfree(tr);
 }
+
+Transaction *transaction_abort_and_free(Transaction *tr) {
+        if (!tr)
+                return NULL;
+
+        transaction_abort(tr);
+
+        return transaction_free(tr);
+}
