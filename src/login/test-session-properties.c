@@ -94,6 +94,27 @@ TEST(set_display) {
         assert_se(isempty(display));
 }
 
+/* Tests org.freedesktop.logind.Session SetTTY */
+TEST(set_tty) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus* bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *tty = NULL;
+
+        assert_se(sd_bus_open_system(&bus) >= 0);
+
+        /* tty can only be set by the session controller (which we're not ATM) */
+        assert_se(bus_call_method(bus, &session, "SetTTY", &error, NULL, "s", "pts/0") < 0);
+        assert_se(sd_bus_error_has_name(&error, BUS_ERROR_NOT_IN_CONTROL));
+
+        assert_se(bus_call_method(bus, &session, "TakeControl", NULL, NULL, "b", true) >= 0);
+
+        /* tty can be set */
+        assert_se(bus_call_method(bus, &session, "SetTTY", NULL, NULL, "s", "pts/0") >= 0);
+        tty = mfree(tty);
+        assert_se(bus_get_property_string(bus, &session, "TTY", NULL, &tty) >= 0);
+        assert_se(streq(tty, "pts/0"));
+}
+
 static int intro(void) {
         if (saved_argc <= 1)
                 return EXIT_FAILURE;
