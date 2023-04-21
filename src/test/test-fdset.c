@@ -93,7 +93,7 @@ TEST(fdset_close_others) {
 
 TEST(fdset_remove) {
         _cleanup_close_ int fd = -EBADF;
-        FDSet *fdset = NULL;
+        _cleanup_fdset_free_ FDSet *fdset = NULL;
         char name[] = "/tmp/test-fdset_remove.XXXXXX";
 
         fd = mkostemp_safe(name);
@@ -104,7 +104,6 @@ TEST(fdset_remove) {
         assert_se(fdset_put(fdset, fd) >= 0);
         assert_se(fdset_remove(fdset, fd) >= 0);
         assert_se(!fdset_contains(fdset, fd));
-        fdset_free(fdset);
 
         assert_se(fcntl(fd, F_GETFD) >= 0);
 
@@ -113,7 +112,7 @@ TEST(fdset_remove) {
 
 TEST(fdset_iterate) {
         int fd = -EBADF;
-        FDSet *fdset = NULL;
+        _cleanup_fdset_free_ FDSet *fdset = NULL;
         char name[] = "/tmp/test-fdset_iterate.XXXXXX";
         int c = 0;
         int a;
@@ -132,8 +131,6 @@ TEST(fdset_iterate) {
                 assert_se(a == fd);
         }
         assert_se(c == 1);
-
-        fdset_free(fdset);
 
         unlink(name);
 }
