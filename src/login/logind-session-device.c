@@ -375,8 +375,9 @@ error:
         return r;
 }
 
-void session_device_free(SessionDevice *sd) {
-        assert(sd);
+SessionDevice *session_device_free(SessionDevice *sd) {
+        if (!sd)
+                return NULL;
 
         /* Make sure to remove the pushed fd. */
         if (sd->pushed_fd)
@@ -391,7 +392,8 @@ void session_device_free(SessionDevice *sd) {
         hashmap_remove(sd->session->devices, &sd->dev);
 
         free(sd->node);
-        free(sd);
+
+        return mfree(sd);
 }
 
 void session_device_complete_pause(SessionDevice *sd) {
