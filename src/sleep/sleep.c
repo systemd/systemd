@@ -23,6 +23,7 @@
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "constants.h"
+#include "devnum-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -45,13 +46,14 @@ static SleepOperation arg_operation = _SLEEP_OPERATION_INVALID;
 
 static int write_hibernate_location_info(const HibernateLocation *hibernate_location) {
         char offset_str[DECIMAL_STR_MAX(uint64_t)];
-        char resume_str[DECIMAL_STR_MAX(unsigned) * 2 + STRLEN(":")];
+        const char *resume_str;
         int r;
 
         assert(hibernate_location);
         assert(hibernate_location->swap);
 
-        xsprintf(resume_str, "%u:%u", major(hibernate_location->devno), minor(hibernate_location->devno));
+        resume_str = FORMAT_DEVNUM(hibernate_location->devno);
+
         r = write_string_file("/sys/power/resume", resume_str, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write partition device to /sys/power/resume for '%s': '%s': %m",
