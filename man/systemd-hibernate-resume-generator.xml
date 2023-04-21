@@ -29,10 +29,11 @@
 
     <para><command>systemd-hibernate-resume-generator</command> is a
     generator that initiates the procedure to resume the system from hibernation.
-    It instantiates the
-    <citerefentry><refentrytitle>systemd-hibernate-resume@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    It creates the
+    <citerefentry><refentrytitle>systemd-hibernate-resume.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     unit according to the value of <option>resume=</option> parameter
-    specified on the kernel command line, which will instruct the kernel
+    specified on the kernel command line, or the value of EFI variable
+    <varname>HibernateInfo</varname>, which will instruct the kernel
     to resume the system from the hibernation image on that device.</para>
   </refsect1>
 
@@ -56,6 +57,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>resume_offset=</varname></term>
+
+        <listitem><para>Takes the offset of the swap space from the resume device.
+        Defaults to <literal>0</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>resumeflags=</varname></term>
 
         <listitem><para>Takes the resume device mount options to
@@ -75,7 +83,7 @@
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-hibernate-resume@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-hibernate-resume.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>
   </refsect1>
