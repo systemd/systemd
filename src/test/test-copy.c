@@ -24,8 +24,8 @@
 
 TEST(copy_file) {
         _cleanup_free_ char *buf = NULL;
-        char fn[] = "/tmp/test-copy_file.XXXXXX";
-        char fn_copy[] = "/tmp/test-copy_file.XXXXXX";
+        _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-copy_file.XXXXXX";
+        _cleanup_(unlink_tempfilep) char fn_copy[] = "/tmp/test-copy_file.XXXXXX";
         size_t sz = 0;
         int fd;
 
@@ -44,9 +44,6 @@ TEST(copy_file) {
         assert_se(read_full_file(fn_copy, &buf, &sz) == 0);
         assert_se(streq(buf, "foo bar bar bar foo\n"));
         assert_se(sz == 20);
-
-        unlink(fn);
-        unlink(fn_copy);
 }
 
 static bool read_file_at_and_streq(int dir_fd, const char *path, const char *expected) {
@@ -108,8 +105,8 @@ TEST(copy_tree_replace_dirs) {
 }
 
 TEST(copy_file_fd) {
-        char in_fn[] = "/tmp/test-copy-file-fd-XXXXXX";
-        char out_fn[] = "/tmp/test-copy-file-fd-XXXXXX";
+        _cleanup_(unlink_tempfilep) char in_fn[] = "/tmp/test-copy-file-fd-XXXXXX";
+        _cleanup_(unlink_tempfilep) char out_fn[] = "/tmp/test-copy-file-fd-XXXXXX";
         _cleanup_close_ int in_fd = -EBADF, out_fd = -EBADF;
         const char *text = "boohoo\nfoo\n\tbar\n";
         char buf[64] = {};
@@ -126,9 +123,6 @@ TEST(copy_file_fd) {
 
         assert_se(read(out_fd, buf, sizeof buf) == (ssize_t) strlen(text));
         assert_se(streq(buf, text));
-
-        unlink(in_fn);
-        unlink(out_fn);
 }
 
 TEST(copy_tree) {
@@ -293,8 +287,8 @@ TEST(copy_bytes) {
 }
 
 static void test_copy_bytes_regular_file_one(const char *src, bool try_reflink, uint64_t max_bytes) {
-        char fn2[] = "/tmp/test-copy-file-XXXXXX";
-        char fn3[] = "/tmp/test-copy-file-XXXXXX";
+        _cleanup_(unlink_tempfilep) char fn2[] = "/tmp/test-copy-file-XXXXXX";
+        _cleanup_(unlink_tempfilep) char fn3[] = "/tmp/test-copy-file-XXXXXX";
         _cleanup_close_ int fd = -EBADF, fd2 = -EBADF, fd3 = -EBADF;
         int r;
         struct stat buf, buf2, buf3;
@@ -343,9 +337,6 @@ static void test_copy_bytes_regular_file_one(const char *src, bool try_reflink, 
                 assert_se(buf3.st_size == buf2.st_size);
         else
                 assert_se((uint64_t) buf3.st_size == max_bytes);
-
-        unlink(fn2);
-        unlink(fn3);
 }
 
 TEST(copy_bytes_regular_file) {
@@ -392,8 +383,8 @@ TEST(copy_proc) {
 }
 
 TEST_RET(copy_holes) {
-        char fn[] = "/var/tmp/test-copy-hole-fd-XXXXXX";
-        char fn_copy[] = "/var/tmp/test-copy-hole-fd-XXXXXX";
+        _cleanup_(unlink_tempfilep) char fn[] = "/var/tmp/test-copy-hole-fd-XXXXXX";
+        _cleanup_(unlink_tempfilep) char fn_copy[] = "/var/tmp/test-copy-hole-fd-XXXXXX";
         struct stat stat;
         off_t blksz;
         int r, fd, fd_copy;
@@ -440,9 +431,6 @@ TEST_RET(copy_holes) {
 
         close(fd);
         close(fd_copy);
-
-        unlink(fn);
-        unlink(fn_copy);
 
         return 0;
 }
