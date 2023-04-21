@@ -2029,7 +2029,7 @@ int manager_add_job(
                 sd_bus_error *error,
                 Job **ret) {
 
-        Transaction *tr;
+        _cleanup_(transaction_abort_and_freep) Transaction *tr = NULL;
         int r;
 
         assert(m);
@@ -2058,23 +2058,23 @@ int manager_add_job(
                                                  IN_SET(mode, JOB_IGNORE_DEPENDENCIES, JOB_IGNORE_REQUIREMENTS),
                                                  mode == JOB_IGNORE_DEPENDENCIES, error);
         if (r < 0)
-                goto tr_abort;
+                return r;
 
         if (mode == JOB_ISOLATE) {
                 r = transaction_add_isolate_jobs(tr, m);
                 if (r < 0)
-                        goto tr_abort;
+                        return r;
         }
 
         if (mode == JOB_TRIGGERING) {
                 r = transaction_add_triggering_jobs(tr, unit);
                 if (r < 0)
-                        goto tr_abort;
+                        return r;
         }
 
         r = transaction_activate(tr, m, mode, affected_jobs, error);
         if (r < 0)
-                goto tr_abort;
+                return r;
 
         log_unit_debug(unit,
                        "Enqueued job %s/%s as %u", unit->id,
@@ -2083,13 +2083,8 @@ int manager_add_job(
         if (ret)
                 *ret = tr->anchor_job;
 
-        transaction_free(tr);
+        tr = transaction_free(tr);
         return 0;
-
-tr_abort:
-        transaction_abort(tr);
-        transaction_free(tr);
-        return r;
 }
 
 int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, sd_bus_error *e, Job **ret) {
