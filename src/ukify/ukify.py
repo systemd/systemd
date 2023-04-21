@@ -37,9 +37,13 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import typing
+from typing import (Any,
+                    Callable,
+                    IO,
+                    Optional,
+                    Union)
 
-import pefile
+import pefile  # type: ignore
 
 __version__ = '{{PROJECT_VERSION}} ({{GIT_VERSION}})'
 
@@ -228,7 +232,7 @@ class Uname:
 class Section:
     name: str
     content: pathlib.Path
-    tmpfile: typing.Optional[typing.IO] = None
+    tmpfile: Optional[IO] = None
     measure: bool = False
 
     @classmethod
@@ -272,7 +276,7 @@ class Section:
 
 @dataclasses.dataclass
 class UKI:
-    executable: list[typing.Union[pathlib.Path, str]]
+    executable: list[Union[pathlib.Path, str]]
     sections: list[Section] = dataclasses.field(default_factory=list, init=False)
 
     def add_section(self, section):
@@ -663,7 +667,12 @@ def make_uki(opts):
 @dataclasses.dataclass(frozen=True)
 class ConfigItem:
     @staticmethod
-    def config_list_prepend(namespace, group, dest, value):
+    def config_list_prepend(
+            namespace: argparse.Namespace,
+            group: Optional[str],
+            dest: str,
+            value: Any,
+    ) -> None:
         "Prepend value to namespace.<dest>"
 
         assert not group
@@ -672,7 +681,12 @@ class ConfigItem:
         setattr(namespace, dest, value + old)
 
     @staticmethod
-    def config_set_if_unset(namespace, group, dest, value):
+    def config_set_if_unset(
+            namespace: argparse.Namespace,
+            group: Optional[str],
+            dest: str,
+            value: Any,
+    ) -> None:
         "Set namespace.<dest> to value only if it was None"
 
         assert not group
@@ -681,7 +695,12 @@ class ConfigItem:
             setattr(namespace, dest, value)
 
     @staticmethod
-    def config_set_group(namespace, group, dest, value):
+    def config_set_group(
+            namespace: argparse.Namespace,
+            group: Optional[str],
+            dest: str,
+            value: Any,
+    ) -> None:
         "Set namespace.<dest>[idx] to value, with idx derived from group"
 
         if group not in namespace._groups:
@@ -705,22 +724,23 @@ class ConfigItem:
         raise ValueError('f"Invalid boolean literal: {s!r}')
 
     # arguments for argparse.ArgumentParser.add_argument()
-    name: typing.Union[str, typing.List[str]]
-    dest: str = None
-    metavar: str = None
-    type: typing.Callable = None
-    nargs: str = None
-    action: typing.Callable = None
-    default: typing.Any = None
-    version: str = None
-    choices: typing.List[str] = None
-    help: str = None
+    name: Union[str, tuple[str, str]]
+    dest: Optional[str] = None
+    metavar: Optional[str] = None
+    type: Optional[Callable] = None
+    nargs: Optional[str] = None
+    action: Optional[Union[str, Callable]] = None
+    default: Any = None
+    version: Optional[str] = None
+    choices: Optional[tuple[str, ...]] = None
+    help: Optional[str] = None
 
     # metadata for config file parsing
-    config_key: str = None
-    config_push: typing.Callable[..., ...] = config_set_if_unset
+    config_key: Optional[str] = None
+    config_push: Callable[[argparse.Namespace, Optional[str], str, Any], None] = \
+                    config_set_if_unset
 
-    def _names(self) -> typing.Tuple[str]:
+    def _names(self) -> tuple[str, ...]:
         return self.name if isinstance(self.name, tuple) else (self.name,)
 
     def argparse_dest(self) -> str:
@@ -741,6 +761,7 @@ class ConfigItem:
         assert f'{section}/{key}' == self.config_key
         dest = self.argparse_dest()
 
+        conv: Callable[[str], Any]
         if self.action == argparse.BooleanOptionalAction:
             # We need to handle this case separately: the options are called
             # --foo and --no-foo, and no argument is parsed. But in the config
@@ -758,7 +779,7 @@ class ConfigItem:
 
         self.config_push(namespace, group, dest, value)
 
-    def config_example(self) -> typing.Tuple[typing.Optional[str]]:
+    def config_example(self) -> tuple[Optional[str], Optional[str], Optional[str]]:
         if not self.config_key:
             return None, None, None
         section_name, key = self.config_key.split('/', 1)
