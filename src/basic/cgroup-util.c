@@ -1554,52 +1554,67 @@ int cg_pid_get_user_slice(pid_t pid, char **slice) {
         return cg_path_get_user_slice(cgroup, slice);
 }
 
-char *cg_escape(const char *p) {
-        bool need_prefix = false;
+bool cg_needs_escape(const char *p) {
 
-        /* This implements very minimal escaping for names to be used
-         * as file names in the cgroup tree: any name which might
-         * conflict with a kernel name or is prefixed with '_' is
-         * prefixed with a '_'. That way, when reading cgroup names it
-         * is sufficient to remove a single prefixing underscore if
-         * there is one. */
+        /* Checks if the specified path is a valid cgroup name by our rules, or if it must be escaped. Note
+         * that we consider escaped cgroup names invalid here, as they need to be escaped a second time if
+         * they shall be used. Also note that various names cannot be made valid by escaping even if we
+         * return true here (because too long, or contain the forbidden character "/"). */
 
-        /* The return value of this function (unlike cg_unescape())
-         * needs free()! */
+        if (isempty(p))
+                return true;
 
-        if (IN_SET(p[0], 0, '_', '.') ||
-            STR_IN_SET(p, "notify_on_release", "release_agent", "tasks") ||
-            startswith(p, "cgroup."))
-                need_prefix = true;
-        else {
-                const char *dot;
+        if (!filename_is_valid(p))
+                return true;
 
-                dot = strrchr(p, '.');
-                if (dot) {
-                        CGroupController c;
-                        size_t l = dot - p;
+        if (IN_SET(p[0], 0, '_', '.'))
+                return true;
 
-                        for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
-                                const char *n;
+        if (STR_IN_SET(p, "notify_on_release", "release_agent", "tasks"))
+                return true;
 
-                                n = cgroup_controller_to_string(c);
+        if (startswith(p, "cgroup."))
+                return true;
 
-                                if (l != strlen(n))
-                                        continue;
+        for (CGroupController c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
+                const char *q;
 
-                                if (memcmp(p, n, l) != 0)
-                                        continue;
+                q = startswith(p, cgroup_controller_to_string(c));
+                if (!q)
+                        continue;
 
-                                need_prefix = true;
-                                break;
-                        }
-                }
+                if (q[0] == '.')
+                        return true;
         }
 
-        if (need_prefix)
-                return strjoin("_", p);
+        return false;
+}
 
-        return strdup(p);
+int cg_escape(const char *p, char **ret) {
+        _cleanup_free_ char *n = NULL;
+
+        /* This implements very minimal escaping for names to be used as file names in the cgroup tree: any
+         * name which might conflict with a kernel name or is prefixed with '_' is prefixed with a '_'. That
+         * way, when reading cgroup names it is sufficient to remove a single prefixing underscore if there
+         * is one. */
+
+        /* The return value of this function (unlike cg_unescape()) needs free()! */
+
+        if (cg_needs_escape(p)) {
+                n = strjoin("_", p);
+                if (!n)
+                        return -ENOMEM;
+
+                if (!filename_is_valid(n)) /* became invalid due to the prefixing? Or contained things like a slash that cannot be fixed by prefixing? */
+                        return -EINVAL;
+        } else {
+                n = strdup(p);
+                if (!n)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(n);
+        return 0;
 }
 
 char *cg_unescape(const char *p) {
@@ -1698,9 +1713,9 @@ int cg_slice_to_path(const char *unit, char **ret) {
                 if (!unit_name_is_valid(n, UNIT_NAME_PLAIN))
                         return -EINVAL;
 
-                escaped = cg_escape(n);
-                if (!escaped)
-                        return -ENOMEM;
+                r = cg_escape(n, &escaped);
+                if (r < 0)
+                        return r;
 
                 if (!strextend(&s, escaped, "/"))
                         return -ENOMEM;
@@ -1708,15 +1723,14 @@ int cg_slice_to_path(const char *unit, char **ret) {
                 dash = strchr(dash+1, '-');
         }
 
-        e = cg_escape(unit);
-        if (!e)
-                return -ENOMEM;
+        r = cg_escape(unit, &e);
+        if (r < 0)
+                return r;
 
         if (!strextend(&s, e))
                 return -ENOMEM;
 
         *ret = TAKE_PTR(s);
-
         return 0;
 }
 

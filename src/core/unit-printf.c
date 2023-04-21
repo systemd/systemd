@@ -86,19 +86,21 @@ static void bad_specifier(const Unit *u, char specifier) {
 
 static int specifier_cgroup(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = ASSERT_PTR(userdata);
-        char *n;
 
         bad_specifier(u, specifier);
 
-        if (u->cgroup_path)
-                n = strdup(u->cgroup_path);
-        else
-                n = unit_default_cgroup_path(u);
-        if (!n)
-                return -ENOMEM;
+        if (u->cgroup_path) {
+                char *n;
 
-        *ret = n;
-        return 0;
+                n = strdup(u->cgroup_path);
+                if (!n)
+                        return -ENOMEM;
+
+                *ret = n;
+                return 0;
+        }
+
+        return unit_default_cgroup_path(u, ret);
 }
 
 static int specifier_cgroup_root(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
@@ -126,7 +128,7 @@ static int specifier_cgroup_slice(char specifier, const void *data, const char *
                 if (slice->cgroup_path)
                         n = strdup(slice->cgroup_path);
                 else
-                        n = unit_default_cgroup_path(slice);
+                        return unit_default_cgroup_path(slice, ret);
         } else
                 n = strdup(u->manager->cgroup_root);
         if (!n)
