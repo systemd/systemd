@@ -91,7 +91,7 @@ def test_parse_args_many():
     assert opts.sb_key == 'SBKEY'
     assert opts.sb_cert == 'SBCERT'
     assert opts.sign_kernel is False
-    assert opts.tools == pathlib.Path('TOOLZ/')
+    assert opts.tools == [pathlib.Path('TOOLZ/')]
     assert opts.output == pathlib.Path('OUTPUT')
     assert opts.measure is False
 
@@ -109,13 +109,11 @@ def test_parse_sections():
     assert opts.sections[0].name == 'test'
     assert isinstance(opts.sections[0].content, pathlib.Path)
     assert opts.sections[0].tmpfile
-    assert opts.sections[0].offset is None
     assert opts.sections[0].measure is False
 
     assert opts.sections[1].name == 'test2'
     assert opts.sections[1].content == pathlib.Path('FILE')
     assert opts.sections[1].tmpfile is None
-    assert opts.sections[1].offset is None
     assert opts.sections[1].measure is False
 
 def test_help(capsys):
@@ -220,7 +218,6 @@ def test_uname_scraping(kernel_initrd):
 
     uname = ukify.Uname.scrape(kernel_initrd[0])
     assert re.match(r'\d+\.\d+\.\d+', uname)
-
 
 def test_efi_signing(kernel_initrd, tmpdir):
     if kernel_initrd is None:
