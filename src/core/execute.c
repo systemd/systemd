@@ -4178,8 +4178,12 @@ static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p
         return 0;
 }
 
-static int exec_parameters_get_cgroup_path(const ExecParameters *params, char **ret) {
-        bool using_subcgroup;
+static int exec_parameters_get_cgroup_path(
+                const ExecParameters *params,
+                const CGroupContext *c,
+                char **ret) {
+
+        const char *subgroup = NULL;
         char *p;
 
         assert(params);
@@ -4197,16 +4201,22 @@ static int exec_parameters_get_cgroup_path(const ExecParameters *params, char **
          * this is not necessary, the cgroup is still empty. We distinguish these cases with the EXEC_CONTROL_CGROUP
          * flag, which is only passed for the former statements, not for the latter. */
 
-        using_subcgroup = FLAGS_SET(params->flags, EXEC_CONTROL_CGROUP|EXEC_CGROUP_DELEGATE|EXEC_IS_CONTROL);
-        if (using_subcgroup)
-                p = path_join(params->cgroup_path, ".control");
+        if (FLAGS_SET(params->flags, EXEC_CGROUP_DELEGATE) && (FLAGS_SET(params->flags, EXEC_CONTROL_CGROUP) || c->delegate_subgroup)) {
+                if (FLAGS_SET(params->flags, EXEC_IS_CONTROL))
+                        subgroup = ".control";
+                else
+                        subgroup = c->delegate_subgroup;
+        }
+
+        if (subgroup)
+                p = path_join(params->cgroup_path, subgroup);
         else
                 p = strdup(params->cgroup_path);
         if (!p)
                 return -ENOMEM;
 
         *ret = p;
-        return using_subcgroup;
+        return !!subgroup;
 }
 
 static int exec_context_cpu_affinity_from_numa(const ExecContext *c, CPUSet *ret) {
@@ -4705,7 +4715,7 @@ static int exec_child(
         if (params->cgroup_path) {
                 _cleanup_free_ char *p = NULL;
 
-                r = exec_parameters_get_cgroup_path(params, &p);
+                r = exec_parameters_get_cgroup_path(params, cgroup_context, &p);
                 if (r < 0) {
                         *exit_status = EXIT_CGROUP;
                         return log_unit_error_errno(unit, r, "Failed to acquire cgroup path: %m");
@@ -4880,10 +4890,25 @@ static int exec_child(
                  * touch a single hierarchy too. */
 
                 if (params->flags & EXEC_CGROUP_DELEGATE) {
+                        _cleanup_free_ char *p = NULL;
+
                         r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, params->cgroup_path, uid, gid);
                         if (r < 0) {
                                 *exit_status = EXIT_CGROUP;
                                 return log_unit_error_errno(unit, r, "Failed to adjust control group access: %m");
+                        }
+
+                        r = exec_parameters_get_cgroup_path(params, cgroup_context, &p);
+                        if (r < 0) {
+                                *exit_status = EXIT_CGROUP;
+                                return log_unit_error_errno(unit, r, "Failed to acquire cgroup path: %m");
+                        }
+                        if (r > 0) {
+                                r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, p, uid, gid);
+                                if (r < 0) {
+                                        *exit_status = EXIT_CGROUP;
+                                        return log_unit_error_errno(unit, r, "Failed to adjust control subgroup access: %m");
+                                }
                         }
                 }
 
@@ -5635,13 +5660,13 @@ int exec_spawn(Unit *unit,
         log_command_line(unit, "About to execute", command->path, command->argv);
 
         if (params->cgroup_path) {
-                r = exec_parameters_get_cgroup_path(params, &subcgroup_path);
+                r = exec_parameters_get_cgroup_path(params, cgroup_context, &subcgroup_path);
                 if (r < 0)
                         return log_unit_error_errno(unit, r, "Failed to acquire subcgroup path: %m");
                 if (r > 0) { /* We are using a child cgroup */
                         r = cg_create(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path);
                         if (r < 0)
-                                return log_unit_error_errno(unit, r, "Failed to create control group '%s': %m", subcgroup_path);
+                                return log_unit_error_errno(unit, r, "Failed to create subcgroup '%s': %m", subcgroup_path);
 
                         /* Normally we would not propagate the xattrs to children but since we created this
                          * sub-cgroup internally we should do it. */
