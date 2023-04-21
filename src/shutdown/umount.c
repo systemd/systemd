@@ -26,6 +26,7 @@
 #include "chase.h"
 #include "constants.h"
 #include "device-util.h"
+#include "devnum-util.h"
 #include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -890,7 +891,7 @@ static int dm_points_list_detach(MountPoint **head, bool *changed, bool last_try
                         continue;
                 }
 
-                log_info("Detaching DM %s (%u:%u).", m->path, major(m->devnum), minor(m->devnum));
+                log_info("Detaching DM %s (" DEVNUM_FORMAT_STR ").", m->path, DEVNUM_FORMAT_VAL(m->devnum));
                 r = delete_dm(m);
                 if (r < 0) {
                         log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Could not detach DM %s: %m", m->path);
@@ -920,7 +921,7 @@ static int md_points_list_detach(MountPoint **head, bool *changed, bool last_try
                         continue;
                 }
 
-                log_info("Stopping MD %s (%u:%u).", m->path, major(m->devnum), minor(m->devnum));
+                log_info("Stopping MD %s (" DEVNUM_FORMAT_STR ").", m->path, DEVNUM_FORMAT_VAL(m->devnum));
                 r = delete_md(m);
                 if (r < 0) {
                         log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Could not stop MD %s: %m", m->path);
