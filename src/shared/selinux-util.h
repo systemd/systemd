@@ -7,7 +7,7 @@
 #include <sys/types.h>
 
 #include "macro.h"
-#include "label.h"
+#include "label-util.h"
 
 #if HAVE_SELINUX
 #include <selinux/selinux.h>

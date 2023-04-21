@@ -15,7 +15,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
-#include "label.h"
+#include "label-util.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
