@@ -2010,6 +2010,16 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
         return 0;
 }
 
+static Transaction *transaction_abort_and_free(Transaction *tr) {
+        if (!tr)
+                return NULL;
+
+        transaction_abort(tr);
+
+        return transaction_free(tr);
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(Transaction*, transaction_abort_and_free);
+
 int manager_add_job(
                 Manager *m,
                 JobType type,
