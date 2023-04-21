@@ -1000,7 +1000,7 @@ int parse_cifs_service(
 
 int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
         _cleanup_close_ int fd = -EBADF, parent_fd = -EBADF;
-        _cleanup_free_ char *fname = NULL;
+        _cleanup_free_ char *fname = NULL, *parent = NULL;
         int r;
 
         /* Creates a directory with mkdirat() and then opens it, in the "most atomic" fashion we can
@@ -1015,19 +1015,13 @@ int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
         /* Note that O_DIRECTORY|O_NOFOLLOW is implied, but we allow specifying it anyway. The following
          * flags actually make sense to specify: O_CLOEXEC, O_EXCL, O_NOATIME, O_PATH */
 
-        if (isempty(path))
-                return -EINVAL;
-
-        if (!filename_is_valid(path)) {
-                _cleanup_free_ char *parent = NULL;
-
-                /* If this is not a valid filename, it's a path. Let's open the parent directory then, so
-                 * that we can pin it, and operate below it. */
-
-                r = path_extract_directory(path, &parent);
-                if (r < 0)
+        /* If this is not a valid filename, it's a path. Let's open the parent directory then, so
+         * that we can pin it, and operate below it. */
+        r = path_extract_directory(path, &parent);
+        if (r < 0) {
+                if (!IN_SET(r, -EDESTADDRREQ, -EADDRNOTAVAIL))
                         return r;
-
+        } else {
                 r = path_extract_filename(path, &fname);
                 if (r < 0)
                         return r;
@@ -1047,6 +1041,29 @@ int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
                 return fd;
 
         return TAKE_FD(fd);
+}
+
+int open_mkdirp_at(int dirfd, const char *path, int flags, mode_t mode) {
+        _cleanup_free_ char *parent = NULL, *fname = NULL;
+        _cleanup_close_ int pfd = -EBADF;
+        int r;
+
+        r = path_extract_directory(path, &parent);
+        if (IN_SET(r, -EDESTADDRREQ, -EADDRNOTAVAIL)) /* only a dir specified, or only an fname specified */
+                return open_mkdir_at(dirfd, path, flags, mode);
+        if (r < 0)
+                return r;
+
+        r = path_extract_filename(path, &fname);
+        if (r < 0)
+                return r;
+
+        /* Yeah this is recursive, bounded by the specified path depth */
+        pfd = open_mkdirp_at(dirfd, parent, O_CLOEXEC, 0755);
+        if (pfd < 0)
+                return pfd;
+
+        return open_mkdir_at(pfd, fname, flags, mode);
 }
 
 int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created) {

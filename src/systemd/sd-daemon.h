@@ -291,6 +291,11 @@ int sd_pid_notifyf(pid_t pid, int unset_environment, const char *format, ...) _s
 int sd_pid_notify_with_fds(pid_t pid, int unset_environment, const char *state, const int *fds, unsigned n_fds);
 
 /*
+  Combination of sd_pid_notifyf() and sd_pid_notify_with_fds()
+*/
+int sd_pid_notifyf_with_fds(pid_t pid, int unset_environment, const int *fds, size_t n_fds, const char *format, ...) _sd_printf_(5,6);
+
+/*
   Returns > 0 if synchronization with systemd succeeded.  Returns < 0
   on error. Returns 0 if $NOTIFY_SOCKET was not set. Note that the
   timeout parameter of this function call takes the timeout in µs, and

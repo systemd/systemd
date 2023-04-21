@@ -3693,6 +3693,7 @@ static int outer_child(
                                 directory,
                                 arg_uid_shift,
                                 arg_uid_range,
+                                /* userns_fd= */ -EBADF,
                                 DISSECT_IMAGE_MOUNT_ROOT_ONLY|
                                 DISSECT_IMAGE_DISCARD_ON_LOOP|
                                 DISSECT_IMAGE_USR_NO_ROOT|
@@ -3830,8 +3831,13 @@ static int outer_child(
         if (arg_userns_mode != USER_NAMESPACE_NO &&
             IN_SET(arg_userns_ownership, USER_NAMESPACE_OWNERSHIP_MAP, USER_NAMESPACE_OWNERSHIP_AUTO) &&
             arg_uid_shift != 0) {
+                _cleanup_close_ int userns_fd = -EBADF;
 
-                r = remount_idmap(directory, arg_uid_shift, arg_uid_range, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
+                userns_fd = make_userns(arg_uid_shift, arg_uid_range, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
+                if (userns_fd < 0)
+                        return log_error_errno(userns_fd, "Unable to acquire user namespace: %m");
+
+                r = remount_idmap(directory, userns_fd);
                 if (r == -EINVAL || ERRNO_IS_NOT_SUPPORTED(r)) {
                         /* This might fail because the kernel or file system doesn't support idmapping. We
                          * can't really distinguish this nicely, nor do we have any guarantees about the
@@ -3857,6 +3863,7 @@ static int outer_child(
                                 directory,
                                 arg_uid_shift,
                                 arg_uid_range,
+                                /* userns_fd= */ -EBADF,
                                 DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY|
                                 DISSECT_IMAGE_DISCARD_ON_LOOP|
                                 DISSECT_IMAGE_USR_NO_ROOT|
