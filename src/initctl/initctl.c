@@ -287,6 +287,7 @@ static int process_event(Server *s, struct epoll_event *ev) {
         Fifo *f;
 
         assert(s);
+        assert(ev);
 
         if (!(ev->events & EPOLLIN))
                 return log_info_errno(SYNTHETIC_ERRNO(EIO),
