@@ -266,7 +266,7 @@ static bool env_entry_has_name(const char *entry, const char *name) {
 
 char **strv_env_delete(char **x, size_t n_lists, ...) {
         size_t n, i = 0;
-        char **r;
+        _cleanup_(strv_freep) char **r = NULL;
         va_list ap;
 
         /* Deletes every entry from x that is mentioned in the other
@@ -291,10 +291,8 @@ char **strv_env_delete(char **x, size_t n_lists, ...) {
                 va_end(ap);
 
                 r[i] = strdup(*k);
-                if (!r[i]) {
-                        strv_free(r);
+                if (!r[i])
                         return NULL;
-                }
 
                 i++;
                 continue;
@@ -307,7 +305,7 @@ char **strv_env_delete(char **x, size_t n_lists, ...) {
 
         assert(i <= n);
 
-        return r;
+        return TAKE_PTR(r);
 }
 
 char **strv_env_unset(char **l, const char *p) {
