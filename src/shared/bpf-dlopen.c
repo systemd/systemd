@@ -18,26 +18,39 @@
 #define MODERN_LIBBPF 0
 #endif
 
-struct bpf_link* (*sym_bpf_program__attach_cgroup)(const struct bpf_program *, int);
-struct bpf_link* (*sym_bpf_program__attach_lsm)(const struct bpf_program *);
-int (*sym_bpf_link__fd)(const struct bpf_link *);
 int (*sym_bpf_link__destroy)(struct bpf_link *);
+int (*sym_bpf_link__fd)(const struct bpf_link *);
+struct bpf_link* (*sym_bpf_link__open)(const char *path);
+int (*sym_bpf_link__pin)(struct bpf_link *link, const char *path);
 int (*sym_bpf_map__fd)(const struct bpf_map *);
 const char* (*sym_bpf_map__name)(const struct bpf_map *);
 int (*sym_bpf_map_create)(enum bpf_map_type,  const char *, __u32, __u32, __u32, const struct bpf_map_create_opts *);
-int (*sym_bpf_map__set_max_entries)(struct bpf_map *, __u32);
-int (*sym_bpf_map_update_elem)(int, const void *, const void *, __u64);
-int (*sym_bpf_map_delete_elem)(int, const void *);
 int (*sym_bpf_map__set_inner_map_fd)(struct bpf_map *, int);
-int (*sym_bpf_object__open_skeleton)(struct bpf_object_skeleton *, const struct bpf_object_open_opts *);
-int (*sym_bpf_object__load_skeleton)(struct bpf_object_skeleton *);
+int (*sym_bpf_map__set_max_entries)(struct bpf_map *, __u32);
+int (*sym_bpf_map__set_pin_path)(struct bpf_map *map, const char *path);
+int (*sym_bpf_map_delete_elem)(int, const void *);
+int (*sym_bpf_map_get_fd_by_id)(__u32 id);
+int (*sym_bpf_map_lookup_elem)(int fd, const void *key, void *value);
+int (*sym_bpf_map_update_elem)(int, const void *, const void *, __u64);
 int (*sym_bpf_object__attach_skeleton)(struct bpf_object_skeleton *);
-void (*sym_bpf_object__detach_skeleton)(struct bpf_object_skeleton *);
 void (*sym_bpf_object__destroy_skeleton)(struct bpf_object_skeleton *);
+void (*sym_bpf_object__detach_skeleton)(struct bpf_object_skeleton *);
+int (*sym_bpf_object__load_skeleton)(struct bpf_object_skeleton *);
+const char* (*sym_bpf_object__name)(const struct bpf_object *obj);
+struct bpf_map* (*sym_bpf_object__next_map)(const struct bpf_object *obj, const struct bpf_map *map);
+int (*sym_bpf_object__open_skeleton)(struct bpf_object_skeleton *, const struct bpf_object_open_opts *);
 int (*sym_libbpf_probe_bpf_prog_type)(enum bpf_prog_type, const void *);
+int (*sym_bpf_object__pin_maps)(struct bpf_object *obj, const char *path);
+struct bpf_link *(*sym_bpf_program__attach)(const struct bpf_program *prog);
+struct bpf_link* (*sym_bpf_program__attach_cgroup)(const struct bpf_program *, int);
+struct bpf_link* (*sym_bpf_program__attach_lsm)(const struct bpf_program *);
 const char* (*sym_bpf_program__name)(const struct bpf_program *);
-libbpf_print_fn_t (*sym_libbpf_set_print)(libbpf_print_fn_t);
 long (*sym_libbpf_get_error)(const void *);
+libbpf_print_fn_t (*sym_libbpf_set_print)(libbpf_print_fn_t);
+int (*sym_ring_buffer__epoll_fd)(const struct ring_buffer *rb);
+void (*sym_ring_buffer__free)(struct ring_buffer *rb);
+struct ring_buffer *(*sym_ring_buffer__new)(int map_fd, ring_buffer_sample_fn sample_cb, void *ctx, const struct ring_buffer_opts *opts);
+int (*sym_ring_buffer__poll)(struct ring_buffer *rb, int timeout_ms);
 
 /* compat symbols removed in libbpf 1.0 */
 int (*sym_bpf_create_map)(enum bpf_map_type,  int key_size, int value_size, int max_entries, __u32 map_flags);
@@ -85,17 +98,21 @@ int dlopen_bpf(void) {
                                 DLSYM_ARG(bpf_create_map),
                                 DLSYM_ARG(bpf_probe_prog_type));
 #endif
+
+                /* NB: we don't try to load bpf_object__next_map() on old versions */
         } else {
                 /* symbols available from 0.7.0 */
                 r = dlsym_many_or_warn(
                                 dl, LOG_DEBUG,
 #if MODERN_LIBBPF
                                 DLSYM_ARG(bpf_map_create),
-                                DLSYM_ARG(libbpf_probe_bpf_prog_type)
+                                DLSYM_ARG(libbpf_probe_bpf_prog_type),
+                                DLSYM_ARG(bpf_object__next_map)
 #else
                                 /* These symbols did not exist in old libbpf, hence we cannot type check them */
                                 DLSYM_ARG_FORCE(bpf_map_create),
-                                DLSYM_ARG_FORCE(libbpf_probe_bpf_prog_type)
+                                DLSYM_ARG_FORCE(libbpf_probe_bpf_prog_type),
+                                DLSYM_ARG_FORCE(bpf_object__next_map)
 #endif
                 );
         }
@@ -104,28 +121,41 @@ int dlopen_bpf(void) {
                         dl, LOG_DEBUG,
                         DLSYM_ARG(bpf_link__destroy),
                         DLSYM_ARG(bpf_link__fd),
+                        DLSYM_ARG(bpf_link__open),
+                        DLSYM_ARG(bpf_link__pin),
                         DLSYM_ARG(bpf_map__fd),
                         DLSYM_ARG(bpf_map__name),
-                        DLSYM_ARG(bpf_map__set_max_entries),
-                        DLSYM_ARG(bpf_map_update_elem),
-                        DLSYM_ARG(bpf_map_delete_elem),
                         DLSYM_ARG(bpf_map__set_inner_map_fd),
-                        DLSYM_ARG(bpf_object__open_skeleton),
-                        DLSYM_ARG(bpf_object__load_skeleton),
+                        DLSYM_ARG(bpf_map__set_max_entries),
+                        DLSYM_ARG(bpf_map__set_pin_path),
+                        DLSYM_ARG(bpf_map_delete_elem),
+                        DLSYM_ARG(bpf_map_get_fd_by_id),
+                        DLSYM_ARG(bpf_map_lookup_elem),
+                        DLSYM_ARG(bpf_map_update_elem),
                         DLSYM_ARG(bpf_object__attach_skeleton),
-                        DLSYM_ARG(bpf_object__detach_skeleton),
                         DLSYM_ARG(bpf_object__destroy_skeleton),
+                        DLSYM_ARG(bpf_object__detach_skeleton),
+                        DLSYM_ARG(bpf_object__load_skeleton),
+                        DLSYM_ARG(bpf_object__name),
+                        DLSYM_ARG(bpf_object__open_skeleton),
+                        DLSYM_ARG(bpf_object__pin_maps),
 #if MODERN_LIBBPF
+                        DLSYM_ARG(bpf_program__attach),
                         DLSYM_ARG(bpf_program__attach_cgroup),
                         DLSYM_ARG(bpf_program__attach_lsm),
 #else
                         /* libbpf added a "const" to function parameters where it should not have, ignore this type incompatibility */
+                        DLSYM_ARG_FORCE(bpf_program__attach),
                         DLSYM_ARG_FORCE(bpf_program__attach_cgroup),
                         DLSYM_ARG_FORCE(bpf_program__attach_lsm),
 #endif
                         DLSYM_ARG(bpf_program__name),
+                        DLSYM_ARG(libbpf_get_error),
                         DLSYM_ARG(libbpf_set_print),
-                        DLSYM_ARG(libbpf_get_error));
+                        DLSYM_ARG(ring_buffer__epoll_fd),
+                        DLSYM_ARG(ring_buffer__free),
+                        DLSYM_ARG(ring_buffer__new),
+                        DLSYM_ARG(ring_buffer__poll));
         if (r < 0)
                 return r;
 
