@@ -197,7 +197,7 @@ static void session_save_devices(Session *s, FILE *f) {
         if (!hashmap_isempty(s->devices)) {
                 fprintf(f, "DEVICES=");
                 HASHMAP_FOREACH(sd, s->devices)
-                        fprintf(f, "%u:%u ", major(sd->dev), minor(sd->dev));
+                        fprintf(f, DEVNUM_FORMAT_STR " ", DEVNUM_FORMAT_VAL(sd->dev));
                 fprintf(f, "\n");
         }
 }

@@ -439,7 +439,7 @@ static int merge_hierarchy(
         if (!f)
                 return log_oom();
 
-        r = write_string_filef(f, WRITE_STRING_FILE_CREATE, "%u:%u", major(st.st_dev), minor(st.st_dev));
+        r = write_string_file(f, FORMAT_DEVNUM(st.st_dev), WRITE_STRING_FILE_CREATE);
         if (r < 0)
                 return log_error_errno(r, "Failed to write '%s': %m", f);
 
