@@ -14,6 +14,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hostname-util.h"
+#include "label.h"
 #include "lock-util.h"
 #include "log.h"
 #include "macro.h"
@@ -1040,7 +1041,7 @@ int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
                 path = fname;
         }
 
-        fd = xopenat(dirfd, path, flags|O_CREAT|O_DIRECTORY|O_NOFOLLOW, mode);
+        fd = xopenat(dirfd, path, flags|O_CREAT|O_DIRECTORY|O_NOFOLLOW, /* xopen_flags = */ 0, mode);
         if (IN_SET(fd, -ELOOP, -ENOTDIR))
                 return -EEXIST;
         if (fd < 0)
@@ -1096,7 +1097,7 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
         }
 }
 
-int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
+int xopenat(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode) {
         _cleanup_close_ int fd = -EBADF;
         bool made = false;
         int r;
@@ -1105,14 +1106,20 @@ int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
         assert(path);
 
         if (isempty(path)) {
-                assert(!FLAGS_SET(flags, O_CREAT|O_EXCL));
-                return fd_reopen(dir_fd, flags & ~O_NOFOLLOW);
+                assert(!FLAGS_SET(open_flags, O_CREAT|O_EXCL));
+                return fd_reopen(dir_fd, open_flags & ~O_NOFOLLOW);
         }
 
-        if (FLAGS_SET(flags, O_DIRECTORY|O_CREAT)) {
+        if (FLAGS_SET(open_flags, O_CREAT) && FLAGS_SET(xopen_flags, XO_LABEL)) {
+                r = label_ops_pre(dir_fd, path, mode);
+                if (r < 0)
+                        return r;
+        }
+
+        if (FLAGS_SET(open_flags, O_DIRECTORY|O_CREAT)) {
                 r = RET_NERRNO(mkdirat(dir_fd, path, mode));
                 if (r == -EEXIST) {
-                        if (FLAGS_SET(flags, O_EXCL))
+                        if (FLAGS_SET(open_flags, O_EXCL))
                                 return -EEXIST;
 
                         made = false;
@@ -1121,10 +1128,17 @@ int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
                 else
                         made = true;
 
-                flags &= ~(O_EXCL|O_CREAT);
+                if (FLAGS_SET(xopen_flags, XO_LABEL)) {
+                        r = label_ops_post(dir_fd, path);
+                        if (r < 0)
+                                return r;
+                }
+
+                open_flags &= ~(O_EXCL|O_CREAT);
+                xopen_flags &= ~XO_LABEL;
         }
 
-        fd = RET_NERRNO(openat(dir_fd, path, flags, mode));
+        fd = RET_NERRNO(openat(dir_fd, path, open_flags, mode));
         if (fd < 0) {
                 if (IN_SET(fd,
                            /* We got ENOENT? then someone else immediately removed it after we
@@ -1143,10 +1157,24 @@ int xopenat(int dir_fd, const char *path, int flags, mode_t mode) {
                 return fd;
         }
 
+        if (FLAGS_SET(open_flags, O_CREAT) && FLAGS_SET(xopen_flags, XO_LABEL)) {
+                r = label_ops_post(dir_fd, path);
+                if (r < 0)
+                        return r;
+        }
+
         return TAKE_FD(fd);
 }
 
-int xopenat_lock(int dir_fd, const char *path, int flags, mode_t mode, LockType locktype, int operation) {
+int xopenat_lock(
+                int dir_fd,
+                const char *path,
+                int open_flags,
+                XOpenFlags xopen_flags,
+                mode_t mode,
+                LockType locktype,
+                int operation) {
+
         _cleanup_close_ int fd = -EBADF;
         int r;
 
@@ -1156,13 +1184,13 @@ int xopenat_lock(int dir_fd, const char *path, int flags, mode_t mode, LockType 
 
         /* POSIX/UNPOSIX locks don't work on directories (errno is set to -EBADF so let's return early with
          * the same error here). */
-        if (FLAGS_SET(flags, O_DIRECTORY) && locktype != LOCK_BSD)
+        if (FLAGS_SET(open_flags, O_DIRECTORY) && locktype != LOCK_BSD)
                 return -EBADF;
 
         for (;;) {
                 struct stat st;
 
-                fd = xopenat(dir_fd, path, flags, mode);
+                fd = xopenat(dir_fd, path, open_flags, xopen_flags, mode);
                 if (fd < 0)
                         return fd;
 

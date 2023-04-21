@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        r = mac_selinux_init();
+        r = mac_init();
         if (r < 0)
                 return EXIT_FAILURE;
 
