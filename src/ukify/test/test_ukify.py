@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
 
 try:
     import pytest
@@ -45,6 +46,93 @@ def test_round_up():
     assert ukify.round_up(4095) == 4096
     assert ukify.round_up(4096) == 4096
     assert ukify.round_up(4097) == 8192
+
+def test_namespace_creation():
+    ns = ukify.create_parser().parse_args(('A','B'))
+    assert ns.linux == pathlib.Path('A')
+    assert ns.initrd == [pathlib.Path('B')]
+
+def test_config_example():
+    ex = ukify.config_example()
+    assert '[UKI]' in ex
+    assert 'Splash = BMP' in ex
+
+def test_apply_config(tmp_path):
+    config = tmp_path / 'config1.conf'
+    config.write_text(textwrap.dedent(
+        f'''
+        [UKI]
+        Linux = LINUX
+        Initrd = initrd1 initrd2
+                 initrd3
+        Cmdline = 1 2 3 4 5
+                  6 7 8
+        OSRelease = @some/path1
+        DeviceTree = some/path2
+        Splash = some/path3
+        Uname = 1.2.3
+        EFIArch=arm
+        Stub = some/path4
+        PCRBanks = sha512,sha1
+        SigningEngine = engine1
+        SecureBootPrivateKey = some/path5
+        SecureBootCertificate = some/path6
+        SignKernel = no
+
+        [PCRSignature:NAME]
+        PCRPrivateKey = some/path7
+        PCRPublicKey = some/path8
+        Phases = {':'.join(ukify.KNOWN_PHASES)}
+        '''))
+
+    ns = ukify.create_parser().parse_args(('A','B'))
+    ns.linux = None
+    ns.initrd = []
+    ukify.apply_config(ns, config)
+
+    assert ns.linux == pathlib.Path('LINUX')
+    assert ns.initrd == [pathlib.Path('initrd1'),
+                         pathlib.Path('initrd2'),
+                         pathlib.Path('initrd3')]
+    assert ns.cmdline == '1 2 3 4 5\n6 7 8'
+    assert ns.os_release == '@some/path1'
+    assert ns.devicetree == pathlib.Path('some/path2')
+    assert ns.splash == pathlib.Path('some/path3')
+    assert ns.efi_arch == 'arm'
+    assert ns.stub == pathlib.Path('some/path4')
+    assert ns.pcr_banks == ['sha512', 'sha1']
+    assert ns.signing_engine == 'engine1'
+    assert ns.sb_key == 'some/path5'
+    assert ns.sb_cert == 'some/path6'
+    assert ns.sign_kernel == False
+
+    assert ns._groups == ['NAME']
+    assert ns.pcr_private_keys == [pathlib.Path('some/path7')]
+    assert ns.pcr_public_keys == [pathlib.Path('some/path8')]
+    assert ns.phase_path_groups == [['enter-initrd:leave-initrd:sysinit:ready:shutdown:final']]
+
+    ukify.finalize_options(ns)
+
+    assert ns.linux == pathlib.Path('LINUX')
+    assert ns.initrd == [pathlib.Path('initrd1'),
+                         pathlib.Path('initrd2'),
+                         pathlib.Path('initrd3')]
+    assert ns.cmdline == '1 2 3 4 5 6 7 8'
+    assert ns.os_release == pathlib.Path('some/path1')
+    assert ns.devicetree == pathlib.Path('some/path2')
+    assert ns.splash == pathlib.Path('some/path3')
+    assert ns.efi_arch == 'arm'
+    assert ns.stub == pathlib.Path('some/path4')
+    assert ns.pcr_banks == ['sha512', 'sha1']
+    assert ns.signing_engine == 'engine1'
+    assert ns.sb_key == 'some/path5'
+    assert ns.sb_cert == 'some/path6'
+    assert ns.sign_kernel == False
+
+    assert ns._groups == ['NAME']
+    assert ns.pcr_private_keys == [pathlib.Path('some/path7')]
+    assert ns.pcr_public_keys == [pathlib.Path('some/path8')]
+    assert ns.phase_path_groups == [['enter-initrd:leave-initrd:sysinit:ready:shutdown:final']]
 
 def test_parse_args_minimal():
     opts = ukify.parse_args('arg1 arg2'.split())
