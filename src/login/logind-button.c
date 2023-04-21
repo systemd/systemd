@@ -53,8 +53,9 @@ Button* button_new(Manager *m, const char *name) {
         return b;
 }
 
-void button_free(Button *b) {
-        assert(b);
+Button *button_free(Button *b) {
+        if (!b)
+                return NULL;
 
         hashmap_remove(b->manager->buttons, b->name);
 
@@ -65,7 +66,8 @@ void button_free(Button *b) {
 
         free(b->name);
         free(b->seat);
-        free(b);
+
+        return mfree(b);
 }
 
 int button_set_seat(Button *b, const char *sn) {
