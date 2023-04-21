@@ -293,6 +293,8 @@ void cgroup_context_done(CGroupContext *c) {
         cpu_set_reset(&c->startup_cpuset_cpus);
         cpu_set_reset(&c->cpuset_mems);
         cpu_set_reset(&c->startup_cpuset_mems);
+
+        c->delegate_subgroup = mfree(c->delegate_subgroup);
 }
 
 static int unit_get_kernel_memory_limit(Unit *u, const char *file, uint64_t *ret) {
@@ -569,6 +571,10 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, PERMYRIAD_AS_PERCENT_FORMAT_VAL(UINT32_SCALE_TO_PERMYRIAD(c->moom_mem_pressure_limit)),
                 prefix, managed_oom_preference_to_string(c->moom_preference),
                 prefix, cgroup_pressure_watch_to_string(c->memory_pressure_watch));
+
+        if (c->delegate_subgroup)
+                fprintf(f, "%sDelegateSubgroup: %s\n",
+                        prefix, c->delegate_subgroup);
 
         if (c->memory_pressure_threshold_usec != USEC_INFINITY)
                 fprintf(f, "%sMemoryPressureThresholdSec: %s\n",
