@@ -6,7 +6,7 @@
 
 #include "alloc-util.h"
 #include "dev-setup.h"
-#include "label.h"
+#include "label-util.h"
 #include "log.h"
 #include "mkdir-label.h"
 #include "nulstr-util.h"

@@ -41,7 +41,7 @@
 #include "glob-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
@@ -798,7 +798,11 @@ static int dir_cleanup(
                                            cutoff_nsec, sub_path, age_by_file, false))
                                 continue;
 
-                        fd = xopenat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME, 0);
+                        fd = xopenat(dirfd(d),
+                                     de->d_name,
+                                     O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME,
+                                     /* xopen_flags = */ 0,
+                                     /* mode = */ 0);
                         if (fd < 0 && fd != -ENOENT)
                                 log_warning_errno(fd, "Opening file \"%s\" failed, ignoring: %m", sub_path);
                         if (fd >= 0 && flock(fd, LOCK_EX|LOCK_NB) < 0 && errno == EAGAIN) {
@@ -4153,7 +4157,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = mac_selinux_init();
+        r = mac_init();
         if (r < 0)
                 return r;
 
