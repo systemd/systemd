@@ -2010,6 +2010,14 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
         return 0;
 }
 
+static void transaction_abort_and_freep(Transaction **tr) {
+        if (!tr)
+                return;
+
+        transaction_abort(*tr);
+        transaction_free(*tr);
+}
+
 int manager_add_job(
                 Manager *m,
                 JobType type,
