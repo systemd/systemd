@@ -40,11 +40,11 @@
 #include "udev-util.h"
 #include "user-util.h"
 
-static Manager* manager_unref(Manager *m);
-DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
+static Manager* manager_free(Manager *m);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 static int manager_new(Manager **ret) {
-        _cleanup_(manager_unrefp) Manager *m = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
         assert(ret);
@@ -102,7 +102,7 @@ static int manager_new(Manager **ret) {
         return 0;
 }
 
-static Manager* manager_unref(Manager *m) {
+static Manager* manager_free(Manager *m) {
         Session *session;
         User *u;
         Device *d;
@@ -1177,7 +1177,7 @@ static int manager_run(Manager *m) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(manager_unrefp) Manager *m = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         int r;
 
