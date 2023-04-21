@@ -235,14 +235,19 @@ TEST(proc) {
         }
 }
 
-static void test_escape_one(const char *s, const char *r) {
-        _cleanup_free_ char *b;
+static void test_escape_one(const char *s, const char *expected) {
+        _cleanup_free_ char *b = NULL;
 
-        b = cg_escape(s);
-        assert_se(b);
-        assert_se(streq(b, r));
+        assert_se(s);
+        assert_se(expected);
+
+        assert_se(cg_escape(s, &b) >= 0);
+        assert_se(streq(b, expected));
 
         assert_se(streq(cg_unescape(b), s));
+
+        assert_se(filename_is_valid(b));
+        assert_se(!cg_needs_escape(s) || b[0] == '_');
 }
 
 TEST(escape, .sd_booted = true) {
