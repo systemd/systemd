@@ -833,9 +833,7 @@ Features:
   virtio-fs.
 
 * for vendor-built signed initrds:
-  - kernel-install should be able to install pre-built unified kernel images in
-    type #2 drop-in dir in the ESP.
-  - kernel-install should be able install encrypted creds automatically for
+  - kernel-install should be able to install encrypted creds automatically for
     machine id, root pw, rootfs uuid, resume partition uuid, and place next to
     EFI kernel, for sd-stub to pick them up. These creds should be locked to
     the TPM, and bind to the right PCR the kernel is measured to.
@@ -1911,9 +1909,6 @@ Features:
   - show whether UEFI audit mode is available
   - teach it to prepare an ESP wholesale, i.e. with mkfs.vfat invocation
   - teach it to copy in unified kernel images and maybe type #1 boot loader spec entries from host
-
-* kernel-install:
-  - optionally, support generating type #2 entries instead of type #1, including signing them
 
 * logind:
   - logind: optionally, ignore idle-hint logic for autosuspend, block suspend as long as a session is around

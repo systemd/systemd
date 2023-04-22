@@ -1,0 +1,224 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# -*- mode: python-mode -*-
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
+
+# pylint: disable=missing-docstring,invalid-name,import-outside-toplevel
+# pylint: disable=consider-using-with,unspecified-encoding,line-too-long
+# pylint: disable=too-many-locals,too-many-statements,too-many-return-statements
+# pylint: disable=too-many-branches,redefined-builtin,fixme
+
+import argparse
+import os
+import runpy
+import shlex
+from pathlib import Path
+from typing import Optional
+
+__version__ = '{{PROJECT_VERSION}} ({{GIT_VERSION}})'
+
+try:
+    VERBOSE = int(os.environ['KERNEL_INSTALL_VERBOSE']) > 0
+except (KeyError, ValueError):
+    VERBOSE = False
+
+# Override location of ukify and the boot stub for testing and debugging.
+UKIFY = os.getenv('KERNEL_INSTALL_UKIFY', '/usr/lib/systemd/ukify')
+BOOT_STUB = os.getenv('KERNEL_INSTALL_BOOT_STUB')
+
+
+def shell_join(cmd):
+    # TODO: drop in favour of shlex.join once shlex.join supports pathlib.Path.
+    return ' '.join(shlex.quote(str(x)) for x in cmd)
+
+def log(*args, **kwargs):
+    if VERBOSE:
+        print(*args, **kwargs)
+
+def path_is_readable(p: Path, dir=False) -> None:
+    """Verify access to a file or directory."""
+    try:
+        p.open().close()
+    except IsADirectoryError:
+        if dir:
+            return
+        raise
+
+def mandatory_variable(name):
+    try:
+        return os.environ[name]
+    except KeyError as e:
+        raise KeyError(f'${name} must be set in the environment') from e
+
+def parse_args(args=None):
+    p = argparse.ArgumentParser(
+        description='kernel-install plugin to build a Unified Kernel Image',
+        allow_abbrev=False,
+        usage='60-ukify.install COMMAND KERNEL_VERSION ENTRY_DIR KERNEL_IMAGE INITRD…',
+    )
+
+    # Suppress printing of usage synopsis on errors
+    p.error = lambda message: p.exit(2, f'{p.prog}: error: {message}\n')
+
+    p.add_argument('command',
+                   metavar='COMMAND',
+                   help="The action to perform. Only 'add' is supported.")
+    p.add_argument('kernel_version',
+                   metavar='KERNEL_VERSION',
+                   help='Kernel version string')
+    p.add_argument('entry_dir',
+                   metavar='ENTRY_DIR',
+                   type=Path,
+                   nargs='?',
+                   help='Type#1 entry directory (ignored)')
+    p.add_argument('kernel_image',
+                   metavar='KERNEL_IMAGE',
+                   type=Path,
+                   nargs='?',
+                   help='Kernel binary')
+    p.add_argument('initrd',
+                   metavar='INITRD…',
+                   type=Path,
+                   nargs='*',
+                   help='Initrd files')
+    p.add_argument('--version',
+                   action='version',
+                   version=f'systemd {__version__}')
+
+    opts = p.parse_args(args)
+
+    if opts.command == 'add':
+        opts.staging_area = Path(mandatory_variable('KERNEL_INSTALL_STAGING_AREA'))
+        path_is_readable(opts.staging_area, dir=True)
+
+        opts.entry_token = mandatory_variable('KERNEL_INSTALL_ENTRY_TOKEN')
+        opts.machine_id = mandatory_variable('KERNEL_INSTALL_MACHINE_ID')
+
+    return opts
+
+def we_are_wanted() -> bool:
+    KERNEL_INSTALL_LAYOUT = os.getenv('KERNEL_INSTALL_LAYOUT')
+
+    if KERNEL_INSTALL_LAYOUT != 'uki':
+        log(f'{KERNEL_INSTALL_LAYOUT=}, quitting.')
+        return False
+
+    KERNEL_INSTALL_UKI_GENERATOR = os.getenv('KERNEL_INSTALL_UKI_GENERATOR')
+
+    if KERNEL_INSTALL_UKI_GENERATOR != 'ukify':
+        log(f'{KERNEL_INSTALL_UKI_GENERATOR=}, quitting.')
+        return False
+
+    log('KERNEL_INSTALL_LAYOUT and KERNEL_INSTALL_UKI_GENERATOR are good')
+    return True
+
+
+def config_file_location() -> Optional[Path]:
+    if root := os.getenv('KERNEL_INSTALL_CONF_ROOT'):
+        p = Path(root) / 'uki.conf'
+    else:
+        p = Path('/etc/kernel/uki.conf')
+    if p.exists():
+        return p
+    return None
+
+
+def kernel_cmdline_base() -> list[str]:
+    if root := os.getenv('KERNEL_INSTALL_CONF_ROOT'):
+        return Path(root).joinpath('cmdline').read_text().split()
+
+    for cmdline in ('/etc/kernel/cmdline',
+                    '/usr/lib/kernel/cmdline'):
+        try:
+            return Path(cmdline).read_text().split()
+        except FileNotFoundError:
+            continue
+
+    options = Path('/proc/cmdline').read_text().split()
+    return [opt for opt in options
+            if not opt.startswith(('BOOT_IMAGE=', 'initrd='))]
+
+
+def kernel_cmdline(opts) -> str:
+    options = kernel_cmdline_base()
+
+    # If the boot entries are named after the machine ID, then suffix the kernel
+    # command line with the machine ID we use, so that the machine ID remains
+    # stable, even during factory reset, in the initrd (where the system's machine
+    # ID is not directly accessible yet), and if the root file system is volatile.
+    if (opts.entry_token == opts.machine_id and
+        not any(opt.startswith('systemd.machine_id=') for opt in options)):
+        options += [f'systemd.machine_id={opts.machine_id}']
+
+    # TODO: we unconditionally set the cmdline here, ignoring the setting in
+    #       the config file. Should we not do that?
+
+    # Prepend a space so that '@' does not get misinterpreted
+    return ' ' + ' '.join(options)
+
+
+def call_ukify(opts):
+    # Punish me harder.
+    # We want this:
+    #   ukify = importlib.machinery.SourceFileLoader('ukify', UKIFY).load_module()
+    # but it throws a DeprecationWarning.
+    # https://stackoverflow.com/questions/67631/how-can-i-import-a-module-dynamically-given-the-full-path
+    # https://github.com/python/cpython/issues/65635
+    # offer "explanations", but to actually load a python file without a .py extension,
+    # the "solution" is 4+ incomprehensible lines.
+    # The solution with runpy gives a dictionary, which isn't great, but will do.
+    ukify = runpy.run_path(UKIFY, run_name='ukify')
+
+    # Create "empty" namespace. We want to override just a few settings,
+    # so it doesn't make sense to duplicate all the fields. We use a hack
+    # to pre-populate the namespace like argparse would, all defaults.
+    # We need to specify the two mandatory arguments to not get an error.
+    opts2 = ukify['create_parser']().parse_args(('A','B'))
+
+    opts2.config = config_file_location()
+    opts2.uname = opts.kernel_version
+    opts2.linux = opts.kernel_image
+    opts2.initrd = opts.initrd
+    # Note that 'uki.efi' is the name required by 90-uki-copy.install.
+    opts2.output = opts.staging_area / 'uki.efi'
+
+    opts2.cmdline = kernel_cmdline(opts)
+    if BOOT_STUB:
+        opts2.stub = BOOT_STUB
+
+    # opts2.summary = True
+
+    ukify['apply_config'](opts2)
+    ukify['finalize_options'](opts2)
+    ukify['check_inputs'](opts2)
+    ukify['make_uki'](opts2)
+
+    log(f'{opts2.output} has been created')
+
+
+def main():
+    opts = parse_args()
+    if opts.command != 'add':
+        return
+    if not we_are_wanted():
+        return
+
+    call_ukify(opts)
+
+
+if __name__ == '__main__':
+    main()
