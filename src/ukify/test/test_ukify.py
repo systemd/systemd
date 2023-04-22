@@ -474,4 +474,4 @@ def test_pcr_signing2(kernel_initrd, tmpdir):
     assert len(sig['sha1']) == 6   # six items for six phases paths
 
 if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+    sys.exit(pytest.main([__file__, '-v']))
