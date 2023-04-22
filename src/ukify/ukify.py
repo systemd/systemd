@@ -1,12 +1,28 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# This file is part of systemd.
+#
+# systemd is free software; you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# systemd is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with systemd; If not, see <https://www.gnu.org/licenses/>.
 
 # pylint: disable=missing-docstring,invalid-name,import-outside-toplevel
 # pylint: disable=consider-using-with,unspecified-encoding,line-too-long
 # pylint: disable=too-many-locals,too-many-statements,too-many-return-statements
-# pylint: disable=too-many-branches
+# pylint: disable=too-many-branches,fixme
 
 import argparse
+import configparser
 import collections
 import dataclasses
 import fnmatch
@@ -14,27 +30,33 @@ import itertools
 import json
 import os
 import pathlib
+import pprint
 import re
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
-import typing
+from typing import (Any,
+                    Callable,
+                    IO,
+                    Optional,
+                    Union)
 
-import pefile
+import pefile  # type: ignore
 
 __version__ = '{{PROJECT_VERSION}} ({{GIT_VERSION}})'
 
 EFI_ARCH_MAP = {
-        # host_arch glob : [efi_arch, 32_bit_efi_arch if mixed mode is supported]
-        'x86_64'       : ['x64', 'ia32'],
-        'i[3456]86'    : ['ia32'],
-        'aarch64'      : ['aa64'],
-        'arm[45678]*l' : ['arm'],
-        'loongarch32'  : ['loongarch32'],
-        'loongarch64'  : ['loongarch64'],
-        'riscv32'      : ['riscv32'],
-        'riscv64'      : ['riscv64'],
+    # host_arch glob : [efi_arch, 32_bit_efi_arch if mixed mode is supported]
+    'x86_64'       : ['x64', 'ia32'],
+    'i[3456]86'    : ['ia32'],
+    'aarch64'      : ['aa64'],
+    'arm[45678]*l' : ['arm'],
+    'loongarch32'  : ['loongarch32'],
+    'loongarch64'  : ['loongarch64'],
+    'riscv32'      : ['riscv32'],
+    'riscv64'      : ['riscv64'],
 }
 EFI_ARCHES: list[str] = sum(EFI_ARCH_MAP.values(), [])
 
@@ -67,18 +89,6 @@ def guess_efi_arch():
 def shell_join(cmd):
     # TODO: drop in favour of shlex.join once shlex.join supports pathlib.Path.
     return ' '.join(shlex.quote(str(x)) for x in cmd)
-
-
-def path_is_readable(s: typing.Optional[str]) -> typing.Optional[pathlib.Path]:
-    """Convert a filename string to a Path and verify access."""
-    if s is None:
-        return None
-    p = pathlib.Path(s)
-    try:
-        p.open().close()
-    except IsADirectoryError:
-        pass
-    return p
 
 
 def round_up(x, blocksize=4096):
@@ -222,7 +232,7 @@ class Uname:
 class Section:
     name: str
     content: pathlib.Path
-    tmpfile: typing.Optional[typing.IO] = None
+    tmpfile: Optional[IO] = None
     measure: bool = False
 
     @classmethod
@@ -266,7 +276,7 @@ class Section:
 
 @dataclasses.dataclass
 class UKI:
-    executable: list[typing.Union[pathlib.Path, str]]
+    executable: list[Union[pathlib.Path, str]]
     sections: list[Section] = dataclasses.field(default_factory=list, init=False)
 
     def add_section(self, section):
@@ -322,11 +332,13 @@ def check_inputs(opts):
         if name in {'output', 'tools'}:
             continue
 
-        if not isinstance(value, pathlib.Path):
-            continue
-
-        # Open file to check that we can read it, or generate an exception
-        value.open().close()
+        if isinstance(value, pathlib.Path):
+            # Open file to check that we can read it, or generate an exception
+            value.open().close()
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, pathlib.Path):
+                    item.open().close()
 
     check_splash(opts.splash)
 
@@ -443,7 +455,7 @@ def pairwise(iterable):
     return zip(a, b)
 
 
-class PeError(Exception):
+class PEError(Exception):
     pass
 
 
@@ -485,12 +497,12 @@ def pe_add_sections(uki: UKI, output: str):
 
     warnings = pe.get_warnings()
     if warnings:
-        raise PeError(f'pefile warnings treated as errors: {warnings}')
+        raise PEError(f'pefile warnings treated as errors: {warnings}')
 
     security = pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY['IMAGE_DIRECTORY_ENTRY_SECURITY']]
     if security.VirtualAddress != 0:
         # We could strip the signatures, but why would anyone sign the stub?
-        raise PeError(f'Stub image is signed, refusing.')
+        raise PEError('Stub image is signed, refusing.')
 
     for section in uki.sections:
         new_section = pefile.SectionStructure(pe.__IMAGE_SECTION_HEADER_format__, pe=pe)
@@ -498,7 +510,7 @@ def pe_add_sections(uki: UKI, output: str):
 
         offset = pe.sections[-1].get_file_offset() + new_section.sizeof()
         if offset + new_section.sizeof() > pe.OPTIONAL_HEADER.SizeOfHeaders:
-            raise PeError(f'Not enough header space to add section {section.name}.')
+            raise PEError(f'Not enough header space to add section {section.name}.')
 
         data = section.content.read_bytes()
 
@@ -652,153 +664,426 @@ def make_uki(opts):
     print(f"Wrote {'signed' if opts.sb_key else 'unsigned'} {opts.output}")
 
 
-def parse_args(args=None):
+@dataclasses.dataclass(frozen=True)
+class ConfigItem:
+    @staticmethod
+    def config_list_prepend(
+            namespace: argparse.Namespace,
+            group: Optional[str],
+            dest: str,
+            value: Any,
+    ) -> None:
+        "Prepend value to namespace.<dest>"
+
+        assert not group
+
+        old = getattr(namespace, dest, [])
+        setattr(namespace, dest, value + old)
+
+    @staticmethod
+    def config_set_if_unset(
+            namespace: argparse.Namespace,
+            group: Optional[str],
+            dest: str,
+            value: Any,
+    ) -> None:
+        "Set namespace.<dest> to value only if it was None"
+
+        assert not group
+
+        if getattr(namespace, dest) is None:
+            setattr(namespace, dest, value)
+
+    @staticmethod
+    def config_set_group(
+            namespace: argparse.Namespace,
+            group: Optional[str],
+            dest: str,
+            value: Any,
+    ) -> None:
+        "Set namespace.<dest>[idx] to value, with idx derived from group"
+
+        if group not in namespace._groups:
+            namespace._groups += [group]
+        idx = namespace._groups.index(group)
+
+        old = getattr(namespace, dest, None)
+        if old is None:
+            old = []
+        setattr(namespace, dest,
+                old + ([None] * (idx - len(old))) + [value])
+
+    @staticmethod
+    def parse_boolean(s: str) -> bool:
+        "Parse 1/true/yes/y/t/on as true and 0/false/no/n/f/off/None as false"
+        s_l = s.lower()
+        if s_l in {'1', 'true', 'yes', 'y', 't', 'on'}:
+            return True
+        if s_l in {'0', 'false', 'no', 'n', 'f', 'off'}:
+            return False
+        raise ValueError('f"Invalid boolean literal: {s!r}')
+
+    # arguments for argparse.ArgumentParser.add_argument()
+    name: Union[str, tuple[str, str]]
+    dest: Optional[str] = None
+    metavar: Optional[str] = None
+    type: Optional[Callable] = None
+    nargs: Optional[str] = None
+    action: Optional[Union[str, Callable]] = None
+    default: Any = None
+    version: Optional[str] = None
+    choices: Optional[tuple[str, ...]] = None
+    help: Optional[str] = None
+
+    # metadata for config file parsing
+    config_key: Optional[str] = None
+    config_push: Callable[[argparse.Namespace, Optional[str], str, Any], None] = \
+                    config_set_if_unset
+
+    def _names(self) -> tuple[str, ...]:
+        return self.name if isinstance(self.name, tuple) else (self.name,)
+
+    def argparse_dest(self) -> str:
+        # It'd be nice if argparse exported this, but I don't see that in the API
+        if self.dest:
+            return self.dest
+        return self._names()[0].lstrip('-').replace('-', '_')
+
+    def add_to(self, parser: argparse.ArgumentParser):
+        kwargs = { key:val
+                   for key in dataclasses.asdict(self)
+                   if (key not in ('name', 'config_key', 'config_push') and
+                       (val := getattr(self, key)) is not None) }
+        args = self._names()
+        parser.add_argument(*args, **kwargs)
+
+    def apply_config(self, namespace, section, group, key, value) -> None:
+        assert f'{section}/{key}' == self.config_key
+        dest = self.argparse_dest()
+
+        conv: Callable[[str], Any]
+        if self.action == argparse.BooleanOptionalAction:
+            # We need to handle this case separately: the options are called
+            # --foo and --no-foo, and no argument is parsed. But in the config
+            # file, we have Foo=yes or Foo=no.
+            conv = self.parse_boolean
+        elif self.type:
+            conv = self.type
+        else:
+            conv = lambda s:s
+
+        if self.nargs == '*':
+            value = [conv(v) for v in value.split()]
+        else:
+            value = conv(value)
+
+        self.config_push(namespace, group, dest, value)
+
+    def config_example(self) -> tuple[Optional[str], Optional[str], Optional[str]]:
+        if not self.config_key:
+            return None, None, None
+        section_name, key = self.config_key.split('/', 1)
+        if section_name.endswith(':'):
+            section_name += 'NAME'
+        if self.choices:
+            value = '|'.join(self.choices)
+        else:
+            value = self.metavar or self.argparse_dest().upper()
+        return (section_name, key, value)
+
+
+CONFIG_ITEMS = [
+    ConfigItem(
+        '--version',
+        action = 'version',
+        version = f'ukify {__version__}',
+    ),
+
+    ConfigItem(
+        '--summary',
+        help = 'print parsed config and exit',
+        action = 'store_true',
+    ),
+
+    ConfigItem(
+        'linux',
+        metavar = 'LINUX',
+        type = pathlib.Path,
+        help = 'vmlinuz file [.linux section]',
+        config_key = 'UKI/Linux',
+    ),
+
+    ConfigItem(
+        'initrd',
+        metavar = 'INITRD…',
+        type = pathlib.Path,
+        nargs = '*',
+        help = 'initrd files [.initrd section]',
+        config_key = 'UKI/Initrd',
+        config_push = ConfigItem.config_list_prepend,
+    ),
+
+    ConfigItem(
+        ('--config', '-c'),
+        metavar = 'PATH',
+        help = 'configuration file',
+    ),
+
+    ConfigItem(
+        '--cmdline',
+        metavar = 'TEXT|@PATH',
+        help = 'kernel command line [.cmdline section]',
+        config_key = 'UKI/Cmdline',
+    ),
+
+    ConfigItem(
+        '--os-release',
+        metavar = 'TEXT|@PATH',
+        help = 'path to os-release file [.osrel section]',
+        config_key = 'UKI/OSRelease',
+    ),
+
+    ConfigItem(
+        '--devicetree',
+        metavar = 'PATH',
+        type = pathlib.Path,
+        help = 'Device Tree file [.dtb section]',
+        config_key = 'UKI/DeviceTree',
+    ),
+    ConfigItem(
+        '--splash',
+        metavar = 'BMP',
+        type = pathlib.Path,
+        help = 'splash image bitmap file [.splash section]',
+        config_key = 'UKI/Splash',
+    ),
+    ConfigItem(
+        '--pcrpkey',
+        metavar = 'KEY',
+        type = pathlib.Path,
+        help = 'embedded public key to seal secrets to [.pcrpkey section]',
+        config_key = 'UKI/PCRPKey',
+    ),
+    ConfigItem(
+        '--uname',
+        metavar='VERSION',
+        help='"uname -r" information [.uname section]',
+        config_key = 'UKI/Uname',
+    ),
+
+    ConfigItem(
+        '--efi-arch',
+        metavar = 'ARCH',
+        choices = ('ia32', 'x64', 'arm', 'aa64', 'riscv64'),
+        help = 'target EFI architecture',
+        config_key = 'UKI/EFIArch',
+    ),
+
+    ConfigItem(
+        '--stub',
+        type = pathlib.Path,
+        help = 'path to the sd-stub file [.text,.data,… sections]',
+        config_key = 'UKI/Stub',
+    ),
+
+    ConfigItem(
+        '--section',
+        dest = 'sections',
+        metavar = 'NAME:TEXT|@PATH',
+        type = Section.parse_arg,
+        action = 'append',
+        default = [],
+        help = 'additional section as name and contents [NAME section]',
+    ),
+
+    ConfigItem(
+        '--pcr-banks',
+        metavar = 'BANK…',
+        type = parse_banks,
+        config_key = 'UKI/PCRBanks',
+    ),
+
+    ConfigItem(
+        '--signing-engine',
+        metavar = 'ENGINE',
+        help = 'OpenSSL engine to use for signing',
+        config_key = 'UKI/SigningEngine',
+    ),
+    ConfigItem(
+        '--secureboot-private-key',
+        dest = 'sb_key',
+        help = 'path to key file or engine-specific designation for SB signing',
+        config_key = 'UKI/SecureBootPrivateKey',
+    ),
+    ConfigItem(
+        '--secureboot-certificate',
+        dest = 'sb_cert',
+        help = 'path to certificate file or engine-specific designation for SB signing',
+        config_key = 'UKI/SecureBootCertificate',
+    ),
+
+    ConfigItem(
+        '--sign-kernel',
+        action = argparse.BooleanOptionalAction,
+        help = 'Sign the embedded kernel',
+        config_key = 'UKI/SignKernel',
+    ),
+
+    ConfigItem(
+        '--pcr-private-key',
+        dest = 'pcr_private_keys',
+        metavar = 'PATH',
+        type = pathlib.Path,
+        action = 'append',
+        help = 'private part of the keypair for signing PCR signatures',
+        config_key = 'PCRSignature:/PCRPrivateKey',
+        config_push = ConfigItem.config_set_group,
+    ),
+    ConfigItem(
+        '--pcr-public-key',
+        dest = 'pcr_public_keys',
+        metavar = 'PATH',
+        type = pathlib.Path,
+        action = 'append',
+        help = 'public part of the keypair for signing PCR signatures',
+        config_key = 'PCRSignature:/PCRPublicKey',
+        config_push = ConfigItem.config_set_group,
+    ),
+    ConfigItem(
+        '--phases',
+        dest = 'phase_path_groups',
+        metavar = 'PHASE-PATH…',
+        type = parse_phase_paths,
+        action = 'append',
+        help = 'phase-paths to create signatures for',
+        config_key = 'PCRSignature:/Phases',
+        config_push = ConfigItem.config_set_group,
+    ),
+
+    ConfigItem(
+        '--tools',
+        type = pathlib.Path,
+        action = 'append',
+        help = 'Directories to search for tools (systemd-measure, …)',
+    ),
+
+    ConfigItem(
+        ('--output', '-o'),
+        type = pathlib.Path,
+        help = 'output file path',
+    ),
+
+    ConfigItem(
+        '--measure',
+        action = argparse.BooleanOptionalAction,
+        help = 'print systemd-measure output for the UKI',
+    ),
+]
+
+CONFIGFILE_ITEMS = { item.config_key:item
+                     for item in CONFIG_ITEMS
+                     if item.config_key }
+
+
+def apply_config(namespace, filename=None):
+    if filename is None:
+        filename = namespace.config
+    if filename is None:
+        return
+
+    # Fill in ._groups based on --pcr-public-key=, --pcr-private-key=, and --phases=.
+    assert '_groups' not in namespace
+    n_pcr_priv = len(namespace.pcr_private_keys or ())
+    namespace._groups = list(range(n_pcr_priv))
+
+    cp = configparser.ConfigParser(
+        comment_prefixes='#',
+        inline_comment_prefixes='#',
+        delimiters='=',
+        empty_lines_in_values=False,
+        interpolation=None,
+        strict=False)
+    # Do not make keys lowercase
+    cp.optionxform = lambda option: option
+
+    cp.read(filename)
+
+    for section_name, section in cp.items():
+        idx = section_name.find(':')
+        if idx > 0:
+            section_name, group = section_name[:idx+1], section_name[idx+1:]
+            if ':' in group:
+                raise ValueError('Section name cannot contain more than one ":"')
+        else:
+            group = None
+        for key, value in section.items():
+            if item := CONFIGFILE_ITEMS.get(f'{section_name}/{key}'):
+                item.apply_config(namespace, section_name, group, key, value)
+            else:
+                print(f'Unknown config setting [{section_name}] {key}=')
+
+
+def config_example():
+    prev_section = None
+    for item in CONFIG_ITEMS:
+        section, key, value = item.config_example()
+        if section:
+            if prev_section != section:
+                if prev_section:
+                    yield ''
+                yield f'[{section}]'
+                prev_section = section
+            yield f'{key} = {value}'
+
+
+def create_parser():
     p = argparse.ArgumentParser(
         description='Build and sign Unified Kernel Images',
         allow_abbrev=False,
         usage='''\
-usage: ukify [options…] linux initrd…
-       ukify -h | --help
-''')
+ukify [options…] LINUX INITRD…
+''',
+        epilog='\n  '.join(('config file:', *config_example())),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    for item in CONFIG_ITEMS:
+        item.add_to(p)
 
     # Suppress printing of usage synopsis on errors
     p.error = lambda message: p.exit(2, f'{p.prog}: error: {message}\n')
 
-    p.add_argument('linux',
-                   type=pathlib.Path,
-                   help='vmlinuz file [.linux section]')
-    p.add_argument('initrd',
-                   type=pathlib.Path,
-                   nargs='*',
-                   help='initrd files [.initrd section]')
+    return p
 
-    p.add_argument('--cmdline',
-                   metavar='TEXT|@PATH',
-                   help='kernel command line [.cmdline section]')
 
-    p.add_argument('--os-release',
-                   metavar='TEXT|@PATH',
-                   help='path to os-release file [.osrel section]')
-
-    p.add_argument('--devicetree',
-                   metavar='PATH',
-                   type=pathlib.Path,
-                   help='Device Tree file [.dtb section]')
-    p.add_argument('--splash',
-                   metavar='BMP',
-                   type=pathlib.Path,
-                   help='splash image bitmap file [.splash section]')
-    p.add_argument('--pcrpkey',
-                   metavar='KEY',
-                   type=pathlib.Path,
-                   help='embedded public key to seal secrets to [.pcrpkey section]')
-    p.add_argument('--uname',
-                   metavar='VERSION',
-                   help='"uname -r" information [.uname section]')
-
-    p.add_argument('--efi-arch',
-                   metavar='ARCH',
-                   choices=('ia32', 'x64', 'arm', 'aa64', 'riscv64'),
-                   help='target EFI architecture')
-
-    p.add_argument('--stub',
-                   type=pathlib.Path,
-                   help='path to the sd-stub file [.text,.data,… sections]')
-
-    p.add_argument('--section',
-                   dest='sections',
-                   metavar='NAME:TEXT|@PATH',
-                   type=Section.parse_arg,
-                   action='append',
-                   default=[],
-                   help='additional section as name and contents [NAME section]')
-
-    p.add_argument('--pcr-private-key',
-                   dest='pcr_private_keys',
-                   metavar='PATH',
-                   type=pathlib.Path,
-                   action='append',
-                   help='private part of the keypair for signing PCR signatures')
-    p.add_argument('--pcr-public-key',
-                   dest='pcr_public_keys',
-                   metavar='PATH',
-                   type=pathlib.Path,
-                   action='append',
-                   help='public part of the keypair for signing PCR signatures')
-    p.add_argument('--phases',
-                   dest='phase_path_groups',
-                   metavar='PHASE-PATH…',
-                   type=parse_phase_paths,
-                   action='append',
-                   help='phase-paths to create signatures for')
-
-    p.add_argument('--pcr-banks',
-                   metavar='BANK…',
-                   type=parse_banks)
-
-    p.add_argument('--signing-engine',
-                   metavar='ENGINE',
-                   help='OpenSSL engine to use for signing')
-    p.add_argument('--secureboot-private-key',
-                   dest='sb_key',
-                   help='path to key file or engine-specific designation for SB signing')
-    p.add_argument('--secureboot-certificate',
-                   dest='sb_cert',
-                   help='path to certificate file or engine-specific designation for SB signing')
-
-    p.add_argument('--sign-kernel',
-                   action=argparse.BooleanOptionalAction,
-                   help='Sign the embedded kernel')
-
-    p.add_argument('--tools',
-                   type=pathlib.Path,
-                   action='append',
-                   help='Directories to search for tools (systemd-measure, ...)')
-
-    p.add_argument('--output', '-o',
-                   type=pathlib.Path,
-                   help='output file path')
-
-    p.add_argument('--measure',
-                   action=argparse.BooleanOptionalAction,
-                   help='print systemd-measure output for the UKI')
-
-    p.add_argument('--version',
-                   action='version',
-                   version=f'ukify {__version__}')
-
-    opts = p.parse_args(args)
-
-    path_is_readable(opts.linux)
-    for initrd in opts.initrd or ():
-        path_is_readable(initrd)
-    path_is_readable(opts.devicetree)
-    path_is_readable(opts.pcrpkey)
-    for key in opts.pcr_private_keys or ():
-        path_is_readable(key)
-    for key in opts.pcr_public_keys or ():
-        path_is_readable(key)
-
+def finalize_options(opts):
     if opts.cmdline and opts.cmdline.startswith('@'):
-        opts.cmdline = path_is_readable(opts.cmdline[1:])
+        opts.cmdline = pathlib.Path(opts.cmdline[1:])
+    elif opts.cmdline:
+        # Drop whitespace from the commandline. If we're reading from a file,
+        # we copy the contents verbatim. But configuration specified on the commandline
+        # or in the config file may contain additional whitespace that has no meaning.
+        opts.cmdline = ' '.join(opts.cmdline.split())
 
-    if opts.os_release is not None and opts.os_release.startswith('@'):
-        opts.os_release = path_is_readable(opts.os_release[1:])
+    if opts.os_release and opts.os_release.startswith('@'):
+        opts.os_release = pathlib.Path(opts.os_release[1:])
     elif opts.os_release is None:
         p = pathlib.Path('/etc/os-release')
         if not p.exists():
-            p = path_is_readable('/usr/lib/os-release')
+            p = pathlib.Path('/usr/lib/os-release')
         opts.os_release = p
 
     if opts.efi_arch is None:
         opts.efi_arch = guess_efi_arch()
 
     if opts.stub is None:
-        opts.stub = path_is_readable(f'/usr/lib/systemd/boot/efi/linux{opts.efi_arch}.efi.stub')
+        opts.stub = pathlib.Path(f'/usr/lib/systemd/boot/efi/linux{opts.efi_arch}.efi.stub')
 
     if opts.signing_engine is None:
-        opts.sb_key = path_is_readable(opts.sb_key) if opts.sb_key else None
-        opts.sb_cert = path_is_readable(opts.sb_cert) if opts.sb_cert else None
+        if opts.sb_key:
+            opts.sb_key = pathlib.Path(opts.sb_key)
+        if opts.sb_cert:
+            opts.sb_cert = pathlib.Path(opts.sb_cert)
 
     if bool(opts.sb_key) ^ bool(opts.sb_cert):
         raise ValueError('--secureboot-private-key= and --secureboot-certificate= must be specified together')
@@ -806,6 +1091,25 @@ usage: ukify [options…] linux initrd…
     if opts.sign_kernel and not opts.sb_key:
         raise ValueError('--sign-kernel requires --secureboot-private-key= and --secureboot-certificate= to be specified')
 
+    if opts.output is None:
+        suffix = '.efi' if opts.sb_key else '.unsigned.efi'
+        opts.output = opts.linux.name + suffix
+
+    for section in opts.sections:
+        section.check_name()
+
+    if opts.summary:
+        # TODO: replace pprint() with some fancy formatting.
+        pprint.pprint(vars(opts))
+        sys.exit()
+
+
+def parse_args(args=None):
+    p = create_parser()
+    opts = p.parse_args(args)
+
+    # Check that --pcr-public-key=, --pcr-private-key=, and --phases=
+    # have either the same number of arguments are are not specified at all.
     n_pcr_pub = None if opts.pcr_public_keys is None else len(opts.pcr_public_keys)
     n_pcr_priv = None if opts.pcr_private_keys is None else len(opts.pcr_private_keys)
     n_phase_path_groups = None if opts.phase_path_groups is None else len(opts.phase_path_groups)
@@ -814,12 +1118,9 @@ usage: ukify [options…] linux initrd…
     if n_phase_path_groups is not None and n_phase_path_groups != n_pcr_priv:
         raise ValueError('--phases= specifications must match --pcr-private-key=')
 
-    if opts.output is None:
-        suffix = '.efi' if opts.sb_key else '.unsigned.efi'
-        opts.output = opts.linux.name + suffix
+    apply_config(opts)
 
-    for section in opts.sections:
-        section.check_name()
+    finalize_options(opts)
 
     return opts
 
