@@ -38,7 +38,7 @@ bool shim_loaded(void) {
         return BS->LocateProtocol(MAKE_GUID_PTR(SHIM_LOCK), NULL, (void **) &shim_lock) == EFI_SUCCESS;
 }
 
-static bool shim_validate(
+static bool shim_validate_internal(
                 const void *ctx, const EFI_DEVICE_PATH *device_path, const void *file_buffer, size_t file_size) {
 
         EFI_STATUS err;
@@ -80,6 +80,16 @@ static bool shim_validate(
         return shim_lock->shim_verify(file_buffer, file_size) == EFI_SUCCESS;
 }
 
+bool shim_validate(const EFI_DEVICE_PATH *device_path, const void *file_buffer, size_t file_size) {
+        if (!secure_boot_enabled())
+                return true;
+
+        if (!shim_loaded())
+                return false;
+
+        return shim_validate_internal(NULL, device_path, file_buffer, file_size);
+}
+
 EFI_STATUS shim_load_image(EFI_HANDLE parent, const EFI_DEVICE_PATH *device_path, EFI_HANDLE *ret_image) {
         assert(device_path);
         assert(ret_image);
@@ -87,7 +97,7 @@ EFI_STATUS shim_load_image(EFI_HANDLE parent, const EFI_DEVICE_PATH *device_path
         bool have_shim = shim_loaded();
 
         if (have_shim)
-                install_security_override(shim_validate, NULL);
+                install_security_override(shim_validate_internal, NULL);
 
         EFI_STATUS ret = BS->LoadImage(
                         /*BootPolicy=*/false, parent, (EFI_DEVICE_PATH *) device_path, NULL, 0, ret_image);
