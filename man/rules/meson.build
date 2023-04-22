@@ -925,7 +925,7 @@ manpages = [
  ['systemd-getty-generator', '8', [], ''],
  ['systemd-gpt-auto-generator', '8', [], 'HAVE_BLKID'],
  ['systemd-hibernate-resume-generator', '8', [], 'ENABLE_HIBERNATE'],
- ['systemd-hibernate-resume@.service',
+ ['systemd-hibernate-resume.service',
   '8',
   ['systemd-hibernate-resume'],
   'ENABLE_HIBERNATE'],
