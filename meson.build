@@ -2064,6 +2064,9 @@ public_programs = []
 # D-Bus introspection XML export
 dbus_programs = []
 
+# A list of boot stubs. Required for testing of ukify.
+boot_stubs = []
+
 basic_includes = include_directories(
         'src/basic',
         'src/fundamental',
@@ -2393,7 +2396,9 @@ exe = executable(
                         versiondep],
         install_rpath : rootpkglibdir,
         install : conf.get('ENABLE_ANALYZE') == 1)
-public_programs += exe
+if conf.get('ENABLE_ANALYZE') == 1
+        public_programs += exe
+endif
 
 if want_tests != 'false'
         test('test-compare-versions',
@@ -3892,20 +3897,21 @@ if enable_sysusers
                      args : exe.full_path())
         endif
 
+        exe = executable(
+                'systemd-sysusers.standalone',
+                'src/sysusers/sysusers.c',
+                include_directories : includes,
+                c_args : '-DSTANDALONE',
+                link_with : [libshared_static,
+                             libbasic,
+                             libbasic_gcrypt,
+                             libsystemd_static],
+                dependencies : [userspace,
+                                versiondep],
+                build_by_default: have_standalone_binaries,
+                install : have_standalone_binaries,
+                install_dir : rootbindir)
         if have_standalone_binaries
-                exe = executable(
-                        'systemd-sysusers.standalone',
-                        'src/sysusers/sysusers.c',
-                        include_directories : includes,
-                        c_args : '-DSTANDALONE',
-                        link_with : [libshared_static,
-                                     libbasic,
-                                     libbasic_gcrypt,
-                                     libsystemd_static],
-                        dependencies : [userspace,
-                                        versiondep],
-                        install : true,
-                        install_dir : rootbindir)
                 public_programs += exe
 
                 if want_tests != 'false'
@@ -3938,21 +3944,22 @@ if conf.get('ENABLE_TMPFILES') == 1
                      args : exe.full_path())
         endif
 
+        exe = executable(
+                'systemd-tmpfiles.standalone',
+                systemd_tmpfiles_sources,
+                include_directories : includes,
+                c_args : '-DSTANDALONE',
+                link_with : [libshared_static,
+                             libbasic,
+                             libbasic_gcrypt,
+                             libsystemd_static],
+                dependencies : [libacl,
+                                userspace,
+                                versiondep],
+                build_by_default: have_standalone_binaries,
+                install : have_standalone_binaries,
+                install_dir : rootbindir)
         if have_standalone_binaries
-                exe = executable(
-                        'systemd-tmpfiles.standalone',
-                        systemd_tmpfiles_sources,
-                        include_directories : includes,
-                        c_args : '-DSTANDALONE',
-                        link_with : [libshared_static,
-                                     libbasic,
-                                     libbasic_gcrypt,
-                                     libsystemd_static],
-                        dependencies : [libacl,
-                                        userspace,
-                                        versiondep],
-                        install : true,
-                        install_dir : rootbindir)
                 public_programs += exe
 
                 if want_tests != 'false'
@@ -4052,26 +4059,27 @@ if conf.get('ENABLE_REPART') == 1
                 install_dir : rootbindir)
         public_programs += exe
 
+        exe = executable(
+                'systemd-repart.standalone',
+                systemd_repart_sources,
+                include_directories : includes,
+                c_args : '-DSTANDALONE',
+                link_with : [libshared_static,
+                             libbasic,
+                             libbasic_gcrypt,
+                             libsystemd_static,
+                             libshared_fdisk],
+                dependencies : [libblkid,
+                                libfdisk,
+                                libopenssl,
+                                threads,
+                                userspace,
+                                versiondep],
+                build_by_default: have_standalone_binaries,
+                install_rpath : rootpkglibdir,
+                install : have_standalone_binaries,
+                install_dir : rootbindir)
         if have_standalone_binaries
-                exe = executable(
-                        'systemd-repart.standalone',
-                        systemd_repart_sources,
-                        include_directories : includes,
-                        c_args : '-DSTANDALONE',
-                        link_with : [libshared_static,
-                                     libbasic,
-                                     libbasic_gcrypt,
-                                     libsystemd_static,
-                                     libshared_fdisk],
-                        dependencies : [libblkid,
-                                        libfdisk,
-                                        libopenssl,
-                                        threads,
-                                        userspace,
-                                        versiondep],
-                        install_rpath : rootpkglibdir,
-                        install : true,
-                        install_dir : rootbindir)
                 public_programs += exe
         endif
 endif
@@ -4088,21 +4096,23 @@ executable(
         install : true,
         install_dir : rootlibexecdir)
 
+executable(
+        'systemd-shutdown.standalone',
+        systemd_shutdown_sources,
+        include_directories : includes,
+        c_args : '-DSTANDALONE',
+        link_with : [libshared_static,
+                     libbasic,
+                     libsystemd_static],
+        dependencies : [libmount,
+                        userspace,
+                        versiondep],
+        build_by_default: have_standalone_binaries,
+        install_rpath : rootpkglibdir,
+        install : have_standalone_binaries,
+        install_dir : rootlibexecdir)
 if have_standalone_binaries
-        executable(
-                'systemd-shutdown.standalone',
-                systemd_shutdown_sources,
-                include_directories : includes,
-                c_args : '-DSTANDALONE',
-                link_with : [libshared_static,
-                             libbasic,
-                             libsystemd_static],
-                dependencies : [libmount,
-                                userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootlibexecdir)
+        public_programs += exe
 endif
 
 executable(
@@ -4231,7 +4241,7 @@ executable(
         install : true,
         install_dir : rootlibexecdir)
 
-exe = custom_target(
+kernel_install = custom_target(
         'kernel-install',
         input : kernel_install_in,
         output : 'kernel-install',
@@ -4239,25 +4249,32 @@ exe = custom_target(
         install : want_kernel_install,
         install_mode : 'rwxr-xr-x',
         install_dir : bindir)
-public_programs += exe
-
-if want_tests != 'false' and want_kernel_install
-        test('test-kernel-install',
-             test_kernel_install_sh,
-             env : test_env,
-             args : [exe.full_path(), loaderentry_install])
+if want_kernel_install
+        public_programs += exe
 endif
 
-if want_ukify
-   exe = custom_target(
+ukify = custom_target(
         'ukify',
         input : 'src/ukify/ukify.py',
         output : 'ukify',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
-        install : true,
+        install : want_ukify,
         install_mode : 'rwxr-xr-x',
         install_dir : rootlibexecdir)
-   public_programs += exe
+if want_ukify
+   public_programs += ukify
+endif
+
+if want_tests != 'false' and want_kernel_install
+        args = [kernel_install.full_path(), loaderentry_install, uki_copy_install]
+        if want_ukify and boot_stubs.length() > 0
+                args += [ukify.full_path(), ukify_install, boot_stubs[0]]
+        endif
+
+        test('test-kernel-install',
+             test_kernel_install_sh,
+             env : test_env,
+             args : args)
 endif
 
 ############################################################
