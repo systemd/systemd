@@ -482,6 +482,7 @@ run_qemu() {
         "init=$PATH_TO_INIT"
         "console=$CONSOLE"
         "SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$1.units:/usr/lib/systemd/tests/testdata/units:"
+        "systemd.log_level=debug"
         "systemd.unit=testsuite.target"
         "systemd.wants=testsuite-$1.service"
     )
@@ -559,6 +560,7 @@ run_nspawn() {
     )
     local kernel_params=(
         "$PATH_TO_INIT"
+        "systemd.log_level=debug"
         "systemd.unit=testsuite.target"
         "systemd.wants=testsuite-$2.service"
     )
