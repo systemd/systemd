@@ -375,10 +375,9 @@ static void service_override_watchdog_timeout(Service *s, usec_t watchdog_overri
         log_unit_debug(UNIT(s), "watchdog_override_usec="USEC_FMT, s->watchdog_override_usec);
 }
 
-static void service_fd_store_unlink(ServiceFDStore *fs) {
-
+static ServiceFDStore* service_fd_store_unlink(ServiceFDStore *fs) {
         if (!fs)
-                return;
+                return NULL;
 
         if (fs->service) {
                 assert(fs->service->n_fd_store > 0);
@@ -390,8 +389,10 @@ static void service_fd_store_unlink(ServiceFDStore *fs) {
 
         free(fs->fdname);
         asynchronous_close(fs->fd);
-        free(fs);
+        return mfree(fs);
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(ServiceFDStore*, service_fd_store_unlink);
 
 static void service_release_fd_store(Service *s) {
         assert(s);
@@ -480,15 +481,15 @@ static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *us
         return 0;
 }
 
-static int service_add_fd_store(Service *s, int fd, const char *name, bool do_poll) {
+static int service_add_fd_store(Service *s, int fd_in, const char *name, bool do_poll) {
+        _cleanup_(service_fd_store_unlinkp) ServiceFDStore *fs = NULL;
+        _cleanup_(asynchronous_closep) int fd = ASSERT_FD(fd_in);
         struct stat st;
-        ServiceFDStore *fs;
         int r;
 
-        /* fd is always consumed if we return >= 0 */
+        /* fd is always consumed even if the function fails. */
 
         assert(s);
-        assert(fd >= 0);
 
         if (fstat(fd, &st) < 0)
                 return -errno;
@@ -505,8 +506,7 @@ static int service_add_fd_store(Service *s, int fd, const char *name, bool do_po
                 if (r < 0)
                         return r;
                 if (r > 0) {
-                        log_unit_debug(UNIT(s), "Suppressing duplicate fd in fd store.");
-                        asynchronous_close(fd);
+                        log_unit_debug(UNIT(s), "Suppressing duplicate fd %i in fd store.", fd);
                         return 0; /* fd already included */
                 }
         }
@@ -516,30 +516,29 @@ static int service_add_fd_store(Service *s, int fd, const char *name, bool do_po
                 return -ENOMEM;
 
         *fs = (ServiceFDStore) {
-                .fd = fd,
-                .service = s,
+                .fd = TAKE_FD(fd),
                 .do_poll = do_poll,
                 .fdname = strdup(name ?: "stored"),
         };
 
-        if (!fs->fdname) {
-                free(fs);
+        if (!fs->fdname)
                 return -ENOMEM;
-        }
 
         if (do_poll) {
-                r = sd_event_add_io(UNIT(s)->manager->event, &fs->event_source, fd, 0, on_fd_store_io, fs);
-                if (r < 0 && r != -EPERM) { /* EPERM indicates fds that aren't pollable, which is OK */
-                        free(fs->fdname);
-                        free(fs);
+                r = sd_event_add_io(UNIT(s)->manager->event, &fs->event_source, fs->fd, 0, on_fd_store_io, fs);
+                if (r < 0 && r != -EPERM) /* EPERM indicates fds that aren't pollable, which is OK */
                         return r;
-                } else if (r >= 0)
+                else if (r >= 0)
                         (void) sd_event_source_set_description(fs->event_source, "service-fd-store");
         }
 
+        fs->service = s;
         LIST_PREPEND(fd_store, s->fd_store, fs);
         s->n_fd_store++;
 
+        log_unit_debug(UNIT(s), "Added fd %i (%s) to fd store.", fs->fd, fs->fdname);
+
+        TAKE_PTR(fs);
         return 1; /* fd newly stored */
 }
 
@@ -548,8 +547,8 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name, bo
 
         assert(s);
 
-        while (fdset_size(fds) > 0) {
-                _cleanup_(asynchronous_closep) int fd = -EBADF;
+        for (;;) {
+                int fd;
 
                 fd = fdset_steal_first(fds);
                 if (fd < 0)
@@ -562,10 +561,6 @@ static int service_add_fd_store_set(Service *s, FDSet *fds, const char *name, bo
                                                       s->n_fd_store_max);
                 if (r < 0)
                         return log_unit_error_errno(UNIT(s), r, "Failed to add fd to store: %m");
-                if (r > 0)
-                        log_unit_debug(UNIT(s), "Added fd %i (%s) to fd store.", fd, strna(name));
-
-                TAKE_FD(fd);
         }
 
         return 0;
@@ -3243,8 +3238,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 }
         } else if (streq(key, "fd-store-fd")) {
                 _cleanup_free_ char *fdv = NULL, *fdn = NULL, *fdp = NULL;
-                int fd;
-                int do_poll;
+                int fd, do_poll;
 
                 r = extract_first_word(&value, &fdv, NULL, 0);
                 if (r <= 0 || safe_atoi(fdv, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd)) {
@@ -3267,11 +3261,18 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         return 0;
                 }
 
+                r = fdset_remove(fds, fd);
+                if (r < 0) {
+                        log_unit_error_errno(u, r, "Could not find deserialized fd %i in fdset: %m", fd);
+                        return 0;
+                }
+                assert(r == fd);
+
                 r = service_add_fd_store(s, fd, fdn, do_poll);
-                if (r < 0)
-                        log_unit_error_errno(u, r, "Failed to add fd to store: %m");
-                else
-                        fdset_remove(fds, fd);
+                if (r < 0) {
+                        log_unit_error_errno(u, r, "Failed to store deserialized fd %i: %m", fd);
+                        return 0;
+                }
         } else if (streq(key, "main-exec-status-pid")) {
                 pid_t pid;
 
