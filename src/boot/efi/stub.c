@@ -11,6 +11,7 @@
 #include "proto/shell-parameters.h"
 #include "random-seed.h"
 #include "secure-boot.h"
+#include "shim.h"
 #include "splash.h"
 #include "tpm-pcr.h"
 #include "util.h"
@@ -180,6 +181,150 @@ static bool use_load_options(
         return true;
 }
 
+static EFI_STATUS get_cmdline_mule(
+                EFI_HANDLE stub_image,
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                char16_t **ret_buffer) {
+
+        _cleanup_(file_closep) EFI_FILE *root = NULL, *extra_dir = NULL;
+        size_t dirent_size = 0, n_items = 0, n_allocated = 0;
+        _cleanup_free_ EFI_FILE_INFO *dirent = NULL, *extra_dir_info = NULL;
+        _cleanup_(strv_freep) char16_t **items = NULL;
+        _cleanup_free_ char16_t *buffer = NULL;
+        EFI_STATUS err;
+
+        assert(stub_image);
+        assert(loaded_image);
+        assert(ret_buffer);
+
+        if (!loaded_image->DeviceHandle)
+                goto nothing;
+
+        err = open_volume(loaded_image->DeviceHandle, &root);
+        if (err == EFI_UNSUPPORTED)
+                /* Error will be unsupported if the bootloader doesn't implement the file system protocol on
+                 * its file handles. */
+                goto nothing;
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Unable to open root directory: %m");
+
+        err = open_directory(root, u"\\loader\\mules", &extra_dir);
+        if (err == EFI_NOT_FOUND)
+                /* No extra subdir, that's totally OK */
+                goto nothing;
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Failed to open mules directory: %m");
+
+        err = get_file_info(extra_dir, &extra_dir_info, NULL);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Failed to query information of mules directory: %m");
+
+        for (;;) {
+                _cleanup_free_ char16_t *d = NULL;
+
+                err = readdir(extra_dir, &dirent, &dirent_size);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Failed to read extra directory of loaded image: %m");
+                if (!dirent) /* End of directory */
+                        break;
+
+                if (dirent->FileName[0] == '.')
+                        continue;
+                if (FLAGS_SET(dirent->Attribute, EFI_FILE_DIRECTORY))
+                        continue;
+                if (!endswith_no_case(dirent->FileName, u".mule.cmdline.efi"))
+                        continue;
+                if (!is_ascii(dirent->FileName))
+                        continue;
+                if (strlen16(dirent->FileName) > 255) /* Max filename size on Linux */
+                        continue;
+
+                d = xstrdup16(dirent->FileName);
+
+                if (n_items+2 > n_allocated) {
+                        /* We allocate 16 entries at a time, as a matter of optimization */
+                        if (n_items > (SIZE_MAX / sizeof(uint16_t)) - 16) /* Overflow check, just in case */
+                                return log_oom();
+
+                        size_t m = n_items + 16;
+                        items = xrealloc(items, n_allocated * sizeof(uint16_t *), m * sizeof(uint16_t *));
+                        n_allocated = m;
+                }
+
+                items[n_items++] = TAKE_PTR(d);
+                items[n_items] = NULL; /* Let's always NUL terminate, to make freeing via strv_free() easy */
+        }
+
+        if (n_items == 0)
+                /* Empty directory */
+                goto nothing;
+
+        /* Now, sort the files we found, to make this uniform and stable (and to ensure the TPM measurements
+         * are not dependent on read order) */
+        sort_pointer_array((void**) items, n_items, (compare_pointer_func_t) strcmp16);
+
+        for (size_t i = 0; i < n_items; i++) {
+                _cleanup_free_ char *content = NULL;
+                size_t contentsize = 0, section_offset = 0, section_size = 0;  /* avoid false maybe-uninitialized warning */
+
+                static const char * const sections[2] = {
+                        [0] = ".cmdline",
+                        NULL,
+                };
+
+                err = file_read(extra_dir, items[i], 0, 0, &content, &contentsize);
+                if (err != EFI_SUCCESS) {
+                        log_error_status(err, "Failed to read %ls, ignoring: %m", items[i]);
+                        continue;
+                }
+
+                if (secure_boot_enabled() && !shim_validate(NULL, content, contentsize)) {
+                        _cleanup_free_ EFI_DEVICE_PATH *mule_path = NULL;
+                        _cleanup_(unload_imagep) EFI_HANDLE mule = NULL;
+                        _cleanup_free_ char16_t *mule_spath = NULL;
+
+                        /* No shim, or shim fails? Fall back to firmware validation */
+
+                        mule_spath = xasprintf("\\loader\\%ls\\%ls", extra_dir_info->FileName, items[i]);
+                        err = make_file_device_path(loaded_image->DeviceHandle, mule_spath, &mule_path);
+                        if (err != EFI_SUCCESS)
+                                return log_error_status(err, "Error making device path for %ls: %m", mule_spath);
+
+                        err = BS->LoadImage(/*BootPolicy=*/false,
+                                        stub_image,
+                                        mule_path,
+                                        (void *) content,
+                                        contentsize,
+                                        &mule);
+                        if (err != EFI_SUCCESS) {
+                                log_error("Failed to validate %ls, ignoring.", items[i]);
+                                continue;
+                        }
+                }
+
+                err = pe_memory_locate_sections_offsets(content, sections, &section_offset, &section_size);
+                if (err != EFI_SUCCESS || section_size == 0) {
+                        if (err == EFI_SUCCESS)
+                                err = EFI_NOT_FOUND;
+                        return log_error_status(err, "Unable to locate embedded .cmdline section in %ls: %m", items[i]);
+                }
+
+                _cleanup_free_ char16_t *tmp = TAKE_PTR(buffer), *extra16 = xstrn8_to_16(content + section_offset, section_size);
+                buffer = xasprintf("%ls%ls%ls", strempty(tmp), isempty(tmp) ? u"" : u" ", extra16);
+        }
+
+        mangle_stub_cmdline(buffer);
+
+        *ret_buffer = TAKE_PTR(buffer);
+
+        return EFI_SUCCESS;
+
+nothing:
+        *ret_buffer = NULL;
+
+        return EFI_SUCCESS;
+}
+
 static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL;
         size_t credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
@@ -188,7 +333,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         size_t addrs[_UNIFIED_SECTION_MAX] = {}, szs[_UNIFIED_SECTION_MAX] = {};
-        _cleanup_free_ char16_t *cmdline = NULL;
+        _cleanup_free_ char16_t *cmdline = NULL, *mule = NULL;
         int sections_measured = -1, parameters_measured = -1;
         bool sysext_measured = false, m;
         uint64_t loader_features = 0;
@@ -275,6 +420,18 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 (char *) loaded_image->ImageBase + addrs[UNIFIED_SECTION_CMDLINE],
                                 szs[UNIFIED_SECTION_CMDLINE]);
                 mangle_stub_cmdline(cmdline);
+        }
+
+        err = get_cmdline_mule(image, loaded_image, &mule);
+        if (err != EFI_SUCCESS)
+                log_error_status(err, "Error loading mules, ignoring: %m");
+        else if (mule) {
+                _cleanup_free_ char16_t *tmp = TAKE_PTR(cmdline);
+
+                m = false;
+                (void) tpm_log_load_options(mule, &m);
+
+                cmdline = xasprintf("%ls%ls%ls", strempty(tmp), isempty(tmp) ? u"" : u" ", mule);
         }
 
         const char *extra = smbios_find_oem_string("io.systemd.stub.kernel-cmdline-extra");
