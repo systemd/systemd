@@ -266,6 +266,9 @@ char16_t *xstr8_to_path(const char *str8) {
 void mangle_stub_cmdline(char16_t *cmdline) {
         char16_t *p = cmdline;
 
+        if (!cmdline)
+                return;
+
         for (; *cmdline != '\0'; cmdline++)
                 /* Convert ASCII control characters to spaces. */
                 if (*cmdline <= 0x1F)

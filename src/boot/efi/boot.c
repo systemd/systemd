@@ -2357,6 +2357,9 @@ static EFI_STATUS image_start(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error preparing initrd: %m");
 
+        /* Ask shim to leave its protocol around, so that the stub can use it to validate PEs. */
+        shim_retain_protocol();
+
         err = shim_load_image(parent_image, path, &image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error loading %ls: %m", entry->loader);
