@@ -281,6 +281,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
         if (extra) {
                 _cleanup_free_ char16_t *tmp = TAKE_PTR(cmdline), *extra16 = xstr8_to_16(extra);
                 cmdline = xasprintf("%ls %ls", tmp, extra16);
+
+                m = false;
+                (void) tpm_log_load_options(extra16, &m);
         }
 
         export_variables(loaded_image);
