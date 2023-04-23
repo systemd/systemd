@@ -75,3 +75,6 @@ if command -v authselect >/dev/null; then
         authselect enable-feature with-homed
     fi
 fi
+
+# Let tmpfiles.d/systemd-resolve.conf handle the symlink
+rm -f /etc/resolv.conf
