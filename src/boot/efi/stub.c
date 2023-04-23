@@ -277,6 +277,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 mangle_stub_cmdline(cmdline);
         }
 
+        /* SMBIOS strings are measured in PCR1, so we do not re-measure these command line extensions. */
         const char *extra = smbios_find_oem_string("io.systemd.stub.kernel-cmdline-extra");
         if (extra) {
                 _cleanup_free_ char16_t *tmp = TAKE_PTR(cmdline), *extra16 = xstr8_to_16(extra);
