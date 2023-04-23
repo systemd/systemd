@@ -73,7 +73,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
-    - uses: systemd/mkosi@ebc8b63f3be58243c7ff4273517fa4d2858c7e30
+    - uses: systemd/mkosi@0900374cd1f2cc0b1b3367662360faa15542127e
 
     - name: Configure
       run: |
@@ -100,11 +100,11 @@ jobs:
     - name: Generate secure boot key
       run: mkosi genkey
 
-    - name: Build ${{ matrix.distro }}
-      run: mkosi
-
     - name: Show ${{ matrix.distro }} image summary
       run: mkosi summary
+
+    - name: Build ${{ matrix.distro }}
+      run: mkosi
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
       run: sudo mkosi boot
