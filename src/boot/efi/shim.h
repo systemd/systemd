@@ -12,4 +12,6 @@
 #include "efi.h"
 
 bool shim_loaded(void);
+bool shim_validate(const EFI_DEVICE_PATH *device_path, const void *file_buffer, size_t file_size);
 EFI_STATUS shim_load_image(EFI_HANDLE parent, const EFI_DEVICE_PATH *device_path, EFI_HANDLE *ret_image);
+void shim_retain_protocol(void);
