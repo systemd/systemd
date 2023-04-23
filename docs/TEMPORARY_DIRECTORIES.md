@@ -84,7 +84,7 @@ By default, `systemd-tmpfiles` will apply a concept of ⚠️ "ageing" to all fi
 and directories stored in `/tmp/` and `/var/tmp/`. This means that files that
 have neither been changed nor read within a specific time frame are
 automatically removed in regular intervals. (This concept is not new to
-`systemd-tmpfiles` by the way, it's inherited from previous subsystems such as
+`systemd-tmpfiles`, it's inherited from previous subsystems such as
 `tmpwatch`.) By default files in `/tmp/` are cleaned up after 10 days, and
 those in `/var/tmp` after 30 days.
 
