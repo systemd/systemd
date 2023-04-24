@@ -461,7 +461,8 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                               "ManagedOOMSwap",
                               "ManagedOOMMemoryPressure",
                               "ManagedOOMPreference",
-                              "MemoryPressureWatch"))
+                              "MemoryPressureWatch",
+                              "DelegateSubgroup"))
                 return bus_append_string(m, field, eq);
 
         if (STR_IN_SET(field, "ManagedOOMMemoryPressureLimit")) {

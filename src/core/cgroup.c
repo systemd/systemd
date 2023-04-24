@@ -293,6 +293,8 @@ void cgroup_context_done(CGroupContext *c) {
         cpu_set_reset(&c->startup_cpuset_cpus);
         cpu_set_reset(&c->cpuset_mems);
         cpu_set_reset(&c->startup_cpuset_mems);
+
+        c->delegate_subgroup = mfree(c->delegate_subgroup);
 }
 
 static int unit_get_kernel_memory_limit(Unit *u, const char *file, uint64_t *ret) {
@@ -569,6 +571,10 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, PERMYRIAD_AS_PERCENT_FORMAT_VAL(UINT32_SCALE_TO_PERMYRIAD(c->moom_mem_pressure_limit)),
                 prefix, managed_oom_preference_to_string(c->moom_preference),
                 prefix, cgroup_pressure_watch_to_string(c->memory_pressure_watch));
+
+        if (c->delegate_subgroup)
+                fprintf(f, "%sDelegateSubgroup: %s\n",
+                        prefix, c->delegate_subgroup);
 
         if (c->memory_pressure_threshold_usec != USEC_INFINITY)
                 fprintf(f, "%sMemoryPressureThresholdSec: %s\n",
@@ -2087,28 +2093,37 @@ static const char *migrate_callback(CGroupMask mask, void *userdata) {
         return strempty(unit_get_realized_cgroup_path(userdata, mask));
 }
 
-char *unit_default_cgroup_path(const Unit *u) {
-        _cleanup_free_ char *escaped = NULL, *slice_path = NULL;
-        Unit *slice;
+int unit_default_cgroup_path(const Unit *u, char **ret) {
+        _cleanup_free_ char *p = NULL;
         int r;
 
         assert(u);
+        assert(ret);
 
         if (unit_has_name(u, SPECIAL_ROOT_SLICE))
-                return strdup(u->manager->cgroup_root);
+                p = strdup(u->manager->cgroup_root);
+        else {
+                _cleanup_free_ char *escaped = NULL, *slice_path = NULL;
+                Unit *slice;
 
-        slice = UNIT_GET_SLICE(u);
-        if (slice && !unit_has_name(slice, SPECIAL_ROOT_SLICE)) {
-                r = cg_slice_to_path(slice->id, &slice_path);
+                slice = UNIT_GET_SLICE(u);
+                if (slice && !unit_has_name(slice, SPECIAL_ROOT_SLICE)) {
+                        r = cg_slice_to_path(slice->id, &slice_path);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = cg_escape(u->id, &escaped);
                 if (r < 0)
-                        return NULL;
+                        return r;
+
+                p = path_join(empty_to_root(u->manager->cgroup_root), slice_path, escaped);
         }
+        if (!p)
+                return -ENOMEM;
 
-        escaped = cg_escape(u->id);
-        if (!escaped)
-                return NULL;
-
-        return path_join(empty_to_root(u->manager->cgroup_root), slice_path, escaped);
+        *ret = TAKE_PTR(p);
+        return 0;
 }
 
 int unit_set_cgroup_path(Unit *u, const char *path) {
@@ -2264,9 +2279,9 @@ int unit_pick_cgroup_path(Unit *u) {
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
                 return -EINVAL;
 
-        path = unit_default_cgroup_path(u);
-        if (!path)
-                return log_oom();
+        r = unit_default_cgroup_path(u, &path);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to generate default cgrou path: %m");
 
         r = unit_set_cgroup_path(u, path);
         if (r == -EEXIST)
