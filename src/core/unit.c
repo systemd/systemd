@@ -2678,7 +2678,7 @@ static bool unit_process_job(Job *j, UnitActiveState ns, UnitNotifyFlags flags) 
         case JOB_RESTART:
         case JOB_TRY_RESTART:
 
-                if (UNIT_IS_INACTIVE_OR_FAILED(ns))
+                if (UNIT_IS_INACTIVE_OR_FAILED(ns) || ns == UNIT_MAINTENANCE)
                         job_finish_and_invalidate(j, JOB_DONE, true, false);
                 else if (j->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
                         unexpected = true;
@@ -4674,7 +4674,7 @@ int unit_kill_context(
 
         bool wait_for_exit = false, send_sighup;
         cg_kill_log_func_t log_func = NULL;
-        int sig, r;
+        int sig, r, q;
 
         assert(u);
         assert(c);
@@ -4742,11 +4742,53 @@ int unit_kill_context(
                 if (!pid_set)
                         return -ENOMEM;
 
-                r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path,
-                                      sig,
-                                      CGROUP_SIGCONT|CGROUP_IGNORE_SELF,
-                                      pid_set,
-                                      log_func, u);
+                /* If this is a service unit and has multiple generations then we will kill all of them. */
+                if (u->type == UNIT_SERVICE && ((Service*)u)->generation > 0) {
+                        unsigned g = 0;
+                        char *s, *parent_cgroup;
+
+                        parent_cgroup = strdupa(u->cgroup_path);
+                        s = strrchr(parent_cgroup, '/');
+                        *s = '\0';
+
+                        /* Last component of the cgroup path must correspond to the latest generation of the service. */
+                        (void) safe_atou(s+1, &g);
+                        assert(g == ((Service*)u)->generation);
+
+                        for (unsigned i = ((Service *) u)->generation; i > 0; i--) {
+                                _cleanup_free_ char *cgroup_path = NULL;
+                                CGroupFlags flags = CGROUP_SIGCONT | CGROUP_IGNORE_SELF;
+
+                                if (asprintf(&cgroup_path, "%s/%u", parent_cgroup, i) < 0)
+                                        return -ENOMEM;
+
+                                /* Also remove all cgroups that correnpond to the latest generation. */
+                                if (i != ((Service *) u)->generation)
+                                        flags |= CGROUP_REMOVE;
+
+                                q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, cgroup_path,
+                                                sig,
+                                                flags,
+                                                pid_set,
+                                                log_func,
+                                                u);
+
+                                if (q < 0 && !IN_SET(r, -EAGAIN, -ESRCH, -ENOENT)) {
+                                        log_unit_warning_errno(u, r, "Failed to kill control group %s, ignoring: %m", empty_to_root(cgroup_path));
+
+                                        /* Reset error code so we don't log again about failure bellow and we are in the last iteration. */
+                                        r = 0;
+
+                                } else if (q > 0 && i == ((Service *) u)->generation)
+                                        /* Remember the error code from the first iteration when we killed latest generation of the service. */
+                                        r = q;
+                        }
+                } else
+                        r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path,
+                                        sig,
+                                        CGROUP_SIGCONT|CGROUP_IGNORE_SELF,
+                                        pid_set,
+                                        log_func, u);
                 if (r < 0) {
                         if (!IN_SET(r, -EAGAIN, -ESRCH, -ENOENT))
                                 log_unit_warning_errno(u, r, "Failed to kill control group %s, ignoring: %m", empty_to_root(u->cgroup_path));
