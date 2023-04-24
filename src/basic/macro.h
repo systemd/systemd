@@ -384,6 +384,36 @@ static inline int __coverity_check_and_return__(int condition) {
         DEFINE_PUBLIC_TRIVIAL_REF_FUNC(type, name);                    \
         DEFINE_PUBLIC_TRIVIAL_UNREF_FUNC(type, name, free_func);
 
+/* This pattern needs to be repeated exactly in multiple modules, so macro it.
+ * To ensure an object is not passed into a different module (e.g.: when two shared objects statically
+ * linked to libsystemd get loaded in the same process, and the object created by one is passed to the
+ * other, see https://github.com/systemd/systemd/issues/27216), create a random static global random
+ * (mixed with PID, so that we can also check for reuse after fork) that is stored in the object and
+ * checked by public API on use. */
+#define _DEFINE_ORIGIN_ID_HELPERS(type, scope)                        \
+static uint64_t origin_id;                                            \
+                                                                      \
+static void origin_id_initialize(void) {                              \
+        origin_id = random_u64();                                     \
+}                                                                     \
+                                                                      \
+static uint64_t origin_id_query(void) {                               \
+        static pthread_once_t once = PTHREAD_ONCE_INIT;               \
+        assert_se(pthread_once(&once, origin_id_initialize) == 0);    \
+        return origin_id ^ getpid_cached();                           \
+}                                                                     \
+                                                                      \
+scope bool type##_origin_id_changed(type *p) {                        \
+        assert(p);                                                    \
+        return p->origin_id != origin_id_query();                     \
+}
+
+#define DEFINE_ORIGIN_ID_HELPERS(type)                                \
+        _DEFINE_ORIGIN_ID_HELPERS(type,);
+
+#define DEFINE_PRIVATE_ORIGIN_ID_HELPERS(type)                        \
+        _DEFINE_ORIGIN_ID_HELPERS(type, static);
+
 /* A macro to force copying of a variable from memory. This is useful whenever we want to read something from
  * memory and want to make sure the compiler won't optimize away the destination variable for us. It's not
  * supposed to be a full CPU memory barrier, i.e. CPU is still allowed to reorder the reads, but it is not
