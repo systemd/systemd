@@ -36,7 +36,7 @@ cmp /var/tmp/testimage.raw /var/lib/machines/testimage3.raw
 # Test removal
 machinectl remove testimage
 test ! -f /var/lib/machines/testimage.raw
-machinectl image-status testimage && { echo 'unexpected success'; exit 1; }
+(! machinectl image-status testimage)
 
 # Test export of clone
 machinectl export-raw testimage3 /var/tmp/testimage3.raw
@@ -48,7 +48,7 @@ machinectl rename testimage3 testimage4
 test -f /var/lib/machines/testimage4.raw
 machinectl image-status testimage4
 test ! -f /var/lib/machines/testimage3.raw
-machinectl image-status testimage3 && { echo 'unexpected success'; exit 1; }
+(! machinectl image-status testimage3)
 cmp /var/tmp/testimage.raw /var/lib/machines/testimage4.raw
 
 # Test export of rename
@@ -59,7 +59,7 @@ rm /var/tmp/testimage4.raw
 # Test removal
 machinectl remove testimage4
 test ! -f /var/lib/machines/testimage4.raw
-machinectl image-status testimage4 && { echo 'unexpected success'; exit 1; }
+(! machinectl image-status testimage4)
 
 # → And now, let's test directory trees ← #
 
@@ -92,7 +92,7 @@ diff -r /var/tmp/scratch/ /var/lib/machines/scratch2
 # Test removal
 machinectl remove scratch
 test ! -f /var/lib/machines/scratch
-machinectl image-status scratchi && { echo 'unexpected success'; exit 1; }
+(! machinectl image-status scratch)
 
 # Test clone
 machinectl clone scratch2 scratch3
@@ -105,20 +105,20 @@ diff -r /var/tmp/scratch/ /var/lib/machines/scratch3
 # Test removal
 machinectl remove scratch2
 test ! -f /var/lib/machines/scratch2
-machinectl image-status scratch2 && { echo 'unexpected success'; exit 1; }
+(! machinectl image-status scratch2)
 
 # Test rename
 machinectl rename scratch3 scratch4
 test -d /var/lib/machines/scratch4
 machinectl image-status scratch4
 test ! -f /var/lib/machines/scratch3
-machinectl image-status scratch3 && { echo 'unexpected success'; exit 1; }
+(! machinectl image-status scratch3)
 diff -r /var/tmp/scratch/ /var/lib/machines/scratch4
 
 # Test removal
 machinectl remove scratch4
 test ! -f /var/lib/machines/scratch4
-machinectl image-status scratch4 && { echo 'unexpected success'; exit 1; }
+(! machinectl image-status scratch4)
 
 # Test import-tar hyphen/stdin pipe behavior
 # shellcheck disable=SC2002
@@ -138,7 +138,7 @@ rm -rf /var/tmp/scratch
 # Test removal
 machinectl remove scratch5
 test ! -f /var/lib/machines/scratch5
-machinectl image-status scratch5 && { echo 'unexpected success'; exit 1; }
+(! machinectl image-status scratch5)
 
 echo OK >/testok
 

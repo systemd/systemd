@@ -35,15 +35,13 @@ systemd-run --wait --unit=two -p Type=notify -p ExitType=cgroup \
     /tmp/test56-exit-cgroup.sh 'systemctl stop two'
 
 # false exec condition: systemd-run should exit immediately with status code: 1
-systemd-run --wait --unit=three -p Type=notify -p ExitType=cgroup \
+(! systemd-run --wait --unit=three -p Type=notify -p ExitType=cgroup \
     -p ExecCondition=false \
-    /tmp/test56-exit-cgroup.sh \
-    && { echo 'unexpected success'; exit 1; }
+    /tmp/test56-exit-cgroup.sh)
 
 # service should exit uncleanly (main process exits with SIGKILL)
-systemd-run --wait --unit=four -p Type=notify -p ExitType=cgroup \
-    /tmp/test56-exit-cgroup.sh 'systemctl kill --signal 9 four' \
-    && { echo 'unexpected success'; exit 1; }
+(! systemd-run --wait --unit=four -p Type=notify -p ExitType=cgroup \
+    /tmp/test56-exit-cgroup.sh 'systemctl kill --signal 9 four')
 
 
 # Multiple level process tree, parent process exits quickly

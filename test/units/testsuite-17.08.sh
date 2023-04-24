@@ -18,8 +18,8 @@ EOF
 udevadm control --reload
 
 udevadm trigger --settle --action add /dev/null
-for ((i = 0; i < 20; i++)); do
-    ((i == 0)) || sleep .5
+for i in {1..20}; do
+    ((i > 1)) && sleep .5
 
     (
         systemctl -q is-active /dev/test/symlink-to-null-on-add
@@ -34,8 +34,8 @@ assert_rc 0 systemctl -q is-active /sys/test/alias-to-null-on-add
 assert_rc 3 systemctl -q is-active /sys/test/alias-to-null-on-change
 
 udevadm trigger --settle --action change /dev/null
-for ((i = 0; i < 20; i++)); do
-    ((i == 0)) || sleep .5
+for i in {1..20}; do
+    ((i > 1)) && sleep .5
 
     (
         ! systemctl -q is-active /dev/test/symlink-to-null-on-add
@@ -50,8 +50,8 @@ assert_rc 3 systemctl -q is-active /sys/test/alias-to-null-on-add
 assert_rc 0 systemctl -q is-active /sys/test/alias-to-null-on-change
 
 udevadm trigger --settle --action add /dev/null
-for ((i = 0; i < 20; i++)); do
-    ((i == 0)) || sleep .5
+for i in {1..20}; do
+    ((i > 1)) && sleep .5
 
     (
         systemctl -q is-active /dev/test/symlink-to-null-on-add
