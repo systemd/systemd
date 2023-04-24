@@ -63,11 +63,6 @@ if [ -n "$IMAGE_VERSION" ] ; then
         /usr/lib/os-release
 fi
 
-# Install a default ignore preset on Debian until it is shipped by Debian itself.
-if grep -q -e "ID=debian" -e "ID_LIKE=debian" /etc/os-release; then
-    echo "ignore *" >/usr/lib/systemd/system-preset/99-ignore.preset
-fi
-
 if command -v authselect >/dev/null; then
     authselect select minimal
 
@@ -75,3 +70,6 @@ if command -v authselect >/dev/null; then
         authselect enable-feature with-homed
     fi
 fi
+
+# Let tmpfiles.d/systemd-resolve.conf handle the symlink
+rm -f /etc/resolv.conf
