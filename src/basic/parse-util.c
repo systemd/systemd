@@ -50,7 +50,6 @@ int parse_pid(const char *s, pid_t* ret_pid) {
         int r;
 
         assert(s);
-        assert(ret_pid);
 
         r = safe_atolu(s, &ul);
         if (r < 0)
@@ -64,7 +63,8 @@ int parse_pid(const char *s, pid_t* ret_pid) {
         if (!pid_is_valid(pid))
                 return -ERANGE;
 
-        *ret_pid = pid;
+        if (ret_pid)
+                *ret_pid = pid;
         return 0;
 }
 
