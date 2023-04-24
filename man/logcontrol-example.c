@@ -104,7 +104,7 @@ static int property_get(
     return sd_bus_message_append(reply, "s", o->syslog_identifier);
 
   return sd_bus_error_setf(error,
-                           SD_BUS_ERROR_INVALID_ARGS,
+                           SD_BUS_ERROR_UNKNOWN_PROPERTY,
                            "Unknown property '%s'",
                            property);
 }
@@ -139,7 +139,7 @@ static int property_set(
                              value);
   }
 
-  if (strcmp(value, "LogTarget") == 0) {
+  if (strcmp(property, "LogTarget") == 0) {
     for (LogTarget i = 0; i < _LOG_TARGET_MAX; i++)
       if (strcmp(value, log_target_table[i]) == 0) {
         o->log_target = i;
@@ -153,7 +153,7 @@ static int property_set(
   }
 
   return sd_bus_error_setf(error,
-                           SD_BUS_ERROR_INVALID_ARGS,
+                           SD_BUS_ERROR_UNKNOWN_PROPERTY,
                            "Unknown property '%s'",
                            property);
 }
@@ -187,16 +187,16 @@ int main(int argc, char **argv) {
    */
   _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
 
-  /* Acquire a connection to the bus, letting the library work out the details.
-   * https://www.freedesktop.org/software/systemd/man/sd_bus_default.html
-   */
-  sd_bus_default(&bus);
-
   object o = {
     .log_level = LOG_INFO,
     .log_target = LOG_TARGET_JOURNAL,
     .syslog_identifier = "example",
   };
+
+  /* Acquire a connection to the bus, letting the library work out the details.
+   * https://www.freedesktop.org/software/systemd/man/sd_bus_default.html
+   */
+  check(o.log_level, sd_bus_default(&bus));
 
   /* Publish an interface on the bus, specifying our well-known object access
    * path and public interface name.
