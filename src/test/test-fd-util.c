@@ -30,9 +30,9 @@
 
 TEST(close_many) {
         int fds[3];
-        char name0[] = "/tmp/test-close-many.XXXXXX";
-        char name1[] = "/tmp/test-close-many.XXXXXX";
-        char name2[] = "/tmp/test-close-many.XXXXXX";
+        _cleanup_(unlink_tempfilep) char name0[] = "/tmp/test-close-many.XXXXXX";
+        _cleanup_(unlink_tempfilep) char name1[] = "/tmp/test-close-many.XXXXXX";
+        _cleanup_(unlink_tempfilep) char name2[] = "/tmp/test-close-many.XXXXXX";
 
         fds[0] = mkostemp_safe(name0);
         fds[1] = mkostemp_safe(name1);
@@ -45,22 +45,16 @@ TEST(close_many) {
         assert_se(fcntl(fds[2], F_GETFD) >= 0);
 
         safe_close(fds[2]);
-
-        unlink(name0);
-        unlink(name1);
-        unlink(name2);
 }
 
 TEST(close_nointr) {
-        char name[] = "/tmp/test-test-close_nointr.XXXXXX";
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-test-close_nointr.XXXXXX";
         int fd;
 
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
         assert_se(close_nointr(fd) >= 0);
         assert_se(close_nointr(fd) < 0);
-
-        unlink(name);
 }
 
 TEST(same_fd) {
