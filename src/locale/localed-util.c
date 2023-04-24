@@ -655,6 +655,7 @@ static int read_next_mapping(
 int vconsole_convert_to_x11(const VCContext *vc, X11Context *ret) {
         _cleanup_fclose_ FILE *f = NULL;
         const char *map;
+        X11Context xc;
         int r;
 
         assert(vc);
@@ -672,15 +673,12 @@ int vconsole_convert_to_x11(const VCContext *vc, X11Context *ret) {
 
         for (unsigned n = 0;;) {
                 _cleanup_strv_free_ char **a = NULL;
-                X11Context xc;
 
                 r = read_next_mapping(map, 5, UINT_MAX, f, &n, &a);
                 if (r < 0)
                         return r;
-                if (r == 0) {
-                        *ret = (X11Context) {};
-                        return 0;
-                }
+                if (r == 0)
+                        break;
 
                 if (!streq(vc->keymap, a[0]))
                         continue;
@@ -697,16 +695,55 @@ int vconsole_convert_to_x11(const VCContext *vc, X11Context *ret) {
 
                 return x11_context_copy(ret, &xc);
         }
+
+        /* No custom mapping has been found, see if the keymap is a converted one. In such case deducing the
+         * corresponding x11 layout is easy. */
+        _cleanup_free_ char *xlayout = NULL, *converted = NULL;
+        char *xvariant = NULL;
+
+        xlayout = strdup(vc->keymap);
+        if (!xlayout)
+                return -ENOMEM;
+        xvariant = strchr(xlayout, '-');
+        if (xvariant) {
+                xvariant[0] = '\0';
+                xvariant++;
+        }
+
+        xc = (X11Context) {
+                .layout  = xlayout,
+                .model   = (char*) "microsoftpro",
+                .variant = xvariant,
+                .options = (char*) "terminate:ctrl_alt_bksp",
+        };
+
+        /* This sanity check seems redundant with the verification of the X11 layout done on the next
+         * step. However xkbcommon is an optional dependency hence the verification might be a NOP.  */
+        r = find_converted_keymap(&xc, /* ignore_xvariant= */ false, &converted);
+        if (r == 0) {
+                /* If we still haven't find a match, try with no variant, it's still better than nothing.  */
+                xc.variant = NULL;
+                r = find_converted_keymap(&xc, /* ignore_xvariant= */ true, &converted);
+        }
+        if (r < 0)
+                return r;
+
+        if (r == 0 || x11_context_verify(&xc) < 0) {
+                *ret = (X11Context) {};
+                return 0;
+        }
+
+        return x11_context_copy(ret, &xc);
 }
 
-int find_converted_keymap(const X11Context *xc, char **ret) {
+int find_converted_keymap(const X11Context *xc, bool ignore_xvariant, char **ret) {
         _cleanup_free_ char *n = NULL;
 
         assert(xc);
         assert(!isempty(xc->layout));
         assert(ret);
 
-        if (xc->variant)
+        if (!ignore_xvariant && xc->variant)
                 n = strjoin(xc->layout, "-", xc->variant);
         else
                 n = strdup(xc->layout);
@@ -817,12 +854,12 @@ int find_legacy_keymap(const X11Context *xc, char **ret) {
                  * matches just the first layout.
                  */
 
-                l = strndup(xc->layout, strcspn(xc->layout, ","));
+                l = strdupcspn(xc->layout, ",");
                 if (!l)
                         return -ENOMEM;
 
                 if (!isempty(xc->variant)) {
-                        v = strndup(xc->variant, strcspn(xc->variant, ","));
+                        v = strdupcspn(xc->variant, ",");
                         if (!v)
                                 return -ENOMEM;
                 }
@@ -832,6 +869,7 @@ int find_legacy_keymap(const X11Context *xc, char **ret) {
                                         .layout = l,
                                         .variant = v,
                                 },
+                                /* ignore_xvariant= */ false,
                                 &converted);
                 if (r < 0)
                         return r;
@@ -855,9 +893,14 @@ int x11_convert_to_vconsole(const X11Context *xc, VCContext *ret) {
                 return 0;
         }
 
-        r = find_converted_keymap(xc, &keymap);
-        if (r == 0)
+        r = find_converted_keymap(xc, /* ignore_xvariant= */ false, &keymap);
+        if (r == 0) {
                 r = find_legacy_keymap(xc, &keymap);
+                if (r == 0 && xc->variant)
+                        /* If we still haven't find a match, try with no variant, it's still better than
+                         * nothing.  */
+                        r = find_converted_keymap(xc, /* ignore_xvariant= */ true, &keymap);
+        }
         if (r < 0)
                 return r;
 
