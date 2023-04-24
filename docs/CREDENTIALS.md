@@ -197,7 +197,7 @@ encrypt and decrypt/authenticate credentials. Example:
 ```sh
 systemd-creds encrypt plaintext.txt ciphertext.cred
 shred -u plaintext.txt
-systemd-run -P --wait -p LoadCredentialEncrypted=foobar:$(pwd)/ciphertext.cred systemd-creds cat foobar
+systemd-run -P --wait -p LoadCredentialEncrypted=ciphertext.cred:$(pwd)/ciphertext.cred systemd-creds cat ciphertext.cred
 ```
 
 This will first create an encrypted copy of the file `plaintext.txt` in the
