@@ -15,42 +15,43 @@ cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-uran
 systemd-cryptenroll --unlock-key-file=/tmp/passphrase --tpm2-device=auto $img
 
 # Enroll unlock with default PCR policy
-env PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto $img
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto $img
 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1
 /usr/lib/systemd/systemd-cryptsetup detach test-volume
 
 # Check with wrong PCR
 tpm2_pcrextend 7:sha256=0000000000000000000000000000000000000000000000000000000000000000
-/usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1 && { echo 'unexpected success'; exit 1; }
+(! /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1 )
 
 # Enroll unlock with PCR+PIN policy
 systemd-cryptenroll --wipe-slot=tpm2 $img
-env PASSWORD=passphrase NEWPIN=123456 systemd-cryptenroll --tpm2-device=auto --tpm2-with-pin=true $img
-env PIN=123456 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1
+PASSWORD=passphrase NEWPIN=123456 systemd-cryptenroll --tpm2-device=auto --tpm2-with-pin=true $img
+PIN=123456 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1
 /usr/lib/systemd/systemd-cryptsetup detach test-volume
 
 # Check failure with wrong PIN
-env PIN=123457 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1 && { echo 'unexpected success'; exit 1; }
+(! PIN=123457 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1 )
+
 
 # Check LUKS2 token plugin unlock (i.e. without specifying tpm2-device=auto)
 if cryptsetup --help | grep -q 'LUKS2 external token plugin support is compiled-in' && \
          [ -f "$(cryptsetup --help | sed -n -r 's/.*LUKS2 external token plugin path: (.*)\./\1/p')/libcryptsetup-token-systemd-tpm2.so" ]; then
-    env PIN=123456 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - headless=1
+    PIN=123456 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - headless=1
     /usr/lib/systemd/systemd-cryptsetup detach test-volume
 
     # Check failure with wrong PIN
-    env PIN=123457 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - headless=1 && { echo 'unexpected success'; exit 1; }
+    (! PIN=123457 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - headless=1 )
 else
     echo 'cryptsetup has no LUKS2 token plugin support, skipping'
 fi
 
 # Check failure with wrong PCR (and correct PIN)
 tpm2_pcrextend 7:sha256=0000000000000000000000000000000000000000000000000000000000000000
-env PIN=123456 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1 && { echo 'unexpected success'; exit 1; }
+(! PIN=123456 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1 )
 
 # Enroll unlock with PCR 0+7
 systemd-cryptenroll --wipe-slot=tpm2 $img
-env PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+7 $img
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+7 $img
 /usr/lib/systemd/systemd-cryptsetup attach test-volume $img - tpm2-device=auto,headless=1
 /usr/lib/systemd/systemd-cryptsetup detach test-volume
 
@@ -119,7 +120,7 @@ if [ -e /usr/lib/systemd/systemd-measure ] && \
 
     # Invalidate PCR, decrypting should fail now
     tpm2_pcrextend 11:sha256=0000000000000000000000000000000000000000000000000000000000000000
-    systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig" >/dev/null && { echo 'unexpected success'; exit 1; }
+    (! systemd-creds decrypt /tmp/pcrtestdata.encrypted - --tpm2-signature="/tmp/pcrsign.sig" >/dev/null )
 
     # Sign new PCR state, decrypting should work now.
     /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: >"/tmp/pcrsign.sig2"
@@ -146,8 +147,8 @@ if [ -e /usr/lib/systemd/systemd-measure ] && \
 
     # After extending the PCR things should fail
     tpm2_pcrextend 11:sha256=0000000000000000000000000000000000000000000000000000000000000000
-    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 /usr/lib/systemd/systemd-cryptsetup attach test-volume2 $img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1 && { echo 'unexpected success'; exit 1; }
-    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 /usr/lib/systemd/systemd-cryptsetup attach test-volume2 $img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1 && { echo 'unexpected success'; exit 1; }
+    (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 /usr/lib/systemd/systemd-cryptsetup attach test-volume2 $img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1 )
+    (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 /usr/lib/systemd/systemd-cryptsetup attach test-volume2 $img - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1 )
 
     # But once we sign the current PCRs, we should be able to unlock again
     /usr/lib/systemd/systemd-measure sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: >"/tmp/pcrsign.sig3"
@@ -226,47 +227,47 @@ echo -n password >/tmp/password
 cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom $img_2 /tmp/password
 
 #boolean_arguments
-systemd-cryptenroll --fido2-with-client-pin=false && { echo 'unexpected success'; exit 1; }
+(! systemd-cryptenroll --fido2-with-client-pin=false )
 
-systemd-cryptenroll --fido2-with-user-presence=f $img_2 /tmp/foo && { echo 'unexpected success'; exit 1; }
+(! systemd-cryptenroll --fido2-with-user-presence=f $img_2 /tmp/foo )
 
-systemd-cryptenroll --fido2-with-client-pin=1234 $img_2 && { echo 'unexpected success'; exit 1; }
+(! systemd-cryptenroll --fido2-with-client-pin=1234 $img_2 )
 
 systemd-cryptenroll --fido2-with-client-pin=false $img_2
 
-systemd-cryptenroll --fido2-with-user-presence=1234 $img_2 && { echo 'unexpected success'; exit 1; }
+(! systemd-cryptenroll --fido2-with-user-presence=1234 $img_2 )
 
 systemd-cryptenroll --fido2-with-user-presence=false $img_2
 
-systemd-cryptenroll --fido2-with-user-verification=1234 $img_2 && { echo 'unexpected success'; exit 1; }
+(! systemd-cryptenroll --fido2-with-user-verification=1234 $img_2 )
 
-systemd-cryptenroll --tpm2-with-pin=1234 $img_2 && { echo 'unexpected success'; exit 1; }
+(! systemd-cryptenroll --tpm2-with-pin=1234 $img_2 )
 
 systemd-cryptenroll --fido2-with-user-verification=false $img_2
 
 #arg_enroll_type
-systemd-cryptenroll --recovery-key --password $img_2 && { echo 'unexpected success'; exit 1; }
+(! systemd-cryptenroll --recovery-key --password $img_2 )
 
-systemd-cryptenroll --password --recovery-key $img_2 && { echo 'unexpected success'; exit 1; }
+(! systemd-cryptenroll --password --recovery-key $img_2 )
 
-systemd-cryptenroll --password --fido2-device=auto $img_2 && { echo 'unexpected success'; exit 1; }
+(! systemd-cryptenroll --password --fido2-device=auto $img_2 )
 
-systemd-cryptenroll --password --pkcs11-token-uri=auto $img_2 && { echo 'unexpected success'; exit 1; }
+(! systemd-cryptenroll --password --pkcs11-token-uri=auto $img_2 )
 
-systemd-cryptenroll --password --tpm2-device=auto $img_2 && { echo 'unexpected success'; exit 1; }
+(! systemd-cryptenroll --password --tpm2-device=auto $img_2 )
 
 #arg_unlock_type
-systemd-cryptenroll --unlock-fido2-device=auto --unlock-fido2-device=auto $img_2 && { echo 'unexpected success'; exit 1; }
+(! systemd-cryptenroll --unlock-fido2-device=auto --unlock-fido2-device=auto $img_2 )
 
-systemd-cryptenroll --unlock-fido2-device=auto --unlock-key-file=/tmp/unlock $img_2 && { echo 'unexpected success'; exit 1; }
+(! systemd-cryptenroll --unlock-fido2-device=auto --unlock-key-file=/tmp/unlock $img_2 )
 
 #fido2_cred_algorithm
-systemd-cryptenroll --fido2-credential-algorithm=es512 $img_2 && { echo 'unexpected success'; exit 1; }
+(! systemd-cryptenroll --fido2-credential-algorithm=es512 $img_2 )
 
 #tpm2_errors
-systemd-cryptenroll --tpm2-public-key-pcrs=key $img_2 && { echo 'unexpected success'; exit 1; }
+(! systemd-cryptenroll --tpm2-public-key-pcrs=key $img_2 )
 
-systemd-cryptenroll --tpm2-pcrs=key $img_2 && { echo 'unexpected success'; exit 1; }
+(! systemd-cryptenroll --tpm2-pcrs=key $img_2 )
 
 systemd-cryptenroll --tpm2-pcrs=44+8 $img_2 && { echo 'unexpected success'; exit 1; }
 
@@ -277,12 +278,12 @@ systemd-cryptenroll --tpm2-pcrs=hello $img_2 && { echo 'unexpected success'; exi
 systemd-cryptenroll --tpm2-pcrs=boot-loader-code+boot-loader-config $img_2
 
 #wipe_slots
-systemd-cryptenroll --wipe-slot $img_2 && { echo 'unexpected success'; exit 1; }
+(! systemd-cryptenroll --wipe-slot $img_2 )
 
-systemd-cryptenroll --wipe-slot=10240000 $img_2 && { echo 'unexpected success'; exit 1; }
+(! systemd-cryptenroll --wipe-slot=10240000 $img_2 )
 
 #fido2_multiple_auto
-systemd-cryptenroll --fido2-device=auto --unlock-fido2-device=auto $img_2 && { echo 'unexpected success'; exit 1; }
+(! systemd-cryptenroll --fido2-device=auto --unlock-fido2-device=auto $img_2 )
 
 echo OK >/testok
 
