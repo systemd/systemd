@@ -195,7 +195,7 @@ The `systemd-creds` tool provides the commands `encrypt` and `decrypt` to
 encrypt and decrypt/authenticate credentials. Example:
 
 ```sh
-systemd-creds encrypt plaintext.txt ciphertext.cred
+systemd-creds encrypt --name=foobar plaintext.txt ciphertext.cred
 shred -u plaintext.txt
 systemd-run -P --wait -p LoadCredentialEncrypted=foobar:$(pwd)/ciphertext.cred systemd-creds cat foobar
 ```
