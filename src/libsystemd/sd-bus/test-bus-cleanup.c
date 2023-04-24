@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdio.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
 
 #include "bus-internal.h"
 #include "bus-message.h"
+#include "process-util.h"
 #include "tests.h"
 
 static bool use_system_bus = false;
@@ -14,6 +16,30 @@ static void test_bus_new(void) {
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
 
         assert_se(sd_bus_new(&bus) == 0);
+        assert_se(bus->n_ref == 1);
+}
+
+static void test_bus_fork(void) {
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        assert_se(sd_bus_new(&bus) == 0);
+        assert_se(bus->n_ref == 1);
+
+        /* Check that after a fork the cleanup functions return NULL */
+        r = safe_fork("(bus-fork-test)", FORK_WAIT|FORK_LOG, NULL);
+        if (r == 0) {
+                assert_se(bus);
+                assert_se(sd_bus_is_ready(bus) == -ECHILD);
+                assert_se(sd_bus_flush_close_unref(bus) == NULL);
+                assert_se(sd_bus_close_unref(bus) == NULL);
+                assert_se(sd_bus_unref(bus) == NULL);
+                sd_bus_close(bus);
+                assert_se(bus->n_ref == 1);
+                _exit(EXIT_SUCCESS);
+        }
+
+        assert_se(r >= 0);
         assert_se(bus->n_ref == 1);
 }
 
@@ -67,6 +93,7 @@ int main(int argc, char **argv) {
         test_setup_logging(LOG_INFO);
 
         test_bus_new();
+        test_bus_fork();
 
         if (test_bus_open() < 0)
                 return log_tests_skipped("Failed to connect to bus");
