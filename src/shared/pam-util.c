@@ -6,8 +6,10 @@
 
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "format-util.h"
 #include "macro.h"
 #include "pam-util.h"
+#include "process-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 
@@ -64,6 +66,21 @@ static void cleanup_system_bus(pam_handle_t *handle, void *data, int error_statu
         sd_bus_flush_close_unref(data);
 }
 
+static char* pam_make_bus_cache_id(const char *module_name) {
+        char *id;
+
+        /* We want to cache bus connections between hooks. But we don't want to allow them to be reused in
+         * child processes (because sd-bus doesn't support that). We also don't want them to be reused
+         * between our own PAM modules, because they might be linked against different versions of our
+         * utility functions and share different state. Hence include both a module ID and a PID in the data
+         * field ID. */
+
+        if (asprintf(&id, "system-bus-%s-" PID_FMT, ASSERT_PTR(module_name), getpid_cached()) < 0)
+                return NULL;
+
+        return id;
+}
+
 int pam_acquire_bus_connection(pam_handle_t *handle, const char *module_name, sd_bus **ret) {
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *cache_id = NULL;
@@ -73,7 +90,7 @@ int pam_acquire_bus_connection(pam_handle_t *handle, const char *module_name, sd
         assert(module_name);
         assert(ret);
 
-        cache_id = strjoin("system-bus-", module_name);
+        cache_id = pam_make_bus_cache_id(module_name);
         if (!cache_id)
                 return pam_log_oom(handle);
 
@@ -106,7 +123,7 @@ int pam_release_bus_connection(pam_handle_t *handle, const char *module_name) {
 
         assert(module_name);
 
-        cache_id = strjoin("system-bus-", module_name);
+        cache_id = pam_make_bus_cache_id(module_name);
         if (!cache_id)
                 return pam_log_oom(handle);
 
