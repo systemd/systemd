@@ -5663,15 +5663,13 @@ int exec_spawn(Unit *unit,
                 r = exec_parameters_get_cgroup_path(params, cgroup_context, &subcgroup_path);
                 if (r < 0)
                         return log_unit_error_errno(unit, r, "Failed to acquire subcgroup path: %m");
-                if (r > 0) { /* We are using a child cgroup */
+                if (r > 0) {
+                        /* If there's a subcgroup, then let's create it here now (the main cgroup was already
+                         * realized by the unit logic) */
+
                         r = cg_create(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path);
                         if (r < 0)
                                 return log_unit_error_errno(unit, r, "Failed to create subcgroup '%s': %m", subcgroup_path);
-
-                        /* Normally we would not propagate the xattrs to children but since we created this
-                         * sub-cgroup internally we should do it. */
-                        cgroup_oomd_xattr_apply(unit, subcgroup_path);
-                        cgroup_log_xattr_apply(unit, subcgroup_path);
                 }
         }
 
