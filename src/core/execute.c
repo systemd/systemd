@@ -4904,7 +4904,7 @@ static int exec_child(
                                 return log_unit_error_errno(unit, r, "Failed to acquire cgroup path: %m");
                         }
                         if (r > 0) {
-                                r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, p, uid, gid);
+                                r = cg_set_access_recursive(SYSTEMD_CGROUP_CONTROLLER, p, uid, gid);
                                 if (r < 0) {
                                         *exit_status = EXIT_CGROUP;
                                         return log_unit_error_errno(unit, r, "Failed to adjust control subgroup access: %m");
