@@ -38,6 +38,7 @@
 #include "memory-util.h"
 #include "missing_syscall.h"
 #include "missing_threads.h"
+#include "origin-id.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -232,6 +233,8 @@ static sd_bus* bus_free(sd_bus *b) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(sd_bus*, bus_free);
 
+DEFINE_ORIGIN_ID_HELPERS(sd_bus, bus);
+
 _public_ int sd_bus_new(sd_bus **ret) {
         _cleanup_free_ sd_bus *b = NULL;
 
@@ -249,7 +252,7 @@ _public_ int sd_bus_new(sd_bus **ret) {
                 .message_version = 1,
                 .creds_mask = SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME,
                 .accept_fd = true,
-                .original_pid = getpid_cached(),
+                .origin_id = origin_id_query(),
                 .n_groups = SIZE_MAX,
                 .close_on_exit = true,
                 .ucred = UCRED_INVALID,
@@ -271,7 +274,7 @@ _public_ int sd_bus_set_address(sd_bus *bus, const char *address) {
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(address, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         return free_and_strdup(&bus->address, address);
 }
@@ -282,7 +285,7 @@ _public_ int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd) {
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(input_fd >= 0, -EBADF);
         assert_return(output_fd >= 0, -EBADF);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         bus->input_fd = input_fd;
         bus->output_fd = output_fd;
@@ -298,7 +301,7 @@ _public_ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const *argv) {
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(path, -EINVAL);
         assert_return(!strv_isempty(argv), -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         a = strv_copy(argv);
         if (!a)
@@ -316,7 +319,7 @@ _public_ int sd_bus_set_bus_client(sd_bus *bus, int b) {
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus->patch_sender, -EPERM);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         bus->bus_client = !!b;
         return 0;
@@ -326,7 +329,7 @@ _public_ int sd_bus_set_monitor(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->state == BUS_UNSET, -EPERM);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         bus->is_monitor = !!b;
         return 0;
@@ -336,7 +339,7 @@ _public_ int sd_bus_negotiate_fds(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->state == BUS_UNSET, -EPERM);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         bus->accept_fd = !!b;
         return 0;
@@ -346,7 +349,7 @@ _public_ int sd_bus_negotiate_timestamp(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(!IN_SET(bus->state, BUS_CLOSING, BUS_CLOSED), -EPERM);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         /* This is not actually supported by any of our transports these days, but we do honour it for synthetic
          * replies, and maybe one day classic D-Bus learns this too */
@@ -360,7 +363,7 @@ _public_ int sd_bus_negotiate_creds(sd_bus *bus, int b, uint64_t mask) {
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(mask <= _SD_BUS_CREDS_ALL, -EINVAL);
         assert_return(!IN_SET(bus->state, BUS_CLOSING, BUS_CLOSED), -EPERM);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         SET_FLAG(bus->creds_mask, mask, b);
 
@@ -375,7 +378,7 @@ _public_ int sd_bus_set_server(sd_bus *bus, int b, sd_id128_t server_id) {
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(b || sd_id128_equal(server_id, SD_ID128_NULL), -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         bus->is_server = !!b;
         bus->server_id = server_id;
@@ -386,7 +389,7 @@ _public_ int sd_bus_set_anonymous(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->state == BUS_UNSET, -EPERM);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         bus->anonymous_auth = !!b;
         return 0;
@@ -396,7 +399,7 @@ _public_ int sd_bus_set_trusted(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->state == BUS_UNSET, -EPERM);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         bus->trusted = !!b;
         return 0;
@@ -406,7 +409,7 @@ _public_ int sd_bus_set_description(sd_bus *bus, const char *description) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->state == BUS_UNSET, -EPERM);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         return free_and_strdup(&bus->description, description);
 }
@@ -414,7 +417,7 @@ _public_ int sd_bus_set_description(sd_bus *bus, const char *description) {
 _public_ int sd_bus_set_allow_interactive_authorization(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         bus->allow_interactive_authorization = !!b;
         return 0;
@@ -423,7 +426,7 @@ _public_ int sd_bus_set_allow_interactive_authorization(sd_bus *bus, int b) {
 _public_ int sd_bus_get_allow_interactive_authorization(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         return bus->allow_interactive_authorization;
 }
@@ -432,7 +435,7 @@ _public_ int sd_bus_set_watch_bind(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->state == BUS_UNSET, -EPERM);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         bus->watch_bind = !!b;
         return 0;
@@ -441,7 +444,7 @@ _public_ int sd_bus_set_watch_bind(sd_bus *bus, int b) {
 _public_ int sd_bus_get_watch_bind(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         return bus->watch_bind;
 }
@@ -450,7 +453,7 @@ _public_ int sd_bus_set_connected_signal(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->state == BUS_UNSET, -EPERM);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         bus->connected_signal = !!b;
         return 0;
@@ -459,7 +462,7 @@ _public_ int sd_bus_set_connected_signal(sd_bus *bus, int b) {
 _public_ int sd_bus_get_connected_signal(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         return bus->connected_signal;
 }
@@ -1197,7 +1200,7 @@ _public_ int sd_bus_start(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->state == BUS_UNSET, -EPERM);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         bus_set_state(bus, BUS_OPENING);
 
@@ -1758,7 +1761,7 @@ _public_ void sd_bus_close(sd_bus *bus) {
                 return;
         if (bus->state == BUS_CLOSED)
                 return;
-        if (bus_pid_changed(bus))
+        if (bus_origin_changed(bus))
                 return;
 
         /* Don't leave ssh hanging around */
@@ -1779,7 +1782,7 @@ _public_ void sd_bus_close(sd_bus *bus) {
 _public_ sd_bus *sd_bus_close_unref(sd_bus *bus) {
         if (!bus)
                 return NULL;
-        if (bus_pid_changed(bus))
+        if (bus_origin_changed(bus))
                 return NULL;
 
         sd_bus_close(bus);
@@ -1790,7 +1793,7 @@ _public_ sd_bus *sd_bus_close_unref(sd_bus *bus) {
 _public_ sd_bus* sd_bus_flush_close_unref(sd_bus *bus) {
         if (!bus)
                 return NULL;
-        if (bus_pid_changed(bus))
+        if (bus_origin_changed(bus))
                 return NULL;
 
         /* Have to do this before flush() to prevent hang */
@@ -1813,7 +1816,7 @@ void bus_enter_closing(sd_bus *bus) {
 _public_ sd_bus *sd_bus_ref(sd_bus *bus) {
         if (!bus)
                 return NULL;
-        if (bus_pid_changed(bus))
+        if (bus_origin_changed(bus))
                 return NULL;
 
         bus->n_ref++;
@@ -1824,7 +1827,7 @@ _public_ sd_bus *sd_bus_ref(sd_bus *bus) {
 _public_ sd_bus* sd_bus_unref(sd_bus *bus) {
         if (!bus)
                 return NULL;
-        if (bus_pid_changed(bus))
+        if (bus_origin_changed(bus))
                 return NULL;
 
         assert(bus->n_ref > 0);
@@ -1839,7 +1842,7 @@ _public_ int sd_bus_is_open(sd_bus *bus) {
                 return 0;
 
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         return BUS_IS_OPEN(bus->state);
 }
@@ -1849,7 +1852,7 @@ _public_ int sd_bus_is_ready(sd_bus *bus) {
                 return 0;
 
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         return bus->state == BUS_RUNNING;
 }
@@ -1860,7 +1863,7 @@ _public_ int sd_bus_can_send(sd_bus *bus, char type) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->state != BUS_UNSET, -ENOTCONN);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         if (bus->is_monitor)
                 return 0;
@@ -1885,7 +1888,7 @@ _public_ int sd_bus_get_bus_id(sd_bus *bus, sd_id128_t *id) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(id, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         r = bus_ensure_running(bus);
         if (r < 0)
@@ -2138,7 +2141,7 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie) {
                 assert_return(bus = bus_resolve(bus), -ENOPKG);
         else
                 assert_return(bus = m->bus, -ENOTCONN);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
@@ -2223,7 +2226,7 @@ _public_ int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destinat
                 assert_return(bus = bus_resolve(bus), -ENOPKG);
         else
                 assert_return(bus = m->bus, -ENOTCONN);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
@@ -2291,7 +2294,7 @@ _public_ int sd_bus_call_async(
                 assert_return(bus = bus_resolve(bus), -ENOPKG);
         else
                 assert_return(bus = m->bus, -ENOTCONN);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
@@ -2399,7 +2402,7 @@ _public_ int sd_bus_call(
                 assert_return(bus = bus_resolve(bus), -ENOPKG);
         else
                 assert_return(bus = m->bus, -ENOTCONN);
-        bus_assert_return(!bus_pid_changed(bus), -ECHILD, error);
+        bus_assert_return(!bus_origin_changed(bus), -ECHILD, error);
 
         if (!BUS_IS_OPEN(bus->state)) {
                 r = -ENOTCONN;
@@ -2532,7 +2535,7 @@ _public_ int sd_bus_get_fd(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->input_fd == bus->output_fd, -EPERM);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         if (bus->state == BUS_CLOSED)
                 return -ENOTCONN;
@@ -2551,7 +2554,7 @@ _public_ int sd_bus_get_events(sd_bus *bus) {
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         switch (bus->state) {
 
@@ -2598,7 +2601,7 @@ _public_ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(timeout_usec, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         if (!BUS_IS_OPEN(bus->state) && bus->state != BUS_CLOSING)
                 return -ENOTCONN;
@@ -3237,7 +3240,7 @@ static int bus_process_internal(sd_bus *bus, sd_bus_message **ret) {
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         /* We don't allow recursively invoking sd_bus_process(). */
         assert_return(!bus->current_message, -EBUSY);
@@ -3371,7 +3374,7 @@ _public_ int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec) {
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         if (bus->state == BUS_CLOSING)
                 return 0;
@@ -3394,7 +3397,7 @@ _public_ int sd_bus_flush(sd_bus *bus) {
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         if (bus->state == BUS_CLOSING)
                 return 0;
@@ -3448,7 +3451,7 @@ _public_ int sd_bus_add_filter(
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(callback, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         s = bus_slot_allocate(bus, !slot, BUS_FILTER_CALLBACK, sizeof(struct filter_callback), userdata);
         if (!s)
@@ -3545,7 +3548,7 @@ static int bus_add_match_full(
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(match, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         CLEANUP_ARRAY(components, n_components, bus_match_parse_free);
 
@@ -3628,15 +3631,6 @@ _public_ int sd_bus_add_match_async(
                 void *userdata) {
 
         return bus_add_match_full(bus, slot, true, match, callback, install_callback, userdata);
-}
-
-bool bus_pid_changed(sd_bus *bus) {
-        assert(bus);
-
-        /* We don't support people creating a bus connection and
-         * keeping it around over a fork(). Let's complain. */
-
-        return bus->original_pid != getpid_cached();
 }
 
 static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -3969,7 +3963,7 @@ _public_ int sd_bus_default(sd_bus **ret) {
 _public_ int sd_bus_get_tid(sd_bus *b, pid_t *tid) {
         assert_return(b, -EINVAL);
         assert_return(tid, -EINVAL);
-        assert_return(!bus_pid_changed(b), -ECHILD);
+        assert_return(!bus_origin_changed(b), -ECHILD);
 
         if (b->tid != 0) {
                 *tid = b->tid;
@@ -4195,7 +4189,7 @@ _public_ int sd_bus_path_decode_many(const char *path, const char *path_template
 _public_ int sd_bus_try_close(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         return -EOPNOTSUPP;
 }
@@ -4205,7 +4199,7 @@ _public_ int sd_bus_get_description(sd_bus *bus, const char **description) {
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(description, -EINVAL);
         assert_return(bus->description, -ENXIO);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         if (bus->description)
                 *description = bus->description;
@@ -4219,7 +4213,7 @@ _public_ int sd_bus_get_scope(sd_bus *bus, const char **scope) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(scope, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         if (bus->runtime_scope < 0)
                 return -ENODATA;
@@ -4232,7 +4226,7 @@ _public_ int sd_bus_get_address(sd_bus *bus, const char **address) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(address, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         if (bus->address) {
                 *address = bus->address;
@@ -4246,7 +4240,7 @@ _public_ int sd_bus_get_creds_mask(sd_bus *bus, uint64_t *mask) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(mask, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         *mask = bus->creds_mask;
         return 0;
@@ -4255,7 +4249,7 @@ _public_ int sd_bus_get_creds_mask(sd_bus *bus, uint64_t *mask) {
 _public_ int sd_bus_is_bus_client(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         return bus->bus_client;
 }
@@ -4263,7 +4257,7 @@ _public_ int sd_bus_is_bus_client(sd_bus *bus) {
 _public_ int sd_bus_is_server(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         return bus->is_server;
 }
@@ -4271,7 +4265,7 @@ _public_ int sd_bus_is_server(sd_bus *bus) {
 _public_ int sd_bus_is_anonymous(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         return bus->anonymous_auth;
 }
@@ -4279,7 +4273,7 @@ _public_ int sd_bus_is_anonymous(sd_bus *bus) {
 _public_ int sd_bus_is_trusted(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         return bus->trusted;
 }
@@ -4287,7 +4281,7 @@ _public_ int sd_bus_is_trusted(sd_bus *bus) {
 _public_ int sd_bus_is_monitor(sd_bus *bus) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         return bus->is_monitor;
 }
@@ -4353,7 +4347,7 @@ _public_ int sd_bus_get_sender(sd_bus *bus, const char **ret) {
 _public_ int sd_bus_get_n_queued_read(sd_bus *bus, uint64_t *ret) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
         assert_return(ret, -EINVAL);
 
         *ret = bus->rqueue_size;
@@ -4363,7 +4357,7 @@ _public_ int sd_bus_get_n_queued_read(sd_bus *bus, uint64_t *ret) {
 _public_ int sd_bus_get_n_queued_write(sd_bus *bus, uint64_t *ret) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
         assert_return(ret, -EINVAL);
 
         *ret = bus->wqueue_size;
@@ -4425,7 +4419,7 @@ _public_ int sd_bus_enqueue_for_read(sd_bus *bus, sd_bus_message *m) {
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(m, -EINVAL);
         assert_return(m->sealed, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
