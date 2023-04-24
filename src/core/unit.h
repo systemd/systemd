@@ -534,22 +534,25 @@ typedef struct UnitStatusMessageFormats {
 /* Flags used when writing drop-in files or transient unit files */
 typedef enum UnitWriteFlags {
         /* Write a runtime unit file or drop-in (i.e. one below /run) */
-        UNIT_RUNTIME            = 1 << 0,
+        UNIT_RUNTIME                = 1 << 0,
 
         /* Write a persistent drop-in (i.e. one below /etc) */
-        UNIT_PERSISTENT         = 1 << 1,
+        UNIT_PERSISTENT             = 1 << 1,
 
         /* Place this item in the per-unit-type private section, instead of [Unit] */
-        UNIT_PRIVATE            = 1 << 2,
+        UNIT_PRIVATE                = 1 << 2,
 
-        /* Apply specifier escaping before writing */
-        UNIT_ESCAPE_SPECIFIERS  = 1 << 3,
+        /* Apply specifier escaping */
+        UNIT_ESCAPE_SPECIFIERS      = 1 << 3,
 
-        /* Escape elements of ExecStart= syntax before writing */
-        UNIT_ESCAPE_EXEC_SYNTAX = 1 << 4,
+        /* Escape elements of ExecStart= syntax, incl. prevention of variable expansion */
+        UNIT_ESCAPE_EXEC_SYNTAX_ENV = 1 << 4,
+
+        /* Escape elements of ExecStart=: syntax (no variable expansion) */
+        UNIT_ESCAPE_EXEC_SYNTAX     = 1 << 5,
 
         /* Apply C escaping before writing */
-        UNIT_ESCAPE_C           = 1 << 5,
+        UNIT_ESCAPE_C               = 1 << 6,
 } UnitWriteFlags;
 
 /* Returns true if neither persistent, nor runtime storage is requested, i.e. this is a check invocation only */

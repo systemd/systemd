@@ -36,6 +36,7 @@
 #include "load-dropin.h"
 #include "load-fragment.h"
 #include "log.h"
+#include "logarithm.h"
 #include "macro.h"
 #include "missing_audit.h"
 #include "mkdir-label.h"
@@ -4375,7 +4376,7 @@ static const char* unit_drop_in_dir(Unit *u, UnitWriteFlags flags) {
 
 const char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf) {
         assert(s);
-        assert(!FLAGS_SET(flags, UNIT_ESCAPE_EXEC_SYNTAX | UNIT_ESCAPE_C));
+        assert(popcount(flags & (UNIT_ESCAPE_EXEC_SYNTAX_ENV | UNIT_ESCAPE_EXEC_SYNTAX | UNIT_ESCAPE_C)) <= 1);
         assert(buf);
 
         _cleanup_free_ char *t = NULL;
@@ -4395,10 +4396,19 @@ const char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf)
         }
 
         /* We either do C-escaping or shell-escaping, to additionally escape characters that we parse for
-         * ExecStart= and friends, i.e. '$' and ';' and quotes. */
+         * ExecStart= and friends, i.e. '$' and quotes. */
 
-        if (flags & UNIT_ESCAPE_EXEC_SYNTAX) {
-                char *t2 = shell_escape(s, "$;'\"");
+        if (flags & (UNIT_ESCAPE_EXEC_SYNTAX_ENV | UNIT_ESCAPE_EXEC_SYNTAX)) {
+                char *t2;
+
+                if (flags & UNIT_ESCAPE_EXEC_SYNTAX_ENV) {
+                        t2 = strreplace(s, "$", "$$");
+                        if (!t2)
+                                return NULL;
+                        free_and_replace(t, t2);
+                }
+
+                t2 = shell_escape(t ?: s, "\"");
                 if (!t2)
                         return NULL;
                 free_and_replace(t, t2);
@@ -4406,7 +4416,9 @@ const char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf)
                 s = t;
 
         } else if (flags & UNIT_ESCAPE_C) {
-                char *t2 = cescape(s);
+                char *t2;
+
+                t2 = cescape(s);
                 if (!t2)
                         return NULL;
                 free_and_replace(t, t2);
