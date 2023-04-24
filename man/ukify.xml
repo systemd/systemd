@@ -44,210 +44,297 @@
 
     <para>Additional sections will be inserted into the UKI, either automatically or only if a specific
     option is provided. See the discussions of
-    <option>--cmdline=</option>,
-    <option>--os-release=</option>,
-    <option>--devicetree=</option>,
-    <option>--splash=</option>,
-    <option>--pcrpkey=</option>,
-    <option>--uname=</option>,
+    <varname>Cmdline=</varname>/<option>--cmdline=</option>,
+    <varname>OSRelease=</varname>/<option>--os-release=</option>,
+    <varname>DeviceTree=</varname>/<option>--devicetree=</option>,
+    <varname>Splash=</varname>/<option>--splash=</option>,
+    <varname>PCRPKey=</varname>/<option>--pcrpkey=</option>,
+    <varname>Uname=</varname>/<option>--uname=</option>,
     and <option>--section=</option>
     below.</para>
 
-    <para>If PCR signing keys are provided via the <option>--pcr-public-key=</option> and
-    <option>--pcr-private-key=</option> options, PCR values that will be seen after booting with the given
-    kernel, initrd, and other sections, will be calculated, signed, and embedded in the UKI.
+    <para>If PCR signing keys are provided via the
+    <varname>PCRPrivateKey=</varname>/<option>--pcr-private-key=</option> and
+    <varname>PCRPublicKey=</varname>/<option>--pcr-public-key=</option> options, PCR values that will be seen
+    after booting with the given kernel, initrd, and other sections, will be calculated, signed, and embedded
+    in the UKI.
     <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry> is
     used to perform this calculation and signing.</para>
 
     <para>The calculation of PCR values is done for specific boot phase paths. Those can be specified with
-    <option>--phases=</option> option. If not specified, the default provided by
-    <command>systemd-measure</command> is used. It is also possible to specify the
-    <option>--pcr-private-key=</option>, <option>--pcr-public-key=</option>, and <option>--phases=</option>
-    arguments more than once. Signatures will be then performed with each of the specified keys. When both
-    <option>--phases=</option> and <option>--pcr-private-key=</option> are used, they must be specified the
-    same number of times, and then the n-th boot phase path set will be signed by the n-th key. This can be
-    used to build different trust policies for different phases of the boot.</para>
+    the <varname>Phases=</varname>/<option>--phases=</option> option. If not specified, the default provided
+    by <command>systemd-measure</command> is used. It is also possible to specify the
+    <varname>PCRPrivateKey=</varname>/<option>--pcr-private-key=</option>,
+    <varname>PCRPublicKey=</varname>/<option>--pcr-public-key=</option>, and
+    <varname>Phases=</varname>/<option>--phases=</option> arguments more than once. Signatures will be then
+    performed with each of the specified keys. On the command line, when both <option>--phases=</option> and
+    <option>--pcr-private-key=</option> are used, they must be specified the same number of times, and then
+    the n-th boot phase path set will be signed by the n-th key. This can be used to build different trust
+    policies for different phases of the boot. In the config file, <varname>PCRPrivateKey=</varname>,
+    <varname>PCRPublicKey=</varname>, and <varname>Phases=</varname> are grouped into separate sections,
+    describing separate boot phases.</para>
 
-    <para>If a SecureBoot signing key is provided via the <option>--secureboot-private-key=</option> option,
-    the resulting PE binary will be signed as a whole, allowing the resulting UKI to be trusted by
-    SecureBoot. Also see the discussion of automatic enrollment in
+    <para>If a SecureBoot signing key is provided via the
+    <varname>SecureBootPrivateKey=</varname>/<option>--secureboot-private-key=</option> option, the resulting
+    PE binary will be signed as a whole, allowing the resulting UKI to be trusted by SecureBoot. Also see the
+    discussion of automatic enrollment in
     <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
     </para>
   </refsect1>
 
   <refsect1>
-    <title>Options</title>
+    <title>Configuration settings</title>
 
-    <para>Note that the <replaceable>LINUX</replaceable> positional argument is mandatory. The
-    <replaceable>INITRD</replaceable> positional arguments are optional. If more than one is specified, they
-    will all be combined into a single PE section. This is useful to for example prepend microcode before the
-    actual initrd.</para>
+    <para>The following settings can be set through configuration files (the syntax with <varname
+    index='false'>SomeSetting=<replaceable>value</replaceable></varname>) and on the command line (the syntax
+    with <option index='false'>--some-setting=<replaceable>value</replaceable></option>). For some command
+    line parameters, a single-letter shortcut is also allowed. In the configuration files, the setting must
+    be in the appropriate section, so the settings are grouped by section below.</para>
 
-    <para>The following options are understood:</para>
+    <para>Note that the <replaceable>LINUX</replaceable> positional argument or the <varname>Linux=</varname>
+    setting is mandatory. The <replaceable>INITRD</replaceable> positional arguments and the
+    <varname>Initrd=</varname> settings are optional. If more than one initrd is specified, they will all be
+    combined into a single PE section. This is useful to, for example, prepend microcode before the actual
+    initrd.</para>
 
-    <variablelist>
-      <varlistentry>
-        <term><option>--cmdline=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
+    <para>The following options and settings are understood:</para>
 
-        <listitem><para>Specify the kernel command line (the <literal>.cmdline</literal> section). The
-        argument may be a literal string, or <literal>@</literal> followed by a path name. If not specified,
-        no command line will be embedded.</para></listitem>
-      </varlistentry>
+    <refsect2>
+      <title>Commandline-only options</title>
 
-      <varlistentry>
-        <term><option>--os-release=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
+      <variablelist>
+        <varlistentry>
+          <term><option>--config=<replaceable>PATH</replaceable></option></term>
 
-        <listitem><para>Specify the os-release description (the <literal>.osrel</literal> section). The
-        argument may be a literal string, or <literal>@</literal> followed by a path name. If not specified,
-        the <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        file will be picked up from the host system.</para></listitem>
-      </varlistentry>
+          <listitem><para>Load configuration from the given config file. In general, settings specified in
+          the config file have lower precedence than the settings specified via options. In cases where the
+          commandline option does not fully override the config file setting are explicitly mentioned in the
+          descriptions of individual options.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--devicetree=<replaceable>PATH</replaceable></option></term>
+        <varlistentry>
+          <term><option>--measure</option></term>
+          <term><option>--no-measure</option></term>
 
-        <listitem><para>Specify the devicetree description (the <literal>.dtb</literal> section). The
-        argument is a path to a compiled binary DeviceTree file. If not specified, the section will not be
-        present.</para></listitem>
-      </varlistentry>
+          <listitem><para>Enable or disable a call to <command>systemd-measure</command> to print
+          pre-calculated PCR values. Defaults to false.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--splash=<replaceable>PATH</replaceable></option></term>
+        <varlistentry>
+          <term><option>--section=<replaceable>NAME</replaceable>:<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
 
-        <listitem><para>Specify a picture to display during boot (the <literal>.splash</literal> section).
-        The argument is a path to a BMP file. If not specified, the section will not be present.
-        </para></listitem>
-      </varlistentry>
+          <listitem><para>Specify an arbitrary additional section
+          <literal><replaceable>NAME</replaceable></literal>. Note that the name is used as-is, and if the
+          section name should start with a dot, it must be included in <replaceable>NAME</replaceable>. The
+          argument may be a literal string, or <literal>@</literal> followed by a path name. This option may be
+          specified more than once. Any sections specified in this fashion will be inserted (in order) before
+          the <literal>.linux</literal> section which is always last.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--pcrpkey=<replaceable>PATH</replaceable></option></term>
+        <varlistentry>
+          <term><option>--tools=<replaceable>DIRS</replaceable></option></term>
 
-        <listitem><para>Specify a path to a public key to embed in the <literal>.pcrpkey</literal> section.
-        If not specified, and there's exactly one <option>--pcr-public-key=</option> argument, that key will
-        be used. Otherwise, the section will not be present.</para></listitem>
-      </varlistentry>
+          <listitem><para>Specify one or more directories with helper tools. <command>ukify</command> will
+          look for helper tools in those directories first, and if not found, try to load them from
+          <varname>$PATH</varname> in the usual fashion.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--uname=<replaceable>VERSION</replaceable></option></term>
+        <varlistentry>
+          <term><option>--output=<replaceable>FILENAME</replaceable></option></term>
 
-        <listitem><para>Specify the kernel version (as in <command>uname -r</command>, the
-        <literal>.uname</literal> section). If not specified, an attempt will be made to extract the version
-        string from the kernel image. It is recommended to pass this explicitly if known, because the
-        extraction is based on heuristics and not very reliable. If not specified and extraction fails, the
-        section will not be present.</para></listitem>
-      </varlistentry>
+          <listitem><para>The output filename. If not specified, the name of the
+          <replaceable>LINUX</replaceable> argument, with the suffix <literal>.unsigned.efi</literal> or
+          <literal>.signed.efi</literal> will be used, depending on whether signing for SecureBoot was
+          performed.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--section=<replaceable>NAME</replaceable>:<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
+        <varlistentry>
+          <term><option>--summary</option></term>
 
-        <listitem><para>Specify an arbitrary additional section
-        <literal><replaceable>NAME</replaceable></literal>. Note that the name is used as-is, and if the
-        section name should start with a dot, it must be included in <replaceable>NAME</replaceable>. The
-        argument may be a literal string, or <literal>@</literal> followed by a path name. This option may be
-        specified more than once. Any sections specified in this fashion will be inserted (in order) before
-        the <literal>.linux</literal> section which is always last.</para></listitem>
-      </varlistentry>
+          <listitem><para>Print a summary of loaded config and exit. This is useful to check how the options
+          form the configuration file and the commandline are combined.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--pcr-private-key=<replaceable>PATH</replaceable></option></term>
+        <xi:include href="standard-options.xml" xpointer="help" />
+        <xi:include href="standard-options.xml" xpointer="version" />
+      </variablelist>
+    </refsect2>
 
-        <listitem><para>Specify a private key to use for signing PCR policies. This option may be specified
-        more than once, in which case multiple signatures will be made.</para></listitem>
-      </varlistentry>
+    <refsect2>
+      <title>[UKI] section</title>
 
-      <varlistentry>
-        <term><option>--pcr-public-key=<replaceable>PATH</replaceable></option></term>
+      <variablelist>
+        <varlistentry>
+          <term><varname>Linux=<replaceable>LINUX</replaceable></varname></term>
+          <term>positional argument <replaceable>LINUX</replaceable></term>
 
-        <listitem><para>Specify a public key to use for signing PCR policies. This option may be specified
-        more than once, similarly to the <option>--pcr-private-key=</option> option. If not present, the
-        public keys will be extracted from the private keys. If present, the this option must be specified
-        the same number of times as the <option>--pcr-private-key=</option> option.</para></listitem>
-      </varlistentry>
+          <listitem><para>A path to the vmlinux binary.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--phases=<replaceable>LIST</replaceable></option></term>
+        <varlistentry>
+          <term><varname>Initrd=<replaceable>INITRD</replaceable>...</varname></term>
+          <term>positional argument <replaceable>INITRD</replaceable></term>
 
-        <listitem><para>A comma or space-separated list of colon-separated phase paths to sign a policy for.
-        If not present, the default of
-        <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        will be used. When this argument is present, it must appear the same number of times as the
-        <option>--pcr-private-key=</option> option. Each set of boot phase paths will be signed with the
-        corresponding private key.</para></listitem>
-      </varlistentry>
+          <listitem><para>Zero or more initrd paths. In the configuration file, items are separated by
+          whitespace. The initrds are combined in the order of specification, with the initrds specified in
+          the config file first.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--pcr-banks=<replaceable>PATH</replaceable></option></term>
+        <varlistentry>
+          <term><varname>Cmdline=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></varname></term>
+          <term><option>--cmdline=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
 
-        <listitem><para>A comma or space-separated list of PCR banks to sign a policy for. If not present,
-        all known banks will be used (<literal>sha1</literal>, <literal>sha256</literal>,
-        <literal>sha384</literal>, <literal>sha512</literal>), which will fail if not supported by the
-        system.</para></listitem>
-      </varlistentry>
+          <listitem><para>The kernel command line (the <literal>.cmdline</literal> section). The argument may
+          be a literal string, or <literal>@</literal> followed by a path name. If not specified, no command
+          line will be embedded.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--secureboot-private-key=<replaceable>SB_KEY</replaceable></option></term>
+        <varlistentry>
+          <term><varname>OSRelease=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></varname></term>
+          <term><option>--os-release=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
 
-        <listitem><para>A path to a private key to use for signing of the resulting binary. If the
-        <option>--signing-engine=</option> option is used, this may also be an engine-specific
-        designation.</para></listitem>
-      </varlistentry>
+          <listitem><para>The os-release description (the <literal>.osrel</literal> section). The argument
+          may be a literal string, or <literal>@</literal> followed by a path name. If not specified, the
+          <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file
+          will be picked up from the host system.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--secureboot-certificate=<replaceable>SB_CERT</replaceable></option></term>
+        <varlistentry>
+          <term><varname>DeviceTree=<replaceable>PATH</replaceable></varname></term>
+          <term><option>--devicetree=<replaceable>PATH</replaceable></option></term>
 
-        <listitem><para>A path to a certificate to use for signing of the resulting binary. If the
-        <option>--signing-engine=</option> option is used, this may also be an engine-specific
-        designation.</para></listitem>
-      </varlistentry>
+          <listitem><para>The devicetree description (the <literal>.dtb</literal> section). The argument is a
+          path to a compiled binary DeviceTree file. If not specified, the section will not be present.
+          </para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--signing-engine=<replaceable>ENGINE</replaceable></option></term>
+        <varlistentry>
+          <term><varname>Splash=<replaceable>PATH</replaceable></varname></term>
+          <term><option>--splash=<replaceable>PATH</replaceable></option></term>
 
-        <listitem><para>An "engine" to for signing of the resulting binary. This option is currently passed
-        verbatim to the <option>--engine=</option> option of
-        <citerefentry project='archlinux'><refentrytitle>sbsign</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-        </para></listitem>
-      </varlistentry>
+          <listitem><para>A picture to display during boot (the <literal>.splash</literal> section). The
+          argument is a path to a BMP file. If not specified, the section will not be present.
+          </para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--sign-kernel</option></term>
-        <term><option>--no-sign-kernel</option></term>
+        <varlistentry>
+          <term><varname>PCRPKey=<replaceable>PATH</replaceable></varname></term>
+          <term><option>--pcrpkey=<replaceable>PATH</replaceable></option></term>
 
-        <listitem><para>Override the detection of whether to sign the Linux binary itself before it is
-        embedded in the combined image. If not specified, it will be signed if a SecureBoot signing key is
-        provided via the <option>--secureboot-private-key=</option> option and the binary has not already
-        been signed. If <option>--sign-kernel</option> is specified, and the binary has already been signed,
-        the signature will be appended anyway.</para></listitem>
-      </varlistentry>
+          <listitem><para>A path to a public key to embed in the <literal>.pcrpkey</literal> section. If not
+          specified, and there's exactly one
+          <varname>PCRPublicKey=</varname>/<option>--pcr-public-key=</option> argument, that key will be used.
+          Otherwise, the section will not be present.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--tools=<replaceable>DIRS</replaceable></option></term>
+        <varlistentry>
+          <term><varname>Uname=<replaceable>VERSION</replaceable></varname></term>
+          <term><option>--uname=<replaceable>VERSION</replaceable></option></term>
 
-        <listitem><para>Specify one or more directories with helper tools. <command>ukify</command> will look
-        for helper tools in those directories first, and if not found, try to load them from
-        <varname>$PATH</varname> in the usual fashion.</para></listitem>
-      </varlistentry>
+          <listitem><para>Specify the kernel version (as in <command>uname -r</command>, the
+          <literal>.uname</literal> section). If not specified, an attempt will be made to extract the
+          version string from the kernel image. It is recommended to pass this explicitly if known, because
+          the extraction is based on heuristics and not very reliable. If not specified and extraction fails,
+          the section will not be present.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--measure</option></term>
-        <term><option>--no-measure</option></term>
+        <varlistentry>
+          <term><varname>PCRBanks=<replaceable>PATH</replaceable></varname></term>
+          <term><option>--pcr-banks=<replaceable>PATH</replaceable></option></term>
 
-        <listitem><para>Enable or disable a call to <command>systemd-measure</command> to print
-        pre-calculated PCR values. Defaults to false.</para></listitem>
-      </varlistentry>
+          <listitem><para>A comma or space-separated list of PCR banks to sign a policy for. If not present,
+          all known banks will be used (<literal>sha1</literal>, <literal>sha256</literal>,
+          <literal>sha384</literal>, <literal>sha512</literal>), which will fail if not supported by the
+          system.</para></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--output=<replaceable>FILENAME</replaceable></option></term>
+        <varlistentry>
+          <term><varname>SecureBootPrivateKey=<replaceable>SB_KEY</replaceable></varname></term>
+          <term><option>--secureboot-private-key=<replaceable>SB_KEY</replaceable></option></term>
 
-        <listitem><para>The output filename. If not specified, the name of the
-        <replaceable>LINUX</replaceable> argument, with the suffix <literal>.unsigned.efi</literal> or
-        <literal>.signed.efi</literal> will be used, depending on whether signing for SecureBoot was
-        performed.</para></listitem>
-      </varlistentry>
+          <listitem><para>A path to a private key to use for signing of the resulting binary. If the
+          <varname>SigningEngine=</varname>/<option>--signing-engine=</option> option is used, this may also be
+          an engine-specific designation.</para></listitem>
+        </varlistentry>
 
-      <xi:include href="standard-options.xml" xpointer="help" />
-      <xi:include href="standard-options.xml" xpointer="version" />
-    </variablelist>
+        <varlistentry>
+          <term><varname>SecureBootCertificate=<replaceable>SB_CERT</replaceable></varname></term>
+          <term><option>--secureboot-certificate=<replaceable>SB_CERT</replaceable></option></term>
+
+          <listitem><para>A path to a certificate to use for signing of the resulting binary. If the
+          <varname>SigningEngine=</varname>/<option>--signing-engine=</option> option is used, this may also
+          be an engine-specific designation.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>SigningEngine=<replaceable>ENGINE</replaceable></varname></term>
+          <term><option>--signing-engine=<replaceable>ENGINE</replaceable></option></term>
+
+          <listitem><para>An "engine" to for signing of the resulting binary. This option is currently passed
+          verbatim to the <option>--engine=</option> option of
+          <citerefentry project='archlinux'><refentrytitle>sbsign</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>SignKernel=<replaceable>BOOL</replaceable></varname></term>
+          <term><option>--sign-kernel</option></term>
+          <term><option>--no-sign-kernel</option></term>
+
+          <listitem><para>Override the detection of whether to sign the Linux binary itself before it is
+          embedded in the combined image. If not specified, it will be signed if a SecureBoot signing key is
+          provided via the
+          <varname>SecureBootPrivateKey=</varname>/<option>--secureboot-private-key=</option> option and the
+          binary has not already been signed. If
+          <varname>SignKernel=</varname>/<option>--sign-kernel</option> is true, and the binary has already
+          been signed, the signature will be appended anyway.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>[PCRSignature:<replaceable>NAME</replaceable>] section</title>
+
+      <para>In the config file, those options are grouped by section. On the commandline, they
+      must be specified in the same order. The sections specified in both sources are combined.
+      </para>
+
+      <variablelist>
+        <varlistentry>
+          <term><varname>PCRPrivateKey=<replaceable>PATH</replaceable></varname></term>
+          <term><option>--pcr-private-key=<replaceable>PATH</replaceable></option></term>
+
+          <listitem><para>A private key to use for signing PCR policies. On the commandline, this option may
+          be specified more than once, in which case multiple signatures will be made.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>PCRPublicKey=<replaceable>PATH</replaceable></varname></term>
+          <term><option>--pcr-public-key=<replaceable>PATH</replaceable></option></term>
+
+          <listitem><para>A public key to use for signing PCR policies.</para>
+
+          <para>On the commandline, this option may be specified more than once, similarly to the
+          <option>--pcr-private-key=</option> option. If not present, the public keys will be extracted from
+          the private keys. On the commandline, if present, the this option must be specified the same number
+          of times as the <option>--pcr-private-key=</option> option.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>Phases=<replaceable>LIST</replaceable></varname></term>
+          <term><option>--phases=<replaceable>LIST</replaceable></option></term>
+
+          <listitem><para>A comma or space-separated list of colon-separated phase paths to sign a policy
+          for. Each set of boot phase paths will be signed with the corresponding private key. If not
+          present, the default of
+          <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          will be used.</para>
+
+          <para>On the commandline, when this argument is present, it must appear the same number of times as
+          the <option>--pcr-private-key=</option> option. </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -256,7 +343,7 @@
     <example>
       <title>Minimal invocation</title>
 
-      <programlisting>ukify \
+      <programlisting>$ ukify \
       /lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
       /some/path/initramfs-6.0.9-300.fc37.x86_64.img \
       --cmdline='quiet rw'
@@ -268,7 +355,7 @@
     <example>
       <title>All the bells and whistles</title>
 
-      <programlisting>/usr/lib/systemd/ukify \
+      <programlisting># /usr/lib/systemd/ukify \
       /lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
       early_cpio \
       /some/path/initramfs-6.0.9-300.fc37.x86_64.img \
@@ -296,6 +383,45 @@
       key <filename index='false'>pcr-private-system-key.pem</filename>. The Linux binary and the resulting
       combined image will be signed with the SecureBoot key <filename index='false'>sb.key</filename>.</para>
     </example>
+
+    <example>
+      <title>All the bells and whistles, via a config file</title>
+
+      <para>This is the same as the previous example, but this time the configuration is stored in a
+      file:</para>
+
+      <programlisting>$ cat ukify.conf
+[UKI]
+Initrd=early_cpio
+Cmdline=quiet rw rhgb
+
+SecureBootPrivateKey=sb.key
+SecureBootCerificate=sb.cert
+SignKernel=yes
+PCRBanks=sha384,sha512
+
+[PCRSignature:initrd]
+PCRPrivateKey=pcr-private-initrd-key.pem
+PCRPublicKey=pcr-public-initrd-key.pem
+Phases=enter-initrd
+
+[PCRSignature:system]
+PCRPrivateKey=pcr-private-system-key.pem
+PCRPublicKey=pcr-public-system-key.pem
+Phases=enter-initrd:leave-initrd
+       enter-initrd:leave-initrd:sysinit
+       enter-initrd:leave-initrd:sysinit:ready
+
+# /usr/lib/systemd/ukify -c ukify.conf \
+        /lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
+        /some/path/initramfs-6.0.9-300.fc37.x86_64.img
+      </programlisting>
+
+      <para>One "initrd" (<filename index='false'>early_cpio</filename>) is specified in the config file, and
+      the other initrd (<filename index='false'>initramfs-6.0.9-300.fc37.x86_64.img</filename>) is specified
+      on the commandline. This may be useful for example when the first initrd contains microcode for the CPU
+      and does not need to be updated when the kernel version changes, unlike the actual initrd.</para>
+    </example>
   </refsect1>
 
   <refsect1>
@@ -304,6 +430,7 @@
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
      </para>
   </refsect1>
