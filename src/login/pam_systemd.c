@@ -788,6 +788,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 int flags,
                 int argc, const char **argv) {
 
+        /* Let's release the D-Bus connection once this function exits, after all the session might live
+         * quite a long time, and we are not going to process the bus connection in that time, so let's
+         * better close before the daemon kicks us off because we are not processing anything. */
+        _cleanup_(pam_bus_data_disconnectp) PamBusData *d = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         const char
@@ -947,8 +951,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM systemd.runtime_max_sec data: @PAMERR@");
 
         /* Talk to logind over the message bus */
-
-        r = pam_acquire_bus_connection(handle, "pam-systemd", &bus);
+        r = pam_acquire_bus_connection(handle, "pam-systemd", &bus, &d);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -1108,15 +1111,7 @@ success:
         if (default_capability_ambient_set == UINT64_MAX)
                 default_capability_ambient_set = pick_default_capability_ambient_set(ur, service, seat);
 
-        r = apply_user_record_settings(handle, ur, debug, default_capability_bounding_set, default_capability_ambient_set);
-        if (r != PAM_SUCCESS)
-                return r;
-
-        /* Let's release the D-Bus connection, after all the session might live quite a long time, and we are
-         * not going to use the bus connection in that time, so let's better close before the daemon kicks us
-         * off because we are not processing anything. */
-        (void) pam_release_bus_connection(handle, "pam-systemd");
-        return PAM_SUCCESS;
+        return apply_user_record_settings(handle, ur, debug, default_capability_bounding_set, default_capability_ambient_set);
 }
 
 _public_ PAM_EXTERN int pam_sm_close_session(
@@ -1159,7 +1154,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 /* Before we go and close the FIFO we need to tell logind that this is a clean session
                  * shutdown, so that it doesn't just go and slaughter us immediately after closing the fd */
 
-                r = pam_acquire_bus_connection(handle, "pam-systemd", &bus);
+                r = pam_acquire_bus_connection(handle, "pam-systemd", &bus, NULL);
                 if (r != PAM_SUCCESS)
                         return r;
 
