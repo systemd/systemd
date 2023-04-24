@@ -935,10 +935,9 @@ static void server_write_to_journal(
                 if (!f)
                         return;
 
-                if (journal_file_rotate_suggested(f->file, s->max_file_usec, LOG_INFO)) {
-                        log_ratelimit_info(JOURNAL_LOG_RATELIMIT,
-                                           "%s: Journal header limits reached or header out-of-date, rotating.",
-                                           f->file->path);
+                if (journal_file_rotate_suggested(f->file, s->max_file_usec, LOG_DEBUG)) {
+                        log_debug("%s: Journal header limits reached or header out-of-date, rotating.",
+                                  f->file->path);
                         rotate = true;
                 }
         }
