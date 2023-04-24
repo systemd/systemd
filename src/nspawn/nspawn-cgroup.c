@@ -141,9 +141,9 @@ finish:
 }
 
 int create_subcgroup(pid_t pid, bool keep_unit, CGroupUnified unified_requested) {
-        _cleanup_free_ char *cgroup = NULL;
+        _cleanup_free_ char *cgroup = NULL, *payload = NULL;
         CGroupMask supported;
-        const char *payload;
+        char *e;
         int r;
 
         assert(pid > 1);
@@ -174,15 +174,26 @@ int create_subcgroup(pid_t pid, bool keep_unit, CGroupUnified unified_requested)
         if (r < 0)
                 return log_error_errno(r, "Failed to get our control group: %m");
 
-        payload = strjoina(cgroup, "/payload");
+        /* If the service manager already placed us in the supervisor cgroup, let's handle that. */
+        e = endswith(cgroup, "/supervisor");
+        if (e)
+                *e = 0; /* chop off, we want the main path delegated to us */
+
+        payload = path_join(cgroup, "payload");
+        if (!payload)
+                return log_oom();
+
         r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, payload, pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to create %s subcgroup: %m", payload);
 
         if (keep_unit) {
-                const char *supervisor;
+                _cleanup_free_ char *supervisor = NULL;
 
-                supervisor = strjoina(cgroup, "/supervisor");
+                supervisor = path_join(cgroup, "supervisor");
+                if (!supervisor)
+                        return log_oom();
+
                 r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, supervisor, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create %s subcgroup: %m", supervisor);
