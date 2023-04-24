@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-id128.h"
 #include "sd-messages.h"
 
 #include "btrfs-util.h"
@@ -24,13 +25,17 @@
 #include "bus-util.h"
 #include "constants.h"
 #include "devnum-util.h"
+#include "efivars.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "id128-util.h"
 #include "io-util.h"
+#include "json.h"
 #include "log.h"
 #include "main-func.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "sleep-config.h"
@@ -44,7 +49,100 @@
 
 static SleepOperation arg_operation = _SLEEP_OPERATION_INVALID;
 
-static int write_hibernate_location_info(const HibernateLocation *hibernate_location) {
+static int write_efi_hibernate_location(const HibernateLocation *hibernate_location, bool required) {
+        int r = 0;
+
+#if ENABLE_EFI
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *uuid_v = NULL;
+        _cleanup_free_ char *uuid_str = NULL, *id = NULL, *image_id = NULL, *version_id = NULL,
+                       *image_version = NULL, *formatted = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        sd_id128_t uuid;
+        int log_level, log_level_ignore;
+
+        assert(hibernate_location);
+        assert(hibernate_location->swap);
+
+        if (!is_efi_boot())
+                return 0;
+
+        log_level = required ? LOG_ERR : LOG_DEBUG;
+        log_level_ignore = required ? LOG_WARNING : LOG_DEBUG;
+
+        r = sd_device_new_from_devnum(&device, 'b', hibernate_location->devno);
+        if (r < 0)
+                return log_full_errno(log_level, r, "Failed to create sd-device object for '%s': %m",
+                                      hibernate_location->swap->device);
+
+        r = sd_device_get_property_value(dev, "ID_FS_UUID", &uuid_str);
+        if (r < 0)
+                return log_full_errno(log_level, r, "Failed to get filesystem UUID for device '%s': %m",
+                                      hibernate_location->swap->device);
+
+        r = sd_id128_from_string(uuid_str, &uuid);
+        if (r < 0)
+                return log_full_errno(log_level, r, "Failed to parse ID_FS_UUID '%s' for device '%s': %m",
+                                      uuid_str, hibernate_location->swap->device);
+
+        r = json_variant_new_uuid(&uuid_v, uuid);
+        if (r < 0)
+                return log_full_errno(log_level, r, "Failed to create JSON field for filesystem UUID: %m");
+
+        r = json_set_field(&v, "uuid", uuid_v);
+        if (r < 0)
+                return log_full_errno(log_level, r, "Failed to add uuid to JSON object: %m");
+
+        r = json_set_field_unsigned(&v, "offset", hibernate_location->offset);
+        if (r < 0)
+                return log_full_errno(log_level, r, "Failed to add offset to JSON object: %m");
+
+        r = parse_os_release(NULL,
+                             "ID", &id,
+                             "IMAGE_ID", &image_id,
+                             "VERSION_ID", &version_id,
+                             "IMAGE_VERSION", &image_version);
+        if (r < 0)
+                log_full_errno(log_level_ignore, "Failed to parse os-release, ignoring: %m");
+
+        if (id) {
+                r = json_variant_set_field_string(&v, "id", id);
+                if (r < 0)
+                        log_full_errno(log_level_ignore, r, "Failed to add id to JSON object, ignoring: %m");
+        }
+
+        if (image_id) {
+                r = json_variant_set_field_string(&v, "imageId", image_id);
+                if (r < 0)
+                        log_full_errno(log_level_ignore, r, "Failed to add imageId to JSON object, ignoring: %m");
+        }
+
+        if (version_id) {
+                r = json_variant_set_field_string(&v, "versionId", version_id);
+                if (r < 0)
+                        log_full_errno(log_level_ignore, r, "Failed to add versionId to JSON object, ignoring: %m");
+        }
+
+        if (image_version) {
+                r = json_variant_set_field_string(&v, "imageVersion", image_version);
+                if (r < 0)
+                        log_full_errno(log_level_ignore, r, "Failed to add imageVersion to JSON object, ignoring: %m");
+        }
+
+        r = json_variant_format(v, 0, &formatted);
+        if (r < 0)
+                return log_full_errno(log_level, r, "Failed to format JSON object: %m");
+
+        r = efi_set_variable_string(EFI_SYSTEMD_VARIABLE(HibernateLocation), formatted);
+        if (r < 0)
+                return log_full_errno(log_level, r, "Failed to set EFI variable HibernateLocation: %m");
+
+        log_debug("Set EFI variable HibernateLocation to '%s'.", formatted);
+#endif
+
+        return r;
+}
+
+static int write_kernel_hibernate_location(const HibernateLocation *hibernate_location) {
         char offset_str[DECIMAL_STR_MAX(uint64_t)];
         const char *resume_str;
         int r;
@@ -217,10 +315,14 @@ static int execute(
                 resume_set = r > 0;
 
                 if (!resume_set) {
-                        r = write_hibernate_location_info(hibernate_location);
+                        r = write_kernel_hibernate_location(hibernate_location);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to prepare for hibernation: %m");
                 }
+
+                r = write_efi_hibernate_location(hibernate_location, !resume_set);
+                if (r < 0 && !resume_set)
+                        return r;
 
                 r = write_mode(modes);
                 if (r < 0)
