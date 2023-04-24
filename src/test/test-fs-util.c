@@ -548,6 +548,23 @@ TEST(parse_cifs_service) {
 TEST(open_mkdir_at) {
         _cleanup_close_ int fd = -EBADF, subdir_fd = -EBADF, subsubdir_fd = -EBADF;
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        struct stat sta, stb;
+
+        assert_se(open_mkdir_at(AT_FDCWD, "/", O_EXCL|O_CLOEXEC, 0) == -EEXIST);
+        assert_se(open_mkdir_at(AT_FDCWD, ".", O_EXCL|O_CLOEXEC, 0) == -EEXIST);
+
+        fd = open_mkdir_at(AT_FDCWD, "/", O_CLOEXEC, 0);
+        assert_se(fd >= 0);
+        assert_se(stat("/", &sta) >= 0);
+        assert_se(fstat(fd, &stb) >= 0);
+        assert_se(stat_inode_same(&sta, &stb));
+        fd = safe_close(fd);
+
+        fd = open_mkdir_at(AT_FDCWD, ".", O_CLOEXEC, 0);
+        assert_se(stat(".", &sta) >= 0);
+        assert_se(fstat(fd, &stb) >= 0);
+        assert_se(stat_inode_same(&sta, &stb));
+        fd = safe_close(fd);
 
         assert_se(open_mkdir_at(AT_FDCWD, "/proc", O_EXCL|O_CLOEXEC, 0) == -EEXIST);
 
