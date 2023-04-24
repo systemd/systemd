@@ -12,9 +12,12 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/timerfd.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-device.h"
+#include "sd-id128.h"
 #include "sd-messages.h"
 
 #include "battery-util.h"
@@ -25,13 +28,17 @@
 #include "bus-util.h"
 #include "constants.h"
 #include "devnum-util.h"
+#include "efivars.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "id128-util.h"
 #include "io-util.h"
+#include "json.h"
 #include "log.h"
 #include "main-func.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "sleep-util.h"
@@ -45,7 +52,80 @@
 
 static SleepOperation arg_operation = _SLEEP_OPERATION_INVALID;
 
-static int write_hibernate_location_info(const HibernateLocation *hibernate_location) {
+static int write_efi_hibernate_location(const HibernateLocation *hibernate_location, bool required) {
+        int r = 0;
+
+#if ENABLE_EFI
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_free_ char *formatted = NULL, *id = NULL, *image_id = NULL,
+                       *version_id = NULL, *image_version = NULL;
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        const char *uuid_str;
+        sd_id128_t uuid;
+        struct utsname uts = {};
+        int log_level, log_level_ignore;
+
+        assert(hibernate_location);
+        assert(hibernate_location->swap);
+
+        if (!is_efi_boot())
+                return 0;
+
+        log_level = required ? LOG_ERR : LOG_DEBUG;
+        log_level_ignore = required ? LOG_WARNING : LOG_DEBUG;
+
+        r = sd_device_new_from_devnum(&device, 'b', hibernate_location->devno);
+        if (r < 0)
+                return log_full_errno(log_level, r, "Failed to create sd-device object for '%s': %m",
+                                      hibernate_location->swap->path);
+
+        r = sd_device_get_property_value(device, "ID_FS_UUID", &uuid_str);
+        if (r < 0)
+                return log_full_errno(log_level, r, "Failed to get filesystem UUID for device '%s': %m",
+                                      hibernate_location->swap->path);
+
+        r = sd_id128_from_string(uuid_str, &uuid);
+        if (r < 0)
+                return log_full_errno(log_level, r, "Failed to parse ID_FS_UUID '%s' for device '%s': %m",
+                                      uuid_str, hibernate_location->swap->path);
+
+        if (uname(&uts) < 0)
+                log_full_errno(log_level_ignore, errno, "Failed to get kernel info, ignoring: %m");
+
+        r = parse_os_release(NULL,
+                             "ID", &id,
+                             "IMAGE_ID", &image_id,
+                             "VERSION_ID", &version_id,
+                             "IMAGE_VERSION", &image_version);
+        if (r < 0)
+                log_full_errno(log_level_ignore, r, "Failed to parse os-release, ignoring: %m");
+
+        r = json_build(&v, JSON_BUILD_OBJECT(
+                               JSON_BUILD_PAIR_UUID("uuid", uuid),
+                               JSON_BUILD_PAIR_UNSIGNED("offset", hibernate_location->offset),
+                               JSON_BUILD_PAIR_CONDITION(!isempty(uts.release), "kernelVersion", JSON_BUILD_STRING(uts.release)),
+                               JSON_BUILD_PAIR_CONDITION(id, "osReleaseId", JSON_BUILD_STRING(id)),
+                               JSON_BUILD_PAIR_CONDITION(image_id, "osReleaseImageId", JSON_BUILD_STRING(image_id)),
+                               JSON_BUILD_PAIR_CONDITION(version_id, "osReleaseVersionId", JSON_BUILD_STRING(version_id)),
+                               JSON_BUILD_PAIR_CONDITION(image_version, "osReleaseImageVersion", JSON_BUILD_STRING(image_version))));
+        if (r < 0)
+                return log_full_errno(log_level, r, "Failed to build JSON object: %m");
+
+        r = json_variant_format(v, 0, &formatted);
+        if (r < 0)
+                return log_full_errno(log_level, r, "Failed to format JSON object: %m");
+
+        r = efi_set_variable_string(EFI_SYSTEMD_VARIABLE(HibernateLocation), formatted);
+        if (r < 0)
+                return log_full_errno(log_level, r, "Failed to set EFI variable HibernateLocation: %m");
+
+        log_debug("Set EFI variable HibernateLocation to '%s'.", formatted);
+#endif
+
+        return r;
+}
+
+static int write_kernel_hibernate_location(const HibernateLocation *hibernate_location) {
         assert(hibernate_location);
         assert(hibernate_location->swap);
         assert(IN_SET(hibernate_location->swap->type, SWAP_BLOCK, SWAP_FILE));
@@ -183,10 +263,14 @@ static int execute(
                 resume_set = r > 0;
 
                 if (!resume_set) {
-                        r = write_hibernate_location_info(hibernate_location);
+                        r = write_kernel_hibernate_location(hibernate_location);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to prepare for hibernation: %m");
                 }
+
+                r = write_efi_hibernate_location(hibernate_location, !resume_set);
+                if (r < 0 && !resume_set)
+                        return r;
 
                 r = write_mode(modes);
                 if (r < 0)
