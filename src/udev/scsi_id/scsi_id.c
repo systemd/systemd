@@ -42,6 +42,7 @@ static const struct option options[] = {
         { "version",            no_argument,       NULL, 'V' }, /* don't advertise -V */
         { "export",             no_argument,       NULL, 'x' },
         { "help",               no_argument,       NULL, 'h' },
+        { "sgio",               no_argument,       NULL, 'i' },
         {}
 };
 
@@ -228,8 +229,9 @@ static void help(void) {
                "  -g --allowlisted                 Treat device as allowlisted\n"
                "  -u --replace-whitespace          Replace all whitespace by underscores\n"
                "  -v --verbose                     Verbose logging\n"
-               "  -x --export                      Print values as environment keys\n",
-               program_invocation_short_name);
+               "  -x --export                      Print values as environment keys\n"
+               "  -i --sgio                        Use sg_io for VPD pages\n"
+               , program_invocation_short_name);
 }
 
 static int set_options(int argc, char **argv,
@@ -242,7 +244,7 @@ static int set_options(int argc, char **argv,
          * file) we have to reset this back to 1.
          */
         optind = 1;
-        while ((option = getopt_long(argc, argv, "d:f:gp:uvVxhbs:", options, NULL)) >= 0)
+        while ((option = getopt_long(argc, argv, "d:f:gp:uvVxhbs:i", options, NULL)) >= 0)
                 switch (option) {
                 case 'b':
                         all_good = false;
@@ -302,6 +304,8 @@ static int set_options(int argc, char **argv,
 
                 case 'x':
                         export = true;
+                        break;
+                case 'i':
                         break;
 
                 case '?':

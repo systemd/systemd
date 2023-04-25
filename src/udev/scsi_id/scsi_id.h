@@ -51,6 +51,7 @@ struct scsi_id_device {
 int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname);
 int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
                     int page_code, int len);
+int scsi_get_serial_open_file(const char *devname, int flags);
 
 /*
  * Page code values.
