@@ -59,8 +59,8 @@ struct Manager {
         char **kill_only_users, **kill_exclude_users;
         bool kill_user_processes;
 
-        unsigned long session_counter;
-        unsigned long inhibit_counter;
+        uint64_t session_counter;
+        uint64_t inhibit_counter;
 
         Hashmap *session_units;
         Hashmap *user_units;
