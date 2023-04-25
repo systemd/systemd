@@ -846,6 +846,26 @@ EOF
           echo "ARCHITECTURE=_any" ) >"$initdir/etc/extension-release.d/extension-release.service-scoped-test"
         echo MARKER_CONFEXT_123 >"$initdir/etc/systemd/system/some_file"
         mksquashfs "$initdir" "$oldinitdir/etc/service-scoped-test.raw" -noappend
+
+        # We need to create a dedicated sysext image to test the reload mechanism. If we share an image to install the
+        # 'foo.service' it will be loaded from another test run, which will impact the targeted test.
+        export initdir="$TESTDIR/app-reload"
+        mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system"
+        ( echo "ID=_any"
+          echo "ARCHITECTURE=_any"
+          echo "EXTENSION_RELOAD_MANAGER=1" ) >"$initdir/usr/lib/extension-release.d/extension-release.app-reload"
+        mkdir -p "$initdir/usr/lib/systemd/system/multi-user.target.d"
+        cat >"${initdir}/usr/lib/systemd/system/foo.service" <<EOF
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=echo foo
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        { echo "[Unit]"; echo "Upholds=foo.service"; } > "$initdir/usr/lib/systemd/system/multi-user.target.d/10-foo-service.conf"
+        mksquashfs "$initdir" "$oldinitdir/usr/share/app-reload.raw" -noappend
     )
 }
 
