@@ -363,6 +363,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("OOMPolicy", "s", bus_property_get_oom_policy, offsetof(Service, oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OpenFile", "a(sst)", property_get_open_files, offsetof(Service, open_files), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ReloadSignal", "i", bus_property_get_int, offsetof(Service, reload_signal), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Generation", "u", bus_property_get_unsigned, offsetof(Service, generation), SD_BUS_VTABLE_PROPERTY_CONST),
 
         BUS_EXEC_STATUS_VTABLE("ExecMain", offsetof(Service, main_exec_status), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecCondition", offsetof(Service, exec_command[SERVICE_EXEC_CONDITION]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),

@@ -2639,6 +2639,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly a(sst) OpenFile = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i ReloadSignal = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u Generation = ...;
       readonly t ExecMainStartTimestamp = ...;
       readonly t ExecMainStartTimestampMonotonic = ...;
       readonly t ExecMainExitTimestamp = ...;
@@ -3270,6 +3272,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property ReloadSignal is not documented!-->
 
+    <!--property Generation is not documented!-->
+
     <!--property ExecCondition is not documented!-->
 
     <!--property ExecConditionEx is not documented!-->
@@ -3861,6 +3865,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="OpenFile"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ReloadSignal"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Generation"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExecMainStartTimestamp"/>
 
