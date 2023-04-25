@@ -476,10 +476,9 @@ static void read_credentials(Manager *m) {
         if (!m->read_resolv_conf)
                 return;
 
-        r = read_credential_strings_many(
-                        "network.dns", &dns,
-                        "network.search_domains", &domains);
-        if (r < 0 && !IN_SET(r, -ENXIO, -ENOENT))
+        r = read_credential_strings_many("network.dns", &dns,
+                                         "network.search_domains", &domains);
+        if (r < 0)
                 log_warning_errno(r, "Failed to read credentials, ignoring: %m");
 
         if (dns) {
