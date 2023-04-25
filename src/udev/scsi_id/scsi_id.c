@@ -43,6 +43,7 @@ static const struct option options[] = {
         { "export",             no_argument,       NULL, 'x' },
         { "help",               no_argument,       NULL, 'h' },
         { "sgio",               no_argument,       NULL, 'i' },
+        { "sysfs",              no_argument,       NULL, 'y' },
         {}
 };
 
@@ -59,6 +60,8 @@ static char vendor_enc_str[256];
 static char model_enc_str[256];
 static char revision_str[16];
 static char type_str[16];
+
+enum scsi_id_interface scsi_interface = SCSI_ID_INTERFACE_UNKNOWN;
 
 static void set_type(unsigned type_num, char *to, size_t len) {
         const char *type;
@@ -231,6 +234,7 @@ static void help(void) {
                "  -v --verbose                     Verbose logging\n"
                "  -x --export                      Print values as environment keys\n"
                "  -i --sgio                        Use sg_io for VPD pages\n"
+               "  -y --sysfs                       Use sysfs for VPD pages\n"
                , program_invocation_short_name);
 }
 
@@ -244,7 +248,7 @@ static int set_options(int argc, char **argv,
          * file) we have to reset this back to 1.
          */
         optind = 1;
-        while ((option = getopt_long(argc, argv, "d:f:gp:uvVxhbs:i", options, NULL)) >= 0)
+        while ((option = getopt_long(argc, argv, "d:f:gp:uvVxhbs:iy", options, NULL)) >= 0)
                 switch (option) {
                 case 'b':
                         all_good = false;
@@ -305,7 +309,21 @@ static int set_options(int argc, char **argv,
                 case 'x':
                         export = true;
                         break;
+
                 case 'i':
+                        if (scsi_interface != SCSI_ID_INTERFACE_UNKNOWN) {
+                                printf("Invalid Options\n");
+                                exit(0);
+                        }
+                        scsi_interface = SCSI_ID_INTERFACE_SGIO;
+                        break;
+
+                case 'y':
+                        if (scsi_interface != SCSI_ID_INTERFACE_UNKNOWN) {
+                                printf("Invalid Options\n");
+                                exit(0);
+                        }
+                        scsi_interface = SCSI_ID_INTERFACE_SYSFS;
                         break;
 
                 case '?':
@@ -377,7 +395,20 @@ static int set_inq_values(struct scsi_id_device *dev_scsi, const char *path) {
 
         dev_scsi->use_sg = sg_version;
 
-        retval = scsi_std_inquiry(dev_scsi, path);
+        switch(scsi_interface) {
+                case SCSI_ID_INTERFACE_SGIO:
+                        retval = sgio_scsi_std_inquiry(dev_scsi, path);
+                        break;
+
+                case SCSI_ID_INTERFACE_SYSFS:
+                        retval = sysfs_scsi_std_inquiry(dev_scsi, path);
+                        break;
+
+                default:
+                        retval = sgio_scsi_std_inquiry(dev_scsi, path);
+                        break;
+        }
+
         if (retval)
                 return retval;
 
@@ -417,7 +448,19 @@ static int scsi_id(char *maj_min_dev) {
         }
 
         /* read serial number from mode pages (no values for optical drives) */
-        scsi_get_serial(&dev_scsi, maj_min_dev, page_code, MAX_SERIAL_LEN);
+        switch(scsi_interface) {
+                case SCSI_ID_INTERFACE_SGIO:
+                        sgio_scsi_get_serial(&dev_scsi, maj_min_dev, page_code, MAX_SERIAL_LEN);
+                        break;
+
+                case SCSI_ID_INTERFACE_SYSFS:
+                        sysfs_scsi_get_serial(&dev_scsi, maj_min_dev, page_code, MAX_SERIAL_LEN);
+                        break;
+
+                default:
+                        sgio_scsi_get_serial(&dev_scsi, maj_min_dev, page_code, MAX_SERIAL_LEN);
+                        break;
+        }
 
         if (export) {
                 char serial_str[MAX_SERIAL_LEN];
