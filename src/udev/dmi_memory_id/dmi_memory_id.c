@@ -51,7 +51,6 @@
 #include "string-util.h"
 #include "udev-util.h"
 #include "unaligned.h"
-#include "version.h"
 
 #define SUPPORTED_SMBIOS_VER 0x030300
 
@@ -663,8 +662,7 @@ static int parse_argv(int argc, char * const *argv) {
                         arg_source_file = optarg;
                         break;
                 case 'V':
-                        printf("%s\n", GIT_VERSION);
-                        return 0;
+                        return version();
                 case 'h':
                         return help();
                 case '?':
