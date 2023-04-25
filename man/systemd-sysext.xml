@@ -139,6 +139,11 @@
     architecture reported by <citerefentry><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     but the used architecture identifiers are the same as for <varname>ConditionArchitecture=</varname>
     described in <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    <varname>EXTENSION_RELOAD_MANAGER=</varname> can be set to 1 if the extension requires a service manager reload after application
+    of the extension. Note that the for the reasons mentioned earlier:
+    <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink> remain
+    the recommended way to ship system services.
+
     System extensions should not ship a <filename>/usr/lib/os-release</filename> file (as that would be merged
     into the host <filename>/usr/</filename> tree, overriding the host OS version data, which is not desirable).
     The <filename>extension-release</filename> file follows the same format and semantics, and carries the same
@@ -297,6 +302,17 @@
         <listitem><para>When merging configuration extensions into <filename>/etc/</filename> the
         <literal>MS_NOEXEC</literal> mount flag is used by default. This option can be used to disable
         it.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-reload</option></term>
+
+        <listitem>
+          <para>When used with <command>merge</command>,
+          <command>unmerge</command> or <command>refresh</command>, do not reload daemon
+          after executing the changes even if an extension that is applied requires a reload via the
+          <varname>EXTENSION_RELOAD_MANAGER=</varname> set to 1.</para>
+        </listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />
