@@ -613,6 +613,15 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   effect on the regular file. If in doubt consider turning off `O_NONBLOCK`
   again after opening.
 
+- These days we generally prefer `openat()`-style file APIs, i.e. APIs that
+  accept a combination of file descriptor and path string, and where the path
+  (if not absolute) is considered relative to the specified file
+  descriptor. When implementing library calls in similar style, please make
+  sure to imply `AT_EMPTY_PATH` if an empty or `NULL` path argument is
+  specified (and convert that latter to an empty string). This differs from the
+  underlying kernel semantics, where `AT_EMPTY_PATH` must always be specified
+  explicitly, and `NULL` is not acepted as path.
+
 ## Command Line
 
 - If you parse a command line, and want to store the parsed parameters in
