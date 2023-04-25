@@ -129,7 +129,7 @@
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The event loop has been created in a different process.</para></listitem>
+          <listitem><para>The event loop has been created in a different process, library or module instance.</para></listitem>
 
         </varlistentry>
 
