@@ -506,20 +506,21 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
         if (base64_size < 0)
                 return base64_size;
 
-        if (arg_pretty) {
+        /* Pretty print makes sense only if we're printing stuff to stdout
+         * and if a cred name is provided via --name= (since we can't use
+         * the output file name as the cred name here) */
+        if (arg_pretty && !output_path && name) {
                 _cleanup_free_ char *escaped = NULL, *indented = NULL, *j = NULL;
 
-                if (name) {
-                        escaped = cescape(name);
-                        if (!escaped)
-                                return log_oom();
-                }
+                escaped = cescape(name);
+                if (!escaped)
+                        return log_oom();
 
                 indented = strreplace(base64_buf, "\n", " \\\n        ");
                 if (!indented)
                         return log_oom();
 
-                j = strjoin("SetCredentialEncrypted=", name, ": \\\n        ", indented, "\n");
+                j = strjoin("SetCredentialEncrypted=", escaped, ": \\\n        ", indented, "\n");
                 if (!j)
                         return log_oom();
 
