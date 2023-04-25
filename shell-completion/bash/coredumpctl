@@ -40,17 +40,17 @@ _coredumpctl() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
     local OPTS='-h --help --version --no-pager --no-legend -o --output -F --field -1
                 -r --reverse -S --since -U --until -D --directory -q --quiet --debugger
-                -A --debugger-arguments --json -n --all'
+                -A --debugger-arguments --json -n --all --file --root --image'
 
     local -A VERBS=(
         [LIST]='list info'
         [DUMP]='dump debug'
     )
 
-    if __contains_word "$prev" --output -o; then
+    if __contains_word "$prev" --output -o --file --image; then
         comps=$( compgen -A file -- "$cur" )
         compopt -o filenames
-    elif __contains_word "$prev" -D --directory; then
+    elif __contains_word "$prev" -D --directory --root; then
         comps=$( compgen -A directory -- "$cur" )
         compopt -o filenames
     elif __contains_word "$prev" '--debugger'; then
