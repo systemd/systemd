@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# mkosi adds its own ssh units via the --ssh switch so disable the default ones.
+disable ssh.service
+disable sshd.service
+
+# These are started manually in integration tests so don't start them by default.
+disable dnsmasq.service
+disable isc-dhcp-server.service
+disable isc-dhcp-server6.service
+
+# Pulled in via dracut-network by kexec-tools on Fedora.
+disable NetworkManager.service
+
+# Make sure dbus-broker is started by default on Debian/Ubuntu.
+enable dbus-broker.service
+
+# systemd-networkd is disabled by default on Fedora so make sure it is enabled.
+enable systemd-networkd.service
