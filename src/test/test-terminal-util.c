@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "macro.h"
 #include "path-util.h"
 #include "strv.h"
@@ -40,7 +41,7 @@ TEST(read_one_char) {
         _cleanup_fclose_ FILE *file = NULL;
         char r;
         bool need_nl;
-        char name[] = "/tmp/test-read_one_char.XXXXXX";
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-read_one_char.XXXXXX";
 
         assert_se(fmkostemp_safe(name, "r+", &file) == 0);
 
@@ -60,8 +61,6 @@ TEST(read_one_char) {
         assert_se(fputs("\n", file) >= 0);
         rewind(file);
         assert_se(read_one_char(file, &r, 1000000, &need_nl) < 0);
-
-        assert_se(unlink(name) >= 0);
 }
 
 TEST(getttyname_malloc) {
