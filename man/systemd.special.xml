@@ -753,8 +753,8 @@
           <listitem>
             <para>A special target unit that is used for offline system updates.
             <citerefentry><refentrytitle>systemd-system-update-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-            will redirect the boot process to this target if <filename>/system-update</filename>
-            exists. For more information see
+            will redirect the boot process to this target if <filename>/system-update</filename> or
+            <filename>/etc/system-update</filename> exists. For more information see
             <citerefentry><refentrytitle>systemd.offline-updates</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
             </para>
 
@@ -764,9 +764,10 @@
             <filename>system-update-pre.target</filename> but not pull it in. Services which want to
             run during system updates only, but before the actual system update is executed should
             order themselves before this unit and pull it in. As a safety measure, if this does not
-            happen, and <filename>/system-update</filename> still exists after
+            happen, and <filename>/system-update</filename> or
+            <filename>/etc/system-update</filename> still exists after
             <filename>system-update.target</filename> is reached,
-            <filename>system-update-cleanup.service</filename> will remove this symlink and reboot
+            <filename>system-update-cleanup.service</filename> will remove the symlinks and reboot
             the machine.</para>
           </listitem>
         </varlistentry>
