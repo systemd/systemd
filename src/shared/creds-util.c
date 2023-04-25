@@ -96,17 +96,21 @@ int read_credential_strings_many_internal(
 
         /* Reads a bunch of credentials into the specified buffers. If the specified buffers are already
          * non-NULL frees them if a credential is found. Only supports string-based credentials
-         * (i.e. refuses embedded NUL bytes) */
+         * (i.e. refuses embedded NUL bytes).
+         *
+         * 0 is returned when some or all credentials are missing.
+         */
 
         if (!first_name)
                 return 0;
 
         r = read_credential(first_name, &b, NULL);
-        if (r == -ENXIO) /* no creds passed at all? propagate this */
-                return r;
-        if (r < 0)
-                ret = r;
-        else
+        if (r == -ENXIO) /* No creds passed at all? Bail immediately. */
+                return 0;
+        if (r < 0) {
+                if (r != -ENOENT)
+                        ret = r;
+        } else
                 free_and_replace(*first_value, b);
 
         va_list ap;
@@ -127,7 +131,7 @@ int read_credential_strings_many_internal(
 
                 r = read_credential(name, &bb, NULL);
                 if (r < 0) {
-                        if (ret >= 0)
+                        if (ret >= 0 && r != -ENOENT)
                                 ret = r;
                 } else
                         free_and_replace(*value, bb);
