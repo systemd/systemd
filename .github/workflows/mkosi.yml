@@ -61,7 +61,7 @@ jobs:
           - distro: ubuntu
             release: jammy
           - distro: fedora
-            release: "37"
+            release: "38"
           - distro: fedora
             release: rawhide
           - distro: opensuse
