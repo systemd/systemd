@@ -231,7 +231,8 @@ EOF
                                                     "string_escape___replace/foo_bbb",
                                                     "env_with_space",
                                                     "default/replace/mode_foo__hoge",
-                                                    "replace_env_harder_foo__hoge"],
+                                                    "replace_env_harder_foo__hoge",
+                                                    "match", "unmatch"],
                                 not_exp_links   => ["removed1", "removed2", "removed3", "unsafe/../../path", "/nondev/path/will/be/refused"],
                         }],
                 rules           => <<EOF
@@ -250,6 +251,8 @@ SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", OPTIONS="s
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", ENV{.HOGE}="env    with    space", SYMLINK+="%E{.HOGE}"
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", ENV{.HOGE}="default/replace/mode?foo;;hoge", SYMLINK+="%E{.HOGE}"
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", OPTIONS="string_escape=replace", ENV{.HOGE}="replace/env/harder?foo;;hoge", SYMLINK+="%E{.HOGE}"
+SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK=="link1", SYMLINK+="match"
+SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", SYMLINK!="removed1", SYMLINK+="unmatch"
 EOF
         },
         {
@@ -1853,13 +1856,15 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_links       => ["found"],
-                                not_exp_name    => "bad",
+                                exp_links       => ["found", "found2"],
+                                not_exp_name    => ["bad", "bad2"],
                         }],
                 rules           => <<EOF
 KERNEL=="sda", TAG="foo"
 TAGS=="foo|", SYMLINK+="found"
 TAGS=="aaa|", SYMLINK+="bad"
+KERNEL=="sda", TAGS!="hoge", SYMLINK+="found2"
+KERNEL=="sda", TAGS!="foo", SYMLINK+="bad2"
 EOF
         },
         {
