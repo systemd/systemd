@@ -36,7 +36,7 @@ _portablectl() {
     local -A OPTS=(
         [STANDALONE]='-q --quiet --runtime --no-reload --cat --no-pager --no-legend
                               --no-ask-password --enable --now -h --help --version'
-        [ARG]='-p --profile --copy -H --host -M --machine'
+        [ARG]='-p --profile --copy -H --host -M --machine --extension'
     )
 
     local -A VERBS=(
@@ -59,6 +59,10 @@ _portablectl() {
                 ;;
             --machine|-M)
                 comps=$( __get_machines )
+                ;;
+            --extension)
+                comps=$( compgen -A file -- "$cur" )
+                compopt -o filenames
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
