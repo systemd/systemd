@@ -22,6 +22,7 @@
     <refname>sd_pid_notify</refname>
     <refname>sd_pid_notifyf</refname>
     <refname>sd_pid_notify_with_fds</refname>
+    <refname>sd_pid_notifyf_with_fds</refname>
     <refname>sd_notify_barrier</refname>
     <refpurpose>Notify service manager about start-up completion and other service status changes</refpurpose>
   </refnamediv>
@@ -65,6 +66,16 @@
         <paramdef>const char *<parameter>state</parameter></paramdef>
         <paramdef>const int *<parameter>fds</parameter></paramdef>
         <paramdef>unsigned <parameter>n_fds</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_pid_notifyf_with_fds</function></funcdef>
+        <paramdef>pid_t <parameter>pid</parameter></paramdef>
+        <paramdef>int <parameter>unset_environment</parameter></paramdef>
+        <paramdef>const int *<parameter>fds</parameter></paramdef>
+        <paramdef>size_t <parameter>n_fds</parameter></paramdef>
+        <paramdef>const char *<parameter>format</parameter></paramdef>
+        <paramdef>…</paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -326,12 +337,12 @@
     able to properly attribute the message to the unit, and thus will ignore it, even if
     <varname>NotifyAccess=</varname><option>all</option> is set for it.</para>
 
-    <para>Hence, to eliminate all race conditions involving lookup of the client's unit and attribution of notifications
-    to units correctly, <function>sd_notify_barrier()</function> may be used. This call acts as a synchronization point
-    and ensures all notifications sent before this call have been picked up by the service manager when it returns
-    successfully. Use of <function>sd_notify_barrier()</function> is needed for clients which are not invoked by the
-    service manager, otherwise this synchronization mechanism is unnecessary for attribution of notifications to the
-    unit.</para>
+    <para>Hence, to eliminate all race conditions involving lookup of the client's unit and attribution of
+    notifications to units correctly, <function>sd_notify_barrier()</function> may be used. This call acts as
+    a synchronization point and ensures all notifications sent before this call have been picked up by the
+    service manager when it returns successfully. Use of <function>sd_notify_barrier()</function> is needed
+    for clients which are not invoked by the service manager, otherwise this synchronization mechanism is
+    unnecessary for attribution of notifications to the unit.</para>
 
     <para><function>sd_notifyf()</function> is similar to <function>sd_notify()</function> but takes a
     <function>printf()</function>-like format string plus arguments.</para>
@@ -351,6 +362,11 @@
     is fully equivalent to <function>sd_pid_notify()</function>, i.e. no file descriptors are passed. Note
     that file descriptors sent to the service manager on a message without <literal>FDSTORE=1</literal> are
     immediately closed on reception.</para>
+
+    <para><function>sd_pid_notifyf_with_fds()</function> is a combination of
+    <function>sd_pid_notify_with_fds()</function> and <function>sd_notifyf()</function>, i.e. it accepts both
+    a PID and a set of file descriptors as input, and processes a format string to generate the state
+    string.</para>
 
     <para><function>sd_notify_barrier()</function> allows the caller to synchronize against reception of
     previously sent notification messages and uses the <varname>BARRIER=1</varname> command. It takes a
