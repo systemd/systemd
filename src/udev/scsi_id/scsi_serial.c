@@ -168,7 +168,8 @@ int scsi_get_serial_open_file(const char *devname, int flags, int page_code)
                         strcpy(file_name, device_vpd_page_path);
                         break;
                 default:
-                        strcpy(file_name, devname);
+                        scsi_get_device_vpd_page_path(devname, device_vpd_page_path, page_code);
+                        strcpy(file_name, device_vpd_page_path);
                         break;
         }
 

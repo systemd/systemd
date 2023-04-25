@@ -405,7 +405,7 @@ static int set_inq_values(struct scsi_id_device *dev_scsi, const char *path) {
                         break;
 
                 default:
-                        retval = sgio_scsi_std_inquiry(dev_scsi, path);
+                        retval = sysfs_scsi_std_inquiry(dev_scsi, path);
                         break;
         }
 
@@ -458,7 +458,7 @@ static int scsi_id(char *maj_min_dev) {
                         break;
 
                 default:
-                        sgio_scsi_get_serial(&dev_scsi, maj_min_dev, page_code, MAX_SERIAL_LEN);
+                        sysfs_scsi_get_serial(&dev_scsi, maj_min_dev, page_code, MAX_SERIAL_LEN);
                         break;
         }
 
