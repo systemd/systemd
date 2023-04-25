@@ -286,7 +286,7 @@ struct sd_bus {
         struct memfd_cache memfd_cache[MEMFD_CACHE_MAX];
         unsigned n_memfd_cache;
 
-        pid_t original_pid;
+        uint64_t origin_id;
         pid_t busexec_pid;
 
         unsigned iteration_counter;
@@ -377,7 +377,7 @@ int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m);
 
 int bus_rqueue_make_room(sd_bus *bus);
 
-bool bus_pid_changed(sd_bus *bus);
+bool sd_bus_origin_id_changed(sd_bus *bus);
 
 char *bus_address_escape(const char *v);
 
