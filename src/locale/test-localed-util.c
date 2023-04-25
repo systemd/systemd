@@ -95,9 +95,13 @@ TEST(vconsole_convert_to_x11) {
 
         log_info("/* test with unknown variant, new mapping (es:) */");
         assert_se(free_and_strdup(&vc.keymap, "es-foobar") >= 0);
+        log_info("/* test with unknown variant, new mapping (es:) step 1*/");
         assert_se(vconsole_convert_to_x11(&vc, &xc) >= 0);
+        log_info("/* test with unknown variant, new mapping (es:) step 2 */");
         assert_se(streq(xc.layout, "es"));
+        log_info("/* test with unknown variant, new mapping (es:) step 3 */");
         assert_se(xc.variant == NULL);
+        log_info("/* test with unknown variant, new mapping (es:) step 4 */");
         x11_context_clear(&xc);
 
         log_info("/* test with old mapping (fr:latin9) */");
