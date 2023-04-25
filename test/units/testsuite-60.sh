@@ -181,7 +181,7 @@ EOF
     # Trigger the mount ratelimiting
     cd "$(mktemp -d)"
     mkdir foo
-    for ((i = 0; i < 50; i++)); do
+    for _ in {1..50}; do
         mount --bind foo foo
         umount foo
     done
@@ -225,7 +225,7 @@ EOF
     # shellcheck disable=SC2064
     trap "rm -f /run/systemd/system/tmp-hoge.mount '$mount_mytmpfs'" RETURN
 
-    for ((i = 0; i < 10; i++)); do
+    for _ in {1..10}; do
         systemctl --no-block start tmp-hoge.mount
         sleep ".$RANDOM"
         systemctl daemon-reexec
