@@ -1896,7 +1896,7 @@ static int udev_rule_apply_token_to_event(
                 const char *val;
 
                 FOREACH_DEVICE_DEVLINK(dev, val)
-                        if (token_match_string(token, strempty(startswith(val, "/dev/"))))
+                        if (token_match_string(token, strempty(startswith(val, "/dev/"))) == (token->op == OP_MATCH))
                                 return token->op == OP_MATCH;
                 return token->op == OP_NOMATCH;
         }
@@ -1926,7 +1926,7 @@ static int udev_rule_apply_token_to_event(
                 const char *val;
 
                 FOREACH_DEVICE_CURRENT_TAG(dev, val)
-                        if (token_match_string(token, val))
+                        if (token_match_string(token, val) == (token->op == OP_MATCH))
                                 return token->op == OP_MATCH;
                 return token->op == OP_NOMATCH;
         }
