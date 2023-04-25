@@ -25,6 +25,12 @@
  */
 #define MAX_BUFFER_LEN 256
 
+enum scsi_id_interface{
+        SCSI_ID_INTERFACE_UNKNOWN,
+        SCSI_ID_INTERFACE_SGIO,
+        SCSI_ID_INTERFACE_SYSFS,
+ };
+
 struct scsi_id_device {
         char vendor[9];
         char model[17];
@@ -48,9 +54,13 @@ struct scsi_id_device {
         char tgpt_group[8];
 };
 
-int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname);
-int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
+int sgio_scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname);
+int sysfs_scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname);
+int sgio_scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
                     int page_code, int len);
+int sysfs_scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
+                    int page_code, int len);
+int scsi_get_serial_open_file(const char *devname, int flags, int page_code);
 
 /*
  * Page code values.
