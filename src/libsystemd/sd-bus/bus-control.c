@@ -26,7 +26,7 @@ _public_ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(unique, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         if (!bus->bus_client)
                 return -EINVAL;
@@ -89,7 +89,7 @@ _public_ int sd_bus_request_name(
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(name, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         r = validate_request_name_parameters(bus, name, flags, &param);
         if (r < 0)
@@ -193,7 +193,7 @@ _public_ int sd_bus_request_name_async(
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(name, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         r = validate_request_name_parameters(bus, name, flags, &param);
         if (r < 0)
@@ -247,7 +247,7 @@ _public_ int sd_bus_release_name(
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(name, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         r = validate_release_name_parameters(bus, name);
         if (r < 0)
@@ -340,7 +340,7 @@ _public_ int sd_bus_release_name_async(
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(name, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         r = validate_release_name_parameters(bus, name);
         if (r < 0)
@@ -367,7 +367,7 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatabl
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(acquired || activatable, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         if (!bus->bus_client)
                 return -EINVAL;
@@ -438,7 +438,7 @@ _public_ int sd_bus_get_name_creds(
         assert_return(name, -EINVAL);
         assert_return((mask & ~SD_BUS_CREDS_AUGMENT) <= _SD_BUS_CREDS_ALL, -EOPNOTSUPP);
         assert_return(mask == 0 || creds, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
         assert_return(service_name_is_valid(name), -EINVAL);
 
         if (!bus->bus_client)
@@ -732,7 +732,7 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return((mask & ~SD_BUS_CREDS_AUGMENT) <= _SD_BUS_CREDS_ALL, -EOPNOTSUPP);
         assert_return(ret, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
 
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
@@ -903,7 +903,7 @@ _public_ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(name, -EINVAL);
         assert_return(machine, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!bus_origin_changed(bus), -ECHILD);
         assert_return(service_name_is_valid(name), -EINVAL);
 
         if (!bus->bus_client)
