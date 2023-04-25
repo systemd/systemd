@@ -87,7 +87,7 @@ struct sd_journal {
 
         Match *level0, *level1, *level2;
 
-        pid_t original_pid;
+        uint64_t origin_id;
 
         int inotify_fd;
         unsigned current_invalidate_counter, last_invalidate_counter;
