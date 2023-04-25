@@ -299,6 +299,16 @@
         it.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--no-reload</option></term>
+
+        <listitem>
+          <para>When used with <command>merge</command>,
+	  <command>unmerge</command> or <command>refresh</command>, do not implicitly reload daemon
+          configuration after executing the changes.</para>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="json" />

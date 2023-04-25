@@ -7,9 +7,15 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+
 #include "build.h"
+#include "bus-locator.h"
+#include "bus-error.h"
+#include "bus-util.h"
 #include "capability-util.h"
 #include "chase.h"
+#include "constants.h"
 #include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
@@ -45,6 +51,7 @@ static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_force = false;
+static bool arg_no_reload = false;
 static int arg_noexec = -1;
 static ImagePolicy *arg_image_policy = NULL;
 
@@ -54,6 +61,28 @@ static ImageClass arg_image_class = IMAGE_SYSEXT;
 STATIC_DESTRUCTOR_REGISTER(arg_hierarchies, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
+
+static int daemon_reload(void) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        sd_bus *bus;
+        int r;
+
+        r = bus_connect_system_systemd(&bus);
+        if (r < 0)
+                return r;
+
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "Reload");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* Reloading the daemon may take long, hence set a longer timeout here */
+        r = sd_bus_call(bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reload daemon: %s", bus_error_message(&error, r));
+
+        return 0;
+}
 
 /* Helper struct for naming simplicity and reusability */
 static const struct {
@@ -189,6 +218,12 @@ static int unmerge(void) {
                 r = unmerge_hierarchy(resolved);
                 if (r < 0 && ret == 0)
                         ret = r;
+        }
+
+        if (!arg_no_reload) {
+                r = daemon_reload();
+                if (r < 0)
+                        return r;
         }
 
         return ret;
@@ -784,6 +819,12 @@ static int merge(Hashmap *images) {
         if (r < 0)
                 return r;
 
+        if (!arg_no_reload) {
+                r = daemon_reload();
+                if (r < 0)
+                        return r;
+        }
+
         return r != 123; /* exit code 123 means: didn't do anything */
 }
 
@@ -955,6 +996,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
                "     --force              Ignore version incompatibilities\n"
+               "     --no-reload          Do not reload the daemon\n"
                "     --image-policy=POLICY\n"
                "                          Specify disk image dissection policy\n"
                "     --noexec=BOOL        Whether to mount extension overlay with noexec\n"
@@ -980,6 +1022,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FORCE,
                 ARG_IMAGE_POLICY,
                 ARG_NOEXEC,
+                ARG_NO_RELOAD,
         };
 
         static const struct option options[] = {
@@ -992,6 +1035,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "force",        no_argument,       NULL, ARG_FORCE        },
                 { "image-policy", required_argument, NULL, ARG_IMAGE_POLICY },
                 { "noexec",       required_argument, NULL, ARG_NOEXEC       },
+                { "no-reload",    no_argument,       NULL, ARG_NO_RELOAD    },
                 {}
         };
 
@@ -1047,6 +1091,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         arg_noexec = r;
+                        break;
+
+                case ARG_NO_RELOAD:
+                        arg_no_reload = true;
                         break;
 
                 case '?':
