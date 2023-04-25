@@ -47,16 +47,16 @@ _coredumpctl() {
         [DUMP]='dump debug'
     )
 
-    if __contains_word "$prev" '--output -o'; then
+    if __contains_word "$prev" --output -o; then
         comps=$( compgen -A file -- "$cur" )
         compopt -o filenames
-    elif __contains_word "$prev" '-D --directory'; then
+    elif __contains_word "$prev" -D --directory; then
         comps=$( compgen -A directory -- "$cur" )
         compopt -o filenames
     elif __contains_word "$prev" '--debugger'; then
         comps=$( compgen -A command -- "$cur" )
         compopt -o filenames
-    elif __contains_word "$prev" '--field -F'; then
+    elif __contains_word "$prev" --field -F; then
         comps=$( compgen -W '${__journal_fields[*]}' -- "$cur" )
     elif __contains_word "$prev" '--json'; then
         comps=$( compgen -W 'pretty short off' -- "$cur" )
