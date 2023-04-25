@@ -117,11 +117,8 @@ static int context_read_creds(Context *c) {
                         vc_meta_names[VC_FONT],          &v.config[VC_FONT],
                         vc_meta_names[VC_FONT_MAP],      &v.config[VC_FONT_MAP],
                         vc_meta_names[VC_FONT_UNIMAP],   &v.config[VC_FONT_UNIMAP]);
-        if (r < 0) {
-                if (r != -ENXIO)
-                        log_warning_errno(r, "Failed to import credentials, ignoring: %m");
-                return r;
-        }
+        if (r < 0)
+                log_warning_errno(r, "Failed to import credentials, ignoring: %m");
 
         context_merge_config(c, &v, NULL);
         return 0;
