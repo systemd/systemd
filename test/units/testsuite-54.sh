@@ -5,6 +5,152 @@ set -eux
 
 systemd-analyze log-level debug
 
+run_with_cred_compare() {
+    local cred="${1:?}"
+    local exp="${2?}"
+    shift 2
+
+    diff <(systemd-run -p SetCredential="$cred" --wait --pipe -- systemd-creds "$@") <(echo -ne "$exp")
+}
+
+# Sanity checks
+#
+# Create a dummy "full" disk (similar to /dev/full) to check out-of-space
+# scenarios
+mkdir /tmp/full
+mount -t tmpfs -o size=1,nr_inodes=1 tmpfs /tmp/full
+
+# verb: setup
+# Run this first, otherwise any encrypted credentials wouldn't be decryptable
+# as we regnerate the host key
+rm -fv /var/lib/systemd/credential.secret
+systemd-creds setup
+test -e /var/lib/systemd/credential.secret
+rm -fv /var/lib/systemd/credential.secret
+
+# Prepare a couple of dummy credentials for the cat/list verbs
+CRED_DIR="$(mktemp -d)"
+ENC_CRED_DIR="$(mktemp -d)"
+echo foo >"$CRED_DIR/secure-or-weak"
+echo foo >"$CRED_DIR/insecure"
+echo foo | systemd-creds --name="encrypted" encrypt - - | base64 -d >"$ENC_CRED_DIR/encrypted"
+echo foo | systemd-creds encrypt - - | base64 -d >"$ENC_CRED_DIR/encrypted-unnamed"
+chmod -R 0400 "$CRED_DIR" "$ENC_CRED_DIR"
+chmod -R 0444 "$CRED_DIR/insecure"
+mkdir /tmp/empty/
+
+systemd-creds --system
+systemd-creds --no-pager --help
+systemd-creds --version
+systemd-creds has-tpm2 || :
+systemd-creds has-tpm2 -q || :
+
+# verb: list
+systemd-creds list --system
+ENCRYPTED_CREDENTIALS_DIRECTORY="$ENC_CRED_DIR" CREDENTIALS_DIRECTORY="$CRED_DIR" systemd-creds list --no-legend
+ENCRYPTED_CREDENTIALS_DIRECTORY="$ENC_CRED_DIR" CREDENTIALS_DIRECTORY="$CRED_DIR" systemd-creds list --json=pretty | jq
+ENCRYPTED_CREDENTIALS_DIRECTORY="$ENC_CRED_DIR" CREDENTIALS_DIRECTORY="$CRED_DIR" systemd-creds list --json=short | jq
+ENCRYPTED_CREDENTIALS_DIRECTORY="$ENC_CRED_DIR" CREDENTIALS_DIRECTORY="$CRED_DIR" systemd-creds list --json=off
+ENCRYPTED_CREDENTIALS_DIRECTORY="/tmp/empty/" CREDENTIALS_DIRECTORY="/tmp/empty/" systemd-creds list
+
+# verb: cat
+for cred in secure-or-weak insecure encrypted encrypted-unnamed; do
+    ENCRYPTED_CREDENTIALS_DIRECTORY="$ENC_CRED_DIR" CREDENTIALS_DIRECTORY="$CRED_DIR" systemd-creds cat "$cred"
+done
+run_with_cred_compare "mycred:" "" cat mycred
+run_with_cred_compare "mycred:\n" "\n" cat mycred
+run_with_cred_compare "mycred:foo" "foo" cat mycred
+run_with_cred_compare "mycred:foo" "foofoofoo" cat mycred mycred mycred
+# Note: --newline= does nothing when stdout is not a tty, which is the case here
+run_with_cred_compare "mycred:foo" "foo" --newline=yes cat mycred
+run_with_cred_compare "mycred:foo" "foo" --newline=no cat mycred
+run_with_cred_compare "mycred:foo" "foo" --newline=auto cat mycred
+run_with_cred_compare "mycred:foo" "foo" --transcode=no cat mycred
+run_with_cred_compare "mycred:foo" "foo" --transcode=0 cat mycred
+run_with_cred_compare "mycred:foo" "foo" --transcode=false cat mycred
+run_with_cred_compare "mycred:foo" "Zm9v" --transcode=base64 cat mycred
+run_with_cred_compare "mycred:Zm9v" "foo" --transcode=unbase64 cat mycred
+run_with_cred_compare "mycred:Zm9v" "foofoofoo" --transcode=unbase64 cat mycred mycred mycred
+run_with_cred_compare "mycred:Zm9vCg==" "foo\n" --transcode=unbase64 cat mycred
+run_with_cred_compare "mycred:hello world" "68656c6c6f20776f726c64" --transcode=hex cat mycred
+run_with_cred_compare "mycred:68656c6c6f20776f726c64" "hello world" --transcode=unhex cat mycred
+run_with_cred_compare "mycred:68656c6c6f20776f726c64" "hello worldhello world" --transcode=unhex cat mycred mycred
+run_with_cred_compare "mycred:68656c6c6f0a776f726c64" "hello\nworld" --transcode=unhex cat mycred
+run_with_cred_compare 'mycred:{ "foo" : "bar", "baz" : [ 3, 4 ] }' '{"foo":"bar","baz":[3,4]}\n' --json=short cat mycred
+systemd-run -p SetCredential='mycred:{ "foo" : "bar", "baz" : [ 3, 4 ] }' --wait --pipe -- systemd-creds --json=pretty cat mycred | jq
+
+# verb: encrypt/decrypt
+echo "According to all known laws of aviation..." >/tmp/cred.orig
+systemd-creds --with-key=host encrypt /tmp/cred.orig /tmp/cred.enc
+systemd-creds decrypt /tmp/cred.enc /tmp/cred.dec
+diff /tmp/cred.orig /tmp/cred.dec
+rm -f /tmp/cred.{enc,dec}
+# --pretty
+cred_name="fo'''o''bar"
+cred_option="$(systemd-creds --pretty --name="$cred_name" encrypt /tmp/cred.orig -)"
+mkdir -p /run/systemd/system
+cat >/run/systemd/system/test-54-pretty-cred.service <<EOF
+[Service]
+Type=oneshot
+${cred_option:?}
+ExecStart=bash -c "diff <(systemd-creds cat \"$cred_name\") /tmp/cred.orig"
+EOF
+systemctl daemon-reload
+systemctl start test-54-pretty-cred
+rm /run/systemd/system/test-54-pretty-cred.service
+# Credential validation: name
+systemd-creds --name="foo" -H encrypt /tmp/cred.orig /tmp/cred.enc
+(! systemd-creds decrypt /tmp/cred.enc /tmp/cred.dec)
+(! systemd-creds --name="bar" decrypt /tmp/cred.enc /tmp/cred.dec)
+systemd-creds --name="" decrypt /tmp/cred.enc /tmp/cred.dec
+diff /tmp/cred.orig /tmp/cred.dec
+rm -f /tmp/cred.dec
+systemd-creds --name="foo" decrypt /tmp/cred.enc /tmp/cred.dec
+diff /tmp/cred.orig /tmp/cred.dec
+rm -f /tmp/cred.{enc,dec}
+# Credential validation: time
+systemd-creds --not-after="+1d" encrypt /tmp/cred.orig /tmp/cred.enc
+(! systemd-creds --timestamp="+2d" decrypt /tmp/cred.enc /tmp/cred.dec)
+systemd-creds decrypt /tmp/cred.enc /tmp/cred.dec
+diff /tmp/cred.orig /tmp/cred.dec
+rm -f /tmp/cred.{enc,dec}
+
+(! unshare -m bash -exc "mount -t tmpfs tmpfs /run/credentials && systemd-creds list")
+(! unshare -m bash -exc "mount -t tmpfs tmpfs /run/credentials && systemd-creds --system list")
+(! CREDENTIALS_DIRECTORY="" systemd-creds list)
+(! systemd-creds --system --foo)
+(! systemd-creds --system -@)
+(! systemd-creds --system --json=)
+(! systemd-creds --system --json="")
+(! systemd-creds --system --json=foo)
+(! systemd-creds --system cat)
+(! systemd-creds --system cat "")
+(! systemd-creds --system cat this-should-not-exist)
+(! systemd-run -p SetCredential=mycred:foo --wait --pipe -- systemd-creds --transcode= cat mycred)
+(! systemd-run -p SetCredential=mycred:foo --wait --pipe -- systemd-creds --transcode="" cat mycred)
+(! systemd-run -p SetCredential=mycred:foo --wait --pipe -- systemd-creds --transcode=foo cat mycred)
+(! systemd-run -p SetCredential=mycred:foo --wait --pipe -- systemd-creds --newline=foo cat mycred)
+(! systemd-run -p SetCredential=mycred:notbase64 --wait --pipe -- systemd-creds --transcode=unbase64 cat mycred)
+(! systemd-run -p SetCredential=mycred:nothex --wait --pipe -- systemd-creds --transcode=unhex cat mycred)
+(! systemd-run -p SetCredential=mycred:a --wait --pipe -- systemd-creds --transcode=unhex cat mycred)
+(! systemd-run -p SetCredential=mycred:notjson --wait --pipe -- systemd-creds --json=short cat mycred)
+(! systemd-run -p SetCredential=mycred:notjson --wait --pipe -- systemd-creds --json=pretty cat mycred)
+(! systemd-creds encrypt /foo/bar/baz -)
+(! systemd-creds decrypt /foo/bar/baz -)
+(! systemd-creds decrypt / -)
+(! systemd-creds encrypt / -)
+(! echo foo | systemd-creds --with-key=foo encrypt - -)
+(! echo {0..20} | systemd-creds decrypt - -)
+(! systemd-creds --not-after= encrypt /tmp/cred.orig /tmp/cred.enc)
+(! systemd-creds --not-after="" encrypt /tmp/cred.orig /tmp/cred.enc)
+(! systemd-creds --not-after="-1d" encrypt /tmp/cred.orig /tmp/cred.enc)
+(! systemd-creds --timestamp= encrypt /tmp/cred.orig /tmp/cred.enc)
+(! systemd-creds --timestamp="" encrypt /tmp/cred.orig /tmp/cred.enc)
+(! dd if=/dev/zero count=2M | systemd-creds --with-key=tpm2-absent encrypt - /dev/null)
+(! dd if=/dev/zero count=2M | systemd-creds --with-key=tpm2-absent decrypt - /dev/null)
+(! echo foo | systemd-creds encrypt - /tmp/full/foo)
+(! echo foo | systemd-creds encrypt - - | systemd-creds decrypt - /tmp/full/foo)
+
 # Verify that the creds are properly loaded and we can read them from the service's unpriv user
 systemd-run -p LoadCredential=passwd:/etc/passwd \
     -p LoadCredential=shadow:/etc/shadow \
