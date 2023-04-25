@@ -86,7 +86,7 @@
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The bus connection has been created in a different process.</para></listitem>
+          <listitem><para>The bus connection has been created in a different process, library or module instance.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
