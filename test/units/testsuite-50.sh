@@ -596,4 +596,32 @@ rm -rf /run/confexts/ testjob/
 
 systemd-run -P -p RootImage="${image}.raw" cat /run/host/os-release | cmp "${os_release}"
 
+# Test that systemd-sysext reloads the daemon.
+mkdir -p /var/lib/extensions/
+ln -s /usr/share/app-reload.raw /var/lib/extensions/app-reload.raw
+systemd-sysext merge --no-reload
+# the service should not be running
+if systemctl --quiet is-active foo.service; then
+    echo "foo.service should not be active"
+    exit 1
+fi
+systemd-sysext unmerge --no-reload
+systemd-sysext merge
+for RETRY in $(seq 60) LAST; do
+  if journalctl --boot --unit foo.service | grep -q -P 'echo\[[0-9]+\]: foo'; then
+    break
+  fi
+  if [ "${RETRY}" = LAST ]; then
+    echo "Output of foo.service not found"
+    exit 1
+  fi
+  sleep 0.5
+done
+systemd-sysext unmerge --no-reload
+# Grep on the Warning to find the warning helper mentioning the daemon reload.
+systemctl status foo.service 2>&1 | grep -q -F "Warning"
+systemd-sysext merge
+systemd-sysext unmerge
+systemctl status foo.service 2>&1 | grep -v -q -F "Warning"
+
 touch /testok
