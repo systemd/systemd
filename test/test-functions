@@ -747,7 +747,8 @@ EOF
         grep "^ID=" "$os_release" >"$initdir/usr/lib/extension-release.d/extension-release.app0"
         echo "${version_id}" >>"$initdir/usr/lib/extension-release.d/extension-release.app0"
         ( echo "${version_id}"
-          echo "SYSEXT_IMAGE_ID=app" ) >>"$initdir/usr/lib/extension-release.d/extension-release.app0"
+          echo "SYSEXT_IMAGE_ID=app"
+          echo "RELOAD_MANAGER=1" ) >>"$initdir/usr/lib/extension-release.d/extension-release.app0"
         cat >"$initdir/usr/lib/systemd/system/app0.service" <<EOF
 [Service]
 Type=oneshot

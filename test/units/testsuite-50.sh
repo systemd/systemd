@@ -540,6 +540,19 @@ systemctl stop test-root-ephemeral
 timeout 10 bash -c 'while ! test -z "$(ls -A /var/lib/systemd/ephemeral-trees)"; do sleep .5; done'
 test ! -f /tmp/img/abc
 
+# Test that systemd-sysext reloads the daemon.
+mkdir -p /var/lib/extensions/
+ln -s /usr/share/app0.raw /var/lib/extensions/app0.raw
+systemd-sysext merge
+systemctl start app0.service
+systemd-sysext --no-reload unmerge
+# Grep on the Warning to find the warning helper mentioning the daemon reload.
+systemctl status app0.service 2>&1 | grep -q -F "Warning"
+systemd-sysext merge
+systemctl start app0.service
+systemd-sysext unmerge
+systemctl status app0.service 2>&1 | grep -v -q -F "Warning"
+
 echo OK >/testok
 
 exit 0
