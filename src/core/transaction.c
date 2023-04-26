@@ -662,7 +662,7 @@ static int transaction_apply(
                         /* j has been merged into a previously installed job */
                         if (tr->anchor_job == j)
                                 tr->anchor_job = installed_job;
-                        hashmap_remove(m->jobs, UINT32_TO_PTR(j->id));
+                        hashmap_remove_value(m->jobs, UINT32_TO_PTR(j->id), j);
                         job_free(j);
                         j = installed_job;
                 }
@@ -683,7 +683,7 @@ static int transaction_apply(
 rollback:
 
         HASHMAP_FOREACH(j, tr->jobs)
-                hashmap_remove(m->jobs, UINT32_TO_PTR(j->id));
+                hashmap_remove_value(m->jobs, UINT32_TO_PTR(j->id), j);
 
         return r;
 }
