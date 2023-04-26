@@ -39,8 +39,6 @@ XdgAutostartService* xdg_autostart_service_free(XdgAutostartService *s) {
         free(s->autostart_condition);
         free(s->kde_autostart_condition);
 
-        free(s->gnome_autostart_phase);
-
         return mfree(s);
 }
 
@@ -326,7 +324,6 @@ XdgAutostartService *xdg_autostart_service_parse_desktop(const char *path) {
                 { "Desktop Entry", "Hidden",                    xdg_config_parse_bool,   0, &service->hidden                  },
                 { "Desktop Entry", "AutostartCondition",        xdg_config_parse_string, 0, &service->autostart_condition     },
                 { "Desktop Entry", "X-KDE-autostart-condition", xdg_config_parse_string, 0, &service->kde_autostart_condition },
-                { "Desktop Entry", "X-GNOME-Autostart-Phase",   xdg_config_parse_string, 0, &service->gnome_autostart_phase   },
                 { "Desktop Entry", "X-systemd-skip",            xdg_config_parse_bool,   0, &service->systemd_skip            },
 
                 /* Common entries that we do not use currently. */
@@ -342,6 +339,7 @@ XdgAutostartService *xdg_autostart_service_parse_desktop(const char *path) {
                 { "Desktop Entry", "StartupNotify",             NULL, 0, NULL},
                 { "Desktop Entry", "StartupWMClass",            NULL, 0, NULL},
                 { "Desktop Entry", "Terminal",                  NULL, 0, NULL},
+                { "Desktop Entry", "X-GNOME-Autostart-Phase",   NULL, 0, NULL},
                 { "Desktop Entry", "URL",                       NULL, 0, NULL},
                 { "Desktop Entry", "Version",                   NULL, 0, NULL},
                 {}
@@ -559,12 +557,6 @@ int xdg_autostart_service_generate_unit(
         r = xdg_autostart_format_exec_start(service->exec_string, &exec_start);
         if (r < 0) {
                 log_warning_errno(r, "%s: not generating unit, error parsing Exec= line: %m", service->path);
-                return 0;
-        }
-
-        if (service->gnome_autostart_phase) {
-                /* There is no explicit value for the "Application" phase. */
-                log_debug("%s: not generating unit, startup phases are not supported.", service->path);
                 return 0;
         }
 
