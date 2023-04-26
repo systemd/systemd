@@ -4168,7 +4168,7 @@ int journal_file_copy_entry(
 
         _cleanup_free_ EntryItem *items_alloc = NULL;
         EntryItem *items;
-        uint64_t q, n, xor_hash = 0;
+        uint64_t m, n, xor_hash = 0;
         sd_id128_t boot_id;
         dual_timestamp ts;
         int r;
@@ -4199,8 +4199,9 @@ int journal_file_copy_entry(
                 items = items_alloc;
         }
 
+        m = 0;
         for (uint64_t i = 0; i < n; i++) {
-                uint64_t h;
+                uint64_t h, q;
                 void *data;
                 size_t l;
                 Object *u;
@@ -4227,7 +4228,7 @@ int journal_file_copy_entry(
                 else
                         xor_hash ^= le64toh(u->data.hash);
 
-                items[i] = (EntryItem) {
+                items[m++] = (EntryItem) {
                         .object_offset = h,
                         .hash = le64toh(u->data.hash),
                 };
@@ -4247,7 +4248,7 @@ int journal_file_copy_entry(
                         &from->header->machine_id,
                         xor_hash,
                         items,
-                        n,
+                        m,
                         seqnum,
                         seqnum_id,
                         /* ret_object= */ NULL,
