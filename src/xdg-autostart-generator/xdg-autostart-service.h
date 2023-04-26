@@ -19,8 +19,6 @@ typedef struct XdgAutostartService {
         char *autostart_condition; /* This is mostly GNOME specific */
         char *kde_autostart_condition;
 
-        char *gnome_autostart_phase;
-
         bool hidden;
         bool systemd_skip;
 
