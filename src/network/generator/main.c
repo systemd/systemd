@@ -4,6 +4,7 @@
 
 #include "build.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "generator.h"
 #include "macro.h"
 #include "main-func.h"
@@ -17,11 +18,18 @@
 static const char *arg_root = NULL;
 
 static int network_save(Network *network, const char *dest_dir) {
-        _cleanup_free_ char *filename = NULL;
+        _cleanup_free_ char *filename = NULL, *p = NULL;
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(network);
+
+        r = generator_open_unit_file_full(dest_dir, NULL, NULL, &f, &temp_path);
+        if (r < 0)
+                return r;
+
+        network_dump(network, f);
 
         r = asprintf(&filename, "%s-%s.network",
                      isempty(network->ifname) ? "91" : "90",
@@ -29,42 +37,62 @@ static int network_save(Network *network, const char *dest_dir) {
         if (r < 0)
                 return log_oom();
 
-        r = generator_open_unit_file(dest_dir, "kernel command line", filename, &f);
+        p = path_join(dest_dir, filename);
+        if (!p)
+                return log_oom();
+
+        r = conservative_rename(temp_path, p);
         if (r < 0)
                 return r;
 
-        network_dump(network, f);
-
+        temp_path = mfree(temp_path);
         return 0;
 }
 
 static int netdev_save(NetDev *netdev, const char *dest_dir) {
-        _cleanup_free_ char *filename = NULL;
+        _cleanup_free_ char *filename = NULL, *p = NULL;
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(netdev);
+
+        r = generator_open_unit_file_full(dest_dir, NULL, NULL, &f, &temp_path);
+        if (r < 0)
+                return r;
+
+        netdev_dump(netdev, f);
 
         r = asprintf(&filename, "90-%s.netdev",
                      netdev->ifname);
         if (r < 0)
                 return log_oom();
 
-        r = generator_open_unit_file(dest_dir, "kernel command line", filename, &f);
+        p = path_join(dest_dir, filename);
+        if (!p)
+                return log_oom();
+
+        r = conservative_rename(temp_path, p);
         if (r < 0)
                 return r;
 
-        netdev_dump(netdev, f);
-
+        temp_path = mfree(temp_path);
         return 0;
 }
 
 static int link_save(Link *link, const char *dest_dir) {
-        _cleanup_free_ char *filename = NULL;
+        _cleanup_free_ char *filename = NULL, *p = NULL;
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(link);
+
+        r = generator_open_unit_file_full(dest_dir, NULL, NULL, &f, &temp_path);
+        if (r < 0)
+                return r;
+
+        link_dump(link, f);
 
         filename = strjoin(!isempty(link->ifname) ? "90" :
                            !hw_addr_is_null(&link->mac) ? "91" : "92",
@@ -72,12 +100,15 @@ static int link_save(Link *link, const char *dest_dir) {
         if (!filename)
                 return log_oom();
 
-        r = generator_open_unit_file(dest_dir, "kernel command line", filename, &f);
+        p = path_join(dest_dir, filename);
+        if (!p)
+                return log_oom();
+
+        r = conservative_rename(temp_path, p);
         if (r < 0)
                 return r;
 
-        link_dump(link, f);
-
+        temp_path = mfree(temp_path);
         return 0;
 }
 
