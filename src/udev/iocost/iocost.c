@@ -128,7 +128,7 @@ static int choose_solution(char **solutions, const char **ret_name) {
                 return log_error_errno(
                                 SYNTHETIC_ERRNO(EINVAL), "IOCOST_SOLUTIONS exists in hwdb but is empty.");
 
-        if (arg_target_solution && strv_find(solutions, arg_target_solution)) {
+        if (strv_contains(solutions, arg_target_solution)) {
                 *ret_name = arg_target_solution;
                 log_debug("Selected solution based on target solution: %s", *ret_name);
         } else {
