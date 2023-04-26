@@ -186,10 +186,10 @@
           <varlistentry>
             <term><varname>SYMLINK</varname></term>
             <listitem>
-              <para>Match the name of a symlink targeting the node. It can
-              be used once a SYMLINK key has been set in one of the preceding
-              rules. There may be multiple symlinks; only one needs to match.
-              </para>
+              <para>Match the name of a symlink targeting the node. It can be used once a SYMLINK key has
+              been set in one of the preceding rules. There may be multiple symlinks; only one needs to
+              match. If the operator is <literal>!=</literal>, the token returns true only if there is no
+              symlink matched.</para>
             </listitem>
           </varlistentry>
 
@@ -287,14 +287,17 @@
           <varlistentry>
             <term><varname>TAG</varname></term>
             <listitem>
-              <para>Match against a device tag.</para>
+              <para>Match against one of device tags. It can be used once a TAG key has been set in one of
+              the preceding rules. There may be multiple tags; only one needs to match. If the operator is
+              <literal>!=</literal>, the token returns true only if there is no tag matched.</para>
             </listitem>
           </varlistentry>
 
           <varlistentry>
             <term><varname>TAGS</varname></term>
             <listitem>
-              <para>Search the devpath upwards for a device with matching tag.</para>
+              <para>Search the devpath upwards for a device with matching tag. If the operator is
+              <literal>!=</literal>, the token returns true only if there is no tag matched.</para>
             </listitem>
           </varlistentry>
 
