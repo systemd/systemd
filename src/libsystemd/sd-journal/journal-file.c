@@ -4169,7 +4169,7 @@ int journal_file_copy_entry(
         _cleanup_free_ EntryItem *items_alloc = NULL;
         EntryItem *items;
         uint64_t n, m = 0, xor_hash = 0;
-        const sd_id128_t *boot_id;
+        sd_id128_t boot_id;
         dual_timestamp ts;
         int r;
 
@@ -4185,7 +4185,7 @@ int journal_file_copy_entry(
                 .monotonic = le64toh(o->entry.monotonic),
                 .realtime = le64toh(o->entry.realtime),
         };
-        boot_id = &o->entry.boot_id;
+        boot_id = o->entry.boot_id;
 
         n = journal_file_entry_n_items(from, o);
 
@@ -4246,7 +4246,7 @@ int journal_file_copy_entry(
         r = journal_file_append_entry_internal(
                         to,
                         &ts,
-                        boot_id,
+                        &boot_id,
                         &from->header->machine_id,
                         xor_hash,
                         items,
