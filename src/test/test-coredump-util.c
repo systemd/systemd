@@ -28,6 +28,8 @@ TEST(coredump_filter_mask_from_string) {
         uint64_t f;
         assert_se(coredump_filter_mask_from_string("default", &f) == 0);
         assert_se(f == COREDUMP_FILTER_MASK_DEFAULT);
+        assert_se(coredump_filter_mask_from_string("all", &f) == 0);
+        assert_se(f == COREDUMP_FILTER_MASK_ALL);
 
         assert_se(coredump_filter_mask_from_string("  default\tdefault\tdefault  ", &f) == 0);
         assert_se(f == COREDUMP_FILTER_MASK_DEFAULT);
