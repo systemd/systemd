@@ -160,7 +160,7 @@ int parse_auxv(int log_level,
 int set_coredump_filter(uint64_t value) {
         char t[STRLEN("0xFFFFFFFF")];
 
-        sprintf(t, "0x%"PRIx64, value);
+        sprintf(t, "0x%"PRIu64, value);
 
         return write_string_file("/proc/self/coredump_filter", t,
                                  WRITE_STRING_FILE_VERIFY_ON_FAILURE|WRITE_STRING_FILE_DISABLE_BUFFER);
