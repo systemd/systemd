@@ -47,7 +47,7 @@
 #include "utf8.h"
 #include "xattr-util.h"
 
-static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
+const char* const image_search_path[_IMAGE_CLASS_MAX] = {
         [IMAGE_MACHINE] =   "/etc/machines\0"              /* only place symlinks here */
                             "/run/machines\0"              /* and here too */
                             "/var/lib/machines\0"          /* the main place for images */
