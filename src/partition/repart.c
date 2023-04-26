@@ -1676,13 +1676,13 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                         return log_oom();
         }
 
-        if (p->minimize != MINIMIZE_OFF && !p->format)
+        if (p->minimize != MINIMIZE_OFF && !p->format && p->verity != VERITY_HASH)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Minimize= can only be enabled if Format= is set");
+                                  "Minimize= can only be enabled if Format= or Verity=hash are set");
 
-        if (p->minimize == MINIMIZE_BEST && !fstype_is_ro(p->format))
+        if (p->minimize == MINIMIZE_BEST && (p->format && !fstype_is_ro(p->format)) && p->verity != VERITY_HASH)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Minimize=best can only be used with read-only filesystems");
+                                  "Minimize=best can only be used with read-only filesystems or Verity=hash");
 
         if ((!strv_isempty(p->copy_files) || !strv_isempty(p->make_directories)) && !mkfs_supports_root_option(p->format) && geteuid() != 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EPERM),
@@ -1872,6 +1872,24 @@ static int context_read_definitions(
                                 p->siblings[mode] = q;
                         }
                 }
+        }
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                Partition *dp;
+
+                if (p->verity != VERITY_HASH)
+                        continue;
+
+                if (p->minimize == MINIMIZE_OFF)
+                        continue;
+
+                assert_se(dp = p->siblings[VERITY_DATA]);
+
+                if (dp->minimize == MINIMIZE_OFF && !(p->copy_blocks_path || p->copy_blocks_auto))
+                        return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                          "Minimize= set for verity hash partition but data partition does "
+                                          "not set CopyBlocks= or Minimize=");
+
         }
 
         return 0;
@@ -3568,6 +3586,10 @@ static int partition_format_verity_hash(
                 return 0;
 
         if (PARTITION_EXISTS(p)) /* Never format existing partitions */
+                return 0;
+
+        /* Minimized partitions will use the copy blocks logic so let's make sure to skip those here. */
+        if (p->copy_blocks_fd >= 0)
                 return 0;
 
         assert_se(dp = p->siblings[VERITY_DATA]);
@@ -5312,7 +5334,9 @@ static int context_open_copy_block_paths(
                 uint64_t size;
                 struct stat st;
 
-                assert(p->copy_blocks_fd < 0);
+                if (p->copy_blocks_fd >= 0)
+                        continue;
+
                 assert(p->copy_blocks_size == UINT64_MAX);
 
                 if (PARTITION_EXISTS(p)) /* Never copy over partitions that already exist! */
@@ -5618,6 +5642,68 @@ static int context_minimize(Context *context) {
                         if (r < 0)
                                 return r;
                 }
+
+                p->copy_blocks_path = TAKE_PTR(temp);
+                p->copy_blocks_path_is_our_file = true;
+        }
+
+        return 0;
+}
+
+static int context_minimize_verity(Context *context) {
+        const char *vt;
+        int r;
+
+        assert(context);
+
+        r = var_tmp_dir(&vt);
+        if (r < 0)
+                return log_error_errno(r, "Could not determine temporary directory: %m");
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_(unlink_and_freep) char *temp = NULL;
+                _cleanup_free_ char *hint = NULL;
+                struct stat st;
+                Partition *dp;
+
+                if (p->dropped)
+                        continue;
+
+                if (PARTITION_EXISTS(p)) /* Never format existing partitions */
+                        continue;
+
+                if (p->minimize == MINIMIZE_OFF)
+                        continue;
+
+                if (p->verity != VERITY_HASH)
+                        continue;
+
+                assert_se(dp = p->siblings[VERITY_DATA]);
+                assert(!dp->dropped);
+                assert(dp->copy_blocks_path);
+
+                (void) partition_hint(p, context->node, &hint);
+
+                log_info("Pre-populating verity hash data of partition %s to calculate minimal partition size",
+                         strna(hint));
+
+                r = tempfn_random_child(vt, "repart", &temp);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate temporary file path: %m");
+
+                r = touch(temp);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create temporary file: %m");
+
+                r = partition_format_verity_hash(context, p, temp, dp->copy_blocks_path);
+                if (r < 0)
+                        return r;
+
+                if (stat(temp, &st) < 0)
+                        return log_error_errno(r, "Failed to stat temporary file: %m");
+
+                log_info("Minimal partition size of verity hash partition %s is %s",
+                         strna(hint), FORMAT_BYTES(st.st_size));
 
                 p->copy_blocks_path = TAKE_PTR(temp);
                 p->copy_blocks_path_is_our_file = true;
@@ -6685,16 +6771,26 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = context_minimize(context);
-        if (r < 0)
-                return r;
-
         /* Open all files to copy blocks from now, since we want to take their size into consideration */
         r = context_open_copy_block_paths(
                         context,
                         loop_device ? loop_device->devno :         /* if --image= is specified, only allow partitions on the loopback device */
                                       arg_root && !arg_image ? 0 : /* if --root= is specified, don't accept any block device */
                                       (dev_t) -1);                 /* if neither is specified, make no restrictions */
+        if (r < 0)
+                return r;
+
+        r = context_minimize(context);
+        if (r < 0)
+                return r;
+
+        r = context_minimize_verity(context);
+        if (r < 0)
+                return r;
+
+        /* We might have gotten more copy blocks paths to open during the minimize process, so let's make
+         * sure we open those as well. These should all be regular files, so don't allow any block devices. */
+        r = context_open_copy_block_paths(context, 0);
         if (r < 0)
                 return r;
 
