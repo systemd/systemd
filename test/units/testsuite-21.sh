@@ -24,6 +24,10 @@ trap at_exit EXIT
 
 systemctl log-level info
 
+# FIXME: systemd-run doesn't play well with daemon-reexec
+# See: https://github.com/systemd/systemd/issues/27204
+sed -i '/\[org.freedesktop.systemd1\]/aorg.freedesktop.systemd1.Manager:Reexecute FIXME' /etc/dfuzzer.conf
+
 # TODO
 #   * check for possibly newly introduced buses?
 BUS_LIST=(
@@ -84,6 +88,8 @@ for bus in "${BUS_LIST[@]}"; do
 
     # Let's reload the systemd daemon to test (de)serialization as well
     systemctl daemon-reload
+    # FIXME: explicitly trigger reexecute until systemd/systemd#27204 is resolved
+    systemctl daemon-reexec
 done
 
 umount /var/lib/machines
@@ -95,6 +101,8 @@ for bus in "${SESSION_BUS_LIST[@]}"; do
 
     # Let's reload the systemd user daemon to test (de)serialization as well
     systemctl --machine 'testuser@.host' --user daemon-reload
+    # FIXME: explicitly trigger reexecute until systemd/systemd#27204 is resolved
+    systemctl --machine 'testuser@.host' --user daemon-reexec
 done
 
 echo OK >/testok
