@@ -52,6 +52,7 @@ TSS2_RC (*sym_Esys_PolicyPCR)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, 
 TSS2_RC (*sym_Esys_ReadPublic)(ESYS_CONTEXT *esysContext, ESYS_TR objectHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2B_PUBLIC **outPublic, TPM2B_NAME **name, TPM2B_NAME **qualifiedName);
 TSS2_RC (*sym_Esys_StartAuthSession)(ESYS_CONTEXT *esysContext, ESYS_TR tpmKey, ESYS_TR bind, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_NONCE *nonceCaller, TPM2_SE sessionType, const TPMT_SYM_DEF *symmetric, TPMI_ALG_HASH authHash, ESYS_TR *sessionHandle) = NULL;
 TSS2_RC (*sym_Esys_Startup)(ESYS_CONTEXT *esysContext, TPM2_SU startupType) = NULL;
+TSS2_RC (*sym_Esys_TRSess_GetAttributes)(ESYS_CONTEXT *esysContext, ESYS_TR session, TPMA_SESSION *flags);
 TSS2_RC (*sym_Esys_TRSess_SetAttributes)(ESYS_CONTEXT *esysContext, ESYS_TR session, TPMA_SESSION flags, TPMA_SESSION mask);
 TSS2_RC (*sym_Esys_TR_GetName)(ESYS_CONTEXT *esysContext, ESYS_TR handle, TPM2B_NAME **name);
 TSS2_RC (*sym_Esys_TR_Deserialize)(ESYS_CONTEXT *esys_context, uint8_t const *buffer, size_t buffer_size, ESYS_TR *esys_handle);
@@ -93,6 +94,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_ReadPublic),
                         DLSYM_ARG(Esys_StartAuthSession),
                         DLSYM_ARG(Esys_Startup),
+                        DLSYM_ARG(Esys_TRSess_GetAttributes),
                         DLSYM_ARG(Esys_TRSess_SetAttributes),
                         DLSYM_ARG(Esys_TR_FromTPMPublic),
                         DLSYM_ARG(Esys_TR_GetName),
@@ -1393,6 +1395,20 @@ static void hash_pin(const char *pin, size_t len, TPM2B_AUTH *auth) {
         sha256_finish_ctx(&hash, auth->buffer);
 }
 
+static bool tpm2_is_encryption_session(Tpm2Context *c, const Tpm2Handle *session) {
+        TPMA_SESSION flags = 0;
+        TSS2_RC rc;
+
+        assert(c);
+        assert(session);
+
+        rc = sym_Esys_TRSess_GetAttributes(c->esys_context, session->esys_handle, &flags);
+        if (rc != TSS2_RC_SUCCESS)
+                return false;
+
+        return flags & TPMA_SESSION_DECRYPT && flags & TPMA_SESSION_ENCRYPT;
+}
+
 static int tpm2_make_encryption_session(
                 Tpm2Context *c,
                 const Tpm2Handle *primary,
@@ -1476,8 +1492,67 @@ static int tpm2_make_encryption_session(
         return 0;
 }
 
+static int tpm2_make_policy_session(
+                Tpm2Context *c,
+                const Tpm2Handle *primary,
+                const Tpm2Handle *encryption_session,
+                bool trial,
+                Tpm2Handle **ret_session) {
+
+        static const TPMT_SYM_DEF symmetric = {
+                .algorithm = TPM2_ALG_AES,
+                .keyBits.aes = 128,
+                .mode.aes = TPM2_ALG_CFB,
+        };
+        TPM2_SE session_type = trial ? TPM2_SE_TRIAL : TPM2_SE_POLICY;
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(primary);
+        assert(encryption_session);
+        assert(ret_session);
+
+        if (!tpm2_is_encryption_session(c, encryption_session))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Missing encryption session");
+
+        log_debug("Starting policy session.");
+
+        _cleanup_tpm2_handle_ Tpm2Handle *session = NULL;
+        r = tpm2_handle_new(c, &session);
+        if (r < 0)
+                return r;
+
+        rc = sym_Esys_StartAuthSession(
+                        c->esys_context,
+                        primary->esys_handle,
+                        ESYS_TR_NONE,
+                        encryption_session->esys_handle,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        NULL,
+                        session_type,
+                        &symmetric,
+                        TPM2_ALG_SHA256,
+                        &session->esys_handle);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to open session in TPM: %s", sym_Tss2_RC_Decode(rc));
+
+        *ret_session = TAKE_PTR(session);
+
+        return 0;
+}
+
+static int openssl_pubkey_to_tpm2_pubkey(
+                const void *pubkey,
+                size_t pubkey_size,
+                TPM2B_PUBLIC *output,
+                void **ret_fp,
+                size_t *ret_fp_size) {
+
 #if HAVE_OPENSSL
-static int openssl_pubkey_to_tpm2_pubkey(EVP_PKEY *input, TPM2B_PUBLIC *output) {
 #if OPENSSL_VERSION_MAJOR >= 3
         _cleanup_(BN_freep) BIGNUM *n = NULL, *e = NULL;
 #else
@@ -1486,10 +1561,21 @@ static int openssl_pubkey_to_tpm2_pubkey(EVP_PKEY *input, TPM2B_PUBLIC *output) 
 #endif
         int n_bytes, e_bytes;
 
-        assert(input);
+        assert(pubkey);
+        assert(pubkey_size > 0);
         assert(output);
 
         /* Converts an OpenSSL public key to a structure that the TPM chip can process. */
+
+        _cleanup_fclose_ FILE *f = NULL;
+        f = fmemopen((void*) pubkey, pubkey_size, "r");
+        if (!f)
+                return log_oom();
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *input = NULL;
+        input = PEM_read_PUBKEY(f, NULL, NULL, NULL);
+        if (!input)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse PEM public key.");
 
         if (EVP_PKEY_base_id(input) != EVP_PKEY_RSA)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Provided public key is not an RSA key.");
@@ -1557,22 +1643,39 @@ static int openssl_pubkey_to_tpm2_pubkey(EVP_PKEY *input, TPM2B_PUBLIC *output) 
         if (BN_bn2bin(e, (unsigned char*) &output->publicArea.parameters.rsaDetail.exponent) <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to convert RSA exponent.");
 
+        if (ret_fp) {
+                _cleanup_free_ void *fp = NULL;
+                size_t fp_size;
+                int r;
+
+                assert(ret_fp_size);
+
+                r = pubkey_fingerprint(input, EVP_sha256(), &fp, &fp_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to calculate public key fingerprint: %m");
+
+                *ret_fp = TAKE_PTR(fp);
+                *ret_fp_size = fp_size;
+        }
+
         return 0;
+#else /* HAVE_OPENSSL */
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
 }
 
 static int find_signature(
                 JsonVariant *v,
-                uint16_t pcr_bank,
-                uint32_t pcr_mask,
-                EVP_PKEY *pk,
+                const TPML_PCR_SELECTION *pcr_selection,
+                const void *fp,
+                size_t fp_size,
                 const void *policy,
                 size_t policy_size,
                 void *ret_signature,
                 size_t *ret_signature_size) {
 
-        _cleanup_free_ void *fp = NULL;
+#if HAVE_OPENSSL
         JsonVariant *b, *i;
-        size_t fp_size;
         const char *k;
         int r;
 
@@ -1581,6 +1684,12 @@ static int find_signature(
 
         if (!json_variant_is_object(v))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Signature is not a JSON object.");
+
+        uint16_t pcr_bank = pcr_selection->pcrSelections[0].hash;
+        uint32_t pcr_mask;
+        r = tpm2_tpml_pcr_selection_to_mask(pcr_selection, pcr_bank, &pcr_mask);
+        if (r < 0)
+                return r;
 
         k = tpm2_hash_alg_to_string(pcr_bank);
         if (!k)
@@ -1625,12 +1734,6 @@ static int find_signature(
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode fingerprint in JSON data: %m");
 
-                if (!fp) {
-                        r = pubkey_fingerprint(pk, EVP_sha256(), &fp, &fp_size);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to calculate public key fingerprint: %m");
-                }
-
                 if (memcmp_nn(fp, fp_size, fpj_data, fpj_size) != 0)
                         continue; /* Not for this public key */
 
@@ -1655,112 +1758,49 @@ static int find_signature(
         }
 
         return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Couldn't find signature for this PCR bank, PCR index and public key.");
-}
+#else /* HAVE_OPENSSL */
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
 #endif
+}
 
-static int tpm2_make_policy_session(
+static int tpm2_build_sealing_policy(
                 Tpm2Context *c,
-                const Tpm2Handle *primary,
-                const Tpm2Handle *parent_session,
-                TPM2_SE session_type,
+                const Tpm2Handle *session,
                 uint32_t hash_pcr_mask,
-                uint16_t pcr_bank, /* If UINT16_MAX, pick best bank automatically, otherwise specify bank explicitly. */
+                uint16_t pcr_bank,
                 const void *pubkey,
                 size_t pubkey_size,
                 uint32_t pubkey_pcr_mask,
                 JsonVariant *signature_json,
                 bool use_pin,
-                Tpm2Handle **ret_session,
-                TPM2B_DIGEST **ret_policy_digest,
-                TPMI_ALG_HASH *ret_pcr_bank) {
+                TPM2B_DIGEST **ret_policy_digest) {
 
-        static const TPMT_SYM_DEF symmetric = {
-                .algorithm = TPM2_ALG_AES,
-                .keyBits.aes = 128,
-                .mode.aes = TPM2_ALG_CFB,
-        };
         TSS2_RC rc;
         int r;
 
         assert(c);
+        assert(session);
         assert(pubkey || pubkey_size == 0);
         assert(pubkey_pcr_mask == 0 || pubkey_size > 0);
 
-        log_debug("Starting authentication session.");
+        log_debug("Building sealing policy.");
 
-        /* So apparently some TPM implementations don't implement trial mode correctly. To avoid issues let's
-         * avoid it when it is easy to. At the moment we only really need trial mode for the signed PCR
-         * policies (since only then we need to shove PCR values into the policy that don't match current
-         * state anyway), hence if we have none of those we don't need to bother. Hence, let's patch in
-         * TPM2_SE_POLICY even if trial mode is requested unless a pubkey PCR mask is specified that is
-         * non-zero, i.e. signed PCR policy is requested.
-         *
-         * One day we should switch to calculating policy hashes client side when trial mode is requested, to
-         * avoid this mess. */
-        if (session_type == TPM2_SE_TRIAL && pubkey_pcr_mask == 0)
-                session_type = TPM2_SE_POLICY;
-
-        if ((hash_pcr_mask | pubkey_pcr_mask) != 0) {
-                /* We are told to configure a PCR policy of some form, let's determine/validate the PCR bank to use. */
-
-                if (pcr_bank != UINT16_MAX) {
-                        r = tpm2_pcr_mask_good(c, pcr_bank, hash_pcr_mask|pubkey_pcr_mask);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                log_warning("Selected TPM2 PCRs are not initialized on this system, most likely due to a firmware issue. PCR policy is effectively not enforced. Proceeding anyway.");
-                } else {
-                        /* No bank configured, pick automatically. Some TPM2 devices only can do SHA1. If we
-                         * detect that use that, but preferably use SHA256 */
-                        r = tpm2_get_best_pcr_bank(c, hash_pcr_mask|pubkey_pcr_mask, &pcr_bank);
-                        if (r < 0)
-                                return r;
-                }
+        if (hash_pcr_mask | pubkey_pcr_mask) {
+                r = tpm2_pcr_mask_good(c, pcr_bank, hash_pcr_mask|pubkey_pcr_mask);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        log_warning("Selected TPM2 PCRs are not initialized on this system.");
         }
-
-#if HAVE_OPENSSL
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pk = NULL;
-        if (pubkey_size > 0) {
-                /* If a pubkey is specified, load it to validate it, even if the PCR mask for this is
-                 * actually zero, and we are thus not going to use it. */
-                _cleanup_fclose_ FILE *f = fmemopen((void*) pubkey, pubkey_size, "r");
-                if (!f)
-                        return log_oom();
-
-                pk = PEM_read_PUBKEY(f, NULL, NULL, NULL);
-                if (!pk)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse PEM public key.");
-        }
-#endif
-
-        _cleanup_tpm2_handle_ Tpm2Handle *session = NULL;
-        r = tpm2_handle_new(c, &session);
-        if (r < 0)
-                return r;
-
-        rc = sym_Esys_StartAuthSession(
-                        c->esys_context,
-                        primary->esys_handle,
-                        ESYS_TR_NONE,
-                        parent_session->esys_handle,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        NULL,
-                        session_type,
-                        &symmetric,
-                        TPM2_ALG_SHA256,
-                        &session->esys_handle);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to open session in TPM: %s", sym_Tss2_RC_Decode(rc));
 
         if (pubkey_pcr_mask != 0) {
-#if HAVE_OPENSSL
                 log_debug("Configuring public key based PCR policy.");
 
-                /* First: load public key into the TPM */
+                /* Convert the PEM key to TPM2 format */
+                _cleanup_free_ void *fp = NULL;
+                size_t fp_size = 0;
                 TPM2B_PUBLIC pubkey_tpm2;
-                r = openssl_pubkey_to_tpm2_pubkey(pk, &pubkey_tpm2);
+                r = openssl_pubkey_to_tpm2_pubkey(pubkey, pubkey_size, &pubkey_tpm2, &fp, &fp_size);
                 if (r < 0)
                         return r;
 
@@ -1828,9 +1868,8 @@ static int tpm2_make_policy_session(
 
                         r = find_signature(
                                         signature_json,
-                                        pcr_bank,
-                                        pubkey_pcr_mask,
-                                        pk,
+                                        &pcr_selection,
+                                        fp, fp_size,
                                         approved_policy->buffer,
                                         approved_policy->size,
                                         &signature_raw,
@@ -1894,9 +1933,6 @@ static int tpm2_make_policy_session(
                 if (rc != TSS2_RC_SUCCESS)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to push Authorize policy into TPM: %s", sym_Tss2_RC_Decode(rc));
-#else
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
-#endif
         }
 
         if (hash_pcr_mask != 0) {
@@ -1935,12 +1971,6 @@ static int tpm2_make_policy_session(
         r = tpm2_get_policy_digest(c, session, ret_policy_digest);
         if (r < 0)
                 return r;
-
-        if (ret_session)
-                *ret_session = TAKE_PTR(session);
-
-        if (ret_pcr_bank)
-                *ret_pcr_bank = pcr_bank;
 
         return 0;
 }
@@ -2014,33 +2044,45 @@ int tpm2_seal(const char *device,
         if (r < 0)
                 return r;
 
+        TPMI_ALG_HASH pcr_bank = 0;
+        if (hash_pcr_mask | pubkey_pcr_mask) {
+                r = tpm2_get_best_pcr_bank(c, hash_pcr_mask|pubkey_pcr_mask, &pcr_bank);
+                if (r < 0)
+                        return r;
+        }
+
         _cleanup_tpm2_handle_ Tpm2Handle *primary = NULL;
         r = tpm2_make_primary(c, /* alg = */0, !!ret_srk_buf, &primary_alg, &primary);
         if (r < 0)
                 return r;
 
         /* we cannot use the bind key before its created */
-        _cleanup_tpm2_handle_ Tpm2Handle *session = NULL;
-        r = tpm2_make_encryption_session(c, primary, &TPM2_HANDLE_NONE, NULL, &session);
+        _cleanup_tpm2_handle_ Tpm2Handle *encryption_session = NULL;
+        r = tpm2_make_encryption_session(c, primary, &TPM2_HANDLE_NONE, NULL, &encryption_session);
+        if (r < 0)
+                return r;
+
+        _cleanup_tpm2_handle_ Tpm2Handle *policy_session = NULL;
+        r = tpm2_make_policy_session(
+                        c,
+                        primary,
+                        encryption_session,
+                        /* trial= */ true,
+                        &policy_session);
         if (r < 0)
                 return r;
 
         _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
-        TPMI_ALG_HASH pcr_bank;
-        r = tpm2_make_policy_session(
+        r = tpm2_build_sealing_policy(
                         c,
-                        primary,
-                        session,
-                        TPM2_SE_TRIAL,
+                        policy_session,
                         hash_pcr_mask,
-                        /* pcr_bank= */ UINT16_MAX,
+                        pcr_bank,
                         pubkey, pubkey_size,
                         pubkey_pcr_mask,
                         /* signature_json= */ NULL,
                         !!pin,
-                        /* ret_session= */ NULL,
-                        &policy_digest,
-                        &pcr_bank);
+                        &policy_digest);
         if (r < 0)
                 return r;
 
@@ -2081,7 +2123,7 @@ int tpm2_seal(const char *device,
         rc = sym_Esys_Create(
                         c->esys_context,
                         primary->esys_handle,
-                        session->esys_handle, /* use HMAC session to enable parameter encryption */
+                        encryption_session->esys_handle, /* use HMAC session to enable parameter encryption */
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         &hmac_sensitive,
@@ -2101,24 +2143,16 @@ int tpm2_seal(const char *device,
         if (!secret)
                 return log_oom();
 
-        log_debug("Marshalling private and public part of HMAC key.");
-
         _cleanup_free_ void *blob = NULL;
-        size_t max_size = sizeof(*private) + sizeof(*public), blob_size = 0;
+        size_t blob_size = 0;
 
-        blob = malloc0(max_size);
-        if (!blob)
-                return log_oom();
+        r = tpm2_marshal_realloc("HMAC private key", private, &blob, &blob_size);
+        if (r < 0)
+                return r;
 
-        rc = sym_Tss2_MU_TPM2B_PRIVATE_Marshal(private, blob, max_size, &blob_size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal private key: %s", sym_Tss2_RC_Decode(rc));
-
-        rc = sym_Tss2_MU_TPM2B_PUBLIC_Marshal(public, blob, max_size, &blob_size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal public key: %s", sym_Tss2_RC_Decode(rc));
+        r = tpm2_marshal_realloc("HMAC public key", public, &blob, &blob_size);
+        if (r < 0)
+                return r;
 
         hash = memdup(policy_digest->buffer, policy_digest->size);
         if (!hash)
@@ -2218,19 +2252,13 @@ int tpm2_unseal(const char *device,
 
         start = now(CLOCK_MONOTONIC);
 
-        log_debug("Unmarshalling private part of HMAC key.");
+        r = tpm2_unmarshal("HMAC private key", blob, blob_size, &offset, &private);
+        if (r < 0)
+                return r;
 
-        rc = sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal(blob, blob_size, &offset, &private);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to unmarshal private key: %s", sym_Tss2_RC_Decode(rc));
-
-        log_debug("Unmarshalling public part of HMAC key.");
-
-        rc = sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal(blob, blob_size, &offset, &public);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to unmarshal public key: %s", sym_Tss2_RC_Decode(rc));
+        r = tpm2_unmarshal("HMAC public key", blob, blob_size, &offset, &public);
+        if (r < 0)
+                return r;
 
         _cleanup_tpm2_context_ Tpm2Context *c = NULL;
         r = tpm2_context_new(device, &c);
@@ -2299,8 +2327,8 @@ int tpm2_unseal(const char *device,
                                         sym_Tss2_RC_Decode(rc));
         }
 
-        _cleanup_tpm2_handle_ Tpm2Handle *hmac_session = NULL;
-        r = tpm2_make_encryption_session(c, primary, hmac_key, pin, &hmac_session);
+        _cleanup_tpm2_handle_ Tpm2Handle *encryption_session = NULL;
+        r = tpm2_make_encryption_session(c, primary, hmac_key, pin, &encryption_session);
         if (r < 0)
                 return r;
 
@@ -2310,17 +2338,22 @@ int tpm2_unseal(const char *device,
                 r = tpm2_make_policy_session(
                                 c,
                                 primary,
-                                hmac_session,
-                                TPM2_SE_POLICY,
+                                encryption_session,
+                                /* trial= */ false,
+                                &policy_session);
+                if (r < 0)
+                        return r;
+
+                r = tpm2_build_sealing_policy(
+                                c,
+                                policy_session,
                                 hash_pcr_mask,
                                 pcr_bank,
                                 pubkey, pubkey_size,
                                 pubkey_pcr_mask,
                                 signature,
                                 !!pin,
-                                &policy_session,
-                                &policy_digest,
-                                /* ret_pcr_bank= */ NULL);
+                                &policy_digest);
                 if (r < 0)
                         return r;
 
@@ -2338,7 +2371,7 @@ int tpm2_unseal(const char *device,
                                 c->esys_context,
                                 hmac_key->esys_handle,
                                 policy_session->esys_handle,
-                                hmac_session->esys_handle, /* use HMAC session to enable parameter encryption */
+                                encryption_session->esys_handle, /* use HMAC session to enable parameter encryption */
                                 ESYS_TR_NONE,
                                 &unsealed);
                 if (rc == TSS2_RC_SUCCESS)
