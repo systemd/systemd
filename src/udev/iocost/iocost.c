@@ -169,7 +169,7 @@ static int query_named_solution(
         if (r == -ENOENT)
                 return log_device_debug_errno(device, r, "No value found for key %s, skipping iocost logic.", qos_key);
         if (r < 0)
-                return log_device_error_errno(device, r, "Failed to obtain model for iocost solution from device: %m");
+                return log_device_error_errno(device, r, "Failed to obtain QoS for iocost solution from device: %m");
 
         r = sd_device_get_property_value(device, model_key, &model);
         if (r == -ENOENT)
