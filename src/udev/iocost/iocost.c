@@ -101,41 +101,37 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int get_known_solutions(sd_device *device, char ***ret_solutions) {
+static int get_known_solutions(sd_device *device, int log_level, char ***ret_solutions, const char **ret_selected) {
         _cleanup_free_ char **s = NULL;
-        const char *value;
+        const char *value, *found;
         int r;
 
         assert(ret_solutions);
+        assert(ret_selected);
 
         r = sd_device_get_property_value(device, "IOCOST_SOLUTIONS", &value);
+        if (r == -ENOENT)
+                return log_device_full_errno(device, log_level, r, "No iocost solution found for device.");
         if (r < 0)
-                return r;
+                return log_device_error_errno(device, r, "Failed to query solutions from device: %m");
 
         s = strv_split(value, WHITESPACE);
         if (!s)
-                return -ENOMEM;
+                return log_oom();
+        if (strv_isempty(s))
+                return log_device_error_errno(device, SYNTHETIC_ERRNO(EINVAL),
+                                              "IOCOST_SOLUTIONS exists in hwdb but is empty.");
 
-        *ret_solutions = TAKE_PTR(s);
-
-        return 0;
-}
-
-static int choose_solution(char **solutions, const char **ret_name) {
-        assert(ret_name);
-
-        if (strv_isempty(solutions))
-                return log_error_errno(
-                                SYNTHETIC_ERRNO(EINVAL), "IOCOST_SOLUTIONS exists in hwdb but is empty.");
-
-        if (strv_contains(solutions, arg_target_solution)) {
-                *ret_name = arg_target_solution;
-                log_debug("Selected solution based on target solution: %s", *ret_name);
+        found = strv_find(s, arg_target_solution);
+        if (found) {
+                *ret_selected = found;
+                log_device_debug(device, "Selected solution based on target solution: %s", *ret_selected);
         } else {
-                *ret_name = solutions[0];
-                log_debug("Selected first available solution: %s", *ret_name);
+                *ret_selected = s[0];
+                log_device_debug(device, "Selected first available solution: %s", *ret_selected);
         }
 
+        *ret_solutions = TAKE_PTR(s);
         return 0;
 }
 
@@ -157,13 +153,7 @@ static int query_named_solution(
          * in the IOCOST_SOLUTIONS key or the one specified by the TargetSolution setting.
          */
         if (!name) {
-                r = get_known_solutions(device, &solutions);
-                if (r == -ENOENT)
-                        return log_device_debug_errno(device, r, "No entry found for device, skipping iocost logic.");
-                if (r < 0)
-                        return log_device_error_errno(device, r, "Failed to query solutions from device: %m");
-
-                r = choose_solution(solutions, &name);
+                r = get_known_solutions(device, LOG_DEBUG, &solutions, &name);
                 if (r < 0)
                         return r;
         }
@@ -250,7 +240,7 @@ static int apply_solution_for_path(const char *path, const char *name) {
 static int query_solutions_for_path(const char *path) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         _cleanup_strv_free_ char **solutions = NULL;
-        const char *default_solution, *model_name;
+        const char *selected_solution, *model_name;
         int r;
 
         r = sd_device_new_from_path(&device, path);
@@ -269,15 +259,9 @@ static int query_solutions_for_path(const char *path) {
         if (r < 0)
                 return log_device_error_errno(device, r, "Model name for device %s is unknown", path);
 
-        r = get_known_solutions(device, &solutions);
-        if (r == -ENOENT) {
-                log_device_info(device, "Attribute IOCOST_SOLUTIONS missing, model not found in hwdb.");
+        r = get_known_solutions(device, LOG_INFO, &solutions, &selected_solution);
+        if (r == -ENOENT)
                 return 0;
-        }
-        if (r < 0)
-                return log_device_error_errno(device, r, "Couldn't access IOCOST_SOLUTIONS for device %s, model name %s on hwdb: %m\n", path, model_name);
-
-        r = choose_solution(solutions, &default_solution);
         if (r < 0)
                 return r;
 
@@ -285,7 +269,7 @@ static int query_solutions_for_path(const char *path) {
                  "Preferred solution: %s\n"
                  "Solution that would be applied: %s",
                  path, model_name,
-                 arg_target_solution, default_solution);
+                 arg_target_solution, selected_solution);
 
         STRV_FOREACH(s, solutions) {
                 const char *model, *qos;
