@@ -25,7 +25,9 @@ static int parse_config(void) {
         static const ConfigTableItem items[] = {
                 { "IOCost", "TargetSolution", config_parse_string, 0, &arg_target_solution },
         };
-        return config_parse(
+        int r;
+
+        r = config_parse(
                         NULL,
                         "/etc/udev/iocost.conf",
                         NULL,
@@ -35,6 +37,17 @@ static int parse_config(void) {
                         CONFIG_PARSE_WARN,
                         NULL,
                         NULL);
+        if (r < 0)
+                return r;
+
+        if (!arg_target_solution) {
+                arg_target_solution = strdup("naive");
+                if (!arg_target_solution)
+                        return log_oom();
+        }
+
+        log_debug("Target solution: %s", arg_target_solution);
+        return 0;
 }
 
 static int help(void) {
@@ -318,15 +331,9 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        (void) parse_config();
-
-        if (!arg_target_solution) {
-                arg_target_solution = strdup("naive");
-                if (!arg_target_solution)
-                        return log_oom();
-        }
-
-        log_debug("Target solution: %s.", arg_target_solution);
+        r = parse_config();
+        if (r < 0)
+                return r;
 
         return iocost_main(argc, argv);
 }
