@@ -33,6 +33,23 @@ static PartitionPolicy* image_policy_bsearch(const ImagePolicy *policy, Partitio
                         partition_policy_compare);
 }
 
+PartitionPolicyFlags partition_policy_flags_extend(PartitionPolicyFlags flags) {
+        /* If some parts of a flags field are left unspecified, let's fill in all options. */
+
+        /* If no protection flag is set, then this means all are set */
+        if ((flags & _PARTITION_POLICY_USE_MASK) == 0)
+                flags |= PARTITION_POLICY_OPEN;
+
+        /* If the gpt flags bits are not specified, set both options for each */
+        if ((flags & _PARTITION_POLICY_READ_ONLY_MASK) == 0)
+                flags |= PARTITION_POLICY_READ_ONLY_ON|PARTITION_POLICY_READ_ONLY_OFF;
+
+        if ((flags & _PARTITION_POLICY_GROWFS_MASK) == 0)
+                flags |= PARTITION_POLICY_GROWFS_ON|PARTITION_POLICY_GROWFS_OFF;
+
+        return flags;
+}
+
 static PartitionPolicyFlags partition_policy_normalized_flags(const PartitionPolicy *policy) {
         PartitionPolicyFlags flags = ASSERT_PTR(policy)->flags;
 
@@ -40,9 +57,7 @@ static PartitionPolicyFlags partition_policy_normalized_flags(const PartitionPol
          * unspecified, we'll fill in the appropriate "dontcare" policy instead. We'll also mask out bits
          * that do not make any sense for specific partition types. */
 
-        /* If no protection flag is set, then this means all are set */
-        if ((flags & _PARTITION_POLICY_USE_MASK) == 0)
-                flags |= PARTITION_POLICY_OPEN;
+        flags = partition_policy_flags_extend(flags);
 
         /* If this is a verity or verity signature designator, then mask off all protection bits, this after
          * all needs no protection, because it *is* the protection */
@@ -54,16 +69,9 @@ static PartitionPolicyFlags partition_policy_normalized_flags(const PartitionPol
         if (partition_verity_of(policy->designator) < 0)
                 flags &= ~(PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED);
 
+        /* If the partition must be absent, then the gpt flags don't matter */
         if ((flags & _PARTITION_POLICY_USE_MASK) == PARTITION_POLICY_ABSENT)
-                /* If the partition must be absent, then the gpt flags don't matter */
                 flags &= ~(_PARTITION_POLICY_READ_ONLY_MASK|_PARTITION_POLICY_GROWFS_MASK);
-        else {
-                /* If the gpt flags bits are not specified, set both options for each */
-                if ((flags & _PARTITION_POLICY_READ_ONLY_MASK) == 0)
-                        flags |= PARTITION_POLICY_READ_ONLY_ON|PARTITION_POLICY_READ_ONLY_OFF;
-                if ((flags & _PARTITION_POLICY_GROWFS_MASK) == 0)
-                        flags |= PARTITION_POLICY_GROWFS_ON|PARTITION_POLICY_GROWFS_OFF;
-        }
 
         return flags;
 }
@@ -427,12 +435,16 @@ int partition_policy_flags_to_string(PartitionPolicyFlags flags, bool simplify, 
         return 0;
 }
 
+static bool partition_policy_flags_extended_equal(PartitionPolicyFlags a, PartitionPolicyFlags b) {
+        return partition_policy_flags_extend(a) == partition_policy_flags_extend(b);
+}
+
 static int image_policy_flags_all_match(const ImagePolicy *policy, PartitionPolicyFlags expected) {
 
         if (expected < 0)
                 return -EINVAL;
 
-        if (image_policy_default(policy) != expected)
+        if (!partition_policy_flags_extended_equal(image_policy_default(policy), expected))
                 return false;
 
         for (PartitionDesignator d = 0; d < _PARTITION_DESIGNATOR_MAX; d++) {
@@ -532,7 +544,7 @@ int image_policy_to_string(const ImagePolicy *policy, bool simplify, char **ret)
                         return -ENOMEM;
         }
 
-        if (!simplify || image_policy_default(policy) != PARTITION_POLICY_IGNORE) {
+        if (!simplify || !partition_policy_flags_extended_equal(image_policy_default(policy), PARTITION_POLICY_IGNORE)) {
                 _cleanup_free_ char *df = NULL;
 
                 r = partition_policy_flags_to_string(image_policy_default(policy), simplify, &df);
@@ -580,7 +592,7 @@ int image_policy_equivalent(const ImagePolicy *a, const ImagePolicy *b) {
          * redundant, and will be recognized as such by image_policy_equivalent() but not by
          * image_policy_equal()- */
 
-        if (image_policy_default(a) != image_policy_default(b))
+        if (!partition_policy_flags_extended_equal(image_policy_default(a), image_policy_default(b)))
                 return false;
 
         for (PartitionDesignator d = 0; d < _PARTITION_DESIGNATOR_MAX; d++) {
