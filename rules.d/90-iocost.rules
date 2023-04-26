@@ -8,9 +8,7 @@
 #  (at your option) any later version.
 
 SUBSYSTEM!="block", GOTO="iocost_end"
-
-ENV{DEVTYPE}=="partition", GOTO="iocost_end"
-
+ENV{DEVTYPE}!="disk", GOTO="iocost_end"
 ACTION=="remove", GOTO="iocost_end"
 
 ENV{.MODEL}=""
