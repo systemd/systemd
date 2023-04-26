@@ -250,6 +250,10 @@ static inline int __coverity_check_and_return__(int condition) {
 #define sizeof_field(struct_type, member) sizeof(((struct_type *) 0)->member)
 #define endoffsetof_field(struct_type, member) (offsetof(struct_type, member) + sizeof_field(struct_type, member))
 
+/* Maximum buffer size needed for formatting an unsigned integer type as hex, including space for '0x'
+ * prefix and trailing NUL suffix. */
+#define HEXADECIMAL_STR_MAX(type) (2 + sizeof(type) * 2 + 1)
+
 /* Returns the number of chars needed to format variables of the specified type as a decimal string. Adds in
  * extra space for a negative '-' prefix for signed types. Includes space for the trailing NUL. */
 #define DECIMAL_STR_MAX(type)                                           \
