@@ -158,7 +158,7 @@ int parse_auxv(int log_level,
 }
 
 int set_coredump_filter(uint64_t value) {
-        char t[STRLEN("0xFFFFFFFF")];
+        char t[DECIMAL_STR_MAX(uint64_t)]; /* For the same number decimal >> hex */
 
         sprintf(t, "0x%"PRIx64, value);
 
