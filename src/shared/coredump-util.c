@@ -46,7 +46,7 @@ int coredump_filter_mask_from_string(const char *s, uint64_t *ret) {
                 }
 
                 if (streq(n, "all")) {
-                        m = UINT64_MAX;
+                        m = COREDUMP_FILTER_MASK_ALL;
                         continue;
                 }
 
