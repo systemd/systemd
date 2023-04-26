@@ -1676,13 +1676,13 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                         return log_oom();
         }
 
-        if (p->minimize != MINIMIZE_OFF && !p->format)
+        if (p->minimize != MINIMIZE_OFF && !p->format && p->verity != VERITY_HASH)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Minimize= can only be enabled if Format= is set");
+                                  "Minimize= can only be enabled if Format= or Verity=hash are set");
 
-        if (p->minimize == MINIMIZE_BEST && !fstype_is_ro(p->format))
+        if (p->minimize == MINIMIZE_BEST && (p->format && !fstype_is_ro(p->format)) && p->verity != VERITY_HASH)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Minimize=best can only be used with read-only filesystems");
+                                  "Minimize=best can only be used with read-only filesystems or Verity=hash");
 
         if ((!strv_isempty(p->copy_files) || !strv_isempty(p->make_directories)) && !mkfs_supports_root_option(p->format) && geteuid() != 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EPERM),
@@ -1872,6 +1872,24 @@ static int context_read_definitions(
                                 p->siblings[mode] = q;
                         }
                 }
+        }
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                Partition *dp;
+
+                if (p->verity != VERITY_HASH)
+                        continue;
+
+                if (p->minimize == MINIMIZE_OFF)
+                        continue;
+
+                assert_se(dp = p->siblings[VERITY_DATA]);
+
+                if (dp->minimize == MINIMIZE_OFF && !(p->copy_blocks_path || p->copy_blocks_auto))
+                        return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                          "Minimize= set for verity hash partition but data partition does "
+                                          "not set CopyBlocks= or Minimize=");
+
         }
 
         return 0;
@@ -3547,18 +3565,21 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
 static int partition_format_verity_hash(
                 Context *context,
                 Partition *p,
+                const char *node,
                 const char *data_node) {
 
 #if HAVE_LIBCRYPTSETUP
         Partition *dp;
         _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_free_ char *hint = NULL;
         _cleanup_free_ uint8_t *rh = NULL;
         size_t rhs;
         int r;
 
         assert(context);
         assert(p);
+        assert(p->verity == VERITY_HASH);
         assert(data_node);
 
         if (p->dropped)
@@ -3567,26 +3588,30 @@ static int partition_format_verity_hash(
         if (PARTITION_EXISTS(p)) /* Never format existing partitions */
                 return 0;
 
-        if (p->verity != VERITY_HASH)
-                return 0;
-
-        if (partition_defer(p))
+        /* Minimized partitions will use the copy blocks logic so let's make sure to skip those here. */
+        if (p->copy_blocks_fd >= 0)
                 return 0;
 
         assert_se(dp = p->siblings[VERITY_DATA]);
         assert(!dp->dropped);
 
+        (void) partition_hint(p, node, &hint);
+
         r = dlopen_cryptsetup();
         if (r < 0)
                 return log_error_errno(r, "libcryptsetup not found, cannot setup verity: %m");
 
-        r = partition_target_prepare(context, p, p->new_size, /*need_path=*/ true, &t);
-        if (r < 0)
-                return r;
+        if (!node) {
+                r = partition_target_prepare(context, p, p->new_size, /*need_path=*/ true, &t);
+                if (r < 0)
+                        return r;
 
-        r = sym_crypt_init(&cd, partition_target_path(t));
+                node = partition_target_path(t);
+        }
+
+        r = sym_crypt_init(&cd, node);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
+                return log_error_errno(r, "Failed to allocate libcryptsetup context for %s: %m", node);
 
         cryptsetup_enable_logging(cd);
 
@@ -3607,19 +3632,21 @@ static int partition_format_verity_hash(
                  * partition is too small. */
                 if (r == -EIO && errno == ENOSPC)
                         return log_error_errno(errno,
-                                               "Verity hash data does not fit in partition %"PRIu64" with size %s",
-                                               p->partno, FORMAT_BYTES(p->new_size));
+                                               "Verity hash data does not fit in partition %s with size %s",
+                                               hint, FORMAT_BYTES(p->new_size));
 
-                return log_error_errno(r, "Failed to setup verity hash data: %m");
+                return log_error_errno(r, "Failed to setup verity hash data of partition %s: %m", hint);
         }
 
-        r = partition_target_sync(context, p, t);
-        if (r < 0)
-                return r;
+        if (t) {
+                r = partition_target_sync(context, p, t);
+                if (r < 0)
+                        return r;
+        }
 
         r = sym_crypt_get_volume_key_size(cd);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine verity root hash size: %m");
+                return log_error_errno(r, "Failed to determine verity root hash size of partition %s: %m", hint);
         rhs = (size_t) r;
 
         rh = malloc(rhs);
@@ -3628,7 +3655,7 @@ static int partition_format_verity_hash(
 
         r = sym_crypt_volume_key_get(cd, CRYPT_ANY_SLOT, (char *) rh, &rhs, NULL, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to get verity root hash: %m");
+                return log_error_errno(r, "Failed to get verity root hash of partition %s: %m", hint);
 
         assert(rhs >= sizeof(sd_id128_t) * 2);
 
@@ -3699,7 +3726,7 @@ static int sign_verity_roothash(
 static int partition_format_verity_sig(Context *context, Partition *p) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_free_ uint8_t *sig = NULL;
-        _cleanup_free_ char *text = NULL;
+        _cleanup_free_ char *text = NULL, *hint = NULL;
         Partition *hp;
         uint8_t fp[X509_FINGERPRINT_SIZE];
         size_t sigsz = 0; /* avoid false maybe-uninitialized warning */
@@ -3713,8 +3740,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         if (PARTITION_EXISTS(p))
                 return 0;
 
-        if (partition_defer(p))
-                return 0;
+        (void) partition_hint(p, context->node, &hint);
 
         assert_se(hp = p->siblings[VERITY_HASH]);
         assert(!hp->dropped);
@@ -3742,25 +3768,25 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
                         )
         );
         if (r < 0)
-                return log_error_errno(r, "Failed to build JSON object: %m");
+                return log_error_errno(r, "Failed to build verity signature JSON object: %m");
 
         r = json_variant_format(v, 0, &text);
         if (r < 0)
-                return log_error_errno(r, "Failed to format JSON object: %m");
+                return log_error_errno(r, "Failed to format verity signature JSON object: %m");
 
         r = strgrowpad0(&text, p->new_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to pad string to %s", FORMAT_BYTES(p->new_size));
 
         if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
-                return log_error_errno(errno, "Failed to seek to partition offset: %m");
+                return log_error_errno(errno, "Failed to seek to partition %s offset: %m", hint);
 
         r = loop_write(whole_fd, text, p->new_size, /*do_poll=*/ false);
         if (r < 0)
-                return log_error_errno(r, "Failed to write verity signature to partition: %m");
+                return log_error_errno(r, "Failed to write verity signature to partition %s: %m", hint);
 
         if (fsync(whole_fd) < 0)
-                return log_error_errno(errno, "Failed to synchronize verity signature JSON: %m");
+                return log_error_errno(errno, "Failed to synchronize partition %s: %m", hint);
 
         return 0;
 }
@@ -3816,14 +3842,14 @@ static int context_copy_blocks(Context *context) {
 
                 log_info("Copying in of '%s' on block level completed.", p->copy_blocks_path);
 
-                if (p->siblings[VERITY_HASH]) {
+                if (p->siblings[VERITY_HASH] && !partition_defer(p->siblings[VERITY_HASH])) {
                         r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
-                                                         partition_target_path(t));
+                                                         /* node = */ NULL, partition_target_path(t));
                         if (r < 0)
                                 return r;
                 }
 
-                if (p->siblings[VERITY_SIG]) {
+                if (p->siblings[VERITY_SIG] && !partition_defer(p->siblings[VERITY_SIG])) {
                         r = partition_format_verity_sig(context, p->siblings[VERITY_SIG]);
                         if (r < 0)
                                 return r;
@@ -4234,14 +4260,14 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return r;
 
-                if (p->siblings[VERITY_HASH]) {
+                if (p->siblings[VERITY_HASH] && !partition_defer(p->siblings[VERITY_HASH])) {
                         r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
-                                                         partition_target_path(t));
+                                                         /* node = */ NULL, partition_target_path(t));
                         if (r < 0)
                                 return r;
                 }
 
-                if (p->siblings[VERITY_SIG]) {
+                if (p->siblings[VERITY_SIG] && !partition_defer(p->siblings[VERITY_SIG])) {
                         r = partition_format_verity_sig(context, p->siblings[VERITY_SIG]);
                         if (r < 0)
                                 return r;
@@ -5308,7 +5334,9 @@ static int context_open_copy_block_paths(
                 uint64_t size;
                 struct stat st;
 
-                assert(p->copy_blocks_fd < 0);
+                if (p->copy_blocks_fd >= 0)
+                        continue;
+
                 assert(p->copy_blocks_size == UINT64_MAX);
 
                 if (PARTITION_EXISTS(p)) /* Never copy over partitions that already exist! */
@@ -5614,6 +5642,68 @@ static int context_minimize(Context *context) {
                         if (r < 0)
                                 return r;
                 }
+
+                p->copy_blocks_path = TAKE_PTR(temp);
+                p->copy_blocks_path_is_our_file = true;
+        }
+
+        return 0;
+}
+
+static int context_minimize_verity(Context *context) {
+        const char *vt;
+        int r;
+
+        assert(context);
+
+        r = var_tmp_dir(&vt);
+        if (r < 0)
+                return log_error_errno(r, "Could not determine temporary directory: %m");
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_(unlink_and_freep) char *temp = NULL;
+                _cleanup_free_ char *hint = NULL;
+                struct stat st;
+                Partition *dp;
+
+                if (p->dropped)
+                        continue;
+
+                if (PARTITION_EXISTS(p)) /* Never format existing partitions */
+                        continue;
+
+                if (p->minimize == MINIMIZE_OFF)
+                        continue;
+
+                if (p->verity != VERITY_HASH)
+                        continue;
+
+                assert_se(dp = p->siblings[VERITY_DATA]);
+                assert(!dp->dropped);
+                assert(dp->copy_blocks_path);
+
+                (void) partition_hint(p, context->node, &hint);
+
+                log_info("Pre-populating verity hash data of partition %s to calculate minimal partition size",
+                         strna(hint));
+
+                r = tempfn_random_child(vt, "repart", &temp);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate temporary file path: %m");
+
+                r = touch(temp);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create temporary file: %m");
+
+                r = partition_format_verity_hash(context, p, temp, dp->copy_blocks_path);
+                if (r < 0)
+                        return r;
+
+                if (stat(temp, &st) < 0)
+                        return log_error_errno(r, "Failed to stat temporary file: %m");
+
+                log_info("Minimal partition size of verity hash partition %s is %s",
+                         strna(hint), FORMAT_BYTES(st.st_size));
 
                 p->copy_blocks_path = TAKE_PTR(temp);
                 p->copy_blocks_path_is_our_file = true;
@@ -6681,16 +6771,26 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = context_minimize(context);
-        if (r < 0)
-                return r;
-
         /* Open all files to copy blocks from now, since we want to take their size into consideration */
         r = context_open_copy_block_paths(
                         context,
                         loop_device ? loop_device->devno :         /* if --image= is specified, only allow partitions on the loopback device */
                                       arg_root && !arg_image ? 0 : /* if --root= is specified, don't accept any block device */
                                       (dev_t) -1);                 /* if neither is specified, make no restrictions */
+        if (r < 0)
+                return r;
+
+        r = context_minimize(context);
+        if (r < 0)
+                return r;
+
+        r = context_minimize_verity(context);
+        if (r < 0)
+                return r;
+
+        /* We might have gotten more copy blocks paths to open during the minimize process, so let's make
+         * sure we open those as well. These should all be regular files, so don't allow any block devices. */
+        r = context_open_copy_block_paths(context, 0);
         if (r < 0)
                 return r;
 
