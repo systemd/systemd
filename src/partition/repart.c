@@ -3554,6 +3554,7 @@ static int partition_format_verity_hash(
         Partition *dp;
         _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_free_ char *hint = NULL;
         _cleanup_free_ uint8_t *rh = NULL;
         size_t rhs;
         int r;
@@ -3572,6 +3573,8 @@ static int partition_format_verity_hash(
         assert_se(dp = p->siblings[VERITY_DATA]);
         assert(!dp->dropped);
 
+        (void) partition_hint(p, node, &hint);
+
         r = dlopen_cryptsetup();
         if (r < 0)
                 return log_error_errno(r, "libcryptsetup not found, cannot setup verity: %m");
@@ -3586,7 +3589,7 @@ static int partition_format_verity_hash(
 
         r = sym_crypt_init(&cd, node);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
+                return log_error_errno(r, "Failed to allocate libcryptsetup context for %s: %m", node);
 
         cryptsetup_enable_logging(cd);
 
@@ -3607,10 +3610,10 @@ static int partition_format_verity_hash(
                  * partition is too small. */
                 if (r == -EIO && errno == ENOSPC)
                         return log_error_errno(errno,
-                                               "Verity hash data does not fit in partition %"PRIu64" with size %s",
-                                               p->partno, FORMAT_BYTES(p->new_size));
+                                               "Verity hash data does not fit in partition %s with size %s",
+                                               strna(hint), FORMAT_BYTES(p->new_size));
 
-                return log_error_errno(r, "Failed to setup verity hash data: %m");
+                return log_error_errno(r, "Failed to setup verity hash data of partition %s: %m", strna(hint));
         }
 
         if (t) {
@@ -3621,7 +3624,7 @@ static int partition_format_verity_hash(
 
         r = sym_crypt_get_volume_key_size(cd);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine verity root hash size: %m");
+                return log_error_errno(r, "Failed to determine verity root hash size of partition %s: %m", strna(hint));
         rhs = (size_t) r;
 
         rh = malloc(rhs);
@@ -3630,7 +3633,7 @@ static int partition_format_verity_hash(
 
         r = sym_crypt_volume_key_get(cd, CRYPT_ANY_SLOT, (char *) rh, &rhs, NULL, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to get verity root hash: %m");
+                return log_error_errno(r, "Failed to get verity root hash of partition %s: %m", strna(hint));
 
         assert(rhs >= sizeof(sd_id128_t) * 2);
 
@@ -3701,7 +3704,7 @@ static int sign_verity_roothash(
 static int partition_format_verity_sig(Context *context, Partition *p) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_free_ uint8_t *sig = NULL;
-        _cleanup_free_ char *text = NULL;
+        _cleanup_free_ char *text = NULL, *hint = NULL;
         Partition *hp;
         uint8_t fp[X509_FINGERPRINT_SIZE];
         size_t sigsz = 0; /* avoid false maybe-uninitialized warning */
@@ -3714,6 +3717,8 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
 
         if (PARTITION_EXISTS(p))
                 return 0;
+
+        (void) partition_hint(p, context->node, &hint);
 
         assert_se(hp = p->siblings[VERITY_HASH]);
         assert(!hp->dropped);
@@ -3741,25 +3746,25 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
                         )
         );
         if (r < 0)
-                return log_error_errno(r, "Failed to build JSON object: %m");
+                return log_error_errno(r, "Failed to build verity signature JSON object: %m");
 
         r = json_variant_format(v, 0, &text);
         if (r < 0)
-                return log_error_errno(r, "Failed to format JSON object: %m");
+                return log_error_errno(r, "Failed to format verity signature JSON object: %m");
 
         r = strgrowpad0(&text, p->new_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to pad string to %s", FORMAT_BYTES(p->new_size));
 
         if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
-                return log_error_errno(errno, "Failed to seek to partition offset: %m");
+                return log_error_errno(errno, "Failed to seek to partition %s offset: %m", strna(hint));
 
         r = loop_write(whole_fd, text, p->new_size, /*do_poll=*/ false);
         if (r < 0)
-                return log_error_errno(r, "Failed to write verity signature to partition: %m");
+                return log_error_errno(r, "Failed to write verity signature to partition %s: %m", strna(hint));
 
         if (fsync(whole_fd) < 0)
-                return log_error_errno(errno, "Failed to synchronize verity signature JSON: %m");
+                return log_error_errno(errno, "Failed to synchronize partition %s: %m", strna(hint));
 
         return 0;
 }
