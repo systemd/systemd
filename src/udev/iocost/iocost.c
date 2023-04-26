@@ -146,17 +146,9 @@ static int query_named_solution(
         const char *qos, *model;
         int r;
 
+        assert(name);
         assert(ret_qos);
         assert(ret_model);
-
-        /* If NULL is passed we query the default solution, which is the first one listed
-         * in the IOCOST_SOLUTIONS key or the one specified by the TargetSolution setting.
-         */
-        if (!name) {
-                r = get_known_solutions(device, LOG_DEBUG, &solutions, &name);
-                if (r < 0)
-                        return r;
-        }
 
         upper_name = strdup(name);
         if (!upper_name)
@@ -193,6 +185,7 @@ static int query_named_solution(
 
 static int apply_solution_for_path(const char *path, const char *name) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_strv_free_ char **solutions = NULL;
         _cleanup_free_ char *qos = NULL, *model = NULL;
         const char *qos_params, *model_params;
         dev_t devnum;
@@ -202,15 +195,23 @@ static int apply_solution_for_path(const char *path, const char *name) {
         if (r < 0)
                 return log_error_errno(r, "Error looking up device: %m");
 
+        r = sd_device_get_devnum(device, &devnum);
+        if (r < 0)
+                return log_device_error_errno(device, r, "Error getting devnum: %m");
+
+        if (!name) {
+                r = get_known_solutions(device, LOG_DEBUG, &solutions, &name);
+                if (r == -ENOENT)
+                        return 0;
+                if (r < 0)
+                        return r;
+        }
+
         r = query_named_solution(device, name, &model_params, &qos_params);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
                 return r;
-
-        r = sd_device_get_devnum(device, &devnum);
-        if (r < 0)
-                return log_device_error_errno(device, r, "Error getting devnum: %m");
 
         if (asprintf(&qos, DEVNUM_FORMAT_STR " enable=1 ctrl=user %s", DEVNUM_FORMAT_VAL(devnum), qos_params) < 0)
                 return log_oom();
@@ -219,8 +220,9 @@ static int apply_solution_for_path(const char *path, const char *name) {
                 return log_oom();
 
         log_debug("Applying iocost parameters to %s using solution '%s'\n"
-                        "\tio.cost.qos: %s\n"
-                        "\tio.cost.model: %s\n", path, name ?: "default", qos, model);
+                  "\tio.cost.qos: %s\n"
+                  "\tio.cost.model: %s\n",
+                  path, name, qos, model);
 
         r = cg_set_attribute("io", NULL, "io.cost.qos", qos);
         if (r < 0) {
