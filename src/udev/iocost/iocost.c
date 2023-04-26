@@ -275,8 +275,7 @@ static int query_solutions_for_path(const char *path) {
         STRV_FOREACH(s, solutions) {
                 const char *model, *qos;
 
-                r = query_named_solution(device, *s, &model, &qos);
-                if (r < 0 || !model || !qos)
+                if (query_named_solution(device, *s, &model, &qos) < 0)
                         continue;
 
                 log_info("%s: io.cost.qos: %s\n"
