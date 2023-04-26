@@ -464,7 +464,8 @@ int specifier_var_tmp_dir(char specifier, const void *data, const char *root, co
 }
 
 int specifier_escape_strv(char **l, char ***ret) {
-        char **z, **p, **q;
+        _cleanup_(strv_freep) char **z = NULL;
+        char **p, **q;
 
         assert(ret);
 
@@ -480,14 +481,12 @@ int specifier_escape_strv(char **l, char ***ret) {
         for (p = l, q = z; *p; p++, q++) {
 
                 *q = specifier_escape(*p);
-                if (!*q) {
-                        strv_free(z);
+                if (!*q)
                         return -ENOMEM;
-                }
         }
 
         *q = NULL;
-        *ret = z;
+        *ret = TAKE_PTR(z);
 
         return 0;
 }

@@ -385,7 +385,7 @@ static int method_register_home(
 
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
         Manager *m = ASSERT_PTR(userdata);
-        Home *h;
+        _cleanup_(home_freep) Home *h = NULL;
         int r;
 
         assert(message);
@@ -413,10 +413,10 @@ static int method_register_home(
                 return r;
 
         r = home_save_record(h);
-        if (r < 0) {
-                home_free(h);
+        if (r < 0)
                 return r;
-        }
+
+        TAKE_PTR(h);
 
         return sd_bus_reply_method_return(message, NULL);
 }
