@@ -153,6 +153,9 @@ timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $$ | wc -l) -eq 
 coredumpctl info "$$"
 coredumpctl info COREDUMP_HOSTNAME="mymachine"
 
+# This used to cause a stack overflow
+systemd-run -t --property CoredumpFilter=all ls /tmp
+systemd-run -t --property CoredumpFilter=default ls /tmp
 
 (! coredumpctl --hello-world)
 (! coredumpctl -n 0)
