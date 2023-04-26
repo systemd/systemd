@@ -78,6 +78,8 @@ static inline size_t image_policy_n_entries(const ImagePolicy *policy) {
         return policy ? policy->n_policies : 0;
 }
 
+PartitionPolicyFlags partition_policy_flags_extend(PartitionPolicyFlags flags);
+
 PartitionPolicyFlags partition_policy_flags_from_string(const char *s);
 int partition_policy_flags_to_string(PartitionPolicyFlags flags, bool simplify, char **ret);
 
