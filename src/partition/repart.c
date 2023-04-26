@@ -3568,9 +3568,6 @@ static int partition_format_verity_hash(
         if (PARTITION_EXISTS(p)) /* Never format existing partitions */
                 return 0;
 
-        if (partition_defer(p))
-                return 0;
-
         assert_se(dp = p->siblings[VERITY_DATA]);
         assert(!dp->dropped);
 
@@ -3711,9 +3708,6 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         if (PARTITION_EXISTS(p))
                 return 0;
 
-        if (partition_defer(p))
-                return 0;
-
         assert_se(hp = p->siblings[VERITY_HASH]);
         assert(!hp->dropped);
 
@@ -3814,14 +3808,14 @@ static int context_copy_blocks(Context *context) {
 
                 log_info("Copying in of '%s' on block level completed.", p->copy_blocks_path);
 
-                if (p->siblings[VERITY_HASH]) {
+                if (p->siblings[VERITY_HASH] && !partition_defer(p->siblings[VERITY_HASH])) {
                         r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
                                                          partition_target_path(t));
                         if (r < 0)
                                 return r;
                 }
 
-                if (p->siblings[VERITY_SIG]) {
+                if (p->siblings[VERITY_SIG] && !partition_defer(p->siblings[VERITY_SIG])) {
                         r = partition_format_verity_sig(context, p->siblings[VERITY_SIG]);
                         if (r < 0)
                                 return r;
@@ -4232,14 +4226,14 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return r;
 
-                if (p->siblings[VERITY_HASH]) {
+                if (p->siblings[VERITY_HASH] && !partition_defer(p->siblings[VERITY_HASH])) {
                         r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
                                                          partition_target_path(t));
                         if (r < 0)
                                 return r;
                 }
 
-                if (p->siblings[VERITY_SIG]) {
+                if (p->siblings[VERITY_SIG] && !partition_defer(p->siblings[VERITY_SIG])) {
                         r = partition_format_verity_sig(context, p->siblings[VERITY_SIG]);
                         if (r < 0)
                                 return r;
