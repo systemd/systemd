@@ -4188,6 +4188,8 @@ int journal_file_copy_entry(
         boot_id = o->entry.boot_id;
 
         n = journal_file_entry_n_items(from, o);
+        if (n == 0)
+                return 0;
 
         if (n < ALLOCA_MAX / sizeof(EntryItem) / 2)
                 items = newa(EntryItem, n);
