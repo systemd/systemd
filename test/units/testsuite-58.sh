@@ -765,6 +765,7 @@ Type=root-${architecture}
 CopyFiles=${defs}
 Verity=data
 VerityMatchKey=root
+Minimize=guess
 EOF
 
     runas testuser tee "$defs/verity-hash.conf" <<EOF
@@ -772,6 +773,7 @@ EOF
 Type=root-${architecture}-verity
 Verity=hash
 VerityMatchKey=root
+Minimize=yes
 EOF
 
     runas testuser tee "$defs/verity-sig.conf" <<EOF
