@@ -3559,15 +3559,13 @@ static int partition_format_verity_hash(
 
         assert(context);
         assert(p);
+        assert(p->verity == VERITY_HASH);
         assert(data_node);
 
         if (p->dropped)
                 return 0;
 
         if (PARTITION_EXISTS(p)) /* Never format existing partitions */
-                return 0;
-
-        if (p->verity != VERITY_HASH)
                 return 0;
 
         if (partition_defer(p))
