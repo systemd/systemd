@@ -4168,7 +4168,7 @@ int journal_file_copy_entry(
 
         _cleanup_free_ EntryItem *items_alloc = NULL;
         EntryItem *items;
-        uint64_t q, n, xor_hash = 0;
+        uint64_t q, n, m = 0, xor_hash = 0;
         const sd_id128_t *boot_id;
         dual_timestamp ts;
         int r;
@@ -4227,7 +4227,7 @@ int journal_file_copy_entry(
                 else
                         xor_hash ^= le64toh(u->data.hash);
 
-                items[i] = (EntryItem) {
+                items[m++] = (EntryItem) {
                         .object_offset = h,
                         .hash = le64toh(u->data.hash),
                 };
@@ -4240,6 +4240,9 @@ int journal_file_copy_entry(
                         return r;
         }
 
+        if (m == 0)
+                return 0;
+
         r = journal_file_append_entry_internal(
                         to,
                         &ts,
@@ -4247,7 +4250,7 @@ int journal_file_copy_entry(
                         &from->header->machine_id,
                         xor_hash,
                         items,
-                        n,
+                        m,
                         seqnum,
                         seqnum_id,
                         /* ret_object= */ NULL,
