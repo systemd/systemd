@@ -13,7 +13,11 @@ ENV{DEVTYPE}=="partition", GOTO="iocost_end"
 
 ACTION=="remove", GOTO="iocost_end"
 
-ENV{ID_MODEL}!="", IMPORT{builtin}="hwdb 'block::name:$env{ID_MODEL}:fwrev:$env{ID_REVISION}:'"
+ENV{.MODEL}=""
+ENV{ID_MODEL}!="", ENV{.MODEL}="$env{ID_MODEL}"
+ENV{ID_MODEL_FROM_DATABASE}!="", ENV{.MODEL}="$env{ID_MODEL_FROM_DATABASE}"
+
+ENV{.MODEL}!="", IMPORT{builtin}="hwdb 'block::name:$env{.MODEL}:fwrev:$env{ID_REVISION}:'"
 
 ENV{IOCOST_SOLUTIONS}!="", RUN+="iocost apply $env{DEVNAME}"
 
