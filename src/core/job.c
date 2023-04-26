@@ -48,6 +48,28 @@ Job* job_new_raw(Unit *unit) {
         return j;
 }
 
+static uint32_t manager_get_new_job_id(Manager *m) {
+        bool overflow = false;
+
+        assert(m);
+
+        for (;;) {
+                uint32_t id = m->current_job_id;
+
+                if (_unlikely_(id == UINT32_MAX)) {
+                        assert_se(!overflow);
+                        m->current_job_id = 1;
+                        overflow = true;
+                } else
+                        m->current_job_id++;
+
+                if (hashmap_contains(m->jobs, UINT32_TO_PTR(id)))
+                        continue;
+
+                return id;
+        }
+}
+
 Job* job_new(Unit *unit, JobType type) {
         Job *j;
 
@@ -57,7 +79,7 @@ Job* job_new(Unit *unit, JobType type) {
         if (!j)
                 return NULL;
 
-        j->id = j->manager->current_job_id++;
+        j->id = manager_get_new_job_id(j->manager);
         j->type = type;
 
         /* We don't link it here, that's what job_dependency() is for */
