@@ -671,13 +671,13 @@ const ImagePolicy image_policy_allow = {
 };
 
 const ImagePolicy image_policy_deny = {
-        /* Allow policy */
+        /* Deny policy */
         .n_policies = 0,
         .default_flags = PARTITION_POLICY_ABSENT,
 };
 
 const ImagePolicy image_policy_ignore = {
-        /* Allow policy */
+        /* Ignore policy */
         .n_policies = 0,
         .default_flags = PARTITION_POLICY_IGNORE,
 };
