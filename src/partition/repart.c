@@ -3547,6 +3547,7 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
 static int partition_format_verity_hash(
                 Context *context,
                 Partition *p,
+                const char *node,
                 const char *data_node) {
 
 #if HAVE_LIBCRYPTSETUP
@@ -3575,11 +3576,15 @@ static int partition_format_verity_hash(
         if (r < 0)
                 return log_error_errno(r, "libcryptsetup not found, cannot setup verity: %m");
 
-        r = partition_target_prepare(context, p, p->new_size, /*need_path=*/ true, &t);
-        if (r < 0)
-                return r;
+        if (!node) {
+                r = partition_target_prepare(context, p, p->new_size, /*need_path=*/ true, &t);
+                if (r < 0)
+                        return r;
 
-        r = sym_crypt_init(&cd, partition_target_path(t));
+                node = partition_target_path(t);
+        }
+
+        r = sym_crypt_init(&cd, node);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
 
@@ -3608,9 +3613,11 @@ static int partition_format_verity_hash(
                 return log_error_errno(r, "Failed to setup verity hash data: %m");
         }
 
-        r = partition_target_sync(context, p, t);
-        if (r < 0)
-                return r;
+        if (t) {
+                r = partition_target_sync(context, p, t);
+                if (r < 0)
+                        return r;
+        }
 
         r = sym_crypt_get_volume_key_size(cd);
         if (r < 0)
@@ -3810,7 +3817,7 @@ static int context_copy_blocks(Context *context) {
 
                 if (p->siblings[VERITY_HASH] && !partition_defer(p->siblings[VERITY_HASH])) {
                         r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
-                                                         partition_target_path(t));
+                                                         /* node = */ NULL, partition_target_path(t));
                         if (r < 0)
                                 return r;
                 }
@@ -4228,7 +4235,7 @@ static int context_mkfs(Context *context) {
 
                 if (p->siblings[VERITY_HASH] && !partition_defer(p->siblings[VERITY_HASH])) {
                         r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
-                                                         partition_target_path(t));
+                                                         /* node = */ NULL, partition_target_path(t));
                         if (r < 0)
                                 return r;
                 }
