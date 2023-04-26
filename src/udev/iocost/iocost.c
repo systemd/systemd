@@ -147,7 +147,7 @@ static int query_named_solution(
 
         _cleanup_strv_free_ char **solutions = NULL;
         _cleanup_free_ char *upper_name = NULL, *qos_key = NULL, *model_key = NULL;
-        const char *qos = NULL, *model = NULL;
+        const char *qos, *model;
         int r;
 
         assert(ret_qos);
@@ -204,7 +204,7 @@ static int query_named_solution(
 static int apply_solution_for_path(const char *path, const char *name) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         _cleanup_free_ char *qos = NULL, *model = NULL;
-        const char *qos_params = NULL, *model_params = NULL;
+        const char *qos_params, *model_params;
         dev_t devnum;
         int r;
 
@@ -250,8 +250,7 @@ static int apply_solution_for_path(const char *path, const char *name) {
 static int query_solutions_for_path(const char *path) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         _cleanup_strv_free_ char **solutions = NULL;
-        const char *default_solution = NULL;
-        const char *model_name = NULL;
+        const char *default_solution, *model_name;
         int r;
 
         r = sd_device_new_from_path(&device, path);
@@ -289,7 +288,7 @@ static int query_solutions_for_path(const char *path) {
                  arg_target_solution, default_solution);
 
         STRV_FOREACH(s, solutions) {
-                const char *model = NULL, *qos = NULL;
+                const char *model, *qos;
 
                 r = query_named_solution(device, *s, &model, &qos);
                 if (r < 0 || !model || !qos)
