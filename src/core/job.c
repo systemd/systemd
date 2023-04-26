@@ -237,6 +237,7 @@ Job* job_install(Job *j) {
         }
 
         /* Install the job */
+        assert(!*pj);
         *pj = j;
         j->installed = true;
 
