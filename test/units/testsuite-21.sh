@@ -7,6 +7,7 @@ set -o pipefail
 # on the fly by one of the fuzzers
 systemctl list-jobs | grep -F 'end.service' && SHUTDOWN_AT_EXIT=1 || SHUTDOWN_AT_EXIT=0
 
+# shellcheck disable=SC2317
 at_exit() {
     set +e
     # We have to call the end.service/poweroff explicitly even if it's specified on
@@ -23,6 +24,10 @@ at_exit() {
 trap at_exit EXIT
 
 systemctl log-level info
+
+# FIXME: systemd-run doesn't play well with daemon-reexec
+# See: https://github.com/systemd/systemd/issues/27204
+sed -i '/\[org.freedesktop.systemd1\]/aorg.freedesktop.systemd1.Manager:Reexecute FIXME' /etc/dfuzzer.conf
 
 # TODO
 #   * check for possibly newly introduced buses?
@@ -84,6 +89,8 @@ for bus in "${BUS_LIST[@]}"; do
 
     # Let's reload the systemd daemon to test (de)serialization as well
     systemctl daemon-reload
+    # FIXME: explicitly trigger reexecute until systemd/systemd#27204 is resolved
+    systemctl daemon-reexec
 done
 
 umount /var/lib/machines
@@ -95,6 +102,8 @@ for bus in "${SESSION_BUS_LIST[@]}"; do
 
     # Let's reload the systemd user daemon to test (de)serialization as well
     systemctl --machine 'testuser@.host' --user daemon-reload
+    # FIXME: explicitly trigger reexecute until systemd/systemd#27204 is resolved
+    systemctl --machine 'testuser@.host' --user daemon-reexec
 done
 
 echo OK >/testok
