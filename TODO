@@ -129,6 +129,13 @@ Deprecations and removals:
 
 Features:
 
+* mount most file systems with a restrictive uidmap. e.g. mount /usr/ with a
+  uidmap that blocks out anything outside 0…1000 (i.e. system users) and similar.
+
+* mount the root fs with MS_NOSUID by default, and then mount /usr/ without
+  both so that suid executables can only be placed there. Do this already in
+  the initrd. If /usr/ is not split out create a bind mount automatically.
+
 * rework journalctl -M to be based on a machined method that generates a mount
   fd of the relevant journal dirs in the container with uidmapping applied to
   allow the host to read it, while making everything read-only.
