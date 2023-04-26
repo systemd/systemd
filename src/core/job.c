@@ -48,6 +48,28 @@ Job* job_new_raw(Unit *unit) {
         return j;
 }
 
+static uint32_t manager_get_new_job_id(Manager *m) {
+        bool loop = false;
+
+        assert(m);
+
+        for (;;) {
+                uint32_t id = m->current_job_id;
+
+                if (_unlikely_(id == UINT32_MAX)) {
+                        assert(!loop);
+                        m->current_job_id = 1;
+                        loop = true;
+                } else
+                        m->current_job_id++;
+
+                if (hashmap_contains(m->jobs, UINT32_TO_PTR(id)))
+                        continue;
+
+                return id;
+        }
+}
+
 Job* job_new(Unit *unit, JobType type) {
         Job *j;
 
@@ -57,7 +79,7 @@ Job* job_new(Unit *unit, JobType type) {
         if (!j)
                 return NULL;
 
-        j->id = j->manager->current_job_id++;
+        j->id = manager_get_new_job_id(j->manager);
         j->type = type;
 
         /* We don't link it here, that's what job_dependency() is for */
@@ -237,6 +259,7 @@ Job* job_install(Job *j) {
         }
 
         /* Install the job */
+        assert(!*pj);
         *pj = j;
         j->installed = true;
 
@@ -261,13 +284,17 @@ int job_install_deserialized(Job *j) {
 
         if (j->type < 0 || j->type >= _JOB_TYPE_MAX_IN_TRANSACTION)
                 return log_unit_debug_errno(j->unit, SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid job type %s in deserialization.",
-                                       strna(job_type_to_string(j->type)));
+                                            "Invalid job type %s in deserialization.",
+                                            strna(job_type_to_string(j->type)));
 
         pj = j->type == JOB_NOP ? &j->unit->nop_job : &j->unit->job;
         if (*pj)
                 return log_unit_debug_errno(j->unit, SYNTHETIC_ERRNO(EEXIST),
                                             "Unit already has a job installed. Not installing deserialized job.");
+
+        /* When the job does not have ID, or we failed to deserialize the job ID, then use a new ID. */
+        if (j->id <= 0)
+                j->id = manager_get_new_job_id(j->manager);
 
         r = hashmap_ensure_put(&j->manager->jobs, NULL, UINT32_TO_PTR(j->id), j);
         if (r == -EEXIST)
