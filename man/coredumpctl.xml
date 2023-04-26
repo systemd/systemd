@@ -251,7 +251,10 @@
       <varlistentry>
         <term><option>--root=<replaceable>ROOT</replaceable></option></term>
 
-        <listitem><para>Use root directory <option>ROOT</option> when searching for coredumps.
+        <listitem><para>Use root directory <option>ROOT</option> when searching for coredumps. When
+        <option>--directory=</option> or <option>--file=</option> are specified, they will be searched first
+        within <option>ROOT</option>, but if not found they will also be searched on the host, to allow the
+        container use case (where cores are generated and stored on the host) to work.
         </para></listitem>
       </varlistentry>
 
@@ -265,7 +268,11 @@
         table, following the <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
         Specification</ulink>. For further information on supported disk images, see
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-        switch of the same name.</para></listitem>
+        switch of the same name.
+        When <option>--directory=</option> or <option>--file=</option> are specified, they will be searched
+        first within <replaceable>image</replaceable>, but if not found they will also be searched on the
+        host, to allow the container use case (where cores are generated and stored on the host) to work.
+        </para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="image-policy-open" />
