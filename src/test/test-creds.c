@@ -16,7 +16,7 @@ TEST(read_credential_strings) {
         if (e)
                 assert_se(saved = strdup(e));
 
-        assert_se(read_credential_strings_many("foo", &x, "bar", &y) == -ENXIO);
+        assert_se(read_credential_strings_many("foo", &x, "bar", &y) == 0);
         assert_se(x == NULL);
         assert_se(y == NULL);
 
@@ -24,20 +24,20 @@ TEST(read_credential_strings) {
 
         assert_se(setenv("CREDENTIALS_DIRECTORY", tmp, /* override= */ true) >= 0);
 
-        assert_se(read_credential_strings_many("foo", &x, "bar", &y) == -ENOENT);
+        assert_se(read_credential_strings_many("foo", &x, "bar", &y) == 0);
         assert_se(x == NULL);
         assert_se(y == NULL);
 
         assert_se(p = path_join(tmp, "bar"));
         assert_se(write_string_file(p, "piff", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE) >= 0);
 
-        assert_se(read_credential_strings_many("foo", &x, "bar", &y) == -ENOENT);
+        assert_se(read_credential_strings_many("foo", &x, "bar", &y) == 0);
         assert_se(x == NULL);
         assert_se(streq(y, "piff"));
 
         assert_se(write_string_file(p, "paff", WRITE_STRING_FILE_TRUNCATE|WRITE_STRING_FILE_AVOID_NEWLINE) >= 0);
 
-        assert_se(read_credential_strings_many("foo", &x, "bar", &y) == -ENOENT);
+        assert_se(read_credential_strings_many("foo", &x, "bar", &y) == 0);
         assert_se(x == NULL);
         assert_se(streq(y, "piff"));
 
