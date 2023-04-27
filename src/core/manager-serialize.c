@@ -193,6 +193,8 @@ int manager_serialize(
                         return r;
         }
 
+        (void) serialize_item_format(f, "dump-ratelimit", USEC_FMT " %u", m->dump_ratelimit.interval, m->dump_ratelimit.burst);
+
         r = fflush_and_check(f);
         if (r < 0)
                 return log_error_errno(r, "Failed to flush serialization: %m");
@@ -550,6 +552,17 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                          * remains set until all serialized contents are handled. */
                         if (deserialize_varlink_sockets)
                                 (void) varlink_server_deserialize_one(m->varlink_server, val, fds);
+                } else if ((val = startswith(l, "dump-ratelimit="))) {
+                        usec_t interval;
+                        unsigned burst;
+
+                        if (sscanf(val, USEC_FMT " %u", &interval, &burst) != 2)
+                                log_notice("Failed to parse dump ratelimit, ignoring: %s", val);
+                        else {
+                                m->dump_ratelimit.interval = interval;
+                                m->dump_ratelimit.burst = burst;
+                        }
+
                 } else {
                         ManagerTimestamp q;
 

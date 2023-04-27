@@ -471,6 +471,8 @@ struct Manager {
 
         /* Allow users to configure a rate limit for Reload() operations */
         RateLimit reload_ratelimit;
+        /* Dump*() are slow, so always rate limit them to 10 per 10 minutes */
+        RateLimit dump_ratelimit;
 
         sd_event_source *memory_pressure_event_source;
 };
