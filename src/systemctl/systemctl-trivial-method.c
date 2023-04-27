@@ -30,6 +30,7 @@ int verb_trivial_method(int argc, char *argv[], void *userdata) {
                 streq(argv[0], "halt")          ? "Halt" :
                 streq(argv[0], "reboot")        ? "Reboot" :
                 streq(argv[0], "kexec")         ? "KExec" :
+                streq(argv[0], "soft-reboot")   ? "SoftReboot" :
                 streq(argv[0], "exit")          ? "Exit" :
                              /* poweroff */       "PowerOff";
 
