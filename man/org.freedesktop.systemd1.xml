@@ -183,6 +183,8 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.systemd1.Privileged("true")
       Reboot();
       @org.freedesktop.systemd1.Privileged("true")
+      Renew(in  s new_root);
+      @org.freedesktop.systemd1.Privileged("true")
       PowerOff();
       @org.freedesktop.systemd1.Privileged("true")
       Halt();
@@ -584,6 +586,8 @@ node /org/freedesktop/systemd1 {
 
     <!--method ListUnitsByNames is not documented!-->
 
+    <!--method Renew is not documented!-->
+
     <!--method ListUnitFilesByPatterns is not documented!-->
 
     <!--method PresetUnitFilesWithMode is not documented!-->
@@ -911,6 +915,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-method" generated="True" extra-ref="Exit()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Reboot()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Renew()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="PowerOff()"/>
 
