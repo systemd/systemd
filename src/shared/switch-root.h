@@ -3,4 +3,4 @@
 
 #include <stdbool.h>
 
-int switch_root(const char *new_root, const char *oldroot, bool detach_oldroot, unsigned long mountflags);
+int switch_root(const char *new_root, const char *old_root_after, bool unmount_old_root, unsigned long mount_flags);
