@@ -133,6 +133,7 @@ struct CGroupContext {
         bool delegate;
         CGroupMask delegate_controllers;
         CGroupMask disable_controllers;
+        char *delegate_subgroup;
 
         /* For unified hierarchy */
         uint64_t cpu_weight;
