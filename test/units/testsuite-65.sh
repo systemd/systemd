@@ -3,6 +3,12 @@
 # shellcheck disable=SC2016
 set -eux
 
+runas() {
+    declare userid=$1
+    shift
+    XDG_RUNTIME_DIR=/run/user/"$(id -u "$userid")" setpriv --reuid="$userid" --init-groups "$@"
+}
+
 # shellcheck source=test/units/assert.sh
 . "$(dirname "$0")"/assert.sh
 
@@ -58,8 +64,25 @@ systemd-analyze dump "*" >/dev/null
 systemd-analyze dump "*.socket" >/dev/null
 systemd-analyze dump "*.socket" "*.service" aaaaaaa ... >/dev/null
 systemd-analyze dump systemd-journald.service >/dev/null
+# privileged call, so should not be rate limited
+# shellcheck disable=SC2034
+for i in {1..20}; do
+    systemd-analyze dump systemd-journald.service >/dev/null
+done
 systemd-analyze malloc >/dev/null
 (! systemd-analyze dump "")
+# this should be rate limited to 10 calls in 10 minutes
+# shellcheck disable=SC2034
+for i in {1..10}; do
+    runas testuser systemd-analyze dump >/dev/null
+done
+(! runas testuser systemd-analyze dump >/dev/null)
+# still limited after a reload
+systemctl daemon-reload
+(! runas testuser systemd-analyze dump >/dev/null)
+# and a re-exec
+systemctl daemon-reexec
+(! runas testuser systemd-analyze dump >/dev/null)
 # unit-files
 systemd-analyze unit-files >/dev/null
 systemd-analyze unit-files systemd-journald.service >/dev/null
