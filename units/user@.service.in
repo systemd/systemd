@@ -22,6 +22,7 @@ ExecStart={{ROOTLIBEXECDIR}}/systemd --user
 Slice=user-%i.slice
 KillMode=mixed
 Delegate=pids memory cpu
+DelegateSubgroup=init.scope
 TasksMax=infinity
 TimeoutStopSec={{ DEFAULT_USER_TIMEOUT_SEC*4//3 }}s
 KeyringMode=inherit

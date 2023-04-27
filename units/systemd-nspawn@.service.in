@@ -25,6 +25,7 @@ RestartForceExitStatus=133
 SuccessExitStatus=133
 Slice=machine.slice
 Delegate=yes
+DelegateSubgroup=supervisor
 TasksMax=16384
 {{SERVICE_WATCHDOG}}
 
