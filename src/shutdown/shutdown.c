@@ -338,6 +338,12 @@ int main(int argc, char *argv[]) {
         char *arguments[3];
         int cmd, r;
 
+        /* Close random fds we might have get passed, just for paranoia, before we open any new fds, for
+         * example for logging. After all this tool's purpose is about detaching any pinned resources, and
+         * open file descriptors are the primary way to pin resources. Note that we don't really expect any
+         * fds to be passed here. */
+        (void) close_all_fds(NULL, 0);
+
         /* The log target defaults to console, but the original systemd process will pass its log target in through a
          * command line argument, which will override this default. Also, ensure we'll never log to the journal or
          * syslog, as these logging daemons are either already dead or will die very soon. */
