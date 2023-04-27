@@ -452,7 +452,7 @@ static int query_device(QueryType query, sd_device* device) {
                 const char *key, *value;
 
                 FOREACH_DEVICE_PROPERTY(device, key, value) {
-                        if (arg_properties && !strv_contains(arg_properties, key))
+                        if (arg_properties && !strv_contains_case(arg_properties, key))
                                 continue;
 
                         if (arg_export)
