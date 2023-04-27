@@ -2,9 +2,11 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/btrfs.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/ioctl.h>
 #include <sys/sendfile.h>
 #include <sys/xattr.h>
 #include <unistd.h>
@@ -19,6 +21,7 @@
 #include "fs-util.h"
 #include "io-util.h"
 #include "macro.h"
+#include "missing_fs.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mountpoint-util.h"
@@ -198,9 +201,9 @@ int copy_bytes_full(
                         if (toffset >= 0) {
 
                                 if (foffset == 0 && toffset == 0 && max_bytes == UINT64_MAX)
-                                        r = btrfs_reflink(fdf, fdt); /* full file reflink */
+                                        r = reflink(fdf, fdt); /* full file reflink */
                                 else
-                                        r = btrfs_clone_range(fdf, foffset, fdt, toffset, max_bytes == UINT64_MAX ? 0 : max_bytes); /* partial reflink */
+                                        r = reflink_full(fdf, foffset, fdt, toffset, max_bytes == UINT64_MAX ? 0 : max_bytes); /* partial reflink */
                                 if (r >= 0) {
                                         off_t t;
 
@@ -1593,4 +1596,50 @@ int copy_xattr(int df, const char *from, int dt, const char *to, CopyFlags copy_
         }
 
         return ret;
+}
+
+int reflink(int infd, int outfd) {
+        int r;
+
+        assert(infd >= 0);
+        assert(outfd >= 0);
+
+        /* Make sure we invoke the ioctl on a regular file, so that no device driver accidentally gets it. */
+
+        r = fd_verify_regular(outfd);
+        if (r < 0)
+                return r;
+
+        /* FICLONE was introduced in Linux 4.5, so let's fall back to BTRFS_IOC_CLONE if it's not supported. */
+
+        r = ioctl(outfd, FICLONE, infd);
+        if (r < 0 && ERRNO_IS_NOT_SUPPORTED(errno))
+                r = ioctl(outfd, BTRFS_IOC_CLONE, infd);
+
+        return RET_NERRNO(r);
+}
+
+assert_cc(sizeof(struct file_clone_range) == sizeof(struct btrfs_ioctl_clone_range_args));
+
+int reflink_full(int infd, uint64_t in_offset, int outfd, uint64_t out_offset, uint64_t sz) {
+        struct file_clone_range args = {
+                .src_fd = infd,
+                .src_offset = in_offset,
+                .src_length = sz,
+                .dest_offset = out_offset,
+        };
+        int r;
+
+        assert(infd >= 0);
+        assert(outfd >= 0);
+
+        r = fd_verify_regular(outfd);
+        if (r < 0)
+                return r;
+
+        r = ioctl(outfd, FICLONERANGE, &args);
+        if (r < 0 && ERRNO_IS_NOT_SUPPORTED(errno))
+                r = ioctl(outfd, BTRFS_IOC_CLONE_RANGE, &args);
+
+        return RET_NERRNO(r);
 }
