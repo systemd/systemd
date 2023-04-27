@@ -19,6 +19,7 @@ command -v sfdisk >/dev/null 2>&1 || exit 0
 # Need loop devices for systemd-dissect
 test_append_files() {
     (
+        image_install -o mksquashfs
         instmods loop =block
         instmods squashfs =squashfs
         instmods dm_verity =md
