@@ -271,7 +271,9 @@ your service has any of these four settings set, you must be prepared that a
 means that your service code should have moved itself further down the cgroup
 tree by the time it notifies the service manager about start-up readiness, so
 that the service's main cgroup is definitely an inner node by the time the
-service manager might start `ExecStartPost=`.)
+service manager might start `ExecStartPost=`. Starting with systemd 254 you may
+also use `DelegateSubgroup=` to let the service manager put your initial
+service process into a subgroup right away.)
 
 (Also note, if you intend to use "threaded" cgroups — as added in Linux 4.14 —,
 then you should do that *two* levels down from the main service cgroup your
