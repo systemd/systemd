@@ -80,6 +80,14 @@ static inline char* umount_and_rmdir_and_free(char *p) {
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_rmdir_and_free);
 
+static inline char *umount_and_free(char *p) {
+        PROTECT_ERRNO;
+        if (p)
+                (void) umount_recursive(p, 0);
+        return mfree(p);
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_free);
+
 int bind_mount_in_namespace(pid_t target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, bool read_only, bool make_file_or_directory);
 int mount_image_in_namespace(pid_t target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, bool read_only, bool make_file_or_directory, const MountOptions *options, const ImagePolicy *image_policy);
 
@@ -118,3 +126,5 @@ int remount_sysfs(const char *where);
 /* Creates a mount point (not parents) based on the source path or stat - ie, a file or a directory */
 int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mode_t mode);
 int make_mount_point_inode_from_path(const char *source, const char *dest, mode_t mode);
+
+int make_fsmount(int error_log_level, const char *what, const char *type, unsigned long flags, const char *options, int userns_fd);
