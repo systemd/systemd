@@ -165,6 +165,8 @@ int manager_serialize(
                 (void) serialize_item_format(f, "user-lookup", "%i %i", copy0, copy1);
         }
 
+        (void) serialize_item_format(f, "dump-ratelimit", USEC_FMT " %u", m->dump_ratelimit.begin, m->dump_ratelimit.num);
+
         bus_track_serialize(m->subscribed, f, "subscribed");
 
         r = dynamic_user_serialize(m, f, fds);
@@ -550,6 +552,17 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                          * remains set until all serialized contents are handled. */
                         if (deserialize_varlink_sockets)
                                 (void) varlink_server_deserialize_one(m->varlink_server, val, fds);
+                } else if ((val = startswith(l, "dump-ratelimit="))) {
+                        usec_t begin;
+                        unsigned num;
+
+                        if (sscanf(val, USEC_FMT " %u", &begin, &num) != 2)
+                                log_notice("Failed to parse dump ratelimit, ignoring: %s", val);
+                        else {
+                                m->dump_ratelimit.begin = begin;
+                                m->dump_ratelimit.num = num;
+                        }
+
                 } else {
                         ManagerTimestamp q;
 
