@@ -2010,6 +2010,16 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
         return 0;
 }
 
+static void transaction_abort_and_freep(Transaction **tr) {
+        assert(tr);
+
+        if (!*tr)
+                return;
+
+        transaction_abort(*tr);
+        transaction_free(*tr);
+}
+
 int manager_add_job(
                 Manager *m,
                 JobType type,
@@ -2019,7 +2029,7 @@ int manager_add_job(
                 sd_bus_error *error,
                 Job **ret) {
 
-        Transaction *tr;
+        _cleanup_(transaction_abort_and_freep) Transaction *tr = NULL;
         int r;
 
         assert(m);
@@ -2048,23 +2058,23 @@ int manager_add_job(
                                                  IN_SET(mode, JOB_IGNORE_DEPENDENCIES, JOB_IGNORE_REQUIREMENTS),
                                                  mode == JOB_IGNORE_DEPENDENCIES, error);
         if (r < 0)
-                goto tr_abort;
+                return r;
 
         if (mode == JOB_ISOLATE) {
                 r = transaction_add_isolate_jobs(tr, m);
                 if (r < 0)
-                        goto tr_abort;
+                        return r;
         }
 
         if (mode == JOB_TRIGGERING) {
                 r = transaction_add_triggering_jobs(tr, unit);
                 if (r < 0)
-                        goto tr_abort;
+                        return r;
         }
 
         r = transaction_activate(tr, m, mode, affected_jobs, error);
         if (r < 0)
-                goto tr_abort;
+                return r;
 
         log_unit_debug(unit,
                        "Enqueued job %s/%s as %u", unit->id,
@@ -2073,13 +2083,8 @@ int manager_add_job(
         if (ret)
                 *ret = tr->anchor_job;
 
-        transaction_free(tr);
+        tr = transaction_free(tr);
         return 0;
-
-tr_abort:
-        transaction_abort(tr);
-        transaction_free(tr);
-        return r;
 }
 
 int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, sd_bus_error *e, Job **ret) {
@@ -2117,7 +2122,7 @@ int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name,
 
 int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error *e) {
         int r;
-        Transaction *tr;
+        _cleanup_(transaction_abort_and_freep) Transaction *tr = NULL;
 
         assert(m);
         assert(unit);
@@ -2131,22 +2136,17 @@ int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error 
         /* We need an anchor job */
         r = transaction_add_job_and_dependencies(tr, JOB_NOP, unit, NULL, false, false, true, true, e);
         if (r < 0)
-                goto tr_abort;
+                return r;
 
         /* Failure in adding individual dependencies is ignored, so this always succeeds. */
         transaction_add_propagate_reload_jobs(tr, unit, tr->anchor_job, mode == JOB_IGNORE_DEPENDENCIES, e);
 
         r = transaction_activate(tr, m, mode, NULL, e);
         if (r < 0)
-                goto tr_abort;
+                return r;
 
-        transaction_free(tr);
+        tr = transaction_free(tr);
         return 0;
-
-tr_abort:
-        transaction_abort(tr);
-        transaction_free(tr);
-        return r;
 }
 
 Job *manager_get_job(Manager *m, uint32_t id) {

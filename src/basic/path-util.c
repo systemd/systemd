@@ -22,7 +22,7 @@
 #include "time-util.h"
 
 int path_split_and_make_absolute(const char *p, char ***ret) {
-        char **l;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(p);
@@ -33,12 +33,10 @@ int path_split_and_make_absolute(const char *p, char ***ret) {
                 return -ENOMEM;
 
         r = path_strv_make_absolute_cwd(l);
-        if (r < 0) {
-                strv_free(l);
+        if (r < 0)
                 return r;
-        }
 
-        *ret = l;
+        *ret = TAKE_PTR(l);
         return r;
 }
 

@@ -266,7 +266,7 @@ static bool env_entry_has_name(const char *entry, const char *name) {
 
 char **strv_env_delete(char **x, size_t n_lists, ...) {
         size_t n, i = 0;
-        char **r;
+        _cleanup_(strv_freep) char **r = NULL;
         va_list ap;
 
         /* Deletes every entry from x that is mentioned in the other
@@ -291,10 +291,8 @@ char **strv_env_delete(char **x, size_t n_lists, ...) {
                 va_end(ap);
 
                 r[i] = strdup(*k);
-                if (!r[i]) {
-                        strv_free(r);
+                if (!r[i])
                         return NULL;
-                }
 
                 i++;
                 continue;
@@ -307,7 +305,7 @@ char **strv_env_delete(char **x, size_t n_lists, ...) {
 
         assert(i <= n);
 
-        return r;
+        return TAKE_PTR(r);
 }
 
 char **strv_env_unset(char **l, const char *p) {
@@ -734,7 +732,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
 }
 
 char **replace_env_argv(char **argv, char **env) {
-        char **ret;
+        _cleanup_(strv_freep) char **ret = NULL;
         size_t k = 0, l = 0;
 
         l = strv_length(argv);
@@ -748,7 +746,8 @@ char **replace_env_argv(char **argv, char **env) {
                 /* If $FOO appears as single word, replace it by the split up variable */
                 if ((*i)[0] == '$' && !IN_SET((*i)[1], '{', '$')) {
                         char *e;
-                        char **w, **m = NULL;
+                        char **w;
+                        _cleanup_(strv_freep) char **m = NULL;
                         size_t q;
 
                         e = strv_env_get(env, *i+1);
@@ -758,11 +757,9 @@ char **replace_env_argv(char **argv, char **env) {
                                 r = strv_split_full(&m, e, WHITESPACE, EXTRACT_RELAX|EXTRACT_UNQUOTE);
                                 if (r < 0) {
                                         ret[k] = NULL;
-                                        strv_free(ret);
                                         return NULL;
                                 }
-                        } else
-                                m = NULL;
+                        }
 
                         q = strv_length(m);
                         l = l + q - 1;
@@ -770,15 +767,13 @@ char **replace_env_argv(char **argv, char **env) {
                         w = reallocarray(ret, l + 1, sizeof(char *));
                         if (!w) {
                                 ret[k] = NULL;
-                                strv_free(ret);
-                                strv_free(m);
                                 return NULL;
                         }
 
                         ret = w;
                         if (m) {
                                 memcpy(ret + k, m, q * sizeof(char*));
-                                free(m);
+                                m = mfree(m);
                         }
 
                         k += q;
@@ -787,15 +782,13 @@ char **replace_env_argv(char **argv, char **env) {
 
                 /* If ${FOO} appears as part of a word, replace it by the variable as-is */
                 ret[k] = replace_env(*i, env, 0);
-                if (!ret[k]) {
-                        strv_free(ret);
+                if (!ret[k])
                         return NULL;
-                }
                 k++;
         }
 
         ret[k] = NULL;
-        return ret;
+        return TAKE_PTR(ret);
 }
 
 int getenv_bool(const char *p) {
