@@ -703,6 +703,7 @@ git = find_program('git', required : false)
 env = find_program('env')
 perl = find_program('perl', required : false)
 rsync = find_program('rsync', required : false)
+diff = find_program('diff')
 meson_make_symlink = project_source_root + '/tools/meson-make-symlink.sh'
 
 mkdir_p = 'mkdir -p $DESTDIR/@0@'
