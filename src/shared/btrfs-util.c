@@ -213,40 +213,6 @@ int btrfs_subvol_get_read_only_fd(int fd) {
         return !!(flags & BTRFS_SUBVOL_RDONLY);
 }
 
-int btrfs_reflink(int infd, int outfd) {
-        int r;
-
-        assert(infd >= 0);
-        assert(outfd >= 0);
-
-        /* Make sure we invoke the ioctl on a regular file, so that no device driver accidentally gets it. */
-
-        r = fd_verify_regular(outfd);
-        if (r < 0)
-                return r;
-
-        return RET_NERRNO(ioctl(outfd, BTRFS_IOC_CLONE, infd));
-}
-
-int btrfs_clone_range(int infd, uint64_t in_offset, int outfd, uint64_t out_offset, uint64_t sz) {
-        struct btrfs_ioctl_clone_range_args args = {
-                .src_fd = infd,
-                .src_offset = in_offset,
-                .src_length = sz,
-                .dest_offset = out_offset,
-        };
-        int r;
-
-        assert(infd >= 0);
-        assert(outfd >= 0);
-
-        r = fd_verify_regular(outfd);
-        if (r < 0)
-                return r;
-
-        return RET_NERRNO(ioctl(outfd, BTRFS_IOC_CLONE_RANGE, &args));
-}
-
 int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret) {
         struct btrfs_ioctl_fs_info_args fsi = {};
         _cleanup_close_ int fd = -EBADF;
