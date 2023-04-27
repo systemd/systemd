@@ -22,6 +22,8 @@ static const char* const emergency_action_table[_EMERGENCY_ACTION_MAX] = {
         [EMERGENCY_ACTION_POWEROFF_IMMEDIATE] = "poweroff-immediate",
         [EMERGENCY_ACTION_EXIT] =               "exit",
         [EMERGENCY_ACTION_EXIT_FORCE] =         "exit-force",
+        [EMERGENCY_ACTION_SOFT_REBOOT] =        "soft-reboot",
+        [EMERGENCY_ACTION_SOFT_REBOOT_FORCE] =  "soft-reboot-force",
 };
 
 static void log_and_status(Manager *m, bool warn, const char *message, const char *reason) {
@@ -47,7 +49,7 @@ void emergency_action(
         assert(action < _EMERGENCY_ACTION_MAX);
 
         /* Is the special shutdown target active or queued? If so, we are in shutdown state */
-        if (IN_SET(action, EMERGENCY_ACTION_REBOOT, EMERGENCY_ACTION_POWEROFF, EMERGENCY_ACTION_EXIT)) {
+        if (IN_SET(action, EMERGENCY_ACTION_REBOOT, EMERGENCY_ACTION_SOFT_REBOOT, EMERGENCY_ACTION_POWEROFF, EMERGENCY_ACTION_EXIT)) {
                 u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET);
                 if (u && unit_active_or_pending(u)) {
                         log_notice("Shutdown is already active. Skipping emergency action request %s.",
@@ -80,7 +82,6 @@ void emergency_action(
 
                 (void) update_reboot_parameter_and_warn(reboot_arg, true);
                 m->objective = MANAGER_REBOOT;
-
                 break;
 
         case EMERGENCY_ACTION_REBOOT_IMMEDIATE:
@@ -96,6 +97,18 @@ void emergency_action(
 
                 log_info("Rebooting.");
                 (void) reboot(RB_AUTOBOOT);
+                break;
+
+        case EMERGENCY_ACTION_SOFT_REBOOT:
+                log_and_status(m, warn, "Soft-rebooting", reason);
+
+                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_SOFT_REBOOT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL, NULL);
+                break;
+
+        case EMERGENCY_ACTION_SOFT_REBOOT_FORCE:
+                log_and_status(m, warn, "Forcibly soft-rebooting", reason);
+
+                m->objective = MANAGER_SOFT_REBOOT;
                 break;
 
         case EMERGENCY_ACTION_EXIT:
