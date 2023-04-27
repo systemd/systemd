@@ -10,6 +10,14 @@
 #define BLKGETDISKSEQ _IOR(0x12,128,__u64)
 #endif
 
+#ifndef FICLONE
+#define FICLONE _IOW(0x94, 9, int)
+#endif
+
+#ifndef FICLONERANGE
+#define FICLONERANGE _IOW(0x94, 13, struct file_clone_range)
+#endif
+
 /* linux/fs.h or sys/mount.h */
 #ifndef MS_MOVE
 #define MS_MOVE 8192
