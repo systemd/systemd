@@ -1199,8 +1199,12 @@ Transaction *transaction_new(bool irreversible) {
         return tr;
 }
 
-void transaction_free(Transaction *tr) {
+Transaction *transaction_free(Transaction *tr) {
+        if (!tr)
+                return NULL;
+
         assert(hashmap_isempty(tr->jobs));
         hashmap_free(tr->jobs);
-        free(tr);
+
+        return mfree(tr);
 }
