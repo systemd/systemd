@@ -27,7 +27,8 @@
 
 int switch_root(const char *new_root,
                 const char *old_root_after,   /* path below the new root, where to place the old root after the transition; may be NULL to unmount it */
-                unsigned long mount_flags) {  /* MS_MOVE or MS_BIND used for /proc/, /dev/, /run/, /sys/ */
+                unsigned long mount_flags,    /* MS_MOVE or MS_BIND used for /proc/, /dev/, /run/, /sys/ */
+                bool destroy_old_root) {
 
         _cleanup_close_ int old_root_fd = -EBADF, new_root_fd = -EBADF;
         _cleanup_free_ char *resolved_old_root_after = NULL;
@@ -144,7 +145,7 @@ int switch_root(const char *new_root,
                         return log_error_errno(errno, "Failed to change directory: %m");
         }
 
-        if (istmp) {
+        if (istmp && destroy_old_root) {
                 struct stat rb;
 
                 if (fstat(old_root_fd, &rb) < 0)
