@@ -105,3 +105,5 @@ static inline bool IMAGE_IS_HOST(const struct Image *i) {
 }
 
 extern const struct hash_ops image_hash_ops;
+
+extern const char* const image_search_path[_IMAGE_CLASS_MAX];
