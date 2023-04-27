@@ -1860,9 +1860,19 @@ static int method_do_shutdown_or_sleep(
                 if ((flags & ~SD_LOGIND_SHUTDOWN_AND_SLEEP_FLAGS_PUBLIC) != 0)
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
                                                 "Invalid flags parameter");
-                if (a->handle != HANDLE_REBOOT && (flags & SD_LOGIND_REBOOT_VIA_KEXEC))
+
+                if (FLAGS_SET(flags, (SD_LOGIND_REBOOT_VIA_KEXEC|SD_LOGIND_SOFT_REBOOT)))
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                "Reboot via kexec is only applicable with reboot operations");
+                                                "Both reboot via kexec and soft reboot selected, which is not supported");
+
+                if (a->handle != HANDLE_REBOOT) {
+                        if (flags & SD_LOGIND_REBOOT_VIA_KEXEC)
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                        "Reboot via kexec option is only applicable with reboot operations");
+                        if (flags & SD_LOGIND_SOFT_REBOOT)
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                        "Soft reboot option is only applicable with reboot operations");
+                }
         } else {
                 /* Old style method: no flags parameter, but interactive bool passed as boolean in
                  * payload. Let's convert this argument to the new-style flags parameter for our internal
@@ -1878,6 +1888,8 @@ static int method_do_shutdown_or_sleep(
 
         if ((flags & SD_LOGIND_REBOOT_VIA_KEXEC) && kexec_loaded())
                 a = handle_action_lookup(HANDLE_KEXEC);
+        else if ((flags & SD_LOGIND_SOFT_REBOOT))
+                a = handle_action_lookup(HANDLE_SOFT_REBOOT);
 
         /* Don't allow multiple jobs being executed at the same time */
         if (m->delayed_action)
@@ -2221,7 +2233,7 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
         }
 
         handle = handle_action_from_string(type);
-        if (!IN_SET(handle, HANDLE_POWEROFF, HANDLE_REBOOT, HANDLE_HALT, HANDLE_KEXEC))
+        if (!IN_SET(handle, HANDLE_POWEROFF, HANDLE_REBOOT, HANDLE_SOFT_REBOOT, HANDLE_HALT, HANDLE_KEXEC))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unsupported shutdown type");
 
         a = handle_action_lookup(handle);
