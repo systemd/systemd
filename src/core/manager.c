@@ -561,6 +561,7 @@ static int manager_setup_signals(Manager *m) {
                         SIGRTMIN+4,  /* systemd: start poweroff.target */
                         SIGRTMIN+5,  /* systemd: start reboot.target */
                         SIGRTMIN+6,  /* systemd: start kexec.target */
+                        SIGRTMIN+7,  /* systemd: start renew.target */
 
                         /* ... space for more special targets ... */
 
@@ -568,6 +569,7 @@ static int manager_setup_signals(Manager *m) {
                         SIGRTMIN+14, /* systemd: Immediate poweroff */
                         SIGRTMIN+15, /* systemd: Immediate reboot */
                         SIGRTMIN+16, /* systemd: Immediate kexec */
+                        SIGRTMIN+17, /* systemd: Immediate renew */
 
                         /* ... space for one more immediate system state change ... */
 
@@ -1622,7 +1624,7 @@ Manager* manager_free(Manager *m) {
                         unit_vtable[c]->shutdown(m);
 
         /* Keep the cgroup hierarchy in place except when we know we are going down for good */
-        manager_shutdown_cgroup(m, IN_SET(m->objective, MANAGER_EXIT, MANAGER_REBOOT, MANAGER_POWEROFF, MANAGER_HALT, MANAGER_KEXEC));
+        manager_shutdown_cgroup(m, /* delete= */ IN_SET(m->objective, MANAGER_EXIT, MANAGER_REBOOT, MANAGER_POWEROFF, MANAGER_HALT, MANAGER_KEXEC));
 
         lookup_paths_flush_generator(&m->lookup_paths);
 
@@ -2986,6 +2988,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         [4] = { SPECIAL_POWEROFF_TARGET,  JOB_REPLACE_IRREVERSIBLY },
                         [5] = { SPECIAL_REBOOT_TARGET,    JOB_REPLACE_IRREVERSIBLY },
                         [6] = { SPECIAL_KEXEC_TARGET,     JOB_REPLACE_IRREVERSIBLY },
+                        [7] = { SPECIAL_RENEW_TARGET,     JOB_REPLACE_IRREVERSIBLY },
                 };
 
                 /* Starting SIGRTMIN+13, so that target halt and system halt are 10 apart */
@@ -2994,6 +2997,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         [1] = MANAGER_POWEROFF,
                         [2] = MANAGER_REBOOT,
                         [3] = MANAGER_KEXEC,
+                        [4] = MANAGER_RENEW,
                 };
 
                 if ((int) sfsi.ssi_signo >= SIGRTMIN+0 &&
