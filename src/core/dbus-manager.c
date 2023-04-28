@@ -1738,15 +1738,21 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
-        if (!path_is_valid(root))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "New root directory must be a valid path.");
-        if (!path_is_absolute(root))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "New root path '%s' is not absolute.", root);
-        if (path_equal(root, "/"))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "New root directory cannot be the old root directory.");
+        if (isempty(root))
+                /* If path is not specified, default to "/sysroot" which is what we generally expect initrds
+                 * to use */
+                root = "/sysroot";
+        else {
+                if (!path_is_valid(root))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "New root directory must be a valid path.");
+                if (!path_is_absolute(root))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "New root path '%s' is not absolute.", root);
+                if (path_equal(root, "/"))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "New root directory cannot be the old root directory.");
+        }
 
         /* Safety check */
         if (isempty(init)) {
