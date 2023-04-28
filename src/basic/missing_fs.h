@@ -6,15 +6,15 @@
 #define RENAME_NOREPLACE (1 << 0)
 #endif
 
-#ifndef BLKGETDISKSEQ
+#ifndef BLKGETDISKSEQ /* 7957d93bf32bc211415827e44fdd9cdf1388df59 (5.15) */
 #define BLKGETDISKSEQ _IOR(0x12,128,__u64)
 #endif
 
-#ifndef FICLONE
+#ifndef FICLONE /* 04b38d601239b4d9be641b412cf4b7456a041c67 (4.5) */
 #define FICLONE _IOW(0x94, 9, int)
 #endif
 
-#ifndef FICLONERANGE
+#ifndef FICLONERANGE /* 04b38d601239b4d9be641b412cf4b7456a041c67 (4.5) */
 #define FICLONERANGE _IOW(0x94, 13, struct file_clone_range)
 #endif
 
