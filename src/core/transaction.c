@@ -34,7 +34,7 @@ static void transaction_delete_unit(Transaction *tr, Unit *u) {
                 transaction_delete_job(tr, j, true);
 }
 
-void transaction_abort(Transaction *tr) {
+static void transaction_abort(Transaction *tr) {
         Job *j;
 
         assert(tr);
