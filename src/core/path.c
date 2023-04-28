@@ -26,10 +26,10 @@
 #include "unit.h"
 
 static const UnitActiveState state_translation_table[_PATH_STATE_MAX] = {
-        [PATH_DEAD] = UNIT_INACTIVE,
+        [PATH_DEAD]    = UNIT_INACTIVE,
         [PATH_WAITING] = UNIT_ACTIVE,
         [PATH_RUNNING] = UNIT_ACTIVE,
-        [PATH_FAILED] = UNIT_FAILED,
+        [PATH_FAILED]  = UNIT_FAILED,
 };
 
 static int path_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
