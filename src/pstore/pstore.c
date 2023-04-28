@@ -174,6 +174,9 @@ static int append_dmesg(PStoreEntry *pe, const char *subdir1, const char *subdir
 
         assert(pe);
 
+        if (arg_storage != PSTORE_STORAGE_EXTERNAL)
+                return 0;
+
         if (pe->content_size == 0)
                 return 0;
 
