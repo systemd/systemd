@@ -1224,10 +1224,6 @@ Features:
 * Add service setting to run a service within the specified VRF. i.e. do the
   equivalent of "ip vrf exec".
 
-* change SwitchRoot() implementation in PID 1 to use pivot_root(".", "."), as
-  documented in the pivot_root(2) man page, so that we can drop the /oldroot
-  temporary dir.
-
 * special case some calls of chase() to use openat2() internally, so
   that the kernel does what we otherwise do.
 
