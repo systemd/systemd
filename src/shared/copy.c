@@ -1610,13 +1610,11 @@ int reflink(int infd, int outfd) {
         if (r < 0)
                 return r;
 
-        /* FICLONE was introduced in Linux 4.5, so let's fall back to BTRFS_IOC_CLONE if it's not supported. */
+        /* FICLONE was introduced in Linux 4.5 but it uses the same number as BTRFS_IOC_CLONE introduced earlier */
 
-        r = ioctl(outfd, FICLONE, infd);
-        if (r < 0 && ERRNO_IS_NOT_SUPPORTED(errno))
-                r = ioctl(outfd, BTRFS_IOC_CLONE, infd);
+        assert_cc(FICLONE == BTRFS_IOC_CLONE);
 
-        return RET_NERRNO(r);
+        return RET_NERRNO(ioctl(outfd, FICLONE, infd));
 }
 
 assert_cc(sizeof(struct file_clone_range) == sizeof(struct btrfs_ioctl_clone_range_args));
@@ -1637,9 +1635,7 @@ int reflink_range(int infd, uint64_t in_offset, int outfd, uint64_t out_offset, 
         if (r < 0)
                 return r;
 
-        r = ioctl(outfd, FICLONERANGE, &args);
-        if (r < 0 && ERRNO_IS_NOT_SUPPORTED(errno))
-                r = ioctl(outfd, BTRFS_IOC_CLONE_RANGE, &args);
+        assert_cc(FICLONERANGE == BTRFS_IOC_CLONE_RANGE);
 
-        return RET_NERRNO(r);
+        return RET_NERRNO(ioctl(outfd, FICLONERANGE, &args));
 }
