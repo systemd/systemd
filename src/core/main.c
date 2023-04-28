@@ -1797,7 +1797,7 @@ static int do_reexecute(
                 broadcast_signal(SIGTERM, false, true, arg_default_timeout_stop_usec);
 
                 /* And switch root with MS_MOVE, because we remove the old directory afterwards and detach it. */
-                r = switch_root(switch_root_dir, "/mnt", true, MS_MOVE);
+                r = switch_root(switch_root_dir, /* old_root_after= */ NULL, MS_MOVE);
                 if (r < 0)
                         log_error_errno(r, "Failed to switch root, trying to continue: %m");
         }
