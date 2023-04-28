@@ -26,41 +26,45 @@
 #include "user-util.h"
 
 int switch_root(const char *new_root,
-                const char *old_root_after, /* path below the new root, where to place the old root after the transition */
-                bool unmount_old_root,
-                unsigned long mount_flags) {  /* MS_MOVE or MS_BIND */
+                const char *old_root_after,   /* path below the new root, where to place the old root after the transition; may be NULL to unmount it */
+                unsigned long mount_flags) {  /* MS_MOVE or MS_BIND used for /proc/, /dev/, /run/, /sys/ */
 
+        _cleanup_close_ int old_root_fd = -EBADF, new_root_fd = -EBADF;
         _cleanup_free_ char *resolved_old_root_after = NULL;
-        _cleanup_close_ int old_root_fd = -EBADF;
-        int r;
+        int r, istmp;
 
         assert(new_root);
-        assert(old_root_after);
+        assert(IN_SET(mount_flags, MS_MOVE, MS_BIND));
 
         if (path_equal(new_root, "/"))
                 return 0;
 
         /* Check if we shall remove the contents of the old root */
-        old_root_fd = open("/", O_RDONLY | O_CLOEXEC | O_DIRECTORY);
+        old_root_fd = open("/", O_DIRECTORY|O_CLOEXEC);
         if (old_root_fd < 0)
                 return log_error_errno(errno, "Failed to open root directory: %m");
-        r = fd_is_temporary_fs(old_root_fd);
-        if (r < 0)
-                return log_error_errno(r, "Failed to stat root directory: %m");
-        if (r > 0)
+
+        istmp = fd_is_temporary_fs(old_root_fd);
+        if (istmp < 0)
+                return log_error_errno(istmp, "Failed to stat root directory: %m");
+        if (istmp > 0)
                 log_debug("Root directory is on tmpfs, will do cleanup later.");
-        else
-                old_root_fd = safe_close(old_root_fd);
 
-        /* Determine where we shall place the old root after the transition */
-        r = chase(old_root_after, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved_old_root_after, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, old_root_after);
-        if (r == 0) /* Doesn't exist yet. Let's create it */
-                (void) mkdir_p_label(resolved_old_root_after, 0755);
+        new_root_fd = open(new_root, O_DIRECTORY|O_CLOEXEC);
+        if (new_root_fd < 0)
+                return log_error_errno(errno, "Failed to open target directory '%s': %m", new_root);
 
-        /* Work-around for kernel design: the kernel refuses MS_MOVE if any file systems are mounted MS_SHARED. Hence
-         * remount them MS_PRIVATE here as a work-around.
+        if (old_root_after) {
+                /* Determine where we shall place the old root after the transition */
+                r = chase(old_root_after, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved_old_root_after, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, old_root_after);
+                if (r == 0) /* Doesn't exist yet. Let's create it */
+                        (void) mkdir_p_label(resolved_old_root_after, 0755);
+        }
+
+        /* Work-around for kernel design: the kernel refuses MS_MOVE if any file systems are mounted
+         * MS_SHARED. Hence remount them MS_PRIVATE here as a work-around.
          *
          * https://bugzilla.redhat.com/show_bug.cgi?id=847418 */
         if (mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL) < 0)
@@ -92,35 +96,51 @@ int switch_root(const char *new_root,
          * and switch_root() nevertheless. */
         (void) base_filesystem_create(new_root, UID_INVALID, GID_INVALID);
 
-        if (chdir(new_root) < 0)
+        if (fchdir(new_root_fd) < 0)
                 return log_error_errno(errno, "Failed to change directory to %s: %m", new_root);
 
         /* We first try a pivot_root() so that we can umount the old root dir. In many cases (i.e. where rootfs is /),
          * that's not possible however, and hence we simply overmount root */
-        if (pivot_root(new_root, resolved_old_root_after) >= 0) {
+        if (resolved_old_root_after)
+                r = RET_NERRNO(pivot_root(".", resolved_old_root_after));
+        else {
+                r = RET_NERRNO(pivot_root(".", "."));
+                if (r >= 0) {
+                        /* This worked? Yay! Now switch back to old root fs as current dir, so that we can
+                         * unmount the upper of the two stacked file systems, and won't get an EBUSY because
+                         * it's still our cwd. */
+                        if (fchdir(old_root_fd) < 0)
+                                return log_error_errno(errno, "Failed to change directory back to old root: %m");
 
-                /* Immediately get rid of the old root, if detach_oldroot is set.
-                 * Since we are running off it we need to do this lazily. */
-                if (unmount_old_root) {
-                        r = umount_recursive(old_root_after, MNT_DETACH);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to unmount old root directory tree, ignoring: %m");
+                        /* Now unmount the upper of the two stacked file systems */
+                        if (umount2(".", MNT_DETACH) < 0)
+                                return log_error_errno(errno, "Failed to unmount the old root: %m");
+
+                        /* The target dir is now ready, only the new root is visible, let's make it our cwd again */
+                        if (fchdir(new_root_fd) < 0)
+                                return log_error_errno(errno, "Failed to change directory to new root %s: ", new_root);
                 }
+        }
 
-        } else if (mount(new_root, "/", NULL, MS_MOVE, NULL) < 0)
-                return log_error_errno(errno, "Failed to move %s to /: %m", new_root);
+        if (r < 0) {
+                log_debug_errno(r, "Pivoting root file system failed, moving mounts instead: %m");
 
-        if (chroot(".") < 0)
-                return log_error_errno(errno, "Failed to change root: %m");
+                if (mount(".", "/", NULL, MS_MOVE, NULL) < 0)
+                        return log_error_errno(errno, "Failed to move %s to /: %m", new_root);
 
-        if (chdir("/") < 0)
-                return log_error_errno(errno, "Failed to change directory: %m");
+                if (chroot(".") < 0)
+                        return log_error_errno(errno, "Failed to change root: %m");
 
-        if (old_root_fd >= 0) {
+                if (chdir("/") < 0)
+                        return log_error_errno(errno, "Failed to change directory: %m");
+        }
+
+        if (istmp) {
                 struct stat rb;
 
                 if (fstat(old_root_fd, &rb) < 0)
                         return log_error_errno(errno, "Failed to stat old root directory: %m");
+
                 (void) rm_rf_children(TAKE_FD(old_root_fd), 0, &rb); /* takes possession of the dir fd, even on failure */
         }
 
