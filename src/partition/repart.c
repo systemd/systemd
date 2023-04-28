@@ -1874,24 +1874,6 @@ static int context_read_definitions(
                 }
         }
 
-        LIST_FOREACH(partitions, p, context->partitions) {
-                Partition *dp;
-
-                if (p->verity != VERITY_HASH)
-                        continue;
-
-                if (p->minimize == MINIMIZE_OFF)
-                        continue;
-
-                assert_se(dp = p->siblings[VERITY_DATA]);
-
-                if (dp->minimize == MINIMIZE_OFF && !(p->copy_blocks_path || p->copy_blocks_auto))
-                        return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                          "Minimize= set for verity hash partition but data partition does "
-                                          "not set CopyBlocks= or Minimize=");
-
-        }
-
         return 0;
 }
 
@@ -5503,7 +5485,8 @@ static int context_minimize(Context *context) {
                 if (!p->format)
                         continue;
 
-                if (p->minimize == MINIMIZE_OFF)
+                if (p->minimize == MINIMIZE_OFF && !(p->siblings[VERITY_HASH] && p->siblings[VERITY_HASH]->minimize))
+                        /* Skip if partition is not minimized or sibling verity hash partition is not minimized */
                         continue;
 
                 if (!partition_needs_populate(p))
@@ -5513,8 +5496,8 @@ static int context_minimize(Context *context) {
 
                 (void) partition_hint(p, context->node, &hint);
 
-                log_info("Pre-populating %s filesystem of partition %s twice to calculate minimal partition size",
-                         p->format, strna(hint));
+                log_info("Pre-populating %s filesystem of partition %s twice to calculate minimal %spartition size",
+                         p->format, strna(hint), p->minimize ? "" : "verity ");
 
                 r = make_copy_files_denylist(context, p, &denylist);
                 if (r < 0)
@@ -5578,8 +5561,9 @@ static int context_minimize(Context *context) {
                         if (stat(temp, &st) < 0)
                                 return log_error_errno(errno, "Failed to stat temporary file: %m");
 
-                        log_info("Minimal partition size of %s filesystem of partition %s is %s",
-                                 p->format, strna(hint), FORMAT_BYTES(st.st_size));
+                        if (p->minimize != MINIMIZE_OFF)
+                                log_info("Minimal partition size of %s filesystem of partition %s is %s",
+                                         p->format, strna(hint), FORMAT_BYTES(st.st_size));
 
                         p->copy_blocks_path = TAKE_PTR(temp);
                         p->copy_blocks_path_is_our_file = true;
@@ -5614,8 +5598,18 @@ static int context_minimize(Context *context) {
                 if (minimal_size_by_fs_name(p->format) != UINT64_MAX)
                         fsz = MAX(minimal_size_by_fs_name(p->format), fsz);
 
+                if (p->minimize == MINIMIZE_OFF && p->size_min && fsz < p->size_min) {
+                        fsz = p->size_min;
+                }
+
                 log_info("Minimal partition size of %s filesystem of partition %s is %s",
                          p->format, strna(hint), FORMAT_BYTES(fsz));
+
+
+                if (p->minimize == MINIMIZE_OFF && p->size_max && fsz > p->size_max)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
+                                              "Partition size %s is larger than maximum size of %s for partition %s",
+                                               FORMAT_BYTES(fsz), FORMAT_BYTES(p->size_max), strna(hint));
 
                 d = loop_device_unref(d);
 
