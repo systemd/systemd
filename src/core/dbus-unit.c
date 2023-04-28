@@ -16,6 +16,7 @@
 #include "dbus.h"
 #include "fd-util.h"
 #include "install.h"
+#include "load-fragment.h"
 #include "locale-util.h"
 #include "log.h"
 #include "path-util.h"
@@ -2387,6 +2388,70 @@ static int bus_unit_set_transient_property(
                         u->bus_track_add = b;
 
                 return 1;
+        }
+
+        if (streq(name, "Profile")) {
+                _cleanup_free_ char *profile_path = NULL;
+                _cleanup_fclose_ FILE *f = NULL;
+                const char *profile;
+
+                /* Load portable profile, either by name or path */
+
+                r = sd_bus_message_read(message, "s", &profile);
+                if (r < 0)
+                        return r;
+
+                if (is_path(profile)) {
+                        if (!path_is_absolute(profile))
+                                return sd_bus_error_setf(error,
+                                                         SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Profile path must be absolute: %s",
+                                                         profile);
+                        if (!path_is_safe(profile))
+                                return sd_bus_error_setf(error,
+                                                         SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Profile path is not valid: %s",
+                                                         profile);
+                        if (!endswith(profile, ".conf"))
+                                return sd_bus_error_setf(error,
+                                                         SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Profile file name must end with .conf: %s",
+                                                         profile);
+                } else {
+                        r = find_portable_profile(profile, ".service", &profile_path);
+                        if (r < 0)
+                                return sd_bus_error_setf(error,
+                                                         SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Failed to find portable profile %s",
+                                                         profile);
+                        profile = profile_path;
+                }
+
+                f = fopen(profile, "re");
+                if (!f)
+                        return sd_bus_error_setf(error,
+                                                 SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Failed to open %s",
+                                                 profile);
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        r = config_parse(u->id, profile, f,
+                                         UNIT_VTABLE(u)->sections,
+                                         config_item_perf_lookup, load_fragment_gperf_lookup,
+                                         0,
+                                         u,
+                                         NULL);
+                        if (r == -ENOEXEC)
+                                log_unit_notice_errno(u, r, "Profile %s has fatal error, ignoring.", profile);
+                        if (r < 0)
+                                return sd_bus_error_setf(error,
+                                                         SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Failed to parse %s",
+                                                         profile);
+                }
+
+                return 1;
+
         }
 
         return 0;
