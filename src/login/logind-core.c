@@ -323,15 +323,11 @@ int manager_process_button_device(Manager *m, sd_device *d) {
                 return r;
 
         if (device_for_action(d, SD_DEVICE_REMOVE) ||
-            sd_device_has_current_tag(d, "power-switch") <= 0) {
+            sd_device_has_current_tag(d, "power-switch") <= 0)
 
-                b = hashmap_get(m->buttons, sysname);
-                if (!b)
-                        return 0;
+                button_free(hashmap_get(m->buttons, sysname));
 
-                button_free(b);
-
-        } else {
+        else {
                 const char *sn;
 
                 r = manager_add_button(m, sysname, &b);
