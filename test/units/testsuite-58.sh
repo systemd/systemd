@@ -958,6 +958,91 @@ EOF
     systemd-dissect -U "$imgs/mnt"
 }
 
+test_minimize_verity_hash() {
+    local defs imgs output datasz
+
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping minimize test in container."
+        return
+    fi
+
+    if ! command -v "mksquashfs" > /dev/null; then
+        return
+    fi
+
+    defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    truncate --size=20M "${imgs}/testimg"
+
+    tee "$defs/data.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+Format=squashfs
+CopyFiles=${imgs}/testimg
+PaddingMaxBytes=0
+SizeMinBytes=4M
+SizeMaxBytes=16M
+Verity=data
+VerityMatchKey=test-verity-hash
+EOF
+
+    tee "$defs/verity.conf" <<EOF
+[Partition]
+Type=root-${architecture}-verity
+PaddingMaxBytes=0
+Verity=hash
+VerityMatchKey=test-verity-hash
+Minimize=best
+EOF
+
+    output=$(build/systemd-repart --definitions="$defs" \
+                            --seed="$seed" \
+                            --dry-run=no \
+                            --empty=create \
+                            --size=auto \
+                            --json=pretty \
+                            "$imgs/zzz")
+
+    # Confirm data size is 4MB (the minimum)
+    datasz=$(echo "$output" | jq '.[] | select(.type=="root-'$architecture'") | .raw_size')
+    [ $datasz = 4194304 ]
+
+    # Add some data to the test file which should increase the size beyond 4MB
+    head --bytes 8M /dev/urandom > ${imgs}/testimg
+    rm $imgs/zzz
+
+    output=$(build/systemd-repart --definitions="$defs" \
+                            --seed="$seed" \
+                            --dry-run=no \
+                            --empty=create \
+                            --size=auto \
+                            --json=pretty \
+                            "$imgs/zzz")
+
+    # Confirm data size is > 4MB
+    datasz=$(echo "$output" | jq '.[] | select(.type=="root-'$architecture'") | .raw_size')
+    [ $datasz -gt 4194304 ]
+
+    # Add more data so that the maximum size is exceeded
+    head --bytes 18M /dev/urandom > ${imgs}/testimg
+    rm $imgs/zzz
+
+    # Output should fail because partition is larger than 16MB
+    if ( build/systemd-repart --definitions="$defs" \
+                            --seed="$seed" \
+                            --dry-run=no \
+                            --empty=create \
+                            --size=auto \
+                            "$imgs/zzz" ) ; then
+
+        # Succeeded instead
+        exit 1
+    fi
+}
+
 test_sector() {
     local defs imgs output loop
     local start size ratio
