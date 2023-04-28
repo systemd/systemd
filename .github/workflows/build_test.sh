@@ -24,6 +24,7 @@ PACKAGES=(
     iputils-ping
     isc-dhcp-client
     itstool
+    jq
     kbd
     libblkid-dev
     libbpf-dev
