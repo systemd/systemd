@@ -324,6 +324,80 @@ static int process_polkit_response(
 
 #endif
 
+/* bus_verify_polkit_async() handles verification of D-Bus calls with polkit. Because the polkit API
+ * is asynchronous, the whole thing is a bit complex and requires some support in the code that uses
+ * it. It relies on sd-bus's support for interrupting the processing of a message.
+ *
+ * Requirements:
+ *
+ * * bus_verify_polkit_async() must be called before any changes to internal state.
+ * * If bus_verify_polkit_async() has made a new polkit query (signaled by return value 0),
+ *   processing of the message should be interrupted. This is done by returning 1--which sd-bus
+ *   handles specially--and is usually accompanied by a comment. (The message will be queued for
+ *   processing again later when a reply from polkit is received.)
+ * * The code needs to keep a hashmap, here called registry, in which bus_verify_polkit_async()
+ *   stores active queries. This hashmap's lifetime must be larger than the method handler's;
+ *   e.g., it can be a member of some "manager" object or a global variable.
+ *
+ * Return value:
+ *
+ * * 0 - a new polkit call has been made, which means the processing of the message should be
+ *   interrupted;
+ * * 1 - the action has been allowed;
+ * * -EACCES - the action has been denied;
+ * * < 0 - an unspecified error.
+ *
+ * A step-by-step description of how it works:
+ *
+ * 1. A D-Bus method handler calls bus_verify_polkit_async(), passing it the D-Bus message being
+ *    processed and the polkit action to verify.
+ * 2. bus_verify_polkit_async() checks the registry for the message and action combination. Let's
+ *    assume this is the first call, so it finds nothing.
+ * 3. A new AsyncPolkitQuery object is created and an async. D-Bus call to polkit is made. The
+ *    function then returns 0. The method handler returns 1 to tell sd-bus that the processing of
+ *    the message has been interrupted.
+ * 4. (Later) A reply from polkit is received and async_polkit_callback() is called.
+ * 5. async_polkit_callback() reads the reply and stores result into the passed query.
+ * 6. async_polkit_callback() enqueues the original message again.
+ * 7. (Later) The same D-Bus method handler is called for the same message. It calls
+ *    bus_verify_polkit_async() again.
+ * 8. bus_verify_polkit_async() checks the registry for the message and action combination. It finds
+ *    an existing query and returns its result.
+ * 9. The method handler continues processing of the message.
+ *
+ * Memory handling:
+ *
+ * async_polkit_callback() registers a deferred call of async_polkit_defer() for the query, which
+ * causes the query to be removed from the registry and freed. Deferred events are run with idle
+ * priority, so this will happen after processing of the D-Bus message, when the query is no longer
+ * needed.
+ *
+ * Schematically:
+ *
+ * (m - D-Bus message, a - polkit action, q - polkit query)
+ *
+ * -> foo_method(m)
+ *    -> bus_verify_polkit_async(m, a)
+ *       -> bus_call_method_async(q)
+ *    <- bus_verify_polkit_async(m, a) = 0
+ * <- foo_method(m) = 1
+ * ...
+ * -> async_polkit_callback(q)
+ *    -> sd_event_add_defer(async_polkit_defer, q)
+ *    -> sd_bus_enqueue_for_read(m)
+ * <- async_polkit_callback(q)
+ * ...
+ * -> foo_method(m)
+ *    -> bus_verify_polkit_async(m, a)
+ *    <- bus_verify_polkit_async(m, a) = 1/-EACCES/error
+ *    ...
+ * <- foo_method(m)
+ * ...
+ * -> async_polkit_defer(q)
+ *    -> async_polkit_query_free(q)
+ * <- async_polkit_defer(q)
+ */
+
 int bus_verify_polkit_async(
                 sd_bus_message *call,
                 int capability,
