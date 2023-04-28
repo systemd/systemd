@@ -1475,19 +1475,32 @@ static int method_refuse_snapshot(sd_bus_message *message, void *userdata, sd_bu
         return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Support for snapshots has been removed.");
 }
 
-static int verify_run_space(const char *message, sd_bus_error *error) {
+static int get_run_space(uint64_t *ret, sd_bus_error *error) {
         struct statvfs svfs;
-        uint64_t available;
+
+        assert(ret);
 
         if (statvfs("/run/systemd", &svfs) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to statvfs(/run/systemd): %m");
 
-        available = (uint64_t) svfs.f_bfree * (uint64_t) svfs.f_bsize;
+        *ret = (uint64_t) svfs.f_bfree * (uint64_t) svfs.f_bsize;
+        return 0;
+}
+
+static int verify_run_space(const char *message, sd_bus_error *error) {
+        uint64_t available = 0; /* unnecessary, but used to trick out gcc's incorrect maybe-uninitialized warning */
+        int r;
+
+        assert(message);
+
+        r = get_run_space(&available, error);
+        if (r < 0)
+                return r;
 
         if (available < RELOAD_DISK_SPACE_MIN)
                 return sd_bus_error_setf(error,
                                          BUS_ERROR_DISK_FULL,
-                                         "%s, not enough space available on /run/systemd. "
+                                         "%s, not enough space available on /run/systemd/. "
                                          "Currently, %s are free, but a safety buffer of %s is enforced.",
                                          message,
                                          FORMAT_BYTES(available),
@@ -1500,9 +1513,31 @@ int verify_run_space_and_log(const char *message) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
+        assert(message);
+
         r = verify_run_space(message, &error);
         if (r < 0)
                 return log_error_errno(r, "%s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int verify_run_space_permissive(const char *message, sd_bus_error *error) {
+        uint64_t available = 0; /* unnecessary, but used to trick out gcc's incorrect maybe-uninitialized warning */
+        int r;
+
+        assert(message);
+
+        r = get_run_space(&available, error);
+        if (r < 0)
+                return r;
+
+        if (available < RELOAD_DISK_SPACE_MIN)
+                log_warning("Dangerously low amount of free space on /run/systemd/, %s.\n"
+                            "Currently, %s are free, but %s are suggested. Proceeding anyway.",
+                            message,
+                            FORMAT_BYTES(available),
+                            FORMAT_BYTES(RELOAD_DISK_SPACE_MIN));
 
         return 0;
 }
@@ -1648,6 +1683,45 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int method_renew(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_free_ char *rt = NULL;
+        Manager *m = ASSERT_PTR(userdata);
+        const char *root;
+        int r;
+
+        assert(message);
+
+        r = verify_run_space_permissive("renew reboot may fail", error);
+        if (r < 0)
+                return r;
+
+        r = mac_selinux_access_check(message, "reboot", error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(message, "s", &root);
+        if (r < 0)
+                return r;
+
+        if (!isempty(root)) {
+                if (!path_is_valid(root))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "New root directory must be a valid path.");
+                if (!path_is_absolute(root))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "New root path '%s' is not absolute.", root);
+
+                rt = strdup(root);
+                if (!rt)
+                        return -ENOMEM;
+        }
+
+        free_and_replace(m->switch_root, rt);
+        m->objective = MANAGER_RENEW;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -1707,24 +1781,15 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *e
 
 static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *ri = NULL, *rt = NULL;
-        const char *root, *init;
         Manager *m = ASSERT_PTR(userdata);
-        struct statvfs svfs;
-        uint64_t available;
+        const char *root, *init;
         int r;
 
         assert(message);
 
-        if (statvfs("/run/systemd", &svfs) < 0)
-                return sd_bus_error_set_errnof(error, errno, "Failed to statvfs(/run/systemd): %m");
-
-        available = (uint64_t) svfs.f_bfree * (uint64_t) svfs.f_bsize;
-
-        if (available < RELOAD_DISK_SPACE_MIN)
-                log_warning("Dangerously low amount of free space on /run/systemd, root switching might fail.\n"
-                            "Currently, %s are free, but %s are suggested. Proceeding anyway.",
-                            FORMAT_BYTES(available),
-                            FORMAT_BYTES(RELOAD_DISK_SPACE_MIN));
+        r = verify_run_space_permissive("root switching may fail", error);
+        if (r < 0)
+                return r;
 
         r = mac_selinux_access_check(message, "reboot", error);
         if (r < 0)
@@ -3201,6 +3266,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
                       NULL,
                       method_reboot,
                       SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
+        SD_BUS_METHOD_WITH_ARGS("Renew",
+                                SD_BUS_ARGS("s", new_root),
+                                SD_BUS_NO_RESULT,
+                                method_renew,
+                                SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
         SD_BUS_METHOD("PowerOff",
                       NULL,
                       NULL,

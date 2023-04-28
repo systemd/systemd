@@ -44,6 +44,7 @@ typedef enum ManagerObjective {
         MANAGER_RELOAD,
         MANAGER_REEXECUTE,
         MANAGER_REBOOT,
+        MANAGER_RENEW,
         MANAGER_POWEROFF,
         MANAGER_HALT,
         MANAGER_KEXEC,
