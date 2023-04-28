@@ -427,6 +427,51 @@
         information.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--profile=</option><replaceable>PROFILE</replaceable></term>
+
+        <listitem><para>A profile provides a set of default options, as a shortcut. Four profile drop-ins are defined
+        by default, and shipped in <filename>/usr/lib/systemd/portable/profile/</filename>. Additional, local profiles
+        may be defined by placing them in <filename>/etc/systemd/portable/profile/</filename>. The default profiles
+        are:</para>
+
+        <table>
+          <title>Profiles</title>
+          <tgroup cols='2'>
+            <colspec colname='state'/>
+            <colspec colname='description'/>
+            <thead>
+              <row>
+                <entry>Name</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry><filename>default</filename></entry>
+                <entry>This is the default profile if no other profile name is set via the <option>--profile=</option> (see above). It's fairly restrictive, but should be useful for common, unprivileged system workloads. This includes write access to the logging framework, as well as IPC access to the D-Bus system.</entry>
+              </row>
+              <row>
+                <entry><filename>nonetwork</filename></entry>
+                <entry>Very similar to <filename>default</filename>, but networking is turned off for any services of the portable service image.</entry>
+              </row>
+              <row>
+                <entry><filename>strict</filename></entry>
+                <entry>A profile with very strict settings. This profile excludes IPC (D-Bus) and network access.</entry>
+              </row>
+              <row>
+                <entry><filename>trusted</filename></entry>
+                <entry>A profile with very relaxed settings. In this profile the services run with full privileges, but a private <filename>/tmp/</filename>.</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+
+        <para>For details on these profiles and their effects see their precise definitions, e.g.
+        <filename>/usr/lib/systemd/portable/profile/default/service.conf</filename> and similar.</para>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="user" />
       <xi:include href="user-system-options.xml" xpointer="system" />
       <xi:include href="user-system-options.xml" xpointer="host" />
