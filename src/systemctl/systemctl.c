@@ -243,7 +243,7 @@ static int systemctl_help(void) {
                "  reboot                              Shut down and reboot the system\n"
                "  kexec                               Shut down and reboot the system with kexec\n"
                "  exit [EXIT_CODE]                    Request user instance or container exit\n"
-               "  switch-root ROOT [INIT]             Change to a different root file system\n"
+               "  switch-root [ROOT [INIT]]           Change to a different root file system\n"
                "  suspend                             Suspend the system\n"
                "  hibernate                           Hibernate the system\n"
                "  hybrid-sleep                        Hibernate and suspend the system\n"
@@ -1199,7 +1199,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "unmask",                2,        VERB_ANY, 0,                verb_enable                  },
                 { "link",                  2,        VERB_ANY, 0,                verb_enable                  },
                 { "revert",                2,        VERB_ANY, 0,                verb_enable                  },
-                { "switch-root",           2,        VERB_ANY, VERB_ONLINE_ONLY, verb_switch_root             },
+                { "switch-root",           VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_switch_root             },
                 { "list-dependencies",     VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_dependencies       },
                 { "set-default",           2,        2,        0,                verb_set_default             },
                 { "get-default",           VERB_ANY, 1,        0,                verb_get_default             },
