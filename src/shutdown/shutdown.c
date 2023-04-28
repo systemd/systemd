@@ -169,7 +169,7 @@ static int switch_root_initramfs(void) {
          * /run/initramfs/shutdown will take care of these.
          * Also do not detach the old root, because /run/initramfs/shutdown needs to access it.
          */
-        return switch_root("/run/initramfs", "/oldroot", false, MS_BIND);
+        return switch_root("/run/initramfs", "/oldroot", MS_BIND);
 }
 
 /* Read the following fields from /proc/meminfo:
