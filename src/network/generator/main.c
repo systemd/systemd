@@ -18,9 +18,9 @@
 static const char *arg_root = NULL;
 
 static int network_save(Network *network, const char *dest_dir) {
-        _cleanup_free_ char *filename = NULL, *p = NULL;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *p = NULL;
         int r;
 
         assert(network);
@@ -31,14 +31,10 @@ static int network_save(Network *network, const char *dest_dir) {
 
         network_dump(network, f);
 
-        r = asprintf(&filename, "%s-%s.network",
+        if (asprintf(&p, "%s/%s-%s.network",
+                     dest_dir,
                      isempty(network->ifname) ? "91" : "90",
-                     isempty(network->ifname) ? "default" : network->ifname);
-        if (r < 0)
-                return log_oom();
-
-        p = path_join(dest_dir, filename);
-        if (!p)
+                     isempty(network->ifname) ? "default" : network->ifname) < 0)
                 return log_oom();
 
         r = conservative_rename(temp_path, p);
@@ -50,9 +46,9 @@ static int network_save(Network *network, const char *dest_dir) {
 }
 
 static int netdev_save(NetDev *netdev, const char *dest_dir) {
-        _cleanup_free_ char *filename = NULL, *p = NULL;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *p = NULL;
         int r;
 
         assert(netdev);
@@ -63,13 +59,7 @@ static int netdev_save(NetDev *netdev, const char *dest_dir) {
 
         netdev_dump(netdev, f);
 
-        r = asprintf(&filename, "90-%s.netdev",
-                     netdev->ifname);
-        if (r < 0)
-                return log_oom();
-
-        p = path_join(dest_dir, filename);
-        if (!p)
+        if (asprintf(&p, "%s/90-%s.netdev", dest_dir, netdev->ifname) < 0)
                 return log_oom();
 
         r = conservative_rename(temp_path, p);
@@ -81,9 +71,9 @@ static int netdev_save(NetDev *netdev, const char *dest_dir) {
 }
 
 static int link_save(Link *link, const char *dest_dir) {
-        _cleanup_free_ char *filename = NULL, *p = NULL;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *p = NULL;
         int r;
 
         assert(link);
@@ -94,14 +84,10 @@ static int link_save(Link *link, const char *dest_dir) {
 
         link_dump(link, f);
 
-        filename = strjoin(!isempty(link->ifname) ? "90" :
-                           !hw_addr_is_null(&link->mac) ? "91" : "92",
-                           "-", link->filename, ".link");
-        if (!filename)
-                return log_oom();
-
-        p = path_join(dest_dir, filename);
-        if (!p)
+        if (asprintf(&p, "%s/%s-%s.link",
+                     dest_dir,
+                     !isempty(link->ifname) ? "90" : !hw_addr_is_null(&link->mac) ? "91" : "92",
+                     link->filename) < 0)
                 return log_oom();
 
         r = conservative_rename(temp_path, p);
