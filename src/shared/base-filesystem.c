@@ -130,13 +130,13 @@ static const BaseFilesystem table[] = {
 #  pragma message "Please add an entry above specifying whether your architecture uses /lib64/, /lib32/, or no such links."
 #endif
 
-int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
-        _cleanup_close_ int fd = -EBADF;
+int base_filesystem_create_fd(int fd, const char *root, uid_t uid, gid_t gid) {
         int r;
 
-        fd = open(root, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to open root file system: %m");
+        assert(fd >= 0);
+        assert(root);
+
+        /* The "root" parameter is decoration only – it's only used as part of log messages */
 
         for (size_t i = 0; i < ELEMENTSOF(table); i++) {
                 if (faccessat(fd, table[i].dir, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
@@ -204,4 +204,14 @@ int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
         }
 
         return 0;
+}
+
+int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
+        _cleanup_close_ int fd = -EBADF;
+
+        fd = open(ASSERT_PTR(root), O_DIRECTORY|O_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open root file system: %m");
+
+        return base_filesystem_create_fd(fd, root, uid, gid);
 }
