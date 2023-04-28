@@ -819,4 +819,8 @@ global:
         sd_session_get_start_time;
         sd_uid_get_login_time;
         sd_pid_notifyf_with_fds;
+        sd_event_add_memory_pressure;
+        sd_event_source_set_memory_pressure_type;
+        sd_event_source_set_memory_pressure_period;
+        sd_event_trim_memory;
 } LIBSYSTEMD_253;
