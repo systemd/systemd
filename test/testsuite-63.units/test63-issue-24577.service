@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Requires=test63-issue-24577-dep.service
+After=test63-issue-24577-dep.service
+
+[Service]
+Type=oneshot
+ExecStart=bash -c 'sleep infinity'
