@@ -49,3 +49,12 @@ usec_t ratelimit_end(const RateLimit *rl) {
 
         return usec_add(rl->begin, rl->interval);
 }
+
+usec_t ratelimit_left(const RateLimit *rl) {
+        assert(rl);
+
+        if (rl->begin == 0)
+                return 0;
+
+        return usec_sub_unsigned(ratelimit_end(rl), now(CLOCK_MONOTONIC));
+}
