@@ -1631,6 +1631,12 @@ int reflink_range(int infd, uint64_t in_offset, int outfd, uint64_t out_offset, 
         assert(infd >= 0);
         assert(outfd >= 0);
 
+        /* Inside the kernel, FICLONE is identical to FICLONERANGE with offsets and size set to zero, let's
+         * simplify things and use the simple ioctl in that case. Also, do the same if the size is
+         * UINT64_MAX, which is how we usually encode "everything". */
+        if (in_offset == 0 && out_offset == 0 && IN_SET(sz, 0, UINT64_MAX))
+                return reflink(infd, outfd);
+
         r = fd_verify_regular(outfd);
         if (r < 0)
                 return r;
