@@ -42,14 +42,17 @@ int verb_switch_root(int argc, char *argv[], void *userdata) {
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot switch root remotely.");
 
-        if (argc < 2 || argc > 3)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Wrong number of arguments.");
+        if (argc > 3)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many arguments.");
 
-        root = argv[1];
-        if (!path_is_valid(root))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid root path: %s", root);
-        if (!path_is_absolute(root))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Root path is not absolute: %s", root);
+        if (argc >= 2) {
+                root = argv[1];
+                if (!path_is_valid(root))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid root path: %s", root);
+                if (!path_is_absolute(root))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Root path is not absolute: %s", root);
+        } else
+                root = "/sysroot";
 
         if (argc >= 3)
                 init = argv[2];
