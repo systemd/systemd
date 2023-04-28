@@ -1774,7 +1774,7 @@ static int do_reexecute(
         const char **args;
         int r;
 
-        assert(IN_SET(objective, MANAGER_REEXECUTE, MANAGER_SWITCH_ROOT));
+        assert(IN_SET(objective, MANAGER_REEXECUTE, MANAGER_SWITCH_ROOT, MANAGER_RENEW));
         assert(argc >= 0);
         assert(saved_rlimit_nofile);
         assert(saved_rlimit_memlock);
@@ -1791,13 +1791,26 @@ static int do_reexecute(
         if (saved_rlimit_memlock->rlim_cur != RLIM_INFINITY)
                 (void) setrlimit(RLIMIT_MEMLOCK, saved_rlimit_memlock);
 
-        if (switch_root_dir) {
-                /* Kill all remaining processes from the initrd, but don't wait for them, so that we can
-                 * handle the SIGCHLD for them after deserializing. */
-                broadcast_signal(SIGTERM, false, true, arg_default_timeout_stop_usec);
+        /* Kill all remaining processes from the initrd, but don't wait for them, so that we can handle the
+         * SIGCHLD for them after deserializing. */
+        if (IN_SET(objective, MANAGER_SWITCH_ROOT, MANAGER_RENEW))
+                broadcast_signal(SIGTERM, /* wait_for_exit= */ false, /* send_sighup= */ true, arg_default_timeout_stop_usec);
 
+        if (!switch_root_dir && objective == MANAGER_RENEW) {
+                /* If no switch root dir is specified, then check if /run/nextroot/ qualifies and use that */
+                r = path_is_os_tree("/run/nextroot");
+                if (r < 0 && r != -ENOENT)
+                        log_debug_errno(r, "Failed to determine if /run/nextroot/ is a valid OS tree, ignoring: %m");
+                else if (r > 0)
+                        switch_root_dir = "/run/nextroot";
+        }
+
+        if (switch_root_dir) {
                 /* And switch root with MS_MOVE, because we remove the old directory afterwards and detach it. */
-                r = switch_root(switch_root_dir, "/mnt", true, MS_MOVE);
+                r = switch_root(/* new_root= */ switch_root_dir,
+                                /* old_root_after= */ "/mnt",
+                                /* unmount_old_root= */ true,
+                                MS_MOVE);
                 if (r < 0)
                         log_error_errno(r, "Failed to switch root, trying to continue: %m");
         }
@@ -1819,7 +1832,7 @@ static int do_reexecute(
                 i = 1;         /* Leave args[0] empty for now. */
                 filter_args(args, &i, argv, argc);
 
-                if (switch_root_dir)
+                if (IN_SET(objective, MANAGER_SWITCH_ROOT, MANAGER_RENEW))
                         args[i++] = "--switched-root";
                 args[i++] = runtime_scope_cmdline_option_to_string(arg_runtime_scope);
                 args[i++] = sfd;
@@ -2001,6 +2014,22 @@ static int invoke_main_loop(
                         /* Steal the switch root parameters */
                         *ret_switch_root_dir = TAKE_PTR(m->switch_root);
                         *ret_switch_root_init = TAKE_PTR(m->switch_root_init);
+
+                        return objective;
+
+                case MANAGER_RENEW:
+                        manager_send_reloading(m);
+                        manager_set_switching_root(m, true);
+
+                        r = prepare_reexecute(m, &arg_serialization, ret_fds, /* switching_root= */ true);
+                        if (r < 0)
+                                *ret_error_message = "Failed to prepare for reexecution";
+
+                        log_notice("Renewing.");
+
+                        *ret_retval = EXIT_SUCCESS;
+                        *ret_switch_root_dir = TAKE_PTR(m->switch_root);
+                        *ret_switch_root_init = NULL;
 
                         return objective;
 
@@ -3053,6 +3082,7 @@ int main(int argc, char *argv[]) {
                                   MANAGER_RELOAD,
                                   MANAGER_REEXECUTE,
                                   MANAGER_REBOOT,
+                                  MANAGER_RENEW,
                                   MANAGER_POWEROFF,
                                   MANAGER_HALT,
                                   MANAGER_KEXEC,
@@ -3069,7 +3099,7 @@ finish:
 
         mac_selinux_finish();
 
-        if (IN_SET(r, MANAGER_REEXECUTE, MANAGER_SWITCH_ROOT))
+        if (IN_SET(r, MANAGER_REEXECUTE, MANAGER_SWITCH_ROOT, MANAGER_RENEW))
                 r = do_reexecute(r,
                                  argc, argv,
                                  &saved_rlimit_nofile,
