@@ -15,11 +15,13 @@ libudev_sources = files(
 
 libudev_includes = [includes, include_directories('.')]
 
+libudev_dir_path = meson.current_source_dir()
+
 libudev_sym = files('libudev.sym')
-libudev_sym_path = meson.current_source_dir() / 'libudev.sym'
+libudev_sym_path = libudev_dir_path / 'libudev.sym'
 
 install_headers('libudev.h')
-libudev_h_path = meson.current_source_dir() / 'libudev.h'
+libudev_h_path = libudev_dir_path / 'libudev.h'
 
 libudev_basic = static_library(
         'udev-basic',
