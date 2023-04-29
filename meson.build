@@ -4453,6 +4453,7 @@ endforeach
 exe = executable(
         'test-libsystemd-sym',
         test_libsystemd_sym_c,
+        test_libsystemd_sym_h,
         include_directories : includes,
         link_with : [libsystemd],
         dependencies : userspace,
@@ -4466,6 +4467,7 @@ endif
 exe = executable(
         'test-libsystemd-static-sym',
         test_libsystemd_sym_c,
+        test_libsystemd_sym_h,
         include_directories : includes,
         link_with : [install_libsystemd_static],
         dependencies : [
@@ -4484,6 +4486,7 @@ endif
 exe = executable(
         'test-libudev-sym',
         test_libudev_sym_c,
+        test_libudev_sym_h,
         include_directories : libudev_includes,
         c_args : ['-Wno-deprecated-declarations'] + test_cflags,
         link_with : [libudev],
@@ -4498,6 +4501,7 @@ endif
 exe = executable(
         'test-libudev-static-sym',
         test_libudev_sym_c,
+        test_libudev_sym_h,
         include_directories : libudev_includes,
         c_args : ['-Wno-deprecated-declarations'] + test_cflags,
         link_with : [install_libudev_static],
