@@ -1872,7 +1872,7 @@ _public_ int sd_event_add_exit(
         return 0;
 }
 
-int sd_event_trim_memory(void) {
+_public_ int sd_event_trim_memory(void) {
         int r;
 
         /* A default implementation of a memory pressure callback. Simply releases our own allocation caches
