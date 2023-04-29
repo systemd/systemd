@@ -18,12 +18,20 @@ test_env.set('PROJECT_BUILD_ROOT', project_build_root)
 ############################################################
 
 generate_sym_test_py = find_program('generate-sym-test.py')
+generate_sym_test_inv_sh = find_program('generate-sym-test-inv.sh')
 
 test_libsystemd_sym_c = custom_target(
         'test-libsystemd-sym.c',
         input : [libsystemd_sym_path] + systemd_headers,
         output : 'test-libsystemd-sym.c',
-        command : [generate_sym_test_py, libsystemd_sym_path] + systemd_headers,
+        command : [generate_sym_test_py, libsystemd_sym_path, 'test-libsystemd-sym.h'] + systemd_headers,
+        capture : true,
+        build_by_default : want_tests != 'false')
+
+test_libsystemd_sym_h = custom_target(
+        'test-libsystemd-sym.h',
+        output : 'test-libsystemd-sym.h',
+        command : [generate_sym_test_inv_sh, libsystemd_dir_path],
         capture : true,
         build_by_default : want_tests != 'false')
 
@@ -31,7 +39,14 @@ test_libudev_sym_c = custom_target(
         'test-libudev-sym.c',
         input : [libudev_sym_path, libudev_h_path],
         output : 'test-libudev-sym.c',
-        command : [generate_sym_test_py, '@INPUT0@', '@INPUT1@'],
+        command : [generate_sym_test_py, libudev_sym_path, 'test-libudev-sym.h', libudev_h_path],
+        capture : true,
+        build_by_default : want_tests != 'false')
+
+test_libudev_sym_h = custom_target(
+        'test-libudev-sym.h',
+        output : 'test-libudev-sym.h',
+        command : [generate_sym_test_inv_sh, libudev_dir_path],
         capture : true,
         build_by_default : want_tests != 'false')
 

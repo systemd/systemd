@@ -4,8 +4,10 @@
 import sys, re
 
 print('#include <stdio.h>')
-for header in sys.argv[2:]:
+for header in sys.argv[3:]:
     print('#include "{}"'.format(header.split('/')[-1]))
+
+print('#include "{}"'.format(sys.argv[2]))
 
 print('''
 /* We want to check deprecated symbols too, without complaining */
@@ -30,7 +32,12 @@ for line in open(sys.argv[1]):
 print(f'''}};
 
 int main(void) {{
+    puts("from symbol file");
     for (size_t i = 0; i < {count}; i++)
          printf("%p: %s\\n", symbols[i].symbol, symbols[i].name);
+    puts("");
+    puts("from source files");
+    for (size_t i = 0; symbols_from_source[i].name; i++)
+         printf("%p: %s\\n", symbols_from_source[i].symbol, symbols_from_source[i].name);
     return 0;
 }}''')
