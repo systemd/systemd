@@ -150,7 +150,7 @@ for unlink in yes no; do
     [[ "$(file_count /sys/fs/pstore)" -ge "$exp_count" ]]
     [[ "$(file_count /var/lib/systemd/pstore/)" -ne 0 ]]
     # We always log to journal
-    diff "$DUMMY_DMESG_1" <(journalctl -o cat -u systemd-pstore --output-fields=FILE --cursor-file=/tmp/journal.cursor | sed "/^$/d")
+    diff "$DUMMY_DMESG_1" <(journalctl -o cat --output-fields=FILE --cursor-file=/tmp/journal.cursor | sed "/^$/d")
     filename="$(printf "/var/lib/systemd/pstore/%s/%0.3d/dmesg.txt" "$timestamp" "$(file_size "$DUMMY_DMESG_1")")"
     diff "$DUMMY_DMESG_1" "$filename"
 
@@ -180,7 +180,7 @@ for unlink in yes no; do
     start_pstore
     [[ "$(file_count /sys/fs/pstore)" -ge "$exp_count" ]]
     [[ "$(file_count /var/lib/systemd/pstore/)" -eq 0 ]]
-    diff "$DUMMY_DMESG_1" <(journalctl -o cat -u systemd-pstore --output-fields=FILE --cursor-file=/tmp/journal.cursor | sed "/^$/d")
+    diff "$DUMMY_DMESG_1" <(journalctl -o cat --output-fields=FILE --cursor-file=/tmp/journal.cursor | sed "/^$/d")
 
     : "Backend: ERST; Storage: external; Unlink: $unlink"
     prepare_pstore_config "external" "$unlink"
@@ -190,7 +190,7 @@ for unlink in yes no; do
     [[ "$(file_count /sys/fs/pstore)" -ge "$exp_count" ]]
     [[ "$(file_count /var/lib/systemd/pstore/)" -ne 0 ]]
     # We always log to journal
-    diff "$DUMMY_DMESG_1" <(journalctl -o cat -u systemd-pstore --output-fields=FILE --cursor-file=/tmp/journal.cursor | sed "/^$/d")
+    diff "$DUMMY_DMESG_1" <(journalctl -o cat --output-fields=FILE --cursor-file=/tmp/journal.cursor | sed "/^$/d")
     filename="$(printf "/var/lib/systemd/pstore/%0.16d/dmesg.txt" "$last_id")"
     diff "$DUMMY_DMESG_1" "$filename"
 
@@ -217,5 +217,5 @@ for unlink in yes no; do
     start_pstore
     [[ "$(file_count /sys/fs/pstore)" -ge "$exp_count" ]]
     [[ "$(file_count /var/lib/systemd/pstore/)" -eq 0 ]]
-    diff "$DUMMY_DMESG_1" <(journalctl -o cat -u systemd-pstore --output-fields=FILE --cursor-file=/tmp/journal.cursor | sed "/^$/d")
+    diff "$DUMMY_DMESG_1" <(journalctl -o cat --output-fields=FILE --cursor-file=/tmp/journal.cursor | sed "/^$/d")
 done
