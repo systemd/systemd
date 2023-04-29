@@ -1247,7 +1247,16 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
       <varlistentry>
         <term><varname>TypeOfService=</varname></term>
         <listitem>
-          <para>Takes a number between 0 and 255 that specifies the type of service to match.</para>
+          <para>
+            This specifies the Type of Service (ToS) field of packets to match;
+            it takes an unsigned integer in the range 0…255.
+            The field can be used to specify precedence (the first 3 bits) and ToS (the next 3 bits).
+            The field can be also used to specify Differentiated Services Code Point (DSCP) (the first 6 bits) and
+            Explicit Congestion Notification (ECN) (the last 2 bits).
+            See <ulink url="https://en.wikipedia.org/wiki/Type_of_service">Type of Service</ulink>
+            and <ulink url="https://en.wikipedia.org/wiki/Differentiated_services">Differentiated services</ulink>
+            for more details.
+          </para>
         </listitem>
       </varlistentry>
 
