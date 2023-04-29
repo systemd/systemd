@@ -285,6 +285,8 @@ JournalFile* journal_file_close(JournalFile *f) {
         if (!f)
                 return NULL;
 
+        assert(f->newest_boot_id_prioq_idx == PRIOQ_IDX_NULL);
+
         if (f->cache_fd)
                 mmap_cache_fd_free(f->cache_fd);
 
