@@ -20,6 +20,7 @@ libudev_sym_path = meson.current_source_dir() / 'libudev.sym'
 
 install_headers('libudev.h')
 libudev_h_path = meson.current_source_dir() / 'libudev.h'
+libudev_dir_path = meson.current_source_dir()
 
 libudev_basic = static_library(
         'udev-basic',
