@@ -125,6 +125,22 @@ start_pstore() {
     journalctl --sync
 }
 
+check_journal() {
+    local file="${1:?}"
+
+    for _ in {0..9}; do
+        # We can't match the systemd-pstore unit/syslog tag, as the
+        # systemd-pstore process is quite short lived and the messages sometimes
+        # lack the necessary metadata
+        # See: https://github.com/systemd/systemd/issues/27453
+        diff "$file" <(journalctl -o cat --output-fields=FILE --cursor-file=/tmp/journal.cursor | sed "/^$/d") && return 0
+
+        sleep .5
+    done
+
+    return 1
+}
+
 # To avoid having to depend on the VM providing the pstore, let's simulate
 # it using a simple bind mount
 PSTORE_DIR="$(mktemp -d)"
@@ -150,7 +166,7 @@ for unlink in yes no; do
     [[ "$(file_count /sys/fs/pstore)" -ge "$exp_count" ]]
     [[ "$(file_count /var/lib/systemd/pstore/)" -ne 0 ]]
     # We always log to journal
-    diff "$DUMMY_DMESG_1" <(journalctl -o cat -u systemd-pstore --output-fields=FILE --cursor-file=/tmp/journal.cursor | sed "/^$/d")
+    check_journal "$DUMMY_DMESG_1"
     filename="$(printf "/var/lib/systemd/pstore/%s/%0.3d/dmesg.txt" "$timestamp" "$(file_size "$DUMMY_DMESG_1")")"
     diff "$DUMMY_DMESG_1" "$filename"
 
@@ -180,7 +196,7 @@ for unlink in yes no; do
     start_pstore
     [[ "$(file_count /sys/fs/pstore)" -ge "$exp_count" ]]
     [[ "$(file_count /var/lib/systemd/pstore/)" -eq 0 ]]
-    diff "$DUMMY_DMESG_1" <(journalctl -o cat -u systemd-pstore --output-fields=FILE --cursor-file=/tmp/journal.cursor | sed "/^$/d")
+    check_journal "$DUMMY_DMESG_1"
 
     : "Backend: ERST; Storage: external; Unlink: $unlink"
     prepare_pstore_config "external" "$unlink"
@@ -190,7 +206,7 @@ for unlink in yes no; do
     [[ "$(file_count /sys/fs/pstore)" -ge "$exp_count" ]]
     [[ "$(file_count /var/lib/systemd/pstore/)" -ne 0 ]]
     # We always log to journal
-    diff "$DUMMY_DMESG_1" <(journalctl -o cat -u systemd-pstore --output-fields=FILE --cursor-file=/tmp/journal.cursor | sed "/^$/d")
+    check_journal "$DUMMY_DMESG_1"
     filename="$(printf "/var/lib/systemd/pstore/%0.16d/dmesg.txt" "$last_id")"
     diff "$DUMMY_DMESG_1" "$filename"
 
@@ -217,5 +233,5 @@ for unlink in yes no; do
     start_pstore
     [[ "$(file_count /sys/fs/pstore)" -ge "$exp_count" ]]
     [[ "$(file_count /var/lib/systemd/pstore/)" -eq 0 ]]
-    diff "$DUMMY_DMESG_1" <(journalctl -o cat -u systemd-pstore --output-fields=FILE --cursor-file=/tmp/journal.cursor | sed "/^$/d")
+    check_journal "$DUMMY_DMESG_1"
 done
