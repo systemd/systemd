@@ -4455,7 +4455,10 @@ exe = executable(
         test_libsystemd_sym_c,
         include_directories : includes,
         link_with : [libsystemd],
-        dependencies : userspace,
+        dependencies : [
+                userspace,
+                test_libsystemd_sym_dep,
+        ],
         build_by_default : want_tests != 'false',
         install : install_tests,
         install_dir : unittestsdir)
@@ -4473,6 +4476,7 @@ exe = executable(
                 # but does not seem to get propagated. Add here as a work-around.
                 threads,
                 userspace,
+                test_libsystemd_sym_dep,
         ],
         build_by_default : want_tests != 'false' and static_libsystemd_pic,
         install : install_tests and static_libsystemd_pic,
@@ -4487,7 +4491,10 @@ exe = executable(
         include_directories : libudev_includes,
         c_args : ['-Wno-deprecated-declarations'] + test_cflags,
         link_with : [libudev],
-        dependencies : userspace,
+        dependencies : [
+                userspace,
+                test_libudev_sym_dep,
+        ],
         build_by_default : want_tests != 'false',
         install : install_tests,
         install_dir : unittestsdir)
@@ -4501,7 +4508,10 @@ exe = executable(
         include_directories : libudev_includes,
         c_args : ['-Wno-deprecated-declarations'] + test_cflags,
         link_with : [install_libudev_static],
-        dependencies : userspace,
+        dependencies : [
+                userspace,
+                test_libudev_sym_dep,
+        ],
         build_by_default : want_tests != 'false' and static_libudev_pic,
         install : install_tests and static_libudev_pic,
         install_dir : unittestsdir)
