@@ -318,4 +318,38 @@ systemctl daemon-reload
 systemctl restart systemd-journald.service
 journalctl --rotate
 
+# Corrupted journals
+JOURNAL_DIR="$(mktemp -d)"
+REMOTE_OUT="$(mktemp -d)"
+tar --zstd -xf "/test-journals/afl-corrupted-journals.tar.zst" -C "$JOURNAL_DIR/"
+# First, try each of them sequentially. Skip this part when running with plain
+# QEMU, as it is excruciatingly slow
+# Note: we care only about exit code 124 (timeout) and special bash exit codes
+# >124 (like signals)
+if [[ "$(systemd-detect-virt -v)" != "qemu" ]]; then
+    while read -r file; do
+        timeout 10 journalctl -b --file="$file" >/dev/null || [[ $? -lt 124 ]]
+        timeout 10 journalctl -o export --file="$file" >/dev/null || [[ $? -lt 124 ]]
+        if [[ -x /usr/lib/systemd/systemd-journal-remote ]]; then
+            timeout 10 /usr/lib/systemd/systemd-journal-remote \
+                            --getter="journalctl -o export --file=$file" \
+                            --split-mode=none \
+                            --output="$REMOTE_OUT/system.journal" || [[ $? -lt 124 ]]
+            timeout 10 journalctl -b --directory="$REMOTE_OUT" >/dev/null || [[ $? -lt 124 ]]
+            rm -f "$REMOTE_OUT"/* "$REMOTE_OUT"/.*
+        fi
+    done < <(find "$JOURNAL_DIR" -type f)
+fi
+# And now all at once
+timeout 30 journalctl -b --directory="$JOURNAL_DIR" >/dev/null || [[ $? -lt 124 ]]
+timeout 30 journalctl -o export --directory="$JOURNAL_DIR" >/dev/null || [[ $? -lt 124 ]]
+if [[ -x /usr/lib/systemd/systemd-journal-remote ]]; then
+    timeout 30 /usr/lib/systemd/systemd-journal-remote \
+                    --getter="journalctl -o export --directory=$JOURNAL_DIR" \
+                    --split-mode=none \
+                    --output="$REMOTE_OUT/system.journal" || [[ $? -lt 124 ]]
+    timeout 10 journalctl -b --directory="$REMOTE_OUT" >/dev/null || [[ $? -lt 124 ]]
+    rm -f "$REMOTE_OUT"/* "$REMOTE_OUT"/.*
+fi
+
 touch /testok
