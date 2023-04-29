@@ -272,20 +272,19 @@ journalctl --sync
 SEQNUM2=$(journalctl -o export -n 1 | grep -Ea "^__SEQNUM=" | cut -d= -f2)
 test "$SEQNUM2" -gt "$SEQNUM1"
 
-JTMP="/var/tmp/jtmp-$RANDOM"
-mkdir "$JTMP"
+# Test for journals without RTC
+# See: https://github.com/systemd/systemd/issues/662
+JOURNAL_DIR="$(mktemp -d)"
+while read -r file; do
+    filename="${file##*/}"
+    unzstd "$file" -o "$JOURNAL_DIR/${filename%*.zst}"
+done < <(find /test-journals/no-rtc -name "*.zst")
 
-( cd /test-journals/1 && for f in *.zst; do unzstd "$f" -o "$JTMP/${f%.zst}"; done )
-
-journalctl --directory="$JTMP" --list-boots --output=json >/tmp/lb1
-
+journalctl --directory="$JOURNAL_DIR" --list-boots --output=json >/tmp/lb1
 diff -u /tmp/lb1 - <<'EOF'
 [{"index":-3,"boot_id":"5ea5fc4f82a14186b5332a788ef9435e","first_entry":1666569600994371,"last_entry":1666584266223608},{"index":-2,"boot_id":"bea6864f21ad4c9594c04a99d89948b0","first_entry":1666584266731785,"last_entry":1666584347230411},{"index":-1,"boot_id":"4c708e1fd0744336be16f3931aa861fb","first_entry":1666584348378271,"last_entry":1666584354649355},{"index":0,"boot_id":"35e8501129134edd9df5267c49f744a4","first_entry":1666584356661527,"last_entry":1666584438086856}]
 EOF
-
-rm -rf "$JTMP"
-
-rm /tmp/lb1
+rm -rf "$JOURNAL_DIR" /tmp/lb1
 
 # https://bugzilla.redhat.com/show_bug.cgi?id=2183546
 mkdir /run/systemd/system/systemd-journald.service.d
@@ -318,5 +317,39 @@ rm /run/systemd/system/systemd-journald.service.d/compress.conf
 systemctl daemon-reload
 systemctl restart systemd-journald.service
 journalctl --rotate
+
+# Corrupted journals
+JOURNAL_DIR="$(mktemp -d)"
+REMOTE_OUT="$(mktemp -d)"
+tar --zstd -xf "/test-journals/afl-corrupted-journals.tar.zst" -C "$JOURNAL_DIR/"
+# First, try each of them sequentially. Skip this part when running with plain
+# QEMU, as it is excruciatingly slow
+# Note: we care only about exit code 124 (timeout) and special bash exit codes
+# >124 (like signals)
+if [[ "$(systemd-detect-virt)" != "qemu" ]] then
+    while read -r file; do
+        timeout 10 journalctl -b --file="$file" >/dev/null || [[ $? -lt 124 ]]
+        timeout 10 journalctl -o export --file="$file" >/dev/null || [[ $? -lt 124 ]]
+        if [[ -x /usr/lib/systemd/systemd-journal-remote ]]; then
+            timeout 10 /usr/lib/systemd/systemd-journal-remote \
+                            --getter="journalctl -o export --file=$file" \
+                            --split-mode=none \
+                            --output="$REMOTE_OUT/system.journal" || [[ $? -lt 124 ]]
+            timeout 10 journalctl -b --directory="$REMOTE_OUT" >/dev/null || [[ $? -lt 124 ]]
+            rm -f "$REMOTE_OUT"/* "$REMOTE_OUT"/.*
+        fi
+    done < <(find "$JOURNAL_DIR" -type f)
+fi
+# And now all at once
+timeout 30 journalctl -b --directory="$JOURNAL_DIR" >/dev/null || [[ $? -lt 124 ]]
+timeout 30 journalctl -o export --directory="$JOURNAL_DIR" >/dev/null || [[ $? -lt 124 ]]
+if [[ -x /usr/lib/systemd/systemd-journal-remote ]]; then
+    timeout 30 /usr/lib/systemd/systemd-journal-remote \
+                    --getter="journalctl -o export --directory=$JOURNAL_DIR" \
+                    --split-mode=none \
+                    --output="$REMOTE_OUT/system.journal" || [[ $? -lt 124 ]]
+    timeout 10 journalctl -b --directory="$REMOTE_OUT" >/dev/null || [[ $? -lt 124 ]]
+    rm -f "$REMOTE_OUT"/* "$REMOTE_OUT"/.*
+fi
 
 touch /testok
