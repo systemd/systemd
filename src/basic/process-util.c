@@ -37,6 +37,7 @@
 #include "missing_sched.h"
 #include "missing_syscall.h"
 #include "missing_threads.h"
+#include "mkdir.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "nulstr-util.h"
@@ -1169,6 +1170,14 @@ int safe_fork_full(
         prio = flags & FORK_LOG ? LOG_ERR : LOG_DEBUG;
 
         original_pid = getpid_cached();
+
+        /* Ensure the mountpoint exists early, so that if we can't create it (e.g.: R/O filesystem) we exit
+         * early and avoid forking at all. */
+        if (FLAGS_SET(flags, FORK_PRIVATE_TMP)) {
+                r = mkdir_p("/tmp", 0777);
+                if (r < 0)
+                        return r;
+        }
 
         if (flags & FORK_FLUSH_STDIO) {
                 fflush(stdout);
