@@ -16,7 +16,7 @@ static void *async_func(void *arg) {
         return NULL;
 }
 
-TEST(test_async) {
+TEST(async) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-asynchronous_close.XXXXXX";
         int fd;
 
