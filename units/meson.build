@@ -233,6 +233,7 @@ in_units = [
         ['systemd-random-seed.service',          'ENABLE_RANDOMSEED',
          'sysinit.target.wants/'],
         ['systemd-remount-fs.service',           ''],
+        ['systemd-resolv-conf.service',          'ENABLE_RESOLVE'],
         ['systemd-resolved.service',             'ENABLE_RESOLVE'],
         ['systemd-rfkill.service',               'ENABLE_RFKILL'],
         ['systemd-suspend.service',              ''],
