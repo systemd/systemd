@@ -3959,6 +3959,7 @@ static int manager_execute_generators(Manager *m, char **paths, bool remount_ro)
 }
 
 static int manager_run_generators(Manager *m) {
+        ForkFlags flags = FORK_RESET_SIGNALS | FORK_WAIT | FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE;
         _cleanup_strv_free_ char **paths = NULL;
         int r;
 
@@ -3989,9 +3990,12 @@ static int manager_run_generators(Manager *m) {
                 goto finish;
         }
 
-        r = safe_fork("(sd-gens)",
-                      FORK_RESET_SIGNALS | FORK_WAIT | FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE | FORK_PRIVATE_TMP,
-                      NULL);
+        /* On some systems /tmp/ doesn't exist, and on some other systems we cannot create it at all. Avoid
+         * trying to mount a private tmpfs on it as there's no one size fits all. */
+        if (is_dir("/tmp", /* follow= */ false) > 0)
+                flags |= FORK_PRIVATE_TMP;
+
+        r = safe_fork("(sd-gens)", flags, NULL);
         if (r == 0) {
                 r = manager_execute_generators(m, paths, /* remount_ro= */ true);
                 _exit(r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE);
