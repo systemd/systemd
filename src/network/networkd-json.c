@@ -2,6 +2,7 @@
 
 #include <linux/nexthop.h>
 
+#include "dhcp-server-internal.h"
 #include "dns-domain.h"
 #include "ip-protocol-list.h"
 #include "netif-util.h"
@@ -1161,6 +1162,143 @@ finalize:
         return r;
 }
 
+static int dhcp_server_offered_leases_build_json(Link *link, JsonVariant **ret) {
+        JsonVariant **elements = NULL;
+        size_t n = 0;
+        int r;
+        DHCPLease *lease;
+
+        assert(link);
+        assert(ret);
+
+        if (!link->dhcp_server) {
+                *ret = NULL;
+                return 0;
+        }
+
+        HASHMAP_FOREACH(lease, link->dhcp_server->bound_leases_by_client_id) {
+                _cleanup_free_ char *id = NULL, *ip = NULL;
+                if (!GREEDY_REALLOC(elements, n + 1)) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
+
+                struct in_addr address = {.s_addr = lease->address};
+
+                r = sd_dhcp_client_id_to_string(lease->client_id.data, lease->client_id.length, &id);
+                if (r < 0)
+                        return r;
+
+                dual_timestamp expiration;
+                dual_timestamp_from_boottime(&expiration, lease->expiration);
+
+                r = json_build(elements + n, JSON_BUILD_OBJECT(
+                        JSON_BUILD_PAIR_STRING("ClientId", id),
+                        JSON_BUILD_PAIR_IN4_ADDR_NON_NULL("Address", &address),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("Expiration", expiration.realtime / USEC_PER_SEC)));
+
+                if (r < 0)
+                        goto finalize;
+
+                n++;
+        }
+
+        r = json_build(ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("OfferedLeases", JSON_BUILD_VARIANT_ARRAY(elements, n))));
+
+finalize:
+        json_variant_unref_many(elements, n);
+        free(elements);
+        return r;
+}
+
+static int dhcp_server_static_leases_build_json(Link *link, JsonVariant **ret) {
+        JsonVariant **elements = NULL;
+        size_t n = 0;
+        int r;
+        DHCPLease *lease;
+
+        assert(link);
+        assert(ret);
+
+        if (!link->dhcp_server) {
+                *ret = NULL;
+                return 0;
+        }
+
+        HASHMAP_FOREACH(lease, link->dhcp_server->static_leases_by_client_id) {
+                _cleanup_free_ char *id = NULL, *ip = NULL;
+                if (!GREEDY_REALLOC(elements, n + 1)) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
+
+                struct in_addr address = {.s_addr = lease->address};
+
+                r = sd_dhcp_client_id_to_string(lease->client_id.data, lease->client_id.length, &id);
+                if (r < 0)
+                        return r;
+
+                dual_timestamp expiration;
+                dual_timestamp_from_boottime(&expiration, lease->expiration);
+
+                r = json_build(elements + n, JSON_BUILD_OBJECT(
+                        JSON_BUILD_PAIR_STRING("MACAddress", id),
+                        JSON_BUILD_PAIR_IN4_ADDR_NON_NULL("Address", &address)));
+
+                if (r < 0)
+                        goto finalize;
+
+                n++;
+        }
+
+        r = json_build(ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("StaticLeases", JSON_BUILD_VARIANT_ARRAY(elements, n))));
+
+finalize:
+        json_variant_unref_many(elements, n);
+        free(elements);
+        return r;
+}
+
+static int dhcp_server_build_json(Link *link, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
+        int r;
+
+        assert(link);
+        assert(ret);
+
+        if (!link->dhcp_server) {
+                *ret = NULL;
+                return 0;
+        }
+
+        r = json_build(&v, JSON_BUILD_OBJECT(
+                JSON_BUILD_PAIR_UNSIGNED("PoolOffset", link->dhcp_server->pool_offset),
+                JSON_BUILD_PAIR_UNSIGNED("PoolSize", link->dhcp_server->pool_size)));
+        if (r < 0)
+                return r;
+
+        r = dhcp_server_offered_leases_build_json(link, &w);
+        if (r < 0)
+                return r;
+
+        r = json_variant_merge(&v, w);
+        if (r < 0)
+                return r;
+
+        w = json_variant_unref(w);
+
+        r = dhcp_server_static_leases_build_json(link, &w);
+        if (r < 0)
+                return r;
+
+        r = json_variant_merge(&v, w);
+        if (r < 0)
+                return r;
+
+        return json_build(ret, JSON_BUILD_OBJECT(
+                JSON_BUILD_PAIR_VARIANT("DHCPServer", v)));
+}
+
 int link_build_json(Link *link, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
         _cleanup_free_ char *type = NULL, *flags = NULL;
@@ -1337,6 +1475,16 @@ int link_build_json(Link *link, JsonVariant **ret) {
         w = json_variant_unref(w);
 
         r = routes_build_json(link->routes, &w);
+        if (r < 0)
+                return r;
+
+        r = json_variant_merge(&v, w);
+        if (r < 0)
+                return r;
+
+        w = json_variant_unref(w);
+
+        r = dhcp_server_build_json(link, &w);
         if (r < 0)
                 return r;
 
