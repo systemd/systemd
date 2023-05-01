@@ -791,10 +791,10 @@ static int check_object_header(JournalFile *f, Object *o, ObjectType type, uint6
                                        "Attempt to move to overly short object with size %"PRIu64": %" PRIu64,
                                        s, offset);
 
-        if (o->object.type <= OBJECT_UNUSED)
+        if (o->object.type <= OBJECT_UNUSED || o->object.type >= _OBJECT_TYPE_MAX)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to move to object with invalid type: %" PRIu64,
-                                       offset);
+                                       "Attempt to move to object with invalid type (%u): %" PRIu64,
+                                       o->object.type, offset);
 
         if (type > OBJECT_UNUSED && o->object.type != type)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
