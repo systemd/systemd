@@ -512,16 +512,22 @@ systemd-dissect --detach "${image}.raw"
 
 # check for confext functionality
 mkdir -p /run/confexts/test/etc/extension-release.d
+mkdir -p /run/confexts/test2/etc/extension-release.d
 echo "ID=_any" >/run/confexts/test/etc/extension-release.d/extension-release.test
 echo "ARCHITECTURE=_any" >>/run/confexts/test/etc/extension-release.d/extension-release.test
+echo "ID=_any" >/run/confexts/test2/etc/extension-release.d/extension-release.test2
+echo "ARCHITECTURE=_any" >>/run/confexts/test2/etc/extension-release.d/extension-release.test2
 echo "MARKER_CONFEXT_123" >/run/confexts/test/etc/testfile
-cat <<EOF >/run/confexts/test/etc/testscript
+echo "MARKER_CONFEXT_123" >/run/confexts/test2/etc/testfile2
+mksquashfs /run/confexts/test2/ test.raw
+cat <<EOF>/run/confexts/test/etc/testscript
 #!/bin/bash
 echo "This should not happen"
 EOF
 chmod +x /run/confexts/test/etc/testscript
 systemd-confext merge
 grep -q -F "MARKER_CONFEXT_123" /etc/testfile
+grep -q -F "MARKER_CONFEXT_123" /etc/testfile2
 (! /etc/testscript)
 systemd-confext status
 systemd-confext unmerge
