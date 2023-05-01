@@ -285,6 +285,8 @@ JournalFile* journal_file_close(JournalFile *f) {
         if (!f)
                 return NULL;
 
+        assert(f->newest_boot_id_prioq_idx == PRIOQ_IDX_NULL);
+
         if (f->cache_fd)
                 mmap_cache_fd_free(f->cache_fd);
 
@@ -789,10 +791,10 @@ static int check_object_header(JournalFile *f, Object *o, ObjectType type, uint6
                                        "Attempt to move to overly short object with size %"PRIu64": %" PRIu64,
                                        s, offset);
 
-        if (o->object.type <= OBJECT_UNUSED)
+        if (o->object.type <= OBJECT_UNUSED || o->object.type >= _OBJECT_TYPE_MAX)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to move to object with invalid type: %" PRIu64,
-                                       offset);
+                                       "Attempt to move to object with invalid type (%u): %" PRIu64,
+                                       o->object.type, offset);
 
         if (type > OBJECT_UNUSED && o->object.type != type)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
@@ -2589,10 +2591,18 @@ static int bump_entry_array(
         assert(offset);
         assert(ret);
 
+        /* Return 1 when a non-zero offset found, 0 when the offset is zero.
+         * Here, we assume that the offset of each entry array object is in strict increasing order. */
+
         if (direction == DIRECTION_DOWN) {
                 assert(o);
-                *ret = le64toh(o->entry_array.next_entry_array_offset);
-                return 0;
+
+                p = le64toh(o->entry_array.next_entry_array_offset);
+                if (p > 0 || p <= offset)
+                        return -EBADMSG;
+
+                *ret = p;
+                return p > 0;
         }
 
         /* Entry array chains are a singly linked list, so to find the previous array in the chain, we have
@@ -2607,6 +2617,8 @@ static int bump_entry_array(
 
                 q = p;
                 p = le64toh(o->entry_array.next_entry_array_offset);
+                if (p <= q)
+                        return -EBADMSG;
         }
 
         /* If we can't find the previous entry array in the entry array chain, we're likely dealing with a
@@ -2615,8 +2627,7 @@ static int bump_entry_array(
                 return -EBADMSG;
 
         *ret = q;
-
-        return 0;
+        return 1; /* found */
 }
 
 static int generic_array_get(
@@ -2627,7 +2638,7 @@ static int generic_array_get(
                 Object **ret_object,
                 uint64_t *ret_offset) {
 
-        uint64_t p = 0, a, t = 0, k;
+        uint64_t a, t = 0, k;
         ChainCacheItem *ci;
         Object *o;
         int r;
@@ -2659,7 +2670,7 @@ static int generic_array_get(
                          * array and start iterating entries from there. */
 
                         r = bump_entry_array(f, NULL, a, first, DIRECTION_UP, &a);
-                        if (r < 0)
+                        if (r <= 0)
                                 return r;
 
                         i = UINT64_MAX;
@@ -2675,7 +2686,10 @@ static int generic_array_get(
 
                 i -= k;
                 t += k;
-                a = le64toh(o->entry_array.next_entry_array_offset);
+
+                r = bump_entry_array(f, o, a, first, DIRECTION_DOWN, &a);
+                if (r <= 0)
+                        return r;
         }
 
         /* If we've found the right location, now look for the first non-corrupt entry object (in the right
@@ -2697,6 +2711,8 @@ static int generic_array_get(
                 }
 
                 do {
+                        uint64_t p;
+
                         p = journal_file_entry_array_item(f, o, i);
 
                         r = journal_file_move_to_object(f, OBJECT_ENTRY, p, ret_object);
@@ -2713,12 +2729,17 @@ static int generic_array_get(
                                 return r;
 
                         /* OK, so this entry is borked. Most likely some entry didn't get synced to
-                        * disk properly, let's see if the next one might work for us instead. */
+                         * disk properly, let's see if the next one might work for us instead. */
                         log_debug_errno(r, "Entry item %" PRIu64 " is bad, skipping over it.", i);
+
+                        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
+                        if (r < 0)
+                                return r;
+
                 } while (bump_array_index(&i, direction, k) > 0);
 
                 r = bump_entry_array(f, o, a, first, direction, &a);
-                if (r < 0)
+                if (r <= 0)
                         return r;
 
                 t += k;
@@ -4439,14 +4460,14 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log
 }
 
 static const char * const journal_object_type_table[] = {
-        [OBJECT_UNUSED] = "unused",
-        [OBJECT_DATA] = "data",
-        [OBJECT_FIELD] = "field",
-        [OBJECT_ENTRY] = "entry",
-        [OBJECT_DATA_HASH_TABLE] = "data hash table",
+        [OBJECT_UNUSED]           = "unused",
+        [OBJECT_DATA]             = "data",
+        [OBJECT_FIELD]            = "field",
+        [OBJECT_ENTRY]            = "entry",
+        [OBJECT_DATA_HASH_TABLE]  = "data hash table",
         [OBJECT_FIELD_HASH_TABLE] = "field hash table",
-        [OBJECT_ENTRY_ARRAY] = "entry array",
-        [OBJECT_TAG] = "tag",
+        [OBJECT_ENTRY_ARRAY]      = "entry array",
+        [OBJECT_TAG]              = "tag",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(journal_object_type, ObjectType);
