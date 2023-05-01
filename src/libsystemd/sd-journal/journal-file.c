@@ -2591,10 +2591,18 @@ static int bump_entry_array(
         assert(offset);
         assert(ret);
 
+        /* Return 1 when a non-zero offset found, 0 when the offset is zero.
+         * Here, we assume that the offset of each entry array object is in strict increasing order. */
+
         if (direction == DIRECTION_DOWN) {
                 assert(o);
-                *ret = le64toh(o->entry_array.next_entry_array_offset);
-                return 0;
+
+                p = le64toh(o->entry_array.next_entry_array_offset);
+                if (p > 0 && p <= offset)
+                        return -EBADMSG;
+
+                *ret = p;
+                return p > 0;
         }
 
         /* Entry array chains are a singly linked list, so to find the previous array in the chain, we have
@@ -2609,6 +2617,8 @@ static int bump_entry_array(
 
                 q = p;
                 p = le64toh(o->entry_array.next_entry_array_offset);
+                if (p <= q)
+                        return -EBADMSG;
         }
 
         /* If we can't find the previous entry array in the entry array chain, we're likely dealing with a
@@ -2617,8 +2627,7 @@ static int bump_entry_array(
                 return -EBADMSG;
 
         *ret = q;
-
-        return 0;
+        return 1; /* found */
 }
 
 static int generic_array_get(
@@ -2661,7 +2670,7 @@ static int generic_array_get(
                          * array and start iterating entries from there. */
 
                         r = bump_entry_array(f, NULL, a, first, DIRECTION_UP, &a);
-                        if (r < 0)
+                        if (r <= 0)
                                 return r;
 
                         i = UINT64_MAX;
@@ -2677,7 +2686,10 @@ static int generic_array_get(
 
                 i -= k;
                 t += k;
-                a = le64toh(o->entry_array.next_entry_array_offset);
+
+                r = bump_entry_array(f, o, a, first, DIRECTION_DOWN, &a);
+                if (r <= 0)
+                        return r;
         }
 
         /* If we've found the right location, now look for the first non-corrupt entry object (in the right
@@ -2727,7 +2739,7 @@ static int generic_array_get(
                 } while (bump_array_index(&i, direction, k) > 0);
 
                 r = bump_entry_array(f, o, a, first, direction, &a);
-                if (r < 0)
+                if (r <= 0)
                         return r;
 
                 t += k;
