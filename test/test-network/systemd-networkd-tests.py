@@ -3636,10 +3636,14 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
 
         output = check_output('tc -d class show dev dummy98')
         print(output)
-        self.assertRegex(output, 'class htb 2:37 root leaf 37:')
-        self.assertRegex(output, 'class htb 2:3a root leaf 3a:')
-        self.assertRegex(output, 'class htb 2:3b root leaf 3b:')
-        self.assertRegex(output, 'class htb 2:3c root leaf 3c:')
+        # Here (:|prio) is a workaround for a bug in iproute2 v6.2.0 caused by
+        # https://github.com/shemminger/iproute2/commit/010a8388aea11e767ba3a2506728b9ad9760df0e
+        # which is fixed in v6.3.0 by
+        # https://github.com/shemminger/iproute2/commit/4e0e56e0ef05387f7f5d8ab41fe6ec6a1897b26d
+        self.assertRegex(output, 'class htb 2:37 root leaf 37(:|prio) ')
+        self.assertRegex(output, 'class htb 2:3a root leaf 3a(:|prio) ')
+        self.assertRegex(output, 'class htb 2:3b root leaf 3b(:|prio) ')
+        self.assertRegex(output, 'class htb 2:3c root leaf 3c(:|prio) ')
         self.assertRegex(output, 'prio 1 quantum 4000 rate 1Mbit overhead 100 ceil 500Kbit')
         self.assertRegex(output, 'burst 123456')
         self.assertRegex(output, 'cburst 123457')
