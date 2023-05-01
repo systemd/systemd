@@ -2304,7 +2304,7 @@ static void journal_file_unlink_newest_by_bood_id(sd_journal *j, JournalFile *f)
                 /* There's still a member in the prioq? Then make sure the hashmap key now points to its
                  * .newest_boot_id field (and not ours!). Not we only replace the memory of the key here, the
                  * value of the key (and the data associated with it) remain the same. */
-                assert_se(hashmap_update(j->newest_by_boot_id, &nf->newest_boot_id, p) >= 0);
+                assert_se(hashmap_replace(j->newest_by_boot_id, &nf->newest_boot_id, p) >= 0);
         else {
                 assert_se(hashmap_remove(j->newest_by_boot_id, &f->newest_boot_id) == p);
                 prioq_free(p);
@@ -2353,8 +2353,10 @@ static int journal_file_reshuffle_newest_by_boot_id(sd_journal *j, JournalFile *
                         return r;
 
                 r = hashmap_ensure_put(&j->newest_by_boot_id, &id128_hash_ops, &f->newest_boot_id, q);
-                if (r < 0)
+                if (r < 0) {
+                        f->newest_boot_id_prioq_idx = PRIOQ_IDX_NULL;
                         return r;
+                }
 
                 TAKE_PTR(q);
         }
