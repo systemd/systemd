@@ -2593,7 +2593,12 @@ static int bump_entry_array(
 
         if (direction == DIRECTION_DOWN) {
                 assert(o);
-                *ret = le64toh(o->entry_array.next_entry_array_offset);
+
+                p = le64toh(o->entry_array.next_entry_array_offset);
+                if (p == 0 || p <= offset)
+                        return -EBADMSG;
+
+                *ret = p;
                 return 0;
         }
 
@@ -2609,6 +2614,8 @@ static int bump_entry_array(
 
                 q = p;
                 p = le64toh(o->entry_array.next_entry_array_offset);
+                if (p <= q)
+                        return -EBADMSG;
         }
 
         /* If we can't find the previous entry array in the entry array chain, we're likely dealing with a
@@ -2677,7 +2684,11 @@ static int generic_array_get(
 
                 i -= k;
                 t += k;
-                a = le64toh(o->entry_array.next_entry_array_offset);
+
+                uint64_t b = le64toh(o->entry_array.next_entry_array_offset);
+                if (b <= a)
+                        return -EBADMSG;
+                a = b;
         }
 
         /* If we've found the right location, now look for the first non-corrupt entry object (in the right
