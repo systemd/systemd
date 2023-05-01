@@ -4441,14 +4441,14 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log
 }
 
 static const char * const journal_object_type_table[] = {
-        [OBJECT_UNUSED] = "unused",
-        [OBJECT_DATA] = "data",
-        [OBJECT_FIELD] = "field",
-        [OBJECT_ENTRY] = "entry",
-        [OBJECT_DATA_HASH_TABLE] = "data hash table",
+        [OBJECT_UNUSED]           = "unused",
+        [OBJECT_DATA]             = "data",
+        [OBJECT_FIELD]            = "field",
+        [OBJECT_ENTRY]            = "entry",
+        [OBJECT_DATA_HASH_TABLE]  = "data hash table",
         [OBJECT_FIELD_HASH_TABLE] = "field hash table",
-        [OBJECT_ENTRY_ARRAY] = "entry array",
-        [OBJECT_TAG] = "tag",
+        [OBJECT_ENTRY_ARRAY]      = "entry array",
+        [OBJECT_TAG]              = "tag",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(journal_object_type, ObjectType);
