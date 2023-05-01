@@ -2629,7 +2629,7 @@ static int generic_array_get(
                 Object **ret_object,
                 uint64_t *ret_offset) {
 
-        uint64_t p = 0, a, t = 0, k;
+        uint64_t a, t = 0, k;
         ChainCacheItem *ci;
         Object *o;
         int r;
@@ -2699,6 +2699,8 @@ static int generic_array_get(
                 }
 
                 do {
+                        uint64_t p;
+
                         p = journal_file_entry_array_item(f, o, i);
 
                         r = journal_file_move_to_object(f, OBJECT_ENTRY, p, ret_object);
