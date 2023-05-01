@@ -103,7 +103,7 @@ static sd_netlink_slot* netlink_slot_free(sd_netlink_slot *slot) {
         return mfree(slot);
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_netlink_slot, sd_netlink_slot, netlink_slot_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_netlink_slot, sd_netlink_slot, netlink_slot_free);
 
 sd_netlink *sd_netlink_slot_get_netlink(sd_netlink_slot *slot) {
         assert_return(slot, NULL);

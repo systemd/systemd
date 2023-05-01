@@ -667,7 +667,7 @@ _public_ int sd_notifyf(int unset_environment, const char *format, ...) {
         return sd_pid_notify(0, unset_environment, p);
 }
 
-int sd_pid_notifyf_with_fds(
+_public_ int sd_pid_notifyf_with_fds(
                 pid_t pid,
                 int unset_environment,
                 const int *fds, size_t n_fds,
