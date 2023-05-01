@@ -172,6 +172,7 @@ simple_tests += files(
         'test-unit-file.c',
         'test-user-util.c',
         'test-utf8.c',
+        'test-variadic.c',
         'test-verbs.c',
         'test-web-util.c',
         'test-xattr-util.c',
