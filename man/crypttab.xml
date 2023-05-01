@@ -484,6 +484,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>veracrypt-pim=</option></term>
+
+        <listitem><para>Specifies a custom Personal Iteration Multiplier (PIM)
+        value. Only is effective when <option>tcrypt-veracrypt</option> is 
+        set.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>timeout=</option></term>
 
         <listitem><para>Specifies the timeout for querying for a

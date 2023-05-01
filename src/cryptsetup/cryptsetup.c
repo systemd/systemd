@@ -81,6 +81,7 @@ static bool arg_no_write_workqueue = false;
 static bool arg_tcrypt_hidden = false;
 static bool arg_tcrypt_system = false;
 static bool arg_tcrypt_veracrypt = false;
+static uint32_t arg_tcrypt_veracrypt_pim = 0;
 static char **arg_tcrypt_keyfiles = NULL;
 static uint64_t arg_offset = 0;
 static uint64_t arg_skip = 0;
@@ -308,6 +309,13 @@ static int parse_one_option(const char *option) {
         } else if (STR_IN_SET(option, "tcrypt-veracrypt", "veracrypt")) {
                 arg_type = CRYPT_TCRYPT;
                 arg_tcrypt_veracrypt = true;
+        } else if ((val = startswith(option, "veracrypt-pim="))) {
+
+                r = safe_atou32(val, &arg_tcrypt_veracrypt_pim);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
         } else if (STR_IN_SET(option, "plain", "swap", "tmp") ||
                    startswith(option, "tmp="))
                 arg_type = CRYPT_PLAIN;
@@ -995,6 +1003,9 @@ static int attach_tcrypt(
 
         if (arg_tcrypt_veracrypt)
                 params.flags |= CRYPT_TCRYPT_VERA_MODES;
+        
+        if (arg_tcrypt_veracrypt_pim)
+                params.veracrypt_pim = arg_tcrypt_veracrypt_pim;
 
         if (key_data) {
                 params.passphrase = key_data;
