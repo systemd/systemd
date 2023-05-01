@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# Make sure that services are disabled by default (primarily for Debian/Ubuntu).
+disable *
