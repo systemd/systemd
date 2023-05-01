@@ -111,16 +111,20 @@ KERNEL=="msblk[0-9]p[0-9]|mspblk[0-9]p[0-9]", ENV{ID_NAME}=="?*", ENV{ID_SERIAL}
 # by-path
 ENV{DEVTYPE}=="disk", DEVPATH!="*/virtual/*", IMPORT{builtin}="path_id"
 ENV{DEVTYPE}=="disk", SUBSYSTEMS=="nvme-subsystem", IMPORT{builtin}="path_id"
-KERNEL=="mmcblk[0-9]boot[0-9]", ENV{DEVTYPE}=="disk", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-boot%n"
-KERNEL!="mmcblk[0-9]boot[0-9]", ENV{DEVTYPE}=="disk", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}"
-ENV{DEVTYPE}=="partition", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
-# compatible links for ATA devices
+KERNEL=="mmcblk[0-9]boot[0-9]", ENV{DEVTYPE}=="disk", ENV{ID_PATH}=="?*",            SYMLINK+="disk/by-path/$env{ID_PATH}-boot%n"
+KERNEL=="mmcblk[0-9]boot[0-9]", ENV{DEVTYPE}=="disk", ENV{ID_PATH_USB_COMPAT}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH_USB_COMPAT}-boot%n"
+KERNEL!="mmcblk[0-9]boot[0-9]", ENV{DEVTYPE}=="disk", ENV{ID_PATH}=="?*",            SYMLINK+="disk/by-path/$env{ID_PATH}"
 KERNEL!="mmcblk[0-9]boot[0-9]", ENV{DEVTYPE}=="disk", ENV{ID_PATH_ATA_COMPAT}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH_ATA_COMPAT}"
+KERNEL!="mmcblk[0-9]boot[0-9]", ENV{DEVTYPE}=="disk", ENV{ID_PATH_USB_COMPAT}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH_USB_COMPAT}"
+ENV{DEVTYPE}=="partition", ENV{ID_PATH}=="?*",            SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
 ENV{DEVTYPE}=="partition", ENV{ID_PATH_ATA_COMPAT}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH_ATA_COMPAT}-part%n"
+ENV{DEVTYPE}=="partition", ENV{ID_PATH_USB_COMPAT}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH_USB_COMPAT}-part%n"
 
 # legacy virtio-pci by-path links (deprecated)
-KERNEL=="vd*[!0-9]", ENV{ID_PATH}=="pci-*", SYMLINK+="disk/by-path/virtio-$env{ID_PATH}"
-KERNEL=="vd*[0-9]", ENV{ID_PATH}=="pci-*", SYMLINK+="disk/by-path/virtio-$env{ID_PATH}-part%n"
+KERNEL=="vd*[!0-9]", ENV{ID_PATH}=="pci-*",            SYMLINK+="disk/by-path/virtio-$env{ID_PATH}"
+KERNEL=="vd*[!0-9]", ENV{ID_PATH_USB_COMPAT}=="pci-*", SYMLINK+="disk/by-path/virtio-$env{ID_PATH_USB_COMPAT}"
+KERNEL=="vd*[0-9]",  ENV{ID_PATH}=="pci-*",            SYMLINK+="disk/by-path/virtio-$env{ID_PATH}-part%n"
+KERNEL=="vd*[0-9]",  ENV{ID_PATH_USB_COMPAT}=="pci-*", SYMLINK+="disk/by-path/virtio-$env{ID_PATH_USB_COMPAT}-part%n"
 
 {% if HAVE_BLKID %}
 # allow admin to disable probing the filesystem for slow devices like floppy disk drives

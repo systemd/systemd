@@ -9,11 +9,13 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <linux/usb/ch11.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "device-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "parse-util.h"
@@ -487,8 +489,51 @@ static void handle_scsi_tape(sd_device *dev, char **path) {
                 path_prepend(path, "st%c", name[2]);
 }
 
+static int get_usb_revision(sd_device *dev) {
+        uint8_t protocol;
+        const char *s;
+        int r;
+
+        assert(dev);
+
+        /* Returns usb revision 1, 2, or 3. */
+
+        r = sd_device_get_sysattr_value(dev, "bDeviceProtocol", &s);
+        if (r < 0)
+                return r;
+
+        r = safe_atou8_full(s, 16, &protocol);
+        if (r < 0)
+                return r;
+
+        switch (protocol) {
+        case USB_HUB_PR_HS_NO_TT: /* Full speed hub (USB1) or Hi-speed hub without TT (USB2) */
+
+                /* See speed_show() in drivers/usb/core/sysfs.c of the kernel. */
+                r = sd_device_get_sysattr_value(dev, "speed", &s);
+                if (r < 0)
+                        return r;
+
+                if (streq(s, "480"))
+                        return 2;
+
+                return 1;
+
+        case USB_HUB_PR_HS_SINGLE_TT: /* Hi-speed hub with single TT */
+        case USB_HUB_PR_HS_MULTI_TT: /* Hi-speed hub with multiple TT */
+                return 2;
+
+        case USB_HUB_PR_SS: /* Super speed hub */
+                return 3;
+
+        default:
+                return -EPROTONOSUPPORT;
+        }
+}
+
 static sd_device *handle_usb(sd_device *parent, char **path) {
         const char *devtype, *str, *port;
+        int r;
 
         if (sd_device_get_devtype(parent, &devtype) < 0)
                 return parent;
@@ -502,12 +547,52 @@ static sd_device *handle_usb(sd_device *parent, char **path) {
                 return parent;
         port++;
 
-        /* USB host number may change across reboots (and probably even without reboot). The part after
-         * USB host number is determined by device topology and so does not change. Hence, drop the
-         * host number and always use '0' instead. */
+        parent = skip_subsystem(parent, "usb");
+        if (!parent)
+                return NULL;
 
-        path_prepend(path, "usb-0:%s", port);
-        return skip_subsystem(parent, "usb");
+        /* USB host number may change across reboots (and probably even without reboot). The part after USB
+         * host number is determined by device topology and so does not change. Hence, drop the host number
+         * and always use '0' instead.
+         *
+         * xHCI host controllers may register two (or more?) USB root hubs for USB 2.0 and USB 3.0, and the
+         * sysname, whose host number replaced with 0, of a device under the hubs may conflict with others.
+         * To avoid the conflict, let's include the USB revision of the root hub to the PATH_ID.
+         * See issue https://github.com/systemd/systemd/issues/19406 for more details. */
+        r = get_usb_revision(parent);
+        if (r < 0) {
+                log_device_debug_errno(parent, r, "Failed to get the USB revision number, ignoring: %m");
+                path_prepend(path, "usb-0:%s", port);
+        } else {
+                assert(r > 0);
+                path_prepend(path, "usbv%i-0:%s", r, port);
+        }
+
+        return parent;
+}
+
+static int add_usb_compat(sd_device *dev, bool test, const char *path) {
+        _cleanup_free_ char *q = NULL;
+        const char *p;
+
+        assert(dev);
+        assert(path);
+
+        /* Drop the USB revision specifier for backward compatibility. */
+
+        p = strstrafter(path, "-usbv");
+        if (!p || p == path)
+                return 0;
+        if (!ascii_isdigit(p[0]))
+                return 0;
+        if (p[1] != '-')
+                return 0;
+
+        q = strndup(path, p - path - 1);
+        if (!q)
+                return -ENOMEM;
+
+        return udev_builtin_add_propertyf(dev, test, "ID_PATH_USB_COMPAT", "%s%s", q, p + 1);
 }
 
 static sd_device *handle_bcma(sd_device *parent, char **path) {
@@ -780,6 +865,10 @@ static int builtin_path_id(sd_device *dev, sd_netlink **rtnl, int argc, char *ar
          */
         if (compat_path)
                 udev_builtin_add_property(dev, test, "ID_PATH_ATA_COMPAT", compat_path);
+
+        r = add_usb_compat(dev, test, path);
+        if (r < 0)
+                log_device_debug_errno(dev, r, "Failed to add ID_PATH_USB_COMPAT property, ignoring: %m");
 
         return 0;
 }
