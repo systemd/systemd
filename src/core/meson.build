@@ -192,4 +192,11 @@ fuzzers += [
                 ],
                 'dependencies' : libmount,
         },
+        {
+                'sources' : files('fuzz-manager-serialize.c'),
+                'link_with' : [
+                        libcore,
+                        libshared
+                ],
+        },
 ]
