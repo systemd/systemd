@@ -14,8 +14,10 @@ KERNEL!="ttyUSB[0-9]*|ttyACM[0-9]*", GOTO="serial_end"
 SUBSYSTEMS=="usb-serial", ENV{.ID_PORT}="$attr{port_number}"
 
 IMPORT{builtin}="path_id"
-ENV{ID_PATH}=="?*", ENV{.ID_PORT}=="", SYMLINK+="serial/by-path/$env{ID_PATH}"
-ENV{ID_PATH}=="?*", ENV{.ID_PORT}=="?*", SYMLINK+="serial/by-path/$env{ID_PATH}-port$env{.ID_PORT}"
+ENV{ID_PATH}=="?*",                   ENV{.ID_PORT}=="",   SYMLINK+="serial/by-path/$env{ID_PATH}"
+ENV{ID_PATH_WITH_USB_REVISION}=="?*", ENV{.ID_PORT}=="",   SYMLINK+="serial/by-path/$env{ID_PATH_WITH_USB_REVISION}"
+ENV{ID_PATH}=="?*",                   ENV{.ID_PORT}=="?*", SYMLINK+="serial/by-path/$env{ID_PATH}-port$env{.ID_PORT}"
+ENV{ID_PATH_WITH_USB_REVISION}=="?*", ENV{.ID_PORT}=="?*", SYMLINK+="serial/by-path/$env{ID_PATH_WITH_USB_REVISION}-port$env{.ID_PORT}"
 
 ENV{ID_BUS}=="", GOTO="serial_end"
 ENV{ID_SERIAL}=="", GOTO="serial_end"

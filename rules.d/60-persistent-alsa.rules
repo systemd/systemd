@@ -9,6 +9,7 @@ ENV{ID_SERIAL}=="?*", ENV{ID_USB_INTERFACE_NUM}=="?*", SYMLINK+="snd/by-id/$env{
 ENV{ID_SERIAL}=="?*", ENV{ID_USB_INTERFACE_NUM}=="", SYMLINK+="snd/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
 
 IMPORT{builtin}="path_id"
-ENV{ID_PATH}=="?*", SYMLINK+="snd/by-path/$env{ID_PATH}"
+ENV{ID_PATH}=="?*",                   SYMLINK+="snd/by-path/$env{ID_PATH}"
+ENV{ID_PATH_WITH_USB_REVISION}=="?*", SYMLINK+="snd/by-path/$env{ID_PATH_WITH_USB_REVISION}"
 
 LABEL="persistent_alsa_end"
