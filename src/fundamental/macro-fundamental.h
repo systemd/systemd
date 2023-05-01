@@ -50,8 +50,8 @@
 #  define _fallthrough_
 #endif
 
-#define XSTRINGIFY(x) #x
-#define STRINGIFY(x) XSTRINGIFY(x)
+#define XSTRINGIFY(...) #__VA_ARGS__
+#define STRINGIFY(...) XSTRINGIFY(__VA_ARGS__)
 
 #ifndef __COVERITY__
 #  define VOID_0 ((void)0)
