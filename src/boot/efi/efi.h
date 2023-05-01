@@ -165,7 +165,7 @@ typedef struct {
 #define EFI_OS_INDICATIONS_JSON_CONFIG_DATA_REFRESH        0x80U
 
 #define EFI_PAGE_SIZE 4096U
-#define EFI_SIZE_TO_PAGES(s) ((s) + 0xFFFU) >> 12U
+#define EFI_SIZE_TO_PAGES(s) (((s) + 0xFFFU) >> 12U)
 
 /* These are common enough to warrant forward declaration. We also give them a
  * shorter name for convenience. */

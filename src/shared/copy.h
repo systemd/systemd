@@ -104,3 +104,6 @@ static inline int copy_rights(int fdf, int fdt) {
         return copy_rights_with_fallback(fdf, fdt, NULL); /* no fallback */
 }
 int copy_xattr(int df, const char *from, int dt, const char *to, CopyFlags copy_flags);
+
+int reflink(int infd, int outfd);
+int reflink_range(int infd, uint64_t in_offset, int outfd, uint64_t out_offset, uint64_t sz);

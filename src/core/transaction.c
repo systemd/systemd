@@ -34,7 +34,7 @@ static void transaction_delete_unit(Transaction *tr, Unit *u) {
                 transaction_delete_job(tr, j, true);
 }
 
-void transaction_abort(Transaction *tr) {
+static void transaction_abort(Transaction *tr) {
         Job *j;
 
         assert(tr);
@@ -1199,8 +1199,21 @@ Transaction *transaction_new(bool irreversible) {
         return tr;
 }
 
-void transaction_free(Transaction *tr) {
+Transaction *transaction_free(Transaction *tr) {
+        if (!tr)
+                return NULL;
+
         assert(hashmap_isempty(tr->jobs));
         hashmap_free(tr->jobs);
-        free(tr);
+
+        return mfree(tr);
+}
+
+Transaction *transaction_abort_and_free(Transaction *tr) {
+        if (!tr)
+                return NULL;
+
+        transaction_abort(tr);
+
+        return transaction_free(tr);
 }
