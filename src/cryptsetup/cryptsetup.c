@@ -313,7 +313,7 @@ static int parse_one_option(const char *option) {
 
                 r = safe_atou32(val, &arg_tcrypt_veracrypt_pim);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
         } else if (STR_IN_SET(option, "plain", "swap", "tmp") ||
@@ -1004,7 +1004,7 @@ static int attach_tcrypt(
         if (arg_tcrypt_veracrypt)
                 params.flags |= CRYPT_TCRYPT_VERA_MODES;
         
-        if (arg_tcrypt_veracrypt && arg_tcrypt_veracrypt_pim)
+        if (arg_tcrypt_veracrypt && arg_tcrypt_veracrypt_pim != 0)
                 params.veracrypt_pim = arg_tcrypt_veracrypt_pim;
 
         if (key_data) {
