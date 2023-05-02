@@ -3989,8 +3989,10 @@ static int manager_run_generators(Manager *m) {
                 goto finish;
         }
 
+        /* Fork into a new user namespace, so that we don't get a permission error in case we are running inside
+         * an unprivileged container. */
         r = safe_fork("(sd-gens)",
-                      FORK_RESET_SIGNALS | FORK_WAIT | FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE | FORK_PRIVATE_TMP,
+                      FORK_RESET_SIGNALS | FORK_WAIT | FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE | FORK_PRIVATE_TMP | FORK_NEW_USERNS,
                       NULL);
         if (r == 0) {
                 r = manager_execute_generators(m, paths, /* remount_ro= */ true);
