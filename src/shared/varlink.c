@@ -3063,7 +3063,9 @@ int varlink_server_deserialize_one(VarlinkServer *s, const char *value, FDSet *f
         r = safe_atoi(buf, &fd);
         if (r < 0)
                 return log_debug_errno(r, "Unable to parse VarlinkServerSocket varlink-server-socket-fd=%s: %m", buf);
-
+        if (fd < 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "VarlinkServerSocket varlink-server-socket-fd= has an invalid value: %d", fd);
         if (!fdset_contains(fds, fd))
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
                                        "VarlinkServerSocket varlink-server-socket-fd= has unknown fd %d: %m", fd);
