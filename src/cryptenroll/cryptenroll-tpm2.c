@@ -75,7 +75,7 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire PIN from environment: %m");
         if (r > 0)
-                flags |= TPM2_FLAGS_USE_PIN;
+                flags |= TPM2_FLAGS_USE_PIN | TPM2_FLAGS_APPEND_SALT;
         else {
                 for (size_t i = 5;; i--) {
                         _cleanup_strv_free_erase_ char **pin = NULL, **pin2 = NULL;
@@ -115,7 +115,7 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
                                 pin_str = strdup(*pin);
                                 if (!pin_str)
                                         return log_oom();
-                                flags |= TPM2_FLAGS_USE_PIN;
+                                flags |= TPM2_FLAGS_USE_PIN | TPM2_FLAGS_APPEND_SALT;
                                 break;
                         }
 
@@ -142,6 +142,7 @@ int enroll_tpm2(struct crypt_device *cd,
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *signature_json = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
+        _cleanup_(erase_and_freep) char *secret_and_salt = NULL;
         _cleanup_free_ void *srk_buf = NULL;
         size_t secret_size, blob_size, hash_size, pubkey_size = 0, srk_buf_size = 0;
         _cleanup_free_ void *blob = NULL, *hash = NULL, *pubkey = NULL;
@@ -149,9 +150,11 @@ int enroll_tpm2(struct crypt_device *cd,
         const char *node;
         _cleanup_(erase_and_freep) char *pin_str = NULL;
         ssize_t base64_encoded_size;
+        size_t secret_and_salt_size;
         int r, keyslot;
         TPM2Flags flags = 0;
         uint8_t binary_salt[SHA256_DIGEST_SIZE] = {};
+        uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
         /*
          * erase the salt, we'd rather attempt to not have this in a coredump
          * as an attacker would have all the parameters but pin used to create
@@ -159,6 +162,7 @@ int enroll_tpm2(struct crypt_device *cd,
          * primary key, aka the SRK.
          */
         CLEANUP_ERASE(binary_salt);
+        CLEANUP_ERASE(salted_pin);
 
         assert(cd);
         assert(volume_key);
@@ -177,8 +181,6 @@ int enroll_tpm2(struct crypt_device *cd,
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire random salt: %m");
 
-                uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
-                CLEANUP_ERASE(salted_pin);
                 r = tpm2_util_pbkdf2_hmac_sha256(pin_str, strlen(pin_str), binary_salt, sizeof(binary_salt), salted_pin);
                 if (r < 0)
                         return log_error_errno(r, "Failed to perform PBKDF2: %m");
@@ -257,8 +259,19 @@ int enroll_tpm2(struct crypt_device *cd,
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 seal/unseal verification failed.");
         }
 
+        if (use_pin) {
+                /* To prevent using a secret from a compromised TPM without the pin, append salted pin.
+                 * See following attack on AMD's fTPMs: https://arxiv.org/abs/2304.14717 */
+                secret_and_salt_size = secret_size + sizeof(salted_pin);
+                secret_and_salt = malloc(secret_and_salt_size);
+                if (!secret_and_salt)
+                        return log_error_errno(-ENOMEM, "Failed to allocate volume decryption key buffer: %m");
+                memcpy(secret_and_salt, secret, secret_size);
+                memcpy(secret_and_salt + secret_size, salted_pin, sizeof(salted_pin));
+        }
+
         /* let's base64 encode the key to use, for compat with homed (and it's easier to every type it in by keyboard, if that might end up being necessary. */
-        base64_encoded_size = base64mem(secret, secret_size, &base64_encoded);
+        base64_encoded_size = base64mem(use_pin ? secret_and_salt : secret, use_pin ? secret_and_salt_size : secret_size, &base64_encoded);
         if (base64_encoded_size < 0)
                 return log_error_errno(base64_encoded_size, "Failed to base64 encode secret key: %m");
 
