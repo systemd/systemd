@@ -31,6 +31,14 @@ fi
 # Bump the timeout if we're running with plain QEMU
 [[ "$(systemd-detect-virt -v)" == "qemu" ]] && TIMEOUT=90 || TIMEOUT=30
 
+(! systemd-run -t --profile strict touch /foo)
+test -f /foo && exit 1
+systemd-run -t --profile strict touch /tmp/foo
+(! systemd-run -t --profile ../strict/service touch /tmp/foo)
+(! systemd-run -t --profile ../strict/service.conf touch /tmp/foo)
+systemd-run -t --profile /usr/lib/systemd/portable/profile/strict/service.conf touch /tmp/foo
+test -f /tmp/foo && exit 1
+
 systemd-dissect --no-pager /usr/share/minimal_0.raw | grep -q '✓ portable service'
 systemd-dissect --no-pager /usr/share/minimal_1.raw | grep -q '✓ portable service'
 systemd-dissect --no-pager /usr/share/app0.raw | grep -q '✓ extension for portable service'
