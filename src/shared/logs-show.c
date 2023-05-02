@@ -509,7 +509,7 @@ static int output_short(
                 if (r < 0)
                         return r;
         }
-        if (r == -EBADMSG) {
+        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
                 log_debug_errno(r, "Skipping message we can't read: %m");
                 return 0;
         }
@@ -868,7 +868,7 @@ static int output_export(
 
                 fputc('\n', f);
         }
-        if (r == -EBADMSG) {
+        if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
                 log_debug_errno(r, "Skipping message we can't read: %m");
                 return 0;
         }
@@ -1116,7 +1116,7 @@ static int output_json(
                 size_t size;
 
                 r = sd_journal_enumerate_data(j, &data, &size);
-                if (r == -EBADMSG) {
+                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
                         log_debug_errno(r, "Skipping message we can't read: %m");
                         r = 0;
                         goto finish;
@@ -1204,7 +1204,7 @@ static int output_cat_field(
                 get_log_colors(prio, &color_on, &color_off, &highlight_on);
 
         r = sd_journal_get_data(j, field, &data, &l);
-        if (r == -EBADMSG) {
+        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
                 log_debug_errno(r, "Skipping message we can't read: %m");
                 return 0;
         }
@@ -1276,7 +1276,7 @@ static int output_cat(
                 /* Determine priority of this entry, so that we can color it nicely */
 
                 r = sd_journal_get_data(j, "PRIORITY", &data, &l);
-                if (r == -EBADMSG) {
+                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
                         log_debug_errno(r, "Skipping message we can't read: %m");
                         return 0;
                 }
@@ -1420,7 +1420,7 @@ int show_journal_entry(
                 n_columns = columns();
 
         r = get_display_timestamp(j, &display_ts, &boot_id);
-        if (r == -EBADMSG) {
+        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
                 log_debug_errno(r, "Skipping message we can't read: %m");
                 return 0;
         }
