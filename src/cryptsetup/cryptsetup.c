@@ -158,12 +158,12 @@ static int parse_one_option(const char *option) {
 
                 r = safe_atou(val, &arg_key_size);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
 
                 if (arg_key_size % 8) {
-                        log_error("size= not a multiple of 8, ignoring.");
+                        log_warning("size= not a multiple of 8, ignoring.");
                         return 0;
                 }
 
@@ -173,29 +173,25 @@ static int parse_one_option(const char *option) {
 
                 r = safe_atou(val, &arg_sector_size);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
 
                 if (arg_sector_size % 2) {
-                        log_error("sector-size= not a multiple of 2, ignoring.");
+                        log_warning("sector-size= not a multiple of 2, ignoring.");
                         return 0;
                 }
 
-                if (arg_sector_size < CRYPT_SECTOR_SIZE || arg_sector_size > CRYPT_MAX_SECTOR_SIZE) {
-                        log_error("sector-size= is outside of %u and %u, ignoring.", CRYPT_SECTOR_SIZE, CRYPT_MAX_SECTOR_SIZE);
-                        return 0;
-                }
+                if (arg_sector_size < CRYPT_SECTOR_SIZE || arg_sector_size > CRYPT_MAX_SECTOR_SIZE)
+                        log_warning("sector-size= is outside of %u and %u, ignoring.", CRYPT_SECTOR_SIZE, CRYPT_MAX_SECTOR_SIZE);
 
         } else if ((val = startswith(option, "key-slot=")) ||
                    (val = startswith(option, "keyslot="))) {
 
                 arg_type = ANY_LUKS;
                 r = safe_atoi(val, &arg_key_slot);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
-                        return 0;
-                }
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
 
         } else if ((val = startswith(option, "tcrypt-keyfile="))) {
 
@@ -204,29 +200,25 @@ static int parse_one_option(const char *option) {
                         if (strv_extend(&arg_tcrypt_keyfiles, val) < 0)
                                 return log_oom();
                 } else
-                        log_error("Key file path \"%s\" is not absolute. Ignoring.", val);
+                        log_warning("Key file path \"%s\" is not absolute, ignoring.", val);
 
         } else if ((val = startswith(option, "keyfile-size="))) {
 
                 r = safe_atou(val, &arg_keyfile_size);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
-                        return 0;
-                }
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
 
         } else if ((val = startswith(option, "keyfile-offset="))) {
 
                 r = safe_atou64(val, &arg_keyfile_offset);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
-                        return 0;
-                }
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
 
         } else if ((val = startswith(option, "keyfile-erase="))) {
 
                 r = parse_boolean(val);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
 
@@ -258,10 +250,8 @@ static int parse_one_option(const char *option) {
         } else if ((val = startswith(option, "tries="))) {
 
                 r = safe_atou(val, &arg_tries);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
-                        return 0;
-                }
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
 
         } else if (STR_IN_SET(option, "readonly", "read-only"))
                 arg_readonly = true;
@@ -314,10 +304,8 @@ static int parse_one_option(const char *option) {
         else if ((val = startswith(option, "timeout="))) {
 
                 r = parse_sec_fix_0(val, &arg_timeout);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
-                        return 0;
-                }
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
 
         } else if ((val = startswith(option, "offset="))) {
 
@@ -420,7 +408,7 @@ static int parse_one_option(const char *option) {
 
                 r = parse_boolean(val);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
 
@@ -439,7 +427,7 @@ static int parse_one_option(const char *option) {
 
                         pcr = r ? TPM_PCR_INDEX_VOLUME_KEY : UINT_MAX;
                 } else if (!TPM2_PCR_VALID(pcr)) {
-                        log_error("Selected TPM index for measurement %u outside of allowed range 0…%u, ignoring.", pcr, TPM2_PCRS_MAX-1);
+                        log_warning("Selected TPM index for measurement %u outside of allowed range 0…%u, ignoring.", pcr, TPM2_PCRS_MAX-1);
                         return 0;
                 }
 
@@ -472,7 +460,7 @@ static int parse_one_option(const char *option) {
 
                 r = parse_boolean(val);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
 
@@ -484,7 +472,7 @@ static int parse_one_option(const char *option) {
 
                 r = parse_boolean(val);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
 
@@ -495,10 +483,8 @@ static int parse_one_option(const char *option) {
         else if ((val = startswith(option, "token-timeout="))) {
 
                 r = parse_sec_fix_0(val, &arg_token_timeout_usec);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
-                        return 0;
-                }
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
 
         } else if (!streq(option, "x-initrd.attach"))
                 log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
