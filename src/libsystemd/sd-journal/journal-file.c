@@ -924,7 +924,7 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
         }
 
         case OBJECT_ENTRY_ARRAY: {
-                uint64_t sz;
+                uint64_t sz, next;
 
                 sz = le64toh(READ_NOW(o->object.size));
                 if (sz < offsetof(Object, entry_array.items) ||
@@ -934,11 +934,12 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
                                                "Invalid object entry array size: %" PRIu64 ": %" PRIu64,
                                                sz,
                                                offset);
-
-                if (!VALID64(le64toh(o->entry_array.next_entry_array_offset)))
+                /* Here, we request that the offset of each entry array object is in strictly increasing order. */
+                next = le64toh(o->entry_array.next_entry_array_offset);
+                if (!VALID64(next) || (next > 0 && next <= offset))
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Invalid object entry array next_entry_array_offset: " OFSfmt ": %" PRIu64,
-                                               le64toh(o->entry_array.next_entry_array_offset),
+                                               "Invalid object entry array next_entry_array_offset: %" PRIu64 ": %" PRIu64,
+                                               next,
                                                offset);
 
                 break;
