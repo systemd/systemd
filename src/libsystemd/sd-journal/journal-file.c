@@ -924,7 +924,7 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
         }
 
         case OBJECT_ENTRY_ARRAY: {
-                uint64_t sz;
+                uint64_t sz, next;
 
                 sz = le64toh(READ_NOW(o->object.size));
                 if (sz < offsetof(Object, entry_array.items) ||
@@ -934,11 +934,12 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
                                                "Invalid object entry array size: %" PRIu64 ": %" PRIu64,
                                                sz,
                                                offset);
-
-                if (!VALID64(le64toh(o->entry_array.next_entry_array_offset)))
+                /* Here, we request that the offset of each entry array object is in strictly increasing order. */
+                next = le64toh(o->entry_array.next_entry_array_offset);
+                if (!VALID64(next) || next <= offset)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Invalid object entry array next_entry_array_offset: " OFSfmt ": %" PRIu64,
-                                               le64toh(o->entry_array.next_entry_array_offset),
+                                               "Invalid object entry array next_entry_array_offset: %" PRIu64 ": %" PRIu64,
+                                               next,
                                                offset);
 
                 break;
@@ -2591,18 +2592,10 @@ static int bump_entry_array(
         assert(offset);
         assert(ret);
 
-        /* Return 1 when a non-zero offset found, 0 when the offset is zero.
-         * Here, we assume that the offset of each entry array object is in strict increasing order. */
-
         if (direction == DIRECTION_DOWN) {
                 assert(o);
-
-                p = le64toh(o->entry_array.next_entry_array_offset);
-                if (p > 0 && p <= offset)
-                        return -EBADMSG;
-
-                *ret = p;
-                return p > 0;
+                *ret = le64toh(o->entry_array.next_entry_array_offset);
+                return 0;
         }
 
         /* Entry array chains are a singly linked list, so to find the previous array in the chain, we have
@@ -2617,8 +2610,6 @@ static int bump_entry_array(
 
                 q = p;
                 p = le64toh(o->entry_array.next_entry_array_offset);
-                if (p <= q)
-                        return -EBADMSG;
         }
 
         /* If we can't find the previous entry array in the entry array chain, we're likely dealing with a
@@ -2627,7 +2618,8 @@ static int bump_entry_array(
                 return -EBADMSG;
 
         *ret = q;
-        return 1; /* found */
+
+        return 0;
 }
 
 static int generic_array_get(
@@ -2670,7 +2662,7 @@ static int generic_array_get(
                          * array and start iterating entries from there. */
 
                         r = bump_entry_array(f, NULL, a, first, DIRECTION_UP, &a);
-                        if (r <= 0)
+                        if (r < 0)
                                 return r;
 
                         i = UINT64_MAX;
@@ -2686,10 +2678,7 @@ static int generic_array_get(
 
                 i -= k;
                 t += k;
-
-                r = bump_entry_array(f, o, a, first, DIRECTION_DOWN, &a);
-                if (r <= 0)
-                        return r;
+                a = le64toh(o->entry_array.next_entry_array_offset);
         }
 
         /* If we've found the right location, now look for the first non-corrupt entry object (in the right
@@ -2739,7 +2728,7 @@ static int generic_array_get(
                 } while (bump_array_index(&i, direction, k) > 0);
 
                 r = bump_entry_array(f, o, a, first, direction, &a);
-                if (r <= 0)
+                if (r < 0)
                         return r;
 
                 t += k;
