@@ -866,6 +866,7 @@ static bool shall_try_append_again(JournalFile *f, int r) {
         case -EBADMSG:         /* Corrupted                     */
         case -ENODATA:         /* Truncated                     */
         case -ESHUTDOWN:       /* Already archived              */
+        case -EADDRNOTAVAIL:   /* Referenced object offset out of bounds */
                 log_ratelimit_info_errno(r, JOURNAL_LOG_RATELIMIT, "%s: Journal file corrupted, rotating.", f->path);
                 return true;
 

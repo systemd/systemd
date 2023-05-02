@@ -537,6 +537,7 @@ int managed_journal_file_open_reliably(
                         ret);
         if (!IN_SET(r,
                     -EBADMSG,           /* Corrupted */
+                    -EADDRNOTAVAIL,     /* Referenced object offset out of bounds */
                     -ENODATA,           /* Truncated */
                     -EHOSTDOWN,         /* Other machine */
                     -EPROTONOSUPPORT,   /* Incompatible feature */
