@@ -267,7 +267,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 if (!secret_and_salt)
                         return log_error_errno(-ENOMEM, "Failed to allocate volume decryption key buffer: %m");
                 memcpy(secret_and_salt, secret, secret_size);
-                memcpy(secret_and_salt + secret_size, salted_pin, siezof(salted_pin));
+                memcpy(secret_and_salt + secret_size, salted_pin, sizeof(salted_pin));
         }
 
         /* let's base64 encode the key to use, for compat with homed (and it's easier to every type it in by keyboard, if that might end up being necessary. */
