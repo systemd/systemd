@@ -72,7 +72,7 @@ $ sudo dnf builddep systemd
 # Debian/Ubuntu
 $ sudo apt-get build-dep systemd
 # Arch
-$ sudo pacman install asp
+$ sudo pacman -S asp
 $ asp checkout systemd
 $ cd systemd/trunk
 $ makepkg -seoc
