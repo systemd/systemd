@@ -15,10 +15,10 @@ systemctl start test63.path
 touch /tmp/test63
 
 # Make sure systemd has sufficient time to hit the trigger limit for test63.path.
-sleep 2
+# shellcheck disable=SC2016
+timeout 30 bash -c 'while ! test "$(systemctl show test63.path -P ActiveState)" = failed; do sleep .2; done'
 test "$(systemctl show test63.service -P ActiveState)" = inactive
 test "$(systemctl show test63.service -P Result)" = success
-test "$(systemctl show test63.path -P ActiveState)" = failed
 test "$(systemctl show test63.path -P Result)" = trigger-limit-hit
 
 # Test that starting the service manually doesn't affect the path unit.
