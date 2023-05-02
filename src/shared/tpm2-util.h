@@ -10,6 +10,7 @@
 
 typedef enum TPM2Flags {
         TPM2_FLAGS_USE_PIN = 1 << 0,
+        TPM2_FLAGS_APPEND_SALT = 1 << 1,
 } TPM2Flags;
 
 

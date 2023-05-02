@@ -174,6 +174,8 @@ int acquire_tpm2_key(
                         /* no salting needed, backwards compat with non-salted pins */
                         b64_salted_pin = TAKE_PTR(pin_str);
 
+                bool append_salt = salt && !!(flags & TPM2_FLAGS_APPEND_SALT);
+
                 r = tpm2_unseal(device,
                                 hash_pcr_mask,
                                 pcr_bank,
@@ -188,8 +190,8 @@ int acquire_tpm2_key(
                                 policy_hash_size,
                                 srk_buf,
                                 srk_buf_size,
-                                salt ? &secret : ret_decrypted_key,
-                                salt ? &secret_size : ret_decrypted_key_size);
+                                append_salt ? &secret : ret_decrypted_key,
+                                append_salt ? &secret_size : ret_decrypted_key_size);
                 /* We get this error in case there is an authentication policy mismatch. This should
                  * not happen, but this avoids confusing behavior, just in case. */
                 if (IN_SET(r, -EPERM, -ENOLCK))
@@ -198,7 +200,7 @@ int acquire_tpm2_key(
                         continue;
 
                 /* Append salted pin to unsealed secret if there is a salt */
-                if (salt) {
+                if (append_salt) {
                         uint8_t * decrypted_key = malloc(secret_size + sizeof(salted_pin));
                         if (!decrypted_key)
                                 return log_error_errno(-ENOMEM, "Failed to allocate buffer for decrypted volume key: %m");

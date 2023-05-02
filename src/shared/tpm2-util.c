@@ -2755,6 +2755,7 @@ int tpm2_make_luks2_json(
                                        JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey_pcrs", JSON_BUILD_VARIANT(pkmj)),
                                        JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey", JSON_BUILD_BASE64(pubkey, pubkey_size)),
                                        JSON_BUILD_PAIR_CONDITION(salt, "tpm2_salt", JSON_BUILD_BASE64(salt, salt_size)),
+                                       JSON_BUILD_PAIR_CONDITION(salt, "tpm2_append_salt", JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_APPEND_SALT)),
                                        JSON_BUILD_PAIR_CONDITION(srk_buf, "tpm2_srk", JSON_BUILD_BASE64(srk_buf, srk_buf_size))));
         if (r < 0)
                 return r;
@@ -2875,6 +2876,14 @@ int tpm2_parse_luks2_json(
                 r = json_variant_unbase64(w, &salt, &salt_size);
                 if (r < 0)
                         return log_debug_errno(r, "Invalid base64 data in 'tpm2_salt' field.");
+        }
+
+        w = json_variant_by_key(v, "tpm2_append_salt");
+        if (w) {
+                if (!json_variant_is_boolean(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'tpm2_append_salt' field is not a boolean.");
+
+                SET_FLAG(flags, TPM2_FLAGS_APPEND_SALT, json_variant_boolean(w));
         }
 
         w = json_variant_by_key(v, "tpm2_pubkey_pcrs");

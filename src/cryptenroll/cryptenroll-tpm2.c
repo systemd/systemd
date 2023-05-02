@@ -75,7 +75,7 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire PIN from environment: %m");
         if (r > 0)
-                flags |= TPM2_FLAGS_USE_PIN;
+                flags |= TPM2_FLAGS_USE_PIN | TPM2_FLAGS_APPEND_SALT;
         else {
                 for (size_t i = 5;; i--) {
                         _cleanup_strv_free_erase_ char **pin = NULL, **pin2 = NULL;
@@ -115,7 +115,7 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
                                 pin_str = strdup(*pin);
                                 if (!pin_str)
                                         return log_oom();
-                                flags |= TPM2_FLAGS_USE_PIN;
+                                flags |= TPM2_FLAGS_USE_PIN | TPM2_FLAGS_APPEND_SALT;
                                 break;
                         }
 
