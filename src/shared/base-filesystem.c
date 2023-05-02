@@ -36,9 +36,9 @@ static const BaseFilesystem table[] = {
         { "usr",   0755, NULL,                         NULL },
         { "var",   0755, NULL,                         NULL },
         { "etc",   0755, NULL,                         NULL },
-        { "proc",  0755, NULL,                         NULL, true },
-        { "sys",   0755, NULL,                         NULL, true },
-        { "dev",   0755, NULL,                         NULL, true },
+        { "proc",  0555, NULL,                         NULL, true },
+        { "sys",   0555, NULL,                         NULL, true },
+        { "dev",   0555, NULL,                         NULL, true },
 
         /* Various architecture ABIs define the path to the dynamic loader via the /lib64/ subdirectory of
          * the root directory. When booting from an otherwise empty root file system (where only /usr/ has
