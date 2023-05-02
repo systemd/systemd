@@ -67,6 +67,8 @@ print('''        {}
 
 for dirpath, _, filenames in os.walk(sys.argv[2]):
     for filename in filenames:
+        if not filename.endswith(".c") and not filename.endswith(".h"):
+            continue
         with open(os.path.join(dirpath, filename), "r") as f:
             process_source_file(f)
 
