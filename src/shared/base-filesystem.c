@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "base-filesystem.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
@@ -130,19 +131,19 @@ static const BaseFilesystem table[] = {
 #  pragma message "Please add an entry above specifying whether your architecture uses /lib64/, /lib32/, or no such links."
 #endif
 
-int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
-        _cleanup_close_ int fd = -EBADF;
+int base_filesystem_create_fd(int fd, const char *root, uid_t uid, gid_t gid) {
         int r;
 
-        fd = open(root, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to open root file system: %m");
+        assert(fd >= 0);
+        assert(root);
+
+        /* The "root" parameter is decoration only – it's only used as part of log messages */
 
         for (size_t i = 0; i < ELEMENTSOF(table); i++) {
                 if (faccessat(fd, table[i].dir, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
                         continue;
 
-                if (table[i].target) {
+                if (table[i].target) { /* Create as symlink? */
                         const char *target = NULL;
 
                         /* check if one of the targets exists */
@@ -169,39 +170,36 @@ int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
                         if (!target)
                                 continue;
 
-                        if (symlinkat(target, fd, table[i].dir) < 0) {
-                                log_full_errno(IN_SET(errno, EEXIST, EROFS) || table[i].ignore_failure ? LOG_DEBUG : LOG_ERR, errno,
-                                               "Failed to create symlink at %s/%s: %m", root, table[i].dir);
-
-                                if (IN_SET(errno, EEXIST, EROFS) || table[i].ignore_failure)
-                                        continue;
-
-                                return -errno;
-                        }
-
-                        if (uid_is_valid(uid) || gid_is_valid(gid))
-                                if (fchownat(fd, table[i].dir, uid, gid, AT_SYMLINK_NOFOLLOW) < 0)
-                                        return log_error_errno(errno, "Failed to chown symlink at %s/%s: %m", root, table[i].dir);
-
-                        continue;
+                        r = RET_NERRNO(symlinkat(target, fd, table[i].dir));
+                } else {
+                        /* Create as directory. */
+                        WITH_UMASK(0000)
+                                r = RET_NERRNO(mkdirat(fd, table[i].dir, table[i].mode));
                 }
-
-                WITH_UMASK(0000)
-                        r = mkdirat(fd, table[i].dir, table[i].mode);
                 if (r < 0) {
-                        log_full_errno(IN_SET(errno, EEXIST, EROFS) || table[i].ignore_failure ? LOG_DEBUG : LOG_ERR, errno,
-                                       "Failed to create directory at %s/%s: %m", root, table[i].dir);
-
-                        if (IN_SET(errno, EEXIST, EROFS) || table[i].ignore_failure)
+                        bool ignore = IN_SET(r, -EEXIST, -EROFS) || table[i].ignore_failure;
+                        log_full_errno(ignore ? LOG_DEBUG : LOG_ERR, r,
+                                       "Failed to create %s/%s: %m", root, table[i].dir);
+                        if (ignore)
                                 continue;
 
-                        return -errno;
+                        return r;
                 }
 
                 if (uid_is_valid(uid) || gid_is_valid(gid))
                         if (fchownat(fd, table[i].dir, uid, gid, AT_SYMLINK_NOFOLLOW) < 0)
-                                return log_error_errno(errno, "Failed to chown directory at %s/%s: %m", root, table[i].dir);
+                                return log_error_errno(errno, "Failed to chown %s/%s: %m", root, table[i].dir);
         }
 
         return 0;
+}
+
+int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
+        _cleanup_close_ int fd = -EBADF;
+
+        fd = open(ASSERT_PTR(root), O_DIRECTORY|O_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open root file system: %m");
+
+        return base_filesystem_create_fd(fd, root, uid, gid);
 }
