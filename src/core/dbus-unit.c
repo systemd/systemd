@@ -18,6 +18,7 @@
 #include "install.h"
 #include "locale-util.h"
 #include "log.h"
+#include "mkdir-label.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "selinux-access.h"
@@ -2387,6 +2388,83 @@ static int bus_unit_set_transient_property(
                         u->bus_track_add = b;
 
                 return 1;
+        }
+
+        if (streq(name, "Profile")) {
+                _cleanup_free_ char *profile_path = NULL, *dropin_dir = NULL, *dropin_path = NULL;
+                const char *profile;
+
+                /* Load portable profile, either by name or path */
+
+                r = sd_bus_message_read(message, "s", &profile);
+                if (r < 0)
+                        return r;
+
+                if (is_path(profile)) {
+                        if (!path_is_absolute(profile))
+                                return sd_bus_error_setf(error,
+                                                         SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Profile path must be absolute: %s",
+                                                         profile);
+                        if (!path_is_safe(profile))
+                                return sd_bus_error_setf(error,
+                                                         SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Profile path is not valid: %s",
+                                                         profile);
+                        if (!endswith(profile, ".conf"))
+                                return sd_bus_error_setf(error,
+                                                         SD_BUS_ERROR_INVALID_ARGS,
+                                                         "Profile file name must end with .conf: %s",
+                                                         profile);
+                } else {
+                        r = find_portable_profile(profile, ".service", &profile_path);
+                        if (r < 0)
+                                return sd_bus_error_set_errnof(error,
+                                                               r,
+                                                               "Failed to find portable profile %s",
+                                                               profile);
+                        profile = profile_path;
+                }
+
+                if (UNIT_WRITE_FLAGS_NOOP(flags))
+                        return 1;
+
+                /* This should have already been set by transient_unit_from_message() */
+                assert(u->fragment_path);
+
+                /* Create the drop-in directory if it doesn't exist already */
+                dropin_dir = strjoin(u->fragment_path, ".d");
+                if (!dropin_dir)
+                        return -ENOMEM;
+
+                dropin_path = path_join(dropin_dir, "10-profile.conf");
+                if (!dropin_path)
+                        return -ENOMEM;
+
+                r = mkdir_safe_label(dropin_dir, 0755, UID_INVALID, UID_INVALID, MKDIR_IGNORE_EXISTING);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error,
+                                                       r,
+                                                       "Failed to create drop-in directory %s",
+                                                       dropin_dir);
+
+                r = symlink(profile, dropin_path);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error,
+                                                       errno,
+                                                       "Failed to create symlink %s → %s",
+                                                       dropin_path,
+                                                       profile);
+
+                /* Ensure the drop-in dir is in the cache, so that we don't need to reload to find it */
+                if (u->manager && u->manager->unit_path_cache) {
+                        r = set_consume(u->manager->unit_path_cache, TAKE_PTR(dropin_dir));
+                        if (r < 0)
+                                return r;
+                }
+
+                return 1;
+
         }
 
         return 0;

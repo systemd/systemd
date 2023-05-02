@@ -72,6 +72,7 @@ static bool arg_aggressive_gc = false;
 static char *arg_working_directory = NULL;
 static bool arg_shell = false;
 static char **arg_cmdline = NULL;
+static char *arg_profile = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
@@ -80,6 +81,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_socket_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_timer_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_working_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cmdline, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_profile, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -135,6 +137,8 @@ static int help(void) {
                "     --on-timezone-change         Run when the timezone changes\n"
                "     --on-clock-change            Run when the realtime clock jumps\n"
                "     --timer-property=NAME=VALUE  Set timer unit property\n"
+               "     --profile=name|PATH          Include the settings from the specified\n"
+               "                                  profile in the service\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -192,6 +196,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WAIT,
                 ARG_WORKING_DIRECTORY,
                 ARG_SHELL,
+                ARG_PROFILE,
         };
 
         static const struct option options[] = {
@@ -237,6 +242,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "working-directory",  required_argument, NULL, ARG_WORKING_DIRECTORY  },
                 { "same-dir",           no_argument,       NULL, 'd'                    },
                 { "shell",              no_argument,       NULL, 'S'                    },
+                { "profile",            required_argument, NULL, ARG_PROFILE            },
                 {},
         };
 
@@ -514,6 +520,30 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_shell = true;
                         break;
 
+                case ARG_PROFILE:
+                        if (isempty(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Profile name is empty");
+
+                        if (is_path(optarg)) {
+                                r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_profile);
+                                if (r < 0)
+                                        return r;
+                                if (!path_is_safe(arg_profile))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Profile path is not valid: %s",
+                                                               arg_profile);
+                                if (!endswith(arg_profile, ".conf"))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Profile file name must end with .conf: %s",
+                                                               arg_profile);
+                        } else {
+                                arg_profile = strdup(optarg);
+                                if (!arg_profile)
+                                        return log_oom();
+                        }
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -735,6 +765,17 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
         bool use_ex_prop = !arg_expand_environment;
 
         assert(m);
+
+        /* Send the profile first, so that it provides the 'base', and other options can override individual
+         * settings. This is the opposite strategy for portable services, but in that case the profile is et
+         * by the local user/administrator and the properties by the image vendor. Here everything is set by
+         * the local user/administrator, so it doesn't make sense to override properties specified on the
+         * command line with the profile. */
+        if (arg_profile) {
+                r = sd_bus_message_append(m, "(sv)", "Profile", "s", arg_profile);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
 
         r = transient_unit_set_properties(m, UNIT_SERVICE, arg_property);
         if (r < 0)
