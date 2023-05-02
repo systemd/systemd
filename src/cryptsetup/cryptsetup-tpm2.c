@@ -84,6 +84,8 @@ int acquire_tpm2_key(
         _cleanup_(json_variant_unrefp) JsonVariant *signature_json = NULL;
         _cleanup_free_ void *loaded_blob = NULL;
         _cleanup_free_ char *auto_device = NULL;
+        _cleanup_(erase_and_freep) char *secret = NULL;
+        size_t secret_size;
         size_t blob_size;
         const void *blob;
         int r;
@@ -187,14 +189,24 @@ int acquire_tpm2_key(
                                 policy_hash_size,
                                 srk_buf,
                                 srk_buf_size,
-                                ret_decrypted_key,
-                                ret_decrypted_key_size);
+                                salt ? &secret : ret_decrypted_key,
+                                salt ? &secret_size : ret_decrypted_key_size);
                 /* We get this error in case there is an authentication policy mismatch. This should
                  * not happen, but this avoids confusing behavior, just in case. */
                 if (IN_SET(r, -EPERM, -ENOLCK))
                         return r;
                 if (r < 0)
                         continue;
+
+                /* Append salted pin to unsealed secret if there is a salt */
+                if (salt) {
+                        *ret_decrypted_key = malloc(secret_size + sizeof(salted_pin));
+                        if (!*ret_decrypted_key)
+                                return log_error_errno(-ENOMEM, "Failed to allocate buffer for decrypted volume key: %m");
+                        *ret_decrypted_key_size = secret_size + sizeof(salted_pin);
+                        memcpy(*ret_decrypted_key, secret, secret_size);
+                        memcpy(*ret_decrypted_key + secret_size, salted_pin, sizeof(salted_pin));
+                }
 
                 return r;
         }
