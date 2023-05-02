@@ -40,6 +40,8 @@ print('''/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
 ''')
 
 for header in sys.argv[3:]:
@@ -51,10 +53,11 @@ print('''
 ''')
 
 print('''
-static const struct {
+struct symbol {
         const char *name;
         const void *symbol;
-} symbols_from_sym[] = {''')
+};
+static struct symbol symbols_from_sym[] = {''')
 
 with open(sys.argv[1], "r") as f:
     process_sym_file(f)
@@ -70,8 +73,16 @@ for dirpath, _, filenames in os.walk(sys.argv[2]):
 print('''        {}
 };
 
+static int sort_callback(const void *a, const void *b) {
+        const struct symbol *x = a, *y = b;
+        return strcmp(x->name, y->name);
+}
+
 int main(void) {
         size_t i, j;
+
+        qsort(symbols_from_sym, sizeof(symbols_from_sym)/sizeof(symbols_from_sym[0])-1, sizeof(symbols_from_sym[0]), sort_callback);
+        qsort(symbols_from_source, sizeof(symbols_from_source)/sizeof(symbols_from_source[0])-1, sizeof(symbols_from_source[0]), sort_callback);
 
         puts("From symbol file:");
         for (i = 0; symbols_from_sym[i].name; i++)
@@ -84,6 +95,18 @@ int main(void) {
         puts("");
         printf("Found %zu symbols from symbol file.\\n", i);
         printf("Found %zu symbols from source files.\\n", j);
+
+        for (i = 0; symbols_from_sym[i].name; i++) {
+                struct symbol*n = bsearch(symbols_from_sym+i, symbols_from_source, sizeof(symbols_from_source)/sizeof(symbols_from_source[0])-1, sizeof(symbols_from_source[0]), sort_callback);
+                if (!n)
+                        printf("Found in symbol file, but not in sources: %s\\n", symbols_from_sym[i].name);
+        }
+
+        for (j = 0; symbols_from_source[j].name; j++) {
+                struct symbol*n = bsearch(symbols_from_source+j, symbols_from_source, sizeof(symbols_from_sym)/sizeof(symbols_from_sym[0])-1, sizeof(symbols_from_sym[0]), sort_callback);
+                if (!n)
+                        printf("Found in sources, but not in symbol file: %s\\n", symbols_from_source[i].name);
+        }
 
         return i == j ? EXIT_SUCCESS : EXIT_FAILURE;
 }''')
