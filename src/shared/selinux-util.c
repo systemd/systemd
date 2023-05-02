@@ -20,6 +20,7 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "label.h"
 #include "log.h"
 #include "macro.h"
 #include "mallinfo-util.h"
@@ -126,6 +127,20 @@ static int open_label_db(void) {
 }
 #endif
 
+static int mac_selinux_label_pre(int dir_fd, const char *path, mode_t mode) {
+        return mac_selinux_create_file_prepare_at(dir_fd, path, mode);
+}
+
+static int mac_selinux_label_post(int dir_fd, const char *path) {
+        mac_selinux_create_file_clear();
+        return 0;
+}
+
+static const LabelOps *label_ops = &(LabelOps) {
+        .pre = mac_selinux_label_pre,
+        .post = mac_selinux_label_post,
+};
+
 int mac_selinux_init(void) {
 #if HAVE_SELINUX
         int r;
@@ -151,6 +166,10 @@ int mac_selinux_init(void) {
                 selinux_status_close();
                 return r;
         }
+
+        r = label_ops_set(label_ops);
+        if (r < 0)
+                return r;
 
         /* Save the current policyload sequence number, so mac_selinux_maybe_reload() does not trigger on
          * first call without any actual change. */

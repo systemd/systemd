@@ -462,7 +462,7 @@ int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
         assert(path);
         assert(ret);
 
-        fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC|O_NOCTTY, 0);
+        fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC|O_NOCTTY, /* xopen_flags = */ 0, /* mode = */ 0);
         if (fd < 0)
                 return fd;
 

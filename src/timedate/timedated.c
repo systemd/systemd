@@ -392,7 +392,7 @@ static int context_write_data_local_rtc(Context *c) {
                 }
         }
 
-        r = mac_selinux_init();
+        r = mac_init();
         if (r < 0)
                 return r;
 
