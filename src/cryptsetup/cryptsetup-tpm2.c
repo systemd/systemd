@@ -84,11 +84,13 @@ int acquire_tpm2_key(
         _cleanup_(json_variant_unrefp) JsonVariant *signature_json = NULL;
         _cleanup_free_ void *loaded_blob = NULL;
         _cleanup_free_ char *auto_device = NULL;
-        size_t blob_size;
+        _cleanup_(erase_and_freep) void *secret = NULL;
+        size_t blob_size, secret_size = 0;
         const void *blob;
         int r;
 
         assert(salt || salt_size == 0);
+        assert(salt || !(flags & TPM2_FLAGS_APPEND_SALT))
 
         if (!device) {
                 r = tpm2_find_device_auto(LOG_DEBUG, &auto_device);
@@ -150,6 +152,8 @@ int acquire_tpm2_key(
 
         for (int i = 5;; i--) {
                 _cleanup_(erase_and_freep) char *pin_str = NULL, *b64_salted_pin = NULL;
+                uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
+                CLEANUP_ERASE(salted_pin);
 
                 if (i <= 0)
                         return -EACCES;
@@ -159,9 +163,6 @@ int acquire_tpm2_key(
                         return r;
 
                 if (salt_size > 0) {
-                        uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
-                        CLEANUP_ERASE(salted_pin);
-
                         r = tpm2_util_pbkdf2_hmac_sha256(pin_str, strlen(pin_str), salt, salt_size, salted_pin);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to perform PBKDF2: %m");
@@ -187,14 +188,29 @@ int acquire_tpm2_key(
                                 policy_hash_size,
                                 srk_buf,
                                 srk_buf_size,
-                                ret_decrypted_key,
-                                ret_decrypted_key_size);
+                                &secret,
+                                &secret_size);
                 /* We get this error in case there is an authentication policy mismatch. This should
                  * not happen, but this avoids confusing behavior, just in case. */
                 if (IN_SET(r, -EPERM, -ENOLCK))
                         return r;
                 if (r < 0)
                         continue;
+
+                if (flags & TPM2_FLAGS_APPEND_SALT) {
+                        /* Append salted pin to unsealed secret if there is a salt */
+                        _cleanup_(erase_and_freep) uint8_t * decrypted_key = malloc(secret_size + sizeof(salted_pin));
+                        if (!decrypted_key)
+                                return log_oom();
+                        memcpy(decrypted_key, secret, secret_size);
+                        memcpy(decrypted_key + secret_size, salted_pin, sizeof(salted_pin));
+                        *ret_decrypted_key = (void*) TAKE_PTR(decrypted_key);
+                        *ret_decrypted_key_size = secret_size + sizeof(salted_pin);
+                } else {
+                        /* for backwards compatibility with salted pin/secret only setups */
+                        *ret_decrypted_key = TAKE_PTR(secret);
+                        *ret_decrypted_key_size = secret_size;
+                }
 
                 return r;
         }
@@ -264,6 +280,11 @@ int find_tpm2_auto_data(
 
                         if (start_token <= 0)
                                 log_info("Automatically discovered security TPM2 token unlocks volume.");
+
+                        if ((flags & TPM2_FLAGS_APPEND_SALT) && !salt) {
+                                log_error("'tpm2_append_salted_pin_to_key' is set, but no salt given.");
+                                continue;
+                        }
 
                         *ret_hash_pcr_mask = hash_pcr_mask;
                         *ret_pcr_bank = pcr_bank;
