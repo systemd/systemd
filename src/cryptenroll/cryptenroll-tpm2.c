@@ -150,10 +150,11 @@ int enroll_tpm2(struct crypt_device *cd,
         const char *node;
         _cleanup_(erase_and_freep) char *pin_str = NULL;
         ssize_t base64_encoded_size;
-        ssize_t secret_and_salt_size;
+        size_t secret_and_salt_size;
         int r, keyslot;
         TPM2Flags flags = 0;
         uint8_t binary_salt[SHA256_DIGEST_SIZE] = {};
+        uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
         /*
          * erase the salt, we'd rather attempt to not have this in a coredump
          * as an attacker would have all the parameters but pin used to create
@@ -161,6 +162,7 @@ int enroll_tpm2(struct crypt_device *cd,
          * primary key, aka the SRK.
          */
         CLEANUP_ERASE(binary_salt);
+        CLEANUP_ERASE(salted_pin);
 
         assert(cd);
         assert(volume_key);
@@ -179,8 +181,6 @@ int enroll_tpm2(struct crypt_device *cd,
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire random salt: %m");
 
-                uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
-                CLEANUP_ERASE(salted_pin);
                 r = tpm2_util_pbkdf2_hmac_sha256(pin_str, strlen(pin_str), binary_salt, sizeof(binary_salt), salted_pin);
                 if (r < 0)
                         return log_error_errno(r, "Failed to perform PBKDF2: %m");
