@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
+#include <linux/audit.h>
 #include <linux/netlink.h>
 #include <stdio.h>
 #include <sys/socket.h>
@@ -12,6 +13,7 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "socket-util.h"
 #include "user-util.h"
 
 int audit_session_from_pid(pid_t pid, uint32_t *id) {
@@ -68,8 +70,50 @@ int audit_loginuid_from_pid(pid_t pid, uid_t *uid) {
         return 0;
 }
 
+static int try_audit_request(int fd) {
+        struct iovec iov;
+        struct msghdr mh;
+        ssize_t n;
+
+        assert(fd >= 0);
+
+        struct {
+                struct nlmsghdr hdr;
+                struct nlmsgerr err;
+        } _packed_ msg = {
+                .hdr.nlmsg_len = NLMSG_LENGTH(0),
+                .hdr.nlmsg_type = AUDIT_GET_FEATURE,
+                .hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK,
+        };
+        iov = (struct iovec) {
+                .iov_base = &msg,
+                .iov_len = msg.hdr.nlmsg_len,
+        };
+        mh = (struct msghdr) {
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+        };
+
+        if (sendmsg(fd, &mh, MSG_NOSIGNAL) < 0)
+                return -errno;
+
+        iov.iov_len = sizeof(msg);
+
+        n = recvmsg_safe(fd, &mh, 0);
+        if (n < 0)
+                return -errno;
+        if (n != NLMSG_LENGTH(sizeof(struct nlmsgerr)))
+                return -EIO;
+
+        if (msg.hdr.nlmsg_type != NLMSG_ERROR)
+                return -EINVAL;
+
+        return msg.err.error;
+}
+
 bool use_audit(void) {
         static int cached_use = -1;
+        int r;
 
         if (cached_use < 0) {
                 int fd;
@@ -80,7 +124,22 @@ bool use_audit(void) {
                         if (!cached_use)
                                 log_debug_errno(errno, "Won't talk to audit: %m");
                 } else {
-                        cached_use = true;
+                        /* If we try and use the audit fd but get -ECONNREFUSED, it is because
+                         * we are not in the initial user namespace, and the kernel does not
+                         * have support for audit outside of the initial user namespace
+                         * (see https://elixir.bootlin.com/linux/latest/C/ident/audit_netlink_ok).
+                         *
+                         * If we receive any other error, do not disable audit because we are not
+                         * sure that the error indicates that audit will not work in general. */
+                        r = try_audit_request(fd);
+                        if (r < 0) {
+                                cached_use = r != -ECONNREFUSED;
+                                log_debug_errno(r, cached_use ?
+                                                   "Failed to make request on audit fd, ignoring: %m" :
+                                                   "Won't talk to audit: %m");
+                        } else
+                                cached_use = true;
+
                         safe_close(fd);
                 }
         }
