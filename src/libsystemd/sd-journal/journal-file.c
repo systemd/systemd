@@ -2865,7 +2865,7 @@ static int generic_array_bisect(
                         r = -EBADMSG;
                 else
                         r = test_object(f, p, needle);
-                if (r == -EBADMSG) {
+                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
                         log_debug_errno(r, "Encountered invalid entry while bisecting, cutting algorithm short. (1)");
                         n = i;
                         continue;
@@ -2948,7 +2948,7 @@ static int generic_array_bisect(
                                         r = -EBADMSG;
                                 else
                                         r = test_object(f, p, needle);
-                                if (r == -EBADMSG) {
+                                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
                                         log_debug_errno(r, "Encountered invalid entry while bisecting, cutting algorithm short. (2)");
                                         right = n = i;
                                         continue;
