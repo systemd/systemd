@@ -443,7 +443,7 @@
           </row>
           <row>
             <entry><filename>trusted</filename></entry>
-            <entry>A profile with very relaxed settings. In this profile the services run with full privileges.</entry>
+            <entry>A profile with very relaxed settings. In this profile the services run with full privileges, but a private <filename>/tmp/</filename>.</entry>
           </row>
         </tbody>
       </tgroup>
