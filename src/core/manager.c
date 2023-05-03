@@ -2525,11 +2525,10 @@ static bool manager_process_barrier_fd(char * const *tags, FDSet *fds) {
 
         /* nothing else must be sent when using BARRIER=1 */
         if (strv_contains(tags, "BARRIER=1")) {
-                if (strv_length(tags) == 1) {
-                        if (fdset_size(fds) != 1)
-                                log_warning("Got incorrect number of fds with BARRIER=1, closing them.");
-                } else
+                if (strv_length(tags) != 1)
                         log_warning("Extra notification messages sent with BARRIER=1, ignoring everything.");
+                else if (fdset_size(fds) != 1)
+                        log_warning("Got incorrect number of fds with BARRIER=1, closing them.");
 
                 /* Drop the message if BARRIER=1 was found */
                 return true;
