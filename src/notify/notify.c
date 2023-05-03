@@ -467,6 +467,11 @@ static int run(int argc, char* argv[]) {
                 return log_error_errno(errno, "Failed to execute command line: %s", cmdline);
         }
 
+        /* The DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE() boilerplate will send the exit status via
+         * sd_notify(). Which is normally fine, but very confusing in systemd-notify, whose purpose is to
+         * send user-controllable notification messages, and not implicit ones. Let's turn if off, by
+         * unsetting the $NOTIFY_SOCKET environment variable. */
+        (void) unsetenv("NOTIFY_SOCKET");
         return 0;
 }
 
