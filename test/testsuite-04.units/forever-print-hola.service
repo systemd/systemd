@@ -4,4 +4,4 @@ Description=ForeverPrintHola service
 
 [Service]
 Type=exec
-ExecStart=sh -x -c 'while :; do printf "Hola\n" || touch /i-lose-my-logs; sleep 1; done'
+ExecStart=sh -x -c 'while :; do printf "Hola\n" || touch /tmp/i-lose-my-logs; sleep 1; done'
