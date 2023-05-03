@@ -806,6 +806,12 @@ static int link_apply_alternative_names(Link *link, sd_netlink **rtnl) {
         config = link->config;
         device = link->device;
 
+        if (link->action == SD_DEVICE_MOVE) {
+                log_link_debug(link, "Skipping to apply AlternativeName= and AlternativeNamesPolicy= on '%s' uevent.",
+                               device_action_to_string(link->action));
+                return 0;
+        }
+
         if (config->alternative_names) {
                 altnames = strv_copy(config->alternative_names);
                 if (!altnames)
