@@ -2138,41 +2138,6 @@ static int update_cursor(sd_journal *j) {
         return 0;
 }
 
-static int wait_for_change(sd_journal *j, int poll_fd) {
-        struct pollfd pollfds[] = {
-                { .fd = poll_fd, .events = POLLIN },
-                { .fd = STDOUT_FILENO },
-        };
-        usec_t timeout;
-        int r;
-
-        assert(j);
-        assert(poll_fd >= 0);
-
-        /* Much like sd_journal_wait() but also keeps an eye on STDOUT, and exits as soon as we see a POLLHUP on that,
-         * i.e. when it is closed. */
-
-        r = sd_journal_get_timeout(j, &timeout);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine journal waiting time: %m");
-
-        r = ppoll_usec(pollfds, ELEMENTSOF(pollfds), timeout);
-        if (r == -EINTR)
-                return 0;
-        if (r < 0)
-                return log_error_errno(r, "Couldn't wait for journal event: %m");
-
-        if (pollfds[1].revents & (POLLHUP|POLLERR)) /* STDOUT has been closed? */
-                return log_debug_errno(SYNTHETIC_ERRNO(ECANCELED),
-                                       "Standard output has been closed.");
-
-        r = sd_journal_process(j);
-        if (r < 0)
-                return log_error_errno(r, "Failed to process journal events: %m");
-
-        return 0;
-}
-
 typedef struct Context {
         sd_journal *journal;
         bool need_seek;
@@ -2320,6 +2285,74 @@ static int show(Context *c) {
         }
 
         return n_shown;
+}
+
+static int show_and_fflush(Context *c, sd_event_source *s) {
+        int r;
+
+        assert(c);
+        assert(s);
+
+        r = show(c);
+        if (r < 0)
+                return sd_event_exit(sd_event_source_get_event(s), r);
+
+        fflush(stdout);
+        return 0;
+}
+
+static int on_journal_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(s);
+
+        r = sd_journal_process(c->journal);
+        if (r < 0) {
+                log_error_errno(r, "Failed to process journal events: %m");
+                return sd_event_exit(sd_event_source_get_event(s), r);
+        }
+
+        return show_and_fflush(c, s);
+}
+
+static int on_first_event(sd_event_source *s, void *userdata) {
+        return show_and_fflush(userdata, s);
+}
+
+static int setup_event(Context *c, int fd, sd_event **ret) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        int r;
+
+        assert(arg_follow);
+        assert(c);
+        assert(fd >= 0);
+        assert(ret);
+
+        r = sd_event_default(&e);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate sd_event object: %m");
+
+        (void) sd_event_add_signal(e, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, NULL, NULL);
+        (void) sd_event_add_signal(e, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, NULL, NULL);
+
+        r = sd_event_add_io(e, NULL, fd, EPOLLIN, &on_journal_event, c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add io event source for journal: %m");
+
+        /* Also keeps an eye on STDOUT, and exits as soon as we see a POLLHUP on that, i.e. when it is closed. */
+        r = sd_event_add_io(e, NULL, STDOUT_FILENO, EPOLLHUP|EPOLLERR, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add io event source for stdout: %m");
+
+        if (arg_lines != 0 || arg_since_set) {
+                r = sd_event_add_defer(e, NULL, on_first_event, c);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add defer event source: %m");
+        }
+
+        *ret = TAKE_PTR(e);
+        return 0;
 }
 
 static int run(int argc, char *argv[]) {
@@ -2752,25 +2785,15 @@ static int run(int argc, char *argv[]) {
         };
 
         if (arg_follow) {
-                if (arg_lines != 0 || arg_since_set) {
-                        r = show(&c);
-                        if (r < 0)
-                                return r;
+                _cleanup_(sd_event_unrefp) sd_event *e = NULL;
 
-                        fflush(stdout);
-                }
+                assert(poll_fd >= 0);
 
-                for (;;) {
-                        r = wait_for_change(j, poll_fd);
-                        if (r < 0)
-                                return r;
+                r = setup_event(&c, poll_fd, &e);
+                if (r < 0)
+                        return r;
 
-                        r = show(&c);
-                        if (r < 0)
-                                return r;
-
-                        fflush(stdout);
-                }
+                return sd_event_loop(e);
         }
 
         r = show(&c);
