@@ -2179,16 +2179,162 @@ static int wait_for_change(sd_journal *j, int poll_fd) {
         return 0;
 }
 
+typedef struct Context {
+        sd_journal *journal;
+        bool need_seek;
+        bool since_seeked;
+        bool ellipsized;
+        bool previous_boot_id_valid;
+        sd_id128_t previous_boot_id;
+        sd_id128_t previous_boot_id_output;
+        dual_timestamp previous_ts_output;
+} Context;
+
+static int show(Context *c) {
+        sd_journal *j;
+        int r, n_shown = 0;
+
+        assert(c);
+
+        j = ASSERT_PTR(c->journal);
+
+        while (arg_lines < 0 || n_shown < arg_lines || arg_follow) {
+                int flags;
+                size_t highlight[2] = {};
+
+                if (c->need_seek) {
+                        if (!arg_reverse)
+                                r = sd_journal_next(j);
+                        else
+                                r = sd_journal_previous(j);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to iterate through journal: %m");
+                        if (r == 0)
+                                break;
+                }
+
+                if (arg_until_set && !arg_reverse && (arg_lines < 0 || arg_since_set)) {
+                        /* If --lines= is set, we usually rely on the n_shown to tell us
+                         * when to stop. However, if --since= is set too, we may end up
+                         * having less than --lines= to output. In this case let's also
+                         * check if the entry is in range. */
+
+                        usec_t usec;
+
+                        r = sd_journal_get_realtime_usec(j, &usec);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine timestamp: %m");
+                        if (usec > arg_until)
+                                break;
+                }
+
+                if (arg_since_set && (arg_reverse || !c->since_seeked)) {
+                        usec_t usec;
+
+                        r = sd_journal_get_realtime_usec(j, &usec);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine timestamp: %m");
+
+                        if (usec < arg_since) {
+                                if (arg_reverse)
+                                        break; /* Reached the earliest entry */
+
+                                /* arg_lines >= 0 (!since_seeked):
+                                 * We jumped arg_lines back and it seems to be too much */
+                                r = sd_journal_seek_realtime_usec(j, arg_since);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to seek to date: %m");
+                                c->since_seeked = true;
+
+                                c->need_seek = true;
+                                continue;
+                        }
+                        c->since_seeked = true; /* We're surely within the range of --since now */
+                }
+
+                if (!arg_merge && !arg_quiet) {
+                        sd_id128_t boot_id;
+
+                        r = sd_journal_get_monotonic_usec(j, NULL, &boot_id);
+                        if (r >= 0) {
+                                if (c->previous_boot_id_valid &&
+                                    !sd_id128_equal(boot_id, c->previous_boot_id))
+                                        printf("%s-- Boot "SD_ID128_FORMAT_STR" --%s\n",
+                                               ansi_highlight(), SD_ID128_FORMAT_VAL(boot_id), ansi_normal());
+
+                                c->previous_boot_id = boot_id;
+                                c->previous_boot_id_valid = true;
+                        }
+                }
+
+                if (arg_compiled_pattern) {
+                        const void *message;
+                        size_t len;
+
+                        r = sd_journal_get_data(j, "MESSAGE", &message, &len);
+                        if (r < 0) {
+                                if (r == -ENOENT) {
+                                        c->need_seek = true;
+                                        continue;
+                                }
+
+                                return log_error_errno(r, "Failed to get MESSAGE field: %m");
+                        }
+
+                        assert_se(message = startswith(message, "MESSAGE="));
+
+                        r = pattern_matches_and_log(arg_compiled_pattern, message,
+                                                    len - strlen("MESSAGE="), highlight);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                c->need_seek = true;
+                                continue;
+                        }
+                }
+
+                flags =
+                        arg_all * OUTPUT_SHOW_ALL |
+                        arg_full * OUTPUT_FULL_WIDTH |
+                        colors_enabled() * OUTPUT_COLOR |
+                        arg_catalog * OUTPUT_CATALOG |
+                        arg_utc * OUTPUT_UTC |
+                        arg_no_hostname * OUTPUT_NO_HOSTNAME;
+
+                r = show_journal_entry(stdout, j, arg_output, 0, flags,
+                                       arg_output_fields, highlight, &c->ellipsized,
+                                       &c->previous_ts_output, &c->previous_boot_id_output);
+                c->need_seek = true;
+                if (r == -EADDRNOTAVAIL)
+                        break;
+                if (r < 0)
+                        return r;
+
+                n_shown++;
+
+                /* If journalctl take a long time to process messages, and during that time journal file
+                 * rotation occurs, a journalctl client will keep those rotated files open until it calls
+                 * sd_journal_process(), which typically happens as a result of calling sd_journal_wait() below
+                 * in the "following" case.  By periodically calling sd_journal_process() during the processing
+                 * loop we shrink the window of time a client instance has open file descriptors for rotated
+                 * (deleted) journal files. */
+                if ((n_shown % PROCESS_INOTIFY_INTERVAL) == 0) {
+                        r = sd_journal_process(j);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to process inotify events: %m");
+                }
+        }
+
+        return n_shown;
+}
+
 static int run(int argc, char *argv[]) {
+        bool need_seek = false, since_seeked = false, use_cursor = false, after_cursor = false;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
-        bool previous_boot_id_valid = false, first_line = true, ellipsized = false, need_seek = false, since_seeked = false;
-        bool use_cursor = false, after_cursor = false;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        sd_id128_t previous_boot_id = SD_ID128_NULL, previous_boot_id_output = SD_ID128_NULL;
-        dual_timestamp previous_ts_output = DUAL_TIMESTAMP_NULL;
         _cleanup_close_ int machine_fd = -EBADF;
-        int n_shown = 0, r, poll_fd = -EBADF;
+        int n_shown, r, poll_fd = -EBADF;
 
         setlocale(LC_ALL, "");
         log_setup();
@@ -2597,148 +2743,41 @@ static int run(int argc, char *argv[]) {
                 }
         }
 
-        for (;;) {
-                while (arg_lines < 0 || n_shown < arg_lines || (arg_follow && !first_line)) {
-                        int flags;
-                        size_t highlight[2] = {};
+        Context c = {
+                .journal = j,
+                .need_seek = need_seek,
+                .since_seeked = since_seeked,
+        };
 
-                        if (need_seek) {
-                                if (!arg_reverse)
-                                        r = sd_journal_next(j);
-                                else
-                                        r = sd_journal_previous(j);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to iterate through journal: %m");
-                                if (r == 0)
-                                        break;
-                        }
-
-                        if (arg_until_set && !arg_reverse && (arg_lines < 0 || arg_since_set)) {
-                                /* If --lines= is set, we usually rely on the n_shown to tell us
-                                 * when to stop. However, if --since= is set too, we may end up
-                                 * having less than --lines= to output. In this case let's also
-                                 * check if the entry is in range. */
-
-                                usec_t usec;
-
-                                r = sd_journal_get_realtime_usec(j, &usec);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to determine timestamp: %m");
-                                if (usec > arg_until)
-                                        break;
-                        }
-
-                        if (arg_since_set && (arg_reverse || !since_seeked)) {
-                                usec_t usec;
-
-                                r = sd_journal_get_realtime_usec(j, &usec);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to determine timestamp: %m");
-
-                                if (usec < arg_since) {
-                                        if (arg_reverse)
-                                                break; /* Reached the earliest entry */
-
-                                        /* arg_lines >= 0 (!since_seeked):
-                                         * We jumped arg_lines back and it seems to be too much */
-                                        r = sd_journal_seek_realtime_usec(j, arg_since);
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to seek to date: %m");
-                                        since_seeked = true;
-
-                                        need_seek = true;
-                                        continue;
-                                }
-                                since_seeked = true; /* We're surely within the range of --since now */
-                        }
-
-                        if (!arg_merge && !arg_quiet) {
-                                sd_id128_t boot_id;
-
-                                r = sd_journal_get_monotonic_usec(j, NULL, &boot_id);
-                                if (r >= 0) {
-                                        if (previous_boot_id_valid &&
-                                            !sd_id128_equal(boot_id, previous_boot_id))
-                                                printf("%s-- Boot "SD_ID128_FORMAT_STR" --%s\n",
-                                                       ansi_highlight(), SD_ID128_FORMAT_VAL(boot_id), ansi_normal());
-
-                                        previous_boot_id = boot_id;
-                                        previous_boot_id_valid = true;
-                                }
-                        }
-
-                        if (arg_compiled_pattern) {
-                                const void *message;
-                                size_t len;
-
-                                r = sd_journal_get_data(j, "MESSAGE", &message, &len);
-                                if (r < 0) {
-                                        if (r == -ENOENT) {
-                                                need_seek = true;
-                                                continue;
-                                        }
-
-                                        return log_error_errno(r, "Failed to get MESSAGE field: %m");
-                                }
-
-                                assert_se(message = startswith(message, "MESSAGE="));
-
-                                r = pattern_matches_and_log(arg_compiled_pattern, message,
-                                                            len - strlen("MESSAGE="), highlight);
-                                if (r < 0)
-                                        return r;
-                                if (r == 0) {
-                                        need_seek = true;
-                                        continue;
-                                }
-                        }
-
-                        flags =
-                                arg_all * OUTPUT_SHOW_ALL |
-                                arg_full * OUTPUT_FULL_WIDTH |
-                                colors_enabled() * OUTPUT_COLOR |
-                                arg_catalog * OUTPUT_CATALOG |
-                                arg_utc * OUTPUT_UTC |
-                                arg_no_hostname * OUTPUT_NO_HOSTNAME;
-
-                        r = show_journal_entry(stdout, j, arg_output, 0, flags,
-                                               arg_output_fields, highlight, &ellipsized,
-                                               &previous_ts_output, &previous_boot_id_output);
-                        need_seek = true;
-                        if (r == -EADDRNOTAVAIL)
-                                break;
+        if (arg_follow) {
+                if (arg_lines != 0 || arg_since_set) {
+                        r = show(&c);
                         if (r < 0)
                                 return r;
 
-                        n_shown++;
-
-                        /* If journalctl take a long time to process messages, and during that time journal file
-                         * rotation occurs, a journalctl client will keep those rotated files open until it calls
-                         * sd_journal_process(), which typically happens as a result of calling sd_journal_wait() below
-                         * in the "following" case.  By periodically calling sd_journal_process() during the processing
-                         * loop we shrink the window of time a client instance has open file descriptors for rotated
-                         * (deleted) journal files. */
-                        if ((n_shown % PROCESS_INOTIFY_INTERVAL) == 0) {
-                                r = sd_journal_process(j);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to process inotify events: %m");
-                        }
+                        fflush(stdout);
                 }
 
-                if (!arg_follow) {
-                        if (n_shown == 0 && !arg_quiet)
-                                printf("-- No entries --\n");
-                        break;
+                for (;;) {
+                        r = wait_for_change(j, poll_fd);
+                        if (r < 0)
+                                return r;
+
+                        r = show(&c);
+                        if (r < 0)
+                                return r;
+
+                        fflush(stdout);
                 }
-
-                fflush(stdout);
-
-                r = wait_for_change(j, poll_fd);
-                if (r < 0)
-                        return r;
-
-                first_line = false;
         }
+
+        r = show(&c);
+        if (r < 0)
+                return r;
+        n_shown = r;
+
+        if (n_shown == 0 && !arg_quiet)
+                printf("-- No entries --\n");
 
         r = update_cursor(j);
         if (r < 0)
