@@ -2525,11 +2525,10 @@ static bool manager_process_barrier_fd(char * const *tags, FDSet *fds) {
 
         /* nothing else must be sent when using BARRIER=1 */
         if (strv_contains(tags, "BARRIER=1")) {
-                if (strv_length(tags) == 1) {
-                        if (fdset_size(fds) != 1)
-                                log_warning("Got incorrect number of fds with BARRIER=1, closing them.");
-                } else
+                if (strv_length(tags) != 1)
                         log_warning("Extra notification messages sent with BARRIER=1, ignoring everything.");
+                else if (fdset_size(fds) != 1)
+                        log_warning("Got incorrect number of fds with BARRIER=1, closing them.");
 
                 /* Drop the message if BARRIER=1 was found */
                 return true;
@@ -2673,8 +2672,10 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         }
 
         /* Possibly a barrier fd, let's see. */
-        if (manager_process_barrier_fd(tags, fds))
+        if (manager_process_barrier_fd(tags, fds)) {
+                log_debug("Received barrier notification message from PID " PID_FMT ".", ucred->pid);
                 return 0;
+        }
 
         /* Increase the generation counter used for filtering out duplicate unit invocations. */
         m->notifygen++;
