@@ -1,0 +1,155 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-soft-reboot.service">
+
+  <refentryinfo>
+    <title>systemd-soft-reboot.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-soft-reboot.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-soft-reboot.service</refname>
+    <refpurpose>Userspace reboot operation</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-soft-reboot.service</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-soft-reboot.service</filename> is a system service that is pulled in by
+    <filename>soft-reboot.target</filename> and is responsible for performing a userspace-only reboot
+    operation. When invoked, it will send the <constant>SIGTERM</constant> signal to any processes left
+    running (but does not follow up with <constant>SIGKILL</constant>, and does not wait for the processes to
+    exit). If the <filename>/run/nextroot/</filename> directory exists (which may be a regular directory, a
+    directory mount point or a symlink to either) then it will switch the file system root to it. It then
+    reexecutes the service manager off the (possibly now new) root file system, which will enqueue a new boot
+    transaction as in a normal reboot.</para>
+
+    <para>Such a userspace-only reboot operation permits updating or resetting the entirety of userspace with
+    minimal downtime, as the reboot operation does <emphasis>not</emphasis> transition through:</para>
+
+    <itemizedlist>
+      <listitem><para>The second phase of regular shutdown, as implemented by
+      <citerefentry><refentrytitle>systemd-shutdown</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
+
+      <listitem><para>The third phase of regular shutdown, i.e. the return to the initrd
+      context</para></listitem>
+
+      <listitem><para>The hardware reboot operation</para></listitem>
+
+      <listitem><para>The firmware initialization</para></listitem>
+
+      <listitem><para>The boot loader initialization</para></listitem>
+
+      <listitem><para>The kernel initialization</para></listitem>
+
+      <listitem><para>The initrd initialization</para></listitem>
+    </itemizedlist>
+
+    <para>However this form of reboot comes with drawbacks as well:</para>
+
+    <itemizedlist>
+      <listitem><para>The OS update remains incomplete, as the kernel is not reset and continues
+      running.</para></listitem>
+
+      <listitem><para>Kernel settings (such as <filename>/proc/sys/</filename> settings, a.k.a. "sysctl", or
+      <filename>/sys/</filename> settings) are not reset.</para></listitem>
+    </itemizedlist>
+
+    <para>These limitations may be addressed by various means, which are outside of the scope of this
+    documentation, such as kernel live-patching and sufficiently comprehensive
+    <filename>/etc/sysctl.d/</filename> files.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Resource Pass-Through</title>
+
+    <para>Various runtime OS resources can passed from a system runtime to the next, through the userspace
+    reboot operation. Specificially:</para>
+
+    <itemizedlist>
+      <listitem><para>File descriptors placed in the file descriptor store of services that remain active
+      until the very end are passed to the next boot, where they are placed in the file descriptor store of
+      the same unit. For this to work, units must declare <varname>DefaultDependencies=no</varname> (and
+      avoid a manual <varname>Conflicts=shutdown.target</varname> or similar) to ensure they are not
+      terminated as usual during the system shutdown operation. Alternatively, use
+      <varname>FileDescriptorStorePreserve=</varname> to allow the file descriptor store to remain pinned
+      even when the unit is down. See
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+      details about the file descriptor store.</para></listitem>
+
+      <listitem><para>Similar to this, file descriptors associated with <filename>.socket</filename> units
+      remain open (and connectible) if the units are not stopped during the transition. (Achieved by
+      <varname>DefaultDependencies=no</varname>.)</para></listitem>
+
+      <listitem><para>The <filename>/run/</filename> file system remains mounted and populated and may be
+      used to pass state information between such userspace reboot cycles.</para></listitem>
+
+      <listitem><para>Service processes may continue to run over the transition, if they are placed in
+      services that remain active until the very end of shutdown (which again is achieved via
+      <varname>DefaultDependencies=no</varname>). They must also be set up to avoid being killed by the
+      aforementioned <constant>SIGTERM</constant> spree (as per <ulink
+      url="https://systemd.io/ROOT_STORAGE_DAEMONS">systemd and Storage Daemons for the Root File
+      System</ulink>).</para></listitem>
+
+      <listitem><para>File system mounts may remain mounted during the transition, and complex storage
+      attached, if configured to remain until the very end of the shutdown process. (Also achieved via
+      <varname>DefaultDependencies=no</varname>, and by avoiding
+      <varname>Conflicts=umount.target</varname>)</para></listitem>
+    </itemizedlist>
+
+    <para>Even though passing resources from one soft reboot cycle to the next is possible this way we
+    strongly suggest using this functionality sparingly, as it creates a more fragile system as resources
+    from different versions of the OS and applications might be mixed with unforeseen consequences. In
+    particular it's recommended to avoid allowing processes to survive the soft reboot operation, as this
+    means code updates will necessarily be incomplete, and processes typically pin various other resources
+    (such as the file system they are backed by), thus increasing memory usage (as two versions of the
+    OS/application/file system might be kept in memory). Leaving processes running during a soft-reboot
+    operation requires disconnecting the service comprehensively from the rest of the OS, i.e. minimizing IPC
+    and reducing sharing of resources with the rest of the OS.</para>
+
+    <para>If units shall be left running until the very end of shutdown during a soft reboot operation, but
+    shall be terminated regularly during other forms of shutdown, it's recommended to set
+    <varname>DefaultDependencies=no</varname> and then place
+    <varname>Conflicts=</varname>/<varname>Before=</varname> onto <filename>reboot.target</filename>,
+    <filename>kexec.target</filename>, <filename>poweroff.target</filename> and
+    <filename>halt.target</filename>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Notes</title>
+
+    <para>Note that because
+    <citerefentry><refentrytitle>systemd-shutdown</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
+    not executed the executables in <filename>/usr/lib/systemd/system-shutdown/</filename> are not executed
+    either.</para>
+
+    <para>Note that <filename>systemd-soft-reboot.service</filename> (and the related units) should never be
+    executed directly. Instead, trigger system shutdown with a command such as <literal>systemctl
+    soft-reboot</literal>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-poweroff.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
