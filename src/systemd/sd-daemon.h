@@ -309,6 +309,11 @@ int sd_pid_notifyf_with_fds(pid_t pid, int unset_environment, const int *fds, si
 int sd_notify_barrier(int unset_environment, uint64_t timeout);
 
 /*
+  Just like sd_notify_barrier() but also takes a PID to send the barrier message from.
+*/
+int sd_pid_notify_barrier(pid_t pid, int unset_environment, uint64_t timeout);
+
+/*
   Returns > 0 if the system was booted with systemd. Returns < 0 on
   error. Returns 0 if the system was not booted with systemd. Note
   that all of the functions above handle non-systemd boots just
