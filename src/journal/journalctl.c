@@ -2061,6 +2061,39 @@ static int sync_journal(void) {
         return simple_varlink_call("--sync", "io.systemd.Journal.Synchronize");
 }
 
+static int action_list_fields(sd_journal *j) {
+        const void *data;
+        size_t size;
+        int r, n_shown = 0;
+
+        assert(arg_field);
+
+        r = sd_journal_set_data_threshold(j, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to unset data size threshold: %m");
+
+        r = sd_journal_query_unique(j, arg_field);
+        if (r < 0)
+                return log_error_errno(r, "Failed to query unique data objects: %m");
+
+        SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
+                const void *eq;
+
+                if (arg_lines >= 0 && n_shown >= arg_lines)
+                        break;
+
+                eq = memchr(data, '=', size);
+                if (eq)
+                        printf("%.*s\n", (int) (size - ((const uint8_t*) eq - (const uint8_t*) data + 1)), (const char*) eq + 1);
+                else
+                        printf("%.*s\n", (int) size, (const char*) data);
+
+                n_shown++;
+        }
+
+        return 0;
+}
+
 static int wait_for_change(sd_journal *j, int poll_fd) {
         struct pollfd pollfds[] = {
                 { .fd = poll_fd, .events = POLLIN },
@@ -2384,37 +2417,8 @@ static int run(int argc, char *argv[]) {
                 log_debug("Journal filter: %s", filter);
         }
 
-        if (arg_action == ACTION_LIST_FIELDS) {
-                const void *data;
-                size_t size;
-
-                assert(arg_field);
-
-                r = sd_journal_set_data_threshold(j, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to unset data size threshold: %m");
-
-                r = sd_journal_query_unique(j, arg_field);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to query unique data objects: %m");
-
-                SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
-                        const void *eq;
-
-                        if (arg_lines >= 0 && n_shown >= arg_lines)
-                                break;
-
-                        eq = memchr(data, '=', size);
-                        if (eq)
-                                printf("%.*s\n", (int) (size - ((const uint8_t*) eq - (const uint8_t*) data + 1)), (const char*) eq + 1);
-                        else
-                                printf("%.*s\n", (int) size, (const char*) data);
-
-                        n_shown++;
-                }
-
-                return 0;
-        }
+        if (arg_action == ACTION_LIST_FIELDS)
+                return action_list_fields(j);
 
         /* Opening the fd now means the first sd_journal_wait() will actually wait */
         if (arg_follow) {
