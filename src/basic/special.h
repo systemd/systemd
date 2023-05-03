@@ -14,6 +14,7 @@
 #define SPECIAL_HALT_TARGET "halt.target"
 #define SPECIAL_POWEROFF_TARGET "poweroff.target"
 #define SPECIAL_REBOOT_TARGET "reboot.target"
+#define SPECIAL_SOFT_REBOOT_TARGET "soft-reboot.target"
 #define SPECIAL_KEXEC_TARGET "kexec.target"
 #define SPECIAL_EXIT_TARGET "exit.target"
 #define SPECIAL_SUSPEND_TARGET "suspend.target"
