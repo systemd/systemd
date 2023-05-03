@@ -16,6 +16,7 @@
 #include "namespace-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -386,6 +387,48 @@ TEST(make_mount_point_inode) {
         assert_se(!(S_IXUSR & st.st_mode));
         assert_se(!(S_IXGRP & st.st_mode));
         assert_se(!(S_IXOTH & st.st_mode));
+}
+
+TEST(make_mount_switch_root) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0) {
+                (void) log_tests_skipped("not running privileged");
+                return;
+        }
+
+        assert_se(mkdtemp_malloc(NULL, &t) >= 0);
+
+        assert_se(asprintf(&s, "%s/somerandomname%" PRIu64, t, random_u64()) >= 0);
+        assert_se(s);
+        assert_se(touch(s) >= 0);
+
+        for (int force_ms_move = 0; force_ms_move < 2; force_ms_move++) {
+                r = safe_fork("(switch-root",
+                              FORK_RESET_SIGNALS |
+                              FORK_CLOSE_ALL_FDS |
+                              FORK_DEATHSIG |
+                              FORK_WAIT |
+                              FORK_REOPEN_LOG |
+                              FORK_LOG |
+                              FORK_NEW_MOUNTNS |
+                              FORK_MOUNTNS_SLAVE,
+                              NULL);
+                assert_se(r >= 0);
+
+                if (r == 0) {
+                        assert_se(make_mount_point(t) >= 0);
+                        assert_se(mount_switch_root_full(t, /* mount_propagation_flag= */ 0, force_ms_move) >= 0);
+
+                        assert_se(access(ASSERT_PTR(strrchr(s, '/')), F_OK) >= 0);       /* absolute */
+                        assert_se(access(ASSERT_PTR(strrchr(s, '/')) + 1, F_OK) >= 0);   /* relative */
+                        assert_se(access(s, F_OK) < 0 && errno == ENOENT);               /* doesn't exist in our new environment */
+
+                        _exit(EXIT_SUCCESS);
+                }
+        }
 }
 
 static int intro(void) {
