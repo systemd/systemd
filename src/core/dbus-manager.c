@@ -1409,15 +1409,43 @@ static int dump_impl(
 
         _cleanup_free_ char *dump = NULL;
         Manager *m = ASSERT_PTR(userdata);
+        bool check_ratelimit = false;
         int r;
 
         assert(message);
 
-        /* Anyone can call this method */
-
+        /* 'status' access is the bare minimum always needed for this, as the policy might straight out
+         * forbid a client from querying any information from systemd. */
         r = mac_selinux_access_check(message, "status", error);
         if (r < 0)
                 return r;
+
+        /* We need a way for the SELinux policy to allow bypassing rate limits, but we cannot easily add new
+         * named permissions, so we need to use an existing one. Reload/reexec are also slow but
+         * non-destructive, and can cause PID1 to stall. So, use the same access check for dumps which,
+         * given the large amount of data to fetch, can stall for quite some time. */
+        r = mac_selinux_access_check(message, "reload", error);
+        if (r < 0)
+                check_ratelimit = true;
+
+        /* This is expensive, so skip it if we already know we have to check the rate limit */
+        if (!check_ratelimit) {
+                r = bus_verify_dump_async(m, message, error);
+                if (r < 0)
+                        check_ratelimit = true;
+                if (r == 0)
+                        return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+        }
+
+        /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
+        if (check_ratelimit && !ratelimit_below(&m->dump_ratelimit)) {
+                log_warning("Dump request rejected due to rate limit on unprivileged callers, ends in %s.",
+                            FORMAT_TIMESPAN(ratelimit_left(&m->dump_ratelimit), USEC_PER_SEC));
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                         "Dump request rejected due to rate limit on unprivileged callers, ends in %s.",
+                                         FORMAT_TIMESPAN(ratelimit_left(&m->dump_ratelimit), USEC_PER_SEC));
+        }
 
         r = manager_get_dump_string(m, patterns, &dump);
         if (r < 0)
