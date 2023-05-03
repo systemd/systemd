@@ -447,7 +447,7 @@ static int run(int argc, char* argv[]) {
         arg_fds = fdset_free(arg_fds); /* Close before we execute anything */
 
         if (!arg_no_block) {
-                r = sd_notify_barrier(0, 5 * USEC_PER_SEC);
+                r = sd_pid_notify_barrier(source_pid, /* unset_environment= */ false, 5 * USEC_PER_SEC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to invoke barrier: %m");
                 if (r == 0)

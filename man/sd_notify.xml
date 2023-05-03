@@ -24,6 +24,7 @@
     <refname>sd_pid_notify_with_fds</refname>
     <refname>sd_pid_notifyf_with_fds</refname>
     <refname>sd_notify_barrier</refname>
+    <refname>sd_pid_notify_barrier</refname>
     <refpurpose>Notify service manager about start-up completion and other service status changes</refpurpose>
   </refnamediv>
 
@@ -80,6 +81,13 @@
 
       <funcprototype>
         <funcdef>int <function>sd_notify_barrier</function></funcdef>
+        <paramdef>int <parameter>unset_environment</parameter></paramdef>
+        <paramdef>uint64_t <parameter>timeout</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_pid_notify_barrier</function></funcdef>
+        <paramdef>pid_t <parameter>pid</parameter></paramdef>
         <paramdef>int <parameter>unset_environment</parameter></paramdef>
         <paramdef>uint64_t <parameter>timeout</parameter></paramdef>
       </funcprototype>
@@ -372,8 +380,10 @@
     previously sent notification messages and uses the <varname>BARRIER=1</varname> command. It takes a
     relative <varname>timeout</varname> value in microseconds which is passed to
     <citerefentry><refentrytitle>ppoll</refentrytitle><manvolnum>2</manvolnum>
-    </citerefentry>. A value of UINT64_MAX is interpreted as infinite timeout.
-    </para>
+    </citerefentry>. A value of UINT64_MAX is interpreted as infinite timeout.</para>
+
+    <para><function>sd_pid_notify_barrier()</function> is just like <function>sd_notify_barrier()</function>,
+    but allows specifying the originating PID for the notification message.</para>
   </refsect1>
 
   <refsect1>

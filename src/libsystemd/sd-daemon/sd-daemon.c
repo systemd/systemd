@@ -601,14 +601,14 @@ finish:
         return r;
 }
 
-_public_ int sd_notify_barrier(int unset_environment, uint64_t timeout) {
+_public_ int sd_pid_notify_barrier(pid_t pid, int unset_environment, uint64_t timeout) {
         _cleanup_close_pair_ int pipe_fd[2] = PIPE_EBADF;
         int r;
 
         if (pipe2(pipe_fd, O_CLOEXEC) < 0)
                 return -errno;
 
-        r = sd_pid_notify_with_fds(0, unset_environment, "BARRIER=1", &pipe_fd[1], 1);
+        r = sd_pid_notify_with_fds(pid, unset_environment, "BARRIER=1", &pipe_fd[1], 1);
         if (r <= 0)
                 return r;
 
@@ -621,6 +621,10 @@ _public_ int sd_notify_barrier(int unset_environment, uint64_t timeout) {
                 return -ETIMEDOUT;
 
         return 1;
+}
+
+_public_ int sd_notify_barrier(int unset_environment, uint64_t timeout) {
+        return sd_pid_notify_barrier(0, unset_environment, timeout);
 }
 
 _public_ int sd_pid_notify(pid_t pid, int unset_environment, const char *state) {
