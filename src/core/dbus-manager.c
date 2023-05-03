@@ -1409,15 +1409,38 @@ static int dump_impl(
 
         _cleanup_free_ char *dump = NULL;
         Manager *m = ASSERT_PTR(userdata);
+        bool check_ratelimit = false;
         int r;
 
         assert(message);
 
-        /* Anyone can call this method */
-
+        /* 'status' access is the bare minimum always needed for this */
         r = mac_selinux_access_check(message, "status", error);
         if (r < 0)
                 return r;
+
+        /* Reload/reexec are also slow but non-destructive, use the same access check for dumps which, given
+         * the large amount of data to fetch, can stall for quite some time. If the caller is not privileged
+         * use rate limiting. */
+        r = mac_selinux_access_check(message, "reload", error);
+        if (r < 0)
+                check_ratelimit = true;
+
+        r = bus_verify_dump_async(m, message, error);
+        if (r < 0)
+                check_ratelimit = true;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
+        if (check_ratelimit && !ratelimit_below(&m->dump_ratelimit)) {
+                log_warning("Dump request rejected due to rate limit, ends in %s.",
+                            FORMAT_TIMESPAN(ratelimit_left(&m->dump_ratelimit), USEC_PER_SEC));
+                return sd_bus_error_setf(error,
+                                         SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                         "Dump request rejected due to rate limit, ends in %s.",
+                                         FORMAT_TIMESPAN(ratelimit_left(&m->dump_ratelimit), USEC_PER_SEC));
+        }
 
         r = manager_get_dump_string(m, patterns, &dump);
         if (r < 0)
