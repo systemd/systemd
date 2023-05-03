@@ -1419,15 +1419,22 @@ static int dump_impl(
         if (r < 0)
                 return r;
 
+        r = bus_verify_dump_async(m, message, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                /* No authorization for now, but the async polkit stuff will call us again when it has it */
+                return 1;
+
         /* Rate limit reached? Check if the caller is privileged/allowed by policy to bypass this. We
          * check the rate limit first to avoid the expensive roundtrip to polkit when not needed. */
         if (!ratelimit_below(&m->dump_ratelimit)) {
-                /* We need a way for the SELinux policy to allow bypassing rate limits, but we cannot easily
-                 * add new named permissions, so we need to use an existing one. Reload/reexec are also slow
-                 * but non-destructive/modifying operations, and can cause PID1 to stall. So it seems
-                 * similar enough in terms of security considerations and impact, and thus use the same
-                 * access check for dumps which, given the large amount of data to fetch, can stall PID1 for
-                 * quite some time. */
+                /* We need a way for SELinux to constrain the operation when the rate limit is active, even
+                 * if polkit would allow it, but we cannot easily add new named permissions, so we need to
+                 * use an existing one. Reload/reexec are also slow but non-destructive/modifying
+                 * operations, and can cause PID1 to stall. So it seems similar enough in terms of security
+                 * considerations and impact, and thus use the same access check for dumps which, given the
+                 * large amount of data to fetch, can stall PID1 for quite some time. */
                 r = mac_selinux_access_check(message, "reload", error);
                 if (r < 0)
                         goto ratelimited;
@@ -1448,11 +1455,11 @@ static int dump_impl(
         return reply(message, dump);
 
 ratelimited:
-        log_warning("Dump request rejected due to rate limit on unprivileged callers, ends in %s.",
+        log_warning("Dump request rejected due to rate limit on unprivileged callers, blocked for %s.",
                     FORMAT_TIMESPAN(ratelimit_left(&m->dump_ratelimit), USEC_PER_SEC));
         return sd_bus_error_setf(error,
                                  SD_BUS_ERROR_LIMITS_EXCEEDED,
-                                 "Dump request rejected due to rate limit on unprivileged callers, ends in %s.",
+                                 "Dump request rejected due to rate limit on unprivileged callers, blocked for %s.",
                                  FORMAT_TIMESPAN(ratelimit_left(&m->dump_ratelimit), USEC_PER_SEC));
 }
 

@@ -80,4 +80,14 @@
                 </defaults>
         </action>
 
+        <action id="org.freedesktop.systemd1.dump">
+                <description gettext-domain="systemd">Dump the systemd state</description>
+                <message gettext-domain="systemd">Authentication is required to dump the systemd state.</message>
+                <defaults>
+                        <allow_any>yes</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+        </action>
+
 </policyconfig>

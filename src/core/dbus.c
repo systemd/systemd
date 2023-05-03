@@ -1206,6 +1206,10 @@ int bus_verify_set_environment_async(Manager *m, sd_bus_message *call, sd_bus_er
 int bus_verify_bypass_dump_ratelimit_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
         return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.bypass-dump-ratelimit", NULL, false, UID_INVALID, &m->polkit_registry, error);
 }
+int bus_verify_dump_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
+        /* Allowd by default, so do not gate on any capability if polkit is not available */
+        return bus_verify_polkit_async(call, 0, "org.freedesktop.systemd1.dump", NULL, false, UID_INVALID, &m->polkit_registry, error);
+}
 
 uint64_t manager_bus_n_queued_write(Manager *m) {
         uint64_t c = 0;

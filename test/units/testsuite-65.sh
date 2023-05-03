@@ -54,8 +54,7 @@ systemd-analyze dot "systemd-*.service" >/dev/null
 (! systemd-analyze dot systemd-journald.service systemd-logind.service "*" bbb ccc)
 # dump
 # this should be rate limited to 10 calls in 10 minutes for unprivileged callers
-# shellcheck disable=SC2034
-for i in {1..10}; do
+for i in $(seq 1 10); do
     runas testuser systemd-analyze dump systemd-journald.service >/dev/null
 done
 (! runas testuser systemd-analyze dump >/dev/null)
@@ -66,8 +65,7 @@ systemctl daemon-reload
 systemctl daemon-reexec
 (! runas testuser systemd-analyze dump >/dev/null)
 # privileged call, so should not be rate limited
-# shellcheck disable=SC2034
-for i in {1..20}; do
+for i in $(seq 1 10); do
     systemd-analyze dump systemd-journald.service >/dev/null
 done
 systemd-analyze dump >/dev/null
