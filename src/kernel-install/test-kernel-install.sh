@@ -7,7 +7,11 @@ set -o pipefail
 export SYSTEMD_LOG_LEVEL=debug
 
 kernel_install="${1:?}"
-plugin="${2:?}"
+loaderentry_install="${2:?}"
+uki_copy_install="${3:?}"
+ukify="${4:-}"
+ukify_install="${5:-}"
+boot_stub="${6:-}"
 if [[ -d "${PROJECT_BUILD_ROOT:-}" ]]; then
     bootctl="${PROJECT_BUILD_ROOT}/bootctl"
 else
@@ -36,11 +40,15 @@ MACHINE_ID=badbadbadbadbadbad6abadbadbadbad
 EOF
 
 export KERNEL_INSTALL_CONF_ROOT="$D/sources"
-export KERNEL_INSTALL_PLUGINS="$plugin"
+# We "install" multiple plugins, but control which ones will be active via install.conf.
+export KERNEL_INSTALL_PLUGINS="${ukify_install} ${loaderentry_install} ${uki_copy_install}"
 export BOOT_ROOT="$D/boot"
 export BOOT_MNT="$D/boot"
 export MACHINE_ID='3e0484f3634a418b8e6a39e8828b03e3'
+export KERNEL_INSTALL_UKIFY="$ukify"
+export KERNEL_INSTALL_BOOT_STUB="$boot_stub"
 
+# Test type#1 installation
 "$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
 
 entry="$BOOT_ROOT/loader/entries/the-token-1.1.1.conf"
@@ -91,7 +99,25 @@ grep -qE '^initrd .*/the-token/1.1.1/initrd' "$entry"
 grep -qE 'image' "$BOOT_ROOT/the-token/1.1.1/linux"
 grep -qE 'initrd' "$BOOT_ROOT/the-token/1.1.1/initrd"
 
-if test -x "$bootctl"; then
+# Install UKI
+if [ -f "$ukify" ]; then
+    cat >>"$D/sources/install.conf" <<EOF
+layout=uki
+uki_generator=ukify
+EOF
+    "$kernel_install" -v add 1.1.3 "$D/sources/linux" "$D/sources/initrd"
+    uki="${BOOT_ROOT}/EFI/Linux/the-token-1.1.3+56.efi"
+    test -f "$uki"
+
+    if [ -x "$bootctl" ]; then
+        "$bootctl" kernel-inspect "$uki" | grep -qE 'Kernel Type: +uki$'
+        "$bootctl" kernel-inspect "$uki" | grep -qE 'Version: +1\.1\.3$'
+        "$bootctl" kernel-inspect "$uki" | grep -qE 'Cmdline: +opt1 opt2$'
+    fi
+fi
+
+# Test bootctl
+if [ -x "$bootctl" ]; then
     echo "Testing bootctl"
     e2="${entry%+*}_2.conf"
     cp "$entry" "$e2"
