@@ -3219,6 +3219,11 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
         } else if (streq(key, "accept-socket")) {
                 Unit *socket;
 
+                if (u->type != UNIT_SOCKET) {
+                        log_unit_debug(u, "Failed to deserialize accept-socket: unit is not a socket");
+                        return 0;
+                }
+
                 r = manager_load_unit(u->manager, value, NULL, NULL, &socket);
                 if (r < 0)
                         log_unit_debug_errno(u, r, "Failed to load accept-socket unit '%s': %m", value);

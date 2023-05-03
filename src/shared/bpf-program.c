@@ -467,6 +467,9 @@ int bpf_program_deserialize_attachment(const char *v, FDSet *fds, BPFProgram **b
                 return at;
 
         /* The rest is the path */
+        if (isempty(v))
+                return -EINVAL;
+
         l = cunescape(v, 0, &unescaped);
         if (l < 0)
                 return l;
