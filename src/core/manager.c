@@ -2672,8 +2672,10 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         }
 
         /* Possibly a barrier fd, let's see. */
-        if (manager_process_barrier_fd(tags, fds))
+        if (manager_process_barrier_fd(tags, fds)) {
+                log_debug("Received barrier notification message from PID " PID_FMT ".", ucred->pid);
                 return 0;
+        }
 
         /* Increase the generation counter used for filtering out duplicate unit invocations. */
         m->notifygen++;
