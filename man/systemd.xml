@@ -520,6 +520,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><constant>SIGRTMIN+7</constant></term>
+
+        <listitem><para>Reboots userspace, starts the <filename>soft-reboot.target</filename> unit. This is
+        mostly equivalent to <command>systemctl start soft-reboot.target
+        --job-mode=replace-irreversibly</command>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><constant>SIGRTMIN+13</constant></term>
 
         <listitem><para>Immediately halts the machine.</para></listitem>
@@ -541,6 +550,12 @@
         <term><constant>SIGRTMIN+16</constant></term>
 
         <listitem><para>Immediately reboots the machine with kexec.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>SIGRTMIN+17</constant></term>
+
+        <listitem><para>Immediately reboots the userspace.</para></listitem>
       </varlistentry>
 
       <varlistentry>
