@@ -1419,6 +1419,13 @@ static int dump_impl(
         if (r < 0)
                 return r;
 
+        r = bus_verify_dump_async(m, message, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                /* No authorization for now, but the async polkit stuff will call us again when it has it */
+                return 1;
+
         /* Rate limit reached? Check if the caller is privileged/allowed by policy to bypass this. We
          * check the rate limit first to avoid the expensive roundtrip to polkit when not needed. */
         if (!ratelimit_below(&m->dump_ratelimit)) {
