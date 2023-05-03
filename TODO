@@ -129,6 +129,11 @@ Deprecations and removals:
 
 Features:
 
+* refuse using the switch-reboot operation without /etc/initrd-release. Now
+  that we have a concept of userspace reboot, we can clearly say: switch-root
+  is for transitioning from initrd to host (or initrd to next initrd), while
+  userspace reboot is for switching host to next version of the host.
+
 * mount most file systems with a restrictive uidmap. e.g. mount /usr/ with a
   uidmap that blocks out anything outside 0…1000 (i.e. system users) and similar.
 
@@ -1223,10 +1228,6 @@ Features:
 
 * Add service setting to run a service within the specified VRF. i.e. do the
   equivalent of "ip vrf exec".
-
-* change SwitchRoot() implementation in PID 1 to use pivot_root(".", "."), as
-  documented in the pivot_root(2) man page, so that we can drop the /oldroot
-  temporary dir.
 
 * special case some calls of chase() to use openat2() internally, so
   that the kernel does what we otherwise do.
