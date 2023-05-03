@@ -14,6 +14,7 @@ done
 journalctl --rotate
 journalctl --flush
 journalctl --sync
+journalctl --rotate --vacuum-size=8M
 
 # Reset the ratelimit buckets for the subsequent tests below.
 systemctl restart systemd-journald
