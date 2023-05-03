@@ -5193,6 +5193,27 @@ _public_ int sd_event_source_is_ratelimited(sd_event_source *s) {
         return s->ratelimited;
 }
 
+_public_ int sd_event_source_leave_ratelimit(sd_event_source *s) {
+        int r;
+
+        assert_return(s, -EINVAL);
+
+        if (!EVENT_SOURCE_CAN_RATE_LIMIT(s->type))
+                return 0;
+
+        if (!ratelimit_configured(&s->rate_limit))
+                return 0;
+
+        if (!s->ratelimited)
+                return 0;
+
+        r = event_source_leave_ratelimit(s, /* run_callback */ false);
+        if (r < 0)
+                return r;
+
+        return 1; /* tell caller that we indeed just left the ratelimit state */
+}
+
 _public_ int sd_event_set_signal_exit(sd_event *e, int b) {
         bool change = false;
         int r;
