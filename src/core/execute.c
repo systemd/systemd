@@ -3258,16 +3258,34 @@ static int setup_credentials_internal(
                 return r;
 
         if (workspace_mounted) {
-                /* Make workspace read-only now, so that any bind mount we make from it defaults to read-only too */
-                r = mount_nofollow_verbose(LOG_DEBUG, NULL, workspace, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL);
-                if (r < 0)
-                        return r;
+                bool install;
 
-                /* And mount it to the final place, read-only */
+                /* Determine if we should actually install the prepared mount in the final location by bind
+                 * mounting it there. We do so only if the mount is not established there already, and if the
+                 * mount is actually non-empty (i.e. carries at least one credential). Not that in the best
+                 * case we are doing all this in a mount namespace, thus noone else will see that we
+                 * allocated a file system we are getting rid of again here. */
                 if (final_mounted)
-                        r = umount_verbose(LOG_DEBUG, workspace, MNT_DETACH|UMOUNT_NOFOLLOW);
-                else
+                        install = false; /* already installed */
+                else {
+                        r = dir_is_empty(where, /* ignore_hidden_or_backup= */ false);
+                        if (r < 0)
+                                return r;
+
+                        install = r == 0; /* install only if non-empty */
+                }
+
+                if (install) {
+                        /* Make workspace read-only now, so that any bind mount we make from it defaults to read-only too */
+                        r = mount_nofollow_verbose(LOG_DEBUG, NULL, workspace, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL);
+                        if (r < 0)
+                                return r;
+
+                        /* And mount it to the final place, read-only */
                         r = mount_nofollow_verbose(LOG_DEBUG, workspace, final, NULL, MS_MOVE, NULL);
+                } else
+                        /* Otherwise get rid of it */
+                        r = umount_verbose(LOG_DEBUG, workspace, MNT_DETACH|UMOUNT_NOFOLLOW);
                 if (r < 0)
                         return r;
         } else {
