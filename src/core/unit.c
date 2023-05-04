@@ -6162,7 +6162,9 @@ int activation_details_deserialize(const char *key, const char *value, Activatio
                         return -EINVAL;
 
                 t = unit_type_from_string(value);
-                if (t == _UNIT_TYPE_INVALID)
+                /* The activation details vtable has defined ops only for path
+                 * and timer units */
+                if (!IN_SET(t, UNIT_PATH, UNIT_TIMER))
                         return -EINVAL;
 
                 *details = malloc0(activation_details_vtable[t]->object_size);
