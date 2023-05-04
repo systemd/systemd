@@ -2793,7 +2793,11 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
 
-                return sd_event_loop(e);
+                r = sd_event_loop(e);
+                if (r < 0)
+                        return r;
+
+                return update_cursor(j);
         }
 
         r = show(&c);
