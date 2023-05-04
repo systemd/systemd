@@ -2117,6 +2117,33 @@ static int action_list_fields(sd_journal *j) {
         return 0;
 }
 
+static int update_cursor(sd_journal *j) {
+        _cleanup_free_ char *cursor = NULL;
+        int r;
+
+        assert(j);
+
+        if (!arg_show_cursor && !arg_cursor_file)
+                return 0;
+
+        r = sd_journal_get_cursor(j, &cursor);
+        if (r == -EADDRNOTAVAIL)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to get cursor: %m");
+
+        if (arg_show_cursor)
+                printf("-- cursor: %s\n", cursor);
+
+        if (arg_cursor_file) {
+                r = write_string_file(arg_cursor_file, cursor, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_ATOMIC);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write new cursor to %s: %m", arg_cursor_file);
+        }
+
+        return 0;
+}
+
 static int wait_for_change(sd_journal *j, int poll_fd) {
         struct pollfd pollfds[] = {
                 { .fd = poll_fd, .events = POLLIN },
@@ -2713,26 +2740,9 @@ static int run(int argc, char *argv[]) {
                 first_line = false;
         }
 
-        if (arg_show_cursor || arg_cursor_file) {
-                _cleanup_free_ char *cursor = NULL;
-
-                r = sd_journal_get_cursor(j, &cursor);
-                if (r < 0 && r != -EADDRNOTAVAIL)
-                        return log_error_errno(r, "Failed to get cursor: %m");
-                if (r >= 0) {
-                        if (arg_show_cursor)
-                                printf("-- cursor: %s\n", cursor);
-
-                        if (arg_cursor_file) {
-                                r = write_string_file(arg_cursor_file, cursor,
-                                                      WRITE_STRING_FILE_CREATE |
-                                                      WRITE_STRING_FILE_ATOMIC);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to write new cursor to %s: %m",
-                                                               arg_cursor_file);
-                        }
-                }
-        }
+        r = update_cursor(j);
+        if (r < 0)
+                return r;
 
         if (arg_compiled_pattern && n_shown == 0)
                 /* --grep was used, no error was thrown, but the pattern didn't
