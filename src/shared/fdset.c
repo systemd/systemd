@@ -77,6 +77,9 @@ int fdset_put(FDSet *s, int fd) {
         assert(s);
         assert(fd >= 0);
 
+        if (fd == INT_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Refusing invalid fd: %d", fd);
+
         return set_put(MAKE_SET(s), FD_TO_PTR(fd));
 }
 
@@ -115,12 +118,20 @@ bool fdset_contains(FDSet *s, int fd) {
         assert(s);
         assert(fd >= 0);
 
+        if (fd == INT_MAX) {
+                log_debug("Refusing invalid fd: %d", fd);
+                return false;
+        }
+
         return !!set_get(MAKE_SET(s), FD_TO_PTR(fd));
 }
 
 int fdset_remove(FDSet *s, int fd) {
         assert(s);
         assert(fd >= 0);
+
+        if (fd == INT_MAX)
+                log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Refusing invalid fd: %d", fd);
 
         return set_remove(MAKE_SET(s), FD_TO_PTR(fd)) ? fd : -ENOENT;
 }
