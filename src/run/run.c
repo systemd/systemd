@@ -1240,14 +1240,12 @@ static int start_transient_service(sd_bus *bus) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
-                        r = sd_bus_call_method(system_bus,
-                                               "org.freedesktop.machine1",
-                                               "/org/freedesktop/machine1",
-                                               "org.freedesktop.machine1.Manager",
-                                               "OpenMachinePTY",
-                                               &error,
-                                               &pty_reply,
-                                               "s", arg_host);
+                        r = bus_call_method(system_bus,
+                                            bus_machine_mgr,
+                                            "OpenMachinePTY",
+                                            &error,
+                                            &pty_reply,
+                                            "s", arg_host);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get machine PTY: %s", bus_error_message(&error, r));
 
