@@ -550,50 +550,95 @@ def pe_add_sections(uki: UKI, output: str):
 
     pe.write(output)
 
+def signer_sign(cmd):
+    print('+', shell_join(cmd))
+    subprocess.check_call(cmd)
+
+def find_sbsign(opts=None):
+    return find_tool('sbsign', opts=opts)
+
+def sbsign_sign(sbsign_tool, input_f, output_f, opts=None):
+    sign_invocation = [
+        sbsign_tool,
+        '--key', opts.sb_key,
+        '--cert', opts.sb_cert,
+        input_f,
+        '--output', output_f,
+    ]
+    if opts.signing_engine is not None:
+        sign_invocation += ['--engine', opts.signing_engine]
+    signer_sign(sign_invocation)
+
+def find_pesign(opts=None):
+    return find_tool('pesign', opts=opts)
+
+def pesign_sign(pesign_tool, input_f, output_f, opts=None):
+    sign_invocation = [
+        pesign_tool, '-s', '--force',
+        '-n', opts.sb_certdir,
+        '-c', opts.sb_cert_name,
+        '-i', input_f,
+        '-o', output_f,
+    ]
+    signer_sign(sign_invocation)
+
+sbverify = {
+    'name': 'sbverify',
+    'option': '--list',
+    'output': 'No signature table present',
+}
+
+pesigcheck = {
+    'name': 'pesign',
+    'option': '-i',
+    'output': 'No signatures found.',
+    'flags': '-S'
+}
+
+def verify(tool, opts):
+    verify_tool = find_tool(tool['name'], opts=opts)
+    cmd = [
+        verify_tool,
+        tool['option'],
+        opts.linux,
+    ]
+    if 'flags' in tool:
+        cmd.append(tool['flags'])
+
+    print('+', shell_join(cmd))
+    info = subprocess.check_output(cmd, text=True)
+
+    if tool['output'] in info:
+        return True
+    return False
 
 def make_uki(opts):
     # kernel payload signing
 
-    sbsign_tool = find_tool('sbsign', opts=opts)
-    sbsign_invocation = [
-        sbsign_tool,
-        '--key', opts.sb_key,
-        '--cert', opts.sb_cert,
-    ]
+    sign_tool = None
+    if opts.signtool == 'sbsign':
+        sign_tool = find_sbsign(opts=opts)
+        sign = sbsign_sign
+        verify_tool = sbverify
+    else:
+        sign_tool = find_pesign(opts=opts)
+        sign = pesign_sign
+        verify_tool = pesigcheck
 
-    if opts.signing_engine is not None:
-        sbsign_invocation += ['--engine', opts.signing_engine]
+    if sign_tool is None:
+        raise ValueError('%s is not installed!' % opts.signtool)
+
+    sign_args_present = opts.sb_key or opts.sb_cert_name
 
     sign_kernel = opts.sign_kernel
-    if sign_kernel is None and opts.linux is not None and opts.sb_key:
+    if sign_kernel is None and opts.linux is not None and sign_args_present:
         # figure out if we should sign the kernel
-        sbverify_tool = find_tool('sbverify', opts=opts)
-
-        cmd = [
-            sbverify_tool,
-            '--list',
-            opts.linux,
-        ]
-
-        print('+', shell_join(cmd))
-        info = subprocess.check_output(cmd, text=True)
-
-        # sbverify has wonderful API
-        if 'No signature table present' in info:
-            sign_kernel = True
+        sign_kernel = verify(verify_tool, opts)
 
     if sign_kernel:
         linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
         linux = linux_signed.name
-
-        cmd = [
-            *sbsign_invocation,
-            opts.linux,
-            '--output', linux,
-        ]
-
-        print('+', shell_join(cmd))
-        subprocess.check_call(cmd)
+        sign(sign_tool, opts.linux, linux, opts=opts)
     else:
         linux = opts.linux
 
@@ -641,7 +686,7 @@ def make_uki(opts):
     if linux is not None:
         uki.add_section(Section.create('.linux', linux, measure=True))
 
-    if opts.sb_key:
+    if sign_args_present:
         unsigned = tempfile.NamedTemporaryFile(prefix='uki')
         output = unsigned.name
     else:
@@ -651,20 +696,14 @@ def make_uki(opts):
 
     # UKI signing
 
-    if opts.sb_key:
-        cmd = [
-            *sbsign_invocation,
-            unsigned.name,
-            '--output', opts.output,
-        ]
-        print('+', shell_join(cmd))
-        subprocess.check_call(cmd)
+    if sign_args_present:
+        sign(sign_tool, unsigned.name, opts.output, opts=opts)
 
         # We end up with no executable bits, let's reapply them
         os.umask(umask := os.umask(0))
         os.chmod(opts.output, 0o777 & ~umask)
 
-    print(f"Wrote {'signed' if opts.sb_key else 'unsigned'} {opts.output}")
+    print(f"Wrote {'signed' if sign_args_present else 'unsigned'} {opts.output}")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -914,16 +953,37 @@ CONFIG_ITEMS = [
         config_key = 'UKI/SigningEngine',
     ),
     ConfigItem(
+        '--signtool',
+        choices=('sbsign', 'pesign'),
+        dest='signtool',
+        default='sbsign',
+        help='whether to use sbsign or pesign. Default is sbsign.',
+        config_key = 'UKI/SecureBootSigningTool',
+    ),
+    ConfigItem(
         '--secureboot-private-key',
         dest = 'sb_key',
-        help = 'path to key file or engine-specific designation for SB signing',
+        help = 'required by --signtool=sbsign. Path to key file or engine-specific designation for SB signing',
         config_key = 'UKI/SecureBootPrivateKey',
     ),
     ConfigItem(
         '--secureboot-certificate',
         dest = 'sb_cert',
-        help = 'path to certificate file or engine-specific designation for SB signing',
+        help = 'required by --signtool=sbsign. sbsign needs a path to certificate file or engine-specific designation for SB signing',
         config_key = 'UKI/SecureBootCertificate',
+    ),
+    ConfigItem(
+        '--secureboot-certificate-dir',
+        dest='sb_certdir',
+        default='/etc/pki/pesign',
+        help='required by --signtool=pesign. Path to nss certificate database directory for PE signing. Default is /etc/pki/pesign',
+        config_key = 'UKI/SecureBootCertificateDir',
+    ),
+    ConfigItem(
+        '--secureboot-certificate-name',
+        dest='sb_cert_name',
+        help='required by --signtool=pesign. pesign needs a certificate nickname of nss certificate database entry to use for PE signing',
+        config_key = 'UKI/SecureBootCertName',
     ),
 
     ConfigItem(
@@ -1091,16 +1151,20 @@ def finalize_options(opts):
         if opts.sb_cert:
             opts.sb_cert = pathlib.Path(opts.sb_cert)
 
-    if bool(opts.sb_key) ^ bool(opts.sb_cert):
-        raise ValueError('--secureboot-private-key= and --secureboot-certificate= must be specified together')
+    if opts.signtool == 'sbsign':
+        if bool(opts.sb_key) ^ bool(opts.sb_cert):
+            raise ValueError('--secureboot-private-key= and --secureboot-certificate= must be specified together when using --signtool=sbsign')
+    else:
+        if not bool(opts.sb_cert_name):
+            raise ValueError('-certificate-name must be specified when using --signtool=pesign')
 
-    if opts.sign_kernel and not opts.sb_key:
-        raise ValueError('--sign-kernel requires --secureboot-private-key= and --secureboot-certificate= to be specified')
+    if opts.sign_kernel and not opts.sb_key and not opts.sb_cert_name:
+        raise ValueError('--sign-kernel requires either --secureboot-private-key= and --secureboot-certificate= (for sbsign) or --secureboot-certificate-name (for pesign) to be specified')
 
     if opts.output is None:
         if opts.linux is None:
             raise ValueError('--output= must be specified when building a PE addon')
-        suffix = '.efi' if opts.sb_key else '.unsigned.efi'
+        suffix = '.efi' if opts.sb_key or opts.sb_cert_name else '.unsigned.efi'
         opts.output = opts.linux.name + suffix
 
     for section in opts.sections:
