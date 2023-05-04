@@ -65,6 +65,7 @@
 #include "rlimit-util.h"
 #include "set.h"
 #include "sigbus.h"
+#include "signal-util.h"
 #include "static-destruct.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -2326,6 +2327,14 @@ static int on_first_event(sd_event_source *s, void *userdata) {
         return show_and_fflush(userdata, s);
 }
 
+static int on_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        assert(s);
+        assert(si);
+        assert(IN_SET(si->ssi_signo, SIGTERM, SIGINT));
+
+        return sd_event_exit(sd_event_source_get_event(s), si->ssi_signo);
+}
+
 static int setup_event(Context *c, int fd, sd_event **ret) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         int r;
@@ -2338,6 +2347,9 @@ static int setup_event(Context *c, int fd, sd_event **ret) {
         r = sd_event_default(&e);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate sd_event object: %m");
+
+        (void) sd_event_add_signal(e, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_signal, NULL);
+        (void) sd_event_add_signal(e, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_signal, NULL);
 
         r = sd_event_add_io(e, NULL, fd, EPOLLIN, &on_journal_event, c);
         if (r < 0)
@@ -2781,6 +2793,7 @@ static int run(int argc, char *argv[]) {
 
         if (arg_follow) {
                 _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+                int sig;
 
                 assert(poll_fd >= 0);
 
@@ -2788,7 +2801,24 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
 
-                return sd_event_loop(e);
+                r = sd_event_loop(e);
+                if (r < 0)
+                        return r;
+                sig = r;
+
+                /* unref signal event sources. */
+                e = sd_event_unref(e);
+
+                r = update_cursor(j);
+                if (r < 0)
+                        return r;
+
+                /* re-send the original signal. */
+                assert(SIGNAL_VALID(sig));
+                if (raise(sig) < 0)
+                        log_error("Failed to raise the original signal SIG%s, ignoring: %m", signal_to_string(sig));
+
+                return 0;
         }
 
         r = show(&c);
