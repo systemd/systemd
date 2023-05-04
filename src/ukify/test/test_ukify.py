@@ -166,6 +166,7 @@ def test_parse_args_many():
          ])
     assert opts.linux == pathlib.Path('/ARG1')
     assert opts.initrd == [pathlib.Path('/ARG2'), pathlib.Path('/ARG3 WITH SPACE')]
+    assert opts.cmdline == 'a b c'
     assert opts.os_release == 'K1=V1\nK2=V2'
     assert opts.devicetree == pathlib.Path('DDDDTTTT')
     assert opts.splash == pathlib.Path('splash')
@@ -203,6 +204,85 @@ def test_parse_sections():
     assert opts.sections[1].content == pathlib.Path('FILE')
     assert opts.sections[1].tmpfile is None
     assert opts.sections[1].measure is False
+
+def test_config_priority(tmp_path):
+    config = tmp_path / 'config1.conf'
+    config.write_text(textwrap.dedent(
+        f'''
+        [UKI]
+        Linux = LINUX
+        Initrd = initrd1 initrd2
+                 initrd3
+        Cmdline = 1 2 3 4 5
+                  6 7 8
+        OSRelease = @some/path1
+        DeviceTree = some/path2
+        Splash = some/path3
+        Uname = 1.2.3
+        EFIArch=arm
+        Stub = some/path4
+        PCRBanks = sha512,sha1
+        SigningEngine = engine1
+        SecureBootPrivateKey = some/path5
+        SecureBootCertificate = some/path6
+        SignKernel = no
+
+        [PCRSignature:NAME]
+        PCRPrivateKey = some/path7
+        PCRPublicKey = some/path8
+        Phases = {':'.join(ukify.KNOWN_PHASES)}
+        '''))
+
+    opts = ukify.parse_args(
+        ['/ARG1', '///ARG2', '/ARG3 WITH SPACE',
+         '--cmdline= a  b  c ',
+         '--os-release=K1=V1\nK2=V2',
+         '--devicetree=DDDDTTTT',
+         '--splash=splash',
+         '--pcrpkey=PATH',
+         '--uname=1.2.3',
+         '--stub=STUBPATH',
+         '--pcr-private-key=PKEY1',
+         '--pcr-public-key=PKEY2',
+         '--pcr-banks=SHA1,SHA256',
+         '--signing-engine=ENGINE',
+         '--secureboot-private-key=SBKEY',
+         '--secureboot-certificate=SBCERT',
+         '--sign-kernel',
+         '--no-sign-kernel',
+         '--tools=TOOLZ///',
+         '--output=OUTPUT',
+         '--measure',
+         ])
+
+    ukify.apply_config(opts, config)
+    ukify.finalize_options(opts)
+
+    assert opts.linux == pathlib.Path('/ARG1')
+    assert opts.initrd == [pathlib.Path('initrd1'),
+                           pathlib.Path('initrd2'),
+                           pathlib.Path('initrd3'),
+                           pathlib.Path('/ARG2'),
+                           pathlib.Path('/ARG3 WITH SPACE')]
+    assert opts.cmdline == 'a b c'
+    assert opts.os_release == 'K1=V1\nK2=V2'
+    assert opts.devicetree == pathlib.Path('DDDDTTTT')
+    assert opts.splash == pathlib.Path('splash')
+    assert opts.pcrpkey == pathlib.Path('PATH')
+    assert opts.uname == '1.2.3'
+    assert opts.stub == pathlib.Path('STUBPATH')
+    assert opts.pcr_private_keys == [pathlib.Path('PKEY1'),
+                                     pathlib.Path('some/path7')]
+    assert opts.pcr_public_keys == [pathlib.Path('PKEY2'),
+                                    pathlib.Path('some/path8')]
+    assert opts.pcr_banks == ['SHA1', 'SHA256']
+    assert opts.signing_engine == 'ENGINE'
+    assert opts.sb_key == 'SBKEY'
+    assert opts.sb_cert == 'SBCERT'
+    assert opts.sign_kernel is False
+    assert opts.tools == [pathlib.Path('TOOLZ/')]
+    assert opts.output == pathlib.Path('OUTPUT')
+    assert opts.measure is True
 
 def test_help(capsys):
     with pytest.raises(SystemExit):
