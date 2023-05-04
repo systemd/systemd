@@ -3152,4 +3152,4 @@ static const char* const pcr_index_table[_PCR_INDEX_MAX_DEFINED] = {
         [PCR_APPLICATION_SUPPORT] = "application-support",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_FALLBACK(pcr_index, int, TPM2_PCRS_MAX);
+DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_FALLBACK(pcr_index, int, TPM2_PCRS_MAX - 1);
