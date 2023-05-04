@@ -19,6 +19,41 @@ journalctl --rotate --vacuum-size=8M
 # Reset the ratelimit buckets for the subsequent tests below.
 systemctl restart systemd-journald
 
+# Forward Secure Sealing
+if journalctl --version | grep -qF +GCRYPT; then
+    journalctl --force --setup-keys --interval=2 |& tee /tmp/fss
+    FSS_VKEY="$(sed -rn '/([a-f0-9]{6}\-){3}[a-f0-9]{6}\/[a-f0-9]+\-[a-f0-9]+/p' /tmp/fss)"
+    [[ -n "$FSS_VKEY" ]]
+
+    # Generate some buzz in the journal and wait until the FSS key is changed
+    # at least once
+    systemd-cat cat /etc/os-release
+    sleep 4
+    # Seal the journal
+    journalctl --rotate
+    # Verification should fail without a valid FSS key
+    (! journalctl --verify)
+    (! journalctl --verify --verify-key="")
+    (! journalctl --verify --verify-key="000000-000000-000000-000000/00000000-00000")
+    journalctl --verify --verify-key="$FSS_VKEY"
+
+    # Sealing + systemd-journal-remote
+    /usr/lib/systemd/systemd-journal-remote --getter="journalctl -n 5 -o export" \
+                                            --split-mode=none \
+                                            --seal=yes \
+                                            --output=/tmp/sealed.journal
+    (! journalctl --file=/tmp/sealed.journal --verify)
+    (! journalctl --file=/tmp/sealed.journal --verify --verify-key="")
+    (! journalctl --file=/tmp/sealed.journal --verify --verify-key="000000-000000-000000-000000/00000000-00000")
+    journalctl --file=/tmp/sealed.journal --verify --verify-key="$FSS_VKEY"
+    rm -f /tmp/sealed.journal
+
+    # Return back to a journal without FSS
+    rm -fv "/var/log/journal/$(</etc/machine-id)/fss"
+    journalctl --rotate --vacuum-size=1
+    journalctl --verify
+fi
+
 # Test stdout stream
 write_and_match() {
     local input="${1:?}"
