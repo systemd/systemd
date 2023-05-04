@@ -1052,7 +1052,7 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if (arg_follow && !arg_no_tail && !arg_since && arg_lines == ARG_LINES_DEFAULT)
+        if (arg_follow && !arg_no_tail && !arg_since_set && arg_lines == ARG_LINES_DEFAULT)
                 arg_lines = 10;
 
         if (!!arg_directory + !!arg_file + !!arg_machine + !!arg_root + !!arg_image > 1)
