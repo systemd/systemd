@@ -33,7 +33,7 @@ TEST(tpm2_mask_from_string) {
         test_tpm2_pcr_mask_from_string_one("sysexts,shim-policy+kernel-boot", 26624, 0);
         test_tpm2_pcr_mask_from_string_one("sysexts,shim+kernel-boot", 0, -EINVAL);
         test_tpm2_pcr_mask_from_string_one("sysexts+17+23", 8527872, 0);
-        test_tpm2_pcr_mask_from_string_one("debug+24", 16842752, 0);
+        test_tpm2_pcr_mask_from_string_one("debug+24", 0, -EINVAL);
 }
 
 TEST(pcr_index_from_string) {
@@ -73,6 +73,7 @@ TEST(pcr_index_from_string) {
         assert_se(pcr_index_from_string("8") == 8);
         assert_se(pcr_index_from_string("44") == -EINVAL);
         assert_se(pcr_index_from_string("-5") == -EINVAL);
+        assert_se(pcr_index_from_string("24") == -EINVAL);
 }
 
 TEST(tpm2_util_pbkdf2_hmac_sha256) {
