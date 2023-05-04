@@ -13,6 +13,17 @@
 #include "memory-util.h"
 #include "time-util.h"
 
+static void* fssheader_free(FSSHeader *p) {
+        /* mmap() returns MAP_FAILED on error and sets the errno */
+        if (!p || p == MAP_FAILED)
+                return NULL;
+
+        assert_se(munmap(p, PAGE_ALIGN(sizeof(FSSHeader))) >= 0);
+        return NULL;
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(FSSHeader*, fssheader_free);
+
 static uint64_t journal_file_tag_seqnum(JournalFile *f) {
         uint64_t r;
 
@@ -96,8 +107,7 @@ static int journal_file_get_epoch(JournalFile *f, uint64_t realtime, uint64_t *e
         assert(epoch);
         assert(JOURNAL_HEADER_SEALED(f->header));
 
-        if (f->fss_start_usec == 0 ||
-            f->fss_interval_usec == 0)
+        if (f->fss_start_usec == 0 || f->fss_interval_usec == 0)
                 return -EOPNOTSUPP;
 
         if (realtime < f->fss_start_usec)
@@ -107,12 +117,14 @@ static int journal_file_get_epoch(JournalFile *f, uint64_t realtime, uint64_t *e
         t = t / f->fss_interval_usec;
 
         *epoch = t;
+
         return 0;
 }
 
 static int journal_file_fsprg_need_evolve(JournalFile *f, uint64_t realtime) {
         uint64_t goal, epoch;
         int r;
+
         assert(f);
 
         if (!JOURNAL_HEADER_SEALED(f->header))
@@ -175,7 +187,7 @@ int journal_file_fsprg_seek(JournalFile *f, uint64_t goal) {
                 if (goal == epoch)
                         return 0;
 
-                if (goal == epoch+1) {
+                if (goal == epoch + 1) {
                         FSPRG_Evolve(f->fsprg_state);
                         return 0;
                 }
@@ -191,6 +203,7 @@ int journal_file_fsprg_seek(JournalFile *f, uint64_t goal) {
         msk = alloca_safe(FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR));
         FSPRG_GenMK(msk, NULL, f->fsprg_seed, f->fsprg_seed_size, FSPRG_RECOMMENDED_SECPAR);
         FSPRG_Seek(f->fsprg_state, goal, msk, f->fsprg_seed, f->fsprg_seed_size);
+
         return 0;
 }
 
@@ -236,10 +249,8 @@ int journal_file_hmac_put_object(JournalFile *f, ObjectType type, Object *o, uin
                 r = journal_file_move_to_object(f, type, p, &o);
                 if (r < 0)
                         return r;
-        } else {
-                if (type > OBJECT_UNUSED && o->object.type != type)
-                        return -EBADMSG;
-        }
+        } else if (type > OBJECT_UNUSED && o->object.type != type)
+                return -EBADMSG;
 
         gcry_md_write(f->hmac, o, offsetof(ObjectHeader, payload));
 
@@ -308,11 +319,12 @@ int journal_file_hmac_put_header(JournalFile *f) {
 }
 
 int journal_file_fss_load(JournalFile *f) {
-        int r, fd = -EBADF;
-        char *p = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *path = NULL;
+        _cleanup_(fssheader_freep) FSSHeader *header = NULL;
         struct stat st;
-        FSSHeader *m = NULL;
         sd_id128_t machine;
+        int r;
 
         assert(f);
 
@@ -323,78 +335,54 @@ int journal_file_fss_load(JournalFile *f) {
         if (r < 0)
                 return r;
 
-        if (asprintf(&p, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss",
+        if (asprintf(&path, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss",
                      SD_ID128_FORMAT_VAL(machine)) < 0)
                 return -ENOMEM;
 
-        fd = open(p, O_RDWR|O_CLOEXEC|O_NOCTTY, 0600);
+        fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY, 0600);
         if (fd < 0) {
                 if (errno != ENOENT)
-                        log_error_errno(errno, "Failed to open %s: %m", p);
+                        log_error_errno(errno, "Failed to open %s: %m", path);
 
-                r = -errno;
-                goto finish;
+                return -errno;
         }
 
-        if (fstat(fd, &st) < 0) {
-                r = -errno;
-                goto finish;
-        }
+        if (fstat(fd, &st) < 0)
+                return -errno;
 
-        if (st.st_size < (off_t) sizeof(FSSHeader)) {
-                r = -ENODATA;
-                goto finish;
-        }
+        if (st.st_size < (off_t) sizeof(FSSHeader))
+                return -ENODATA;
 
-        m = mmap(NULL, PAGE_ALIGN(sizeof(FSSHeader)), PROT_READ, MAP_SHARED, fd, 0);
-        if (m == MAP_FAILED) {
-                m = NULL;
-                r = -errno;
-                goto finish;
-        }
+        header = mmap(NULL, PAGE_ALIGN(sizeof(FSSHeader)), PROT_READ, MAP_SHARED, fd, 0);
+        if (header == MAP_FAILED)
+                return -errno;
 
-        if (memcmp(m->signature, FSS_HEADER_SIGNATURE, 8) != 0) {
-                r = -EBADMSG;
-                goto finish;
-        }
+        if (memcmp(header->signature, FSS_HEADER_SIGNATURE, 8) != 0)
+                return -EBADMSG;
 
-        if (m->incompatible_flags != 0) {
-                r = -EPROTONOSUPPORT;
-                goto finish;
-        }
+        if (header->incompatible_flags != 0)
+                return -EPROTONOSUPPORT;
 
-        if (le64toh(m->header_size) < sizeof(FSSHeader)) {
-                r = -EBADMSG;
-                goto finish;
-        }
+        if (le64toh(header->header_size) < sizeof(FSSHeader))
+                return -EBADMSG;
 
-        if (le64toh(m->fsprg_state_size) != FSPRG_stateinbytes(le16toh(m->fsprg_secpar))) {
-                r = -EBADMSG;
-                goto finish;
-        }
+        if (le64toh(header->fsprg_state_size) != FSPRG_stateinbytes(le16toh(header->fsprg_secpar)))
+                return -EBADMSG;
 
-        f->fss_file_size = le64toh(m->header_size) + le64toh(m->fsprg_state_size);
-        if ((uint64_t) st.st_size < f->fss_file_size) {
-                r = -ENODATA;
-                goto finish;
-        }
+        f->fss_file_size = le64toh(header->header_size) + le64toh(header->fsprg_state_size);
+        if ((uint64_t) st.st_size < f->fss_file_size)
+                return -ENODATA;
 
-        if (!sd_id128_equal(machine, m->machine_id)) {
-                r = -EHOSTDOWN;
-                goto finish;
-        }
+        if (!sd_id128_equal(machine, header->machine_id))
+                return -EHOSTDOWN;
 
-        if (le64toh(m->start_usec) <= 0 ||
-            le64toh(m->interval_usec) <= 0) {
-                r = -EBADMSG;
-                goto finish;
-        }
+        if (le64toh(header->start_usec) <= 0 || le64toh(header->interval_usec) <= 0)
+                return -EBADMSG;
 
         f->fss_file = mmap(NULL, PAGE_ALIGN(f->fss_file_size), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
         if (f->fss_file == MAP_FAILED) {
                 f->fss_file = NULL;
-                r = -errno;
-                goto finish;
+                return -errno;
         }
 
         f->fss_start_usec = le64toh(f->fss_file->start_usec);
@@ -403,16 +391,7 @@ int journal_file_fss_load(JournalFile *f) {
         f->fsprg_state = (uint8_t*) f->fss_file + le64toh(f->fss_file->header_size);
         f->fsprg_state_size = le64toh(f->fss_file->fsprg_state_size);
 
-        r = 0;
-
-finish:
-        if (m)
-                munmap(m, PAGE_ALIGN(sizeof(FSSHeader)));
-
-        safe_close(fd);
-        free(p);
-
-        return r;
+        return 0;
 }
 
 int journal_file_hmac_setup(JournalFile *f) {
@@ -431,8 +410,8 @@ int journal_file_hmac_setup(JournalFile *f) {
 }
 
 int journal_file_append_first_tag(JournalFile *f) {
-        int r;
         uint64_t p;
+        int r;
 
         if (!JOURNAL_HEADER_SEALED(f->header))
                 return 0;
@@ -469,11 +448,14 @@ int journal_file_append_first_tag(JournalFile *f) {
 }
 
 int journal_file_parse_verification_key(JournalFile *f, const char *key) {
-        uint8_t *seed;
-        size_t seed_size, c;
+        _cleanup_free_ uint8_t *seed = NULL;
+        size_t seed_size;
         const char *k;
-        int r;
         unsigned long long start, interval;
+        int r;
+
+        assert(f);
+        assert(key);
 
         seed_size = FSPRG_RECOMMENDED_SEEDLEN;
         seed = malloc(seed_size);
@@ -481,41 +463,33 @@ int journal_file_parse_verification_key(JournalFile *f, const char *key) {
                 return -ENOMEM;
 
         k = key;
-        for (c = 0; c < seed_size; c++) {
+        for (size_t c = 0; c < seed_size; c++) {
                 int x, y;
 
-                while (*k == '-')
-                        k++;
+                k = skip_leading_chars(k, "-");
 
                 x = unhexchar(*k);
-                if (x < 0) {
-                        free(seed);
+                if (x < 0)
                         return -EINVAL;
-                }
                 k++;
+
                 y = unhexchar(*k);
-                if (y < 0) {
-                        free(seed);
+                if (y < 0)
                         return -EINVAL;
-                }
                 k++;
 
                 seed[c] = (uint8_t) (x * 16 + y);
         }
 
-        if (*k != '/') {
-                free(seed);
+        if (*k != '/')
                 return -EINVAL;
-        }
         k++;
 
         r = sscanf(k, "%llx-%llx", &start, &interval);
-        if (r != 2) {
-                free(seed);
+        if (r != 2)
                 return -EINVAL;
-        }
 
-        f->fsprg_seed = seed;
+        f->fsprg_seed = TAKE_PTR(seed);
         f->fsprg_seed_size = seed_size;
 
         f->fss_start_usec = start * interval;
