@@ -14,80 +14,56 @@ done
 journalctl --rotate
 journalctl --flush
 journalctl --sync
+journalctl --rotate --vacuum-size=8M
 
 # Reset the ratelimit buckets for the subsequent tests below.
 systemctl restart systemd-journald
 
 # Test stdout stream
+write_and_match() {
+    local input="${1:?}"
+    local expected="${2?}"
+    local id
+    shift 2
 
+    id="$(systemd-id128 new)"
+    echo -ne "$input" | systemd-cat -t "$id" "$@"
+    journalctl --sync
+    diff <(echo -ne "$expected") <(journalctl -b -o cat -t "$id")
+}
 # Skip empty lines
-ID=$(journalctl --new-id128 | sed -n 2p)
-: >/expected
-printf $'\n\n\n' | systemd-cat -t "$ID" --level-prefix false
-journalctl --sync
-journalctl -b -o cat -t "$ID" >/output
-cmp /expected /output
-
-ID=$(journalctl --new-id128 | sed -n 2p)
-: >/expected
-printf $'<5>\n<6>\n<7>\n' | systemd-cat -t "$ID" --level-prefix true
-journalctl --sync
-journalctl -b -o cat -t "$ID" >/output
-cmp /expected /output
-
+write_and_match "\n\n\n" "" --level-prefix false
+write_and_match "<5>\n<6>\n<7>\n" "" --level-prefix true
 # Remove trailing spaces
-ID=$(journalctl --new-id128 | sed -n 2p)
-printf "Trailing spaces\n">/expected
-printf $'<5>Trailing spaces \t \n' | systemd-cat -t "$ID" --level-prefix true
-journalctl --sync
-journalctl -b -o cat -t "$ID" >/output
-cmp /expected /output
-
-ID=$(journalctl --new-id128 | sed -n 2p)
-printf "Trailing spaces\n">/expected
-printf $'Trailing spaces \t \n' | systemd-cat -t "$ID" --level-prefix false
-journalctl --sync
-journalctl -b -o cat -t "$ID" >/output
-cmp /expected /output
-
+write_and_match "Trailing spaces \t \n" "Trailing spaces\n" --level-prefix false
+write_and_match "<5>Trailing spaces \t \n" "Trailing spaces\n" --level-prefix true
 # Don't remove leading spaces
-ID=$(journalctl --new-id128 | sed -n 2p)
-printf $' \t Leading spaces\n'>/expected
-printf $'<5> \t Leading spaces\n' | systemd-cat -t "$ID" --level-prefix true
-journalctl --sync
-journalctl -b -o cat -t "$ID" >/output
-cmp /expected /output
-
-ID=$(journalctl --new-id128 | sed -n 2p)
-printf $' \t Leading spaces\n'>/expected
-printf $' \t Leading spaces\n' | systemd-cat -t "$ID" --level-prefix false
-journalctl --sync
-journalctl -b -o cat -t "$ID" >/output
-cmp /expected /output
+write_and_match " \t Leading spaces\n" " \t Leading spaces\n" --level-prefix false
+write_and_match "<5> \t Leading spaces\n" " \t Leading spaces\n" --level-prefix true
 
 # --output-fields restricts output
-ID=$(journalctl --new-id128 | sed -n 2p)
-printf $'foo' | systemd-cat -t "$ID" --level-prefix false
+ID="$(systemd-id128 new)"
+echo -ne "foo" | systemd-cat -t "$ID" --level-prefix false
 journalctl --sync
-journalctl -b -o export --output-fields=MESSAGE,FOO --output-fields=PRIORITY,MESSAGE -t "$ID" >/output
-[[ $(grep -c . /output) -eq 8 ]]
-grep -q '^__CURSOR=' /output
-grep -q '^MESSAGE=foo$' /output
-grep -q '^PRIORITY=6$' /output
-(! grep '^FOO=' /output)
-(! grep '^SYSLOG_FACILITY=' /output)
+journalctl -b -o export --output-fields=MESSAGE,FOO --output-fields=PRIORITY,MESSAGE -t "$ID" >/tmp/output
+[[ $(wc -l </tmp/output) -eq 9 ]]
+grep -q '^__CURSOR=' /tmp/output
+grep -q '^MESSAGE=foo$' /tmp/output
+grep -q '^PRIORITY=6$' /tmp/output
+(! grep '^FOO=' /tmp/output)
+(! grep '^SYSLOG_FACILITY=' /tmp/output)
 
 # '-b all' negates earlier use of -b (-b and -m are otherwise exclusive)
 journalctl -b -1 -b all -m >/dev/null
 
 # -b always behaves like -b0
-journalctl -q -b-1 -b0 | head -1 >/expected
-journalctl -q -b-1 -b  | head -1 >/output
-cmp /expected /output
+journalctl -q -b-1 -b0 | head -1 >/tmp/expected
+journalctl -q -b-1 -b | head -1 >/tmp/output
+diff /tmp/expected /tmp/output
 # ... even when another option follows (both of these should fail due to -m)
-{ journalctl -ball -b0 -m 2>&1 || :; } | head -1 >/expected
-{ journalctl -ball -b  -m 2>&1 || :; } | head -1 >/output
-cmp /expected /output
+{ journalctl -ball -b0 -m 2>&1 || :; } | head -1 >/tmp/expected
+{ journalctl -ball -b  -m 2>&1 || :; } | head -1 >/tmp/output
+diff /tmp/expected /tmp/output
 
 # https://github.com/systemd/systemd/issues/13708
 ID=$(systemd-id128 new)
@@ -97,18 +73,18 @@ wait $PID
 journalctl --sync
 # We can drop this grep when https://github.com/systemd/systemd/issues/13937
 # has a fix.
-journalctl -b -o export -t "$ID" --output-fields=_PID | grep '^_PID=' >/output
-[[ $(grep -c . /output) -eq 2 ]]
-grep -q "^_PID=$PID" /output
-grep -vq "^_PID=$PID" /output
+journalctl -b -o export -t "$ID" --output-fields=_PID | grep '^_PID=' >/tmp/output
+[[ $(wc -l </tmp/output) -eq 2 ]]
+grep -q "^_PID=$PID" /tmp/output
+grep -vq "^_PID=$PID" /tmp/output
 
 # https://github.com/systemd/systemd/issues/15654
-ID=$(journalctl --new-id128 | sed -n 2p)
-printf "This will\nusually fail\nand be truncated\n">/expected
+ID=$(systemd-id128 new)
+printf "This will\nusually fail\nand be truncated\n" >/tmp/expected
 systemd-cat -t "$ID" /bin/sh -c 'env echo -n "This will";echo;env echo -n "usually fail";echo;env echo -n "and be truncated";echo;'
 journalctl --sync
-journalctl -b -o cat -t "$ID" >/output
-cmp /expected /output
+journalctl -b -o cat -t "$ID" >/tmp/output
+diff /tmp/expected /tmp/output
 [[ $(journalctl -b -o cat -t "$ID" --output-fields=_TRANSPORT | grep -Pc "^stdout$") -eq 3 ]]
 [[ $(journalctl -b -o cat -t "$ID" --output-fields=_LINE_BREAK | grep -Pc "^pid-change$") -eq 3 ]]
 [[ $(journalctl -b -o cat -t "$ID" --output-fields=_PID | sort -u | grep -c "^.*$") -eq 3 ]]
@@ -166,53 +142,55 @@ sleep 3
 systemctl restart systemd-journald
 sleep 3
 systemctl stop forever-print-hola
-[[ ! -f "/i-lose-my-logs" ]]
+[[ ! -f "/tmp/i-lose-my-logs" ]]
 
 # https://github.com/systemd/systemd/issues/4408
-rm -f /i-lose-my-logs
+rm -f /tmp/i-lose-my-logs
 systemctl start forever-print-hola
 sleep 3
 systemctl kill --signal=SIGKILL systemd-journald
 sleep 3
-[[ ! -f "/i-lose-my-logs" ]]
+[[ ! -f "/tmp/i-lose-my-logs" ]]
 systemctl stop forever-print-hola
 
 # https://github.com/systemd/systemd/issues/15528
 journalctl --follow --file=/var/log/journal/*/* | head -n1 || [[ $? -eq 1 ]]
 
-function add_logs_filtering_override() {
-    UNIT=${1:?}
-    OVERRIDE_NAME=${2:?}
-    LOG_FILTER=${3:-""}
+add_logs_filtering_override() {
+    local unit="${1:?}"
+    local override_name="${2:?}"
+    local log_filter="${3:-}"
 
-    mkdir -p /etc/systemd/system/"$UNIT".d/
-    echo "[Service]" >/etc/systemd/system/"$UNIT".d/"${OVERRIDE_NAME}".conf
-    echo "LogFilterPatterns=$LOG_FILTER" >>/etc/systemd/system/"$UNIT".d/"${OVERRIDE_NAME}".conf
+    mkdir -p "/run/systemd/system/$unit.d/"
+    echo -ne "[Service]\nLogFilterPatterns=$log_filter" >"/run/systemd/system/$unit.d/$override_name.conf"
     systemctl daemon-reload
 }
 
-function run_service_and_fetch_logs() {
-    UNIT=$1
+run_service_and_fetch_logs() {
+    local unit="${1:?}"
+    local start end
 
-    START=$(date '+%Y-%m-%d %T.%6N')
-    systemctl restart "$UNIT"
+    start="$(date '+%Y-%m-%d %T.%6N')"
+    systemctl restart "$unit"
     sleep .5
     journalctl --sync
-    END=$(date '+%Y-%m-%d %T.%6N')
+    end="$(date '+%Y-%m-%d %T.%6N')"
 
-    journalctl -q -u "$UNIT" -S "$START" -U "$END" -p notice
-    systemctl stop "$UNIT"
+    journalctl -q -u "$unit" -S "$start" -U "$end" -p notice
+    systemctl stop "$unit"
 }
 
-function is_xattr_supported() {
-    START=$(date '+%Y-%m-%d %T.%6N')
+is_xattr_supported() {
+    local start end
+
+    start="$(date '+%Y-%m-%d %T.%6N')"
     systemd-run --unit text_xattr --property LogFilterPatterns=log sh -c "sleep .5"
     sleep .5
     journalctl --sync
-    END=$(date '+%Y-%m-%d %T.%6N')
+    end="$(date '+%Y-%m-%d %T.%6N')"
     systemctl stop text_xattr
 
-    ! journalctl -q -u "text_xattr" -S "$START" -U "$END" --grep "Failed to set 'user.journald_log_filter_patterns' xattr.*not supported$"
+    ! journalctl -q -u "text_xattr" -S "$start" -U "$end" --grep "Failed to set 'user.journald_log_filter_patterns' xattr.*not supported$"
 }
 
 if is_xattr_supported; then
@@ -250,7 +228,7 @@ if is_xattr_supported; then
     [[ -z $(run_service_and_fetch_logs "logs-filtering.service") ]]
 
     # Allow a pattern starting with a tilde
-    add_logs_filtering_override "logs-filtering.service" "10-allow-with-escape-char" "\x7emore~"
+    add_logs_filtering_override "logs-filtering.service" "10-allow-with-escape-char" "\\\\x7emore~"
     [[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
 
     add_logs_filtering_override "delegated-cgroup-filtering.service" "00-allow-all" ".*"
@@ -259,8 +237,7 @@ if is_xattr_supported; then
     add_logs_filtering_override "delegated-cgroup-filtering.service" "01-discard-hello" "~hello"
     [[ -z $(run_service_and_fetch_logs "delegated-cgroup-filtering.service") ]]
 
-    rm -rf /etc/systemd/system/logs-filtering.service.d
-    rm -rf /etc/systemd/system/delegated-cgroup-filtering.service.d
+    rm -rf /run/systemd/system/{logs-filtering,delegated-cgroup-filtering}.service.d
 fi
 
 # Check that the seqnum field at least superficially works
@@ -323,33 +300,43 @@ JOURNAL_DIR="$(mktemp -d)"
 REMOTE_OUT="$(mktemp -d)"
 # tar on C8S doesn't support the --zstd option
 unzstd --stdout "/test-journals/afl-corrupted-journals.tar.zst" | tar -xC "$JOURNAL_DIR/"
+while read -r file; do
+    filename="${file##*/}"
+    unzstd "$file" -o "$JOURNAL_DIR/${filename%*.zst}"
+done < <(find /test-journals/corrupted/ -name "*.zst")
 # First, try each of them sequentially. Skip this part when running with plain
 # QEMU, as it is excruciatingly slow
 # Note: we care only about exit code 124 (timeout) and special bash exit codes
 # >124 (like signals)
 if [[ "$(systemd-detect-virt -v)" != "qemu" ]]; then
     while read -r file; do
-        timeout 10 journalctl -b --file="$file" >/dev/null || [[ $? -lt 124 ]]
-        timeout 10 journalctl -o export --file="$file" >/dev/null || [[ $? -lt 124 ]]
+        timeout 10 journalctl --file="$file" --boot >/dev/null || [[ $? -lt 124 ]]
+        timeout 10 journalctl --file="$file" --verify >/dev/null || [[ $? -lt 124 ]]
+        timeout 10 journalctl --file="$file" --output=export >/dev/null || [[ $? -lt 124 ]]
+        timeout 10 journalctl --file="$file" --fields >/dev/null || [[ $? -lt 124 ]]
+        timeout 10 journalctl --file="$file" --list-boots >/dev/null || [[ $? -lt 124 ]]
         if [[ -x /usr/lib/systemd/systemd-journal-remote ]]; then
             timeout 10 /usr/lib/systemd/systemd-journal-remote \
-                            --getter="journalctl -o export --file=$file" \
+                            --getter="journalctl --file=$file --output=export" \
                             --split-mode=none \
                             --output="$REMOTE_OUT/system.journal" || [[ $? -lt 124 ]]
-            timeout 10 journalctl -b --directory="$REMOTE_OUT" >/dev/null || [[ $? -lt 124 ]]
+            timeout 10 journalctl --directory="$REMOTE_OUT" >/dev/null || [[ $? -lt 124 ]]
             rm -f "$REMOTE_OUT"/*
         fi
     done < <(find "$JOURNAL_DIR" -type f)
 fi
 # And now all at once
-timeout 30 journalctl -b --directory="$JOURNAL_DIR" >/dev/null || [[ $? -lt 124 ]]
-timeout 30 journalctl -o export --directory="$JOURNAL_DIR" >/dev/null || [[ $? -lt 124 ]]
+timeout 30 journalctl --directory="$JOURNAL_DIR" --boot >/dev/null || [[ $? -lt 124 ]]
+timeout 30 journalctl --directory="$JOURNAL_DIR" --verify >/dev/null || [[ $? -lt 124 ]]
+timeout 30 journalctl --directory="$JOURNAL_DIR" --output=export >/dev/null || [[ $? -lt 124 ]]
+timeout 30 journalctl --directory="$JOURNAL_DIR" --fields >/dev/null || [[ $? -lt 124 ]]
+timeout 30 journalctl --directory="$JOURNAL_DIR" --list-boots >/dev/null || [[ $? -lt 124 ]]
 if [[ -x /usr/lib/systemd/systemd-journal-remote ]]; then
     timeout 30 /usr/lib/systemd/systemd-journal-remote \
-                    --getter="journalctl -o export --directory=$JOURNAL_DIR" \
+                    --getter="journalctl --directory=$JOURNAL_DIR --output=export" \
                     --split-mode=none \
                     --output="$REMOTE_OUT/system.journal" || [[ $? -lt 124 ]]
-    timeout 10 journalctl -b --directory="$REMOTE_OUT" >/dev/null || [[ $? -lt 124 ]]
+    timeout 30 journalctl --directory="$REMOTE_OUT" >/dev/null || [[ $? -lt 124 ]]
     rm -f "$REMOTE_OUT"/*
 fi
 

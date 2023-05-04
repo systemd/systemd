@@ -2385,6 +2385,7 @@ int setup_namespace(
                                 .mode = BIND_MOUNT,
                                 .read_only = true,
                                 .source_const = creds_path,
+                                .ignore = true,
                         };
                 } else {
                         /* If our service has no credentials store configured, then make the whole
