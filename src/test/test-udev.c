@@ -18,6 +18,7 @@
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "namespace-util.h"
+#include "parse-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "string-util.h"
@@ -88,13 +89,14 @@ static int run(int argc, char *argv[]) {
         _cleanup_(udev_event_freep) UdevEvent *event = NULL;
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         const char *devpath, *devname, *action;
+        unsigned us = 0;
         int r;
 
         test_setup_logging(LOG_INFO);
 
-        if (!IN_SET(argc, 2, 3))
+        if (!IN_SET(argc, 2, 3, 4))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program needs one or two arguments, %d given", argc - 1);
+                                       "This program needs between one and three arguments, %d given", argc - 1);
 
         r = fake_filesystems();
         if (r < 0)
@@ -122,6 +124,13 @@ static int run(int argc, char *argv[]) {
 
         action = argv[1];
         devpath = argv[2];
+
+        if (argv[3]) {
+                r = safe_atou(argv[3], &us);
+                if (r < 0)
+                        return log_error_errno(r, "Invalid delay '%s': %m", argv[3]);
+                usleep(us);
+        }
 
         assert_se(udev_rules_load(&rules, RESOLVE_NAME_EARLY) == 0);
 
