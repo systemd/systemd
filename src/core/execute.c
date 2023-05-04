@@ -7315,7 +7315,7 @@ int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char 
         } else if (streq(key, "netns-socket-0")) {
                 int fd;
 
-                if (safe_atoi(value, &fd) < 0 || !fdset_contains(fds, fd)) {
+                if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd)) {
                         log_unit_debug(u, "Failed to parse netns socket value: %s", value);
                         return 0;
                 }
@@ -7326,7 +7326,7 @@ int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char 
         } else if (streq(key, "netns-socket-1")) {
                 int fd;
 
-                if (safe_atoi(value, &fd) < 0 || !fdset_contains(fds, fd)) {
+                if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd)) {
                         log_unit_debug(u, "Failed to parse netns socket value: %s", value);
                         return 0;
                 }
