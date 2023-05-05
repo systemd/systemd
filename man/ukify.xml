@@ -435,7 +435,7 @@ Phases=enter-initrd:leave-initrd
       --secureboot-private-key=sb.key \
       --secureboot-certificate=sb.cert \
       --cmdline='debug' \
-      --output=debug.cmdline.efi
+      --output=debug.cmdline
       </programlisting>
 
       <para>This creates a signed PE binary that contains the additional kernel command line parameter
