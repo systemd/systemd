@@ -99,8 +99,6 @@ enum JobResult {
         _JOB_RESULT_INVALID = -EINVAL,
 };
 
-#include "unit.h"
-
 struct JobDependency {
         /* Encodes that the 'subject' job needs the 'object' job in
          * some way. This structure is used only while building a transaction. */
