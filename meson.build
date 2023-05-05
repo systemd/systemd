@@ -4706,7 +4706,7 @@ if git.found()
         all_files = run_command(
                 env, '-u', 'GIT_WORK_TREE',
                 git, '--git-dir=@0@/.git'.format(project_source_root),
-                     'ls-files', ':/*.[ch]',
+                     'ls-files', ':/*.[ch]', ':/*.cc',
                 check : false)
         if all_files.returncode() == 0
                 all_files = files(all_files.stdout().split())
