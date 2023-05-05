@@ -701,7 +701,6 @@ stat = find_program('stat')
 ln = find_program('ln')
 git = find_program('git', required : false)
 env = find_program('env')
-perl = find_program('perl', required : false)
 rsync = find_program('rsync', required : false)
 diff = find_program('diff')
 find = find_program('find')
@@ -2132,7 +2131,7 @@ endif
 conf.set10('ENABLE_UKIFY', want_ukify)
 
 ############################################################
-#
+
 elf2efi_lds = project_source_root / 'tools/elf2efi.lds'
 elf2efi_py = find_program('tools/elf2efi.py')
 export_dbus_interfaces_py = find_program('tools/dbus_exporter.py')
@@ -4445,10 +4444,10 @@ foreach test : tests
                 message('@0@ is an unsafe test'.format(name))
         elif want_tests != 'false'
                 test(name, exe,
-                        env : test_env,
-                        timeout : test.get('timeout', 30),
-                        suite : suite,
-                        is_parallel : test.get('parallel', true))
+                     env : test_env,
+                     timeout : test.get('timeout', 30),
+                     suite : suite,
+                     is_parallel : test.get('parallel', true))
         endif
 endforeach
 
@@ -4709,7 +4708,7 @@ if git.found()
         all_files = run_command(
                 env, '-u', 'GIT_WORK_TREE',
                 git, '--git-dir=@0@/.git'.format(project_source_root),
-                     'ls-files', ':/*.[ch]',
+                     'ls-files', ':/*.[ch]', ':/*.cc',
                 check : false)
         if all_files.returncode() == 0
                 all_files = files(all_files.stdout().split())
@@ -4722,16 +4721,25 @@ if git.found()
                         'ctags',
                         command : [env, 'ctags', '--tag-relative=never', '-o', '@0@/tags'.format(project_source_root)] + all_files)
         endif
-endif
 
-if git.found()
+        ####################################################
+
+        if want_tests != 'false' and conf.get('BUILD_MODE_DEVELOPER') == 1
+                test('check-includes',
+                     files('tools/check-includes.py'),
+                     args: all_files,
+                     env : ['PROJECT_SOURCE_ROOT=@0@'.format(project_source_root)])
+        endif
+
+        ####################################################
+
         git_contrib_sh = find_program('tools/git-contrib.sh')
         run_target(
                 'git-contrib',
                 command : [git_contrib_sh])
-endif
 
-if git.found()
+        ####################################################
+
         git_head = run_command(
                 git, '--git-dir=@0@/.git'.format(project_source_root),
                      'rev-parse', 'HEAD',
