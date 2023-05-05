@@ -449,11 +449,11 @@ int bpf_program_deserialize_attachment(const char *v, FDSet *fds, BPFProgram **b
         if (r == 0)
                 return -EINVAL;
 
-        r = safe_atoi(sfd, &ifd);
-        if (r < 0)
-                return r;
-        if (ifd < 0)
+        ifd = parse_fd(sfd);
+        if (ifd == -ERANGE)
                 return -EBADF;
+        if (ifd < 0)
+                return r;
 
         /* Extract second word: the attach type */
         r = extract_first_word(&v, &sat, NULL, 0);

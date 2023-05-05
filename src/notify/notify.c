@@ -215,11 +215,11 @@ static int parse_argv(int argc, char *argv[]) {
                         _cleanup_close_ int owned_fd = -EBADF;
                         int fdnr;
 
-                        r = safe_atoi(optarg, &fdnr);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse file descriptor: %s", optarg);
+                        fdnr = parse_fd(optarg);
+                        if (fdnr == -ERANGE)
+                                return log_error_errno(fdnr, "File descriptor can't be negative: %s", optarg);
                         if (fdnr < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "File descriptor can't be negative: %i", fdnr);
+                                return log_error_errno(fdnr, "Failed to parse file descriptor: %s", optarg);
 
                         if (!passed) {
                                 /* Take possession of all passed fds */
