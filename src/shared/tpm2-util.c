@@ -298,6 +298,11 @@ int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle) {
         return 0;
 }
 
+static inline void Esys_Freep(void *p) {
+        if (*(void**) p)
+                sym_Esys_Free(*(void**) p);
+}
+
 #define TPM2_CREDIT_RANDOM_FLAG_PATH "/run/systemd/tpm-rng-credited"
 
 static int tpm2_credit_random(Tpm2Context *c) {
