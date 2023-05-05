@@ -409,7 +409,7 @@ tests += [
                 'timeout' : 120,
         },
         {
-                'sources' : files('test-udev.c'),
+                'sources' : files('udev-rule-runner.c'),
                 'link_with' : [
                         libshared,
                         libudevd_core,
