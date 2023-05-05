@@ -4,6 +4,7 @@
 # pylint: disable=missing-docstring,redefined-outer-name,invalid-name
 # pylint: disable=unspecified-encoding,no-else-return,line-too-long,too-many-lines
 # pylint: disable=multiple-imports,too-many-instance-attributes,consider-using-with
+# pylint: disable=global-statement
 
 # udev test
 #
@@ -26,9 +27,10 @@ import re
 import stat
 import subprocess
 import sys
+import tempfile
 import textwrap
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 try:
     import pytest
@@ -37,16 +39,15 @@ except ImportError as e:
     sys.exit(77)
 
 
-# TODO: pass path to test-udev from outside
-UDEV_BIN       = './test-udev'
-UDEV_RUN       = Path('test/run')
-UDEV_RULES_DIR = UDEV_RUN / 'udev/rules.d'
-UDEV_RULES     = UDEV_RULES_DIR / 'udev-test.rules'
+SYS_SCRIPT     = Path(__file__).with_name('sys-script.py')
+try:
+    UDEV_BIN   = Path(os.environ['UDEV_RULE_RUNNER'])
+except KeyError:
+    UDEV_BIN   = Path(__file__).parent / 'manual/udev-rule-runner'
+UDEV_BIN = UDEV_BIN.absolute()
 
-UDEV_RUN       = Path('test/run')
-UDEV_TMPFS     = Path('test/tmpfs')
-UDEV_DEV       = UDEV_TMPFS / 'dev'
-UDEV_SYS       = UDEV_TMPFS / 'sys'
+# Those will be set by the udev_setup() fixture
+UDEV_RUN = UDEV_RULES = UDEV_DEV = UDEV_SYS = None
 
 # Relax sd-device's sysfs verification, since we want to provide a fake sysfs
 # here that actually is a tmpfs.
@@ -178,14 +179,23 @@ class Rules:
     desc: str
     devices: list[Device]
     rules: str
+    device_generator: Callable = None
     repeat: int = 1
     delay: Optional[float] = None
 
     @classmethod
-    def new(cls, desc: str, *devices, rules = None, **kwargs):
+    def new(cls, desc: str, *devices, rules=None, device_generator=None, **kwargs):
         assert rules.startswith('\n')
         rules = textwrap.dedent(rules[1:]) if rules else ''
-        return cls(desc, devices, rules, **kwargs)
+
+        assert bool(devices) ^ bool(device_generator)
+
+        return cls(desc, devices, rules, device_generator=device_generator, **kwargs)
+
+    def generate_devices(self) -> None:
+        # We can't do this when the class is created, because setup is done later.
+        if self.device_generator:
+            self.devices = self.device_generator()
 
     def create_rules_file(self) -> None:
         # create temporary rules
@@ -2298,7 +2308,8 @@ SUBSYSTEMS=="scsi", PROGRAM=="/bin/sh -c \"printf %%s 'foo1 foo2' | grep 'foo1 f
 
     Rules.new(
         'all_block_devs',
-        *all_block_devs(lambda name: (["blockdev"], None) if name.endswith('/sda6') else (None, None)),
+        device_generator = lambda: \
+            all_block_devs(lambda name: (["blockdev"], None) if name.endswith('/sda6') else (None, None)),
         repeat = 10,
         rules  = r"""
         SUBSYSTEM=="block", SUBSYSTEMS=="scsi", KERNEL=="sd*", SYMLINK+="blockdev"
@@ -2344,15 +2355,27 @@ def udev_setup():
     if issue:
         pytest.skip(issue)
 
-    subprocess.run(['umount', UDEV_TMPFS],
+    global UDEV_RUN, UDEV_RULES, UDEV_DEV, UDEV_SYS
+
+    _tmpdir = tempfile.TemporaryDirectory()
+    tmpdir = Path(_tmpdir.name)
+
+    UDEV_RUN   = tmpdir / 'run'
+    UDEV_RULES = UDEV_RUN / 'udev-test.rules'
+
+    udev_tmpfs = tmpdir / 'tmpfs'
+    UDEV_DEV   = udev_tmpfs / 'dev'
+    UDEV_SYS   = udev_tmpfs / 'sys'
+
+    subprocess.run(['umount', udev_tmpfs],
                    stderr=subprocess.DEVNULL,
                    check=False)
-    UDEV_TMPFS.mkdir(exist_ok=True, parents=True)
+    udev_tmpfs.mkdir(exist_ok=True, parents=True)
 
     subprocess.check_call(['mount', '-v',
                                     '-t', 'tmpfs',
                                     '-o', 'rw,mode=0755,nosuid,noexec',
-                                    'tmpfs', UDEV_TMPFS])
+                                    'tmpfs', udev_tmpfs])
 
     UDEV_DEV.mkdir(exist_ok=True)
     # setting group and mode of udev_dev ensures the tests work
@@ -2367,9 +2390,11 @@ def udev_setup():
     os.mknod(sda, 0o600 | stat.S_IFBLK, os.makedev(8, 0))
     sda.unlink()
 
-    subprocess.check_call(['cp', '-r', 'test/sys/', UDEV_SYS])
+    subprocess.check_call([SYS_SCRIPT, UDEV_SYS.parent])
     subprocess.check_call(['rm', '-rf', UDEV_RUN])
     UDEV_RUN.mkdir(parents=True)
+
+    os.chdir(tmpdir)
 
     if subprocess.run([UDEV_BIN, 'check'],
                       check=False).returncode != 0:
@@ -2379,8 +2404,8 @@ def udev_setup():
     yield
 
     subprocess.check_call(['rm', '-rf', UDEV_RUN])
-    subprocess.check_call(['umount', '-v', UDEV_TMPFS])
-    UDEV_TMPFS.rmdir()
+    subprocess.check_call(['umount', '-v', udev_tmpfs])
+    udev_tmpfs.rmdir()
 
 
 @pytest.mark.parametrize("rules", RULES, ids=(rule.desc for rule in RULES))
@@ -2388,6 +2413,7 @@ def test_udev(rules: Rules, udev_setup):
     assert udev_setup is None
 
     rules.create_rules_file()
+    rules.generate_devices()
 
     for _ in range(rules.repeat):
         fork_and_run_udev('add', rules)
