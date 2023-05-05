@@ -1002,13 +1002,11 @@ static int parse_argv(int argc, char *argv[]) {
                         int fd;
                         FILE *f;
 
-                        r = safe_atoi(optarg, &fd);
-                        if (r < 0)
-                                log_error_errno(r, "Failed to parse deserialize option \"%s\": %m", optarg);
+                        fd = parse_fd(optarg);
+                        if (fd == -ERANGE)
+                                return log_error_errno(fd, "Invalid deserialize fd: %s", optarg);
                         if (fd < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid deserialize fd: %d",
-                                                       fd);
+                                return log_error_errno(fd, "Failed to parse deserialize option \"%s\": %m", optarg);
 
                         (void) fd_cloexec(fd, true);
 

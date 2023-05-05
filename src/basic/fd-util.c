@@ -416,7 +416,8 @@ int close_all_fds(const int except[], size_t n_except) {
                 if (!IN_SET(de->d_type, DT_LNK, DT_UNKNOWN))
                         continue;
 
-                if (safe_atoi(de->d_name, &fd) < 0)
+                fd = parse_fd(de->d_name);
+                if (fd < 0)
                         /* Let's better ignore this, just in case */
                         continue;
 
