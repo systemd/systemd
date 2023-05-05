@@ -4415,6 +4415,7 @@ foreach test : simple_tests
         tests += { 'sources' : [test] }
 endforeach
 
+TESTS = {}
 foreach test : tests
         sources = test.get('sources')
         condition = test.get('condition', '')
@@ -4466,6 +4467,8 @@ foreach test : tests
                      suite : suite,
                      is_parallel : test.get('parallel', true))
         endif
+
+        TESTS += { name : exe }
 endforeach
 
 exe = executable(
@@ -4525,6 +4528,16 @@ exe = executable(
         install_dir : unittestsdir)
 if want_tests != 'false' and static_libudev_pic
         test('test-libudev-static-sym', exe)
+endif
+
+if want_tests != 'false'
+        udev_rule_runner = TESTS['udev-rule-runner'].full_path()
+
+        test('test-udev',
+             test_udev_py,
+             args : ['-v'],
+             env : ['UDEV_RULE_RUNNER=@0@'.format(udev_rule_runner)],
+             timeout : 180)
 endif
 
 ############################################################
