@@ -153,10 +153,9 @@
       <varlistentry>
         <term><option>--machine-id=<replaceable>ID</replaceable></option></term>
 
-        <listitem><para>Sets the system's machine ID. This controls
-        the
+        <listitem><para>Sets the system's machine ID. This controls the
         <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        file.</para></listitem>
+        file. Takes a machine ID or <literal>uninitialized</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

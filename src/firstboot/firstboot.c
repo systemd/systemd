@@ -54,6 +54,7 @@ static char *arg_keymap = NULL;
 static char *arg_timezone = NULL;
 static char *arg_hostname = NULL;
 static sd_id128_t arg_machine_id = {};
+static bool arg_machine_id_is_unitialized = false;
 static char *arg_root_password = NULL;
 static char *arg_root_shell = NULL;
 static char *arg_kernel_cmdline = NULL;
@@ -675,12 +676,13 @@ static int process_machine_id(int rfd) {
         if (r <= 0)
                 return r;
 
-        if (sd_id128_is_null(arg_machine_id)) {
+        if (sd_id128_is_null(arg_machine_id) && !arg_machine_id_is_unitialized) {
                 log_debug("Initialization of machine-id was not requested, skipping.");
                 return 0;
         }
 
-        r = write_string_file_at(pfd, "machine-id", SD_ID128_TO_STRING(arg_machine_id),
+        r = write_string_file_at(pfd, "machine-id",
+                                 arg_machine_id_is_unitialized ? "unitialized" : SD_ID128_TO_STRING(arg_machine_id),
                                  WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/machine id: %m");
@@ -1393,9 +1395,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_MACHINE_ID:
-                        r = sd_id128_from_string(optarg, &arg_machine_id);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse machine id %s.", optarg);
+                        if (streq(optarg, "uninitialized")) {
+                                arg_machine_id_is_unitialized = true;
+                        } else {
+                                r = sd_id128_from_string(optarg, &arg_machine_id);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse machine id %s.", optarg);
+
+                                arg_machine_id_is_unitialized = false;
+                        }
 
                         break;
 
