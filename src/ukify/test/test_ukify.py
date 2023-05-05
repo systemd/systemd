@@ -243,7 +243,7 @@ def test_uname_scraping(kernel_initrd):
     assert re.match(r'\d+\.\d+\.\d+', uname)
 
 
-def test_efi_signing(kernel_initrd, tmpdir):
+def test_efi_signing_sbsign(kernel_initrd, tmpdir):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
     if not shutil.which('sbsign'):
@@ -279,6 +279,48 @@ def test_efi_signing(kernel_initrd, tmpdir):
         ], text=True)
 
         assert 'Signature verification OK' in dump
+
+def test_efi_signing_pesign(kernel_initrd, tmpdir):
+    if kernel_initrd is None:
+        pytest.skip('linux+initrd not found')
+    if not shutil.which('pesign'):
+        pytest.skip('pesign not found')
+
+    nss_db = f'{tmpdir}/nss_db'
+    name = 'Test_Secureboot'
+    author = 'systemd'
+
+    subprocess.check_call(['mkdir', '-p', nss_db])
+    cmd = f'certutil -N --empty-password -d {nss_db}'.split(' ')
+    subprocess.check_call(cmd)
+    cmd = f'efikeygen -d {nss_db} -S -k -c CN={author} -n {name}'.split(' ')
+    subprocess.check_call(cmd)
+
+    output = f'{tmpdir}/signed.efi'
+    opts = ukify.parse_args([
+        *kernel_initrd,
+        f'--output={output}',
+        '--uname=1.2.3',
+        '--signtool=pesign',
+        '--cmdline=ARG1 ARG2 ARG3',
+        f'--secureboot-certificate-name={name}',
+        f'--secureboot-certificate-dir={nss_db}',
+    ])
+
+    try:
+        ukify.check_inputs(opts)
+    except OSError as e:
+        pytest.skip(str(e))
+
+    ukify.make_uki(opts)
+
+    # let's check that sbverify likes the resulting file
+    dump = subprocess.check_output([
+        'pesign', '-S',
+        '-i', output,
+    ], text=True)
+
+    assert f'The signer\'s common name is {author}' in dump
 
 def test_pcr_signing(kernel_initrd, tmpdir):
     if kernel_initrd is None:
