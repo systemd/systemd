@@ -21,6 +21,7 @@ int parse_size(const char *t, uint64_t base, uint64_t *size);
 int parse_sector_size(const char *t, uint64_t *ret);
 int parse_range(const char *t, unsigned *lower, unsigned *upper);
 int parse_errno(const char *t);
+int parse_fd(const char *t);
 
 #define SAFE_ATO_REFUSE_PLUS_MINUS (1U << 30)
 #define SAFE_ATO_REFUSE_LEADING_ZERO (1U << 29)
