@@ -341,8 +341,10 @@ def find_tool(name, fallback=None, opts=None):
     if shutil.which(name) is not None:
         return name
 
-    return fallback
+    if fallback is None:
+        print("Tool %s not installed!" % name)
 
+    return fallback
 
 def combine_signatures(pcrsigs):
     combined = collections.defaultdict(list)
