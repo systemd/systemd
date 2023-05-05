@@ -187,11 +187,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--signtool=<replaceable>NAME</replaceable></option></term>
+        <listitem><para>Whether to use sbsign or pesign. Depending on this choice,
+        different parameters are required in order to sign an image. Defaults to sbsign.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--secureboot-private-key=<replaceable>SB_KEY</replaceable></option></term>
 
         <listitem><para>A path to a private key to use for signing of the resulting binary. If the
         <option>--signing-engine=</option> option is used, this may also be an engine-specific
-        designation.</para></listitem>
+        designation. This option is required by <option>--signtool=sbsign</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -199,7 +205,7 @@
 
         <listitem><para>A path to a certificate to use for signing of the resulting binary. If the
         <option>--signing-engine=</option> option is used, this may also be an engine-specific
-        designation.</para></listitem>
+        designation. This option is required by <option>--signtool=sbsign</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -209,6 +215,18 @@
         verbatim to the <option>--engine=</option> option of
         <citerefentry project='archlinux'><refentrytitle>sbsign</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--secureboot-certificate-dir=<replaceable>PATH</replaceable></option></term>
+        <listitem><para>A path to a nss certificate database directory to use for signing of the resulting binary.
+        This option is optionally used by <option>--signtool=pesign</option>. Defaults to /etc/pki/pesign.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--secureboot-certificate-name=<replaceable>NAME</replaceable></option></term>
+        <listitem><para>The name of the nss certificate database entry to use for signing of the resulting binary.
+        This option is required by <option>--signtool=pesign</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -306,7 +324,7 @@
       --secureboot-private-key=sb.key \
       --secureboot-certificate=sb.cert \
       --cmdline='debug' \
-      --output=debug.cmdline.efi
+      --output=debug.cmdline
       </programlisting>
 
       <para>This creates a signed PE binary that contains an additional kernel command line parameter.</para>
