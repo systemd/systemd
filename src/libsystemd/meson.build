@@ -168,6 +168,7 @@ simple_tests += files(
         'sd-bus/test-bus-creds.c',
         'sd-bus/test-bus-introspect.c',
         'sd-bus/test-bus-match.c',
+        'sd-bus/test-bus-peersockaddr.c',
         'sd-bus/test-bus-vtable.c',
         'sd-device/test-device-util.c',
         'sd-device/test-sd-device-monitor.c',
