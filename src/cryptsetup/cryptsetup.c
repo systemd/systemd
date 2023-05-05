@@ -234,7 +234,8 @@ static int parse_one_option(const char *option) {
                         return log_oom();
 
         } else if ((val = startswith(option, "header="))) {
-                arg_type = ANY_LUKS;
+                if (!STR_IN_SET(arg_type, ANY_LUKS, CRYPT_LUKS1, CRYPT_LUKS2, CRYPT_TCRYPT))
+                        arg_type = ANY_LUKS;
 
                 if (!path_is_absolute(val))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -2168,8 +2169,14 @@ static int run(int argc, char *argv[]) {
                         destroy_key_file = key_file; /* let's get this baby erased when we leave */
 
                 if (arg_header) {
-                        log_debug("LUKS header: %s", arg_header);
-                        r = crypt_init(&cd, arg_header);
+                        if (streq_ptr(arg_type, CRYPT_TCRYPT)){
+                            log_debug("tcrypt header: %s", arg_header);
+                            r = crypt_init_data_device(&cd, arg_header, source);
+                        }
+                        else {
+                            log_debug("LUKS header: %s", arg_header);
+                            r = crypt_init(&cd, arg_header);
+                        }
                 } else
                         r = crypt_init(&cd, source);
                 if (r < 0)
