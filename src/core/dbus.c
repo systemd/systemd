@@ -684,7 +684,7 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
                 return 0;
         }
 
-        nfd = -EBADF;
+        TAKE_FD(nfd);
 
         r = bus_check_peercred(bus);
         if (r < 0) {
@@ -703,7 +703,8 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
         r = sd_bus_negotiate_creds(bus, 1,
                                    SD_BUS_CREDS_PID|SD_BUS_CREDS_UID|
                                    SD_BUS_CREDS_EUID|SD_BUS_CREDS_EFFECTIVE_CAPS|
-                                   SD_BUS_CREDS_SELINUX_CONTEXT);
+                                   SD_BUS_CREDS_SELINUX_CONTEXT|
+                                   SD_BUS_CREDS_COMM|SD_BUS_CREDS_DESCRIPTION);
         if (r < 0) {
                 log_warning_errno(r, "Failed to enable credentials for new connection: %m");
                 return 0;
@@ -719,6 +720,23 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
         if (r < 0) {
                 log_warning_errno(r, "Failed to start new connection bus: %m");
                 return 0;
+        }
+
+        if (DEBUG_LOGGING) {
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
+                const char *comm = NULL, *description = NULL;
+                pid_t pid = 0;
+
+                r = sd_bus_get_owner_creds(bus, SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|SD_BUS_CREDS_DESCRIPTION, &c);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to get peer creds, ignoring: %m");
+                else {
+                        (void) sd_bus_creds_get_pid(c, &pid);
+                        (void) sd_bus_creds_get_comm(c, &comm);
+                        (void) sd_bus_creds_get_description(c, &description);
+                }
+
+                log_debug("Accepting direct incoming connection from " PID_FMT " (%s) [%s]", pid, strna(comm), strna(description));
         }
 
         r = sd_bus_attach_event(bus, m->event, SD_EVENT_PRIORITY_NORMAL);
