@@ -22,6 +22,7 @@
 #include "memory-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -889,6 +890,50 @@ fail:
         return r;
 }
 
+static int bind_description(sd_bus *b, int fd, int family) {
+        _cleanup_free_ char *bind_name = NULL, *comm = NULL;
+        union sockaddr_union bsa;
+        const char *d = NULL;
+        int r;
+
+        assert(b);
+        assert(fd >= 0);
+
+        /* If this is an AF_UNIX socket, let's set our client's socket address to carry the description
+         * string for this bus connection. This is useful for debugging things, as the connection name is
+         * visible in various socket-related tools, and can even be queried by the server side. */
+
+        if (family != AF_UNIX)
+                return 0;
+
+        (void) sd_bus_get_description(b, &d);
+
+        /* Generate a recognizable source address in the abstract namespace. We'll include:
+         * - a random 64bit value (to avoid collisions)
+         * - our "comm" process name (suppressed if contains "/" to avoid parsing issues)
+         * - the description string of the bus connection. */
+        (void) get_process_comm(0, &comm);
+        if (comm && strchr(comm, '/'))
+                comm = mfree(comm);
+
+        if (!d && !comm) /* skip if we don't have either field, rely on kernel autobind instead */
+                return 0;
+
+        if (asprintf(&bind_name, "@%" PRIx64 "/bus/%s/%s", random_u64(), strempty(comm), strempty(d)) < 0)
+                return -ENOMEM;
+
+        strshorten(bind_name, sizeof_field(struct sockaddr_un, sun_path));
+
+        r = sockaddr_un_set_path(&bsa.un, bind_name);
+        if (r < 0)
+                return r;
+
+        if (bind(fd, &bsa.sa, r) < 0)
+                return -errno;
+
+        return 0;
+}
+
 int bus_socket_connect(sd_bus *b) {
         bool inotify_done = false;
         int r;
@@ -910,6 +955,10 @@ int bus_socket_connect(sd_bus *b) {
                 b->input_fd = socket(b->sockaddr.sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (b->input_fd < 0)
                         return -errno;
+
+                r = bind_description(b, b->input_fd, b->sockaddr.sa.sa_family);
+                if (r < 0)
+                        return r;
 
                 b->input_fd = fd_move_above_stdio(b->input_fd);
 
