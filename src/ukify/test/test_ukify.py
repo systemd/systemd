@@ -17,13 +17,15 @@ import tempfile
 
 try:
     import pytest
-except ImportError:
+except ImportError as e:
+    print(str(e), file=sys.stderr)
     sys.exit(77)
 
 try:
     # pyflakes: noqa
     import pefile  # noqa
-except ImportError:
+except ImportError as e:
+    print(str(e), file=sys.stderr)
     sys.exit(77)
 
 # We import ukify.py, which is a template file. But only __version__ is
