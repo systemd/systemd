@@ -652,6 +652,17 @@ static void bus_get_peercred(sd_bus *b) {
                 b->n_groups = (size_t) r;
         else if (!IN_SET(r, -EOPNOTSUPP, -ENOPROTOOPT))
                 log_debug_errno(r, "Failed to determine peer's group list: %m");
+
+        /* Let's query the peers socket address, it might carry information such as the peer's comm or
+         * description string */
+        zero(b->sockaddr_peer);
+        b->sockaddr_size_peer = 0;
+
+        socklen_t l = sizeof(b->sockaddr_peer) - 1; /* Leave space for a NUL */
+        if (getpeername(b->input_fd, &b->sockaddr_peer.sa, &l) < 0)
+                log_debug_errno(errno, "Failed to get peer's socket address, ignoring: %m");
+        else
+                b->sockaddr_size_peer = l;
 }
 
 static int bus_socket_start_auth_client(sd_bus *b) {
