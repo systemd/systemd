@@ -34,6 +34,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "unit.h"
+#include "utf8.h"
 
 #define RETRY_UMOUNT_MAX 32
 
@@ -270,23 +271,36 @@ static int update_parameters_proc_self_mountinfo(
                 const char *fstype) {
 
         MountParameters *p;
-        int r, q, w;
+        _cleanup_free_ char *w = NULL, *o = NULL;
+        int r, q, v;
 
         p = &m->parameters_proc_self_mountinfo;
 
-        r = free_and_strdup(&p->what, what);
+        if (what) {
+                w = utf8_escape_invalid(what);
+                if (!w)
+                        return -ENOMEM;
+        }
+
+        r = free_and_strdup(&p->what, w);
         if (r < 0)
                 return r;
 
-        q = free_and_strdup(&p->options, options);
+        if (options) {
+                o = utf8_escape_invalid(options);
+                if (!o)
+                        return -ENOMEM;
+        }
+
+        q = free_and_strdup(&p->options, o);
         if (q < 0)
                 return q;
 
-        w = free_and_strdup(&p->fstype, fstype);
-        if (w < 0)
-                return w;
+        v = free_and_strdup(&p->fstype, fstype);
+        if (v < 0)
+                return v;
 
-        return r > 0 || q > 0 || w > 0;
+        return r > 0 || q > 0 || v > 0;
 }
 
 static int mount_add_mount_dependencies(Mount *m) {
