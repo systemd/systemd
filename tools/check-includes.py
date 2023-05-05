@@ -3,8 +3,12 @@
 
 # pylint: disable=missing-docstring,invalid-name,unspecified-encoding,consider-using-with
 
+import os
+import pathlib
 import re
 import sys
+
+PROJECT_ROOT = pathlib.Path(os.getenv('PROJECT_SOURCE_ROOT', '.'))
 
 def check_file(filename):
     seen = set()
@@ -13,6 +17,10 @@ def check_file(filename):
         if m := re.match(r'^\s*#\s*include\s*[<"](\S*)[>"]', line):
             include = m.group(1)
             if include in seen:
+                try:
+                    filename = pathlib.Path(filename).resolve().relative_to(PROJECT_ROOT)
+                except ValueError:
+                    pass
                 print(f'{filename}:{n}: {line.strip()}')
                 good = False
             seen.add(include)
