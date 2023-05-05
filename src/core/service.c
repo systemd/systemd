@@ -3235,7 +3235,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
         } else if (streq(key, "socket-fd")) {
                 int fd;
 
-                if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse socket-fd value: %s", value);
                 else {
                         asynchronous_close(s->socket_fd);
@@ -3246,7 +3246,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 int fd, do_poll;
 
                 r = extract_first_word(&value, &fdv, NULL, 0);
-                if (r <= 0 || safe_atoi(fdv, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd)) {
+                if (r <= 0 || (fd = parse_fd(fdv)) < 0 || !fdset_contains(fds, fd)) {
                         log_unit_debug(u, "Failed to parse fd-store-fd value: %s", value);
                         return 0;
                 }
@@ -3324,7 +3324,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
         } else if (streq(key, "stdin-fd")) {
                 int fd;
 
-                if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse stdin-fd value: %s", value);
                 else {
                         asynchronous_close(s->stdin_fd);
@@ -3334,7 +3334,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
         } else if (streq(key, "stdout-fd")) {
                 int fd;
 
-                if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse stdout-fd value: %s", value);
                 else {
                         asynchronous_close(s->stdout_fd);
@@ -3344,7 +3344,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
         } else if (streq(key, "stderr-fd")) {
                 int fd;
 
-                if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse stderr-fd value: %s", value);
                 else {
                         asynchronous_close(s->stderr_fd);
@@ -3354,7 +3354,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
         } else if (streq(key, "exec-fd")) {
                 int fd;
 
-                if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd))
                         log_unit_debug(u, "Failed to parse exec-fd value: %s", value);
                 else {
                         s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
