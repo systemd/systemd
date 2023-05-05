@@ -333,6 +333,21 @@ int parse_errno(const char *t) {
         return e;
 }
 
+int parse_fd(const char *t) {
+        int r, fd;
+
+        assert(t);
+
+        r = safe_atoi(t, &fd);
+        if (r < 0)
+                return r;
+
+        if (fd < 0)
+                return -ERANGE;
+
+        return fd;
+}
+
 static const char *mangle_base(const char *s, unsigned *base) {
         const char *k;
 
