@@ -191,7 +191,7 @@
 
         <listitem><para>A path to a private key to use for signing of the resulting binary. If the
         <option>--signing-engine=</option> option is used, this may also be an engine-specific
-        designation.</para></listitem>
+        designation. This option is required when using the sbsign tool.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -199,7 +199,7 @@
 
         <listitem><para>A path to a certificate to use for signing of the resulting binary. If the
         <option>--signing-engine=</option> option is used, this may also be an engine-specific
-        designation.</para></listitem>
+        designation.  This option is required when using the sbsign tool.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -209,6 +209,20 @@
         verbatim to the <option>--engine=</option> option of
         <citerefentry project='archlinux'><refentrytitle>sbsign</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--secureboot-certificate-dir=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>A path to a nss certificate database directory to use for signing of the resulting binary.
+        Defaults to /etc/pki/pesign.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--secureboot-certificate-nick=<replaceable>NAME</replaceable></option></term>
+
+        <listitem><para>The nickname of the nss certificate database entry to use for signing of the resulting binary.
+        This option is required when using the pesign tool.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -306,7 +320,7 @@
       --secureboot-private-key=sb.key \
       --secureboot-certificate=sb.cert \
       --cmdline='debug' \
-      --output=debug.cmdline.efi
+      --output=debug.cmdline
       </programlisting>
 
       <para>This creates a signed PE binary that contains an additional kernel command line parameter.</para>
