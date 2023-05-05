@@ -77,6 +77,8 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate bus: %m");
 
+        (void) sd_bus_set_description(bus, "busctl");
+
         if (set_monitor) {
                 r = sd_bus_set_monitor(bus, true);
                 if (r < 0)
