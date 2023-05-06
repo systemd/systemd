@@ -12,4 +12,4 @@ systemd-tmpfiles --create - <<EOF
 f     "$dst" 0644 0 0 - $data
 EOF
 
-diff /tmp/x/x20anb <(printf "\x20foo\nbar")
+diff "$(printf "/tmp/x/\x20a\nb")" <(printf "\x20foo\nbar")
