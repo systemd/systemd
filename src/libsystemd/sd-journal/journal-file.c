@@ -2791,7 +2791,7 @@ static int generic_array_bisect(
          * an object is matched against the given needle.
          *
          * Given a journal file, the offset of an object and the needle, the test_object() function should
-         * return TEST_LEFT if the needle is located earlier in the entry array chain, TEST_RIGHT if the
+         * return TEST_LEFT if the needle is located earlier in the entry array chain, TEST_LEFT if the
          * needle is located later in the entry array chain and TEST_FOUND if the object matches the needle.
          * If test_object() returns TEST_FOUND for a specific object, that object's information will be used
          * to populate the return values of this function. If test_object() never returns TEST_FOUND, the
