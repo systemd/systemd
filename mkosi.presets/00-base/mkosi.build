@@ -61,6 +61,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D install-tests=true
         -D tests=unsafe
         -D slow-tests="${SLOW_TESTS:-false}"
+        -D create-log-dirs=false
         -D utmp=true
         -D hibernate=true
         -D ldconfig=true
