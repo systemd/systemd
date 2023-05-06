@@ -2975,8 +2975,16 @@ found:
         if (subtract_one && t == 0 && i == 0)
                 return 0;
 
+        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
+        if (r < 0)
+                return r;
+
+        p = journal_file_entry_array_item(f, array, 0);
+        if (p <= 0)
+                return -EBADMSG;
+
         /* Let's cache this item for the next invocation */
-        chain_cache_put(f->chain_cache, ci, first, a, journal_file_entry_array_item(f, array, 0), t, subtract_one ? (i > 0 ? i-1 : UINT64_MAX) : i);
+        chain_cache_put(f->chain_cache, ci, first, a, p, t, subtract_one ? (i > 0 ? i-1 : UINT64_MAX) : i);
 
         if (subtract_one && i == 0)
                 p = last_p;
