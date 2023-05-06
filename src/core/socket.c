@@ -2597,6 +2597,7 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
 
 static int socket_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
         Socket *s = SOCKET(u);
+        int r;
 
         assert(u);
         assert(key);
@@ -2651,123 +2652,182 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                         s->control_command = s->exec_command[id];
                 }
         } else if (streq(key, "fifo")) {
-                int fd, skip = 0;
+                _cleanup_free_ char *fdv = NULL;
+                bool found = false;
+                int fd;
 
-                if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
+                r = extract_first_word(&value, &fdv, NULL, 0);
+                if (r <= 0) {
                         log_unit_debug(u, "Failed to parse fifo value: %s", value);
-                else {
-                        bool found = false;
-
-                        LIST_FOREACH(port, p, s->ports)
-                                if (p->fd < 0 &&
-                                    p->type == SOCKET_FIFO &&
-                                    path_equal_or_files_same(p->path, value+skip, 0)) {
-                                        p->fd = fdset_remove(fds, fd);
-                                        found = true;
-                                        break;
-                                }
-                        if (!found)
-                                log_unit_debug(u, "No matching fifo socket found: %s", value+skip);
+                        return 0;
                 }
+
+                fd = parse_fd(fdv);
+                if (fd < 0 || !fdset_contains(fds, fd)) {
+                        log_unit_debug(u, "Invalid fifo value: %s", fdv);
+                        return 0;
+                }
+
+                LIST_FOREACH(port, p, s->ports)
+                        if (p->fd < 0 &&
+                            p->type == SOCKET_FIFO &&
+                            path_equal_or_files_same(p->path, value, 0)) {
+                                p->fd = fdset_remove(fds, fd);
+                                found = true;
+                                break;
+                        }
+                if (!found)
+                        log_unit_debug(u, "No matching fifo socket found: %s", value);
 
         } else if (streq(key, "special")) {
-                int fd, skip = 0;
+                _cleanup_free_ char *fdv = NULL;
+                bool found = false;
+                int fd;
 
-                if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
+                r = extract_first_word(&value, &fdv, NULL, 0);
+                if (r <= 0) {
                         log_unit_debug(u, "Failed to parse special value: %s", value);
-                else {
-                        bool found = false;
-
-                        LIST_FOREACH(port, p, s->ports)
-                                if (p->fd < 0 &&
-                                    p->type == SOCKET_SPECIAL &&
-                                    path_equal_or_files_same(p->path, value+skip, 0)) {
-                                        p->fd = fdset_remove(fds, fd);
-                                        found = true;
-                                        break;
-                                }
-                        if (!found)
-                                log_unit_debug(u, "No matching special socket found: %s", value+skip);
+                        return 0;
                 }
+
+                fd = parse_fd(fdv);
+                if (fd < 0 || !fdset_contains(fds, fd)) {
+                        log_unit_debug(u, "Invalid special value: %s", fdv);
+                        return 0;
+                }
+
+                LIST_FOREACH(port, p, s->ports)
+                        if (p->fd < 0 &&
+                            p->type == SOCKET_SPECIAL &&
+                            path_equal_or_files_same(p->path, value, 0)) {
+                                p->fd = fdset_remove(fds, fd);
+                                found = true;
+                                break;
+                        }
+                if (!found)
+                        log_unit_debug(u, "No matching special socket found: %s", value);
 
         } else if (streq(key, "mqueue")) {
-                int fd, skip = 0;
+                _cleanup_free_ char *fdv = NULL;
+                bool found = false;
+                int fd;
 
-                if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
+                r = extract_first_word(&value, &fdv, NULL, 0);
+                if (r <= 0) {
                         log_unit_debug(u, "Failed to parse mqueue value: %s", value);
-                else {
-                        bool found = false;
-
-                        LIST_FOREACH(port, p, s->ports)
-                                if (p->fd < 0 &&
-                                    p->type == SOCKET_MQUEUE &&
-                                    streq(p->path, value+skip)) {
-                                        p->fd = fdset_remove(fds, fd);
-                                        found = true;
-                                        break;
-                                }
-                        if (!found)
-                                log_unit_debug(u, "No matching mqueue socket found: %s", value+skip);
+                        return 0;
                 }
+
+                fd = parse_fd(fdv);
+                if (fd < 0 || !fdset_contains(fds, fd)) {
+                        log_unit_debug(u, "Invalid mqueue value: %s", fdv);
+                        return 0;
+                }
+
+                LIST_FOREACH(port, p, s->ports)
+                        if (p->fd < 0 &&
+                            p->type == SOCKET_MQUEUE &&
+                            streq(p->path, value)) {
+                                p->fd = fdset_remove(fds, fd);
+                                found = true;
+                                break;
+                        }
+                if (!found)
+                        log_unit_debug(u, "No matching mqueue socket found: %s", value);
 
         } else if (streq(key, "socket")) {
-                int fd, type, skip = 0;
+                _cleanup_free_ char *fdv = NULL, *typev = NULL;
+                bool found = false;
+                int fd, type;
 
-                if (sscanf(value, "%i %i %n", &fd, &type, &skip) < 2 || fd < 0 || type < 0 || !fdset_contains(fds, fd))
-                        log_unit_debug(u, "Failed to parse socket value: %s", value);
-                else {
-                        bool found = false;
-
-                        LIST_FOREACH(port, p, s->ports)
-                                if (p->fd < 0 &&
-                                    socket_address_is(&p->address, value+skip, type)) {
-                                        p->fd = fdset_remove(fds, fd);
-                                        found = true;
-                                        break;
-                                }
-                        if (!found)
-                                log_unit_debug(u, "No matching %s socket found: %s",
-                                               socket_address_type_to_string(type), value+skip);
+                r = extract_first_word(&value, &fdv, NULL, 0);
+                if (r <= 0) {
+                        log_unit_debug(u, "Failed to parse socket fd from value: %s", value);
+                        return 0;
                 }
+
+                fd = parse_fd(fdv);
+                if (fd < 0 || !fdset_contains(fds, fd)) {
+                        log_unit_debug(u, "Invalid socket fd: %s", fdv);
+                        return 0;
+                }
+
+                r = extract_first_word(&value, &typev, NULL, 0);
+                if (r <= 0) {
+                        log_unit_debug(u, "Failed to parse socket type from value: %s", value);
+                        return 0;
+                }
+
+                if (safe_atoi(typev, &type) < 0 || type < 0) {
+                        log_unit_debug(u, "Invalid socket type: %s", typev);
+                        return 0;
+                }
+
+                LIST_FOREACH(port, p, s->ports)
+                        if (p->fd < 0 &&
+                            socket_address_is(&p->address, value, type)) {
+                                p->fd = fdset_remove(fds, fd);
+                                found = true;
+                                break;
+                        }
+                if (!found)
+                        log_unit_debug(u, "No matching %s socket found: %s",
+                                       socket_address_type_to_string(type), value);
 
         } else if (streq(key, "netlink")) {
-                int fd, skip = 0;
+                _cleanup_free_ char *fdv = NULL;
+                bool found = false;
+                int fd;
 
-                if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
+                r = extract_first_word(&value, &fdv, NULL, 0);
+                if (r <= 0) {
                         log_unit_debug(u, "Failed to parse socket value: %s", value);
-                else {
-                        bool found = false;
-
-                        LIST_FOREACH(port, p, s->ports)
-                                if (p->fd < 0 &&
-                                    socket_address_is_netlink(&p->address, value+skip)) {
-                                        p->fd = fdset_remove(fds, fd);
-                                        found = true;
-                                        break;
-                                }
-                        if (!found)
-                                log_unit_debug(u, "No matching netlink socket found: %s", value+skip);
+                        return 0;
                 }
+
+                fd = parse_fd(fdv);
+                if (fd < 0 || !fdset_contains(fds, fd)) {
+                        log_unit_debug(u, "Invalid socket value: %s", fdv);
+                        return 0;
+                }
+
+                LIST_FOREACH(port, p, s->ports)
+                        if (p->fd < 0 &&
+                            socket_address_is_netlink(&p->address, value)) {
+                                p->fd = fdset_remove(fds, fd);
+                                found = true;
+                                break;
+                        }
+                if (!found)
+                        log_unit_debug(u, "No matching netlink socket found: %s", value);
 
         } else if (streq(key, "ffs")) {
-                int fd, skip = 0;
+                _cleanup_free_ char *fdv = NULL;
+                bool found = false;
+                int fd;
 
-                if (sscanf(value, "%i %n", &fd, &skip) < 1 || fd < 0 || !fdset_contains(fds, fd))
+                r = extract_first_word(&value, &fdv, NULL, 0);
+                if (r <= 0) {
                         log_unit_debug(u, "Failed to parse ffs value: %s", value);
-                else {
-                        bool found = false;
-
-                        LIST_FOREACH(port, p, s->ports)
-                                if (p->fd < 0 &&
-                                    p->type == SOCKET_USB_FUNCTION &&
-                                    path_equal_or_files_same(p->path, value+skip, 0)) {
-                                        p->fd = fdset_remove(fds, fd);
-                                        found = true;
-                                        break;
-                                }
-                        if (!found)
-                                log_unit_debug(u, "No matching ffs socket found: %s", value+skip);
+                        return 0;
                 }
+
+                fd = parse_fd(fdv);
+                if (fd < 0 || !fdset_contains(fds, fd)) {
+                        log_unit_debug(u, "Invalid ffs value: %s", fdv);
+                        return 0;
+                }
+
+                LIST_FOREACH(port, p, s->ports)
+                        if (p->fd < 0 &&
+                            p->type == SOCKET_USB_FUNCTION &&
+                            path_equal_or_files_same(p->path, value, 0)) {
+                                p->fd = fdset_remove(fds, fd);
+                                found = true;
+                                break;
+                        }
+                if (!found)
+                        log_unit_debug(u, "No matching ffs socket found: %s", value);
 
         } else
                 log_unit_debug(UNIT(s), "Unknown serialization key: %s", key);
