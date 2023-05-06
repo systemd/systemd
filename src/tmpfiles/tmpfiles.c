@@ -3355,7 +3355,7 @@ static int parse_line(
         r = extract_many_words(
                         &buffer,
                         NULL,
-                        EXTRACT_UNQUOTE,
+                        EXTRACT_UNQUOTE | EXTRACT_CUNESCAPE,
                         &action,
                         &path,
                         &mode,
