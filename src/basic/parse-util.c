@@ -343,7 +343,7 @@ int parse_fd(const char *t) {
                 return r;
 
         if (fd < 0)
-                return -ERANGE;
+                return -EBADF;
 
         return fd;
 }

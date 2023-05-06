@@ -869,8 +869,8 @@ TEST(parse_fd) {
         assert_se(parse_fd("0") == 0);
         assert_se(parse_fd("1") == 1);
 
-        assert_se(parse_fd("-1") == -ERANGE);
-        assert_se(parse_fd("-3") == -ERANGE);
+        assert_se(parse_fd("-1") == -EBADF);
+        assert_se(parse_fd("-3") == -EBADF);
 
         assert_se(parse_fd("") == -EINVAL);
         assert_se(parse_fd("12.3") == -EINVAL);
