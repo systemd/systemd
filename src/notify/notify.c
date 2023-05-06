@@ -216,8 +216,6 @@ static int parse_argv(int argc, char *argv[]) {
                         int fdnr;
 
                         fdnr = parse_fd(optarg);
-                        if (fdnr == -ERANGE)
-                                return log_error_errno(fdnr, "File descriptor can't be negative: %s", optarg);
                         if (fdnr < 0)
                                 return log_error_errno(fdnr, "Failed to parse file descriptor: %s", optarg);
 

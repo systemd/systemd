@@ -1003,10 +1003,8 @@ static int parse_argv(int argc, char *argv[]) {
                         FILE *f;
 
                         fd = parse_fd(optarg);
-                        if (fd == -ERANGE)
-                                return log_error_errno(fd, "Invalid serialization fd: %s", optarg);
                         if (fd < 0)
-                                return log_error_errno(fd, "Failed to parse deserialize option \"%s\": %m", optarg);
+                                return log_error_errno(fd, "Failed to parse serialization fd \"%s\": %m", optarg);
 
                         (void) fd_cloexec(fd, true);
 

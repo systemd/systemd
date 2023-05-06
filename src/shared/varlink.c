@@ -3061,9 +3061,6 @@ int varlink_server_deserialize_one(VarlinkServer *s, const char *value, FDSet *f
         buf = strndupa_safe(v, n);
 
         fd = parse_fd(buf);
-        if (fd == -ERANGE)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "VarlinkServerSocket varlink-server-socket-fd= has an invalid value: %s", buf);
         if (fd < 0)
                 return log_debug_errno(fd, "Unable to parse VarlinkServerSocket varlink-server-socket-fd=%s: %m", buf);
         if (!fdset_contains(fds, fd))
