@@ -123,23 +123,14 @@ endif
 
 ############################################################
 
-# prepare test/sys tree
-sys_script_py = find_program('sys-script.py')
-custom_target(
-        'sys',
-        command : [sys_script_py, meson.current_build_dir()],
-        output : 'sys',
-        build_by_default : want_tests != 'false')
+sys_script_py = files('sys-script.py')
+test_udev_py = files('test-udev.py')
 
-if perl.found()
-        udev_test_pl = find_program('udev-test.pl')
-        if want_tests != 'false'
-                test('udev-test',
-                     udev_test_pl,
-                     timeout : 180)
-        endif
-else
-        message('Skipping udev-test because perl is not available')
+if install_tests
+        install_data(
+                sys_script_py,
+                test_udev_py,
+                install_dir : unittestsdir)
 endif
 
 ############################################################
