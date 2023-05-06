@@ -2172,8 +2172,7 @@ static int run(int argc, char *argv[]) {
                         if (streq_ptr(arg_type, CRYPT_TCRYPT)){
                             log_debug("tcrypt header: %s", arg_header);
                             r = crypt_init_data_device(&cd, arg_header, source);
-                        }
-                        else {
+                        } else {
                             log_debug("LUKS header: %s", arg_header);
                             r = crypt_init(&cd, arg_header);
                         }

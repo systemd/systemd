@@ -173,7 +173,7 @@
         <term><option>header=</option></term>
 
         <listitem><para>Use a detached (separated) metadata device or file
-        where the encrypted header containing the master key(s) is stored. This
+        where the header containing the master key(s) is stored. This
         option is only relevant for LUKS and TrueCrypt/VeraCrypt devices. See
         <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for possible values and the default value of this option.</para>
@@ -487,7 +487,7 @@
 
         <listitem><para>Specifies a custom Personal Iteration Multiplier (PIM)
         value, which can range from 0..2147468 for standard veracrypt volumes
-        and 0..65535 for veracrypt system volumes. A value of 0 will use the
+        and 0..65535 for veracrypt system volumes. A value of 0 will imply the
         VeraCrypt default.
 
         This option is only effective when <option>tcrypt-veracrypt</option> is
@@ -497,7 +497,7 @@
         password strength and the hash algorithm used for key derivation, however
         <option>veracrypt-pim=</option> is not checked against these bounds.
         <ulink url="https://www.veracrypt.fr/en/Personal%20Iterations%20Multiplier%20%28PIM%29.html">See
-        documentation</ulink> for more.</para>
+        documentation</ulink> for more information.</para>
         </listitem>
       </varlistentry>
 
