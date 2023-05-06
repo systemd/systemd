@@ -172,12 +172,11 @@
       <varlistentry>
         <term><option>header=</option></term>
 
-        <listitem><para>Use a detached (separated) metadata device or
-        file where the LUKS header is stored. This option is only
-        relevant for LUKS devices. See
+        <listitem><para>Use a detached (separated) metadata device or file
+        where the header containing the master key(s) is stored. This
+        option is only relevant for LUKS and TrueCrypt/VeraCrypt devices. See
         <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        for possible values and the default value of this
-        option.</para>
+        for possible values and the default value of this option.</para>
 
         <para>Optionally, the path may be followed by <literal>:</literal> and an
         <filename>/etc/fstab</filename> device specification (e.g. starting with <literal>UUID=</literal> or
@@ -481,6 +480,25 @@
         Enabling this option could substantially slow down unlocking, because
         VeraCrypt's key derivation takes much longer than TrueCrypt's.  This
         option implies <option>tcrypt</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>veracrypt-pim=</option></term>
+
+        <listitem><para>Specifies a custom Personal Iteration Multiplier (PIM)
+        value, which can range from 0..2147468 for standard veracrypt volumes
+        and 0..65535 for veracrypt system volumes. A value of 0 will imply the
+        VeraCrypt default.
+
+        This option is only effective when <option>tcrypt-veracrypt</option> is
+        set.</para>
+
+        <para>Note that VeraCrypt enforces a minimal allowed PIM value depending on the
+        password strength and the hash algorithm used for key derivation, however
+        <option>veracrypt-pim=</option> is not checked against these bounds.
+        <ulink url="https://www.veracrypt.fr/en/Personal%20Iterations%20Multiplier%20%28PIM%29.html">See
+        documentation</ulink> for more information.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>

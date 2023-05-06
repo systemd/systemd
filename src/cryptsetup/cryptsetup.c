@@ -81,6 +81,7 @@ static bool arg_no_write_workqueue = false;
 static bool arg_tcrypt_hidden = false;
 static bool arg_tcrypt_system = false;
 static bool arg_tcrypt_veracrypt = false;
+static uint32_t arg_tcrypt_veracrypt_pim = 0;
 static char **arg_tcrypt_keyfiles = NULL;
 static uint64_t arg_offset = 0;
 static uint64_t arg_skip = 0;
@@ -233,7 +234,8 @@ static int parse_one_option(const char *option) {
                         return log_oom();
 
         } else if ((val = startswith(option, "header="))) {
-                arg_type = ANY_LUKS;
+                if (!STR_IN_SET(arg_type, ANY_LUKS, CRYPT_LUKS1, CRYPT_LUKS2, CRYPT_TCRYPT))
+                        arg_type = ANY_LUKS;
 
                 if (!path_is_absolute(val))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -298,6 +300,13 @@ static int parse_one_option(const char *option) {
         } else if (STR_IN_SET(option, "tcrypt-veracrypt", "veracrypt")) {
                 arg_type = CRYPT_TCRYPT;
                 arg_tcrypt_veracrypt = true;
+        } else if ((val = startswith(option, "veracrypt-pim="))) {
+
+                r = safe_atou32(val, &arg_tcrypt_veracrypt_pim);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
         } else if (STR_IN_SET(option, "plain", "swap", "tmp") ||
                    startswith(option, "tmp="))
                 arg_type = CRYPT_PLAIN;
@@ -981,6 +990,9 @@ static int attach_tcrypt(
 
         if (arg_tcrypt_veracrypt)
                 params.flags |= CRYPT_TCRYPT_VERA_MODES;
+        
+        if (arg_tcrypt_veracrypt && arg_tcrypt_veracrypt_pim != 0)
+                params.veracrypt_pim = arg_tcrypt_veracrypt_pim;
 
         if (key_data) {
                 params.passphrase = key_data;
@@ -2157,8 +2169,13 @@ static int run(int argc, char *argv[]) {
                         destroy_key_file = key_file; /* let's get this baby erased when we leave */
 
                 if (arg_header) {
-                        log_debug("LUKS header: %s", arg_header);
-                        r = crypt_init(&cd, arg_header);
+                        if (streq_ptr(arg_type, CRYPT_TCRYPT)){
+                            log_debug("tcrypt header: %s", arg_header);
+                            r = crypt_init_data_device(&cd, arg_header, source);
+                        } else {
+                            log_debug("LUKS header: %s", arg_header);
+                            r = crypt_init(&cd, arg_header);
+                        }
                 } else
                         r = crypt_init(&cd, source);
                 if (r < 0)
