@@ -639,6 +639,10 @@ sensor:modalias:acpi:KIOX000A*:dmi:bvnLENOVO:bvr1HCN4?WW:*:svnLENOVO:pn80SG:*
 sensor:modalias:acpi:KIOX000A*:dmi:bvnLENOVO:bvr1HCN2?WW:*:svnLENOVO:pn80SG:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
+# IdeaPad Miix 310 BIOS version bvr1HCN3?WW (variant 3)
+sensor:modalias:acpi:KIOX000A*:dmi:bvnLENOVO:bvr1HCN3?WW:*:svnLENOVO:pn80SG:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
 # IdeaPad Miix 320, different batches use a different sensor
 sensor:modalias:acpi:*BOSC0200*:dmi:*:svnLENOVO*:pn80XF:*
 sensor:modalias:acpi:SMO8840*:dmi:*:svnLENOVO:pn80XF:pvrLenovoMIIX320:*
