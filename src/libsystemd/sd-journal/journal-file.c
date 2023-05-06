@@ -2775,6 +2775,59 @@ enum {
         TEST_RIGHT
 };
 
+static int generic_array_bisect_one(
+                JournalFile *f,
+                uint64_t a, /* offset of entry array object. */
+                uint64_t i, /* index of the entry item we will test. */
+                uint64_t needle,
+                int (*test_object)(JournalFile *f, uint64_t p, uint64_t needle),
+                direction_t direction,
+                uint64_t *left,
+                uint64_t *right,
+                uint64_t *ret_offset) {
+
+        Object *array;
+        uint64_t p;
+        int r;
+
+        assert(f);
+        assert(test_object);
+        assert(left);
+        assert(right);
+        assert(*left <= i);
+        assert(i <= *right);
+
+        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
+        if (r < 0)
+                return r;
+
+        p = journal_file_entry_array_item(f, array, i);
+        if (p <= 0)
+                r = -EBADMSG;
+        else
+                r = test_object(f, p, needle);
+        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+                log_debug_errno(r, "Encountered invalid entry while bisecting, cutting algorithm short.");
+                *right = i;
+                return -ENOANO; /* recognizable error */
+        }
+        if (r < 0)
+                return r;
+
+        if (r == TEST_FOUND)
+                r = direction == DIRECTION_DOWN ? TEST_RIGHT : TEST_LEFT;
+
+        if (r == TEST_RIGHT)
+                *right = i;
+        else
+                *left = i + 1;
+
+        if (ret_offset)
+                *ret_offset = p;
+
+        return r;
+}
+
 static int generic_array_bisect(
                 JournalFile *f,
                 uint64_t first,
@@ -2791,7 +2844,7 @@ static int generic_array_bisect(
          * an object is matched against the given needle.
          *
          * Given a journal file, the offset of an object and the needle, the test_object() function should
-         * return TEST_LEFT if the needle is located earlier in the entry array chain, TEST_RIGHT if the
+         * return TEST_LEFT if the needle is located earlier in the entry array chain, TEST_LEFT if the
          * needle is located later in the entry array chain and TEST_FOUND if the object matches the needle.
          * If test_object() returns TEST_FOUND for a specific object, that object's information will be used
          * to populate the return values of this function. If test_object() never returns TEST_FOUND, the
@@ -2801,8 +2854,8 @@ static int generic_array_bisect(
 
         uint64_t a, p, t = 0, i = 0, last_p = 0, last_index = UINT64_MAX;
         bool subtract_one = false;
-        Object *array = NULL;
         ChainCacheItem *ci;
+        Object *array;
         int r;
 
         assert(f);
@@ -2813,21 +2866,17 @@ static int generic_array_bisect(
 
         ci = ordered_hashmap_get(f->chain_cache, &first);
         if (ci && n > ci->total && ci->begin != 0) {
-                /* Ah, we have iterated this bisection array chain
-                 * previously! Let's see if we can skip ahead in the
-                 * chain, as far as the last time. But we can't jump
-                 * backwards in the chain, so let's check that
-                 * first. */
+                /* Ah, we have iterated this bisection array chain previously! Let's see if we can skip ahead
+                 * in the chain, as far as the last time. But we can't jump backwards in the chain, so let's
+                 * check that first. */
 
                 r = test_object(f, ci->begin, needle);
                 if (r < 0)
                         return r;
 
                 if (r == TEST_LEFT) {
-                        /* OK, what we are looking for is right of the
-                         * begin of this EntryArray, so let's jump
-                         * straight to previously cached array in the
-                         * chain */
+                        /* OK, what we are looking for is right of the begin of this EntryArray, so let's
+                         * jump straight to previously cached array in the chain */
 
                         a = ci->array;
                         n -= ci->total;
@@ -2837,7 +2886,7 @@ static int generic_array_bisect(
         }
 
         while (a > 0) {
-                uint64_t left, right, k, lp;
+                uint64_t left = 0, right, k, lp;
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
                 if (r < 0)
@@ -2848,76 +2897,30 @@ static int generic_array_bisect(
                 if (right <= 0)
                         return 0;
 
-                i = right - 1;
-                lp = p = journal_file_entry_array_item(f, array, i);
-                if (p <= 0)
-                        r = -EBADMSG;
-                else
-                        r = test_object(f, p, needle);
-                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
-                        log_debug_errno(r, "Encountered invalid entry while bisecting, cutting algorithm short. (1)");
-                        n = i;
+                right--;
+                r = generic_array_bisect_one(f, a, right, needle, test_object, direction, &left, &right, &lp);
+                if (r == -ENOANO) {
+                        n = right;
                         continue;
                 }
                 if (r < 0)
                         return r;
 
-                if (r == TEST_FOUND)
-                        r = direction == DIRECTION_DOWN ? TEST_RIGHT : TEST_LEFT;
-
                 if (r == TEST_RIGHT) {
-                        left = 0;
-                        right -= 1;
+                        /* If we cached the last index we looked at, let's try to not to jump too wildly
+                         * around and see if we can limit the range to look at early to the immediate
+                         * neighbors of the last index we looked at. */
 
-                        if (last_index != UINT64_MAX) {
-                                assert(last_index <= right);
+                        if (last_index > 0 && last_index - 1 < right) {
+                                r = generic_array_bisect_one(f, a, last_index - 1, needle, test_object, direction, &left, &right, NULL);
+                                if (r < 0 && r != -ENOANO)
+                                        return r;
+                        }
 
-                                /* If we cached the last index we
-                                 * looked at, let's try to not to jump
-                                 * too wildly around and see if we can
-                                 * limit the range to look at early to
-                                 * the immediate neighbors of the last
-                                 * index we looked at. */
-
-                                if (last_index > 0) {
-                                        uint64_t x = last_index - 1;
-
-                                        p = journal_file_entry_array_item(f, array, x);
-                                        if (p <= 0)
-                                                return -EBADMSG;
-
-                                        r = test_object(f, p, needle);
-                                        if (r < 0)
-                                                return r;
-
-                                        if (r == TEST_FOUND)
-                                                r = direction == DIRECTION_DOWN ? TEST_RIGHT : TEST_LEFT;
-
-                                        if (r == TEST_RIGHT)
-                                                right = x;
-                                        else
-                                                left = x + 1;
-                                }
-
-                                if (last_index < right) {
-                                        uint64_t y = last_index + 1;
-
-                                        p = journal_file_entry_array_item(f, array, y);
-                                        if (p <= 0)
-                                                return -EBADMSG;
-
-                                        r = test_object(f, p, needle);
-                                        if (r < 0)
-                                                return r;
-
-                                        if (r == TEST_FOUND)
-                                                r = direction == DIRECTION_DOWN ? TEST_RIGHT : TEST_LEFT;
-
-                                        if (r == TEST_RIGHT)
-                                                right = y;
-                                        else
-                                                left = y + 1;
-                                }
+                        if (last_index < right) {
+                                r = generic_array_bisect_one(f, a, last_index + 1, needle, test_object, direction, &left, &right, NULL);
+                                if (r < 0 && r != -ENOANO)
+                                        return r;
                         }
 
                         for (;;) {
@@ -2932,26 +2935,9 @@ static int generic_array_bisect(
                                 assert(left < right);
                                 i = (left + right) / 2;
 
-                                p = journal_file_entry_array_item(f, array, i);
-                                if (p <= 0)
-                                        r = -EBADMSG;
-                                else
-                                        r = test_object(f, p, needle);
-                                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
-                                        log_debug_errno(r, "Encountered invalid entry while bisecting, cutting algorithm short. (2)");
-                                        right = n = i;
-                                        continue;
-                                }
-                                if (r < 0)
+                                r = generic_array_bisect_one(f, a, i, needle, test_object, direction, &left, &right, NULL);
+                                if (r < 0 && r != -ENOANO)
                                         return r;
-
-                                if (r == TEST_FOUND)
-                                        r = direction == DIRECTION_DOWN ? TEST_RIGHT : TEST_LEFT;
-
-                                if (r == TEST_RIGHT)
-                                        right = i;
-                                else
-                                        left = i + 1;
                         }
                 }
 
@@ -2979,8 +2965,16 @@ found:
         if (subtract_one && t == 0 && i == 0)
                 return 0;
 
+        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
+        if (r < 0)
+                return r;
+
+        p = journal_file_entry_array_item(f, array, 0);
+        if (p <= 0)
+                return -EBADMSG;
+
         /* Let's cache this item for the next invocation */
-        chain_cache_put(f->chain_cache, ci, first, a, journal_file_entry_array_item(f, array, 0), t, subtract_one ? (i > 0 ? i-1 : UINT64_MAX) : i);
+        chain_cache_put(f->chain_cache, ci, first, a, p, t, subtract_one ? (i > 0 ? i-1 : UINT64_MAX) : i);
 
         if (subtract_one && i == 0)
                 p = last_p;
