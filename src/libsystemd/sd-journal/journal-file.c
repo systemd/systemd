@@ -2801,8 +2801,8 @@ static int generic_array_bisect(
 
         uint64_t a, p, t = 0, i = 0, last_p = 0, last_index = UINT64_MAX;
         bool subtract_one = false;
-        Object *array = NULL;
         ChainCacheItem *ci;
+        Object *array;
         int r;
 
         assert(f);
