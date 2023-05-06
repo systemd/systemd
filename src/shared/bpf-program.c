@@ -450,8 +450,6 @@ int bpf_program_deserialize_attachment(const char *v, FDSet *fds, BPFProgram **b
                 return -EINVAL;
 
         ifd = parse_fd(sfd);
-        if (ifd == -ERANGE)
-                return -EBADF;
         if (ifd < 0)
                 return r;
 
