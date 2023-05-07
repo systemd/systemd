@@ -195,7 +195,6 @@ REQUIREMENTS:
         libgcrypt (optional)
         libqrencode (optional)
         libmicrohttpd (optional)
-        libpython (optional)
         libidn2 or libidn (optional)
         gnutls >= 3.1.4 (optional, >= 3.6.0 is required to support DNS-over-TLS with gnutls)
         openssl >= 1.1.0 (optional, required to support DNS-over-TLS with openssl)
@@ -206,17 +205,17 @@ REQUIREMENTS:
         gperf
         docbook-xsl (optional, required for documentation)
         xsltproc    (optional, required for documentation)
+        python >= 3.7 (required by meson too, >= 3.9 is required for ukify)
         python-jinja2
-        python-pefile
+        python-pefile (option, required for ukify)
         python-lxml (optional, required to build the indices)
-        python >= 3.5
+        pyelftools (optional, required for systemd-boot)
         meson >= 0.53.2
         ninja
         gcc >= 4.7
         awk, sed, grep, and similar tools
         clang >= 10.0, llvm >= 10.0 (optional, required to build BPF programs
                 from source code in C)
-        pyelftools (optional, required for systemd-boot)
 
         During runtime, you need the following additional
         dependencies:
@@ -270,8 +269,9 @@ REQUIREMENTS:
         Additional packages are necessary to run some tests:
         - busybox            (used by test/TEST-13-NSPAWN-SMOKE)
         - nc                 (used by test/TEST-12-ISSUE-3171)
-        - python3-pyparsing
-        - python3-evdev      (used by hwdb parsing tests)
+        - python             (test-udev which is installed is in python)
+        - python-pyparsing
+        - python-evdev       (used by hwdb parsing tests)
         - strace             (used by test/test-functions)
         - capsh              (optional, used by test-execute)
 
