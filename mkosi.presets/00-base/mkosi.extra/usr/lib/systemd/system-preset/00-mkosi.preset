@@ -23,3 +23,6 @@ enable systemd-networkd-wait-online.service
 # have dnf create its cache.
 disable dnf-makecache.timer
 disable dnf-makecache.service
+
+# We have journald to receive audit data so let's make sure we're not running auditd as well
+disable auditd.service
