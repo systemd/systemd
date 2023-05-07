@@ -29,6 +29,8 @@
         "show:Show properties of one or more units/jobs or the manager"
         "cat:Show the source unit files and drop-ins"
         "set-property:Sets one or more properties of a unit"
+        "service-log-level:Get or set the logging threshold for service"
+        "service-log-target:Get or set the logging target for service"
         "help:Show documentation for specified units"
         "reset-failed:Reset failed state for all, one, or more units"
         "list-dependencies:Show unit dependency tree"
@@ -300,6 +302,30 @@ for fun in stop kill try-restart condrestart ; do
                                                             ${_sys_active_units[*]} )
     }
 done
+
+(( $+functions[_systemctl_service-log-level] )) ||
+    _systemctl_service-log-level() {
+        local -a log_levels=( emerg alert crit err warning notice info debug )
+        local _sys_active_units; _systemctl_active_units
+        if (( CURRENT == 2 )); then
+            _wanted systemd-units expl 'active unit' \
+                compadd "$@" -a - _sys_active_units || _message "no units found"
+        else
+            compadd "$@" -a - log_levels
+        fi
+}
+
+(( $+functions[_systemctl_service-log-target] )) ||
+    _systemctl_service-log-target() {
+        local -a log_targets=( console kmsg journal syslog null auto )
+        local _sys_active_units; _systemctl_active_units
+        if (( CURRENT == 2 )); then
+            _wanted systemd-units expl 'active unit' \
+                compadd "$@" -a - _sys_active_units || _message "no units found"
+        else
+            compadd "$@" -a - log_targets
+        fi
+}
 
 # Completion functions for ISOLATABLE_UNITS
 (( $+functions[_systemctl_isolate] )) || _systemctl_isolate()
