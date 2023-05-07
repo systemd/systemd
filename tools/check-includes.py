@@ -14,7 +14,8 @@ def check_file(filename):
     seen = set()
     good = True
     for n, line in enumerate(open(filename)):
-        if m := re.match(r'^\s*#\s*include\s*[<"](\S*)[>"]', line):
+        m = re.match(r'^\s*#\s*include\s*[<"](\S*)[>"]', line)
+        if m:
             include = m.group(1)
             if include in seen:
                 try:
