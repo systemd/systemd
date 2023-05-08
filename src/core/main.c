@@ -31,6 +31,7 @@
 #include "bus-util.h"
 #include "capability-util.h"
 #include "cgroup-util.h"
+#include "chase.h"
 #include "clock-util.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
@@ -1773,6 +1774,24 @@ static int do_reexecute(
         assert(saved_rlimit_nofile);
         assert(saved_rlimit_memlock);
         assert(ret_error_message);
+
+        if (switch_root_init) {
+                r = chase(switch_root_init, switch_root_dir, CHASE_PREFIX_ROOT, NULL, NULL);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to chase configured init %s/%s: %m",
+                                          strempty(switch_root_dir), switch_root_init);
+        } else {
+                r = chase(SYSTEMD_BINARY_PATH, switch_root_dir, CHASE_PREFIX_ROOT, NULL, NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to chase our own binary %s/%s: %m",
+                                        strempty(switch_root_dir), SYSTEMD_BINARY_PATH);
+        }
+
+        if (r < 0) {
+                r = chase("/sbin/init", switch_root_dir, CHASE_PREFIX_ROOT, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to chase %s/sbin/init", strempty(switch_root_dir));
+        }
 
         /* Close and disarm the watchdog, so that the new instance can reinitialize it, but doesn't get
          * rebooted while we do that */
