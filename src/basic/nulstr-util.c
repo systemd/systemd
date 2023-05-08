@@ -88,7 +88,6 @@ int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size) {
         size_t n = 0;
 
         assert(ret);
-        assert(ret_size);
 
         STRV_FOREACH(i, l) {
                 size_t z;
@@ -114,7 +113,8 @@ int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size) {
                 m[n] = '\0';
 
         *ret = TAKE_PTR(m);
-        *ret_size = n;
+        if (ret_size)
+                *ret_size = n;
 
         return 0;
 }
@@ -125,7 +125,6 @@ int set_make_nulstr(Set *s, char **ret, size_t *ret_size) {
         _cleanup_free_ char **strv = NULL;
 
         assert(ret);
-        assert(ret_size);
 
         strv = set_get_strv(s);
         if (!strv)
