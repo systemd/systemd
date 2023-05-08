@@ -1424,6 +1424,12 @@ static int fixup_environment(void) {
         if (r < 0)
                 return r;
 
+        if (r == 0) {
+                r = proc_cmdline_get_key("systemd.tty.term.console", 0, &term);
+                if (r < 0)
+                        return r;
+        }
+
         t = term ?: default_term_for_tty("/dev/console");
 
         if (setenv("TERM", t, 1) < 0)
