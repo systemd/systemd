@@ -19,7 +19,6 @@ ADDITIONAL_DEPS=(
     libtss2-dev
     libxkbcommon-dev
     libzstd-dev
-    perl
     python3-libevdev
     python3-pefile
     python3-pyelftools

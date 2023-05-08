@@ -48,7 +48,6 @@ PACKAGES=(
     mold
     mount
     net-tools
-    perl
     python3-evdev
     python3-jinja2
     python3-lxml
