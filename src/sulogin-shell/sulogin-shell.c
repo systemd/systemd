@@ -17,6 +17,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "process-util.h"
+#include "proc-cmdline.h"
 #include "signal-util.h"
 #include "special.h"
 #include "unit-def.h"
@@ -116,6 +117,7 @@ static int run(int argc, char *argv[]) {
                 NULL,             /* --force */
                 NULL
         };
+        bool force = false;
         int r;
 
         log_setup();
@@ -123,6 +125,15 @@ static int run(int argc, char *argv[]) {
         print_mode(argc > 1 ? argv[1] : "");
 
         if (getenv_bool("SYSTEMD_SULOGIN_FORCE") > 0)
+                force = true;
+
+        if (!force) {
+                r = proc_cmdline_get_bool("SYSTEMD_LOGIN_FORCE", &force);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse SYSTEMD_LOGIN_FORCE from kernel command line: %m");
+        }
+
+        if (force)
                 /* allows passwordless logins if root account is locked. */
                 sulogin_cmdline[1] = "--force";
 
