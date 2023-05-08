@@ -5,6 +5,8 @@
 set -eux
 set -o pipefail
 
+# Test RuntimeDirectoryPreserve=yes
+
 systemd-mount -p RuntimeDirectory=hoge -p RuntimeDirectoryPreserve=yes -t tmpfs tmpfs /tmp/aaa
 
 touch /run/hoge/foo
@@ -14,7 +16,3 @@ systemctl restart tmp-aaa.mount
 
 test -e /run/hoge/foo
 test ! -e /tmp/aaa/bbb
-
-echo OK >/testok
-
-exit 0

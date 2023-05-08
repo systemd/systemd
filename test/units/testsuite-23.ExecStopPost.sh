@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -eux
 
+# Test that ExecStopPost= is always run
+
 systemd-analyze log-level debug
 
 systemd-run --unit=simple1.service --wait -p StandardOutput=tty -p StandardError=tty -p Type=simple \
@@ -100,7 +102,3 @@ test -f /run/idle1
 test -f /run/idle2
 
 systemd-analyze log-level info
-
-echo OK >/testok
-
-exit 0
