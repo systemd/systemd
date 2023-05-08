@@ -4,11 +4,9 @@ Description=Check if any service failed and then shutdown the machine
 After=multi-user.target network-online.target
 Requires=multi-user.target
 Wants=systemd-resolved.service systemd-networkd.service network-online.target
-OnFailure=poweroff.target
-OnFailureJobMode=replace-irreversibly
+SuccessAction=exit
+FailureAction=exit
 
 [Service]
 Type=oneshot
-ExecStartPre=-rm -f /failed-services
 ExecStart=/usr/lib/systemd/mkosi-check-and-shutdown.sh
-ExecStartPost=systemctl poweroff --no-block

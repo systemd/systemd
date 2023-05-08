@@ -84,11 +84,10 @@ jobs:
         [Distribution]
         Distribution=${{ matrix.distro }}
         Release=${{ matrix.release }}
-        SecureBoot=yes
 
         [Content]
         Environment=CI_BUILD=1
-                    DEFAULT_TIMEOUT_SEC=90
+                    DEFAULT_TIMEOUT_SEC=120
                     SLOW_TESTS=true
 
         [Output]
@@ -99,6 +98,15 @@ jobs:
 
         [Host]
         ExtraSearchPaths=!*
+        EOF
+
+        # For erofs, we have to install linux-modules-extra-azure, but that doesn't match the running kernel
+        # version, so we can't load the erofs module. squashfs is a builtin module so we use that instead.
+
+        mkdir -p mkosi.presets/20-final/mkosi.repart/10-usr.conf.d
+        tee mkosi.presets/20-final/mkosi.repart/10-usr.conf.d/squashfs.conf <<- EOF
+        [Partition]
+        Format=squashfs
         EOF
 
     - name: Generate secure boot key
@@ -113,11 +121,5 @@ jobs:
     - name: Boot ${{ matrix.distro }} systemd-nspawn
       run: sudo mkosi --debug boot
 
-    - name: Check ${{ matrix.distro }} systemd-nspawn
-      run: sudo mkosi --debug shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
-
     - name: Boot ${{ matrix.distro }} QEMU
       run: timeout -k 30 10m mkosi --debug qemu
-
-    - name: Check ${{ matrix.distro }} QEMU
-      run: sudo mkosi --debug shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
