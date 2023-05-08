@@ -36,6 +36,8 @@ _timedatectl_command(){
         'set-time:Set system time'
         'set-timezone:Set system timezone'
         'list-timezones:Show known timezones'
+        'timesync-status:Show status of systemd-timesyncd'
+        'show-timesync:Show properties of systemd-timesyncd'
         'set-local-rtc:Control whether RTC is in local time'
         'set-ntp:Control whether NTP is enabled'
     )
