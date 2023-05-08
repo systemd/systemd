@@ -40,9 +40,11 @@ the [GitHub repository](https://github.com/systemd/mkosi). `mkosi` will build an
 image for the host distro by default. Currently, the latest github commit is
 required. `mkosi` also requires systemd v253 (unreleased) or newer. If systemd v253
 is not available, `mkosi` will automatically use executables from the systemd build
-directory if it's executed from the systemd repository root directory. It is
-sufficient to type `mkosi` in the systemd project directory to generate a disk image
-you can boot either in `systemd-nspawn` or in a UEFI-capable VM:
+directory if it's executed from the systemd repository root directory. First, run
+`mkosi genkey` to generate a key and certificate to be used for secure boot and
+verity signing. After that is done, it is sufficient to type `mkosi` in the systemd
+project directory to generate a disk image you can boot either in `systemd-nspawn`
+or in a UEFI-capable VM:
 
 ```sh
 $ sudo mkosi boot # nspawn still needs sudo for now
