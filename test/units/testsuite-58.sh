@@ -855,11 +855,15 @@ test_exclude_files() {
     runas testuser touch "$root/usr/qed"
     runas testuser mkdir "$root/tmp"
     runas testuser touch "$root/tmp/prs"
+    runas testuser mkdir "$root/zzz"
+    runas testuser mkdir "$root/zzz/usr"
+    runas testuser touch "$root/zzz/usr/prs"
 
     runas testuser tee "$defs/00-root.conf" <<EOF
 [Partition]
 Type=root-${architecture}
 CopyFiles=/
+CopyFiles=/zzz:/
 EOF
 
     runas testuser tee "$defs/10-usr.conf" <<EOF
@@ -893,6 +897,10 @@ EOF
     assert_rc 0 ls "$imgs/mnt/usr"
     assert_rc 2 ls "$imgs/mnt/usr/def"
 
+    # Test that /zzz/usr/prs did not end up in the root partition under /usr but did end up in /zzz/usr/prs
+    assert_rc 2 ls "$imgs/mnt/usr/prs"
+    assert_rc 0 ls "$imgs/mnt/zzz/usr/prs"
+
     # Test that /tmp/prs did not end up in the root partition but /tmp did.
     assert_rc 0 ls "$imgs/mnt/tmp"
     assert_rc 2 ls "$imgs/mnt/tmp/prs"
@@ -901,6 +909,9 @@ EOF
     mount -t ext4 "${loop}p2" "$imgs/mnt/usr"
     assert_rc 0 ls "$imgs/mnt/usr/def"
     assert_rc 2 ls "$imgs/mnt/usr/qed"
+
+    # Test that /zzz/usr/prs did not end up in the usr partition.
+    assert_rc 2 ls "$imgs/mnt/usr/prs"
 
     umount -R "$imgs/mnt"
     losetup -d "$loop"
