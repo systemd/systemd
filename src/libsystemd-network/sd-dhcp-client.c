@@ -828,14 +828,12 @@ static int client_message_init(
 
         /* Some DHCP servers will refuse to issue an DHCP lease if the Client
            Identifier option is not set */
-        if (client->client_id_len) {
-                r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
-                                       SD_DHCP_OPTION_CLIENT_IDENTIFIER,
-                                       client->client_id_len,
-                                       &client->client_id);
-                if (r < 0)
-                        return r;
-        }
+        r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
+                               SD_DHCP_OPTION_CLIENT_IDENTIFIER,
+                               client->client_id_len,
+                               &client->client_id);
+        if (r < 0)
+                return r;
 
         /* RFC2131 section 3.5:
            in its initial DHCPDISCOVER or DHCPREQUEST message, a
