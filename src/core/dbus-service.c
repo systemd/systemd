@@ -341,6 +341,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("RootDirectoryStartOnly", "b", bus_property_get_bool, offsetof(Service, root_directory_start_only), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RemainAfterExit", "b", bus_property_get_bool, offsetof(Service, remain_after_exit), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("GuessMainPID", "b", bus_property_get_bool, offsetof(Service, guess_main_pid), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RestartQuick", "b", bus_property_get_bool, offsetof(Service, restart_quick), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestartPreventExitStatus", "(aiai)", property_get_exit_status_set, offsetof(Service, restart_prevent_status), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestartForceExitStatus", "(aiai)", property_get_exit_status_set, offsetof(Service, restart_force_status), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SuccessExitStatus", "(aiai)", property_get_exit_status_set, offsetof(Service, success_status), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -545,6 +546,9 @@ static int bus_service_set_transient_property(
 
         if (streq(name, "GuessMainPID"))
                 return bus_set_transient_bool(u, name, &s->guess_main_pid, message, flags, error);
+
+        if (streq(name, "RestartQuick"))
+                return bus_set_transient_bool(u, name, &s->restart_quick, message, flags, error);
 
         if (streq(name, "Type"))
                 return bus_set_transient_service_type(u, name, &s->type, message, flags, error);

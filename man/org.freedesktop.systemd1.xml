@@ -2602,6 +2602,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b GuessMainPID = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b RestartQuick = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (aiai) RestartPreventExitStatus = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (aiai) RestartForceExitStatus = ...;
@@ -3232,6 +3234,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property GuessMainPID is not documented!-->
 
+    <!--property RestartQuick is not documented!-->
+
     <!--property RestartPreventExitStatus is not documented!-->
 
     <!--property RestartForceExitStatus is not documented!-->
@@ -3815,6 +3819,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="RemainAfterExit"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="GuessMainPID"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RestartQuick"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestartPreventExitStatus"/>
 
