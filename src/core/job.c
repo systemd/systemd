@@ -217,7 +217,7 @@ static void job_merge_into_installed(Job *j, Job *other) {
         j->ignore_order = j->ignore_order || other->ignore_order;
 }
 
-Job* job_install(Job *j) {
+Job* job_install(Job *j, JobMode mode) {
         Job **pj;
         Job *uj;
 
@@ -235,7 +235,7 @@ Job* job_install(Job *j) {
                         /* not conflicting, i.e. mergeable */
 
                         if (uj->state == JOB_WAITING ||
-                            (job_type_allows_late_merge(j->type) && job_type_is_superset(uj->type, j->type))) {
+                            (job_type_allows_late_merge(j->type) && mode != JOB_RESTART_DEPENDENCIES && job_type_is_superset(uj->type, j->type))) {
                                 job_merge_into_installed(uj, j);
                                 log_unit_debug(uj->unit,
                                                "Merged %s/%s into installed job %s/%s as %"PRIu32,
