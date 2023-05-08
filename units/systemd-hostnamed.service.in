@@ -12,7 +12,7 @@ Description=Hostname Service
 Documentation=man:systemd-hostnamed.service(8)
 Documentation=man:hostname(5)
 Documentation=man:machine-info(5)
-Documentation=man:org.freedesktop.resolve1(5)
+Documentation=man:org.freedesktop.hostname1(5)
 
 [Service]
 BusName=org.freedesktop.hostname1
