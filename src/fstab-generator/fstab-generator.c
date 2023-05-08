@@ -1297,7 +1297,7 @@ static int determine_usr(void) {
  * with /sysroot/etc/fstab available, and then we can write additional units based
  * on that file. */
 static int run_generator(void) {
-        int r, r2 = 0, r3 = 0;
+        int r, ret = 0;
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)
@@ -1318,26 +1318,39 @@ static int run_generator(void) {
         /* Always honour root= and usr= in the kernel command line if we are in an initrd */
         if (in_initrd()) {
                 r = add_sysroot_mount();
+                if (r < 0 && ret >= 0)
+                        ret = r;
 
-                r2 = add_sysroot_usr_mount_or_fallback();
+                r = add_sysroot_usr_mount_or_fallback();
+                if (r < 0 && ret >= 0)
+                        ret = r;
 
-                r3 = add_volatile_root();
-        } else
+                r = add_volatile_root();
+                if (r < 0 && ret >= 0)
+                        ret = r;
+        } else {
                 r = add_volatile_var();
+                if (r < 0 && ret >= 0)
+                        ret = r;
+        }
 
         /* Honour /etc/fstab only when that's enabled */
         if (arg_fstab_enabled) {
                 /* Parse the local /etc/fstab, possibly from the initrd */
-                r2 = parse_fstab(false);
+                r = parse_fstab(false);
+                if (r < 0 && ret >= 0)
+                        ret = r;
 
                 /* If running in the initrd also parse the /etc/fstab from the host */
                 if (in_initrd())
-                        r3 = parse_fstab(true);
+                        r = parse_fstab(true);
                 else
-                        r3 = generator_enable_remount_fs_service(arg_dest);
+                        r = generator_enable_remount_fs_service(arg_dest);
+                if (r < 0 && ret >= 0)
+                        ret = r;
         }
 
-        return r < 0 ? r : r2 < 0 ? r2 : r3;
+        return ret;
 }
 
 static int run(int argc, char **argv) {
