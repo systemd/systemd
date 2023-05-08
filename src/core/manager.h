@@ -504,6 +504,12 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *root);
 
+bool manager_dbus_is_running_full(Manager *m, bool deserialized);
+static inline bool manager_dbus_is_running(Manager *m) {
+        assert(m);
+        return manager_dbus_is_running_full(m, false);
+}
+
 Job *manager_get_job(Manager *m, uint32_t id);
 Unit *manager_get_unit(Manager *m, const char *name);
 
