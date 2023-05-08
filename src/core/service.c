@@ -1115,7 +1115,7 @@ static int service_load_pid_file(Service *s, bool may_warn) {
                 r = chase(s->pid_file, NULL, 0, NULL, &fd);
         }
         if (r < 0)
-                return log_unit_full_errno(UNIT(s), prio, fd,
+                return log_unit_full_errno(UNIT(s), prio, r,
                                            "Can't open PID file %s (yet?) after %s: %m", s->pid_file, service_state_to_string(s->state));
 
         /* Let's read the PID file now that we chased it down. But we need to convert the O_PATH fd
