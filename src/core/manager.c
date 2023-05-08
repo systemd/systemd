@@ -3445,6 +3445,26 @@ bool manager_unit_inactive_or_pending(Manager *m, const char *name) {
         return unit_inactive_or_pending(u);
 }
 
+bool manager_unit_deactivating_or_pending(Manager *m, const char *name) {
+        Unit *u;
+
+        assert(m);
+        assert(name);
+
+        /* Returns true if the unit is deactivating or going down */
+        u = manager_get_unit(m, name);
+        if (!u)
+                return false;
+
+        if (unit_active_state(u) == UNIT_DEACTIVATING)
+                return true;
+
+        if (unit_stop_pending(u))
+                return true;
+
+        return false;
+}
+
 static void log_taint_string(Manager *m) {
         _cleanup_free_ char *taint = NULL;
 

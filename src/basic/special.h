@@ -95,6 +95,7 @@
 /* Services systemd relies on */
 #define SPECIAL_DBUS_SERVICE "dbus.service"
 #define SPECIAL_DBUS_SOCKET "dbus.socket"
+#define SPECIAL_DBUS_BROKER_SERVICE "dbus-broker.service"
 #define SPECIAL_JOURNALD_SOCKET "systemd-journald.socket"
 #define SPECIAL_JOURNALD_SERVICE "systemd-journald.service"
 #define SPECIAL_TMPFILES_SETUP_SERVICE "systemd-tmpfiles-setup.service"
