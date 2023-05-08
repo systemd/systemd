@@ -4123,21 +4123,23 @@ static int make_copy_files_denylist(Context *context, const Partition *p, Hashma
         assert(p);
         assert(ret);
 
-        LIST_FOREACH(partitions, q, context->partitions) {
-                if (p == q)
-                        continue;
+        if (p->type.designator == PARTITION_ROOT) {
+                LIST_FOREACH(partitions, q, context->partitions) {
+                        if (p == q)
+                                continue;
 
-                const char *sources = gpt_partition_type_mountpoint_nulstr(q->type);
-                if (!sources)
-                        continue;
+                        const char *sources = gpt_partition_type_mountpoint_nulstr(q->type);
+                        if (!sources)
+                                continue;
 
-                NULSTR_FOREACH(s, sources) {
-                        /* Exclude the children of partition mount points so that the nested partition mount
-                         * point itself still ends up in the upper partition. */
+                        NULSTR_FOREACH(s, sources) {
+                                /* Exclude the children of partition mount points so that the nested
+                                 * partition mount point itself still ends up in the upper partition. */
 
-                        r = add_exclude_path(s, &denylist, DENY_CONTENTS);
-                        if (r < 0)
-                                return r;
+                                r = add_exclude_path(s, &denylist, DENY_CONTENTS);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 
