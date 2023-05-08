@@ -1477,7 +1477,7 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer, size_
         if (r < 0)
                 return r;
 
-        if (client->client_id_len) {
+        if (client->client_id_len > 0) {
                 r = dhcp_lease_set_client_id(lease,
                                              (uint8_t *) &client->client_id,
                                              client->client_id_len);
@@ -1571,7 +1571,7 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack, size_t le
         if (r < 0)
                 return r;
 
-        if (client->client_id_len) {
+        if (client->client_id_len > 0) {
                 r = dhcp_lease_set_client_id(lease,
                                              (uint8_t *) &client->client_id,
                                              client->client_id_len);
