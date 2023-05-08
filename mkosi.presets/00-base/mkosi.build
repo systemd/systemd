@@ -174,10 +174,10 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         )
     fi
 
-    meson setup "$BUILDDIR" "${CONFIGURE_OPTS[@]}"
+    ( set -x; meson setup "$BUILDDIR" "${CONFIGURE_OPTS[@]}" )
 fi
 
-ninja -C "$BUILDDIR" "$@"
+( set -x; ninja -C "$BUILDDIR" "$@" )
 if [ "$WITH_TESTS" = 1 ]; then
     if [ -n "$SANITIZERS" ]; then
         export ASAN_OPTIONS="$MKOSI_ASAN_OPTIONS"
@@ -187,7 +187,7 @@ if [ "$WITH_TESTS" = 1 ]; then
         TIMEOUT_MULTIPLIER=1
     fi
 
-    meson test -C "$BUILDDIR" --print-errorlogs --timeout-multiplier=$TIMEOUT_MULTIPLIER
+    ( set -x; meson test -C "$BUILDDIR" --print-errorlogs --timeout-multiplier=$TIMEOUT_MULTIPLIER )
 fi
 
-meson install -C "$BUILDDIR" --quiet --no-rebuild --only-changed
+( set -x; meson install -C "$BUILDDIR" --quiet --no-rebuild --only-changed )
