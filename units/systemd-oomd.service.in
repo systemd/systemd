@@ -10,6 +10,7 @@
 [Unit]
 Description=Userspace Out-Of-Memory (OOM) Killer
 Documentation=man:systemd-oomd.service(8)
+Documentation=man:org.freedesktop.oom1(5)
 DefaultDependencies=no
 Before=multi-user.target shutdown.target
 Conflicts=shutdown.target
