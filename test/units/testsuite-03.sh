@@ -3,6 +3,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 # Simple test for that daemon-reexec works in container.
 # See: https://github.com/systemd/systemd/pull/23883
 systemctl daemon-reexec
@@ -126,5 +129,18 @@ systemctl daemon-reload
 for i in {0..19}; do
     systemctl start "transaction-cycle$i.service"
 done
+
+# Test restart mode quick
+systemctl start succeeds-on-restart-restartquick.target
+assert_rc 0 systemctl --quiet is-active succeeds-on-restart-restartquick.target
+
+systemctl start fails-on-restart-restartquick.target || :
+assert_rc 3 systemctl --quiet is-active fails-on-restart-restartquick.target
+
+systemctl start succeeds-on-restart.target || :
+assert_rc 3 systemctl --quiet is-active succeeds-on-restart.target
+
+systemctl start fails-on-restart.target || :
+assert_rc 3 systemctl --quiet is-active fails-on-restart.target
 
 touch /testok
