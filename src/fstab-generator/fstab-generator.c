@@ -102,7 +102,7 @@ static int write_what(FILE *f, const char *what) {
 static int add_swap(
                 const char *source,
                 const char *what,
-                struct mntent *me,
+                const char *options,
                 MountPointFlags flags) {
 
         _cleanup_free_ char *name = NULL;
@@ -110,7 +110,6 @@ static int add_swap(
         int r;
 
         assert(what);
-        assert(me);
 
         if (!arg_swap_enabled) {
                 log_info("Swap unit generation disabled on kernel command line, ignoring fstab swap entry for %s.", what);
@@ -158,7 +157,7 @@ static int add_swap(
         if (r < 0)
                 return r;
 
-        r = write_options(f, me->mnt_opts);
+        r = write_options(f, options);
         if (r < 0)
                 return r;
 
@@ -167,7 +166,7 @@ static int add_swap(
                 return log_error_errno(r, "Failed to write unit file %s: %m", name);
 
         /* use what as where, to have a nicer error message */
-        r = generator_write_timeouts(arg_dest, what, what, me->mnt_opts, NULL);
+        r = generator_write_timeouts(arg_dest, what, what, options, NULL);
         if (r < 0)
                 return r;
 
@@ -193,18 +192,16 @@ static int add_swap(
         return true;
 }
 
-static bool mount_is_network(struct mntent *me) {
-        assert(me);
-
-        return fstab_test_option(me->mnt_opts, "_netdev\0") ||
-               fstype_is_network(me->mnt_type);
+static bool mount_is_network(const char *fstype, const char *options) {
+        return fstab_test_option(options, "_netdev\0") ||
+                (fstype && fstype_is_network(fstype));
 }
 
-static bool mount_in_initrd(struct mntent *me) {
-        assert(me);
+static bool mount_in_initrd(const char *where, const char *options) {
+        assert(where);
 
-        return fstab_test_option(me->mnt_opts, "x-initrd.mount\0") ||
-               path_equal(me->mnt_dir, "/usr");
+        return fstab_test_option(options, "x-initrd.mount\0") ||
+               path_equal(where, "/usr");
 }
 
 static int write_timeout(
@@ -643,6 +640,20 @@ static const char* sysroot_fstab_path(void) {
         return getenv("SYSTEMD_SYSROOT_FSTAB") ?: "/sysroot/etc/fstab";
 }
 
+static bool sysfs_check(void) {
+        static int cached = -1;
+        int r;
+
+        if (cached < 0) {
+                r = getenv_bool_secure("SYSTEMD_SYSFS_CHECK");
+                if (r < 0 && r != -ENXIO)
+                        log_debug_errno(r, "Failed to parse $SYSTEMD_SYSFS_CHECK, ignoring: %m");
+                cached = r != 0;
+        }
+
+        return cached;
+}
+
 static int add_sysusr_sysroot_usr_bind_mount(const char *source) {
         return add_mount(source,
                         arg_dest,
@@ -656,11 +667,155 @@ static int add_sysusr_sysroot_usr_bind_mount(const char *source) {
                         SPECIAL_INITRD_FS_TARGET);
 }
 
+static MountPointFlags fstab_options_to_flags(const char *options, bool is_swap) {
+        MountPointFlags flags = 0;
+
+        if (fstab_test_option(options, "x-systemd.makefs\0"))
+                flags |= MOUNT_MAKEFS;
+        if (fstab_test_option(options, "x-systemd.growfs\0"))
+                flags |= MOUNT_GROWFS;
+        if (fstab_test_option(options, "x-systemd.pcrfs\0"))
+                flags |= MOUNT_PCRFS;
+        if (fstab_test_yes_no_option(options, "noauto\0" "auto\0"))
+                flags |= MOUNT_NOAUTO;
+        if (fstab_test_yes_no_option(options, "nofail\0" "fail\0"))
+                flags |= MOUNT_NOFAIL;
+
+        if (!is_swap) {
+                if (fstab_test_option(options, "x-systemd.rw-only\0"))
+                        flags |= MOUNT_RW_ONLY;
+                if (fstab_test_option(options,
+                                      "comment=systemd.automount\0"
+                                      "x-systemd.automount\0"))
+                        flags |= MOUNT_AUTOMOUNT;
+        }
+
+        return flags;
+}
+
+static int parse_fstab_one(
+                const char *source,
+                const char *what_original,
+                const char *where_original,
+                const char *fstype,
+                const char *options,
+                int passno,
+                bool initrd) {
+
+        _cleanup_free_ char *what = NULL, *where = NULL, *canonical_where = NULL;
+        MountPointFlags flags;
+        int r;
+
+        assert(what_original);
+        assert(where_original);
+        assert(fstype);
+        assert(options);
+
+        if (initrd && !mount_in_initrd(where_original, options))
+                return 0;
+
+        what = fstab_node_to_udev_node(what_original);
+        if (!what)
+                return log_oom();
+
+        if (path_is_read_only_fs("/sys") > 0 &&
+            (streq(what, "sysfs") ||
+             (sysfs_check() && is_device_path(what)))) {
+                log_info("/sys/ is read-only (running in a container?), ignoring mount for %s.", what);
+                return 0;
+        }
+
+        where = strdup(where_original);
+        if (!where)
+                return log_oom();
+
+        if (is_path(where)) {
+                path_simplify(where);
+
+                /* Follow symlinks here; see 5261ba901845c084de5a8fd06500ed09bfb0bd80 which makes sense for
+                 * mount units, but causes problems since it historically worked to have symlinks in e.g.
+                 * /etc/fstab. So we canonicalize here. Note that we use CHASE_NONEXISTENT to handle the case
+                 * where a symlink refers to another mount target; this works assuming the sub-mountpoint
+                 * target is the final directory.
+                 *
+                 * FIXME: when chase() learns to chase non-existent paths, use this here and
+                 *        drop the prefixing with /sysroot on error below.
+                 */
+                r = chase(where, initrd ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT,
+                          &canonical_where, NULL);
+                if (r < 0) {
+                        /* If we can't canonicalize, continue as if it wasn't a symlink */
+                        log_debug_errno(r, "Failed to read symlink target for %s, using as-is: %m", where);
+
+                        if (initrd) {
+                                canonical_where = path_join("/sysroot", where);
+                                if (!canonical_where)
+                                        return log_oom();
+                        }
+
+                } else if (streq(canonical_where, where)) /* If it was fully canonicalized, suppress the change */
+                        canonical_where = mfree(canonical_where);
+                else
+                        log_debug("Canonicalized what=%s where=%s to %s", what, where, canonical_where);
+        }
+
+        flags = fstab_options_to_flags(options, streq_ptr(fstype, "swap"));
+
+        log_debug("Found entry what=%s where=%s type=%s makefs=%s growfs=%s pcrfs=%s noauto=%s nofail=%s",
+                  what, where, strna(fstype),
+                  yes_no(flags & MOUNT_MAKEFS), yes_no(flags & MOUNT_GROWFS), yes_no(flags & MOUNT_PCRFS),
+                  yes_no(flags & MOUNT_NOAUTO), yes_no(flags & MOUNT_NOFAIL));
+
+        if (streq_ptr(fstype, "swap"))
+                return add_swap(source, what, options, flags);
+
+        bool is_sysroot = in_initrd() && path_equal(where, "/sysroot");
+        /* See comment from add_sysroot_usr_mount() about the need for extra indirection in case /usr needs
+         * to be mounted in order for the root fs to be synthesized based on configuration included in /usr/,
+         * e.g. systemd-repart. */
+        bool is_sysroot_usr = in_initrd() && path_equal(where, "/sysroot/usr");
+
+        const char *target_unit =
+                        initrd ?                            SPECIAL_INITRD_FS_TARGET :
+                        is_sysroot ?                        SPECIAL_INITRD_ROOT_FS_TARGET :
+                        is_sysroot_usr ?                    SPECIAL_INITRD_USR_FS_TARGET :
+                        mount_is_network(fstype, options) ? SPECIAL_REMOTE_FS_TARGET :
+                                                            SPECIAL_LOCAL_FS_TARGET;
+
+        if (is_sysroot && is_device_path(what)) {
+                r = generator_write_initrd_root_device_deps(arg_dest, what);
+                if (r < 0)
+                        return r;
+        }
+
+        r = add_mount(source,
+                      arg_dest,
+                      what,
+                      is_sysroot_usr ? "/sysusr/usr" : canonical_where ?: where,
+                      !is_sysroot_usr && canonical_where ? where : NULL,
+                      fstype,
+                      options,
+                      passno,
+                      flags,
+                      target_unit);
+        if (r <= 0)
+                return r;
+
+        if (is_sysroot_usr) {
+                log_debug("Synthesizing fstab entry what=/sysusr/usr where=/sysroot/usr opts=bind");
+                r = add_sysusr_sysroot_usr_bind_mount(source);
+                if (r < 0)
+                        return r;
+        }
+
+        return true;
+}
+
 static int parse_fstab(bool initrd) {
         _cleanup_endmntent_ FILE *f = NULL;
         const char *fstab;
         struct mntent *me;
-        int r = 0, sysfs_check = -1;
+        int r, ret = 0;
 
         if (initrd)
                 fstab = sysroot_fstab_path();
@@ -680,147 +835,14 @@ static int parse_fstab(bool initrd) {
         }
 
         while ((me = getmntent(f))) {
-                _cleanup_free_ char *where = NULL, *what = NULL, *canonical_where = NULL;
-                bool makefs, growfs, pcrfs, noauto, nofail;
-                MountPointFlags flags;
-                int k;
-
-                if (initrd && !mount_in_initrd(me))
-                        continue;
-
-                what = fstab_node_to_udev_node(me->mnt_fsname);
-                if (!what)
-                        return log_oom();
-
-                if (path_is_read_only_fs("/sys") > 0) {
-                        if (streq(what, "sysfs")) {
-                                log_info("/sys/ is read-only (running in a container?), ignoring fstab entry for %s.", me->mnt_dir);
-                                continue;
-                        }
-
-                        if (sysfs_check < 0) {
-                                k = getenv_bool_secure("SYSTEMD_SYSFS_CHECK");
-                                if (k < 0 && k != -ENXIO)
-                                        log_debug_errno(k, "Failed to parse $SYSTEMD_SYSFS_CHECK, ignoring: %m");
-                                sysfs_check = k != 0;
-                        }
-
-                        if (sysfs_check && is_device_path(what)) {
-                                log_info("/sys/ is read-only (running in a container?), ignoring fstab device entry for %s.", what);
-                                continue;
-                        }
-                }
-
-                where = strdup(me->mnt_dir);
-                if (!where)
-                        return log_oom();
-
-                if (is_path(where)) {
-                        path_simplify(where);
-
-                        /* Follow symlinks here; see 5261ba901845c084de5a8fd06500ed09bfb0bd80 which makes sense for
-                         * mount units, but causes problems since it historically worked to have symlinks in e.g.
-                         * /etc/fstab. So we canonicalize here. Note that we use CHASE_NONEXISTENT to handle the case
-                         * where a symlink refers to another mount target; this works assuming the sub-mountpoint
-                         * target is the final directory.
-                         *
-                         * FIXME: when chase() learns to chase non-existent paths, use this here and
-                         *        drop the prefixing with /sysroot on error below.
-                         */
-                        k = chase(where, initrd ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT,
-                                  &canonical_where, NULL);
-                        if (k < 0) {
-                                /* If we can't canonicalize, continue as if it wasn't a symlink */
-                                log_debug_errno(k, "Failed to read symlink target for %s, using as-is: %m", where);
-
-                                if (initrd) {
-                                        canonical_where = path_join("/sysroot", where);
-                                        if (!canonical_where)
-                                                return log_oom();
-                                }
-
-                        } else if (streq(canonical_where, where)) /* If it was fully canonicalized, suppress the change */
-                                canonical_where = mfree(canonical_where);
-                        else
-                                log_debug("Canonicalized what=%s where=%s to %s", what, where, canonical_where);
-                }
-
-                makefs = fstab_test_option(me->mnt_opts, "x-systemd.makefs\0");
-                growfs = fstab_test_option(me->mnt_opts, "x-systemd.growfs\0");
-                pcrfs = fstab_test_option(me->mnt_opts, "x-systemd.pcrfs\0");
-                noauto = fstab_test_yes_no_option(me->mnt_opts, "noauto\0" "auto\0");
-                nofail = fstab_test_yes_no_option(me->mnt_opts, "nofail\0" "fail\0");
-
-                log_debug("Found entry what=%s where=%s type=%s makefs=%s growfs=%s pcrfs=%s noauto=%s nofail=%s",
-                          what, where, me->mnt_type,
-                          yes_no(makefs), yes_no(growfs), yes_no(pcrfs),
-                          yes_no(noauto), yes_no(nofail));
-
-                flags = makefs * MOUNT_MAKEFS |
-                        growfs * MOUNT_GROWFS |
-                        pcrfs * MOUNT_PCRFS |
-                        noauto * MOUNT_NOAUTO |
-                        nofail * MOUNT_NOFAIL;
-
-                if (streq(me->mnt_type, "swap"))
-                        k = add_swap(fstab, what, me, flags);
-                else {
-                        bool rw_only, automount, is_sysroot, is_sysroot_usr;
-
-                        rw_only = fstab_test_option(me->mnt_opts, "x-systemd.rw-only\0");
-                        automount = fstab_test_option(me->mnt_opts,
-                                                      "comment=systemd.automount\0"
-                                                      "x-systemd.automount\0");
-
-                        flags |= rw_only * MOUNT_RW_ONLY |
-                                 automount * MOUNT_AUTOMOUNT;
-
-                        is_sysroot = in_initrd() && path_equal(where, "/sysroot");
-                        /* See comment from add_sysroot_usr_mount about the need for extra indirection
-                         * in case /usr needs to be mounted in order for the root fs to be synthesized
-                         * based on configuration included in /usr/, e.g. systemd-repart. */
-                        is_sysroot_usr = in_initrd() && path_equal(where, "/sysroot/usr");
-
-                        const char *target_unit =
-                                initrd ?               SPECIAL_INITRD_FS_TARGET :
-                                is_sysroot ?           SPECIAL_INITRD_ROOT_FS_TARGET :
-                                is_sysroot_usr ?       SPECIAL_INITRD_USR_FS_TARGET :
-                                mount_is_network(me) ? SPECIAL_REMOTE_FS_TARGET :
-                                                       SPECIAL_LOCAL_FS_TARGET;
-
-                        if (is_sysroot && is_device_path(what)) {
-                                r = generator_write_initrd_root_device_deps(arg_dest, what);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        k = add_mount(fstab,
-                                      arg_dest,
-                                      what,
-                                      is_sysroot_usr ? "/sysusr/usr" : canonical_where ?: where,
-                                      !is_sysroot_usr && canonical_where ? where : NULL,
-                                      me->mnt_type,
-                                      me->mnt_opts,
-                                      me->mnt_passno,
-                                      flags,
-                                      target_unit);
-
-                        if (is_sysroot_usr && k >= 0) {
-                                log_debug("Synthesizing fstab entry what=/sysusr/usr where=/sysroot/usr opts=bind");
-
-                                r = add_sysusr_sysroot_usr_bind_mount(fstab);
-                                if (r != 0)
-                                        k = r;
-                        }
-                }
-
-                if (arg_sysroot_check && k > 0)
+                r = parse_fstab_one(fstab, me->mnt_fsname, me->mnt_dir, me->mnt_type, me->mnt_opts, me->mnt_passno, initrd);
+                if (r < 0 && ret >= 0)
+                        ret = r;
+                if (arg_sysroot_check && r > 0)
                         return true;  /* We found a mount or swap that would be started… */
-                if (r >= 0 && k < 0)
-                        r = k;
         }
 
-        return r;
+        return ret;
 }
 
 static int sysroot_is_nfsroot(void) {
