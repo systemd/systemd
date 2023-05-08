@@ -24,7 +24,7 @@ function report_result() {
     local name="${1##*/}"
     local ret=$2
 
-    if [[ $ret -ne 0 && $ret != 77 ]]; then
+    if [[ $ret -ne 0 && $ret != 77 && $ret != 127 ]]; then
         echo "$name failed with $ret"
         echo "$name" >>/failed-tests
         {
@@ -32,7 +32,7 @@ function report_result() {
             cat "/$name.log"
             echo "--- $name end ---"
         } >>/failed
-    elif [[ $ret == 77 ]]; then
+    elif [[ $ret == 77 || $ret == 127 ]]; then
         echo "$name skipped"
         echo "$name" >>/skipped-tests
         {
