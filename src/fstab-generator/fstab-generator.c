@@ -22,6 +22,7 @@
 #include "mount-setup.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
@@ -45,6 +46,15 @@ typedef enum MountPointFlags {
         MOUNT_PCRFS     = 1 << 6,
 } MountPointFlags;
 
+typedef struct Mount {
+        char *what;
+        char *where;
+        char *fstype;
+        char *options;
+} Mount;
+
+static void mount_array_free(Mount *mounts, size_t n);
+
 static bool arg_sysroot_check = false;
 static const char *arg_dest = NULL;
 static const char *arg_dest_late = NULL;
@@ -60,6 +70,8 @@ static char *arg_usr_fstype = NULL;
 static char *arg_usr_options = NULL;
 static char *arg_usr_hash = NULL;
 static VolatileMode arg_volatile_mode = _VOLATILE_MODE_INVALID;
+static Mount *arg_mounts = NULL;
+static size_t arg_n_mounts = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_fstype, freep);
@@ -69,6 +81,116 @@ STATIC_DESTRUCTOR_REGISTER(arg_usr_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_fstype, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_options, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_hash, freep);
+STATIC_ARRAY_DESTRUCTOR_REGISTER(arg_mounts, arg_n_mounts, mount_array_free);
+
+static Mount* mount_free(Mount *m) {
+        if (!m)
+                return NULL;
+
+        free(m->what);
+        free(m->where);
+        free(m->fstype);
+        free(m->options);
+
+        return mfree(m);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Mount*, mount_free);
+
+static void mount_array_free(Mount *mounts, size_t n) {
+        FOREACH_ARRAY(m, mounts, n)
+                mount_free(m);
+
+        free(mounts);
+}
+
+static int mount_array_add(const char *str) {
+        _cleanup_free_ char *what = NULL, *where = NULL, *fstype = NULL, *options = NULL;
+        int r;
+
+        assert(str);
+
+        r = extract_many_words(&str, ":", EXTRACT_CUNESCAPE | EXTRACT_DONT_COALESCE_SEPARATORS,
+                               &what, &where, &fstype, &options, NULL);
+        if (r < 0)
+                return r;
+        if (r < 2)
+                return -EINVAL;
+        if (!isempty(str))
+                return -EINVAL;
+
+        if (options) {
+                /* add_mount() requests that options are in nulstr. */
+                if (!strextend(&options, ","))
+                        return -ENOMEM;
+
+                string_replace_char(options, ',', '\0');
+        } else {
+                r = strv_make_nulstr(STRV_MAKE("defaults"), &options, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!GREEDY_REALLOC(arg_mounts, arg_n_mounts + 1))
+                return -ENOMEM;
+
+        arg_mounts[arg_n_mounts++] = (Mount) {
+                .what = TAKE_PTR(what),
+                .where = TAKE_PTR(where),
+                .fstype = TAKE_PTR(fstype),
+                .options = TAKE_PTR(options),
+        };
+
+        return 0;
+}
+
+static int mount_array_add_swap(const char *str) {
+        _cleanup_free_ char *what = NULL, *where = NULL, *fstype = NULL, *options = NULL;
+        int r;
+
+        assert(str);
+
+        r = extract_many_words(&str, ":", EXTRACT_CUNESCAPE | EXTRACT_DONT_COALESCE_SEPARATORS,
+                               &what, &options, NULL);
+        if (r < 0)
+                return r;
+        if (r < 1)
+                return -EINVAL;
+        if (!isempty(str))
+                return -EINVAL;
+
+        where = strdup("");
+        if (!where)
+                return -ENOMEM;
+
+        fstype = strdup("swap");
+        if (!fstype)
+                return -ENOMEM;
+
+        if (options) {
+                /* add_mount() requests that options are in nulstr. */
+                if (!strextend(&options, ","))
+                        return -ENOMEM;
+
+                string_replace_char(options, ',', '\0');
+        } else {
+                r = strv_make_nulstr(STRV_MAKE("defaults"), &options, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!GREEDY_REALLOC(arg_mounts, arg_n_mounts + 1))
+                return -ENOMEM;
+
+        arg_mounts[arg_n_mounts++] = (Mount) {
+                .what = TAKE_PTR(what),
+                .where = TAKE_PTR(where),
+                .fstype = TAKE_PTR(fstype),
+                .options = TAKE_PTR(options),
+        };
+
+        return 0;
+}
 
 static int write_options(FILE *f, const char *options) {
         _cleanup_free_ char *o = NULL;
@@ -1146,6 +1268,27 @@ static int add_volatile_var(void) {
                          SPECIAL_LOCAL_FS_TARGET);
 }
 
+static int add_mounts_from_cmdline(void) {
+        int r, ret = 0;
+
+        /* Handle each entries found in cmdline as a fstab entry. */
+
+        FOREACH_ARRAY(m, arg_mounts, arg_n_mounts) {
+                r = parse_fstab_one(
+                              "/proc/cmdline",
+                              m->what,
+                              m->where,
+                              m->fstype,
+                              m->options,
+                              /* passno = */ 0,
+                              /* initrd = */ false);
+                if (r < 0 && ret >= 0)
+                        ret = r;
+        }
+
+        return ret;
+}
+
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
 
@@ -1237,11 +1380,29 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         } else if (streq(key, "systemd.swap")) {
 
-                r = value ? parse_boolean(value) : 1;
+                if (!value)
+                        arg_swap_enabled = true;
+                else {
+                        r = parse_boolean(value);
+                        if (r >= 0)
+                                arg_swap_enabled = r;
+                        else {
+                                r = mount_array_add_swap(value);
+                                if (r < 0)
+                                        log_warning("Failed to parse systemd.swap= option, ignoring: %s", value);
+
+                                arg_swap_enabled = true;
+                        }
+                }
+
+        } else if (streq(key, "systemd.mount")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = mount_array_add(value);
                 if (r < 0)
-                        log_warning("Failed to parse systemd.swap switch %s. Ignoring.", value);
-                else
-                        arg_swap_enabled = r;
+                        log_warning("Failed to parse systemd.mount= option, ignoring: %s", value);
         }
 
         return 0;
@@ -1334,6 +1495,10 @@ static int run_generator(void) {
                 if (r < 0 && ret >= 0)
                         ret = r;
         }
+
+        r = add_mounts_from_cmdline();
+        if (r < 0 && ret >= 0)
+                ret = r;
 
         return ret;
 }
