@@ -95,6 +95,7 @@ int main(int argc, char **argv) {
         test_table(scope_state, SCOPE_STATE);
         test_table(service_exec_command, SERVICE_EXEC_COMMAND);
         test_table(service_restart, SERVICE_RESTART);
+        test_table(service_restart_mode, SERVICE_RESTART_MODE);
         test_table(service_result, SERVICE_RESULT);
         test_table(service_state, SERVICE_STATE);
         test_table(service_type, SERVICE_TYPE);
