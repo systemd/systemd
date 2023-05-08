@@ -279,9 +279,9 @@ int sd_dhcp_client_set_duid_llt(
                 uint64_t llt_time);
 int sd_dhcp_client_get_client_id(
                 sd_dhcp_client *client,
-                uint8_t *type,
-                const uint8_t **data,
-                size_t *data_len);
+                uint8_t *ret_type,
+                const uint8_t **ret_data,
+                size_t *ret_data_len);
 int sd_dhcp_client_set_mtu(
                 sd_dhcp_client *client,
                 uint32_t mtu);

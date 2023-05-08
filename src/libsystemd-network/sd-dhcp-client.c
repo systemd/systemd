@@ -339,24 +339,31 @@ int sd_dhcp_client_set_mac(
 
 int sd_dhcp_client_get_client_id(
                 sd_dhcp_client *client,
-                uint8_t *type,
-                const uint8_t **data,
-                size_t *data_len) {
+                uint8_t *ret_type,
+                const uint8_t **ret_data,
+                size_t *ret_data_len) {
 
         assert_return(client, -EINVAL);
-        assert_return(type, -EINVAL);
-        assert_return(data, -EINVAL);
-        assert_return(data_len, -EINVAL);
 
-        if (client->client_id_len) {
-                *type = client->client_id.type;
-                *data = client->client_id.raw.data;
-                *data_len = client->client_id_len - sizeof(client->client_id.type);
-        } else {
-                *type = 0;
-                *data = NULL;
-                *data_len = 0;
+        if (client->client_id_len > 0) {
+                if (client->client_id_len < offsetof(sd_dhcp_client_id, raw.data))
+                        return -EINVAL;
+
+                if (ret_type)
+                        *ret_type = client->client_id.type;
+                if (ret_data)
+                        *ret_data = client->client_id.raw.data;
+                if (ret_data_len)
+                        *ret_data_len = client->client_id_len - offsetof(sd_dhcp_client_id, raw.data);
+                return 1;
         }
+
+        if (ret_type)
+                *ret_type = 0;
+        if (ret_data)
+                *ret_data = NULL;
+        if (ret_data_len)
+                *ret_data_len = 0;
 
         return 0;
 }
@@ -828,14 +835,12 @@ static int client_message_init(
 
         /* Some DHCP servers will refuse to issue an DHCP lease if the Client
            Identifier option is not set */
-        if (client->client_id_len) {
-                r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
-                                       SD_DHCP_OPTION_CLIENT_IDENTIFIER,
-                                       client->client_id_len,
-                                       &client->client_id);
-                if (r < 0)
-                        return r;
-        }
+        r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
+                               SD_DHCP_OPTION_CLIENT_IDENTIFIER,
+                               client->client_id_len,
+                               &client->client_id);
+        if (r < 0)
+                return r;
 
         /* RFC2131 section 3.5:
            in its initial DHCPDISCOVER or DHCPREQUEST message, a
@@ -1472,7 +1477,7 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer, size_
         if (r < 0)
                 return r;
 
-        if (client->client_id_len) {
+        if (client->client_id_len > 0) {
                 r = dhcp_lease_set_client_id(lease,
                                              (uint8_t *) &client->client_id,
                                              client->client_id_len);
@@ -1566,7 +1571,7 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack, size_t le
         if (r < 0)
                 return r;
 
-        if (client->client_id_len) {
+        if (client->client_id_len > 0) {
                 r = dhcp_lease_set_client_id(lease,
                                              (uint8_t *) &client->client_id,
                                              client->client_id_len);
