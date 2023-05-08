@@ -33,6 +33,7 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, service_type, ServiceType
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_exit_type, service_exit_type, ServiceExitType);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, service_result, ServiceResult);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_restart, service_restart, ServiceRestart);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_restart_mode, service_restart_mode, ServiceRestartMode);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_emergency_action, emergency_action, EmergencyAction);
 static BUS_DEFINE_PROPERTY_GET2(property_get_notify_access, "s", Service, service_get_notify_access, notify_access_to_string);
 static BUS_DEFINE_PROPERTY_GET(property_get_restart_usec_next, "t", Service, service_restart_usec_next);
@@ -322,6 +323,7 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_PROPERTY("Type", "s", property_get_type, offsetof(Service, type), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ExitType", "s", property_get_exit_type, offsetof(Service, exit_type), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Restart", "s", property_get_restart, offsetof(Service, restart), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RestartMode", "s", property_get_restart_mode, offsetof(Service, restart_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PIDFile", "s", NULL, offsetof(Service, pid_file), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NotifyAccess", "s", property_get_notify_access, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("RestartUSec", "t", bus_property_get_usec, offsetof(Service, restart_usec), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -512,6 +514,7 @@ static BUS_DEFINE_SET_TRANSIENT_PARSE(notify_access, NotifyAccess, notify_access
 static BUS_DEFINE_SET_TRANSIENT_PARSE(service_type, ServiceType, service_type_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(service_exit_type, ServiceExitType, service_exit_type_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(service_restart, ServiceRestart, service_restart_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(service_restart_mode, ServiceRestartMode, service_restart_mode_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(oom_policy, OOMPolicy, oom_policy_from_string);
 static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(bus_name, sd_bus_service_name_is_valid);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(timeout_failure_mode, ServiceTimeoutFailureMode, service_timeout_failure_mode_from_string);
@@ -659,6 +662,9 @@ static int bus_service_set_transient_property(
 
         if (streq(name, "Restart"))
                 return bus_set_transient_service_restart(u, name, &s->restart, message, flags, error);
+
+        if (streq(name, "RestartMode"))
+                return bus_set_transient_service_restart_mode(u, name, &s->restart_mode, message, flags, error);
 
         if (streq(name, "RestartPreventExitStatus"))
                 return bus_set_transient_exit_status(u, name, &s->restart_prevent_status, message, flags, error);
