@@ -10,6 +10,7 @@
 [Unit]
 Description=Network Configuration
 Documentation=man:systemd-networkd.service(8)
+Documentation=man:org.freedesktop.network1(5)
 ConditionCapability=CAP_NET_ADMIN
 DefaultDependencies=no
 # systemd-udevd.service can be dropped once tuntap is moved to netlink
