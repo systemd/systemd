@@ -3859,7 +3859,119 @@ static int context_copy_blocks(Context *context) {
         return 0;
 }
 
-static int do_copy_files(Partition *p, const char *root, Hashmap *denylist) {
+static int add_exclude_path(const char *path, Hashmap **denylist, DenyType type) {
+        _cleanup_free_ struct stat *st = NULL;
+        int r;
+
+        assert(path);
+        assert(denylist);
+
+        st = new(struct stat, 1);
+        if (!st)
+                return log_oom();
+
+        r = chase_and_stat(path, arg_root, CHASE_PREFIX_ROOT, NULL, st);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to stat source file '%s/%s': %m", strempty(arg_root), path);
+
+        r = hashmap_ensure_put(denylist, &inode_hash_ops, st, INT_TO_PTR(type));
+        if (r == -EEXIST)
+                return 0;
+        if (r < 0)
+                return log_oom();
+        if (r > 0)
+                TAKE_PTR(st);
+
+        return 0;
+}
+
+static int make_copy_files_denylist(
+                Context *context,
+                const Partition *p,
+                const char *source,
+                const char *target,
+                Hashmap **ret) {
+
+        _cleanup_hashmap_free_ Hashmap *denylist = NULL;
+        int r;
+
+        assert(context);
+        assert(p);
+        assert(source);
+        assert(target);
+        assert(ret);
+
+        /* Always exclude the top level APIVFS and temporary directories since the contents of these
+         * directories are almost certainly not intended to end up in an image. */
+
+        FOREACH_STRING(s, "proc", "sys", "dev", "tmp", "run", "var/tmp") {
+                r = add_exclude_path(s, &denylist, DENY_CONTENTS);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Add the user configured excludes. */
+
+        STRV_FOREACH(e, p->exclude_files) {
+                r = add_exclude_path(*e, &denylist, endswith(*e, "/") ? DENY_CONTENTS : DENY_INODE);
+                if (r < 0)
+                        return r;
+        }
+
+        /* If we're populating a root partition, we don't want any files to end up under the APIVFS mount
+         * points. While we already exclude <source>/proc, users could still do something such as
+         * "CopyFiles=/abc:/". Now, if /abc has a proc subdirectory with files in it, those will end up in
+         * the top level proc directory in the root partition, which we want to avoid. To deal with these
+         * cases, Whenever we're populating a root partition and the target of CopyFiles= is the root
+         * directory of the root partition, we exclude all directories under the source that are named after
+         * APIVFS directories or named after mount points of other partitions that are also going to be part
+         * of the image. */
+
+        if (p->type.designator == PARTITION_ROOT && empty_or_root(target)) {
+                LIST_FOREACH(partitions, q, context->partitions) {
+                        if (q->type.designator == PARTITION_ROOT)
+                                continue;
+
+                        const char *sources = gpt_partition_type_mountpoint_nulstr(q->type);
+                        if (!sources)
+                                continue;
+
+                        NULSTR_FOREACH(s, sources) {
+                                _cleanup_free_ char *path = NULL;
+
+                                /* Exclude only the children of partition mount points so that the nested
+                                 * partition mount point itself still ends up in the upper partition. */
+
+                                path = path_join(source, s);
+                                if (!path)
+                                        return -ENOMEM;
+
+                                r = add_exclude_path(path, &denylist, DENY_CONTENTS);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+
+                FOREACH_STRING(s, "proc", "sys", "dev", "tmp", "run", "var/tmp") {
+                        _cleanup_free_ char *path = NULL;
+
+                        path = path_join(source, s);
+                        if (!path)
+                                return -ENOMEM;
+
+                        r = add_exclude_path(path, &denylist, DENY_CONTENTS);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret = TAKE_PTR(denylist);
+        return 0;
+}
+
+static int do_copy_files(Context *context, Partition *p, const char *root) {
         int r;
 
         assert(p);
@@ -3891,7 +4003,12 @@ static int do_copy_files(Partition *p, const char *root, Hashmap *denylist) {
         }
 
         STRV_FOREACH_PAIR(source, target, p->copy_files) {
+                _cleanup_hashmap_free_ Hashmap *denylist = NULL;
                 _cleanup_close_ int sfd = -EBADF, pfd = -EBADF, tfd = -EBADF;
+
+                r = make_copy_files_denylist(context, p, *source, *target, &denylist);
+                if (r < 0)
+                        return r;
 
                 sfd = chase_and_open(*source, arg_root, CHASE_PREFIX_ROOT, O_CLOEXEC|O_NOCTTY, NULL);
                 if (sfd < 0)
@@ -4004,7 +4121,7 @@ static bool partition_needs_populate(Partition *p) {
         return !strv_isempty(p->copy_files) || !strv_isempty(p->make_directories);
 }
 
-static int partition_populate_directory(Partition *p, Hashmap *denylist, char **ret) {
+static int partition_populate_directory(Context *context, Partition *p, char **ret) {
         _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
         const char *vt;
         int r;
@@ -4025,7 +4142,7 @@ static int partition_populate_directory(Partition *p, Hashmap *denylist, char **
         if (r < 0)
                 return log_error_errno(errno, "Failed to create temporary directory: %m");
 
-        r = do_copy_files(p, root, denylist);
+        r = do_copy_files(context, p, root);
         if (r < 0)
                 return r;
 
@@ -4039,7 +4156,7 @@ static int partition_populate_directory(Partition *p, Hashmap *denylist, char **
         return 0;
 }
 
-static int partition_populate_filesystem(Partition *p, const char *node, Hashmap *denylist) {
+static int partition_populate_filesystem(Context *context, Partition *p, const char *node) {
         int r;
 
         assert(p);
@@ -4067,7 +4184,7 @@ static int partition_populate_filesystem(Partition *p, const char *node, Hashmap
                 if (mount_nofollow_verbose(LOG_ERR, node, fs, p->format, MS_NOATIME|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL) < 0)
                         _exit(EXIT_FAILURE);
 
-                if (do_copy_files(p, fs, denylist) < 0)
+                if (do_copy_files(context, p, fs) < 0)
                         _exit(EXIT_FAILURE);
 
                 if (do_make_directories(p, fs) < 0)
@@ -4086,77 +4203,6 @@ static int partition_populate_filesystem(Partition *p, const char *node, Hashmap
         return 0;
 }
 
-static int add_exclude_path(const char *path, Hashmap **denylist, DenyType type) {
-        _cleanup_free_ struct stat *st = NULL;
-        int r;
-
-        assert(path);
-        assert(denylist);
-
-        st = new(struct stat, 1);
-        if (!st)
-                return log_oom();
-
-        r = chase_and_stat(path, arg_root, CHASE_PREFIX_ROOT, NULL, st);
-        if (r == -ENOENT)
-                return 0;
-        if (r < 0)
-                return log_error_errno(r, "Failed to stat source file '%s%s': %m",
-                                        strempty(arg_root), path);
-
-        if (hashmap_contains(*denylist, st))
-                return 0;
-
-        if (hashmap_ensure_put(denylist, &inode_hash_ops, st, INT_TO_PTR(type)) < 0)
-                return log_oom();
-
-        TAKE_PTR(st);
-
-        return 0;
-}
-
-static int make_copy_files_denylist(Context *context, const Partition *p, Hashmap **ret) {
-        _cleanup_hashmap_free_ Hashmap *denylist = NULL;
-        int r;
-
-        assert(context);
-        assert(p);
-        assert(ret);
-
-        LIST_FOREACH(partitions, q, context->partitions) {
-                if (p == q)
-                        continue;
-
-                const char *sources = gpt_partition_type_mountpoint_nulstr(q->type);
-                if (!sources)
-                        continue;
-
-                NULSTR_FOREACH(s, sources) {
-                        /* Exclude the children of partition mount points so that the nested partition mount
-                         * point itself still ends up in the upper partition. */
-
-                        r = add_exclude_path(s, &denylist, DENY_CONTENTS);
-                        if (r < 0)
-                                return r;
-                }
-        }
-
-        FOREACH_STRING(s, "proc", "sys", "dev", "tmp", "run", "var/tmp") {
-                r = add_exclude_path(s, &denylist, DENY_CONTENTS);
-                if (r < 0)
-                        return r;
-        }
-
-        STRV_FOREACH(e, p->exclude_files) {
-                r = add_exclude_path(*e, &denylist, endswith(*e, "/") ? DENY_CONTENTS : DENY_INODE);
-                if (r < 0)
-                        return r;
-        }
-
-        *ret = TAKE_PTR(denylist);
-        return 0;
-}
-
 static int context_mkfs(Context *context) {
         int r;
 
@@ -4165,7 +4211,6 @@ static int context_mkfs(Context *context) {
         /* Make a file system */
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_hashmap_free_ Hashmap *denylist = NULL;
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
                 _cleanup_strv_free_ char **extra_mkfs_options = NULL;
@@ -4190,10 +4235,6 @@ static int context_mkfs(Context *context) {
                 assert(p->new_size != UINT64_MAX);
                 assert(p->new_size >= (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_KEEP_FREE : 0));
 
-                r = make_copy_files_denylist(context, p, &denylist);
-                if (r < 0)
-                        return r;
-
                 /* If we're doing encryption, we make sure we keep free space at the end which is required
                  * for cryptsetup's offline encryption. */
                 r = partition_target_prepare(context, p,
@@ -4215,7 +4256,7 @@ static int context_mkfs(Context *context) {
                                                         "Loop device access is required to populate %s filesystems.",
                                                         p->format);
 
-                        r = partition_populate_directory(p, denylist, &root);
+                        r = partition_populate_directory(context, p, &root);
                         if (r < 0)
                                 return r;
                 }
@@ -4237,7 +4278,7 @@ static int context_mkfs(Context *context) {
                 if (partition_needs_populate(p) && !root) {
                         assert(t->loop);
 
-                        r = partition_populate_filesystem(p, t->loop->node, denylist);
+                        r = partition_populate_filesystem(context, p, t->loop->node);
                         if (r < 0)
                                 return r;
                 }
@@ -5484,7 +5525,6 @@ static int context_minimize(Context *context) {
                 return log_error_errno(r, "Could not determine temporary directory: %m");
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_hashmap_free_ Hashmap *denylist = NULL;
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(unlink_and_freep) char *temp = NULL;
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
@@ -5515,10 +5555,6 @@ static int context_minimize(Context *context) {
 
                 log_info("Pre-populating %s filesystem of partition %s twice to calculate minimal partition size",
                          p->format, strna(hint));
-
-                r = make_copy_files_denylist(context, p, &denylist);
-                if (r < 0)
-                        return r;
 
                 r = tempfn_random_child(vt, "repart", &temp);
                 if (r < 0)
@@ -5554,7 +5590,7 @@ static int context_minimize(Context *context) {
                                                        "Loop device access is required to populate %s filesystems",
                                                        p->format);
 
-                        r = partition_populate_directory(p, denylist, &root);
+                        r = partition_populate_directory(context, p, &root);
                         if (r < 0)
                                 return r;
                 }
@@ -5589,7 +5625,7 @@ static int context_minimize(Context *context) {
                 if (!root) {
                         assert(d);
 
-                        r = partition_populate_filesystem(p, d->node, denylist);
+                        r = partition_populate_filesystem(context, p, d->node);
                         if (r < 0)
                                 return r;
                 }
@@ -5638,7 +5674,7 @@ static int context_minimize(Context *context) {
                 if (!root) {
                         assert(d);
 
-                        r = partition_populate_filesystem(p, d->node, denylist);
+                        r = partition_populate_filesystem(context, p, d->node);
                         if (r < 0)
                                 return r;
                 }
