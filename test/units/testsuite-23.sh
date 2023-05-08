@@ -3,63 +3,64 @@
 set -eux
 set -o pipefail
 
-systemd-analyze log-level debug
+: >/failed
 
-# Create a binary for which execve() will fail
-touch /tmp/brokenbinary
-chmod +x /tmp/brokenbinary
+declare -i CHILD_PID=0
 
-# These three commands should succeed.
-systemd-run --unit=one -p Type=simple /bin/sleep infinity
-systemd-run --unit=two -p Type=simple -p User=idontexist /bin/sleep infinity
-systemd-run --unit=three -p Type=simple /tmp/brokenbinary
+# Note: all the signal shenanigans are necessary for the Upholds= tests
 
-# And now, do the same with Type=exec, where the latter two should fail
-systemd-run --unit=four -p Type=exec /bin/sleep infinity
-(! systemd-run --unit=five -p Type=exec -p User=idontexist /bin/sleep infinity)
-(! systemd-run --unit=six -p Type=exec /tmp/brokenbinary)
+# Like trap, but passes the signal name as the first argument
+trap_with_sig() {
+    local fun="${1:?}"
+    local sig
+    shift
 
-systemd-run --unit=seven -p KillSignal=SIGTERM -p RestartKillSignal=SIGINT -p Type=exec /bin/sleep infinity
-# Both TERM and SIGINT happen to have the same number on all architectures
-test "$(systemctl show --value -p KillSignal seven.service)" -eq 15
-test "$(systemctl show --value -p RestartKillSignal seven.service)" -eq 2
+    for sig in "$@"; do
+        # shellcheck disable=SC2064
+        trap "$fun $sig" "$sig"
+    done
+}
 
-systemctl restart seven.service
-systemctl stop seven.service
+# Propagate the caught signal to the current child process
+handle_signal() {
+    local sig="${1:?}"
 
-# For issue #20933
+    if [[ $CHILD_PID -gt 0 ]]; then
+        echo "Propagating signal $sig to child process $CHILD_PID"
+        kill -s "$sig" "$CHILD_PID"
+    fi
+}
 
-# Should work normally
-busctl call \
-    org.freedesktop.systemd1 /org/freedesktop/systemd1 \
-    org.freedesktop.systemd1.Manager StartTransientUnit \
-    "ssa(sv)a(sa(sv))" test-20933-ok.service replace 1 \
-      ExecStart "a(sasb)" 1 \
-        /usr/bin/sleep 2 /usr/bin/sleep 1 true \
-    0
+# In order to make the handle_signal() stuff above work, we have to execute
+# each script asynchronously, since bash won't execute traps until the currently
+# executed command finishes. This, however, introduces another issue regarding
+# how bash's wait works. Quoting:
+#
+#   When bash is waiting for an asynchronous command via the wait builtin,
+#   the reception of a signal for which a trap has been set will cause the wait
+#   builtin to return immediately with an exit status greater than 128,
+#   immediately after which the trap is executed.
+#
+# In other words - every time we propagate a signal, wait returns with
+# 128+signal, so we have to wait again - repeat until the process dies.
+wait_harder() {
+    local pid="${1:?}"
 
-# DBus call should fail but not crash systemd
-(! busctl call \
-    org.freedesktop.systemd1 /org/freedesktop/systemd1 \
-    org.freedesktop.systemd1.Manager StartTransientUnit \
-    "ssa(sv)a(sa(sv))" test-20933-bad.service replace 1 \
-      ExecStart "a(sasb)" 1 \
-        /usr/bin/sleep 0 true \
-    0)
+    while kill -0 "$pid"; do
+        wait "$pid" || :
+    done
 
-# Same but with the empty argv in the middle
-(! busctl call \
-    org.freedesktop.systemd1 /org/freedesktop/systemd1 \
-    org.freedesktop.systemd1.Manager StartTransientUnit \
-    "ssa(sv)a(sa(sv))" test-20933-bad-middle.service replace 1 \
-      ExecStart "a(sasb)" 3 \
-        /usr/bin/sleep 2 /usr/bin/sleep 1 true \
-        /usr/bin/sleep 0                  true \
-        /usr/bin/sleep 2 /usr/bin/sleep 1 true \
-    0)
+    wait "$pid"
+}
 
-systemd-analyze log-level info
+trap_with_sig handle_signal SIGUSR1 SIGUSR2 SIGRTMIN+1
 
-echo OK >/testok
+for script in "${0%.sh}".*.sh; do
+    echo "Running $script"
+    "./$script" &
+    CHILD_PID=$!
+    wait_harder "$CHILD_PID"
+done
 
-exit 0
+touch /testok
+rm /failed
