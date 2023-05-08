@@ -17,6 +17,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "process-util.h"
+#include "proc-cmdline.h"
 #include "signal-util.h"
 #include "special.h"
 #include "unit-def.h"
@@ -116,6 +117,7 @@ static int run(int argc, char *argv[]) {
                 NULL,             /* --force */
                 NULL
         };
+        bool force = false;
         int r;
 
         log_setup();
@@ -123,6 +125,18 @@ static int run(int argc, char *argv[]) {
         print_mode(argc > 1 ? argv[1] : "");
 
         if (getenv_bool("SYSTEMD_SULOGIN_FORCE") > 0)
+                force = true;
+
+        if (!force) {
+                /* We look the argument in the kernel cmdline under the same name as the environment variable
+                 * to express that this is not supported at the same level as the regular kernel cmdline
+                 * switches. */
+                r = proc_cmdline_get_bool("SYSTEMD_SULOGIN_FORCE", &force);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse SYSTEMD_SULOGIN_FORCE from kernel command line, ignoring: %m");
+        }
+
+        if (force)
                 /* allows passwordless logins if root account is locked. */
                 sulogin_cmdline[1] = "--force";
 
