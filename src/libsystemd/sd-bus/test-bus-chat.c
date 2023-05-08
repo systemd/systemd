@@ -46,31 +46,25 @@ static int object_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_
         return 0;
 }
 
-static int server_init(sd_bus **_bus) {
-        sd_bus *bus = NULL;
+static int server_init(sd_bus **ret_bus) {
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        const char *unique, *desc;
         sd_id128_t id;
         int r;
-        const char *unique, *desc;
 
-        assert_se(_bus);
+        assert_se(ret_bus);
 
         r = sd_bus_open_user_with_description(&bus, "my bus!");
-        if (r < 0) {
-                log_error_errno(r, "Failed to connect to user bus: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to user bus: %m");
 
         r = sd_bus_get_bus_id(bus, &id);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get server ID: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get server ID: %m");
 
         r = sd_bus_get_unique_name(bus, &unique);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get unique name: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get unique name: %m");
 
         assert_se(sd_bus_get_description(bus, &desc) >= 0);
         assert_se(streq(desc, "my bus!"));
@@ -80,48 +74,35 @@ static int server_init(sd_bus **_bus) {
         log_info("Can send file handles: %i", sd_bus_can_send(bus, 'h'));
 
         r = sd_bus_request_name(bus, "org.freedesktop.systemd.test", 0);
-        if (r < 0) {
-                log_error_errno(r, "Failed to acquire name: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire name: %m");
 
         r = sd_bus_add_fallback(bus, NULL, "/foo/bar", object_callback, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add object: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add object: %m");
 
         r = sd_bus_match_signal(bus, NULL, NULL, NULL, "foo.bar", "Notify", match_callback, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to request match: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to request match: %m");
 
         r = sd_bus_match_signal(bus, NULL, NULL, NULL, "foo.bar", "NotifyTo", match_callback, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to request match: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to request match: %m");
 
         r = sd_bus_add_match(bus, NULL, "type='signal',interface='org.freedesktop.DBus',member='NameOwnerChanged'", match_callback, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add match: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match: %m");
 
         bus_match_dump(stdout, &bus->match_callbacks, 0);
 
-        *_bus = bus;
+        *ret_bus = TAKE_PTR(bus);
         return 0;
-
-fail:
-        sd_bus_unref(bus);
-        return r;
 }
 
-static int server(sd_bus *bus) {
-        int r;
+static int server(sd_bus *_bus) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = ASSERT_PTR(_bus);
         bool client1_gone = false, client2_gone = false;
+        int r;
 
         while (!client1_gone || !client2_gone) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -129,30 +110,26 @@ static int server(sd_bus *bus) {
                 const char *label = NULL;
 
                 r = sd_bus_process(bus, &m);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to process requests: %m");
-                        goto fail;
-                }
-
+                if (r < 0)
+                        return log_error_errno(r, "Failed to process requests: %m");
                 if (r == 0) {
                         r = sd_bus_wait(bus, UINT64_MAX);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to wait: %m");
-                                goto fail;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to wait: %m");
 
                         continue;
                 }
-
                 if (!m)
                         continue;
 
-                sd_bus_creds_get_pid(sd_bus_message_get_creds(m), &pid);
-                sd_bus_creds_get_selinux_context(sd_bus_message_get_creds(m), &label);
+                (void) sd_bus_creds_get_pid(sd_bus_message_get_creds(m), &pid);
+                (void) sd_bus_creds_get_selinux_context(sd_bus_message_get_creds(m), &label);
+
                 log_info("Got message! member=%s pid="PID_FMT" label=%s",
                          strna(sd_bus_message_get_member(m)),
                          pid,
                          strna(label));
+
                 /* sd_bus_message_dump(m); */
                 /* sd_bus_message_rewind(m, true); */
 
@@ -161,40 +138,31 @@ static int server(sd_bus *bus) {
                         _cleanup_free_ char *lowercase = NULL;
 
                         r = sd_bus_message_read(m, "s", &hello);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to get parameter: %m");
-                                goto fail;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get parameter: %m");
 
                         lowercase = strdup(hello);
-                        if (!lowercase) {
-                                r = log_oom();
-                                goto fail;
-                        }
+                        if (!lowercase)
+                                return log_oom();
 
                         ascii_strlower(lowercase);
 
                         r = sd_bus_reply_method_return(m, "s", lowercase);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to send reply: %m");
-                                goto fail;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to send reply: %m");
+
                 } else if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "ExitClient1")) {
 
                         r = sd_bus_reply_method_return(m, NULL);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to send reply: %m");
-                                goto fail;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to send reply: %m");
 
                         client1_gone = true;
                 } else if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "ExitClient2")) {
 
                         r = sd_bus_reply_method_return(m, NULL);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to send reply: %m");
-                                goto fail;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to send reply: %m");
 
                         client2_gone = true;
                 } else if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "Slow")) {
@@ -202,56 +170,40 @@ static int server(sd_bus *bus) {
                         sleep(1);
 
                         r = sd_bus_reply_method_return(m, NULL);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to send reply: %m");
-                                goto fail;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to send reply: %m");
 
                 } else if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "FileDescriptor")) {
                         int fd;
                         static const char x = 'X';
 
                         r = sd_bus_message_read(m, "h", &fd);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to get parameter: %m");
-                                goto fail;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get parameter: %m");
 
                         log_info("Received fd=%d", fd);
 
                         if (write(fd, &x, 1) < 0) {
-                                log_error_errno(errno, "Failed to write to fd: %m");
+                                r = log_error_errno(errno, "Failed to write to fd: %m");
                                 safe_close(fd);
-                                goto fail;
+                                return r;
                         }
 
                         r = sd_bus_reply_method_return(m, NULL);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to send reply: %m");
-                                goto fail;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to send reply: %m");
 
                 } else if (sd_bus_message_is_method_call(m, NULL, NULL)) {
 
                         r = sd_bus_reply_method_error(
                                         m,
                                         &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method."));
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to send reply: %m");
-                                goto fail;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to send reply: %m");
                 }
         }
 
-        r = 0;
-
-fail:
-        if (bus) {
-                sd_bus_flush(bus);
-                sd_bus_unref(bus);
-        }
-
-        return r;
+        return 0;
 }
 
 static void* client1(void *p) {
