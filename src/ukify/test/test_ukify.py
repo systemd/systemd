@@ -323,7 +323,7 @@ def kernel_initrd():
     for item in items:
         try:
             linux = f"{item['root']}{item['linux']}"
-            initrd = f"{item['root']}{item['initrd'][0]}"
+            initrd = f"{item['root']}{item['initrd'][0].split(' ')[0]}"
         except (KeyError, IndexError):
             continue
         return [linux, initrd]
