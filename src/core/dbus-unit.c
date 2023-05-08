@@ -21,6 +21,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "selinux-access.h"
+#include "service.h"
 #include "signal-util.h"
 #include "special.h"
 #include "string-table.h"
@@ -1875,6 +1876,14 @@ int bus_unit_queue_job(
             (IN_SET(type, JOB_RESTART, JOB_TRY_RESTART) && (u->refuse_manual_start || u->refuse_manual_stop)) ||
             (type == JOB_RELOAD_OR_START && job_type_collapse(type, u) == JOB_START && u->refuse_manual_start))
                 return sd_bus_error_setf(error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, unit %s may be requested by dependency only (it is configured to refuse manual start/stop).", u->id);
+
+        if (u->manager && type == JOB_START && u->type == UNIT_SERVICE) {
+                Manager *m = u->manager;
+                Service *s = SERVICE(u);
+                if (manager_unit_deactivating_or_pending(m, SPECIAL_DBUS_BROKER_SERVICE) &&
+                    s != NULL && s->type == SERVICE_DBUS)
+                        return sd_bus_error_set(error, BUS_ERROR_SHUTTING_DOWN, "Refusing activation, D-Bus is shutting down.");
+        }
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
