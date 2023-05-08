@@ -899,6 +899,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RestartQuick=</varname></term>
+
+        <listitem><para>Takes a boolean value that specifies whether the service should restart quick,
+        i.e. without going through a failed state. Defaults to <option>no</option>.</para>
+
+        <para>This option is useful in cases where a dependency can fail temporarily
+        but we don't want these temporary failures to make the dependent units fail.
+        When this option is set to <option>yes</option>, dependent units are not notified of these temporary failures.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SuccessExitStatus=</varname></term>
 
         <listitem><para>Takes a list of exit status definitions that, when returned by the main service
