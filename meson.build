@@ -4354,17 +4354,17 @@ executable(
         install : true,
         install_dir : rootlibexecdir)
 
-kernel_install = custom_target(
+kernel_install = executable(
         'kernel-install',
-        input : kernel_install_in,
-        output : 'kernel-install',
-        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+        'src/kernel-install/kernel-install.c',
+        include_directories : includes,
+        link_with : [libshared],
+        dependencies : [userspace,
+                        versiondep],
+        install_rpath : rootpkglibdir,
         install : want_kernel_install,
-        install_mode : 'rwxr-xr-x',
         install_dir : bindir)
-if want_kernel_install
-        public_programs += exe
-endif
+public_programs += kernel_install
 
 ukify = custom_target(
         'ukify',
@@ -4375,13 +4375,13 @@ ukify = custom_target(
         install_mode : 'rwxr-xr-x',
         install_dir : rootlibexecdir)
 if want_ukify
-   public_programs += ukify
+        public_programs += ukify
 endif
 
 if want_tests != 'false' and want_kernel_install
-        args = [kernel_install.full_path(), loaderentry_install, uki_copy_install]
+        args = [kernel_install.full_path(), loaderentry_install.full_path(), uki_copy_install]
         if want_ukify and boot_stubs.length() > 0
-                args += [ukify.full_path(), ukify_install, boot_stubs[0]]
+                args += [ukify.full_path(), ukify_install.full_path(), boot_stubs[0]]
         endif
 
         test('test-kernel-install',
