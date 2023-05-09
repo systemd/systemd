@@ -428,6 +428,7 @@ Service.PermissionsStartOnly,            config_parse_bool,                     
 Service.RootDirectoryStartOnly,          config_parse_bool,                           0,                                  offsetof(Service, root_directory_start_only)
 Service.RemainAfterExit,                 config_parse_bool,                           0,                                  offsetof(Service, remain_after_exit)
 Service.GuessMainPID,                    config_parse_bool,                           0,                                  offsetof(Service, guess_main_pid)
+Service.RestartQuick,                    config_parse_bool,                           0,                                  offsetof(Service, restart_quick)
 Service.RestartPreventExitStatus,        config_parse_set_status,                     0,                                  offsetof(Service, restart_prevent_status)
 Service.RestartForceExitStatus,          config_parse_set_status,                     0,                                  offsetof(Service, restart_force_status)
 Service.SuccessExitStatus,               config_parse_set_status,                     0,                                  offsetof(Service, success_status)
