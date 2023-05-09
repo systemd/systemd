@@ -308,13 +308,11 @@ static void transaction_drop_redundant(Transaction *tr) {
         } while (again);
 }
 
-_pure_ static bool unit_matters_to_anchor(Unit *u, Job *job) {
-        assert(u);
+_pure_ static bool job_matters_to_anchor(Job *job) {
         assert(job);
         assert(!job->transaction_prev);
 
-        /* Checks whether at least one of the jobs for this unit
-         * matters to the anchor. */
+        /* Checks whether at least one of the jobs for this transaction matters to the anchor. */
 
         LIST_FOREACH(transaction, j, job)
                 if (j->matters_to_anchor)
@@ -382,7 +380,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                         if (strv_push_pair(&array, k->unit->id, (char*) job_type_to_string(k->type)) < 0)
                                 log_oom();
 
-                        if (!delete && hashmap_get(tr->jobs, k->unit) && !unit_matters_to_anchor(k->unit, k))
+                        if (!delete && hashmap_get(tr->jobs, k->unit) && !job_matters_to_anchor(k))
                                 /* Ok, we can drop this one, so let's do so. */
                                 delete = k;
 
