@@ -18,6 +18,7 @@
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "namespace-util.h"
+#include "parse-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "string-util.h"
@@ -61,11 +62,11 @@ static int fake_filesystems(void) {
                 const char *error;
                 bool ignore_mount_error;
         } fakefss[] = {
-                { "test/tmpfs/sys", "/sys",                    "Failed to mount test /sys",                        false },
-                { "test/tmpfs/dev", "/dev",                    "Failed to mount test /dev",                        false },
-                { "test/run",       "/run",                    "Failed to mount test /run",                        false },
-                { "test/run",       "/etc/udev/rules.d",       "Failed to mount empty /etc/udev/rules.d",          true },
-                { "test/run",       UDEVLIBEXECDIR "/rules.d", "Failed to mount empty " UDEVLIBEXECDIR "/rules.d", true },
+                { "tmpfs/sys", "/sys",                    "Failed to mount test /sys",                        false },
+                { "tmpfs/dev", "/dev",                    "Failed to mount test /dev",                        false },
+                { "run",       "/run",                    "Failed to mount test /run",                        false },
+                { "run",       "/etc/udev/rules.d",       "Failed to mount empty /etc/udev/rules.d",          true },
+                { "run",       UDEVLIBEXECDIR "/rules.d", "Failed to mount empty " UDEVLIBEXECDIR "/rules.d", true },
         };
         int r;
 
@@ -92,9 +93,9 @@ static int run(int argc, char *argv[]) {
 
         test_setup_logging(LOG_INFO);
 
-        if (!IN_SET(argc, 2, 3))
+        if (!IN_SET(argc, 2, 3, 4))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program needs one or two arguments, %d given", argc - 1);
+                                       "This program needs between one and three arguments, %d given", argc - 1);
 
         r = fake_filesystems();
         if (r < 0)
@@ -123,10 +124,18 @@ static int run(int argc, char *argv[]) {
         action = argv[1];
         devpath = argv[2];
 
+        if (argv[3]) {
+                unsigned us;
+
+                r = safe_atou(argv[3], &us);
+                if (r < 0)
+                        return log_error_errno(r, "Invalid delay '%s': %m", argv[3]);
+                usleep(us);
+        }
+
         assert_se(udev_rules_load(&rules, RESOLVE_NAME_EARLY) == 0);
 
-        const char *syspath;
-        syspath = strjoina("/sys", devpath);
+        const char *syspath = strjoina("/sys", devpath);
         r = device_new_from_synthetic_event(&dev, syspath, action);
         if (r < 0)
                 return log_debug_errno(r, "Failed to open device '%s'", devpath);

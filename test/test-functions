@@ -818,19 +818,19 @@ install_valgrind() {
         exit 1
     fi
 
-    local valgrind_bins valgrind_libs valgrind_dbg_and_supp
+    local valgrind_bins valgrind_libs valgrind_supp
 
-    readarray -t valgrind_bins < <(strace -e execve valgrind /bin/true 2>&1 >/dev/null | perl -lne 'print $1 if /^execve\("([^"]+)"/')
+    readarray -t valgrind_bins < <(strace -e execve valgrind /bin/true 2>&1 >/dev/null |
+                                       sed -r -n 's/execve\("([^"]*)".*/\1/p')
     image_install "${valgrind_bins[@]}"
 
-    readarray -t valgrind_libs < <(LD_DEBUG=files valgrind /bin/true 2>&1 >/dev/null | perl -lne 'print $1 if m{calling init: (/.*vgpreload_.*)}')
+    readarray -t valgrind_libs < <(LD_DEBUG=files valgrind /bin/true 2>&1 >/dev/null |
+                                       sed -r -n 's|.*calling init: (/.*vgpreload_.*)|\1|p')
     image_install "${valgrind_libs[@]}"
 
-    readarray -t valgrind_dbg_and_supp < <(
-        strace -e open valgrind /bin/true 2>&1 >/dev/null |
-        perl -lne 'if (my ($fname) = /^open\("([^"]+).*= (?!-)\d+/) { print $fname if $fname =~ /debug|\.supp$/ }'
-    )
-    image_install "${valgrind_dbg_and_supp[@]}"
+    readarray -t valgrind_supp < <(strace -e open valgrind /bin/true 2>&1 >/dev/null |
+                                       sed -r -n 's,open\("([^"]*(/debug[^"]*|\.supp))".*= [0-9].*,\1,p')
+    image_install "${valgrind_supp[@]}"
 }
 
 create_valgrind_wrapper() {
@@ -1455,16 +1455,13 @@ check_asan_reports() {
             ret=$((ret+1))
         fi
 
+        # May 08 13:23:31 H testleak[2907148]: SUMMARY: AddressSanitizer: 4 byte(s) leaked in 1 allocation(s).
         pids="$(
-            "$JOURNALCTL" -D "$root/var/log/journal" | perl -alne '
-                 BEGIN {
-                     %services_to_ignore = (
-                         "dbus-daemon" => undef,
-                         "dbus-broker-launch" => undef,
-                     );
-                 }
-                 print $2 if /\s(\S*)\[(\d+)\]:\s*SUMMARY:\s+\w+Sanitizer/ && !exists $services_to_ignore{$1}'
+            "$JOURNALCTL" -D "$root/var/log/journal" --grep 'SUMMARY: .*Sanitizer:' |
+                   grep -v -E 'dbus-daemon|dbus-broker-launch' |
+                   sed -r -n 's/.* .+\[([0-9]+)\]: SUMMARY:.*/\1/p'
         )"
+
         if [[ -n "$pids" ]]; then
             ret=$((ret+1))
             for pid in $pids; do
