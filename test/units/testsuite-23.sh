@@ -46,7 +46,7 @@ handle_signal() {
 wait_harder() {
     local pid="${1:?}"
 
-    while kill -0 "$pid"; do
+    while kill -0 "$pid" &>/dev/null; do
         wait "$pid" || :
     done
 
