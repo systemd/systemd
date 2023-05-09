@@ -2008,7 +2008,8 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                  * are only transitionary and followed by an automatic restart. We have fine-grained
                  * low-level states for this though so that software can distinguish the permanent UNIT_INACTIVE
                  * state from this transitionary UNIT_INACTIVE state by looking at the low-level states. */
-                service_set_state(s, restart_state);
+                if (!s->restart_quick)
+                        service_set_state(s, restart_state);
 
                 r = service_arm_timer(s, /* relative= */ true, service_restart_usec_next(s));
                 if (r < 0)

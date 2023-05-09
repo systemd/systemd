@@ -899,6 +899,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RestartQuick=</varname></term>
+
+        <listitem><para>Takes a boolean value that specifies whether
+        the service should restart quick i.e. without notifying dependent units
+        of failure. Defaults to <option>no</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SuccessExitStatus=</varname></term>
 
         <listitem><para>Takes a list of exit status definitions that, when returned by the main service
