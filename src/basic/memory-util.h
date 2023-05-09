@@ -113,13 +113,13 @@ static inline void erase_char(char *p) {
 }
 
 /* An automatic _cleanup_-like logic for destroy arrays (i.e. pointers + size) when leaving scope */
-struct ArrayCleanup {
+typedef struct ArrayCleanup {
         void **parray;
         size_t *pn;
         free_array_func_t pfunc;
-};
+} ArrayCleanup;
 
-static inline void array_cleanup(struct ArrayCleanup *c) {
+static inline void array_cleanup(const ArrayCleanup *c) {
         assert(c);
 
         assert(!c->parray == !c->pn);
@@ -137,7 +137,7 @@ static inline void array_cleanup(struct ArrayCleanup *c) {
 }
 
 #define CLEANUP_ARRAY(array, n, func)                                   \
-        _cleanup_(array_cleanup) _unused_ struct ArrayCleanup CONCATENATE(_cleanup_array_, UNIQ) = { \
+        _cleanup_(array_cleanup) _unused_ const ArrayCleanup CONCATENATE(_cleanup_array_, UNIQ) = { \
                 .parray = (void**) &(array),                            \
                 .pn = &(n),                                             \
                 .pfunc = (free_array_func_t) ({                         \
