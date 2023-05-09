@@ -71,6 +71,9 @@ jobs:
           - distro: centos
             release: "8"
 
+    env:
+      SYSTEMD_LOG_LEVEL: debug
+
     steps:
     - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab
     - uses: systemd/mkosi@3008c7e9383669b7fb6f6afe556c6fd28f28f8f4
@@ -99,22 +102,22 @@ jobs:
         EOF
 
     - name: Generate secure boot key
-      run: mkosi genkey
+      run: mkosi --debug genkey
 
     - name: Show ${{ matrix.distro }} image summary
       run: mkosi summary
 
     - name: Build ${{ matrix.distro }}
-      run: mkosi
+      run: mkosi --debug
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
-      run: sudo mkosi boot
+      run: sudo mkosi --debug boot
 
     - name: Check ${{ matrix.distro }} systemd-nspawn
-      run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
+      run: sudo mkosi --debug shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
 
     - name: Boot ${{ matrix.distro }} QEMU
-      run: timeout -k 30 10m mkosi qemu
+      run: timeout -k 30 10m mkosi --debug qemu
 
     - name: Check ${{ matrix.distro }} QEMU
-      run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
+      run: sudo mkosi --debug shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
