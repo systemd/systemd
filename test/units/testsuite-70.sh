@@ -229,10 +229,45 @@ systemd-run -p PrivateDevices=yes -p LoadCredentialEncrypted=testdata.encrypted:
 systemd-run -p PrivateDevices=yes -p SetCredentialEncrypted=testdata.encrypted:"$(cat /tmp/testdata.encrypted)" --pipe --wait systemd-creds cat testdata.encrypted | cmp - /tmp/testdata
 rm -f /tmp/testdata
 
+cryptenroll_wipe_and_check() {(
+    set +o pipefail
+
+    : >/tmp/cryptenroll.out
+    systemd-cryptenroll "$@" |& tee /tmp/cryptenroll.out
+    grep -qE "Wiped slot [[:digit:]]+" /tmp/cryptenroll.out
+)}
+
 img="/tmp/cryptenroll.img"
 truncate -s 20M "$img"
 echo -n password >/tmp/password
 cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom "$img" /tmp/password
+
+# Enroll additional tokens, keys, and passwords to exercise the list and wipe stuff
+systemd-cryptenroll --unlock-key-file=/tmp/password --tpm2-device=auto "$img"
+NEWPASSWORD="" systemd-cryptenroll --unlock-key-file=/tmp/password  --password "$img"
+NEWPASSWORD=foo systemd-cryptenroll --unlock-key-file=/tmp/password  --password "$img"
+for _ in {0..9}; do
+    systemd-cryptenroll --unlock-key-file=/tmp/password --recovery-key "$img"
+done
+PASSWORD="" NEWPIN=123456 systemd-cryptenroll --tpm2-device=auto --tpm2-with-pin=true "$img"
+# Do some basic checks before we start wiping stuff
+systemd-cryptenroll "$img"
+systemd-cryptenroll "$img" | grep password
+systemd-cryptenroll "$img" | grep recovery
+# Let's start wiping
+cryptenroll_wipe_and_check "$img" --wipe=empty
+(! cryptenroll_wipe_and_check "$img" --wipe=empty)
+cryptenroll_wipe_and_check "$img" --wipe=empty,0
+cryptenroll_wipe_and_check "$img" --wipe=0,0,empty,0,pkcs11,fido2,000,recovery
+systemd-cryptenroll "$img" | grep password
+(! systemd-cryptenroll "$img" | grep recovery)
+# We shouldn't be able to wipe all keyslots without enrolling a new key first
+(! systemd-cryptenroll "$img" --wipe=all)
+PASSWORD=foo NEWPASSWORD=foo cryptenroll_wipe_and_check "$img" --password --wipe=all
+# Check if the newly (and only) enrolled password works
+(! systemd-cryptenroll --unlock-key-file=/tmp/password --recovery-key "$img")
+(! PASSWORD="" systemd-cryptenroll --recovery-key "$img")
+PASSWORD=foo systemd-cryptenroll --recovery-key "$img"
 
 systemd-cryptenroll --fido2-with-client-pin=false "$img"
 systemd-cryptenroll --fido2-with-user-presence=false "$img"
