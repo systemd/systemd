@@ -1880,8 +1880,10 @@ int bus_unit_queue_job(
         /* dbus-broker issues StartUnit for activation requests, so let's apply the same check
          * used in signal_activation_request(). */
         if (type == JOB_START && u->type == UNIT_SERVICE &&
-            SERVICE(u)->type == SERVICE_DBUS && !manager_dbus_is_running(u->manager))
-                return sd_bus_error_set(error, BUS_ERROR_SHUTTING_DOWN, "Refusing activation, D-Bus is not running.");
+            SERVICE(u)->type == SERVICE_DBUS &&
+            (manager_unit_inactive_or_pending(m, SPECIAL_DBUS_SERVICE) ||
+             manager_unit_inactive_or_pending(m, SPECIAL_DBUS_SOCKET)))
+                return sd_bus_error_set(error, BUS_ERROR_SHUTTING_DOWN, "Refusing activation, D-Bus is shutting down.");
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
