@@ -161,7 +161,7 @@ int enroll_password(
         if (r < 0)
                 return log_error_errno(r, "Failed to check password for quality: %m");
         if (r == 0)
-                log_warning_errno(r, "Specified password does not pass quality checks (%s), proceeding anyway.", error);
+                log_warning("Specified password does not pass quality checks (%s), proceeding anyway.", error);
 
         keyslot = crypt_keyslot_add_by_volume_key(
                         cd,
