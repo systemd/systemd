@@ -346,7 +346,7 @@ int sd_dhcp_client_get_client_id(
         assert_return(client, -EINVAL);
 
         if (client->client_id_len > 0) {
-                if (client->client_id_len < offsetof(sd_dhcp_client_id, raw.data))
+                if (client->client_id_len <= offsetof(sd_dhcp_client_id, raw.data))
                         return -EINVAL;
 
                 if (ret_type)
