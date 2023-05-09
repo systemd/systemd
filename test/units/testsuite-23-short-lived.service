@@ -8,4 +8,4 @@ StartLimitBurst=15
 StartLimitIntervalSec=1h
 
 [Service]
-ExecStart=/usr/lib/systemd/tests/testdata/units/testsuite-57-short-lived.sh
+ExecStart=/usr/lib/systemd/tests/testdata/units/testsuite-23-short-lived.sh

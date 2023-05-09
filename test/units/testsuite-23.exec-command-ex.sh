@@ -3,6 +3,8 @@
 set -eux
 set -o pipefail
 
+# Test ExecXYZEx= service unit dbus hookups
+
 systemd-analyze log-level debug
 
 declare -A property
@@ -40,7 +42,3 @@ for c in "${!property_ex[@]}"; do
 done
 
 systemd-analyze log-level info
-
-echo OK >/testok
-
-exit 0

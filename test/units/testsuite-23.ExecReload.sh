@@ -3,6 +3,8 @@
 set -eux
 set -o pipefail
 
+# Test ExecReload= (PR #13098)
+
 systemd-analyze log-level debug
 
 export SYSTEMD_PAGER=
@@ -57,7 +59,3 @@ systemctl status "$SERVICE_NAME"
 systemctl stop "$SERVICE_NAME"
 
 systemd-analyze log-level info
-
-echo OK >/testok
-
-exit 0
