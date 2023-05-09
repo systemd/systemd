@@ -380,7 +380,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                         if (strv_push_pair(&array, k->unit->id, (char*) job_type_to_string(k->type)) < 0)
                                 log_oom();
 
-                        if (!delete && hashmap_get(tr->jobs, k->unit) && !job_matters_to_anchor(k))
+                        if (!delete && hashmap_contains(tr->jobs, k->unit) && !job_matters_to_anchor(k))
                                 /* Ok, we can drop this one, so let's do so. */
                                 delete = k;
 
@@ -629,7 +629,7 @@ static int transaction_apply(
                         if (j->unit->ignore_on_isolate)
                                 continue;
 
-                        if (hashmap_get(tr->jobs, j->unit))
+                        if (hashmap_contains(tr->jobs, j->unit))
                                 continue;
 
                         /* Not invalidating recursively. Avoids triggering
@@ -1110,7 +1110,7 @@ static bool shall_stop_on_isolate(Transaction *tr, Unit *u) {
                 return false;
 
         /* Is there already something listed for this? */
-        if (hashmap_get(tr->jobs, u))
+        if (hashmap_contains(tr->jobs, u))
                 return false;
 
         return true;
@@ -1170,7 +1170,7 @@ int transaction_add_triggering_jobs(Transaction *tr, Unit *u) {
                         continue;
 
                 /* Is there already something listed for this? */
-                if (hashmap_get(tr->jobs, trigger))
+                if (hashmap_contains(tr->jobs, trigger))
                         continue;
 
                 r = transaction_add_job_and_dependencies(tr, JOB_STOP, trigger, tr->anchor_job, true, false, false, false, NULL);
