@@ -171,6 +171,7 @@ struct Service {
         bool root_directory_start_only;
         bool remain_after_exit;
         bool guess_main_pid;
+        bool restart_quick;
 
         /* If we shut down, remember why */
         ServiceResult result;

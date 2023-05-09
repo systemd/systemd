@@ -110,4 +110,10 @@ ELAPSED=$((END_SEC-START_SEC))
 [[ "$ELAPSED" -ge 3 ]] && [[ "$ELAPSED" -le 5 ]] || exit 1
 [[ "$RESULT" -ne 0 ]] || exit 1
 
+systemctl start succeeds-on-restart.target || true
+assert_rc 0 systemctl --quiet is-active succeeds-on-restart.target
+
+systemctl start fails-on-restart.target || true
+assert_rc 3 systemctl --quiet is-active fails-on-restart.target
+
 touch /testok
