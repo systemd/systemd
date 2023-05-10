@@ -19,6 +19,7 @@ if install_tests
                 'testsuite-10.units',
                 'testsuite-11.units',
                 'testsuite-16.units',
+                'testsuite-23.units',
                 'testsuite-28.units',
                 'testsuite-30.units',
                 'testsuite-52.units',
