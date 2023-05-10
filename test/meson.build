@@ -15,9 +15,11 @@ if install_tests
                 'testsuite-03.units',
                 'testsuite-04.units',
                 'testsuite-06.units',
+                'testsuite-07.units',
                 'testsuite-10.units',
                 'testsuite-11.units',
                 'testsuite-16.units',
+                'testsuite-23.units',
                 'testsuite-28.units',
                 'testsuite-30.units',
                 'testsuite-52.units',
@@ -31,18 +33,6 @@ if install_tests
 
         install_data(kbd_model_map,
                      install_dir : testdata_dir + '/test-keymap-util')
-
-        testsuite08_dir = testdata_dir + '/testsuite-08.units'
-        install_data('testsuite-08.units/-.mount',
-                     install_dir : testsuite08_dir)
-        install_data('testsuite-08.units/systemd-remount-fs.service',
-                     install_dir : testsuite08_dir)
-        meson.add_install_script(meson_make_symlink,
-                                 './-.mount',
-                                 testsuite08_dir + '/root.mount')
-        meson.add_install_script(meson_make_symlink,
-                                 '../-.mount',
-                                 testsuite08_dir + '/local-fs.target.wants/-.mount')
 
         if conf.get('HAVE_ZSTD') == 1 and efi_arch != ''
                 install_subdir('test-bcd',
