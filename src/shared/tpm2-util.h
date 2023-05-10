@@ -65,12 +65,49 @@ extern TSS2_RC (*sym_Esys_VerifySignature)(ESYS_CONTEXT *esysContext, ESYS_TR ke
 
 extern const char* (*sym_Tss2_RC_Decode)(TSS2_RC rc);
 
+extern TSS2_RC (*sym_Tss2_MU_TPM2_CC_Marshal)(TPM2_CC src, uint8_t buffer[], size_t buffer_size, size_t *offset);
 extern TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Marshal)(TPM2B_PRIVATE const *src, uint8_t buffer[], size_t buffer_size, size_t *offset);
 extern TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PRIVATE  *dest);
 extern TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Marshal)(TPM2B_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset);
 extern TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PUBLIC *dest);
+extern TSS2_RC (*sym_Tss2_MU_TPML_PCR_SELECTION_Marshal)(TPML_PCR_SELECTION const *src, uint8_t buffer[], size_t buffer_size, size_t *offset);
+extern TSS2_RC (*sym_Tss2_MU_TPMT_HA_Marshal)(TPMT_HA const *src, uint8_t buffer[], size_t buffer_size, size_t *offset);
+extern TSS2_RC (*sym_Tss2_MU_TPMT_PUBLIC_Marshal)(TPMT_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset);
 
 int dlopen_tpm2(void);
+
+/* Currently, we hardcode our hash alg as sha256. */
+#define TPM2_DIGEST_ZERO (const TPM2B_DIGEST){ .size = SHA256_DIGEST_SIZE, }
+
+void tpm2_digest_hash_array(TPM2B_DIGEST *digest, const uint8_t *data[], size_t len[], size_t count, bool init, bool extend);
+#define tpm2_digest_init_array(digest, data, len, count)                \
+        tpm2_digest_hash_array(digest, data, len, count, true, false)
+#define tpm2_digest_extend_array(digest, data, len, count)              \
+        tpm2_digest_hash_array(digest, data, len, count, false, true)
+
+static inline void tpm2_digest_init(TPM2B_DIGEST *digest, const uint8_t *data, size_t len) {
+        tpm2_digest_init_array(digest, &data, &len, 1);
+}
+
+static inline void tpm2_digest_extend(TPM2B_DIGEST *digest, const uint8_t *data, size_t len) {
+        tpm2_digest_extend_array(digest, &data, &len, 1);
+}
+
+static inline void tpm2_digest_rehash(TPM2B_DIGEST *digest) {
+        /* This simply rehashes the existing hash. */
+        tpm2_digest_hash_array(digest, NULL, NULL, 0, false, true);
+}
+
+void tpm2_digest_hash_digests(TPM2B_DIGEST *digest, const TPM2B_DIGEST *digests, size_t count, bool init, bool extend);
+#define tpm2_digest_init_digests(digest, digests, count)                \
+        tpm2_digest_hash_digests(digest, digests, count, true, false)
+#define tpm2_digest_extend_digests(digest, digests, count)              \
+        tpm2_digest_hash_digests(digest, digests, count, false, true)
+
+int tpm2_calculate_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name);
+int tpm2_calculate_policy_pcr(const TPML_PCR_SELECTION *pcr_selection, const TPM2B_DIGEST *pcr_values, size_t pcr_values_size, TPM2B_DIGEST *digest);
+int tpm2_calculate_policy_authorize(const void *pubkey, size_t pubkey_size, const TPM2B_DIGEST *policy_ref, TPM2B_DIGEST *digest);
+int tpm2_calculate_policy_auth_value(TPM2B_DIGEST *digest);
 
 int tpm2_seal(const char *device, uint32_t hash_pcr_mask, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, const char *pin, void **ret_secret, size_t *ret_secret_size, void **ret_blob, size_t *ret_blob_size, void **ret_pcr_hash, size_t *ret_pcr_hash_size, uint16_t *ret_pcr_bank, uint16_t *ret_primary_alg, void **ret_srk_buf, size_t *ret_srk_buf_size);
 int tpm2_unseal(const char *device, uint32_t hash_pcr_mask, uint16_t pcr_bank, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, JsonVariant *signature, const char *pin, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, const void *srk_buf, size_t srk_buf_size, void **ret_secret, size_t *ret_secret_size);
