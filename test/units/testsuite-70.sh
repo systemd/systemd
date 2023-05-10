@@ -258,7 +258,7 @@ systemd-cryptenroll "$img" | grep recovery
 cryptenroll_wipe_and_check "$img" --wipe=empty
 (! cryptenroll_wipe_and_check "$img" --wipe=empty)
 cryptenroll_wipe_and_check "$img" --wipe=empty,0
-cryptenroll_wipe_and_check "$img" --wipe=0,0,empty,0,pkcs11,fido2,000,recovery
+PASSWORD=foo NEWPASSWORD=foo cryptenroll_wipe_and_check "$img" --wipe=0,0,empty,0,pkcs11,fido2,000,recovery,password --password
 systemd-cryptenroll "$img" | grep password
 (! systemd-cryptenroll "$img" | grep recovery)
 # We shouldn't be able to wipe all keyslots without enrolling a new key first
