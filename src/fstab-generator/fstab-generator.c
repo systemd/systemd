@@ -1005,7 +1005,7 @@ static int add_sysroot_usr_mount(void) {
         }
 
         if (isempty(arg_usr_what)) {
-                log_debug("Could not find a usr= entry on the kernel command line.");
+                log_debug("Could not find a mount.usr= entry on the kernel command line.");
                 return 0;
         }
 
