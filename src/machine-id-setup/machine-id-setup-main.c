@@ -137,7 +137,6 @@ static int parse_argv(int argc, char *argv[]) {
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
-        sd_id128_t id;
         int r;
 
         log_parse_environment();
@@ -170,6 +169,8 @@ static int run(int argc, char *argv[]) {
         }
 
         if (arg_commit) {
+                sd_id128_t id;
+
                 r = machine_id_commit(arg_root);
                 if (r < 0)
                         return r;
@@ -177,14 +178,23 @@ static int run(int argc, char *argv[]) {
                 r = id128_get_machine(arg_root, &id);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read machine ID back: %m");
+
+                if (arg_print)
+                        puts(SD_ID128_TO_STRING(id));
+
+        } else if (id128_get_machine(arg_root, NULL) == -ENOPKG) {
+                if (arg_print)
+                        puts("uninitialized");
         } else {
+                sd_id128_t id;
+
                 r = machine_id_setup(arg_root, false, SD_ID128_NULL, &id);
                 if (r < 0)
                         return r;
-        }
 
-        if (arg_print)
-                puts(SD_ID128_TO_STRING(id));
+                if (arg_print)
+                        puts(SD_ID128_TO_STRING(id));
+        }
 
         return 0;
 }
