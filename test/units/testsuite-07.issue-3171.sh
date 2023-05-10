@@ -3,6 +3,9 @@
 set -eux
 set -o pipefail
 
+# SocketGroup lost on daemon-reload with unit moving away temporarily
+# Issue: https://github.com/systemd/systemd/issues/3171
+
 echo "g adm - - -" | systemd-sysusers -
 
 U=/run/systemd/system/test12.socket
@@ -45,5 +48,3 @@ systemctl restart test12.socket
 systemctl is-active test12.socket
 echo D | nc -w1 -U /run/test12.socket
 [[ "$(stat --format='%G' /run/test12.socket)" == adm ]]
-
-touch /testok
