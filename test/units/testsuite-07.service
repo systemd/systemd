@@ -6,6 +6,7 @@ Description=TEST-07-ISSUE-1981
 Type=oneshot
 ExecStartPre=rm -f /failed /testok
 ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+NotifyAccess=all
 # Issue: https://github.com/systemd/systemd/issues/2691
 ExecStop=sh -c 'kill -SEGV $$$$'
 RemainAfterExit=yes
