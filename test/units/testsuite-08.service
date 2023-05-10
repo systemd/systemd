@@ -1,8 +1,0 @@
-# SPDX-License-Identifier: LGPL-2.1-or-later
-[Unit]
-Description=TEST-08-ISSUE-2730
-
-[Service]
-ExecStartPre=rm -f /failed /testok
-ExecStart=sh -x -c 'mount -o remount,rw /dev/sda1 && echo OK >/testok; systemctl poweroff'
-Type=oneshot
