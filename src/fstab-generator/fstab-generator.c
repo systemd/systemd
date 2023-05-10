@@ -60,6 +60,7 @@ static char *arg_usr_fstype = NULL;
 static char *arg_usr_options = NULL;
 static char *arg_usr_hash = NULL;
 static VolatileMode arg_volatile_mode = _VOLATILE_MODE_INVALID;
+static bool arg_verity = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_fstype, freep);
@@ -1216,6 +1217,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         log_warning("Failed to parse systemd.swap switch %s. Ignoring.", value);
                 else
                         arg_swap_enabled = r;
+
+        } else if (streq(key, "systemd.verity")) {
+
+                r = value ? parse_boolean(value) : 1;
+                if (r < 0)
+                        log_warning("Failed to parse systemd.verity= kernel command line switch %s. Ignoring.", value);
+                else
+                        arg_verity = r;
         }
 
         return 0;
@@ -1231,6 +1240,9 @@ static int determine_device(char **what, const char *hash, const char *name) {
                 return 0;
 
         if (!hash)
+                return 0;
+
+        if (!arg_verity)
                 return 0;
 
         *what = path_join("/dev/mapper/", name);
