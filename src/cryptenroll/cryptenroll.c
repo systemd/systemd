@@ -415,15 +415,15 @@ static int parse_argv(int argc, char *argv[]) {
                                         if (arg_wipe_slots_scope != WIPE_ALL) /* if "all" was specified before, that wins */
                                                 arg_wipe_slots_scope = WIPE_EMPTY_PASSPHRASE;
                                 } else if (streq(slot, "password"))
-                                        arg_wipe_slots_mask = 1U << ENROLL_PASSWORD;
+                                        arg_wipe_slots_mask |= 1U << ENROLL_PASSWORD;
                                 else if (streq(slot, "recovery"))
-                                        arg_wipe_slots_mask = 1U << ENROLL_RECOVERY;
+                                        arg_wipe_slots_mask |= 1U << ENROLL_RECOVERY;
                                 else if (streq(slot, "pkcs11"))
-                                        arg_wipe_slots_mask = 1U << ENROLL_PKCS11;
+                                        arg_wipe_slots_mask |= 1U << ENROLL_PKCS11;
                                 else if (streq(slot, "fido2"))
-                                        arg_wipe_slots_mask = 1U << ENROLL_FIDO2;
+                                        arg_wipe_slots_mask |= 1U << ENROLL_FIDO2;
                                 else if (streq(slot, "tpm2"))
-                                        arg_wipe_slots_mask = 1U << ENROLL_TPM2;
+                                        arg_wipe_slots_mask |= 1U << ENROLL_TPM2;
                                 else {
                                         int *a;
 
