@@ -3,16 +3,16 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/test-control.sh
+. "$(dirname "$0")"/test-control.sh
+
 : >/failed
 
 # Issue: https://github.com/systemd/systemd/issues/2730
 # See TEST-07-PID1/test.sh for the first "half" of the test
 mountpoint /issue2730
 
-for script in "${0%.sh}".*.sh; do
-    echo "Running $script"
-    "./$script"
-done
+run_subtests
 
 touch /testok
 rm /failed
