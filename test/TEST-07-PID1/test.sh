@@ -10,6 +10,14 @@ TEST_DESCRIPTION="Tests for core PID1 functionality"
 test_append_files() {
     local workspace="${1:?}"
 
+    # Collecting coverage slows this particular test quite a bit, causing
+    # it to fail with the default settings (20 triggers per 2 secs).
+    # Let's help it a bit in such case.
+    if get_bool "$IS_BUILT_WITH_COVERAGE"; then
+        mkdir -p "$workspace/etc/systemd/system/issue2467.socket.d"
+        printf "[Socket]\nTriggerLimitIntervalSec=10\n" >"$workspace/etc/systemd/system/issue2467.socket.d/coverage-override.conf"
+    fi
+
     # Issue: https://github.com/systemd/systemd/issues/2730
     mkdir -p "$workspace/etc/systemd/system/"
     cat >"$workspace/etc/systemd/system/issue2730.mount" <<EOF
