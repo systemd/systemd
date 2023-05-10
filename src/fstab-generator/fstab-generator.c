@@ -1141,14 +1141,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                return free_and_strdup_warn(&arg_root_what, value);
+                return free_and_strdup_warn(&arg_root_what, empty_to_null(value));
 
         } else if (streq(key, "rootfstype")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                return free_and_strdup_warn(&arg_root_fstype, value);
+                return free_and_strdup_warn(&arg_root_fstype, empty_to_null(value));
 
         } else if (streq(key, "rootflags")) {
 
@@ -1163,21 +1163,21 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                return free_and_strdup_warn(&arg_root_hash, value);
+                return free_and_strdup_warn(&arg_root_hash, empty_to_null(value));
 
         } else if (streq(key, "mount.usr")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                return free_and_strdup_warn(&arg_usr_what, value);
+                return free_and_strdup_warn(&arg_usr_what, empty_to_null(value));
 
         } else if (streq(key, "mount.usrfstype")) {
 
-                if (proc_cmdline_value_missing(key, value))
+                if (proc_cmdline_value_missing(key, empty_to_null(value)))
                         return 0;
 
-                return free_and_strdup_warn(&arg_usr_fstype, value);
+                return free_and_strdup_warn(&arg_usr_fstype, empty_to_null(value));
 
         } else if (streq(key, "mount.usrflags")) {
 
@@ -1192,7 +1192,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                return free_and_strdup_warn(&arg_usr_hash, value);
+                return free_and_strdup_warn(&arg_usr_hash, empty_to_null(value));
 
         } else if (streq(key, "rw") && !value)
                 arg_root_rw = true;
