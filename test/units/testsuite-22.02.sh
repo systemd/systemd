@@ -122,6 +122,22 @@ EOF
 test "$(stat -c %U:%G:%a /tmp/C/3/f1)" = "root:root:644"
 test ! -e /tmp/C/4
 
+touch /tmp/C/3-origin/f{2,3,4}
+echo -n ABC > /tmp/C/3/f1
+
+systemd-tmpfiles --create - <<EOF
+C+     /tmp/C/3    0755 daemon daemon - /tmp/C/3-origin
+EOF
+
+# Test that the trees got merged, even though /tmp/C/3 already exists.
+test -e /tmp/C/3/f1
+test -e /tmp/C/3/f2
+test -e /tmp/C/3/f3
+test -e /tmp/C/3/f4
+
+# Test that /tmp/C/3/f1 did not get overwritten.
+test "$(cat /tmp/C/3/f1)" = "ABC"
+
 # Check that %U expands to 0, both in the path and in the argument.
 home='/tmp/C'
 systemd-tmpfiles --create - <<EOF

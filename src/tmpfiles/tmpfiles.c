@@ -1803,7 +1803,7 @@ static int copy_files(Item *i) {
                          dfd, bn,
                          i->uid_set ? i->uid : UID_INVALID,
                          i->gid_set ? i->gid : GID_INVALID,
-                         COPY_REFLINK | COPY_MERGE_EMPTY | COPY_MAC_CREATE | COPY_HARDLINKS,
+                         COPY_REFLINK | ((i->append_or_force) ? COPY_MERGE : COPY_MERGE_EMPTY) | COPY_MAC_CREATE | COPY_HARDLINKS,
                          NULL);
 
         fd = openat(dfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
