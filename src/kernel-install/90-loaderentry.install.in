@@ -117,9 +117,12 @@ chown root:root "$KERNEL_DEST" || :
 
 shift "$INITRD_OPTIONS_SHIFT"
 # All files listed as arguments, and staged files starting with "initrd" are installed as initrds.
-for initrd in "$@" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
+for initrd in "${KERNEL_INSTALL_STAGING_AREA}"/early-cpio* "${@}" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
     [ -f "$initrd" ] || {
-        [ "$initrd" = "${KERNEL_INSTALL_STAGING_AREA}/initrd*" ] && continue
+        case "$initrd" in
+            "${KERNEL_INSTALL_STAGING_AREA}/initrd"* | "${KERNEL_INSTALL_STAGING_AREA}/early-cpio"*)
+            continue ;;
+        esac
         echo "Error: initrd '$initrd' not a file." >&2
         exit 1
     }
@@ -153,7 +156,7 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
     echo "linux      $KERNEL_ENTRY"
 
     have_initrd=
-    for initrd in "${@}" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
+    for initrd in "${KERNEL_INSTALL_STAGING_AREA}"/early-cpio* "${@}" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
         [ -f "$initrd" ] || continue
         echo "initrd     $ENTRY_DIR/${initrd##*/}"
         have_initrd=yes
