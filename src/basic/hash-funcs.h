@@ -102,7 +102,7 @@ extern const struct hash_ops uint64_hash_ops;
 /* On some archs dev_t is 32bit, and on others 64bit. And sometimes it's 64bit on 32bit archs, and sometimes 32bit on
  * 64bit archs. Yuck! */
 #if SIZEOF_DEV_T != 8
-void devt_hash_func(const dev_t *p, struct siphash *state) _pure_;
+void devt_hash_func(const dev_t *p, struct siphash *state);
 #else
 #define devt_hash_func uint64_hash_func
 #endif

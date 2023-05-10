@@ -1404,10 +1404,12 @@ void job_shutdown_magic(Job *j) {
         (void) asynchronous_sync(NULL);
 }
 
-int job_get_timeout(Job *j, usec_t *timeout) {
+int job_get_timeout(Job *j, usec_t *ret) {
         usec_t x = USEC_INFINITY, y = USEC_INFINITY;
         Unit *u = ASSERT_PTR(ASSERT_PTR(j)->unit);
         int r;
+
+        assert(ret);
 
         if (j->timer_event_source) {
                 r = sd_event_source_get_time(j->timer_event_source, &x);
@@ -1421,10 +1423,12 @@ int job_get_timeout(Job *j, usec_t *timeout) {
                         return r;
         }
 
-        if (x == USEC_INFINITY && y == USEC_INFINITY)
+        if (x == USEC_INFINITY && y == USEC_INFINITY) {
+                *ret = 0;
                 return 0;
+        }
 
-        *timeout = MIN(x, y);
+        *ret = MIN(x, y);
         return 1;
 }
 

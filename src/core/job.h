@@ -220,7 +220,7 @@ char *job_dbus_path(Job *j);
 
 void job_shutdown_magic(Job *j);
 
-int job_get_timeout(Job *j, usec_t *timeout) _pure_;
+int job_get_timeout(Job *j, usec_t *ret);
 
 bool job_may_gc(Job *j);
 void job_add_to_gc_queue(Job *j);
