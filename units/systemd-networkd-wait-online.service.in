@@ -12,10 +12,10 @@ Description=Wait for Network to be Configured
 Documentation=man:systemd-networkd-wait-online.service(8)
 ConditionCapability=CAP_NET_ADMIN
 DefaultDependencies=no
-Conflicts=shutdown.target
+Conflicts=shutdown.target initrd-switch-root.target
 BindsTo=systemd-networkd.service
 After=systemd-networkd.service
-Before=network-online.target shutdown.target
+Before=network-online.target shutdown.target initrd-switch-root.target
 
 [Service]
 Type=oneshot
