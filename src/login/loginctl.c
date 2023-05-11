@@ -133,7 +133,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        table = table_new("session", "uid", "user", "seat", "tty");
+        table = table_new("session", "uid", "user", "seat", "tty", "state");
         if (!table)
                 return log_oom();
 
@@ -143,7 +143,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error_tty = SD_BUS_ERROR_NULL;
-                _cleanup_free_ char *tty = NULL;
+                _cleanup_free_ char *tty = NULL, *state = NULL;
                 const char *id, *user, *seat, *object;
                 uint32_t uid;
 
@@ -169,12 +169,29 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                                           id, bus_error_message(&error_tty, r));
                 }
 
+                r = sd_bus_get_property_string(bus,
+                                               "org.freedesktop.login1",
+                                               object,
+                                               "org.freedesktop.login1.Session",
+                                               "State",
+                                               &error,
+                                               &state);
+                if (r < 0) {
+                        if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_OBJECT))
+                                /* The session is already closed when we're querying the property */
+                                continue;
+
+                        return log_error_errno(r, "Failed to get state for session %s: %s",
+                                               id, bus_error_message(&error, r));
+                }
+
                 r = table_add_many(table,
                                    TABLE_STRING, id,
                                    TABLE_UID, (uid_t) uid,
                                    TABLE_STRING, user,
                                    TABLE_STRING, seat,
-                                   TABLE_STRING, strna(tty));
+                                   TABLE_STRING, strna(tty),
+                                   TABLE_STRING, state);
                 if (r < 0)
                         return table_log_add_error(r);
         }
