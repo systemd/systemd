@@ -232,12 +232,34 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>systemd.swap</varname></term>
+        <term><varname>systemd.mount=WHAT:WHERE[:FSTYPE[:OPTIONS]]</varname></term>
 
-        <listitem><para>Takes a boolean argument or enables the option if specified
-        without an argument. If disabled, causes the generator to ignore
-        any swap devices configured in <filename>/etc/fstab</filename>.
-        Defaults to enabled.</para></listitem>
+        <listitem>
+          <para>Specifies the mount unit. Takes at least two and at most four fields separated with a colon
+          (<literal>:</literal>). Each fields are handled as the corresponds fstab fields. This option can be
+          specified multiple times.</para>
+          <para>Example:
+          <programlisting>
+systemd.mount=/dev/sda1:/mount-point:ext4:rw</programlisting>
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.swap=WHAT[:OPTIONS]</varname></term>
+        <term><varname>systemd.swap[=BOOL]</varname></term>
+
+        <listitem>
+          <para>Specifies the swap unit. Takes the block device to be used as a swap device, and optionally
+          takes mount options followed by a colon (<literal>:</literal>).</para>
+          <para>Example:
+          <programlisting>
+systemd.swap=/dev/sda2:x-systemd.makefs</programlisting>
+          </para>
+          <para>This option also takes a boolean argument or enables the option if specified without an
+          argument. If disabled, causes the generator to ignore any swap devices configured in
+          <filename>/etc/fstab</filename>. Defaults to enabled.</para>
+        </listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
