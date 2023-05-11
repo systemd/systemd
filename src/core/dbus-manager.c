@@ -1943,9 +1943,6 @@ static int method_set_exit_code(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0)
-                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "ExitCode can only be set for user service managers or in containers.");
-
         m->return_value = code;
 
         return sd_bus_reply_method_return(message, NULL);
