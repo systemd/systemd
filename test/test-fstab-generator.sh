@@ -28,11 +28,14 @@ for f in "$src"/test-*.input; do
         trap "rm -rf '$out'" EXIT INT QUIT PIPE
 
         exp="${f%.input}.expected"
+        if [[ "${f##*/}" =~ swap ]] && systemd-detect-virt --container >/dev/null; then
+            exp="${exp}.container"
+        fi
 
         if [[ "${f##*/}" =~ \.fstab\.input ]]; then
             SYSTEMD_LOG_LEVEL=debug SYSTEMD_IN_INITRD=yes SYSTEMD_SYSFS_CHECK=no SYSTEMD_PROC_CMDLINE="fstab=yes root=fstab" SYSTEMD_FSTAB="$f" SYSTEMD_SYSROOT_FSTAB="/dev/null" $generator "$out" "$out" "$out"
         else
-            SYSTEMD_LOG_LEVEL=debug SYSTEMD_IN_INITRD=yes SYSTEMD_PROC_CMDLINE="fstab=no $(cat "$f")" $generator "$out" "$out" "$out"
+            SYSTEMD_LOG_LEVEL=debug SYSTEMD_IN_INITRD=yes SYSTEMD_SYSFS_CHECK=no SYSTEMD_PROC_CMDLINE="fstab=no $(cat "$f")" $generator "$out" "$out" "$out"
         fi
 
         # For split-usr system
@@ -45,6 +48,20 @@ for f in "$src"/test-*.input; do
                 sed -i -e 's:SourcePath=.*$:SourcePath=/etc/fstab:' "$i"
             done
         fi
+
+        # .deb packager seems to dislike files named with backslash. So, as a workaround, we store files
+        # without backslash in .expected.
+        for i in "$out"/**/*\\*.{mount,swap}; do
+            k="${i//\\/}"
+            if [[ "$i" != "$k" ]]; then
+                if [[ -f "$i" ]]; then
+                    mv "$i" "$k"
+                elif [[ -L "$i" ]]; then
+                    rm "$i"
+                    ln -s ../"${k##*/}" "$k"
+                fi
+            fi
+        done
 
         # We store empty files rather than symlinks, so that they don't get pruned when packaged up, so compare
         # the list of filenames rather than their content
