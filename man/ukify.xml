@@ -300,6 +300,19 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>ReadPESections=<replaceable>PE_PATH</replaceable></varname></term>
+          <term><option>--read-sections=<replaceable>PE_PATH</replaceable></option></term>
+
+          <listitem><para>Read the given PE. Returns all non-empty UKI default sections.
+          It attempts to read the text sections like <literal>.cmdline</literal>, and
+          will just output <literal>"present"</literal> for the binary ones that are
+          present in the UKI.
+          When used with <option>--output</option>, it will print to a file. If not,
+          it will print to stdout. This option cannot be used with
+          <varname>SecureBoot*</varname>/<option>--secureboot*</option> options.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>SigningEngine=<replaceable>ENGINE</replaceable></varname></term>
           <term><option>--signing-engine=<replaceable>ENGINE</replaceable></option></term>
 

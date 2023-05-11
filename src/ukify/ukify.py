@@ -614,31 +614,32 @@ def make_uki(opts):
     # kernel payload signing
 
     sign_tool = None
-    if opts.signtool == 'sbsign':
-        sign_tool = find_sbsign(opts=opts)
-        sign = sbsign_sign
-        verify_tool = SBVERIFY
-    else:
-        sign_tool = find_pesign(opts=opts)
-        sign = pesign_sign
-        verify_tool = PESIGCHECK
-
     sign_args_present = opts.sb_key or opts.sb_cert_name
-
-    if sign_tool is None and sign_args_present:
-        raise ValueError(f'{opts.signtool}, required for signing, is not installed')
-
     sign_kernel = opts.sign_kernel
-    if sign_kernel is None and opts.linux is not None and sign_args_present:
-        # figure out if we should sign the kernel
-        sign_kernel = verify(verify_tool, opts)
+    sign = None
+    linux = opts.linux
 
-    if sign_kernel:
-        linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
-        linux = linux_signed.name
-        sign(sign_tool, opts.linux, linux, opts=opts)
-    else:
-        linux = opts.linux
+    if sign_args_present:
+        if opts.signtool == 'sbsign':
+            sign_tool = find_sbsign(opts=opts)
+            sign = sbsign_sign
+            verify_tool = SBVERIFY
+        else:
+            sign_tool = find_pesign(opts=opts)
+            sign = pesign_sign
+            verify_tool = PESIGCHECK
+
+        if sign_tool is None:
+            raise ValueError(f'{opts.signtool}, required for signing, is not installed')
+
+        if sign_kernel is None and opts.linux is not None:
+            # figure out if we should sign the kernel
+            sign_kernel = verify(verify_tool, opts)
+
+        if sign_kernel:
+            linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
+            linux = linux_signed.name
+            sign(sign_tool, opts.linux, linux, opts=opts)
 
     if opts.uname is None and opts.linux is not None:
         print('Kernel version not specified, starting autodetection 😖.')
@@ -686,22 +687,51 @@ def make_uki(opts):
 
     if sign_args_present:
         unsigned = tempfile.NamedTemporaryFile(prefix='uki')
-        output = unsigned.name
+        unsigned_output = unsigned.name
     else:
-        output = opts.output
+        unsigned_output = opts.output
 
-    pe_add_sections(uki, output)
+    pe_add_sections(uki, unsigned_output)
 
     # UKI signing
 
     if sign_args_present:
-        sign(sign_tool, unsigned.name, opts.output, opts=opts)
+        assert(sign)
+        sign(sign_tool, unsigned_output, opts.output, opts=opts)
 
         # We end up with no executable bits, let's reapply them
         os.umask(umask := os.umask(0))
         os.chmod(opts.output, 0o777 & ~umask)
 
     print(f"Wrote {'signed' if sign_args_present else 'unsigned'} {opts.output}")
+
+
+UKI_DEFAULT_SECTIONS = {
+    'binary': set(['.linux', '.initrd', '.splash', '.dtb']),
+    'text' : set(['.osrel', '.uname', '.cmdline', '.pcrpkey', '.pcrsig']),
+}
+
+
+def pe_read_sections(uki: str, output: pathlib.Path):
+    pe = pefile.PE(uki, fast_load=True)
+    out = f"Sections in {uki}:\n"
+    for section in pe.sections:
+        name = section.Name.decode().rstrip('\x00')
+        if name in UKI_DEFAULT_SECTIONS['binary']:
+            out += f"{name}: present\n"
+        elif name in UKI_DEFAULT_SECTIONS['text']:
+            start = section.PointerToRawData
+            end = start + section.Misc_VirtualSize
+            data = pe.__data__[start:end].decode()
+            out += f"{name}:\n{data}\n"
+    if output:
+        output.open("w").write(out)
+    else:
+        print(out, end='')
+
+
+def read_uki(opts):
+    pe_read_sections(opts.read_sections, opts.output)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -983,6 +1013,13 @@ CONFIG_ITEMS = [
         help = 'required by --signtool=pesign. pesign needs a certificate nickname of nss certificate database entry to use for PE signing',
         config_key = 'UKI/SecureBootCertificateName',
     ),
+    ConfigItem(
+        '--read-sections',
+        dest = 'read_sections',
+        type = pathlib.Path,
+        help = 'read common sections of the given PE.',
+        config_key = 'UKI/ReadPESections',
+    ),
 
     ConfigItem(
         '--sign-kernel',
@@ -1159,7 +1196,10 @@ def finalize_options(opts):
     if opts.sign_kernel and not opts.sb_key and not opts.sb_cert_name:
         raise ValueError('--sign-kernel requires either --secureboot-private-key= and --secureboot-certificate= (for sbsign) or --secureboot-certificate-name= (for pesign) to be specified')
 
-    if opts.output is None:
+    if opts.read_sections and (opts.sb_key or opts.sb_cert_name):
+        raise ValueError("--read-sections does not work with signing parameters.")
+
+    if opts.output is None and not opts.read_sections:
         if opts.linux is None:
             raise ValueError('--output= must be specified when building a PE addon')
         suffix = '.efi' if opts.sb_key or opts.sb_cert_name else '.unsigned.efi'
@@ -1198,7 +1238,10 @@ def parse_args(args=None):
 def main():
     opts = parse_args()
     check_inputs(opts)
-    make_uki(opts)
+    if opts.read_sections:
+        read_uki(opts)
+    else:
+        make_uki(opts)
 
 
 if __name__ == '__main__':

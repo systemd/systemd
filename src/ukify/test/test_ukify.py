@@ -498,6 +498,58 @@ def test_efi_signing_pesign(kernel_initrd, tmpdir):
 
     assert f"The signer's common name is {author}" in dump
 
+def test_efi_read(kernel_initrd, tmpdir):
+    if kernel_initrd is None:
+        pytest.skip('linux+initrd not found')
+    if not shutil.which('sbsign'):
+        pytest.skip('sbsign not found')
+
+    ourdir = pathlib.Path(__file__).parent
+    cert = unbase64(ourdir / 'example.signing.crt.base64')
+    key = unbase64(ourdir / 'example.signing.key.base64')
+
+    output = f'{tmpdir}/signed2.efi'
+    uname_arg='1.2.3'
+    osrel_arg='Linux'
+    cmdline_arg='ARG1 ARG2 ARG3'
+    opts = ukify.parse_args([
+        *kernel_initrd,
+        f'--cmdline={cmdline_arg}',
+        f'--os-release={osrel_arg}',
+        f'--uname={uname_arg}',
+        f'--output={output}',
+        f'--secureboot-certificate={cert.name}',
+        f'--secureboot-private-key={key.name}',
+    ])
+
+    ukify.check_inputs(opts)
+    ukify.make_uki(opts)
+
+    output_read = f'{tmpdir}/sections.txt'
+    opts = ukify.parse_args([
+        *kernel_initrd,
+        f'--read-sections={output}',
+        f'--output={output_read}',
+    ])
+
+    ukify.check_inputs(opts)
+    ukify.read_uki(opts)
+
+    text = pathlib.Path(output_read).read_text()
+
+    expected_osrel=f'.osrel:\n{osrel_arg}'
+    assert(expected_osrel in text)
+    expected_cmdline=f'.cmdline:\n{cmdline_arg}'
+    assert(expected_cmdline in text)
+    expected_uname=f'.uname:\n{uname_arg}'
+    assert(expected_uname in text)
+
+    expected_initrd='.initrd: present'
+    assert(expected_initrd in text)
+    expected_linux='.linux: present'
+    assert(expected_linux in text)
+
+
 def test_pcr_signing(kernel_initrd, tmpdir):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
