@@ -37,6 +37,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from hashlib import sha256
 from typing import (Any,
                     Callable,
                     IO,
@@ -234,6 +235,17 @@ class Section:
     content: pathlib.Path
     tmpfile: Optional[IO] = None
     measure: bool = False
+    sections_to_show = {
+        b'.linux' : 'binary',
+        b'.initrd' : 'binary',
+        b'.splash' : 'binary',
+        b'.dtb' : 'binary',
+        b'.cmdline' : 'text',
+        b'.osrel' : 'text',
+        b'.uname' : 'text',
+        b'.pcrpkey' : 'text',
+        b'.pcrsig' : 'text',
+    }
 
     @classmethod
     def create(cls, name, contents, **kwargs):
@@ -261,6 +273,18 @@ class Section:
             contents = pathlib.Path(contents[1:])
 
         return cls.create(name, contents)
+
+    @classmethod
+    def parse_text_arg(cls, s):
+        try:
+            name, ttype = s.split(':')
+        except ValueError as e:
+            raise ValueError(f'Cannot parse section spec (name or type missing): {s!r}') from e
+        if ttype != 'binary' and ttype != 'text':
+            raise ValueError(f'Cannot parse section spec (type can only be binary or text): {s!r}')
+
+        Section.sections_to_show[name.encode('utf-8')] = ttype
+        return Section.sections_to_show
 
     def size(self):
         return self.content.stat().st_size
@@ -706,6 +730,24 @@ def make_uki(opts):
     print(f"Wrote {'signed' if sign_args_present else 'unsigned'} {opts.output}")
 
 
+def pe_read_sections(uki: str):
+    pe = pefile.PE(uki, fast_load=True)
+    print(f"Sections in {uki}:")
+    for section in pe.sections:
+        name = section.Name.decode().rstrip('\x00').encode('utf-8')
+        if not name in Section.sections_to_show:
+            continue
+        start = section.PointerToRawData
+        size = section.Misc_VirtualSize
+        end = start + size
+        data = pe.__data__[start:end]
+        if Section.sections_to_show[name] == 'binary':
+            h = sha256(data).hexdigest()
+            print(f"{name.decode()}: ({size} bytes, sha256 {h})")
+        else: # text
+            print(f"{name.decode()}:\n{data.decode()}")
+
+
 @dataclasses.dataclass(frozen=True)
 class ConfigItem:
     @staticmethod
@@ -853,6 +895,25 @@ CONFIG_ITEMS_COMMON = [
     ),
 ]
 
+CONFIG_ITEMS_DISPLAY = [
+    ConfigItem(
+        'file',
+        nargs = '?',
+        type = pathlib.Path,
+        help = 'path to the PE.',
+        config_key = 'UKI/PEPath',
+    ),
+
+    ConfigItem(
+        '--section',
+        dest = 'sections',
+        metavar = 'NAME:TYPE',
+        type = Section.parse_text_arg,
+        action = 'append',
+        default = [],
+        help = 'additional section as name and content type (binary or text). Example: .linux:binary',
+    ),
+]
 
 CONFIG_ITEMS_CREATE = [
     ConfigItem(
@@ -1058,12 +1119,18 @@ CONFIGFILE_CREATE_ITEMS = {item.config_key:item
                            if item.config_key}
 
 
+CONFIGFILE_DISPLAY_ITEMS = {item.config_key:item
+                            for item in CONFIG_ITEMS_DISPLAY
+                            if item.config_key}
+
+
 CONFIGFILE_COMMON_ITEMS = {item.config_key:item
                            for item in CONFIG_ITEMS_COMMON
                            if item.config_key}
 
 
 CONFIGFILE_ALL_ITEMS = {**CONFIGFILE_CREATE_ITEMS,
+                        **CONFIGFILE_DISPLAY_ITEMS,
                         **CONFIGFILE_COMMON_ITEMS}
 
 
@@ -1120,8 +1187,17 @@ def apply_create_config(opts):
     return opts
 
 
+def apply_display_config(opts):
+    if not opts.file:
+        raise ValueError("display command requires a file name")
+    return opts
+
+
 def apply_config(namespace, filename=None):
-    apply_create_config(namespace)
+    if namespace.action == "display":
+        apply_display_config(namespace)
+    else:
+        apply_create_config(namespace)
     apply_main_config(namespace, filename)
 
 
@@ -1181,10 +1257,18 @@ def create_subparser(subparser):
     return make_subparser(subparser, cmdname, CONFIG_ITEMS_CREATE, descr, usage)
 
 
+def display_subparser(subparser):
+    cmdname = 'display'
+    descr = 'Display PE information'
+    usage = f"""\nukify {cmdname} [options…] [PE_FILE]"""
+    return make_subparser(subparser, cmdname, CONFIG_ITEMS_DISPLAY, descr, usage)
+
+
 def create_parser():
     p = create_main_parser()
     subparsers = p.add_subparsers(help='action to perform. Run ukify [action] --help for more info', required=True, dest='action')
     create_subparser(subparsers)
+    display_subparser(subparsers)
     return p
 
 
@@ -1237,7 +1321,8 @@ def finalize_create_options(opts):
         section.check_name()
 
 def finalize_options(opts):
-    finalize_create_options(opts)
+    if opts.action == "create":
+        finalize_create_options(opts)
     if opts.summary:
         # TODO: replace pprint() with some fancy formatting.
         pprint.pprint(vars(opts))
@@ -1256,8 +1341,11 @@ def parse_args(args=None):
 
 def main():
     opts = parse_args()
-    check_create_inputs(opts)
-    make_uki(opts)
+    if opts.action == "display":
+        pe_read_sections(opts.file)
+    else:
+        check_create_inputs(opts)
+        make_uki(opts)
 
 
 if __name__ == '__main__':
