@@ -60,7 +60,9 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D b_sanitize="${SANITIZERS:-none}"
         -D install-tests=true
         -D tests=unsafe
-        -D slow-tests=true
+        -D slow-tests="${SLOW_TESTS:-false}"
+        -D create-log-dirs=false
+        -D pamconfdir=no
         -D utmp=true
         -D hibernate=true
         -D ldconfig=true
