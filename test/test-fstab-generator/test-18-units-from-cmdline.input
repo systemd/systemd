@@ -1,0 +1,1 @@
+systemd.mount=/dev/sdx1:/sysroot:auto:defaults systemd.mount=systemd.mount=//foo\ufffebar:/hoge/with\x20space:cifs:rw,seclabel systemd.swap=/dev/sdx2:x-systemd.makefs
