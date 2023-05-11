@@ -595,6 +595,17 @@ _public_ int sd_pid_notify_with_fds(
         r = -errno;
 
 finish:
+        if (DEBUG_LOGGING && r < 0 && r != -EINVAL) {
+                _cleanup_free_ char *c = NULL;
+
+                c = strdup(state);
+                if (c)
+                        string_replace_char(c, '\n', ' ');
+
+                log_debug_errno(r, "Failed to send notify message \"%s\" from pid %i to addr %s: %m",
+                                strna(c), pid != 0 ? pid : getpid_cached(), strna(e));
+        }
+
         if (unset_environment)
                 assert_se(unsetenv("NOTIFY_SOCKET") == 0);
 
