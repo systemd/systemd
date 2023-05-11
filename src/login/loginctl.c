@@ -206,13 +206,14 @@ static int list_users(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        table = table_new("uid", "user", "linger");
+        table = table_new("uid", "user", "linger", "state");
         if (!table)
                 return log_oom();
 
         (void) table_set_align_percent(table, TABLE_HEADER_CELL(0), 100);
 
         for (;;) {
+                _cleanup_free_ char *state = NULL;
                 const char *user, *object;
                 uint32_t uid;
                 int linger;
@@ -231,13 +232,36 @@ static int list_users(int argc, char *argv[], void *userdata) {
                                                 &error,
                                                 'b',
                                                 &linger);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get linger status: %s", bus_error_message(&error, r));
+                if (r < 0) {
+                        if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_OBJECT))
+                                /* The user logged out when we're querying the property */
+                                continue;
+
+                        return log_error_errno(r, "Failed to get linger status for user %s: %s",
+                                               user, bus_error_message(&error, r));
+                }
+
+                r = sd_bus_get_property_string(bus,
+                                               "org.freedesktop.login1",
+                                               object,
+                                               "org.freedesktop.login1.User",
+                                               "State",
+                                               &error,
+                                               &state);
+                if (r < 0) {
+                        if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_OBJECT))
+                                /* The user logged out when we're querying the property */
+                                continue;
+
+                        return log_error_errno(r, "Failed to get state for user %s: %s",
+                                               user, bus_error_message(&error, r));
+                }
 
                 r = table_add_many(table,
                                    TABLE_UID, (uid_t) uid,
                                    TABLE_STRING, user,
-                                   TABLE_BOOLEAN, linger);
+                                   TABLE_BOOLEAN, linger,
+                                   TABLE_STRING, state);
                 if (r < 0)
                         return table_log_add_error(r);
         }
