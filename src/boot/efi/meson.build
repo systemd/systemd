@@ -242,6 +242,7 @@ libefi_sources = files(
         'pe.c',
         'random-seed.c',
         'secure-boot.c',
+        'shim.c',
         'ticks.c',
         'util.c',
         'vmm.c',
@@ -249,7 +250,6 @@ libefi_sources = files(
 
 systemd_boot_sources = files(
         'boot.c',
-        'shim.c',
 )
 
 stub_sources = files(
@@ -340,6 +340,7 @@ foreach archspec : efi_archspecs
                 c_args : archspec['c_args'],
                 link_args : archspec['link_args'],
                 link_depends : elf2efi_lds,
+                dependencies : versiondep,
                 gnu_symbol_visibility : 'hidden',
                 override_options : efi_override_options,
                 name_suffix : 'elf.stub',
