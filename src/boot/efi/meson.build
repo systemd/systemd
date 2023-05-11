@@ -242,6 +242,7 @@ libefi_sources = files(
         'pe.c',
         'random-seed.c',
         'secure-boot.c',
+        'shim.c',
         'ticks.c',
         'util.c',
         'vmm.c',
@@ -249,7 +250,6 @@ libefi_sources = files(
 
 systemd_boot_sources = files(
         'boot.c',
-        'shim.c',
 )
 
 stub_sources = files(
