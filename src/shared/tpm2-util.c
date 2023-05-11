@@ -1030,11 +1030,11 @@ static int tpm2_pcr_read(
                 const TPML_PCR_SELECTION *pcr_selection,
                 TPML_PCR_SELECTION *ret_pcr_selection,
                 TPM2B_DIGEST **ret_pcr_values,
-                size_t *ret_pcr_values_size) {
+                size_t *ret_pcr_values_count) {
 
         _cleanup_free_ TPM2B_DIGEST *pcr_values = NULL;
         TPML_PCR_SELECTION remaining, total_read = {};
-        size_t pcr_values_size = 0;
+        size_t pcr_values_count = 0;
         TSS2_RC rc;
 
         assert(c);
@@ -1069,12 +1069,12 @@ static int tpm2_pcr_read(
                 tpm2_tpml_pcr_selection_sub(&remaining, current_read);
                 tpm2_tpml_pcr_selection_add(&total_read, current_read);
 
-                if (!GREEDY_REALLOC(pcr_values, pcr_values_size + current_values->count))
+                if (!GREEDY_REALLOC(pcr_values, pcr_values_count + current_values->count))
                         return log_oom();
 
-                memcpy_safe(&pcr_values[pcr_values_size], current_values->digests,
+                memcpy_safe(&pcr_values[pcr_values_count], current_values->digests,
                             current_values->count * sizeof(TPM2B_DIGEST));
-                pcr_values_size += current_values->count;
+                pcr_values_count += current_values->count;
 
                 if (DEBUG_LOGGING) {
                         unsigned i = 0;
@@ -1097,8 +1097,8 @@ static int tpm2_pcr_read(
                 *ret_pcr_selection = total_read;
         if (ret_pcr_values)
                 *ret_pcr_values = TAKE_PTR(pcr_values);
-        if (ret_pcr_values_size)
-                *ret_pcr_values_size = pcr_values_size;
+        if (ret_pcr_values_count)
+                *ret_pcr_values_count = pcr_values_count;
 
         return 0;
 }
@@ -1110,7 +1110,7 @@ static int tpm2_pcr_mask_good(
 
         _cleanup_free_ TPM2B_DIGEST *pcr_values = NULL;
         TPML_PCR_SELECTION selection;
-        size_t pcr_values_size = 0;
+        size_t pcr_values_count = 0;
         int r;
 
         assert(c);
@@ -1121,14 +1121,14 @@ static int tpm2_pcr_mask_good(
 
         tpm2_tpml_pcr_selection_from_mask(mask, bank, &selection);
 
-        r = tpm2_pcr_read(c, &selection, &selection, &pcr_values, &pcr_values_size);
+        r = tpm2_pcr_read(c, &selection, &selection, &pcr_values, &pcr_values_count);
         if (r < 0)
                 return r;
 
         /* If at least one of the selected PCR values is something other than all 0x00 or all 0xFF we are happy. */
         unsigned i = 0;
         FOREACH_PCR_IN_TPML_PCR_SELECTION(pcr, s, &selection) {
-                assert(i < pcr_values_size);
+                assert(i < pcr_values_count);
 
                 if (!memeqbyte(0x00, pcr_values[i].buffer, pcr_values[i].size) &&
                     !memeqbyte(0xFF, pcr_values[i].buffer, pcr_values[i].size))
