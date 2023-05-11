@@ -564,6 +564,15 @@ static int server_send_offer_or_ack(
                 be32_t address,
                 uint8_t type) {
 
+        static const uint8_t option_map[_SD_DHCP_LEASE_SERVER_TYPE_MAX] = {
+                [SD_DHCP_LEASE_DNS]  = SD_DHCP_OPTION_DOMAIN_NAME_SERVER,
+                [SD_DHCP_LEASE_NTP]  = SD_DHCP_OPTION_NTP_SERVER,
+                [SD_DHCP_LEASE_SIP]  = SD_DHCP_OPTION_SIP_SERVER,
+                [SD_DHCP_LEASE_POP3] = SD_DHCP_OPTION_POP3_SERVER,
+                [SD_DHCP_LEASE_SMTP] = SD_DHCP_OPTION_SMTP_SERVER,
+                [SD_DHCP_LEASE_LPR]  = SD_DHCP_OPTION_LPR_SERVER,
+        };
+
         _cleanup_free_ DHCPPacket *packet = NULL;
         sd_dhcp_option *j;
         be32_t lease_time;
@@ -619,38 +628,26 @@ static int server_send_offer_or_ack(
                         return r;
         }
 
-        if (type == DHCP_ACK) {
-                static const uint8_t option_map[_SD_DHCP_LEASE_SERVER_TYPE_MAX] = {
-                        [SD_DHCP_LEASE_DNS] = SD_DHCP_OPTION_DOMAIN_NAME_SERVER,
-                        [SD_DHCP_LEASE_NTP] = SD_DHCP_OPTION_NTP_SERVER,
-                        [SD_DHCP_LEASE_SIP] = SD_DHCP_OPTION_SIP_SERVER,
-                        [SD_DHCP_LEASE_POP3] = SD_DHCP_OPTION_POP3_SERVER,
-                        [SD_DHCP_LEASE_SMTP] = SD_DHCP_OPTION_SMTP_SERVER,
-                        [SD_DHCP_LEASE_LPR] = SD_DHCP_OPTION_LPR_SERVER,
-                };
+        for (sd_dhcp_lease_server_type_t k = 0; k < _SD_DHCP_LEASE_SERVER_TYPE_MAX; k++) {
+                if (server->servers[k].size <= 0)
+                        continue;
 
-                for (sd_dhcp_lease_server_type_t k = 0; k < _SD_DHCP_LEASE_SERVER_TYPE_MAX; k++) {
-                        if (server->servers[k].size <= 0)
-                                continue;
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                option_map[k],
+                                sizeof(struct in_addr) * server->servers[k].size,
+                                server->servers[k].addr);
+                if (r < 0)
+                        return r;
+        }
 
-                        r = dhcp_option_append(
-                                        &packet->dhcp, req->max_optlen, &offset, 0,
-                                        option_map[k],
-                                        sizeof(struct in_addr) * server->servers[k].size,
-                                        server->servers[k].addr);
-                        if (r < 0)
-                                return r;
-                }
-
-
-                if (server->timezone) {
-                        r = dhcp_option_append(
-                                        &packet->dhcp, req->max_optlen, &offset, 0,
-                                        SD_DHCP_OPTION_TZDB_TIMEZONE,
-                                        strlen(server->timezone), server->timezone);
-                        if (r < 0)
-                                return r;
-                }
+        if (server->timezone) {
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                SD_DHCP_OPTION_TZDB_TIMEZONE,
+                                strlen(server->timezone), server->timezone);
+                if (r < 0)
+                        return r;
         }
 
         ORDERED_SET_FOREACH(j, server->extra_options) {
