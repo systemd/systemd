@@ -11,6 +11,7 @@
 #include "proto/shell-parameters.h"
 #include "random-seed.h"
 #include "secure-boot.h"
+#include "shim.h"
 #include "splash.h"
 #include "tpm-pcr.h"
 #include "util.h"
@@ -180,6 +181,189 @@ static bool use_load_options(
         return true;
 }
 
+static EFI_STATUS load_addons_from_dir(
+                EFI_FILE *root,
+                const char16_t *prefix,
+                char16_t ***items,
+                size_t *n_items,
+                size_t *n_allocated) {
+
+        _cleanup_(file_closep) EFI_FILE *extra_dir = NULL;
+        _cleanup_free_ EFI_FILE_INFO *dirent = NULL;
+        size_t dirent_size = 0;
+        EFI_STATUS err;
+
+        assert(root);
+        assert(prefix);
+        assert(items);
+        assert(n_items);
+        assert(n_allocated);
+
+        err = open_directory(root, prefix, &extra_dir);
+        if (err == EFI_NOT_FOUND)
+                /* No extra subdir, that's totally OK */
+                return EFI_SUCCESS;
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Failed to open addons directory '%ls': %m", prefix);
+
+        for (;;) {
+                _cleanup_free_ char16_t *d = NULL;
+
+                err = readdir(extra_dir, &dirent, &dirent_size);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Failed to read addons directory of loaded image: %m");
+                if (!dirent) /* End of directory */
+                        break;
+
+                if (dirent->FileName[0] == '.')
+                        continue;
+                if (FLAGS_SET(dirent->Attribute, EFI_FILE_DIRECTORY))
+                        continue;
+                if (!is_ascii(dirent->FileName))
+                        continue;
+                if (strlen16(dirent->FileName) > 255) /* Max filename size on Linux */
+                        continue;
+                if (!endswith_no_case(dirent->FileName, u".addon.efi"))
+                        continue;
+
+                d = xstrdup16(dirent->FileName);
+
+                if (*n_items + 2 > *n_allocated) {
+                        /* We allocate 16 entries at a time, as a matter of optimization */
+                        if (*n_items > (SIZE_MAX / sizeof(uint16_t)) - 16) /* Overflow check, just in case */
+                                return log_oom();
+
+                        size_t m = *n_items + 16;
+                        *items = xrealloc(*items, *n_allocated * sizeof(uint16_t *), m * sizeof(uint16_t *));
+                        *n_allocated = m;
+                }
+
+                (*items)[(*n_items)++] = TAKE_PTR(d);
+                (*items)[*n_items] = NULL; /* Let's always NUL terminate, to make freeing via strv_free() easy */
+        }
+
+        return EFI_SUCCESS;
+
+}
+
+static EFI_STATUS cmdline_append_and_measure_addons(
+                EFI_HANDLE stub_image,
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                const char16_t *prefix,
+                const char *uname,
+                bool *ret_parameters_measured,
+                char16_t **cmdline_append) {
+
+        _cleanup_(strv_freep) char16_t **items = NULL;
+        _cleanup_(file_closep) EFI_FILE *root = NULL;
+        _cleanup_free_ char16_t *buffer = NULL;
+        size_t n_items = 0, n_allocated = 0;
+        EFI_STATUS err;
+
+        assert(stub_image);
+        assert(loaded_image);
+        assert(prefix);
+        assert(ret_parameters_measured);
+        assert(cmdline_append);
+
+        if (!loaded_image->DeviceHandle)
+                return EFI_SUCCESS;
+
+        err = open_volume(loaded_image->DeviceHandle, &root);
+        if (err == EFI_UNSUPPORTED)
+                /* Error will be unsupported if the bootloader doesn't implement the file system protocol on
+                 * its file handles. */
+                return EFI_SUCCESS;
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Unable to open root directory: %m");
+
+        err = load_addons_from_dir(root, prefix, &items, &n_items, &n_allocated);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        if (n_items == 0)
+                return EFI_SUCCESS; /* Empty directory */
+
+        /* Now, sort the files we found, to make this uniform and stable (and to ensure the TPM measurements
+         * are not dependent on read order) */
+        sort_pointer_array((void**) items, n_items, (compare_pointer_func_t) strcmp16);
+
+        for (size_t i = 0; i < n_items; i++) {
+                size_t addrs[_UNIFIED_SECTION_MAX] = {}, szs[_UNIFIED_SECTION_MAX] = {};
+                _cleanup_free_ EFI_DEVICE_PATH *addon_path = NULL;
+                _cleanup_(unload_imagep) EFI_HANDLE addon = NULL;
+                EFI_LOADED_IMAGE_PROTOCOL *loaded_addon = NULL;
+                _cleanup_free_ char16_t *addon_spath = NULL;
+
+                addon_spath = xasprintf("%ls\\%ls", prefix, items[i]);
+                err = make_file_device_path(loaded_image->DeviceHandle, addon_spath, &addon_path);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error making device path for %ls: %m", addon_spath);
+
+                /* By using shim_load_image, we cover both the case where the PE files are signed with MoK
+                 * and with DB, and running with or without shim. */
+                err = shim_load_image(stub_image, addon_path, &addon);
+                if (err != EFI_SUCCESS) {
+                        log_error_status(err,
+                                         "Failed to read '%ls' from '%ls', ignoring: %m",
+                                         items[i],
+                                         addon_spath);
+                        continue;
+                }
+
+                err = BS->HandleProtocol(addon,
+                                         MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL),
+                                         (void **) &loaded_addon);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Failed to find protocol in %ls: %m", items[i]);
+
+                err = pe_memory_locate_sections(loaded_addon->ImageBase, unified_sections, addrs, szs);
+                if (err != EFI_SUCCESS || szs[UNIFIED_SECTION_CMDLINE] == 0) {
+                        if (err == EFI_SUCCESS)
+                                err = EFI_NOT_FOUND;
+                        log_error_status(err,
+                                         "Unable to locate embedded .cmdline section in %ls, ignoring: %m",
+                                         items[i]);
+                        continue;
+                }
+
+                /* We want to enforce that addons are not UKIs, i.e.: they must not embed a kernel. */
+                if (szs[UNIFIED_SECTION_LINUX] > 0) {
+                        log_error_status(EFI_INVALID_PARAMETER, "%ls is a UKI, not an addon, ignoring: %m", items[i]);
+                        continue;
+                }
+
+                /* Also enforce that, in case it is specified, .uname matches as a quick way to allow
+                 * enforcing compatibility with a specific UKI only */
+                if (uname && szs[UNIFIED_SECTION_UNAME] > 0 &&
+                                !strneq8(uname,
+                                         (char *)loaded_addon->ImageBase + addrs[UNIFIED_SECTION_UNAME],
+                                         szs[UNIFIED_SECTION_UNAME])) {
+                        log_error(".uname mismatch between %ls and UKI, ignoring", items[i]);
+                        continue;
+                }
+
+                _cleanup_free_ char16_t *tmp = TAKE_PTR(buffer),
+                                        *extra16 = xstrn8_to_16((char *)loaded_addon->ImageBase + addrs[UNIFIED_SECTION_CMDLINE],
+                                                                szs[UNIFIED_SECTION_CMDLINE]);
+                buffer = xasprintf("%ls%ls%ls", strempty(tmp), isempty(tmp) ? u"" : u" ", extra16);
+        }
+
+        mangle_stub_cmdline(buffer);
+
+        if (!isempty(buffer)) {
+                _cleanup_free_ char16_t *tmp = TAKE_PTR(*cmdline_append);
+                bool m = false;
+
+                (void) tpm_log_load_options(buffer, &m);
+                *ret_parameters_measured = m;
+
+                *cmdline_append = xasprintf("%ls%ls%ls", strempty(tmp), isempty(tmp) ? u"" : u" ", buffer);
+        }
+
+        return EFI_SUCCESS;
+}
+
 static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL;
         size_t credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
@@ -190,6 +374,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         size_t addrs[_UNIFIED_SECTION_MAX] = {}, szs[_UNIFIED_SECTION_MAX] = {};
         _cleanup_free_ char16_t *cmdline = NULL;
         int sections_measured = -1, parameters_measured = -1;
+        _cleanup_free_ char *uname = NULL;
         bool sysext_measured = false, m;
         uint64_t loader_features = 0;
         EFI_STATUS err;
@@ -262,6 +447,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
         /* Show splash screen as early as possible */
         graphics_splash((const uint8_t*) loaded_image->ImageBase + addrs[UNIFIED_SECTION_SPLASH], szs[UNIFIED_SECTION_SPLASH]);
 
+        if (szs[UNIFIED_SECTION_UNAME] > 0)
+                uname = xstrndup8((char *)loaded_image->ImageBase + addrs[UNIFIED_SECTION_UNAME],
+                                  szs[UNIFIED_SECTION_UNAME]);
+
         if (use_load_options(image, loaded_image, szs[UNIFIED_SECTION_CMDLINE] > 0, &cmdline)) {
                 /* Let's measure the passed kernel command line into the TPM. Note that this possibly
                  * duplicates what we already did in the boot menu, if that was already used. However, since
@@ -276,6 +465,33 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 szs[UNIFIED_SECTION_CMDLINE]);
                 mangle_stub_cmdline(cmdline);
         }
+
+        /* If we have any extra command line to add via PE addons, load them now and append, and
+         * measure the additions separately, after the embedded options, but before the smbios ones,
+         * so that the order is reversed from "most hardcoded" to "most dynamic". The global addons are
+         * loaded first, and the image-specific ones later, for the same reason. */
+        err = cmdline_append_and_measure_addons(
+                        image,
+                        loaded_image,
+                        u"\\loader\\addons",
+                        uname,
+                        &m,
+                        &cmdline);
+        if (err != EFI_SUCCESS)
+                log_error_status(err, "Error loading global addons, ignoring: %m");
+        parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
+
+        _cleanup_free_ char16_t *dropin_dir = get_extra_dir(loaded_image->FilePath);
+        err = cmdline_append_and_measure_addons(
+                        image,
+                        loaded_image,
+                        dropin_dir,
+                        uname,
+                        &m,
+                        &cmdline);
+        if (err != EFI_SUCCESS)
+                log_error_status(err, "Error loading UKI-specific addons, ignoring: %m");
+        parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
 
         const char *extra = smbios_find_oem_string("io.systemd.stub.kernel-cmdline-extra");
         if (extra) {
