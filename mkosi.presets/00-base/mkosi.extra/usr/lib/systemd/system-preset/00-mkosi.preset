@@ -19,10 +19,9 @@ enable dbus-broker.service
 enable systemd-networkd.service
 enable systemd-networkd-wait-online.service
 
-# We install dnf in some images but it's only going to be used rarely to install extra packages so let's not
-# have dnf create its cache.
-disable dnf-makecache.timer
-disable dnf-makecache.service
+# We install dnf in some images but it's only going to be used rarely,
+# so let's not have dnf create its cache.
+disable dnf-makecache.*
 
 # We have journald to receive audit data so let's make sure we're not running auditd as well
 disable auditd.service
