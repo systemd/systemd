@@ -27,3 +27,4 @@ StandardError=inherit
 KillMode=process
 IgnoreSIGPIPE=no
 SendSIGHUP=yes
+PassEnvironment=SYSTEMD_SULOGIN_FORCE
