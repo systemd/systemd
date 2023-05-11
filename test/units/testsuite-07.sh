@@ -3,37 +3,16 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/test-control.sh
+. "$(dirname "$0")"/test-control.sh
+
 : >/failed
 
-cat >/lib/systemd/system/my.service <<EOF
-[Service]
-Type=oneshot
-ExecStartPre=sh -c 'test "\$TRIGGER_UNIT" = my.timer'
-ExecStartPre=sh -c 'test -n "\$TRIGGER_TIMER_REALTIME_USEC"'
-ExecStartPre=sh -c 'test -n "\$TRIGGER_TIMER_MONOTONIC_USEC"'
-ExecStart=/bin/echo Timer runs me
-EOF
+# Issue: https://github.com/systemd/systemd/issues/2730
+# See TEST-07-PID1/test.sh for the first "half" of the test
+mountpoint /issue2730
 
-cat >/lib/systemd/system/my.timer <<EOF
-[Timer]
-OnBootSec=10s
-OnUnitInactiveSec=1h
-EOF
-
-systemctl unmask my.timer
-
-systemctl start my.timer
-
-mkdir -p /etc/systemd/system/my.timer.d/
-cat >/etc/systemd/system/my.timer.d/override.conf <<EOF
-[Timer]
-OnBootSec=10s
-OnUnitInactiveSec=1h
-EOF
-
-systemctl daemon-reload
-
-systemctl mask my.timer
+run_subtests
 
 touch /testok
 rm /failed

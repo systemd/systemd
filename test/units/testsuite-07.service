@@ -3,6 +3,11 @@
 Description=TEST-07-ISSUE-1981
 
 [Service]
+Type=oneshot
 ExecStartPre=rm -f /failed /testok
 ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
-Type=oneshot
+NotifyAccess=all
+# Issue: https://github.com/systemd/systemd/issues/2691
+ExecStop=sh -c 'kill -SEGV $$$$'
+RemainAfterExit=yes
+TimeoutStopSec=270s
