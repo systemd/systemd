@@ -27,18 +27,26 @@ for f in "$src"/test-*.input; do
         trap "rm -rf '$out'" EXIT INT QUIT PIPE
 
         exp="${f%.input}.expected"
+        if [[ "${f##*/}" =~ swap ]] && systemd-detect-virt --container >/dev/null; then
+            exp="${exp}.container"
+        fi
 
         # shellcheck disable=SC2046
         if [[ "${f##*/}" =~ \.fstab\.input ]]; then
             SYSTEMD_LOG_LEVEL=debug SYSTEMD_IN_INITRD=yes SYSTEMD_SYSFS_CHECK=no SYSTEMD_PROC_CMDLINE="fstab=yes root=fstab" SYSTEMD_FSTAB="$f" SYSTEMD_SYSROOT_FSTAB="/dev/null" $generator "$out" "$out" "$out"
         else
-            SYSTEMD_LOG_LEVEL=debug SYSTEMD_IN_INITRD=yes SYSTEMD_PROC_CMDLINE="fstab=no $(cat "$f")" $generator "$out" "$out" "$out"
+            SYSTEMD_LOG_LEVEL=debug SYSTEMD_IN_INITRD=yes SYSTEMD_SYSFS_CHECK=no SYSTEMD_PROC_CMDLINE="fstab=no $(cat "$f")" $generator "$out" "$out" "$out"
         fi
 
         if [[ -f "$out"/systemd-fsck-root.service ]]; then
             # For split-usr system
             sed -i -e 's:ExecStart=/lib/systemd/systemd-fsck:ExecStart=/usr/lib/systemd/systemd-fsck:' "$out"/systemd-fsck-root.service
         fi
+
+        for i in "$out"/{,*/}systemd-mkswap@*.service; do
+            # For split-usr system
+            sed -i -e 's:ExecStart=/lib/systemd/systemd-makefs:ExecStart=/usr/lib/systemd/systemd-makefs:' "$i"
+        done
 
         if [[ "${f##*/}" =~ \.fstab\.input ]]; then
             for i in "$out"/*.{mount,swap}; do
