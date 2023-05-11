@@ -1,0 +1,5 @@
+systemd.mount=/dev/sdx1:/sysroot:auto:defaults
+systemd.mount=/dev/sdx2:/hoge/without_options:auto
+systemd.mount=/dev/sdx3:/hoge/without_fstype
+systemd.moutn=/dev/sdx4
+systemd.mount=//foo\ufffebar:/hoge/with\x20space:cifs:rw,seclabel

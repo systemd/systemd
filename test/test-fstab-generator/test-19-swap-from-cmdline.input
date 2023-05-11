@@ -1,0 +1,4 @@
+systemd.mount=/dev/sdy1:none:swap
+systemd.mount=/dev/sdy2:none:swap:x-systemd.makefs
+systemd.swap=/dev/sdy3:x-systemd.makefs,nofail
+systemd.swap=/dev/sdy4
