@@ -14,6 +14,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "device-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "parse-util.h"
@@ -589,6 +590,40 @@ static int find_real_nvme_parent(sd_device *dev, sd_device **ret) {
         return 0;
 }
 
+static void add_id_tag(sd_device *dev, bool test, const char *path) {
+        char tag[UDEV_NAME_SIZE];
+        size_t i = 0;
+        int r;
+
+        /* compose valid udev tag name */
+        for (const char *p = path; *p; p++) {
+                if (ascii_isdigit(*p) ||
+                    ascii_isalpha(*p) ||
+                    *p == '-') {
+                        tag[i++] = *p;
+                        continue;
+                }
+
+                /* skip all leading '_' */
+                if (i == 0)
+                        continue;
+
+                /* avoid second '_' */
+                if (tag[i-1] == '_')
+                        continue;
+
+                tag[i++] = '_';
+        }
+        /* strip trailing '_' */
+        while (i > 0 && tag[i-1] == '_')
+                i--;
+        tag[i] = '\0';
+
+        r = udev_builtin_add_property(dev, test, "ID_PATH_TAG", tag);
+        if (r < 0)
+                log_device_debug_errno(dev, r, "Failed to add ID_PATH_TAG property, ignoring: %m");
+}
+
 static int builtin_path_id(UdevEvent *event, int argc, char *argv[], bool test) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         _cleanup_(sd_device_unrefp) sd_device *dev_other_branch = NULL;
@@ -748,37 +783,11 @@ static int builtin_path_id(UdevEvent *event, int argc, char *argv[], bool test) 
             !supported_transport)
                 return -ENOENT;
 
-        {
-                char tag[UDEV_NAME_SIZE];
-                size_t i = 0;
+        r = udev_builtin_add_property(dev, test, "ID_PATH", path);
+        if (r < 0)
+                log_device_debug_errno(dev, r, "Failed to add ID_PATH property, ignoring: %m");
 
-                /* compose valid udev tag name */
-                for (const char *p = path; *p; p++) {
-                        if (ascii_isdigit(*p) ||
-                            ascii_isalpha(*p) ||
-                            *p == '-') {
-                                tag[i++] = *p;
-                                continue;
-                        }
-
-                        /* skip all leading '_' */
-                        if (i == 0)
-                                continue;
-
-                        /* avoid second '_' */
-                        if (tag[i-1] == '_')
-                                continue;
-
-                        tag[i++] = '_';
-                }
-                /* strip trailing '_' */
-                while (i > 0 && tag[i-1] == '_')
-                        i--;
-                tag[i] = '\0';
-
-                udev_builtin_add_property(dev, test, "ID_PATH", path);
-                udev_builtin_add_property(dev, test, "ID_PATH_TAG", tag);
-        }
+        add_id_tag(dev, test, path);
 
         /*
          * Compatible link generation for ATA devices
