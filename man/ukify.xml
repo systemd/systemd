@@ -254,12 +254,22 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>SecureBootSigningTool=<replaceable>SIGNER</replaceable></varname></term>
+          <term><option>--signtool=<replaceable>SIGNER</replaceable></option></term>
+
+          <listitem><para>Whether to use <literal>sbsign</literal> or <literal>pesign</literal>.
+          Depending on this choice, different parameters are required in order to sign an image.
+          Defaults to <literal>sbsign</literal>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>SecureBootPrivateKey=<replaceable>SB_KEY</replaceable></varname></term>
           <term><option>--secureboot-private-key=<replaceable>SB_KEY</replaceable></option></term>
 
           <listitem><para>A path to a private key to use for signing of the resulting binary. If the
           <varname>SigningEngine=</varname>/<option>--signing-engine=</option> option is used, this may also be
-          an engine-specific designation.</para></listitem>
+          an engine-specific designation. This option is required by
+          <varname>SecureBootSigningTool=sbsign</varname>/<option>--signtool=sbsign</option>. </para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -268,7 +278,25 @@
 
           <listitem><para>A path to a certificate to use for signing of the resulting binary. If the
           <varname>SigningEngine=</varname>/<option>--signing-engine=</option> option is used, this may also
-          be an engine-specific designation.</para></listitem>
+          be an engine-specific designation. This option is required by
+          <varname>SecureBootSigningTool=sbsign</varname>/<option>--signtool=sbsign</option>. </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>SecureBootCertificateDir=<replaceable>SB_PATH</replaceable></varname></term>
+          <term><option>--secureboot-certificate-dir=<replaceable>SB_PATH</replaceable></option></term>
+
+          <listitem><para>A path to a nss certificate database directory to use for signing of the resulting binary.
+          Takes effect when <varname>SecureBootSigningTool=pesign</varname>/<option>--signtool=pesign</option> is used.
+          Defaults to <filename>/etc/pki/pesign</filename>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>SecureBootCertificateName=<replaceable>SB_CERTNAME</replaceable></varname></term>
+          <term><option>--secureboot-certificate-name=<replaceable>SB_CERTNAME</replaceable></option></term>
+
+          <listitem><para>The name of the nss certificate database entry to use for signing of the resulting binary.
+          This option is required by <varname>SecureBootSigningTool=pesign</varname>/<option>--signtool=pesign</option>.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -435,7 +463,7 @@ Phases=enter-initrd:leave-initrd
       --secureboot-private-key=sb.key \
       --secureboot-certificate=sb.cert \
       --cmdline='debug' \
-      --output=debug.cmdline.efi
+      --output=debug.cmdline
       </programlisting>
 
       <para>This creates a signed PE binary that contains the additional kernel command line parameter
