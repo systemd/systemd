@@ -1877,11 +1877,25 @@ int bus_unit_queue_job(
             (type == JOB_RELOAD_OR_START && job_type_collapse(type, u) == JOB_START && u->refuse_manual_start))
                 return sd_bus_error_setf(error, BUS_ERROR_ONLY_BY_DEPENDENCY, "Operation refused, unit %s may be requested by dependency only (it is configured to refuse manual start/stop).", u->id);
 
-        /* dbus-broker issues StartUnit for activation requests, so let's apply the same check
-         * used in signal_activation_request(). */
-        if (type == JOB_START && u->type == UNIT_SERVICE &&
-            SERVICE(u)->type == SERVICE_DBUS && !manager_dbus_is_running(u->manager))
-                return sd_bus_error_set(error, BUS_ERROR_SHUTTING_DOWN, "Refusing activation, D-Bus is not running.");
+        if (type == JOB_START && u->type == UNIT_SERVICE && SERVICE(u)->type == SERVICE_DBUS) {
+                /* dbus-broker issues StartUnit for activation requests, and Type=dbus services automatically
+                 * gain dependency on dbus.socket. Therefore, if dbus has a pending stop job, the new start
+                 * job that pulls in dbus again would result in job type conflict. */
+
+                Unit *dbus;
+                bool refuse = false;
+
+                dbus = manager_get_unit(u->manager, SPECIAL_DBUS_SOCKET);
+                if (dbus && unit_stop_pending(dbus))
+                        refuse = true;
+
+                dbus = manager_get_unit(u->manager, SPECIAL_DBUS_SERVICE);
+                if (dbus && unit_stop_pending(dbus))
+                        refuse = true;
+
+                if (refuse)
+                        return sd_bus_error_set(error, BUS_ERROR_SHUTTING_DOWN, "Refusing activation, D-Bus is shutting down.");
+        }
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
