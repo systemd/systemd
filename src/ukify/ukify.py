@@ -614,31 +614,32 @@ def make_uki(opts):
     # kernel payload signing
 
     sign_tool = None
-    if opts.signtool == 'sbsign':
-        sign_tool = find_sbsign(opts=opts)
-        sign = sbsign_sign
-        verify_tool = SBVERIFY
-    else:
-        sign_tool = find_pesign(opts=opts)
-        sign = pesign_sign
-        verify_tool = PESIGCHECK
-
     sign_args_present = opts.sb_key or opts.sb_cert_name
-
-    if sign_tool is None and sign_args_present:
-        raise ValueError(f'{opts.signtool}, required for signing, is not installed')
-
     sign_kernel = opts.sign_kernel
-    if sign_kernel is None and opts.linux is not None and sign_args_present:
-        # figure out if we should sign the kernel
-        sign_kernel = verify(verify_tool, opts)
+    sign = None
+    linux = opts.linux
 
-    if sign_kernel:
-        linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
-        linux = linux_signed.name
-        sign(sign_tool, opts.linux, linux, opts=opts)
-    else:
-        linux = opts.linux
+    if sign_args_present:
+        if opts.signtool == 'sbsign':
+            sign_tool = find_sbsign(opts=opts)
+            sign = sbsign_sign
+            verify_tool = SBVERIFY
+        else:
+            sign_tool = find_pesign(opts=opts)
+            sign = pesign_sign
+            verify_tool = PESIGCHECK
+
+        if sign_tool is None:
+            raise ValueError(f'{opts.signtool}, required for signing, is not installed')
+
+        if sign_kernel is None and opts.linux is not None:
+            # figure out if we should sign the kernel
+            sign_kernel = verify(verify_tool, opts)
+
+        if sign_kernel:
+            linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
+            linux = linux_signed.name
+            sign(sign_tool, opts.linux, linux, opts=opts)
 
     if opts.uname is None and opts.linux is not None:
         print('Kernel version not specified, starting autodetection 😖.')
@@ -686,16 +687,17 @@ def make_uki(opts):
 
     if sign_args_present:
         unsigned = tempfile.NamedTemporaryFile(prefix='uki')
-        output = unsigned.name
+        unsigned_output = unsigned.name
     else:
-        output = opts.output
+        unsigned_output = opts.output
 
-    pe_add_sections(uki, output)
+    pe_add_sections(uki, unsigned_output)
 
     # UKI signing
 
     if sign_args_present:
-        sign(sign_tool, unsigned.name, opts.output, opts=opts)
+        assert sign
+        sign(sign_tool, unsigned_output, opts.output, opts=opts)
 
         # We end up with no executable bits, let's reapply them
         os.umask(umask := os.umask(0))
