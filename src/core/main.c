@@ -1515,10 +1515,8 @@ static int become_shutdown(int objective, int retval) {
         if (log_get_show_time())
                 command_line[pos++] = "--log-time";
 
-        if (objective == MANAGER_EXIT) {
-                xsprintf(exit_code, "--exit-code=%d", retval);
-                command_line[pos++] = exit_code;
-        }
+        xsprintf(exit_code, "--exit-code=%d", retval);
+        command_line[pos++] = exit_code;
 
         assert(pos < ELEMENTSOF(command_line));
 
