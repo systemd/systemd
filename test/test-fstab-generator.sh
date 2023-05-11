@@ -29,7 +29,7 @@ for f in "$src"/test-*.input; do
         if [[ "$f" == *.fstab.input ]]; then
             SYSTEMD_LOG_LEVEL=debug SYSTEMD_IN_INITRD=yes SYSTEMD_SYSFS_CHECK=no SYSTEMD_PROC_CMDLINE="fstab=yes root=fstab" SYSTEMD_FSTAB="$f" SYSTEMD_SYSROOT_FSTAB="/dev/null" $generator "$out" "$out" "$out"
         else
-            SYSTEMD_LOG_LEVEL=debug SYSTEMD_IN_INITRD=yes SYSTEMD_PROC_CMDLINE="fstab=no $(cat "$f")" $generator "$out" "$out" "$out"
+            SYSTEMD_LOG_LEVEL=debug SYSTEMD_IN_INITRD=yes SYSTEMD_SYSFS_CHECK=no SYSTEMD_PROC_CMDLINE="fstab=no $(cat "$f")" $generator "$out" "$out" "$out"
         fi
 
         if [[ -f "$out"/systemd-fsck-root.service ]]; then
@@ -43,5 +43,19 @@ for f in "$src"/test-*.input; do
             echo "**** Unexpected output for $f"
             exit 1
         fi
+
+        if [[ "$f" == *.fstab.input ]]; then
+            for i in "$out"/*.mount; do
+                sed -i -e 's:SourcePath=.*$:SourcePath=/etc/fstab:' "$i"
+            done
+        fi
+
+        # Check the main units.
+        if ! diff -u "$out" "${f%.input}.expected"; then
+            echo "**** Unexpected output for $f (full)"
+            exit 1
+        fi
+
+        # TODO: also check drop-ins
     ) || exit 1
 done
