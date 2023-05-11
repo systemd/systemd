@@ -143,8 +143,8 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error_tty = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_tty = NULL;
-                const char *id, *user, *seat, *object, *tty = NULL;
+                _cleanup_free_ char *tty = NULL;
+                const char *id, *user, *seat, *object;
                 uint32_t uid;
 
                 r = sd_bus_message_read(reply, "(susso)", &id, &uid, &user, &seat, &object);
@@ -153,21 +153,20 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                 if (r == 0)
                         break;
 
-                r = sd_bus_get_property(
-                                bus,
-                                "org.freedesktop.login1",
-                                object,
-                                "org.freedesktop.login1.Session",
-                                "TTY",
-                                &error_tty,
-                                &reply_tty,
-                                "s");
-                if (r < 0)
-                        log_warning_errno(r, "Failed to get TTY for session %s: %s", id, bus_error_message(&error_tty, r));
-                else {
-                        r = sd_bus_message_read(reply_tty, "s", &tty);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
+                r = sd_bus_get_property_string(bus,
+                                               "org.freedesktop.login1",
+                                               object,
+                                               "org.freedesktop.login1.Session",
+                                               "TTY",
+                                               &error_tty,
+                                               &tty);
+                if (r < 0) {
+                        if (sd_bus_error_has_name(&error_tty, SD_BUS_ERROR_UNKNOWN_OBJECT))
+                                /* The session is already closed when we're querying the property */
+                                continue;
+
+                        log_warning_errno(r, "Failed to get TTY for session %s, ignoring: %s",
+                                          id, bus_error_message(&error_tty, r));
                 }
 
                 r = table_add_many(table,
