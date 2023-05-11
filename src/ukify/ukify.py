@@ -706,6 +706,34 @@ def make_uki(opts):
     print(f"Wrote {'signed' if sign_args_present else 'unsigned'} {opts.output}")
 
 
+UKI_DEFAULT_SECTIONS = {
+    'binary': set(['.linux', '.initrd', '.splash', '.dtb']),
+    'text' : set(['.osrel', '.uname', '.cmdline', '.pcrpkey', '.pcrsig']),
+}
+
+
+def pe_read_sections(uki: str, output: pathlib.Path):
+    pe = pefile.PE(uki, fast_load=True)
+    out = f"Sections in {uki}:\n"
+    for section in pe.sections:
+        name = section.Name.decode().rstrip('\x00')
+        if name in UKI_DEFAULT_SECTIONS['binary']:
+            out += f"{name}: present\n"
+        elif name in UKI_DEFAULT_SECTIONS['text']:
+            start = section.PointerToRawData
+            end = start + section.Misc_VirtualSize
+            data = pe.__data__[start:end].decode()
+            out += f"{name}:\n{data}\n"
+    if output:
+        output.open("w").write(out)
+    else:
+        print(out, end='')
+
+
+def read_uki(opts):
+    pe_read_sections(opts.read_sections, opts.output)
+
+
 @dataclasses.dataclass(frozen=True)
 class ConfigItem:
     @staticmethod
@@ -985,6 +1013,13 @@ CONFIG_ITEMS = [
         help = 'required by --signtool=pesign. pesign needs a certificate nickname of nss certificate database entry to use for PE signing',
         config_key = 'UKI/SecureBootCertificateName',
     ),
+    ConfigItem(
+        '--read-sections',
+        dest = 'read_sections',
+        type = pathlib.Path,
+        help = 'read common sections of the given PE.',
+        config_key = 'UKI/ReadPESections',
+    ),
 
     ConfigItem(
         '--sign-kernel',
@@ -1161,7 +1196,10 @@ def finalize_options(opts):
     if opts.sign_kernel and not opts.sb_key and not opts.sb_cert_name:
         raise ValueError('--sign-kernel requires either --secureboot-private-key= and --secureboot-certificate= (for sbsign) or --secureboot-certificate-name= (for pesign) to be specified')
 
-    if opts.output is None:
+    if opts.read_sections and (opts.sb_key or opts.sb_cert_name):
+        raise ValueError("--read-sections does not work with signing parameters.")
+
+    if opts.output is None and not opts.read_sections:
         if opts.linux is None:
             raise ValueError('--output= must be specified when building a PE addon')
         suffix = '.efi' if opts.sb_key or opts.sb_cert_name else '.unsigned.efi'
@@ -1200,7 +1238,10 @@ def parse_args(args=None):
 def main():
     opts = parse_args()
     check_inputs(opts)
-    make_uki(opts)
+    if opts.read_sections:
+        read_uki(opts)
+    else:
+        make_uki(opts)
 
 
 if __name__ == '__main__':
