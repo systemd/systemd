@@ -28,8 +28,10 @@
     <para><filename>/usr/lib/systemd/boot/efi/linuxx64.efi.stub</filename></para>
     <para><filename>/usr/lib/systemd/boot/efi/linuxia32.efi.stub</filename></para>
     <para><filename>/usr/lib/systemd/boot/efi/linuxaa64.efi.stub</filename></para>
+    <para><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename></para>
     <para><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.cred</filename></para>
     <para><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.raw</filename></para>
+    <para><filename><replaceable>ESP</replaceable>/loader/addons/*.addon.efi</filename></para>
     <para><filename><replaceable>ESP</replaceable>/loader/credentials/*.cred</filename></para>
   </refsynopsisdiv>
 
@@ -142,11 +144,29 @@
       details on system extension images. The generated <command>cpio</command> archive containing these
       system extension images is measured into TPM PCR 13 (if a TPM is present).</para></listitem>
 
+      <listitem><para>Similarly, files
+      <filename><replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename>
+      are loaded and verified as PE binaries, and a <literal>.cmdline</literal> section is parsed from them.
+      In case Secure Boot is enabled, these files will be validated using keys in UEFI DB, Shim's DB or
+      Shim's MOK, and will be rejected otherwise. Additionally, if the both the addon and the UKI contain a
+      <literal>.osrel</literal> section, the addon will be rejected if they do not exactly match. Addons are
+      supposed to be used to pass additional kernel command line parameters, regardless of the kernel image
+      being booted, for example to allow platform vendors to ship platform-specific configuration. The
+      loaded command line addon files are sorted, loaded, measured into TPM PCR 12 (if a TPM is present) and
+      appended to the kernel command line. UKI command line options are listed first, then options from
+      addons in <filename>/loader/addons/*.addon.efi</filename> are appended next, and finally UKI-specific
+      addons are appended last.</para></listitem>
+
       <listitem><para>Files <filename>/loader/credentials/*.cred</filename> are packed up in a
       <command>cpio</command> archive and placed in the <filename>/.extra/global_credentials/</filename>
       directory of the initrd file hierarchy. This is supposed to be used to pass additional credentials to
       the initrd, regardless of the kernel being booted. The generated <command>cpio</command> archive is
       measured into TPM PCR 12 (if a TPM is present)</para></listitem>
+
+      <listitem><para>Additionally, files <filename>/loader/addons/*.addon.efi</filename> are loaded and
+      verified as PE binaries, and a <literal>.cmdline</literal> section is parsed from them. This is
+      supposed to be used to pass additional command line parameters to the kernel, regardless of the kernel
+      being booted.</para></listitem>
     </itemizedlist>
 
     <para>These mechanisms may be used to parameterize and extend trusted (i.e. signed), immutable initrd
