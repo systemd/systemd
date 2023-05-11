@@ -18,6 +18,7 @@ int make_filesystem(
                 const char *root,
                 sd_id128_t uuid,
                 bool discard,
+                bool quiet,
                 uint64_t sector_size,
                 char * const *extra_mkfs_args);
 
