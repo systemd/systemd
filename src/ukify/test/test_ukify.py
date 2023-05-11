@@ -360,6 +360,13 @@ def test_help(capsys):
     assert '--section' in out.out
     assert not out.err
 
+def test_help_display(capsys):
+    with pytest.raises(SystemExit):
+        ukify.parse_args(['inspect', '--help'])
+    out = capsys.readouterr()
+    assert '--section' in out.out
+    assert not out.err
+
 def test_help_error_deprecated(capsys):
     with pytest.raises(SystemExit):
         ukify.parse_args(['a', 'b', '--no-such-option'])
@@ -602,6 +609,52 @@ def test_efi_signing_pesign(kernel_initrd, tmpdir):
     ], text=True)
 
     assert f"The signer's common name is {author}" in dump
+
+def test_inspect(kernel_initrd, tmpdir, capsys):
+    if kernel_initrd is None:
+        pytest.skip('linux+initrd not found')
+    if not shutil.which('sbsign'):
+        pytest.skip('sbsign not found')
+
+    ourdir = pathlib.Path(__file__).parent
+    cert = unbase64(ourdir / 'example.signing.crt.base64')
+    key = unbase64(ourdir / 'example.signing.key.base64')
+
+    output = f'{tmpdir}/signed2.efi'
+    uname_arg='1.2.3'
+    osrel_arg='Linux'
+    cmdline_arg='ARG1 ARG2 ARG3'
+    opts = ukify.parse_args([
+        'build',
+        *kernel_initrd,
+        f'--cmdline={cmdline_arg}',
+        f'--os-release={osrel_arg}',
+        f'--uname={uname_arg}',
+        f'--output={output}',
+        f'--secureboot-certificate={cert.name}',
+        f'--secureboot-private-key={key.name}',
+    ])
+
+    ukify.check_inputs(opts)
+    ukify.make_uki(opts)
+
+    opts = ukify.parse_args(['inspect', output])
+    ukify.inspect_sections(opts)
+
+    text = capsys.readouterr().out
+
+    expected_osrel = f'.osrel:\n  size: {len(osrel_arg)}'
+    assert expected_osrel in text
+    expected_cmdline = f'.cmdline:\n  size: {len(cmdline_arg)}'
+    assert expected_cmdline in text
+    expected_uname = f'.uname:\n  size: {len(uname_arg)}'
+    assert expected_uname in text
+
+    expected_initrd = '.initrd:\n  size:'
+    assert expected_initrd in text
+    expected_linux = '.linux:\n  size:'
+    assert expected_linux in text
+
 
 def test_pcr_signing(kernel_initrd, tmpdir):
     if kernel_initrd is None:
