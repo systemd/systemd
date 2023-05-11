@@ -43,5 +43,19 @@ for f in "$src"/test-*.input; do
             echo "**** Unexpected output for $f"
             exit 1
         fi
+
+        if [[ "$f" == *.fstab.input ]]; then
+            for i in "$out"/*.mount; do
+                sed -i -e 's:SourcePath=.*$:SourcePath=/etc/fstab:' $i
+            done
+        fi
+
+        # Check the main units.
+        if ! diff -u "$out" "${f%.input}.expected"; then
+            echo "**** Unexpected output for $f (full)"
+            exit 1
+        fi
+
+        # TODO: also check drop-ins
     ) || exit 1
 done
