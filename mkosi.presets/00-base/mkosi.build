@@ -193,3 +193,15 @@ if [ "$WITH_TESTS" = 1 ]; then
 fi
 
 ( set -x; meson install -C "$BUILDDIR" --quiet --no-rebuild --only-changed )
+
+# Ensure that side-loaded PE addons are loaded if signed, and ignored if not
+if [ -d "${DESTDIR}/boot/loader" ]; then
+    addons_dir="${DESTDIR}/boot/loader/addons"
+elif [ -d "${DESTDIR}/efi/loader" ]; then
+    addons_dir="${DESTDIR}/efi/loader/addons"
+fi
+if [ -n "${addons_dir}" ]; then
+    mkdir -p "${addons_dir}"
+    ukify --secureboot-private-key mkosi.secure-boot.key --secureboot-certificate mkosi.secure-boot.crt --cmdline this_should_be_here -o "${addons_dir}/good.addon.efi"
+    ukify --cmdline this_should_not_be_here -o "${addons_dir}/bad.addon.efi"
+fi
