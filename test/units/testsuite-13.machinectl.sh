@@ -13,6 +13,7 @@ at_exit() {
 
     machinectl status long-running >/dev/null && machinectl kill --signal=KILL long-running
     mountpoint -q /var/lib/machines && timeout 10 sh -c "while ! umount /var/lib/machines; do sleep .5; done"
+    [[ -n "${NSPAWN_FRAGMENT:-}" ]] && rm -f "/etc/systemd/nspawn/$NSPAWN_FRAGMENT" "/var/lib/machines/$NSPAWN_FRAGMENT"
 }
 
 trap at_exit EXIT
@@ -179,6 +180,24 @@ machinectl import-fs /tmp/container.dir container-dir
 machinectl start container-dir
 timeout 10 sh -c "while ! machinectl remove container-dir; do sleep .5; done"
 rm -fr /tmp/container.dir
+
+NSPAWN_FRAGMENT="machinectl-test-$RANDOM.nspawn"
+cat >"/var/lib/machines/$NSPAWN_FRAGMENT" <<EOF
+[Exec]
+Boot=true
+EOF
+machinectl cat "$NSPAWN_FRAGMENT"
+EDITOR=true script -qec "machinectl edit $NSPAWN_FRAGMENT" /dev/null
+test -f "/etc/systemd/nspawn/$NSPAWN_FRAGMENT"
+diff "/var/lib/machines/$NSPAWN_FRAGMENT" "/etc/systemd/nspawn/$NSPAWN_FRAGMENT"
+
+cat >/tmp/fragment.nspawn <<EOF
+[Exec]
+Boot=false
+EOF
+machinectl cat /tmp/fragment.nspawn
+EDITOR="cp /tmp/fragment.nspawn" script -qec "machinectl edit $NSPAWN_FRAGMENT" /dev/null
+diff /tmp/fragment.nspawn "/etc/systemd/nspawn/$NSPAWN_FRAGMENT"
 
 for opt in format lines machine max-addresses output setenv verify; do
     (! machinectl status "--$opt=" long-running)
