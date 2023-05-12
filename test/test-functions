@@ -808,8 +808,7 @@ setup_selinux() {
     ln -sf ../autorelabel.service "$initdir/usr/lib/systemd/tests/testdata/units/basic.target.wants/"
 
     image_install "${fixfiles_tools[@]}"
-    image_install fixfiles
-    image_install sestatus
+    image_install fixfiles sestatus
 }
 
 install_valgrind() {
