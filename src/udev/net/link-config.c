@@ -260,6 +260,7 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                         STRV_MAKE_CONST(filename),
                         NETWORK_DIRS,
                         dropin_dirname,
+                        /* root = */ NULL,
                         "Match\0"
                         "Link\0"
                         "SR-IOV\0",

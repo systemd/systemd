@@ -88,7 +88,7 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
         dropin_dirname = strjoina(service->name, ".dnssd.d");
 
         r = config_parse_many(
-                        STRV_MAKE_CONST(filename), DNSSD_SERVICE_DIRS, dropin_dirname,
+                        STRV_MAKE_CONST(filename), DNSSD_SERVICE_DIRS, dropin_dirname, /* root = */ NULL,
                         "Service\0",
                         config_item_perf_lookup, resolved_dnssd_gperf_lookup,
                         CONFIG_PARSE_WARN,
