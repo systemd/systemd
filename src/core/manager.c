@@ -1801,7 +1801,7 @@ static void manager_distribute_fds(Manager *m, FDSet *fds) {
         }
 }
 
-bool manager_dbus_is_running_full(Manager *m, bool deserialized) {
+static bool manager_dbus_is_running(Manager *m, bool deserialized) {
         Unit *u;
 
         assert(m);
@@ -1843,7 +1843,7 @@ static void manager_setup_bus(Manager *m) {
                 (void) bus_init_system(m);
 
         /* Let's connect to the bus now, but only if the unit is supposed to be up */
-        if (manager_dbus_is_running_full(m, MANAGER_IS_RELOADING(m))) {
+        if (manager_dbus_is_running(m, MANAGER_IS_RELOADING(m))) {
                 (void) bus_init_api(m);
 
                 if (MANAGER_IS_SYSTEM(m))
@@ -2935,7 +2935,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 break;
 
         case SIGUSR1:
-                if (manager_dbus_is_running(m)) {
+                if (manager_dbus_is_running(m, false)) {
                         log_info("Trying to reconnect to bus...");
 
                         (void) bus_init_api(m);
@@ -4140,7 +4140,7 @@ void manager_recheck_dbus(Manager *m) {
         if (MANAGER_IS_RELOADING(m))
                 return; /* don't check while we are reloading… */
 
-        if (manager_dbus_is_running(m)) {
+        if (manager_dbus_is_running(m, false)) {
                 (void) bus_init_api(m);
 
                 if (MANAGER_IS_SYSTEM(m))
