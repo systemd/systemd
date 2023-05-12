@@ -6151,6 +6151,8 @@ void activation_details_serialize(ActivationDetails *details, FILE *f) {
 }
 
 int activation_details_deserialize(const char *key, const char *value, ActivationDetails **details) {
+        int r;
+
         assert(key);
         assert(value);
         assert(details);
@@ -6182,9 +6184,9 @@ int activation_details_deserialize(const char *key, const char *value, Activatio
         }
 
         if (streq(key, "activation-details-unit-name")) {
-                (*details)->trigger_unit_name = strdup(value);
-                if (!(*details)->trigger_unit_name)
-                        return -ENOMEM;
+                r = free_and_strdup(&(*details)->trigger_unit_name, value);
+                if (r < 0)
+                        return r;
 
                 return 0;
         }
