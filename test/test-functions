@@ -211,6 +211,7 @@ BASICTOOLS=(
     rm
     rmdir
     rmmod
+    script
     sed
     seq
     setfattr
