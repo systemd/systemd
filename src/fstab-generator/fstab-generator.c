@@ -131,6 +131,11 @@ static int add_swap(
                 return true;
         }
 
+        log_debug("Found swap entry what=%s makefs=%s growfs=%s pcrfs=%s noauto=%s nofail=%s",
+                  what,
+                  yes_no(flags & MOUNT_MAKEFS), yes_no(flags & MOUNT_GROWFS), yes_no(flags & MOUNT_PCRFS),
+                  yes_no(flags & MOUNT_NOAUTO), yes_no(flags & MOUNT_NOFAIL));
+
         r = unit_name_from_path(what, ".swap", &name);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
@@ -704,6 +709,7 @@ static int parse_fstab_one(
 
         _cleanup_free_ char *what = NULL, *where = NULL, *canonical_where = NULL;
         MountPointFlags flags;
+        bool is_swap;
         int r;
 
         assert(what_original);
@@ -724,6 +730,13 @@ static int parse_fstab_one(
                 log_info("/sys/ is read-only (running in a container?), ignoring mount for %s.", what);
                 return 0;
         }
+
+        is_swap = streq_ptr(fstype, "swap");
+
+        flags = fstab_options_to_flags(options, is_swap);
+
+        if (is_swap)
+                return add_swap(source, what, options, flags);
 
         where = strdup(where_original);
         if (!where)
@@ -759,15 +772,10 @@ static int parse_fstab_one(
                         log_debug("Canonicalized what=%s where=%s to %s", what, where, canonical_where);
         }
 
-        flags = fstab_options_to_flags(options, streq_ptr(fstype, "swap"));
-
         log_debug("Found entry what=%s where=%s type=%s makefs=%s growfs=%s pcrfs=%s noauto=%s nofail=%s",
                   what, where, strna(fstype),
                   yes_no(flags & MOUNT_MAKEFS), yes_no(flags & MOUNT_GROWFS), yes_no(flags & MOUNT_PCRFS),
                   yes_no(flags & MOUNT_NOAUTO), yes_no(flags & MOUNT_NOFAIL));
-
-        if (streq_ptr(fstype, "swap"))
-                return add_swap(source, what, options, flags);
 
         bool is_sysroot = in_initrd() && path_equal(where, "/sysroot");
         /* See comment from add_sysroot_usr_mount() about the need for extra indirection in case /usr needs
