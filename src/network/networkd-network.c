@@ -493,7 +493,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
         };
 
         r = config_parse_many(
-                        STRV_MAKE_CONST(filename), NETWORK_DIRS, dropin_dirname,
+                        STRV_MAKE_CONST(filename), NETWORK_DIRS, dropin_dirname, /* root = */ NULL,
                         "Match\0"
                         "Link\0"
                         "SR-IOV\0"
