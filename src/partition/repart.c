@@ -1795,11 +1795,7 @@ static int find_verity_sibling(Context *context, Partition *p, VerityMode mode, 
         return 0;
 }
 
-static int context_read_definitions(
-                Context *context,
-                char **directories,
-                const char *root) {
-
+static int context_read_definitions(Context *context) {
         _cleanup_strv_free_ char **files = NULL;
         Partition *last = NULL;
         int r;
@@ -1807,9 +1803,9 @@ static int context_read_definitions(
 
         assert(context);
 
-        dirs = (const char* const*) (directories ?: CONF_PATHS_STRV("repart.d"));
+        dirs = (const char* const*) (arg_definitions ?: CONF_PATHS_STRV("repart.d"));
 
-        r = conf_files_list_strv(&files, ".conf", directories ? NULL : root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, dirs);
+        r = conf_files_list_strv(&files, ".conf", arg_definitions ? NULL : arg_root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate *.conf files: %m");
 
@@ -6738,7 +6734,7 @@ static int run(int argc, char *argv[]) {
 
         strv_uniq(arg_definitions);
 
-        r = context_read_definitions(context, arg_definitions, arg_root);
+        r = context_read_definitions(context);
         if (r < 0)
                 return r;
 
