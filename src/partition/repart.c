@@ -1638,7 +1638,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                         STRV_MAKE_CONST(path),
                         conf_file_dirs,
                         dropin_dirname,
-                        /* root = */ NULL,
+                        arg_definitions ? NULL : arg_root,
                         "Partition\0",
                         config_item_table_lookup, table,
                         CONFIG_PARSE_WARN,
