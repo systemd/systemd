@@ -105,6 +105,7 @@ int config_parse_many(
                 const char* const* conf_files,  /* possibly empty */
                 const char* const* conf_file_dirs,
                 const char *dropin_dirname,
+                const char *root,
                 const char *sections,       /* nulstr */
                 ConfigItemLookup lookup,
                 const void *table,
