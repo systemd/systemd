@@ -193,6 +193,7 @@ BASICTOOLS=(
     loadkeys
     login
     losetup
+    lsattr
     lz4cat
     mkfifo
     mknod
