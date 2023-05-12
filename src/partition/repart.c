@@ -1798,8 +1798,8 @@ static int find_verity_sibling(Context *context, Partition *p, VerityMode mode, 
 static int context_read_definitions(Context *context) {
         _cleanup_strv_free_ char **files = NULL;
         Partition *last = NULL;
-        int r;
         const char *const *dirs;
+        int r;
 
         assert(context);
 
