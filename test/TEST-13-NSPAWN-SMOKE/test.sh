@@ -10,21 +10,20 @@ TEST_NO_NSPAWN=1
 . "${TEST_BASE_DIR:?}/test-functions"
 
 test_append_files() {
-    (
-        local workspace="${1:?}"
+    local workspace="${1:?}"
 
-        # On openSUSE the static linked version of busybox is named "busybox-static".
-        busybox="$(type -P busybox-static || type -P busybox)"
-        inst_simple "$busybox" "$(dirname "$busybox")/busybox"
+    # On openSUSE the static linked version of busybox is named "busybox-static".
+    busybox="$(type -P busybox-static || type -P busybox)"
+    inst_simple "$busybox" "$(dirname "$busybox")/busybox"
 
-        if command -v selinuxenabled >/dev/null && selinuxenabled; then
-            image_install selinuxenabled
-            cp -ar /etc/selinux "$workspace/etc/selinux"
-        fi
+    if command -v selinuxenabled >/dev/null && selinuxenabled; then
+        image_install chcon selinuxenabled
+        cp -ar /etc/selinux "$workspace/etc/selinux"
+        sed -i "s/^SELINUX=.*$/SELINUX=permissive/" "$workspace/etc/selinux/config"
+    fi
 
-        "$TEST_BASE_DIR/create-busybox-container" "$workspace/testsuite-13.nc-container"
-        initdir="$workspace/testsuite-13.nc-container" image_install nc ip md5sum
-    )
+    "$TEST_BASE_DIR/create-busybox-container" "$workspace/testsuite-13.nc-container"
+    initdir="$workspace/testsuite-13.nc-container" image_install nc ip md5sum
 }
 
 do_test "$@"
