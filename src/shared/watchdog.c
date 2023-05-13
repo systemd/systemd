@@ -318,9 +318,10 @@ static int open_watchdog(void) {
         STRV_FOREACH(wd, try_order) {
                 watchdog_fd = open(*wd, O_WRONLY|O_CLOEXEC);
                 if (watchdog_fd >= 0) {
-                        r = free_and_strdup(&watchdog_device, *wd);
-                        if (r < 0)
-                                return log_oom_debug();
+                        if (free_and_strdup(&watchdog_device, *wd) < 0) {
+                                r = log_oom_debug();
+                                goto close_and_fail;
+                        }
 
                         break;
                 }
@@ -342,8 +343,12 @@ static int open_watchdog(void) {
 
         r = update_timeout();
         if (r < 0)
-                watchdog_close(true);
+                goto close_and_fail;
 
+        return 0;
+
+close_and_fail:
+        watchdog_close(/* disarm= */ true);
         return r;
 }
 
@@ -356,7 +361,7 @@ int watchdog_set_device(const char *path) {
 
         r = free_and_strdup(&watchdog_device, path);
         if (r > 0) /* watchdog_device changed */
-                watchdog_fd = safe_close(watchdog_fd);
+                watchdog_close(/* disarm= */ true);
 
         return r;
 }
