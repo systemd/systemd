@@ -111,6 +111,11 @@ tests += [
                 'sources' : files('test-journal.c'),
                 'base' : test_journal_base,
         },
+        {
+                'sources' : files('test-journal-append.c'),
+                'base' : test_journal_base,
+                'type' : 'manual',
+        },
 ]
 
 fuzzer_journald_base = {
