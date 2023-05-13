@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-set -e
-set -u
+set -eu
 set -o pipefail
 
-root="${1:?Usage $0 container-root}"
+root="${1:?Usage: $0 container-root}"
 mkdir -p "$root"
 mkdir "$root/bin"
 
@@ -16,17 +15,18 @@ cp "$busybox" "$root/bin/busybox"
 mkdir -p "$root/usr/lib"
 touch "$root/usr/lib/os-release"
 
-ln -s busybox "$root/bin/sh"
 ln -s busybox "$root/bin/cat"
-ln -s busybox "$root/bin/tr"
-ln -s busybox "$root/bin/ps"
 ln -s busybox "$root/bin/ip"
+ln -s busybox "$root/bin/md5sum"
+ln -s busybox "$root/bin/ps"
 ln -s busybox "$root/bin/seq"
+ln -s busybox "$root/bin/sh"
 ln -s busybox "$root/bin/sleep"
-ln -s busybox "$root/bin/usleep"
-ln -s busybox "$root/bin/test"
 ln -s busybox "$root/bin/stat"
+ln -s busybox "$root/bin/test"
 ln -s busybox "$root/bin/touch"
+ln -s busybox "$root/bin/tr"
+ln -s busybox "$root/bin/usleep"
 
 mkdir -p "$root/sbin"
 cat <<'EOF' >"$root/sbin/init"
