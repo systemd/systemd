@@ -1251,6 +1251,12 @@ install_systemd() {
         # Ditto, but for the user daemon
         mkdir -p "$initdir/etc/systemd/user/test-.service.d/"
         echo -ne "[Service]\nReadWritePaths=${BUILD_DIR:?}\n" >"$initdir/etc/systemd/user/test-.service.d/99-gcov-rwpaths-override.conf"
+        # Bind the $BUILD_DIR into nspawn containers that are executed using
+        # machinectl. Unfortunately, the .nspawn files don't support drop-ins
+        # so we have to inject the bind mount directly into
+        # the systemd-nspawn@.service unit.
+        cp "$initdir/usr/lib/systemd/system/systemd-nspawn@.service" "$initdir/etc/systemd/system/systemd-nspawn@.service"
+        sed -ri "s/^ExecStart=.+$/& --bind=${BUILD_DIR//\//\\\/}/" "$initdir/etc/systemd/system/systemd-nspawn@.service"
     fi
 
     # If we're built with -Dportabled=false, tests with systemd-analyze
