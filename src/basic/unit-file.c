@@ -250,9 +250,10 @@ bool lookup_paths_timestamp_hash_same(const LookupPaths *lp, uint64_t timestamp_
 
 static int directory_name_is_valid(const char *name) {
 
-        /* Accept a directory whose name is a valid unit file name ending in .wants/, .requires/ or .d/ */
+        /* Accept a directory whose name is a valid unit file name ending in .wants/, .requires/,
+         * .upholds/ or .d/ */
 
-        FOREACH_STRING(suffix, ".wants", ".requires", ".d") {
+        FOREACH_STRING(suffix, ".wants", ".requires", ".upholds", ".d") {
                 _cleanup_free_ char *chopped = NULL;
                 const char *e;
 
