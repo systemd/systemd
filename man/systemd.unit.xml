@@ -749,8 +749,7 @@
 
         <para>When <varname>Upholds=b.service</varname> is used on <filename>a.service</filename>, this
         dependency will show as <varname>UpheldBy=a.service</varname> in the property listing of
-        <filename>b.service</filename>. The <varname>UpheldBy=</varname> dependency cannot be specified
-        directly.</para>
+        <filename>b.service</filename>.</para>
         </listitem>
       </varlistentry>
 
@@ -1849,6 +1848,12 @@
             <entry>[Install] section</entry>
           </row>
           <row>
+            <entry><varname>Upholds=</varname></entry>
+            <entry><varname>UpheldBy=</varname></entry>
+            <entry>[Unit] section</entry>
+            <entry>[Install] section</entry>
+          </row>
+          <row>
             <entry><varname>PartOf=</varname></entry>
             <entry><varname>ConsistsOf=</varname></entry>
             <entry>[Unit] section</entry>
@@ -1895,10 +1900,10 @@
       </tgroup>
     </table>
 
-    <para>Note: <varname>WantedBy=</varname> and <varname>RequiredBy=</varname> are
-    used in the [Install] section to create symlinks in <filename>.wants/</filename>
-    and <filename>.requires/</filename> directories. They cannot be used directly as a
-    unit configuration setting.</para>
+    <para>Note: <varname>WantedBy=</varname>, <varname>RequiredBy=</varname>, and <varname>UpheldBy=</varname>
+    are used in the [Install] section to create symlinks in <filename>.wants/</filename>,
+    <filename>.requires/</filename>, and <filename>.upholds/</filename> directories. They cannot be used
+    directly as a unit configuration setting.</para>
 
     <para>Note: <varname>ConsistsOf=</varname>, <varname>BoundBy=</varname>,
     <varname>RequisiteOf=</varname>, <varname>ConflictedBy=</varname> are created
@@ -1947,23 +1952,23 @@
       <varlistentry>
         <term><varname>WantedBy=</varname></term>
         <term><varname>RequiredBy=</varname></term>
+        <term><varname>UpheldBy=</varname></term>
 
         <listitem><para>This option may be used more than once, or a space-separated list of unit names may
-        be given. A symbolic link is created in the <filename>.wants/</filename> or
-        <filename>.requires/</filename> directory of each of the listed units when this unit is installed by
-        <command>systemctl enable</command>. This has the effect of a dependency of type
-        <varname>Wants=</varname> or <varname>Requires=</varname> being added from the listed unit to the
-        current unit. The primary result is that the current unit will be started when the listed unit is
-        started, see the description of <varname>Wants=</varname> and <varname>Requires=</varname> in the
-        [Unit] section for details.</para>
+        be given. A symbolic link is created in the <filename>.wants/</filename>, <filename>.requires/</filename>,
+        or <filename>.upholds/</filename> directory of each of the listed units when this unit is installed
+        by <command>systemctl enable</command>. This has the effect of a dependency of type
+        <varname>Wants=</varname>, <varname>Requires=</varname>, or <varname>Upholds=</varname> being added
+        from the listed unit to the current unit. See the description of the mentioned dependency types
+        in the [Unit] section for details.</para>
 
         <para>In case of template units listing non template units, the listing unit must have
         <varname>DefaultInstance=</varname> set, or <command>systemctl enable</command> must be called with
         an instance name. The instance (default or specified) will be added to the
-        <filename>.wants/</filename> or <filename>.requires/</filename> list of the listed unit. For example,
-        <command>WantedBy=getty.target</command> in a service <filename>getty@.service</filename> will result
-        in <command>systemctl enable getty@tty2.service</command> creating a
-        <filename>getty.target.wants/getty@tty2.service</filename> link to
+        <filename>.wants/</filename>, <filename>.requires/</filename>, or <filename>.upholds/</filename>
+        list of the listed unit. For example, <command>WantedBy=getty.target</command> in a service
+        <filename>getty@.service</filename> will result in <command>systemctl enable getty@tty2.service</command>
+        creating a <filename>getty.target.wants/getty@tty2.service</filename> link to
         <filename>getty@.service</filename>. This also applies to listing specific instances of templated
         units: this specific instance will gain the dependency. A template unit may also list a template
         unit, in which case a generic dependency will be added where each instance of the listing unit will

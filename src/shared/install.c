@@ -73,7 +73,8 @@ static bool install_info_has_rules(const InstallInfo *i) {
 
         return !strv_isempty(i->aliases) ||
                !strv_isempty(i->wanted_by) ||
-               !strv_isempty(i->required_by);
+               !strv_isempty(i->required_by) ||
+               !strv_isempty(i->upheld_by);
 }
 
 static bool install_info_has_also(const InstallInfo *i) {
@@ -942,7 +943,7 @@ static int find_symlinks(
                         continue;
 
                 suffix = strrchr(de->d_name, '.');
-                if (!STRPTR_IN_SET(suffix, ".wants", ".requires"))
+                if (!STRPTR_IN_SET(suffix, ".wants", ".requires", ".upholds"))
                         continue;
 
                 path = path_join(config_path, de->d_name);
@@ -967,7 +968,8 @@ static int find_symlinks(
                         log_debug_errno(r, "Failed to look up symlinks in \"%s\": %m", path);
         }
 
-        /* We didn't find any suitable symlinks in .wants or .requires directories, let's look for linked unit files in this directory. */
+        /* We didn't find any suitable symlinks in .wants, .requires or .upholds directories,
+         * let's look for linked unit files in this directory. */
         rewinddir(config_dir);
         return find_symlinks_in_directory(config_dir, config_path, root_dir, i,
                                           /* ignore_destination= */ false,
@@ -1081,6 +1083,7 @@ static void install_info_clear(InstallInfo *i) {
         i->aliases = strv_free(i->aliases);
         i->wanted_by = strv_free(i->wanted_by);
         i->required_by = strv_free(i->required_by);
+        i->upheld_by = strv_free(i->upheld_by);
         i->also = strv_free(i->also);
         i->default_instance = mfree(i->default_instance);
         i->symlink_target = mfree(i->symlink_target);
@@ -1337,6 +1340,7 @@ static int unit_file_load(
                 { "Install", "Alias",           config_parse_alias,            0, &info->aliases           },
                 { "Install", "WantedBy",        config_parse_strv,             0, &info->wanted_by         },
                 { "Install", "RequiredBy",      config_parse_strv,             0, &info->required_by       },
+                { "Install", "UpheldBy",        config_parse_strv,             0, &info->upheld_by         },
                 { "Install", "DefaultInstance", config_parse_default_instance, 0, info                     },
                 { "Install", "Also",            config_parse_also,             0, ctx                      },
                 {}
@@ -1440,7 +1444,8 @@ static int unit_file_load(
         return
                 (int) strv_length(info->aliases) +
                 (int) strv_length(info->wanted_by) +
-                (int) strv_length(info->required_by);
+                (int) strv_length(info->required_by) +
+                (int) strv_length(info->upheld_by);
 }
 
 static int unit_file_load_or_readlink(
@@ -2113,6 +2118,10 @@ static int install_info_apply(
         if (r == 0)
                 r = q;
 
+        q = install_info_symlink_wants(scope, file_flags, info, lp, config_path, info->upheld_by, ".upholds/", changes, n_changes);
+        if (r == 0)
+                r = q;
+
         return r;
 }
 
@@ -2733,8 +2742,10 @@ int unit_file_add_dependency(
 
                 if (dep == UNIT_WANTS)
                         l = &info->wanted_by;
-                else
+                else if (dep == UNIT_REQUIRES)
                         l = &info->required_by;
+                else
+                        l = &info->upheld_by;
 
                 strv_free(*l);
                 *l = strv_new(target_info->name);

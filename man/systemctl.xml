@@ -367,10 +367,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <listitem>
             <para>Shows units required and wanted by the specified
             units. This recursively lists units following the
-            <varname>Requires=</varname>,
-            <varname>Requisite=</varname>,
-            <varname>ConsistsOf=</varname>,
-            <varname>Wants=</varname>, <varname>BindsTo=</varname>
+            <varname>Requires=</varname>, <varname>Requisite=</varname>,
+            <varname>Wants=</varname>, <varname>ConsistsOf=</varname>,
+            <varname>BindsTo=</varname>, and <varname>Upholds=</varname>
             dependencies. If no units are specified,
             <filename>default.target</filename> is implied.</para>
 
@@ -1791,7 +1790,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <para>Show reverse dependencies between units with
           <command>list-dependencies</command>, i.e. follow
           dependencies of type <varname>WantedBy=</varname>,
-          <varname>RequiredBy=</varname>,
+          <varname>RequiredBy=</varname>, <varname>UpheldBy=</varname>,
           <varname>PartOf=</varname>, <varname>BoundBy=</varname>,
           instead of <varname>Wants=</varname> and similar.
           </para>
