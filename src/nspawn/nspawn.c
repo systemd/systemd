@@ -877,17 +877,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NETWORK_ZONE: {
-                        char *j;
+                        _cleanup_free_ char *j = NULL;
 
                         j = strjoin("vz-", optarg);
                         if (!j)
                                 return log_oom();
 
-                        if (!ifname_valid(j)) {
-                                log_error("Network zone name not valid: %s", j);
-                                free(j);
-                                return -EINVAL;
-                        }
+                        if (!ifname_valid(j))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Network zone name not valid: %s", j);
 
                         free_and_replace(arg_network_zone, j);
 
