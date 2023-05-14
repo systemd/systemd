@@ -88,12 +88,16 @@ int unit_load_dropin(Unit *u) {
 
         assert(u);
 
-        /* Load dependencies from .wants and .requires directories */
+        /* Load dependencies from .wants, .requires and .upholds directories */
         r = process_deps(u, UNIT_WANTS, ".wants");
         if (r < 0)
                 return r;
 
         r = process_deps(u, UNIT_REQUIRES, ".requires");
+        if (r < 0)
+                return r;
+
+        r = process_deps(u, UNIT_UPHOLDS, ".upholds");
         if (r < 0)
                 return r;
 
