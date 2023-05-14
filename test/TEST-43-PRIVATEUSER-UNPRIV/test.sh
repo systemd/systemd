@@ -12,12 +12,8 @@ has_user_dbus_socket || exit 0
 command -v mksquashfs >/dev/null 2>&1 || exit 0
 
 test_append_files() {
-    (
-        instmods overlay =overlayfs
-        generate_module_dependencies
-        inst_binary unsquashfs
-        install_verity_minimal
-    )
+    inst_binary unsquashfs
+    install_verity_minimal
 }
 
 do_test "$@"
