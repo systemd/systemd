@@ -775,7 +775,6 @@ setup_basic_environment() {
     install_testuser
     has_user_dbus_socket && install_user_dbus
     setup_selinux
-    instmods veth
     install_depmod_files
     generate_module_dependencies
     if get_bool "$IS_BUILT_WITH_ASAN"; then
@@ -959,10 +958,10 @@ install_fs_tools() {
 install_modules() {
     dinfo "Install modules"
 
-    instmods loop
-    instmods vfat
+    instmods dummy vfat veth
+    instmods loop =block
     instmods nls_ascii =nls
-    instmods dummy
+    instmods overlay =overlayfs
     # for TEST-35-LOGIN
     instmods scsi_debug uinput
 
