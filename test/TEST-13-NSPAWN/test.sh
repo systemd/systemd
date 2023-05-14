@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-TEST_DESCRIPTION="systemd-nspawn smoke test"
+TEST_DESCRIPTION="systemd-nspawn tests"
 IMAGE_NAME="nspawn"
 TEST_NO_NSPAWN=1
 
