@@ -1143,6 +1143,12 @@ TEST(verify_alias) {
         verify_one(&plain_service, "foo.target.requires/plain.socket", -EXDEV, NULL);
         verify_one(&plain_service, "foo.target.requires/plain@.service", -EXDEV, NULL);
         verify_one(&plain_service, "foo.target.requires/service", -EXDEV, NULL);
+        /* We only keep legacy support for setting WantedBy= and RequiredBy= through Alias=.
+         * UpheldBy= should be rejected. */
+        verify_one(&plain_service, "foo.target.upholds/plain.service", -EXDEV, NULL);
+        verify_one(&plain_service, "foo.target.upholds/plain.socket", -EXDEV, NULL);
+        verify_one(&plain_service, "foo.target.upholds/plain@.service", -EXDEV, NULL);
+        verify_one(&plain_service, "foo.target.upholds/service", -EXDEV, NULL);
         verify_one(&plain_service, "foo.target.conf/plain.service", -EXDEV, NULL);
         verify_one(&plain_service, "foo.service/plain.service", -EXDEV, NULL); /* missing dir suffix */
         verify_one(&plain_service, "asdf.requires/plain.service", -EXDEV, NULL); /* invalid unit name component */
