@@ -111,6 +111,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
 static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void *userdata);
 static int service_dispatch_exec_io(sd_event_source *source, int fd, uint32_t events, void *userdata);
 
+static void service_set_state(Service *s, ServiceState state);
 static void service_enter_signal(Service *s, ServiceState state, ServiceResult f);
 static void service_enter_reload_by_notify(Service *s);
 
@@ -256,6 +257,8 @@ void service_set_current_generation(Service *s, Service *cs) {
         log_unit_debug(UNIT(s), "setting current generation %s", UNIT(cs)->id);
         prev_gen = UNIT_DEREF(s->current_gen_service);
         unit_ref_set(&s->current_gen_service, UNIT(s), UNIT(cs));
+        /* main service follows new current state */
+        service_set_state(s, cs->state);
         /* current_gen_service will have stop job via follow-forwarding,
          * all matured generations will have propagated jobs (stop on stop, nothing on restart).
          * State of current_gen_service is observed by the handle service, so handle service will not be GC'd
