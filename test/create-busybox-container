@@ -6,30 +6,30 @@ set -o pipefail
 
 root="${1:?Usage: $0 container-root}"
 mkdir -p "$root"
-mkdir "$root/bin"
+mkdir -p "$root/usr/bin"
 
 # On openSUSE the static linked version of busybox is named "busybox-static".
 busybox="$(type -P busybox-static || type -P busybox)"
-cp "$busybox" "$root/bin/busybox"
+cp "$busybox" "$root/usr/bin/busybox"
 
 mkdir -p "$root/usr/lib"
 touch "$root/usr/lib/os-release"
 
-ln -s busybox "$root/bin/cat"
-ln -s busybox "$root/bin/ip"
-ln -s busybox "$root/bin/md5sum"
-ln -s busybox "$root/bin/ps"
-ln -s busybox "$root/bin/seq"
-ln -s busybox "$root/bin/sh"
-ln -s busybox "$root/bin/sleep"
-ln -s busybox "$root/bin/stat"
-ln -s busybox "$root/bin/test"
-ln -s busybox "$root/bin/touch"
-ln -s busybox "$root/bin/tr"
-ln -s busybox "$root/bin/usleep"
+ln -s busybox "$root/usr/bin/cat"
+ln -s busybox "$root/usr/bin/ip"
+ln -s busybox "$root/usr/bin/md5sum"
+ln -s busybox "$root/usr/bin/ps"
+ln -s busybox "$root/usr/bin/seq"
+ln -s busybox "$root/usr/bin/sh"
+ln -s busybox "$root/usr/bin/sleep"
+ln -s busybox "$root/usr/bin/stat"
+ln -s busybox "$root/usr/bin/test"
+ln -s busybox "$root/usr/bin/touch"
+ln -s busybox "$root/usr/bin/tr"
+ln -s busybox "$root/usr/bin/usleep"
 
-mkdir -p "$root/sbin"
-cat <<'EOF' >"$root/sbin/init"
+mkdir -p "$root/usr/sbin"
+cat >"$root/usr/sbin/init" <<\EOF
 #!/bin/sh
 
 printf "ps aufx:\n"
@@ -60,4 +60,8 @@ printf "%s\n\n" "$(cat /proc/1/gid_map)"
 printf "ip link:\n"
 ip link
 EOF
-chmod +x "$root/sbin/init"
+chmod +x "$root/usr/sbin/init"
+
+ln -srf "$root/usr/bin" "$root/bin"
+ln -srf "$root/usr/sbin" "$root/sbin"
+ln -srf "$root/usr/lib" "$root/lib"
