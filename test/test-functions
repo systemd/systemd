@@ -1220,35 +1220,37 @@ install_systemd() {
         install_compiled_systemd
     fi
 
-    # remove unneeded documentation
+    # Remove unneeded documentation
     rm -fr "${initdir:?}"/usr/share/{man,doc}
 
-    # enable debug logging in PID1
-    echo LogLevel=debug >>"$initdir/etc/systemd/system.conf"
+    # Enable debug logging in PID1
+    mkdir -p "$initdir/etc/systemd/system.conf.d/"
+    echo -ne "[Manager]\nLogLevel=debug\n" >"$initdir/etc/systemd/system.conf.d/10-log-level.conf"
     if [[ -n "$TEST_SYSTEMD_LOG_LEVEL" ]]; then
-        echo DefaultEnvironment=SYSTEMD_LOG_LEVEL="$TEST_SYSTEMD_LOG_LEVEL" >>"$initdir/etc/systemd/system.conf"
+        echo DefaultEnvironment=SYSTEMD_LOG_LEVEL="$TEST_SYSTEMD_LOG_LEVEL" >>"$initdir/etc/systemd/system.conf.d/99-log-level.conf"
     fi
-    # store coredumps in journal
-    echo Storage=journal >>"$initdir/etc/systemd/coredump.conf"
+    # Store coredumps in journal
+    mkdir -p "$initdir/etc/systemd/coredump.conf.d/"
+    echo -ne "[Coredump]\nStorage=journal\n" >"$initdir/etc/systemd/coredump.conf.d/10-storage-journal.conf"
     # Propagate SYSTEMD_UNIT_PATH to user systemd managers
-    mkdir "$initdir/etc/systemd/system/user@.service.d/"
-    echo -e "[Service]\nPassEnvironment=SYSTEMD_UNIT_PATH\n" >"$initdir/etc/systemd/system/user@.service.d/override.conf"
+    mkdir -p "$initdir/etc/systemd/system/user@.service.d/"
+    echo -ne "[Service]\nPassEnvironment=SYSTEMD_UNIT_PATH\n" >"$initdir/etc/systemd/system/user@.service.d/99-SYSTEMD_UNIT_PATH.conf"
 
     # When built with gcov, disable ProtectSystem= and ProtectHome= in the test
     # images, since it prevents gcov to write the coverage reports (*.gcda
     # files)
     if get_bool "$IS_BUILT_WITH_COVERAGE"; then
         mkdir -p "$initdir/etc/systemd/system/service.d/"
-        echo -e "[Service]\nProtectSystem=no\nProtectHome=no\n" >"$initdir/etc/systemd/system/service.d/99-gcov-override.conf"
+        echo -ne "[Service]\nProtectSystem=no\nProtectHome=no\n" >"$initdir/etc/systemd/system/service.d/99-gcov-override.conf"
         # Similarly, set ReadWritePaths= to the $BUILD_DIR in the test image
         # to make the coverage work with units using DynamicUser=yes. Do this
         # only for services with test- prefix, as setting this system-wide
         # has many undesirable side-effects, as it creates its own namespace.
         mkdir -p "$initdir/etc/systemd/system/test-.service.d/"
-        echo -e "[Service]\nReadWritePaths=${BUILD_DIR:?}\n" >"$initdir/etc/systemd/system/test-.service.d/99-gcov-rwpaths-override.conf"
+        echo -ne "[Service]\nReadWritePaths=${BUILD_DIR:?}\n" >"$initdir/etc/systemd/system/test-.service.d/99-gcov-rwpaths-override.conf"
         # Ditto, but for the user daemon
         mkdir -p "$initdir/etc/systemd/user/test-.service.d/"
-        echo -e "[Service]\nReadWritePaths=${BUILD_DIR:?}\n" >"$initdir/etc/systemd/user/test-.service.d/99-gcov-rwpaths-override.conf"
+        echo -ne "[Service]\nReadWritePaths=${BUILD_DIR:?}\n" >"$initdir/etc/systemd/user/test-.service.d/99-gcov-rwpaths-override.conf"
     fi
 
     # If we're built with -Dportabled=false, tests with systemd-analyze
