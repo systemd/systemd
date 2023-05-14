@@ -5,11 +5,6 @@ set -e
 TEST_DESCRIPTION="systemd-nspawn smoke test"
 IMAGE_NAME="nspawn"
 TEST_NO_NSPAWN=1
-# The test containers are missing the $BUILD_DIR with the necessary note files
-# which generates lots of errors regarding missing coverage. Since fixing this
-# would make the test code unnecessarily messy, let's just ignore them, at least
-# for now.
-IGNORE_MISSING_COVERAGE=yes
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
