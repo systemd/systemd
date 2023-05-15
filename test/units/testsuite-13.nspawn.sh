@@ -48,6 +48,7 @@ mount -t tmpfs tmpfs /var/lib/machines
 testcase_sanity_check() {
     local template root image oci uuid tmpdir
 
+    tmpdir="$(mktemp -d)"
     template="$(mktemp -d /tmp/nspawn-template.XXX)"
     "$CREATE_BB_CONTAINER" "$template"
     # Create a simple image from the just created container template
@@ -94,7 +95,10 @@ EOF
 
     systemd-nspawn --directory="$root" --ephemeral sh -xec 'touch /ephemeral'
     test ! -e "$root/ephemeral"
-    (! systemd-nspawn --directory="$root" --read-only sh -xec 'touch /nope')
+    (! systemd-nspawn --directory="$root" \
+                      --bind="${COVERAGE_BUILD_DIR:-$tmpdir}" \
+                      --read-only \
+                      sh -xec 'touch /nope')
     test ! -e "$root/nope"
     systemd-nspawn --image="$image" sh -xec 'echo hello'
     systemd-nspawn --oci-bundle="$oci" sh -xec 'mountpoint /root'
@@ -114,6 +118,7 @@ EOF
     test ! -e "$root/usr/read-only"
     # volatile=state: rootfs is read-only, /var/ is tmpfs
     systemd-nspawn --directory="$root" \
+                   --bind="${COVERAGE_BUILD_DIR:-$tmpdir}" \
                    --volatile=state \
                    sh -xec 'test -e /usr/has-usr; mountpoint /var; touch /read-only && exit 1; touch /var/nope'
     test ! -e "$root/read-only"
@@ -178,7 +183,6 @@ EOF
                    sh -xec "[[ \$container_uuid == $uuid ]]"
 
     # Mounts
-    tmpdir="$(mktemp -d)"
     mkdir "$tmpdir"/{1,2,3}
     touch "$tmpdir/1/one" "$tmpdir/2/two" "$tmpdir/3/three"
     touch "$tmpdir/foo"
