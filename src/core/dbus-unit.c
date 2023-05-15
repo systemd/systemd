@@ -18,6 +18,7 @@
 #include "install.h"
 #include "locale-util.h"
 #include "log.h"
+#include "mkdir-label.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "selinux-access.h"
@@ -2411,6 +2412,74 @@ static int bus_unit_set_transient_property(
                         u->bus_track_add = b;
 
                 return 1;
+        }
+
+        if (streq(name, "Profile")) {
+                _cleanup_free_ char *profile_path = NULL, *dropin_dir = NULL, *dropin_path = NULL;
+                const char *profile;
+
+                /* Load portable profile, but only by name */
+
+                r = sd_bus_message_read(message, "s", &profile);
+                if (r < 0)
+                        return r;
+
+                if (isempty(profile))
+                        return sd_bus_error_setf(error,
+                                                 SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Invalid empty profile name.");
+
+                if (is_path(profile))
+                        return sd_bus_error_setf(error,
+                                                 SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Profile cannot be specified as path.");
+
+                r = find_portable_profile(profile, ".service", &profile_path);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error,
+                                                        r,
+                                                        "Failed to find profile '%s'",
+                                                        profile);
+
+                if (UNIT_WRITE_FLAGS_NOOP(flags))
+                        return 1;
+
+                /* This should have already been set by transient_unit_from_message() */
+                assert(u->fragment_path);
+
+                /* Create the drop-in directory if it doesn't exist already */
+                dropin_dir = strjoin(u->fragment_path, ".d");
+                if (!dropin_dir)
+                        return -ENOMEM;
+
+                dropin_path = path_join(dropin_dir, "10-profile.conf");
+                if (!dropin_path)
+                        return -ENOMEM;
+
+                r = mkdir_safe_label(dropin_dir, 0755, UID_INVALID, UID_INVALID, MKDIR_IGNORE_EXISTING);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error,
+                                                       r,
+                                                       "Failed to create drop-in directory %s",
+                                                       dropin_dir);
+
+                r = symlink(profile_path, dropin_path);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error,
+                                                       errno,
+                                                       "Failed to create symlink %s → %s",
+                                                       dropin_path,
+                                                       profile_path);
+
+                /* Ensure the drop-in dir is in the cache, so that we don't need to reload to find it */
+                if (u->manager && u->manager->unit_path_cache) {
+                        r = set_consume(u->manager->unit_path_cache, TAKE_PTR(dropin_dir));
+                        if (r < 0)
+                                return r;
+                }
+
+                return 1;
+
         }
 
         return 0;

@@ -72,6 +72,7 @@ static bool arg_aggressive_gc = false;
 static char *arg_working_directory = NULL;
 static bool arg_shell = false;
 static char **arg_cmdline = NULL;
+static char *arg_profile = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
@@ -80,6 +81,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_socket_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_timer_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_working_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cmdline, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_profile, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -135,6 +137,8 @@ static int help(void) {
                "     --on-timezone-change         Run when the timezone changes\n"
                "     --on-clock-change            Run when the realtime clock jumps\n"
                "     --timer-property=NAME=VALUE  Set timer unit property\n"
+               "     --profile=name|PATH          Include the settings from the specified\n"
+               "                                  profile in the service\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -192,6 +196,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WAIT,
                 ARG_WORKING_DIRECTORY,
                 ARG_SHELL,
+                ARG_PROFILE,
         };
 
         static const struct option options[] = {
@@ -237,6 +242,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "working-directory",  required_argument, NULL, ARG_WORKING_DIRECTORY  },
                 { "same-dir",           no_argument,       NULL, 'd'                    },
                 { "shell",              no_argument,       NULL, 'S'                    },
+                { "profile",            required_argument, NULL, ARG_PROFILE            },
                 {},
         };
 
@@ -512,6 +518,20 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'S':
                         arg_shell = true;
+                        break;
+
+                case ARG_PROFILE:
+                        if (isempty(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Profile name is empty");
+
+                        if (is_path(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Profile cannot be specified as path.");
+
+                        arg_profile = strdup(optarg);
+                        if (!arg_profile)
+                                return log_oom();
+
                         break;
 
                 case '?':
@@ -915,6 +935,12 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                         return bus_log_create_error(r);
 
                 r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        if (arg_profile) {
+                r = sd_bus_message_append(m, "(sv)", "Profile", "s", arg_profile);
                 if (r < 0)
                         return bus_log_create_error(r);
         }
