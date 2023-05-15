@@ -133,7 +133,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        table = table_new("session", "uid", "user", "seat", "tty");
+        table = table_new("session", "uid", "user", "seat", "tty", "state");
         if (!table)
                 return log_oom();
 
@@ -143,8 +143,8 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error_tty = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_tty = NULL;
-                const char *id, *user, *seat, *object, *tty = NULL;
+                _cleanup_free_ char *tty = NULL, *state = NULL;
+                const char *id, *user, *seat, *object;
                 uint32_t uid;
 
                 r = sd_bus_message_read(reply, "(susso)", &id, &uid, &user, &seat, &object);
@@ -153,29 +153,35 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                 if (r == 0)
                         break;
 
-                r = sd_bus_get_property(
-                                bus,
-                                "org.freedesktop.login1",
-                                object,
-                                "org.freedesktop.login1.Session",
-                                "TTY",
-                                &error_tty,
-                                &reply_tty,
-                                "s");
+                r = sd_bus_get_property_string(bus,
+                                               "org.freedesktop.login1",
+                                               object,
+                                               "org.freedesktop.login1.Session",
+                                               "TTY",
+                                               &error_tty,
+                                               &tty);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to get TTY for session %s: %s", id, bus_error_message(&error_tty, r));
-                else {
-                        r = sd_bus_message_read(reply_tty, "s", &tty);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-                }
+                        log_warning_errno(r, "Failed to get TTY for session %s, ignoring: %s",
+                                          id, bus_error_message(&error_tty, r));
+
+                r = sd_bus_get_property_string(bus,
+                                               "org.freedesktop.login1",
+                                               object,
+                                               "org.freedesktop.login1.Session",
+                                               "State",
+                                               &error,
+                                               &state);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get state for session %s: %s",
+                                               id, bus_error_message(&error, r));
 
                 r = table_add_many(table,
                                    TABLE_STRING, id,
                                    TABLE_UID, (uid_t) uid,
                                    TABLE_STRING, user,
                                    TABLE_STRING, seat,
-                                   TABLE_STRING, strna(tty));
+                                   TABLE_STRING, strna(tty),
+                                   TABLE_STRING, state);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -206,13 +212,14 @@ static int list_users(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        table = table_new("uid", "user", "linger");
+        table = table_new("uid", "user", "linger", "state");
         if (!table)
                 return log_oom();
 
         (void) table_set_align_percent(table, TABLE_HEADER_CELL(0), 100);
 
         for (;;) {
+                _cleanup_free_ char *state = NULL;
                 const char *user, *object;
                 uint32_t uid;
                 int linger;
@@ -232,12 +239,25 @@ static int list_users(int argc, char *argv[], void *userdata) {
                                                 'b',
                                                 &linger);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to get linger status: %s", bus_error_message(&error, r));
+                        return log_error_errno(r, "Failed to get linger status for user %s: %s",
+                                               user, bus_error_message(&error, r));
+
+                r = sd_bus_get_property_string(bus,
+                                               "org.freedesktop.login1",
+                                               object,
+                                               "org.freedesktop.login1.User",
+                                               "State",
+                                               &error,
+                                               &state);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get state for user %s: %s",
+                                               user, bus_error_message(&error, r));
 
                 r = table_add_many(table,
                                    TABLE_UID, (uid_t) uid,
                                    TABLE_STRING, user,
-                                   TABLE_BOOLEAN, linger);
+                                   TABLE_BOOLEAN, linger,
+                                   TABLE_STRING, state);
                 if (r < 0)
                         return table_log_add_error(r);
         }

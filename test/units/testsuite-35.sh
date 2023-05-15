@@ -520,7 +520,7 @@ test_session_properties() {
     /usr/lib/systemd/tests/unit-tests/manual/test-session-properties "/org/freedesktop/login1/session/_3${s?}"
 }
 
-test_list_users() {
+test_list_users_sessions() {
     if [[ ! -c /dev/tty2 ]]; then
         echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
         return
@@ -531,12 +531,22 @@ test_list_users() {
 
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $1 }')" "$(id -ru logind-test-user)"
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $3 }')" no
+    assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $4 }')" active
+    assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $6 }')" active
 
     loginctl enable-linger logind-test-user
-
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $3 }')" yes
-}
 
+    for s in $(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $1 }'); do
+        loginctl terminate-session "$s"
+    done
+    if ! timeout 30 bash -c "while loginctl --no-legend | grep -q logind-test-user; do sleep 1; done"; then
+        echo "WARNING: session for logind-test-user still active, ignoring."
+        return
+    fi
+
+    assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $6 }')" lingering
+}
 
 teardown_stop_idle_session() (
     set +eux
@@ -637,7 +647,7 @@ test_sanity_check
 test_session
 test_lock_idle_action
 test_session_properties
-test_list_users
+test_list_users_sessions
 test_stop_idle_session
 test_ambient_caps
 
