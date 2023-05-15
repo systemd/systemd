@@ -34,10 +34,11 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>sd-bus.h</filename> provides an implementation of a D-Bus IPC client. See
+    <para><filename>sd-bus.h</filename> is part of
+    <citerefentry><refentrytitle>libsystemd</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+    provides an implementation of a D-Bus IPC client. See
     <ulink url="https://www.freedesktop.org/software/dbus/" />
-    for more information about D-Bus IPC.
-    </para>
+    for more information about D-Bus IPC.</para>
 
     <para>See
     <literallayout><citerefentry><refentrytitle>sd_bus_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
