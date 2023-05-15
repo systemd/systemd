@@ -35,9 +35,10 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>sd-login.h</filename> provides APIs to introspect
-    and monitor seat, login session and user status information on the
-    local system. </para>
+    <para><filename>sd-login.h</filename> is part of
+    <citerefentry><refentrytitle>libsystemd</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+    provides APIs to introspect and monitor seat, login session, and user status information on the local
+    system.</para>
 
     <para>Note that these APIs only allow purely passive access and
     monitoring of seats, sessions and users. To actively make changes
