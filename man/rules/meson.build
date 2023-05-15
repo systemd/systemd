@@ -807,6 +807,7 @@ manpages = [
   ['sd_notify_barrier',
    'sd_notifyf',
    'sd_pid_notify',
+   'sd_pid_notify_barrier',
    'sd_pid_notify_with_fds',
    'sd_pid_notifyf',
    'sd_pid_notifyf_with_fds'],
