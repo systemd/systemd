@@ -1224,7 +1224,7 @@ static int systemctl_main(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
+        _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         int r;
 
         setlocale(LC_ALL, "");

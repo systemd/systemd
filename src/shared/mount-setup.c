@@ -554,6 +554,11 @@ int mount_setup(bool loaded_policy, bool leave_propagation) {
         (void) mkdir_label("/run/systemd", 0755);
         (void) mkdir_label("/run/systemd/system", 0755);
 
+        /* Make sure there's always a place where sandboxed environments can mount root file systems they are
+         * about to move into, even when unprivileged, without having to create a temporary one in /tmp/
+         * (which they then have to keep track of and clean) */
+        (void) mkdir_label("/run/systemd/mount-rootfs", 0555);
+
         /* Make sure we have a mount point to hide in sandboxes */
         (void) mkdir_label("/run/credentials", 0755);
 

@@ -445,7 +445,7 @@ static int bootctl_main(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
+        _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         int r;
 
         log_setup();
@@ -493,13 +493,13 @@ static int run(int argc, char *argv[]) {
                                 arg_image_policy,
                                 DISSECT_IMAGE_GENERIC_ROOT |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK,
-                                &unlink_dir,
+                                &mounted_dir,
                                 /* ret_dir_fd= */ NULL,
                                 &loop_device);
                 if (r < 0)
                         return r;
 
-                arg_root = strdup(unlink_dir);
+                arg_root = strdup(mounted_dir);
                 if (!arg_root)
                         return log_oom();
         }
