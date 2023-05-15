@@ -2088,7 +2088,7 @@ static int oci_hooks_array(const char *name, JsonVariant *v, JsonDispatchFlags f
                         .timeout = USEC_INFINITY,
                 };
 
-                r = json_dispatch(e, table, oci_unexpected, flags, userdata);
+                r = json_dispatch(e, table, oci_unexpected, flags, new_item);
                 if (r < 0) {
                         free(new_item->path);
                         strv_free(new_item->args);
