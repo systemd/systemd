@@ -86,7 +86,7 @@
         the resulting values with the private/public key pair (RSA) configured via
         <option>--private-key=</option> and <option>--public-key=</option>. This will write a JSON object to
         standard output that contains signatures for all specified PCR banks (see the
-        <option>--pcr-bank=</option> option below), which may be used to unlock encrypted credentials (see
+        <option>--bank=</option> option below), which may be used to unlock encrypted credentials (see
         <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>) or
         LUKS volumes (see
         <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
