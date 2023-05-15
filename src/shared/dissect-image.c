@@ -3667,8 +3667,7 @@ int mount_image_privately_interactively(
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
-        _cleanup_(rmdir_and_freep) char *created_dir = NULL;
-        _cleanup_free_ char *temp = NULL;
+        _cleanup_free_ char *dir = NULL;
         int r;
 
         /* Mounts an OS image at a temporary place, inside a newly created mount namespace of our own. This
@@ -3676,7 +3675,6 @@ int mount_image_privately_interactively(
          * easily. */
 
         assert(image);
-        assert(ret_directory);
         assert(ret_loop_device);
 
         /* We intend to mount this right-away, hence add the partitions if needed and pin them. */
@@ -3686,10 +3684,6 @@ int mount_image_privately_interactively(
         r = verity_settings_load(&verity, image, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to load root hash data: %m");
-
-        r = tempfn_random_child(NULL, program_invocation_short_name, &temp);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate temporary mount directory: %m");
 
         r = loop_device_make_by_path(
                         image,
@@ -3723,13 +3717,16 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return log_error_errno(r, "Failed to detach mount namespace: %m");
 
-        r = mkdir_p(temp, 0700);
+        r = mkdir_p("/run/systemd/mount-rootfs", 0555);
         if (r < 0)
                 return log_error_errno(r, "Failed to create mount point: %m");
 
-        created_dir = TAKE_PTR(temp);
-
-        r = dissected_image_mount_and_warn(dissected_image, created_dir, UID_INVALID, UID_INVALID, flags);
+        r = dissected_image_mount_and_warn(
+                        dissected_image,
+                        "/run/systemd/mount-rootfs",
+                        /* uid_shift= */ UID_INVALID,
+                        /* uid_range= */ UID_INVALID,
+                        flags);
         if (r < 0)
                 return r;
 
@@ -3741,19 +3738,26 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
 
+        if (ret_directory) {
+                dir = strdup("/run/systemd/mount-rootfs");
+                if (!dir)
+                        return log_oom();
+        }
+
         if (ret_dir_fd) {
                 _cleanup_close_ int dir_fd = -EBADF;
 
-                dir_fd = open(created_dir, O_CLOEXEC|O_DIRECTORY);
+                dir_fd = open("/run/systemd/mount-rootfs", O_CLOEXEC|O_DIRECTORY);
                 if (dir_fd < 0)
                         return log_error_errno(errno, "Failed to open mount point directory: %m");
 
                 *ret_dir_fd = TAKE_FD(dir_fd);
         }
 
-        *ret_directory = TAKE_PTR(created_dir);
-        *ret_loop_device = TAKE_PTR(d);
+        if (ret_directory)
+                *ret_directory = TAKE_PTR(dir);
 
+        *ret_loop_device = TAKE_PTR(d);
         return 0;
 }
 
