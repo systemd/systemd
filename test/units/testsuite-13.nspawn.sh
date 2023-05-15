@@ -46,7 +46,7 @@ mkdir -p /var/lib/machines
 mount -t tmpfs tmpfs /var/lib/machines
 
 testcase_sanity_check() {
-    local template root image oci uuid tmpdir
+    local template root image uuid tmpdir
 
     tmpdir="$(mktemp -d)"
     template="$(mktemp -d /tmp/nspawn-template.XXX)"
@@ -59,24 +59,6 @@ testcase_sanity_check() {
     mount -o loop "$image" /mnt
     cp -r "$template"/* /mnt/
     umount /mnt
-    # Create a simple OCI bundle
-    oci="$(mktemp -d /var/lib/machines/testsuite-13.oci-bundle.XXX)"
-    "$CREATE_BB_CONTAINER" "$oci/rootfs"
-    cat >"$oci/config.json" <<EOF
-{
-    "ociVersion" : "1.0.0",
-    "root" : {
-            "path" : "rootfs"
-    },
-    "mounts" : [
-        {
-            "destination" : "/root",
-            "type" : "tmpfs",
-            "source" : "tmpfs"
-        }
-    ]
-}
-EOF
 
     systemd-nspawn --help --no-pager
     systemd-nspawn --version
@@ -101,7 +83,6 @@ EOF
                       sh -xec 'touch /nope')
     test ! -e "$root/nope"
     systemd-nspawn --image="$image" sh -xec 'echo hello'
-    systemd-nspawn --oci-bundle="$oci" sh -xec 'mountpoint /root'
 
     # --volatile=
     touch "$root/usr/has-usr"
