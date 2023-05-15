@@ -581,28 +581,6 @@ int config_parse_config_file(
                                        sections, lookup, table, flags, userdata, NULL);
 }
 
-static int config_get_dropin_files(
-                const char* const* conf_file_dirs,
-                const char *dropin_dirname,
-                const char *root,
-                char ***ret) {
-
-        _cleanup_strv_free_ char **dropin_dirs = NULL;
-        const char *suffix;
-        int r;
-
-        assert(conf_file_dirs);
-        assert(dropin_dirname);
-        assert(ret);
-
-        suffix = strjoina("/", dropin_dirname);
-        r = strv_extend_strv_concat(&dropin_dirs, (char**) conf_file_dirs, suffix);
-        if (r < 0)
-                return r;
-
-        return conf_files_list_strv(ret, ".conf", root, 0, (const char* const*) dropin_dirs);
-}
-
 /* Parse each config file in the directories specified as strv. */
 int config_parse_many(
                 const char* const* conf_files,
@@ -625,7 +603,7 @@ int config_parse_many(
         assert(sections);
         assert(table);
 
-        r = config_get_dropin_files(conf_file_dirs, dropin_dirname, root, &files);
+        r = conf_files_list_dropins(&files, dropin_dirname, root, conf_file_dirs);
         if (r < 0)
                 return r;
 
@@ -661,7 +639,7 @@ static int dropins_get_stats_by_path(
         if (!strextend(&dropin_dirname, ".d"))
                 return -ENOMEM;
 
-        r = config_get_dropin_files(conf_file_dirs, dropin_dirname, /* root = */ NULL, &files);
+        r = conf_files_list_dropins(&files, dropin_dirname, /* root = */ NULL, conf_file_dirs);
         if (r < 0)
                 return r;
 
