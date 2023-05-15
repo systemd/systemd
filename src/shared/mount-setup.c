@@ -186,13 +186,11 @@ static int mount_one(const MountPoint *p, bool relabel) {
                   strna(p->options));
 
         if (FLAGS_SET(p->mode, MNT_FOLLOW_SYMLINK))
-                r = RET_NERRNO(mount(p->what, p->where, p->type, p->flags, p->options));
+                r = mount_follow_verbose(priority, p->what, p->where, p->type, p->flags, p->options);
         else
-                r = mount_nofollow(p->what, p->where, p->type, p->flags, p->options);
-        if (r < 0) {
-                log_full_errno(priority, r, "Failed to mount %s at %s: %m", p->type, p->where);
+                r = mount_nofollow_verbose(priority, p->what, p->where, p->type, p->flags, p->options);
+        if (r < 0)
                 return (p->mode & MNT_FATAL) ? r : 0;
-        }
 
         /* Relabel again, since we now mounted something fresh here */
         if (relabel)
