@@ -1182,7 +1182,7 @@ static int oci_cgroup_memory(const char *name, JsonVariant *v, JsonDispatchFlags
                 { "swap",             JSON_VARIANT_NUMBER, oci_cgroup_memory_limit, offsetof(struct memory_data, swap),        0               },
                 { "kernel",           JSON_VARIANT_NUMBER, oci_unsupported,         0,                                         JSON_PERMISSIVE },
                 { "kernelTCP",        JSON_VARIANT_NUMBER, oci_unsupported,         0,                                         JSON_PERMISSIVE },
-                { "swapiness",        JSON_VARIANT_NUMBER, oci_unsupported,         0,                                         JSON_PERMISSIVE },
+                { "swappiness",       JSON_VARIANT_NUMBER, oci_unsupported,         0,                                         JSON_PERMISSIVE },
                 { "disableOOMKiller", JSON_VARIANT_NUMBER, oci_unsupported,         0,                                         JSON_PERMISSIVE },
                 {}
         };
