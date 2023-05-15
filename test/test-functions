@@ -1256,6 +1256,11 @@ install_systemd() {
         # the systemd-nspawn@.service unit.
         cp "$initdir/usr/lib/systemd/system/systemd-nspawn@.service" "$initdir/etc/systemd/system/systemd-nspawn@.service"
         sed -ri "s/^ExecStart=.+$/& --bind=${BUILD_DIR//\//\\\/}/" "$initdir/etc/systemd/system/systemd-nspawn@.service"
+        # Pass the $BUILD_DIR as $COVERAGE_BUILD_DIR env variable to the system
+        # manager, similarly to what we do with $ASAN_RT_PATH during sanitized
+        # builds
+        mkdir -p "$initdir/etc/systemd/system.conf.d/"
+        echo -ne "[Manager]\nDefaultEnvironment=COVERAGE_BUILD_DIR=$BUILD_DIR\n" >"$initdir/etc/systemd/system.conf.d/99-COVERAGE_BUILD_DIR.conf"
     fi
 
     # If we're built with -Dportabled=false, tests with systemd-analyze
