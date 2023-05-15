@@ -2166,10 +2166,11 @@ int setup_namespace(
                  * in the root. The temporary directory prevents any mounts from being potentially obscured
                  * my other mounts we already applied.  We use the same mount point for all images, which is
                  * safe, since they all live in their own namespaces after all, and hence won't see each
-                 * other. */
+                 * other. (Note: this directory is also created by PID 1 early on, we create it here for
+                 * similar reasons as /run/systemd/ first.) */
+                root = "/run/systemd/mount-rootfs";
+                (void) mkdir_label(root, 0555);
 
-                root = "/run/systemd/unit-root";
-                (void) mkdir_label(root, 0700);
                 require_prefix = true;
         }
 
