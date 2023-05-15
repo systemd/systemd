@@ -30,6 +30,8 @@ done
 
 systemctl stop testsuite-23-uphold.service
 
+systemctl enable testsuite-23-upheldby-install.service
+
 # Idea is this:
 #    1. we start testsuite-23-retry-uphold.service
 #    2. which through Uphold= starts testsuite-23-retry-upheld.service
@@ -42,12 +44,13 @@ systemctl stop testsuite-23-uphold.service
 
 rm -f /tmp/testsuite-23-retry-fail
 systemctl start testsuite-23-retry-uphold.service
+systemctl is-active testsuite-23-upheldby-install.service
 
 while ! systemctl is-failed testsuite-23-retry-fail.service ; do
     sleep .5
 done
 
-systemctl is-active testsuite-23-retry-upheld.service && { echo 'unexpected success'; exit 1; }
+(! systemctl is-active testsuite-23-retry-upheld.service)
 
 touch /tmp/testsuite-23-retry-fail
 
