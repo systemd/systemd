@@ -211,19 +211,16 @@ static int mount_one(const MountPoint *p, bool relabel) {
         return 1;
 }
 
-static int mount_points_setup(unsigned n, bool loaded_policy) {
-        unsigned i;
-        int r = 0;
+static int mount_points_setup(size_t n, bool loaded_policy) {
+        int ret = 0, r;
 
-        for (i = 0; i < n; i ++) {
-                int j;
-
-                j = mount_one(mount_table + i, loaded_policy);
-                if (j != 0 && r >= 0)
-                        r = j;
+        for (size_t i = 0; i < n; i ++) {
+                r = mount_one(mount_table + i, loaded_policy);
+                if (r != 0 && ret >= 0)
+                        ret = r;
         }
 
-        return r;
+        return ret;
 }
 
 int mount_setup_early(void) {
@@ -277,7 +274,7 @@ static int symlink_controller(const char *target, const char *alias) {
         p = strjoina("/sys/fs/cgroup/", target);
 
         r = mac_smack_copy(a, p);
-        if (r < 0 && r != -EOPNOTSUPP)
+        if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r))
                 return log_error_errno(r, "Failed to copy smack label from %s to %s: %m", p, a);
 #endif
 
