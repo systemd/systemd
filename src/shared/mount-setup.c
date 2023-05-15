@@ -203,7 +203,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
                         (void) umount2(p->where, UMOUNT_NOFOLLOW);
                         (void) rmdir(p->where);
 
-                        log_full_errno(priority, r, "Mount point %s not writable after mounting: %m", p->where);
+                        log_full_errno(priority, r, "Mount point %s not writable after mounting, undoing: %m", p->where);
                         return (p->mode & MNT_FATAL) ? r : 0;
                 }
         }
