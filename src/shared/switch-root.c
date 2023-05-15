@@ -130,6 +130,8 @@ int switch_root(const char *new_root,
                 if (fstat(old_root_fd, &rb) < 0)
                         return log_error_errno(errno, "Failed to stat old root directory: %m");
 
+                /* Note: the below won't operate on non-memory file systems (i.e. only on tmpfs, ramfs), and
+                 * it will stop at mount boundaries */
                 (void) rm_rf_children(TAKE_FD(old_root_fd), 0, &rb); /* takes possession of the dir fd, even on failure */
         }
 
