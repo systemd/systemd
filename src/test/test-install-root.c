@@ -1135,6 +1135,9 @@ TEST(verify_alias) {
         verify_one(&plain_service, "alias.socket", -EXDEV, NULL);
         verify_one(&plain_service, "alias@.service", -EXDEV, NULL);
         verify_one(&plain_service, "alias@inst.service", -EXDEV, NULL);
+
+        /* Setting WantedBy= and RequiredBy= through Alias= is supported for the sake of backwards
+         * compatibility. */
         verify_one(&plain_service, "foo.target.wants/plain.service", 0, NULL);
         verify_one(&plain_service, "foo.target.wants/plain.socket", -EXDEV, NULL);
         verify_one(&plain_service, "foo.target.wants/plain@.service", -EXDEV, NULL);
@@ -1143,9 +1146,14 @@ TEST(verify_alias) {
         verify_one(&plain_service, "foo.target.requires/plain.socket", -EXDEV, NULL);
         verify_one(&plain_service, "foo.target.requires/plain@.service", -EXDEV, NULL);
         verify_one(&plain_service, "foo.target.requires/service", -EXDEV, NULL);
-        verify_one(&plain_service, "foo.target.conf/plain.service", -EXDEV, NULL);
-        verify_one(&plain_service, "foo.service/plain.service", -EXDEV, NULL); /* missing dir suffix */
         verify_one(&plain_service, "asdf.requires/plain.service", -EXDEV, NULL); /* invalid unit name component */
+        /* The newly-added UpheldBy= (.upholds/) and other suffixes should be rejected */
+        verify_one(&plain_service, "foo.target.upholds/plain.service", -EXDEV, NULL);
+        verify_one(&plain_service, "foo.target.upholds/plain.socket", -EXDEV, NULL);
+        verify_one(&plain_service, "foo.target.upholds/plain@.service", -EXDEV, NULL);
+        verify_one(&plain_service, "foo.target.upholds/service", -EXDEV, NULL);
+        verify_one(&plain_service, "foo.service/plain.service", -EXDEV, NULL); /* missing dir suffix */
+        verify_one(&plain_service, "foo.target.conf/plain.service", -EXDEV, NULL);
 
         verify_one(&bare_template, "alias.service", -EXDEV, NULL);
         verify_one(&bare_template, "alias.socket", -EXDEV, NULL);
