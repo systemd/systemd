@@ -605,7 +605,7 @@ static int oci_namespace_type(const char *name, JsonVariant *v, JsonDispatchFlag
                 *nsflags = CLONE_NEWCGROUP;
         else
                 return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
-                                "Unknown cgroup type, refusing: %s", n);
+                                "Unknown namespace type, refusing: %s", n);
 
         return 0;
 }
