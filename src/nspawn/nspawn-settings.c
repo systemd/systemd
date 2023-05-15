@@ -98,11 +98,9 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
 }
 
 static void free_oci_hooks(OciHook *h, size_t n) {
-        size_t i;
-
         assert(h || n == 0);
 
-        for (i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
                 free(h[i].path);
                 strv_free(h[i].args);
                 strv_free(h[i].env);
@@ -112,9 +110,9 @@ static void free_oci_hooks(OciHook *h, size_t n) {
 }
 
 void device_node_array_free(DeviceNode *node, size_t n) {
-        size_t i;
+        assert(node || n == 0);
 
-        for (i = 0; i < n; i++)
+        for (size_t i = 0; i < n; i++)
                 free(node[i].path);
 
         free(node);
