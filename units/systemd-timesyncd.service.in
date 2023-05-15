@@ -14,8 +14,8 @@ ConditionCapability=CAP_SYS_TIME
 ConditionVirtualization=!container
 DefaultDependencies=no
 After=systemd-sysusers.service
-Before=time-set.target sysinit.target shutdown.target initrd-switch-root.target
-Conflicts=shutdown.target initrd-switch-root.target
+Before=time-set.target sysinit.target shutdown.target
+Conflicts=shutdown.target
 Wants=time-set.target
 
 [Service]
