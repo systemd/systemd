@@ -37,7 +37,11 @@ static inline int null_or_empty_path(const char *fn) {
 
 int path_is_read_only_fs(const char *path);
 
-int files_same(const char *filea, const char *fileb, int flags);
+int files_same_at(int fda, const char *filea, int fdb, const char *fileb, int flags);
+
+static inline int files_same(const char *filea, const char *fileb, int flags) {
+        return files_same_at(AT_FDCWD, filea, AT_FDCWD, fileb, flags);
+}
 
 /* The .f_type field of struct statfs is really weird defined on
  * different archs. Let's give its type a name. */
