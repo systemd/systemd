@@ -819,7 +819,7 @@ static int oci_device_file_mode(const char *name, JsonVariant *v, JsonDispatchFl
                 return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE),
                                 "fileMode out of range, refusing.");
 
-        *mode = m;
+        *mode |= m;
         return 0;
 }
 
