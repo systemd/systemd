@@ -1829,6 +1829,7 @@ static int oci_seccomp_syscalls(const char *name, JsonVariant *v, JsonDispatchFl
                         { "names",  JSON_VARIANT_ARRAY,  json_dispatch_strv, offsetof(struct syscall_rule, names),  JSON_MANDATORY },
                         { "action", JSON_VARIANT_STRING, oci_seccomp_action, offsetof(struct syscall_rule, action), JSON_MANDATORY },
                         { "args",   JSON_VARIANT_ARRAY,  oci_seccomp_args,   0,                                     0              },
+                        {}
                 };
                 struct syscall_rule rule = {
                         .action = UINT32_MAX,
