@@ -282,17 +282,53 @@ POLICY FOR SUPPORT OF DISTRIBUTIONS AND ARCHITECTURES:
         latest Ubuntu LTS and non-LTS releases, openSUSE Tumbleweed/Leap,
         CentOS Stream 8 and 9, up-to-date Arch, etc.)  We will generally
         attempt to support also other non-EOL versions of various distros.
-        Features which would break compilation on slightly-older distributions
+        Features which would break compilation on slightly older distributions
         will only be introduced if there are significant reasons for this
         (i.e. supporting them interferes with development or requires too many
         resources to support). In some cases backports of specific libraries or
         tools might be required.
 
-        The policy is similar wrt. architecture support. systemd is regularly
+        The policy is similar for architecture support. systemd is regularly
         tested on popular architectures (currently amd64, i386, arm64, ppc64el,
         and s390x), but should compile and work also on other architectures, for
         which support has been added. systemd will emit warnings when
         architecture-specific constants are not defined.
+
+STATIC COMPILATION AND "STANDALONE" BINARIES:
+
+        systemd provides a public shared libraries libsystemd.so and
+        libudev.so. The latter is deprecated, and the sd-device APIs in
+        libsystemd should be used instead for new code. In addition, systemd is
+        built with a private shared library, libsystemd-shared-<suffix>.so,
+        that also includes the libsystemd code, and by default most systemd
+        binaries are linked to it. Using shared libraries saves disk space and
+        memory at runtime, because only one copy of the code is needed.
+
+        It is possible to build static versions of systemd public shared
+        libraries (via the configuration options '-Dstatic-libsystemd' and
+        '-Dstatic-libudev'). This allows the libsystemd and libudev code to be
+        linked statically into programs. In addition, it is possible to disable
+        the use of libsystemd-shared-<suffix>.so for various components (via
+        the configuration options '-Dlink-*-shared'). In this mode, the
+        libsystemd and libsystemd-shared code is linked statically into
+        selected binaries. This option is intended for systems where some of
+        the components are intended to be delivered independently of the main
+        systemd package. Finally, some binaries can be compiled in a second
+        version (via the configuration option '-Dstandalone-binaries'). The
+        version suffixed with ".standalone" has the libsystemd and
+        libsystemd-shared code linked statically. Those binaries are intended
+        as replacements to be used in limited installations where the full
+        systemd is not installed. Yet another option is to rebuild systemd with
+        a different '-Dshared-lib-tag' setting, allowing different systemd
+        binaries to be linked to instances of the private shared library that
+        can be installed in parallel.
+
+        Using the default shared linking is recommended. Mixing versions of
+        systemd components that would normally be built and used together (in
+        particular various daemons and the manager) is not recommended: we do
+        not test such combinations upstream and cannot provide support.
+        Distributors making use of those options are responsible if things do
+        not work as expected.
 
 USERS AND GROUPS:
         Default udev rules use the following standard system group names, which
