@@ -2100,9 +2100,9 @@ static int oci_hooks_array(const char *name, JsonVariant *v, JsonDispatchFlags f
 static int oci_hooks(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
 
         static const JsonDispatch table[] = {
-                { "prestart",  JSON_VARIANT_OBJECT, oci_hooks_array, 0, 0 },
-                { "poststart", JSON_VARIANT_OBJECT, oci_hooks_array, 0, 0 },
-                { "poststop",  JSON_VARIANT_OBJECT, oci_hooks_array, 0, 0 },
+                { "prestart",  JSON_VARIANT_ARRAY, oci_hooks_array, 0, 0 },
+                { "poststart", JSON_VARIANT_ARRAY, oci_hooks_array, 0, 0 },
+                { "poststop",  JSON_VARIANT_ARRAY, oci_hooks_array, 0, 0 },
                 {}
         };
 
