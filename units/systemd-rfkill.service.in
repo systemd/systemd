@@ -12,9 +12,9 @@ Description=Load/Save RF Kill Switch Status
 Documentation=man:systemd-rfkill.service(8)
 DefaultDependencies=no
 BindsTo=sys-devices-virtual-misc-rfkill.device
-Conflicts=shutdown.target initrd-switch-root.target
+Conflicts=shutdown.target
 After=sys-devices-virtual-misc-rfkill.device
-Before=shutdown.target initrd-switch-root.target
+Before=shutdown.target
 
 [Service]
 ExecStart={{ROOTLIBEXECDIR}}/systemd-rfkill
