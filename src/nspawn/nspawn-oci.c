@@ -1177,13 +1177,13 @@ static int oci_cgroup_memory(const char *name, JsonVariant *v, JsonDispatchFlags
         };
 
         static const JsonDispatch table[] = {
-                { "limit",            JSON_VARIANT_NUMBER, oci_cgroup_memory_limit, offsetof(struct memory_data, limit),       0               },
-                { "reservation",      JSON_VARIANT_NUMBER, oci_cgroup_memory_limit, offsetof(struct memory_data, reservation), 0               },
-                { "swap",             JSON_VARIANT_NUMBER, oci_cgroup_memory_limit, offsetof(struct memory_data, swap),        0               },
-                { "kernel",           JSON_VARIANT_NUMBER, oci_unsupported,         0,                                         JSON_PERMISSIVE },
-                { "kernelTCP",        JSON_VARIANT_NUMBER, oci_unsupported,         0,                                         JSON_PERMISSIVE },
-                { "swappiness",       JSON_VARIANT_NUMBER, oci_unsupported,         0,                                         JSON_PERMISSIVE },
-                { "disableOOMKiller", JSON_VARIANT_NUMBER, oci_unsupported,         0,                                         JSON_PERMISSIVE },
+                { "limit",            JSON_VARIANT_NUMBER,  oci_cgroup_memory_limit, offsetof(struct memory_data, limit),       0               },
+                { "reservation",      JSON_VARIANT_NUMBER,  oci_cgroup_memory_limit, offsetof(struct memory_data, reservation), 0               },
+                { "swap",             JSON_VARIANT_NUMBER,  oci_cgroup_memory_limit, offsetof(struct memory_data, swap),        0               },
+                { "kernel",           JSON_VARIANT_NUMBER,  oci_unsupported,         0,                                         JSON_PERMISSIVE },
+                { "kernelTCP",        JSON_VARIANT_NUMBER,  oci_unsupported,         0,                                         JSON_PERMISSIVE },
+                { "swappiness",       JSON_VARIANT_NUMBER,  oci_unsupported,         0,                                         JSON_PERMISSIVE },
+                { "disableOOMKiller", JSON_VARIANT_BOOLEAN, oci_unsupported,         0,                                         JSON_PERMISSIVE },
                 {}
         };
 
