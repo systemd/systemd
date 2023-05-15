@@ -1,40 +1,106 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# shellcheck disable=SC2016
+set -eux
+set -o pipefail
+
+export SYSTEMD_LOG_LEVEL=debug
+export SYSTEMD_LOG_TARGET=journal
+CREATE_BB_CONTAINER="/usr/lib/systemd/tests/testdata/create-busybox-container"
+
+# shellcheck disable=SC2317
+at_exit() {
+    set +e
+
+    mountpoint -q /var/lib/machines && umount /var/lib/machines
+    [[ -n "${DEV:-}" ]] && rm -f "$DEV"
+    [[ -n "${NETNS:-}" ]] && umount "$NETNS" && rm -f "$NETNS"
+    [[ -n "${TMPDIR:-}" ]] && rm -fr "$TMPDIR"
+}
+
+trap at_exit EXIT
+
+# Mount tmpfs over /var/lib/machines to not pollute the image
+mkdir -p /var/lib/machines
+mount -t tmpfs tmpfs /var/lib/machines
+
+# Setup a couple of dirs/devices for the OCI containers
+DEV="$(mktemp -u /dev/oci-dev-XXX)"
+mknod -m 666 "$DEV" b 42 42
+NETNS="$(mktemp /var/tmp/netns.XXX)"
+mount --bind /proc/self/ns/net "$NETNS"
+TMPDIR="$(mktemp -d)"
+touch "$TMPDIR/hello"
+OCI="$(mktemp -d /var/lib/machines/testsuite-13.oci-bundle.XXX)"
+"$CREATE_BB_CONTAINER" "$OCI/rootfs"
+mkdir -p "$OCI/rootfs/opt/var"
+mkdir -p "$OCI/rootfs/opt/readonly"
+
+# Let's start with a simple config
+cat >"$OCI/config.json" <<EOF
 {
-    "ociVersion": "1.0.0",
-
-    "hostname" : "foo",
-
-    "root": {
-        "path": "rootfs",
-        "readonly": true
+    "ociVersion" : "1.0.0",
+    "root" : {
+            "path" : "rootfs"
     },
+    "mounts" : [
+        {
+            "destination" : "/root",
+            "type" : "tmpfs",
+            "source" : "tmpfs"
+        }
+    ]
+}
+EOF
+systemd-nspawn --oci-bundle="$OCI" sh -xec 'mountpoint /root'
 
-    "process": {
-        "terminal": false,
-        "consoleSize": {
-            "height":6667,
-            "width":6668
+# And now for something a bit more involved
+# Notes:
+#   - the hooks are parsed & processed, but never executed
+#   - set sysctl's are parsed but never used?
+#       - same goes for arg_sysctl in nspawn.c
+cat >"$OCI/config.json" <<EOF
+{
+    "ociVersion" : "1.0.0",
+    "hostname" : "my-oci-container",
+    "root" : {
+            "path" : "rootfs",
+            "readonly" : false
+    },
+    "mounts" : [
+        {
+            "destination" : "/root",
+            "type" : "tmpfs",
+            "source" : "tmpfs"
         },
-
-        "user": {
-            "uid": 14,
-            "gid": 14,
-            "additionalGids": [59, 81]
+        {
+            "destination" : "/var",
+            "type" : "none",
+            "source" : "$TMPDIR",
+            "options" : ["rbind", "rw"]
+        }
+    ],
+    "process" : {
+        "terminal" : false,
+        "consoleSize" : {
+            "height" : 25,
+            "width" : 80
         },
-
-        "args": [
-            "/tmp/verify.sh"
+        "user" : {
+            "uid" : 0,
+            "gid" : 0,
+            "additionalGids" : [5, 6]
+        },
+        "env" : [
+            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            "FOO=bar"
         ],
-
-        "env": [
-            "FOO=BAR",
-            "WITHSPACES=FOO BAR",
-            "WITHSHELLCHARS=$ASDF \\\"asdf asdf\\\" !",
-            "WITHCONTROLCHARS=\\123\\125\\010\\020",
-            "TERM=xterm"
+        "cwd" : "/root",
+        "args" : [
+            "sh",
+            "-xe",
+            "/entrypoint.sh"
         ],
-
-        "cwd": "/tmp/src",
-
         "noNewPrivileges" : true,
         "oomScoreAdj" : 20,
         "capabilities" : {
@@ -74,75 +140,6 @@
             }
         ]
     },
-
-    "mounts": [
-        {
-            "destination": "/tmp/src",
-            "source": "src",
-            "options": ["ro"]
-        },
-
-        {
-            "destination": "/tmp/verify.sh",
-            "source": "verify.sh",
-            "options": ["ro"]
-        },
-
-        {
-            "destination": "/proc",
-            "type": "proc",
-            "source": "proc"
-        },
-        {
-            "destination": "/dev",
-            "type": "tmpfs",
-            "source": "tmpfs",
-            "options": [
-                "mode=777"
-            ]
-        },
-        {
-            "destination": "/dev/pts",
-            "type": "devpts",
-            "source": "devpts",
-            "options": [
-                "mode=777"
-            ]
-        },
-        {
-            "destination": "/dev/shm",
-            "type": "tmpfs",
-            "source": "shm",
-            "options": [
-                "mode=777"
-            ]
-        },
-        {
-            "destination": "/dev/mqueue",
-            "type": "mqueue",
-            "source": "mqueue",
-            "options": [
-                "mode=777"
-            ]
-        },
-        {
-            "destination": "/sys",
-            "type": "sysfs",
-            "source": "sysfs",
-            "options": [
-                "mode=777"
-            ]
-        },
-        {
-            "destination": "/sys/fs/cgroup",
-            "type": "cgroup",
-            "source": "cgroup",
-            "options": [
-                "mode=777"
-            ]
-        }
-    ],
-
     "linux" : {
         "namespaces" : [
             {
@@ -307,7 +304,7 @@
                 "path" : "/bin/sh",
                 "args" : [
                     "-xec",
-                    "echo $PRESTART_FOO >/prestart"
+                    "echo \$PRESTART_FOO >/prestart"
                 ],
                 "env" : [
                     "PRESTART_FOO=prestart_bar",
@@ -346,3 +343,41 @@
         "foo" : "bar"
     }
 }
+EOF
+# Create a simple "entrypoint" script that validates that the container
+# is created correctly according to the OCI config
+cat >"$OCI/rootfs/entrypoint.sh" <<EOF
+#!/bin/sh -e
+
+# Mounts
+mountpoint /root
+mountpoint /var
+test -e /var/hello
+
+# Process
+[[ "\$PWD" == /root ]]
+[[ "\$FOO" == bar ]]
+
+# Process - rlimits
+[[ "\$(ulimit -S -n)" -eq 1024 ]]
+[[ "\$(ulimit -H -n)" -eq 1024 ]]
+[[ "\$(ulimit -S -r)" -eq 5 ]]
+[[ "\$(ulimit -H -r)" -eq 10 ]]
+[[ "\$(hostname)" == my-oci-container ]]
+
+# Linux - devices
+test -c /dev/zero
+test -b "$DEV"
+[[ "\$(stat -c '%t:%T' "$DEV")" == 4:2 ]]
+
+# Linux - maskedPaths
+test -e /proc/kcore
+cat /proc/kcore && exit 1
+test ! -e /root/nonexistent
+
+# Linux - readonlyPaths
+touch /opt/readonly/foo && exit 1
+
+exit 0
+EOF
+systemd-nspawn --oci-bundle="$OCI"
