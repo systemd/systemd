@@ -114,6 +114,8 @@ static const MountPoint mount_table[] = {
           NULL,          MNT_NONE,                  },
 };
 
+assert_cc(N_EARLY_MOUNT <= ELEMENTSOF(mount_table));
+
 bool mount_point_is_api(const char *path) {
         /* Checks if this mount point is considered "API", and hence
          * should be ignored */
@@ -211,19 +213,18 @@ static int mount_one(const MountPoint *p, bool relabel) {
         return 1;
 }
 
-static int mount_points_setup(unsigned n, bool loaded_policy) {
-        unsigned i;
-        int r = 0;
+static int mount_points_setup(size_t n, bool loaded_policy) {
+        int ret = 0, r;
 
-        for (i = 0; i < n; i ++) {
-                int j;
+        assert(n <= ELEMENTSOF(mount_table));
 
-                j = mount_one(mount_table + i, loaded_policy);
-                if (j != 0 && r >= 0)
-                        r = j;
+        FOREACH_ARRAY(mp, mount_table, n) {
+                r = mount_one(mp, loaded_policy);
+                if (r != 0 && ret >= 0)
+                        ret = r;
         }
 
-        return r;
+        return ret;
 }
 
 int mount_setup_early(void) {
@@ -277,7 +278,7 @@ static int symlink_controller(const char *target, const char *alias) {
         p = strjoina("/sys/fs/cgroup/", target);
 
         r = mac_smack_copy(a, p);
-        if (r < 0 && r != -EOPNOTSUPP)
+        if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(r))
                 return log_error_errno(r, "Failed to copy smack label from %s to %s: %m", p, a);
 #endif
 
