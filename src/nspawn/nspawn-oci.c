@@ -1589,7 +1589,7 @@ static int oci_sysctl(const char *name, JsonVariant *v, JsonDispatchFlags flags,
 
                 assert_se(m = json_variant_string(w));
 
-                if (sysctl_key_valid(k))
+                if (!sysctl_key_valid(k))
                         return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
                                         "sysctl key invalid, refusing: %s", k);
 
