@@ -663,7 +663,7 @@ static int oci_namespaces(const char *name, JsonVariant *v, JsonDispatchFlags fl
 
         if (!FLAGS_SET(n, CLONE_NEWNS))
                 return json_log(v, flags, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                "Containers without file system namespace aren't supported.");
+                                "Containers without a mount namespace aren't supported.");
 
         s->private_network = FLAGS_SET(n, CLONE_NEWNET);
         s->userns_mode = FLAGS_SET(n, CLONE_NEWUSER) ? USER_NAMESPACE_FIXED : USER_NAMESPACE_NO;
