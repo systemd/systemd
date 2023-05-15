@@ -759,19 +759,22 @@ static int oci_uid_gid_mappings(const char *name, JsonVariant *v, JsonDispatchFl
 
 static int oci_device_type(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         mode_t *mode = ASSERT_PTR(userdata);
+        mode_t m;
         const char *t;
 
         assert_se(t = json_variant_string(v));
 
         if (STR_IN_SET(t, "c", "u"))
-                *mode = (*mode & ~S_IFMT) | S_IFCHR;
+                m = (*mode & ~S_IFMT) | S_IFCHR;
         else if (streq(t, "b"))
-                *mode = (*mode & ~S_IFMT) | S_IFBLK;
+                m = (*mode & ~S_IFMT) | S_IFBLK;
         else if (streq(t, "p"))
-                *mode = (*mode & ~S_IFMT) | S_IFIFO;
+                m = (*mode & ~S_IFMT) | S_IFIFO;
         else
                 return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
                                 "Unknown device type: %s", t);
+        /* Needs to be ORed, since the value is shared with oci_device_file_mode() */
+        *mode |= m;
 
         return 0;
 }
@@ -807,7 +810,8 @@ static int oci_device_minor(const char *name, JsonVariant *v, JsonDispatchFlags 
 }
 
 static int oci_device_file_mode(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        mode_t *mode = userdata, m;
+        mode_t *mode = ASSERT_PTR(userdata);
+        mode_t m;
         uint64_t k;
 
         assert(mode);
@@ -819,7 +823,8 @@ static int oci_device_file_mode(const char *name, JsonVariant *v, JsonDispatchFl
                 return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE),
                                 "fileMode out of range, refusing.");
 
-        *mode = m;
+        /* Needs to be ORed, since the value is shared with oci_device_type() */
+        *mode |= m;
         return 0;
 }
 
