@@ -52,6 +52,8 @@ static int builtin_net_setup_link(UdevEvent *event, int argc, char **argv, bool 
         if (link->new_name)
                 udev_builtin_add_property(dev, test, "ID_NET_NAME", link->new_name);
 
+        event->altnames = TAKE_PTR(link->altnames);
+
         STRV_FOREACH(d, link->config->dropins) {
                 _cleanup_free_ char *escaped = NULL;
 

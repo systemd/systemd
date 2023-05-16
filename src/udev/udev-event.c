@@ -87,6 +87,7 @@ UdevEvent *udev_event_free(UdevEvent *event) {
         ordered_hashmap_free_free_free(event->seclabel_list);
         free(event->program_result);
         free(event->name);
+        strv_free(event->altnames);
 
         return mfree(event);
 }
@@ -914,9 +915,6 @@ static int rename_netif(UdevEvent *event) {
 
         dev = ASSERT_PTR(event->dev);
 
-        if (!device_for_action(dev, SD_DEVICE_ADD))
-                return 0; /* Rename the interface only when it is added. */
-
         r = sd_device_get_ifindex(dev, &ifindex);
         if (r == -ENOENT)
                 return 0; /* Device is not a network interface. */
@@ -976,7 +974,7 @@ static int rename_netif(UdevEvent *event) {
                 goto revert;
         }
 
-        r = rtnl_set_link_name(&event->rtnl, ifindex, event->name, NULL);
+        r = rtnl_set_link_name(&event->rtnl, ifindex, event->name, event->altnames);
         if (r < 0) {
                 if (r == -EBUSY) {
                         log_device_info(dev, "Network interface '%s' is already up, cannot rename to '%s'.",
@@ -1005,6 +1003,35 @@ revert:
         (void) device_add_property(dev, "ID_RENAMING", NULL);
 
         return r;
+}
+
+static int assign_altnames(UdevEvent *event) {
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
+        int ifindex, r;
+        const char *s;
+
+        if (strv_isempty(event->altnames))
+                return 0;
+
+        r = sd_device_get_ifindex(dev, &ifindex);
+        if (r == -ENOENT)
+                return 0; /* Device is not a network interface. */
+        if (r < 0)
+                return log_device_warning_errno(dev, r, "Failed to get ifindex: %m");
+
+        r = sd_device_get_sysname(dev, &s);
+        if (r < 0)
+                return log_device_warning_errno(dev, r, "Failed to get sysname: %m");
+
+        /* Filter out the current interface name. */
+        strv_remove(event->altnames, s);
+
+        r = rtnl_append_link_alternative_names(&event->rtnl, ifindex, event->altnames);
+        if (r < 0)
+                log_device_full_errno(dev, r == -EOPNOTSUPP ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Could not set AlternativeName= or apply AlternativeNamesPolicy=, ignoring: %m");
+
+        return 0;
 }
 
 static int update_devnode(UdevEvent *event) {
@@ -1148,9 +1175,13 @@ int udev_event_execute_rules(
 
         DEVICE_TRACE_POINT(rules_finished, dev);
 
-        r = rename_netif(event);
-        if (r < 0)
-                return r;
+        if (action == SD_DEVICE_ADD) {
+                r = rename_netif(event);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        (void) assign_altnames(event);
+        }
 
         r = update_devnode(event);
         if (r < 0)
