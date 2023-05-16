@@ -4651,6 +4651,7 @@ static int merge_settings(Settings *settings, const char *path) {
         device_node_array_free(arg_extra_nodes, arg_n_extra_nodes);
         arg_extra_nodes = TAKE_PTR(settings->extra_nodes);
         arg_n_extra_nodes = settings->n_extra_nodes;
+        settings->n_extra_nodes = 0;
 
         return 0;
 }
