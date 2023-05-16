@@ -106,7 +106,8 @@ int memfd_get_sealed(int fd) {
         if (r < 0)
                 return -errno;
 
-        return r == (F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE | F_SEAL_SEAL);
+        /* We ignore F_SEAL_EXEC here to support older kernels. */
+        return FLAGS_SET(r, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE | F_SEAL_SEAL);
 }
 
 int memfd_get_size(int fd, uint64_t *sz) {
