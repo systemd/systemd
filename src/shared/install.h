@@ -92,6 +92,7 @@ struct InstallInfo {
         char **aliases;
         char **wanted_by;
         char **required_by;
+        char **upheld_by;
         char **also;
 
         char *default_instance;
