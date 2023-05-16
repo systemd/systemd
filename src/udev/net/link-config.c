@@ -724,7 +724,7 @@ static int link_generate_new_name(Link *link) {
         config = link->config;
         device = link->device;
 
-        if (link->action == SD_DEVICE_MOVE) {
+        if (link->action != SD_DEVICE_ADD) {
                 log_link_debug(link, "Skipping to apply Name= and NamePolicy= on '%s' uevent.",
                                device_action_to_string(link->action));
                 goto no_rename;
