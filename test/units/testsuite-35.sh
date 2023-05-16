@@ -3,8 +3,8 @@
 set -eux
 set -o pipefail
 
-# shellcheck source=test/units/assert.sh
-. "$(dirname "$0")"/assert.sh
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
 
 cleanup_test_user() (
     set +ex
@@ -468,7 +468,7 @@ test_lock_idle_action() {
     fi
 
     if loginctl --no-legend | grep -q logind-test-user; then
-        echo >&2 "Session of the \'logind-test-user\' is already present."
+        echo >&2 "Session of the 'logind-test-user' is already present."
         exit 1
     fi
 
