@@ -7,6 +7,7 @@ set -o pipefail
 
 export SYSTEMD_LOG_LEVEL=debug
 
+# shellcheck disable=SC2317
 cleanup() {(
     set +ex
 
