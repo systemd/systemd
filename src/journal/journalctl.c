@@ -2112,7 +2112,7 @@ static int wait_for_change(sd_journal *j, int poll_fd) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
+        _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         bool previous_boot_id_valid = false, first_line = true, ellipsized = false, need_seek = false, since_seeked = false;
         bool use_cursor = false, after_cursor = false;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
@@ -2143,13 +2143,13 @@ static int run(int argc, char *argv[]) {
                                 DISSECT_IMAGE_VALIDATE_OS |
                                 DISSECT_IMAGE_RELAX_VAR_CHECK |
                                 (arg_action == ACTION_UPDATE_CATALOG ? DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS : DISSECT_IMAGE_READ_ONLY),
-                                &unlink_dir,
+                                &mounted_dir,
                                 /* ret_dir_fd= */ NULL,
                                 &loop_device);
                 if (r < 0)
                         return r;
 
-                arg_root = strdup(unlink_dir);
+                arg_root = strdup(mounted_dir);
                 if (!arg_root)
                         return log_oom();
         }
