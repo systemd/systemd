@@ -3,8 +3,8 @@
 # shellcheck disable=SC2016
 set -eux
 
-# shellcheck source=test/units/assert.sh
-. "$(dirname "$0")"/assert.sh
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
 
 systemctl log-level debug
 export SYSTEMD_LOG_LEVEL=debug
