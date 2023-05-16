@@ -34,8 +34,10 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>sd-hwdb.h</filename> allows read-only access the systemd database of hardware properties.
-    See <citerefentry><refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum></citerefentry> and
+    <para><filename>sd-hwdb.h</filename> is part of
+    <citerefentry><refentrytitle>libsystemd</refentrytitle><manvolnum>3</manvolnum></citerefentry> and allows
+    read-only access the systemd database of hardware properties. See
+    <citerefentry><refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum></citerefentry> and
     <citerefentry><refentrytitle>systemd-hwdb</refentrytitle><manvolnum>8</manvolnum></citerefentry> for more
     information about the database.</para>
 

@@ -88,10 +88,17 @@ And now, here's the list of (hopefully) all APIs that we have introduced with sy
 | [Boot Loader interface](BOOT_LOADER_INTERFACE.md) | EFI variables | yes | yes | gummiboot | yes | - | no |
 | [Service bus API](https://www.freedesktop.org/software/systemd/man/org.freedesktop.systemd1.html) | D-Bus | yes | yes | system-config-services | no | - | no |
 | [logind](https://www.freedesktop.org/software/systemd/man/org.freedesktop.login1.html) | D-Bus | yes | yes | GNOME | no | - | no |
-| [sd-login.h API](https://www.freedesktop.org/software/systemd/man/sd-login.html) | C Library | yes | yes | GNOME, polkit, ... | no | - | no |
+| [sd-bus.h API](https://www.freedesktop.org/software/systemd/man/sd-bus.html) | C Library | yes | yes | - | maybe | - | maybe |
 | [sd-daemon.h API](https://www.freedesktop.org/software/systemd/man/sd-daemon.html) | C Library or Drop-in | yes | yes | numerous | yes | - | yes |
-| [sd-id128.h API](https://www.freedesktop.org/software/systemd/man/sd-id128.html) | C Library | yes | yes | - | yes | - | no |
+| [sd-device.h API](https://www.freedesktop.org/software/systemd/man/sd-device.html) | C Library | yes | no | numerous | yes | - | yes |
+| [sd-event.h API](https://www.freedesktop.org/software/systemd/man/sd-event.html) | C Library | yes | yes | - | maybe | - | maybe |
+| [sd-gpt.h API](https://www.freedesktop.org/software/systemd/man/sd-gpt.html) | Header Library | yes | no | - | yes | - | yes |
+| [sd-hwdb.h API](https://www.freedesktop.org/software/systemd/man/sd-hwdb.html) | C Library | yes | yes | - | maybe | - | yes |
+| [sd-id128.h API](https://www.freedesktop.org/software/systemd/man/sd-id128.html) | C Library | yes | yes | - | yes | - | yes |
 | [sd-journal.h API](https://www.freedesktop.org/software/systemd/man/sd-journal.html) | C Library | yes | yes | - | maybe | - | no |
+| [sd-login.h API](https://www.freedesktop.org/software/systemd/man/sd-login.html) | C Library | yes | yes | GNOME, polkit, ... | no | - | no |
+| [sd-messages.h API](https://www.freedesktop.org/software/systemd/man/sd-messages.html) | Header Library | yes | yes | - | yes | python-systemd | yes |
+| [sd-path.h API](https://www.freedesktop.org/software/systemd/man/sd-path.html) | C Library | yes | no | - | maybe | - | maybe |
 | [$XDG_RUNTIME_DIR](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html) | Environment | yes | yes | glib, GNOME | yes | - | no |
 | [$LISTEN_FDS $LISTEN_PID FD Passing](https://www.freedesktop.org/software/systemd/man/sd_listen_fds.html) | Environment | yes | yes | numerous (via sd-daemon.h) | yes | - | no |
 | [$NOTIFY_SOCKET Daemon Notifications](https://www.freedesktop.org/software/systemd/man/sd_notify.html) | Environment | yes | yes | a few, including udev | yes | - | no |
