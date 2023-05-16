@@ -512,6 +512,34 @@ static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
         return false;
 }
 
+static bool offset_is_valid(uint64_t offset, uint64_t header_size, uint64_t tail_object_offset) {
+        if (offset == 0)
+                return true;
+        if (!VALID64(offset))
+                return false;
+        if (offset < header_size)
+                return false;
+        if (offset > tail_object_offset)
+                return false;
+        return true;
+}
+
+static bool hash_table_is_valid(uint64_t offset, uint64_t size, uint64_t header_size, uint64_t arena_size, uint64_t tail_object_offset) {
+        if ((offset == 0) != (size == 0))
+                return false;
+        if (offset == 0)
+                return true;
+        if (offset <= offsetof(Object, hash_table.items))
+                return false;
+        offset -= offsetof(Object, hash_table.items);
+        if (!offset_is_valid(offset, header_size, tail_object_offset))
+                return false;
+        assert(offset <= header_size + arena_size);
+        if (size > header_size + arena_size - offset)
+                return false;
+        return true;
+}
+
 static int journal_file_verify_header(JournalFile *f) {
         uint64_t arena_size, header_size;
 
@@ -552,18 +580,76 @@ static int journal_file_verify_header(JournalFile *f) {
         if (UINT64_MAX - header_size < arena_size || header_size + arena_size > (uint64_t) f->last_stat.st_size)
                 return -ENODATA;
 
-        if (le64toh(f->header->tail_object_offset) > header_size + arena_size)
+        uint64_t tail_object_offset = le64toh(f->header->tail_object_offset);
+        if (!offset_is_valid(tail_object_offset, header_size, UINT64_MAX))
+                return -ENODATA;
+        if (header_size + arena_size < tail_object_offset)
+                return -ENODATA;
+        if (header_size + arena_size - tail_object_offset < sizeof(ObjectHeader))
                 return -ENODATA;
 
-        if (!VALID64(le64toh(f->header->data_hash_table_offset)) ||
-            !VALID64(le64toh(f->header->field_hash_table_offset)) ||
-            !VALID64(le64toh(f->header->tail_object_offset)) ||
-            !VALID64(le64toh(f->header->entry_array_offset)))
+        if (!hash_table_is_valid(le64toh(f->header->data_hash_table_offset),
+                                 le64toh(f->header->data_hash_table_size),
+                                 header_size, arena_size, tail_object_offset))
                 return -ENODATA;
 
-        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset) &&
-            le64toh(f->header->tail_entry_offset) != 0 &&
-            !VALID64(le64toh(f->header->tail_entry_offset)))
+        if (!hash_table_is_valid(le64toh(f->header->field_hash_table_offset),
+                                 le64toh(f->header->field_hash_table_size),
+                                 header_size, arena_size, tail_object_offset))
+                return -ENODATA;
+
+        uint64_t entry_array_offset = le64toh(f->header->entry_array_offset);
+        if (!offset_is_valid(entry_array_offset, header_size, tail_object_offset))
+                return -ENODATA;
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_array_offset)) {
+                uint32_t offset = le32toh(f->header->tail_entry_array_offset);
+                uint32_t n = le32toh(f->header->tail_entry_array_n_entries);
+
+                if (!offset_is_valid(offset, header_size, tail_object_offset))
+                        return -ENODATA;
+                if (entry_array_offset > offset)
+                        return -ENODATA;
+                if (entry_array_offset == 0 && offset != 0)
+                        return -ENODATA;
+                if ((offset == 0) != (n == 0))
+                        return -ENODATA;
+                assert(offset <= header_size + arena_size);
+                if ((uint64_t) n * journal_file_entry_array_item_size(f) > header_size + arena_size - offset)
+                        return -ENODATA;
+        }
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset))
+                if (!offset_is_valid(le64toh(f->header->tail_entry_offset), header_size, tail_object_offset))
+                        return -ENODATA;
+
+        /* Verify number of objects */
+        uint64_t n_objects = le64toh(f->header->n_objects);
+        if (n_objects > arena_size / sizeof(ObjectHeader))
+                return -ENODATA;
+
+        uint64_t n_entries = le64toh(f->header->n_entries);
+        if (n_entries > n_objects)
+                return -ENODATA;
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_data) &&
+            le64toh(f->header->n_data) > n_objects)
+                return -ENODATA;
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_fields) &&
+            le64toh(f->header->n_fields) > n_objects)
+                return -ENODATA;
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_tags) &&
+            le64toh(f->header->n_tags) > n_objects)
+                return -ENODATA;
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays) &&
+            le64toh(f->header->n_entry_arrays) > n_objects)
+                return -ENODATA;
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_array_n_entries) &&
+            le32toh(f->header->tail_entry_array_n_entries) > n_entries)
                 return -ENODATA;
 
         if (journal_file_writable(f)) {
