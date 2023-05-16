@@ -34,8 +34,9 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>sd-event.h</filename> provides a generic event
-    loop implementation, based on Linux <citerefentry
+    <para><filename>sd-event.h</filename> is part of
+    <citerefentry><refentrytitle>libsystemd</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+    provides a generic event loop implementation, based on Linux <citerefentry
     project='man-pages'><refentrytitle>epoll</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
     </para>
 
