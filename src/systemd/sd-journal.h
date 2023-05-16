@@ -18,6 +18,7 @@
 ***/
 
 #include <inttypes.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <sys/types.h>
 #include <sys/uio.h>
@@ -148,6 +149,8 @@ int sd_journal_get_catalog_for_message_id(sd_id128_t id, char **text);
 
 int sd_journal_has_runtime_files(sd_journal *j);
 int sd_journal_has_persistent_files(sd_journal *j);
+
+int sd_journal_handle_sigbus(siginfo_t *si);
 
 /* The inverse condition avoids ambiguity of dangling 'else' after the macro */
 #define SD_JOURNAL_FOREACH(j)                                           \

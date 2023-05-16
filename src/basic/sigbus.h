@@ -4,4 +4,5 @@
 void sigbus_install(void);
 void sigbus_reset(void);
 
+void sigbus_push(void *addr);
 int sigbus_pop(void **ret);

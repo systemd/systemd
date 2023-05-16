@@ -38,6 +38,7 @@
 #include "prioq.h"
 #include "process-util.h"
 #include "replace-var.h"
+#include "sigbus.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -3522,4 +3523,16 @@ _public_ int sd_journal_has_persistent_files(sd_journal *j) {
         assert_return(j, -EINVAL);
 
         return j->has_persistent_files;
+}
+
+_public_ int sd_journal_handle_sigbus(siginfo_t *si) {
+        assert_return(si, -EINVAL);
+        assert_return(si->si_signo == SIGBUS, -EINVAL);
+
+        if (si->si_code != BUS_ADRERR || !si->si_addr)
+                return 0;
+
+        sigbus_push(si->si_addr);
+
+        return 1;
 }

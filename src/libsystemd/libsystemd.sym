@@ -824,4 +824,5 @@ global:
         sd_event_source_set_memory_pressure_period;
         sd_event_trim_memory;
         sd_pid_notify_barrier;
+        sd_journal_handle_sigbus;
 } LIBSYSTEMD_253;
