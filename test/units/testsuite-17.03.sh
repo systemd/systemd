@@ -20,6 +20,7 @@ EOF
     systemctl restart systemd-udevd.service
 }
 
+# shellcheck disable=SC2317
 teardown() {
     set +e
 
