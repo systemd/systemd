@@ -25,6 +25,14 @@
 #define F_SEAL_WRITE    0x0008  /* prevent writes */
 #endif
 
+#ifndef F_SEAL_FUTURE_WRITE
+#define F_SEAL_FUTURE_WRITE 0x0010 /* prevent future writes while mapped */
+#endif
+
+#ifndef F_SEAL_EXEC
+#define F_SEAL_EXEC     0x0020  /* prevent chmod modifying exec bits */
+#endif
+
 #ifndef F_OFD_GETLK
 #define F_OFD_GETLK     36
 #define F_OFD_SETLK     37
