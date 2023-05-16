@@ -117,7 +117,6 @@ simple_tests += files(
         'test-mempool.c',
         'test-mkdir.c',
         'test-modhex.c',
-        'test-mount-util.c',
         'test-mountpoint-util.c',
         'test-net-naming-scheme.c',
         'test-nulstr-util.c',
@@ -318,6 +317,10 @@ tests += [
         {
                 'sources' : files('test-mempress.c'),
                 'dependencies' : threads,
+        },
+        {
+                'sources' : files('test-mount-util.c'),
+                'dependencies' : libmount,
         },
         {
                 'sources' : files('test-netlink-manual.c'),
