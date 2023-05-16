@@ -19,27 +19,26 @@
 static const char *arg_dest = NULL;
 
 static int generate_symlink(void) {
-        _cleanup_free_ char *j = NULL;
-
         FOREACH_STRING(p, "/system-update", "/etc/system-update") {
-                if (laccess(p, F_OK) >= 0)
-                        goto link_found;
+                _cleanup_free_ char *j = NULL;
 
-                if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to check if %s symlink exists, ignoring: %m", p);
+                if (laccess(p, F_OK) < 0) {
+                        if (errno != ENOENT)
+                                log_warning_errno(errno, "Failed to check if %s symlink exists, ignoring: %m", p);
+                        continue;
+                }
+
+                j = path_join(arg_dest, SPECIAL_DEFAULT_TARGET);
+                if (!j)
+                        return log_oom();
+
+                if (symlink(SYSTEM_DATA_UNIT_DIR "/system-update.target", j) < 0)
+                        return log_error_errno(errno, "Failed to create symlink %s: %m", j);
+
+                return 1;
         }
 
         return 0;
-
-link_found:
-        j = path_join(arg_dest, SPECIAL_DEFAULT_TARGET);
-        if (!j)
-                return log_oom();
-
-        if (symlink(SYSTEM_DATA_UNIT_DIR "/system-update.target", j) < 0)
-                return log_error_errno(errno, "Failed to create symlink %s: %m", j);
-
-        return 1;
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
