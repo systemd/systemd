@@ -8,6 +8,7 @@ set -o pipefail
 
 # Coverage test for udevadm
 
+# shellcheck disable=SC2317
 cleanup_17_10() {
     set +e
 
