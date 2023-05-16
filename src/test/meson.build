@@ -112,6 +112,7 @@ simple_tests += files(
         'test-log.c',
         'test-logarithm.c',
         'test-macro.c',
+        'test-memfd-util.c',
         'test-memory-util.c',
         'test-mempool.c',
         'test-mkdir.c',
