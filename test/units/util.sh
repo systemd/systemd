@@ -56,3 +56,21 @@ assert_rc() {(
     rc=$?
     assert_eq "$rc" "$exp"
 )}
+
+get_cgroup_hierarchy() {
+    case "$(stat -c '%T' -f /sys/fs/cgroup)" in
+        cgroup2fs)
+            echo "unified"
+            ;;
+        tmpfs)
+            if [[ -d /sys/fs/cgroup/unified && "$(stat -c '%T' -f /sys/fs/cgroup/unified)" == cgroup2fs ]]; then
+                echo "hybrid"
+            else
+                echo "legacy"
+            fi
+            ;;
+        *)
+            echo >&2 "Failed to determine host's cgroup hierarchy"
+            exit 1
+    esac
+}
