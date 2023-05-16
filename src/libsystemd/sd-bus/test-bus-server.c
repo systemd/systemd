@@ -22,8 +22,8 @@ struct context {
 };
 
 static void *server(void *p) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         struct context *c = p;
-        sd_bus *bus = NULL;
         sd_id128_t id;
         bool quit = false;
         int r;
@@ -97,11 +97,6 @@ static void *server(void *p) {
         r = 0;
 
 fail:
-        if (bus) {
-                sd_bus_flush(bus);
-                sd_bus_unref(bus);
-        }
-
         return INT_TO_PTR(r);
 }
 

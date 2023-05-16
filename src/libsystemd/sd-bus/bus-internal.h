@@ -267,6 +267,8 @@ struct sd_bus {
         char *label;
         gid_t *groups;
         size_t n_groups;
+        union sockaddr_union sockaddr_peer;
+        socklen_t sockaddr_size_peer;
 
         uint64_t creds_mask;
 
