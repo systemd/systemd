@@ -27,6 +27,7 @@ typedef struct Link {
         int ifindex;
         const char *ifname;
         const char *new_name;
+        char **altnames;
 
         LinkConfig *config;
         sd_device *device;
