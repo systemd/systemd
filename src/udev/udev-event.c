@@ -976,7 +976,7 @@ static int rename_netif(UdevEvent *event) {
                 goto revert;
         }
 
-        r = rtnl_set_link_name(&event->rtnl, ifindex, event->name);
+        r = rtnl_set_link_name(&event->rtnl, ifindex, event->name, NULL);
         if (r < 0) {
                 if (r == -EBUSY) {
                         log_device_info(dev, "Network interface '%s' is already up, cannot rename to '%s'.",
