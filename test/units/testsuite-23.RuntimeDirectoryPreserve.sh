@@ -7,6 +7,14 @@ set -o pipefail
 
 # Test RuntimeDirectoryPreserve=yes
 
+at_exit() {
+    set +e
+
+    rm -fr /run/hoge /tmp/aaa
+}
+
+trap at_exit EXIT
+
 systemd-mount -p RuntimeDirectory=hoge -p RuntimeDirectoryPreserve=yes -t tmpfs tmpfs /tmp/aaa
 
 touch /run/hoge/foo
