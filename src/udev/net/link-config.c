@@ -836,7 +836,7 @@ static int link_apply_alternative_names(Link *link, sd_netlink **rtnl) {
                         default:
                                 assert_not_reached();
                         }
-                        if (!isempty(n)) {
+                        if (ifname_valid_full(n, IFNAME_VALID_ALTERNATIVE)) {
                                 r = strv_extend(&altnames, n);
                                 if (r < 0)
                                         return log_oom();
