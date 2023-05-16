@@ -1096,7 +1096,8 @@ static int get_link_info(sd_device *dev, LinkInfo *info) {
         return 0;
 }
 
-static int builtin_net_id(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
+static int builtin_net_id(UdevEvent *event, int argc, char *argv[], bool test) {
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         const char *prefix;
         NetNames names = {};
         LinkInfo info = {};
