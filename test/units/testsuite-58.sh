@@ -14,8 +14,8 @@ if ! command -v systemd-repart &>/dev/null; then
     exit 0
 fi
 
-# shellcheck source=test/units/assert.sh
-. "$(dirname "$0")"/assert.sh
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
 
 export SYSTEMD_LOG_LEVEL=debug
 export PAGER=cat
