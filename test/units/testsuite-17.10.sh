@@ -3,11 +3,12 @@
 set -ex
 set -o pipefail
 
-# shellcheck source=test/units/assert.sh
-. "$(dirname "$0")"/assert.sh
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
 
 # Coverage test for udevadm
 
+# shellcheck disable=SC2317
 cleanup_17_10() {
     set +e
 

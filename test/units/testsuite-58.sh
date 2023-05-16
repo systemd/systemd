@@ -3,19 +3,16 @@
 set -eux
 set -o pipefail
 
-runas() {
-    declare userid=$1
-    shift
-    XDG_RUNTIME_DIR=/run/user/"$(id -u "$userid")" setpriv --reuid="$userid" --init-groups "$@"
-}
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
 
 if ! command -v systemd-repart &>/dev/null; then
     echo "no systemd-repart" >/skipped
     exit 0
 fi
 
-# shellcheck source=test/units/assert.sh
-. "$(dirname "$0")"/assert.sh
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
 
 export SYSTEMD_LOG_LEVEL=debug
 export PAGER=cat
