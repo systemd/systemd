@@ -211,6 +211,10 @@ tests += [
                 'dependencies' : threads,
         },
         {
+                'sources' : files('sd-bus/test-bus-peersockaddr.c'),
+                'dependencies' : threads,
+        },
+        {
                 'sources' : files('sd-bus/test-bus-queue-ref-cycle.c'),
                 'dependencies' : threads,
         },

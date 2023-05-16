@@ -722,9 +722,51 @@ _public_ int sd_bus_get_name_creds(
         return 0;
 }
 
+static int parse_sockaddr_string(const char *t, char **ret_comm, char **ret_description) {
+        _cleanup_free_ char *comm = NULL, *description = NULL;
+        const char *e, *sl;
+
+        assert(t);
+        assert(ret_comm);
+        assert(ret_description);
+
+        e = strstrafter(t, "/bus/");
+        if (!e) {
+                log_debug("Didn't find /bus/ substring in peer socket address, ignoring.");
+                goto not_found;
+        }
+
+        sl = strchr(e, '/');
+        if (!sl) {
+                log_debug("Didn't find / substring after /bus/ in peer socket address, ignoring.");
+                goto not_found;
+        }
+
+        if (sl - e > 0) {
+                comm = strndup(e, sl - e);
+                if (!comm)
+                        return -ENOMEM;
+        }
+
+        sl++;
+        if (!isempty(sl)) {
+                description = strdup(sl);
+                if (!description)
+                        return -ENOMEM;
+        }
+
+        *ret_comm = TAKE_PTR(comm);
+        *ret_description = TAKE_PTR(description);
+        return 0;
+
+not_found:
+        *ret_comm = *ret_description = NULL;
+        return 0;
+}
+
 _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
-        bool do_label, do_groups;
+        bool do_label, do_groups, do_sockaddr_peer;
         pid_t pid = 0;
         int r;
 
@@ -742,9 +784,12 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
 
         do_label = bus->label && (mask & SD_BUS_CREDS_SELINUX_CONTEXT);
         do_groups = bus->n_groups != SIZE_MAX && (mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS);
+        do_sockaddr_peer = bus->sockaddr_size_peer >= offsetof(struct sockaddr_un, sun_path) + 1 &&
+                bus->sockaddr_peer.sa.sa_family == AF_UNIX &&
+                bus->sockaddr_peer.un.sun_path[0] == 0;
 
         /* Avoid allocating anything if we have no chance of returning useful data */
-        if (!bus->ucred_valid && !do_label && !do_groups)
+        if (!bus->ucred_valid && !do_label && !do_groups && !do_sockaddr_peer)
                 return -ENODATA;
 
         c = bus_creds_new();
@@ -784,6 +829,35 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
                 c->n_supplementary_gids = bus->n_groups;
 
                 c->mask |= SD_BUS_CREDS_SUPPLEMENTARY_GIDS;
+        }
+
+        if (do_sockaddr_peer) {
+                _cleanup_free_ char *t = NULL;
+
+                assert(bus->sockaddr_size_peer >= offsetof(struct sockaddr_un, sun_path) + 1);
+                assert(bus->sockaddr_peer.sa.sa_family == AF_UNIX);
+                assert(bus->sockaddr_peer.un.sun_path[0] == 0);
+
+                /* So this is an abstract namespace socket, good. Now let's find the data we are interested in */
+                r = make_cstring(bus->sockaddr_peer.un.sun_path + 1,
+                                 bus->sockaddr_size_peer - offsetof(struct sockaddr_un, sun_path) - 1,
+                                 MAKE_CSTRING_ALLOW_TRAILING_NUL,
+                                 &t);
+                if (r == -ENOMEM)
+                        return r;
+                if (r < 0)
+                        log_debug_errno(r, "Can't extract string from peer socket address, ignoring: %m");
+                else {
+                        r = parse_sockaddr_string(t, &c->comm, &c->description);
+                        if (r < 0)
+                                return r;
+
+                        if (c->comm)
+                                c->mask |= SD_BUS_CREDS_COMM & mask;
+
+                        if (c->description)
+                                c->mask |= SD_BUS_CREDS_DESCRIPTION & mask;
+                }
         }
 
         r = bus_creds_add_more(c, mask, pid, 0);
