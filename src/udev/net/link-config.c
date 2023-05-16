@@ -365,6 +365,7 @@ Link *link_free(Link *link) {
         sd_device_unref(link->device);
         free(link->kind);
         free(link->driver);
+        strv_free(link->altnames);
         return mfree(link);
 }
 
@@ -724,7 +725,7 @@ static int link_generate_new_name(Link *link) {
         config = link->config;
         device = link->device;
 
-        if (link->action == SD_DEVICE_MOVE) {
+        if (link->action != SD_DEVICE_ADD) {
                 log_link_debug(link, "Skipping to apply Name= and NamePolicy= on '%s' uevent.",
                                device_action_to_string(link->action));
                 goto no_rename;
@@ -793,19 +794,22 @@ no_rename:
         return 0;
 }
 
-static int link_apply_alternative_names(Link *link, sd_netlink **rtnl) {
-        _cleanup_strv_free_ char **altnames = NULL, **current_altnames = NULL;
+static int link_generate_alternative_names(Link *link) {
+        _cleanup_strv_free_ char **altnames = NULL;
         LinkConfig *config;
         sd_device *device;
         int r;
 
         assert(link);
-        assert(link->config);
-        assert(link->device);
-        assert(rtnl);
+        config = ASSERT_PTR(link->config);
+        device = ASSERT_PTR(link->device);
+        assert(!link->altnames);
 
-        config = link->config;
-        device = link->device;
+        if (link->action != SD_DEVICE_ADD) {
+                log_link_debug(link, "Skipping to apply AlternativeNames= and AlternativeNamesPolicy= on '%s' uevent.",
+                               device_action_to_string(link->action));
+                return 0;
+        }
 
         if (config->alternative_names) {
                 altnames = strv_copy(config->alternative_names);
@@ -836,29 +840,14 @@ static int link_apply_alternative_names(Link *link, sd_netlink **rtnl) {
                         default:
                                 assert_not_reached();
                         }
-                        if (!isempty(n)) {
+                        if (ifname_valid_full(n, IFNAME_VALID_ALTERNATIVE)) {
                                 r = strv_extend(&altnames, n);
                                 if (r < 0)
                                         return log_oom();
                         }
                 }
 
-        strv_remove(altnames, link->ifname);
-
-        r = rtnl_get_link_alternative_names(rtnl, link->ifindex, &current_altnames);
-        if (r < 0)
-                log_link_debug_errno(link, r, "Failed to get alternative names, ignoring: %m");
-
-        STRV_FOREACH(p, current_altnames)
-                strv_remove(altnames, *p);
-
-        strv_uniq(altnames);
-        strv_sort(altnames);
-        r = rtnl_set_link_alternative_names(rtnl, link->ifindex, altnames);
-        if (r < 0)
-                log_link_full_errno(link, r == -EOPNOTSUPP ? LOG_DEBUG : LOG_WARNING, r,
-                                    "Could not set AlternativeName= or apply AlternativeNamesPolicy=, ignoring: %m");
-
+        link->altnames = TAKE_PTR(altnames);
         return 0;
 }
 
@@ -960,7 +949,7 @@ int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_apply_alternative_names(link, rtnl);
+        r = link_generate_alternative_names(link);
         if (r < 0)
                 return r;
 
