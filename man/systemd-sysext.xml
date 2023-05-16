@@ -156,10 +156,10 @@
 
     <para>Confexts are looked for in the directories <filename>/run/confexts/</filename>,
     <filename>/var/lib/confexts/</filename>, <filename>/usr/lib/confexts/</filename> and
-    <filename>/usr/local/lib/confexts/</filename>. The first two listed directories are not suitable for
-    carrying large binary images, however are still useful for carrying symlinks to them. The primary place
-    for installing system extensions is <filename>/var/lib/confexts/</filename>. Any directories found in
-    these search directories are considered directory based confext images, any files with the
+    <filename>/usr/local/lib/confexts/</filename>. The first listed directory is not suitable for
+    carrying large binary images, however is still useful for carrying symlinks to them. The primary place
+    for installing configuration extensions is <filename>/var/lib/confexts/</filename>. Any directories found
+    in these search directories are considered directory based confext images; any files with the
     <filename>.raw</filename> suffix are considered disk image based confext images.</para>
 
     <para>Again, just like sysext images, the confext images will contain a
