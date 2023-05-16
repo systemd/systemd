@@ -224,7 +224,8 @@ static int dev_if_packed_info(sd_device *dev, char *ifs_str, size_t len) {
  * 6.) If the device supplies a serial number, this number
  *     is concatenated with the identification with an underscore '_'.
  */
-static int builtin_usb_id(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
+static int builtin_usb_id(UdevEvent *event, int argc, char *argv[], bool test) {
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         char vendor_str[64] = "";
         char vendor_str_enc[256];
         const char *vendor_id;
@@ -249,8 +250,6 @@ static int builtin_usb_id(sd_device *dev, sd_netlink **rtnl, int argc, char *arg
 
         const char *syspath, *sysname, *devtype, *interface_syspath;
         int r;
-
-        assert(dev);
 
         r = sd_device_get_syspath(dev, &syspath);
         if (r < 0)

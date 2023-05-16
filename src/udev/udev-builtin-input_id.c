@@ -369,8 +369,8 @@ static bool test_key(sd_device *dev,
         return found;
 }
 
-static int builtin_input_id(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
-        sd_device *pdev;
+static int builtin_input_id(UdevEvent *event, int argc, char *argv[], bool test) {
+        sd_device *pdev, *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         unsigned long bitmask_ev[NBITS(EV_MAX)];
         unsigned long bitmask_abs[NBITS(ABS_MAX)];
         unsigned long bitmask_key[NBITS(KEY_MAX)];
@@ -379,8 +379,6 @@ static int builtin_input_id(sd_device *dev, sd_netlink **rtnl, int argc, char *a
         const char *sysname;
         bool is_pointer;
         bool is_key;
-
-        assert(dev);
 
         /* walk up the parental chain until we find the real input device; the
          * argument is very likely a subdevice of this, like eventN */
