@@ -7,6 +7,17 @@ set -o pipefail
 
 # Test unit configuration/state/cache/log/runtime data cleanup
 
+at_exit() {
+    set +e
+
+    rm -fr /{etc,run,var/lib,var/cache,var/log}/test-service
+    rm -fr /{etc,run,var/lib,var/cache,var/log}/private/test-service
+    rm -fr /{etc,run,var/lib,var/cache,var/log}/hoge
+    rm -fr /{etc,run,var/lib,var/cache,var/log}/test-socket
+}
+
+trap at_exit EXIT
+
 cat >/run/systemd/system/test-service.service <<EOF
 [Service]
 ConfigurationDirectory=test-service
