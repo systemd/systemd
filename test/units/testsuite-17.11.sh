@@ -5,8 +5,8 @@ set -o pipefail
 
 # Test for udevadm verify.
 
-# shellcheck source=test/units/assert.sh
-. "$(dirname "$0")"/assert.sh
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
 
 cleanup() {
     cd /
