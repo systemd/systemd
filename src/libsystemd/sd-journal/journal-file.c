@@ -552,18 +552,103 @@ static int journal_file_verify_header(JournalFile *f) {
         if (UINT64_MAX - header_size < arena_size || header_size + arena_size > (uint64_t) f->last_stat.st_size)
                 return -ENODATA;
 
-        if (le64toh(f->header->tail_object_offset) > header_size + arena_size)
+#define check_offset_basic(offset)                              \
+        {                                                       \
+                uint64_t _p = (offset);                         \
+                                                                \
+                if (!VALID64(_p))                               \
+                        return -ENODATA;                        \
+                if (_p != 0 && _p < header_size)                \
+                        return -ENODATA;                        \
+        }
+
+#define check_offset(offset)                    \
+        {                                       \
+                uint64_t _q = (offset);         \
+                                                \
+                check_offset_basic(_q);         \
+                if (_q > tail_object_offset)    \
+                        return -ENODATA;        \
+        }
+
+#define check_hash(name)                                                \
+        {                                                               \
+                uint64_t _h, _sz;                                       \
+                                                                        \
+                _h = le64toh(f->header->name##_hash_table_offset);      \
+                _sz = le64toh(f->header->name##_hash_table_size);       \
+                if ((_h == 0) != (_sz == 0))                            \
+                        return -ENODATA;                                \
+                if (_h != 0) {                                          \
+                        if (_h < offsetof(Object, hash_table.items))    \
+                                return -ENODATA;                        \
+                        _h -= offsetof(Object, hash_table.items);       \
+                        check_offset(_h);                               \
+                        assert(_h <= header_size + arena_size);         \
+                        if (_sz > header_size + arena_size - _h)        \
+                                return -ENODATA;                        \
+                }                                                       \
+        }
+
+        uint64_t tail_object_offset = le64toh(f->header->tail_object_offset);
+        check_offset_basic(tail_object_offset);
+        if (header_size + arena_size < tail_object_offset)
+                return -ENODATA;
+        if (header_size + arena_size - tail_object_offset < sizeof(ObjectHeader))
                 return -ENODATA;
 
-        if (!VALID64(le64toh(f->header->data_hash_table_offset)) ||
-            !VALID64(le64toh(f->header->field_hash_table_offset)) ||
-            !VALID64(le64toh(f->header->tail_object_offset)) ||
-            !VALID64(le64toh(f->header->entry_array_offset)))
+        check_hash(data);
+        check_hash(field);
+
+        uint64_t entry_array_offset = le64toh(f->header->entry_array_offset);
+        check_offset(entry_array_offset);
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_array_offset)) {
+                uint32_t offset = le32toh(f->header->tail_entry_array_offset);
+                uint32_t n = le32toh(f->header->tail_entry_array_n_entries);
+
+                check_offset(offset);
+                if (entry_array_offset > offset)
+                        return -ENODATA;
+                if (entry_array_offset == 0 && offset != 0)
+                        return -ENODATA;
+                if ((offset == 0) != (n == 0))
+                        return -ENODATA;
+                assert(offset <= header_size + arena_size);
+                if (n * journal_file_entry_array_item_size(f) > header_size + arena_size - offset)
+                        return -ENODATA;
+        }
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset))
+                check_offset(le64toh(f->header->tail_entry_offset));
+
+        /* Verify number of objects */
+        uint64_t n_objects = le64toh(f->header->n_objects);
+        if (n_objects * sizeof(ObjectHeader) > arena_size)
                 return -ENODATA;
 
-        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset) &&
-            le64toh(f->header->tail_entry_offset) != 0 &&
-            !VALID64(le64toh(f->header->tail_entry_offset)))
+        uint64_t n_entries = le64toh(f->header->n_entries);
+        if (n_entries > n_objects)
+                return -ENODATA;
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_data) &&
+            le64toh(f->header->n_data) > n_objects)
+                return -ENODATA;
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_fields) &&
+            le64toh(f->header->n_fields) > n_objects)
+                return -ENODATA;
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_tags) &&
+            le64toh(f->header->n_tags) > n_objects)
+                return -ENODATA;
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays) &&
+            le64toh(f->header->n_entry_arrays) > n_objects)
+                return -ENODATA;
+
+        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_array_n_entries) &&
+            le32toh(f->header->tail_entry_array_n_entries) > n_entries)
                 return -ENODATA;
 
         if (journal_file_writable(f)) {
@@ -2122,7 +2207,8 @@ static int journal_file_link_entry(
 
         f->header->tail_entry_realtime = o->entry.realtime;
         f->header->tail_entry_monotonic = o->entry.monotonic;
-        f->header->tail_entry_offset = offset;
+        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset))
+                f->header->tail_entry_offset = offset;
         f->newest_mtime = 0; /* we have a new tail entry now, explicitly invalidate newest boot id/timestamp info */
 
         /* Link up the items */
