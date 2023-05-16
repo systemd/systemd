@@ -74,3 +74,9 @@ get_cgroup_hierarchy() {
             exit 1
     esac
 }
+
+runas() {
+    local userid="${1:?}"
+    shift
+    XDG_RUNTIME_DIR=/run/user/"$(id -u "$userid")" setpriv --reuid="$userid" --init-groups "$@"
+}

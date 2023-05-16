@@ -5,6 +5,9 @@ set -o pipefail
 
 # Test changing the main PID
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 systemd-analyze log-level debug
 
 # The main service PID should be the parent bash process
@@ -165,12 +168,6 @@ systemd-run --scope --unit test-true.scope /bin/true
 test "$(systemctl show -P Result test-true.scope)" = success
 
 # Test that user scope units work as well
-
-runas() {
-    declare userid=$1
-    shift
-    XDG_RUNTIME_DIR=/run/user/"$(id -u "$userid")" setpriv --reuid="$userid" --init-groups "$@"
-}
 
 systemctl start user@4711.service
 runas testuser systemd-run --scope --user --unit test-true.scope /bin/true

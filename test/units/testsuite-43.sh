@@ -3,13 +3,10 @@
 set -eux
 set -o pipefail
 
-systemd-analyze log-level debug
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
 
-runas() {
-    declare userid=$1
-    shift
-    XDG_RUNTIME_DIR=/run/user/"$(id -u "$userid")" setpriv --reuid="$userid" --init-groups "$@"
-}
+systemd-analyze log-level debug
 
 runas testuser systemd-run --wait --user --unit=test-private-users \
     -p PrivateUsers=yes -P echo hello
