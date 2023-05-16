@@ -92,9 +92,15 @@ int memfd_map(int fd, uint64_t offset, size_t size, void **p) {
 }
 
 int memfd_set_sealed(int fd) {
+        int r;
+
         assert(fd >= 0);
 
-        return RET_NERRNO(fcntl(fd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE | F_SEAL_SEAL));
+        r = RET_NERRNO(fcntl(fd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE | F_SEAL_EXEC | F_SEAL_SEAL));
+        if (r == -EINVAL) /* old kernel ? */
+                r = RET_NERRNO(fcntl(fd, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE | F_SEAL_SEAL));
+
+        return r;
 }
 
 int memfd_get_sealed(int fd) {
@@ -106,7 +112,8 @@ int memfd_get_sealed(int fd) {
         if (r < 0)
                 return -errno;
 
-        return r == (F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE | F_SEAL_SEAL);
+        /* We ignore F_SEAL_EXEC here to support older kernels. */
+        return FLAGS_SET(r, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE | F_SEAL_SEAL);
 }
 
 int memfd_get_size(int fd, uint64_t *sz) {
