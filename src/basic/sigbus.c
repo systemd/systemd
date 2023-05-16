@@ -25,8 +25,16 @@ static unsigned n_installed = 0;
 static void* volatile sigbus_queue[SIGBUS_QUEUE_MAX];
 static volatile sig_atomic_t n_sigbus_queue = 0;
 
-static void sigbus_push(void *addr) {
+void sigbus_push(void *addr) {
+        unsigned long ul;
+        void *aligned;
+
         assert(addr);
+
+        ul = (unsigned long) addr;
+        ul = ul / page_size();
+        ul = ul * page_size();
+        aligned = (void*) ul;
 
         /* Find a free place, increase the number of entries and leave, if we can */
         for (size_t u = 0; u < SIGBUS_QUEUE_MAX; u++) {
@@ -56,6 +64,10 @@ static void sigbus_push(void *addr) {
                                                 __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
                         return;
         }
+
+        /* Replace mapping with an anonymous page, so that the
+         * execution can continue, however with a zeroed out page */
+        assert_se(mmap(aligned, page_size(), PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0) == aligned);
 }
 
 int sigbus_pop(void **ret) {
@@ -95,9 +107,6 @@ int sigbus_pop(void **ret) {
 }
 
 static void sigbus_handler(int sn, siginfo_t *si, void *data) {
-        unsigned long ul;
-        void *aligned;
-
         assert(sn == SIGBUS);
         assert(si);
 
@@ -107,17 +116,8 @@ static void sigbus_handler(int sn, siginfo_t *si, void *data) {
                 return;
         }
 
-        ul = (unsigned long) si->si_addr;
-        ul = ul / page_size();
-        ul = ul * page_size();
-        aligned = (void*) ul;
-
         /* Let's remember which address failed */
-        sigbus_push(aligned);
-
-        /* Replace mapping with an anonymous page, so that the
-         * execution can continue, however with a zeroed out page */
-        assert_se(mmap(aligned, page_size(), PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0) == aligned);
+        sigbus_push(si->si_addr);
 }
 
 void sigbus_install(void) {
