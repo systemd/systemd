@@ -22,6 +22,7 @@ typedef struct UdevEvent {
         sd_device *dev_parent;
         sd_device *dev_db_clone;
         char *name;
+        char **altnames;
         char *program_result;
         mode_t mode;
         uid_t uid;

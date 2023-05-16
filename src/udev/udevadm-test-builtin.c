@@ -72,7 +72,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int builtin_main(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_(udev_event_freep) UdevEvent *event = NULL;
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         UdevBuiltinCommand cmd;
         int r;
@@ -87,8 +87,7 @@ int builtin_main(int argc, char *argv[], void *userdata) {
 
         cmd = udev_builtin_lookup(arg_command);
         if (cmd < 0) {
-                log_error("Unknown command '%s'", arg_command);
-                r = -EINVAL;
+                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown command '%s'", arg_command);
                 goto finish;
         }
 
@@ -98,7 +97,13 @@ int builtin_main(int argc, char *argv[], void *userdata) {
                 goto finish;
         }
 
-        r = udev_builtin_run(dev, &rtnl, cmd, arg_command, true);
+        event = udev_event_new(dev, 0, NULL, LOG_DEBUG);
+        if (!event) {
+                r = log_oom();
+                goto finish;
+        }
+
+        r = udev_builtin_run(event, cmd, arg_command, true);
         if (r < 0)
                 log_debug_errno(r, "Builtin command '%s' fails: %m", arg_command);
 
