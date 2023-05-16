@@ -12,7 +12,12 @@
 #include "macro.h"
 
 int repeat_unmount(const char *path, int flags);
-int umount_recursive(const char *target, int flags);
+
+int umount_recursive_full(const char *target, int flags, char **keep);
+
+static inline int umount_recursive(const char *target, int flags) {
+        return umount_recursive_full(target, flags, NULL);
+}
 
 int bind_remount_recursive_with_mountinfo(const char *prefix, unsigned long new_flags, unsigned long flags_mask, char **deny_list, FILE *proc_self_mountinfo);
 static inline int bind_remount_recursive(const char *prefix, unsigned long new_flags, unsigned long flags_mask, char **deny_list) {
