@@ -43,7 +43,7 @@
 #include "tmpfile-util.h"
 #include "user-util.h"
 
-int umount_recursive(const char *prefix, int flags) {
+int umount_recursive_full(const char *prefix, int flags, char **keep) {
         _cleanup_fclose_ FILE *f = NULL;
         int n = 0, r;
 
@@ -64,6 +64,7 @@ int umount_recursive(const char *prefix, int flags) {
                         return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
                 for (;;) {
+                        bool shall_keep = false;
                         struct libmnt_fs *fs;
                         const char *path;
 
@@ -79,6 +80,17 @@ int umount_recursive(const char *prefix, int flags) {
 
                         if (!path_startswith(path, prefix))
                                 continue;
+
+                        STRV_FOREACH(k, keep)
+                                /* Match against anything in the path to the dirs to keep, or below the dirs to keep */
+                                if (path_startswith(path, *k) || path_startswith(*k, path)) {
+                                        shall_keep = true;
+                                        break;
+                                }
+                        if (shall_keep) {
+                                log_debug("Not unmounting %s, referenced by keep list.", path);
+                                continue;
+                        }
 
                         if (umount2(path, flags | UMOUNT_NOFOLLOW) < 0) {
                                 log_debug_errno(errno, "Failed to umount %s, ignoring: %m", path);
