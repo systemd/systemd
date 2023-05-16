@@ -12,7 +12,8 @@
 #include "strxcpyx.h"
 #include "udev-builtin.h"
 
-static int builtin_btrfs(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
+static int builtin_btrfs(UdevEvent *event, int argc, char *argv[], bool test) {
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         struct btrfs_ioctl_vol_args args = {};
         _cleanup_close_ int fd = -EBADF;
         int r;

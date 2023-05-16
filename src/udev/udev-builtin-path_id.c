@@ -589,14 +589,13 @@ static int find_real_nvme_parent(sd_device *dev, sd_device **ret) {
         return 0;
 }
 
-static int builtin_path_id(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
+static int builtin_path_id(UdevEvent *event, int argc, char *argv[], bool test) {
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         _cleanup_(sd_device_unrefp) sd_device *dev_other_branch = NULL;
         _cleanup_free_ char *path = NULL, *compat_path = NULL;
         bool supported_transport = false, supported_parent = false;
         const char *subsystem;
         int r;
-
-        assert(dev);
 
         /* walk up the chain of devices and compose path */
         for (sd_device *parent = dev; parent; ) {
