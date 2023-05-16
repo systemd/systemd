@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-# utility functions for shell tests
+# Utility functions for shell tests
 
 assert_true() {(
     set +ex

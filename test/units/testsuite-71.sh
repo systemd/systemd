@@ -4,8 +4,8 @@
 set -eux
 set -o pipefail
 
-# shellcheck source=test/units/assert.sh
-. "$(dirname "$0")"/assert.sh
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
 
 restore_hostname() {
     if [[ -e /tmp/hostname.bak ]]; then
