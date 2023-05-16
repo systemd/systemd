@@ -87,8 +87,7 @@ int builtin_main(int argc, char *argv[], void *userdata) {
 
         cmd = udev_builtin_lookup(arg_command);
         if (cmd < 0) {
-                log_error("Unknown command '%s'", arg_command);
-                r = -EINVAL;
+                r = log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown command '%s'", arg_command);
                 goto finish;
         }
 
