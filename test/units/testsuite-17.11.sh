@@ -8,6 +8,7 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+# shellcheck disable=SC2317
 cleanup() {
     cd /
     rm -rf "${workdir}"
