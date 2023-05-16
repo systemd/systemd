@@ -97,27 +97,25 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
         return 0;
 }
 
-static void free_oci_hooks(OciHook *h, size_t n) {
-        size_t i;
+static void free_oci_hooks(OciHook *hooks, size_t n) {
+        assert(hooks || n == 0);
 
-        assert(h || n == 0);
-
-        for (i = 0; i < n; i++) {
-                free(h[i].path);
-                strv_free(h[i].args);
-                strv_free(h[i].env);
+        FOREACH_ARRAY(hook, hooks, n) {
+                free(hook->path);
+                strv_free(hook->args);
+                strv_free(hook->env);
         }
 
-        free(h);
+        free(hooks);
 }
 
-void device_node_array_free(DeviceNode *node, size_t n) {
-        size_t i;
+void device_node_array_free(DeviceNode *nodes, size_t n) {
+        assert(nodes || n == 0);
 
-        for (i = 0; i < n; i++)
-                free(node[i].path);
+        FOREACH_ARRAY(node, nodes, n)
+                free(node->path);
 
-        free(node);
+        free(nodes);
 }
 
 Settings* settings_free(Settings *s) {
