@@ -114,6 +114,8 @@ static void free_oci_hooks(OciHook *h, size_t n) {
 void device_node_array_free(DeviceNode *node, size_t n) {
         size_t i;
 
+        assert(node || n == 0);
+
         for (i = 0; i < n; i++)
                 free(node[i].path);
 
