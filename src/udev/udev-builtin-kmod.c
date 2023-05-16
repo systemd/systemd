@@ -22,10 +22,9 @@ _printf_(6,0) static void udev_kmod_log(void *data, int priority, const char *fi
         log_internalv(priority, 0, file, line, fn, format, args);
 }
 
-static int builtin_kmod(sd_device *dev, sd_netlink **rtnl, int argc, char *argv[], bool test) {
+static int builtin_kmod(UdevEvent *event, int argc, char *argv[], bool test) {
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         int r;
-
-        assert(dev);
 
         if (!ctx)
                 return 0;
