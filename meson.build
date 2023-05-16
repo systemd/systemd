@@ -1888,6 +1888,7 @@ conf.set10('ENABLE_REMOTE', have)
 foreach term : ['analyze',
                 'backlight',
                 'binfmt',
+                'bpfd',
                 'compat-mutable-uid-boundaries',
                 'coredump',
                 'efi',
@@ -2378,6 +2379,7 @@ subdir('src/libsystemd-network')
 subdir('src/analyze')
 subdir('src/boot')
 subdir('src/boot/efi')
+subdir('src/bpf')
 subdir('src/busctl')
 subdir('src/coredump')
 subdir('src/cryptenroll')
@@ -3034,6 +3036,20 @@ if conf.get('ENABLE_USERDB') == 1
                                 versiondep],
                 install_rpath : rootpkglibdir,
                 install : true)
+endif
+
+if conf.get('ENABLE_BPFD') == 1
+        executable(
+                'systemd-bpfd',
+                systemd_bpfd_sources,
+                include_directories : includes,
+                link_with : [libshared],
+                dependencies : [threads,
+                                userspace,
+                                versiondep],
+                install_rpath : rootpkglibdir,
+                install : true,
+                install_dir : rootlibexecdir)
 endif
 
 if conf.get('ENABLE_HOMED') == 1
@@ -4958,6 +4974,7 @@ foreach tuple : [
         ['binfmt'],
         ['bootloader'],
         ['bpf-framework',          conf.get('BPF_FRAMEWORK') == 1],
+        ['bpfd'],
         ['coredump'],
         ['efi'],
         ['environment.d'],
