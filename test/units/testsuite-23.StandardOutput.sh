@@ -3,9 +3,11 @@
 set -eux
 set -o pipefail
 
+# Test StandardOutput=file:
+
 systemd-analyze log-level debug
 
-systemd-run --wait --unit=test27-one \
+systemd-run --wait --unit=testsuite-23-standard-output-one \
             -p StandardOutput=file:/tmp/stdout \
             -p StandardError=file:/tmp/stderr \
             -p Type=exec \
@@ -17,7 +19,7 @@ cmp /tmp/stderr <<EOF
 y
 EOF
 
-systemd-run --wait --unit=test27-two \
+systemd-run --wait --unit=testsuite-23-standard-output-two \
             -p StandardOutput=file:/tmp/stdout \
             -p StandardError=file:/tmp/stderr \
             -p Type=exec \
@@ -29,7 +31,7 @@ cmp /tmp/stderr <<EOF
 a
 EOF
 
-systemd-run --wait --unit=test27-three \
+systemd-run --wait --unit=testsuite-23-standard-output-three \
             -p StandardOutput=append:/tmp/stdout \
             -p StandardError=append:/tmp/stderr \
             -p Type=exec \
@@ -43,7 +45,7 @@ a
 c
 EOF
 
-systemd-run --wait --unit=test27-four \
+systemd-run --wait --unit=testsuite-23-standard-output-four \
             -p StandardOutput=truncate:/tmp/stdout \
             -p StandardError=truncate:/tmp/stderr \
             -p Type=exec \
@@ -56,7 +58,3 @@ b
 EOF
 
 systemd-analyze log-level info
-
-echo OK >/testok
-
-exit 0
