@@ -60,7 +60,7 @@ for task in "${TEST_LIST[@]}"; do
             if ! kill -0 "${running[$key]}" &>/dev/null; then
                 # Task has finished, report its result and drop it from the queue
                 wait "${running[$key]}" && ec=0 || ec=$?
-                report_result "$key" $ec
+                report_result "$key" "$ec"
                 unset "running[$key]"
                 # Break from inner for loop and outer while loop to skip
                 # the sleep below when we find a free slot in the queue
@@ -83,8 +83,8 @@ done
 # Wait for remaining running tasks
 for key in "${!running[@]}"; do
     echo "Waiting for test '$key' to finish"
-    wait ${running[$key]} && ec=0 || ec=$?
-    report_result "$key" $ec
+    wait "${running[$key]}" && ec=0 || ec=$?
+    report_result "$key" "$ec"
     unset "running[$key]"
 done
 

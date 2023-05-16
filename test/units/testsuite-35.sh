@@ -468,7 +468,7 @@ test_lock_idle_action() {
     fi
 
     if loginctl --no-legend | grep -q logind-test-user; then
-        echo >&2 "Session of the \'logind-test-user\' is already present."
+        echo >&2 "Session of the 'logind-test-user' is already present."
         exit 1
     fi
 
