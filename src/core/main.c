@@ -1838,10 +1838,8 @@ static int do_reexecute(
         }
 
         if (switch_root_dir) {
-                /* And switch root with MS_MOVE, because we remove the old directory afterwards and detach it. */
                 r = switch_root(/* new_root= */ switch_root_dir,
                                 /* old_root_after= */ NULL,
-                                MS_MOVE,
                                 /* destroy_old_root= */ objective == MANAGER_SWITCH_ROOT);
                 if (r < 0)
                         log_error_errno(r, "Failed to switch root, trying to continue: %m");

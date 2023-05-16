@@ -169,14 +169,10 @@ static int switch_root_initramfs(void) {
         if (mount(NULL, "/run/initramfs", NULL, MS_PRIVATE, NULL) < 0)
                 return log_error_errno(errno, "Failed to make /run/initramfs private mount: %m");
 
-        /* switch_root with MS_BIND, because there might still be processes lurking around, which have open file descriptors.
-         * /run/initramfs/shutdown will take care of these.
-         * Also do not detach the old root, because /run/initramfs/shutdown needs to access it.
-         */
+        /* Do not detach the old root, because /run/initramfs/shutdown needs to access it. */
         return switch_root(
                         /* new_root= */ "/run/initramfs",
                         /* old_root_after= */ "/oldroot",
-                        MS_BIND,
                         /* destroy_old_root= */ false);
 }
 
