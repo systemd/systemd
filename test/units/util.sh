@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-# utility functions for shell tests
+# Utility functions for shell tests
 
 assert_true() {(
     set +ex
@@ -56,3 +56,27 @@ assert_rc() {(
     rc=$?
     assert_eq "$rc" "$exp"
 )}
+
+get_cgroup_hierarchy() {
+    case "$(stat -c '%T' -f /sys/fs/cgroup)" in
+        cgroup2fs)
+            echo "unified"
+            ;;
+        tmpfs)
+            if [[ -d /sys/fs/cgroup/unified && "$(stat -c '%T' -f /sys/fs/cgroup/unified)" == cgroup2fs ]]; then
+                echo "hybrid"
+            else
+                echo "legacy"
+            fi
+            ;;
+        *)
+            echo >&2 "Failed to determine host's cgroup hierarchy"
+            exit 1
+    esac
+}
+
+runas() {
+    local userid="${1:?}"
+    shift
+    XDG_RUNTIME_DIR=/run/user/"$(id -u "$userid")" setpriv --reuid="$userid" --init-groups "$@"
+}

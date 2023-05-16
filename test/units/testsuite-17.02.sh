@@ -7,8 +7,8 @@
 set -eux
 set -o pipefail
 
-# shellcheck source=test/units/assert.sh
-. "$(dirname "$0")"/assert.sh
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
 
 mkdir -p /run/udev/rules.d/
 
@@ -100,6 +100,7 @@ timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /s
 # cleanup
 ip link del hoge
 
+# shellcheck disable=SC2317
 teardown_netif_renaming_conflict() {
     set +ex
 
