@@ -44,19 +44,22 @@
 #include "user-util.h"
 
 int umount_recursive(const char *prefix, int flags) {
+        _cleanup_fclose_ FILE *f = NULL;
         int n = 0, r;
-        bool again;
 
         /* Try to umount everything recursively below a directory. Also, take care of stacked mounts, and
          * keep unmounting them until they are gone. */
 
-        do {
+        f = fopen("/proc/self/mountinfo", "re"); /* Pin the file, in case we unmount /proc/ as part of the logic here */
+        if (!f)
+                return log_debug_errno(errno, "Failed to open /proc/self/mountinfo: %m");
+
+        for (;;) {
                 _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
                 _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+                bool again = false;
 
-                again = false;
-
-                r = libmount_parse("/proc/self/mountinfo", NULL, &table, &iter);
+                r = libmount_parse("/proc/self/mountinfo", f, &table, &iter);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
@@ -89,7 +92,12 @@ int umount_recursive(const char *prefix, int flags) {
 
                         break;
                 }
-        } while (again);
+
+                if (!again)
+                        break;
+
+                rewind(f);
+        }
 
         return n;
 }
