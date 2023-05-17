@@ -11,19 +11,35 @@ TEST_NO_NSPAWN=1
 
 test_append_files() {
     local workspace="${1:?}"
+    local container="$workspace/testsuite-13-container-template"
 
-    # On openSUSE the static linked version of busybox is named "busybox-static".
-    busybox="$(type -P busybox-static || type -P busybox)"
-    inst_simple "$busybox" "$(dirname "$busybox")/busybox"
+    # Create a dummy container "template" with a minimal toolset, which we can
+    # then use as a base for our nspawn/machinectl tests
+    initdir="$container" setup_basic_dirs
+    initdir="$container" image_install \
+        bash \
+        cat \
+        hostname \
+        getent \
+        grep \
+        ip \
+        ls \
+        md5sum \
+        mountpoint \
+        nc \
+        ps \
+        seq \
+        sleep \
+        stat \
+        touch
 
-    if command -v selinuxenabled >/dev/null && selinuxenabled; then
-        image_install chcon selinuxenabled
-        cp -ar /etc/selinux "$workspace/etc/selinux"
-        sed -i "s/^SELINUX=.*$/SELINUX=permissive/" "$workspace/etc/selinux/config"
-    fi
-
-    "$TEST_BASE_DIR/create-busybox-container" "$workspace/testsuite-13.nc-container"
-    initdir="$workspace/testsuite-13.nc-container" image_install nc ip md5sum
+    cp /etc/os-release "$container/usr/lib/os-release"
+    cat >"$container/sbin/init" <<EOF
+#!/bin/bash
+echo "Hello from dummy init, beautiful day, innit?"
+ip link
+EOF
+    chmod +x "$container/sbin/init"
 }
 
 do_test "$@"

@@ -80,3 +80,15 @@ runas() {
     shift
     XDG_RUNTIME_DIR=/run/user/"$(id -u "$userid")" setpriv --reuid="$userid" --init-groups "$@"
 }
+
+create_dummy_container() {
+    local root="${1:?}"
+
+    if [[ ! -d /testsuite-13-container-template ]]; then
+        echo >&2 "Missing container template, probably not running in TEST-13-NSPAWN?"
+        exit 1
+    fi
+
+    mkdir -p "$root"
+    cp -a /testsuite-13-container-template/* "$root"
+}
