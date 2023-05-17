@@ -94,7 +94,9 @@
         <term><varname>$SYSTEMD_NSS_RESOLVE_CACHE</varname></term>
 
         <listitem><para>Takes a boolean argument. When false, the cache of previously queried records will
-        not be used by <command>systemd-resolved</command>.</para></listitem>
+        not be used by
+        <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
     </variablelist>
 
@@ -121,7 +123,8 @@
         <term><varname>$SYSTEMD_NSS_RESOLVE_NETWORK</varname></term>
 
         <listitem><para>Takes a boolean argument. When false, answers will be returned without using the
-        network, i.e. either from local sources or the cache in <command>systemd-resolved</command>.
+        network, i.e. either from local sources or the cache in
+        <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
     </variablelist>

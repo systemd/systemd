@@ -121,8 +121,9 @@
           <term><option>--measure</option></term>
           <term><option>--no-measure</option></term>
 
-          <listitem><para>Enable or disable a call to <command>systemd-measure</command> to print
-          pre-calculated PCR values. Defaults to false.</para></listitem>
+          <listitem><para>Enable or disable a call to
+          <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          to print pre-calculated PCR values. Defaults to false.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -303,7 +304,7 @@
           <term><varname>SigningEngine=<replaceable>ENGINE</replaceable></varname></term>
           <term><option>--signing-engine=<replaceable>ENGINE</replaceable></option></term>
 
-          <listitem><para>An "engine" to for signing of the resulting binary. This option is currently passed
+          <listitem><para>An "engine" for signing of the resulting binary. This option is currently passed
           verbatim to the <option>--engine=</option> option of
           <citerefentry project='archlinux'><refentrytitle>sbsign</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
           </para></listitem>

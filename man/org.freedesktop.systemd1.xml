@@ -2516,9 +2516,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       only provided in a best effort fashion: it is not guaranteed to be set, and it is not guaranteed to be
       the only trigger. It is only guaranteed to be a valid trigger that caused the activation job to be
       enqueued and complete successfully. The key value pairs correspond (in lowercase) to the environment
-      variables described in the <literal>Environment Variables Set on Triggered Units</literal> section in
-      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-      Note that new key value pair may be added at any time in future versions. Existing entries will not be
+      variables described in the <literal>Environment Variables Set or Propagated by the Service
+      Manager</literal> section in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry>. Note
+      that new key value pair may be added at any time in future versions. Existing entries will not be
       removed.</para>
     </refsect2>
 

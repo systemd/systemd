@@ -67,10 +67,12 @@
     times. Specifically:</para>
 
     <orderedlist>
-      <listitem><para>In UEFI mode, the <filename>systemd-boot</filename> or
-      <filename>systemd-stub</filename> components load the boot loader random seed off the ESP, hash it with
-      available entropy and the system token, and then update it on disk. A derived seed is passed to the
-      kernel which writes it to its entropy pool.</para></listitem>
+      <listitem><para>In UEFI mode, the
+      <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> or
+      <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      components load the boot loader random seed from the ESP, hash it with available entropy and the system
+      token, and then update it on disk. A derived seed is passed to the kernel which writes it to its
+      entropy pool.</para></listitem>
 
       <listitem><para>In userspace the <filename>systemd-random-seed.service</filename> service loads the OS
       random seed, writes it to the kernel entropy pool, and then updates it on disk with a new value derived
