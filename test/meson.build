@@ -45,10 +45,6 @@ if install_tests
                                install_dir : testdata_dir)
         endif
 
-        install_data('create-busybox-container',
-                     install_mode : 'rwxr-xr-x',
-                     install_dir : testdata_dir)
-
         # The unit tests implemented as shell scripts expect to find testdata/
         # in the directory where they are stored.
         meson.add_install_script(meson_make_symlink,

@@ -4,9 +4,11 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 export SYSTEMD_LOG_LEVEL=debug
 export SYSTEMD_LOG_TARGET=journal
-CREATE_BB_CONTAINER="/usr/lib/systemd/tests/testdata/create-busybox-container"
 
 # shellcheck disable=SC2317
 at_exit() {
@@ -32,7 +34,7 @@ mount --bind /proc/self/ns/net "$NETNS"
 TMPDIR="$(mktemp -d)"
 touch "$TMPDIR/hello"
 OCI="$(mktemp -d /var/lib/machines/testsuite-13.oci-bundle.XXX)"
-"$CREATE_BB_CONTAINER" "$OCI/rootfs"
+create_dummy_container "$OCI/rootfs"
 mkdir -p "$OCI/rootfs/opt/var"
 mkdir -p "$OCI/rootfs/opt/readonly"
 
@@ -52,7 +54,7 @@ cat >"$OCI/config.json" <<EOF
     ]
 }
 EOF
-systemd-nspawn --oci-bundle="$OCI" sh -xec 'mountpoint /root'
+systemd-nspawn --oci-bundle="$OCI" bash -xec 'mountpoint /root'
 
 # And now for something a bit more involved
 # Notes:
@@ -97,7 +99,7 @@ cat >"$OCI/config.json" <<EOF
         ],
         "cwd" : "/root",
         "args" : [
-            "sh",
+            "bash",
             "-xe",
             "/entrypoint.sh"
         ],
@@ -347,7 +349,7 @@ EOF
 # Create a simple "entrypoint" script that validates that the container
 # is created correctly according to the OCI config
 cat >"$OCI/rootfs/entrypoint.sh" <<EOF
-#!/bin/sh -e
+#!/bin/bash -e
 
 # Mounts
 mountpoint /root
