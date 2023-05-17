@@ -4,9 +4,10 @@
 set -eux
 set -o pipefail
 
-export PAGER=
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
 
-CREATE_BB_CONTAINER="/usr/lib/systemd/tests/testdata/create-busybox-container"
+export PAGER=
 
 at_exit() {
     set +e
@@ -24,18 +25,17 @@ mount -t tmpfs tmpfs /var/lib/machines
 
 # Create a couple of containers we can refer to in tests
 for i in {0..4}; do
-    "$CREATE_BB_CONTAINER" "/var/lib/machines/container$i"
+    create_dummy_container "/var/lib/machines/container$i"
     machinectl start "container$i"
 done
 # Create one "long running" container with some basic signal handling
-"$CREATE_BB_CONTAINER" /var/lib/machines/long-running
+create_dummy_container /var/lib/machines/long-running
 cat >/var/lib/machines/long-running/sbin/init <<\EOF
-#!/bin/sh -x
-#
+#!/bin/bash -x
+
 PID=0
 
-# sh doesn't recognize RTMIN+4, so we have to use the signal number directly
-trap "touch /poweroff" 38
+trap "touch /poweroff" RTMIN+4
 trap "touch /reboot" INT
 trap "touch /trap" TRAP
 trap 'kill $PID' EXIT
@@ -82,24 +82,24 @@ machinectl disable long-running
 test ! -L /etc/systemd/system/machines.target.wants/systemd-nspawn@long-running.service
 machinectl disable long-running long-running long-running container1
 
-[[ "$(machinectl shell testuser@ /bin/sh -c 'echo -ne $FOO')" == "" ]]
-[[ "$(machinectl shell --setenv=FOO=bar testuser@ /bin/sh -c 'echo -ne $FOO')" == "bar" ]]
+[[ "$(machinectl shell testuser@ /bin/bash -c 'echo -ne $FOO')" == "" ]]
+[[ "$(machinectl shell --setenv=FOO=bar testuser@ /bin/bash -c 'echo -ne $FOO')" == "bar" ]]
 
 [[ "$(machinectl show --property=State --value long-running)" == "running" ]]
 # Equivalent to machinectl kill --signal=SIGRTMIN+4 --kill-whom=leader
 rm -f /var/lib/machines/long-running/poweroff
 machinectl poweroff long-running
-timeout 10 sh -c "while ! test -e /var/lib/machines/long-running/poweroff; do sleep .5; done"
+timeout 10 bash -c "while ! test -e /var/lib/machines/long-running/poweroff; do sleep .5; done"
 machinectl poweroff long-running long-running long-running
 # Equivalent to machinectl kill --signal=SIGINT --kill-whom=leader
 rm -f /var/lib/machines/long-running/reboot
 machinectl reboot long-running
-timeout 10 sh -c "while ! test -e /var/lib/machines/long-running/reboot; do sleep .5; done"
+timeout 10 bash -c "while ! test -e /var/lib/machines/long-running/reboot; do sleep .5; done"
 machinectl reboot long-running long-running long-running
 # Skip machinectl terminate for now, as it doesn't play well with our "init"
 rm -f /var/lib/machines/long-running/trap
 machinectl kill --signal=SIGTRAP --kill-whom=leader long-running
-timeout 10 sh -c "while ! test -e /var/lib/machines/long-running/trap; do sleep .5; done"
+timeout 10 bash -c "while ! test -e /var/lib/machines/long-running/trap; do sleep .5; done"
 machinectl kill --signal=SIGTRAP --kill-whom=leader long-running long-running long-running
 # All used signals should've been caught by a handler
 [[ "$(machinectl show --property=State --value long-running)" == "running" ]]
@@ -181,7 +181,7 @@ machinectl import-fs /tmp/container.dir container-dir
 machinectl start container-dir
 rm -fr /tmp/container.dir
 
-timeout 10 sh -c "while ! machinectl clean --all; do sleep .5; done"
+timeout 10 bash -c "while ! machinectl clean --all; do sleep .5; done"
 
 NSPAWN_FRAGMENT="machinectl-test-$RANDOM.nspawn"
 cat >"/var/lib/machines/$NSPAWN_FRAGMENT" <<EOF

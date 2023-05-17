@@ -27,7 +27,7 @@ echo "MARKER_RUNTIME" >/run/testsuite-23-marker-runtime
 
 systemctl bind --mkdir testsuite-23-namespaced.service /run/testsuite-23-marker-runtime /tmp/testfile-marker-runtime
 
-timeout 10 sh -xec 'while [[ "$(systemctl show -P SubState testsuite-23-namespaced.service)" == running ]]; do sleep .5; done'
+timeout 10 bash -xec 'while [[ "$(systemctl show -P SubState testsuite-23-namespaced.service)" == running ]]; do sleep .5; done'
 systemctl is-active testsuite-23-namespaced.service
 
 # Now test that systemctl bind fails when attempted on a non-namespaced unit
@@ -35,5 +35,5 @@ systemctl start testsuite-23-non-namespaced.service
 
 (! systemctl bind --mkdir testsuite-49-non-namespaced.service /run/testsuite-23-marker-runtime /tmp/testfile-marker-runtime)
 
-timeout 10 sh -xec 'while [[ "$(systemctl show -P SubState testsuite-23-non-namespaced.service)" == running ]]; do sleep .5; done'
+timeout 10 bash -xec 'while [[ "$(systemctl show -P SubState testsuite-23-non-namespaced.service)" == running ]]; do sleep .5; done'
 (! systemctl is-active testsuite-23-non-namespaced.service)
