@@ -298,6 +298,154 @@ EOF
     (! systemd-nspawn --rlimit==)
 }
 
+nspawn_settings_cleanup() {
+    for dev in sd-host-only sd-shared{1,2} sd-macvlan{1,2} sd-ipvlan{1,2}; do
+        ip link del "$dev" || :
+    done
+
+    return 0
+}
+
+testcase_nspawn_settings() {
+    local root container dev private_users
+
+    mkdir -p /run/systemd/nspawn
+    root="$(mktemp -d /var/lib/machines/testsuite-13.nspawn-settings.XXX)"
+    container="$(basename "$root")"
+    create_dummy_container "$root"
+    rm -f "/etc/systemd/nspawn/$container.nspawn"
+    mkdir -p "$root/tmp" "$root"/opt/{tmp,inaccessible,also-inaccessible}
+
+    for dev in sd-host-only sd-shared{1,2} sd-macvlan{1,2} sd-ipvlan{1,2}; do
+        ip link add "$dev" type dummy
+    done
+    udevadm settle
+    ip link
+    trap nspawn_settings_cleanup RETURN
+
+    # Let's start with one huge config to test as much as we can at once
+    cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+Boot=no
+Ephemeral=no
+ProcessTwo=no
+Parameters=bash /entrypoint.sh "foo bar" 'bar baz'
+Environment=FOO=bar
+Environment=BAZ="hello world"
+User=root
+WorkingDirectory=/tmp
+Capability=CAP_BLOCK_SUSPEND CAP_BPF CAP_CHOWN
+DropCapability=CAP_AUDIT_CONTROL CAP_AUDIT_WRITE
+AmbientCapability=CAP_BPF CAP_CHOWN
+NoNewPrivileges=no
+MachineID=f28f129b51874b1280a89421ec4b4ad4
+PrivateUsers=no
+NotifyReady=no
+SystemCallFilter=@basic-io @chown
+SystemCallFilter=~ @clock
+LimitNOFILE=1024:2048
+LimitRTPRIO=8:16
+OOMScoreAdjust=32
+CPUAffinity=0,0-5,1-5
+Hostname=nspawn-settings
+ResolvConf=copy-host
+Timezone=delete
+LinkJournal=no
+SuppressSync=no
+
+[Files]
+ReadOnly=no
+Volatile=no
+TemporaryFileSystem=/tmp
+TemporaryFileSystem=/opt/tmp
+Inaccessible=/opt/inaccessible
+Inaccessible=/opt/also-inaccessible
+PrivateUsersOwnership=auto
+Overlay=+/var::/var
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+
+[Network]
+Private=yes
+VirtualEthernet=yes
+VirtualEthernetExtra=my-fancy-veth1
+VirtualEthernetExtra=fancy-veth2:my-fancy-veth2
+Interface=sd-shared1 sd-shared2:sd-shared2
+MACVLAN=sd-macvlan1 sd-macvlan2:my-macvlan2
+IPVLAN=sd-ipvlan1 sd-ipvlan2:my-ipvlan2
+Zone=sd-zone0
+Port=80
+Port=81:8181
+Port=tcp:60
+Port=udp:60:61
+EOF
+    cat >"$root/entrypoint.sh" <<\EOF
+#!/bin/bash -ex
+
+[[ "$1" == "foo bar" ]]
+[[ "$2" == "bar baz" ]]
+
+[[ "$USER" == root ]]
+[[ "$FOO" == bar ]]
+[[ "$BAZ" == "hello world" ]]
+[[ "$PWD" == /tmp ]]
+[[ "$(</etc/machine-id)" == f28f129b51874b1280a89421ec4b4ad4 ]]
+[[ "$(ulimit -S -n)" -eq 1024 ]]
+[[ "$(ulimit -H -n)" -eq 2048 ]]
+[[ "$(ulimit -S -r)" -eq 8 ]]
+[[ "$(ulimit -H -r)" -eq 16 ]]
+[[ "$(</proc/self/oom_score_adj)" -eq 32 ]]
+[[ "$(hostname)" == nspawn-settings ]]
+[[ -e /etc/resolv.conf ]]
+[[ ! -e /etc/localtime ]]
+
+mountpoint /tmp
+touch /tmp/foo
+mountpoint /opt/tmp
+touch /opt/tmp/foo
+touch /opt/inaccessible/foo && exit 1
+touch /opt/also-inaccessible/foo && exit 1
+mountpoint /var
+
+ip link
+ip link | grep host-only && exit 1
+ip link | grep host0@
+ip link | grep my-fancy-veth1@
+ip link | grep my-fancy-veth2@
+ip link | grep sd-shared1
+ip link | grep sd-shared2
+ip link | grep mv-sd-macvlan1@
+ip link | grep my-macvlan2@
+ip link | grep iv-sd-ipvlan1@
+ip link | grep my-ipvlan2@
+EOF
+    timeout 30 systemd-nspawn --directory="$root"
+
+    # And now for stuff that needs to run separately
+    #
+    # Note on the condition below: since our container tree is owned by root,
+    # both "yes" and "identity" private users settings will behave the same
+    # as PrivateUsers=0:65535, which makes BindUser= fail as the UID already
+    # exists there, so skip setting it in such case
+    for private_users in "131072:65536" yes identity pick; do
+        cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+Hostname=private-users
+PrivateUsers=$private_users
+
+[Files]
+PrivateUsersOwnership=auto
+BindUser=
+$([[ "$private_users" =~ (yes|identity) ]] || echo "BindUser=testuser")
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+EOF
+        cat "/run/systemd/nspawn/$container.nspawn"
+        chown -R root:root "$root"
+        systemd-nspawn --directory="$root" bash -xec '[[ "$(hostname)" == private-users ]]'
+    done
+
+    rm -fr "$root" "/run/systemd/nspawn/$container.nspawn"
+}
+
 bind_user_cleanup() {
     userdel --force --remove nspawn-bind-user-1
     userdel --force --remove nspawn-bind-user-2
@@ -440,6 +588,8 @@ testcase_notification_socket() {
 
     systemd-nspawn --register=no --directory="$root" bash -x -c "$cmd"
     systemd-nspawn --register=no --directory="$root" -U bash -x -c "$cmd"
+
+    rm -fr "$root"
 }
 
 testcase_os_release() {
@@ -563,7 +713,7 @@ EOF
                    --machine=foobar \
                    bash -x -c "! test -f /tmp/ephemeral-config"
 
-    rm -fr "$root" "/run/systemd/nspawn/$container_name"
+    rm -fr "$root" "/run/systemd/nspawn/$container_name.nspawn"
 }
 
 matrix_run_one() {
