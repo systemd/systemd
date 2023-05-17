@@ -214,6 +214,7 @@ BASICTOOLS=(
     script
     sed
     seq
+    setfacl
     setfattr
     setfont
     setpriv

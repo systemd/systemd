@@ -277,6 +277,59 @@ EOF
     (! systemd-nspawn --rlimit==)
 }
 
+bind_user_cleanup() {
+    userdel --force --remove nspawn-bind-user-1
+    userdel --force --remove nspawn-bind-user-2
+}
+
+testcase_bind_user() {
+    local root
+
+    root="$(mktemp -d /var/lib/machines/testsuite-13.bind-user.XXX)"
+    create_dummy_container "$root"
+    useradd --create-home --user-group nspawn-bind-user-1
+    useradd --create-home --user-group nspawn-bind-user-2
+    trap bind_user_cleanup RETURN
+    touch /home/nspawn-bind-user-1/foo
+    touch /home/nspawn-bind-user-2/bar
+    # Add a couple of POSIX ACLs to test the patch-uid stuff
+    mkdir -p "$root/opt"
+    setfacl -R -m 'd:u:nspawn-bind-user-1:rwX' -m 'u:nspawn-bind-user-1:rwX' "$root/opt"
+    setfacl -R -m 'd:g:nspawn-bind-user-1:rwX' -m 'g:nspawn-bind-user-1:rwX' "$root/opt"
+
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-1 \
+                   bash -xec 'test -e /run/host/home/nspawn-bind-user-1/foo'
+
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --private-users-ownership=chown \
+                   --bind-user=nspawn-bind-user-1 \
+                   --bind-user=nspawn-bind-user-2 \
+                   bash -xec 'test -e /run/host/home/nspawn-bind-user-1/foo; test -e /run/host/home/nspawn-bind-user-2/bar'
+    chown -R root:root "$root"
+
+    # User/group name collision
+    echo "nspawn-bind-user-2:x:1000:1000:nspawn-bind-user-2:/home/nspawn-bind-user-2:/bin/bash" >"$root/etc/passwd"
+    (! systemd-nspawn --directory="$root" \
+                      --private-users=pick \
+                      --bind-user=nspawn-bind-user-1 \
+                      --bind-user=nspawn-bind-user-2 \
+                      true)
+    rm -f "$root/etc/passwd"
+
+    echo "nspawn-bind-user-2:x:1000:" >"$root/etc/group"
+    (! systemd-nspawn --directory="$root" \
+                      --private-users=pick \
+                      --bind-user=nspawn-bind-user-1 \
+                      --bind-user=nspawn-bind-user-2 \
+                      true)
+    rm -f "$root/etc/group"
+
+    rm -fr "$root"
+}
+
 testcase_bind_tmp_path() {
     # https://github.com/systemd/systemd/issues/4789
     local root
