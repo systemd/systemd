@@ -101,10 +101,11 @@
           <term><varname>ID_NET_NAME_ONBOARD=<replaceable>prefix</replaceable><constant>d</constant><replaceable>number</replaceable></varname></term>
 
           <listitem><para>This name is set based on the numeric ordering information given by the firmware
-          for on-board devices. Different schemes are used depending on the firmware type, as described in the table below.</para>
+          for on-board devices. Different schemes are used depending on the firmware type, as described in
+          the table below.</para>
 
             <table>
-              <title>Onboard naming schemes</title>
+              <title>On-board naming schemes</title>
 
               <tgroup cols='2'>
                 <thead>
@@ -117,7 +118,7 @@
                 <tbody>
                   <row>
                     <entry><replaceable>prefix</replaceable><constant>o</constant><replaceable>number</replaceable></entry>
-                    <entry>PCI onboard index</entry>
+                    <entry>PCI on-board index</entry>
                   </row>
 
                   <row>
@@ -411,10 +412,10 @@
           numbers, which could either result in an incorrect value of the <varname>ID_NET_NAME_SLOT</varname>
           property or none at all.</para>
 
-          <para>Some firmware and hypervisor implementations report unreasonably high numbers for the onboard
-          index. To prevent the generation of bogus onbard interface names, index numbers greater than 16381
-          (2¹⁴-1) were ignored. For s390 PCI devices index values up to 65535 (2¹⁶-1) are valid. To account
-          for that, the limit was increased to 65535.</para>
+          <para>Some firmware and hypervisor implementations report unreasonably high numbers for the
+          on-board index. To prevent the generation of bogus onbard interface names, index numbers greater
+          than 16381 (2¹⁴-1) were ignored. For s390 PCI devices index values up to 65535 (2¹⁶-1) are valid.
+          To account for that, the limit was increased to 65535.</para>
 
           <para>The udev rule <varname>NAME=</varname> replaces <literal>:</literal>,
           <literal>/</literal>, and <literal>%</literal> with an underscore (<literal>_</literal>), and

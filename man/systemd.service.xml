@@ -229,7 +229,7 @@
             <option>notify</option>. However, it extends the logic in one way: the
             <constant>SIGHUP</constant> UNIX process signal is sent to the service's main process when the
             service is asked to reload. (The signal to send can be tweaked via
-            <varname>ReloadSignal=</varname>, see below.). When
+            <varname>ReloadSignal=</varname>, see below.)  When
             initiating the reload process the service is then expected to reply with a notification message
             via <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
             that contains the <literal>RELOADING=1</literal> field in combination with
@@ -1167,9 +1167,10 @@
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
         details.</para>
 
-        <para>This setting also applies to <command>systemd-oomd</command>. Similarly to the kernel OOM
-        kills, this setting determines the state of the unit after <command>systemd-oomd</command> kills a
-        cgroup associated with it.</para></listitem>
+        <para>This setting also applies to
+        <citerefentry><refentrytitle>systemd-oomd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        Similarly to the kernel OOM kills performed by the kernel, this setting determines the state of the
+        unit after <command>systemd-oomd</command> kills a cgroup associated with it.</para></listitem>
       </varlistentry>
 
       <varlistentry>
