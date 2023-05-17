@@ -1,0 +1,4 @@
+[Unit]
+Requires=sleep-infinity-simple.service
+After=sleep-infinity-simple.service
+PropagatesStopTo=sleep-infinity-simple.service
