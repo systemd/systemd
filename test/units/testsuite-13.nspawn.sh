@@ -4,9 +4,11 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 export SYSTEMD_LOG_LEVEL=debug
 export SYSTEMD_LOG_TARGET=journal
-CREATE_BB_CONTAINER="/usr/lib/systemd/tests/testdata/create-busybox-container"
 
 at_exit() {
     set +e
@@ -37,7 +39,7 @@ IS_USERNS_SUPPORTED=no
 # with enabled user namespaces support. By setting this value explicitly
 # we can ensure the user namespaces support to be detected correctly.
 sysctl -w user.max_user_namespaces=10000
-if unshare -U sh -c :; then
+if unshare -U bash -c :; then
     IS_USERNS_SUPPORTED=yes
 fi
 
@@ -50,7 +52,7 @@ testcase_sanity_check() {
 
     tmpdir="$(mktemp -d)"
     template="$(mktemp -d /tmp/nspawn-template.XXX)"
-    "$CREATE_BB_CONTAINER" "$template"
+    create_dummy_container "$template"
     # Create a simple image from the just created container template
     image="$(mktemp /var/lib/machines/testsuite-13.image-XXX.img)"
     dd if=/dev/zero of="$image" bs=1M count=32
@@ -65,49 +67,49 @@ testcase_sanity_check() {
 
     # --template=
     root="$(mktemp -u -d /var/lib/machines/testsuite-13.sanity.XXX)"
-    (! systemd-nspawn --directory="$root" sh -xec 'echo hello')
+    (! systemd-nspawn --directory="$root" bash -xec 'echo hello')
     # Initialize $root from $template (the $root directory must not exist, hence
     # the `mktemp -u` above)
-    systemd-nspawn --directory="$root" --template="$template" sh -xec 'echo hello'
-    systemd-nspawn --directory="$root" sh -xec 'echo hello; touch /initialized'
+    systemd-nspawn --directory="$root" --template="$template" bash -xec 'echo hello'
+    systemd-nspawn --directory="$root" bash -xec 'echo hello; touch /initialized'
     test -e "$root/initialized"
     # Check if the $root doesn't get re-initialized once it's not empty
-    systemd-nspawn --directory="$root" --template="$template" sh -xec 'echo hello'
+    systemd-nspawn --directory="$root" --template="$template" bash -xec 'echo hello'
     test -e "$root/initialized"
 
-    systemd-nspawn --directory="$root" --ephemeral sh -xec 'touch /ephemeral'
+    systemd-nspawn --directory="$root" --ephemeral bash -xec 'touch /ephemeral'
     test ! -e "$root/ephemeral"
     (! systemd-nspawn --directory="$root" \
                       --bind="${COVERAGE_BUILD_DIR:-$tmpdir}" \
                       --read-only \
-                      sh -xec 'touch /nope')
+                      bash -xec 'touch /nope')
     test ! -e "$root/nope"
-    systemd-nspawn --image="$image" sh -xec 'echo hello'
+    systemd-nspawn --image="$image" bash -xec 'echo hello'
 
     # --volatile=
     touch "$root/usr/has-usr"
     # volatile(=yes): rootfs is tmpfs, /usr/ from the OS tree is mounted read only
     systemd-nspawn --directory="$root"\
                    --volatile \
-                   sh -xec 'test -e /usr/has-usr; touch /usr/read-only && exit 1; touch /nope'
+                   bash -xec 'test -e /usr/has-usr; touch /usr/read-only && exit 1; touch /nope'
     test ! -e "$root/nope"
     test ! -e "$root/usr/read-only"
     systemd-nspawn --directory="$root"\
                    --volatile=yes \
-                   sh -xec 'test -e /usr/has-usr; touch /usr/read-only && exit 1; touch /nope'
+                   bash -xec 'test -e /usr/has-usr; touch /usr/read-only && exit 1; touch /nope'
     test ! -e "$root/nope"
     test ! -e "$root/usr/read-only"
     # volatile=state: rootfs is read-only, /var/ is tmpfs
     systemd-nspawn --directory="$root" \
                    --bind="${COVERAGE_BUILD_DIR:-$tmpdir}" \
                    --volatile=state \
-                   sh -xec 'test -e /usr/has-usr; mountpoint /var; touch /read-only && exit 1; touch /var/nope'
+                   bash -xec 'test -e /usr/has-usr; mountpoint /var; touch /read-only && exit 1; touch /var/nope'
     test ! -e "$root/read-only"
     test ! -e "$root/var/nope"
     # volatile=state: tmpfs overlay is mounted over rootfs
     systemd-nspawn --directory="$root" \
                    --volatile=overlay \
-                   sh -xec 'test -e /usr/has-usr; touch /nope; touch /var/also-nope; touch /usr/nope-too'
+                   bash -xec 'test -e /usr/has-usr; touch /nope; touch /var/also-nope; touch /usr/nope-too'
     test ! -e "$root/nope"
     test ! -e "$root/var/also-nope"
     test ! -e "$root/usr/nope-too"
@@ -115,29 +117,30 @@ testcase_sanity_check() {
     # --machine=, --hostname=
     systemd-nspawn --directory="$root" \
                    --machine="foo-bar.baz" \
-                   sh -xec '[[ $(hostname) == foo-bar.baz ]]'
+                   bash -xec '[[ $(hostname) == foo-bar.baz ]]'
     systemd-nspawn --directory="$root" \
                    --hostname="hello.world.tld" \
-                   sh -xec '[[ $(hostname) == hello.world.tld ]]'
+                   bash -xec '[[ $(hostname) == hello.world.tld ]]'
     systemd-nspawn --directory="$root" \
                    --machine="foo-bar.baz" \
                    --hostname="hello.world.tld" \
-                   sh -xec '[[ $(hostname) == hello.world.tld ]]'
+                   bash -xec '[[ $(hostname) == hello.world.tld ]]'
 
     # --uuid=
     rm -f "$root/etc/machine-id"
     uuid="deadbeef-dead-dead-beef-000000000000"
     systemd-nspawn --directory="$root" \
                    --uuid="$uuid" \
-                   sh -xec "[[ \$container_uuid == $uuid ]]"
+                   bash -xec "[[ \$container_uuid == $uuid ]]"
 
     # --as-pid2
-    systemd-nspawn --directory="$root" sh -xec '[[ $$ -eq 1 ]]'
-    systemd-nspawn --directory="$root" --as-pid2 sh -xec '[[ $$ -eq 2 ]]'
+    systemd-nspawn --directory="$root" bash -xec '[[ $$ -eq 1 ]]'
+    systemd-nspawn --directory="$root" --as-pid2 bash -xec '[[ $$ -eq 2 ]]'
 
     # --user=
-    systemd-nspawn --directory="$root" sh -xec '[[ $USER == root ]]'
-    systemd-nspawn --directory="$root" --user=testuser sh -xec '[[ $USER == testuser ]]'
+    cp /etc/passwd "$root/etc/passwd"
+    systemd-nspawn --directory="$root" bash -xec '[[ $USER == root ]]'
+    systemd-nspawn --directory="$root" --user=testuser bash -xec '[[ $USER == testuser ]]'
 
     # --settings= + .nspawn files
     mkdir -p /run/systemd/nspawn/
@@ -146,22 +149,22 @@ testcase_sanity_check() {
     systemd-nspawn --directory="$root" \
                    --machine=foo-bar \
                    --settings=yes \
-                   sh -xec '[[ $container_uuid == deadbeef-dead-dead-beef-111111111111 ]]'
+                   bash -xec '[[ $container_uuid == deadbeef-dead-dead-beef-111111111111 ]]'
     systemd-nspawn --directory="$root" \
                    --machine=foo-bar \
                    --uuid="$uuid" \
                    --settings=yes \
-                   sh -xec "[[ \$container_uuid == $uuid ]]"
+                   bash -xec "[[ \$container_uuid == $uuid ]]"
     systemd-nspawn --directory="$root" \
                    --machine=foo-bar \
                    --uuid="$uuid" \
                    --settings=override \
-                   sh -xec '[[ $container_uuid == deadbeef-dead-dead-beef-111111111111 ]]'
+                   bash -xec '[[ $container_uuid == deadbeef-dead-dead-beef-111111111111 ]]'
     systemd-nspawn --directory="$root" \
                    --machine=foo-bar \
                    --uuid="$uuid" \
                    --settings=trusted \
-                   sh -xec "[[ \$container_uuid == $uuid ]]"
+                   bash -xec "[[ \$container_uuid == $uuid ]]"
 
     # Mounts
     mkdir "$tmpdir"/{1,2,3}
@@ -170,35 +173,35 @@ testcase_sanity_check() {
     # --bind=
     systemd-nspawn --directory="$root" \
                    --bind="$tmpdir:/foo" \
-                   sh -xec 'test -e /foo/foo; touch /foo/bar'
+                   bash -xec 'test -e /foo/foo; touch /foo/bar'
     test -e "$tmpdir/bar"
     # --bind-ro=
     systemd-nspawn --directory="$root" \
                    --bind-ro="$tmpdir:/foo" \
-                   sh -xec 'test -e /foo/foo; touch /foo/baz && exit 1; true'
+                   bash -xec 'test -e /foo/foo; touch /foo/baz && exit 1; true'
     # --inaccessible=
     systemd-nspawn --directory="$root" \
                    --inaccessible=/var \
-                   sh -xec 'touch /var/foo && exit 1; true'
+                   bash -xec 'touch /var/foo && exit 1; true'
     # --tmpfs=
     systemd-nspawn --directory="$root" \
                    --tmpfs=/var:rw,nosuid,noexec \
-                   sh -xec 'touch /var/nope'
+                   bash -xec 'touch /var/nope'
     test ! -e "$root/var/nope"
     # --overlay=
     systemd-nspawn --directory="$root" \
                    --overlay="$tmpdir/1:$tmpdir/2:$tmpdir/3:/var" \
-                   sh -xec 'test -e /var/one; test -e /var/two; test -e /var/three; touch /var/foo'
+                   bash -xec 'test -e /var/one; test -e /var/two; test -e /var/three; touch /var/foo'
     test -e "$tmpdir/3/foo"
     # --overlay-ro=
     systemd-nspawn --directory="$root" \
                    --overlay-ro="$tmpdir/1:$tmpdir/2:$tmpdir/3:/var" \
-                   sh -xec 'test -e /var/one; test -e /var/two; test -e /var/three; touch /var/nope && exit 1; true'
+                   bash -xec 'test -e /var/one; test -e /var/two; test -e /var/three; touch /var/nope && exit 1; true'
     test ! -e "$tmpdir/3/nope"
     rm -fr "$tmpdir"
 
     # Assorted tests
-    systemd-nspawn --directory="$root" --suppress-sync=yes sh -xec 'echo hello'
+    systemd-nspawn --directory="$root" --suppress-sync=yes bash -xec 'echo hello'
     systemd-nspawn --capability=help
     systemd-nspawn --resolv-conf=help
     systemd-nspawn --timezone=help
@@ -252,12 +255,12 @@ testcase_check_bind_tmp_path() {
     local root
 
     root="$(mktemp -d /var/lib/machines/testsuite-13.bind-tmp-path.XXX)"
-    "$CREATE_BB_CONTAINER" "$root"
+    create_dummy_container "$root"
     : >/tmp/bind
     systemd-nspawn --register=no \
                    --directory="$root" \
                    --bind=/tmp/bind \
-                   /bin/sh -c 'test -e /tmp/bind'
+                   bash -c 'test -e /tmp/bind'
 
     rm -fr "$root" /tmp/bind
 }
@@ -271,12 +274,12 @@ testcase_check_norbind() {
     echo -n "outer" >/tmp/binddir/subdir/file
     mount -t tmpfs tmpfs /tmp/binddir/subdir
     echo -n "inner" >/tmp/binddir/subdir/file
-    "$CREATE_BB_CONTAINER" "$root"
+    create_dummy_container "$root"
 
     systemd-nspawn --register=no \
                    --directory="$root" \
                    --bind=/tmp/binddir:/mnt:norbind \
-                   /bin/sh -c 'CONTENT=$(cat /mnt/subdir/file); if [[ $CONTENT != "outer" ]]; then echo "*** unexpected content: $CONTENT"; return 1; fi'
+                   bash -c 'CONTENT=$(cat /mnt/subdir/file); if [[ $CONTENT != "outer" ]]; then echo "*** unexpected content: $CONTENT"; exit 1; fi'
 
     umount /tmp/binddir/subdir
     rm -fr "$root" /tmp/binddir/
@@ -304,13 +307,13 @@ testcase_check_rootidmap() {
     touch /tmp/rootidmap/bind/file
     chown -R "$owner:$owner" /tmp/rootidmap/bind
 
-    "$CREATE_BB_CONTAINER" "$root"
+    create_dummy_container "$root"
     cmd='PERMISSIONS=$(stat -c "%u:%g" /mnt/file); if [[ $PERMISSIONS != "0:0" ]]; then echo "*** wrong permissions: $PERMISSIONS"; return 1; fi; touch /mnt/other_file'
     if ! SYSTEMD_LOG_TARGET=console \
             systemd-nspawn --register=no \
                            --directory="$root" \
                            --bind=/tmp/rootidmap/bind:/mnt:rootidmap \
-                           /bin/sh -c "$cmd" |& tee nspawn.out; then
+                           bash -c "$cmd" |& tee nspawn.out; then
         if grep -q "Failed to map ids for bind mount.*: Function not implemented" nspawn.out; then
             echo "idmapped mounts are not supported, skipping the test..."
             return 0
@@ -328,21 +331,24 @@ testcase_check_rootidmap() {
 
 testcase_check_notification_socket() {
     # https://github.com/systemd/systemd/issues/4944
-    local cmd='echo a | $(busybox which nc) -U -u -w 1 /run/host/notify'
+    local root
+    local cmd='echo a | nc -U -u -w 1 /run/host/notify'
 
-    # /testsuite-13.nc-container is prepared by test.sh
-    systemd-nspawn --register=no --directory=/testsuite-13.nc-container /bin/sh -x -c "$cmd"
-    systemd-nspawn --register=no --directory=/testsuite-13.nc-container -U /bin/sh -x -c "$cmd"
+    root="$(mktemp -d /var/lib/machines/testsuite-13.check_notification_socket.XXX)"
+    create_dummy_container "$root"
+
+    systemd-nspawn --register=no --directory="$root" bash -x -c "$cmd"
+    systemd-nspawn --register=no --directory="$root" -U bash -x -c "$cmd"
 }
 
 testcase_check_os_release() {
     local root entrypoint os_release_source
 
     root="$(mktemp -d /var/lib/machines/testsuite-13.check-os-release.XXX)"
-    "$CREATE_BB_CONTAINER" "$root"
+    create_dummy_container "$root"
     entrypoint="$root/entrypoint.sh"
     cat >"$entrypoint" <<\EOF
-#!/bin/sh -ex
+#!/usr/bin/bash -ex
 
 . /tmp/os-release
 [[ -n "${ID:-}" && "$ID" != "$container_host_id" ]] && exit 1
@@ -378,18 +384,18 @@ EOF
 
 testcase_check_machinectl_bind() {
     local service_path service_name root container_name ec
-    local cmd='for i in $(seq 1 20); do if test -f /tmp/marker; then exit 0; fi; usleep 500000; done; exit 1;'
+    local cmd='for i in $(seq 1 20); do if test -f /tmp/marker; then exit 0; fi; sleep .5; done; exit 1;'
 
     root="$(mktemp -d /var/lib/machines/testsuite-13.check-machinectl-bind.XXX)"
-    "$CREATE_BB_CONTAINER" "$root"
-    container_name="${root##*/}"
+    create_dummy_container "$root"
+    container_name="$(basename "$root")"
 
     service_path="$(mktemp /run/systemd/system/nspawn-machinectl-bind-XXX.service)"
     service_name="${service_path##*/}"
     cat >"$service_path" <<EOF
 [Service]
 Type=notify
-ExecStart=systemd-nspawn --directory="$root" --notify-ready=no /bin/sh -xec "$cmd"
+ExecStart=systemd-nspawn --directory="$root" --notify-ready=no /usr/bin/bash -xec "$cmd"
 EOF
 
     systemctl daemon-reload
@@ -399,6 +405,7 @@ EOF
 
     timeout 10 bash -c "while [[ '\$(systemctl show -P SubState $service_name)' == running ]]; do sleep .2; done"
     ec="$(systemctl show -P ExecMainStatus "$service_name")"
+    systemctl stop "$service_name"
 
     rm -fr "$root" "$service_path"
 
@@ -415,7 +422,7 @@ testcase_check_selinux() {
     local root
 
     root="$(mktemp -d /var/lib/machines/testsuite-13.check-selinux.XXX)"
-    "$CREATE_BB_CONTAINER" "$root"
+    create_dummy_container "$root"
     chcon -R -t container_t "$root"
 
     systemd-nspawn --register=no \
@@ -432,7 +439,7 @@ testcase_check_ephemeral_config() {
     local root container_name
 
     root="$(mktemp -d /var/lib/machines/testsuite-13.check-ephemeral-config.XXX)"
-    "$CREATE_BB_CONTAINER" "$root"
+    create_dummy_container "$root"
     container_name="${root##*/}"
 
     mkdir -p /run/systemd/nspawn/
@@ -445,13 +452,13 @@ EOF
     systemd-nspawn --register=no \
                    --directory="$root" \
                    --ephemeral \
-                   /bin/sh -x -c "test -f /tmp/ephemeral-config"
+                   bash -x -c "test -f /tmp/ephemeral-config"
 
     systemd-nspawn --register=no \
                    --directory="$root" \
                    --ephemeral \
                    --machine=foobar \
-                   /bin/sh -x -c "! test -f /tmp/ephemeral-config"
+                   bash -x -c "! test -f /tmp/ephemeral-config"
 
     rm -fr "$root" "/run/systemd/nspawn/$container_name"
 }
@@ -473,7 +480,7 @@ matrix_run_one() {
     fi
 
     root="$(mktemp -d "/var/lib/machines/testsuite-13.unified-$1-cgns-$2-api-vfs-writable-$3.XXX")"
-    "$CREATE_BB_CONTAINER" "$root"
+    create_dummy_container "$root"
 
     SYSTEMD_NSPAWN_UNIFIED_HIERARCHY="$cgroupsv2" SYSTEMD_NSPAWN_USE_CGNS="$use_cgns" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$api_vfs_writable" \
         systemd-nspawn --register=no \
@@ -548,7 +555,7 @@ matrix_run_one() {
         systemd-nspawn --register=no \
                        --directory="$root" \
                        --network-namespace-path=/run/netns/nspawn_test \
-                       /bin/ip a | grep -v -E '^1: lo.*UP'
+                       ip a | grep -v -E '^1: lo.*UP'
     ip netns del nspawn_test
 
     rm -fr "$root"
