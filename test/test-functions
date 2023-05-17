@@ -959,7 +959,7 @@ install_fs_tools() {
 install_modules() {
     dinfo "Install modules"
 
-    instmods dummy vfat veth
+    instmods bridge dummy ipvlan macvlan vfat veth
     instmods loop =block
     instmods nls_ascii =nls
     instmods overlay =overlayfs
