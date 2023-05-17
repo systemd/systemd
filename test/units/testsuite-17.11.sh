@@ -31,6 +31,12 @@ cat >"${workdir}/default_output_1_fail" <<EOF
   Success: 0
   Fail:    1
 EOF
+cat >"${workdir}/output_0_files" <<EOF
+
+0 udev rules files have been checked.
+  Success: 0
+  Fail:    0
+EOF
 
 test_number=0
 rules=
@@ -52,8 +58,10 @@ next_test_number() {
 
 assert_0() {
     udevadm verify "$@" >"${out}"
-    if [ -f "${rules}" ]; then
-       diff -u "${workdir}/default_output_1_success" "${out}"
+    if [ -f "${exo}" ]; then
+        diff -u "${exo}" "${out}"
+    elif [ -f "${rules}" ]; then
+        diff -u "${workdir}/default_output_1_success" "${out}"
     fi
 
     next_test_number
@@ -114,8 +122,21 @@ mkdir -p "${rules_dir}"
 # No rules files found in $PWD
 assert_1 --root="${workdir}"
 
+# Directory without rules.
+cp "${workdir}/output_0_files" "${exo}"
+assert_0 "${rules_dir}/"
+
+# Directory is not available.
+cp "${workdir}/output_0_files" "${exo}"
+assert_0 "${rules_dir}/nosuchdir/"
+
+# Empty rules.
 touch "${rules_dir}/empty.rules"
 assert_0 --root="${workdir}"
+
+# Directory with a single *.rules file.
+cp "${workdir}/default_output_1_success" "${exo}"
+assert_0 "${rules_dir}/"
 
 # Combination of --root= and FILEs is not supported.
 assert_1 --root="${workdir}" /dev/null
@@ -394,5 +415,12 @@ assert_1 "${rules}"
 sed "s|sample-[0-9]*.rules|${workdir}/${rules_dir}/&|" sample-*.exp >"${workdir}/${exp}"
 cd -
 assert_1 --root="${workdir}"
+cd -
+
+# udevadm verify path/
+sed "s|sample-[0-9]*.rules|${workdir}/${rules_dir}/&|" sample-*.exp >"${workdir}/${exp}"
+cd -
+assert_1 "${rules_dir}/"
+cd -
 
 exit 0
