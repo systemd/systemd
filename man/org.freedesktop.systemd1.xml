@@ -2573,7 +2573,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u RestartSteps = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly t RestartUSecMax = ...;
+      readonly t RestartMaxDelayUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t RestartUSecNext = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -3213,7 +3213,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property RestartSteps is not documented!-->
 
-    <!--property RestartUSecMax is not documented!-->
+    <!--property RestartMaxDelayUSec is not documented!-->
 
     <!--property RestartUSecNext is not documented!-->
 
@@ -3787,7 +3787,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestartSteps"/>
 
-    <variablelist class="dbus-property" generated="True" extra-ref="RestartUSecMax"/>
+    <variablelist class="dbus-property" generated="True" extra-ref="RestartMaxDelayUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RestartUSecNext"/>
 
