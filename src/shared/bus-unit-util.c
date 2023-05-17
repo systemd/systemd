@@ -2210,6 +2210,7 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
                 return bus_append_parse_boolean(m, field, eq);
 
         if (STR_IN_SET(field, "RestartSec",
+                              "RestartMaxDelaySec",
                               "TimeoutStartSec",
                               "TimeoutStopSec",
                               "TimeoutAbortSec",
@@ -2226,7 +2227,8 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
                 return bus_append_parse_sec_rename(m, "TimeoutStopSec", eq);
         }
 
-        if (streq(field, "FileDescriptorStoreMax"))
+        if (STR_IN_SET(field, "FileDescriptorStoreMax",
+                              "RestartSteps"))
                 return bus_append_safe_atou(m, field, eq);
 
         if (STR_IN_SET(field, "ExecCondition",
