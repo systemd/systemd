@@ -81,6 +81,23 @@ runas() {
     XDG_RUNTIME_DIR=/run/user/"$(id -u "$userid")" setpriv --reuid="$userid" --init-groups "$@"
 }
 
+coverage_create_nspawn_dropin() {
+    # If we're collecting coverage, bind mount the $BUILD_DIR into the nspawn
+    # container so gcov can update the counters. This is mostly for standalone
+    # containers, as machinectl stuff is handled by overriding the systemd-nspawn@.service
+    # (see test/test-functions:install_systemd())
+    local root="${1:?}"
+    local container
+
+    if [[ -z "${COVERAGE_BUILD_DIR:-}" ]]; then
+        return 0
+    fi
+
+    container="$(basename "$root")"
+    mkdir -p "/run/systemd/nspawn"
+    echo -ne "[Files]\nBind=$COVERAGE_BUILD_DIR\n" >"/run/systemd/nspawn/${container:?}.nspawn"
+}
+
 create_dummy_container() {
     local root="${1:?}"
 
@@ -91,4 +108,5 @@ create_dummy_container() {
 
     mkdir -p "$root"
     cp -a /testsuite-13-container-template/* "$root"
+    coverage_create_nspawn_dropin "$root"
 }

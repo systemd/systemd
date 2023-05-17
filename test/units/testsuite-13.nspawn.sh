@@ -1,6 +1,25 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # shellcheck disable=SC2016
+#
+# Notes on coverage: when collecting coverage we need the $BUILD_DIR present
+# and writable in the container as well. To do this in the least intrusive way,
+# two things are going on in the background (only when built with -Db_coverage=true):
+#   1) the systemd-nspawn@.service is copied to /etc/systemd/system/ with
+#      --bind=$BUILD_DIR appended to the ExecStart= line
+#   2) each create_dummy_container() call also creates an .nspawn file in /run/systemd/nspawn/
+#      with the last fragment from the path used as a name
+#
+# The first change is quite self-contained and applies only to containers run
+# with machinectl. The second one might cause some unexpected side-effects, namely:
+#   - nspawn config (setting) files don't support dropins, so tests that test
+#     the config files might need some tweaking (as seen below with
+#     the $COVERAGE_BUILD_DIR shenanigans) since they overwrite the .nspawn file
+#   - also a note - if /etc/systemd/nspawn/cont-name.nspawn exists, it takes
+#     precedence and /run/systemd/nspawn/cont-name.nspawn won't be read even
+#     if it exists
+#   - in some cases we don't create a test container using create_dummy_container(),
+#     so in that case an explicit call to coverage_create_nspawn_dropin() is needed
 set -eux
 set -o pipefail
 
@@ -14,6 +33,7 @@ at_exit() {
     set +e
 
     mountpoint -q /var/lib/machines && umount /var/lib/machines
+    rm -f /run/systemd/nspawn/*.nspawn
 }
 
 trap at_exit EXIT
@@ -67,6 +87,7 @@ testcase_sanity() {
 
     # --template=
     root="$(mktemp -u -d /var/lib/machines/testsuite-13.sanity.XXX)"
+    coverage_create_nspawn_dropin "$root"
     (! systemd-nspawn --directory="$root" bash -xec 'echo hello')
     # Initialize $root from $template (the $root directory must not exist, hence
     # the `mktemp -u` above)
@@ -523,8 +544,10 @@ testcase_ephemeral_config() {
     container_name="$(basename "$root")"
 
     mkdir -p /run/systemd/nspawn/
+    rm -f "/etc/systemd/nspawn/$container_name.nspawn"
     cat >"/run/systemd/nspawn/$container_name.nspawn" <<EOF
 [Files]
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
 BindReadOnly=/tmp/ephemeral-config
 EOF
     touch /tmp/ephemeral-config
