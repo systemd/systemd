@@ -114,6 +114,14 @@ int switch_root(const char *new_root,
         if (r < 0) {
                 log_debug_errno(r, "Pivoting root file system failed, moving mounts instead: %m");
 
+                /* If we have to use MS_MOVE let's first try to get rid of *all* mounts we can, with the
+                 * exception of the path we want to switch to, plus everything leading to it and within
+                 * it. This is necessary because unlike pivot_root() just moving the mount to the root via
+                 * MS_MOVE won't magically unmount anything below it. Once the chroot() succeeds the mounts
+                 * below would still be around but invisible to us, because not accessible via
+                 * /proc/self/mountinfo. Hence, let's clean everything up first, as long as we still can. */
+                (void) umount_recursive_full(NULL, MNT_DETACH, STRV_MAKE(new_root));
+
                 if (mount(".", "/", NULL, MS_MOVE, NULL) < 0)
                         return log_error_errno(errno, "Failed to move %s to /: %m", new_root);
 
