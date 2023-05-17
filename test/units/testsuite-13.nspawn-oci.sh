@@ -382,4 +382,84 @@ touch /opt/readonly/foo && exit 1
 
 exit 0
 EOF
-systemd-nspawn --oci-bundle="$OCI"
+timeout 30 systemd-nspawn --oci-bundle="$OCI"
+
+# Test a couple of invalid configs
+INVALID_SNIPPETS=(
+    # Invalid object
+    '"foo" : { }'
+    '"process" : { "foo" : [ ] }'
+    # Non-absolute mount
+    '"mounts" : [ { "destination" : "foo", "type" : "tmpfs", "source" : "tmpfs" } ]'
+    # Invalid rlimit
+    '"process" : { "rlimits" : [ { "type" : "RLIMIT_FOO", "soft" : 0, "hard" : 0 } ] }'
+    # rlimit without RLIMIT_ prefix
+    '"process" : { "rlimits" : [ { "type" : "CORE", "soft" : 0, "hard" : 0 } ] }'
+    # Invalid env assignment
+    '"process" : { "env" : [ "foo" ] }'
+    '"process" : { "env" : [ "foo=bar", 1 ] }'
+    # Invalid process args
+    '"process" : { "args" : [ ] }'
+    '"process" : { "args" : [ "" ] }'
+    '"process" : { "args" : [ "foo", 1 ] }'
+    # Invalid capabilities
+    '"process" : { "capabilities" : { "bounding" : [ 1 ] } }'
+    '"process" : { "capabilities" : { "bounding" : [ "FOO_BAR" ] } }'
+    # Unsupported option (without JSON_PERMISSIVE)
+    '"linux" : { "resources" : { "cpu" : { "realtimeRuntime" : 1 } } }'
+    # Invalid namespace
+    '"linux" : { "namespaces" : [ { "type" : "foo" } ] }'
+    # Namespace path for a non-network namespace
+    '"linux" : { "namespaces" : [ { "type" : "user", "path" : "/foo/bar" } ] }'
+    # Duplicate namespace
+    '"linux" : { "namespaces" : [ { "type" : "ipc" }, { "type" : "ipc" } ] }'
+    # Invalid device type
+    '"linux" : { "devices" : [ { "type" : "foo", "path" : "/dev/foo" } ] }'
+    # Invalid cgroups path
+    '"linux" : { "cgroupsPath" : "/foo/bar/baz" }'
+    '"linux" : { "cgroupsPath" : "foo/bar/baz" }'
+    # Invalid sysctl assignments
+    '"linux" : { "sysctl" : { "vm.swappiness" : 60 } }'
+    '"linux" : { "sysctl" : { "foo..bar" : "baz" } }'
+    # Invalid seccomp assignments
+    '"linux" : { "seccomp" : { } }'
+    '"linux" : { "seccomp" : { "defaultAction" : 1 } }'
+    '"linux" : { "seccomp" : { "defaultAction" : "foo" } }'
+    '"linux" : { "seccomp" : { "defaultAction" : "SCMP_ACT_ALLOW", "syscalls" : [ { "action" : "SCMP_ACT_ERRNO", "names" : [ ] } ] } }'
+    # Invalid masked paths
+    '"linux" : { "maskedPaths" : [ "/foo", 1 ] }'
+    '"linux" : { "maskedPaths" : [ "/foo", "bar" ] }'
+    # Invalid read-only paths
+    '"linux" : { "readonlyPaths" : [ "/foo", 1 ] }'
+    '"linux" : { "readonlyPaths" : [ "/foo", "bar" ] }'
+    # Invalid hooks
+    '"hooks" : { "prestart" : [ { "path" : "/bin/sh", "timeout" : 0 } ] }'
+    # Invalid annotations
+    '"annotations" : { "" : "bar" }'
+    '"annotations" : { "foo" : 1 }'
+)
+
+for snippet in "${INVALID_SNIPPETS[@]}"; do
+    : "Snippet: $snippet"
+    cat >"$OCI/config.json" <<EOF
+{
+    "ociVersion" : "1.0.0",
+    "root" : {
+            "path" : "rootfs"
+    },
+    $snippet
+}
+EOF
+    (! systemd-nspawn --oci-bundle="$OCI" sh -c 'echo hello')
+done
+
+# Invalid OCI bundle version
+cat >"$OCI/config.json" <<EOF
+{
+    "ociVersion" : "6.6.6",
+    "root" : {
+            "path" : "rootfs"
+    }
+}
+EOF
+(! systemd-nspawn --oci-bundle="$OCI" sh -c 'echo hello')
