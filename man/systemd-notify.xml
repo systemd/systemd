@@ -98,7 +98,7 @@
         cycle. This is equivalent to <command>systemd-notify RELOADING=1</command> (but implicitly also sets
         a <varname>MONOTONIC_USEC=</varname> field as required for <varname>Type=notify-reload</varname>
         services, see
-        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details). For details about the semantics of this option see
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>

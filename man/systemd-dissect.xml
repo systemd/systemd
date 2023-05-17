@@ -210,17 +210,19 @@
         <term><option>--mtree</option></term>
         <term><option>-l</option></term>
 
-        <listitem><para>Generates a BSD <citerefentry
-        project='die-net'><refentrytitle>mtree</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <listitem><para>Generates a BSD
+        <citerefentry project='die-net'><refentrytitle>mtree</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         compatible file manifest of the specified disk image. This is useful for comparing disk image
         contents in detail, including inode information and other metadata. While the generated manifest will
         contain detailed inode information, it currently excludes extended attributes, file system
-        capabilities, MAC labels, <citerefentry
-        project='man-pages'><refentrytitle>chattr</refentrytitle><manvolnum>1</manvolnum></citerefentry> file
-        flags, btrfs subvolume information, and various other file metadata. File content information is
-        shown via a SHA256 digest. Additional fields might be added in future. Note that inode information
-        such as link counts, inode numbers and timestamps is excluded from the output on purpose, as it
-        typically complicates reproducibility.</para></listitem>
+        capabilities, MAC labels,
+        <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        file flags,
+        <citerefentry project='url'><refentrytitle url='https://btrfs.wiki.kernel.org/index.php/Manpage/btrfs(5)'>btrfs</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        subvolume information, and various other file metadata. File content information is shown via a
+        SHA256 digest. Additional fields might be added in future. Note that inode information such as link
+        counts, inode numbers and timestamps is excluded from the output on purpose, as it typically
+        complicates reproducibility.</para></listitem>
       </varlistentry>
 
       <varlistentry>

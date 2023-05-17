@@ -497,7 +497,7 @@
         <constant>subvolume</constant>. For details about the resource types, see above. This option is
         mandatory.</para>
 
-        <para>Note that only some combinations of source and target resource types are supported, see
+        <para>Note that only certain combinations of source and target resource types are supported, see
         above.</para></listitem>
       </varlistentry>
     </variablelist>
