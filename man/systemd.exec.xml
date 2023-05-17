@@ -1826,16 +1826,21 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>ProtectClock=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If set, writes to the hardware clock or system clock will be denied.
-        It is recommended to turn this on for most services that do not need modify the clock. Defaults to off. Enabling
-        this option removes <constant>CAP_SYS_TIME</constant> and <constant>CAP_WAKE_ALARM</constant> from the
-        capability bounding set for this unit, installs a system call filter to block calls that can set the
-        clock, and <varname>DeviceAllow=char-rtc r</varname> is implied. This ensures <filename>/dev/rtc0</filename>,
-        <filename>/dev/rtc1</filename>, etc. are made read-only to the service. See
+        <listitem><para>Takes a boolean argument. If set, writes to the hardware clock or system clock will
+        be denied. Defaults to off. Enabling this option removes <constant>CAP_SYS_TIME</constant> and
+        <constant>CAP_WAKE_ALARM</constant> from the capability bounding set for this unit, installs a system
+        call filter to block calls that can set the clock, and <varname>DeviceAllow=char-rtc r</varname> is
+        implied. Note that the system calls are blocked altogether, the filter does not take into account
+        that some of the calls can be used to read the clock state with some parameter combinations.
+        Effectively, <filename>/dev/rtc0</filename>, <filename>/dev/rtc1</filename>, etc. are made read-only
+        to the service. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for the details about <varname>DeviceAllow=</varname>. If this setting is on, but the unit
-        doesn't have the <constant>CAP_SYS_ADMIN</constant> capability (e.g. services for which
+        for the details about <varname>DeviceAllow=</varname>. If this setting is on, but the unit doesn't
+        have the <constant>CAP_SYS_ADMIN</constant> capability (e.g. services for which
         <varname>User=</varname> is set), <varname>NoNewPrivileges=yes</varname> is implied.</para>
+
+        <para>It is recommended to turn this on for most services that do not need modify the clock or check
+        its state.</para>
 
         <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
