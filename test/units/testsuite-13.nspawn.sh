@@ -47,7 +47,7 @@ fi
 mkdir -p /var/lib/machines
 mount -t tmpfs tmpfs /var/lib/machines
 
-testcase_sanity_check() {
+testcase_sanity() {
     local template root image uuid tmpdir
 
     tmpdir="$(mktemp -d)"
@@ -263,7 +263,7 @@ EOF
     (! systemd-nspawn --rlimit==)
 }
 
-testcase_check_bind_tmp_path() {
+testcase_bind_tmp_path() {
     # https://github.com/systemd/systemd/issues/4789
     local root
 
@@ -278,7 +278,7 @@ testcase_check_bind_tmp_path() {
     rm -fr "$root" /tmp/bind
 }
 
-testcase_check_norbind() {
+testcase_norbind() {
     # https://github.com/systemd/systemd/issues/13170
     local root
 
@@ -298,14 +298,14 @@ testcase_check_norbind() {
     rm -fr "$root" /tmp/binddir/
 }
 
-check_rootidmap_cleanup() {
+rootidmap_cleanup() {
     local dir="${1:?}"
 
     mountpoint -q "$dir/bind" && umount "$dir/bind"
     rm -fr "$dir"
 }
 
-testcase_check_rootidmap() {
+testcase_rootidmap() {
     local root cmd permissions
     local owner=1000
 
@@ -315,7 +315,7 @@ testcase_check_rootidmap() {
     dd if=/dev/zero of=/tmp/rootidmap/ext4.img bs=4k count=2048
     mkfs.ext4 /tmp/rootidmap/ext4.img
     mount /tmp/rootidmap/ext4.img /tmp/rootidmap/bind
-    trap "check_rootidmap_cleanup /tmp/rootidmap/" RETURN
+    trap "rootidmap_cleanup /tmp/rootidmap/" RETURN
 
     touch /tmp/rootidmap/bind/file
     chown -R "$owner:$owner" /tmp/rootidmap/bind
@@ -342,7 +342,7 @@ testcase_check_rootidmap() {
     fi
 }
 
-testcase_check_notification_socket() {
+testcase_notification_socket() {
     # https://github.com/systemd/systemd/issues/4944
     local root
     local cmd='echo a | nc -U -u -w 1 /run/host/notify'
@@ -354,10 +354,10 @@ testcase_check_notification_socket() {
     systemd-nspawn --register=no --directory="$root" -U bash -x -c "$cmd"
 }
 
-testcase_check_os_release() {
+testcase_os_release() {
     local root entrypoint os_release_source
 
-    root="$(mktemp -d /var/lib/machines/testsuite-13.check-os-release.XXX)"
+    root="$(mktemp -d /var/lib/machines/testsuite-13.os-release.XXX)"
     create_dummy_container "$root"
     entrypoint="$root/entrypoint.sh"
     cat >"$entrypoint" <<\EOF
@@ -395,11 +395,11 @@ EOF
     rm -fr "$root"
 }
 
-testcase_check_machinectl_bind() {
+testcase_machinectl_bind() {
     local service_path service_name root container_name ec
     local cmd='for i in $(seq 1 20); do if test -f /tmp/marker; then exit 0; fi; sleep .5; done; exit 1;'
 
-    root="$(mktemp -d /var/lib/machines/testsuite-13.check-machinectl-bind.XXX)"
+    root="$(mktemp -d /var/lib/machines/testsuite-13.machinectl-bind.XXX)"
     create_dummy_container "$root"
     container_name="$(basename "$root")"
 
@@ -425,7 +425,7 @@ EOF
     return "$ec"
 }
 
-testcase_check_selinux() {
+testcase_selinux() {
     # Basic test coverage to avoid issues like https://github.com/systemd/systemd/issues/19976
     if ! command -v selinuxenabled >/dev/null || ! selinuxenabled; then
         echo >&2 "SELinux is not enabled, skipping SELinux-related tests"
@@ -434,7 +434,7 @@ testcase_check_selinux() {
 
     local root
 
-    root="$(mktemp -d /var/lib/machines/testsuite-13.check-selinux.XXX)"
+    root="$(mktemp -d /var/lib/machines/testsuite-13.selinux.XXX)"
     create_dummy_container "$root"
     chcon -R -t container_t "$root"
 
@@ -447,13 +447,13 @@ testcase_check_selinux() {
     rm -fr "$root"
 }
 
-testcase_check_ephemeral_config() {
+testcase_ephemeral_config() {
     # https://github.com/systemd/systemd/issues/13297
     local root container_name
 
-    root="$(mktemp -d /var/lib/machines/testsuite-13.check-ephemeral-config.XXX)"
+    root="$(mktemp -d /var/lib/machines/testsuite-13.ephemeral-config.XXX)"
     create_dummy_container "$root"
-    container_name="${root##*/}"
+    container_name="$(basename "$root")"
 
     mkdir -p /run/systemd/nspawn/
     cat >"/run/systemd/nspawn/$container_name.nspawn" <<EOF
