@@ -213,6 +213,20 @@ EOF
     test ! -e "$tmpdir/3/nope"
     rm -fr "$tmpdir"
 
+    # --port (sanity only)
+    systemd-nspawn --network-veth --directory="$root" --port=80 --port=90 true
+    systemd-nspawn --network-veth --directory="$root" --port=80:8080 true
+    systemd-nspawn --network-veth --directory="$root" --port=tcp:80 true
+    systemd-nspawn --network-veth --directory="$root" --port=tcp:80:8080 true
+    systemd-nspawn --network-veth --directory="$root" --port=udp:80 true
+    systemd-nspawn --network-veth --directory="$root" --port=udp:80:8080 --port=tcp:80:8080 true
+    (! systemd-nspawn --network-veth --directory="$root" --port= true)
+    (! systemd-nspawn --network-veth --directory="$root" --port=-1 true)
+    (! systemd-nspawn --network-veth --directory="$root" --port=: true)
+    (! systemd-nspawn --network-veth --directory="$root" --port=icmp:80:8080 true)
+    (! systemd-nspawn --network-veth --directory="$root" --port=tcp::8080 true)
+    (! systemd-nspawn --network-veth --directory="$root" --port=8080: true)
+
     # Assorted tests
     systemd-nspawn --directory="$root" --suppress-sync=yes bash -xec 'echo hello'
     systemd-nspawn --capability=help
