@@ -550,14 +550,14 @@
       <varlistentry>
         <term><varname>RestartSteps=</varname></term>
         <listitem><para>Configures the number of steps to take to increase the interval
-        of auto-restarts from <varname>RestartSec=</varname> to <varname>RestartSecMax=</varname>.
+        of auto-restarts from <varname>RestartSec=</varname> to <varname>RestartMaxDelaySec=</varname>.
         Takes a positive integer or 0 to disable it. Defaults to 0.</para>
 
-        <para>This setting is effective only if <varname>RestartSecMax=</varname> is also set.</para></listitem>
+        <para>This setting is effective only if <varname>RestartMaxDelaySec=</varname> is also set.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>RestartSecMax=</varname></term>
+        <term><varname>RestartMaxDelaySec=</varname></term>
         <listitem><para>Configures the longest time to sleep before restarting a service
         as the interval goes up with <varname>RestartSteps=</varname>. Takes a value
         in the same format as <varname>RestartSec=</varname>, or <literal>infinity</literal>
