@@ -18,6 +18,7 @@ at_exit() {
     [[ -n "${DEV:-}" ]] && rm -f "$DEV"
     [[ -n "${NETNS:-}" ]] && umount "$NETNS" && rm -f "$NETNS"
     [[ -n "${TMPDIR:-}" ]] && rm -fr "$TMPDIR"
+    rm -f /run/systemd/nspawn/*.nspawn
 }
 
 trap at_exit EXIT
