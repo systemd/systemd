@@ -206,11 +206,11 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
         <varlistentry>
           <term><varname>e</varname></term>
           <listitem><para>Adjust the mode and ownership of existing directories and remove their contents
-          based on age.
-          Lines of this type accept shell-style globs in place of normal path names. Contents of the
-          directories are subject to time-based cleanup if the age argument is specified. If the age argument
-          is <literal>0</literal>, contents will be unconditionally deleted every time
-          <command>systemd-tmpfiles --clean</command> is run.</para>
+          based on age. Lines of this type accept shell-style globs in place of normal path names. Contents
+          of the directories are subject to time-based cleanup if the age argument is specified. If the age
+          argument is <literal>0</literal>, contents will be unconditionally deleted every time
+          <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          <option>--clean</option> is run.</para>
 
           <para>For this entry to be useful, at least one of the mode, user, group, or age arguments must be
           specified, since otherwise this entry has no effect. As an exception, an entry with no effect may
@@ -444,17 +444,18 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
         <varlistentry>
           <term><varname>a</varname></term>
           <term><varname>a+</varname></term>
-          <listitem><para>Set POSIX ACLs (access control lists), see <citerefentry
-          project='man-pages'><refentrytitle>acl</refentrytitle>
-          <manvolnum>5</manvolnum></citerefentry>. Additionally, if 'X' is used, the execute bit is set only
-          if the file is a directory or already has execute permission for some user, as mentioned in
+          <listitem><para>Set POSIX ACLs (access control lists), see
+          <citerefentry project='man-pages'><refentrytitle>acl</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          Additionally, if 'X' is used, the execute bit is set only if the file is a directory or already has
+          execute permission for some user, as mentioned in
           <citerefentry project='man-pages'><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
           If suffixed with <varname>+</varname>, the specified entries will be added to the existing set.
-          <command>systemd-tmpfiles</command> will automatically add the required base entries for user
-          and group based on the access mode of the file, unless base entries already exist or are explicitly
-          specified. The mask will be added if not specified explicitly or already present. Lines of this type
-          accept shell-style globs in place of normal path names. This can be useful for allowing additional
-          access to certain files. Does not follow symlinks.</para></listitem>
+          <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          will automatically add the required base entries for user and group based on the access mode of the
+          file, unless base entries already exist or are explicitly specified. The mask will be added if not
+          specified explicitly or already present. Lines of this type accept shell-style globs in place of
+          normal path names. This can be useful for allowing additional access to certain files. Does not
+          follow symlinks.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -472,8 +473,10 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
 
       <para>If the exclamation mark (<literal>!</literal>) is used, this line is only safe to execute during
       boot, and can break a running system. Lines without the exclamation mark are presumed to be safe to
-      execute at any time, e.g. on package upgrades. <command>systemd-tmpfiles</command> will take lines with
-      an exclamation mark only into consideration, if the <option>--boot</option> option is given.</para>
+      execute at any time, e.g. on package upgrades.
+      <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      will take lines with an exclamation mark only into consideration, if the <option>--boot</option> option
+      is given.</para>
 
       <para>For example:
       <programlisting># Make sure these are created by default so that nobody else can
@@ -559,10 +562,12 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
 
       <para>The user and group to use for this file or directory. This may either be a numeric ID or a
       user/group name. If omitted or when set to <literal>-</literal>, the user and group of the user who
-      invokes <command>systemd-tmpfiles</command> is used. For <varname>z</varname> and <varname>Z</varname>
-      lines, when omitted or when set to <literal>-</literal>, the file ownership will not be modified. These
-      parameters are ignored for <varname>x</varname>, <varname>r</varname>, <varname>R</varname>,
-      <varname>L</varname>, <varname>t</varname>, and <varname>a</varname> lines.</para>
+      invokes
+      <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
+      used. For <varname>z</varname> and <varname>Z</varname> lines, when omitted or when set to
+      <literal>-</literal>, the file ownership will not be modified. These parameters are ignored for
+      <varname>x</varname>, <varname>r</varname>, <varname>R</varname>, <varname>L</varname>,
+      <varname>t</varname>, and <varname>a</varname> lines.</para>
 
       <para>This field should generally only reference system users/groups, i.e. users/groups that are
       guaranteed to be resolvable during early boot. If this field references users/groups that only become
