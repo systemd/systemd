@@ -763,7 +763,7 @@ TEST(calculate_policy_pcr) {
 TEST(tpm_required_tests) {
         int r;
 
-        _cleanup_tpm2_context_ Tpm2Context *c = NULL;
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         r = tpm2_context_new(NULL, &c);
         if (r < 0) {
                 log_tests_skipped("Could not find TPM");
