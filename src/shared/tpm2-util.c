@@ -291,7 +291,7 @@ static Tpm2Context *tpm2_context_free(Tpm2Context *c) {
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Tpm2Context, tpm2_context, tpm2_context_free);
 
 int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
-        _cleanup_tpm2_context_ Tpm2Context *context = NULL;
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *context = NULL;
         TSS2_RC rc;
         int r;
 
@@ -438,7 +438,7 @@ Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle) {
         if (!handle)
                 return NULL;
 
-        _cleanup_tpm2_context_ Tpm2Context *context = (Tpm2Context*)handle->tpm2_context;
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *context = (Tpm2Context*)handle->tpm2_context;
         if (context && !handle->keep)
                 tpm2_handle_flush(context->esys_context, handle->esys_handle);
 
@@ -446,7 +446,7 @@ Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle) {
 }
 
 int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle) {
-        _cleanup_tpm2_handle_ Tpm2Handle *handle = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
 
         assert(ret_handle);
 
@@ -725,7 +725,7 @@ static int tpm2_make_primary(
 
         ts = now(CLOCK_MONOTONIC);
 
-        _cleanup_tpm2_handle_ Tpm2Handle *primary = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *primary = NULL;
         r = tpm2_handle_new(c, &primary);
         if (r < 0)
                 return r;
@@ -1665,7 +1665,7 @@ static int tpm2_make_encryption_session(
         /* Start a salted, unbound HMAC session with a well-known key (e.g. primary key) as tpmKey, which
          * means that the random salt will be encrypted with the well-known key. That way, only the TPM can
          * recover the salt, which is then used for key derivation. */
-        _cleanup_tpm2_handle_ Tpm2Handle *session = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
         r = tpm2_handle_new(c, &session);
         if (r < 0)
                 return r;
@@ -1723,7 +1723,7 @@ static int tpm2_make_policy_session(
 
         log_debug("Starting policy session.");
 
-        _cleanup_tpm2_handle_ Tpm2Handle *session = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
         r = tpm2_handle_new(c, &session);
         if (r < 0)
                 return r;
@@ -2284,7 +2284,7 @@ static int tpm2_policy_authorize(
 
         log_debug("Adding PCR signature policy.");
 
-        _cleanup_tpm2_handle_ Tpm2Handle *pubkey_handle = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *pubkey_handle = NULL;
         r = tpm2_handle_new(c, &pubkey_handle);
         if (r < 0)
                 return r;
@@ -2556,7 +2556,7 @@ int tpm2_seal(const char *device,
 
         CLEANUP_ERASE(hmac_sensitive);
 
-        _cleanup_tpm2_context_ Tpm2Context *c = NULL;
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         r = tpm2_context_new(device, &c);
         if (r < 0)
                 return r;
@@ -2639,13 +2639,13 @@ int tpm2_seal(const char *device,
         if (r < 0)
                 return log_error_errno(r, "Failed to generate secret key: %m");
 
-        _cleanup_tpm2_handle_ Tpm2Handle *primary_handle = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *primary_handle = NULL;
         TPMI_ALG_PUBLIC primary_alg;
         r = tpm2_make_primary(c, /* alg = */0, !!ret_srk_buf, &primary_alg, &primary_handle);
         if (r < 0)
                 return r;
 
-        _cleanup_tpm2_handle_ Tpm2Handle *encryption_session = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
         r = tpm2_make_encryption_session(c, primary_handle, &TPM2_HANDLE_NONE, &encryption_session);
         if (r < 0)
                 return r;
@@ -2806,13 +2806,13 @@ int tpm2_unseal(const char *device,
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to unmarshal public key: %s", sym_Tss2_RC_Decode(rc));
 
-        _cleanup_tpm2_context_ Tpm2Context *c = NULL;
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         r = tpm2_context_new(device, &c);
         if (r < 0)
                 return r;
 
         /* If their is a primary key we trust, like an SRK, use it */
-        _cleanup_tpm2_handle_ Tpm2Handle *primary = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *primary = NULL;
         if (srk_buf) {
 
                 r = tpm2_handle_new(c, &primary);
@@ -2845,7 +2845,7 @@ int tpm2_unseal(const char *device,
          * SRK model, the tpmKey is verified. In the non-srk model, with pin, the bindKey
          * provides protections.
          */
-        _cleanup_tpm2_handle_ Tpm2Handle *hmac_key = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *hmac_key = NULL;
         r = tpm2_handle_new(c, &hmac_key);
         if (r < 0)
                 return r;
@@ -2894,13 +2894,13 @@ int tpm2_unseal(const char *device,
         if (r < 0)
                 return r;
 
-        _cleanup_tpm2_handle_ Tpm2Handle *encryption_session = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
         r = tpm2_make_encryption_session(c, primary, hmac_key, &encryption_session);
         if (r < 0)
                 return r;
 
         for (unsigned i = RETRY_UNSEAL_MAX;; i--) {
-                _cleanup_tpm2_handle_ Tpm2Handle *policy_session = NULL;
+                _cleanup_(tpm2_handle_freep) Tpm2Handle *policy_session = NULL;
                 _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
                 r = tpm2_make_policy_session(
                                 c,
