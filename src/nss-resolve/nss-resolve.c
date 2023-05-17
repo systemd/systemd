@@ -269,6 +269,8 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                         goto try_again;
                 if (error_shall_fallback(error_id))
                         goto fail;
+                if (streq(error_id, "io.systemd.Resolve.NoSuchResourceRecord"))
+                        goto no_data;
                 goto not_found;
         }
 
@@ -367,6 +369,10 @@ not_found:
         *h_errnop = HOST_NOT_FOUND;
         return NSS_STATUS_NOTFOUND;
 
+no_data:
+        *h_errnop = NO_DATA;
+        return NSS_STATUS_NOTFOUND;
+
 try_again:
         UNPROTECT_ERRNO;
         *errnop = -r;
@@ -425,6 +431,8 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                         goto try_again;
                 if (error_shall_fallback(error_id))
                         goto fail;
+                if (streq(error_id, "io.systemd.Resolve.NoSuchResourceRecord"))
+                        goto no_data;
                 goto not_found;
         }
 
@@ -540,6 +548,10 @@ fail:
 
 not_found:
         *h_errnop = HOST_NOT_FOUND;
+        return NSS_STATUS_NOTFOUND;
+
+no_data:
+        *h_errnop = NO_DATA;
         return NSS_STATUS_NOTFOUND;
 
 try_again:
