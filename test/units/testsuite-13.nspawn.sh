@@ -1,6 +1,25 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # shellcheck disable=SC2016
+#
+# Notes on coverage: when collecting coverage we need the $BUILD_DIR present
+# and writable in the container as well. To do this in the least intrusive way,
+# two things are going on in the background (only when built with -Db_coverage=true):
+#   1) the systemd-nspawn@.service is copied to /etc/systemd/system/ with
+#      --bind=$BUILD_DIR appended to the ExecStart= line
+#   2) each create_dummy_container() call also creates an .nspawn file in /run/systemd/nspawn/
+#      with the last fragment from the path used as a name
+#
+# The first change is quite self-contained and applies only to containers run
+# with machinectl. The second one might cause some unexpected side-effects, namely:
+#   - nspawn config (setting) files don't support dropins, so tests that test
+#     the config files might need some tweaking (as seen below with
+#     the $COVERAGE_BUILD_DIR shenanigans) since they overwrite the .nspawn file
+#   - also a note - if /etc/systemd/nspawn/cont-name.nspawn exists, it takes
+#     precedence and /run/systemd/nspawn/cont-name.nspawn won't be read even
+#     if it exists
+#   - in some cases we don't create a test container using create_dummy_container(),
+#     so in that case an explicit call to coverage_create_nspawn_dropin() is needed
 set -eux
 set -o pipefail
 
@@ -14,6 +33,7 @@ at_exit() {
     set +e
 
     mountpoint -q /var/lib/machines && umount /var/lib/machines
+    rm -f /run/systemd/nspawn/*.nspawn
 }
 
 trap at_exit EXIT
@@ -47,7 +67,7 @@ fi
 mkdir -p /var/lib/machines
 mount -t tmpfs tmpfs /var/lib/machines
 
-testcase_sanity_check() {
+testcase_sanity() {
     local template root image uuid tmpdir
 
     tmpdir="$(mktemp -d)"
@@ -67,6 +87,7 @@ testcase_sanity_check() {
 
     # --template=
     root="$(mktemp -u -d /var/lib/machines/testsuite-13.sanity.XXX)"
+    coverage_create_nspawn_dropin "$root"
     (! systemd-nspawn --directory="$root" bash -xec 'echo hello')
     # Initialize $root from $template (the $root directory must not exist, hence
     # the `mktemp -u` above)
@@ -213,6 +234,20 @@ EOF
     test ! -e "$tmpdir/3/nope"
     rm -fr "$tmpdir"
 
+    # --port (sanity only)
+    systemd-nspawn --network-veth --directory="$root" --port=80 --port=90 true
+    systemd-nspawn --network-veth --directory="$root" --port=80:8080 true
+    systemd-nspawn --network-veth --directory="$root" --port=tcp:80 true
+    systemd-nspawn --network-veth --directory="$root" --port=tcp:80:8080 true
+    systemd-nspawn --network-veth --directory="$root" --port=udp:80 true
+    systemd-nspawn --network-veth --directory="$root" --port=udp:80:8080 --port=tcp:80:8080 true
+    (! systemd-nspawn --network-veth --directory="$root" --port= true)
+    (! systemd-nspawn --network-veth --directory="$root" --port=-1 true)
+    (! systemd-nspawn --network-veth --directory="$root" --port=: true)
+    (! systemd-nspawn --network-veth --directory="$root" --port=icmp:80:8080 true)
+    (! systemd-nspawn --network-veth --directory="$root" --port=tcp::8080 true)
+    (! systemd-nspawn --network-veth --directory="$root" --port=8080: true)
+
     # Assorted tests
     systemd-nspawn --directory="$root" --suppress-sync=yes bash -xec 'echo hello'
     systemd-nspawn --capability=help
@@ -263,7 +298,208 @@ EOF
     (! systemd-nspawn --rlimit==)
 }
 
-testcase_check_bind_tmp_path() {
+nspawn_settings_cleanup() {
+    for dev in sd-host-only sd-shared{1,2} sd-macvlan{1,2} sd-ipvlan{1,2}; do
+        ip link del "$dev" || :
+    done
+
+    return 0
+}
+
+testcase_nspawn_settings() {
+    local root container dev private_users
+
+    mkdir -p /run/systemd/nspawn
+    root="$(mktemp -d /var/lib/machines/testsuite-13.nspawn-settings.XXX)"
+    container="$(basename "$root")"
+    create_dummy_container "$root"
+    rm -f "/etc/systemd/nspawn/$container.nspawn"
+    mkdir -p "$root/tmp" "$root"/opt/{tmp,inaccessible,also-inaccessible}
+
+    for dev in sd-host-only sd-shared{1,2} sd-macvlan{1,2} sd-ipvlan{1,2}; do
+        ip link add "$dev" type dummy
+    done
+    udevadm settle
+    ip link
+    trap nspawn_settings_cleanup RETURN
+
+    # Let's start with one huge config to test as much as we can at once
+    cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+Boot=no
+Ephemeral=no
+ProcessTwo=no
+Parameters=bash /entrypoint.sh "foo bar" 'bar baz'
+Environment=FOO=bar
+Environment=BAZ="hello world"
+User=root
+WorkingDirectory=/tmp
+Capability=CAP_BLOCK_SUSPEND CAP_BPF CAP_CHOWN
+DropCapability=CAP_AUDIT_CONTROL CAP_AUDIT_WRITE
+AmbientCapability=CAP_BPF CAP_CHOWN
+NoNewPrivileges=no
+MachineID=f28f129b51874b1280a89421ec4b4ad4
+PrivateUsers=no
+NotifyReady=no
+SystemCallFilter=@basic-io @chown
+SystemCallFilter=~ @clock
+LimitNOFILE=1024:2048
+LimitRTPRIO=8:16
+OOMScoreAdjust=32
+CPUAffinity=0,0-5,1-5
+Hostname=nspawn-settings
+ResolvConf=copy-host
+Timezone=delete
+LinkJournal=no
+SuppressSync=no
+
+[Files]
+ReadOnly=no
+Volatile=no
+TemporaryFileSystem=/tmp
+TemporaryFileSystem=/opt/tmp
+Inaccessible=/opt/inaccessible
+Inaccessible=/opt/also-inaccessible
+PrivateUsersOwnership=auto
+Overlay=+/var::/var
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+
+[Network]
+Private=yes
+VirtualEthernet=yes
+VirtualEthernetExtra=my-fancy-veth1
+VirtualEthernetExtra=fancy-veth2:my-fancy-veth2
+Interface=sd-shared1 sd-shared2:sd-shared2
+MACVLAN=sd-macvlan1 sd-macvlan2:my-macvlan2
+IPVLAN=sd-ipvlan1 sd-ipvlan2:my-ipvlan2
+Zone=sd-zone0
+Port=80
+Port=81:8181
+Port=tcp:60
+Port=udp:60:61
+EOF
+    cat >"$root/entrypoint.sh" <<\EOF
+#!/bin/bash -ex
+
+[[ "$1" == "foo bar" ]]
+[[ "$2" == "bar baz" ]]
+
+[[ "$USER" == root ]]
+[[ "$FOO" == bar ]]
+[[ "$BAZ" == "hello world" ]]
+[[ "$PWD" == /tmp ]]
+[[ "$(</etc/machine-id)" == f28f129b51874b1280a89421ec4b4ad4 ]]
+[[ "$(ulimit -S -n)" -eq 1024 ]]
+[[ "$(ulimit -H -n)" -eq 2048 ]]
+[[ "$(ulimit -S -r)" -eq 8 ]]
+[[ "$(ulimit -H -r)" -eq 16 ]]
+[[ "$(</proc/self/oom_score_adj)" -eq 32 ]]
+[[ "$(hostname)" == nspawn-settings ]]
+[[ -e /etc/resolv.conf ]]
+[[ ! -e /etc/localtime ]]
+
+mountpoint /tmp
+touch /tmp/foo
+mountpoint /opt/tmp
+touch /opt/tmp/foo
+touch /opt/inaccessible/foo && exit 1
+touch /opt/also-inaccessible/foo && exit 1
+mountpoint /var
+
+ip link
+ip link | grep host-only && exit 1
+ip link | grep host0@
+ip link | grep my-fancy-veth1@
+ip link | grep my-fancy-veth2@
+ip link | grep sd-shared1
+ip link | grep sd-shared2
+ip link | grep mv-sd-macvlan1@
+ip link | grep my-macvlan2@
+ip link | grep iv-sd-ipvlan1@
+ip link | grep my-ipvlan2@
+EOF
+    timeout 30 systemd-nspawn --directory="$root"
+
+    # And now for stuff that needs to run separately
+    #
+    # Note on the condition below: since our container tree is owned by root,
+    # both "yes" and "identity" private users settings will behave the same
+    # as PrivateUsers=0:65535, which makes BindUser= fail as the UID already
+    # exists there, so skip setting it in such case
+    for private_users in "131072:65536" yes identity pick; do
+        cat >"/run/systemd/nspawn/$container.nspawn" <<EOF
+[Exec]
+Hostname=private-users
+PrivateUsers=$private_users
+
+[Files]
+PrivateUsersOwnership=auto
+BindUser=
+$([[ "$private_users" =~ (yes|identity) ]] || echo "BindUser=testuser")
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
+EOF
+        cat "/run/systemd/nspawn/$container.nspawn"
+        chown -R root:root "$root"
+        systemd-nspawn --directory="$root" bash -xec '[[ "$(hostname)" == private-users ]]'
+    done
+
+    rm -fr "$root" "/run/systemd/nspawn/$container.nspawn"
+}
+
+bind_user_cleanup() {
+    userdel --force --remove nspawn-bind-user-1
+    userdel --force --remove nspawn-bind-user-2
+}
+
+testcase_bind_user() {
+    local root
+
+    root="$(mktemp -d /var/lib/machines/testsuite-13.bind-user.XXX)"
+    create_dummy_container "$root"
+    useradd --create-home --user-group nspawn-bind-user-1
+    useradd --create-home --user-group nspawn-bind-user-2
+    trap bind_user_cleanup RETURN
+    touch /home/nspawn-bind-user-1/foo
+    touch /home/nspawn-bind-user-2/bar
+    # Add a couple of POSIX ACLs to test the patch-uid stuff
+    mkdir -p "$root/opt"
+    setfacl -R -m 'd:u:nspawn-bind-user-1:rwX' -m 'u:nspawn-bind-user-1:rwX' "$root/opt"
+    setfacl -R -m 'd:g:nspawn-bind-user-1:rwX' -m 'g:nspawn-bind-user-1:rwX' "$root/opt"
+
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --bind-user=nspawn-bind-user-1 \
+                   bash -xec 'test -e /run/host/home/nspawn-bind-user-1/foo'
+
+    systemd-nspawn --directory="$root" \
+                   --private-users=pick \
+                   --private-users-ownership=chown \
+                   --bind-user=nspawn-bind-user-1 \
+                   --bind-user=nspawn-bind-user-2 \
+                   bash -xec 'test -e /run/host/home/nspawn-bind-user-1/foo; test -e /run/host/home/nspawn-bind-user-2/bar'
+    chown -R root:root "$root"
+
+    # User/group name collision
+    echo "nspawn-bind-user-2:x:1000:1000:nspawn-bind-user-2:/home/nspawn-bind-user-2:/bin/bash" >"$root/etc/passwd"
+    (! systemd-nspawn --directory="$root" \
+                      --private-users=pick \
+                      --bind-user=nspawn-bind-user-1 \
+                      --bind-user=nspawn-bind-user-2 \
+                      true)
+    rm -f "$root/etc/passwd"
+
+    echo "nspawn-bind-user-2:x:1000:" >"$root/etc/group"
+    (! systemd-nspawn --directory="$root" \
+                      --private-users=pick \
+                      --bind-user=nspawn-bind-user-1 \
+                      --bind-user=nspawn-bind-user-2 \
+                      true)
+    rm -f "$root/etc/group"
+
+    rm -fr "$root"
+}
+
+testcase_bind_tmp_path() {
     # https://github.com/systemd/systemd/issues/4789
     local root
 
@@ -278,7 +514,7 @@ testcase_check_bind_tmp_path() {
     rm -fr "$root" /tmp/bind
 }
 
-testcase_check_norbind() {
+testcase_norbind() {
     # https://github.com/systemd/systemd/issues/13170
     local root
 
@@ -298,14 +534,14 @@ testcase_check_norbind() {
     rm -fr "$root" /tmp/binddir/
 }
 
-check_rootidmap_cleanup() {
+rootidmap_cleanup() {
     local dir="${1:?}"
 
     mountpoint -q "$dir/bind" && umount "$dir/bind"
     rm -fr "$dir"
 }
 
-testcase_check_rootidmap() {
+testcase_rootidmap() {
     local root cmd permissions
     local owner=1000
 
@@ -315,7 +551,7 @@ testcase_check_rootidmap() {
     dd if=/dev/zero of=/tmp/rootidmap/ext4.img bs=4k count=2048
     mkfs.ext4 /tmp/rootidmap/ext4.img
     mount /tmp/rootidmap/ext4.img /tmp/rootidmap/bind
-    trap "check_rootidmap_cleanup /tmp/rootidmap/" RETURN
+    trap "rootidmap_cleanup /tmp/rootidmap/" RETURN
 
     touch /tmp/rootidmap/bind/file
     chown -R "$owner:$owner" /tmp/rootidmap/bind
@@ -342,7 +578,7 @@ testcase_check_rootidmap() {
     fi
 }
 
-testcase_check_notification_socket() {
+testcase_notification_socket() {
     # https://github.com/systemd/systemd/issues/4944
     local root
     local cmd='echo a | nc -U -u -w 1 /run/host/notify'
@@ -352,12 +588,14 @@ testcase_check_notification_socket() {
 
     systemd-nspawn --register=no --directory="$root" bash -x -c "$cmd"
     systemd-nspawn --register=no --directory="$root" -U bash -x -c "$cmd"
+
+    rm -fr "$root"
 }
 
-testcase_check_os_release() {
+testcase_os_release() {
     local root entrypoint os_release_source
 
-    root="$(mktemp -d /var/lib/machines/testsuite-13.check-os-release.XXX)"
+    root="$(mktemp -d /var/lib/machines/testsuite-13.os-release.XXX)"
     create_dummy_container "$root"
     entrypoint="$root/entrypoint.sh"
     cat >"$entrypoint" <<\EOF
@@ -395,11 +633,11 @@ EOF
     rm -fr "$root"
 }
 
-testcase_check_machinectl_bind() {
+testcase_machinectl_bind() {
     local service_path service_name root container_name ec
     local cmd='for i in $(seq 1 20); do if test -f /tmp/marker; then exit 0; fi; sleep .5; done; exit 1;'
 
-    root="$(mktemp -d /var/lib/machines/testsuite-13.check-machinectl-bind.XXX)"
+    root="$(mktemp -d /var/lib/machines/testsuite-13.machinectl-bind.XXX)"
     create_dummy_container "$root"
     container_name="$(basename "$root")"
 
@@ -425,7 +663,7 @@ EOF
     return "$ec"
 }
 
-testcase_check_selinux() {
+testcase_selinux() {
     # Basic test coverage to avoid issues like https://github.com/systemd/systemd/issues/19976
     if ! command -v selinuxenabled >/dev/null || ! selinuxenabled; then
         echo >&2 "SELinux is not enabled, skipping SELinux-related tests"
@@ -434,7 +672,7 @@ testcase_check_selinux() {
 
     local root
 
-    root="$(mktemp -d /var/lib/machines/testsuite-13.check-selinux.XXX)"
+    root="$(mktemp -d /var/lib/machines/testsuite-13.selinux.XXX)"
     create_dummy_container "$root"
     chcon -R -t container_t "$root"
 
@@ -447,17 +685,19 @@ testcase_check_selinux() {
     rm -fr "$root"
 }
 
-testcase_check_ephemeral_config() {
+testcase_ephemeral_config() {
     # https://github.com/systemd/systemd/issues/13297
     local root container_name
 
-    root="$(mktemp -d /var/lib/machines/testsuite-13.check-ephemeral-config.XXX)"
+    root="$(mktemp -d /var/lib/machines/testsuite-13.ephemeral-config.XXX)"
     create_dummy_container "$root"
-    container_name="${root##*/}"
+    container_name="$(basename "$root")"
 
     mkdir -p /run/systemd/nspawn/
+    rm -f "/etc/systemd/nspawn/$container_name.nspawn"
     cat >"/run/systemd/nspawn/$container_name.nspawn" <<EOF
 [Files]
+${COVERAGE_BUILD_DIR:+"Bind=$COVERAGE_BUILD_DIR"}
 BindReadOnly=/tmp/ephemeral-config
 EOF
     touch /tmp/ephemeral-config
@@ -473,7 +713,7 @@ EOF
                    --machine=foobar \
                    bash -x -c "! test -f /tmp/ephemeral-config"
 
-    rm -fr "$root" "/run/systemd/nspawn/$container_name"
+    rm -fr "$root" "/run/systemd/nspawn/$container_name.nspawn"
 }
 
 matrix_run_one() {

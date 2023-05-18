@@ -214,6 +214,7 @@ BASICTOOLS=(
     script
     sed
     seq
+    setfacl
     setfattr
     setfont
     setpriv
@@ -886,8 +887,8 @@ INNER_EOF
 # Let's make one to prevent unexpected "<bin> not found" issues in the future
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin"
 
-mount -t proc proc /proc
-mount -t sysfs sysfs /sys
+mountpoint -q /proc || mount -t proc proc /proc
+mountpoint -q /sys || mount -t sysfs sysfs /sys
 mount -o remount,rw /
 
 DEFAULT_ENVIRONMENT="\$DEFAULT_ENVIRONMENT ASAN_RT_PATH=$ASAN_RT_PATH"
@@ -961,7 +962,7 @@ install_fs_tools() {
 install_modules() {
     dinfo "Install modules"
 
-    instmods dummy vfat veth
+    instmods bridge dummy ipvlan macvlan vfat veth
     instmods loop =block
     instmods nls_ascii =nls
     instmods overlay =overlayfs
@@ -2655,13 +2656,14 @@ inst_binary() {
 
     # Same as above, but we need to wrap certain libraries unconditionally
     #
-    # chown, getent, login, su, useradd, userdel - dlopen() (not only) systemd's PAM modules
+    # chown, getent, login, setfacl, su, useradd, userdel
+    #    - dlopen() (not only) systemd's PAM modules
     # ls, mkfs.*, mksquashfs, mkswap, setpriv, stat
-    #       - pull in nss_systemd with certain options (like ls -l) when
-    #         nsswitch.conf uses [SUCCESS=merge] (like on Arch Linux)
+    #   - pull in nss_systemd with certain options (like ls -l) when
+    #     nsswitch.conf uses [SUCCESS=merge] (like on Arch Linux)
     # delv, dig - pull in nss_resolve if `resolve` is in nsswitch.conf
     # tar - called by machinectl in TEST-25
-    bin_rx='/(chown|delv|dig|getent|login|ls|mkfs\.[a-z0-9]+|mksquashfs|mkswap|setpriv|stat|su|tar|useradd|userdel)$'
+    bin_rx='/(chown|delv|dig|getent|login|ls|mkfs\.[a-z0-9]+|mksquashfs|mkswap|setfacl|setpriv|stat|su|tar|useradd|userdel)$'
     if get_bool "$IS_BUILT_WITH_ASAN" && [[ "$bin" =~ $bin_rx ]]; then
         wrap_binary=1
     fi
