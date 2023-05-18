@@ -638,7 +638,7 @@ int mount_all(const char *dest,
 
                 r = chase(mount_table[k].where, dest, CHASE_NONEXISTENT|CHASE_PREFIX_ROOT, &where, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to resolve %s/%s: %m", dest, mount_table[k].where);
+                        return log_error_errno(r, "Failed to resolve %s%s: %m", strempty(dest), mount_table[k].where);
 
                 /* Skip this entry if it is not a remount. */
                 if (mount_table[k].what) {
@@ -697,7 +697,7 @@ int mount_all(const char *dest,
                          * for those. */
                         r = chase(mount_table[k].what, dest, CHASE_PREFIX_ROOT, &prefixed, NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to resolve %s/%s: %m", dest, mount_table[k].what);
+                                return log_error_errno(r, "Failed to resolve %s%s: %m", strempty(dest), mount_table[k].what);
                 }
 
                 r = mount_verbose_full(
