@@ -146,7 +146,7 @@ static int run(int argc, char *argv[]) {
 
         r = safe_atollu(swap, &s);
         if (r < 0 || s == 0)
-                log_warning("Swap is currently not detected; memory pressure usage will be degraded");
+                log_warning("No swap; memory pressure usage will be degraded");
 
         if (!is_pressure_supported())
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Pressure Stall Information (PSI) is not supported");
