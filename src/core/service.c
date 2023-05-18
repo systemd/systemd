@@ -122,7 +122,7 @@ static void service_init(Unit *u) {
         s->timeout_abort_usec = u->manager->default_timeout_abort_usec;
         s->timeout_abort_set = u->manager->default_timeout_abort_set;
         s->restart_usec = u->manager->default_restart_usec;
-        s->restart_usec_max = USEC_INFINITY;
+        s->restart_max_delay_usec = USEC_INFINITY;
         s->runtime_max_usec = USEC_INFINITY;
         s->type = _SERVICE_TYPE_INVALID;
         s->socket_fd = -EBADF;
@@ -293,18 +293,18 @@ usec_t service_restart_usec_next(Service *s) {
 
         if (n_restarts_next <= 1 ||
             s->restart_steps == 0 ||
-            s->restart_usec_max == USEC_INFINITY ||
-            s->restart_usec >= s->restart_usec_max)
+            s->restart_max_delay_usec == USEC_INFINITY ||
+            s->restart_usec >= s->restart_max_delay_usec)
                 value = s->restart_usec;
         else if (n_restarts_next > s->restart_steps)
-                value = s->restart_usec_max;
+                value = s->restart_max_delay_usec;
         else {
                 /* Enforced in service_verify() and above */
-                assert(s->restart_usec_max > s->restart_usec);
+                assert(s->restart_max_delay_usec > s->restart_usec);
 
                 /* ((restart_usec_max - restart_usec)^(1/restart_steps))^(n_restart_next - 1) */
                 value = usec_add(s->restart_usec,
-                                 (usec_t) powl(s->restart_usec_max - s->restart_usec,
+                                 (usec_t) powl(s->restart_max_delay_usec - s->restart_usec,
                                                (long double) (n_restarts_next - 1) / s->restart_steps));
         }
 
@@ -689,15 +689,15 @@ static int service_verify(Service *s) {
         if (s->exit_type == SERVICE_EXIT_CGROUP && cg_unified() < CGROUP_UNIFIED_SYSTEMD)
                 log_unit_warning(UNIT(s), "Service has ExitType=cgroup set, but we are running with legacy cgroups v1, which might not work correctly. Continuing.");
 
-        if (s->restart_usec_max == USEC_INFINITY && s->restart_steps > 0)
-                log_unit_warning(UNIT(s), "Service has RestartSteps= but no RestartSecMax= setting. Ignoring.");
+        if (s->restart_max_delay_usec == USEC_INFINITY && s->restart_steps > 0)
+                log_unit_warning(UNIT(s), "Service has RestartSteps= but no RestartMaxDelaySec= setting. Ignoring.");
 
-        if (s->restart_usec_max != USEC_INFINITY && s->restart_steps == 0)
-                log_unit_warning(UNIT(s), "Service has RestartSecMax= but no RestartSteps= setting. Ignoring.");
+        if (s->restart_max_delay_usec != USEC_INFINITY && s->restart_steps == 0)
+                log_unit_warning(UNIT(s), "Service has RestartMaxDelaySec= but no RestartSteps= setting. Ignoring.");
 
-        if (s->restart_usec_max < s->restart_usec) {
-                log_unit_warning(UNIT(s), "RestartSecMax= has a value smaller than RestartSec=, resetting RestartSec= to RestartSecMax=.");
-                s->restart_usec = s->restart_usec_max;
+        if (s->restart_max_delay_usec < s->restart_usec) {
+                log_unit_warning(UNIT(s), "RestartMaxDelaySec= has a value smaller than RestartSec=, resetting RestartSec= to RestartMaxDelaySec=.");
+                s->restart_usec = s->restart_max_delay_usec;
         }
 
         return 0;
@@ -991,14 +991,14 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         fprintf(f,
                 "%sRestartSec: %s\n"
                 "%sRestartSteps: %u\n"
-                "%sRestartSecMax: %s\n"
+                "%sRestartMaxDelaySec: %s\n"
                 "%sTimeoutStartSec: %s\n"
                 "%sTimeoutStopSec: %s\n"
                 "%sTimeoutStartFailureMode: %s\n"
                 "%sTimeoutStopFailureMode: %s\n",
                 prefix, FORMAT_TIMESPAN(s->restart_usec, USEC_PER_SEC),
                 prefix, s->restart_steps,
-                prefix, FORMAT_TIMESPAN(s->restart_usec_max, USEC_PER_SEC),
+                prefix, FORMAT_TIMESPAN(s->restart_max_delay_usec, USEC_PER_SEC),
                 prefix, FORMAT_TIMESPAN(s->timeout_start_usec, USEC_PER_SEC),
                 prefix, FORMAT_TIMESPAN(s->timeout_stop_usec, USEC_PER_SEC),
                 prefix, service_timeout_failure_mode_to_string(s->timeout_start_failure_mode),
