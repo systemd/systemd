@@ -475,6 +475,8 @@ run_qemu() {
         kernel_params+=("rd.hostonly=0")
     fi
 
+    # Debian/Ubuntu's initramfs tries to check if it can resume from hibernation
+    # and wastes a minute or so probing disks, skip that as it's not useful here
     kernel_params+=(
         "root=LABEL=systemd_boot"
         "rw"
@@ -486,6 +488,7 @@ run_qemu() {
         "SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$1.units:/usr/lib/systemd/tests/testdata/units:"
         "systemd.unit=testsuite.target"
         "systemd.wants=testsuite-$1.service"
+        "noresume"
     )
 
     if ! get_bool "$INTERACTIVE_DEBUG"; then
