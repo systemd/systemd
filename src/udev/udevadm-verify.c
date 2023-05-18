@@ -12,6 +12,7 @@
 #include "log.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
+#include "stat-util.h"
 #include "static-destruct.h"
 #include "strv.h"
 #include "udev-rules.h"
@@ -119,19 +120,57 @@ static int verify_rules_file(UdevRules *rules, const char *fname) {
         return 0;
 }
 
-static int verify_rules(UdevRules *rules, char **files) {
-        size_t fail_count = 0, success_count = 0;
+static int verify_rules_filelist(UdevRules *rules, char **files, size_t *fail_count, size_t *success_count, bool walk_dirs);
+
+static int verify_rules_dir(UdevRules *rules, const char *dir, size_t *fail_count, size_t *success_count) {
+        int r;
+        _cleanup_strv_free_ char **files = NULL;
+
+        assert(rules);
+        assert(dir);
+        assert(fail_count);
+        assert(success_count);
+
+        r = conf_files_list(&files, ".rules", NULL, 0, dir);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate rules files: %m");
+
+        return verify_rules_filelist(rules, files, fail_count, success_count, /* walk_dirs */ false);
+}
+
+static int verify_rules_filelist(UdevRules *rules, char **files, size_t *fail_count, size_t *success_count, bool walk_dirs) {
         int r, rv = 0;
 
+        assert(rules);
+        assert(files);
+        assert(fail_count);
+        assert(success_count);
+
         STRV_FOREACH(fp, files) {
-                r = verify_rules_file(rules, *fp);
-                if (r < 0) {
-                        fail_count++;
-                        if (rv >= 0)
-                                rv = r;
-                } else
-                        success_count++;
+                if (walk_dirs && is_dir(*fp, /* follow = */ true) > 0)
+                        r = verify_rules_dir(rules, *fp, fail_count, success_count);
+                else {
+                        r = verify_rules_file(rules, *fp);
+                        if (r < 0)
+                                ++(*fail_count);
+                        else
+                                ++(*success_count);
+                }
+                if (r < 0 && rv >= 0)
+                        rv = r;
         }
+
+        return rv;
+}
+
+static int verify_rules(UdevRules *rules, char **files) {
+        size_t fail_count = 0, success_count = 0;
+        int rv;
+
+        assert(rules);
+        assert(files);
+
+        rv = verify_rules_filelist(rules, files, &fail_count, &success_count, /* walk_dirs */ true);
 
         printf("\n%s%zu udev rules files have been checked.%s\n"
                "  Success: %zu\n"
