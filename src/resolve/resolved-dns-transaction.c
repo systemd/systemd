@@ -823,7 +823,8 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
                       t->answer_dnssec_result,
                       t->answer_nsec_ttl,
                       t->received->family,
-                      &t->received->sender);
+                      &t->received->sender,
+                      t->scope->manager->enable_serve_stale);
 }
 
 static bool dns_transaction_dnssec_is_live(DnsTransaction *t) {
@@ -1697,6 +1698,8 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 /* Let's then prune all outdated entries */
                 dns_cache_prune(&t->scope->cache);
 
+                /* For the initial attempt, answer the question from the cache (honors ttl property).
+                 * On the second attempt, if 'ServeStale' flag is enbaled, try to answer the question using stale date (honors until property) */
                 r = dns_cache_lookup(
                                 &t->scope->cache,
                                 dns_transaction_key(t),
@@ -1705,7 +1708,8 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                                 &t->answer,
                                 &t->received,
                                 &t->answer_query_flags,
-                                &t->answer_dnssec_result);
+                                &t->answer_dnssec_result,
+                                &t->scope->manager->enable_serve_stale && t->n_attempts > 1);
                 if (r < 0)
                         return r;
                 if (r > 0) {
