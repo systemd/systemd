@@ -407,7 +407,7 @@ static void print_subtree(const char *prefix, const char *path, char **l) {
                         n++;
                 }
 
-                printf("%s%s%s\n",
+                printf("%s%s %s\n",
                        prefix,
                        special_glyph(has_more ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT),
                        *l);
