@@ -4109,7 +4109,7 @@ if conf.get('ENABLE_HWDB') == 1
         if want_tests != 'false'
                 test('hwdb-test',
                      hwdb_test_sh,
-                     suite : 'dist-check',
+                     suite : 'dist',
                      args : [systemd_hwdb.full_path()],
                      timeout : 90)
         endif
@@ -4159,7 +4159,7 @@ public_programs += udevadm
 if want_tests != 'false'
         test('udev-rules-check',
              udevadm,
-             suite : 'dist-check',
+             suite : 'dist',
              args : ['verify', '--resolve-names=never', all_rules])
 endif
 
@@ -4607,7 +4607,7 @@ foreach fuzzer : fuzzers
                         fuzz_in = tuple[1]
                         test('@0@_@1@'.format(name, fuzz_in),
                              exe,
-                             suite : 'fuzzers',
+                             suite : 'fuzz',
                              args : [fuzz_dir != '' ? project_source_root / fuzz_dir / name / fuzz_in
                                                     : fuzz_generated_in_dir / '@0@_@1@'.format(name, fuzz_in)])
                 endforeach
@@ -4669,7 +4669,7 @@ jekyll = find_program('jekyll', required : false)
 if get_option('mode') == 'developer' and want_tests != 'false' and jekyll.found()
         test('github-pages',
              jekyll,
-             suite : 'dist-check',
+             suite : 'dist',
              args : ['build',
                      '--source', project_source_root / 'docs',
                      '--destination', project_build_root / '_site'])
@@ -4685,13 +4685,13 @@ foreach exec : public_programs
         if want_tests != 'false'
                 test('check-help-' + name,
                      check_help,
-                     suite : 'dist-check',
+                     suite : 'dist',
                      args : exec.full_path(),
                      depends: exec)
 
                 test('check-version-' + name,
                      check_version,
-                     suite : 'dist-check',
+                     suite : 'dist',
                      args : [exec.full_path(),
                              meson.project_version()],
                      depends: exec)
