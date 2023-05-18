@@ -91,7 +91,7 @@ rule_syntax_check_py = find_program('rule-syntax-check.py')
 if want_tests != 'false'
         test('rule-syntax-check',
              rule_syntax_check_py,
-             suite : 'dist-check',
+             suite : 'dist',
              args : all_rules)
 endif
 
@@ -133,7 +133,7 @@ if rpm.found() and rpmspec.found()
         if want_tests != 'false'
                 test('test-rpm-macros',
                      test_rpm_macros,
-                     suite : 'dist-check',
+                     suite : 'dist',
                      args : [project_build_root])
         endif
 else
@@ -163,7 +163,7 @@ if want_tests != 'false' and dmi_arches.contains(host_machine.cpu_family())
 
                 test(name,
                      udev_dmi_memory_id_test,
-                     suite : 'dist-check',
+                     suite : 'dist',
                      args : [udev_prog_paths['dmi_memory_id'].full_path(),
                              source,
                              source + '.txt'],
