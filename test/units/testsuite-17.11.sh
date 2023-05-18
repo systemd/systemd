@@ -60,10 +60,12 @@ assert_0() {
 }
 
 assert_1() {
+    local rc
     set +e
     udevadm verify "$@" >"${out}" 2>"${err}"
-    assert_eq "$?" 1
+    rc=$?
     set -e
+    assert_eq "$rc" 1
 
     if [ -f "${exp}" ]; then
         diff -u "${exp}" "${err}"
