@@ -688,6 +688,35 @@ static int tpm2_credit_random(Tpm2Context *c) {
         return 0;
 }
 
+static int tpm2_read_public(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const Tpm2Handle *handle,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_NAME **ret_name,
+                TPM2B_NAME **ret_qname) {
+
+        TSS2_RC rc;
+
+        assert(c);
+        assert(handle);
+
+        rc = sym_Esys_ReadPublic(
+                        c->esys_context,
+                        handle->esys_handle,
+                        session ? session->esys_handle : ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ret_public,
+                        ret_name,
+                        ret_qname);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to read public info: %s", sym_Tss2_RC_Decode(rc));
+
+        return 0;
+}
+
 const TPM2B_PUBLIC *tpm2_get_primary_template(Tpm2SRKTemplateFlags flags) {
 
         /*
@@ -792,7 +821,9 @@ const TPM2B_PUBLIC *tpm2_get_primary_template(Tpm2SRKTemplateFlags flags) {
 static int tpm2_get_srk(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
-                TPMI_ALG_PUBLIC *ret_alg,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_NAME **ret_name,
+                TPM2B_NAME **ret_qname,
                 Tpm2Handle **ret_handle) {
 
         int r;
@@ -804,29 +835,14 @@ static int tpm2_get_srk(
         if (r <= 0) /* error or handle not found */
                 return r;
 
-        /* Get the algorithm if the caller wants it */
-        _cleanup_(Esys_Freep) TPM2B_PUBLIC *out_public = NULL;
-        if (ret_alg) {
-                TSS2_RC rc = sym_Esys_ReadPublic(
-                                c->esys_context,
-                                handle->esys_handle,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                ESYS_TR_NONE,
-                                &out_public,
-                                NULL,
-                                NULL);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                "Failed to convert ray handle to ESYS_TR for SRK: %s",
-                                                sym_Tss2_RC_Decode(rc));
+        if (ret_public || ret_name || ret_qname) {
+                r = tpm2_read_public(c, session, handle, ret_public, ret_name, ret_qname);
+                if (r < 0)
+                        return r;
         }
 
         if (ret_handle)
                 *ret_handle = TAKE_PTR(handle);
-
-        if (ret_alg)
-                 *ret_alg = out_public->publicArea.type;
 
         return 1;
 }
@@ -869,14 +885,15 @@ static int tpm2_make_primary(
 
         /* Find existing SRK and use it if present */
         if (use_srk_model) {
-                TPMI_ALG_PUBLIC got_alg = TPM2_ALG_NULL;
-                r = tpm2_get_srk(c, NULL, &got_alg, &primary);
+                _cleanup_(Esys_Freep) TPM2B_PUBLIC *primary_public = NULL;
+                r = tpm2_get_srk(c, NULL, &primary_public, NULL, NULL, &primary);
                 if (r < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to establish if SRK is present");
                 if (r == 1) {
                         log_debug("Discovered existing SRK");
 
+                        TPMI_ALG_PUBLIC got_alg = primary_public->publicArea.type;
                         if (alg != 0 && alg != got_alg)
                                 log_warning("Caller asked for specific algorithm %u, but existing SRK is %u, ignoring",
                                             alg, got_alg);
