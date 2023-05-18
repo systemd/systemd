@@ -1342,10 +1342,19 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
                  * into the empty string */
                 p = strempty(p);
 
-                _fallthrough_;
+                if (!utf8_is_valid(p))
+                        return -EINVAL;
+
+                align = 4;
+                sz = 4 + strlen(p) + 1;
+                break;
+
         case SD_BUS_TYPE_OBJECT_PATH:
 
                 if (!p)
+                        return -EINVAL;
+
+                if (!object_path_is_valid(p))
                         return -EINVAL;
 
                 align = 4;
@@ -1355,6 +1364,9 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
         case SD_BUS_TYPE_SIGNATURE:
 
                 p = strempty(p);
+
+                if (!signature_is_valid(p, /* allow_dict_entry = */ true))
+                        return -EINVAL;
 
                 align = 1;
                 sz = 1 + strlen(p) + 1;
