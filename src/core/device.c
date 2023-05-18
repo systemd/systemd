@@ -6,7 +6,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
-#include "bus-error.h"
+#include "bus-common-errors.h"
 #include "dbus-device.h"
 #include "dbus-unit.h"
 #include "device-private.h"
@@ -619,7 +619,8 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
 
                         r = manager_add_job_by_name(u->manager, JOB_START, *i, JOB_FAIL, NULL, &error, NULL);
                         if (r < 0)
-                                log_unit_warning_errno(u, r, "Failed to enqueue SYSTEMD_WANTS= job, ignoring: %s", bus_error_message(&error, r));
+                                log_unit_full_errno(u, sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_UNIT) ? LOG_DEBUG : LOG_WARNING, r,
+                                                    "Failed to enqueue %s job, ignoring: %s", property, bus_error_message(&error, r));
                 }
 
         return strv_free_and_replace(d->wants_property, added);
