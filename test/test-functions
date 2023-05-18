@@ -214,6 +214,7 @@ BASICTOOLS=(
     script
     sed
     seq
+    setfacl
     setfattr
     setfont
     setpriv
@@ -883,8 +884,8 @@ INNER_EOF
 # Let's make one to prevent unexpected "<bin> not found" issues in the future
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin"
 
-mount -t proc proc /proc
-mount -t sysfs sysfs /sys
+mountpoint -q /proc || mount -t proc proc /proc
+mountpoint -q /sys || mount -t sysfs sysfs /sys
 mount -o remount,rw /
 
 DEFAULT_ENVIRONMENT="\$DEFAULT_ENVIRONMENT ASAN_RT_PATH=$ASAN_RT_PATH"
@@ -958,7 +959,7 @@ install_fs_tools() {
 install_modules() {
     dinfo "Install modules"
 
-    instmods dummy vfat veth
+    instmods bridge dummy ipvlan macvlan vfat veth
     instmods loop =block
     instmods nls_ascii =nls
     instmods overlay =overlayfs
