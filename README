@@ -267,7 +267,6 @@ REQUIREMENTS:
         under /usr is strongly encouraged.
 
         Additional packages are necessary to run some tests:
-        - busybox            (used by test/TEST-13-NSPAWN-SMOKE)
         - nc                 (used by test/TEST-12-ISSUE-3171)
         - python             (test-udev which is installed is in python)
         - python-pyparsing
