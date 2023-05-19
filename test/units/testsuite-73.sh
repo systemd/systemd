@@ -51,7 +51,7 @@ restore_locale() {
     fi
 }
 
-test_locale() {
+testcase_locale() {
     local i output
 
     if [[ -f /etc/locale.conf ]]; then
@@ -222,7 +222,7 @@ wait_vconsole_setup() {
     return 1
 }
 
-test_vc_keymap() {
+testcase_vc_keymap() {
     local i output vc
 
     if [[ -z "$(localectl list-keymaps)" ]]; then
@@ -292,7 +292,7 @@ test_vc_keymap() {
     assert_in "VC Keymap: .unset." "$(localectl)"
 }
 
-test_x11_keymap() {
+testcase_x11_keymap() {
     local output
 
     if [[ -z "$(localectl list-x11-keymap-layouts)" ]]; then
@@ -431,7 +431,7 @@ XKBMODEL=pc105+inet"
     assert_not_in "X11 Options:" "$output"
 }
 
-test_convert() {
+testcase_convert() {
     if [[ -z "$(localectl list-keymaps)" ]]; then
         echo "No vconsole keymap installed, skipping test."
         return
@@ -552,7 +552,7 @@ test_convert() {
     assert_not_in "X11 Options:"   "$output"
 }
 
-test_validate() {
+testcase_validate() {
     if [[ -z "$(localectl list-keymaps)" ]]; then
         echo "No vconsole keymap installed, skipping test."
         return
@@ -648,6 +648,40 @@ EOF
     assert_in "XKBLAYOUT=us" "$output"
 }
 
+locale_gen_cleanup() {
+    if mountpoint -q /usr/lib/locale; then
+        rm -fr /usr/lib/locale/*
+        umount /usr/lib/locale
+    fi
+    [[ -e /tmp/locale.gen.bak ]] && mv -f /tmp/locale.gen.bak /etc/locale.gen
+
+    return 0
+}
+
+# Issue: https://github.com/systemd/systemd/pull/27179
+testcase_locale_gen_leading_space() {
+    if ! command -v locale-gen >/dev/null; then
+        echo "No locale-gen support, skipping test."
+        return 0
+    fi
+
+    [[ -e /etc/locale.gen ]] && cp -f /etc/locale.gen /tmp/locale.gen.bak
+    trap locale_gen_cleanup RETURN
+    # Overmount the existing locale-gen database with an empty directory
+    # to force it to regenerate locales
+    mount -t tmpfs tmpfs /usr/lib/locale
+
+    {
+        echo -e "en_US.UTF-8 UTF-8"
+        echo -e " en_US.UTF-8 UTF-8"
+        echo -e "\ten_US.UTF-8 UTF-8"
+        echo -e " \t en_US.UTF-8 UTF-8 \t"
+    } >/etc/locale.gen
+
+    localectl set-locale de_DE.UTF-8
+    localectl set-locale en_US.UTF-8
+}
+
 : >/failed
 
 # Make sure the content of kbd-model-map is the one that the tests expect
@@ -656,11 +690,18 @@ EOF
 export SYSTEMD_KBD_MODEL_MAP=/usr/lib/systemd/tests/testdata/test-keymap-util/kbd-model-map
 
 enable_debug
-test_locale
-test_vc_keymap
-test_x11_keymap
-test_convert
-test_validate
+
+# Create a list of all functions prefixed with testcase_
+mapfile -t TESTCASES < <(declare -F | awk '$3 ~ /^testcase_/ {print $3;}')
+
+if [[ "${#TESTCASES[@]}" -eq 0 ]]; then
+    echo >&2 "No test cases found, this is most likely an error"
+    exit 1
+fi
+
+for testcase in "${TESTCASES[@]}"; do
+    "$testcase"
+done
 
 touch /testok
 rm /failed
