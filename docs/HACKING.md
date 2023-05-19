@@ -299,19 +299,11 @@ container to figure out the PID and enter it when asked and VSCode will attach t
 
 ## Debugging systemd-boot
 
-During boot, systemd-boot and the stub loader will output a message like `systemd-boot@0x0A,0x0B`,
-providing the location of the text and data sections. These location can then be used to attach
-to a QEMU session (provided it was run with `-s`) with these gdb commands:
-
-```
-    (gdb) file build/src/boot/efi/systemd-bootx64.efi
-    (gdb) add-symbol-file build/src/boot/efi/systemd_boot.so 0x0A -s .data 0x0B
-    (gdb) set architecture i386:x86-64
-    (gdb) target remote :1234
-```
-
-This process can be automated by using the `debug-sd-boot.sh` script in the tools folder. If run
-without arguments it will provide usage information.
+During boot, systemd-boot and the stub loader will output messages like
+`systemd-boot@0x0A <version>` and `systemd-stub@0x0B <version>`, providing the
+base of the loaded image. This location can then be used to attach to a QEMU
+session (provided it was ran with `-s`). See `debug-sd-boot.sh` script in the
+tools folder which automates this processes.
 
 If the debugger is too slow to attach to examine an early boot code passage, we can uncomment the
 call to `debug_break()` inside of `efi_main()`. As soon as the debugger has control we can then run
