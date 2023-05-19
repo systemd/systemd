@@ -51,7 +51,7 @@ restore_locale() {
     fi
 }
 
-test_locale() {
+testcase_locale() {
     local i output
 
     if [[ -f /etc/locale.conf ]]; then
@@ -222,7 +222,7 @@ wait_vconsole_setup() {
     return 1
 }
 
-test_vc_keymap() {
+testcase_vc_keymap() {
     local i output vc
 
     if [[ -z "$(localectl list-keymaps)" ]]; then
@@ -292,7 +292,7 @@ test_vc_keymap() {
     assert_in "VC Keymap: .unset." "$(localectl)"
 }
 
-test_x11_keymap() {
+testcase_x11_keymap() {
     local output
 
     if [[ -z "$(localectl list-x11-keymap-layouts)" ]]; then
@@ -431,7 +431,7 @@ XKBMODEL=pc105+inet"
     assert_not_in "X11 Options:" "$output"
 }
 
-test_convert() {
+testcase_convert() {
     if [[ -z "$(localectl list-keymaps)" ]]; then
         echo "No vconsole keymap installed, skipping test."
         return
@@ -552,7 +552,7 @@ test_convert() {
     assert_not_in "X11 Options:"   "$output"
 }
 
-test_validate() {
+testcase_validate() {
     if [[ -z "$(localectl list-keymaps)" ]]; then
         echo "No vconsole keymap installed, skipping test."
         return
@@ -656,11 +656,18 @@ EOF
 export SYSTEMD_KBD_MODEL_MAP=/usr/lib/systemd/tests/testdata/test-keymap-util/kbd-model-map
 
 enable_debug
-test_locale
-test_vc_keymap
-test_x11_keymap
-test_convert
-test_validate
+
+# Create a list of all functions prefixed with testcase_
+mapfile -t TESTCASES < <(declare -F | awk '$3 ~ /^testcase_/ {print $3;}')
+
+if [[ "${#TESTCASES[@]}" -eq 0 ]]; then
+    echo >&2 "No test cases found, this is most likely an error"
+    exit 1
+fi
+
+for testcase in "${TESTCASES[@]}"; do
+    "$testcase"
+done
 
 touch /testok
 rm /failed
