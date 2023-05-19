@@ -28,7 +28,7 @@
 
 int switch_root(const char *new_root,
                 const char *old_root_after,   /* path below the new root, where to place the old root after the transition; may be NULL to unmount it */
-                bool destroy_old_root) {
+                SwitchRootFlags flags) {
 
         struct {
                 const char *path;
@@ -66,11 +66,14 @@ int switch_root(const char *new_root,
                 return 0;
         }
 
-        istmp = fd_is_temporary_fs(old_root_fd);
-        if (istmp < 0)
-                return log_error_errno(istmp, "Failed to stat root directory: %m");
-        if (istmp > 0)
-                log_debug("Root directory is on tmpfs, will do cleanup later.");
+        if (FLAGS_SET(flags, SWITCH_ROOT_DESTROY_OLD_ROOT)) {
+                istmp = fd_is_temporary_fs(old_root_fd);
+                if (istmp < 0)
+                        return log_error_errno(istmp, "Failed to stat root directory: %m");
+                if (istmp > 0)
+                        log_debug("Root directory is on tmpfs, will do cleanup later.");
+        } else
+                istmp = -1; /* don't know */
 
         if (old_root_after) {
                 /* Determine where we shall place the old root after the transition */
@@ -160,7 +163,7 @@ int switch_root(const char *new_root,
                         return log_error_errno(errno, "Failed to change directory: %m");
         }
 
-        if (istmp && destroy_old_root) {
+        if (istmp > 0) {
                 struct stat rb;
 
                 if (fstat(old_root_fd, &rb) < 0)
