@@ -520,7 +520,9 @@ test_session_properties() {
     /usr/lib/systemd/tests/unit-tests/manual/test-session-properties "/org/freedesktop/login1/session/_3${s?}"
 }
 
-test_list_users_sessions() {
+test_list_users_sessions_seats() {
+    local session seat
+
     if [[ ! -c /dev/tty2 ]]; then
         echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
         return
@@ -529,10 +531,19 @@ test_list_users_sessions() {
     trap cleanup_session RETURN
     create_session
 
+    session=$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $1 }')
+    : check that we got a valid session id
+    busctl get-property org.freedesktop.login1 "/org/freedesktop/login1/session/_3${session?}" org.freedesktop.login1.Session Id
+    assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $2 }')" "$(id -ru logind-test-user)"
+    seat=$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $4 }')
+    assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $5 }')" tty2
+    assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $6 }')" active
+
+    loginctl list-seats --no-legend | grep -Fwq "${seat?}"
+
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $1 }')" "$(id -ru logind-test-user)"
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $3 }')" no
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $4 }')" active
-    assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $6 }')" active
 
     loginctl enable-linger logind-test-user
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $3 }')" yes
@@ -647,7 +658,7 @@ test_sanity_check
 test_session
 test_lock_idle_action
 test_session_properties
-test_list_users_sessions
+test_list_users_sessions_seats
 test_stop_idle_session
 test_ambient_caps
 
