@@ -183,7 +183,7 @@ int path_is_read_only_fs(const char *path) {
         return fd_is_read_only_fs(fd);
 }
 
-int files_same_at(int fda, const char *filea, int fdb, const char *fileb, int flags) {
+int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int flags) {
         struct stat a, b;
 
         assert(fda >= 0 || fda == AT_FDCWD);
