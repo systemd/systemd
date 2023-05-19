@@ -3,4 +3,8 @@
 
 #include <stdbool.h>
 
-int switch_root(const char *new_root, const char *old_root_after, bool destroy_old_root);
+typedef enum SwitchRootFlags {
+        SWITCH_ROOT_DESTROY_OLD_ROOT = 1 << 0, /* rm -rf old root when switching – under the condition that it is backed by non-persistent tmpfs/ramfs/… */
+} SwitchRootFlags;
+
+int switch_root(const char *new_root, const char *old_root_after, SwitchRootFlags flags);
