@@ -18,8 +18,13 @@
 #   - also a note - if /etc/systemd/nspawn/cont-name.nspawn exists, it takes
 #     precedence and /run/systemd/nspawn/cont-name.nspawn won't be read even
 #     if it exists
+#   - also a note 2 - --bind= overrides any Bind= from a config file
 #   - in some cases we don't create a test container using create_dummy_container(),
 #     so in that case an explicit call to coverage_create_nspawn_dropin() is needed
+#
+# However, even after jumping through all these hooks, there still might (and is)
+# some "incorrectly" missing coverage, especially in the window between spawning
+# the inner child process and bind-mounting the coverage $BUILD_DIR
 set -eux
 set -o pipefail
 
@@ -101,7 +106,6 @@ testcase_sanity() {
     systemd-nspawn --directory="$root" --ephemeral bash -xec 'touch /ephemeral'
     test ! -e "$root/ephemeral"
     (! systemd-nspawn --directory="$root" \
-                      --bind="${COVERAGE_BUILD_DIR:-$tmpdir}" \
                       --read-only \
                       bash -xec 'touch /nope')
     test ! -e "$root/nope"
@@ -122,7 +126,6 @@ testcase_sanity() {
     test ! -e "$root/usr/read-only"
     # volatile=state: rootfs is read-only, /var/ is tmpfs
     systemd-nspawn --directory="$root" \
-                   --bind="${COVERAGE_BUILD_DIR:-$tmpdir}" \
                    --volatile=state \
                    bash -xec 'test -e /usr/has-usr; mountpoint /var; touch /read-only && exit 1; touch /var/nope'
     test ! -e "$root/read-only"
@@ -206,13 +209,16 @@ EOF
     touch "$tmpdir/foo"
     # --bind=
     systemd-nspawn --directory="$root" \
+                   ${COVERAGE_BUILD_DIR:+--bind="$COVERAGE_BUILD_DIR"} \
                    --bind="$tmpdir:/foo" \
-                   bash -xec 'test -e /foo/foo; touch /foo/bar'
+                   --bind="$tmpdir:/also-foo:noidmap,norbind" \
+                   bash -xec 'test -e /foo/foo; touch /foo/bar; test -e /also-foo/bar'
     test -e "$tmpdir/bar"
     # --bind-ro=
     systemd-nspawn --directory="$root" \
                    --bind-ro="$tmpdir:/foo" \
-                   bash -xec 'test -e /foo/foo; touch /foo/baz && exit 1; true'
+                   --bind-ro="$tmpdir:/bar:noidmap,norbind" \
+                   bash -xec 'test -e /foo/foo; touch /foo/baz && exit 1; touch /bar && exit 1; true'
     # --inaccessible=
     systemd-nspawn --directory="$root" \
                    --inaccessible=/var \
@@ -247,6 +253,22 @@ EOF
     (! systemd-nspawn --network-veth --directory="$root" --port=icmp:80:8080 true)
     (! systemd-nspawn --network-veth --directory="$root" --port=tcp::8080 true)
     (! systemd-nspawn --network-veth --directory="$root" --port=8080: true)
+    # Exercise adding/removing ports from an interface
+    systemd-nspawn --directory="$root" \
+                   --network-veth \
+                   --port=6667 \
+                   --port=80:8080 \
+                   --port=udp:53 \
+                   --port=tcp:22:2222 \
+                   bash -xec 'ip addr add dev host0 10.0.0.10/24; ip a; ip addr del dev host0 10.0.0.10/24'
+
+    # --load-credential=, --set-credential=
+    echo "foo bar" >/tmp/cred.path
+    systemd-nspawn --directory="$root" \
+                   --load-credential=cred.path:/tmp/cred.path \
+                   --set-credential="cred.set:hello world" \
+                   bash -xec '[[ "$(</run/host/credentials/cred.path)" == "foo bar" ]]; [[ "$(</run/host/credentials/cred.set)" == "hello world" ]]'
+    rm -f /tmp/cred.path
 
     # Assorted tests
     systemd-nspawn --directory="$root" --suppress-sync=yes bash -xec 'echo hello'
