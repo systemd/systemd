@@ -199,6 +199,7 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
                 case ACTION_REBOOT:
                 case ACTION_KEXEC:
                 case ACTION_HALT:
+                case ACTION_SOFT_REBOOT:
                         if (arg_when == 0)
                                 r = logind_reboot(a);
                         else if (arg_when != USEC_INFINITY)

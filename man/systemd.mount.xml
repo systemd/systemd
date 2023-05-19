@@ -437,8 +437,12 @@
 
         <listitem><para>An additional filesystem to be mounted in the initrd. See
         <filename>initrd-fs.target</filename> description in
-        <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
-        </para></listitem>
+        <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>. This
+        is both an indicator to the initrd to mount this partition early and an indicator to the host to
+        leave the partition mounted until final shutdown. Or in other words, if this flag is set it is
+        assumed the mount shall be active during the entire regular runtime of the system, i.e. established
+        before the initrd transitions into the host all the way until the host transitions to the final
+        shutdown phase.</para></listitem>
       </varlistentry>
     </variablelist>
 
