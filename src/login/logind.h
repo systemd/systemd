@@ -91,6 +91,7 @@ struct Manager {
         bool shutdown_dry_run;
 
         sd_event_source *idle_action_event_source;
+        sd_event_source *send_subscribe_event_source;
         usec_t idle_action_usec;
         usec_t idle_action_not_before_usec;
         HandleAction idle_action;

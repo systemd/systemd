@@ -144,6 +144,7 @@ static Manager* manager_free(Manager *m) {
         hashmap_free(m->session_units);
 
         sd_event_source_unref(m->idle_action_event_source);
+        sd_event_source_unref(m->send_subscribe_event_source);
         sd_event_source_unref(m->inhibit_timeout_source);
         sd_event_source_unref(m->scheduled_shutdown_timeout_source);
         sd_event_source_unref(m->nologin_timeout_source);
@@ -672,10 +673,6 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for Reloading: %m");
 
-        r = bus_call_method_async(m->bus, NULL, bus_systemd_mgr, "Subscribe", NULL, NULL, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable subscription: %m");
-
         r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.login1", 0, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
@@ -952,6 +949,40 @@ static void manager_gc(Manager *m, bool drop_not_started) {
         }
 }
 
+static int manager_dispatch_send_subscribe(sd_event_source *s, uint64_t t, void *userdata) {
+        Manager *m = userdata;
+	 int r;
+
+        assert(m);
+
+        r = bus_call_method_async(m->bus, NULL, bus_systemd_mgr, "Subscribe", NULL, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable subscription: %m");
+
+        if (!m->send_subscribe_event_source) {
+
+                r = sd_event_add_time_relative(
+                                m->event,
+                                &m->send_subscribe_event_source,
+                                CLOCK_MONOTONIC,
+                                USEC_PER_SEC*5, 0,
+                                manager_dispatch_send_subscribe, m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add send subscribe source: %m");
+        } else {
+                r = sd_event_source_set_time_relative(m->send_subscribe_event_source, USEC_PER_SEC*5);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set send subscribe timer: %m");
+
+                r = sd_event_source_set_enabled(m->send_subscribe_event_source, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enable send subscribe timer: %m");
+        }
+
+        return 0;
+}
+
+
 static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         struct dual_timestamp since;
@@ -1146,6 +1177,8 @@ static int manager_startup(Manager *m) {
                 button_check_switches(button);
 
         manager_dispatch_idle_action(NULL, 0, m);
+
+        manager_dispatch_send_subscribe(NULL, 0, m);
 
         return 0;
 }

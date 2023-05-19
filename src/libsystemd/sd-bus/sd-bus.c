@@ -3482,7 +3482,7 @@ static int add_match_callback(
         sd_bus_slot_ref(match_slot);
 
         if (sd_bus_message_is_method_error(m, NULL)) {
-                log_debug_errno(sd_bus_message_get_errno(m),
+                log_warning_errno(sd_bus_message_get_errno(m),
                                 "Unable to add match %s, failing connection: %s",
                                 match_slot->match_callback.match_string,
                                 sd_bus_message_get_error(m)->message);
