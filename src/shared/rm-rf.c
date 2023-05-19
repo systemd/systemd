@@ -438,7 +438,7 @@ int rm_rf(const char *path, RemoveFlags flags) {
 
         /* We refuse to clean the root file system with this call. This is extra paranoia to never cause a
          * really seriously broken system. */
-        if (path_equal_or_files_same(path, "/", AT_SYMLINK_NOFOLLOW))
+        if (path_equal_or_inode_same(path, "/", AT_SYMLINK_NOFOLLOW))
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM),
                                        "Attempted to remove entire root file system (\"%s\"), and we can't allow that.",
                                        path);
