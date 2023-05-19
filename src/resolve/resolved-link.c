@@ -17,6 +17,7 @@
 #include "resolved-link.h"
 #include "resolved-llmnr.h"
 #include "resolved-mdns.h"
+#include "resolved-mdns-browse-services.h"
 #include "socket-netlink.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -166,6 +167,7 @@ void link_allocate_scopes(Link *l) {
                         r = dns_scope_new(l->manager, &l->mdns_ipv4_scope, l, DNS_PROTOCOL_MDNS, AF_INET);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to allocate mDNS IPv4 scope, ignoring: %m");
+                        mdns_ss_reset(l->manager);
                 }
         } else
                 l->mdns_ipv4_scope = dns_scope_free(l->mdns_ipv4_scope);
@@ -176,6 +178,7 @@ void link_allocate_scopes(Link *l) {
                         r = dns_scope_new(l->manager, &l->mdns_ipv6_scope, l, DNS_PROTOCOL_MDNS, AF_INET6);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to allocate mDNS IPv6 scope, ignoring: %m");
+                        mdns_ss_reset(l->manager);
                 }
         } else
                 l->mdns_ipv6_scope = dns_scope_free(l->mdns_ipv6_scope);

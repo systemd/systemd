@@ -327,6 +327,8 @@ static int on_clock_change(sd_event_source *source, int fd, uint32_t revents, vo
 
         log_info("Clock change detected. Flushing caches.");
         manager_flush_caches(m, LOG_DEBUG /* downgrade the functions own log message, since we already logged here at LOG_INFO level */);
+        mdns_browse_services_purge(m, AF_UNSPEC); /* Clear records of mDNS service browse subscriber, since caches are flushed */
+        mdns_ss_reset(m);
 
         /* The clock change timerfd is unusable after it triggered once, create a new one. */
         return manager_clock_change_listen(m);
@@ -762,6 +764,8 @@ Manager *manager_free(Manager *m) {
 
         dns_trust_anchor_flush(&m->trust_anchor);
         manager_etc_hosts_flush(m);
+
+        m->dns_service_subscriber = mdns_service_subscriber_free(m->dns_service_subscriber);
 
         return mfree(m);
 }
@@ -1388,29 +1392,28 @@ bool manager_packet_from_our_transaction(Manager *m, DnsPacket *p) {
         return t->sent && dns_packet_equal(t->sent, p);
 }
 
-DnsScope* manager_find_scope(Manager *m, DnsPacket *p) {
+DnsScope* manager_find_scope_from_protocol(Manager *m, int ifindex, DnsProtocol protocol, int family) {
         Link *l;
 
         assert(m);
-        assert(p);
 
-        l = hashmap_get(m->links, INT_TO_PTR(p->ifindex));
+        l = hashmap_get(m->links, INT_TO_PTR(ifindex));
         if (!l)
                 return NULL;
 
-        switch (p->protocol) {
+        switch (protocol) {
         case DNS_PROTOCOL_LLMNR:
-                if (p->family == AF_INET)
+                if (family == AF_INET)
                         return l->llmnr_ipv4_scope;
-                else if (p->family == AF_INET6)
+                else if (family == AF_INET6)
                         return l->llmnr_ipv6_scope;
 
                 break;
 
         case DNS_PROTOCOL_MDNS:
-                if (p->family == AF_INET)
+                if (family == AF_INET)
                         return l->mdns_ipv4_scope;
-                else if (p->family == AF_INET6)
+                else if (family == AF_INET6)
                         return l->mdns_ipv6_scope;
 
                 break;
