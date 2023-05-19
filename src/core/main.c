@@ -1840,7 +1840,7 @@ static int do_reexecute(
         if (switch_root_dir) {
                 r = switch_root(/* new_root= */ switch_root_dir,
                                 /* old_root_after= */ NULL,
-                                /* destroy_old_root= */ objective == MANAGER_SWITCH_ROOT);
+                                /* flags= */ objective == MANAGER_SWITCH_ROOT ? SWITCH_ROOT_DESTROY_OLD_ROOT : 0);
                 if (r < 0)
                         log_error_errno(r, "Failed to switch root, trying to continue: %m");
         }
