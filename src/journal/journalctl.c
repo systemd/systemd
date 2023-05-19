@@ -551,11 +551,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'f':
                         arg_follow = true;
-
-                        arg_boot = true;
-                        arg_boot_id = SD_ID128_NULL;
-                        arg_boot_offset = 0;
-
                         break;
 
                 case 'o':
@@ -1054,6 +1049,12 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_follow && !arg_no_tail && !arg_since && arg_lines == ARG_LINES_DEFAULT)
                 arg_lines = 10;
+
+        if (arg_follow && !arg_merge && !arg_boot) {
+                arg_boot = true;
+                arg_boot_id = SD_ID128_NULL;
+                arg_boot_offset = 0;
+        }
 
         if (!!arg_directory + !!arg_file + !!arg_machine + !!arg_root + !!arg_image > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
