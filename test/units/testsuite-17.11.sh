@@ -134,6 +134,8 @@ rm "${rules_dir}/loop.rules"
 # Empty rules.
 touch "${rules_dir}/empty.rules"
 assert_0 --root="${workdir}"
+>"${exo}"
+assert_0 --root="${workdir}" --no-summary
 
 # Directory with a single *.rules file.
 cp "${workdir}/default_output_1_success" "${exo}"
