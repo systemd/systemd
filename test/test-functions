@@ -1513,8 +1513,8 @@ check_coverage_reports() {
         return 1
     fi
 
-    # Create a coverage report that will later be uploaded. Remove info about
-    # system libraries/headers, as we don't really care about them.
+    # Create a coverage report that will later be uploaded. Remove info about system
+    # libraries/headers and generated files, as we don't really care about them.
     lcov --directory "${root}/${BUILD_DIR:?}" --capture --output-file "${dest}.new"
     if [[ -f "$dest" ]]; then
         # If the destination report file already exists, don't overwrite it, but
@@ -1526,7 +1526,7 @@ check_coverage_reports() {
         # report we did during the setup phase (see test_setup()).
         lcov --add-tracefile "${TESTDIR:?}/coverage-base" --add-tracefile "${dest}.new" -o "${dest}"
     fi
-    lcov --remove "$dest" -o "$dest" '/usr/include/*' '/usr/lib/*'
+    lcov --remove "$dest" -o "$dest" '/usr/include/*' '/usr/lib/*' "${BUILD_DIR:?}/*"
     rm -f "${dest}.new"
 
     # If the test logs contain lines like:
