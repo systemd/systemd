@@ -35,6 +35,15 @@ for f in "$src"/test-*.input; do
             SYSTEMD_LOG_LEVEL=debug SYSTEMD_IN_INITRD=yes SYSTEMD_PROC_CMDLINE="fstab=no $(cat "$f")" $generator "$out" "$out" "$out"
         fi
 
+        # The option x-systemd.growfs creates symlink to system's systemd-growfs@.service in .mount.wants directory.
+        # The system that the test is currently running on may not have or may have outdated unit file.
+        # Let's replace the symlink with an empty file.
+        for i in "$out"/*/systemd-growfs@*.service; do
+            [[ -L "$i" ]] || continue
+            rm "$i"
+            touch "$i"
+        done
+
         # For split-usr system
         for i in "$out"/systemd-*.service; do
             sed -i -e 's:ExecStart=/lib/systemd/:ExecStart=/usr/lib/systemd/:' "$i"
