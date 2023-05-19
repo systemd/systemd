@@ -76,6 +76,7 @@ cat >"$OCI/config.json" <<EOF
             "type" : "tmpfs",
             "source" : "tmpfs"
         },
+        ${COVERAGE_BUILD_DIR:+"{ \"destination\" : \"$COVERAGE_BUILD_DIR\" },"}
         {
             "destination" : "/var",
             "type" : "none",
