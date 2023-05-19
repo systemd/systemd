@@ -154,8 +154,12 @@ sleep 3
 [[ ! -f "/tmp/i-lose-my-logs" ]]
 systemctl stop forever-print-hola
 
+set +o pipefail
 # https://github.com/systemd/systemd/issues/15528
-journalctl --follow --file=/var/log/journal/*/* | head -n1 || [[ $? -eq 1 ]]
+journalctl --follow --file=/var/log/journal/*/* | head -n1
+# https://github.com/systemd/systemd/issues/24565
+journalctl --follow --merge | head -n1 | grep .
+set -o pipefail
 
 add_logs_filtering_override() {
     local unit="${1:?}"
