@@ -6,6 +6,9 @@
 #include "proto/file-io.h"
 #include "string-util-fundamental.h"
 
+/* This is provided by linker script. */
+extern uint8_t __ImageBase;
+
 static inline void free(void *p) {
         if (!p)
                 return;
@@ -159,13 +162,14 @@ static inline void *PHYSICAL_ADDRESS_TO_POINTER(EFI_PHYSICAL_ADDRESS addr) {
 
 uint64_t get_os_indications_supported(void);
 
+/* Print our name and version.
+ *
+ * If EFI_DEBUG, also report the relocated position of text and data sections so that a debugger
+ * can be attached. See debug-sd-boot.sh for how this can be done. */
+void advertise_identity(const char *identity, bool wait);
+
 #ifdef EFI_DEBUG
-/* Report the relocated position of text and data sections so that a debugger
- * can attach to us. See debug-sd-boot.sh for how this can be done. */
-void notify_debugger(const char *identity, bool wait);
 void hexdump(const char16_t *prefix, const void *data, size_t size);
-#else
-#  define notify_debugger(i, w)
 #endif
 
 /* On x86 the compiler assumes a different incoming stack alignment than what we get.
@@ -190,7 +194,7 @@ void hexdump(const char16_t *prefix, const void *data, size_t size);
                 BS = system_table->BootServices;                                       \
                 RT = system_table->RuntimeServices;                                    \
                 __stack_chk_guard_init();                                              \
-                notify_debugger((identity), (wait_for_debugger));                      \
+                advertise_identity((identity), (wait_for_debugger));                   \
                 EFI_STATUS err = func(image);                                          \
                 log_wait();                                                            \
                 return err;                                                            \
