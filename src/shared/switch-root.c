@@ -45,7 +45,7 @@ int switch_root(const char *new_root,
         if (new_root_fd < 0)
                 return log_error_errno(errno, "Failed to open target directory '%s': %m", new_root);
 
-        r = files_same_at(old_root_fd, "", new_root_fd, "", AT_EMPTY_PATH);
+        r = inode_same_at(old_root_fd, "", new_root_fd, "", AT_EMPTY_PATH);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if old and new root directory are the same: %m");
         if (r > 0) {
