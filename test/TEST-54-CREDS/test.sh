@@ -32,6 +32,9 @@ KERNEL_APPEND="${KERNEL_APPEND:-} ${KERNEL_CREDS[*]}"
 
 test_append_files() {
     instmods qemu_fw_cfg
+    if get_bool "$LOOKS_LIKE_SUSE"; then
+        instmods dmi-sysfs
+    fi
     generate_module_dependencies
 }
 
