@@ -63,6 +63,13 @@ int switch_root(const char *new_root,
                         (void) mkdir_p_label(resolved_old_root_after, 0755);
         }
 
+        /* We are about to unmount various file systems with MNT_DETACH (either explicitly via umount() or
+         * indirectly via pivot_root()), and thus do not synchronously wait for them to be fully sync'ed —
+         * all while making them invisible/inaccessible in the file system tree for later code. That makes
+         * sync'ing them then difficult. Let's hence issue a manual sync() here, so that we at least can
+         * guarantee all file systems are an a good state before entering this state. */
+        sync();
+
         /* Work-around for kernel design: the kernel refuses MS_MOVE if any file systems are mounted
          * MS_SHARED. Hence remount them MS_PRIVATE here as a work-around.
          *
