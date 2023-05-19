@@ -575,7 +575,7 @@ static int mount_add_default_dependencies(Mount *m) {
                         return r;
         }
 
-        return 0;
+        return exec_context_add_default_dependencies(UNIT(m), &m->exec_context);
 }
 
 static int mount_verify(Mount *m) {
