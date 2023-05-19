@@ -740,7 +740,12 @@ static int service_add_default_dependencies(Service *s) {
                 return r;
 
         /* Third, add us in for normal shutdown. */
-        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        if (r < 0)
+                return r;
+
+        /* Fourth, add generic dependencies */
+        return exec_context_add_default_dependencies(UNIT(s), &s->exec_context);
 }
 
 static void service_fix_stdio(Service *s) {
