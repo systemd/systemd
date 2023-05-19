@@ -6870,6 +6870,17 @@ bool exec_context_has_encrypted_credentials(ExecContext *c) {
         return false;
 }
 
+int exec_context_add_default_dependencies(Unit *u, const ExecContext *c) {
+        assert(u);
+        assert(u->default_dependencies);
+
+        if (c && c->tty_vhangup)
+                return unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_VCONSOLE_SETUP_SERVICE,
+                                                   /* add_reference= */ true, UNIT_DEPENDENCY_DEFAULT);
+
+        return 0;
+}
+
 void exec_status_start(ExecStatus *s, pid_t pid) {
         assert(s);
 
