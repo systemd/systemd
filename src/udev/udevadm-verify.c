@@ -20,6 +20,7 @@
 
 static ResolveNameTiming arg_resolve_name_timing = RESOLVE_NAME_EARLY;
 static char *arg_root = NULL;
+static bool arg_summary = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
@@ -37,6 +38,7 @@ static int help(void) {
                "  -V --version                         Show package version\n"
                "  -N --resolve-names=early|never       When to resolve names\n"
                "     --root=PATH                       Operate on an alternate filesystem root\n"
+               "     --no-summary                      Do not show summary\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -49,12 +51,14 @@ static int help(void) {
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_ROOT = 0x100,
+                ARG_NO_SUMMARY,
         };
         static const struct option options[] = {
-                { "help",          no_argument,       NULL, 'h'         },
-                { "version",       no_argument,       NULL, 'V'         },
-                { "resolve-names", required_argument, NULL, 'N'         },
-                { "root",          required_argument, NULL, ARG_ROOT    },
+                { "help",          no_argument,       NULL, 'h'             },
+                { "version",       no_argument,       NULL, 'V'             },
+                { "resolve-names", required_argument, NULL, 'N'             },
+                { "root",          required_argument, NULL, ARG_ROOT        },
+                { "no-summary",    no_argument,       NULL, ARG_NO_SUMMARY  },
                 {}
         };
 
@@ -86,6 +90,9 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
                         if (r < 0)
                                 return r;
+                        break;
+                case ARG_NO_SUMMARY:
+                        arg_summary = false;
                         break;
 
                 case '?':
@@ -172,16 +179,17 @@ static int verify_rules(UdevRules *rules, char **files) {
 
         r = verify_rules_filelist(rules, files, &fail_count, &success_count, /* walk_dirs */ true);
 
-        printf("\n%s%zu udev rules files have been checked.%s\n"
-               "  Success: %zu\n"
-               "%s  Fail:    %zu%s\n",
-               ansi_highlight(),
-               fail_count + success_count,
-               ansi_normal(),
-               success_count,
-               fail_count > 0 ? ansi_highlight_red() : "",
-               fail_count,
-               fail_count > 0 ? ansi_normal() : "");
+        if (arg_summary)
+                printf("\n%s%zu udev rules files have been checked.%s\n"
+                       "  Success: %zu\n"
+                       "%s  Fail:    %zu%s\n",
+                       ansi_highlight(),
+                       fail_count + success_count,
+                       ansi_normal(),
+                       success_count,
+                       fail_count > 0 ? ansi_highlight_red() : "",
+                       fail_count,
+                       fail_count > 0 ? ansi_normal() : "");
 
         return r;
 }
