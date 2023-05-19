@@ -34,7 +34,7 @@ int load_volume_key_password(
                                 envpw,
                                 strlen(envpw));
                 if (r < 0)
-                        return log_error_errno(r, "Password from environment variable $PASSWORD did not work.");
+                        return log_error_errno(r, "Password from environment variable $PASSWORD did not work: %m");
         } else {
                 AskPasswordFlags ask_password_flags = ASK_PASSWORD_PUSH_CACHE|ASK_PASSWORD_ACCEPT_CACHED;
                 _cleanup_free_ char *question = NULL, *disk_path = NULL;
@@ -56,7 +56,7 @@ int load_volume_key_password(
 
                         if (--i == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
-                                                       "Too many attempts, giving up:");
+                                                       "Too many attempts, giving up.");
 
                         r = ask_password_auto(
                                         question, "drive-harddisk", id, "cryptenroll", "cryptenroll.passphrase", USEC_INFINITY,
@@ -78,7 +78,7 @@ int load_volume_key_password(
                                         break;
                         }
 
-                        log_error_errno(r, "Password not correct, please try again.");
+                        log_error_errno(r, "Password not correct, please try again: %m");
                         ask_password_flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
                 }
         }
@@ -122,7 +122,7 @@ int enroll_password(
 
                         if (--i == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
-                                                       "Too many attempts, giving up:");
+                                                       "Too many attempts, giving up.");
 
                         question = strjoin("Please enter new passphrase for disk ", node, ":");
                         if (!question)
