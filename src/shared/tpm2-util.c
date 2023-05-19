@@ -1014,10 +1014,8 @@ static int tpm2_get_best_srk_template(Tpm2Context *c, TPMT_PUBLIC *ret_template)
  * the Provisioning Guidance document for more details. */
 #define TPM2_SRK_HANDLE UINT32_C(0x81000001)
 
-/*
- * Retrieves the SRK handle if present. Returns 0 if SRK not present, 1 if present
- * and < 0 on error
- */
+/* Get the SRK. Returns 1 if SRK is found, 0 if there is no SRK, or < 0 on error. Also see
+ * tpm2_get_or_create_srk() below. */
 static int tpm2_get_srk(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
@@ -1045,6 +1043,52 @@ static int tpm2_get_srk(
                 *ret_handle = TAKE_PTR(handle);
 
         return 1;
+}
+
+static int tpm2_create_loaded(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handle *session, const TPMT_PUBLIC *template, const TPMS_SENSITIVE_CREATE *sensitive, TPM2B_PUBLIC **ret_public, TPM2B_PRIVATE **ret_private, Tpm2Handle **ret_handle);
+
+/* Get the SRK, creating one if needed. Returns 0 on success, or < 0 on error. */
+static int tpm2_get_or_create_srk(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_NAME **ret_name,
+                TPM2B_NAME **ret_qname,
+                Tpm2Handle **ret_handle) {
+
+        int r;
+
+        r = tpm2_get_srk(c, session, ret_public, ret_name, ret_qname, ret_handle);
+        if (r < 0)
+                return r;
+        if (r == 1)
+                return 0;
+
+        /* No SRK, create and persist one */
+        TPMT_PUBLIC template;
+        r = tpm2_get_best_srk_template(c, &template);
+        if (r < 0)
+                return r;
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *transient_handle = NULL;
+        r = tpm2_create_loaded(c, NULL, session, &template, NULL, NULL, NULL, &transient_handle);
+        if (r < 0)
+                return r;
+
+        /* Try to persist the transient SRK we created. No locking needed; if multiple threads are trying to
+         * persist SRKs concurrently, only one will succeed (r == 1) while the rest will fail (r == 0). In
+         * either case, all threads will get the persistent SRK below. */
+        r = tpm2_persist_handle(c, transient_handle, TPM2_SRK_HANDLE, NULL);
+        if (r < 0)
+                return r;
+
+        /* The SRK should exist now. */
+        r = tpm2_get_srk(c, session, ret_public, ret_name, ret_qname, ret_handle);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Persisted SRK not found.");
+        return 0;
 }
 
 static int tpm2_make_primary(
