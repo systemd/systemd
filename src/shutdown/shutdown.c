@@ -169,11 +169,15 @@ static int switch_root_initramfs(void) {
         if (mount(NULL, "/run/initramfs", NULL, MS_PRIVATE, NULL) < 0)
                 return log_error_errno(errno, "Failed to make /run/initramfs private mount: %m");
 
-        /* Do not detach the old root, because /run/initramfs/shutdown needs to access it. */
+        /* Do not detach the old root, because /run/initramfs/shutdown needs to access it.
+         *
+         * Disable sync() during switch-root, we after all sync'ed here plenty, and a dumb sync (as opposed
+         * to the "smart" sync() we did here that looks at progress parameters) would defeat much of our
+         * efforts here. */
         return switch_root(
                         /* new_root= */ "/run/initramfs",
                         /* old_root_after= */ "/oldroot",
-                        /* flags= */ 0);
+                        /* flags= */ SWITCH_ROOT_DONT_SYNC);
 }
 
 /* Read the following fields from /proc/meminfo:

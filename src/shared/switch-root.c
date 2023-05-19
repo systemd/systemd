@@ -89,7 +89,8 @@ int switch_root(const char *new_root,
          * all while making them invisible/inaccessible in the file system tree for later code. That makes
          * sync'ing them then difficult. Let's hence issue a manual sync() here, so that we at least can
          * guarantee all file systems are an a good state before entering this state. */
-        sync();
+        if (!FLAGS_SET(flags, SWITCH_ROOT_DONT_SYNC))
+                sync();
 
         /* Work-around for kernel design: the kernel refuses MS_MOVE if any file systems are mounted
          * MS_SHARED. Hence remount them MS_PRIVATE here as a work-around.
