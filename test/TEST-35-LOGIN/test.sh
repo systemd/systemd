@@ -8,7 +8,13 @@ TEST_DESCRIPTION="Tests for systemd-logind"
 . "${TEST_BASE_DIR:?}/test-functions"
 
 test_append_files() {
+    instmods uinput
     image_install -o evemu-device evemu-event
+
+    install_locales
+    install_x11_keymaps
+
+    generate_module_dependencies
 }
 
 do_test "$@"

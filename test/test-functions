@@ -765,9 +765,7 @@ setup_basic_environment() {
     install_pam
     install_dbus
     install_fonts
-    install_locales
     install_keymaps
-    install_x11_keymaps
     install_terminfo
     install_execs
     install_fs_tools
@@ -966,13 +964,10 @@ install_modules() {
     instmods loop =block
     instmods nls_ascii =nls
     instmods overlay =overlayfs
-    # for TEST-35-LOGIN
-    instmods scsi_debug uinput
+    instmods scsi_debug
 
     if get_bool "$LOOKS_LIKE_SUSE"; then
         instmods ext4
-        # for TEST-54-CREDS
-        instmods dmi-sysfs
     fi
 }
 
