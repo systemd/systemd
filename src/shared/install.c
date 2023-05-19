@@ -493,7 +493,7 @@ static int chroot_unit_symlinks_equivalent(
         if (!a || !b)
                 return log_oom();
 
-        r = path_equal_or_files_same(a, b, 0);
+        r = path_equal_or_inode_same(a, b, 0);
         if (r != 0)
                 return r;
 
