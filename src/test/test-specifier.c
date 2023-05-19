@@ -106,7 +106,7 @@ TEST(specifier_real_path) {
         puts(strnull(w));
 
         /* /dev/initctl should normally be a symlink to /run/initctl */
-        if (files_same("/dev/initctl", "/run/initctl", 0) > 0)
+        if (inode_same("/dev/initctl", "/run/initctl", 0) > 0)
                 assert_se(streq(w, "p=/dev/initctl y=/run/initctl Y=/run w=/dev/tty W=/dev"));
 }
 
