@@ -169,7 +169,7 @@ static int switch_root_initramfs(void) {
         return switch_root(
                         /* new_root= */ "/run/initramfs",
                         /* old_root_after= */ "/oldroot",
-                        /* destroy_old_root= */ false);
+                        /* flags= */ 0);
 }
 
 /* Read the following fields from /proc/meminfo:
