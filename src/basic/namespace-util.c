@@ -109,7 +109,7 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
                 /* Can't setns to your own userns, since then you could escalate from non-root to root in
                  * your own namespace, so check if namespaces are equal before attempting to enter. */
 
-                r = inode_same(FORMAT_PROC_FD_PATH(userns_fd), "/proc/self/ns/user", 0);
+                r = inode_same_at(userns_fd, "", AT_FDCWD, "/proc/self/ns/user", AT_EMPTY_PATH);
                 if (r < 0)
                         return r;
                 if (r)
