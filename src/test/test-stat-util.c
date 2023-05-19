@@ -42,7 +42,7 @@ TEST(null_or_empty_path_with_root) {
         assert_se(null_or_empty_path_with_root("/foobar/barbar/dev/null", "/foobar/barbar/") == 1);
 }
 
-TEST(files_same) {
+TEST(inode_same) {
         _cleanup_close_ int fd = -EBADF;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-files_same.XXXXXX";
         _cleanup_(unlink_tempfilep) char name_alias[] = "/tmp/test-files_same.alias";
@@ -51,10 +51,10 @@ TEST(files_same) {
         assert_se(fd >= 0);
         assert_se(symlink(name, name_alias) >= 0);
 
-        assert_se(files_same(name, name, 0));
-        assert_se(files_same(name, name, AT_SYMLINK_NOFOLLOW));
-        assert_se(files_same(name, name_alias, 0));
-        assert_se(!files_same(name, name_alias, AT_SYMLINK_NOFOLLOW));
+        assert_se(inode_same(name, name, 0));
+        assert_se(inode_same(name, name, AT_SYMLINK_NOFOLLOW));
+        assert_se(inode_same(name, name_alias, 0));
+        assert_se(!inode_same(name, name_alias, AT_SYMLINK_NOFOLLOW));
 }
 
 TEST(is_symlink) {
