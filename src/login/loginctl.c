@@ -73,6 +73,8 @@ typedef struct SessionStatusInfo {
         const char *state;
         const char *scope;
         const char *desktop;
+        bool idle_hint;
+        dual_timestamp idle_hint_timestamp;
 } SessionStatusInfo;
 
 static OutputFlags get_output_flags(void) {
@@ -138,8 +140,10 @@ static int show_table(Table *table, const char *word) {
 static int list_sessions(int argc, char *argv[], void *userdata) {
 
         static const struct bus_properties_map map[]  = {
-                { "State",  "s",    NULL,   offsetof(SessionStatusInfo, state)  },
-                { "TTY",    "s",    NULL,   offsetof(SessionStatusInfo, tty)    },
+                { "IdleHint",               "b",    NULL,   offsetof(SessionStatusInfo, idle_hint)                      },
+                { "IdleSinceHintMonotonic", "t",    NULL,   offsetof(SessionStatusInfo, idle_hint_timestamp.monotonic)  },
+                { "State",                  "s",    NULL,   offsetof(SessionStatusInfo, state)                          },
+                { "TTY",                    "s",    NULL,   offsetof(SessionStatusInfo, tty)                            },
                 {},
         };
 
@@ -161,7 +165,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        table = table_new("session", "uid", "user", "seat", "tty", "state");
+        table = table_new("session", "uid", "user", "seat", "tty", "state", "idle", "since");
         if (!table)
                 return log_oom();
 
@@ -198,7 +202,15 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                                    TABLE_STRING, user,
                                    TABLE_STRING, seat,
                                    TABLE_STRING, strna(i.tty),
-                                   TABLE_STRING, i.state);
+                                   TABLE_STRING, i.state,
+                                   TABLE_BOOLEAN, i.idle_hint);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (i.idle_hint)
+                        r = table_add_cell(table, NULL, TABLE_TIMESTAMP_RELATIVE, &i.idle_hint_timestamp.monotonic);
+                else
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return table_log_add_error(r);
         }
