@@ -1709,7 +1709,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                                 &t->received,
                                 &t->answer_query_flags,
                                 &t->answer_dnssec_result,
-                                &t->scope->manager->enable_serve_stale && t->n_attempts > 1);
+                                t->scope->manager->enable_serve_stale && t->n_attempts > 1);
                 if (r < 0)
                         return r;
                 if (r > 0) {
