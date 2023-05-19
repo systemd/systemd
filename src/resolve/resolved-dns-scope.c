@@ -15,6 +15,7 @@
 #include "resolved-dns-zone.h"
 #include "resolved-llmnr.h"
 #include "resolved-mdns.h"
+#include "resolved-mdns-browse-services.h"
 #include "socket-util.h"
 #include "strv.h"
 
@@ -117,6 +118,9 @@ DnsScope* dns_scope_free(DnsScope *s) {
 
         dns_cache_flush(&s->cache);
         dns_zone_flush(&s->zone);
+
+        /* Clear records of mDNS service browse subscriber, since cache bas been flushed */
+        mdns_browse_services_purge(s->manager, s->family);
 
         LIST_REMOVE(scopes, s->manager->dns_scopes, s);
         return mfree(s);
