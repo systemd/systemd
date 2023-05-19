@@ -54,6 +54,27 @@ static OutputMode arg_output = OUTPUT_SHORT;
 
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 
+typedef struct SessionStatusInfo {
+        const char *id;
+        uid_t uid;
+        const char *name;
+        struct dual_timestamp timestamp;
+        unsigned vtnr;
+        const char *seat;
+        const char *tty;
+        const char *display;
+        bool remote;
+        const char *remote_host;
+        const char *remote_user;
+        const char *service;
+        pid_t leader;
+        const char *type;
+        const char *class;
+        const char *state;
+        const char *scope;
+        const char *desktop;
+} SessionStatusInfo;
+
 static OutputFlags get_output_flags(void) {
 
         return
@@ -115,6 +136,13 @@ static int show_table(Table *table, const char *word) {
 }
 
 static int list_sessions(int argc, char *argv[], void *userdata) {
+
+        static const struct bus_properties_map map[]  = {
+                { "State",  "s",    NULL,   offsetof(SessionStatusInfo, state)  },
+                { "TTY",    "s",    NULL,   offsetof(SessionStatusInfo, tty)    },
+                {},
+        };
+
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -143,9 +171,10 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
-                _cleanup_free_ char *tty = NULL, *state = NULL;
                 const char *id, *user, *seat, *object;
                 uint32_t uid;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                SessionStatusInfo i = {};
 
                 r = sd_bus_message_read(reply, "(susso)", &id, &uid, &user, &seat, &object);
                 if (r < 0)
@@ -153,38 +182,14 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                 if (r == 0)
                         break;
 
-                r = sd_bus_get_property_string(bus,
-                                               "org.freedesktop.login1",
-                                               object,
-                                               "org.freedesktop.login1.Session",
-                                               "TTY",
-                                               &e,
-                                               &tty);
+                r = bus_map_all_properties(bus, "org.freedesktop.login1", object, map, BUS_MAP_BOOLEAN_AS_BOOL, &e, &m, &i);
                 if (r < 0) {
                         if (sd_bus_error_has_name(&e, SD_BUS_ERROR_UNKNOWN_OBJECT))
                                 /* The session is already closed when we're querying the property */
                                 continue;
 
-                        log_warning_errno(r, "Failed to get TTY for session %s, ignoring: %s",
+                        log_warning_errno(r, "Failed to get properties of session %s, ignoring: %s",
                                           id, bus_error_message(&e, r));
-
-                        sd_bus_error_free(&e);
-                }
-
-                r = sd_bus_get_property_string(bus,
-                                               "org.freedesktop.login1",
-                                               object,
-                                               "org.freedesktop.login1.Session",
-                                               "State",
-                                               &e,
-                                               &state);
-                if (r < 0) {
-                        if (sd_bus_error_has_name(&e, SD_BUS_ERROR_UNKNOWN_OBJECT))
-                                /* The session is already closed when we're querying the property */
-                                continue;
-
-                        return log_error_errno(r, "Failed to get state for session %s: %s",
-                                               id, bus_error_message(&e, r));
                 }
 
                 r = table_add_many(table,
@@ -192,8 +197,8 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                                    TABLE_UID, (uid_t) uid,
                                    TABLE_STRING, user,
                                    TABLE_STRING, seat,
-                                   TABLE_STRING, strna(tty),
-                                   TABLE_STRING, state);
+                                   TABLE_STRING, strna(i.tty),
+                                   TABLE_STRING, i.state);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -375,27 +380,6 @@ static int show_unit_cgroup(sd_bus *bus, const char *interface, const char *unit
 
         return 0;
 }
-
-typedef struct SessionStatusInfo {
-        const char *id;
-        uid_t uid;
-        const char *name;
-        struct dual_timestamp timestamp;
-        unsigned vtnr;
-        const char *seat;
-        const char *tty;
-        const char *display;
-        bool remote;
-        const char *remote_host;
-        const char *remote_user;
-        const char *service;
-        pid_t leader;
-        const char *type;
-        const char *class;
-        const char *state;
-        const char *scope;
-        const char *desktop;
-} SessionStatusInfo;
 
 typedef struct UserStatusInfo {
         uid_t uid;
