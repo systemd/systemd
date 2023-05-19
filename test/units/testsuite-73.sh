@@ -648,6 +648,38 @@ EOF
     assert_in "XKBLAYOUT=us" "$output"
 }
 
+locale_gen_cleanup() {
+    # Some running apps might keep the mount point busy, hence the lazy unmount
+    mountpoint -q /usr/lib/locale && umount --lazy /usr/lib/locale
+    [[ -e /tmp/locale.gen.bak ]] && mv -f /tmp/locale.gen.bak /etc/locale.gen
+
+    return 0
+}
+
+# Issue: https://github.com/systemd/systemd/pull/27179
+testcase_locale_gen_leading_space() {
+    if ! command -v locale-gen >/dev/null; then
+        echo "No locale-gen support, skipping test."
+        return 0
+    fi
+
+    [[ -e /etc/locale.gen ]] && cp -f /etc/locale.gen /tmp/locale.gen.bak
+    trap locale_gen_cleanup RETURN
+    # Overmount the existing locale-gen database with an empty directory
+    # to force it to regenerate locales
+    mount -t tmpfs tmpfs /usr/lib/locale
+
+    {
+        echo -e "en_US.UTF-8 UTF-8"
+        echo -e " en_US.UTF-8 UTF-8"
+        echo -e "\ten_US.UTF-8 UTF-8"
+        echo -e " \t en_US.UTF-8 UTF-8 \t"
+    } >/etc/locale.gen
+
+    localectl set-locale de_DE.UTF-8
+    localectl set-locale en_US.UTF-8
+}
+
 : >/failed
 
 # Make sure the content of kbd-model-map is the one that the tests expect
