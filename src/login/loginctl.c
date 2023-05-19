@@ -146,6 +146,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                 _cleanup_free_ char *tty = NULL, *state = NULL;
                 const char *id, *user, *seat, *object;
                 uint32_t uid;
+                BusLocator locator;
 
                 r = sd_bus_message_read(reply, "(susso)", &id, &uid, &user, &seat, &object);
                 if (r < 0)
@@ -153,13 +154,13 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                 if (r == 0)
                         break;
 
-                r = sd_bus_get_property_string(bus,
-                                               "org.freedesktop.login1",
-                                               object,
-                                               "org.freedesktop.login1.Session",
-                                               "TTY",
-                                               &error_property,
-                                               &tty);
+                locator = (BusLocator) {
+                        .destination = "org.freedesktop.login1",
+                        .path = object,
+                        .interface = "org.freedesktop.login1.Session",
+                };
+
+                r = bus_get_property_string(bus, &locator, "TTY", &error_property, &tty);
                 if (r < 0) {
                         if (sd_bus_error_has_name(&error_property, SD_BUS_ERROR_UNKNOWN_OBJECT))
                                 /* The session is already closed when we're querying the property */
@@ -171,13 +172,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                         sd_bus_error_free(&error_property);
                 }
 
-                r = sd_bus_get_property_string(bus,
-                                               "org.freedesktop.login1",
-                                               object,
-                                               "org.freedesktop.login1.Session",
-                                               "State",
-                                               &error_property,
-                                               &state);
+                r = bus_get_property_string(bus, &locator, "State", &error_property, &state);
                 if (r < 0) {
                         if (sd_bus_error_has_name(&error_property, SD_BUS_ERROR_UNKNOWN_OBJECT))
                                 /* The session is already closed when we're querying the property */
