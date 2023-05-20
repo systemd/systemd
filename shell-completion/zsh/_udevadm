@@ -109,6 +109,7 @@ _udevadm_verify(){
     _arguments \
         {-N+,--resolve-names=}'[When to resolve names.]:resolve:(early never)' \
         '--root=[Operate on catalog hierarchy under specified directory]:directories:_directories' \
+        {--no-summary}'[Do not show summary.]' \
         {-h,--help}'[Print help text.]' \
         '*::files:_files'
 }

@@ -780,6 +780,13 @@
           </listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><option>--no-summary</option></term>
+          <listitem>
+            <para>Do not show summary.</para>
+          </listitem>
+        </varlistentry>
+
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>
