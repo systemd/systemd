@@ -15,6 +15,9 @@ test_append_files() {
         # the QEMU test, as nspawn refuses the invalid machine ID with -EUCLEAN
         printf "556f48e837bc4424a710fa2e2c9d3e3c\ne3d\n" >"$workspace/etc/machine-id"
     fi
+
+    install_locales
+    install_x11_keymaps
 }
 
 do_test "$@"
