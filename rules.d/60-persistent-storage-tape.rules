@@ -6,16 +6,23 @@ ACTION=="remove", GOTO="persistent_storage_tape_end"
 ENV{UDEV_DISABLE_PERSISTENT_STORAGE_RULES_FLAG}=="1", GOTO="persistent_storage_tape_end"
 
 # type 8 devices are "Medium Changers"
-SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="8", IMPORT{program}="scsi_id --sg-version=3 --export --allowlisted -d $devnode", \
-  SYMLINK+="tape/by-id/scsi-$env{ID_SERIAL} tape/by-id/scsi-$env{ID_SERIAL}-changer"
+SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="8", GOTO="medium_changer_begin"
+GOTO="medium_changer_end"
+
+LABEL="medium_changer_begin"
+
+IMPORT{program}="scsi_id --sg-version=3 --export --allowlisted -d $devnode"
+ENV{ID_SERIAL}=="?*", SYMLINK+="tape/by-id/scsi-$env{ID_SERIAL} tape/by-id/scsi-$env{ID_SERIAL}-changer"
 
 # iSCSI devices from the same host have all the same ID_SERIAL,
 # but additionally a property named ID_SCSI_SERIAL.
-SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="8", ENV{ID_SCSI_SERIAL}=="?*", \
-  SYMLINK+="tape/by-id/scsi-$env{ID_SCSI_SERIAL}"
+ENV{ID_SCSI_SERIAL}=="?*", SYMLINK+="tape/by-id/scsi-$env{ID_SCSI_SERIAL}"
 
-SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="8", IMPORT{builtin}="path_id", \
-  SYMLINK+="tape/by-path/$env{ID_PATH}-changer"
+IMPORT{builtin}="path_id"
+ENV{ID_PATH}=="?*",                   SYMLINK+="tape/by-path/$env{ID_PATH}-changer"
+ENV{ID_PATH_WITH_USB_REVISION}=="?*", SYMLINK+="tape/by-path/$env{ID_PATH_WITH_USB_REVISION}-changer"
+
+LABEL="medium_changer_end"
 
 SUBSYSTEM!="scsi_tape", GOTO="persistent_storage_tape_end"
 
@@ -30,7 +37,9 @@ KERNEL=="nst*[0-9]", ENV{ID_SCSI_SERIAL}=="?*", SYMLINK+="tape/by-id/$env{ID_BUS
 
 # by-path (parent device path)
 KERNEL=="st*[0-9]|nst*[0-9]", IMPORT{builtin}="path_id"
-KERNEL=="st*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="tape/by-path/$env{ID_PATH}"
-KERNEL=="nst*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="tape/by-path/$env{ID_PATH}-nst"
+KERNEL=="st*[0-9]",  ENV{ID_PATH}=="?*",                   SYMLINK+="tape/by-path/$env{ID_PATH}"
+KERNEL=="st*[0-9]",  ENV{ID_PATH_WITH_USB_REVISION}=="?*", SYMLINK+="tape/by-path/$env{ID_PATH_WITH_USB_REVISION}"
+KERNEL=="nst*[0-9]", ENV{ID_PATH}=="?*",                   SYMLINK+="tape/by-path/$env{ID_PATH}-nst"
+KERNEL=="nst*[0-9]", ENV{ID_PATH_WITH_USB_REVISION}=="?*", SYMLINK+="tape/by-path/$env{ID_PATH_WITH_USB_REVISION}-nst"
 
 LABEL="persistent_storage_tape_end"
