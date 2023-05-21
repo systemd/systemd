@@ -1751,8 +1751,17 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         return 0;
 }
 
+int add_match_boot_id(sd_journal *j, sd_id128_t id) {
+        char match[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX] = "_BOOT_ID=";
+
+        assert(j);
+        assert(!sd_id128_is_null(id));
+
+        sd_id128_to_string(id, match + STRLEN("_BOOT_ID="));
+        return sd_journal_add_match(j, match, sizeof(match) - 1);
+}
+
 int add_match_this_boot(sd_journal *j, const char *machine) {
-        char match[9+32+1] = "_BOOT_ID=";
         sd_id128_t boot_id;
         int r;
 
@@ -1768,8 +1777,7 @@ int add_match_this_boot(sd_journal *j, const char *machine) {
                         return log_error_errno(r, "Failed to get boot id: %m");
         }
 
-        sd_id128_to_string(boot_id, match + 9);
-        r = sd_journal_add_match(j, match, strlen(match));
+        r = add_match_boot_id(j, boot_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match: %m");
 

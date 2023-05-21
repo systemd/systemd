@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 
+#include "sd-id128.h"
 #include "sd-journal.h"
 
 #include "macro.h"
@@ -33,6 +34,7 @@ int show_journal(
                 OutputFlags flags,
                 bool *ellipsized);
 
+int add_match_boot_id(sd_journal *j, sd_id128_t id);
 int add_match_this_boot(sd_journal *j, const char *machine);
 
 int add_matches_for_unit(
