@@ -661,7 +661,7 @@ def make_uki(opts):
         ('.splash',  opts.splash,     True ),
         ('.pcrpkey', pcrpkey,         True ),
         ('.initrd',  initrd,          True ),
-        ('.uname',   opts.uname,      False),
+        ('.uname',   opts.uname,      True ),
 
         # linux shall be last to leave breathing room for decompression.
         # We'll add it later.
