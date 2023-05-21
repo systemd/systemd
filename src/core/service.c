@@ -1272,9 +1272,7 @@ static void service_set_state(Service *s, ServiceState state) {
         if (old_state != state)
                 log_unit_debug(UNIT(s), "Changed %s -> %s", service_state_to_string(old_state), service_state_to_string(state));
 
-        unit_notify(UNIT(s), table[old_state], table[state],
-                    (s->reload_result == SERVICE_SUCCESS ? 0 : UNIT_NOTIFY_RELOAD_FAILURE) |
-                    (s->will_auto_restart ? UNIT_NOTIFY_WILL_AUTO_RESTART : 0));
+        unit_notify(UNIT(s), table[old_state], table[state], s->reload_result == SERVICE_SUCCESS);
 }
 
 static usec_t service_coldplug_timeout(Service *s) {
@@ -1941,8 +1939,6 @@ static bool service_will_restart(Unit *u) {
 
         assert(s);
 
-        if (s->will_auto_restart)
-                return true;
         if (IN_SET(s->state, SERVICE_DEAD_BEFORE_AUTO_RESTART, SERVICE_FAILED_BEFORE_AUTO_RESTART, SERVICE_AUTO_RESTART))
                 return true;
 
@@ -1986,21 +1982,22 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
 
         if (!allow_restart)
                 log_unit_debug(UNIT(s), "Service restart not allowed.");
+
+                service_set_state(s, end_state);
+
+                /* If we shan't restart, then flush out the restart counter. But don't do that immediately, so that the
+                 * user can still introspect the counter. Do so on the next start. */
+                s->flush_n_restarts = true;
         else {
                 const char *reason;
-                bool shall_restart;
 
-                shall_restart = service_shall_restart(s, &reason);
+                allow_restart = service_shall_restart(s, &reason);
                 log_unit_debug(UNIT(s), "Service will %srestart (%s)",
                                         shall_restart ? "" : "not ",
                                         reason);
-                if (shall_restart)
-                        s->will_auto_restart = true;
         }
 
-        if (s->will_auto_restart) {
-                s->will_auto_restart = false;
-
+        if (allow_restart) {
                 /* We make two state changes here: one that maps to the high-level UNIT_INACTIVE/UNIT_FAILED
                  * state (i.e. a state indicating deactivation), and then one that that maps to the
                  * high-level UNIT_STARTING state (i.e. a state indicating activation). We do this so that
@@ -2015,12 +2012,6 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                         goto fail;
 
                 service_set_state(s, SERVICE_AUTO_RESTART);
-        } else {
-                service_set_state(s, end_state);
-
-                /* If we shan't restart, then flush out the restart counter. But don't do that immediately, so that the
-                 * user can still introspect the counter. Do so on the next start. */
-                s->flush_n_restarts = true;
         }
 
         /* The new state is in effect, let's decrease the fd store ref counter again. Let's also re-add us to the GC
