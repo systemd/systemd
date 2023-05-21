@@ -391,7 +391,7 @@
       <varlistentry>
         <term><varname>io.systemd.stub.kernel-cmdline-extra</varname></term>
         <listitem><para>If set, the value of this string is added to the list of kernel command line
-        arguments that are passed to the kernel.</para></listitem>
+        arguments that are measured in PCR12 and passed to the kernel.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
