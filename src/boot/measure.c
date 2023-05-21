@@ -144,6 +144,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "initrd",      required_argument, NULL, ARG_INITRD      },
                 { "splash",      required_argument, NULL, ARG_SPLASH      },
                 { "dtb",         required_argument, NULL, ARG_DTB         },
+                { "uname",       required_argument, NULL, ARG_UNAME       },
                 { "pcrpkey",     required_argument, NULL, ARG_PCRPKEY     },
                 { "current",     no_argument,       NULL, 'c'             },
                 { "bank",        required_argument, NULL, ARG_BANK        },
