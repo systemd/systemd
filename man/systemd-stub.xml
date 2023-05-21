@@ -57,6 +57,9 @@
       <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file of
       the OS the kernel belongs to, in the <literal>.osrel</literal> PE section.</para></listitem>
 
+      <listitem><para>Kernel version information, i.e. the output of <command>uname -r</command> for the
+      kernel included in the UKI, in the <literal>.uname</literal> PE section.</para></listitem>
+
       <listitem><para>The initrd will be loaded from the <literal>.initrd</literal> PE section.
       </para></listitem>
 
