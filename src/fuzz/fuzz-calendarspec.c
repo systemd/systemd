@@ -15,7 +15,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (!getenv("SYSTEMD_LOG_LEVEL"))
                 log_set_max_level(LOG_CRIT);
 
-        str = memdup_suffix0(data, size);
+        assert_se(str = memdup_suffix0(data, size));
 
         size_t l1 = strlen(str);
         const char* usecs = l1 < size ? str + l1 + 1 : "";
