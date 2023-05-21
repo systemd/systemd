@@ -658,10 +658,10 @@ def make_uki(opts):
         ('.osrel',   opts.os_release, True ),
         ('.cmdline', opts.cmdline,    True ),
         ('.dtb',     opts.devicetree, True ),
+        ('.uname',   opts.uname,      True ),
         ('.splash',  opts.splash,     True ),
         ('.pcrpkey', pcrpkey,         True ),
         ('.initrd',  initrd,          True ),
-        ('.uname',   opts.uname,      False),
 
         # linux shall be last to leave breathing room for decompression.
         # We'll add it later.
