@@ -63,6 +63,9 @@
       <listitem><para>A compiled binary DeviceTree will be looked for in the <literal>.dtb</literal> PE
       section.</para></listitem>
 
+      <listitem><para>Kernel version information, i.e. the output of <command>uname -r</command> for the
+      kernel included in the UKI, in the <literal>.uname</literal> PE section.</para></listitem>
+
       <listitem><para>The kernel command line to pass to the invoked kernel will be looked for in the
       <literal>.cmdline</literal> PE section.</para></listitem>
 
@@ -391,7 +394,7 @@
       <varlistentry>
         <term><varname>io.systemd.stub.kernel-cmdline-extra</varname></term>
         <listitem><para>If set, the value of this string is added to the list of kernel command line
-        arguments that are passed to the kernel.</para></listitem>
+        arguments that are measured in PCR12 and passed to the kernel.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
