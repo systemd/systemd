@@ -10,6 +10,7 @@
             'lldp:Show Link Layer Discovery Protocol status'
             'label:Show address labels'
             'delete:Delete virtual netdevs'
+            'edit:Edit network configurations'
             'up:Bring devices up'
             'down:Bring devices down'
             'renew:Renew dynamic configurations'
@@ -24,10 +25,10 @@
             local -a _links
             cmd="${${_networkctl_cmds[(r)$words[1]:*]%%:*}}"
             case $cmd in
-                (list|status|up|down|lldp|delete|renew|forcerenew|reconfigure)
-                    _links=( "${(foa)$(networkctl list --no-legend | awk 'BEGIN{OFS=":"} {sub(/[[ \t]+/, ""); print $2,$0}' 2>/dev/null)}" )
+                (list|status|up|down|edit|lldp|delete|renew|forcerenew|reconfigure)
+                    for link in ${(f)"$(_call_program links networkctl list --no-legend)"}; do _links+=($link[(w)2]:$link); done
                     if [[ -n "$_links" ]]; then
-                         _describe -t links 'links' _links
+                        _describe -t links 'links' _links _links $( [[ $cmd == edit ]] && print -- -P@ )
                     else
                         _message "no links"
                     fi
