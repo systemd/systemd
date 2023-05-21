@@ -1205,7 +1205,6 @@ static int discover_next_boot(sd_journal *j,
                 BootId **ret) {
 
         _cleanup_free_ BootId *next_boot = NULL;
-        char match[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX] = "_BOOT_ID=";
         sd_id128_t boot_id;
         int r;
 
@@ -1258,8 +1257,7 @@ static int discover_next_boot(sd_journal *j,
                 return r;
 
         /* Now seek to the last occurrence of this boot ID. */
-        sd_id128_to_string(next_boot->id, match + STRLEN("_BOOT_ID="));
-        r = sd_journal_add_match(j, match, sizeof(match) - 1);
+        r = add_match_boot_id(j, next_boot->id);
         if (r < 0)
                 return r;
 
@@ -1314,12 +1312,9 @@ static int get_boots(
          * If no reference is given, the journal head/tail will do,
          * they're "virtual" boots after all. */
         if (boot_id && !sd_id128_is_null(*boot_id)) {
-                char match[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX] = "_BOOT_ID=";
-
                 sd_journal_flush_matches(j);
 
-                sd_id128_to_string(*boot_id, match + STRLEN("_BOOT_ID="));
-                r = sd_journal_add_match(j, match, sizeof(match) - 1);
+                r = add_match_boot_id(j, *boot_id);
                 if (r < 0)
                         return r;
 
@@ -1460,7 +1455,6 @@ static int list_boots(sd_journal *j) {
 }
 
 static int add_boot(sd_journal *j) {
-        char match[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX] = "_BOOT_ID=";
         sd_id128_t boot_id;
         int r;
 
@@ -1492,9 +1486,7 @@ static int add_boot(sd_journal *j) {
                 return r == 0 ? -ENODATA : r;
         }
 
-        sd_id128_to_string(boot_id, match + STRLEN("_BOOT_ID="));
-
-        r = sd_journal_add_match(j, match, sizeof(match) - 1);
+        r = add_match_boot_id(j, boot_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match: %m");
 
