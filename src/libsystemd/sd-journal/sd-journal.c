@@ -812,7 +812,8 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
 
         /* If we hit EOF before, we don't need to look into this file again
          * unless direction changed or new entries appeared. */
-        if (f->last_direction == direction && f->location_type == LOCATION_TAIL &&
+        if (f->last_direction == direction &&
+            f->location_type == (direction == DIRECTION_DOWN ? LOCATION_TAIL : LOCATION_HEAD) &&
             n_entries == f->last_n_entries)
                 return 0;
 
@@ -940,7 +941,7 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                         remove_file_real(j, f);
                         continue;
                 } else if (r == 0) {
-                        f->location_type = LOCATION_TAIL;
+                        f->location_type = direction == DIRECTION_DOWN ? LOCATION_TAIL : LOCATION_HEAD;
                         continue;
                 }
 
