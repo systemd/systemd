@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "device-path-util.h"
 #include "proto/device-path.h"
 #include "proto/simple-text-io.h"
 #include "ticks.h"
@@ -265,6 +266,9 @@ char16_t *xstr8_to_path(const char *str8) {
 
 void mangle_stub_cmdline(char16_t *cmdline) {
         char16_t *p = cmdline;
+
+        if (!cmdline)
+                return;
 
         for (; *cmdline != '\0'; cmdline++)
                 /* Convert ASCII control characters to spaces. */
@@ -628,4 +632,27 @@ void *find_configuration_table(const EFI_GUID *guid) {
                         return ST->ConfigurationTable[i].VendorTable;
 
         return NULL;
+}
+
+char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path) {
+        if (!file_path)
+                return NULL;
+
+        /* A device path is allowed to have more than one file path node. If that is the case they are
+         * supposed to be concatenated. Unfortunately, the device path to text protocol simply converts the
+         * nodes individually and then combines those with the usual '/' for device path nodes. But this does
+         * not create a legal EFI file path that the file protocol can use. */
+
+        /* Make sure we really only got file paths. */
+        for (const EFI_DEVICE_PATH *node = file_path; !device_path_is_end(node);
+             node = device_path_next_node(node))
+                if (node->Type != MEDIA_DEVICE_PATH || node->SubType != MEDIA_FILEPATH_DP)
+                        return NULL;
+
+        _cleanup_free_ char16_t *file_path_str = NULL;
+        if (device_path_to_str(file_path, &file_path_str) != EFI_SUCCESS)
+                return NULL;
+
+        convert_efi_path(file_path_str);
+        return xasprintf("%ls.extra.d", file_path_str);
 }
