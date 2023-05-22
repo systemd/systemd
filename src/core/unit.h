@@ -904,7 +904,6 @@ void unit_notify_cgroup_oom(Unit *u, bool managed_oom);
 
 typedef enum UnitNotifyFlags {
         UNIT_NOTIFY_RELOAD_FAILURE    = 1 << 0,
-        UNIT_NOTIFY_WILL_AUTO_RESTART = 1 << 1,
 } UnitNotifyFlags;
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlags flags);
