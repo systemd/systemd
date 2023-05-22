@@ -3766,6 +3766,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         return;
 
                 s->main_pid = 0;
+                s->main_pid_known = false;
                 exec_status_exit(&s->main_exec_status, &s->exec_context, pid, code, status);
 
                 if (s->main_command) {
