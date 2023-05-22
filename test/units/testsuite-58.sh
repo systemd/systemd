@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
+# shellcheck disable=SC2317
 set -eux
 set -o pipefail
 
@@ -11,6 +12,8 @@ if ! command -v systemd-repart &>/dev/null; then
     exit 0
 fi
 
+# shellcheck source=test/units/test-control.sh
+. "$(dirname "$0")"/test-control.sh
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
@@ -88,7 +91,7 @@ else
     exit 1
 fi
 
-test_basic() {
+testcase_basic() {
     local defs imgs output
     local loop volume
 
@@ -338,7 +341,7 @@ $imgs/zzz7 : start=     6291416, size=       98304, type=0FC63DAF-8483-4772-8E79
     umount "$imgs/mount"
 }
 
-test_dropin() {
+testcase_dropin() {
     local defs imgs output
 
     defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
@@ -396,7 +399,7 @@ EOF
 EOF
 }
 
-test_multiple_definitions() {
+testcase_multiple_definitions() {
     local defs imgs output
 
     defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
@@ -467,7 +470,7 @@ EOF
 EOF
 }
 
-test_copy_blocks() {
+testcase_copy_blocks() {
     local defs imgs output
 
     defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
@@ -549,7 +552,7 @@ EOF
     cmp "$imgs/zzz" "$imgs/yyy"
 }
 
-test_unaligned_partition() {
+testcase_unaligned_partition() {
     local defs imgs output
 
     defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
@@ -584,7 +587,7 @@ EOF
     assert_in "$imgs/unaligned3 : start=     3662944, size=    17308536, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\", attrs=\"GUID:59\"" "$output"
 }
 
-test_issue_21817() {
+testcase_issue_21817() {
     local defs imgs output
 
     # testcase for #21817
@@ -620,7 +623,7 @@ EOF
     assert_in "$imgs/21817.img2 : start=      104448, size=      (100319| 98304)," "$output"
 }
 
-test_issue_24553() {
+testcase_issue_24553() {
     local defs imgs output
 
     # testcase for #24553
@@ -720,7 +723,7 @@ EOF
     assert_in "$imgs/zzz3 : start=    21495848, size=     3669936, type=${usr_guid}, uuid=${usr_uuid}, name=\"usr-${architecture}\", attrs=\"GUID:59\"" "$output"
 }
 
-test_zero_uuid() {
+testcase_zero_uuid() {
     local defs imgs output
 
     defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
@@ -748,7 +751,7 @@ EOF
     assert_in "$imgs/zero1 : start=        2048, size=       20480, type=${root_guid}, uuid=00000000-0000-0000-0000-000000000000" "$output"
 }
 
-test_verity() {
+testcase_verity() {
     local defs imgs output
 
     defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
@@ -837,7 +840,7 @@ EOF
     systemd-dissect -U "$imgs/mnt"
 }
 
-test_exclude_files() {
+testcase_exclude_files() {
     local defs imgs root output
 
     defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
@@ -922,7 +925,7 @@ EOF
     losetup -d "$loop"
 }
 
-test_minimize() {
+testcase_minimize() {
     local defs imgs output
 
     if systemd-detect-virt --quiet --container; then
@@ -1035,17 +1038,7 @@ EOF
     assert_in "${loop}p3 : start= *${start}, size= *${size}, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=DB081670-07AE-48CA-9F5E-813D5E40B976, name=\"linux-generic-2\"" "$output"
 }
 
-test_basic
-test_dropin
-test_multiple_definitions
-test_copy_blocks
-test_unaligned_partition
-test_issue_21817
-test_issue_24553
-test_zero_uuid
-test_verity
-test_exclude_files
-test_minimize
+run_testcases
 
 # Valid block sizes on the Linux block layer are >= 512 and <= PAGE_SIZE, and
 # must be powers of 2. Which leaves exactly four different ones to test on
