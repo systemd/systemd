@@ -37,6 +37,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from hashlib import sha256
 from typing import (Any,
                     Callable,
                     IO,
@@ -46,6 +47,18 @@ from typing import (Any,
 import pefile  # type: ignore
 
 __version__ = '{{PROJECT_VERSION}} ({{GIT_VERSION}})'
+
+SECTIONS_TO_SHOW = {
+    b'.linux' : 'binary',
+    b'.initrd' : 'binary',
+    b'.splash' : 'binary',
+    b'.dtb' : 'binary',
+    b'.cmdline' : 'text',
+    b'.osrel' : 'text',
+    b'.uname' : 'text',
+    b'.pcrpkey' : 'text',
+    b'.pcrsig' : 'text',
+}
 
 EFI_ARCH_MAP = {
     # host_arch glob : [efi_arch, 32_bit_efi_arch if mixed mode is supported]
@@ -262,6 +275,18 @@ class Section:
 
         return cls.create(name, contents)
 
+    @classmethod
+    def parse_text_arg(cls, s):
+        try:
+            name, ttype = s.split(':')
+        except ValueError as e:
+            raise ValueError(f'Cannot parse section spec (name or type missing): {s!r}') from e
+        if ttype != 'binary' and ttype != 'text':
+            raise ValueError(f'Cannot parse section spec (type can only be binary or text): {s!r}')
+
+        SECTIONS_TO_SHOW[name.encode('utf-8')] = ttype
+        return SECTIONS_TO_SHOW
+
     def size(self):
         return self.content.stat().st_size
 
@@ -327,7 +352,7 @@ def check_splash(filename):
     print(f'Splash image {filename} is {img.width}×{img.height} pixels')
 
 
-def check_inputs(opts):
+def check_create_inputs(opts):
     for name, value in vars(opts).items():
         if name in {'output', 'tools'}:
             continue
@@ -614,31 +639,32 @@ def make_uki(opts):
     # kernel payload signing
 
     sign_tool = None
-    if opts.signtool == 'sbsign':
-        sign_tool = find_sbsign(opts=opts)
-        sign = sbsign_sign
-        verify_tool = SBVERIFY
-    else:
-        sign_tool = find_pesign(opts=opts)
-        sign = pesign_sign
-        verify_tool = PESIGCHECK
-
     sign_args_present = opts.sb_key or opts.sb_cert_name
-
-    if sign_tool is None and sign_args_present:
-        raise ValueError(f'{opts.signtool}, required for signing, is not installed')
-
     sign_kernel = opts.sign_kernel
-    if sign_kernel is None and opts.linux is not None and sign_args_present:
-        # figure out if we should sign the kernel
-        sign_kernel = verify(verify_tool, opts)
+    sign = None
+    linux = opts.linux
 
-    if sign_kernel:
-        linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
-        linux = linux_signed.name
-        sign(sign_tool, opts.linux, linux, opts=opts)
-    else:
-        linux = opts.linux
+    if sign_args_present:
+        if opts.signtool == 'sbsign':
+            sign_tool = find_sbsign(opts=opts)
+            sign = sbsign_sign
+            verify_tool = SBVERIFY
+        else:
+            sign_tool = find_pesign(opts=opts)
+            sign = pesign_sign
+            verify_tool = PESIGCHECK
+
+        if sign_tool is None:
+            raise ValueError(f'{opts.signtool}, required for signing, is not installed')
+
+        if sign_kernel is None and opts.linux is not None:
+            # figure out if we should sign the kernel
+            sign_kernel = verify(verify_tool, opts)
+
+        if sign_kernel:
+            linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
+            linux = linux_signed.name
+            sign(sign_tool, opts.linux, linux, opts=opts)
 
     if opts.uname is None and opts.linux is not None:
         print('Kernel version not specified, starting autodetection 😖.')
@@ -686,22 +712,41 @@ def make_uki(opts):
 
     if sign_args_present:
         unsigned = tempfile.NamedTemporaryFile(prefix='uki')
-        output = unsigned.name
+        unsigned_output = unsigned.name
     else:
-        output = opts.output
+        unsigned_output = opts.output
 
-    pe_add_sections(uki, output)
+    pe_add_sections(uki, unsigned_output)
 
     # UKI signing
 
     if sign_args_present:
-        sign(sign_tool, unsigned.name, opts.output, opts=opts)
+        assert sign
+        sign(sign_tool, unsigned_output, opts.output, opts=opts)
 
         # We end up with no executable bits, let's reapply them
         os.umask(umask := os.umask(0))
         os.chmod(opts.output, 0o777 & ~umask)
 
     print(f"Wrote {'signed' if sign_args_present else 'unsigned'} {opts.output}")
+
+
+def pe_read_sections(uki: str):
+    pe = pefile.PE(uki, fast_load=True)
+    print(f"Sections in {uki}:\n")
+    for section in pe.sections:
+        name = section.Name.decode().rstrip('\x00').encode('utf-8')
+        if not name in SECTIONS_TO_SHOW:
+            continue
+        start = section.PointerToRawData
+        size = section.Misc_VirtualSize
+        end = start + size
+        data = pe.__data__[start:end]
+        if SECTIONS_TO_SHOW[name] == 'binary':
+            h = sha256(data).hexdigest()
+            print(f"{name}: ({size} bytes, sha256 {h})\n")
+        else: # text
+            print(f"{name}:\n{data.decode()}\n")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -831,14 +876,47 @@ class ConfigItem:
             value = self.metavar or self.argparse_dest().upper()
         return (section_name, key, value)
 
-
-CONFIG_ITEMS = [
+CONFIG_ITEMS_COMMON = [
     ConfigItem(
         '--version',
         action = 'version',
         version = f'ukify {__version__}',
     ),
 
+    ConfigItem(
+        ('--config', '-c'),
+        metavar = 'PATH',
+        help = 'configuration file',
+    ),
+
+    ConfigItem(
+        '--summary',
+        help = 'print parsed config and exit',
+        action = 'store_true',
+    ),
+]
+
+CONFIG_ITEMS_DISPLAY = [
+    ConfigItem(
+        'file',
+        nargs = '?',
+        type = pathlib.Path,
+        help = 'path to the PE.',
+        config_key = 'UKI/PEPath',
+    ),
+
+    ConfigItem(
+        '--section',
+        dest = 'sections',
+        metavar = 'NAME:TYPE',
+        type = Section.parse_text_arg,
+        action = 'append',
+        default = [],
+        help = 'additional section as name and content type (binary or text). Example: .linux:binary',
+    ),
+]
+
+CONFIG_ITEMS_CREATE = [
     ConfigItem(
         '--summary',
         help = 'print parsed config and exit',
@@ -862,12 +940,6 @@ CONFIG_ITEMS = [
         help = 'initrd files [.initrd section]',
         config_key = 'UKI/Initrd',
         config_push = ConfigItem.config_list_prepend,
-    ),
-
-    ConfigItem(
-        ('--config', '-c'),
-        metavar = 'PATH',
-        help = 'configuration file',
     ),
 
     ConfigItem(
@@ -1042,9 +1114,25 @@ CONFIG_ITEMS = [
     ),
 ]
 
-CONFIGFILE_ITEMS = { item.config_key:item
-                     for item in CONFIG_ITEMS
-                     if item.config_key }
+
+CONFIGFILE_CREATE_ITEMS = { item.config_key:item
+                            for item in CONFIG_ITEMS_CREATE
+                            if item.config_key }
+
+
+CONFIGFILE_DISPLAY_ITEMS = { item.config_key:item
+                             for item in CONFIG_ITEMS_DISPLAY
+                             if item.config_key }
+
+
+CONFIGFILE_COMMON_ITEMS = { item.config_key:item
+                            for item in CONFIG_ITEMS_COMMON
+                            if item.config_key }
+
+
+CONFIGFILE_ALL_ITEMS = { **CONFIGFILE_CREATE_ITEMS,
+                         **CONFIGFILE_DISPLAY_ITEMS,
+                         **CONFIGFILE_COMMON_ITEMS }
 
 
 def apply_config(namespace, filename=None):
@@ -1081,15 +1169,15 @@ def apply_config(namespace, filename=None):
         else:
             group = None
         for key, value in section.items():
-            if item := CONFIGFILE_ITEMS.get(f'{section_name}/{key}'):
+            if item := CONFIGFILE_ALL_ITEMS.get(f'{section_name}/{key}'):
                 item.apply_config(namespace, section_name, group, key, value)
             else:
                 print(f'Unknown config setting [{section_name}] {key}=')
 
 
-def config_example():
+def config_example(conf_items):
     prev_section = None
-    for item in CONFIG_ITEMS:
+    for item in conf_items:
         section, key, value = item.config_example()
         if section:
             if prev_section != section:
@@ -1100,27 +1188,43 @@ def config_example():
             yield f'{key} = {value}'
 
 
-def create_parser():
-    p = argparse.ArgumentParser(
-        description='Build and sign Unified Kernel Images',
-        allow_abbrev=False,
-        usage='''\
-ukify [options…] [LINUX INITRD…]
-''',
-        epilog='\n  '.join(('config file:', *config_example())),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-
-    for item in CONFIG_ITEMS:
+def add_items_to_parser(conf_items, p):
+    for item in conf_items:
         item.add_to(p)
 
     # Suppress printing of usage synopsis on errors
     p.error = lambda message: p.exit(2, f'{p.prog}: error: {message}\n')
 
+
+def create_main_parser():
+    p = argparse.ArgumentParser(
+        description='Create and display information of Unified Kernel Images',
+        allow_abbrev=False,
+        usage = """\nukify [options…] [actions]""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    add_items_to_parser(CONFIG_ITEMS_COMMON, p)
+
     return p
 
 
-def finalize_options(opts):
+def make_subparser(subparser, name, conf_items, descr, usage):
+    p = subparser.add_parser(
+        name,
+        description=descr,
+        allow_abbrev=False,
+        usage=usage,
+        epilog= '\n  '.join(('config file:', *config_example(conf_items))),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    add_items_to_parser(conf_items, p)
+
+    return p
+
+
+def finalize_create_options(opts):
     if opts.cmdline and opts.cmdline.startswith('@'):
         opts.cmdline = pathlib.Path(opts.cmdline[1:])
     elif opts.cmdline:
@@ -1168,16 +1272,8 @@ def finalize_options(opts):
     for section in opts.sections:
         section.check_name()
 
-    if opts.summary:
-        # TODO: replace pprint() with some fancy formatting.
-        pprint.pprint(vars(opts))
-        sys.exit()
 
-
-def parse_args(args=None):
-    p = create_parser()
-    opts = p.parse_args(args)
-
+def apply_create_config(opts):
     # Check that --pcr-public-key=, --pcr-private-key=, and --phases=
     # have either the same number of arguments are are not specified at all.
     n_pcr_pub = None if opts.pcr_public_keys is None else len(opts.pcr_public_keys)
@@ -1187,18 +1283,58 @@ def parse_args(args=None):
         raise ValueError('--pcr-public-key= specifications must match --pcr-private-key=')
     if n_phase_path_groups is not None and n_phase_path_groups != n_pcr_priv:
         raise ValueError('--phases= specifications must match --pcr-private-key=')
+    finalize_create_options(opts)
+    return opts
 
+
+def apply_display_config(opts):
+    if not opts.file:
+        raise ValueError("display command requires a file name")
+    return opts
+
+
+def create_subparser(subparser):
+    cmdname = 'create'
+    descr = 'Build and sign Unified Kernel Images'
+    usage = f"""\nukify {cmdname} [options…] [LINUX INITRD…]"""
+    return make_subparser(subparser, cmdname, CONFIG_ITEMS_CREATE, descr, usage)
+
+
+def display_subparser(subparser):
+    cmdname = 'display'
+    descr = 'Display PE information'
+    usage = f"""\nukify {cmdname} [options…] [PE_FILE]"""
+    return make_subparser(subparser, cmdname, CONFIG_ITEMS_DISPLAY, descr, usage)
+
+
+def parse_args(args=None):
+    p = create_main_parser()
+    subparsers = p.add_subparsers(help='action to perform. Run ukify [action] --help for more info', required=True, dest='action')
+    create_subparser(subparsers)
+    display_subparser(subparsers)
+    opts = p.parse_args(args)
     apply_config(opts)
 
-    finalize_options(opts)
+    if opts.summary:
+        # TODO: replace pprint() with some fancy formatting.
+        pprint.pprint(vars(opts))
+        sys.exit()
+
+    if opts.action == "display":
+        apply_display_config(opts)
+    else:
+        apply_create_config(opts)
 
     return opts
 
 
 def main():
     opts = parse_args()
-    check_inputs(opts)
-    make_uki(opts)
+    if opts.action == "display":
+        pe_read_sections(opts.file)
+    else:
+        check_create_inputs(opts)
+        make_uki(opts)
 
 
 if __name__ == '__main__':

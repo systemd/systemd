@@ -301,6 +301,13 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>DumpPESections=<replaceable>PATH</replaceable></varname></term>
+          <term><option>--dump-sections=<replaceable>PATH</replaceable></option></term>
+
+          <listitem><para>Print the contents or sizes of well-known sections in the PE binary <replaceable>PATH</replaceable>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>SigningEngine=<replaceable>ENGINE</replaceable></varname></term>
           <term><option>--signing-engine=<replaceable>ENGINE</replaceable></option></term>
 
