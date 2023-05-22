@@ -120,6 +120,7 @@ typedef enum FilterPartitionType {
 } FilterPartitionsType;
 
 static bool arg_dry_run = true;
+static bool arg_refuse_removable = false;
 static const char *arg_node = NULL;
 static char *arg_root = NULL;
 static char *arg_image = NULL;
@@ -5077,6 +5078,20 @@ static int context_can_factory_reset(Context *context) {
         return false;
 }
 
+static int context_check_is_removable(Context *context) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        int r;
+
+        assert(context);
+
+        r = sd_device_new_from_devname(&dev, context->node);
+        if (r < 0)
+                return r;
+
+        return device_is_removable(dev);
+
+}
+
 static int resolve_copy_blocks_auto_candidate(
                 dev_t partition_devno,
                 GptPartitionType partition_type,
@@ -5784,6 +5799,8 @@ static int help(void) {
                "     --dry-run=BOOL       Whether to run dry-run operation\n"
                "     --empty=MODE         One of refuse, allow, require, force, create; controls\n"
                "                          how to handle empty disks lacking partition tables\n"
+               "     --refuse-removable=BOOL\n"
+               "                          Whether to refuse operation on removable devices\n"
                "     --discard=BOOL       Whether to discard backing blocks for new partitions\n"
                "     --pretty=BOOL        Whether to show pretty summary before doing changes\n"
                "     --factory-reset=BOOL Whether to remove data partitions before recreating\n"
@@ -5836,6 +5853,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_LEGEND,
                 ARG_DRY_RUN,
                 ARG_EMPTY,
+                ARG_REFUSE_REMOVABLE,
                 ARG_DISCARD,
                 ARG_FACTORY_RESET,
                 ARG_CAN_FACTORY_RESET,
@@ -5869,6 +5887,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-legend",            no_argument,       NULL, ARG_NO_LEGEND            },
                 { "dry-run",              required_argument, NULL, ARG_DRY_RUN              },
                 { "empty",                required_argument, NULL, ARG_EMPTY                },
+                { "refuse-removable",     required_argument, NULL, ARG_REFUSE_REMOVABLE     },
                 { "discard",              required_argument, NULL, ARG_DISCARD              },
                 { "factory-reset",        required_argument, NULL, ARG_FACTORY_RESET        },
                 { "can-factory-reset",    no_argument,       NULL, ARG_CAN_FACTORY_RESET    },
@@ -5943,6 +5962,12 @@ static int parse_argv(int argc, char *argv[]) {
                         } else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to parse --empty= parameter: %s", optarg);
+                        break;
+
+                case ARG_REFUSE_REMOVABLE:
+                        r = parse_boolean_argument("--refuse-removable=", optarg, &arg_refuse_removable);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_DISCARD:
@@ -6786,6 +6811,16 @@ static int run(int argc, char *argv[]) {
                 r = context_load_partition_table(context);
                 if (r < 0)
                         return r;
+        }
+
+        if (arg_refuse_removable) {
+                r = context_check_is_removable(context);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        log_notice("Block device is removable and --refuse-removable is enabled, refusing.");
+                        return 0;
+                }
         }
 
         r = context_read_seed(context, arg_root);
