@@ -3192,12 +3192,11 @@ int unit_add_dependency(
                 return r;
         notify = r > 0;
 
-        if (inverse_table[d] != _UNIT_DEPENDENCY_INVALID && inverse_table[d] != d) {
-                r = unit_add_dependency_hashmap(&other->dependencies, inverse_table[d], u, 0, mask);
-                if (r < 0)
-                        return r;
-                notify_other = r > 0;
-        }
+        assert(inverse_table[d] >= 0 && inverse_table[d] < _UNIT_DEPENDENCY_MAX);
+        r = unit_add_dependency_hashmap(&other->dependencies, inverse_table[d], u, 0, mask);
+        if (r < 0)
+                return r;
+        notify_other = r > 0;
 
         if (add_reference) {
                 r = unit_add_dependency_hashmap(&u->dependencies, UNIT_REFERENCES, other, mask, 0);
@@ -4890,7 +4889,14 @@ int unit_setup_exec_runtime(Unit *u) {
         assert(ec);
 
         /* Try to get it from somebody else */
-        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_JOINS_NAMESPACE_OF) {
+        UnitDependencyInfo info;
+        UNIT_FOREACH_DEPENDENCY_WITH_INFO(other, info, u, UNIT_ATOM_JOINS_NAMESPACE_OF) {
+                /* When a.service has JoinsNamespaceOf=b.service, then both a.service and b.service have
+                 * the UNIT_JOINS_NAMESPACE_OF dependency reference to the other unit. To distinguish which
+                 * unit originates the dependency, we need to check UnitDependencyInfo.origin_mask. */
+                if (info.origin_mask == 0)
+                        continue;
+
                 r = exec_shared_runtime_acquire(u->manager, NULL, other->id, false, &esr);
                 if (r < 0)
                         return r;
