@@ -4,10 +4,10 @@
 set -eux
 set -o pipefail
 
-# shellcheck source=test/units/util.sh
-. "$(dirname "$0")"/util.sh
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
 
 enable_debug() {
     mkdir -p /run/systemd/system/systemd-localed.service.d

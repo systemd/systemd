@@ -28,10 +28,10 @@
 set -eux
 set -o pipefail
 
-# shellcheck source=test/units/util.sh
-. "$(dirname "$0")"/util.sh
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
 
 
 export SYSTEMD_LOG_LEVEL=debug
