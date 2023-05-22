@@ -230,7 +230,8 @@ typedef struct Partition {
 
         char *format;
         char **copy_files;
-        char **exclude_files;
+        char **exclude_files_source;
+        char **exclude_files_target;
         char **make_directories;
         EncryptMode encrypt;
         VerityMode verity;
@@ -374,7 +375,8 @@ static Partition* partition_free(Partition *p) {
 
         free(p->format);
         strv_free(p->copy_files);
-        strv_free(p->exclude_files);
+        strv_free(p->exclude_files_source);
+        strv_free(p->exclude_files_target);
         strv_free(p->make_directories);
         free(p->verity_match_key);
 
@@ -401,7 +403,8 @@ static void partition_foreignize(Partition *p) {
 
         p->format = mfree(p->format);
         p->copy_files = strv_free(p->copy_files);
-        p->exclude_files = strv_free(p->exclude_files);
+        p->exclude_files_source = strv_free(p->exclude_files_source);
+        p->exclude_files_target = strv_free(p->exclude_files_target);
         p->make_directories = strv_free(p->make_directories);
         p->verity_match_key = mfree(p->verity_match_key);
 
@@ -1597,31 +1600,32 @@ static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_minimize, minimize_mod
 static int partition_read_definition(Partition *p, const char *path, const char *const *conf_file_dirs) {
 
         ConfigTableItem table[] = {
-                { "Partition", "Type",            config_parse_type,          0, &p->type              },
-                { "Partition", "Label",           config_parse_label,         0, &p->new_label         },
-                { "Partition", "UUID",            config_parse_uuid,          0, p                     },
-                { "Partition", "Priority",        config_parse_int32,         0, &p->priority          },
-                { "Partition", "Weight",          config_parse_weight,        0, &p->weight            },
-                { "Partition", "PaddingWeight",   config_parse_weight,        0, &p->padding_weight    },
-                { "Partition", "SizeMinBytes",    config_parse_size4096,      1, &p->size_min          },
-                { "Partition", "SizeMaxBytes",    config_parse_size4096,     -1, &p->size_max          },
-                { "Partition", "PaddingMinBytes", config_parse_size4096,      1, &p->padding_min       },
-                { "Partition", "PaddingMaxBytes", config_parse_size4096,     -1, &p->padding_max       },
-                { "Partition", "FactoryReset",    config_parse_bool,          0, &p->factory_reset     },
-                { "Partition", "CopyBlocks",      config_parse_copy_blocks,   0, p                     },
-                { "Partition", "Format",          config_parse_fstype,        0, &p->format            },
-                { "Partition", "CopyFiles",       config_parse_copy_files,    0, &p->copy_files        },
-                { "Partition", "ExcludeFiles",    config_parse_exclude_files, 0, &p->exclude_files     },
-                { "Partition", "MakeDirectories", config_parse_make_dirs,     0, p                     },
-                { "Partition", "Encrypt",         config_parse_encrypt,       0, &p->encrypt           },
-                { "Partition", "Verity",          config_parse_verity,        0, &p->verity            },
-                { "Partition", "VerityMatchKey",  config_parse_string,        0, &p->verity_match_key  },
-                { "Partition", "Flags",           config_parse_gpt_flags,     0, &p->gpt_flags         },
-                { "Partition", "ReadOnly",        config_parse_tristate,      0, &p->read_only         },
-                { "Partition", "NoAuto",          config_parse_tristate,      0, &p->no_auto           },
-                { "Partition", "GrowFileSystem",  config_parse_tristate,      0, &p->growfs            },
-                { "Partition", "SplitName",       config_parse_string,        0, &p->split_name_format },
-                { "Partition", "Minimize",        config_parse_minimize,      0, &p->minimize          },
+                { "Partition", "Type",               config_parse_type,          0, &p->type                 },
+                { "Partition", "Label",              config_parse_label,         0, &p->new_label            },
+                { "Partition", "UUID",               config_parse_uuid,          0, p                        },
+                { "Partition", "Priority",           config_parse_int32,         0, &p->priority             },
+                { "Partition", "Weight",             config_parse_weight,        0, &p->weight               },
+                { "Partition", "PaddingWeight",      config_parse_weight,        0, &p->padding_weight       },
+                { "Partition", "SizeMinBytes",       config_parse_size4096,      1, &p->size_min             },
+                { "Partition", "SizeMaxBytes",       config_parse_size4096,     -1, &p->size_max             },
+                { "Partition", "PaddingMinBytes",    config_parse_size4096,      1, &p->padding_min          },
+                { "Partition", "PaddingMaxBytes",    config_parse_size4096,     -1, &p->padding_max          },
+                { "Partition", "FactoryReset",       config_parse_bool,          0, &p->factory_reset        },
+                { "Partition", "CopyBlocks",         config_parse_copy_blocks,   0, p                        },
+                { "Partition", "Format",             config_parse_fstype,        0, &p->format               },
+                { "Partition", "CopyFiles",          config_parse_copy_files,    0, &p->copy_files           },
+                { "Partition", "ExcludeFiles",       config_parse_exclude_files, 0, &p->exclude_files_source },
+                { "Partition", "ExcludeFilesTarget", config_parse_exclude_files, 0, &p->exclude_files_target },
+                { "Partition", "MakeDirectories",    config_parse_make_dirs,     0, p                        },
+                { "Partition", "Encrypt",            config_parse_encrypt,       0, &p->encrypt              },
+                { "Partition", "Verity",             config_parse_verity,        0, &p->verity               },
+                { "Partition", "VerityMatchKey",     config_parse_string,        0, &p->verity_match_key     },
+                { "Partition", "Flags",              config_parse_gpt_flags,     0, &p->gpt_flags            },
+                { "Partition", "ReadOnly",           config_parse_tristate,      0, &p->read_only            },
+                { "Partition", "NoAuto",             config_parse_tristate,      0, &p->no_auto              },
+                { "Partition", "GrowFileSystem",     config_parse_tristate,      0, &p->growfs               },
+                { "Partition", "SplitName",          config_parse_string,        0, &p->split_name_format    },
+                { "Partition", "Minimize",           config_parse_minimize,      0, &p->minimize             },
                 {}
         };
         int r;
@@ -3913,8 +3917,24 @@ static int make_copy_files_denylist(
 
         /* Add the user configured excludes. */
 
-        STRV_FOREACH(e, p->exclude_files) {
+        STRV_FOREACH(e, p->exclude_files_source) {
                 r = add_exclude_path(*e, &denylist, endswith(*e, "/") ? DENY_CONTENTS : DENY_INODE);
+                if (r < 0)
+                        return r;
+        }
+
+        STRV_FOREACH(e, p->exclude_files_target) {
+                _cleanup_free_ char *path = NULL;
+
+                const char *s = path_startswith(*e, target);
+                if (!s)
+                        continue;
+
+                path = path_join(source, s);
+                if (!path)
+                        return log_oom();
+
+                r = add_exclude_path(path, &denylist, endswith(*e, "/") ? DENY_CONTENTS : DENY_INODE);
                 if (r < 0)
                         return r;
         }
