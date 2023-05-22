@@ -120,6 +120,7 @@ typedef enum FilterPartitionType {
 } FilterPartitionsType;
 
 static bool arg_dry_run = true;
+static bool arg_skip_removable = false;
 static const char *arg_node = NULL;
 static char *arg_root = NULL;
 static char *arg_image = NULL;
@@ -5077,6 +5078,40 @@ static int context_can_factory_reset(Context *context) {
         return false;
 }
 
+static int context_check_is_removable(Context *context) {
+        _cleanup_(sd_device_unrefp) sd_device *ctx_dev = NULL;
+        sd_device *dev = NULL;
+        const char *subsystem;
+        int r;
+
+        assert(context);
+
+        r = sd_device_new_from_devname(&ctx_dev, context->node);
+        if (r < 0)
+                return r;
+
+        dev = ctx_dev;
+        for (;;) {
+                r = device_get_sysattr_bool(&dev, "removable");
+                if (r >= 0)
+                        return r;
+
+                r = sd_device_get_parent(dev, &dev);
+                if (r == -ENOENT)
+                        break;
+                if (r < 0)
+                        return r;
+
+                r = sd_device_get_subsystem(dev, &subsystem);
+                if (r < 0)
+                        return r;
+                if (!streq(subsystem, "block"))
+                        break;
+        }
+
+        return false;
+}
+
 static int resolve_copy_blocks_auto_candidate(
                 dev_t partition_devno,
                 GptPartitionType partition_type,
@@ -5784,6 +5819,8 @@ static int help(void) {
                "     --dry-run=BOOL       Whether to run dry-run operation\n"
                "     --empty=MODE         One of refuse, allow, require, force, create; controls\n"
                "                          how to handle empty disks lacking partition tables\n"
+               "     --skip-removable=BOOL\n"
+               "                          Whether to do nothing if device is removable"
                "     --discard=BOOL       Whether to discard backing blocks for new partitions\n"
                "     --pretty=BOOL        Whether to show pretty summary before doing changes\n"
                "     --factory-reset=BOOL Whether to remove data partitions before recreating\n"
@@ -5836,6 +5873,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_LEGEND,
                 ARG_DRY_RUN,
                 ARG_EMPTY,
+                ARG_SKIP_REMOVABLE,
                 ARG_DISCARD,
                 ARG_FACTORY_RESET,
                 ARG_CAN_FACTORY_RESET,
@@ -5869,6 +5907,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-legend",            no_argument,       NULL, ARG_NO_LEGEND            },
                 { "dry-run",              required_argument, NULL, ARG_DRY_RUN              },
                 { "empty",                required_argument, NULL, ARG_EMPTY                },
+                { "skip-removable",       required_argument, NULL, ARG_SKIP_REMOVABLE       },
                 { "discard",              required_argument, NULL, ARG_DISCARD              },
                 { "factory-reset",        required_argument, NULL, ARG_FACTORY_RESET        },
                 { "can-factory-reset",    no_argument,       NULL, ARG_CAN_FACTORY_RESET    },
@@ -5943,6 +5982,12 @@ static int parse_argv(int argc, char *argv[]) {
                         } else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to parse --empty= parameter: %s", optarg);
+                        break;
+
+                case ARG_SKIP_REMOVABLE:
+                        r = parse_boolean_argument("--skip-removable=", optarg, &arg_skip_removable);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_DISCARD:
@@ -6742,6 +6787,16 @@ static int run(int argc, char *argv[]) {
         r = find_root(context);
         if (r < 0)
                 return r;
+
+        if (arg_skip_removable) {
+                r = context_check_is_removable(context);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        log_notice("Block device is removable and --skip-removable is enabled, refusing.", TODO);
+                        return 0;
+                }
+        }
 
         if (arg_size != UINT64_MAX) {
                 r = resize_backing_fd(
