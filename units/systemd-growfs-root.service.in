@@ -10,9 +10,16 @@
 [Unit]
 Description=Grow Root File System
 Documentation=man:systemd-growfs-root.service(8)
+
 DefaultDependencies=no
+# Partitions must be resized first
+After=systemd-repart.service
+# Make sure the root fs is marked writable before we resize it
+After=systemd-remount-fs.service
+# The file system should be writable before root-fs-ready.target
+Before=root-fs-ready.target
+
 Conflicts=shutdown.target
-After=systemd-repart.service systemd-remount-fs.service
 Before=shutdown.target
 
 [Service]

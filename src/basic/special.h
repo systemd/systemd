@@ -78,7 +78,7 @@
  * implementations that can run side-by-side.
  */
 
-/* Magic early boot services */
+/* Magic early boot services and targets */
 #define SPECIAL_FSCK_SERVICE "systemd-fsck@.service"
 #define SPECIAL_FSCK_ROOT_SERVICE "systemd-fsck-root.service"
 #define SPECIAL_FSCK_USR_SERVICE "systemd-fsck-usr.service"
@@ -92,6 +92,7 @@
 #define SPECIAL_GROWFS_ROOT_SERVICE "systemd-growfs-root.service"
 #define SPECIAL_PCRFS_SERVICE "systemd-pcrfs@.service"
 #define SPECIAL_PCRFS_ROOT_SERVICE "systemd-pcrfs-root.service"
+#define SPECIAL_ROOT_FS_READY_TARGET "root-fs-ready.target"
 
 /* Services systemd relies on */
 #define SPECIAL_DBUS_SERVICE "dbus.service"
