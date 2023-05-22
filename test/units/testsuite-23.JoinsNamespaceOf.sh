@@ -18,4 +18,11 @@ systemctl start testsuite-23-joins-namespace-of-4.service
 systemctl start testsuite-23-joins-namespace-of-5.service
 systemctl stop testsuite-23-joins-namespace-of-4.service
 
+systemctl start testsuite-23-joins-namespace-of-6.service
+systemctl start testsuite-23-joins-namespace-of-7.service
+systemctl start testsuite-23-joins-namespace-of-8.service
+systemctl start testsuite-23-joins-namespace-of-9.service
+systemctl stop testsuite-23-joins-namespace-of-6.service
+systemctl stop testsuite-23-joins-namespace-of-7.service
+
 systemd-analyze log-level info
