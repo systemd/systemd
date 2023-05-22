@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 /* Usage:
- * ./test-session-properties <SESSION-OBJECT-PATH>
+ * ./test-session-properties <SESSION-OBJECT-PATH> [<TTY>]
  * e.g.,
- * ./test-session-properties /org/freedesktop/login1/session/_32
+ * ./test-session-properties /org/freedesktop/login1/session/_32 /dev/tty2
  */
 
 #include <fcntl.h>
@@ -17,6 +17,8 @@
 #include "string-util.h"
 #include "terminal-util.h"
 #include "tests.h"
+
+static const char *arg_tty = NULL;
 
 static BusLocator session;
 
@@ -105,10 +107,12 @@ TEST(set_tty) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus* bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *tty = NULL;
-        const char *path = "/dev/tty2"; /* testsuite uses tty2 */
         int fd;
 
-        fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY);
+        if (!arg_tty)
+                return;
+
+        fd = open(arg_tty, O_RDWR|O_CLOEXEC|O_NOCTTY);
         assert_se(fd >= 0);
 
         assert_se(sd_bus_open_system(&bus) >= 0);
@@ -135,6 +139,9 @@ static int intro(void) {
                 .path = saved_argv[1],
                 .interface = "org.freedesktop.login1.Session",
         };
+
+        if (saved_argc > 2)
+                arg_tty = saved_argv[2];
 
         return EXIT_SUCCESS;
 }
