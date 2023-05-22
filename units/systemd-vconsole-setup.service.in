@@ -11,6 +11,7 @@
 Description=Setup Virtual Console
 Documentation=man:systemd-vconsole-setup.service(8) man:vconsole.conf(5)
 DefaultDependencies=no
+Before=sysinit.target
 Before=initrd-switch-root.target shutdown.target
 ConditionPathExists=/dev/tty0
 
