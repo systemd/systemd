@@ -192,6 +192,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--refuse-removable=</option></term>
+
+        <listitem><para>Takes a boolean. If this switch is not specified, <option>--refuse-removable=no</option>
+        is the implied default. Controls whether <command>systemd-repart</command> will operate on a block device
+        that is removable (i.e. a USB flash drive). If in "factory reset" mode, <command>systemd-repart</command>
+        will still delete partitions but it will not recreate them.</para>
+
+        <para>This option can be used by OS images to distinguish between an "installer" and an "installed" environment.
+        For instance, if <command>systemd-repart</command> is configured to create a persistent data partition on first
+        boot, this option will prevent that from happening on removable media. This can be detected by the system, and
+        the user can be presented with the option to install the OS to disk. Alternatively, the user can choose to run
+        <command>systemd-repart</command> without this option to "promote" their media from an installer to an installed
+        image.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--discard=</option></term>
 
         <listitem><para>Takes a boolean. If this switch is not specified <option>--discard=yes</option> is
