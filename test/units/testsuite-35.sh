@@ -529,6 +529,9 @@ test_list_users_sessions() {
     trap cleanup_session RETURN
     create_session
 
+    # Activate the session
+    loginctl activate "$(loginctl --no-legend | awk '$3 == "logind-test-user" { print $1 }')"
+
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $1 }')" "$(id -ru logind-test-user)"
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $3 }')" no
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $4 }')" active
@@ -638,6 +641,7 @@ EOF
 : >/failed
 
 setup_test_user
+test_list_users_sessions
 test_enable_debug
 test_properties
 test_started
@@ -647,7 +651,6 @@ test_sanity_check
 test_session
 test_lock_idle_action
 test_session_properties
-test_list_users_sessions
 test_stop_idle_session
 test_ambient_caps
 
