@@ -661,7 +661,7 @@ def make_uki(opts):
         ('.splash',  opts.splash,     True ),
         ('.pcrpkey', pcrpkey,         True ),
         ('.initrd',  initrd,          True ),
-        ('.uname',   opts.uname,      False),
+        ('.uname',   opts.uname,      True ),
 
         # linux shall be last to leave breathing room for decompression.
         # We'll add it later.
@@ -679,10 +679,12 @@ def make_uki(opts):
 
     call_systemd_measure(uki, linux, opts=opts)
 
-    # UKI creation
+    # UKI or addon creation - addons don't use the stub so we add SBAT manually
 
     if linux is not None:
         uki.add_section(Section.create('.linux', linux, measure=True))
+    elif opts.sbat:
+        uki.add_section(Section.create('.sbat', opts.sbat, measure=False))
 
     if sign_args_present:
         unsigned = tempfile.NamedTemporaryFile(prefix='uki')
@@ -925,6 +927,16 @@ CONFIG_ITEMS = [
         type = pathlib.Path,
         help = 'path to the sd-stub file [.text,.data,… sections]',
         config_key = 'UKI/Stub',
+    ),
+
+    ConfigItem(
+        '--sbat',
+        metavar = 'TEXT|@PATH',
+        help = 'SBAT policy [.sbat section] for addons',
+        default = """sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
+uki.addon.systemd,1,UKI Addon,uki.addon.systemd,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html
+""",
+        config_key = 'Addon/SBAT',
     ),
 
     ConfigItem(
