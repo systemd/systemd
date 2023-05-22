@@ -1788,7 +1788,9 @@ int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
                 if (!f)
                         return -ENOMEM;
 
-                json_variant_dump(v, flags, f, NULL);
+                r = json_variant_dump(v, flags, f, NULL);
+                if (r < 0)
+                        return r;
 
                 /* Add terminating 0, so that the output buffer is a valid string. */
                 fputc('\0', f);

@@ -8,6 +8,8 @@
 #include "fileio.h"
 #include "fuzz.h"
 
+DEFINE_TRIVIAL_DESTRUCTOR(bus_match_donep, struct bus_match_node, bus_match_free);
+
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_free_ char *out = NULL; /* out should be freed after g */
         size_t out_size;
@@ -26,7 +28,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         r = sd_bus_new(&bus);
         assert_se(r >= 0);
 
-        struct bus_match_node root = {
+        _cleanup_(bus_match_donep) struct bus_match_node root = {
                 .type = BUS_MATCH_ROOT,
         };
 
