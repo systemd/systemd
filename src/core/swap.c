@@ -554,7 +554,7 @@ static void swap_set_state(Swap *s, SwapState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(s), "Changed %s -> %s", swap_state_to_string(old_state), swap_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], 0);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
 
         /* If there other units for the same device node have a job
            queued it might be worth checking again if it is runnable
