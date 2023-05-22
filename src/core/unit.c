@@ -3189,12 +3189,11 @@ int unit_add_dependency(
                 return r;
         notify = r > 0;
 
-        if (inverse_table[d] != _UNIT_DEPENDENCY_INVALID && inverse_table[d] != d) {
-                r = unit_add_dependency_hashmap(&other->dependencies, inverse_table[d], u, 0, mask);
-                if (r < 0)
-                        return r;
-                notify_other = r > 0;
-        }
+        assert(inverse_table[d] >= 0 && inverse_table[d] < _UNIT_DEPENDENCY_MAX);
+        r = unit_add_dependency_hashmap(&other->dependencies, inverse_table[d], u, 0, mask);
+        if (r < 0)
+                return r;
+        notify_other = r > 0;
 
         if (add_reference) {
                 r = unit_add_dependency_hashmap(&u->dependencies, UNIT_REFERENCES, other, mask, 0);
