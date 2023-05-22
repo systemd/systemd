@@ -7,7 +7,7 @@ set -o pipefail
 
 at_exit() {
     mountpoint -q /proc/1/mountinfo && umount /proc/1/mountinfo
-    [[ -e /tmp/fstab.bak ]] && mv -f /tmp/fstab /etc/fstab
+    [[ -e /tmp/fstab.bak ]] && mv -f /tmp/fstab.bak /etc/fstab
     rm -f /run/systemd/system/foo-*.mount
     systemctl daemon-reload
 }
