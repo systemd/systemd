@@ -239,8 +239,9 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
                         log_link_warning_errno(l, r, "Failed to process RTNL link message, ignoring: %m");
 
                 r = link_update_monitor(l);
-                if (r < 0 && r != -ENODATA)
-                        log_link_warning_errno(l, r, "Failed to update link state, ignoring: %m");
+                if (r < 0)
+                        log_link_full_errno(l, IN_SET(r, -ENODATA, -ENOENT) ? LOG_DEBUG : LOG_WARNING, r,
+                                            "Failed to update link state, ignoring: %m");
 
                 break;
 
@@ -324,8 +325,9 @@ static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *
 
         HASHMAP_FOREACH(l, m->links_by_index) {
                 r = link_update_monitor(l);
-                if (r < 0 && r != -ENODATA)
-                        log_link_warning_errno(l, r, "Failed to update link state, ignoring: %m");
+                if (r < 0)
+                        log_link_full_errno(l, IN_SET(r, -ENODATA, -ENOENT) ? LOG_DEBUG : LOG_WARNING, r,
+                                            "Failed to update link state, ignoring: %m");
         }
 
         if (manager_configured(m))
