@@ -255,6 +255,7 @@ typedef enum UnitDependency {
 
         /* Joins namespace of */
         UNIT_JOINS_NAMESPACE_OF,
+        UNIT_JOINED_NAMESPACE_BY,
 
         /* Reference information for GC logic */
         UNIT_REFERENCES,              /* Inverse of 'references' is 'referenced_by' */
