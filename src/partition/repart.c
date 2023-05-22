@@ -1673,8 +1673,8 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                                   "Format=swap and CopyFiles= cannot be combined, refusing.");
 
         if (!p->format && (!strv_isempty(p->copy_files) || !strv_isempty(p->make_directories) || (p->encrypt != ENCRYPT_OFF && !(p->copy_blocks_path || p->copy_blocks_auto)))) {
-                /* Pick "ext4" as file system if we are configured to copy files or encrypt the device */
-                p->format = strdup("ext4");
+                /* Pick "vfat" as file system for esp and xbootldr partitions, otherwise default to "ext4". */
+                p->format = strdup(IN_SET(p->type.designator, PARTITION_ESP, PARTITION_XBOOTLDR) ? "vfat" : "ext4");
                 if (!p->format)
                         return log_oom();
         }
