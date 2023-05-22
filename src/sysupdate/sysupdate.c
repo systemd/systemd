@@ -967,10 +967,25 @@ static int verb_vacuum(int argc, char **argv, void *userdata) {
         return context_vacuum(context, 0, NULL);
 }
 
-static int verb_update(int argc, char **argv, void *userdata) {
+static int update_one(const char *version, UpdateSet **applied) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
+        int r;
+
+        r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
+        if (r < 0)
+                return r;
+
+        r = context_make_online(&context, loop_device ? loop_device->node : NULL);
+        if (r < 0)
+                return r;
+
+        return context_apply(context, version, applied);
+}
+
+
+static int verb_update(int argc, char **argv, void *userdata) {
         _cleanup_free_ char *booted_version = NULL;
         UpdateSet *applied = NULL;
         const char *version;
@@ -989,15 +1004,7 @@ static int verb_update(int argc, char **argv, void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "/etc/os-release lacks IMAGE_VERSION field.");
         }
 
-        r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
-        if (r < 0)
-                return r;
-
-        r = context_make_online(&context, loop_device ? loop_device->node : NULL);
-        if (r < 0)
-                return r;
-
-        r = context_apply(context, version, &applied);
+        r = update_one(version, &applied);
         if (r < 0)
                 return r;
 
@@ -1012,6 +1019,41 @@ static int verb_update(int argc, char **argv, void *userdata) {
 
                 log_info("Booted version is newer or identical to newly installed version, not rebooting.");
         }
+
+        return 0;
+}
+
+static int verb_update_all(int argc, char **argv, void *userdata) {
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
+        int r;
+
+        if (arg_reboot)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "The --reboot switch may not be combined with the '%s' operation", argv[0]);
+        if (arg_definitions || arg_component)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "The --definitions=/--component= switches may not be combined with the '%s' operation.", argv[0]);
+
+        log_info("Updating host image%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+        r = update_one(NULL, NULL);
+        if (r < 0)
+                return r;
+
+        r = process_image(/* ro= */ false, &mounted_dir, &loop_device);
+        if (r < 0)
+                return r;
+
+        // TODO: Enumerate all the components in the host and update them
+        // Set arg_component, arg_root, arg_image appropriately - then update_one(NULL, NULL)
+
+        // TODO: Enumerate all the portable services in the host and update them
+
+        // TODO: sysext
+
+        // TODO: syscfg
+
+        // TODO: nspawn
 
         return 0;
 }
@@ -1198,6 +1240,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "  list [VERSION]          Show installed and available versions\n"
                "  check-new               Check if there's a new version available\n"
                "  update [VERSION]        Install new version now\n"
+               "  update-all              Update all resources on system\n"
                "  vacuum                  Make room, by deleting old versions\n"
                "  pending                 Report whether a newer version is installed than\n"
                "                          currently booted\n"
@@ -1390,7 +1433,8 @@ static int sysupdate_main(int argc, char *argv[]) {
                 { "list",       VERB_ANY, 2, VERB_DEFAULT, verb_list              },
                 { "components", VERB_ANY, 1, 0,            verb_components        },
                 { "check-new",  VERB_ANY, 1, 0,            verb_check_new         },
-                { "update",     VERB_ANY, 2, 0,            verb_update               },
+                { "update",     VERB_ANY, 2, 0,            verb_update            },
+                { "update-all", VERB_ANY, 1, 0,            verb_update_all        },
                 { "vacuum",     VERB_ANY, 1, 0,            verb_vacuum            },
                 { "reboot",     1,        1, 0,            verb_pending_or_reboot },
                 { "pending",    1,        1, 0,            verb_pending_or_reboot },
