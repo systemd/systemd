@@ -82,6 +82,7 @@ run_subtests_with_signals() {
     show_summary
 }
 
+# Run all subtests (i.e. files named as testsuite-<testid>.<subtest_name>.sh)
 run_subtests() {
     local subtests=("${0%.sh}".*.sh)
     local subtest
@@ -98,6 +99,29 @@ run_subtests() {
     done
 
     show_summary
+}
+
+# Run all test cases (i.e. functions prefixed with testcase_ in the current namespace)
+run_testcases() {
+    local testcase testcases
+
+    # Create a list of all functions prefixed with testcase_
+    mapfile -t testcases < <(declare -F | awk '$3 ~ /^testcase_/ {print $3;}')
+
+    if [[ "${#testcases[@]}" -eq 0 ]]; then
+        echo >&2 "No test cases found, this is most likely an error"
+        exit 1
+    fi
+
+    for testcase in "${testcases[@]}"; do
+        : "+++ $testcase BEGIN +++"
+        # Note: the subshell here is used purposefully, otherwise we might
+        #       unexpectedly inherit a RETURN trap handler from the called
+        #       function and call it for the second time once we return,
+        #       causing a "double-free"
+        ("$testcase")
+        : "+++ $testcase END +++"
+    done
 }
 
 show_summary() {(
