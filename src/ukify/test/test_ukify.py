@@ -50,12 +50,12 @@ def test_round_up():
     assert ukify.round_up(4097) == 8192
 
 def test_namespace_creation():
-    ns = ukify.create_parser().parse_args(('A','B'))
+    ns = ukify.create_parser().parse_args(('create', 'A','B'))
     assert ns.linux == pathlib.Path('A')
     assert ns.initrd == [pathlib.Path('B')]
 
 def test_config_example():
-    ex = ukify.config_example()
+    ex = ukify.config_example(ukify.CONFIG_ITEMS_CREATE)
     assert '[UKI]' in ex
     assert 'Splash = BMP' in ex
 
@@ -87,7 +87,7 @@ def test_apply_config(tmp_path):
         Phases = {':'.join(ukify.KNOWN_PHASES)}
         '''))
 
-    ns = ukify.create_parser().parse_args(('A','B'))
+    ns = ukify.create_parser().parse_args(('create','A','B'))
     ns.linux = None
     ns.initrd = []
     ukify.apply_config(ns, config)
@@ -113,7 +113,7 @@ def test_apply_config(tmp_path):
     assert ns.pcr_public_keys == [pathlib.Path('some/path8')]
     assert ns.phase_path_groups == [['enter-initrd:leave-initrd:sysinit:ready:shutdown:final']]
 
-    ukify.finalize_options(ns)
+    ukify.finalize_create_options(ns)
 
     assert ns.linux == pathlib.Path('LINUX')
     assert ns.initrd == [pathlib.Path('initrd1'),
@@ -137,7 +137,7 @@ def test_apply_config(tmp_path):
     assert ns.phase_path_groups == [['enter-initrd:leave-initrd:sysinit:ready:shutdown:final']]
 
 def test_parse_args_minimal():
-    opts = ukify.parse_args('arg1 arg2'.split())
+    opts = ukify.parse_args('create arg1 arg2'.split())
     assert opts.linux == pathlib.Path('arg1')
     assert opts.initrd == [pathlib.Path('arg2')]
     assert opts.os_release in (pathlib.Path('/etc/os-release'),
@@ -145,7 +145,7 @@ def test_parse_args_minimal():
 
 def test_parse_args_many():
     opts = ukify.parse_args(
-        ['/ARG1', '///ARG2', '/ARG3 WITH SPACE',
+        ['create', '/ARG1', '///ARG2', '/ARG3 WITH SPACE',
          '--cmdline=a b c',
          '--os-release=K1=V1\nK2=V2',
          '--devicetree=DDDDTTTT',
@@ -188,7 +188,7 @@ def test_parse_args_many():
 
 def test_parse_sections():
     opts = ukify.parse_args(
-        ['/ARG1', '/ARG2',
+        ['create', '/ARG1', '/ARG2',
          '--section=test:TESTTESTTEST',
          '--section=test2:@FILE',
          ])
@@ -239,7 +239,7 @@ def test_config_priority(tmp_path):
         '''))
 
     opts = ukify.parse_args(
-        ['/ARG1', '///ARG2', '/ARG3 WITH SPACE',
+        ['create', '/ARG1', '///ARG2', '/ARG3 WITH SPACE',
          '--cmdline= a  b  c ',
          '--os-release=K1=V1\nK2=V2',
          '--devicetree=DDDDTTTT',
@@ -264,7 +264,7 @@ def test_config_priority(tmp_path):
          ])
 
     ukify.apply_config(opts, config)
-    ukify.finalize_options(opts)
+    ukify.finalize_create_options(opts)
 
     assert opts.linux == pathlib.Path('/ARG1')
     assert opts.initrd == [pathlib.Path('initrd1'),
@@ -299,12 +299,19 @@ def test_help(capsys):
     with pytest.raises(SystemExit):
         ukify.parse_args(['--help'])
     out = capsys.readouterr()
+    assert '--summary' in out.out
+    assert not out.err
+
+def test_help_create(capsys):
+    with pytest.raises(SystemExit):
+        ukify.parse_args(['create', '--help'])
+    out = capsys.readouterr()
     assert '--section' in out.out
     assert not out.err
 
 def test_help_error(capsys):
     with pytest.raises(SystemExit):
-        ukify.parse_args(['a', 'b', '--no-such-option'])
+        ukify.parse_args(['create','a', 'b', '--no-such-option'])
     out = capsys.readouterr()
     assert not out.out
     assert '--no-such-option' in out.err
@@ -345,9 +352,9 @@ def test_basic_operation(kernel_initrd, tmpdir):
         pytest.skip('linux+initrd not found')
 
     output = f'{tmpdir}/basic.efi'
-    opts = ukify.parse_args(kernel_initrd + [f'--output={output}'])
+    opts = ukify.parse_args(['create'] + kernel_initrd + [f'--output={output}'])
     try:
-        ukify.check_inputs(opts)
+        ukify.check_create_inputs(opts)
     except OSError as e:
         pytest.skip(str(e))
 
@@ -362,6 +369,7 @@ def test_sections(kernel_initrd, tmpdir):
 
     output = f'{tmpdir}/basic.efi'
     opts = ukify.parse_args([
+        'create',
         *kernel_initrd,
         f'--output={output}',
         '--uname=1.2.3',
@@ -371,7 +379,7 @@ def test_sections(kernel_initrd, tmpdir):
     ])
 
     try:
-        ukify.check_inputs(opts)
+        ukify.check_create_inputs(opts)
     except OSError as e:
         pytest.skip(str(e))
 
@@ -386,13 +394,14 @@ def test_sections(kernel_initrd, tmpdir):
 def test_addon(kernel_initrd, tmpdir):
     output = f'{tmpdir}/addon.efi'
     opts = ukify.parse_args([
+        'create',
         f'--output={output}',
         '--cmdline=ARG1 ARG2 ARG3',
         '--section=.test:CONTENTZ',
     ])
 
     try:
-        ukify.check_inputs(opts)
+        ukify.check_create_inputs(opts)
     except OSError as e:
         pytest.skip(str(e))
 
@@ -431,6 +440,7 @@ def test_efi_signing_sbsign(kernel_initrd, tmpdir):
 
     output = f'{tmpdir}/signed.efi'
     opts = ukify.parse_args([
+        'create',
         *kernel_initrd,
         f'--output={output}',
         '--uname=1.2.3',
@@ -440,7 +450,7 @@ def test_efi_signing_sbsign(kernel_initrd, tmpdir):
     ])
 
     try:
-        ukify.check_inputs(opts)
+        ukify.check_create_inputs(opts)
     except OSError as e:
         pytest.skip(str(e))
 
@@ -474,6 +484,7 @@ def test_efi_signing_pesign(kernel_initrd, tmpdir):
 
     output = f'{tmpdir}/signed.efi'
     opts = ukify.parse_args([
+        'create',
         *kernel_initrd,
         f'--output={output}',
         '--uname=1.2.3',
@@ -484,7 +495,7 @@ def test_efi_signing_pesign(kernel_initrd, tmpdir):
     ])
 
     try:
-        ukify.check_inputs(opts)
+        ukify.check_create_inputs(opts)
     except OSError as e:
         pytest.skip(str(e))
 
@@ -512,6 +523,7 @@ def test_pcr_signing(kernel_initrd, tmpdir):
 
     output = f'{tmpdir}/signed.efi'
     opts = ukify.parse_args([
+        'create',
         *kernel_initrd,
         f'--output={output}',
         '--uname=1.2.3',
@@ -524,7 +536,7 @@ def test_pcr_signing(kernel_initrd, tmpdir):
     ])
 
     try:
-        ukify.check_inputs(opts)
+        ukify.check_create_inputs(opts)
     except OSError as e:
         pytest.skip(str(e))
 
@@ -579,6 +591,7 @@ def test_pcr_signing2(kernel_initrd, tmpdir):
 
     output = f'{tmpdir}/signed.efi'
     opts = ukify.parse_args([
+        'create',
         kernel_initrd[0], microcode.name, kernel_initrd[1],
         f'--output={output}',
         '--uname=1.2.3',
@@ -595,7 +608,7 @@ def test_pcr_signing2(kernel_initrd, tmpdir):
     ])
 
     try:
-        ukify.check_inputs(opts)
+        ukify.check_create_inputs(opts)
     except OSError as e:
         pytest.skip(str(e))
 
