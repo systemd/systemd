@@ -230,7 +230,8 @@ typedef struct Partition {
 
         char *format;
         char **copy_files;
-        char **exclude_files;
+        char **exclude_files_source;
+        char **exclude_files_target;
         char **make_directories;
         EncryptMode encrypt;
         VerityMode verity;
@@ -374,7 +375,8 @@ static Partition* partition_free(Partition *p) {
 
         free(p->format);
         strv_free(p->copy_files);
-        strv_free(p->exclude_files);
+        strv_free(p->exclude_files_source);
+        strv_free(p->exclude_files_target);
         strv_free(p->make_directories);
         free(p->verity_match_key);
 
@@ -401,7 +403,8 @@ static void partition_foreignize(Partition *p) {
 
         p->format = mfree(p->format);
         p->copy_files = strv_free(p->copy_files);
-        p->exclude_files = strv_free(p->exclude_files);
+        p->exclude_files_source = strv_free(p->exclude_files_source);
+        p->exclude_files_target = strv_free(p->exclude_files_target);
         p->make_directories = strv_free(p->make_directories);
         p->verity_match_key = mfree(p->verity_match_key);
 
@@ -1405,12 +1408,23 @@ static int config_parse_exclude_files(
                 void *data,
                 void *userdata) {
         _cleanup_free_ char *resolved = NULL;
-        char ***exclude_files = ASSERT_PTR(data);
+        Partition *p = ASSERT_PTR(data);
+        bool is_target_exclude = false;
         int r;
 
         if (isempty(rvalue)) {
-                *exclude_files = strv_free(*exclude_files);
+                p->exclude_files_source = strv_free(p->exclude_files_source);
+                p->exclude_files_target = strv_free(p->exclude_files_target);
                 return 0;
+        }
+
+        if (rvalue[0] == '+') {
+                is_target_exclude = true;
+                rvalue++;
+                if (isempty(rvalue))
+                        /* ExcludeFiles=+ is not considered a valid pattern. */
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                          "Exclude pattern invalid, ignoring: %s=%s", lvalue, rvalue);
         }
 
         r = specifier_printf(rvalue, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved);
@@ -1424,7 +1438,7 @@ static int config_parse_exclude_files(
         if (r < 0)
                 return 0;
 
-        if (strv_consume(exclude_files, TAKE_PTR(resolved)) < 0)
+        if (strv_consume(is_target_exclude ? &p->exclude_files_target : &p->exclude_files_source, TAKE_PTR(resolved)) < 0)
                 return log_oom();
 
         return 0;
@@ -1611,7 +1625,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "CopyBlocks",      config_parse_copy_blocks,   0, p                     },
                 { "Partition", "Format",          config_parse_fstype,        0, &p->format            },
                 { "Partition", "CopyFiles",       config_parse_copy_files,    0, &p->copy_files        },
-                { "Partition", "ExcludeFiles",    config_parse_exclude_files, 0, &p->exclude_files     },
+                { "Partition", "ExcludeFiles",    config_parse_exclude_files, 0, p                     },
                 { "Partition", "MakeDirectories", config_parse_make_dirs,     0, p                     },
                 { "Partition", "Encrypt",         config_parse_encrypt,       0, &p->encrypt           },
                 { "Partition", "Verity",          config_parse_verity,        0, &p->verity            },
@@ -3913,8 +3927,24 @@ static int make_copy_files_denylist(
 
         /* Add the user configured excludes. */
 
-        STRV_FOREACH(e, p->exclude_files) {
+        STRV_FOREACH(e, p->exclude_files_source) {
                 r = add_exclude_path(*e, &denylist, endswith(*e, "/") ? DENY_CONTENTS : DENY_INODE);
+                if (r < 0)
+                        return r;
+        }
+
+        STRV_FOREACH(e, p->exclude_files_target) {
+                _cleanup_free_ char *path = NULL;
+
+                const char *s = path_startswith(*e, target);
+                if (!s)
+                        continue;
+
+                path = path_join(source, s);
+                if (!path)
+                        return log_oom();
+
+                r = add_exclude_path(path, &denylist, endswith(*e, "/") ? DENY_CONTENTS : DENY_INODE);
                 if (r < 0)
                         return r;
         }

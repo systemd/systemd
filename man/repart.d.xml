@@ -461,6 +461,10 @@
         contents are excluded but not the directory itself. If the path is a directory and does not end with
         <literal>/</literal>, both the directory and its contents are excluded.</para>
 
+        <para>If the path starts with a <literal>+</literal>, instead of excluding the path on the host from
+        being copied into the partition, we exclude any files and directories from being copied into the
+        given path in the partition.</para>
+
         <para>When
         <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         is invoked with the <option>--image=</option> or <option>--root=</option> command line switches the
