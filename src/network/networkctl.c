@@ -3498,12 +3498,19 @@ static int parse_argv(int argc, char *argv[]) {
                         if (isempty(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty drop-in file name.");
 
-                        if (!endswith(optarg, ".conf"))
-                                arg_drop_in = strjoin(optarg, ".conf");
-                        else
-                                arg_drop_in = strdup(optarg);
-                        if (!arg_drop_in)
-                                return log_oom();
+                        if (!endswith(optarg, ".conf")) {
+                                char *conf;
+
+                                conf = strjoin(optarg, ".conf");
+                                if (!conf)
+                                        return log_oom();
+
+                                free_and_replace(arg_drop_in, conf);
+                        } else {
+                                r = free_and_strdup(&arg_drop_in, optarg);
+                                if (r < 0)
+                                        return log_oom();
+                        }
 
                         if (!filename_is_valid(arg_drop_in))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
