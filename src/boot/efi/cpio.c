@@ -301,29 +301,6 @@ static EFI_STATUS pack_cpio_trailer(
         return EFI_SUCCESS;
 }
 
-static char16_t *get_dropin_dir(const EFI_DEVICE_PATH *file_path) {
-        if (!file_path)
-                return NULL;
-
-        /* A device path is allowed to have more than one file path node. If that is the case they are
-         * supposed to be concatenated. Unfortunately, the device path to text protocol simply converts the
-         * nodes individually and then combines those with the usual '/' for device path nodes. But this does
-         * not create a legal EFI file path that the file protocol can use. */
-
-        /* Make sure we really only got file paths. */
-        for (const EFI_DEVICE_PATH *node = file_path; !device_path_is_end(node);
-             node = device_path_next_node(node))
-                if (node->Type != MEDIA_DEVICE_PATH || node->SubType != MEDIA_FILEPATH_DP)
-                        return NULL;
-
-        _cleanup_free_ char16_t *file_path_str = NULL;
-        if (device_path_to_str(file_path, &file_path_str) != EFI_SUCCESS)
-                return NULL;
-
-        convert_efi_path(file_path_str);
-        return xasprintf("%ls.extra.d", file_path_str);
-}
-
 EFI_STATUS pack_cpio(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const char16_t *dropin_dir,
@@ -363,7 +340,7 @@ EFI_STATUS pack_cpio(
                 return log_error_status(err, "Unable to open root directory: %m");
 
         if (!dropin_dir)
-                dropin_dir = rel_dropin_dir = get_dropin_dir(loaded_image->FilePath);
+                dropin_dir = rel_dropin_dir = get_extra_dir(loaded_image->FilePath);
 
         err = open_directory(root, dropin_dir, &extra_dir);
         if (err == EFI_NOT_FOUND)
