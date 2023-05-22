@@ -6,6 +6,8 @@ set -o pipefail
 
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
+# shellcheck source=test/units/test-control.sh
+. "$(dirname "$0")"/test-control.sh
 
 enable_debug() {
     mkdir -p /run/systemd/system/systemd-localed.service.d
@@ -688,18 +690,7 @@ testcase_locale_gen_leading_space() {
 export SYSTEMD_KBD_MODEL_MAP=/usr/lib/systemd/tests/testdata/test-keymap-util/kbd-model-map
 
 enable_debug
-
-# Create a list of all functions prefixed with testcase_
-mapfile -t TESTCASES < <(declare -F | awk '$3 ~ /^testcase_/ {print $3;}')
-
-if [[ "${#TESTCASES[@]}" -eq 0 ]]; then
-    echo >&2 "No test cases found, this is most likely an error"
-    exit 1
-fi
-
-for testcase in "${TESTCASES[@]}"; do
-    "$testcase"
-done
+run_testcases
 
 touch /testok
 rm /failed
