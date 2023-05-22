@@ -902,11 +902,7 @@ int unit_kill_common(Unit *u, KillWho who, int signo, int code, int value, pid_t
 
 void unit_notify_cgroup_oom(Unit *u, bool managed_oom);
 
-typedef enum UnitNotifyFlags {
-        UNIT_NOTIFY_RELOAD_FAILURE    = 1 << 0,
-} UnitNotifyFlags;
-
-void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlags flags);
+void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success);
 
 int unit_watch_pid(Unit *u, pid_t pid, bool exclusive);
 void unit_unwatch_pid(Unit *u, pid_t pid);
