@@ -327,7 +327,7 @@ def check_splash(filename):
     print(f'Splash image {filename} is {img.width}×{img.height} pixels')
 
 
-def check_inputs(opts):
+def check_create_inputs(opts):
     for name, value in vars(opts).items():
         if name in {'output', 'tools'}:
             continue
@@ -833,14 +833,28 @@ class ConfigItem:
             value = self.metavar or self.argparse_dest().upper()
         return (section_name, key, value)
 
-
-CONFIG_ITEMS = [
+CONFIG_ITEMS_COMMON = [
     ConfigItem(
         '--version',
         action = 'version',
         version = f'ukify {__version__}',
     ),
 
+    ConfigItem(
+        ('--config', '-c'),
+        metavar = 'PATH',
+        help = 'configuration file',
+    ),
+
+    ConfigItem(
+        '--summary',
+        help = 'print parsed config and exit',
+        action = 'store_true',
+    ),
+]
+
+
+CONFIG_ITEMS_CREATE = [
     ConfigItem(
         '--summary',
         help = 'print parsed config and exit',
@@ -864,12 +878,6 @@ CONFIG_ITEMS = [
         help = 'initrd files [.initrd section]',
         config_key = 'UKI/Initrd',
         config_push = ConfigItem.config_list_prepend,
-    ),
-
-    ConfigItem(
-        ('--config', '-c'),
-        metavar = 'PATH',
-        help = 'configuration file',
     ),
 
     ConfigItem(
@@ -1044,9 +1052,19 @@ CONFIG_ITEMS = [
     ),
 ]
 
-CONFIGFILE_ITEMS = { item.config_key:item
-                     for item in CONFIG_ITEMS
-                     if item.config_key }
+
+CONFIGFILE_CREATE_ITEMS = { item.config_key:item
+                            for item in CONFIG_ITEMS_CREATE
+                            if item.config_key }
+
+
+CONFIGFILE_COMMON_ITEMS = { item.config_key:item
+                            for item in CONFIG_ITEMS_COMMON
+                            if item.config_key }
+
+
+CONFIGFILE_ALL_ITEMS = { **CONFIGFILE_CREATE_ITEMS,
+                         **CONFIGFILE_COMMON_ITEMS }
 
 
 def apply_config(namespace, filename=None):
@@ -1083,15 +1101,15 @@ def apply_config(namespace, filename=None):
         else:
             group = None
         for key, value in section.items():
-            if item := CONFIGFILE_ITEMS.get(f'{section_name}/{key}'):
+            if item := CONFIGFILE_ALL_ITEMS.get(f'{section_name}/{key}'):
                 item.apply_config(namespace, section_name, group, key, value)
             else:
                 print(f'Unknown config setting [{section_name}] {key}=')
 
 
-def config_example():
+def config_example(conf_items):
     prev_section = None
-    for item in CONFIG_ITEMS:
+    for item in conf_items:
         section, key, value = item.config_example()
         if section:
             if prev_section != section:
@@ -1102,27 +1120,43 @@ def config_example():
             yield f'{key} = {value}'
 
 
-def create_parser():
-    p = argparse.ArgumentParser(
-        description='Build and sign Unified Kernel Images',
-        allow_abbrev=False,
-        usage='''\
-ukify [options…] [LINUX INITRD…]
-''',
-        epilog='\n  '.join(('config file:', *config_example())),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-
-    for item in CONFIG_ITEMS:
+def add_items_to_parser(conf_items, p):
+    for item in conf_items:
         item.add_to(p)
 
     # Suppress printing of usage synopsis on errors
     p.error = lambda message: p.exit(2, f'{p.prog}: error: {message}\n')
 
+
+def create_main_parser():
+    p = argparse.ArgumentParser(
+        description='Create and display information of Unified Kernel Images',
+        allow_abbrev=False,
+        usage = """\nukify [options…] [actions]""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    add_items_to_parser(CONFIG_ITEMS_COMMON, p)
+
     return p
 
 
-def finalize_options(opts):
+def make_subparser(subparser, name, conf_items, descr, usage):
+    p = subparser.add_parser(
+        name,
+        description=descr,
+        allow_abbrev=False,
+        usage=usage,
+        epilog= '\n  '.join(('config file:', *config_example(conf_items))),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    add_items_to_parser(conf_items, p)
+
+    return p
+
+
+def finalize_create_options(opts):
     if opts.cmdline and opts.cmdline.startswith('@'):
         opts.cmdline = pathlib.Path(opts.cmdline[1:])
     elif opts.cmdline:
@@ -1170,16 +1204,8 @@ def finalize_options(opts):
     for section in opts.sections:
         section.check_name()
 
-    if opts.summary:
-        # TODO: replace pprint() with some fancy formatting.
-        pprint.pprint(vars(opts))
-        sys.exit()
 
-
-def parse_args(args=None):
-    p = create_parser()
-    opts = p.parse_args(args)
-
+def apply_create_config(opts):
     # Check that --pcr-public-key=, --pcr-private-key=, and --phases=
     # have either the same number of arguments are are not specified at all.
     n_pcr_pub = None if opts.pcr_public_keys is None else len(opts.pcr_public_keys)
@@ -1189,17 +1215,37 @@ def parse_args(args=None):
         raise ValueError('--pcr-public-key= specifications must match --pcr-private-key=')
     if n_phase_path_groups is not None and n_phase_path_groups != n_pcr_priv:
         raise ValueError('--phases= specifications must match --pcr-private-key=')
+    finalize_create_options(opts)
+    return opts
 
+
+
+def create_subparser(subparser):
+    cmdname = 'create'
+    descr = 'Build and sign Unified Kernel Images'
+    usage = f"""\nukify {cmdname} [options…] [LINUX INITRD…]"""
+    return make_subparser(subparser, cmdname, CONFIG_ITEMS_CREATE, descr, usage)
+
+
+def parse_args(args=None):
+    p = create_main_parser()
+    subparsers = p.add_subparsers(help='action to perform. Run ukify [action] --help for more info', required=True, dest='action')
+    create_subparser(subparsers)
+    opts = p.parse_args(args)
     apply_config(opts)
 
-    finalize_options(opts)
+    if opts.summary:
+        # TODO: replace pprint() with some fancy formatting.
+        pprint.pprint(vars(opts))
+        sys.exit()
 
+    apply_create_config(opts)
     return opts
 
 
 def main():
     opts = parse_args()
-    check_inputs(opts)
+    check_create_inputs(opts)
     make_uki(opts)
 
 
