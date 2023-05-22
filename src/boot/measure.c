@@ -79,6 +79,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "\n%3$sUKI PE Section Options:%4$s                                         %3$sUKI PE Section%4$s\n"
                "     --linux=PATH        Path to Linux kernel image file        %7$s .linux\n"
                "     --osrel=PATH        Path to os-release file                %7$s .osrel\n"
+               "     --uname=PATH        Path to uname -r file                  %7$s .uname\n"
                "     --cmdline=PATH      Path to file with kernel command line  %7$s .cmdline\n"
                "     --initrd=PATH       Path to initrd image file              %7$s .initrd\n"
                "     --splash=PATH       Path to splash bitmap file             %7$s .splash\n"
@@ -122,6 +123,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_INITRD,
                 ARG_SPLASH,
                 ARG_DTB,
+                ARG_UNAME,
                 _ARG_PCRSIG, /* the .pcrsig section is not input for signing, hence not actually an argument here */
                 _ARG_SECTION_LAST,
                 ARG_PCRPKEY = _ARG_SECTION_LAST,
@@ -140,6 +142,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",     no_argument,       NULL, ARG_VERSION     },
                 { "linux",       required_argument, NULL, ARG_LINUX       },
                 { "osrel",       required_argument, NULL, ARG_OSREL       },
+                { "uname",       required_argument, NULL, ARG_UNAME       },
                 { "cmdline",     required_argument, NULL, ARG_CMDLINE     },
                 { "initrd",      required_argument, NULL, ARG_INITRD      },
                 { "splash",      required_argument, NULL, ARG_SPLASH      },
