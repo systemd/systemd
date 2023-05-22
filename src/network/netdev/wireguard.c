@@ -34,9 +34,18 @@
 static void wireguard_resolve_endpoints(NetDev *netdev);
 static int peer_resolve_endpoint(WireguardPeer *peer);
 
-static WireguardPeer* wireguard_peer_free(WireguardPeer *peer) {
+static void wireguard_peer_clear_ipmasks(WireguardPeer *peer) {
         WireguardIPmask *mask;
 
+        assert(peer);
+
+        while ((mask = peer->ipmasks)) {
+                LIST_REMOVE(ipmasks, peer->ipmasks, mask);
+                free(mask);
+        }
+}
+
+static WireguardPeer* wireguard_peer_free(WireguardPeer *peer) {
         if (!peer)
                 return NULL;
 
@@ -49,10 +58,7 @@ static WireguardPeer* wireguard_peer_free(WireguardPeer *peer) {
 
         config_section_free(peer->section);
 
-        while ((mask = peer->ipmasks)) {
-                LIST_REMOVE(ipmasks, peer->ipmasks, mask);
-                free(mask);
-        }
+        wireguard_peer_clear_ipmasks(peer);
 
         free(peer->endpoint_host);
         free(peer->endpoint_port);
@@ -684,6 +690,12 @@ int config_parse_wireguard_allowed_ips(
         r = wireguard_peer_new_static(w, filename, section_line, &peer);
         if (r < 0)
                 return log_oom();
+
+        if (isempty(rvalue)) {
+                wireguard_peer_clear_ipmasks(peer);
+                TAKE_PTR(peer);
+                return 0;
+        }
 
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL;
