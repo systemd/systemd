@@ -130,6 +130,50 @@ TEST(set_tty) {
         assert_se(streq(tty, "tty2"));
 }
 
+/* Tests org.freedesktop.logind.Session SetIdleHint */
+TEST(set_idle_hint) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus* bus = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int idle_hint;
+        time_t stamp, idle_since1, idle_since2;
+
+        assert_se(sd_bus_open_system(&bus) >= 0);
+
+        /* Idle hint is not set by default */
+        assert_se(bus_get_property_trivial(bus, &session, "IdleHint", NULL, 'b', &idle_hint) >= 0);
+        assert_se(!idle_hint);
+
+        assert_se(bus_call_method(bus, &session, "TakeControl", NULL, NULL, "b", true) >= 0);
+
+        /* Idle hint can only be set on a graphical session */
+        assert_se(bus_call_method(bus, &session, "SetType", NULL, NULL, "s", "tty") >= 0);
+        assert_se(bus_call_method(bus, &session, "SetIdleHint", &error, NULL, "b", true) < 0);
+        assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_NOT_SUPPORTED));
+
+        assert_se(bus_call_method(bus, &session, "SetType", NULL, NULL, "s", "x11") >= 0);
+
+        stamp = now(CLOCK_MONOTONIC);
+
+        /* Idle hint can be set */
+        assert_se(bus_call_method(bus, &session, "SetIdleHint", NULL, NULL, "b", true) >= 0);
+        assert_se(bus_get_property_trivial(bus, &session, "IdleHint", NULL, 'b', &idle_hint) >= 0);
+        assert_se(idle_hint);
+        assert_se(bus_get_property_trivial(bus, &session, "IdleSinceHintMonotonic", NULL, 't', &idle_since1) >= 0);
+        assert_se(idle_since1 >= stamp);
+
+        /* Repeated setting doesn't change anything */
+        assert_se(bus_call_method(bus, &session, "SetIdleHint", NULL, NULL, "b", true) >= 0);
+        assert_se(bus_get_property_trivial(bus, &session, "IdleHint", NULL, 'b', &idle_hint) >= 0);
+        assert_se(idle_hint);
+        assert_se(bus_get_property_trivial(bus, &session, "IdleSinceHintMonotonic", NULL, 't', &idle_since2) >= 0);
+        assert_se(idle_since2 == idle_since1);
+
+        /* Idle hint can be unset */
+        assert_se(bus_call_method(bus, &session, "SetIdleHint", NULL, NULL, "b", false) >= 0);
+        assert_se(bus_get_property_trivial(bus, &session, "IdleHint", NULL, 'b', &idle_hint) >= 0);
+        assert_se(!idle_hint);
+}
+
 static int intro(void) {
         if (saved_argc <= 1)
                 return EXIT_FAILURE;
