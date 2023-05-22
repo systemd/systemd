@@ -92,6 +92,14 @@ int server_name_new(
                 break;
         case SERVER_LINK:
                 LIST_APPEND(names, m->link_servers, n);
+                // If we add a new link server, emit changed event
+                if (sd_bus_is_ready(m->bus) > 0)
+                    (void) sd_bus_emit_properties_changed(
+                        m->bus,
+                        "/org/freedesktop/timesync1",
+                        "org.freedesktop.timesync1.Manager",
+                        "LinkNTPServers",
+                        NULL);
                 break;
         case SERVER_FALLBACK:
                 LIST_APPEND(names, m->fallback_servers, n);
@@ -127,6 +135,14 @@ ServerName *server_name_free(ServerName *n) {
                         LIST_REMOVE(names, n->manager->system_servers, n);
                 else if (n->type == SERVER_LINK)
                         LIST_REMOVE(names, n->manager->link_servers, n);
+                        // If we delete a existed link server, emit changed event
+                        if (sd_bus_is_ready(n->manager->bus) > 0)
+                            (void) sd_bus_emit_properties_changed(
+                                n->manager->bus,
+                                "/org/freedesktop/timesync1",
+                                "org.freedesktop.timesync1.Manager",
+                                "LinkNTPServers",
+                                NULL);
                 else if (n->type == SERVER_FALLBACK)
                         LIST_REMOVE(names, n->manager->fallback_servers, n);
                 else if (n->type == SERVER_RUNTIME)
