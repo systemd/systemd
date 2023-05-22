@@ -450,6 +450,7 @@
 
       <varlistentry>
         <term><varname>ExcludeFiles=</varname></term>
+        <term><varname>ExcludeFilesTarget=</varname></term>
 
         <listitem><para>Takes an absolute file system path referring to a source file or directory on the
         host. This setting may be used to exclude files or directories from the host from being copied into
@@ -460,6 +461,10 @@
         <para>If the path is a directory and ends with <literal>/</literal>, only the directory's
         contents are excluded but not the directory itself. If the path is a directory and does not end with
         <literal>/</literal>, both the directory and its contents are excluded.</para>
+
+        <para><varname>ExcludeFilesTarget=</varname> is like <varname>ExcludeFiles=</varname> except that
+        instead of excluding the path on the host from being copied into the partition, we exclude any files
+        and directories from being copied into the given path in the partition.</para>
 
         <para>When
         <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>
