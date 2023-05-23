@@ -129,6 +129,13 @@ Deprecations and removals:
 
 Features:
 
+* use different sbat for sd-boot and sd-stub (so that people can revoke one
+  without the other)
+
+* in ukify merge sbat info from kernel (if it has any, upstream kernels so far
+  dont), of sd-stub and data supplied by user. Then measure sbat too in
+  sd-stub, explicitly.
+
 * open up creds for uses in generators, and document clearly that encrypted
   creds are only supported if strictly tpm bound, but not when using the host
   secret (as that is only avilable if /var/ is around.
