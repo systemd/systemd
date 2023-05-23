@@ -375,7 +375,7 @@ static int slice_freezer_action(Unit *s, FreezerAction action) {
         assert(s);
         assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
 
-        if (!slice_freezer_action_supported_by_children(s)) {
+        if (action == FREEZER_FREEZE && !slice_freezer_action_supported_by_children(s)) {
                 log_unit_warning(s, "Requested freezer operation is not supported by all children of the slice");
                 return 0;
         }
@@ -386,8 +386,11 @@ static int slice_freezer_action(Unit *s, FreezerAction action) {
 
                 if (action == FREEZER_FREEZE)
                         r = UNIT_VTABLE(member)->freeze(member);
-                else
+                else if (UNIT_VTABLE(member)->thaw)
                         r = UNIT_VTABLE(member)->thaw(member);
+                else
+                        /* Thawing is requested but no corresponding method is available, ignore. */
+                        r = 0;
                 if (r < 0)
                         return r;
         }
