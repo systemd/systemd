@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "bus-util.h"
 #include "fd-util.h"
 #include "format-table.h"
@@ -41,15 +42,7 @@ static int inhibit(sd_bus *bus, sd_bus_error *error) {
         int r;
         int fd;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        "Inhibit",
-                        error,
-                        &reply,
-                        "ssss", arg_what, arg_who, arg_why, arg_mode);
+        r = bus_call_method(bus, bus_login_mgr, "Inhibit", error, &reply, "ssss", arg_what, arg_who, arg_why, arg_mode);
         if (r < 0)
                 return r;
 
@@ -68,15 +61,7 @@ static int print_inhibitors(sd_bus *bus) {
 
         pager_open(arg_pager_flags);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        "ListInhibitors",
-                        &error,
-                        &reply,
-                        "");
+        r = bus_call_method(bus, bus_login_mgr, "ListInhibitors", &error, &reply, "");
         if (r < 0)
                 return log_error_errno(r, "Could not get active inhibitors: %s", bus_error_message(&error, r));
 
