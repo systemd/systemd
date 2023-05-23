@@ -1776,7 +1776,7 @@ static int do_reexecute(
         const char **args;
         int r;
 
-        assert(IN_SET(objective, MANAGER_REEXECUTE, MANAGER_SWITCH_ROOT));
+        assert(IN_SET(objective, MANAGER_REEXECUTE, MANAGER_SWITCH_ROOT, MANAGER_SOFT_REBOOT));
         assert(argc >= 0);
         assert(saved_rlimit_nofile);
         assert(saved_rlimit_memlock);
@@ -1811,13 +1811,24 @@ static int do_reexecute(
         if (saved_rlimit_memlock->rlim_cur != RLIM_INFINITY)
                 (void) setrlimit(RLIMIT_MEMLOCK, saved_rlimit_memlock);
 
-        if (switch_root_dir) {
-                /* Kill all remaining processes from the initrd, but don't wait for them, so that we can
-                 * handle the SIGCHLD for them after deserializing. */
-                broadcast_signal(SIGTERM, false, true, arg_default_timeout_stop_usec);
+        /* Kill all remaining processes from the initrd, but don't wait for them, so that we can handle the
+         * SIGCHLD for them after deserializing. */
+        if (IN_SET(objective, MANAGER_SWITCH_ROOT, MANAGER_SOFT_REBOOT))
+                broadcast_signal(SIGTERM, /* wait_for_exit= */ false, /* send_sighup= */ true, arg_default_timeout_stop_usec);
 
-                /* And switch root with MS_MOVE, because we remove the old directory afterwards and detach it. */
-                r = switch_root(switch_root_dir, /* old_root_after= */ NULL, MS_MOVE);
+        if (!switch_root_dir && objective == MANAGER_SOFT_REBOOT) {
+                /* If no switch root dir is specified, then check if /run/nextroot/ qualifies and use that */
+                r = path_is_os_tree("/run/nextroot");
+                if (r < 0 && r != -ENOENT)
+                        log_debug_errno(r, "Failed to determine if /run/nextroot/ is a valid OS tree, ignoring: %m");
+                else if (r > 0)
+                        switch_root_dir = "/run/nextroot";
+        }
+
+        if (switch_root_dir) {
+                r = switch_root(/* new_root= */ switch_root_dir,
+                                /* old_root_after= */ NULL,
+                                /* flags= */ objective == MANAGER_SWITCH_ROOT ? SWITCH_ROOT_DESTROY_OLD_ROOT : 0);
                 if (r < 0)
                         log_error_errno(r, "Failed to switch root, trying to continue: %m");
         }
@@ -1839,7 +1850,7 @@ static int do_reexecute(
                 i = 1;         /* Leave args[0] empty for now. */
                 filter_args(args, &i, argv, argc);
 
-                if (switch_root_dir)
+                if (IN_SET(objective, MANAGER_SWITCH_ROOT, MANAGER_SOFT_REBOOT))
                         args[i++] = "--switched-root";
                 args[i++] = runtime_scope_cmdline_option_to_string(arg_runtime_scope);
                 args[i++] = sfd;
@@ -2021,6 +2032,24 @@ static int invoke_main_loop(
                         /* Steal the switch root parameters */
                         *ret_switch_root_dir = TAKE_PTR(m->switch_root);
                         *ret_switch_root_init = TAKE_PTR(m->switch_root_init);
+
+                        return objective;
+
+                case MANAGER_SOFT_REBOOT:
+                        manager_send_reloading(m);
+                        manager_set_switching_root(m, true);
+
+                        r = prepare_reexecute(m, &arg_serialization, ret_fds, /* switching_root= */ true);
+                        if (r < 0) {
+                                *ret_error_message = "Failed to prepare for reexecution";
+                                return r;
+                        }
+
+                        log_notice("Soft-rebooting.");
+
+                        *ret_retval = EXIT_SUCCESS;
+                        *ret_switch_root_dir = TAKE_PTR(m->switch_root);
+                        *ret_switch_root_init = NULL;
 
                         return objective;
 
@@ -2675,13 +2704,21 @@ static int collect_fds(FDSet **ret_fds, const char **ret_error_message) {
         assert(ret_fds);
         assert(ret_error_message);
 
-        r = fdset_new_fill(ret_fds);
+        /* Pick up all fds passed to us. We apply a filter here: we only take the fds that have O_CLOEXEC
+         * off. All fds passed via execve() to us must have O_CLOEXEC off, and our own code and dependencies
+         * should be clean enough to set O_CLOEXEC universally. Thus checking the bit should be a safe
+         * mechanism to distinguish passed in fds from our own.
+         *
+         * Why bother? Some subsystems we initialize early, specifically selinux might keep fds open in our
+         * process behind our back. We should not take possession of that (and then accidentally close
+         * it). SELinux thankfully sets O_CLOEXEC on its fds, so this test should work. */
+        r = fdset_new_fill(/* filter_cloexec= */ 0, ret_fds);
         if (r < 0) {
                 *ret_error_message = "Failed to allocate fd set";
                 return log_emergency_errno(r, "Failed to allocate fd set: %m");
         }
 
-        fdset_cloexec(*ret_fds, true);
+        (void) fdset_cloexec(*ret_fds, true);
 
         if (arg_serialization)
                 assert_se(fdset_remove(*ret_fds, fileno(arg_serialization)) >= 0);
@@ -3073,6 +3110,7 @@ int main(int argc, char *argv[]) {
                                   MANAGER_RELOAD,
                                   MANAGER_REEXECUTE,
                                   MANAGER_REBOOT,
+                                  MANAGER_SOFT_REBOOT,
                                   MANAGER_POWEROFF,
                                   MANAGER_HALT,
                                   MANAGER_KEXEC,
@@ -3089,7 +3127,7 @@ finish:
 
         mac_selinux_finish();
 
-        if (IN_SET(r, MANAGER_REEXECUTE, MANAGER_SWITCH_ROOT))
+        if (IN_SET(r, MANAGER_REEXECUTE, MANAGER_SWITCH_ROOT, MANAGER_SOFT_REBOOT))
                 r = do_reexecute(r,
                                  argc, argv,
                                  &saved_rlimit_nofile,
