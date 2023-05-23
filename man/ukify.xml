@@ -112,6 +112,22 @@
 
       <para>The output files must not exist.</para>
     </refsect2>
+
+    <refsect2>
+      <title><command>inspect</command></title>
+
+      <para>Display information about the given PE, listing all known sections and
+      print the content of each (if text readable) together with displaying its size and
+      <literal>sha256</literal>.
+      This mode has already a list of default sections to show, but it is possible to specify
+      additional custom fields via the <option>--section=</option> option.
+      Each field is and must be defined as <literal>binary</literal> or <literal>text</literal>, so that the program will know whether to read the section content or not.
+      It is also possible to print the single section infos in a separate file, again using
+      <option>--section=</option> option.</para>
+
+      <para>Other options are <option>--json</option> to display the output as json file,
+      and <option>--print-all</option> to unconditionally print all sections of the PE.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -126,15 +142,16 @@
     priority and overwrites the config file setting completely. If some setting behaves differently, this is
     described below.</para>
 
-    <para>The <replaceable>LINUX</replaceable> and <replaceable>INITRD</replaceable> positional arguments, or
-    the equivalent <varname>Linux=</varname> and <varname>Initrd=</varname> settings, are optional. If more
-    than one initrd is specified, they will all be combined into a single PE section. This is useful to, for
-    example, prepend microcode before the actual initrd.</para>
+    <para>There are 2 types of configurations: generic (shared by all actions) and
+    action specific (<option>inspect</option>, <option>build</option> and
+    <option>genkey</option> options).</para>
 
-    <para>The following options and settings are understood:</para>
+    <title>Generic configuration settings</title>
+
+    <para>These configurations are commandline-only available.</para>
 
     <refsect2>
-      <title>Commandline-only options</title>
+      <title>Generic commandline-only options</title>
 
       <variablelist>
         <varlistentry>
@@ -146,6 +163,31 @@
           descriptions of individual options.</para></listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><option>--summary</option></term>
+
+          <listitem><para>Print a summary of loaded config and exit. This is useful to check how the options
+          form the configuration file and the commandline are combined.</para></listitem>
+        </varlistentry>
+
+        <xi:include href="standard-options.xml" xpointer="help" />
+        <xi:include href="standard-options.xml" xpointer="version" />
+      </variablelist>
+    </refsect2>
+
+    <title>Create configuration settings</title>
+
+    <para>The <replaceable>LINUX</replaceable> and <replaceable>INITRD</replaceable> positional arguments, or
+    the equivalent <varname>Linux=</varname> and <varname>Initrd=</varname> settings, are optional. If more
+    than one initrd is specified, they will all be combined into a single PE section. This is useful to, for
+    example, prepend microcode before the actual initrd.</para>
+
+    <para>The following options and settings are understood:</para>
+
+    <refsect2>
+      <title>Commandline-only options</title>
+
+      <variablelist>
         <varlistentry>
           <term><option>--measure</option></term>
           <term><option>--no-measure</option></term>
@@ -183,15 +225,6 @@
           performed.</para></listitem>
         </varlistentry>
 
-        <varlistentry>
-          <term><option>--summary</option></term>
-
-          <listitem><para>Print a summary of loaded config and exit. This is useful to check how the options
-          form the configuration file and the commandline are combined.</para></listitem>
-        </varlistentry>
-
-        <xi:include href="standard-options.xml" xpointer="help" />
-        <xi:include href="standard-options.xml" xpointer="version" />
       </variablelist>
     </refsect2>
 
@@ -424,6 +457,49 @@
           will be used, to ensure it is always possible to revoke addons. For more information on SBAT see
           <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim's documentation.</ulink></para>
           </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+    <title>Inspect configuration settings</title>
+
+    <para>The <replaceable>FILE</replaceable> positional argument is mandatory.
+    The following options and settings are understood:</para>
+
+    <refsect2>
+      <title>Commandline-only options</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><varname>File=<replaceable>PATH</replaceable></varname></term>
+          <term>positional argument <replaceable>PATH</replaceable></term>
+
+          <listitem><para>A path to the PE binary to read.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--verbose=</option></term>
+
+          <listitem><para>Print all sections discovered, not only the UKI defaults.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--json</option></term>
+
+          <listitem><para>Print into json format.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--section=<replaceable>NAME</replaceable>:<replaceable>TYPE</replaceable>@<replaceable>PATH</replaceable></option></term>
+
+          <listitem><para>Specify an arbitrary additional/existing section
+          <literal><replaceable>NAME</replaceable></literal> to display, if present in
+          the PE. Note that the name is used as-is, and if the
+          section name should start with a dot, it must be included in <replaceable>NAME</replaceable>. The
+          <literal><replaceable>TYPE</replaceable></literal> may be
+          <literal>binary</literal> or <literal>text</literal>. Optionally, add a
+          <literal><replaceable>PATH</replaceable></literal> to specify where to dump
+          the section specific informations (default is the standard output).
+          This option may be specified more than once.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
