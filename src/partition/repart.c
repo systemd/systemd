@@ -5515,14 +5515,10 @@ static int fd_apparent_size(int fd, uint64_t *ret) {
 }
 
 static int context_minimize(Context *context) {
-        const char *vt;
+        const char *vt = NULL;
         int r;
 
         assert(context);
-
-        r = var_tmp_dir(&vt);
-        if (r < 0)
-                return log_error_errno(r, "Could not determine temporary directory: %m");
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
@@ -5555,6 +5551,12 @@ static int context_minimize(Context *context) {
 
                 log_info("Pre-populating %s filesystem of partition %s twice to calculate minimal partition size",
                          p->format, strna(hint));
+
+                if (!vt) {
+                        r = var_tmp_dir(&vt);
+                        if (r < 0)
+                                return log_error_errno(r, "Could not determine temporary directory: %m");
+                }
 
                 r = tempfn_random_child(vt, "repart", &temp);
                 if (r < 0)
@@ -5712,6 +5714,12 @@ static int context_minimize(Context *context) {
 
                 log_info("Pre-populating verity hash data of partition %s to calculate minimal partition size",
                          strna(hint));
+
+                if (!vt) {
+                        r = var_tmp_dir(&vt);
+                        if (r < 0)
+                                return log_error_errno(r, "Could not determine temporary directory: %m");
+                }
 
                 r = tempfn_random_child(vt, "repart", &temp);
                 if (r < 0)
