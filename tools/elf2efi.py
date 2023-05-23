@@ -27,6 +27,7 @@ import io
 import os
 import pathlib
 import time
+import typing
 from ctypes import (
     c_char,
     c_uint8,
@@ -377,7 +378,7 @@ def convert_elf_reloc_table(
 
 def convert_elf_relocations(
     elf: ELFFile, opt: PeOptionalHeader, sections: list[PeSection]
-) -> PeSection:
+) -> typing.Optional[PeSection]:
     dynamic = elf.get_section_by_name(".dynamic")
     if dynamic is None:
         raise RuntimeError("ELF .dynamic section is missing.")
@@ -393,6 +394,9 @@ def convert_elf_relocations(
         convert_elf_reloc_table(
             elf, reloc_table, opt.ImageBase, sections, pe_reloc_blocks
         )
+
+    if len(pe_reloc_blocks) == 0:
+        return None
 
     data = bytearray()
     for rva in sorted(pe_reloc_blocks):
@@ -524,9 +528,10 @@ def elf2efi(args: argparse.Namespace):
     opt.SizeOfHeapCommit = 0x001000
 
     opt.NumberOfRvaAndSizes = N_DATA_DIRECTORY_ENTRIES
-    opt.BaseRelocationTable = PeDataDirectory(
-        pe_reloc_s.VirtualAddress, pe_reloc_s.VirtualSize
-    )
+    if pe_reloc_s:
+        opt.BaseRelocationTable = PeDataDirectory(
+            pe_reloc_s.VirtualAddress, pe_reloc_s.VirtualSize
+        )
 
     write_pe(args.PE, coff, opt, sections)
 
