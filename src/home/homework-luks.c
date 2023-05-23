@@ -1230,7 +1230,7 @@ int home_setup_luks(
                 PasswordCache *cache,
                 UserRecord **ret_luks_home) {
 
-        sd_id128_t found_partition_uuid, found_fs_uuid, found_luks_uuid = SD_ID128_NULL;
+        sd_id128_t found_partition_uuid, found_fs_uuid = SD_ID128_NULL, found_luks_uuid = SD_ID128_NULL;
         _cleanup_(user_record_unrefp) UserRecord *luks_home = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         size_t volume_key_size = 0;
