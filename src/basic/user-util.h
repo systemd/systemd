@@ -150,3 +150,8 @@ static inline bool hashed_password_is_locked_or_invalid(const char *password) {
 
 /* A password indicating "hey, no password required for login" */
 #define PASSWORD_NONE ""
+
+/* Used by sysusers to indicate that the password should be filled in by firstboot.
+ * Also see https://github.com/systemd/systemd/pull/24680#pullrequestreview-1439464325.
+ */
+#define PASSWORD_UNPROVISIONED "!unprovisioned"
