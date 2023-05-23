@@ -259,6 +259,10 @@ stub_sources = files(
         'stub.c',
 )
 
+addon_sources = files(
+        'addon.c',
+)
+
 if get_option('b_sanitize') == 'undefined'
         libefi_sources += files('ubsan.c')
 endif
@@ -328,12 +332,24 @@ foreach archspec : efi_archspecs
                 override_options : efi_override_options,
                 name_suffix : 'elf.stub',
                 pie : true)
+
+        efi_elf_binaries += executable(
+                'addon' + archspec['arch'],
+                addon_sources,
+                include_directories : efi_includes,
+                c_args : archspec['c_args'],
+                link_args : archspec['link_args'],
+                link_depends : elf2efi_lds,
+                gnu_symbol_visibility : 'hidden',
+                override_options : efi_override_options,
+                name_suffix : 'elf.stub',
+                pie : true)
 endforeach
 
 foreach efi_elf_binary : efi_elf_binaries
         # FIXME: Use build_tgt.name() with meson >= 0.54.0
         name = fs.name(efi_elf_binary.full_path()).split('.')[0]
-        name += name.startswith('linux') ? '.efi.stub' : '.efi'
+        name += name.startswith('systemd-boot') ? '.efi' : '.efi.stub'
         exe = custom_target(
                 name,
                 output : name,
