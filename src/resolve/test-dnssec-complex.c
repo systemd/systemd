@@ -7,6 +7,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bus-common-errors.h"
+#include "bus-locator.h"
 #include "dns-type.h"
 #include "random-util.h"
 #include "resolved-def.h"
@@ -46,13 +47,7 @@ static void test_rr_lookup(sd_bus *bus, const char *name, uint16_t type, const c
                 name = m;
         }
 
-        assert_se(sd_bus_message_new_method_call(
-                                  bus,
-                                  &req,
-                                  "org.freedesktop.resolve1",
-                                  "/org/freedesktop/resolve1",
-                                  "org.freedesktop.resolve1.Manager",
-                                  "ResolveRecord") >= 0);
+        assert_se(bus_message_new_method_call(bus, &req, bus_resolve_mgr, "ResolveRecord") >= 0);
 
         assert_se(sd_bus_message_append(req, "isqqt", 0, name, DNS_CLASS_IN, type, UINT64_C(0)) >= 0);
 
@@ -83,13 +78,7 @@ static void test_hostname_lookup(sd_bus *bus, const char *name, int family, cons
                 name = m;
         }
 
-        assert_se(sd_bus_message_new_method_call(
-                                  bus,
-                                  &req,
-                                  "org.freedesktop.resolve1",
-                                  "/org/freedesktop/resolve1",
-                                  "org.freedesktop.resolve1.Manager",
-                                  "ResolveHostname") >= 0);
+        assert_se(bus_message_new_method_call(bus, &req, bus_resolve_mgr, "ResolveHostname") >= 0);
 
         assert_se(sd_bus_message_append(req, "isit", 0, name, family, UINT64_C(0)) >= 0);
 
