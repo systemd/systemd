@@ -293,6 +293,7 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_PROPAGATES_STOP_TO]     = "PropagatesStopTo",
         [UNIT_STOP_PROPAGATED_FROM]   = "StopPropagatedFrom",
         [UNIT_JOINS_NAMESPACE_OF]     = "JoinsNamespaceOf",
+        [UNIT_JOINED_NAMESPACE_BY]    = "JoinedNamespaceBy",
         [UNIT_REFERENCES]             = "References",
         [UNIT_REFERENCED_BY]          = "ReferencedBy",
         [UNIT_IN_SLICE]               = "InSlice",

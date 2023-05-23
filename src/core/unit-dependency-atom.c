@@ -93,6 +93,7 @@ static const UnitDependencyAtom atom_map[_UNIT_DEPENDENCY_MAX] = {
         [UNIT_TRIGGERED_BY]           = UNIT_ATOM_TRIGGERED_BY,
         [UNIT_PROPAGATES_RELOAD_TO]   = UNIT_ATOM_PROPAGATES_RELOAD_TO,
         [UNIT_JOINS_NAMESPACE_OF]     = UNIT_ATOM_JOINS_NAMESPACE_OF,
+        [UNIT_JOINED_NAMESPACE_BY]    = 0, /* no-op */
         [UNIT_REFERENCES]             = UNIT_ATOM_REFERENCES,
         [UNIT_REFERENCED_BY]          = UNIT_ATOM_REFERENCED_BY,
         [UNIT_IN_SLICE]               = UNIT_ATOM_IN_SLICE,
