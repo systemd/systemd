@@ -388,6 +388,11 @@ int make_filesystem(
                 if (quiet && strv_extend(&argv, "-q") < 0)
                         return log_oom();
 
+                /* mkfs.btrfs unconditionally warns about several settings changing from v5.15 onwards which
+                 * isn't silenced by "-q", so let's redirect stdout to /dev/null as well. */
+                if (quiet)
+                        stdio_fds[1] = -EBADF;
+
         } else if (streq(fstype, "f2fs")) {
                 argv = strv_new(mkfs,
                                 "-g",  /* "default options" */
