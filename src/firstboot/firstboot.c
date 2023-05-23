@@ -10,6 +10,9 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "build.h"
+#include "bus-error.h"
+#include "bus-locator.h"
+#include "bus-util.h"
 #include "chase.h"
 #include "copy.h"
 #include "creds-util.h"
@@ -533,7 +536,7 @@ static int process_keymap(int rfd) {
                 return log_error_errno(r, "Failed to write /etc/vconsole.conf: %m");
 
         log_info("/etc/vconsole.conf written.");
-        return 0;
+        return 1;
 }
 
 static bool timezone_is_valid_log_error(const char *name) {
@@ -1564,7 +1567,27 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int reload_vconsole(sd_bus **bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(bus);
+
+        if (!*bus) {
+                r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, RUNTIME_SCOPE_SYSTEM, bus);
+                if (r < 0)
+                        return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL);
+        }
+
+        r = bus_call_method(*bus, bus_systemd_mgr, "RestartUnit", &error, NULL, "ss", "systemd-vconsole-setup.service", "replace");
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
+        log_info("Requested vconsole setup to apply key map configuration.");
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         _cleanup_close_ int rfd = -EBADF;
@@ -1578,13 +1601,14 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (!arg_root && !arg_image) {
-                bool enabled;
+        bool offline = arg_root || arg_image;
 
+        if (!offline) {
                 /* If we are called without --root=/--image= let's honour the systemd.firstboot kernel
                  * command line option, because we are called to provision the host with basic settings (as
                  * opposed to some other file system tree/image) */
 
+                bool enabled;
                 r = proc_cmdline_get_bool("systemd.firstboot", &enabled);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring: %m");
@@ -1648,6 +1672,8 @@ static int run(int argc, char *argv[]) {
         r = process_keymap(rfd);
         if (r < 0)
                 return r;
+        if (r > 0 && !offline)
+                (void) reload_vconsole(&bus);
 
         r = process_timezone(rfd);
         if (r < 0)
