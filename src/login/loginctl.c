@@ -247,7 +247,7 @@ static int list_users(int argc, char *argv[], void *userdata) {
         (void) table_set_align_percent(table, TABLE_HEADER_CELL(0), 100);
 
         for (;;) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error_property = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
                 _cleanup_free_ char *state = NULL;
                 const char *user, *object;
                 uint32_t uid;
@@ -264,16 +264,16 @@ static int list_users(int argc, char *argv[], void *userdata) {
                                                 object,
                                                 "org.freedesktop.login1.User",
                                                 "Linger",
-                                                &error_property,
+                                                &e,
                                                 'b',
                                                 &linger);
                 if (r < 0) {
-                        if (sd_bus_error_has_name(&error_property, SD_BUS_ERROR_UNKNOWN_OBJECT))
+                        if (sd_bus_error_has_name(&e, SD_BUS_ERROR_UNKNOWN_OBJECT))
                                 /* The user logged out when we're querying the property */
                                 continue;
 
                         return log_error_errno(r, "Failed to get linger status for user %s: %s",
-                                               user, bus_error_message(&error_property, r));
+                                               user, bus_error_message(&e, r));
                 }
 
                 r = sd_bus_get_property_string(bus,
@@ -281,15 +281,15 @@ static int list_users(int argc, char *argv[], void *userdata) {
                                                object,
                                                "org.freedesktop.login1.User",
                                                "State",
-                                               &error_property,
+                                               &e,
                                                &state);
                 if (r < 0) {
-                        if (sd_bus_error_has_name(&error_property, SD_BUS_ERROR_UNKNOWN_OBJECT))
+                        if (sd_bus_error_has_name(&e, SD_BUS_ERROR_UNKNOWN_OBJECT))
                                 /* The user logged out when we're querying the property */
                                 continue;
 
                         return log_error_errno(r, "Failed to get state for user %s: %s",
-                                               user, bus_error_message(&error_property, r));
+                                               user, bus_error_message(&e, r));
                 }
 
                 r = table_add_many(table,
