@@ -28,24 +28,14 @@
 #include "user-util.h"
 
 static int reload_system_manager(sd_bus *bus) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
 
-        r = sd_bus_message_new_method_call(bus, &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Reload");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_call(bus, m, 0, &error, NULL);
+        r = bus_call_method(bus, bus_systemd_mgr, "Reload", &error, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to reload system manager: %s", bus_error_message(&error, r));
-
         return 0;
 }
 
@@ -56,10 +46,8 @@ static int vconsole_reload(sd_bus *bus) {
         assert(bus);
 
         r = bus_call_method(bus, bus_systemd_mgr, "RestartUnit", &error, NULL, "ss", "systemd-vconsole-setup.service", "replace");
-
         if (r < 0)
                 return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
-
         return 0;
 }
 
