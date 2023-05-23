@@ -287,7 +287,9 @@ int get_user_creds(
                 p = getpwnam(*username);
         }
         if (!p) {
-                r = errno_or_else(ESRCH);
+                /* getpwnam() may fail with ENOENT if /etc/passwd is missing.
+                 * For us that is equivalent to the name not being defined. */
+                r = IN_SET(errno, 0, ENOENT) ? -ESRCH : -errno;
 
                 /* If the user requested that we only synthesize as fallback, do so now */
                 if (FLAGS_SET(flags, USER_CREDS_PREFER_NSS)) {
@@ -381,7 +383,9 @@ int get_group_creds(const char **groupname, gid_t *gid, UserCredsFlags flags) {
         }
 
         if (!g)
-                return errno_or_else(ESRCH);
+                /* getgrnam() may fail with ENOENT if /etc/group is missing.
+                 * For us that is equivalent to the name not being defined. */
+                return IN_SET(errno, 0, ENOENT) ? -ESRCH : -errno;
 
         if (gid) {
                 if (!gid_is_valid(g->gr_gid))

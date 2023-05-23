@@ -11,11 +11,14 @@
 Description=Arbitrary Executable File Formats File System Automount Point
 Documentation=https://docs.kernel.org/admin-guide/binfmt-misc.html
 Documentation=https://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
+
+ConditionPathExists=/proc/sys/fs/binfmt_misc/
+ConditionPathIsReadWrite=/proc/sys/
+
 DefaultDependencies=no
 Before=sysinit.target
 Conflicts=shutdown.target
-ConditionPathExists=/proc/sys/fs/binfmt_misc/
-ConditionPathIsReadWrite=/proc/sys/
+Before=shutdown.target
 
 [Automount]
 Where=/proc/sys/fs/binfmt_misc
