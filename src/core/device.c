@@ -1142,6 +1142,8 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
                 return 0;
         }
 
+        log_device_debug(dev, "Got '%s' action on syspath '%s'.", device_action_to_string(action), sysfs);
+
         if (action == SD_DEVICE_MOVE)
                 device_remove_old_on_move(m, dev);
 
