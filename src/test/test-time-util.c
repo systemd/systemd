@@ -244,7 +244,7 @@ TEST(format_timespan) {
         test_format_timespan_accuracy(USEC_PER_SEC);
 
         /* See issue #23928. */
-        _cleanup_free_ char *buf;
+        _cleanup_free_ char *buf = NULL;
         assert_se(buf = new(char, 5));
         assert_se(buf == format_timespan(buf, 5, 100005, 1000));
 }

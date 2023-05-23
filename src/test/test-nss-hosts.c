@@ -449,7 +449,7 @@ static int parse_argv(int argc, char **argv,
                         }
                 }
         } else {
-                _cleanup_free_ char *hostname;
+                _cleanup_free_ char *hostname = NULL;
                 assert_se(hostname = gethostname_malloc());
                 assert_se(names = strv_new("localhost", "_gateway", "_outbound", "foo_no_such_host", hostname));
 
