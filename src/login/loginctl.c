@@ -482,7 +482,6 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
                 { "Leader",              "u",    NULL,                     offsetof(SessionStatusInfo, leader)              },
                 { "Remote",              "b",    NULL,                     offsetof(SessionStatusInfo, remote)              },
                 { "Timestamp",           "t",    NULL,                     offsetof(SessionStatusInfo, timestamp.realtime)  },
-                { "TimestampMonotonic",  "t",    NULL,                     offsetof(SessionStatusInfo, timestamp.monotonic) },
                 { "User",                "(uo)", prop_map_first_of_struct, offsetof(SessionStatusInfo, uid)                 },
                 { "Seat",                "(so)", prop_map_first_of_struct, offsetof(SessionStatusInfo, seat)                },
                 {}
@@ -601,15 +600,14 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
 static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line) {
 
         static const struct bus_properties_map map[]  = {
-                { "Name",               "s",     NULL,                     offsetof(UserStatusInfo, name)                },
-                { "Linger",             "b",     NULL,                     offsetof(UserStatusInfo, linger)              },
-                { "Slice",              "s",     NULL,                     offsetof(UserStatusInfo, slice)               },
-                { "State",              "s",     NULL,                     offsetof(UserStatusInfo, state)               },
-                { "UID",                "u",     NULL,                     offsetof(UserStatusInfo, uid)                 },
-                { "Timestamp",          "t",     NULL,                     offsetof(UserStatusInfo, timestamp.realtime)  },
-                { "TimestampMonotonic", "t",     NULL,                     offsetof(UserStatusInfo, timestamp.monotonic) },
-                { "Display",            "(so)",  prop_map_first_of_struct, offsetof(UserStatusInfo, display)             },
-                { "Sessions",           "a(so)", prop_map_sessions_strv,   offsetof(UserStatusInfo, sessions)            },
+                { "Name",      "s",     NULL,                     offsetof(UserStatusInfo, name)               },
+                { "Linger",    "b",     NULL,                     offsetof(UserStatusInfo, linger)             },
+                { "Slice",     "s",     NULL,                     offsetof(UserStatusInfo, slice)              },
+                { "State",     "s",     NULL,                     offsetof(UserStatusInfo, state)              },
+                { "UID",       "u",     NULL,                     offsetof(UserStatusInfo, uid)                },
+                { "Timestamp", "t",     NULL,                     offsetof(UserStatusInfo, timestamp.realtime) },
+                { "Display",   "(so)",  prop_map_first_of_struct, offsetof(UserStatusInfo, display)            },
+                { "Sessions",  "a(so)", prop_map_sessions_strv,   offsetof(UserStatusInfo, sessions)           },
                 {}
         };
 
