@@ -183,7 +183,7 @@ int fdset_new_fill(
                         fl = fcntl(fd, F_GETFD);
                         if (fl < 0)
                                 return -errno;
-                        if (FLAGS_SET(fl, O_CLOEXEC) != !!fl)
+                        if (FLAGS_SET(fl, O_CLOEXEC) != !!filter_cloexec)
                                 continue;
                 }
 
