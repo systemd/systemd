@@ -4,6 +4,7 @@
 #include "proto/simple-text-io.h"
 #include "ticks.h"
 #include "util.h"
+#include "version.h"
 
 EFI_STATUS parse_boolean(const char *v, bool *b) {
         assert(b);
@@ -543,10 +544,9 @@ uint64_t get_os_indications_supported(void) {
         return osind;
 }
 
-#ifdef EFI_DEBUG
-extern uint8_t __ImageBase;
 __attribute__((noinline)) void notify_debugger(const char *identity, volatile bool wait) {
-        printf("%s@%p\n", identity, &__ImageBase);
+#ifdef EFI_DEBUG
+        printf("%s@%p %s\n", identity, &__ImageBase, GIT_VERSION);
         if (wait)
                 printf("Waiting for debugger to attach...\n");
 
@@ -554,15 +554,15 @@ __attribute__((noinline)) void notify_debugger(const char *identity, volatile bo
          * has attached to us. Just "set variable wait = 0" or "return" to continue. */
         while (wait)
                 /* Prefer asm based stalling so that gdb has a source location to present. */
-#if defined(__i386__) || defined(__x86_64__)
+#  if defined(__i386__) || defined(__x86_64__)
                 asm volatile("pause");
-#elif defined(__aarch64__)
+#  elif defined(__aarch64__)
                 asm volatile("wfi");
-#else
+#  else
                 BS->Stall(5000);
+#  endif
 #endif
 }
-#endif
 
 #ifdef EFI_DEBUG
 void hexdump(const char16_t *prefix, const void *data, size_t size) {
