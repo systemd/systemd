@@ -1229,12 +1229,11 @@ int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical) {
         assert(packet._data);
 
         free(rr->wire_format);
-        rr->wire_format = packet._data;
+        rr->wire_format = TAKE_PTR(packet._data);
         rr->wire_format_size = packet.size;
         rr->wire_format_rdata_offset = rds;
         rr->wire_format_canonical = canonical;
 
-        packet._data = NULL;
         dns_packet_unref(&packet);
 
         return 0;
