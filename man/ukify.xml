@@ -50,6 +50,7 @@
     <varname>Splash=</varname>/<option>--splash=</option>,
     <varname>PCRPKey=</varname>/<option>--pcrpkey=</option>,
     <varname>Uname=</varname>/<option>--uname=</option>,
+    <varname>SBAT=</varname>/<option>--sbat=</option>,
     and <option>--section=</option>
     below.</para>
 
@@ -369,6 +370,27 @@
         </varlistentry>
       </variablelist>
     </refsect2>
+
+    <refsect2>
+      <title>[Addon:<replaceable>NAME</replaceable>] section</title>
+
+      <para>These options currently apply only when building PE addons.</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><varname>SBAT=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></varname></term>
+          <term><option>--sbat=<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
+
+          <listitem><para>SBAT metadata associated with the addon. SBAT policies are useful to revoke whole
+          groups of addons with a single, static policy update that does not take space in DBX/MOKX. If not
+          specified manually, a default metadata entry consisting of
+          <literal>uki.addon.systemd,1,UKI Addon,uki.addon.systemd,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html</literal>
+          will be used, to ensure it is always possible to revoke addons. For more information on SBAT see
+          <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim's documentation.</ulink></para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -464,11 +486,13 @@ Phases=enter-initrd:leave-initrd
       --secureboot-private-key=sb.key \
       --secureboot-certificate=sb.cert \
       --cmdline='debug' \
+      --sbat='sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
+      uki.addon.author,1,UKI Addon for System,uki.addon.author,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html'
       --output=debug.cmdline
       </programlisting>
 
       <para>This creates a signed PE binary that contains the additional kernel command line parameter
-      <literal>debug</literal>.</para>
+      <literal>debug</literal> with SBAT metadata referring to the owner of the addon.</para>
     </example>
   </refsect1>
 

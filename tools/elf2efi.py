@@ -508,12 +508,15 @@ def elf2efi(args: argparse.Namespace):
     opt.SizeOfImage = align_to(
         sections[-1].VirtualAddress + sections[-1].VirtualSize, SECTION_ALIGNMENT
     )
-    opt.SizeOfHeaders = align_to(
-        PE_OFFSET
-        + coff.SizeOfOptionalHeader
-        + sizeof(PeSection) * coff.NumberOfSections,
-        FILE_ALIGNMENT,
-    )
+
+    SizeOfHeaders = PE_OFFSET + coff.SizeOfOptionalHeader + sizeof(PeSection) * coff.NumberOfSections
+
+    # Minimum required for a PE addon with a cmdline, sbat, uname and osrel sections.
+    if SizeOfHeaders < 0x400:
+        SizeOfHeaders = 0x400
+
+    opt.SizeOfHeaders = align_to(SizeOfHeaders, FILE_ALIGNMENT)
+
     # DYNAMIC_BASE|NX_COMPAT|HIGH_ENTROPY_VA or DYNAMIC_BASE|NX_COMPAT
     opt.DllCharacteristics = 0x160 if elf.elfclass == 64 else 0x140
 
