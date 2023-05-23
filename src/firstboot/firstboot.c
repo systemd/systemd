@@ -448,7 +448,7 @@ static int process_locale(int rfd) {
                 return log_error_errno(r, "Failed to write /etc/locale.conf: %m");
 
         log_info("/etc/locale.conf written.");
-        return 0;
+        return 1;
 }
 
 static int prompt_keymap(int rfd) {
@@ -1567,6 +1567,25 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int reload_system_manager(sd_bus **bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(bus);
+
+        if (!*bus) {
+                r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, RUNTIME_SCOPE_SYSTEM, bus);
+                if (r < 0)
+                        return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL);
+        }
+
+        r = bus_call_method(*bus, bus_systemd_mgr, "Reload", &error, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
+        log_info("Requested manager reload to apply locale configuration.");
+        return 0;
+}
+
 static int reload_vconsole(sd_bus **bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -1668,6 +1687,8 @@ static int run(int argc, char *argv[]) {
         r = process_locale(rfd);
         if (r < 0)
                 return r;
+        if (r > 0 && !offline)
+                (void) reload_system_manager(&bus);
 
         r = process_keymap(rfd);
         if (r < 0)
