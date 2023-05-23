@@ -441,6 +441,9 @@ bool unit_may_gc(Unit *u) {
         if (u->perpetual)
                 return false;
 
+        if (u->in_cgroup_empty_queue)
+                return false;
+
         if (sd_bus_track_count(u->bus_track) > 0)
                 return false;
 

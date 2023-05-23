@@ -1584,6 +1584,13 @@ static void manager_clear_jobs_and_units(Manager *m) {
         while ((u = hashmap_first(m->units)))
                 unit_free(u);
 
+        while ((u = m->cgroup_empty_queue)) {
+                assert(u->in_cgroup_empty_queue);
+
+                LIST_REMOVE(cgroup_empty_queue, m->cgroup_empty_queue, u);
+                u->in_cgroup_empty_queue = false;
+        }
+
         manager_dispatch_cleanup_queue(m);
 
         assert(!m->load_queue);
