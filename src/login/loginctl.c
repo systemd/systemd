@@ -251,6 +251,13 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
 }
 
 static int list_users(int argc, char *argv[], void *userdata) {
+
+        static const struct bus_properties_map property_map[] = {
+                { "Linger", "b", NULL, offsetof(UserStatusInfo, linger) },
+                { "State",  "s", NULL, offsetof(UserStatusInfo, state)  },
+                {},
+        };
+
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -277,10 +284,10 @@ static int list_users(int argc, char *argv[], void *userdata) {
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error_property = SD_BUS_ERROR_NULL;
-                _cleanup_free_ char *state = NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_property = NULL;
+                _cleanup_(user_status_info_done) UserStatusInfo info = {};
                 const char *user, *object;
                 uint32_t uid;
-                int linger;
 
                 r = sd_bus_message_read(reply, "(uso)", &uid, &user, &object);
                 if (r < 0)
@@ -288,44 +295,28 @@ static int list_users(int argc, char *argv[], void *userdata) {
                 if (r == 0)
                         break;
 
-                r = sd_bus_get_property_trivial(bus,
-                                                "org.freedesktop.login1",
-                                                object,
-                                                "org.freedesktop.login1.User",
-                                                "Linger",
-                                                &error_property,
-                                                'b',
-                                                &linger);
+                r = bus_map_all_properties(bus,
+                                           "org.freedesktop.login1",
+                                           object,
+                                           property_map,
+                                           BUS_MAP_BOOLEAN_AS_BOOL,
+                                           &error_property,
+                                           &reply_property,
+                                           &info);
                 if (r < 0) {
                         if (sd_bus_error_has_name(&error_property, SD_BUS_ERROR_UNKNOWN_OBJECT))
                                 /* The user logged out when we're querying the property */
                                 continue;
 
-                        return log_error_errno(r, "Failed to get linger status for user %s: %s",
-                                               user, bus_error_message(&error_property, r));
-                }
-
-                r = sd_bus_get_property_string(bus,
-                                               "org.freedesktop.login1",
-                                               object,
-                                               "org.freedesktop.login1.User",
-                                               "State",
-                                               &error_property,
-                                               &state);
-                if (r < 0) {
-                        if (sd_bus_error_has_name(&error_property, SD_BUS_ERROR_UNKNOWN_OBJECT))
-                                /* The user logged out when we're querying the property */
-                                continue;
-
-                        return log_error_errno(r, "Failed to get state for user %s: %s",
+                        return log_error_errno(r, "Failed to get properties of user %s: %s",
                                                user, bus_error_message(&error_property, r));
                 }
 
                 r = table_add_many(table,
                                    TABLE_UID, (uid_t) uid,
                                    TABLE_STRING, user,
-                                   TABLE_BOOLEAN, linger,
-                                   TABLE_STRING, state);
+                                   TABLE_BOOLEAN, info.linger,
+                                   TABLE_STRING, info.state);
                 if (r < 0)
                         return table_log_add_error(r);
         }
