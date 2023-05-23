@@ -21,6 +21,7 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "bus-util.h"
 #include "catalog.h"
 #include "chase.h"
@@ -2246,15 +2247,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to open system bus: %m");
 
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.machine1",
-                                "/org/freedesktop/machine1",
-                                "org.freedesktop.machine1.Manager",
-                                "OpenMachineRootDirectory",
-                                &error,
-                                &reply,
-                                "s", arg_machine);
+                r = bus_call_method(bus, bus_machine_mgr, "OpenMachineRootDirectory", &error, &reply, "s", arg_machine);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open root directory: %s", bus_error_message(&error, r));
 
