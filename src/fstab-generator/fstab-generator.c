@@ -111,11 +111,6 @@ static int add_swap(
 
         assert(what);
 
-        if (!arg_swap_enabled) {
-                log_info("Swap unit generation disabled on kernel command line, ignoring fstab swap entry for %s.", what);
-                return 0;
-        }
-
         if (access("/proc/swaps", F_OK) < 0) {
                 log_info("Swap not supported, ignoring fstab swap entry for %s.", what);
                 return 0;
@@ -718,6 +713,10 @@ static int parse_fstab_one(
                 return 0;
 
         is_swap = streq_ptr(fstype, "swap");
+        if (is_swap && !arg_swap_enabled) {
+                log_info("Swap unit generation disabled on kernel command line, ignoring swap entry for %s.", what);
+                return 0;
+        }
 
         what = fstab_node_to_udev_node(what_original);
         if (!what)
