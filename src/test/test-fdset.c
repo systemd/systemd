@@ -13,12 +13,48 @@
 TEST(fdset_new_fill) {
         int fd = -EBADF;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
-        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_new_fill.XXXXXX";
 
-        fd = mkostemp_safe(name);
+        log_close();
+        log_set_open_when_needed(true);
+
+        fd = open("/dev/null", O_CLOEXEC|O_RDONLY);
         assert_se(fd >= 0);
+
         assert_se(fdset_new_fill(/* filter_cloexec= */ -1, &fdset) >= 0);
         assert_se(fdset_contains(fdset, fd));
+        fdset = fdset_free(fdset);
+        assert_se(fcntl(fd, F_GETFD) < 0);
+        assert_se(errno == EBADF);
+
+        fd = open("/dev/null", O_CLOEXEC|O_RDONLY);
+        assert_se(fd >= 0);
+
+        assert_se(fdset_new_fill(/* filter_cloexec= */ 0, &fdset) >= 0);
+        assert_se(!fdset_contains(fdset, fd));
+        fdset = fdset_free(fdset);
+        assert_se(fcntl(fd, F_GETFD) >= 0);
+
+        assert_se(fdset_new_fill(/* filter_cloexec= */ 1, &fdset) >= 0);
+        assert_se(fdset_contains(fdset, fd));
+        fdset = fdset_free(fdset);
+        assert_se(fcntl(fd, F_GETFD) < 0);
+        assert_se(errno == EBADF);
+
+        fd = open("/dev/null", O_RDONLY);
+        assert_se(fd >= 0);
+
+        assert_se(fdset_new_fill(/* filter_cloexec= */ 1, &fdset) >= 0);
+        assert_se(!fdset_contains(fdset, fd));
+        fdset = fdset_free(fdset);
+        assert_se(fcntl(fd, F_GETFD) >= 0);
+
+        assert_se(fdset_new_fill(/* filter_cloexec= */ 0, &fdset) >= 0);
+        assert_se(fdset_contains(fdset, fd));
+        fdset = fdset_free(fdset);
+        assert_se(fcntl(fd, F_GETFD) < 0);
+        assert_se(errno == EBADF);
+
+        log_open();
 }
 
 TEST(fdset_put_dup) {
