@@ -118,6 +118,22 @@
 
       <para>The output files must not exist.</para>
     </refsect2>
+
+    <refsect2>
+      <title><command>inspect</command></title>
+
+      <para>Display information about the given PE, listing all known sections and
+      printing the content of each (if text readable) together with displaying its size and
+      <literal>sha256</literal>.
+      By default only the most useful sections will be shown. It is possible to override the
+      list of sections to show, by specifying <option>--section=</option> option.
+      Each field is and must be defined as <literal>binary</literal> or <literal>text</literal>.
+      It is also possible to print the single section information in a separate file, again using
+      <option>--section=</option> option.</para>
+
+      <para>Other options are <option>--json</option> to display the output as json file,
+      and <option>--print-all</option> to unconditionally print all sections of the PE.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -422,6 +438,46 @@
 
           <para>On the commandline, when this argument is present, it must appear the same number of times as
           the <option>--pcr-private-key=</option> option. </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Inspect configuration settings</title>
+
+      <para>The following options and settings are understood:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>--file=<replaceable>PATH</replaceable></option></term>
+
+          <listitem><para>A path to the PE binary to read.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--print-all</option></term>
+
+          <listitem><para>Print all sections discovered, not only the UKI defaults.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--json</option></term>
+
+          <listitem><para>Print into json format.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--section=<replaceable>NAME</replaceable>:<replaceable>TYPE</replaceable>@<replaceable>PATH</replaceable></option></term>
+
+          <listitem><para>Specify an arbitrary additional/existing section
+          <literal><replaceable>NAME</replaceable></literal> to display, if present in
+          the PE. Note that the name is used as-is, and if the
+          section name should start with a dot, it must be included in <replaceable>NAME</replaceable>. The
+          <literal><replaceable>TYPE</replaceable></literal> may be
+          <literal>binary</literal> or <literal>text</literal>. Optionally, add a
+          <literal><replaceable>PATH</replaceable></literal> to specify where to dump
+          the section specific information (default is the standard output).
+          This option may be specified more than once.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
