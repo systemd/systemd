@@ -103,7 +103,7 @@ typedef enum ValidUserFlags {
 
 bool valid_user_group_name(const char *u, ValidUserFlags flags);
 bool valid_gecos(const char *d);
-char *mangle_gecos(const char *d);
+char* mangle_gecos(const char *d);
 bool valid_home(const char *p);
 
 static inline bool valid_shell(const char *p) {
@@ -136,7 +136,7 @@ const char* default_root_shell(const char *root);
 
 int is_this_me(const char *username);
 
-const char *get_home_root(void);
+const char* get_home_root(void);
 
 static inline bool hashed_password_is_locked_or_invalid(const char *password) {
         return password && password[0] != '$';
