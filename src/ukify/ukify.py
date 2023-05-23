@@ -1141,7 +1141,10 @@ def finalize_options(opts):
         opts.efi_arch = guess_efi_arch()
 
     if opts.stub is None:
-        opts.stub = pathlib.Path(f'/usr/lib/systemd/boot/efi/linux{opts.efi_arch}.efi.stub')
+        if opts.linux is not None:
+            opts.stub = pathlib.Path(f'/usr/lib/systemd/boot/efi/linux{opts.efi_arch}.efi.stub')
+        else:
+            opts.stub = pathlib.Path(f'/usr/lib/systemd/boot/efi/addon{opts.efi_arch}.efi.stub')
 
     if opts.signing_engine is None:
         if opts.sb_key:
