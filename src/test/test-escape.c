@@ -6,14 +6,14 @@
 #include "tests.h"
 
 TEST(cescape) {
-        _cleanup_free_ char *t;
+        _cleanup_free_ char *t = NULL;
 
         assert_se(t = cescape("abc\\\"\b\f\n\r\t\v\a\003\177\234\313"));
         assert_se(streq(t, "abc\\\\\\\"\\b\\f\\n\\r\\t\\v\\a\\003\\177\\234\\313"));
 }
 
 TEST(xescape) {
-        _cleanup_free_ char *t;
+        _cleanup_free_ char *t = NULL;
 
         assert_se(t = xescape("abc\\\"\b\f\n\r\t\v\a\003\177\234\313", ""));
         assert_se(streq(t, "abc\\x5c\"\\x08\\x0c\\x0a\\x0d\\x09\\x0b\\x07\\x03\\x7f\\x9c\\xcb"));
@@ -29,7 +29,7 @@ static void test_xescape_full_one(bool eight_bits) {
         log_info("/* %s */", __func__);
 
         for (unsigned i = 0; i < 60; i++) {
-                _cleanup_free_ char *t, *q;
+                _cleanup_free_ char *t = NULL, *q = NULL;
 
                 assert_se(t = xescape_full("abc\\\"\b\f\n\r\t\v\a\003\177\234\313", "b", i, flags));
 
@@ -65,7 +65,7 @@ TEST(test_xescape_full) {
 }
 
 TEST(cunescape) {
-        _cleanup_free_ char *unescaped;
+        _cleanup_free_ char *unescaped = NULL;
 
         assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", 0, &unescaped) < 0);
         assert_se(cunescape("abc\\\\\\\"\\b\\f\\a\\n\\r\\t\\v\\003\\177\\234\\313\\000\\x00", UNESCAPE_RELAX, &unescaped) >= 0);
@@ -132,7 +132,7 @@ TEST(cunescape) {
 }
 
 static void test_shell_escape_one(const char *s, const char *bad, const char *expected) {
-        _cleanup_free_ char *r;
+        _cleanup_free_ char *r = NULL;
 
         assert_se(r = shell_escape(s, bad));
         log_debug("%s → %s (expected %s)", s, r, expected);
@@ -203,7 +203,7 @@ TEST(shell_maybe_quote) {
 }
 
 static void test_quote_command_line_one(char **argv, const char *expected) {
-        _cleanup_free_ char *s;
+        _cleanup_free_ char *s = NULL;
 
         assert_se(s = quote_command_line(argv, SHELL_ESCAPE_EMPTY));
         log_info("%s", s);
@@ -224,7 +224,7 @@ TEST(quote_command_line) {
 }
 
 static void test_octescape_one(const char *s, const char *expected) {
-        _cleanup_free_ char *ret;
+        _cleanup_free_ char *ret = NULL;
 
         assert_se(ret = octescape(s, strlen_ptr(s)));
         log_debug("octescape(\"%s\") → \"%s\" (expected: \"%s\")", strnull(s), ret, expected);
