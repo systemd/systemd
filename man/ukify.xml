@@ -42,47 +42,69 @@
     See <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for details about the stub.</para>
 
-    <para>Additional sections will be inserted into the UKI, either automatically or only if a specific
-    option is provided. See the discussions of
-    <varname>Cmdline=</varname>/<option>--cmdline=</option>,
-    <varname>OSRelease=</varname>/<option>--os-release=</option>,
-    <varname>DeviceTree=</varname>/<option>--devicetree=</option>,
-    <varname>Splash=</varname>/<option>--splash=</option>,
-    <varname>PCRPKey=</varname>/<option>--pcrpkey=</option>,
-    <varname>Uname=</varname>/<option>--uname=</option>,
-    and <option>--section=</option>
-    below.</para>
+    <para><command>ukify</command> performs two types of action: <command>display</command> and
+    <command>create</command>.
+    <command>create</command> allows building a UKI, while <command>display</command> simply
+    dumps information about a given PE/UKI.</para>
 
-    <para><command>ukify</command> can also be used to assemble a PE binary that is not executable but
-    contains auxiliary data, for example additional kernel command line entries.</para>
+    <refsect2>
+      <title>Create mode</title>
 
-    <para>If PCR signing keys are provided via the
-    <varname>PCRPrivateKey=</varname>/<option>--pcr-private-key=</option> and
-    <varname>PCRPublicKey=</varname>/<option>--pcr-public-key=</option> options, PCR values that will be seen
-    after booting with the given kernel, initrd, and other sections, will be calculated, signed, and embedded
-    in the UKI.
-    <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry> is
-    used to perform this calculation and signing.</para>
+      <para>Additional sections will be inserted into the UKI, either automatically or only if a specific
+      option is provided. See the discussions of
+      <varname>Cmdline=</varname>/<option>--cmdline=</option>,
+      <varname>OSRelease=</varname>/<option>--os-release=</option>,
+      <varname>DeviceTree=</varname>/<option>--devicetree=</option>,
+      <varname>Splash=</varname>/<option>--splash=</option>,
+      <varname>PCRPKey=</varname>/<option>--pcrpkey=</option>,
+      <varname>Uname=</varname>/<option>--uname=</option>,
+      and <option>--section=</option>
+      below.</para>
 
-    <para>The calculation of PCR values is done for specific boot phase paths. Those can be specified with
-    the <varname>Phases=</varname>/<option>--phases=</option> option. If not specified, the default provided
-    by <command>systemd-measure</command> is used. It is also possible to specify the
-    <varname>PCRPrivateKey=</varname>/<option>--pcr-private-key=</option>,
-    <varname>PCRPublicKey=</varname>/<option>--pcr-public-key=</option>, and
-    <varname>Phases=</varname>/<option>--phases=</option> arguments more than once. Signatures will then be
-    performed with each of the specified keys. On the command line, when both <option>--phases=</option> and
-    <option>--pcr-private-key=</option> are used, they must be specified the same number of times, and then
-    the n-th boot phase path set will be signed by the n-th key. This can be used to build different trust
-    policies for different phases of the boot. In the config file, <varname>PCRPrivateKey=</varname>,
-    <varname>PCRPublicKey=</varname>, and <varname>Phases=</varname> are grouped into separate sections,
-    describing separate boot phases.</para>
+      <para><command>ukify</command> can also be used to assemble a PE binary that is not executable but
+      contains auxiliary data, for example additional kernel command line entries.</para>
 
-    <para>If a SecureBoot signing key is provided via the
-    <varname>SecureBootPrivateKey=</varname>/<option>--secureboot-private-key=</option> option, the resulting
-    PE binary will be signed as a whole, allowing the resulting UKI to be trusted by SecureBoot. Also see the
-    discussion of automatic enrollment in
-    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
-    </para>
+      <para>If PCR signing keys are provided via the
+      <varname>PCRPrivateKey=</varname>/<option>--pcr-private-key=</option> and
+      <varname>PCRPublicKey=</varname>/<option>--pcr-public-key=</option> options, PCR values that will be seen
+      after booting with the given kernel, initrd, and other sections, will be calculated, signed, and embedded
+      in the UKI.
+      <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry> is
+      used to perform this calculation and signing.</para>
+
+      <para>The calculation of PCR values is done for specific boot phase paths. Those can be specified with
+      the <varname>Phases=</varname>/<option>--phases=</option> option. If not specified, the default provided
+      by <command>systemd-measure</command> is used. It is also possible to specify the
+      <varname>PCRPrivateKey=</varname>/<option>--pcr-private-key=</option>,
+      <varname>PCRPublicKey=</varname>/<option>--pcr-public-key=</option>, and
+      <varname>Phases=</varname>/<option>--phases=</option> arguments more than once. Signatures will then be
+      performed with each of the specified keys. On the command line, when both <option>--phases=</option> and
+      <option>--pcr-private-key=</option> are used, they must be specified the same number of times, and then
+      the n-th boot phase path set will be signed by the n-th key. This can be used to build different trust
+      policies for different phases of the boot. In the config file, <varname>PCRPrivateKey=</varname>,
+      <varname>PCRPublicKey=</varname>, and <varname>Phases=</varname> are grouped into separate sections,
+      describing separate boot phases.</para>
+
+      <para>If a SecureBoot signing key is provided via the
+      <varname>SecureBootPrivateKey=</varname>/<option>--secureboot-private-key=</option> option, the resulting
+      PE binary will be signed as a whole, allowing the resulting UKI to be trusted by SecureBoot. Also see the
+      discussion of automatic enrollment in
+      <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+      </para>
+    </refsect2>
+
+    <refsect2>
+      <title>Display mode</title>
+
+      <para>Simply display information about the given PE, listing all known sections and
+      print the content of each (if text readable) together with displaying its size and
+      <literal>sha256</literal>.
+      This mode has already a list of default sections to show, but it is possible to specify
+      additional custom fields via the <option>--section=</option> option.
+      Each field is and must be defined as <literal>binary</literal> or <literal>text</literal>, so that the program will know whether to read the section content or not.
+      It is also possible to print the single section infos in a separate file, again using
+      <option>--section=</option> option.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -97,15 +119,14 @@
     priority and overwrites the config file setting completely. If some setting behaves differently, this is
     described below.</para>
 
-    <para>The <replaceable>LINUX</replaceable> and <replaceable>INITRD</replaceable> positional arguments, or
-    the equivalent <varname>Linux=</varname> and <varname>Initrd=</varname> settings, are optional. If more
-    than one initrd is specified, they will all be combined into a single PE section. This is useful to, for
-    example, prepend microcode before the actual initrd.</para>
+    <para>There are 2 types of configurations: generic (shared by all actions) and action specific (display and create options).</para>
 
-    <para>The following options and settings are understood:</para>
+    <title>Generic configuration settings</title>
+
+    <para>These configurations are commandline-only available.</para>
 
     <refsect2>
-      <title>Commandline-only options</title>
+      <title>Generic commandline-only options</title>
 
       <variablelist>
         <varlistentry>
@@ -117,6 +138,31 @@
           descriptions of individual options.</para></listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><option>--summary</option></term>
+
+          <listitem><para>Print a summary of loaded config and exit. This is useful to check how the options
+          form the configuration file and the commandline are combined.</para></listitem>
+        </varlistentry>
+
+        <xi:include href="standard-options.xml" xpointer="help" />
+        <xi:include href="standard-options.xml" xpointer="version" />
+      </variablelist>
+    </refsect2>
+
+    <title>Create configuration settings</title>
+
+    <para>The <replaceable>LINUX</replaceable> and <replaceable>INITRD</replaceable> positional arguments, or
+    the equivalent <varname>Linux=</varname> and <varname>Initrd=</varname> settings, are optional. If more
+    than one initrd is specified, they will all be combined into a single PE section. This is useful to, for
+    example, prepend microcode before the actual initrd.</para>
+
+    <para>The following options and settings are understood:</para>
+
+    <refsect2>
+      <title>Commandline-only options</title>
+
+      <variablelist>
         <varlistentry>
           <term><option>--measure</option></term>
           <term><option>--no-measure</option></term>
@@ -153,15 +199,6 @@
           performed.</para></listitem>
         </varlistentry>
 
-        <varlistentry>
-          <term><option>--summary</option></term>
-
-          <listitem><para>Print a summary of loaded config and exit. This is useful to check how the options
-          form the configuration file and the commandline are combined.</para></listitem>
-        </varlistentry>
-
-        <xi:include href="standard-options.xml" xpointer="help" />
-        <xi:include href="standard-options.xml" xpointer="version" />
       </variablelist>
     </refsect2>
 
@@ -365,6 +402,50 @@
 
           <para>On the commandline, when this argument is present, it must appear the same number of times as
           the <option>--pcr-private-key=</option> option. </para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <title>Display configuration settings</title>
+
+    <para>The <replaceable>FILE</replaceable> positional argument is mandatory.
+    The following options and settings are understood:</para>
+
+    <refsect2>
+      <title>Commandline-only options</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><varname>File=<replaceable>PATH</replaceable></varname></term>
+          <term>positional argument <replaceable>PATH</replaceable></term>
+
+          <listitem><para>A path to the PE binary to read.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--verbose=</option></term>
+
+          <listitem><para>Print all sections discovered, not only the UKI defaults.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--json</option></term>
+
+          <listitem><para>Print into json format.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--section=<replaceable>NAME</replaceable>:<replaceable>TYPE</replaceable>@<replaceable>PATH</replaceable></option></term>
+
+          <listitem><para>Specify an arbitrary additional/existing section
+          <literal><replaceable>NAME</replaceable></literal> to display, if present in
+          the PE. Note that the name is used as-is, and if the
+          section name should start with a dot, it must be included in <replaceable>NAME</replaceable>. The
+          <literal><replaceable>TYPE</replaceable></literal> may be
+          <literal>binary</literal> or <literal>text</literal>. Optionally, add a
+          <literal><replaceable>PATH</replaceable></literal> to specify where to dump
+          the section specific informations (default is the standard output).
+          This option may be specified more than once.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
