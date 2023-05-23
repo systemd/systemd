@@ -917,14 +917,7 @@ static int show_user(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to look up user %s: %m", argv[i]);
 
-                r = sd_bus_call_method(
-                                bus,
-                                "org.freedesktop.login1",
-                                "/org/freedesktop/login1",
-                                "org.freedesktop.login1.Manager",
-                                "GetUser",
-                                &error, &reply,
-                                "u", (uint32_t) uid);
+                r = bus_call_method(bus, bus_login_mgr, "GetUser", &error, &reply, "u", (uint32_t) uid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get user: %s", bus_error_message(&error, r));
 

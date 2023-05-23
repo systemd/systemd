@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
+#include "bus-locator.h"
 #include "bus-log-control-api.h"
 #include "bus-message-util.h"
 #include "bus-polkit.h"
@@ -2282,12 +2283,10 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        r = sd_bus_match_signal_async(
+        r = bus_match_signal_async(
                         m->bus,
                         NULL,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
+                        bus_login_mgr,
                         "PrepareForSleep",
                         match_prepare_for_sleep,
                         NULL,
