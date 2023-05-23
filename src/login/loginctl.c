@@ -464,25 +464,27 @@ static int prop_map_sessions_strv(sd_bus *bus, const char *member, sd_bus_messag
 static int print_session_status_info(sd_bus *bus, const char *path, bool *new_line) {
 
         static const struct bus_properties_map map[]  = {
-                { "Id",                  "s",    NULL,                     offsetof(SessionStatusInfo, id)                  },
-                { "Name",                "s",    NULL,                     offsetof(SessionStatusInfo, name)                },
-                { "TTY",                 "s",    NULL,                     offsetof(SessionStatusInfo, tty)                 },
-                { "Display",             "s",    NULL,                     offsetof(SessionStatusInfo, display)             },
-                { "RemoteHost",          "s",    NULL,                     offsetof(SessionStatusInfo, remote_host)         },
-                { "RemoteUser",          "s",    NULL,                     offsetof(SessionStatusInfo, remote_user)         },
-                { "Service",             "s",    NULL,                     offsetof(SessionStatusInfo, service)             },
-                { "Desktop",             "s",    NULL,                     offsetof(SessionStatusInfo, desktop)             },
-                { "Type",                "s",    NULL,                     offsetof(SessionStatusInfo, type)                },
-                { "Class",               "s",    NULL,                     offsetof(SessionStatusInfo, class)               },
-                { "Scope",               "s",    NULL,                     offsetof(SessionStatusInfo, scope)               },
-                { "State",               "s",    NULL,                     offsetof(SessionStatusInfo, state)               },
-                { "VTNr",                "u",    NULL,                     offsetof(SessionStatusInfo, vtnr)                },
-                { "Leader",              "u",    NULL,                     offsetof(SessionStatusInfo, leader)              },
-                { "Remote",              "b",    NULL,                     offsetof(SessionStatusInfo, remote)              },
-                { "Timestamp",           "t",    NULL,                     offsetof(SessionStatusInfo, timestamp.realtime)  },
-                { "TimestampMonotonic",  "t",    NULL,                     offsetof(SessionStatusInfo, timestamp.monotonic) },
-                { "User",                "(uo)", prop_map_first_of_struct, offsetof(SessionStatusInfo, uid)                 },
-                { "Seat",                "(so)", prop_map_first_of_struct, offsetof(SessionStatusInfo, seat)                },
+                { "Id",                 "s",    NULL,                     offsetof(SessionStatusInfo, id)                           },
+                { "Name",               "s",    NULL,                     offsetof(SessionStatusInfo, name)                         },
+                { "TTY",                "s",    NULL,                     offsetof(SessionStatusInfo, tty)                          },
+                { "Display",            "s",    NULL,                     offsetof(SessionStatusInfo, display)                      },
+                { "RemoteHost",         "s",    NULL,                     offsetof(SessionStatusInfo, remote_host)                  },
+                { "RemoteUser",         "s",    NULL,                     offsetof(SessionStatusInfo, remote_user)                  },
+                { "Service",            "s",    NULL,                     offsetof(SessionStatusInfo, service)                      },
+                { "Desktop",            "s",    NULL,                     offsetof(SessionStatusInfo, desktop)                      },
+                { "Type",               "s",    NULL,                     offsetof(SessionStatusInfo, type)                         },
+                { "Class",              "s",    NULL,                     offsetof(SessionStatusInfo, class)                        },
+                { "Scope",              "s",    NULL,                     offsetof(SessionStatusInfo, scope)                        },
+                { "State",              "s",    NULL,                     offsetof(SessionStatusInfo, state)                        },
+                { "VTNr",               "u",    NULL,                     offsetof(SessionStatusInfo, vtnr)                         },
+                { "Leader",             "u",    NULL,                     offsetof(SessionStatusInfo, leader)                       },
+                { "Remote",             "b",    NULL,                     offsetof(SessionStatusInfo, remote)                       },
+                { "Timestamp",          "t",    NULL,                     offsetof(SessionStatusInfo, timestamp.realtime)           },
+                { "TimestampMonotonic", "t",    NULL,                     offsetof(SessionStatusInfo, timestamp.monotonic)          },
+                { "IdleHint",           "b",    NULL,                     offsetof(SessionStatusInfo, idle_hint)                    },
+                { "IdleSinceHint",      "t",    NULL,                     offsetof(SessionStatusInfo, idle_hint_timestamp.realtime) },
+                { "User",               "(uo)", prop_map_first_of_struct, offsetof(SessionStatusInfo, uid)                          },
+                { "Seat",               "(so)", prop_map_first_of_struct, offsetof(SessionStatusInfo, seat)                         },
                 {}
         };
 
@@ -572,6 +574,14 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
 
         if (i.state)
                 printf("\t   State: %s\n", i.state);
+
+        if (i.idle_hint && timestamp_is_set(i.idle_hint_timestamp.realtime))
+                printf("\t    Idle: %s since %s (%s)\n",
+                       yes_no(i.idle_hint),
+                       FORMAT_TIMESTAMP(i.idle_hint_timestamp.realtime),
+                       FORMAT_TIMESTAMP_RELATIVE(i.idle_hint_timestamp.realtime));
+        else
+                printf("\t    Idle: %s\n", yes_no(i.idle_hint));
 
         if (i.scope) {
                 printf("\t    Unit: %s\n", i.scope);
