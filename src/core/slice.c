@@ -349,17 +349,14 @@ static void slice_enumerate_perpetual(Manager *m) {
 
 static bool slice_freezer_action_supported_by_children(Unit *s) {
         Unit *member;
-        int r;
 
         assert(s);
 
         UNIT_FOREACH_DEPENDENCY(member, s, UNIT_ATOM_SLICE_OF) {
 
-                if (member->type == UNIT_SLICE) {
-                        r = slice_freezer_action_supported_by_children(member);
-                        if (!r)
-                                return r;
-                }
+                if (member->type == UNIT_SLICE &&
+                    !slice_freezer_action_supported_by_children(member))
+                        return false;
 
                 if (!UNIT_VTABLE(member)->freeze)
                         return false;
