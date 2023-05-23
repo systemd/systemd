@@ -1250,6 +1250,31 @@ static unsigned manager_dispatch_cleanup_queue(Manager *m) {
         return n;
 }
 
+static unsigned manager_dispatch_cgroup_empty_queue(Manager *m) {
+        Unit *u;
+        unsigned n = 0;
+
+        assert(m);
+
+        while ((u = m->cgroup_empty_queue)) {
+                assert(u->in_cgroup_empty_queue);
+
+                u->in_cgroup_empty_queue = false;
+                LIST_REMOVE(cgroup_empty_queue, m->cgroup_empty_queue, u);
+
+                /* Update state based on OOM kills before we notify about cgroup empty event */
+                (void) unit_check_oom(u);
+                (void) unit_check_oomd_kill(u);
+
+                unit_add_to_gc_queue(u);
+
+                if (UNIT_VTABLE(u)->notify_cgroup_empty)
+                        UNIT_VTABLE(u)->notify_cgroup_empty(u);
+        }
+
+        return n;
+}
+
 static unsigned manager_dispatch_release_resources_queue(Manager *m) {
         unsigned n = 0;
         Unit *u;
@@ -3207,6 +3232,9 @@ int manager_loop(Manager *m) {
                         continue;
 
                 if (manager_dispatch_gc_job_queue(m) > 0)
+                        continue;
+
+                if (manager_dispatch_cgroup_empty_queue(m) > 0)
                         continue;
 
                 if (manager_dispatch_gc_unit_queue(m) > 0)
