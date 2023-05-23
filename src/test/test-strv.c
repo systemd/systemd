@@ -200,8 +200,8 @@ TEST(strv_join_full) {
 }
 
 static void test_strv_unquote_one(const char *quoted, char **list) {
-        _cleanup_strv_free_ char **s;
-        _cleanup_free_ char *j;
+        _cleanup_strv_free_ char **s = NULL;
+        _cleanup_free_ char *j = NULL;
         unsigned i = 0;
         int r;
 
