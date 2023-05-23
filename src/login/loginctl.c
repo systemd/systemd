@@ -133,7 +133,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        table = table_new("session", "uid", "user", "seat", "tty", "state");
+        table = table_new("session", "uid", "user", "seat", "tty", "state", "idle", "since");
         if (!table)
                 return log_oom();
 
@@ -146,6 +146,8 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                 _cleanup_free_ char *tty = NULL, *state = NULL;
                 const char *id, *user, *seat, *object;
                 uint32_t uid;
+                BusLocator locator;
+                int idle;
 
                 r = sd_bus_message_read(reply, "(susso)", &id, &uid, &user, &seat, &object);
                 if (r < 0)
@@ -153,13 +155,13 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                 if (r == 0)
                         break;
 
-                r = sd_bus_get_property_string(bus,
-                                               "org.freedesktop.login1",
-                                               object,
-                                               "org.freedesktop.login1.Session",
-                                               "TTY",
-                                               &error_property,
-                                               &tty);
+                locator = (BusLocator) {
+                        .destination = "org.freedesktop.login1",
+                        .path = object,
+                        .interface = "org.freedesktop.login1.Session",
+                };
+
+                r = bus_get_property_string(bus, &locator, "TTY", &error_property, &tty);
                 if (r < 0) {
                         if (sd_bus_error_has_name(&error_property, SD_BUS_ERROR_UNKNOWN_OBJECT))
                                 /* The session is already closed when we're querying the property */
@@ -171,13 +173,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                         sd_bus_error_free(&error_property);
                 }
 
-                r = sd_bus_get_property_string(bus,
-                                               "org.freedesktop.login1",
-                                               object,
-                                               "org.freedesktop.login1.Session",
-                                               "State",
-                                               &error_property,
-                                               &state);
+                r = bus_get_property_string(bus, &locator, "State", &error_property, &state);
                 if (r < 0) {
                         if (sd_bus_error_has_name(&error_property, SD_BUS_ERROR_UNKNOWN_OBJECT))
                                 /* The session is already closed when we're querying the property */
@@ -187,13 +183,45 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                                                id, bus_error_message(&error_property, r));
                 }
 
+                r = bus_get_property_trivial(bus, &locator, "IdleHint", &error_property, 'b', &idle);
+                if (r < 0) {
+                        if (sd_bus_error_has_name(&error_property, SD_BUS_ERROR_UNKNOWN_OBJECT))
+                                /* The session is already closed when we're querying the property */
+                                continue;
+
+                        return log_error_errno(r, "Failed to get IdleHint for session %s: %s",
+                                               id, bus_error_message(&error_property, r));
+                }
+
                 r = table_add_many(table,
                                    TABLE_STRING, id,
                                    TABLE_UID, (uid_t) uid,
                                    TABLE_STRING, user,
                                    TABLE_STRING, seat,
                                    TABLE_STRING, strna(tty),
-                                   TABLE_STRING, state);
+                                   TABLE_STRING, state,
+                                   TABLE_BOOLEAN, idle);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (idle) {
+                        time_t idle_since;
+
+                        r = bus_get_property_trivial(bus, &locator, "IdleSinceHintMonotonic", &error_property, 't', &idle_since);
+                        if (r < 0) {
+                                if (sd_bus_error_has_name(&error_property, SD_BUS_ERROR_UNKNOWN_OBJECT))
+                                        /* The session is already closed when we're querying the property */
+                                        continue;
+
+                                log_warning_errno(r, "Failed to get IdleSinceHintMonotonic for session %s, ignoring: %s",
+                                                id, bus_error_message(&error_property, r));
+                        }
+
+
+                        r = table_add_cell(table, NULL, TABLE_TIMESTAMP_RELATIVE, &idle_since);
+                }
+                else
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return table_log_add_error(r);
         }
