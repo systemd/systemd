@@ -17,7 +17,7 @@ TEST(fdset_new_fill) {
 
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
-        assert_se(fdset_new_fill(&fdset) >= 0);
+        assert_se(fdset_new_fill(/* filter_cloexec= */ -1, &fdset) >= 0);
         assert_se(fdset_contains(fdset, fd));
 }
 

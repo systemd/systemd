@@ -2675,13 +2675,21 @@ static int collect_fds(FDSet **ret_fds, const char **ret_error_message) {
         assert(ret_fds);
         assert(ret_error_message);
 
-        r = fdset_new_fill(ret_fds);
+        /* Pick up all fds passed to us. We apply a filter here: we only take the fds that have O_CLOEXEC
+         * off. All fds passed via execve() to us must have O_CLOEXEC off, and our own code and dependencies
+         * should be clean enough to set O_CLOEXEC universally. Thus checking the bit should be a safe
+         * mechanism to distinguish passed in fds from our own.
+         *
+         * Why bother? Some subsystems we initialize early, specifically selinux might keep fds open in our
+         * process behind our back. We should not take possession of that (and then accidentally close
+         * it). SELinux thankfully sets O_CLOEXEC on its fds, so this test should work. */
+        r = fdset_new_fill(/* filter_cloexec= */ 0, ret_fds);
         if (r < 0) {
                 *ret_error_message = "Failed to allocate fd set";
                 return log_emergency_errno(r, "Failed to allocate fd set: %m");
         }
 
-        fdset_cloexec(*ret_fds, true);
+        (void) fdset_cloexec(*ret_fds, true);
 
         if (arg_serialization)
                 assert_se(fdset_remove(*ret_fds, fileno(arg_serialization)) >= 0);
