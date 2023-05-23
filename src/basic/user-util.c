@@ -127,7 +127,7 @@ char* getlogname_malloc(void) {
         return uid_to_name(uid);
 }
 
-char *getusername_malloc(void) {
+char* getusername_malloc(void) {
         const char *e;
 
         e = secure_getenv("USER");
@@ -171,7 +171,7 @@ const char* default_root_shell_at(int rfd) {
         return "/bin/sh";
 }
 
-const char *default_root_shell(const char *root) {
+const char* default_root_shell(const char *root) {
         _cleanup_close_ int rfd = -EBADF;
 
         rfd = open(empty_to_root(root), O_CLOEXEC | O_DIRECTORY | O_PATH);
@@ -847,7 +847,7 @@ bool valid_gecos(const char *d) {
         return true;
 }
 
-char *mangle_gecos(const char *d) {
+char* mangle_gecos(const char *d) {
         char *mangled;
 
         /* Makes sure the provided string becomes valid as a GEGOS field, by dropping bad chars. glibc's
@@ -1059,7 +1059,7 @@ int is_this_me(const char *username) {
         return uid == getuid();
 }
 
-const char *get_home_root(void) {
+const char* get_home_root(void) {
         const char *e;
 
         /* For debug purposes allow overriding where we look for home dirs */
