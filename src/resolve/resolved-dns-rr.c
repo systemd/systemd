@@ -1222,8 +1222,10 @@ int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical) {
                 return 0;
 
         r = dns_packet_append_rr(&packet, rr, 0, &start, &rds);
-        if (r < 0)
+        if (r < 0) {
+                dns_packet_unref(&packet);
                 return r;
+        }
 
         assert(start == 0);
         assert(packet._data);
