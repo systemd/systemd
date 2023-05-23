@@ -163,11 +163,14 @@ int fdset_new_fill(
                 return -ENOMEM;
 
         FOREACH_DIRENT(de, d, return -errno) {
-                int fd = -EBADF;
+                int fd;
 
-                r = safe_atoi(de->d_name, &fd);
-                if (r < 0)
-                        return r;
+                if (!IN_SET(de->d_type, DT_LNK, DT_UNKNOWN))
+                        continue;
+
+                fd = parse_fd(de->d_name);
+                if (fd < 0)
+                        return fd;
 
                 if (fd < 3)
                         continue;
