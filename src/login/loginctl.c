@@ -77,6 +77,24 @@ typedef struct SessionStatusInfo {
         dual_timestamp idle_hint_timestamp;
 } SessionStatusInfo;
 
+typedef struct UserStatusInfo {
+        uid_t uid;
+        bool linger;
+        const char *name;
+        struct dual_timestamp timestamp;
+        const char *state;
+        char **sessions;
+        const char *display;
+        const char *slice;
+} UserStatusInfo;
+
+static void user_status_info_clear(UserStatusInfo *info) {
+        if (info) {
+                strv_free(info->sessions);
+                zero(*info);
+        }
+}
+
 static OutputFlags get_output_flags(void) {
 
         return
@@ -222,6 +240,13 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
 }
 
 static int list_users(int argc, char *argv[], void *userdata) {
+
+        static const struct bus_properties_map map[]  = {
+                { "Linger", "b",     NULL,  offsetof(UserStatusInfo, linger)    },
+                { "State",  "s",     NULL,  offsetof(UserStatusInfo, state)     },
+                {}
+        };
+
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -248,10 +273,10 @@ static int list_users(int argc, char *argv[], void *userdata) {
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
-                _cleanup_free_ char *state = NULL;
                 const char *user, *object;
                 uint32_t uid;
-                int linger;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_(user_status_info_clear) UserStatusInfo i = {};
 
                 r = sd_bus_message_read(reply, "(uso)", &uid, &user, &object);
                 if (r < 0)
@@ -259,44 +284,20 @@ static int list_users(int argc, char *argv[], void *userdata) {
                 if (r == 0)
                         break;
 
-                r = sd_bus_get_property_trivial(bus,
-                                                "org.freedesktop.login1",
-                                                object,
-                                                "org.freedesktop.login1.User",
-                                                "Linger",
-                                                &e,
-                                                'b',
-                                                &linger);
+                r = bus_map_all_properties(bus, "org.freedesktop.login1", object, map, 0, &e, &m, &i);
                 if (r < 0) {
-                        if (sd_bus_error_has_name(&e, SD_BUS_ERROR_UNKNOWN_OBJECT))
-                                /* The user logged out when we're querying the property */
-                                continue;
-
-                        return log_error_errno(r, "Failed to get linger status for user %s: %s",
-                                               user, bus_error_message(&e, r));
-                }
-
-                r = sd_bus_get_property_string(bus,
-                                               "org.freedesktop.login1",
-                                               object,
-                                               "org.freedesktop.login1.User",
-                                               "State",
-                                               &e,
-                                               &state);
-                if (r < 0) {
-                        if (sd_bus_error_has_name(&e, SD_BUS_ERROR_UNKNOWN_OBJECT))
-                                /* The user logged out when we're querying the property */
-                                continue;
-
-                        return log_error_errno(r, "Failed to get state for user %s: %s",
-                                               user, bus_error_message(&e, r));
+                        log_full_errno(sd_bus_error_has_name(&e, SD_BUS_ERROR_UNKNOWN_OBJECT) ? LOG_WARNING : LOG_DEBUG,
+                                       r,
+                                       "Failed to get properties of user %s, ignoring: %s",
+                                       user, bus_error_message(&e, r));
+                        continue;
                 }
 
                 r = table_add_many(table,
                                    TABLE_UID, (uid_t) uid,
                                    TABLE_STRING, user,
-                                   TABLE_BOOLEAN, linger,
-                                   TABLE_STRING, state);
+                                   TABLE_BOOLEAN, i.linger,
+                                   TABLE_STRING, i.state);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -392,29 +393,11 @@ static int show_unit_cgroup(sd_bus *bus, const char *interface, const char *unit
         return 0;
 }
 
-typedef struct UserStatusInfo {
-        uid_t uid;
-        bool linger;
-        const char *name;
-        struct dual_timestamp timestamp;
-        const char *state;
-        char **sessions;
-        const char *display;
-        const char *slice;
-} UserStatusInfo;
-
 typedef struct SeatStatusInfo {
         const char *id;
         const char *active_session;
         char **sessions;
 } SeatStatusInfo;
-
-static void user_status_info_clear(UserStatusInfo *info) {
-        if (info) {
-                strv_free(info->sessions);
-                zero(*info);
-        }
-}
 
 static void seat_status_info_clear(SeatStatusInfo *info) {
         if (info) {
