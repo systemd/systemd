@@ -13,6 +13,7 @@
 
 #include "alloc-util.h"
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "bus-util.h"
 #include "format-util.h"
 #include "log.h"
@@ -50,14 +51,7 @@ static usec_t get_startup_monotonic_time(Context *c) {
 
         assert(c);
 
-        r = sd_bus_get_property_trivial(
-                        c->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "UserspaceTimestampMonotonic",
-                        &error,
-                        't', &t);
+        r = bus_get_property_trivial(c->bus, bus_systemd_mgr, "UserspaceTimestampMonotonic", &error, 't', &t);
         if (r < 0) {
                 log_error_errno(r, "Failed to get timestamp: %s", bus_error_message(&error, r));
                 return 0;

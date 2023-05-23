@@ -34,11 +34,7 @@ static int reload_system_manager(sd_bus *bus) {
 
         assert(bus);
 
-        r = sd_bus_message_new_method_call(bus, &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Reload");
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "Reload");
         if (r < 0)
                 return bus_log_create_error(r);
 
