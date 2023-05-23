@@ -700,7 +700,7 @@ static int parse_fstab_one(
                 int passno,
                 bool initrd) {
 
-        _cleanup_free_ char *what = NULL, *where = NULL, *canonical_where = NULL;
+        _cleanup_free_ char *what = NULL, *where = NULL;
         MountPointFlags flags;
         bool is_swap;
         int r;
@@ -736,50 +736,50 @@ static int parse_fstab_one(
 
         assert(where_original); /* 'where' is not necessary for swap entry. */
 
-        where = strdup(where_original);
-        if (!where)
-                return log_oom();
-
-        if (is_path(where)) {
-                path_simplify(where);
-
-                /* Follow symlinks here; see 5261ba901845c084de5a8fd06500ed09bfb0bd80 which makes sense for
-                 * mount units, but causes problems since it historically worked to have symlinks in e.g.
-                 * /etc/fstab. So we canonicalize here. Note that we use CHASE_NONEXISTENT to handle the case
-                 * where a symlink refers to another mount target; this works assuming the sub-mountpoint
-                 * target is the final directory.
-                 *
-                 * FIXME: when chase() learns to chase non-existent paths, use this here and
-                 *        drop the prefixing with /sysroot on error below.
-                 */
-                r = chase(where, initrd ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT,
-                          &canonical_where, NULL);
-                if (r < 0) {
-                        /* If we can't canonicalize, continue as if it wasn't a symlink */
-                        log_debug_errno(r, "Failed to read symlink target for %s, using as-is: %m", where);
-
-                        if (initrd) {
-                                canonical_where = path_join("/sysroot", where);
-                                if (!canonical_where)
-                                        return log_oom();
-                        }
-
-                } else if (streq(canonical_where, where)) /* If it was fully canonicalized, suppress the change */
-                        canonical_where = mfree(canonical_where);
-                else
-                        log_debug("Canonicalized what=%s where=%s to %s", what, where, canonical_where);
+        if (!is_path(where_original)) {
+                log_warning("Mount point %s is not a valid path, ignoring.", where);
+                return 0;
         }
+
+        /* Follow symlinks here; see 5261ba901845c084de5a8fd06500ed09bfb0bd80 which makes sense for
+         * mount units, but causes problems since it historically worked to have symlinks in e.g.
+         * /etc/fstab. So we canonicalize here. Note that we use CHASE_NONEXISTENT to handle the case
+         * where a symlink refers to another mount target; this works assuming the sub-mountpoint
+         * target is the final directory.
+         *
+         * FIXME: when chase() learns to chase non-existent paths, use this here and
+         *        drop the prefixing with /sysroot on error below.
+         */
+        r = chase(where_original, initrd ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &where, NULL);
+        if (r < 0) {
+                /* If we can't canonicalize, continue as if it wasn't a symlink */
+                log_debug_errno(r, "Failed to read symlink target for %s, using as-is: %m", where_original);
+
+                if (initrd)
+                        where = path_join("/sysroot", where_original);
+                else
+                        where = strdup(where_original);
+                if (!where)
+                        return log_oom();
+
+                path_simplify(where);
+        }
+
+        if (streq(where, where_original)) /* If it was fully canonicalized, suppress the change */
+                where = mfree(where);
+        else
+                log_debug("Canonicalized what=%s where=%s to %s", what, where_original, where);
 
         log_debug("Found entry what=%s where=%s type=%s makefs=%s growfs=%s pcrfs=%s noauto=%s nofail=%s",
                   what, where, strna(fstype),
                   yes_no(flags & MOUNT_MAKEFS), yes_no(flags & MOUNT_GROWFS), yes_no(flags & MOUNT_PCRFS),
                   yes_no(flags & MOUNT_NOAUTO), yes_no(flags & MOUNT_NOFAIL));
 
-        bool is_sysroot = in_initrd() && path_equal(where, "/sysroot");
+        bool is_sysroot = in_initrd() && path_equal(where ?: where_original, "/sysroot");
         /* See comment from add_sysroot_usr_mount() about the need for extra indirection in case /usr needs
          * to be mounted in order for the root fs to be synthesized based on configuration included in /usr/,
          * e.g. systemd-repart. */
-        bool is_sysroot_usr = in_initrd() && path_equal(where, "/sysroot/usr");
+        bool is_sysroot_usr = in_initrd() && path_equal(where ?: where_original, "/sysroot/usr");
 
         const char *target_unit =
                         initrd ?                            SPECIAL_INITRD_FS_TARGET :
@@ -797,8 +797,8 @@ static int parse_fstab_one(
         r = add_mount(source,
                       arg_dest,
                       what,
-                      is_sysroot_usr ? "/sysusr/usr" : canonical_where ?: where,
-                      !is_sysroot_usr && canonical_where ? where : NULL,
+                      is_sysroot_usr ? "/sysusr/usr" : where ?: where_original,
+                      !is_sysroot_usr && where ? where_original : NULL,
                       fstype,
                       options,
                       passno,
