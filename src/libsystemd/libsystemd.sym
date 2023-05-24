@@ -824,4 +824,5 @@ global:
         sd_event_source_set_memory_pressure_period;
         sd_event_trim_memory;
         sd_pid_notify_barrier;
+        sd_event_source_leave_ratelimit;
 } LIBSYSTEMD_253;
