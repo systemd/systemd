@@ -147,6 +147,7 @@ static int finish_item(
         _cleanup_free_ CatalogItem *i = NULL;
         _cleanup_free_ char *combined = NULL;
         char *prev;
+        int r;
 
         assert(h);
         assert(payload);
@@ -169,8 +170,9 @@ static int finish_item(
                 if (!combined)
                         return log_oom();
 
-                if (ordered_hashmap_update(h, i, combined) < 0)
-                        return log_oom();
+                r = ordered_hashmap_update(h, i, combined);
+                if (r < 0)
+                        return r;
 
                 TAKE_PTR(combined);
                 free(prev);
@@ -180,8 +182,9 @@ static int finish_item(
                 if (!combined)
                         return log_oom();
 
-                if (ordered_hashmap_put(h, i, combined) < 0)
-                        return log_oom();
+                r = ordered_hashmap_put(h, i, combined);
+                if (r < 0)
+                        return r;
 
                 TAKE_PTR(i);
                 TAKE_PTR(combined);
