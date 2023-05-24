@@ -117,8 +117,6 @@ USB_IDS += [
     '1286:204e',
     # Intel (rambi, samus)
     '8087:07dc',
-    # Intel (strago, glados)
-    '8087:0a2a',
     # Intel (octopus)
     '8087:0aaa',
     # Intel (hatch)
