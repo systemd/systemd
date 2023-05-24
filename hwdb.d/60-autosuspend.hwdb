@@ -47,6 +47,16 @@ usb:v058Fp9540*
  ID_AUTOSUSPEND=1
 
 #########################################
+# Intel
+#########################################
+
+# Bluetooth Host Controller (strago, glados)
+# prevents bluetooth link disconnection when other high-current USB devices inserted
+# (smartphone charging, etc.)
+usb:v8087p0A2A*
+ ID_AUTOSUSPEND=0
+
+#########################################
 # Lenovo
 #########################################
 
