@@ -61,7 +61,7 @@ static int print_inhibitors(sd_bus *bus) {
 
         pager_open(arg_pager_flags);
 
-        r = bus_call_method(bus, bus_login_mgr, "ListInhibitors", &error, &reply, "");
+        r = bus_call_method(bus, bus_login_mgr, "ListInhibitors", &error, &reply, NULL);
         if (r < 0)
                 return log_error_errno(r, "Could not get active inhibitors: %s", bus_error_message(&error, r));
 

@@ -35,7 +35,7 @@ static void print_inhibitors(sd_bus *bus) {
         unsigned n = 0;
         int r;
 
-        r = bus_call_method(bus, bus_login_mgr, "ListInhibitors", &error, &reply, "");
+        r = bus_call_method(bus, bus_login_mgr, "ListInhibitors", &error, &reply, NULL);
         assert_se(r >= 0);
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssuu)");
