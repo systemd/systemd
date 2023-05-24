@@ -1700,6 +1700,10 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
 
                 /* For the initial attempt, answer the question from the cache (honors ttl property).
                  * On the second attempt, if 'ServeStale' flag is enbaled, try to answer the question using stale date (honors until property) */
+                bool use_stale_data = false;
+                if (t->scope->manager->enable_serve_stale && t->n_attempts > 1)
+                        use_stale_data = true;
+
                 r = dns_cache_lookup(
                                 &t->scope->cache,
                                 dns_transaction_key(t),
@@ -1709,7 +1713,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                                 &t->received,
                                 &t->answer_query_flags,
                                 &t->answer_dnssec_result,
-                                t->scope->manager->enable_serve_stale && t->n_attempts > 1);
+                                use_stale_data);
                 if (r < 0)
                         return r;
                 if (r > 0) {
@@ -1720,6 +1724,14 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                                  * packet. */
                                 dns_transaction_reset_answer(t);
                         else {
+                                /* log as info if the question is answered using stale data. */
+                                if (use_stale_data) {
+                                        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
+                                        log_info("Serve Stale response rcode=%s for %s",
+                                                FORMAT_DNS_RCODE(t->answer_rcode),
+                                                dns_resource_key_to_string(dns_transaction_key(t), key_str, sizeof key_str));
+                                }
+
                                 t->answer_source = DNS_TRANSACTION_CACHE;
                                 if (t->answer_rcode == DNS_RCODE_SUCCESS)
                                         dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
