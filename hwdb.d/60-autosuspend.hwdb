@@ -47,6 +47,16 @@ usb:v058Fp9540*
  ID_AUTOSUSPEND=1
 
 #########################################
+# Intel
+#########################################
+
+# Bluetooth Host Controller (strago, glados)
+# prevents bluetooth link disconnection when other high-current USB devices inserted
+# (smartphone charging, etc.)
+usb:v8087p0A2A*
+ ID_AUTOSUSPEND=0
+
+#########################################
 # Lenovo
 #########################################
 
@@ -86,10 +96,6 @@ usb:v1199pA001*
 usb:v2CB7p0007*
  ID_AUTOSUSPEND=1
  ID_AUTOSUSPEND_DELAY_MS=7000
-
-# Intel Corp. Bluetooth wireless interface
-usb:v8087p0A2A*
- ID_AUTOSUSPEND_DELAY_MS=-1
 
 #########################################
 # Wacom
