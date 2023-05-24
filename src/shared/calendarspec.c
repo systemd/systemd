@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "calendarspec.h"
 #include "errno-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
 #include "parse-util.h"
@@ -336,9 +337,9 @@ static void format_chain(FILE *f, int space, const CalendarComponent *c, bool us
 }
 
 int calendar_spec_to_string(const CalendarSpec *c, char **p) {
-        char *buf = NULL;
+        _cleanup_free_ char *buf = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         size_t sz = 0;
-        FILE *f;
         int r;
 
         assert(c);
@@ -383,14 +384,15 @@ int calendar_spec_to_string(const CalendarSpec *c, char **p) {
         }
 
         r = fflush_and_check(f);
-        fclose(f);
-
-        if (r < 0) {
-                free(buf);
+        if (r < 0)
                 return r;
-        }
 
-        *p = buf;
+        f = safe_fclose(f);
+
+        if (!buf)
+                return -ENOMEM;
+
+        *p = TAKE_PTR(buf);
         return 0;
 }
 

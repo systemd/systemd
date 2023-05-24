@@ -299,6 +299,11 @@ static int dump_kill_candidates(OomdCGroupContext **sorted, int n, int dump_unti
         if (r < 0)
                 return r;
 
+        f = safe_fclose(f);
+
+        if (!dump)
+                return -ENOMEM;
+
         return log_dump(LOG_INFO, dump);
 }
 
