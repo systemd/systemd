@@ -4,6 +4,7 @@
 
 #include "bus-common-errors.h"
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "chase.h"
 #include "conf-files.h"
 #include "copy.h"
@@ -780,13 +781,7 @@ static int unit_file_is_active(
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
                 const char *at, *prefix, *joined;
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "ListUnitsByPatterns");
+                r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "ListUnitsByPatterns");
                 if (r < 0)
                         return r;
 
