@@ -58,7 +58,7 @@ typedef struct SessionStatusInfo {
         const char *id;
         uid_t uid;
         const char *name;
-        struct dual_timestamp timestamp;
+        dual_timestamp timestamp;
         unsigned vtnr;
         const char *seat;
         const char *tty;
@@ -77,8 +77,36 @@ typedef struct SessionStatusInfo {
         dual_timestamp idle_hint_timestamp;
 } SessionStatusInfo;
 
-static OutputFlags get_output_flags(void) {
+typedef struct UserStatusInfo {
+        uid_t uid;
+        bool linger;
+        const char *name;
+        dual_timestamp timestamp;
+        const char *state;
+        char **sessions;
+        const char *display;
+        const char *slice;
+} UserStatusInfo;
 
+typedef struct SeatStatusInfo {
+        const char *id;
+        const char *active_session;
+        char **sessions;
+} SeatStatusInfo;
+
+static void user_status_info_done(UserStatusInfo *info) {
+        assert(info);
+
+        strv_free(info->sessions);
+}
+
+static void seat_status_info_done(SeatStatusInfo *info) {
+        assert(info);
+
+        strv_free(info->sessions);
+}
+
+static OutputFlags get_output_flags(void) {
         return
                 FLAGS_SET(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) * OUTPUT_SHOW_ALL |
                 (arg_full || !on_tty() || pager_have()) * OUTPUT_FULL_WIDTH |
@@ -87,8 +115,13 @@ static OutputFlags get_output_flags(void) {
 
 static int get_session_path(sd_bus *bus, const char *session_id, sd_bus_error *error, char **path) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        int r;
         char *ans;
+        int r;
+
+        assert(bus);
+        assert(session_id);
+        assert(error);
+        assert(path);
 
         r = bus_call_method(bus, bus_login_mgr, "GetSession", error, &reply, "s", session_id);
         if (r < 0)
@@ -392,40 +425,12 @@ static int show_unit_cgroup(sd_bus *bus, const char *interface, const char *unit
         return 0;
 }
 
-typedef struct UserStatusInfo {
-        uid_t uid;
-        bool linger;
-        const char *name;
-        struct dual_timestamp timestamp;
-        const char *state;
-        char **sessions;
-        const char *display;
-        const char *slice;
-} UserStatusInfo;
-
-typedef struct SeatStatusInfo {
-        const char *id;
-        const char *active_session;
-        char **sessions;
-} SeatStatusInfo;
-
-static void user_status_info_clear(UserStatusInfo *info) {
-        if (info) {
-                strv_free(info->sessions);
-                zero(*info);
-        }
-}
-
-static void seat_status_info_clear(SeatStatusInfo *info) {
-        if (info) {
-                strv_free(info->sessions);
-                zero(*info);
-        }
-}
-
 static int prop_map_first_of_struct(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
         const char *contents;
         int r;
+
+        assert(bus);
+        assert(m);
 
         r = sd_bus_message_peek_type(m, NULL, &contents);
         if (r < 0)
@@ -474,7 +479,7 @@ static int prop_map_sessions_strv(sd_bus *bus, const char *member, sd_bus_messag
 
 static int print_session_status_info(sd_bus *bus, const char *path, bool *new_line) {
 
-        static const struct bus_properties_map map[]  = {
+        static const struct bus_properties_map map[] = {
                 { "Id",                  "s",    NULL,                     offsetof(SessionStatusInfo, id)                  },
                 { "Name",                "s",    NULL,                     offsetof(SessionStatusInfo, name)                },
                 { "TTY",                 "s",    NULL,                     offsetof(SessionStatusInfo, tty)                 },
@@ -609,7 +614,7 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
 
 static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line) {
 
-        static const struct bus_properties_map map[]  = {
+        static const struct bus_properties_map map[] = {
                 { "Name",               "s",     NULL,                     offsetof(UserStatusInfo, name)                },
                 { "Linger",             "b",     NULL,                     offsetof(UserStatusInfo, linger)              },
                 { "Slice",              "s",     NULL,                     offsetof(UserStatusInfo, slice)               },
@@ -624,7 +629,7 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(user_status_info_clear) UserStatusInfo i = {};
+        _cleanup_(user_status_info_done) UserStatusInfo i = {};
         int r;
 
         r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, BUS_MAP_BOOLEAN_AS_BOOL, &error, &m, &i);
@@ -686,7 +691,7 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
 
 static int print_seat_status_info(sd_bus *bus, const char *path, bool *new_line) {
 
-        static const struct bus_properties_map map[]  = {
+        static const struct bus_properties_map map[] = {
                 { "Id",            "s",     NULL, offsetof(SeatStatusInfo, id) },
                 { "ActiveSession", "(so)",  prop_map_first_of_struct, offsetof(SeatStatusInfo, active_session) },
                 { "Sessions",      "a(so)", prop_map_sessions_strv, offsetof(SeatStatusInfo, sessions) },
@@ -695,7 +700,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path, bool *new_line)
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(seat_status_info_clear) SeatStatusInfo i = {};
+        _cleanup_(seat_status_info_done) SeatStatusInfo i = {};
         int r;
 
         r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, 0, &error, &m, &i);
@@ -1003,7 +1008,6 @@ static int activate(int argc, char *argv[], void *userdata) {
         }
 
         for (int i = 1; i < argc; i++) {
-
                 r = bus_call_method(
                                 bus,
                                 bus_login_mgr,
@@ -1033,7 +1037,6 @@ static int kill_session(int argc, char *argv[], void *userdata) {
                 arg_kill_whom = "all";
 
         for (int i = 1; i < argc; i++) {
-
                 r = bus_call_method(
                                 bus,
                                 bus_login_mgr,
