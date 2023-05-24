@@ -187,8 +187,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
                                         if (!n)
                                                 return log_oom();
 
-                                        free(c->oldest_file);
-                                        c->oldest_file = n;
+                                        free_and_replace(c->oldest_file, n);
                                         c->oldest_mtime = t;
                                 }
 
