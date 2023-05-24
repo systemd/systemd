@@ -165,11 +165,6 @@ int config_parse_vlan_qos_maps(
                         continue;
                 }
 
-                if (m->to > m->from || m->to == 0 || m->from == 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid %s, ignoring: %s", lvalue, w);
-                        continue;
-                }
-
                 r = set_ensure_consume(s, &vlan_qos_maps_hash_ops, TAKE_PTR(m));
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to store %s, ignoring: %s", lvalue, w);
