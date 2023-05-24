@@ -688,7 +688,7 @@ static int timer_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_item(f, "state", timer_state_to_string(t->state));
         (void) serialize_item(f, "result", timer_result_to_string(t->result));
 
-        if (t->last_trigger.realtime > 0)
+        if (dual_timestamp_is_set(&t->last_trigger))
                 (void) serialize_usec(f, "last-trigger-realtime", t->last_trigger.realtime);
 
         if (t->last_trigger.monotonic > 0)
