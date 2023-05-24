@@ -87,6 +87,10 @@ usb:v2CB7p0007*
  ID_AUTOSUSPEND=1
  ID_AUTOSUSPEND_DELAY_MS=7000
 
+# Intel Corp. Bluetooth wireless interface
+usb:v8087p0A2A*
+ ID_AUTOSUSPEND_DELAY_MS=-1
+
 #########################################
 # Wacom
 #########################################
