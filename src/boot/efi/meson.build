@@ -242,6 +242,7 @@ libefi_sources = files(
         'pe.c',
         'random-seed.c',
         'secure-boot.c',
+        'shim.c',
         'ticks.c',
         'util.c',
         'vmm.c',
@@ -249,7 +250,6 @@ libefi_sources = files(
 
 systemd_boot_sources = files(
         'boot.c',
-        'shim.c',
 )
 
 stub_sources = files(
@@ -257,6 +257,10 @@ stub_sources = files(
         'linux.c',
         'splash.c',
         'stub.c',
+)
+
+addon_sources = files(
+        'addon.c',
 )
 
 if get_option('b_sanitize') == 'undefined'
@@ -328,12 +332,27 @@ foreach archspec : efi_archspecs
                 override_options : efi_override_options,
                 name_suffix : 'elf.stub',
                 pie : true)
+
+        efi_elf_binaries += executable(
+                'addon' + archspec['arch'],
+                addon_sources,
+                include_directories : efi_includes,
+                c_args : archspec['c_args'],
+                link_args : archspec['link_args'],
+                link_depends : elf2efi_lds,
+                gnu_symbol_visibility : 'hidden',
+                override_options : efi_override_options,
+                name_suffix : 'elf.stub',
+                pie : true)
 endforeach
 
 foreach efi_elf_binary : efi_elf_binaries
         # FIXME: Use build_tgt.name() with meson >= 0.54.0
         name = fs.name(efi_elf_binary.full_path()).split('.')[0]
-        name += name.startswith('linux') ? '.efi.stub' : '.efi'
+        name += name.startswith('systemd-boot') ? '.efi' : '.efi.stub'
+        # For the addon, given it's empty, we need to explicitly reserve space in the header to account for
+        # the sections that ukify will add.
+        minimum_sections = name.startswith('addon') ? '7' : '0'
         exe = custom_target(
                 name,
                 output : name,
@@ -348,6 +367,7 @@ foreach efi_elf_binary : efi_elf_binaries
                         '--efi-major=1',
                         '--efi-minor=1',
                         '--subsystem=10',
+                        '--minimum-sections=' + minimum_sections,
                         '@INPUT@',
                         '@OUTPUT@',
                 ])
