@@ -11,6 +11,10 @@ SUBSYSTEM=="i2c", ATTR{name}=="cyapa", \
 ENV{ID_AUTOSUSPEND}=="1", TEST=="power/control", \
   ATTR{power/control}="auto"
 
+# Disable autosuspend if hwdb says so.
+ENV{ID_AUTOSUSPEND}=="0", TEST=="power/control", \
+  ATTR{power/control}="on"
+
 # Disable USB persist if hwdb says so.
 ENV{ID_PERSIST}=="0", TEST=="power/persist", \
   ATTR{power/persist}="0"
