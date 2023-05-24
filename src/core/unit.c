@@ -54,6 +54,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "unit-name.h"
@@ -3474,6 +3475,7 @@ static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bu
 }
 
 int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         const char *match;
         int r;
 
@@ -3495,16 +3497,28 @@ int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method_async(
-                        bus,
-                        &u->get_name_owner_slot,
-                        "org.freedesktop.DBus",
-                        "/org/freedesktop/DBus",
-                        "org.freedesktop.DBus",
-                        "GetNameOwner",
-                        get_name_owner_handler,
-                        u,
-                        "s", name);
+        r = sd_bus_message_new_method_call(bus,
+                                           &m,
+                                           "org.freedesktop.DBus",
+                                           "/org/freedesktop/DBus",
+                                           "org.freedesktop.DBus",
+                                           "GetNameOwner");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "s", name);
+        if (r < 0)
+                return r;
+
+        /* Increase the timeout to 90s to reduce the probability
+         * that systemd kills dbus-type services by mistake. */
+        r = sd_bus_call_async(bus,
+                              &u->get_name_owner_slot,
+                              m,
+                              get_name_owner_handler,
+                              u,
+                              90 * USEC_PER_SEC);
+
         if (r < 0) {
                 u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
                 return r;
