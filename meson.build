@@ -208,6 +208,7 @@ catalogstatedir = systemdstatedir / 'catalog'
 randomseeddir = localstatedir / 'lib/systemd'
 profiledir = rootlibexecdir / 'portable' / 'profile'
 ntpservicelistdir = rootprefixdir / 'lib/systemd/ntp-units.d'
+credstoredir = prefixdir / 'lib/credstore'
 
 docdir = get_option('docdir')
 if docdir == ''
@@ -3843,6 +3844,8 @@ public_programs += executable(
         install_rpath : rootpkglibdir,
         install : true,
         install_dir : rootbindir)
+
+meson.add_install_script('sh', '-c', 'mkdir -p $DESTDIR/@0@ -m 0700'.format(credstoredir))
 
 executable(
         'systemd-volatile-root',
