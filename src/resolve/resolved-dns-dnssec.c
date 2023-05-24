@@ -867,9 +867,13 @@ static int dnssec_rrset_serialize_sig(
         }
 
         r = fflush_and_check(f);
-        f = safe_fclose(f);  /* sig_data may be reallocated when f is closed. */
         if (r < 0)
                 return r;
+
+        f = safe_fclose(f);  /* sig_data may be reallocated when f is closed. */
+
+        if (!sig_data)
+                return -ENOMEM;
 
         *ret_sig_data = TAKE_PTR(sig_data);
         *ret_sig_size = sig_size;

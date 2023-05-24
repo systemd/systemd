@@ -628,6 +628,9 @@ static int method_dump_memory_state_by_fd(sd_bus_message *message, void *userdat
 
         dump_file = safe_fclose(dump_file);
 
+        if (!dump)
+                return -ENOMEM;
+
         fd = acquire_data_fd(dump, dump_size, 0);
         if (fd < 0)
                 return fd;

@@ -1811,6 +1811,10 @@ static int format_journal_url(
                 return r;
 
         f = safe_fclose(f);
+
+        if (!url)
+                return -ENOMEM;
+
         *ret_url = TAKE_PTR(url);
         return 0;
 }
