@@ -58,7 +58,7 @@ typedef struct SessionStatusInfo {
         const char *id;
         uid_t uid;
         const char *name;
-        struct dual_timestamp timestamp;
+        dual_timestamp timestamp;
         unsigned vtnr;
         const char *seat;
         const char *tty;
@@ -76,6 +76,35 @@ typedef struct SessionStatusInfo {
         bool idle_hint;
         dual_timestamp idle_hint_timestamp;
 } SessionStatusInfo;
+
+typedef struct UserStatusInfo {
+        uid_t uid;
+        bool linger;
+        const char *name;
+        dual_timestamp timestamp;
+        const char *state;
+        char **sessions;
+        const char *display;
+        const char *slice;
+} UserStatusInfo;
+
+typedef struct SeatStatusInfo {
+        const char *id;
+        const char *active_session;
+        char **sessions;
+} SeatStatusInfo;
+
+static void user_status_info_done(UserStatusInfo *info) {
+        assert(info);
+
+        strv_free(info->sessions);
+}
+
+static void seat_status_info_done(SeatStatusInfo *info) {
+        assert(info);
+
+        strv_free(info->sessions);
+}
 
 static OutputFlags get_output_flags(void) {
 
@@ -222,6 +251,13 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
 }
 
 static int list_users(int argc, char *argv[], void *userdata) {
+
+        static const struct bus_properties_map property_map[] = {
+                { "Linger", "b", NULL, offsetof(UserStatusInfo, linger) },
+                { "State",  "s", NULL, offsetof(UserStatusInfo, state)  },
+                {},
+        };
+
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -248,10 +284,10 @@ static int list_users(int argc, char *argv[], void *userdata) {
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error_property = SD_BUS_ERROR_NULL;
-                _cleanup_free_ char *state = NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_property = NULL;
+                _cleanup_(user_status_info_done) UserStatusInfo info = {};
                 const char *user, *object;
                 uint32_t uid;
-                int linger;
 
                 r = sd_bus_message_read(reply, "(uso)", &uid, &user, &object);
                 if (r < 0)
@@ -259,44 +295,27 @@ static int list_users(int argc, char *argv[], void *userdata) {
                 if (r == 0)
                         break;
 
-                r = sd_bus_get_property_trivial(bus,
-                                                "org.freedesktop.login1",
-                                                object,
-                                                "org.freedesktop.login1.User",
-                                                "Linger",
-                                                &error_property,
-                                                'b',
-                                                &linger);
+                r = bus_map_all_properties(bus,
+                                           "org.freedesktop.login1",
+                                           object,
+                                           property_map,
+                                           BUS_MAP_BOOLEAN_AS_BOOL,
+                                           &error_property,
+                                           &reply_property,
+                                           &info);
                 if (r < 0) {
-                        if (sd_bus_error_has_name(&error_property, SD_BUS_ERROR_UNKNOWN_OBJECT))
-                                /* The user logged out when we're querying the property */
-                                continue;
-
-                        return log_error_errno(r, "Failed to get linger status for user %s: %s",
-                                               user, bus_error_message(&error_property, r));
-                }
-
-                r = sd_bus_get_property_string(bus,
-                                               "org.freedesktop.login1",
-                                               object,
-                                               "org.freedesktop.login1.User",
-                                               "State",
-                                               &error_property,
-                                               &state);
-                if (r < 0) {
-                        if (sd_bus_error_has_name(&error_property, SD_BUS_ERROR_UNKNOWN_OBJECT))
-                                /* The user logged out when we're querying the property */
-                                continue;
-
-                        return log_error_errno(r, "Failed to get state for user %s: %s",
-                                               user, bus_error_message(&error_property, r));
+                        log_full_errno(sd_bus_error_has_name(&error_property, SD_BUS_ERROR_UNKNOWN_OBJECT) ? LOG_DEBUG : LOG_WARNING,
+                                       r,
+                                       "Failed to get properties of user %s, ignoring: %s",
+                                       user, bus_error_message(&error_property, r));
+                        continue;
                 }
 
                 r = table_add_many(table,
                                    TABLE_UID, (uid_t) uid,
                                    TABLE_STRING, user,
-                                   TABLE_BOOLEAN, linger,
-                                   TABLE_STRING, state);
+                                   TABLE_BOOLEAN, info.linger,
+                                   TABLE_STRING, info.state);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -392,37 +411,6 @@ static int show_unit_cgroup(sd_bus *bus, const char *interface, const char *unit
         return 0;
 }
 
-typedef struct UserStatusInfo {
-        uid_t uid;
-        bool linger;
-        const char *name;
-        struct dual_timestamp timestamp;
-        const char *state;
-        char **sessions;
-        const char *display;
-        const char *slice;
-} UserStatusInfo;
-
-typedef struct SeatStatusInfo {
-        const char *id;
-        const char *active_session;
-        char **sessions;
-} SeatStatusInfo;
-
-static void user_status_info_clear(UserStatusInfo *info) {
-        if (info) {
-                strv_free(info->sessions);
-                zero(*info);
-        }
-}
-
-static void seat_status_info_clear(SeatStatusInfo *info) {
-        if (info) {
-                strv_free(info->sessions);
-                zero(*info);
-        }
-}
-
 static int prop_map_first_of_struct(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
         const char *contents;
         int r;
@@ -475,25 +463,27 @@ static int prop_map_sessions_strv(sd_bus *bus, const char *member, sd_bus_messag
 static int print_session_status_info(sd_bus *bus, const char *path, bool *new_line) {
 
         static const struct bus_properties_map map[]  = {
-                { "Id",                  "s",    NULL,                     offsetof(SessionStatusInfo, id)                  },
-                { "Name",                "s",    NULL,                     offsetof(SessionStatusInfo, name)                },
-                { "TTY",                 "s",    NULL,                     offsetof(SessionStatusInfo, tty)                 },
-                { "Display",             "s",    NULL,                     offsetof(SessionStatusInfo, display)             },
-                { "RemoteHost",          "s",    NULL,                     offsetof(SessionStatusInfo, remote_host)         },
-                { "RemoteUser",          "s",    NULL,                     offsetof(SessionStatusInfo, remote_user)         },
-                { "Service",             "s",    NULL,                     offsetof(SessionStatusInfo, service)             },
-                { "Desktop",             "s",    NULL,                     offsetof(SessionStatusInfo, desktop)             },
-                { "Type",                "s",    NULL,                     offsetof(SessionStatusInfo, type)                },
-                { "Class",               "s",    NULL,                     offsetof(SessionStatusInfo, class)               },
-                { "Scope",               "s",    NULL,                     offsetof(SessionStatusInfo, scope)               },
-                { "State",               "s",    NULL,                     offsetof(SessionStatusInfo, state)               },
-                { "VTNr",                "u",    NULL,                     offsetof(SessionStatusInfo, vtnr)                },
-                { "Leader",              "u",    NULL,                     offsetof(SessionStatusInfo, leader)              },
-                { "Remote",              "b",    NULL,                     offsetof(SessionStatusInfo, remote)              },
-                { "Timestamp",           "t",    NULL,                     offsetof(SessionStatusInfo, timestamp.realtime)  },
-                { "TimestampMonotonic",  "t",    NULL,                     offsetof(SessionStatusInfo, timestamp.monotonic) },
-                { "User",                "(uo)", prop_map_first_of_struct, offsetof(SessionStatusInfo, uid)                 },
-                { "Seat",                "(so)", prop_map_first_of_struct, offsetof(SessionStatusInfo, seat)                },
+                { "Id",                 "s",    NULL,                     offsetof(SessionStatusInfo, id)                           },
+                { "Name",               "s",    NULL,                     offsetof(SessionStatusInfo, name)                         },
+                { "TTY",                "s",    NULL,                     offsetof(SessionStatusInfo, tty)                          },
+                { "Display",            "s",    NULL,                     offsetof(SessionStatusInfo, display)                      },
+                { "RemoteHost",         "s",    NULL,                     offsetof(SessionStatusInfo, remote_host)                  },
+                { "RemoteUser",         "s",    NULL,                     offsetof(SessionStatusInfo, remote_user)                  },
+                { "Service",            "s",    NULL,                     offsetof(SessionStatusInfo, service)                      },
+                { "Desktop",            "s",    NULL,                     offsetof(SessionStatusInfo, desktop)                      },
+                { "Type",               "s",    NULL,                     offsetof(SessionStatusInfo, type)                         },
+                { "Class",              "s",    NULL,                     offsetof(SessionStatusInfo, class)                        },
+                { "Scope",              "s",    NULL,                     offsetof(SessionStatusInfo, scope)                        },
+                { "State",              "s",    NULL,                     offsetof(SessionStatusInfo, state)                        },
+                { "VTNr",               "u",    NULL,                     offsetof(SessionStatusInfo, vtnr)                         },
+                { "Leader",             "u",    NULL,                     offsetof(SessionStatusInfo, leader)                       },
+                { "Remote",             "b",    NULL,                     offsetof(SessionStatusInfo, remote)                       },
+                { "Timestamp",          "t",    NULL,                     offsetof(SessionStatusInfo, timestamp.realtime)           },
+                { "TimestampMonotonic", "t",    NULL,                     offsetof(SessionStatusInfo, timestamp.monotonic)          },
+                { "IdleHint",           "b",    NULL,                     offsetof(SessionStatusInfo, idle_hint)                    },
+                { "IdleSinceHint",      "t",    NULL,                     offsetof(SessionStatusInfo, idle_hint_timestamp.realtime) },
+                { "User",               "(uo)", prop_map_first_of_struct, offsetof(SessionStatusInfo, uid)                          },
+                { "Seat",               "(so)", prop_map_first_of_struct, offsetof(SessionStatusInfo, seat)                         },
                 {}
         };
 
@@ -584,6 +574,14 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
         if (i.state)
                 printf("\t   State: %s\n", i.state);
 
+        if (i.idle_hint && timestamp_is_set(i.idle_hint_timestamp.realtime))
+                printf("\t    Idle: %s since %s (%s)\n",
+                       yes_no(i.idle_hint),
+                       FORMAT_TIMESTAMP(i.idle_hint_timestamp.realtime),
+                       FORMAT_TIMESTAMP_RELATIVE(i.idle_hint_timestamp.realtime));
+        else
+                printf("\t    Idle: %s\n", yes_no(i.idle_hint));
+
         if (i.scope) {
                 printf("\t    Unit: %s\n", i.scope);
                 show_unit_cgroup(bus, "org.freedesktop.systemd1.Scope", i.scope, i.leader);
@@ -624,7 +622,7 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(user_status_info_clear) UserStatusInfo i = {};
+        _cleanup_(user_status_info_done) UserStatusInfo i = {};
         int r;
 
         r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, BUS_MAP_BOOLEAN_AS_BOOL, &error, &m, &i);
@@ -695,7 +693,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path, bool *new_line)
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(seat_status_info_clear) SeatStatusInfo i = {};
+        _cleanup_(seat_status_info_done) SeatStatusInfo i = {};
         int r;
 
         r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, 0, &error, &m, &i);
