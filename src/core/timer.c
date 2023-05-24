@@ -399,7 +399,7 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                          * to that. If we don't, just start from
                          * the activation time. */
 
-                        if (t->last_trigger.realtime > 0)
+                        if (dual_timestamp_is_set(&t->last_trigger))
                                 b = t->last_trigger.realtime;
                         else if (dual_timestamp_is_set(&UNIT(t)->inactive_exit_timestamp))
                                 b = UNIT(t)->inactive_exit_timestamp.realtime;
