@@ -144,6 +144,7 @@ int config_parse_vlan_qos_maps(
         for (const char *p = rvalue;;) {
                 _cleanup_free_ struct ifla_vlan_qos_mapping *m = NULL;
                 _cleanup_free_ char *w = NULL;
+                unsigned from, to;
 
                 r = extract_first_word(&p, &w, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r == -ENOMEM)
@@ -155,20 +156,20 @@ int config_parse_vlan_qos_maps(
                 if (r == 0)
                         return 0;
 
-                m = new0(struct ifla_vlan_qos_mapping, 1);
-                if (!m)
-                        return log_oom();
-
-                r = parse_range(w, &m->from, &m->to);
+                r = parse_range(w, &from, &to);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s, ignoring: %s", lvalue, w);
                         continue;
                 }
 
-                if (m->to > m->from || m->to == 0 || m->from == 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid %s, ignoring: %s", lvalue, w);
-                        continue;
-                }
+                m = new(struct ifla_vlan_qos_mapping, 1);
+                if (!m)
+                        return log_oom();
+
+                *m = (struct ifla_vlan_qos_mapping) {
+                        .from = from,
+                        .to = to,
+                };
 
                 r = set_ensure_consume(s, &vlan_qos_maps_hash_ops, TAKE_PTR(m));
                 if (r < 0) {
