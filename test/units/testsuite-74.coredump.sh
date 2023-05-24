@@ -21,6 +21,9 @@ if systemd-detect-virt -cq; then
     exit 0
 fi
 
+# To make all coredump entries stored in system.journal.
+journalctl --rotate
+
 # Check that we're the ones to receive coredumps
 sysctl kernel.core_pattern | grep systemd-coredump
 
