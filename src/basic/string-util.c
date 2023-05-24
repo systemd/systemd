@@ -955,8 +955,7 @@ int free_and_strdup(char **p, const char *s) {
         } else
                 t = NULL;
 
-        free(*p);
-        *p = t;
+        free_and_replace(*p, t);
 
         return 1;
 }

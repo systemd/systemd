@@ -451,8 +451,7 @@ static int lease_parse_in_addrs(const uint8_t *option, size_t len, struct in_add
                 if (!addresses)
                         return -ENOMEM;
 
-                free(*ret);
-                *ret = addresses;
+                free_and_replace(*ret, addresses);
                 *n_ret = n_addresses;
         }
 
@@ -795,8 +794,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                         if (!p)
                                 return -ENOMEM;
 
-                        free(lease->vendor_specific);
-                        lease->vendor_specific = p;
+                        free_and_replace(lease->vendor_specific, p);
                 }
 
                 lease->vendor_specific_len = len;
@@ -1458,8 +1456,7 @@ int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const void *client_id, size_t
                 if (!p)
                         return -ENOMEM;
 
-                free(lease->client_id);
-                lease->client_id = p;
+                free_and_replace(lease->client_id, p);
                 lease->client_id_len = client_id_len;
         }
 
