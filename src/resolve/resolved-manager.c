@@ -519,6 +519,11 @@ static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si
         if (fflush_and_check(f) < 0)
                 return log_oom();
 
+        f = safe_fclose(f);
+
+        if (!buffer)
+                return -ENOMEM;
+
         log_dump(LOG_INFO, buffer);
         return 0;
 }
