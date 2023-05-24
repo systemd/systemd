@@ -712,10 +712,9 @@ int veth_extra_parse(char ***l, const char *p) {
         if (r < 0)
                 return r;
         if (r == 0 || !ifname_valid(b)) {
-                free(b);
-                b = strdup(a);
-                if (!b)
-                        return -ENOMEM;
+                r = free_and_strdup(&b, a);
+                if (r < 0)
+                        return r;
         }
 
         if (p)
