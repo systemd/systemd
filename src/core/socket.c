@@ -716,7 +716,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, strna(s->user),
                         prefix, strna(s->group));
 
-        if (s->keep_alive_time > 0)
+        if (timestamp_is_set(s->keep_alive_time))
                 fprintf(f,
                         "%sKeepAliveTimeSec: %s\n",
                         prefix, FORMAT_TIMESPAN(s->keep_alive_time, USEC_PER_SEC));
@@ -973,7 +973,7 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
                         log_unit_warning_errno(UNIT(s), r, "SO_KEEPALIVE failed: %m");
         }
 
-        if (s->keep_alive_time > 0) {
+        if (timestamp_is_set(s->keep_alive_time)) {
                 r = setsockopt_int(fd, SOL_TCP, TCP_KEEPIDLE, s->keep_alive_time / USEC_PER_SEC);
                 if (r < 0)
                         log_unit_warning_errno(UNIT(s), r, "TCP_KEEPIDLE failed: %m");
