@@ -512,10 +512,11 @@ def elf2efi(args: argparse.Namespace):
     opt.SizeOfImage = align_to(
         sections[-1].VirtualAddress + sections[-1].VirtualSize, SECTION_ALIGNMENT
     )
+
     opt.SizeOfHeaders = align_to(
         PE_OFFSET
         + coff.SizeOfOptionalHeader
-        + sizeof(PeSection) * coff.NumberOfSections,
+        + sizeof(PeSection) * max(coff.NumberOfSections, args.minimum_sections),
         FILE_ALIGNMENT,
     )
     # DYNAMIC_BASE|NX_COMPAT|HIGH_ENTROPY_VA or DYNAMIC_BASE|NX_COMPAT
@@ -577,6 +578,12 @@ def main():
         "PE",
         type=argparse.FileType("wb"),
         help="Output PE/EFI file",
+    )
+    parser.add_argument(
+        "--minimum-sections",
+        type=int,
+        default=0,
+        help="Minimum number of sections to leave space for",
     )
 
     elf2efi(parser.parse_args())
