@@ -145,7 +145,8 @@ static int finish_item(
                 char *payload, size_t payload_size) {
 
         _cleanup_free_ CatalogItem *i = NULL;
-        _cleanup_free_ char *prev = NULL, *combined = NULL;
+        _cleanup_free_ char *combined = NULL;
+        char *prev;
 
         assert(h);
         assert(payload);
@@ -170,7 +171,9 @@ static int finish_item(
 
                 if (ordered_hashmap_update(h, i, combined) < 0)
                         return log_oom();
-                combined = NULL;
+
+                TAKE_PTR(combined);
+                free(prev);
         } else {
                 /* A new item */
                 combined = memdup(payload, payload_size + 1);
@@ -179,8 +182,9 @@ static int finish_item(
 
                 if (ordered_hashmap_put(h, i, combined) < 0)
                         return log_oom();
-                i = NULL;
-                combined = NULL;
+
+                TAKE_PTR(i);
+                TAKE_PTR(combined);
         }
 
         return 0;

@@ -1800,7 +1800,10 @@ int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
         if (r < 0)
                 return r;
 
-        assert(s);
+        /* realloc() during stream flushing may fail, so handle that appropriately */
+        if (!s)
+                return -ENOMEM;
+
         *ret = TAKE_PTR(s);
         assert(sz > 0);
         return (int) sz - 1;
