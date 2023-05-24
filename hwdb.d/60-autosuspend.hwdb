@@ -23,7 +23,7 @@
 # the device.
 #
 # Allowed properties are:
-#    ID_AUTOSUSPEND=1
+#    ID_AUTOSUSPEND={0|1}
 #    ID_AUTOSUSPEND_DELAY_MS=####
 #    ID_PERSIST=0
 #
