@@ -401,12 +401,10 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
 
                         if (t->last_trigger.realtime > 0)
                                 b = t->last_trigger.realtime;
-                        else {
-                                if (state_translation_table[t->state] == UNIT_ACTIVE)
-                                        b = UNIT(t)->inactive_exit_timestamp.realtime;
-                                else
-                                        b = ts.realtime;
-                        }
+                        else if (dual_timestamp_is_set(&UNIT(t)->inactive_exit_timestamp))
+                                b = UNIT(t)->inactive_exit_timestamp.realtime;
+                        else
+                                b = ts.realtime;
 
                         r = calendar_spec_next_usec(v->calendar_spec, b, &v->next_elapse);
                         if (r < 0)
