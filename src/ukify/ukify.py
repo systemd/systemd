@@ -635,7 +635,7 @@ def make_uki(opts):
 
     if sign_kernel:
         linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
-        linux = linux_signed.name
+        linux = pathlib.Path(linux_signed.name)
         sign(sign_tool, opts.linux, linux, opts=opts)
     else:
         linux = opts.linux
