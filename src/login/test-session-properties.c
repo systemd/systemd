@@ -57,7 +57,7 @@ TEST(set_type) {
 
         /* Type is reset to the original value when we release control of the session */
         assert_se(!streq(type, "tty"));
-        assert_se(bus_call_method(bus, &session, "ReleaseControl", NULL, NULL, "") >= 0);
+        assert_se(bus_call_method(bus, &session, "ReleaseControl", NULL, NULL, NULL) >= 0);
         type = mfree(type);
         assert_se(bus_get_property_string(bus, &session, "Type", NULL, &type) >= 0);
         assert_se(streq(type, "tty"));
