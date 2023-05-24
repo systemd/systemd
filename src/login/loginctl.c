@@ -74,7 +74,7 @@ typedef struct SessionStatusInfo {
         const char *scope;
         const char *desktop;
         bool idle_hint;
-        dual_timestamp idle_hint_timestamp;
+        usec_t idle_hint_timestamp;
 } SessionStatusInfo;
 
 typedef struct UserStatusInfo {
@@ -172,11 +172,11 @@ static int show_table(Table *table, const char *word) {
 
 static int list_sessions(int argc, char *argv[], void *userdata) {
 
-        static const struct bus_properties_map map[]  = {
-                { "IdleHint",               "b",    NULL,   offsetof(SessionStatusInfo, idle_hint)                      },
-                { "IdleSinceHintMonotonic", "t",    NULL,   offsetof(SessionStatusInfo, idle_hint_timestamp.monotonic)  },
-                { "State",                  "s",    NULL,   offsetof(SessionStatusInfo, state)                          },
-                { "TTY",                    "s",    NULL,   offsetof(SessionStatusInfo, tty)                            },
+        static const struct bus_properties_map map[] = {
+                { "IdleHint",      "b", NULL, offsetof(SessionStatusInfo, idle_hint)           },
+                { "IdleSinceHint", "t", NULL, offsetof(SessionStatusInfo, idle_hint_timestamp) },
+                { "State",         "s", NULL, offsetof(SessionStatusInfo, state)               },
+                { "TTY",           "s", NULL, offsetof(SessionStatusInfo, tty)                 },
                 {},
         };
 
@@ -240,7 +240,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                         return table_log_add_error(r);
 
                 if (i.idle_hint)
-                        r = table_add_cell(table, NULL, TABLE_TIMESTAMP_RELATIVE, &i.idle_hint_timestamp.monotonic);
+                        r = table_add_cell(table, NULL, TABLE_TIMESTAMP_RELATIVE, &i.idle_hint_timestamp);
                 else
                         r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
