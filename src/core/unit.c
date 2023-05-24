@@ -3534,6 +3534,7 @@ static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bu
                         log_unit_error_errno(u, r,
                                              "Unexpected error response from GetNameOwner(): %s",
                                              bus_error_message(e, r));
+                        return 0;
                 }
 
                 new_owner = NULL;
