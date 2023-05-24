@@ -1072,6 +1072,9 @@ static int introspect(int argc, char **argv, void *userdata) {
 
                         mf = safe_fclose(mf);
 
+                        if (!buf)
+                                return bus_log_parse_error(ENOMEM);
+
                         z = set_get(members, &((Member) {
                                                 .type = "property",
                                                 .interface = m->interface,

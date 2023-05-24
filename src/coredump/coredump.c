@@ -707,6 +707,9 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
         if (errno > 0)
                 return -errno;
 
+        if (!buffer)
+                return -ENOMEM;
+
         *open_fds = TAKE_PTR(buffer);
 
         return 0;

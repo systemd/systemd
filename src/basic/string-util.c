@@ -9,6 +9,7 @@
 #include "alloc-util.h"
 #include "escape.h"
 #include "extract-word.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "gunicode.h"
 #include "locale-util.h"
@@ -603,9 +604,9 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                 STATE_CSI,
                 STATE_CSO,
         } state = STATE_OTHER;
-        char *obuf = NULL;
+        _cleanup_free_ char *obuf = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         size_t osz = 0, isz, shift[2] = {}, n_carriage_returns = 0;
-        FILE *f;
 
         assert(ibuf);
         assert(*ibuf);
@@ -713,11 +714,13 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                 }
         }
 
-        if (fflush_and_check(f) < 0) {
-                fclose(f);
-                return mfree(obuf);
-        }
-        fclose(f);
+        if (fflush_and_check(f) < 0)
+                return NULL;
+
+        f = safe_fclose(f);
+
+        if (!obuf)
+                return NULL;
 
         free_and_replace(*ibuf, obuf);
 

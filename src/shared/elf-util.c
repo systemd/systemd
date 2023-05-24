@@ -621,8 +621,13 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
                         return log_warning_errno(r, "Could not parse core file, flushing file buffer failed: %m");
 
                 c.f = safe_fclose(c.f);
+
+                if (!buf)
+                        return log_oom();
+
                 *ret = TAKE_PTR(buf);
         }
+
         if (ret_package_metadata)
                 *ret_package_metadata = TAKE_PTR(package_metadata);
 
@@ -735,8 +740,13 @@ static int parse_elf(int fd, const char *executable, char **ret, JsonVariant **r
                         return log_warning_errno(r, "Could not parse ELF file, flushing file buffer failed: %m");
 
                 c.f = safe_fclose(c.f);
+
+                if (!buf)
+                        return log_oom();
+
                 *ret = TAKE_PTR(buf);
         }
+
         if (ret_package_metadata)
                 *ret_package_metadata = TAKE_PTR(elf_metadata);
 

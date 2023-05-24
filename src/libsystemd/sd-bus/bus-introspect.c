@@ -268,6 +268,10 @@ int introspect_finish(struct introspect *i, char **ret) {
                 return r;
 
         i->f = safe_fclose(i->f);
+
+        if (!i->introspection)
+                return -ENOMEM;
+
         *ret = TAKE_PTR(i->introspection);
 
         return 0;
