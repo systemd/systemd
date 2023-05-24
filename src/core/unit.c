@@ -19,6 +19,7 @@
 #include "cgroup-util.h"
 #include "chase.h"
 #include "core-varlink.h"
+#include "constants.h"
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "dropin.h"
@@ -3612,6 +3613,7 @@ static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bu
 }
 
 int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m1 = NULL, *m2 = NULL;
         const char *match;
         int r;
 
@@ -3633,16 +3635,51 @@ int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method_async(
-                        bus,
-                        &u->get_name_owner_slot,
-                        "org.freedesktop.DBus",
-                        "/org/freedesktop/DBus",
-                        "org.freedesktop.DBus",
-                        "GetNameOwner",
-                        get_name_owner_handler,
-                        u,
-                        "s", name);
+        r = sd_bus_message_new_method_call(bus,
+                                           &m1,
+                                           "org.freedesktop.DBus",
+                                           "/org/freedesktop/DBus",
+                                           "org.freedesktop.DBus",
+                                           "AddMatch");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m1, "s", match);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call_async(bus,
+                              &u->match_bus_slot,
+                              m1,
+                              signal_name_owner_changed,
+                              u,
+                              DEFAULT_TIMEOUT_USEC);
+
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_new_method_call(bus,
+                                           &m2,
+                                           "org.freedesktop.DBus",
+                                           "/org/freedesktop/DBus",
+                                           "org.freedesktop.DBus",
+                                           "GetNameOwner");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m2, "s", name);
+        if (r < 0)
+                return r;
+
+        /* Increase the timeout to 90s to reduce the probability
+         * that systemd kills dbus-type services by mistake. */
+        r = sd_bus_call_async(bus,
+                              &u->get_name_owner_slot,
+                              m2,
+                              get_name_owner_handler,
+                              u,
+                              DEFAULT_TIMEOUT_USEC);
+
         if (r < 0) {
                 u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
                 return r;
