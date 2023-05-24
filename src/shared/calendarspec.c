@@ -37,8 +37,7 @@ assert_cc(INT_MAX >= USEC_PER_SEC);
 static CalendarComponent* chain_free(CalendarComponent *c) {
         while (c) {
                 CalendarComponent *n = c->next;
-                free(c);
-                c = n;
+                free_and_replace(c, n);
         }
         return NULL;
 }
