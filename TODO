@@ -467,12 +467,6 @@ Features:
   parametrization, if needed. This matches our usual rule that admin config
   should win over vendor defaults.
 
-* sd-stub: optionally allow users to configure manual kernel command line even
-  in SecureBoot by authenticating it via shim's APIs, integrating with MOK and
-  similar: instead of authenticating just PE code shim should be capable of
-  authenticating any kind of data for us, including files containing kernel
-  command lines.
-
 * write a "search path" spec, that documents the prefixes to search in
   (i.e. the usual /etc/, /run/, /usr/lib/ dance, potentially /usr/etc/), how to
   sort found entries, how masking works and overriding.
