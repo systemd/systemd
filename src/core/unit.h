@@ -1173,48 +1173,52 @@ typedef struct UnitForEachDependencyData {
         void *current_type;
         Iterator by_type_iterator, by_unit_iterator;
         Unit **current_unit;
+        UnitDependencyInfo *current_info;
 } UnitForEachDependencyData;
 
 /* Iterates through all dependencies that have a specific atom in the dependency type set. This tries to be
  * smart: if the atom is unique, we'll directly go to right entry. Otherwise we'll iterate through the
  * per-dependency type hashmap and match all dep that have the right atom set. */
-#define _UNIT_FOREACH_DEPENDENCY(other, u, ma, data)                    \
-        for (UnitForEachDependencyData data = {                         \
+#define _UNIT_FOREACH_DEPENDENCY(other, info, u, ma, d)                 \
+        for (UnitForEachDependencyData d = {                            \
                         .match_atom = (ma),                             \
                         .by_type = (u)->dependencies,                   \
                         .by_type_iterator = ITERATOR_FIRST,             \
                         .current_unit = &(other),                       \
+                        .current_info = &(info),                        \
                 };                                                      \
              ({                                                         \
                      UnitDependency _dt = _UNIT_DEPENDENCY_INVALID;     \
                      bool _found;                                       \
                                                                         \
-                     if (data.by_type && ITERATOR_IS_FIRST(data.by_type_iterator)) { \
-                             _dt = unit_dependency_from_unique_atom(data.match_atom); \
+                     if (d.by_type && ITERATOR_IS_FIRST(d.by_type_iterator)) { \
+                             _dt = unit_dependency_from_unique_atom(d.match_atom); \
                              if (_dt >= 0) {                            \
-                                     data.by_unit = hashmap_get(data.by_type, UNIT_DEPENDENCY_TO_PTR(_dt)); \
-                                     data.current_type = UNIT_DEPENDENCY_TO_PTR(_dt); \
-                                     data.by_type = NULL;               \
-                                     _found = !!data.by_unit;           \
+                                     d.by_unit = hashmap_get(d.by_type, UNIT_DEPENDENCY_TO_PTR(_dt)); \
+                                     d.current_type = UNIT_DEPENDENCY_TO_PTR(_dt); \
+                                     d.by_type = NULL;                  \
+                                     _found = !!d.by_unit;              \
                              }                                          \
                      }                                                  \
                      if (_dt < 0)                                       \
-                             _found = hashmap_iterate(data.by_type,     \
-                                                      &data.by_type_iterator, \
-                                                      (void**)&(data.by_unit), \
-                                                      (const void**) &(data.current_type)); \
+                             _found = hashmap_iterate(d.by_type,        \
+                                                      &d.by_type_iterator, \
+                                                      (void**) &(d.by_unit), \
+                                                      (const void**) &(d.current_type)); \
                      _found;                                            \
              }); )                                                      \
-                if ((unit_dependency_to_atom(UNIT_DEPENDENCY_FROM_PTR(data.current_type)) & data.match_atom) != 0) \
-                        for (data.by_unit_iterator = ITERATOR_FIRST;    \
-                                hashmap_iterate(data.by_unit,           \
-                                                &data.by_unit_iterator, \
-                                                NULL,                   \
-                                                (const void**) data.current_unit); )
+                if ((unit_dependency_to_atom(UNIT_DEPENDENCY_FROM_PTR(d.current_type)) & d.match_atom) != 0) \
+                        for (d.by_unit_iterator = ITERATOR_FIRST;       \
+                             hashmap_iterate(d.by_unit,                 \
+                                             &d.by_unit_iterator,       \
+                                             &(d.current_info->data),   \
+                                             (const void**) d.current_unit); )
 
 /* Note: this matches deps that have *any* of the atoms specified in match_atom set */
-#define UNIT_FOREACH_DEPENDENCY(other, u, match_atom) \
-        _UNIT_FOREACH_DEPENDENCY(other, u, match_atom, UNIQ_T(data, UNIQ))
+#define UNIT_FOREACH_DEPENDENCY(other, u, match_atom)                   \
+        _UNIT_FOREACH_DEPENDENCY(other, (UnitDependencyInfo) {}, u, match_atom, UNIQ_T(data, UNIQ))
+#define UNIT_FOREACH_DEPENDENCY_WITH_INFO(other, info, u, match_atom)   \
+        _UNIT_FOREACH_DEPENDENCY(other, info, u, match_atom, UNIQ_T(data, UNIQ))
 
 #define _LOG_CONTEXT_PUSH_UNIT(unit, u, c)                                                      \
         const Unit *u = (unit);                                                                 \
