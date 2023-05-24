@@ -590,10 +590,9 @@ _public_ int sd_bus_get_name_creds(
                                                 if (r < 0)
                                                         return r;
 
-                                                free(c->label);
-                                                c->label = strndup(p, sz);
-                                                if (!c->label)
-                                                        return -ENOMEM;
+                                                r = free_and_strndup(&c->label, p, sz);
+                                                if (r < 0)
+                                                        return r;
 
                                                 c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
 
