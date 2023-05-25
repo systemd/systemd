@@ -422,22 +422,28 @@ char *format_timestamp_style(
         return buf;
 }
 
-char* format_timestamp_relative_full(char *buf, size_t l, usec_t t, bool implicit_left) {
+char* format_timestamp_relative_full(char *buf, size_t l, usec_t t, bool implicit_left, bool monotonic) {
         const char *s;
-        usec_t n, d;
+        usec_t d;
 
         assert(buf);
+        assert(!monotonic || !implicit_left);
 
         if (!timestamp_is_set(t))
                 return NULL;
 
-        n = now(CLOCK_REALTIME);
-        if (n > t) {
-                d = n - t;
+        if (monotonic) {
+                d = t;
                 s = " ago";
         } else {
-                d = t - n;
-                s = implicit_left ? "" : " left";
+                usec_t n = now(CLOCK_REALTIME);
+                if (n > t) {
+                        d = n - t;
+                        s = " ago";
+                } else {
+                        d = t - n;
+                        s = implicit_left ? "" : " left";
+                }
         }
 
         if (d >= USEC_PER_YEAR) {
