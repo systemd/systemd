@@ -1197,7 +1197,7 @@ ssize_t dns_resource_record_payload(DnsResourceRecord *rr, void **out) {
 
 int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical) {
 
-        DnsPacket packet = {
+        _cleanup_(dns_packet_unref) DnsPacket packet = {
                 .n_ref = 1,
                 .protocol = DNS_PROTOCOL_DNS,
                 .on_stack = true,
@@ -1222,10 +1222,8 @@ int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical) {
                 return 0;
 
         r = dns_packet_append_rr(&packet, rr, 0, &start, &rds);
-        if (r < 0) {
-                dns_packet_unref(&packet);
+        if (r < 0)
                 return r;
-        }
 
         assert(start == 0);
         assert(packet._data);
@@ -1235,8 +1233,6 @@ int dns_resource_record_to_wire_format(DnsResourceRecord *rr, bool canonical) {
         rr->wire_format_size = packet.size;
         rr->wire_format_rdata_offset = rds;
         rr->wire_format_canonical = canonical;
-
-        dns_packet_unref(&packet);
 
         return 0;
 }
