@@ -87,7 +87,7 @@ jobs:
 
         [Content]
         Environment=CI_BUILD=1
-                    DEFAULT_TIMEOUT_SEC=120
+                    DEFAULT_TIMEOUT_SEC=180
                     SLOW_TESTS=true
 
         [Output]
