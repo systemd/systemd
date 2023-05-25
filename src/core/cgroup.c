@@ -3142,8 +3142,11 @@ static int on_cgroup_empty_event(sd_event_source *s, void *userdata) {
 
         unit_add_to_gc_queue(u);
 
-        if (UNIT_VTABLE(u)->notify_cgroup_empty)
-                UNIT_VTABLE(u)->notify_cgroup_empty(u);
+        if (IN_SET(unit_active_state(u), UNIT_INACTIVE, UNIT_FAILED))
+                unit_prune_cgroup(u);
+        else
+                if (UNIT_VTABLE(u)->notify_cgroup_empty)
+                        UNIT_VTABLE(u)->notify_cgroup_empty(u);
 
         return 0;
 }
