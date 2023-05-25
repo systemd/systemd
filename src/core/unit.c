@@ -481,6 +481,9 @@ bool unit_may_gc(Unit *u) {
                         return false;
         }
 
+        if (u->in_cgroup_empty_queue)
+                return false;
+
         if (!UNIT_VTABLE(u)->may_gc)
                 return true;
 
