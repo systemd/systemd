@@ -284,6 +284,14 @@
         <citerefentry><refentrytitle>systemd-remount-fs.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.swap=</varname></term>
+
+        <listitem><para>Takes a boolean argument or enables the option if specified without an argument.
+        If disabled, automatic discovery of swap partition(s) based on GPT partition type is disabled.
+        Defaults to enabled.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
