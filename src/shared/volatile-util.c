@@ -22,6 +22,8 @@ int query_volatile_mode(VolatileMode *ret) {
                 return 0;
         }
 
+        // TODO: Handle systemd.installer_volatile env var too
+
         if (mode) {
                 VolatileMode m;
 
