@@ -2641,6 +2641,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         init_usec = time_usec();
 
+        /* Ask Shim to leave its protocol around, so that the stub can use it to validate PEs.
+         * By default, Shim uninstalls its protocol when calling StartImage(). */
+        shim_retain_protocol();
+
         err = BS->OpenProtocol(
                         image,
                         MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL),
