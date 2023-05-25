@@ -692,9 +692,9 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
 static int print_seat_status_info(sd_bus *bus, const char *path, bool *new_line) {
 
         static const struct bus_properties_map map[] = {
-                { "Id",            "s",     NULL, offsetof(SeatStatusInfo, id) },
+                { "Id",            "s",     NULL,                     offsetof(SeatStatusInfo, id)             },
                 { "ActiveSession", "(so)",  prop_map_first_of_struct, offsetof(SeatStatusInfo, active_session) },
-                { "Sessions",      "a(so)", prop_map_sessions_strv, offsetof(SeatStatusInfo, sessions) },
+                { "Sessions",      "a(so)", prop_map_sessions_strv,   offsetof(SeatStatusInfo, sessions)       },
                 {}
         };
 
