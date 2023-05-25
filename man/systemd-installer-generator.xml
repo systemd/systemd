@@ -1,0 +1,105 @@
+<?xml version="1.0"?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-installer-generator">
+
+  <refentryinfo>
+    <title>systemd-installer-generator</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-installer-generator</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-installer-generator</refname>
+    <refpurpose>Generator for redirecting boot into an OS installer UI</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/system-generators/systemd-installer-generator</filename></para>
+  </refsynopsisdiv>
+
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-installer-generator</filename> is a unit generator that redirects the system's
+    boot into <filename>installer.target</filename>, optionally disables <filename>systemd-repart.service</filename>,
+    and optionally replaces the root filesystem with a volatile memory file system such that no data written
+    to it can be persisted to disk. This generator is intended to be used in circumstances where a single OS image
+    will act as both an installer and an installed system.</para>
+
+    <para><filename>systemd-repart.service</filename> is disabled by default if this generator is active. This
+    prevents the unnecessary creation/resizing of partitions (i.e. secondary partitions in an A/B setup,
+    persistent data partitions, etc.) if the image is just being used as an installer.</para>
+
+    <para>When this generator is active, the root filesystem is replaced with a volatile file system to emulate
+    the behavior of what would traditionally be called a "LiveOS": this allows the user to try the system by
+    using it normally, but none of the changes they make will be persisted to disk.</para>
+
+    <para><filename>systemd-installer-generator</filename> implements
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+
+  <refsect1>
+    <title>Kernel Command Line</title>
+
+    <para><filename>systemd-installer-generator</filename> understands the following kernel command line
+    parameters:</para>
+
+    <variablelist class='kernel-commandline-options'>
+
+      <varlistentry>
+        <term><varname>systemd.installer=</varname></term>
+
+        <listitem><para>Takes a boolean argument, or the special value <literal>auto</literal>. Defaults
+        to "no". Controls whether this generator is active.</para>
+
+        <para>If set to <literal>auto</literal>, this generator is enabled if the block device backing the root
+        file system is considered removable by the kernel, and disabled otherwise. In the initrd, it operates on
+        the block device backing <filename>/sysroot/</filename> instead, i.e. on the block device the system will
+        soon transition into.</para>
+
+        <para><literal>auto</literal> allows for a single OS image to automatically determine if it should
+        behave as an installer or an installed system with no user input, depending on the media it is booting
+        from. If booting from removable media such as a USB flash drive, the image will boot as an installer.
+        Alternatively, if written directly to an internal disk, the image will boot as an installed system.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.installer_disable_repart=</varname></term>
+
+        <listitem><para>Takes a boolean argument. Defaults to "yes". Controls whether this generator disables
+        <filename>systemd-repart.service</filename>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.installer_volatile=</varname></term>
+        <listitem><para>Takes a boolean argument, or the special value <literal>overlay</literal>. Defaults
+        to "yes". Controls whether this generator enables
+        <citerefentry><refentrytitle>systemd-volatile-root.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        If set to <literal>overlay</literal>, the root filesystem is set up as an <literal>overlayfs</literal>
+        mount combining the read-only root directory with a writable <literal>tmpfs</literal>.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-volatile-root.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
