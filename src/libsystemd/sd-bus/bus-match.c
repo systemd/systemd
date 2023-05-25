@@ -824,6 +824,7 @@ int bus_match_parse(
 
 char *bus_match_to_string(struct bus_match_component *components, size_t n_components) {
         _cleanup_free_ char *buffer = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         size_t size = 0;
         int r;
 
@@ -832,7 +833,7 @@ char *bus_match_to_string(struct bus_match_component *components, size_t n_compo
 
         assert(components);
 
-        FILE *f = open_memstream_unlocked(&buffer, &size);
+        f = open_memstream_unlocked(&buffer, &size);
         if (!f)
                 return NULL;
 
@@ -855,9 +856,11 @@ char *bus_match_to_string(struct bus_match_component *components, size_t n_compo
         }
 
         r = fflush_and_check(f);
-        safe_fclose(f);
         if (r < 0)
                 return NULL;
+
+        f = safe_fclose(f);
+
         return TAKE_PTR(buffer);
 }
 
