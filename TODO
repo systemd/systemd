@@ -129,6 +129,23 @@ Deprecations and removals:
 
 Features:
 
+* introduce a .microcode PE section for sd-stub which we'll pass as first initrd
+  to the kernel which will then upload it to the CPU. This should be distinct
+  from .initrd to guarantee right ordering. also, and maybe more importantly
+  support .microcode in PE add-ons, so that a microcode update can be shipped
+  indepdendently of any kernel.
+
+* add clean mechanism concept for passing env/creds from initrd to host on
+  switch root, so that cloud-init and similar have a clean, sane method to pass
+  along the stuff they picked up, without patching any dirs. Maybe add
+  SwitchRootEx() as new bus call that takes these as argument. When adding
+  SwitchRootEx() we should maybe also add a flags param that allows disabling
+  and enabling whether serialization is requested during switch root.
+
+* add proper .osrel matching for PE addons. i.e. refuse applying an addon
+  intended for a different OS. Take inspiration from how confext/sysext are
+  matched against OS.
+
 * use different sbat for sd-boot and sd-stub (so that people can revoke one
   without the other)
 
