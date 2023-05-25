@@ -600,7 +600,6 @@ int manager_new(Manager **ret) {
 
                 .sigrtmin18_info.memory_pressure_handler = manager_memory_pressure,
                 .sigrtmin18_info.memory_pressure_userdata = m,
-                .enable_serve_stale = false,
         };
 
         r = dns_trust_anchor_load(&m->trust_anchor);
