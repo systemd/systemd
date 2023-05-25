@@ -18,8 +18,13 @@ int query_volatile_mode(VolatileMode *ret) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                *ret = VOLATILE_NO;
-                return 0;
+                r = proc_cmdline_get_key("systemd.installer_volatile", PROC_CMDLINE_VALUE_OPTIONAL, &mode);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        *ret = VOLATILE_NO;
+                        return 0;
+                }
         }
 
         if (mode) {
