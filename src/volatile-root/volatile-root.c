@@ -5,7 +5,9 @@
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "chase.h"
+#include "device-util.h"
 #include "devnum-util.h"
+#include "env-util.h"
 #include "escape.h"
 #include "main-func.h"
 #include "mkdir.h"
@@ -181,6 +183,23 @@ static int run(int argc, char *argv[]) {
                 r = device_path_make_major_minor(S_IFBLK, devt, &dn);
                 if (r < 0)
                         return log_error_errno(r, "Failed to format device node path: %m");
+
+                /* While here, we perform a check required by systemd-installer-generator's `auto` mode */
+                if (getenv_bool("SYSTEMD_INSTALLER_DISABLE_IF_REMOVABLE")) {
+                        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+
+                        r = sd_device_new_from_devname(&dev, dn);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to open backing device of %s: %m", path);
+
+                        r = device_is_removable(dev);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to check if device is removable: %m");
+                        if (r > 0) {
+                                log_info("installer-generator is active and %s is backed by removable device.", path);
+                                return 0;
+                        }
+                }
 
                 if (symlink(dn, "/run/systemd/volatile-root") < 0)
                         log_warning_errno(errno, "Failed to create symlink /run/systemd/volatile-root: %m");
