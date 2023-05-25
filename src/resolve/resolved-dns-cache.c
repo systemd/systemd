@@ -444,8 +444,8 @@ static int dns_cache_put_positive(
         if (min_ttl <= 0) {
                 r = dns_cache_remove_by_rr(c, rr);
                 log_debug("%s: %s",
-                         r > 0 ? "Removed zero TTL entry from cache" : "Not caching zero TTL cache entry",
-                         dns_resource_key_to_string(rr->key, key_str, sizeof key_str));
+                          r > 0 ? "Removed zero TTL entry from cache" : "Not caching zero TTL cache entry",
+                          dns_resource_key_to_string(rr->key, key_str, sizeof key_str));
                 return 0;
         }
 
