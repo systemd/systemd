@@ -413,26 +413,6 @@ static bool slice_can_freeze(Unit *s) {
         return slice_freezer_action_supported_by_children(s);
 }
 
-static void slice_notify_cgroup_empty_event(Unit *u) {
-        Slice *s = SLICE(u);
-
-        assert(u);
-
-        log_unit_debug(u, "Control group is empty.");
-
-        switch (s->state) {
-
-        /* If the cgroup empty notification comes when the unit is not active, we must have failed to clean
-         * up the cgroup earlier and should do it now. */
-        case SLICE_DEAD:
-                unit_prune_cgroup(u);
-                break;
-
-        default:
-                ;
-        }
-}
-
 const UnitVTable slice_vtable = {
         .object_size = sizeof(Slice),
         .cgroup_context_offset = offsetof(Slice, cgroup_context),
@@ -467,8 +447,6 @@ const UnitVTable slice_vtable = {
 
         .active_state = slice_active_state,
         .sub_state_to_string = slice_sub_state_to_string,
-
-        .notify_cgroup_empty = slice_notify_cgroup_empty_event,
 
         .bus_set_property = bus_slice_set_property,
         .bus_commit_properties = bus_slice_commit_properties,
