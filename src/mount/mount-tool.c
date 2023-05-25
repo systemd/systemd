@@ -1210,24 +1210,11 @@ static int acquire_description(sd_device *d) {
 }
 
 static int acquire_removable(sd_device *d) {
-        const char *v;
-
         /* Shortcut this if there's no reason to check it */
         if (arg_action != ACTION_DEFAULT && arg_timeout_idle_set && arg_bind_device >= 0)
                 return 0;
 
-        for (;;) {
-                if (sd_device_get_sysattr_value(d, "removable", &v) >= 0)
-                        break;
-
-                if (sd_device_get_parent(d, &d) < 0)
-                        return 0;
-
-                if (sd_device_get_subsystem(d, &v) < 0 || !streq(v, "block"))
-                        return 0;
-        }
-
-        if (parse_boolean(v) <= 0)
+        if (device_is_removable(d) <= 0)
                 return 0;
 
         log_debug("Discovered removable device.");

@@ -65,6 +65,31 @@ int device_open_from_devnum(mode_t mode, dev_t devnum, int flags, char **ret) {
         return TAKE_FD(fd);
 }
 
+int device_is_removable(sd_device *device) {
+        const char *subsystem;
+        int r;
+
+        for (;;) {
+                r = device_get_sysattr_bool(device, "removable");
+                if (r >= 0)
+                        return r;
+
+                r = sd_device_get_parent(device, &device);
+                if (r == -ENOENT)
+                        break;
+                if (r < 0)
+                        return r;
+
+                r = sd_device_get_subsystem(device, &subsystem);
+                if (r < 0)
+                        return r;
+                if (!streq(subsystem, "block"))
+                        break;
+        }
+
+        return false;
+}
+
 static int add_string_field(
                 sd_device *device,
                 const char *field,

@@ -5077,6 +5077,21 @@ static int context_can_factory_reset(Context *context) {
         return false;
 }
 
+static int context_check_is_removable(Context *context) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        int r;
+
+        assert(context);
+
+        r = sd_device_new_from_devname(&dev, context->node);
+        if (r < 0)
+                return r;
+
+        return device_is_removable(dev);
+}
+
+// TODO: Call context_check_is_removable IF env var set
+
 static int resolve_copy_blocks_auto_candidate(
                 dev_t partition_devno,
                 GptPartitionType partition_type,
