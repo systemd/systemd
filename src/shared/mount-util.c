@@ -79,7 +79,7 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
                                 continue;
 
                         if (prefix && !path_startswith(path, prefix)) {
-                                log_debug("Not unmounting %s, outside of prefix: %s", path, prefix);
+                                log_trace("Not unmounting %s, outside of prefix: %s", path, prefix);
                                 continue;
                         }
 
