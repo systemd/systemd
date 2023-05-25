@@ -383,14 +383,9 @@ int calendar_spec_to_string(const CalendarSpec *c, char **p) {
                 }
         }
 
-        r = fflush_and_check(f);
+        r = fflush_check_and_fclose(&f);
         if (r < 0)
                 return r;
-
-        f = safe_fclose(f);
-
-        if (!buf)
-                return -ENOMEM;
 
         *p = TAKE_PTR(buf);
         return 0;

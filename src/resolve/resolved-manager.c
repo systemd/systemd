@@ -516,13 +516,8 @@ static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si
                 LIST_FOREACH(servers, server, l->dns_servers)
                         dns_server_dump(server, f);
 
-        if (fflush_and_check(f) < 0)
+        if (fflush_check_and_fclose(&f) < 0)
                 return log_oom();
-
-        f = safe_fclose(f);
-
-        if (!buffer)
-                return -ENOMEM;
 
         log_dump(LOG_INFO, buffer);
         return 0;

@@ -1193,6 +1193,28 @@ int fflush_and_check(FILE *f) {
         return 0;
 }
 
+int fflush_check_and_fclose(FILE **f) {
+        int r;
+        PROTECT_ERRNO;
+
+        assert(f);
+
+        if (!*f)
+                return 0;
+
+        r = fflush_and_check(*f);
+        if (r < 0)
+                return r;
+
+        /* Make sure we propagate possible ENOMEM from fclose() in case
+         * realloc() on the memstream buffer fails. Note that fclose() in
+         * this case still returns 0 */
+        r = fclose_nointr(TAKE_PTR(*f));
+        assert_se(r != -EBADF);
+
+        return errno == ENOMEM ? -ENOMEM : r;
+}
+
 int fflush_sync_and_check(FILE *f) {
         int r, fd;
 

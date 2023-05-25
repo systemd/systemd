@@ -841,14 +841,9 @@ int manager_get_dump_string(Manager *m, char **ret) {
         HASHMAP_FOREACH_KEY(c, key, m->monitored_mem_pressure_cgroup_contexts)
                 oomd_dump_memory_pressure_cgroup_context(c, f, "\t");
 
-        r = fflush_and_check(f);
+        r = fflush_check_and_fclose(&f);
         if (r < 0)
                 return r;
-
-        f = safe_fclose(f);
-
-        if (!dump)
-                return -ENOMEM;
 
         *ret = TAKE_PTR(dump);
         return 0;

@@ -866,14 +866,9 @@ static int dnssec_rrset_serialize_sig(
                 fwrite(DNS_RESOURCE_RECORD_RDATA(rr), 1, l, f);
         }
 
-        r = fflush_and_check(f);
+        r = fflush_check_and_fclose(&f);
         if (r < 0)
                 return r;
-
-        f = safe_fclose(f);  /* sig_data may be reallocated when f is closed. */
-
-        if (!sig_data)
-                return -ENOMEM;
 
         *ret_sig_data = TAKE_PTR(sig_data);
         *ret_sig_size = sig_size;

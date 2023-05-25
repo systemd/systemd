@@ -1070,10 +1070,8 @@ static int introspect(int argc, char **argv, void *userdata) {
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        mf = safe_fclose(mf);
-
-                        if (!buf)
-                                return bus_log_parse_error(ENOMEM);
+                        if (fflush_check_and_fclose(&mf) < 0)
+                                return log_oom();
 
                         z = set_get(members, &((Member) {
                                                 .type = "property",

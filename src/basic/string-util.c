@@ -714,12 +714,7 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                 }
         }
 
-        if (fflush_and_check(f) < 0)
-                return NULL;
-
-        f = safe_fclose(f);
-
-        if (!obuf)
+        if (fflush_check_and_fclose(&f) < 0)
                 return NULL;
 
         free_and_replace(*ibuf, obuf);

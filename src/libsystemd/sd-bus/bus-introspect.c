@@ -263,14 +263,9 @@ int introspect_finish(struct introspect *i, char **ret) {
 
         fputs("</node>\n", i->f);
 
-        r = fflush_and_check(i->f);
+        r = fflush_check_and_fclose(&i->f);
         if (r < 0)
                 return r;
-
-        i->f = safe_fclose(i->f);
-
-        if (!i->introspection)
-                return -ENOMEM;
 
         *ret = TAKE_PTR(i->introspection);
 

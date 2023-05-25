@@ -616,14 +616,9 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_getthreads() failed: %s", sym_dwfl_errmsg(sym_dwfl_errno()));
 
         if (ret) {
-                r = fflush_and_check(c.f);
+                r = fflush_check_and_fclose(&c.f);
                 if (r < 0)
                         return log_warning_errno(r, "Could not parse core file, flushing file buffer failed: %m");
-
-                c.f = safe_fclose(c.f);
-
-                if (!buf)
-                        return log_oom();
 
                 *ret = TAKE_PTR(buf);
         }
@@ -735,14 +730,9 @@ static int parse_elf(int fd, const char *executable, char **ret, JsonVariant **r
                 return log_warning_errno(r, "Failed to merge JSON objects: %m");
 
         if (ret) {
-                r = fflush_and_check(c.f);
+                r = fflush_check_and_fclose(&c.f);
                 if (r < 0)
                         return log_warning_errno(r, "Could not parse ELF file, flushing file buffer failed: %m");
-
-                c.f = safe_fclose(c.f);
-
-                if (!buf)
-                        return log_oom();
 
                 *ret = TAKE_PTR(buf);
         }

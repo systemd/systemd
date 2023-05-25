@@ -1806,14 +1806,9 @@ static int format_journal_url(
                         fprintf(f, ";hostname=%s", hn);
         }
 
-        r = fflush_and_check(f);
+        r = fflush_check_and_fclose(&f);
         if (r < 0)
                 return r;
-
-        f = safe_fclose(f);
-
-        if (!url)
-                return -ENOMEM;
 
         *ret_url = TAKE_PTR(url);
         return 0;
