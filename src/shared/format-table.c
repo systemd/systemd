@@ -1468,10 +1468,9 @@ static char* format_strv_width(char **strv, size_t column_width) {
                 }
         }
 
-        if (fflush_and_check(f) < 0)
+        if (fflush_check_and_fclose(&f) < 0)
                 return NULL;
 
-        f = safe_fclose(f);
         return TAKE_PTR(buf);
 }
 
@@ -2535,10 +2534,9 @@ int table_format(Table *t, char **ret) {
         if (r < 0)
                 return r;
 
-        f = safe_fclose(f);
-
-        if (!buf)
-                return -ENOMEM;
+        r = fflush_check_and_fclose(&f);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(buf);
 

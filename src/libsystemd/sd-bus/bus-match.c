@@ -826,7 +826,6 @@ char *bus_match_to_string(struct bus_match_component *components, size_t n_compo
         _cleanup_free_ char *buffer = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         size_t size = 0;
-        int r;
 
         if (n_components <= 0)
                 return strdup("");
@@ -855,11 +854,8 @@ char *bus_match_to_string(struct bus_match_component *components, size_t n_compo
                 fputc('\'', f);
         }
 
-        r = fflush_and_check(f);
-        if (r < 0)
+        if (fflush_check_and_fclose(&f) < 0)
                 return NULL;
-
-        f = safe_fclose(f);
 
         return TAKE_PTR(buffer);
 }

@@ -20,6 +20,7 @@
 #include "bus-util.h"
 #include "data-fd-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "path-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -626,10 +627,9 @@ static int method_dump_memory_state_by_fd(sd_bus_message *message, void *userdat
         if (r < 0)
                 return r;
 
-        dump_file = safe_fclose(dump_file);
-
-        if (!dump)
-                return -ENOMEM;
+        r = fflush_check_and_fclose(&dump_file);
+        if (r < 0)
+                return r;
 
         fd = acquire_data_fd(dump, dump_size, 0);
         if (fd < 0)

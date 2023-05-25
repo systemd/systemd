@@ -133,6 +133,7 @@ int search_and_fopen(const char *path, const char *mode, const char *root, const
 int search_and_fopen_nulstr(const char *path, const char *mode, const char *root, const char *search, FILE **ret, char **ret_path);
 
 int fflush_and_check(FILE *f);
+int fflush_check_and_fclose(FILE **f);
 int fflush_sync_and_check(FILE *f);
 
 int write_timestamp_file_atomic(const char *fn, usec_t n);

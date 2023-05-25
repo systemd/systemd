@@ -1215,14 +1215,9 @@ int network_format(Network *network, char **ret) {
         /* Add terminating 0, so that the output buffer is a valid string. */
         fputc('\0', f);
 
-        r = fflush_and_check(f);
+        r = fflush_check_and_fclose(&f);
         if (r < 0)
                 return r;
-
-        f = safe_fclose(f);
-
-        if (!s)
-                return -ENOMEM;
 
         *ret = TAKE_PTR(s);
         assert(sz > 0);
@@ -1247,14 +1242,9 @@ int netdev_format(NetDev *netdev, char **ret) {
         /* Add terminating 0, so that the output buffer is a valid string. */
         fputc('\0', f);
 
-        r = fflush_and_check(f);
+        r = fflush_check_and_fclose(&f);
         if (r < 0)
                 return r;
-
-        f = safe_fclose(f);
-
-        if (!s)
-                return -ENOMEM;
 
         *ret = TAKE_PTR(s);
         assert(sz > 0);
@@ -1279,14 +1269,9 @@ int link_format(Link *link, char **ret) {
         /* Add terminating 0, so that the output buffer is a valid string. */
         fputc('\0', f);
 
-        r = fflush_and_check(f);
+        r = fflush_check_and_fclose(&f);
         if (r < 0)
                 return r;
-
-        f = safe_fclose(f);
-
-        if (!s)
-                return -ENOMEM;
 
         *ret = TAKE_PTR(s);
         assert(sz > 0);
