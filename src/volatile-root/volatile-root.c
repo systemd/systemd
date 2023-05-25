@@ -182,6 +182,24 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to format device node path: %m");
 
+                /* While here, we perform a check required by systemd-installer-generator's `auto`
+                 * mode */
+                if (true) { // TODO: Check for env var
+                        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+
+                        r = sd_device_new_from_devname(&dev, dn);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to open backing device of %s: %m", path);
+                        r = device_is_removable(dev);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to check if device is removable: %m");
+                        if (r > 0) {
+                                log_info("installer-generator is active and %s is backed by removable device.", path);
+                                return 0;
+                        }
+
+                }
+
                 if (symlink(dn, "/run/systemd/volatile-root") < 0)
                         log_warning_errno(errno, "Failed to create symlink /run/systemd/volatile-root: %m");
         }
