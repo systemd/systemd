@@ -26,7 +26,7 @@
 #include "in-addr-util.h"
 #include "io-util.h"
 #include "ip-protocol-list.h"
-#include "label.h"
+#include "label-util.h"
 #include "log.h"
 #include "mkdir-label.h"
 #include "parse-util.h"

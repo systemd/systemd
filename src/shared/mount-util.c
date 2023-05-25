@@ -22,7 +22,7 @@
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "initrd-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "libmount-util.h"
 #include "missing_mount.h"
 #include "missing_syscall.h"
