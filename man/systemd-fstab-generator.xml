@@ -232,7 +232,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>systemd.swap</varname></term>
+        <term><varname>systemd.swap=</varname></term>
 
         <listitem><para>Takes a boolean argument or enables the option if specified
         without an argument. If disabled, causes the generator to ignore
