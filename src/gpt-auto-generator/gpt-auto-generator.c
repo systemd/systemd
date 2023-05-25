@@ -41,6 +41,7 @@
 static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 static bool arg_root_enabled = true;
+static bool arg_swap_enabled = true;
 static char *arg_root_fstype = NULL;
 static char *arg_root_options = NULL;
 static int arg_root_rw = -1;
@@ -349,6 +350,9 @@ static int add_partition_swap(DissectedPartition *p) {
 
         assert(p);
         assert(p->node);
+
+        if (!arg_swap_enabled)
+                return 0;
 
         /* Disable the swap auto logic if at least one swap is defined in /etc/fstab, see #6192. */
         r = fstab_has_fstype("swap");
@@ -890,6 +894,19 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 arg_root_rw = false;
         else if (proc_cmdline_key_streq(key, "systemd.image_policy"))
                 return parse_image_policy_argument(optarg, &arg_image_policy);
+
+        else if (proc_cmdline_key_streq(key, "systemd.swap")) {
+
+                r = value ? parse_boolean(value) : 1;
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse swap switch \"%s\", ignoring: %m", value);
+                else
+                        arg_swap_enabled = r;
+
+                if (!arg_swap_enabled)
+                        log_debug("Disabling swap partitions auto-detection, systemd.swap=no is defined.");
+
+        }
 
         return 0;
 }
