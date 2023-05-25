@@ -446,7 +446,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                         UINT32_MAX,
                         p->family,
                         &p->sender,
-                        scope->manager->enable_serve_stale);
+                        scope->manager->stale_retention_usec);
 
         } else if (dns_packet_validate_query(p) > 0)  {
                 log_debug("Got mDNS query packet for id %u", DNS_PACKET_ID(p));
