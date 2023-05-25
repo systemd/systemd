@@ -436,16 +436,16 @@ static int dns_cache_put_positive(
                 return 0;
 
         /* Determine the minimal TTL of all RRs in the answer plus the one by the main RR we are supposed to
-        * cache. Since we cache whole answers to questions we should never return answers where only some
-        * RRs are still valid, hence find the lowest here */
+         * cache. Since we cache whole answers to questions we should never return answers where only some
+         * RRs are still valid, hence find the lowest here */
         min_ttl = MIN(dns_answer_min_ttl(answer), rr->ttl);
 
         /* New TTL is 0? Delete this specific entry... */
         if (min_ttl <= 0) {
                 r = dns_cache_remove_by_rr(c, rr);
                 log_debug("%s: %s",
-                        r > 0 ? "Removed zero TTL entry from cache" : "Not caching zero TTL cache entry",
-                        dns_resource_key_to_string(rr->key, key_str, sizeof key_str));
+                         r > 0 ? "Removed zero TTL entry from cache" : "Not caching zero TTL cache entry",
+                         dns_resource_key_to_string(rr->key, key_str, sizeof key_str));
                 return 0;
         }
 
@@ -1101,7 +1101,8 @@ int dns_cache_lookup(
 
                                 /* Answer question from the cache
                                  * For the initial attempt, answer the question from the cache (honors ttl property).
-                                 * On the second attempt, if StaleRetentionSec is greater than zero, try to answer the question using stale date (honors until property) */
+                                 * On the second attempt, if StaleRetentionSec is greater than zero, try to answer the question using stale date (honors until property)
+                                 * If the question is resolved using stale data, the clamp TTL will be set as the minimum value between the TTL and 30 seconds. */
                                 DNS_ANSWER_FOREACH_ITEM(item, j->answer) {
                                                r = answer_add_clamp_ttl(
                                                         &answer,
