@@ -29,6 +29,7 @@
 #include "devnum-util.h"
 #include "dirent-util.h"
 #include "efivars.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fdisk-util.h"
@@ -153,6 +154,7 @@ static uint64_t arg_sector_size = 0;
 static ImagePolicy *arg_image_policy = NULL;
 static Architecture arg_architecture = _ARCHITECTURE_INVALID;
 static int arg_offline = -1;
+static int arg_installer = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -1808,12 +1810,14 @@ static int find_verity_sibling(Context *context, Partition *p, VerityMode mode, 
 static int context_read_definitions(Context *context) {
         _cleanup_strv_free_ char **files = NULL;
         Partition *last = NULL;
+        char **default_dirs;
         const char *const *dirs;
         int r;
 
         assert(context);
 
-        dirs = (const char* const*) (arg_definitions ?: CONF_PATHS_STRV("repart.d"));
+        default_dirs = arg_installer ? CONF_PATHS_STRV("repart.installer.d") : CONF_PATHS_STRV("repart.d");
+        dirs = (const char* const*) (arg_definitions ?: default_dirs);
 
         r = conf_files_list_strv(&files, ".conf", arg_definitions ? NULL : arg_root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, dirs);
         if (r < 0)
@@ -5220,6 +5224,19 @@ static int context_can_factory_reset(Context *context) {
         return false;
 }
 
+static int context_check_is_removable(Context *context) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        int r;
+
+        assert(context);
+
+        r = sd_device_new_from_devname(&dev, context->node);
+        if (r < 0)
+                return r;
+
+        return device_is_removable(dev);
+}
+
 static int resolve_copy_blocks_auto_candidate(
                 dev_t partition_devno,
                 GptPartitionType partition_type,
@@ -5972,6 +5989,7 @@ static int help(void) {
                "     --sector-size=SIZE   Set the logical sector size for the image\n"
                "     --architecture=ARCH  Set the generic architecture for the image\n"
                "     --offline=BOOL       Whether to build the image offline\n"
+               "     --installer=BOOL     Whether to operate in installer mode\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -6015,6 +6033,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SKIP_PARTITIONS,
                 ARG_ARCHITECTURE,
                 ARG_OFFLINE,
+                ARG_INSTALLER,
         };
 
         static const struct option options[] = {
@@ -6049,6 +6068,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "sector-size",          required_argument, NULL, ARG_SECTOR_SIZE          },
                 { "architecture",         required_argument, NULL, ARG_ARCHITECTURE         },
                 { "offline",              required_argument, NULL, ARG_OFFLINE              },
+                { "installer",            required_argument, NULL, ARG_INSTALLER            },
                 {}
         };
 
@@ -6370,6 +6390,19 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_INSTALLER:
+                        if (streq(optarg, "auto"))
+                                arg_installer = -1;
+                        else {
+                                r = parse_boolean_argument("--installer=", optarg, NULL);
+                                if (r < 0)
+                                        return r;
+
+                                arg_installer = r;
+                        }
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -6414,6 +6447,9 @@ static int parse_argv(int argc, char *argv[]) {
                 if (!arg_root)
                         return log_oom();
         }
+
+        if (arg_installer != 0 && arg_definitions)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --definitions= or --installer=, the combination of both is not supported.");
 
         arg_node = argc > optind ? argv[optind] : NULL;
 
@@ -6921,11 +6957,18 @@ static int run(int argc, char *argv[]) {
 
         strv_uniq(arg_definitions);
 
-        r = context_read_definitions(context);
+        r = find_root(context);
         if (r < 0)
                 return r;
 
-        r = find_root(context);
+        if (arg_installer == -1) {
+                r = context_check_is_removable(context);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if backing device is removable: %m");
+                arg_installer = r;
+        }
+
+        r = context_read_definitions(context);
         if (r < 0)
                 return r;
 

@@ -440,6 +440,18 @@
         due to missing permissions.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--installer=</option><arg>BOOL</arg></term>
+
+        <listitem><para>Instructs <command>systemd-repart</command> to operate in installer mode.
+        Takes a boolean or <literal>auto</literal>. Defaults to <literal>no</literal>. If enabled, definitions
+        are loaded from <filename>repart.installer.d/</filename> instead of the standard <filename>repart.d/*.conf</filename>.
+        If <literal>auto</literal>, <command>systemd-repart</command> will check if it is operating on removable media
+        and enable installer mode if it is. This option is used by the
+        <citerefentry><refentrytitle>systemd-installer-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        This option cannot be specified in combination with <option>--definitions=</option>.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
