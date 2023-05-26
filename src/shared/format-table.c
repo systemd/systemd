@@ -18,6 +18,7 @@
 #include "id128-util.h"
 #include "in-addr-util.h"
 #include "memory-util.h"
+#include "memstream-util.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -1446,11 +1447,10 @@ static int table_data_compare(const size_t *a, const size_t *b, Table *t) {
 }
 
 static char* format_strv_width(char **strv, size_t column_width) {
-        _cleanup_free_ char *buf = NULL; /* buf must be freed after f */
-        _cleanup_fclose_ FILE *f = NULL;
-        size_t sz = 0;
+        _cleanup_(memstream_done) MemStream m = {};
+        FILE *f;
 
-        f = open_memstream_unlocked(&buf, &sz);
+        f = memstream_init(&m);
         if (!f)
                 return NULL;
 
@@ -1471,11 +1471,11 @@ static char* format_strv_width(char **strv, size_t column_width) {
                 }
         }
 
-        if (fflush_and_check(f) < 0)
+        char *buf;
+        if (memstream_finalize(&m, &buf, NULL) < 0)
                 return NULL;
 
-        f = safe_fclose(f);
-        return TAKE_PTR(buf);
+        return buf;
 }
 
 static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercasing, size_t column_width, bool *have_soft) {
@@ -2530,12 +2530,14 @@ int table_print(Table *t, FILE *f) {
 }
 
 int table_format(Table *t, char **ret) {
-        _cleanup_free_ char *buf = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        size_t sz = 0;
+        _cleanup_(memstream_done) MemStream m = {};
+        FILE *f;
         int r;
 
-        f = open_memstream_unlocked(&buf, &sz);
+        assert(t);
+        assert(ret);
+
+        f = memstream_init(&m);
         if (!f)
                 return -ENOMEM;
 
@@ -2543,14 +2545,7 @@ int table_format(Table *t, char **ret) {
         if (r < 0)
                 return r;
 
-        f = safe_fclose(f);
-
-        if (!buf)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(buf);
-
-        return 0;
+        return memstream_finalize(&m, ret, NULL);
 }
 
 size_t table_get_rows(Table *t) {
