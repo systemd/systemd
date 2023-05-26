@@ -21,6 +21,7 @@
 #include "json.h"
 #include "log.h"
 #include "main-func.h"
+#include "memstream-util.h"
 #include "os-util.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -1035,12 +1036,12 @@ static int introspect(int argc, char **argv, void *userdata) {
                         return bus_log_parse_error(r);
 
                 for (;;) {
-                        _cleanup_fclose_ FILE *mf = NULL;
+                        _cleanup_(memstream_done) MemStream ms = {};
                         _cleanup_free_ char *buf = NULL;
                         const char *name, *contents;
-                        size_t sz = 0;
                         Member *z;
                         char type;
+                        FILE *mf;
 
                         r = sd_bus_message_enter_container(reply, 'e', "sv");
                         if (r < 0)
@@ -1062,7 +1063,7 @@ static int introspect(int argc, char **argv, void *userdata) {
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        mf = open_memstream_unlocked(&buf, &sz);
+                        mf = memstream_init(&ms);
                         if (!mf)
                                 return log_oom();
 
@@ -1070,10 +1071,9 @@ static int introspect(int argc, char **argv, void *userdata) {
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        mf = safe_fclose(mf);
-
-                        if (!buf)
-                                return bus_log_parse_error(ENOMEM);
+                        r = memstream_finalize(&ms, &buf, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to flush and close memstream: %m");
 
                         z = set_get(members, &((Member) {
                                                 .type = "property",

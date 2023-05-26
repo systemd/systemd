@@ -15,6 +15,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
+#include "memstream-util.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "sort-util.h"
@@ -337,15 +338,13 @@ static void format_chain(FILE *f, int space, const CalendarComponent *c, bool us
 }
 
 int calendar_spec_to_string(const CalendarSpec *c, char **ret) {
-        _cleanup_free_ char *buf = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        size_t sz = 0;
-        int r;
+        _cleanup_(memstream_done) MemStream m = {};
+        FILE *f;
 
         assert(c);
         assert(ret);
 
-        f = open_memstream_unlocked(&buf, &sz);
+        f = memstream_init(&m);
         if (!f)
                 return -ENOMEM;
 
@@ -383,17 +382,7 @@ int calendar_spec_to_string(const CalendarSpec *c, char **ret) {
                 }
         }
 
-        r = fflush_and_check(f);
-        if (r < 0)
-                return r;
-
-        f = safe_fclose(f);
-
-        if (!buf)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(buf);
-        return 0;
+        return memstream_finalize(&m, ret, NULL);
 }
 
 static int parse_weekdays(const char **p, CalendarSpec *c) {
