@@ -138,16 +138,19 @@ const GptPartitionType gpt_partition_type_table[] = {
         _GPT_ARCH_SEXTET(ALPHA,       "alpha"),
         _GPT_ARCH_SEXTET(ARC,         "arc"),
         _GPT_ARCH_SEXTET(ARM,         "arm"),
+        _GPT_ARCH_SEXTET(ARM,         "armv7l"), /* Alias: must be listed after armv7l */
         _GPT_ARCH_SEXTET(ARM64,       "arm64"),
         _GPT_ARCH_SEXTET(ARM64,       "aarch64"), /* Alias: must be listed after arm64 */
         _GPT_ARCH_SEXTET(IA64,        "ia64"),
         _GPT_ARCH_SEXTET(LOONGARCH64, "loongarch64"),
         _GPT_ARCH_SEXTET(MIPS_LE,     "mips-le"),
         _GPT_ARCH_SEXTET(MIPS64_LE,   "mips64-le"),
+        _GPT_ARCH_SEXTET(MIPS64_LE,   "mips64"), /* Alias: must be listed after mips64-le */
         _GPT_ARCH_SEXTET(PARISC,      "parisc"),
         _GPT_ARCH_SEXTET(PPC,         "ppc"),
         _GPT_ARCH_SEXTET(PPC64,       "ppc64"),
         _GPT_ARCH_SEXTET(PPC64_LE,    "ppc64-le"),
+        _GPT_ARCH_SEXTET(PPC64_LE,    "ppc64le"), /* Alias: must be listed after ppc64-le */
         _GPT_ARCH_SEXTET(RISCV32,     "riscv32"),
         _GPT_ARCH_SEXTET(RISCV64,     "riscv64"),
         _GPT_ARCH_SEXTET(S390,        "s390"),
@@ -155,6 +158,7 @@ const GptPartitionType gpt_partition_type_table[] = {
         _GPT_ARCH_SEXTET(TILEGX,      "tilegx"),
         _GPT_ARCH_SEXTET(X86,         "x86"),
         _GPT_ARCH_SEXTET(X86_64,      "x86-64"),
+        _GPT_ARCH_SEXTET(X86_64,      "x86_64"), /* Alias: must be listed after x86-64 */
         _GPT_ARCH_SEXTET(X86_64,      "amd64"), /* Alias: must be listed after x86-64 */
 #ifdef SD_GPT_ROOT_NATIVE
         { SD_GPT_ROOT_NATIVE,            "root",            native_architecture(), .designator = PARTITION_ROOT            },
