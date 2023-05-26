@@ -26,6 +26,7 @@
 #include "io-util.h"
 #include "ioprio-util.h"
 #include "journal-file.h"
+#include "memstream-util.h"
 #include "missing_ioprio.h"
 #include "mountpoint-util.h"
 #include "namespace.h"
@@ -1616,14 +1617,14 @@ int bus_set_transient_exec_command(
                 return r;
 
         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                _cleanup_(memstream_done) MemStream m = {};
                 _cleanup_free_ char *buf = NULL;
-                _cleanup_fclose_ FILE *f = NULL;
-                size_t size = 0;
+                FILE *f;
 
                 if (n == 0)
                         *exec_command = exec_command_free_list(*exec_command);
 
-                f = open_memstream_unlocked(&buf, &size);
+                f = memstream_init(&m);
                 if (!f)
                         return -ENOMEM;
 
@@ -1656,7 +1657,7 @@ int bus_set_transient_exec_command(
                         }
                 }
 
-                r = fflush_and_check(f);
+                r = memstream_finalize(&m, &buf, NULL);
                 if (r < 0)
                         return r;
 
@@ -3220,17 +3221,16 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (streq(name, "EnvironmentFiles")) {
-
+                _cleanup_(memstream_done) MemStream m = {};
                 _cleanup_free_ char *joined = NULL;
-                _cleanup_fclose_ FILE *f = NULL;
                 _cleanup_strv_free_ char **l = NULL;
-                size_t size = 0;
+                FILE *f;
 
                 r = sd_bus_message_enter_container(message, 'a', "(sb)");
                 if (r < 0)
                         return r;
 
-                f = open_memstream_unlocked(&joined, &size);
+                f = memstream_init(&m);
                 if (!f)
                         return -ENOMEM;
 
@@ -3286,7 +3286,7 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                r = fflush_and_check(f);
+                r = memstream_finalize(&m, &joined, NULL);
                 if (r < 0)
                         return r;
 
