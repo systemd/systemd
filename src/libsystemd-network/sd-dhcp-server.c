@@ -27,7 +27,7 @@
 #define DHCP_DEFAULT_LEASE_TIME_USEC USEC_PER_HOUR
 #define DHCP_MAX_LEASE_TIME_USEC (USEC_PER_HOUR*12)
 
-static DHCPLease *dhcp_lease_free(DHCPLease *lease) {
+DHCPLease *dhcp_lease_free(DHCPLease *lease) {
         if (!lease)
                 return NULL;
 
@@ -41,8 +41,6 @@ static DHCPLease *dhcp_lease_free(DHCPLease *lease) {
         free(lease->client_id.data);
         return mfree(lease);
 }
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(DHCPLease*, dhcp_lease_free);
 
 /* configures the server's address and subnet, and optionally the pool's size and offset into the subnet
  * the whole pool must fit into the subnet, and may not contain the first (any) nor last (broadcast) address
