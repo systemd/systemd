@@ -32,10 +32,7 @@ static int check_good_user(sd_bus_message *m, uid_t good_user) {
 }
 
 #if ENABLE_POLKIT
-static int bus_message_append_strv_key_value(
-                sd_bus_message *m,
-                const char **l) {
-
+static int bus_message_append_strv_key_value(sd_bus_message *m, const char **l) {
         int r;
 
         assert(m);
