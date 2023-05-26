@@ -102,8 +102,20 @@
     <title>Options</title>
 
     <para>Slice unit files may include [Unit] and [Install] sections, which are described in
-    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    No options specific to this file type are supported.</para>
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>Slice unit files may also include a [Slice] section, which contains options specific to slice units.
+      The following options are recognized:</para>
+
+    <variablelist class='unit-directives'>
+      <varlistentry>
+        <term><varname>MaxUnits=</varname></term>
+
+        <listitem><para>The maximum number of units unit that may be started in this slice, recursively.
+          If reached, further attempts to start another unit will fail. Defaults to <constant>infinity</constant>.
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
