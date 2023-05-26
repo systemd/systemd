@@ -64,4 +64,21 @@ TEST(verity_mappings) {
         }
 }
 
+TEST(type_alias_same) {
+        /* Check that the partition type table is consistent, i.e. all aliases of the same partition type
+         * carry the same metadata */
+
+        for (const GptPartitionType *t = gpt_partition_type_table; t->name; t++) {
+                GptPartitionType x, y;
+
+                x = gpt_partition_type_from_uuid(t->uuid);                   /* search first by uuid */
+                assert_se(gpt_partition_type_from_string(t->name, &y) >= 0); /* search first by name */
+
+                assert_se(t->arch == x.arch);
+                assert_se(t->arch == y.arch);
+                assert_se(t->designator == x.designator);
+                assert_se(t->designator == y.designator);
+        }
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
