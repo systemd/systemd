@@ -125,11 +125,21 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(partition_mountpoint, PartitionDesi
         { SD_GPT_USR_##arch##_VERITY,      "usr-" name "-verity",      ARCHITECTURE_##arch, .designator = PARTITION_USR_VERITY      },  \
         { SD_GPT_USR_##arch##_VERITY_SIG,  "usr-" name "-verity-sig",  ARCHITECTURE_##arch, .designator = PARTITION_USR_VERITY_SIG  }
 
+/* Two special cases: alias aarch64 to arm64, and amd64 to x86-64. The DSP mixes debianisms and CPUisms: for
+ * x86, it uses x86 and x86_64, but for aarch64 it uses arm64. This is confusing, and leads to issues for
+ * callers that have to know which -ism to use for which architecture. But we also don't really want to
+ * change the spec and add new partition labels, so add a user-friendly aliasing here, so that both are
+ * accepted but the end result on disk (ie: the partition label).
+ * So always list the canonical name FIRST, and then any aliases later, so that we can match on aliases,
+ * but always return the canonical name. And never return directly a match on the name, always re-resolve
+ * by UUID so that the canonical entry is always found. */
+
 const GptPartitionType gpt_partition_type_table[] = {
         _GPT_ARCH_SEXTET(ALPHA,       "alpha"),
         _GPT_ARCH_SEXTET(ARC,         "arc"),
         _GPT_ARCH_SEXTET(ARM,         "arm"),
         _GPT_ARCH_SEXTET(ARM64,       "arm64"),
+        _GPT_ARCH_SEXTET(ARM64,       "aarch64"), /* Alias: must be listed after arm64 */
         _GPT_ARCH_SEXTET(IA64,        "ia64"),
         _GPT_ARCH_SEXTET(LOONGARCH64, "loongarch64"),
         _GPT_ARCH_SEXTET(MIPS_LE,     "mips-le"),
@@ -145,6 +155,7 @@ const GptPartitionType gpt_partition_type_table[] = {
         _GPT_ARCH_SEXTET(TILEGX,      "tilegx"),
         _GPT_ARCH_SEXTET(X86,         "x86"),
         _GPT_ARCH_SEXTET(X86_64,      "x86-64"),
+        _GPT_ARCH_SEXTET(X86_64,      "amd64"), /* Alias: must be listed after x86-64 */
 #ifdef SD_GPT_ROOT_NATIVE
         { SD_GPT_ROOT_NATIVE,            "root",            native_architecture(), .designator = PARTITION_ROOT            },
         { SD_GPT_ROOT_NATIVE_VERITY,     "root-verity",     native_architecture(), .designator = PARTITION_ROOT_VERITY     },
@@ -209,21 +220,24 @@ const char *gpt_partition_type_uuid_to_string_harder(
 }
 
 int gpt_partition_type_from_string(const char *s, GptPartitionType *ret) {
-        sd_id128_t id;
+        sd_id128_t id = SD_ID128_NULL;
         int r;
 
         assert(s);
 
         for (size_t i = 0; i < ELEMENTSOF(gpt_partition_type_table) - 1; i++)
                 if (streq(s, gpt_partition_type_table[i].name)) {
-                        if (ret)
-                                *ret = gpt_partition_type_table[i];
-                        return 0;
+                        /* Don't return immediately, instead re-resolve by UUID so that we can support
+                        * aliases like aarch64 -> arm64 transparently. */
+                        id = gpt_partition_type_table[i].uuid;
+                        break;
                 }
 
-        r = sd_id128_from_string(s, &id);
-        if (r < 0)
-                return r;
+        if (sd_id128_is_null(id)) {
+                r = sd_id128_from_string(s, &id);
+                if (r < 0)
+                        return r;
+        }
 
         if (ret)
                 *ret = gpt_partition_type_from_uuid(id);
