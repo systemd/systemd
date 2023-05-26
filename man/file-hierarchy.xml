@@ -518,13 +518,10 @@
       <varlistentry>
         <term><filename>~/.config/</filename></term>
 
-        <listitem><para>Application configuration and state. When a
-        new user is created, this directory will be empty or not exist
-        at all. Applications should fall back to defaults should their
-        configuration or state in this directory be missing. If an
-        application finds <varname>$XDG_CONFIG_HOME</varname> set, it
-        should use the directory specified in it instead of this
-        directory.</para></listitem>
+        <listitem><para>Application configuration. When a new user is created, this directory will be empty
+        or not exist at all. Applications should fall back to defaults should their configuration in this
+        directory be missing. If an application finds <varname>$XDG_CONFIG_HOME</varname> set, it should use
+        the directory specified in it instead of this directory.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -568,6 +565,15 @@
         finds <varname>$XDG_DATA_HOME</varname> set, it should use the
         directory specified in it instead of this
         directory.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>~/.local/state/</filename></term>
+
+        <listitem><para>Application state. When a new user is created, this directory will be empty or not
+        exist at all. Applications should fall back to defaults should their state in this directory be
+        missing. If an application finds <varname>$XDG_STATE_HOME</varname> set, it should use the directory
+        specified in it instead of this directory.</para></listitem>
       </varlistentry>
 
     </variablelist>
