@@ -213,7 +213,7 @@ static int allocate_scope(void) {
 
         r = bus_wait_for_jobs_new(bus, &w);
         if (r < 0)
-                return log_oom();
+                return log_error_errno(r, "Could not watch jobs: %m");
 
         if (asprintf(&scope, "%s-%" PRIx64 ".scope", program_invocation_short_name, random_u64()) < 0)
                 return log_oom();
