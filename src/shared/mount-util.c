@@ -266,7 +266,7 @@ int bind_remount_recursive_with_mountinfo(
 
                                         if (path_startswith(path, *i)) {
                                                 deny_listed = true;
-                                                log_debug("Not remounting %s deny-listed by %s, called for %s", path, *i, prefix);
+                                                log_trace("Not remounting %s deny-listed by %s, called for %s", path, *i, prefix);
                                                 break;
                                         }
                                 }
