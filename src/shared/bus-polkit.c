@@ -128,42 +128,41 @@ int bus_test_polkit(
                 return r;
         else if (r > 0)
                 return 1;
+
 #if ENABLE_POLKIT
-        else {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *request = NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                int authorized = false, challenge = false;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *request = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int authorized = false, challenge = false;
 
-                r = bus_message_new_polkit_auth_call(call, action, details, /* interactive = */ false, &request);
-                if (r < 0)
-                        return r;
+        r = bus_message_new_polkit_auth_call(call, action, details, /* interactive = */ false, &request);
+        if (r < 0)
+                return r;
 
-                r = sd_bus_call(call->bus, request, 0, ret_error, &reply);
-                if (r < 0) {
-                        /* Treat no PK available as access denied */
-                        if (bus_error_is_unknown_service(ret_error)) {
-                                sd_bus_error_free(ret_error);
-                                return -EACCES;
-                        }
-
-                        return r;
+        r = sd_bus_call(call->bus, request, 0, ret_error, &reply);
+        if (r < 0) {
+                /* Treat no PK available as access denied */
+                if (bus_error_is_unknown_service(ret_error)) {
+                        sd_bus_error_free(ret_error);
+                        return -EACCES;
                 }
 
-                r = sd_bus_message_enter_container(reply, 'r', "bba{ss}");
-                if (r < 0)
-                        return r;
+                return r;
+        }
 
-                r = sd_bus_message_read(reply, "bb", &authorized, &challenge);
-                if (r < 0)
-                        return r;
+        r = sd_bus_message_enter_container(reply, 'r', "bba{ss}");
+        if (r < 0)
+                return r;
 
-                if (authorized)
-                        return 1;
+        r = sd_bus_message_read(reply, "bb", &authorized, &challenge);
+        if (r < 0)
+                return r;
 
-                if (_challenge) {
-                        *_challenge = challenge;
-                        return 0;
-                }
+        if (authorized)
+                return 1;
+
+        if (_challenge) {
+                *_challenge = challenge;
+                return 0;
         }
 #endif
 
