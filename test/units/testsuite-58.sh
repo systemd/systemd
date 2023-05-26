@@ -868,6 +868,8 @@ testcase_exclude_files() {
 Type=root-${architecture}
 CopyFiles=/
 CopyFiles=/zzz:/
+CopyFiles=/:/oiu
+ExcludeFilesTarget=/oiu/usr
 EOF
 
     runas testuser tee "$defs/10-usr.conf" <<EOF
@@ -920,6 +922,11 @@ EOF
 
     # Test that /zzz/usr/prs did not end up in the usr partition.
     assert_rc 2 ls "$imgs/mnt/usr/prs"
+
+    # Test that /oiu/ and /oiu/zzz ended up in the root partition but /oiu/usr did not.
+    assert_rc 0 ls "$imgs/mnt/oiu"
+    assert_rc 0 ls "$imgs/mnt/oiu/zzz"
+    assert_rc 2 ls "$imgs/mnt/oiu/usr"
 
     umount -R "$imgs/mnt"
     losetup -d "$loop"
