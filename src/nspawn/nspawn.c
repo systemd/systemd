@@ -3397,10 +3397,10 @@ static int inner_child(
                 if (r < 0)
                         return log_error_errno(r, "personality() failed: %m");
 #endif
-        } else if (arg_architecture >= 0 && arg_architecture != native_architecture())
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Selected architecture '%s' not supported locally, refusing.",
-                                       architecture_to_string(arg_architecture));
+        } else if (!arg_quiet && arg_architecture >= 0 && arg_architecture != native_architecture())
+                log_notice("Selected architecture '%s' not supported natively on the local CPU, assuming "
+                           "invocation with qemu userspace emulator (or equivalent) in effect.",
+                           architecture_to_string(arg_architecture));
 
         r = setrlimit_closest_all((const struct rlimit *const*) arg_rlimit, &which_failed);
         if (r < 0)
