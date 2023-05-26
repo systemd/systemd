@@ -5,13 +5,12 @@
 
 #include "sd-bus.h"
 
+#include "memstream-util.h"
 #include "ordered-set.h"
 
 struct introspect {
-        FILE *f;
+        MemStream m;
         char *interface_name;
-        char *introspection;
-        size_t size;
         bool trusted;
 };
 
