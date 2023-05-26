@@ -209,10 +209,33 @@ const char *gpt_partition_type_uuid_to_string_harder(
 }
 
 int gpt_partition_type_from_string(const char *s, GptPartitionType *ret) {
+        _cleanup_free_ char *alias = NULL;
+        const char *p, *subst = NULL;
         sd_id128_t id;
         int r;
 
         assert(s);
+
+        /* Two special cases: alias aarch64 to arm64, and amd64 to x86-64. The DSP mixes debianisms and
+         * CPUisms: for x86, it uses x86 and x86_64, but for aarch64 it uses arm64. This is confusing, and
+         * leads to issues for callers that have to know which -ism to use for which architecture. But we
+         * also don't really want to change the spec and add new partition labels, so add a user-friendly
+         * aliasing here. */
+        if ((p = endswith(s, "aarch64")))
+                subst = "arm64";
+        else if ((p = endswith(s, "amd64")))
+                subst = "x86-64";
+
+        if (subst) {
+                log_debug("Aliasing partition type %s to %s for your convenience.", s, subst);
+
+                alias = strndup(s, p - s);
+                if (!alias)
+                        return -ENOMEM;
+                if (!strextend(&alias, subst))
+                        return -ENOMEM;
+                s = alias;
+        }
 
         for (size_t i = 0; i < ELEMENTSOF(gpt_partition_type_table) - 1; i++)
                 if (streq(s, gpt_partition_type_table[i].name)) {
