@@ -829,6 +829,8 @@ static bool menu_run(
                 case KEYPRESS(0, 0, 'K'):
                         if (idx_highlight > 0)
                                 idx_highlight--;
+                        else
+                                idx_highlight = config->entry_count-1;
                         break;
 
                 case KEYPRESS(0, SCAN_DOWN, 0):
@@ -836,6 +838,8 @@ static bool menu_run(
                 case KEYPRESS(0, 0, 'J'):
                         if (idx_highlight < config->entry_count-1)
                                 idx_highlight++;
+                        else
+                                idx_highlight = 0;
                         break;
 
                 case KEYPRESS(0, SCAN_HOME, 0):
