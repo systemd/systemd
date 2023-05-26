@@ -36,6 +36,7 @@
 #include "macro.h"
 #include "main-func.h"
 #include "memory-util.h"
+#include "memstream-util.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
 #include "process-util.h"
@@ -641,17 +642,16 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
  * flags:  0100002
  * EOF
  */
-static int compose_open_fds(pid_t pid, char **open_fds) {
+static int compose_open_fds(pid_t pid, char **ret) {
+        _cleanup_(memstream_done) MemStream m = {};
         _cleanup_closedir_ DIR *proc_fd_dir = NULL;
         _cleanup_close_ int proc_fdinfo_fd = -EBADF;
-        _cleanup_free_ char *buffer = NULL;
-        _cleanup_fclose_ FILE *stream = NULL;
         const char *fddelim = "", *path;
-        size_t size = 0;
+        FILE *stream;
         int r;
 
         assert(pid >= 0);
-        assert(open_fds != NULL);
+        assert(ret);
 
         path = procfs_file_alloca(pid, "fd");
         proc_fd_dir = opendir(path);
@@ -662,7 +662,7 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
         if (proc_fdinfo_fd < 0)
                 return -errno;
 
-        stream = open_memstream_unlocked(&buffer, &size);
+        stream = memstream_init(&m);
         if (!stream)
                 return -ENOMEM;
 
@@ -701,18 +701,7 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
                 }
         }
 
-        errno = 0;
-        stream = safe_fclose(stream);
-
-        if (errno > 0)
-                return -errno;
-
-        if (!buffer)
-                return -ENOMEM;
-
-        *open_fds = TAKE_PTR(buffer);
-
-        return 0;
+        return memstream_finalize(&m, ret, NULL);
 }
 
 static int get_process_ns(pid_t pid, const char *namespace, ino_t *ns) {
