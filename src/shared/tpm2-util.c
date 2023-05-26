@@ -32,46 +32,47 @@ static void *libtss2_esys_dl = NULL;
 static void *libtss2_rc_dl = NULL;
 static void *libtss2_mu_dl = NULL;
 
-TSS2_RC (*sym_Esys_Create)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_PUBLIC *inPublic, const TPM2B_DATA *outsideInfo, const TPML_PCR_SELECTION *creationPCR, TPM2B_PRIVATE **outPrivate, TPM2B_PUBLIC **outPublic, TPM2B_CREATION_DATA **creationData, TPM2B_DIGEST **creationHash, TPMT_TK_CREATION **creationTicket) = NULL;
-TSS2_RC (*sym_Esys_CreatePrimary)(ESYS_CONTEXT *esysContext, ESYS_TR primaryHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_PUBLIC *inPublic, const TPM2B_DATA *outsideInfo, const TPML_PCR_SELECTION *creationPCR, ESYS_TR *objectHandle, TPM2B_PUBLIC **outPublic, TPM2B_CREATION_DATA **creationData, TPM2B_DIGEST **creationHash, TPMT_TK_CREATION **creationTicket) = NULL;
-TSS2_RC (*sym_Esys_EvictControl)(ESYS_CONTEXT *esysContext, ESYS_TR auth, ESYS_TR objectHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPMI_DH_PERSISTENT persistentHandle, ESYS_TR *newObjectHandle);
-void (*sym_Esys_Finalize)(ESYS_CONTEXT **context) = NULL;
-TSS2_RC (*sym_Esys_FlushContext)(ESYS_CONTEXT *esysContext, ESYS_TR flushHandle) = NULL;
-void (*sym_Esys_Free)(void *ptr) = NULL;
-TSS2_RC (*sym_Esys_GetCapability)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2_CAP capability, UINT32 property, UINT32 propertyCount, TPMI_YES_NO *moreData, TPMS_CAPABILITY_DATA **capabilityData);
-TSS2_RC (*sym_Esys_GetRandom)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, UINT16 bytesRequested, TPM2B_DIGEST **randomBytes) = NULL;
-TSS2_RC (*sym_Esys_Initialize)(ESYS_CONTEXT **esys_context,  TSS2_TCTI_CONTEXT *tcti, TSS2_ABI_VERSION *abiVersion) = NULL;
-TSS2_RC (*sym_Esys_Load)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_PRIVATE *inPrivate, const TPM2B_PUBLIC *inPublic, ESYS_TR *objectHandle) = NULL;
-TSS2_RC (*sym_Esys_LoadExternal)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE *inPrivate, const TPM2B_PUBLIC *inPublic, ESYS_TR hierarchy, ESYS_TR *objectHandle);
-TSS2_RC (*sym_Esys_PCR_Extend)(ESYS_CONTEXT *esysContext, ESYS_TR pcrHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPML_DIGEST_VALUES *digests);
-TSS2_RC (*sym_Esys_PCR_Read)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1,ESYS_TR shandle2, ESYS_TR shandle3, const TPML_PCR_SELECTION *pcrSelectionIn, UINT32 *pcrUpdateCounter, TPML_PCR_SELECTION **pcrSelectionOut, TPML_DIGEST **pcrValues);
-TSS2_RC (*sym_Esys_PolicyAuthorize)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *approvedPolicy, const TPM2B_NONCE *policyRef, const TPM2B_NAME *keySign, const TPMT_TK_VERIFIED *checkTicket);
-TSS2_RC (*sym_Esys_PolicyAuthValue)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3) = NULL;
-TSS2_RC (*sym_Esys_PolicyGetDigest)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2B_DIGEST **policyDigest) = NULL;
-TSS2_RC (*sym_Esys_PolicyPCR)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *pcrDigest, const TPML_PCR_SELECTION *pcrs) = NULL;
-TSS2_RC (*sym_Esys_ReadPublic)(ESYS_CONTEXT *esysContext, ESYS_TR objectHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2B_PUBLIC **outPublic, TPM2B_NAME **name, TPM2B_NAME **qualifiedName);
-TSS2_RC (*sym_Esys_StartAuthSession)(ESYS_CONTEXT *esysContext, ESYS_TR tpmKey, ESYS_TR bind, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_NONCE *nonceCaller, TPM2_SE sessionType, const TPMT_SYM_DEF *symmetric, TPMI_ALG_HASH authHash, ESYS_TR *sessionHandle) = NULL;
-TSS2_RC (*sym_Esys_Startup)(ESYS_CONTEXT *esysContext, TPM2_SU startupType) = NULL;
-TSS2_RC (*sym_Esys_TRSess_GetAttributes)(ESYS_CONTEXT *esysContext, ESYS_TR session, TPMA_SESSION *flags);
-TSS2_RC (*sym_Esys_TRSess_SetAttributes)(ESYS_CONTEXT *esysContext, ESYS_TR session, TPMA_SESSION flags, TPMA_SESSION mask);
-TSS2_RC (*sym_Esys_TR_GetName)(ESYS_CONTEXT *esysContext, ESYS_TR handle, TPM2B_NAME **name);
-TSS2_RC (*sym_Esys_TR_Deserialize)(ESYS_CONTEXT *esys_context, uint8_t const *buffer, size_t buffer_size, ESYS_TR *esys_handle);
-TSS2_RC (*sym_Esys_TR_FromTPMPublic)(ESYS_CONTEXT *esysContext, TPM2_HANDLE tpm_handle, ESYS_TR optionalSession1, ESYS_TR optionalSession2, ESYS_TR optionalSession3, ESYS_TR *object);
-TSS2_RC (*sym_Esys_TR_Serialize)(ESYS_CONTEXT *esys_context, ESYS_TR object, uint8_t **buffer, size_t *buffer_size);
-TSS2_RC (*sym_Esys_TR_SetAuth)(ESYS_CONTEXT *esysContext, ESYS_TR handle, TPM2B_AUTH const *authValue) = NULL;
-TSS2_RC (*sym_Esys_Unseal)(ESYS_CONTEXT *esysContext, ESYS_TR itemHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2B_SENSITIVE_DATA **outData) = NULL;
-TSS2_RC (*sym_Esys_VerifySignature)(ESYS_CONTEXT *esysContext, ESYS_TR keyHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *digest, const TPMT_SIGNATURE *signature, TPMT_TK_VERIFIED **validation);
+static TSS2_RC (*sym_Esys_Create)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_PUBLIC *inPublic, const TPM2B_DATA *outsideInfo, const TPML_PCR_SELECTION *creationPCR, TPM2B_PRIVATE **outPrivate, TPM2B_PUBLIC **outPublic, TPM2B_CREATION_DATA **creationData, TPM2B_DIGEST **creationHash, TPMT_TK_CREATION **creationTicket) = NULL;
+static TSS2_RC (*sym_Esys_CreatePrimary)(ESYS_CONTEXT *esysContext, ESYS_TR primaryHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_PUBLIC *inPublic, const TPM2B_DATA *outsideInfo, const TPML_PCR_SELECTION *creationPCR, ESYS_TR *objectHandle, TPM2B_PUBLIC **outPublic, TPM2B_CREATION_DATA **creationData, TPM2B_DIGEST **creationHash, TPMT_TK_CREATION **creationTicket) = NULL;
+static TSS2_RC (*sym_Esys_EvictControl)(ESYS_CONTEXT *esysContext, ESYS_TR auth, ESYS_TR objectHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPMI_DH_PERSISTENT persistentHandle, ESYS_TR *newObjectHandle) = NULL;
+static void (*sym_Esys_Finalize)(ESYS_CONTEXT **context) = NULL;
+static TSS2_RC (*sym_Esys_FlushContext)(ESYS_CONTEXT *esysContext, ESYS_TR flushHandle) = NULL;
+static void (*sym_Esys_Free)(void *ptr) = NULL;
+static TSS2_RC (*sym_Esys_GetCapability)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2_CAP capability, UINT32 property, UINT32 propertyCount, TPMI_YES_NO *moreData, TPMS_CAPABILITY_DATA **capabilityData) = NULL;
+static TSS2_RC (*sym_Esys_GetRandom)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, UINT16 bytesRequested, TPM2B_DIGEST **randomBytes) = NULL;
+static TSS2_RC (*sym_Esys_Initialize)(ESYS_CONTEXT **esys_context,  TSS2_TCTI_CONTEXT *tcti, TSS2_ABI_VERSION *abiVersion) = NULL;
+static TSS2_RC (*sym_Esys_Load)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_PRIVATE *inPrivate, const TPM2B_PUBLIC *inPublic, ESYS_TR *objectHandle) = NULL;
+static TSS2_RC (*sym_Esys_LoadExternal)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE *inPrivate, const TPM2B_PUBLIC *inPublic, ESYS_TR hierarchy, ESYS_TR *objectHandle) = NULL;
+static TSS2_RC (*sym_Esys_PCR_Extend)(ESYS_CONTEXT *esysContext, ESYS_TR pcrHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPML_DIGEST_VALUES *digests) = NULL;
+static TSS2_RC (*sym_Esys_PCR_Read)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1,ESYS_TR shandle2, ESYS_TR shandle3, const TPML_PCR_SELECTION *pcrSelectionIn, UINT32 *pcrUpdateCounter, TPML_PCR_SELECTION **pcrSelectionOut, TPML_DIGEST **pcrValues) = NULL;
+static TSS2_RC (*sym_Esys_PolicyAuthorize)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *approvedPolicy, const TPM2B_NONCE *policyRef, const TPM2B_NAME *keySign, const TPMT_TK_VERIFIED *checkTicket) = NULL;
+static TSS2_RC (*sym_Esys_PolicyAuthValue)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3) = NULL;
+static TSS2_RC (*sym_Esys_PolicyGetDigest)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2B_DIGEST **policyDigest) = NULL;
+static TSS2_RC (*sym_Esys_PolicyPCR)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *pcrDigest, const TPML_PCR_SELECTION *pcrs) = NULL;
+static TSS2_RC (*sym_Esys_ReadPublic)(ESYS_CONTEXT *esysContext, ESYS_TR objectHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2B_PUBLIC **outPublic, TPM2B_NAME **name, TPM2B_NAME **qualifiedName) = NULL;
+static TSS2_RC (*sym_Esys_StartAuthSession)(ESYS_CONTEXT *esysContext, ESYS_TR tpmKey, ESYS_TR bind, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_NONCE *nonceCaller, TPM2_SE sessionType, const TPMT_SYM_DEF *symmetric, TPMI_ALG_HASH authHash, ESYS_TR *sessionHandle) = NULL;
+static TSS2_RC (*sym_Esys_Startup)(ESYS_CONTEXT *esysContext, TPM2_SU startupType) = NULL;
+static TSS2_RC (*sym_Esys_TestParms)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPMT_PUBLIC_PARMS *parameters) = NULL;
+static TSS2_RC (*sym_Esys_TR_Deserialize)(ESYS_CONTEXT *esys_context, uint8_t const *buffer, size_t buffer_size, ESYS_TR *esys_handle) = NULL;
+static TSS2_RC (*sym_Esys_TR_FromTPMPublic)(ESYS_CONTEXT *esysContext, TPM2_HANDLE tpm_handle, ESYS_TR optionalSession1, ESYS_TR optionalSession2, ESYS_TR optionalSession3, ESYS_TR *object) = NULL;
+static TSS2_RC (*sym_Esys_TR_GetName)(ESYS_CONTEXT *esysContext, ESYS_TR handle, TPM2B_NAME **name) = NULL;
+static TSS2_RC (*sym_Esys_TR_Serialize)(ESYS_CONTEXT *esys_context, ESYS_TR object, uint8_t **buffer, size_t *buffer_size) = NULL;
+static TSS2_RC (*sym_Esys_TR_SetAuth)(ESYS_CONTEXT *esysContext, ESYS_TR handle, TPM2B_AUTH const *authValue) = NULL;
+static TSS2_RC (*sym_Esys_TRSess_GetAttributes)(ESYS_CONTEXT *esysContext, ESYS_TR session, TPMA_SESSION *flags) = NULL;
+static TSS2_RC (*sym_Esys_TRSess_SetAttributes)(ESYS_CONTEXT *esysContext, ESYS_TR session, TPMA_SESSION flags, TPMA_SESSION mask) = NULL;
+static TSS2_RC (*sym_Esys_Unseal)(ESYS_CONTEXT *esysContext, ESYS_TR itemHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2B_SENSITIVE_DATA **outData) = NULL;
+static TSS2_RC (*sym_Esys_VerifySignature)(ESYS_CONTEXT *esysContext, ESYS_TR keyHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *digest, const TPMT_SIGNATURE *signature, TPMT_TK_VERIFIED **validation) = NULL;
 
-const char* (*sym_Tss2_RC_Decode)(TSS2_RC rc) = NULL;
+static TSS2_RC (*sym_Tss2_MU_TPM2_CC_Marshal)(TPM2_CC src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
+static TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Marshal)(TPM2B_PRIVATE const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
+static TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PRIVATE  *dest) = NULL;
+static TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Marshal)(TPM2B_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
+static TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PUBLIC *dest) = NULL;
+static TSS2_RC (*sym_Tss2_MU_TPML_PCR_SELECTION_Marshal)(TPML_PCR_SELECTION const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
+static TSS2_RC (*sym_Tss2_MU_TPMT_HA_Marshal)(TPMT_HA const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
+static TSS2_RC (*sym_Tss2_MU_TPMT_PUBLIC_Marshal)(TPMT_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 
-TSS2_RC (*sym_Tss2_MU_TPM2_CC_Marshal)(TPM2_CC src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
-TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Marshal)(TPM2B_PRIVATE const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
-TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PRIVATE  *dest) = NULL;
-TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Marshal)(TPM2B_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
-TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PUBLIC *dest) = NULL;
-TSS2_RC (*sym_Tss2_MU_TPML_PCR_SELECTION_Marshal)(TPML_PCR_SELECTION const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
-TSS2_RC (*sym_Tss2_MU_TPMT_HA_Marshal)(TPMT_HA const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
-TSS2_RC (*sym_Tss2_MU_TPMT_PUBLIC_Marshal)(TPMT_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
+static const char* (*sym_Tss2_RC_Decode)(TSS2_RC rc) = NULL;
 
 int dlopen_tpm2(void) {
         int r;
@@ -98,13 +99,14 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_ReadPublic),
                         DLSYM_ARG(Esys_StartAuthSession),
                         DLSYM_ARG(Esys_Startup),
-                        DLSYM_ARG(Esys_TRSess_GetAttributes),
-                        DLSYM_ARG(Esys_TRSess_SetAttributes),
+                        DLSYM_ARG(Esys_TestParms),
+                        DLSYM_ARG(Esys_TR_Deserialize),
                         DLSYM_ARG(Esys_TR_FromTPMPublic),
                         DLSYM_ARG(Esys_TR_GetName),
-                        DLSYM_ARG(Esys_TR_Deserialize),
                         DLSYM_ARG(Esys_TR_Serialize),
                         DLSYM_ARG(Esys_TR_SetAuth),
+                        DLSYM_ARG(Esys_TRSess_GetAttributes),
+                        DLSYM_ARG(Esys_TRSess_SetAttributes),
                         DLSYM_ARG(Esys_Unseal),
                         DLSYM_ARG(Esys_VerifySignature));
         if (r < 0)
@@ -128,6 +130,151 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Tss2_MU_TPMT_PUBLIC_Marshal));
 }
 
+static inline void Esys_Freep(void *p) {
+        if (*(void**) p)
+                sym_Esys_Free(*(void**) p);
+}
+
+static int tpm2_get_capability(
+                Tpm2Context *c,
+                TPM2_CAP capability,
+                uint32_t start,
+                uint32_t count,
+                TPMI_YES_NO *ret_more,
+                TPMU_CAPABILITIES *ret_capability_data) {
+
+        _cleanup_(Esys_Freep) TPMS_CAPABILITY_DATA *capabilities = NULL;
+        TPMI_YES_NO more;
+        TSS2_RC rc;
+
+        assert(c);
+
+        log_debug("Getting TPM2 capability 0x%04x property 0x%04x count %u.", capability, start, count);
+
+        rc = sym_Esys_GetCapability(
+                        c->esys_context,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        capability,
+                        start,
+                        count,
+                        &more,
+                        &capabilities);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to get TPM2 capability 0x%04x property 0x%04x: %s",
+                                       capability, start, sym_Tss2_RC_Decode(rc));
+
+        if (capabilities->capability != capability)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "TPM provided wrong capability: 0x%04x instead of 0x%04x.",
+                                       capabilities->capability, capability);
+
+        if (ret_more)
+                *ret_more = more;
+        if (ret_capability_data)
+                *ret_capability_data = capabilities->data;
+
+        return 0;
+}
+
+static int tpm2_cache_capabilities(Tpm2Context *c) {
+        TPMU_CAPABILITIES capability;
+        TPMI_YES_NO more;
+        int r;
+
+        /* Cache the algorithm capabilities, which *should be* safe to cache, as the only way they can change
+         * is TPM2_SetAlgorithmSet(). While the TPM2 spec is pretty vague on the exact use of this function,
+         * it does note in the example that objects and sessions "may" be flushed. The reference
+         * implementation does not support this command, and I can only hope that no real TPM would allow
+         * disabling (or enabling) algorithms while running. */
+        r = tpm2_get_capability(
+                        c,
+                        TPM2_CAP_ALGS,
+                        TPM2_ALG_FIRST,
+                        TPM2_MAX_CAP_ALGS,
+                        &more,
+                        &capability);
+        if (r < 0)
+                return r;
+        if (more == TPM2_YES)
+                log_error("TPM bug: reported more algs, ignoring.");
+        c->capability_algs = capability.algorithms;
+
+        /* Cache the PCR capabilities, which are safe to cache, as the only way they can change is
+         * TPM2_PCR_Allocate(), which changes the allocation after the next _TPM_Init(). If the TPM is
+         * reinitialized while we are using it, all our context and sessions will be invalid, so we can
+         * safely assume the TPM PCR allocation will not change while we are using it. */
+        r = tpm2_get_capability(
+                        c,
+                        TPM2_CAP_PCRS,
+                        0,
+                        1,
+                        &more,
+                        &capability);
+        if (r < 0)
+                return r;
+        if (more == TPM2_YES)
+                log_error("TPM bug: reported more pcrs, ignoring.");
+        c->capability_pcrs = capability.assignedPCR;
+
+        return 0;
+}
+
+#define tpm2_capability_algs(c) ((c)->capability_algs)
+#define tpm2_capability_pcrs(c) ((c)->capability_pcrs)
+
+static int tpm2_capability_alg(Tpm2Context *c, TPM2_ALG_ID alg, TPMA_ALGORITHM *ret) {
+        TPML_ALG_PROPERTY algs = tpm2_capability_algs(c);
+        for (uint32_t i = 0; i < algs.count; i++)
+                if (algs.algProperties[i].alg == alg) {
+                        if (ret)
+                                *ret = algs.algProperties[i].algProperties;
+                        return 0;
+                }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "TPM does not support alg 0x%02x.", alg);
+}
+#define tpm2_supports_alg(c, alg) (tpm2_capability_alg(c, alg, NULL) == 0)
+
+static bool tpm2_test_parms(Tpm2Context *c, TPMI_ALG_PUBLIC alg, const TPMU_PUBLIC_PARMS *parms) {
+        TSS2_RC rc;
+
+        assert(c);
+        assert(parms);
+
+        const TPMT_PUBLIC_PARMS parameters = {
+                .type = alg,
+                .parameters = *parms,
+        };
+
+        rc = sym_Esys_TestParms(c->esys_context, ESYS_TR_NONE, ESYS_TR_NONE, ESYS_TR_NONE, &parameters);
+        if (rc != TSS2_RC_SUCCESS)
+                log_debug("TPM does not support tested parms: %s", sym_Tss2_RC_Decode(rc));
+
+        return rc == TSS2_RC_SUCCESS;
+}
+
+static inline bool tpm2_supports_tpmt_sym_def_object(Tpm2Context *c, const TPMT_SYM_DEF_OBJECT *parameters) {
+        assert(parameters);
+
+        return tpm2_test_parms(c, TPM2_ALG_SYMCIPHER, &(const TPMU_PUBLIC_PARMS){ .symDetail.sym = *parameters, });
+}
+
+static inline bool tpm2_supports_tpmt_sym_def(Tpm2Context *c, const TPMT_SYM_DEF *parameters) {
+        assert(parameters);
+
+        /* Unfortunately, TPMT_SYM_DEF and TPMT_SYM_DEF_OBEJECT are separately defined, even though they are
+         * functionally identical. */
+        const TPMT_SYM_DEF_OBJECT object = {
+                .algorithm = parameters->algorithm,
+                .keyBits = parameters->keyBits,
+                .mode = parameters->mode,
+        };
+        return tpm2_supports_tpmt_sym_def_object(c, &object);
+}
+
 static Tpm2Context *tpm2_context_free(Tpm2Context *c) {
         if (!c)
                 return NULL;
@@ -144,7 +291,7 @@ static Tpm2Context *tpm2_context_free(Tpm2Context *c) {
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Tpm2Context, tpm2_context, tpm2_context_free);
 
 int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
-        _cleanup_tpm2_context_ Tpm2Context *context = NULL;
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *context = NULL;
         TSS2_RC rc;
         int r;
 
@@ -250,6 +397,25 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to start up TPM: %s", sym_Tss2_RC_Decode(rc));
 
+        r = tpm2_cache_capabilities(context);
+        if (r < 0)
+                return r;
+
+        /* We require AES and CFB support for session encryption. */
+        if (!tpm2_supports_alg(context, TPM2_ALG_AES))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM does not support AES.");
+        if (!tpm2_supports_alg(context, TPM2_ALG_CFB))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM does not support CFB.");
+
+        context->session_symmetric_template = (TPMT_SYM_DEF){
+                .algorithm = TPM2_ALG_AES,
+                .keyBits.aes = 128,
+                .mode.aes = TPM2_ALG_CFB, /* The spec requires sessions to use CFB. */
+        };
+
+        if (!tpm2_supports_tpmt_sym_def(context, &context->session_symmetric_template))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM does not support AES-128-CFB.");
+
         *ret_context = TAKE_PTR(context);
 
         return 0;
@@ -272,7 +438,7 @@ Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle) {
         if (!handle)
                 return NULL;
 
-        _cleanup_tpm2_context_ Tpm2Context *context = (Tpm2Context*)handle->tpm2_context;
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *context = (Tpm2Context*)handle->tpm2_context;
         if (context && !handle->keep)
                 tpm2_handle_flush(context->esys_context, handle->esys_handle);
 
@@ -280,7 +446,7 @@ Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle) {
 }
 
 int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle) {
-        _cleanup_tpm2_handle_ Tpm2Handle *handle = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
 
         assert(ret_handle);
 
@@ -559,7 +725,7 @@ static int tpm2_make_primary(
 
         ts = now(CLOCK_MONOTONIC);
 
-        _cleanup_tpm2_handle_ Tpm2Handle *primary = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *primary = NULL;
         r = tpm2_handle_new(c, &primary);
         if (r < 0)
                 return r;
@@ -1175,48 +1341,33 @@ static int tpm2_get_best_pcr_bank(
                 uint32_t pcr_mask,
                 TPMI_ALG_HASH *ret) {
 
-        _cleanup_(Esys_Freep) TPMS_CAPABILITY_DATA *pcap = NULL;
+        TPML_PCR_SELECTION pcrs;
         TPMI_ALG_HASH supported_hash = 0, hash_with_valid_pcr = 0;
-        TPMI_YES_NO more;
-        TSS2_RC rc;
         int r;
 
         assert(c);
+        assert(ret);
 
-        rc = sym_Esys_GetCapability(
-                        c->esys_context,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        TPM2_CAP_PCRS,
-                        0,
-                        1,
-                        &more,
-                        &pcap);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to determine TPM2 PCR bank capabilities: %s", sym_Tss2_RC_Decode(rc));
-
-        assert(pcap->capability == TPM2_CAP_PCRS);
-
-        for (size_t i = 0; i < pcap->data.assignedPCR.count; i++) {
+        pcrs = tpm2_capability_pcrs(c);
+        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection, &pcrs) {
+                TPMI_ALG_HASH hash = selection->hash;
                 int good;
 
                 /* For now we are only interested in the SHA1 and SHA256 banks */
-                if (!IN_SET(pcap->data.assignedPCR.pcrSelections[i].hash, TPM2_ALG_SHA256, TPM2_ALG_SHA1))
+                if (!IN_SET(hash, TPM2_ALG_SHA256, TPM2_ALG_SHA1))
                         continue;
 
-                r = tpm2_bank_has24(pcap->data.assignedPCR.pcrSelections + i);
+                r = tpm2_bank_has24(selection);
                 if (r < 0)
                         return r;
                 if (!r)
                         continue;
 
-                good = tpm2_pcr_mask_good(c, pcap->data.assignedPCR.pcrSelections[i].hash, pcr_mask);
+                good = tpm2_pcr_mask_good(c, hash, pcr_mask);
                 if (good < 0)
                         return good;
 
-                if (pcap->data.assignedPCR.pcrSelections[i].hash == TPM2_ALG_SHA256) {
+                if (hash == TPM2_ALG_SHA256) {
                         supported_hash = TPM2_ALG_SHA256;
                         if (good) {
                                 /* Great, SHA256 is supported and has initialized PCR values, we are done. */
@@ -1224,7 +1375,7 @@ static int tpm2_get_best_pcr_bank(
                                 break;
                         }
                 } else {
-                        assert(pcap->data.assignedPCR.pcrSelections[i].hash == TPM2_ALG_SHA1);
+                        assert(hash == TPM2_ALG_SHA1);
 
                         if (supported_hash == 0)
                                 supported_hash = TPM2_ALG_SHA1;
@@ -1273,42 +1424,26 @@ int tpm2_get_good_pcr_banks(
                 TPMI_ALG_HASH **ret) {
 
         _cleanup_free_ TPMI_ALG_HASH *good_banks = NULL, *fallback_banks = NULL;
-        _cleanup_(Esys_Freep) TPMS_CAPABILITY_DATA *pcap = NULL;
+        TPML_PCR_SELECTION pcrs;
         size_t n_good_banks = 0, n_fallback_banks = 0;
-        TPMI_YES_NO more;
-        TSS2_RC rc;
         int r;
 
         assert(c);
         assert(ret);
 
-        rc = sym_Esys_GetCapability(
-                        c->esys_context,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        TPM2_CAP_PCRS,
-                        0,
-                        1,
-                        &more,
-                        &pcap);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to determine TPM2 PCR bank capabilities: %s", sym_Tss2_RC_Decode(rc));
-
-        assert(pcap->capability == TPM2_CAP_PCRS);
-
-        for (size_t i = 0; i < pcap->data.assignedPCR.count; i++) {
+        pcrs = tpm2_capability_pcrs(c);
+        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection, &pcrs) {
+                TPMI_ALG_HASH hash = selection->hash;
 
                 /* Let's see if this bank is superficially OK, i.e. has at least 24 enabled registers */
-                r = tpm2_bank_has24(pcap->data.assignedPCR.pcrSelections + i);
+                r = tpm2_bank_has24(selection);
                 if (r < 0)
                         return r;
                 if (!r)
                         continue;
 
                 /* Let's now see if this bank has any of the selected PCRs actually initialized */
-                r = tpm2_pcr_mask_good(c, pcap->data.assignedPCR.pcrSelections[i].hash, pcr_mask);
+                r = tpm2_pcr_mask_good(c, hash, pcr_mask);
                 if (r < 0)
                         return r;
 
@@ -1319,12 +1454,12 @@ int tpm2_get_good_pcr_banks(
                         if (!GREEDY_REALLOC(good_banks, n_good_banks+1))
                                 return log_oom();
 
-                        good_banks[n_good_banks++] = pcap->data.assignedPCR.pcrSelections[i].hash;
+                        good_banks[n_good_banks++] = hash;
                 } else {
                         if (!GREEDY_REALLOC(fallback_banks, n_fallback_banks+1))
                                 return log_oom();
 
-                        fallback_banks[n_fallback_banks++] = pcap->data.assignedPCR.pcrSelections[i].hash;
+                        fallback_banks[n_fallback_banks++] = hash;
                 }
         }
 
@@ -1515,11 +1650,6 @@ static int tpm2_make_encryption_session(
                 const Tpm2Handle *bind_key,
                 Tpm2Handle **ret_session) {
 
-        static const TPMT_SYM_DEF symmetric = {
-                .algorithm = TPM2_ALG_AES,
-                .keyBits.aes = 128,
-                .mode.aes = TPM2_ALG_CFB,
-        };
         const TPMA_SESSION sessionAttributes = TPMA_SESSION_DECRYPT | TPMA_SESSION_ENCRYPT |
                         TPMA_SESSION_CONTINUESESSION;
         TSS2_RC rc;
@@ -1533,7 +1663,7 @@ static int tpm2_make_encryption_session(
         /* Start a salted, unbound HMAC session with a well-known key (e.g. primary key) as tpmKey, which
          * means that the random salt will be encrypted with the well-known key. That way, only the TPM can
          * recover the salt, which is then used for key derivation. */
-        _cleanup_tpm2_handle_ Tpm2Handle *session = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
         r = tpm2_handle_new(c, &session);
         if (r < 0)
                 return r;
@@ -1547,7 +1677,7 @@ static int tpm2_make_encryption_session(
                         ESYS_TR_NONE,
                         NULL,
                         TPM2_SE_HMAC,
-                        &symmetric,
+                        &c->session_symmetric_template,
                         TPM2_ALG_SHA256,
                         &session->esys_handle);
         if (rc != TSS2_RC_SUCCESS)
@@ -1576,11 +1706,6 @@ static int tpm2_make_policy_session(
                 bool trial,
                 Tpm2Handle **ret_session) {
 
-        static const TPMT_SYM_DEF symmetric = {
-                .algorithm = TPM2_ALG_AES,
-                .keyBits.aes = 128,
-                .mode.aes = TPM2_ALG_CFB,
-        };
         TPM2_SE session_type = trial ? TPM2_SE_TRIAL : TPM2_SE_POLICY;
         TSS2_RC rc;
         int r;
@@ -1596,7 +1721,7 @@ static int tpm2_make_policy_session(
 
         log_debug("Starting policy session.");
 
-        _cleanup_tpm2_handle_ Tpm2Handle *session = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *session = NULL;
         r = tpm2_handle_new(c, &session);
         if (r < 0)
                 return r;
@@ -1610,7 +1735,7 @@ static int tpm2_make_policy_session(
                         ESYS_TR_NONE,
                         NULL,
                         session_type,
-                        &symmetric,
+                        &c->session_symmetric_template,
                         TPM2_ALG_SHA256,
                         &session->esys_handle);
         if (rc != TSS2_RC_SUCCESS)
@@ -2157,7 +2282,7 @@ static int tpm2_policy_authorize(
 
         log_debug("Adding PCR signature policy.");
 
-        _cleanup_tpm2_handle_ Tpm2Handle *pubkey_handle = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *pubkey_handle = NULL;
         r = tpm2_handle_new(c, &pubkey_handle);
         if (r < 0)
                 return r;
@@ -2429,7 +2554,7 @@ int tpm2_seal(const char *device,
 
         CLEANUP_ERASE(hmac_sensitive);
 
-        _cleanup_tpm2_context_ Tpm2Context *c = NULL;
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         r = tpm2_context_new(device, &c);
         if (r < 0)
                 return r;
@@ -2512,13 +2637,13 @@ int tpm2_seal(const char *device,
         if (r < 0)
                 return log_error_errno(r, "Failed to generate secret key: %m");
 
-        _cleanup_tpm2_handle_ Tpm2Handle *primary_handle = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *primary_handle = NULL;
         TPMI_ALG_PUBLIC primary_alg;
         r = tpm2_make_primary(c, /* alg = */0, !!ret_srk_buf, &primary_alg, &primary_handle);
         if (r < 0)
                 return r;
 
-        _cleanup_tpm2_handle_ Tpm2Handle *encryption_session = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
         r = tpm2_make_encryption_session(c, primary_handle, &TPM2_HANDLE_NONE, &encryption_session);
         if (r < 0)
                 return r;
@@ -2679,13 +2804,13 @@ int tpm2_unseal(const char *device,
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to unmarshal public key: %s", sym_Tss2_RC_Decode(rc));
 
-        _cleanup_tpm2_context_ Tpm2Context *c = NULL;
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         r = tpm2_context_new(device, &c);
         if (r < 0)
                 return r;
 
         /* If their is a primary key we trust, like an SRK, use it */
-        _cleanup_tpm2_handle_ Tpm2Handle *primary = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *primary = NULL;
         if (srk_buf) {
 
                 r = tpm2_handle_new(c, &primary);
@@ -2718,7 +2843,7 @@ int tpm2_unseal(const char *device,
          * SRK model, the tpmKey is verified. In the non-srk model, with pin, the bindKey
          * provides protections.
          */
-        _cleanup_tpm2_handle_ Tpm2Handle *hmac_key = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *hmac_key = NULL;
         r = tpm2_handle_new(c, &hmac_key);
         if (r < 0)
                 return r;
@@ -2767,13 +2892,13 @@ int tpm2_unseal(const char *device,
         if (r < 0)
                 return r;
 
-        _cleanup_tpm2_handle_ Tpm2Handle *encryption_session = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
         r = tpm2_make_encryption_session(c, primary, hmac_key, &encryption_session);
         if (r < 0)
                 return r;
 
         for (unsigned i = RETRY_UNSEAL_MAX;; i--) {
-                _cleanup_tpm2_handle_ Tpm2Handle *policy_session = NULL;
+                _cleanup_(tpm2_handle_freep) Tpm2Handle *policy_session = NULL;
                 _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
                 r = tpm2_make_policy_session(
                                 c,
