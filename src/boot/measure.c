@@ -11,6 +11,7 @@
 #include "hexdecoct.h"
 #include "json.h"
 #include "main-func.h"
+#include "memstream-util.h"
 #include "openssl-util.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -780,14 +781,13 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                 if (!pubkey)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse public key '%s'.", arg_public_key);
         } else {
-                _cleanup_free_ char *data = NULL;
-                _cleanup_fclose_ FILE *tf = NULL;
-                size_t sz;
+                _cleanup_(memstream_done) MemStream m = {};
+                FILE *tf;
 
                 /* No public key was specified, let's derive it automatically, if we can */
 
-                tf = open_memstream_unlocked(&data, &sz);
-                if (!tf)
+                r = memstream_open(&m, &tf);
+                if (r < 0)
                         return log_oom();
 
                 if (i2d_PUBKEY_fp(tf, privkey) != 1)
