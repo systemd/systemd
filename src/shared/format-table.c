@@ -300,6 +300,7 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_TIMESTAMP:
         case TABLE_TIMESTAMP_UTC:
         case TABLE_TIMESTAMP_RELATIVE:
+        case TABLE_TIMESTAMP_RELATIVE_MONOTONIC:
         case TABLE_TIMESTAMP_LEFT:
         case TABLE_TIMESTAMP_DATE:
         case TABLE_TIMESPAN:
@@ -905,6 +906,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                 case TABLE_TIMESTAMP:
                 case TABLE_TIMESTAMP_UTC:
                 case TABLE_TIMESTAMP_RELATIVE:
+                case TABLE_TIMESTAMP_RELATIVE_MONOTONIC:
                 case TABLE_TIMESTAMP_LEFT:
                 case TABLE_TIMESTAMP_DATE:
                 case TABLE_TIMESPAN:
@@ -1322,6 +1324,7 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                 case TABLE_TIMESTAMP:
                 case TABLE_TIMESTAMP_UTC:
                 case TABLE_TIMESTAMP_RELATIVE:
+                case TABLE_TIMESTAMP_RELATIVE_MONOTONIC:
                 case TABLE_TIMESTAMP_LEFT:
                 case TABLE_TIMESTAMP_DATE:
                         return CMP(a->timestamp, b->timestamp);
@@ -1564,13 +1567,14 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         case TABLE_TIMESTAMP:
         case TABLE_TIMESTAMP_UTC:
         case TABLE_TIMESTAMP_RELATIVE:
+        case TABLE_TIMESTAMP_RELATIVE_MONOTONIC:
         case TABLE_TIMESTAMP_LEFT:
         case TABLE_TIMESTAMP_DATE: {
                 _cleanup_free_ char *p = NULL;
                 char *ret;
 
                 p = new(char,
-                        IN_SET(d->type, TABLE_TIMESTAMP_RELATIVE, TABLE_TIMESTAMP_LEFT) ?
+                        IN_SET(d->type, TABLE_TIMESTAMP_RELATIVE, TABLE_TIMESTAMP_RELATIVE_MONOTONIC, TABLE_TIMESTAMP_LEFT) ?
                                 FORMAT_TIMESTAMP_RELATIVE_MAX : FORMAT_TIMESTAMP_MAX);
                 if (!p)
                         return NULL;
@@ -1581,10 +1585,14 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                         ret = format_timestamp_style(p, FORMAT_TIMESTAMP_MAX, d->timestamp, TIMESTAMP_UTC);
                 else if (d->type == TABLE_TIMESTAMP_DATE)
                         ret = format_timestamp_style(p, FORMAT_TIMESTAMP_MAX, d->timestamp, TIMESTAMP_DATE);
+                else if (d->type == TABLE_TIMESTAMP_RELATIVE_MONOTONIC)
+                        ret = format_timestamp_relative_full(p, FORMAT_TIMESTAMP_RELATIVE_MAX,
+                                                             d->timestamp, CLOCK_MONOTONIC,
+                                                             /* implicit_left = */ false);
                 else
-                        ret = format_timestamp_relative_full(
-                                        p, FORMAT_TIMESTAMP_RELATIVE_MAX, d->timestamp,
-                                        /* implicit_left= */  d->type == TABLE_TIMESTAMP_LEFT);
+                        ret = format_timestamp_relative_full(p, FORMAT_TIMESTAMP_RELATIVE_MAX,
+                                                             d->timestamp, CLOCK_REALTIME,
+                                                             /* implicit_left = */ d->type == TABLE_TIMESTAMP_LEFT);
                 if (!ret)
                         return "-";
 
@@ -2640,6 +2648,7 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
         case TABLE_TIMESTAMP:
         case TABLE_TIMESTAMP_UTC:
         case TABLE_TIMESTAMP_RELATIVE:
+        case TABLE_TIMESTAMP_RELATIVE_MONOTONIC:
         case TABLE_TIMESTAMP_LEFT:
         case TABLE_TIMESTAMP_DATE:
                 if (d->timestamp == USEC_INFINITY)
