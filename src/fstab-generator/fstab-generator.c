@@ -822,7 +822,7 @@ static int parse_fstab_one(
 
         is_swap = streq_ptr(fstype, "swap");
         if (is_swap && use_swap_enabled && !arg_swap_enabled) {
-                log_info("Swap unit generation disabled on kernel command line, ignoring swap entry for %s.", what);
+                log_info("Swap unit generation disabled on kernel command line, ignoring swap entry for %s.", what_original);
                 return 0;
         }
 
