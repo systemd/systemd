@@ -810,6 +810,7 @@ static inline const UnitVTable* UNIT_VTABLE(const Unit *u) {
 
 Unit* unit_has_dependency(const Unit *u, UnitDependencyAtom atom, Unit *other);
 int unit_get_dependency_array(const Unit *u, UnitDependencyAtom atom, Unit ***ret_array);
+int unit_get_dependency_chain(Unit *u, UnitDependencyAtom atom, Set **ret);
 
 static inline Hashmap* unit_get_dependencies(Unit *u, UnitDependency d) {
         return hashmap_get(u->dependencies, UNIT_DEPENDENCY_TO_PTR(d));
