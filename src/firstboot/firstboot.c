@@ -13,6 +13,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
+#include "bus-wait-for-jobs.h"
 #include "chase.h"
 #include "copy.h"
 #include "creds-util.h"
@@ -1588,6 +1589,9 @@ static int reload_system_manager(sd_bus **bus) {
 
 static int reload_vconsole(sd_bus **bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+        const char *object;
         int r;
 
         assert(bus);
@@ -1598,10 +1602,22 @@ static int reload_vconsole(sd_bus **bus) {
                         return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL);
         }
 
-        r = bus_call_method(*bus, bus_systemd_mgr, "RestartUnit", &error, NULL, "ss", "systemd-vconsole-setup.service", "replace");
+        r = bus_wait_for_jobs_new(*bus, &w);
+        if (r < 0)
+                return log_error_errno(r, "Could not watch jobs: %m");
+
+        r = bus_call_method(*bus, bus_systemd_mgr, "RestartUnit", &error, &reply,
+                            "ss", "systemd-vconsole-setup.service", "replace");
         if (r < 0)
                 return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
-        log_info("Requested vconsole setup to apply key map configuration.");
+
+        r = sd_bus_message_read(reply, "o", &object);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = bus_wait_for_jobs_one(w, object, false, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to wait for systemd-vconsole-setup.service/restart: %m");
         return 0;
 }
 
