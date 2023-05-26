@@ -48,6 +48,7 @@
     <filename>initrd-root-device.target</filename>,
     <filename>initrd-root-fs.target</filename>,
     <filename>initrd-usr-fs.target</filename>,
+    <filename>installer.target</filename>,
     <filename>integritysetup-pre.target</filename>,
     <filename>integritysetup.target</filename>,
     <filename>kbrequest.target</filename>,
@@ -319,6 +320,14 @@
             installation. This is best configured via
             <varname>WantedBy=graphical.target</varname> in the unit's
             [Install] section.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>installer.target</filename></term>
+          <listitem>
+            <para>A special target unit for presenting the user with an OS installer UI. See
+            <citerefentry><refentrytitle>systemd-installer-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            for more discussion.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
