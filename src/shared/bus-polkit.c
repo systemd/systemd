@@ -56,6 +56,51 @@ static int bus_message_append_strv_key_value(
 
         return r;
 }
+
+static int bus_message_new_polkit_auth_call(
+                sd_bus_message *m,
+                const char *action,
+                const char **details,
+                bool interactive,
+                sd_bus_message **ret) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = NULL;
+        const char *sender;
+        int r;
+
+        assert(m);
+        assert(action);
+        assert(ret);
+
+        sender = sd_bus_message_get_sender(m);
+        if (!sender)
+                return -EBADMSG;
+
+        r = sd_bus_message_new_method_call(
+                        ASSERT_PTR(m->bus),
+                        &c,
+                        "org.freedesktop.PolicyKit1",
+                        "/org/freedesktop/PolicyKit1/Authority",
+                        "org.freedesktop.PolicyKit1.Authority",
+                        "CheckAuthorization");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(c, "(sa{sv})s", "system-bus-name", 1, "name", "s", sender, action);
+        if (r < 0)
+                return r;
+
+        r = bus_message_append_strv_key_value(c, details);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(c, "us", interactive, NULL);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(c);
+        return 0;
+}
 #endif
 
 int bus_test_polkit(
@@ -88,35 +133,8 @@ int bus_test_polkit(
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *request = NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 int authorized = false, challenge = false;
-                const char *sender;
 
-                sender = sd_bus_message_get_sender(call);
-                if (!sender)
-                        return -EBADMSG;
-
-                r = sd_bus_message_new_method_call(
-                                call->bus,
-                                &request,
-                                "org.freedesktop.PolicyKit1",
-                                "/org/freedesktop/PolicyKit1/Authority",
-                                "org.freedesktop.PolicyKit1.Authority",
-                                "CheckAuthorization");
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_append(
-                                request,
-                                "(sa{sv})s",
-                                "system-bus-name", 1, "name", "s", sender,
-                                action);
-                if (r < 0)
-                        return r;
-
-                r = bus_message_append_strv_key_value(request, details);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_append(request, "us", 0, NULL);
+                r = bus_message_new_polkit_auth_call(call, action, details, /* interactive = */ false, &request);
                 if (r < 0)
                         return r;
 
@@ -312,7 +330,6 @@ int bus_verify_polkit_async(
                 Hashmap **registry,
                 sd_bus_error *ret_error) {
 
-        const char *sender;
         int r;
 
         assert(call);
@@ -337,10 +354,6 @@ int bus_verify_polkit_async(
         else if (r > 0)
                 return 1;
 
-        sender = sd_bus_message_get_sender(call);
-        if (!sender)
-                return -EBADMSG;
-
 #if ENABLE_POLKIT
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
 
@@ -354,29 +367,7 @@ int bus_verify_polkit_async(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_new_method_call(
-                        call->bus,
-                        &pk,
-                        "org.freedesktop.PolicyKit1",
-                        "/org/freedesktop/PolicyKit1/Authority",
-                        "org.freedesktop.PolicyKit1.Authority",
-                        "CheckAuthorization");
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(
-                        pk,
-                        "(sa{sv})s",
-                        "system-bus-name", 1, "name", "s", sender,
-                        action);
-        if (r < 0)
-                return r;
-
-        r = bus_message_append_strv_key_value(pk, details);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(pk, "us", interactive, NULL);
+        r = bus_message_new_polkit_auth_call(call, action, details, interactive, &pk);
         if (r < 0)
                 return r;
 
