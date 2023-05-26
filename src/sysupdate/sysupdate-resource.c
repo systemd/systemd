@@ -13,6 +13,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "find-esp.h"
 #include "glyph-util.h"
 #include "gpt.h"
 #include "hexdecoct.h"
@@ -520,6 +521,11 @@ int resource_resolve_path(
 
         assert(rr);
 
+        if (rr->path_dollar_boot && !IN_SET(rr->type, RESOURCE_REGULAR_FILE, RESOURCE_DIRECTORY))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Paths relative to $BOOT are only allowed for regular-file or directory resources.");
+
+
         if (rr->path_auto) {
                 struct stat orig_root_stats;
 
@@ -595,10 +601,26 @@ int resource_resolve_path(
 
                 r = get_block_device_harder_fd(fd, &d);
 
-        } else if (RESOURCE_IS_FILESYSTEM(rr->type) && root) {
+        } else if (RESOURCE_IS_FILESYSTEM(rr->type)) {
                 _cleanup_free_ char *resolved = NULL;
+                char *dollar_boot = NULL;
+                ChaseFlags chase_flags = CHASE_PREFIX_ROOT;
 
-                r = chase(rr->path, root, CHASE_PREFIX_ROOT, &resolved, NULL);
+                if (rr->path_dollar_boot) {
+                        bool unprivileged_mode = (geteuid() != 0);
+                        r = find_xbootldr_and_warn(root, NULL, unprivileged_mode, &dollar_boot, NULL, NULL);
+                        if (r == -ENOKEY) {
+                                log_debug_errno(r, "Didn't find an XBOOTLDR partition. Using ESP as $BOOT");
+                                r = find_esp_and_warn(root, NULL, unprivileged_mode, &dollar_boot, NULL, NULL, NULL, NULL, NULL);
+                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to resolve $BOOT: %m");
+
+                        /* Since this partition is read from EFI, there should be no symlinks */
+                        chase_flags |= CHASE_PROHIBIT_SYMLINKS;
+                }
+
+                r = chase(rr->path, dollar_boot ?: root, chase_flags, &resolved, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve '%s': %m", rr->path);
 
