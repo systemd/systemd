@@ -81,8 +81,8 @@
 
       <listitem><para>Finally, a file <literal>https://download.example.com/foobarOS_47.efi.xz</literal> (a
       unified kernel, as per <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
-      Specification</ulink> Type #2) should be downloaded, decompressed and written to the ESP file system,
-      i.e. to <filename>EFI/Linux/foobarOS_47.efi</filename> in the ESP.</para></listitem>
+      Specification</ulink> Type #2) should be downloaded, decompressed and written to the $BOOT file system,
+      i.e. to <filename>EFI/Linux/foobarOS_47.efi</filename> in the ESP or XBOOTLDR partition.</para></listitem>
     </orderedlist>
 
     <para>The version-independent generalization of this would be (using the special marker
@@ -98,7 +98,7 @@
       set to <literal>foobarOS_@v_verity</literal>.</para></listitem>
 
       <listitem><para>A transfer of a file <literal>https://download.example.com/foobarOS_@v.efi.xz</literal>
-      → a local file <filename>/efi/EFI/Linux/foobarOS_@v.efi</filename>.</para></listitem>
+      → a local file <filename>$BOOT/EFI/Linux/foobarOS_@v.efi</filename>.</para></listitem>
     </orderedlist>
 
     <para>An update can only complete if the relevant URLs provide their resources for the same version,
@@ -562,6 +562,12 @@
         must refer to a path in the local file system referencing the directory to find or place the version
         files or directories under.</para>
 
+        <para>If the specified path begins with <literal>^</literal>, the specified path will be resolved
+        relative to the mount point of the boot partition (i.e. the ESP or XBOOTLDR), as defined by the
+        <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
+        Specification</ulink>. This is only supported when <varname>Type=</varname> is set to
+        <constant>regular-file</constant> or <constant>directory</constant>.</para>
+
         <para>Note that this mechanism cannot be used to create or remove partitions, in case
         <varname>Type=</varname> is set to <constant>partition</constant>. Partitions must exist already, and
         a special partition label <literal>_empty</literal> is used to indicate empty partitions. To
@@ -820,7 +826,7 @@ MatchPattern=foobarOS_@v.efi.xz
 
 [Target]
 Type=regular-file
-Path=/efi/EFI/Linux
+Path=^/EFI/Linux
 MatchPattern=foobarOS_@v+@l-@d.efi \
              foobarOS_@v+@l.efi \
              foobarOS_@v.efi
@@ -829,12 +835,12 @@ TriesLeft=3
 TriesDone=0
 InstancesMax=2</programlisting></para>
 
-        <para>The above installs a unified kernel image into the ESP (which is mounted to
-        <filename>/efi/</filename>), as per <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot
-        Loader Specification</ulink> Type #2. This defines three possible patterns for the names of the
-        kernel images, as per <ulink url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot
-        Assessment</ulink>, and ensures when installing new kernels, they are set up with 3 tries left. No
-        more than two parallel kernels are kept.</para>
+        <para>The above installs a unified kernel image into the $BOOT partition, as per
+        <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
+        Specification</ulink> Type #2. This defines three possible patterns for the names of the kernel
+        images, as per <ulink url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot Assessment</ulink>,
+        and ensures when installing new kernels, they are set up with 3 tries left. No more than two parallel
+        kernels are kept.</para>
 
         <para>With this setup the web server would serve the following files, for a hypothetical version 7 of
         the OS:</para>
