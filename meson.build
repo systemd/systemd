@@ -2616,6 +2616,16 @@ exe = executable(
         install : true,
         install_dir : systemgeneratordir)
 
+executable(
+        'systemd-installer-generator',
+        'src/installer-generator/installer-generator.c',
+        include_directories : includes,
+        link_with : [libshared],
+        dependencies : userspace,
+        install_rpath : rootpkglibdir,
+        install : true,
+        install_dir : systemgeneratordir)
+
 meson.add_install_script(meson_make_symlink,
                          systemgeneratordir / 'systemd-fstab-generator',
                          rootlibexecdir / 'systemd-sysroot-fstab-check')

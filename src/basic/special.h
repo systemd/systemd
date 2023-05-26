@@ -27,6 +27,7 @@
 #define SPECIAL_EMERGENCY_TARGET "emergency.target"
 #define SPECIAL_MULTI_USER_TARGET "multi-user.target"
 #define SPECIAL_GRAPHICAL_TARGET "graphical.target"
+#define SPECIAL_INSTALLER_TARGET "installer.target"
 
 /* Early boot targets */
 #define SPECIAL_SYSINIT_TARGET "sysinit.target"
