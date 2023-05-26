@@ -66,12 +66,24 @@ static inline bool RESOURCE_IS_URL(ResourceType t) {
                       RESOURCE_URL_FILE);
 }
 
+typedef enum PathRelativeTo {
+        /* Please make sure to folow the naming of the corresponding PartitionDesignator enum values,
+         * where this makes sense, like for the following three. */
+        PATH_RELATIVE_TO_ROOT,
+        PATH_RELATIVE_TO_ESP,
+        PATH_RELATIVE_TO_XBOOTLDR,
+        PATH_RELATIVE_TO_BOOT, /* Refers to $BOOT from the BLS. No direct counterpart in PartitionDesignator */
+        _PATH_RELATIVE_TO_MAX,
+        _PATH_RELATIVE_TO_INVALID = -1,
+} PathRelativeTo;
+
 struct Resource {
         ResourceType type;
 
         /* Where to look for instances, and what to match precisely */
         char *path;
         bool path_auto; /* automatically find root path (only available if target resource, not source resource) */
+        PathRelativeTo path_relative_to;
         char **patterns;
         GptPartitionType partition_type;
         bool partition_type_set;
@@ -94,3 +106,6 @@ int resource_resolve_path(Resource *rr, const char *root, const char *node);
 
 ResourceType resource_type_from_string(const char *s) _pure_;
 const char *resource_type_to_string(ResourceType t) _const_;
+
+PathRelativeTo path_relative_to_from_string(const char *s) _pure_;
+const char *path_relative_to_to_string(PathRelativeTo r) _const_;
