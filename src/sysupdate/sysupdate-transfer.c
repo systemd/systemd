@@ -317,6 +317,8 @@ static int config_parse_resource_path(
                 return 0;
         }
 
+        // TODO: Here, try to substitute $BOOT with the boot mount point
+
         /* Note that we don't validate the path as being absolute or normalized. We'll do that in
          * transfer_read_definition() as we might not know yet whether Path refers to an URL or a file system
          * path. */
