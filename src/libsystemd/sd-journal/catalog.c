@@ -172,7 +172,7 @@ static int finish_item(
 
                 r = ordered_hashmap_update(h, i, combined);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to update catalog item: %m");
 
                 TAKE_PTR(combined);
                 free(prev);
@@ -184,7 +184,7 @@ static int finish_item(
 
                 r = ordered_hashmap_put(h, i, combined);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to insert catalog item: %m");
 
                 TAKE_PTR(i);
                 TAKE_PTR(combined);
