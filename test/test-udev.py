@@ -2346,6 +2346,12 @@ def environment_issue():
                        check=False)
     if c.returncode == 0:
         return 'Running in a chroot, skipping the test'
+
+    c = subprocess.run(['systemd-detect-virt', '-c', '-q'],
+                       check=False)
+    if c.returncode == 0:
+        return 'Running in a container, skipping the test'
+
     return None
 
 
