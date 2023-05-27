@@ -484,7 +484,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
 
         n = 0;
         ORDERED_HASHMAP_FOREACH_KEY(payload, i, h) {
-                log_debug("Found " SD_ID128_FORMAT_STR ", language %s",
+                log_trace("Found " SD_ID128_FORMAT_STR ", language %s",
                           SD_ID128_FORMAT_VAL(i->id),
                           isempty(i->language) ? "C" : i->language);
 
