@@ -39,6 +39,7 @@ DHCPLease *dhcp_lease_free(DHCPLease *lease) {
         }
 
         free(lease->client_id.data);
+        free(lease->hostname);
         return mfree(lease);
 }
 
@@ -729,6 +730,7 @@ static int server_send_forcerenew(
 
 static int parse_request(uint8_t code, uint8_t len, const void *option, void *userdata) {
         DHCPRequest *req = ASSERT_PTR(userdata);
+        int r;
 
         switch (code) {
         case SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME:
@@ -769,6 +771,14 @@ static int parse_request(uint8_t code, uint8_t len, const void *option, void *us
                 req->agent_info_option = (uint8_t*)option - 2;
 
                 break;
+        case SD_DHCP_OPTION_HOST_NAME:
+                r = dhcp_option_parse_string(option, len, &req->hostname);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to parse hostname, ignoring: %m");
+                        return 0;
+                }
+
+                break;
         }
 
         return 0;
@@ -779,6 +789,7 @@ static DHCPRequest* dhcp_request_free(DHCPRequest *req) {
                 return NULL;
 
         free(req->client_id.data);
+        free(req->hostname);
         return mfree(req);
 }
 
@@ -937,17 +948,13 @@ static int dhcp_server_relay_message(sd_dhcp_server *server, DHCPMessage *messag
         return -EBADMSG;
 }
 
-static int prepare_new_lease(
-                DHCPLease **ret_lease,
-                be32_t address,
-                const DHCPClientId *client_id,
-                uint8_t htype,
-                uint8_t hlen,
-                const uint8_t *chaddr,
-                be32_t gateway,
-                usec_t expiration) {
-
+static int prepare_new_lease(DHCPLease **ret_lease, be32_t address, DHCPRequest *req, usec_t expiration) {
         _cleanup_(dhcp_lease_freep) DHCPLease *lease = NULL;
+
+        assert(ret_lease);
+        assert(address != 0);
+        assert(req);
+        assert(expiration != 0);
 
         lease = new(DHCPLease, 1);
         if (!lease)
@@ -955,17 +962,23 @@ static int prepare_new_lease(
 
         *lease = (DHCPLease) {
                 .address = address,
-                .client_id.length = client_id->length,
-                .htype = htype,
-                .hlen = hlen,
-                .gateway = gateway,
+                .client_id.length = req->client_id.length,
+                .htype = req->message->htype,
+                .hlen = req->message->hlen,
+                .gateway = req->message->giaddr,
                 .expiration = expiration,
         };
-        lease->client_id.data = memdup(client_id->data, client_id->length);
+        lease->client_id.data = memdup(req->client_id.data, req->client_id.length);
         if (!lease->client_id.data)
                 return -ENOMEM;
 
-        memcpy(lease->chaddr, chaddr, hlen);
+        memcpy(lease->chaddr, req->message->chaddr, req->message->hlen);
+
+        if (req->hostname) {
+                lease->hostname = strdup(req->hostname);
+                if (!lease->hostname)
+                        return -ENOMEM;
+        }
 
         *ret_lease = TAKE_PTR(lease);
 
@@ -994,9 +1007,7 @@ static int server_ack_request(sd_dhcp_server *server, DHCPRequest *req, DHCPLeas
         } else {
                 _cleanup_(dhcp_lease_freep) DHCPLease *lease = NULL;
 
-                r = prepare_new_lease(&lease, address, &req->client_id,
-                                      req->message->htype, req->message->hlen,
-                                      req->message->chaddr, req->message->giaddr, expiration);
+                r = prepare_new_lease(&lease, address, req, expiration);
                 if (r < 0)
                         return log_dhcp_server_errno(server, r, "Failed to create new lease: %m");
 
