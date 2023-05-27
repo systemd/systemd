@@ -98,6 +98,7 @@ jobs:
 
         [Host]
         ExtraSearchPaths=!*
+        QemuVsock=yes
         EOF
 
         # For erofs, we have to install linux-modules-extra-azure, but that doesn't match the running kernel
