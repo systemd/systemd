@@ -1191,6 +1191,7 @@ static int dhcp_server_offered_leases_build_json(Link *link, JsonVariant **ret) 
                                                                lease->client_id.data,
                                                                lease->client_id.length),
                                                JSON_BUILD_PAIR_IN4_ADDR_NON_NULL("Address", &address),
+                                               JSON_BUILD_PAIR_STRING_NON_EMPTY("Hostname", lease->hostname),
                                                JSON_BUILD_PAIR_FINITE_USEC(
                                                                "ExpirationUSec", lease->expiration)));
                 if (r < 0)
