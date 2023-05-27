@@ -3971,6 +3971,7 @@ static int manager_execute_generators(Manager *m, char **paths, bool remount_ro)
 static int manager_run_generators(Manager *m) {
         ForkFlags flags = FORK_RESET_SIGNALS | FORK_WAIT | FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE;
         _cleanup_strv_free_ char **paths = NULL;
+        pid_t generators_pid;
         int r;
 
         assert(m);
@@ -4005,7 +4006,7 @@ static int manager_run_generators(Manager *m) {
         if (is_dir("/tmp", /* follow= */ false) > 0)
                 flags |= FORK_PRIVATE_TMP;
 
-        r = safe_fork("(sd-gens)", flags, NULL);
+        r = safe_fork("(sd-gens)", flags, &generators_pid);
         if (r == 0) {
                 r = manager_execute_generators(m, paths, /* remount_ro= */ true);
                 _exit(r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE);
@@ -4023,6 +4024,10 @@ static int manager_run_generators(Manager *m) {
                                 "Falling back to execute generators without sandboxing: %m");
                 r = manager_execute_generators(m, paths, /* remount_ro= */ false);
         }
+
+        r = wait_for_terminate_and_check("(sd-gens)", generators_pid, 0);
+        if (r < 0)
+                return r;
 
 finish:
         lookup_paths_trim_generator(&m->lookup_paths);
