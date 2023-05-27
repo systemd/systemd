@@ -40,6 +40,7 @@ typedef struct DHCPLease {
         be32_t gateway;
         uint8_t chaddr[16];
         usec_t expiration;
+        char *hostname;
 } DHCPLease;
 
 struct sd_dhcp_server {
@@ -102,6 +103,7 @@ typedef struct DHCPRequest {
         be32_t requested_ip;
         uint32_t lifetime;
         const uint8_t *agent_info_option;
+        char *hostname;
 } DHCPRequest;
 
 extern const struct hash_ops dhcp_lease_hash_ops;
