@@ -14,7 +14,7 @@ Documentation=man:systemd-vconsole-setup.service(8) man:vconsole.conf(5)
 ConditionPathExists=/dev/tty0
 
 DefaultDependencies=no
-Before=sysinit.target
+Before=sysinit.target getty-pre.target
 Before=initrd-switch-root.target shutdown.target
 
 [Service]
