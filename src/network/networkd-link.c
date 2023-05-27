@@ -1749,10 +1749,12 @@ void link_update_operstate(Link *link, bool also_update_master) {
          *                 ------------------------------------------------------------------------------
          *                 off      | off | no-carrier | dormant | degraded-carrier | carrier  | enslaved
          * address_state   degraded | off | no-carrier | dormant | degraded-carrier | degraded | enslaved
-         *                 routable | off | no-carrier | dormant | degraded-carrier | routable | routable
+         *                 routable | off | no-carrier | dormant | routable         | routable | routable
          */
 
-        if (carrier_state < LINK_CARRIER_STATE_CARRIER || address_state == LINK_ADDRESS_STATE_OFF)
+        if (carrier_state == LINK_CARRIER_STATE_DEGRADED_CARRIER && address_state == LINK_ADDRESS_STATE_ROUTABLE)
+                operstate = LINK_OPERSTATE_ROUTABLE;
+        else if (carrier_state < LINK_CARRIER_STATE_CARRIER || address_state == LINK_ADDRESS_STATE_OFF)
                 operstate = (LinkOperationalState) carrier_state;
         else if (address_state == LINK_ADDRESS_STATE_ROUTABLE)
                 operstate = LINK_OPERSTATE_ROUTABLE;
