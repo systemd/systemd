@@ -854,7 +854,7 @@ static int boot_entries_find_unified(
                 const char *root,
                 const char *dir) {
 
-        _cleanup_(closedirp) DIR *d = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
         _cleanup_free_ char *full = NULL;
         int r;
 

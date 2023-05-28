@@ -395,8 +395,8 @@ static int userdb_start_query(
                 JsonVariant *query,
                 UserDBFlags flags) {
 
-        _cleanup_(strv_freep) char **except = NULL, **only = NULL;
-        _cleanup_(closedirp) DIR *d = NULL;
+        _cleanup_strv_free_ char **except = NULL, **only = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
         const char *e;
         int r, ret = 0;
 

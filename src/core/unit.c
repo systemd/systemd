@@ -1079,7 +1079,7 @@ static void unit_merge_dependencies(Unit *u, Unit *other) {
         }
 
         for (;;) {
-                _cleanup_(hashmap_freep) Hashmap *other_deps = NULL;
+                _cleanup_hashmap_free_ Hashmap *other_deps = NULL;
                 UnitDependencyInfo di_back;
                 Unit *back;
 

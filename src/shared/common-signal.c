@@ -3,13 +3,13 @@
 #include "common-signal.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "memstream-util.h"
 #include "process-util.h"
 #include "signal-util.h"
 
 int sigrtmin18_handler(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         struct sigrtmin18_info *info = userdata;
         _cleanup_free_ char *comm = NULL;
-        int r;
 
         assert(s);
         assert(si);
@@ -57,11 +57,10 @@ int sigrtmin18_handler(sd_event_source *s, const struct signalfd_siginfo *si, vo
                 break;
 
         case COMMON_SIGNAL_COMMAND_MALLOC_INFO: {
-                _cleanup_free_ char *data = NULL;
-                _cleanup_fclose_ FILE *f = NULL;
-                size_t sz;
+                _cleanup_(memstream_done) MemStream m = {};
+                FILE *f;
 
-                f = open_memstream_unlocked(&data, &sz);
+                f = memstream_init(&m);
                 if (!f) {
                         log_oom();
                         break;
@@ -72,15 +71,7 @@ int sigrtmin18_handler(sd_event_source *s, const struct signalfd_siginfo *si, vo
                         break;
                 }
 
-                fputc(0, f);
-
-                r = fflush_and_check(f);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to flush malloc_info() buffer: %m");
-                        break;
-                }
-
-                log_dump(LOG_INFO, data);
+                (void) memstream_dump(LOG_INFO, &m);
                 break;
         }
 

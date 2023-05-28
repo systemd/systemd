@@ -548,7 +548,7 @@ int make_filesystem(
 }
 
 int mkfs_options_from_env(const char *component, const char *fstype, char ***ret) {
-        _cleanup_(strv_freep) char **l = NULL;
+        _cleanup_strv_free_ char **l = NULL;
         const char *e;
         char *n;
 

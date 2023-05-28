@@ -81,7 +81,7 @@ static void assert_equal_fd(int fd1, int fd2) {
 
 TEST(copy_data_fd) {
         _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
-        _cleanup_(close_pairp) int sfd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int sfd[2] = PIPE_EBADF;
         _cleanup_(sigkill_waitp) pid_t pid = -1;
         int r;
 

@@ -10,6 +10,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "memory-util.h"
+#include "memstream-util.h"
 #include "oomd-manager-bus.h"
 #include "oomd-manager.h"
 #include "path-util.h"
@@ -807,19 +808,16 @@ int manager_start(
 }
 
 int manager_get_dump_string(Manager *m, char **ret) {
-        _cleanup_free_ char *dump = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(memstream_done) MemStream ms = {};
         OomdCGroupContext *c;
-        size_t size;
-        char *key;
-        int r;
+        FILE *f;
 
         assert(m);
         assert(ret);
 
-        f = open_memstream_unlocked(&dump, &size);
+        f = memstream_init(&ms);
         if (!f)
-                return -errno;
+                return -ENOMEM;
 
         fprintf(f,
                 "Dry Run: %s\n"
@@ -834,22 +832,12 @@ int manager_get_dump_string(Manager *m, char **ret) {
         oomd_dump_system_context(&m->system_context, f, "\t");
 
         fprintf(f, "Swap Monitored CGroups:\n");
-        HASHMAP_FOREACH_KEY(c, key, m->monitored_swap_cgroup_contexts)
+        HASHMAP_FOREACH(c, m->monitored_swap_cgroup_contexts)
                 oomd_dump_swap_cgroup_context(c, f, "\t");
 
         fprintf(f, "Memory Pressure Monitored CGroups:\n");
-        HASHMAP_FOREACH_KEY(c, key, m->monitored_mem_pressure_cgroup_contexts)
+        HASHMAP_FOREACH(c, m->monitored_mem_pressure_cgroup_contexts)
                 oomd_dump_memory_pressure_cgroup_context(c, f, "\t");
 
-        r = fflush_and_check(f);
-        if (r < 0)
-                return r;
-
-        f = safe_fclose(f);
-
-        if (!dump)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(dump);
-        return 0;
+        return memstream_finalize(&ms, ret, NULL);
 }
