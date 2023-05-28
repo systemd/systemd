@@ -841,7 +841,7 @@ TEST(leave_ratelimit) {
         bool expect_ratelimit = false, manually_left_ratelimit = false;
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(close_pairp) int pfd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pfd[2] = PIPE_EBADF;
         unsigned c = 0;
         int r;
 

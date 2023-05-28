@@ -7,6 +7,7 @@
 #include "gcrypt-util.h"
 #include "hexdecoct.h"
 #include "memory-util.h"
+#include "memstream-util.h"
 #include "openssl-util.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-packet.h"
@@ -810,11 +811,10 @@ static int dnssec_rrset_serialize_sig(
                 char **ret_sig_data,
                 size_t *ret_sig_size) {
 
-        _cleanup_free_ char *sig_data = NULL;
-        size_t sig_size = 0;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(memstream_done) MemStream m = {};
         uint8_t wire_format_name[DNS_WIRE_FORMAT_HOSTNAME_MAX];
         DnsResourceRecord *rr;
+        FILE *f;
         int r;
 
         assert(rrsig);
@@ -823,7 +823,7 @@ static int dnssec_rrset_serialize_sig(
         assert(ret_sig_data);
         assert(ret_sig_size);
 
-        f = open_memstream_unlocked(&sig_data, &sig_size);
+        f = memstream_init(&m);
         if (!f)
                 return -ENOMEM;
 
@@ -866,18 +866,7 @@ static int dnssec_rrset_serialize_sig(
                 fwrite(DNS_RESOURCE_RECORD_RDATA(rr), 1, l, f);
         }
 
-        r = fflush_and_check(f);
-        if (r < 0)
-                return r;
-
-        f = safe_fclose(f);  /* sig_data may be reallocated when f is closed. */
-
-        if (!sig_data)
-                return -ENOMEM;
-
-        *ret_sig_data = TAKE_PTR(sig_data);
-        *ret_sig_size = sig_size;
-        return 0;
+        return memstream_finalize(&m, ret_sig_data, ret_sig_size);
 }
 
 static int dnssec_rrset_verify_sig(
