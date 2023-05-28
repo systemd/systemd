@@ -23,4 +23,4 @@ int introspect_write_interface(
                 const char *interface_name,
                 const sd_bus_vtable *v);
 int introspect_finish(struct introspect *i, char **ret);
-void introspect_free(struct introspect *i);
+void introspect_done(struct introspect *i);
