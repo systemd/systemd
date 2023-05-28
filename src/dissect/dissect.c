@@ -1569,7 +1569,7 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
 }
 
 static int action_discover(void) {
-        _cleanup_(hashmap_freep) Hashmap *images = NULL;
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
         Image *img;
         int r;

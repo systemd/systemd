@@ -41,7 +41,7 @@ STATIC_DESTRUCTOR_REGISTER(runtime_dir, rm_rf_physical_and_freep);
 
 TEST_RET(unit_file_get_set) {
         int r;
-        _cleanup_(hashmap_freep) Hashmap *h = NULL;
+        _cleanup_hashmap_free_ Hashmap *h = NULL;
         UnitFileList *p;
 
         h = hashmap_new(&unit_file_list_hash_ops_free);

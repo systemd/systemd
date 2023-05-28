@@ -2153,7 +2153,7 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         UnitFileList *item;
-        _cleanup_(hashmap_freep) Hashmap *h = NULL;
+        _cleanup_hashmap_free_ Hashmap *h = NULL;
         int r;
 
         assert(message);
