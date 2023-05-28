@@ -15,6 +15,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
+#include "memstream-util.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "sort-util.h"
@@ -336,16 +337,14 @@ static void format_chain(FILE *f, int space, const CalendarComponent *c, bool us
         _format_chain(f, space, c, /* start = */ true, usec);
 }
 
-int calendar_spec_to_string(const CalendarSpec *c, char **p) {
-        _cleanup_free_ char *buf = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        size_t sz = 0;
-        int r;
+int calendar_spec_to_string(const CalendarSpec *c, char **ret) {
+        _cleanup_(memstream_done) MemStream m = {};
+        FILE *f;
 
         assert(c);
-        assert(p);
+        assert(ret);
 
-        f = open_memstream_unlocked(&buf, &sz);
+        f = memstream_init(&m);
         if (!f)
                 return -ENOMEM;
 
@@ -383,17 +382,7 @@ int calendar_spec_to_string(const CalendarSpec *c, char **p) {
                 }
         }
 
-        r = fflush_and_check(f);
-        if (r < 0)
-                return r;
-
-        f = safe_fclose(f);
-
-        if (!buf)
-                return -ENOMEM;
-
-        *p = TAKE_PTR(buf);
-        return 0;
+        return memstream_finalize(&m, ret, NULL);
 }
 
 static int parse_weekdays(const char **p, CalendarSpec *c) {
@@ -879,7 +868,7 @@ finish:
         return 0;
 }
 
-int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
+int calendar_spec_from_string(const char *p, CalendarSpec **ret) {
         const char *utc;
         _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
         _cleanup_free_ char *p_tmp = NULL;
@@ -1099,8 +1088,8 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
         if (!calendar_spec_valid(c))
                 return -EINVAL;
 
-        if (spec)
-                *spec = TAKE_PTR(c);
+        if (ret)
+                *ret = TAKE_PTR(c);
         return 0;
 }
 

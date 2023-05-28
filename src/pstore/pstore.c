@@ -281,7 +281,7 @@ static int process_dmesg_files(PStoreList *list) {
 }
 
 static int list_files(PStoreList *list, const char *sourcepath) {
-        _cleanup_(closedirp) DIR *dirp = NULL;
+        _cleanup_closedir_ DIR *dirp = NULL;
         int r;
 
         dirp = opendir(sourcepath);

@@ -132,7 +132,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        _cleanup_(fdset_freep) FDSet *passed = NULL;
+        _cleanup_fdset_free_ FDSet *passed = NULL;
         bool do_exec = false;
         int c, r, n_env;
 

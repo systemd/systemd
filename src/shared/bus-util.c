@@ -20,6 +20,7 @@
 #include "bus-util.h"
 #include "data-fd-util.h"
 #include "fd-util.h"
+#include "memstream-util.h"
 #include "path-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
@@ -610,26 +611,26 @@ int bus_reply_pair_array(sd_bus_message *m, char **l) {
 }
 
 static int method_dump_memory_state_by_fd(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
-        _cleanup_free_ char *dump = NULL; /* keep this above dump_file, so that it's freed after */
-        _cleanup_fclose_ FILE *dump_file = NULL;
+        _cleanup_(memstream_done) MemStream m = {};
+        _cleanup_free_ char *dump = NULL;
         _cleanup_close_ int fd = -EBADF;
         size_t dump_size;
+        FILE *f;
         int r;
 
         assert(message);
 
-        dump_file = open_memstream(&dump, &dump_size);
-        if (!dump_file)
+        f = memstream_init(&m);
+        if (!f)
                 return -ENOMEM;
 
-        r = RET_NERRNO(malloc_info(/* options= */ 0, dump_file));
+        r = RET_NERRNO(malloc_info(/* options= */ 0, f));
         if (r < 0)
                 return r;
 
-        dump_file = safe_fclose(dump_file);
-
-        if (!dump)
-                return -ENOMEM;
+        r = memstream_finalize(&m, &dump, &dump_size);
+        if (r < 0)
+                return r;
 
         fd = acquire_data_fd(dump, dump_size, 0);
         if (fd < 0)

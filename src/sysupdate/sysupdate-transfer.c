@@ -570,7 +570,7 @@ int transfer_resolve_paths(
 }
 
 static void transfer_remove_temporary(Transfer *t) {
-        _cleanup_(closedirp) DIR *d = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
         int r;
 
         assert(t);

@@ -49,6 +49,7 @@
 #include "logs-show.h"
 #include "main-func.h"
 #include "memory-util.h"
+#include "memstream-util.h"
 #include "missing_sched.h"
 #include "mkdir.h"
 #include "mount-util.h"
@@ -1754,15 +1755,14 @@ static int format_journal_url(
                 sd_id128_t machine,
                 bool full,
                 char **ret_url) {
-        _cleanup_free_ char *url = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        size_t url_size = 0;
-        int r;
+
+        _cleanup_(memstream_done) MemStream m = {};
+        FILE *f;
 
         assert(seed);
         assert(seed_size > 0);
 
-        f = open_memstream_unlocked(&url, &url_size);
+        f = memstream_init(&m);
         if (!f)
                 return -ENOMEM;
 
@@ -1783,17 +1783,7 @@ static int format_journal_url(
                         fprintf(f, ";hostname=%s", hn);
         }
 
-        r = fflush_and_check(f);
-        if (r < 0)
-                return r;
-
-        f = safe_fclose(f);
-
-        if (!url)
-                return -ENOMEM;
-
-        *ret_url = TAKE_PTR(url);
-        return 0;
+        return memstream_finalize(&m, ret_url, NULL);
 }
 #endif
 

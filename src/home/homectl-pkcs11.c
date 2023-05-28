@@ -100,7 +100,7 @@ static int add_pkcs11_token_uri(JsonVariant **v, const char *uri) {
 
 int identity_add_token_pin(JsonVariant **v, const char *pin) {
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL, *l = NULL;
-        _cleanup_(strv_free_erasep) char **pins = NULL;
+        _cleanup_strv_free_erase_ char **pins = NULL;
         int r;
 
         assert(v);
