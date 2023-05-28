@@ -570,7 +570,7 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
         };
 
         _cleanup_(json_variant_unrefp) JsonVariant *package_metadata = NULL;
-        _cleanup_(set_freep) Set *modules = NULL;
+        _cleanup_set_free_ Set *modules = NULL;
         _cleanup_free_ char *buf = NULL; /* buf should be freed last, c.f closed first (via stack_context_destroy) */
         _cleanup_(stack_context_destroy) StackContext c = {
                 .package_metadata = &package_metadata,
@@ -636,7 +636,7 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
 
 static int parse_elf(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata) {
         _cleanup_(json_variant_unrefp) JsonVariant *package_metadata = NULL, *elf_metadata = NULL;
-        _cleanup_(set_freep) Set *modules = NULL;
+        _cleanup_set_free_ Set *modules = NULL;
         _cleanup_free_ char *buf = NULL; /* buf should be freed last, c.f closed first (via stack_context_destroy) */
         _cleanup_(stack_context_destroy) StackContext c = {
                 .package_metadata = &package_metadata,
