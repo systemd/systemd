@@ -927,7 +927,7 @@ int introspect_path(
                 sd_bus_error *error) {
 
         _cleanup_ordered_set_free_free_ OrderedSet *s = NULL;
-        _cleanup_(introspect_free) struct introspect intro = {};
+        _cleanup_(introspect_done) struct introspect intro = {};
         bool empty;
         int r;
 
