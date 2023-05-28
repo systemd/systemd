@@ -788,7 +788,7 @@ static int merge(Hashmap *images) {
 }
 
 static int image_discover_and_read_metadata(Hashmap **ret_images) {
-        _cleanup_(hashmap_freep) Hashmap *images = NULL;
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
         Image *img;
         int r;
 
@@ -814,7 +814,7 @@ static int image_discover_and_read_metadata(Hashmap **ret_images) {
 }
 
 static int verb_merge(int argc, char **argv, void *userdata) {
-        _cleanup_(hashmap_freep) Hashmap *images = NULL;
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
         int r;
 
         r = have_effective_cap(CAP_SYS_ADMIN);
@@ -852,7 +852,7 @@ static int verb_merge(int argc, char **argv, void *userdata) {
 }
 
 static int verb_refresh(int argc, char **argv, void *userdata) {
-        _cleanup_(hashmap_freep) Hashmap *images = NULL;
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
         int r;
 
         r = have_effective_cap(CAP_SYS_ADMIN);
@@ -892,7 +892,7 @@ static int verb_refresh(int argc, char **argv, void *userdata) {
 }
 
 static int verb_list(int argc, char **argv, void *userdata) {
-        _cleanup_(hashmap_freep) Hashmap *images = NULL;
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
         Image *img;
         int r;

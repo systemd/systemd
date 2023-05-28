@@ -287,7 +287,7 @@ static int lock_device(
 }
 
 int lock_main(int argc, char *argv[], void *userdata) {
-        _cleanup_(fdset_freep) FDSet *fds = NULL;
+        _cleanup_fdset_free_ FDSet *fds = NULL;
         _cleanup_free_ dev_t *devnos = NULL;
         size_t n_devnos = 0;
         usec_t deadline;

@@ -605,7 +605,7 @@ static void log_umount_blockers(const char *mnt) {
 }
 
 static int remount_with_timeout(MountPoint *m, bool last_try) {
-        _cleanup_(close_pairp) int pfd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pfd[2] = PIPE_EBADF;
         _cleanup_(sigkill_nowaitp) pid_t pid = 0;
         int r;
 
@@ -661,7 +661,7 @@ static int remount_with_timeout(MountPoint *m, bool last_try) {
 }
 
 static int umount_with_timeout(MountPoint *m, bool last_try) {
-        _cleanup_(close_pairp) int pfd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pfd[2] = PIPE_EBADF;
         _cleanup_(sigkill_nowaitp) pid_t pid = 0;
         int r;
 
