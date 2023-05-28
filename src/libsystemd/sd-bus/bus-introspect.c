@@ -277,7 +277,7 @@ int introspect_finish(struct introspect *i, char **ret) {
         return 0;
 }
 
-void introspect_free(struct introspect *i) {
+void introspect_done(struct introspect *i) {
         assert(i);
 
         /* Normally introspect_finish() does all the work, this is just a backup for error paths */
