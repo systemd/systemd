@@ -2847,7 +2847,7 @@ int tpm2_unseal(const char *device,
 int tpm2_list_devices(void) {
 #if HAVE_TPM2
         _cleanup_(table_unrefp) Table *t = NULL;
-        _cleanup_(closedirp) DIR *d = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
         int r;
 
         r = dlopen_tpm2();
@@ -2923,7 +2923,7 @@ int tpm2_find_device_auto(
                 int log_level, /* log level when no device is found */
                 char **ret) {
 #if HAVE_TPM2
-        _cleanup_(closedirp) DIR *d = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
         int r;
 
         r = dlopen_tpm2();

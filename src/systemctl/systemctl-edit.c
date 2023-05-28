@@ -14,7 +14,7 @@
 #include "terminal-util.h"
 
 int verb_cat(int argc, char *argv[], void *userdata) {
-        _cleanup_(hashmap_freep) Hashmap *cached_name_map = NULL, *cached_id_map = NULL;
+        _cleanup_hashmap_free_ Hashmap *cached_name_map = NULL, *cached_id_map = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
         sd_bus *bus;
@@ -197,7 +197,7 @@ static int find_paths_to_edit(
                 EditFileContext *context,
                 char **names) {
 
-        _cleanup_(hashmap_freep) Hashmap *cached_name_map = NULL, *cached_id_map = NULL;
+        _cleanup_hashmap_free_ Hashmap *cached_name_map = NULL, *cached_id_map = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_free_ char *drop_in_alloc = NULL, *suffix = NULL;
         const char *drop_in;
