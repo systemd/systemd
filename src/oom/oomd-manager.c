@@ -811,7 +811,6 @@ int manager_get_dump_string(Manager *m, char **ret) {
         _cleanup_fclose_ FILE *f = NULL;
         OomdCGroupContext *c;
         size_t size;
-        char *key;
         int r;
 
         assert(m);
@@ -834,11 +833,11 @@ int manager_get_dump_string(Manager *m, char **ret) {
         oomd_dump_system_context(&m->system_context, f, "\t");
 
         fprintf(f, "Swap Monitored CGroups:\n");
-        HASHMAP_FOREACH_KEY(c, key, m->monitored_swap_cgroup_contexts)
+        HASHMAP_FOREACH(c, m->monitored_swap_cgroup_contexts)
                 oomd_dump_swap_cgroup_context(c, f, "\t");
 
         fprintf(f, "Memory Pressure Monitored CGroups:\n");
-        HASHMAP_FOREACH_KEY(c, key, m->monitored_mem_pressure_cgroup_contexts)
+        HASHMAP_FOREACH(c, m->monitored_mem_pressure_cgroup_contexts)
                 oomd_dump_memory_pressure_cgroup_context(c, f, "\t");
 
         r = fflush_and_check(f);
