@@ -20,6 +20,7 @@
 #include "macro.h"
 #include "math-util.h"
 #include "memory-util.h"
+#include "memstream-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -1768,9 +1769,8 @@ static int json_format(FILE *f, JsonVariant *v, JsonFormatFlags flags, const cha
 }
 
 int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
-        _cleanup_free_ char *s = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        size_t sz = 0;
+        _cleanup_(memstream_done) MemStream m = {};
+        FILE *f;
         int r;
 
         /* Returns the length of the generated string (without the terminating NUL),
@@ -1782,7 +1782,7 @@ int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
         if (flags & JSON_FORMAT_OFF)
                 return -ENOEXEC;
 
-        f = open_memstream_unlocked(&s, &sz);
+        f = memstream_init(&m);
         if (!f)
                 return -ENOMEM;
 
@@ -1790,21 +1790,7 @@ int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
         if (r < 0)
                 return r;
 
-        /* Add terminating 0, so that the output buffer is a valid string. */
-        fputc('\0', f);
-
-        r = fflush_and_check(f);
-        if (r < 0)
-                return r;
-
-        f = safe_fclose(f);
-
-        if (!s)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(s);
-        assert(sz > 0);
-        return (int) sz - 1;
+        return memstream_finalize(&m, ret, NULL);
 }
 
 int json_variant_dump(JsonVariant *v, JsonFormatFlags flags, FILE *f, const char *prefix) {
