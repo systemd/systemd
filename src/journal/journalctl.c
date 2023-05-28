@@ -2146,10 +2146,7 @@ static int show(Context *c) {
                 size_t highlight[2] = {};
 
                 if (c->need_seek) {
-                        if (!arg_reverse)
-                                r = sd_journal_next(j);
-                        else
-                                r = sd_journal_previous(j);
+                        r = sd_journal_step_one(j, !arg_reverse);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to iterate through journal: %m");
                         if (r == 0)
