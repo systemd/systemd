@@ -427,6 +427,7 @@ renameat2	345
 request_key	282
 restart_syscall	0
 riscv_flush_icache
+riscv_hwprobe
 rmdir	137
 rseq	365
 rt_sigaction	102
