@@ -161,6 +161,19 @@ journalctl --follow --file=/var/log/journal/*/* | head -n1 | grep .
 journalctl --follow --merge | head -n1 | grep .
 set -o pipefail
 
+# https://github.com/systemd/systemd/issues/26746
+rm -f /tmp/issue-26746-log /tmp/issue-26746-cursor
+ID=$(systemd-id128 new)
+journalctl -t "$ID" --follow --cursor-file=/tmp/issue-26746-cursor | tee /tmp/issue-26746-log &
+systemd-cat -t "$ID" /bin/sh -c 'echo hogehoge'
+# shellcheck disable=SC2016
+timeout 10 bash -c 'while ! [[ -f /tmp/issue-26746-log && "$(cat /tmp/issue-26746-log)" =~ hogehoge ]]; do sleep .5; done'
+pkill -TERM journalctl
+test -f /tmp/issue-26746-cursor
+CURSOR_FROM_FILE=$(cat /tmp/issue-26746-cursor)
+CURSOR_FROM_JOURNAL=$(journalctl -t "$ID" --output export MESSAGE=hogehoge | sed -n -e '/__CURSOR=/ { s/__CURSOR=//; p }')
+test "$CURSOR_FROM_FILE" = "$CURSOR_FROM_JOURNAL"
+
 add_logs_filtering_override() {
     local unit="${1:?}"
     local override_name="${2:?}"
