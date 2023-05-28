@@ -27,10 +27,15 @@ EOF
 systemctl start test19cleanup.service
 assert_rc 0 systemd-cgls /test19cleanup.slice
 
+pid=$(systemctl show --property MainPID --value test19cleanup)
+ps $pid
+
 # Stop slice
 # The sleep process will not be killed because of KillMode=none
 # Since there is still a process running under it, the /test19cleanup.slice cgroup won't be removed
 systemctl stop test19cleanup.slice
+
+ps $pid
 
 # Kill sleep process manually
 pkill sleep
