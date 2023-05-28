@@ -825,4 +825,5 @@ global:
         sd_event_trim_memory;
         sd_pid_notify_barrier;
         sd_event_source_leave_ratelimit;
+        sd_journal_step_one;
 } LIBSYSTEMD_253;
