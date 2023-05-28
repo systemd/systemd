@@ -158,9 +158,8 @@ typedef struct StackContext {
         Set **modules;
 } StackContext;
 
-static StackContext* stack_context_destroy(StackContext *c) {
-        if (!c)
-                return NULL;
+static void stack_context_done(StackContext *c) {
+        assert(c);
 
         c->f = safe_fclose(c->f);
 
@@ -173,8 +172,6 @@ static StackContext* stack_context_destroy(StackContext *c) {
                 sym_elf_end(c->elf);
                 c->elf = NULL;
         }
-
-        return NULL;
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Elf *, sym_elf_end, NULL);
@@ -571,8 +568,8 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
 
         _cleanup_(json_variant_unrefp) JsonVariant *package_metadata = NULL;
         _cleanup_set_free_ Set *modules = NULL;
-        _cleanup_free_ char *buf = NULL; /* buf should be freed last, c.f closed first (via stack_context_destroy) */
-        _cleanup_(stack_context_destroy) StackContext c = {
+        _cleanup_free_ char *buf = NULL; /* buf should be freed last, c.f closed first (via stack_context_done) */
+        _cleanup_(stack_context_done) StackContext c = {
                 .package_metadata = &package_metadata,
                 .modules = &modules,
         };
@@ -637,8 +634,8 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
 static int parse_elf(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata) {
         _cleanup_(json_variant_unrefp) JsonVariant *package_metadata = NULL, *elf_metadata = NULL;
         _cleanup_set_free_ Set *modules = NULL;
-        _cleanup_free_ char *buf = NULL; /* buf should be freed last, c.f closed first (via stack_context_destroy) */
-        _cleanup_(stack_context_destroy) StackContext c = {
+        _cleanup_free_ char *buf = NULL; /* buf should be freed last, c.f closed first (via stack_context_done) */
+        _cleanup_(stack_context_done) StackContext c = {
                 .package_metadata = &package_metadata,
                 .modules = &modules,
         };
