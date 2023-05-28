@@ -18,6 +18,7 @@
   <refnamediv>
     <refname>sd_journal_next</refname>
     <refname>sd_journal_previous</refname>
+    <refname>sd_journal_step_one</refname>
     <refname>sd_journal_next_skip</refname>
     <refname>sd_journal_previous_skip</refname>
     <refname>SD_JOURNAL_FOREACH</refname>
@@ -37,6 +38,12 @@
       <funcprototype>
         <funcdef>int <function>sd_journal_previous</function></funcdef>
         <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_journal_step_one</function></funcdef>
+        <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+        <paramdef>int <parameter>advanced</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -76,6 +83,16 @@
 
     <para>Similarly, <function>sd_journal_previous()</function> sets
     the read pointer back one entry.</para>
+
+    <para><function>sd_journal_step_one()</function> also moves the read pointer. If the current location
+    is the head of the journal, e.g. when this is called following
+    <function>sd_journal_seek_head()</function>, then this is equivalent to
+    <function>sd_journal_next()</function>, and the argument <varname>advanced</varname> will be ignored.
+    Similary, if the current location is the tail of the journal, e.g. when this is called following
+    <function>sd_journal_seek_tail()</function>, then this is equivalent to
+    <function>sd_journal_previous()</function>, and <varname>advanced</varname> will be ignored. Otherwise,
+    this is equivalent to <function>sd_journal_next()</function> when <varname>advanced</varname> is
+    non-zero, and <function>sd_journal_previous()</function> when <varname>advanced</varname> is zero.</para>
 
     <para><function>sd_journal_next_skip()</function> and
     <function>sd_journal_previous_skip()</function> advance/set back the read pointer by multiple
