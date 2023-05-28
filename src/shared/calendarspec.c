@@ -336,14 +336,14 @@ static void format_chain(FILE *f, int space, const CalendarComponent *c, bool us
         _format_chain(f, space, c, /* start = */ true, usec);
 }
 
-int calendar_spec_to_string(const CalendarSpec *c, char **p) {
+int calendar_spec_to_string(const CalendarSpec *c, char **ret) {
         _cleanup_free_ char *buf = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         size_t sz = 0;
         int r;
 
         assert(c);
-        assert(p);
+        assert(ret);
 
         f = open_memstream_unlocked(&buf, &sz);
         if (!f)
@@ -392,7 +392,7 @@ int calendar_spec_to_string(const CalendarSpec *c, char **p) {
         if (!buf)
                 return -ENOMEM;
 
-        *p = TAKE_PTR(buf);
+        *ret = TAKE_PTR(buf);
         return 0;
 }
 
@@ -879,7 +879,7 @@ finish:
         return 0;
 }
 
-int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
+int calendar_spec_from_string(const char *p, CalendarSpec **ret) {
         const char *utc;
         _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
         _cleanup_free_ char *p_tmp = NULL;
@@ -1099,8 +1099,8 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
         if (!calendar_spec_valid(c))
                 return -EINVAL;
 
-        if (spec)
-                *spec = TAKE_PTR(c);
+        if (ret)
+                *ret = TAKE_PTR(c);
         return 0;
 }
 
