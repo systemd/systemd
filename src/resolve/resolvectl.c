@@ -1165,7 +1165,7 @@ static int show_statistics(int argc, char **argv, void *userdata) {
                            TABLE_UINT64, n_dnssec_insecure,
                            TABLE_FIELD, "Bogus",
                            TABLE_UINT64, n_dnssec_bogus,
-                           TABLE_FIELD, "Indeterminate:",
+                           TABLE_FIELD, "Indeterminate",
                            TABLE_UINT64, n_dnssec_indeterminate);
         if (r < 0)
                 return table_log_add_error(r);
