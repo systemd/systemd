@@ -52,6 +52,7 @@ basic_sources = files(
         'memfd-util.c',
         'memory-util.c',
         'mempool.c',
+        'memstream-util.c',
         'mkdir.c',
         'mountpoint-util.c',
         'namespace-util.c',
