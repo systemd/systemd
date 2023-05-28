@@ -164,13 +164,6 @@ set -o pipefail
 # https://github.com/systemd/systemd/issues/26746
 rm -f /tmp/issue-26746-log /tmp/issue-26746-cursor
 ID=$(systemd-id128 new)
-
-# FIXME:
-# After the commit 7a4ee861615101ddd2f95056cf30e69e41da86ce,
-# journalctl --follow does not work if no matching entry stored in the journal.
-# To workaround the issue, we need to add an entry before calling journalctl below.
-systemd-cat -t "$ID" /bin/sh -c 'echo aaa'
-
 journalctl -t "$ID" --follow --cursor-file=/tmp/issue-26746-cursor | tee /tmp/issue-26746-log &
 systemd-cat -t "$ID" /bin/sh -c 'echo hogehoge'
 # shellcheck disable=SC2016
