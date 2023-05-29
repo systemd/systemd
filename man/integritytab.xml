@@ -73,6 +73,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>no-journal</option></term>
+
+        <listitem><para>
+        Disable the journal. Correspods to the "direct writes" mode documented in Documentation/admin-guide/device-mapper/dm-integrity.rst. Note that
+        without a journal, if there is a crash, it is possible that the integrity tags and data does not match. If used, the journal-* options below
+        will have no effect if passed.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>journal-watermark=[0..100]%</option></term>
 
         <listitem><para>
