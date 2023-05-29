@@ -817,16 +817,24 @@ static LoopDevice* loop_device_free(LoopDevice *d) {
         }
 
         /* Now that the block device is released, let's also try to remove it */
-        if (control >= 0)
-                for (unsigned n_attempts = 0;;) {
+        if (control >= 0) {
+                useconds_t delay = 50 * USEC_PER_MSEC;
+
+                for (unsigned attempt = 1;; attempt++) {
                         if (ioctl(control, LOOP_CTL_REMOVE, d->nr) >= 0)
                                 break;
-                        if (errno != EBUSY || ++n_attempts >= 64) {
+                        if (errno != EBUSY || attempt > 45) {
                                 log_debug_errno(errno, "Failed to remove device %s: %m", strna(d->node));
                                 break;
                         }
-                        (void) usleep(50 * USEC_PER_MSEC);
+                        if (attempt % 10 == 0) {
+                                log_debug("Device is still busy after %u attempts…", attempt);
+                                delay *= 2;
+                        }
+
+                        (void) usleep(delay);
                 }
+        }
 
         free(d->node);
         sd_device_unref(d->dev);
