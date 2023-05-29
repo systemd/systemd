@@ -4672,6 +4672,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                       '--dhcp-alternate-port=67,5555',
                       ipv4_range='192.168.5.110,192.168.5.119')
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_address('veth99', r'inet 192.168.5.11[0-9]*/24', ipv='-4')
 
         print('## ip address show dev veth99 scope global')
         output = check_output('ip address show dev veth99 scope global')
