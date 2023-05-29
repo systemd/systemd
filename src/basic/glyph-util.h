@@ -44,19 +44,20 @@ typedef enum SpecialGlyph {
         SPECIAL_GLYPH_RECYCLING,
         SPECIAL_GLYPH_DOWNLOAD,
         SPECIAL_GLYPH_SPARKLES,
+        SPECIAL_GLYPH_LOW_BATTERY,
         SPECIAL_GLYPH_WARNING_SIGN,
         _SPECIAL_GLYPH_MAX,
         _SPECIAL_GLYPH_INVALID = -EINVAL,
 } SpecialGlyph;
 
-const char *special_glyph(SpecialGlyph code) _const_;
+const char *special_glyph(SpecialGlyph code, bool force_utf) _const_;
 
 bool emoji_enabled(void);
 
 static inline const char *special_glyph_check_mark(bool b) {
-        return b ? special_glyph(SPECIAL_GLYPH_CHECK_MARK) : special_glyph(SPECIAL_GLYPH_CROSS_MARK);
+        return b ? special_glyph(SPECIAL_GLYPH_CHECK_MARK, /* force_utf= */ false) : special_glyph(SPECIAL_GLYPH_CROSS_MARK, /* force_utf= */ false);
 }
 
 static inline const char *special_glyph_check_mark_space(bool b) {
-        return b ? special_glyph(SPECIAL_GLYPH_CHECK_MARK) : " ";
+        return b ? special_glyph(SPECIAL_GLYPH_CHECK_MARK, /* force_utf= */ false) : " ";
 }

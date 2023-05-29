@@ -180,9 +180,9 @@ static int table_add_uid_boundaries(Table *table, const UidRange *p) {
                 if (!uid_range_covers(p, uid_range_table[i].first, uid_range_table[i].last - uid_range_table[i].first + 1))
                         continue;
 
-                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN, /* force_utf8= */ false),
                                " begin ", uid_range_table[i].name, " users ",
-                               special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                               special_glyph(SPECIAL_GLYPH_ARROW_DOWN, /* force_utf8= */ false));
                 if (!name)
                         return log_oom();
 
@@ -192,7 +192,7 @@ static int table_add_uid_boundaries(Table *table, const UidRange *p) {
 
                 r = table_add_many(
                                 table,
-                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
+                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP, /* force_utf8= */ false),
                                 TABLE_STRING, name,
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_STRING, user_disposition_to_string(uid_range_table[i].disposition),
@@ -209,9 +209,9 @@ static int table_add_uid_boundaries(Table *table, const UidRange *p) {
                         return table_log_add_error(r);
 
                 free(name);
-                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
+                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP, /* force_utf8= */ false),
                                " end ", uid_range_table[i].name, " users ",
-                               special_glyph(SPECIAL_GLYPH_ARROW_UP));
+                               special_glyph(SPECIAL_GLYPH_ARROW_UP, /* force_utf8= */ false));
                 if (!name)
                         return log_oom();
 
@@ -222,7 +222,7 @@ static int table_add_uid_boundaries(Table *table, const UidRange *p) {
 
                 r = table_add_many(
                                 table,
-                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT, /* force_utf8= */ false),
                                 TABLE_STRING, name,
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_STRING, user_disposition_to_string(uid_range_table[i].disposition),
@@ -249,15 +249,15 @@ static int add_unavailable_uid(Table *table, uid_t start, uid_t end) {
         assert(table);
         assert(start <= end);
 
-        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN, /* force_utf8= */ false),
                        " begin unavailable users ",
-                       special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                       special_glyph(SPECIAL_GLYPH_ARROW_DOWN, /* force_utf8= */ false));
         if (!name)
                 return log_oom();
 
         r = table_add_many(
                         table,
-                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
+                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP, /* force_utf8= */ false),
                         TABLE_STRING, name,
                         TABLE_SET_COLOR, ansi_grey(),
                         TABLE_EMPTY,
@@ -273,15 +273,15 @@ static int add_unavailable_uid(Table *table, uid_t start, uid_t end) {
                 return table_log_add_error(r);
 
         free(name);
-        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
+        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP, /* force_utf8= */ false),
                        " end unavailable users ",
-                       special_glyph(SPECIAL_GLYPH_ARROW_UP));
+                       special_glyph(SPECIAL_GLYPH_ARROW_UP, /* force_utf8= */ false));
         if (!name)
                 return log_oom();
 
         r = table_add_many(
                         table,
-                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT, /* force_utf8= */ false),
                         TABLE_STRING, name,
                         TABLE_SET_COLOR, ansi_grey(),
                         TABLE_EMPTY,
@@ -537,9 +537,9 @@ static int table_add_gid_boundaries(Table *table, const UidRange *p) {
                 if (!uid_range_covers(p, uid_range_table[i].first, uid_range_table[i].last))
                         continue;
 
-                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN, /* force_utf8= */ false),
                                " begin ", uid_range_table[i].name, " groups ",
-                               special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                               special_glyph(SPECIAL_GLYPH_ARROW_DOWN, /* force_utf8= */ false));
                 if (!name)
                         return log_oom();
 
@@ -549,7 +549,7 @@ static int table_add_gid_boundaries(Table *table, const UidRange *p) {
 
                 r = table_add_many(
                                 table,
-                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
+                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP, /* force_utf8= */ false),
                                 TABLE_STRING, name,
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_STRING, user_disposition_to_string(uid_range_table[i].disposition),
@@ -563,9 +563,9 @@ static int table_add_gid_boundaries(Table *table, const UidRange *p) {
                         return table_log_add_error(r);
 
                 free(name);
-                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
+                name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP, /* force_utf8= */ false),
                                " end ", uid_range_table[i].name, " groups ",
-                               special_glyph(SPECIAL_GLYPH_ARROW_UP));
+                               special_glyph(SPECIAL_GLYPH_ARROW_UP, /* force_utf8= */ false));
                 if (!name)
                         return log_oom();
 
@@ -576,7 +576,7 @@ static int table_add_gid_boundaries(Table *table, const UidRange *p) {
 
                 r = table_add_many(
                                 table,
-                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                                TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT, /* force_utf8= */ false),
                                 TABLE_STRING, name,
                                 TABLE_SET_COLOR, ansi_grey(),
                                 TABLE_STRING, user_disposition_to_string(uid_range_table[i].disposition),
@@ -600,15 +600,15 @@ static int add_unavailable_gid(Table *table, uid_t start, uid_t end) {
         assert(table);
         assert(start <= end);
 
-        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN),
+        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_DOWN, /* force_utf8= */ false),
                        " begin unavailable groups ",
-                       special_glyph(SPECIAL_GLYPH_ARROW_DOWN));
+                       special_glyph(SPECIAL_GLYPH_ARROW_DOWN, /* force_utf8= */ false));
         if (!name)
                 return log_oom();
 
         r = table_add_many(
                         table,
-                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP),
+                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_TOP, /* force_utf8= */ false),
                         TABLE_STRING, name,
                         TABLE_SET_COLOR, ansi_grey(),
                         TABLE_EMPTY,
@@ -621,15 +621,15 @@ static int add_unavailable_gid(Table *table, uid_t start, uid_t end) {
                 return table_log_add_error(r);
 
         free(name);
-        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP),
+        name = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_UP, /* force_utf8= */ false),
                        " end unavailable groups ",
-                       special_glyph(SPECIAL_GLYPH_ARROW_UP));
+                       special_glyph(SPECIAL_GLYPH_ARROW_UP, /* force_utf8= */ false));
         if (!name)
                 return log_oom();
 
         r = table_add_many(
                         table,
-                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                        TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT, /* force_utf8= */ false),
                         TABLE_STRING, name,
                         TABLE_SET_COLOR, ansi_grey(),
                         TABLE_EMPTY,

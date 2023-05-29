@@ -300,7 +300,7 @@ int home_shift_uid(int dir_fd, const char *target, uid_t stored_uid, uid_t expos
                 return log_error_errno(errno, "Failed to apply UID/GID map: %m");
 
         log_debug("Applied uidmap mount to %s. Mapping is " UID_FMT " %s " UID_FMT ".",
-                  strna(target), stored_uid, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), exposed_uid);
+                  strna(target), stored_uid, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), exposed_uid);
 
         if (ret_mount_fd)
                 *ret_mount_fd = TAKE_FD(mount_fd);

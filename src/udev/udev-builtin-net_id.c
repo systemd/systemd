@@ -217,7 +217,7 @@ static int dev_pci_onboard(sd_device *dev, const LinkInfo *info, NetNames *names
                 names->pci_onboard[0] = '\0';
         log_device_debug(dev, "Onboard index identifier: index=%lu phys_port=%s dev_port=%lu %s %s",
                          idx, strempty(info->phys_port_name), dev_port,
-                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(names->pci_onboard));
+                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), empty_to_na(names->pci_onboard));
 
         if (sd_device_get_sysattr_value(names->pcidev, "label", &names->pci_onboard_label) >= 0)
                 log_device_debug(dev, "Onboard label from PCI device: %s", names->pci_onboard_label);
@@ -401,7 +401,7 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
 
         log_device_debug(dev, "PCI path identifier: domain=%u bus=%u slot=%u func=%u phys_port=%s dev_port=%lu %s %s",
                          domain, bus, slot, func, strempty(info->phys_port_name), dev_port,
-                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(names->pci_path));
+                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), empty_to_na(names->pci_path));
 
         /* ACPI _SUN — slot user number */
         r = sd_device_new_from_subsystem_sysname(&pci, "subsystem", "pci");
@@ -494,7 +494,7 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
 
                 log_device_debug(dev, "Slot identifier: domain=%u slot=%"PRIu32" func=%u phys_port=%s dev_port=%lu %s %s",
                                  domain, hotplug_slot, func, strempty(info->phys_port_name), dev_port,
-                                 special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(names->pci_slot));
+                                 special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), empty_to_na(names->pci_slot));
         }
 
         return 0;
@@ -535,7 +535,7 @@ static int names_vio(sd_device *dev, NetNames *names) {
         xsprintf(names->vio_slot, "v%u", slotid);
         names->type = NET_VIO;
         log_device_debug(dev, "Vio slot identifier: slotid=%u %s %s",
-                         slotid, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), names->vio_slot);
+                         slotid, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), names->vio_slot);
         return 0;
 }
 
@@ -603,7 +603,7 @@ static int names_platform(sd_device *dev, NetNames *names, bool test) {
         xsprintf(names->platform_path, "a%s%xi%u", vendor, model, instance);
         names->type = NET_PLATFORM;
         log_device_debug(dev, "Platform identifier: vendor=%s model=%u instance=%u %s %s",
-                         vendor, model, instance, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), names->platform_path);
+                         vendor, model, instance, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), names->platform_path);
         return 0;
 }
 
@@ -814,7 +814,7 @@ static int names_usb(sd_device *dev, NetNames *names) {
                                               "Generated USB name would be too long.");
         log_device_debug(dev, "USB name identifier: ports=%.*s config=%s interface=%s %s %s",
                          (int) strlen(ports), sysname + (ports - name), config, interf,
-                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), names->usb_ports);
+                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), names->usb_ports);
         names->type = NET_USB;
         return 0;
 }
@@ -848,7 +848,7 @@ static int names_bcma(sd_device *dev, NetNames *names) {
 
         names->type = NET_BCMA;
         log_device_debug(dev, "BCMA core identifier: core=%u %s \"%s\"",
-                         core, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), names->bcma_core);
+                         core, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), names->bcma_core);
         return 0;
 }
 
@@ -910,7 +910,7 @@ static int names_ccw(sd_device *dev, NetNames *names) {
                                               "Generated CCW name would be too long.");
         names->type = NET_CCW;
         log_device_debug(dev, "CCW identifier: ccw_busid=%s %s \"%s\"",
-                         bus_id, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), names->ccw_busid);
+                         bus_id, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), names->ccw_busid);
         return 0;
 }
 
@@ -1143,7 +1143,7 @@ static int builtin_net_id(UdevEvent *event, int argc, char *argv[], bool test) {
                 udev_builtin_add_property(dev, test, "ID_NET_NAME_MAC", str);
                 log_device_debug(dev, "MAC address identifier: hw_addr=%s %s %s",
                                  HW_ADDR_TO_STR(&info.hw_addr),
-                                 special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), str + strlen(prefix));
+                                 special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), str + strlen(prefix));
 
                 ieee_oui(dev, &info, test);
         }

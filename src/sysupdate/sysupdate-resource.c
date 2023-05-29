@@ -262,8 +262,8 @@ static int download_manifest(
         if (pipe2(pfd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to allocate pipe: %m");
 
-        log_info("%s Acquiring manifest file %s%s", special_glyph(SPECIAL_GLYPH_DOWNLOAD),
-                 suffixed_url, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+        log_info("%s Acquiring manifest file %s%s", special_glyph(SPECIAL_GLYPH_DOWNLOAD, /* force_utf8= */ false),
+                 suffixed_url, special_glyph(SPECIAL_GLYPH_ELLIPSIS, /* force_utf8= */ false));
 
         r = safe_fork_full("(sd-pull)",
                            (int[]) { -EBADF, pfd[1], STDERR_FILENO },

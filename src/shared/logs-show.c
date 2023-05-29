@@ -62,7 +62,7 @@ static int print_catalog(FILE *f, sd_journal *j) {
                 return log_error_errno(r, "Failed to find catalog entry: %m");
 
         if (is_locale_utf8())
-                prefix = strjoina(special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), special_glyph(SPECIAL_GLYPH_LIGHT_SHADE));
+                prefix = strjoina(special_glyph(SPECIAL_GLYPH_LIGHT_SHADE, /* force_utf8= */ false), special_glyph(SPECIAL_GLYPH_LIGHT_SHADE, /* force_utf8= */ false));
         else
                 prefix = "--";
 
@@ -606,7 +606,7 @@ static int output_short(
                 if (c) {
                         _cleanup_free_ char *urlified = NULL;
 
-                        if (terminal_urlify(c, special_glyph(SPECIAL_GLYPH_EXTERNAL_LINK), &urlified) >= 0) {
+                        if (terminal_urlify(c, special_glyph(SPECIAL_GLYPH_EXTERNAL_LINK, /* force_utf8= */ false), &urlified) >= 0) {
                                 fputs(urlified, f);
                                 fputc(' ', f);
                         }

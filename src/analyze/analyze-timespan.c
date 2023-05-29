@@ -42,7 +42,7 @@ int verb_timespan(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return table_log_add_error(r);
 
-                r = table_add_cell_stringf_full(table, NULL, TABLE_FIELD, "%ss", special_glyph(SPECIAL_GLYPH_MU));
+                r = table_add_cell_stringf_full(table, NULL, TABLE_FIELD, "%ss", special_glyph(SPECIAL_GLYPH_MU, /* force_utf8= */ false));
                 if (r < 0)
                         return table_log_add_error(r);
 

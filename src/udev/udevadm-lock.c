@@ -204,7 +204,7 @@ static int lock_device(
 
                 if (deadline == USEC_INFINITY)  {
 
-                        log_info("Device '%s' is currently locked, waiting%s", path, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                        log_info("Device '%s' is currently locked, waiting%s", path, special_glyph(SPECIAL_GLYPH_ELLIPSIS, /* force_utf8= */ false));
 
                         if (flock(fd, LOCK_EX) < 0)
                                 return log_error_errno(errno, "Failed to lock device '%s': %m", path);
@@ -222,7 +222,7 @@ static int lock_device(
 
                         log_info("Device '%s' is currently locked, waiting %s%s",
                                  path, FORMAT_TIMESPAN(usec_sub_unsigned(deadline, now(CLOCK_MONOTONIC)), 0),
-                                 special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                                 special_glyph(SPECIAL_GLYPH_ELLIPSIS, /* force_utf8= */ false));
 
                         BLOCK_SIGNALS(SIGCHLD);
 
@@ -281,7 +281,7 @@ static int lock_device(
                 }
         }
 
-        log_debug("Successfully locked %s (%u:%u)%s", path, major(devno), minor(devno), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+        log_debug("Successfully locked %s (%u:%u)%s", path, major(devno), minor(devno), special_glyph(SPECIAL_GLYPH_ELLIPSIS, /* force_utf8= */ false));
 
         return TAKE_FD(fd);
 }
