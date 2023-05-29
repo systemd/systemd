@@ -3847,6 +3847,16 @@ public_programs += executable(
         install : true,
         install_dir : rootbindir)
 
+public_programs += executable(
+        'systemd-battery-check',
+        'src/battery-check/battery-check.c',
+        include_directories : includes,
+        link_with : [libshared],
+        dependencies : [userspace, versiondep],
+        install_rpath : rootpkglibdir,
+        install_dir : rootlibexecdir,
+        install : true)
+
 # Protecting files from the distro in /usr doesn't make sense since they can be trivially accessed otherwise,
 # so don't restrict the access mode in /usr. That doesn't apply to /etc, so we do restrict the access mode
 # there.
