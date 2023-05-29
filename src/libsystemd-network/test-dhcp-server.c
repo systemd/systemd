@@ -98,6 +98,11 @@ static void test_message_handler(void) {
                         uint8_t length;
                         uint8_t id[7];
                 } _packed_ option_client_id;
+                struct {
+                        uint8_t code;
+                        uint8_t length;
+                        uint8_t hostname[6];
+                } _packed_ option_hostname;
                 uint8_t end;
         } _packed_ test = {
                 .message.op = BOOTREQUEST,
@@ -108,6 +113,9 @@ static void test_message_handler(void) {
                 .option_type.code = SD_DHCP_OPTION_MESSAGE_TYPE,
                 .option_type.length = 1,
                 .option_type.type = DHCP_DISCOVER,
+                .option_hostname.code = SD_DHCP_OPTION_HOST_NAME,
+                .option_hostname.length = 6,
+                .option_hostname.hostname = { 'T', 'E', 'S', 'T', 'H', 'N' },
                 .end = SD_DHCP_OPTION_END,
         };
         struct in_addr address_lo = {
