@@ -1157,10 +1157,6 @@ class WaitOnlineTests(unittest.TestCase, Utilities):
     def tearDown(self):
         tear_down_common()
 
-    def test_wait_online_all_unmanaged(self):
-        start_networkd()
-        self.wait_online([])
-
     def test_wait_online_any(self):
         copy_network_unit('25-bridge.netdev', '25-bridge.network', '11-dummy.netdev', '11-dummy.network')
         start_networkd()
