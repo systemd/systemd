@@ -34,6 +34,7 @@ units = [
         ['hibernate.target',                    'ENABLE_HIBERNATE'],
         ['hybrid-sleep.target',                 'ENABLE_HIBERNATE'],
         ['suspend-then-hibernate.target',       'ENABLE_HIBERNATE'],
+        ['initrd-battery-check.service',        'ENABLE_INITRD'],
         ['initrd-cleanup.service',              'ENABLE_INITRD'],
         ['initrd-fs.target',                    'ENABLE_INITRD'],
         ['initrd-root-device.target',           'ENABLE_INITRD'],
