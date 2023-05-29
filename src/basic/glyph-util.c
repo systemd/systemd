@@ -71,6 +71,7 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_RECYCLING]               = "~",
                         [SPECIAL_GLYPH_DOWNLOAD]                = "\\",
                         [SPECIAL_GLYPH_SPARKLES]                = "*",
+                        [SPECIAL_GLYPH_LOW_BATTERY]             = "!",
                         [SPECIAL_GLYPH_WARNING_SIGN]            = "!",
                 },
 
@@ -129,6 +130,7 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_RECYCLING]               = u8"♻️",        /* actually called: UNIVERSAL RECYCLNG SYMBOL */
                         [SPECIAL_GLYPH_DOWNLOAD]                = u8"⤵️",        /* actually called: RIGHT ARROW CURVING DOWN */
                         [SPECIAL_GLYPH_SPARKLES]                = u8"✨",
+                        [SPECIAL_GLYPH_LOW_BATTERY]             = u8"🪫",
                         [SPECIAL_GLYPH_WARNING_SIGN]            = u8"⚠️",
                 },
         };
