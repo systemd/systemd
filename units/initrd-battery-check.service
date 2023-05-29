@@ -1,0 +1,10 @@
+[Unit]
+Description=Check battery level during early boot
+DefaultDependencies=no
+After=initrd-root-fs.target
+Before=initrd-parse-etc.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/systemd/systemd-battery-check
+FailureAction=poweroff-force
