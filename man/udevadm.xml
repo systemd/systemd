@@ -750,14 +750,15 @@
       …
       </title>
 
-      <para>Verify syntactic and semantic correctness of udev rules files.</para>
+      <para>Verify syntactic, semantic, and stylistic correctness of udev rules files.</para>
 
       <para>Positional arguments could be used to specify one or more files to check.
       If no files are specified, the udev rules are read from the files located in
       the same udev/rules.d directories that are processed by the udev daemon.</para>
 
-      <para>The exit status is <constant>0</constant> if all specified udev rules files
-      are syntactically and semantically correct, and a non-zero error code otherwise.</para>
+      <para>The exit status is <constant>0</constant> if all specified udev
+      rules files are syntactically, semantically, and stylistically correct,
+      and a non-zero error code otherwise.</para>
 
       <variablelist>
         <varlistentry>
