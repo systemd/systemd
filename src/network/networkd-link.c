@@ -398,10 +398,15 @@ void link_check_ready(Link *link) {
         if (!link->static_addresses_configured)
                 return (void) log_link_debug(link, "%s(): static addresses are not configured.", __func__);
 
-        SET_FOREACH(a, link->addresses)
+        bool has_static_address = false;
+        SET_FOREACH(a, link->addresses) {
+                if (a->source != NETWORK_CONFIG_SOURCE_STATIC)
+                        continue;
                 if (!address_is_ready(a))
-                        return (void) log_link_debug(link, "%s(): address %s is not ready.", __func__,
+                        return (void) log_link_debug(link, "%s(): static address %s is not ready.", __func__,
                                                      IN_ADDR_PREFIX_TO_STRING(a->family, &a->in_addr, a->prefixlen));
+                has_static_address = true;
+        }
 
         if (!link->static_address_labels_configured)
                 return (void) log_link_debug(link, "%s(): static address labels are not configured.", __func__);
@@ -435,6 +440,10 @@ void link_check_ready(Link *link) {
             link_ipv6ll_enabled(link) &&
             !in6_addr_is_set(&link->ipv6ll_address))
                 return (void) log_link_debug(link, "%s(): IPv6LL is not configured yet.", __func__);
+
+        /* If at least one static address is configured, do not request that dynamic addressing protocols are finished. */
+        if (has_static_address)
+                goto ready;
 
         bool has_dynamic_address = false;
         SET_FOREACH(a, link->addresses) {
@@ -477,6 +486,7 @@ void link_check_ready(Link *link) {
                                yes_no(link->ndisc_configured));
         }
 
+ready:
         link_set_state(link, LINK_STATE_CONFIGURED);
 }
 
