@@ -838,9 +838,9 @@ EOF
                                            --certificate="$defs/verity.crt" \
                                            "$imgs/verity")
 
-    drh=$(jq -r ".[] | select(.type == \"root-${architecture}\") | .roothash" <<< "$output")
-    hrh=$(jq -r ".[] | select(.type == \"root-${architecture}-verity\") | .roothash" <<< "$output")
-    srh=$(jq -r ".[] | select(.type == \"root-${architecture}-verity-sig\") | .roothash" <<< "$output")
+    drh=$(jq -r ".[] | select(.type == \"root-${architecture}\") | .roothash" <<<"$output")
+    hrh=$(jq -r ".[] | select(.type == \"root-${architecture}-verity\") | .roothash" <<<"$output")
+    srh=$(jq -r ".[] | select(.type == \"root-${architecture}-verity-sig\") | .roothash" <<<"$output")
 
     assert_eq "$drh" "$hrh"
     assert_eq "$hrh" "$srh"
