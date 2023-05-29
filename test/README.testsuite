@@ -99,7 +99,7 @@ INTERACTIVE_DEBUG=1
     the test, etc.)
 
 The kernel and initrd can be specified with $KERNEL_BIN and $INITRD. (Fedora's
-or Debian's default kernel path and initrd are used by default)
+or Debian's default kernel path and initrd are used by default.)
 
 A script will try to find your qemu binary. If you want to specify a different
 one with $QEMU_BIN.
@@ -107,12 +107,12 @@ one with $QEMU_BIN.
 Debugging the qemu image
 ========================
 
-If you want to log in the testsuite virtual machine, you can specify additional
-kernel command line parameter with $KERNEL_APPEND and then log in as root.
+If you want to log in the testsuite virtual machine, use INTERACTIVE_DEBUG=1
+and log in as root:
 
-$ sudo make -C test/TEST-01-BASIC KERNEL_APPEND="systemd.unit=multi-user.target" run
+$ sudo make -C test/TEST-01-BASIC INTERACTIVE_DEBUG=1 run
 
-Root password is empty.
+The root password is empty.
 
 Ubuntu CI
 =========
