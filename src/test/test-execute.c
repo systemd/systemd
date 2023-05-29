@@ -209,11 +209,19 @@ static bool is_inaccessible_available(void) {
 static void _test(const char *file, unsigned line, const char *func,
                   Manager *m, const char *unit_name, int status_expected, int code_expected) {
         Unit *unit;
+        Unit *slice;
 
         assert_se(unit_name);
 
         assert_se(manager_load_startable_unit_or_warn(m, unit_name, NULL, &unit) >= 0);
         assert_se(unit_start(unit, NULL) >= 0);
+        slice = UNIT_GET_SLICE(unit);
+        if (slice) {
+                /* We need to start the slice as well otherwise the slice cgroup might be pruned
+                 * in on_cgroup_empty_event. */
+                int r = unit_start(slice, NULL);
+                assert_se(r >= 0 || r == -EALREADY);
+        }
         check_main_result(file, line, func, m, unit, status_expected, code_expected);
 }
 #define test(m, unit_name, status_expected, code_expected) \
