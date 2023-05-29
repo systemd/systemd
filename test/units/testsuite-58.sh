@@ -101,7 +101,7 @@ testcase_basic() {
     trap "rm -rf '$defs' '$imgs'" RETURN
     chmod a+rx "$defs"
 
-    # 1. create an empty image
+    echo "*** 1. create an empty image ***"
 
     runas testuser systemd-repart --empty=create \
                                   --size=1G \
@@ -117,7 +117,7 @@ unit: sectors
 first-lba: 2048
 last-lba: 2097118"
 
-    # 2. Testing with root, root2, home, and swap
+    echo "*** 2. Testing with root, root2, home, and swap ***"
 
     tee "$defs/root.conf" <<EOF
 [Partition]
@@ -192,7 +192,7 @@ $imgs/zzz2 : start=      593904, size=      591856, type=${root_guid}, uuid=${ro
 $imgs/zzz3 : start=     1185760, size=      591864, type=${root_guid}, uuid=${root_uuid2}, name=\"root-${architecture}-2\", attrs=\"GUID:59\"
 $imgs/zzz4 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=78C92DB8-3D2B-4823-B0DC-792B78F66F1E, name=\"swap\""
 
-    # 3. Testing with root, root2, home, swap, and another partition
+    echo "*** 3. Testing with root, root2, home, swap, and another partition ***"
 
     tee "$defs/swap.conf" <<EOF
 [Partition]
@@ -229,7 +229,7 @@ $imgs/zzz3 : start=     1185760, size=      591864, type=${root_guid}, uuid=${ro
 $imgs/zzz4 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=78C92DB8-3D2B-4823-B0DC-792B78F66F1E, name=\"swap\"
 $imgs/zzz5 : start=     1908696, size=      188416, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=A0A1A2A3-A4A5-A6A7-A8A9-AAABACADAEAF, name=\"custom_label\""
 
-    # 4. Resizing to 2G
+    echo "*** 4. Resizing to 2G ***"
 
     runas testuser systemd-repart --definitions="$defs" \
                                   --size=2G \
@@ -251,7 +251,7 @@ $imgs/zzz3 : start=     1185760, size=      591864, type=${root_guid}, uuid=${ro
 $imgs/zzz4 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=78C92DB8-3D2B-4823-B0DC-792B78F66F1E, name=\"swap\"
 $imgs/zzz5 : start=     1908696, size=     2285568, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=A0A1A2A3-A4A5-A6A7-A8A9-AAABACADAEAF, name=\"custom_label\""
 
-    # 5. Testing with root, root2, home, swap, another partition, and partition copy
+    echo "*** 5. Testing with root, root2, home, swap, another partition, and partition copy ***"
 
     dd if=/dev/urandom of="$imgs/block-copy" bs=4096 count=10240
 
@@ -286,7 +286,7 @@ $imgs/zzz6 : start=     4194264, size=     2097152, type=0FC63DAF-8483-4772-8E79
 
     cmp --bytes=$((4096*10240)) --ignore-initial=0:$((512*4194264)) "$imgs/block-copy" "$imgs/zzz"
 
-    # 6. Testing Format=/Encrypt=/CopyFiles=
+    echo "*** 6. Testing Format=/Encrypt=/CopyFiles= ***"
 
     tee "$defs/extra3.conf" <<EOF
 [Partition]
@@ -484,7 +484,7 @@ testcase_copy_blocks() {
     trap "rm -rf '$defs' '$imgs'" RETURN
     chmod a+rx "$defs"
 
-    # First, create a disk image and verify its in order
+    echo "*** First, create a disk image and verify its in order ***"
 
     tee "$defs/esp.conf" <<EOF
 [Partition]
@@ -526,7 +526,7 @@ EOF
         return
     fi
 
-    # Then, create another image with CopyBlocks=auto
+    echo "*** Second, create another image with CopyBlocks=auto ***"
 
     tee "$defs/esp.conf" <<EOF
 [Partition]
@@ -567,7 +567,7 @@ testcase_unaligned_partition() {
     trap "rm -rf '$defs' '$imgs'" RETURN
     chmod a+rx "$defs"
 
-    # Operate on an image with unaligned partition.
+    echo "*** Operate on an image with unaligned partition ***"
 
     tee "$defs/root.conf" <<EOF
 [Partition]
@@ -597,13 +597,13 @@ EOF
 testcase_issue_21817() {
     local defs imgs output
 
-    # testcase for #21817
-
     defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
     imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
     chmod a+rx "$defs"
+
+    echo "*** testcase for #21817 ***"
 
     tee "$defs/test.conf" <<EOF
 [Partition]
@@ -634,13 +634,13 @@ EOF
 testcase_issue_24553() {
     local defs imgs output
 
-    # testcase for #24553
-
     defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
     imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
     chmod a+rx "$defs"
+
+    echo "*** testcase for #24553 ***"
 
     tee "$defs/root.conf" <<EOF
 [Partition]
@@ -659,7 +659,7 @@ start=40, size=524288, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, uuid=F2E89C8A-
 start=524328, size=14848000, type=${root_guid}, uuid=${root_uuid}, name="root-${architecture}"
 EOF
 
-    # 1. Operate on a small image compared with SizeMinBytes=.
+    echo "*** 1. Operate on a small image compared with SizeMinBytes= ***"
     runas testuser truncate -s 8g "$imgs/zzz"
     sfdisk "$imgs/zzz" <"$imgs/partscript"
 
@@ -672,7 +672,7 @@ EOF
     output=$(sfdisk --dump "$imgs/zzz")
     assert_in "$imgs/zzz2 : start=      524328, size=    14848000, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\"" "$output"
 
-    # 2. Operate on an larger image compared with SizeMinBytes=.
+    echo "*** 2. Operate on an larger image compared with SizeMinBytes= ***"
     rm -f "$imgs/zzz"
     runas testuser truncate -s 12g "$imgs/zzz"
     sfdisk "$imgs/zzz" <"$imgs/partscript"
@@ -686,7 +686,7 @@ EOF
     output=$(sfdisk --dump "$imgs/zzz")
     assert_in "$imgs/zzz2 : start=      524328, size=    24641456, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\"" "$output"
 
-    # 3. Multiple partitions with Priority= (small disk)
+    echo "*** 3. Multiple partitions with Priority= (small disk) ***"
     tee "$defs/root.conf" <<EOF
 [Partition]
 Type=root
@@ -716,7 +716,7 @@ EOF
     assert_in "$imgs/zzz2 : start=      524328, size=    14848000, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\"" "$output"
     assert_in "$imgs/zzz3 : start=    15372328, size=     1404848, type=${usr_guid}, uuid=${usr_uuid}, name=\"usr-${architecture}\", attrs=\"GUID:59\"" "$output"
 
-    # 4. Multiple partitions with Priority= (large disk)
+    echo "*** 4. Multiple partitions with Priority= (large disk) ***"
     rm -f "$imgs/zzz"
     runas testuser truncate -s 12g "$imgs/zzz"
     sfdisk "$imgs/zzz" <"$imgs/partscript"
@@ -741,7 +741,7 @@ testcase_zero_uuid() {
     trap "rm -rf '$defs' '$imgs'" RETURN
     chmod a+rx "$defs"
 
-    # Test image with zero UUID.
+    echo "*** Test image with zero UUID ***"
 
     tee "$defs/root.conf" <<EOF
 [Partition]
@@ -769,6 +769,8 @@ testcase_verity() {
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
     chmod a+rx "$defs"
+
+    echo "*** dm-verity ***"
 
     tee "$defs/verity-data.conf" <<EOF
 [Partition]
@@ -866,6 +868,8 @@ testcase_exclude_files() {
     trap "rm -rf '$defs' '$imgs' '$root'" RETURN
     chmod a+rx "$defs"
 
+    echo "*** file exclusion ***"
+
     touch "$root/abc"
     mkdir "$root/usr"
     touch "$root/usr/def"
@@ -954,6 +958,8 @@ testcase_minimize() {
         return
     fi
 
+    echo "*** minimization ***"
+
     defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
     imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
@@ -1007,6 +1013,8 @@ test_sector() {
         echo "Skipping sector size tests in container."
         return
     fi
+
+    echo "*** sector sizes ***"
 
     defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
     imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
