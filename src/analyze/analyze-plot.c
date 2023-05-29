@@ -206,14 +206,14 @@ static int produce_plot_as_svg(
 
         if (boot->firmware_time > boot->loader_time)
                 m++;
-        if (boot->loader_time > 0) {
+        if (timestamp_is_set(boot->loader_time)) {
                 m++;
                 if (width < 1000.0)
                         width = 1000.0;
         }
-        if (boot->initrd_time > 0)
+        if (timestamp_is_set(boot->initrd_time))
                 m++;
-        if (boot->kernel_done_time > 0)
+        if (timestamp_is_set(boot->kernel_done_time))
                 m++;
 
         for (u = times; u->has_data; u++) {
@@ -295,22 +295,22 @@ static int produce_plot_as_svg(
         svg("<g transform=\"translate(%.3f,100)\">\n", 20.0 + (SCALE_X * boot->firmware_time));
         svg_graph_box(m, -(double) boot->firmware_time, boot->finish_time);
 
-        if (boot->firmware_time > 0) {
+        if (timestamp_is_set(boot->firmware_time)) {
                 svg_bar("firmware", -(double) boot->firmware_time, -(double) boot->loader_time, y);
                 svg_text(true, -(double) boot->firmware_time, y, "firmware");
                 y++;
         }
-        if (boot->loader_time > 0) {
+        if (timestamp_is_set(boot->loader_time)) {
                 svg_bar("loader", -(double) boot->loader_time, 0, y);
                 svg_text(true, -(double) boot->loader_time, y, "loader");
                 y++;
         }
-        if (boot->kernel_done_time > 0) {
+        if (timestamp_is_set(boot->kernel_done_time)) {
                 svg_bar("kernel", 0, boot->kernel_done_time, y);
                 svg_text(true, 0, y, "kernel");
                 y++;
         }
-        if (boot->initrd_time > 0) {
+        if (timestamp_is_set(boot->initrd_time)) {
                 svg_bar("initrd", boot->initrd_time, boot->userspace_time, y);
                 if (boot->initrd_security_start_time < boot->initrd_security_finish_time)
                         svg_bar("security", boot->initrd_security_start_time, boot->initrd_security_finish_time, y);
@@ -330,7 +330,7 @@ static int produce_plot_as_svg(
         }
 
         svg_bar("active", boot->userspace_time, boot->finish_time, y);
-        if (boot->security_start_time > 0)
+        if (timestamp_is_set(boot->security_start_time))
                 svg_bar("security", boot->security_start_time, boot->security_finish_time, y);
         svg_bar("generators", boot->generators_start_time, boot->generators_finish_time, y);
         svg_bar("unitsload", boot->unitsload_start_time, boot->unitsload_finish_time, y);
@@ -354,7 +354,7 @@ static int produce_plot_as_svg(
         svg_bar("deactivating", 0, 300000, y);
         svg_text(true, 400000, y, "Deactivating");
         y++;
-        if (boot->security_start_time > 0) {
+        if (timestamp_is_set(boot->security_start_time)) {
                 svg_bar("security", 0, 300000, y);
                 svg_text(true, 400000, y, "Setting up security module");
                 y++;

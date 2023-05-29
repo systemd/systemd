@@ -1539,7 +1539,7 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
                 context_has_syscall_logs(c);
 }
 
-static bool exec_context_has_credentials(const ExecContext *context) {
+bool exec_context_has_credentials(const ExecContext *context) {
 
         assert(context);
 
@@ -2787,7 +2787,7 @@ static char **credential_search_path(
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *t = strv_join(l, ":");
 
-                log_debug("Credential search path is: %s", t);
+                log_debug("Credential search path is: %s", strempty(t));
         }
 
         return TAKE_PTR(l);
@@ -6868,6 +6868,16 @@ bool exec_context_has_encrypted_credentials(ExecContext *c) {
                         return true;
 
         return false;
+}
+
+int exec_context_add_default_dependencies(Unit *u, const ExecContext *c) {
+        assert(u);
+        assert(u->default_dependencies);
+
+        if (c && exec_context_needs_term(c))
+                return unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_VCONSOLE_SETUP_SERVICE,
+                                                   /* add_reference= */ true, UNIT_DEPENDENCY_DEFAULT);
+        return 0;
 }
 
 void exec_status_start(ExecStatus *s, pid_t pid) {

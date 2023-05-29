@@ -95,6 +95,9 @@ int manager_get_dump_string(Manager *m, char **patterns, char **ret) {
 
         f = safe_fclose(f);
 
+        if (!dump)
+                return -ENOMEM;
+
         *ret = TAKE_PTR(dump);
 
         return 0;

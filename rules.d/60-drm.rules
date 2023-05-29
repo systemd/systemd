@@ -3,6 +3,9 @@
 ACTION!="remove", SUBSYSTEM=="drm", SUBSYSTEMS=="pci|usb|platform", IMPORT{builtin}="path_id"
 
 # by-path
-ENV{ID_PATH}=="?*", KERNEL=="card*", SYMLINK+="dri/by-path/$env{ID_PATH}-card"
-ENV{ID_PATH}=="?*", KERNEL=="controlD*", SYMLINK+="dri/by-path/$env{ID_PATH}-control"
-ENV{ID_PATH}=="?*", KERNEL=="renderD*", SYMLINK+="dri/by-path/$env{ID_PATH}-render"
+KERNEL=="card*",     ENV{ID_PATH}=="?*",                   SYMLINK+="dri/by-path/$env{ID_PATH}-card"
+KERNEL=="card*",     ENV{ID_PATH_WITH_USB_REVISION}=="?*", SYMLINK+="dri/by-path/$env{ID_PATH_WITH_USB_REVISION}-card"
+KERNEL=="controlD*", ENV{ID_PATH}=="?*",                   SYMLINK+="dri/by-path/$env{ID_PATH}-control"
+KERNEL=="controlD*", ENV{ID_PATH_WITH_USB_REVISION}=="?*", SYMLINK+="dri/by-path/$env{ID_PATH_WITH_USB_REVISION}-control"
+KERNEL=="renderD*",  ENV{ID_PATH}=="?*",                   SYMLINK+="dri/by-path/$env{ID_PATH}-render"
+KERNEL=="renderD*",  ENV{ID_PATH_WITH_USB_REVISION}=="?*", SYMLINK+="dri/by-path/$env{ID_PATH_WITH_USB_REVISION}-render"

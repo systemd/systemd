@@ -330,8 +330,7 @@ static int parse_env_file_push(
 
                 if (streq(key, k)) {
                         va_end(aq);
-                        free(*v);
-                        *v = value;
+                        free_and_replace(*v, value);
 
                         return 1;
                 }

@@ -660,9 +660,9 @@ static int find_location_for_match(
                 /* FIXME: missing: find by monotonic */
 
                 if (j->current_location.type == LOCATION_HEAD)
-                        return journal_file_next_entry_for_data(f, d, DIRECTION_DOWN, ret, offset);
+                        return direction == DIRECTION_DOWN ? journal_file_next_entry_for_data(f, d, DIRECTION_DOWN, ret, offset) : 0;
                 if (j->current_location.type == LOCATION_TAIL)
-                        return journal_file_next_entry_for_data(f, d, DIRECTION_UP, ret, offset);
+                        return direction == DIRECTION_UP ? journal_file_next_entry_for_data(f, d, DIRECTION_UP, ret, offset) : 0;
                 if (j->current_location.seqnum_set && sd_id128_equal(j->current_location.seqnum_id, f->header->seqnum_id))
                         return journal_file_move_to_entry_by_seqnum_for_data(f, d, j->current_location.seqnum, direction, ret, offset);
                 if (j->current_location.monotonic_set) {
@@ -755,9 +755,9 @@ static int find_location_with_matches(
                 /* No matches is simple */
 
                 if (j->current_location.type == LOCATION_HEAD)
-                        return journal_file_next_entry(f, 0, DIRECTION_DOWN, ret, offset);
+                        return direction == DIRECTION_DOWN ? journal_file_next_entry(f, 0, DIRECTION_DOWN, ret, offset) : 0;
                 if (j->current_location.type == LOCATION_TAIL)
-                        return journal_file_next_entry(f, 0, DIRECTION_UP, ret, offset);
+                        return direction == DIRECTION_UP ? journal_file_next_entry(f, 0, DIRECTION_UP, ret, offset) : 0;
                 if (j->current_location.seqnum_set && sd_id128_equal(j->current_location.seqnum_id, f->header->seqnum_id))
                         return journal_file_move_to_entry_by_seqnum(f, j->current_location.seqnum, direction, ret, offset);
                 if (j->current_location.monotonic_set) {
@@ -812,7 +812,8 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
 
         /* If we hit EOF before, we don't need to look into this file again
          * unless direction changed or new entries appeared. */
-        if (f->last_direction == direction && f->location_type == LOCATION_TAIL &&
+        if (f->last_direction == direction &&
+            f->location_type == (direction == DIRECTION_DOWN ? LOCATION_TAIL : LOCATION_HEAD) &&
             n_entries == f->last_n_entries)
                 return 0;
 
@@ -940,7 +941,7 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                         remove_file_real(j, f);
                         continue;
                 } else if (r == 0) {
-                        f->location_type = LOCATION_TAIL;
+                        f->location_type = direction == DIRECTION_DOWN ? LOCATION_TAIL : LOCATION_HEAD;
                         continue;
                 }
 

@@ -476,6 +476,7 @@ const char* exec_context_fdname(const ExecContext *c, int fd_index);
 bool exec_context_may_touch_console(const ExecContext *c);
 bool exec_context_maintains_privileges(const ExecContext *c);
 bool exec_context_has_encrypted_credentials(ExecContext *c);
+bool exec_context_has_credentials(const ExecContext *context);
 
 int exec_context_get_effective_ioprio(const ExecContext *c);
 bool exec_context_get_effective_mount_apivfs(const ExecContext *c);
@@ -486,6 +487,7 @@ void exec_context_revert_tty(ExecContext *c);
 
 int exec_context_get_clean_directories(ExecContext *c, char **prefix, ExecCleanMask mask, char ***ret);
 int exec_context_get_clean_mask(ExecContext *c, ExecCleanMask *ret);
+int exec_context_add_default_dependencies(Unit *u, const ExecContext *c);
 
 void exec_status_start(ExecStatus *s, pid_t pid);
 void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int code, int status);

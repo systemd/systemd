@@ -1673,8 +1673,8 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                                   "Format=swap and CopyFiles= cannot be combined, refusing.");
 
         if (!p->format && (!strv_isempty(p->copy_files) || !strv_isempty(p->make_directories) || (p->encrypt != ENCRYPT_OFF && !(p->copy_blocks_path || p->copy_blocks_auto)))) {
-                /* Pick "ext4" as file system if we are configured to copy files or encrypt the device */
-                p->format = strdup("ext4");
+                /* Pick "vfat" as file system for esp and xbootldr partitions, otherwise default to "ext4". */
+                p->format = strdup(IN_SET(p->type.designator, PARTITION_ESP, PARTITION_XBOOTLDR) ? "vfat" : "ext4");
                 if (!p->format)
                         return log_oom();
         }
@@ -5515,14 +5515,10 @@ static int fd_apparent_size(int fd, uint64_t *ret) {
 }
 
 static int context_minimize(Context *context) {
-        const char *vt;
+        const char *vt = NULL;
         int r;
 
         assert(context);
-
-        r = var_tmp_dir(&vt);
-        if (r < 0)
-                return log_error_errno(r, "Could not determine temporary directory: %m");
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
@@ -5555,6 +5551,12 @@ static int context_minimize(Context *context) {
 
                 log_info("Pre-populating %s filesystem of partition %s twice to calculate minimal partition size",
                          p->format, strna(hint));
+
+                if (!vt) {
+                        r = var_tmp_dir(&vt);
+                        if (r < 0)
+                                return log_error_errno(r, "Could not determine temporary directory: %m");
+                }
 
                 r = tempfn_random_child(vt, "repart", &temp);
                 if (r < 0)
@@ -5712,6 +5714,12 @@ static int context_minimize(Context *context) {
 
                 log_info("Pre-populating verity hash data of partition %s to calculate minimal partition size",
                          strna(hint));
+
+                if (!vt) {
+                        r = var_tmp_dir(&vt);
+                        if (r < 0)
+                                return log_error_errno(r, "Could not determine temporary directory: %m");
+                }
 
                 r = tempfn_random_child(vt, "repart", &temp);
                 if (r < 0)

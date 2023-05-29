@@ -3,6 +3,8 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/test-control.sh
+. "$(dirname "$0")"/test-control.sh
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
@@ -33,7 +35,7 @@ EOF
     systemctl stop systemd-logind.service
 }
 
-test_properties() {
+testcase_properties() {
     mkdir -p /run/systemd/logind.conf.d
 
     cat >/run/systemd/logind.conf.d/kill-user-processes.conf <<EOF
@@ -55,7 +57,7 @@ EOF
     rm -rf /run/systemd/logind.conf.d
 }
 
-test_started() {
+testcase_started() {
     local pid
 
     systemctl restart systemd-logind.service
@@ -89,7 +91,7 @@ teardown_suspend() (
     return 0
 )
 
-test_suspend_on_lid() {
+testcase_suspend_on_lid() {
     local pid input_name lid_dev
 
     if systemd-detect-virt --quiet --container; then
@@ -198,7 +200,7 @@ EOF
     assert_eq "$(systemctl show systemd-logind.service -p ExecMainPID --value)" "$pid"
 }
 
-test_shutdown() {
+testcase_shutdown() {
     local pid
 
     # save pid
@@ -338,7 +340,7 @@ EOF
     assert_eq "$(loginctl --no-legend | awk '$3=="logind-test-user" { print $5 }')" "tty2"
 }
 
-test_sanity_check() {
+testcase_sanity_check() {
     # Exercise basic loginctl options
 
     if [[ ! -c /dev/tty2 ]]; then
@@ -382,7 +384,7 @@ EOF
     loginctl flush-devices
 }
 
-test_session() {
+testcase_session() {
     local dev
 
     if systemd-detect-virt --quiet --container; then
@@ -459,7 +461,7 @@ teardown_lock_idle_action() (
     return 0
 )
 
-test_lock_idle_action() {
+testcase_lock_idle_action() {
     local ts
 
     if [[ ! -c /dev/tty2 ]]; then
@@ -505,7 +507,7 @@ EOF
     fi
 }
 
-test_session_properties() {
+testcase_session_properties() {
     local s
 
     if [[ ! -c /dev/tty2 ]]; then
@@ -517,10 +519,12 @@ test_session_properties() {
     create_session
 
     s=$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $1 }')
-    /usr/lib/systemd/tests/unit-tests/manual/test-session-properties "/org/freedesktop/login1/session/_3${s?}"
+    /usr/lib/systemd/tests/unit-tests/manual/test-session-properties "/org/freedesktop/login1/session/_3${s?}" /dev/tty2
 }
 
-test_list_users_sessions() {
+testcase_list_users_sessions_seats() {
+    local session seat
+
     if [[ ! -c /dev/tty2 ]]; then
         echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
         return
@@ -529,10 +533,24 @@ test_list_users_sessions() {
     trap cleanup_session RETURN
     create_session
 
+    # Activate the session
+    loginctl activate "$(loginctl --no-legend | awk '$3 == "logind-test-user" { print $1 }')"
+
+    session=$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $1 }')
+    : check that we got a valid session id
+    busctl get-property org.freedesktop.login1 "/org/freedesktop/login1/session/_3${session?}" org.freedesktop.login1.Session Id
+    assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $2 }')" "$(id -ru logind-test-user)"
+    seat=$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $4 }')
+    assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $5 }')" tty2
+    assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $6 }')" active
+    assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $7 }')" no
+    assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $8 }')" ''
+
+    loginctl list-seats --no-legend | grep -Fwq "${seat?}"
+
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $1 }')" "$(id -ru logind-test-user)"
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $3 }')" no
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $4 }')" active
-    assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $6 }')" active
 
     loginctl enable-linger logind-test-user
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $3 }')" yes
@@ -557,7 +575,7 @@ teardown_stop_idle_session() (
     cleanup_session
 )
 
-test_stop_idle_session() {
+testcase_stop_idle_session() {
     local id ts
 
     if [[ ! -c /dev/tty2 ]]; then
@@ -583,7 +601,7 @@ EOF
     assert_eq "$(loginctl --no-legend | grep -c "logind-test-user")" 0
 }
 
-test_ambient_caps() {
+testcase_ambient_caps() {
     local PAMSERVICE TRANSIENTUNIT SCRIPT
 
     # Verify that pam_systemd works and assigns ambient caps as it should
@@ -639,17 +657,7 @@ EOF
 
 setup_test_user
 test_enable_debug
-test_properties
-test_started
-test_suspend_on_lid
-test_shutdown
-test_sanity_check
-test_session
-test_lock_idle_action
-test_session_properties
-test_list_users_sessions
-test_stop_idle_session
-test_ambient_caps
+run_testcases
 
 touch /testok
 rm /failed

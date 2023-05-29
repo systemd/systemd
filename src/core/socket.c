@@ -276,7 +276,11 @@ static int socket_add_default_dependencies(Socket *s) {
                         return r;
         }
 
-        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        if (r < 0)
+                return r;
+
+        return exec_context_add_default_dependencies(UNIT(s), &s->exec_context);
 }
 
 _pure_ static bool socket_has_exec(Socket *s) {
@@ -712,7 +716,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, strna(s->user),
                         prefix, strna(s->group));
 
-        if (s->keep_alive_time > 0)
+        if (timestamp_is_set(s->keep_alive_time))
                 fprintf(f,
                         "%sKeepAliveTimeSec: %s\n",
                         prefix, FORMAT_TIMESPAN(s->keep_alive_time, USEC_PER_SEC));
@@ -969,7 +973,7 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
                         log_unit_warning_errno(UNIT(s), r, "SO_KEEPALIVE failed: %m");
         }
 
-        if (s->keep_alive_time > 0) {
+        if (timestamp_is_set(s->keep_alive_time)) {
                 r = setsockopt_int(fd, SOL_TCP, TCP_KEEPIDLE, s->keep_alive_time / USEC_PER_SEC);
                 if (r < 0)
                         log_unit_warning_errno(UNIT(s), r, "TCP_KEEPIDLE failed: %m");
@@ -1840,7 +1844,7 @@ static void socket_set_state(Socket *s, SocketState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(s), "Changed %s -> %s", socket_state_to_string(old_state), socket_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], 0);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
 }
 
 static int socket_coldplug(Unit *u) {
@@ -2671,7 +2675,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 LIST_FOREACH(port, p, s->ports)
                         if (p->fd < 0 &&
                             p->type == SOCKET_FIFO &&
-                            path_equal_or_files_same(p->path, value, 0)) {
+                            path_equal_or_inode_same(p->path, value, 0)) {
                                 p->fd = fdset_remove(fds, fd);
                                 found = true;
                                 break;
@@ -2699,7 +2703,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 LIST_FOREACH(port, p, s->ports)
                         if (p->fd < 0 &&
                             p->type == SOCKET_SPECIAL &&
-                            path_equal_or_files_same(p->path, value, 0)) {
+                            path_equal_or_inode_same(p->path, value, 0)) {
                                 p->fd = fdset_remove(fds, fd);
                                 found = true;
                                 break;
@@ -2821,7 +2825,7 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 LIST_FOREACH(port, p, s->ports)
                         if (p->fd < 0 &&
                             p->type == SOCKET_USB_FUNCTION &&
-                            path_equal_or_files_same(p->path, value, 0)) {
+                            path_equal_or_inode_same(p->path, value, 0)) {
                                 p->fd = fdset_remove(fds, fd);
                                 found = true;
                                 break;

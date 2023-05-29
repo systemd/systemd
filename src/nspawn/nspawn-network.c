@@ -712,10 +712,9 @@ int veth_extra_parse(char ***l, const char *p) {
         if (r < 0)
                 return r;
         if (r == 0 || !ifname_valid(b)) {
-                free(b);
-                b = strdup(a);
-                if (!b)
-                        return -ENOMEM;
+                r = free_and_strdup(&b, a);
+                if (r < 0)
+                        return r;
         }
 
         if (p)
@@ -752,38 +751,48 @@ int remove_veth_links(const char *primary, char **pairs) {
 }
 
 static int network_iface_pair_parse(const char* iftype, char ***l, const char *p, const char* ifprefix) {
-        _cleanup_free_ char *a = NULL, *b = NULL;
         int r;
 
-        r = extract_first_word(&p, &a, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
-        if (r < 0)
-                return log_error_errno(r, "Failed to extract first word in %s parameter: %m", iftype);
-        if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Short read while reading %s parameter: %m", iftype);
-        if (!ifname_valid(a))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s, interface name not valid: %s", iftype, a);
+        for (;;) {
+                _cleanup_free_ char *word = NULL, *a = NULL, *b = NULL;
+                const char *interface;
 
-        if (isempty(p)) {
-                if (ifprefix)
-                        b = strjoin(ifprefix, a);
-                else
-                        b = strdup(a);
-        } else
-                b = strdup(p);
-        if (!b)
-                return log_oom();
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse interface name: %m");
+                if (r == 0)
+                        break;
 
-        if (!ifname_valid(b))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                        "%s, interface name not valid: %s", iftype, b);
+                interface = word;
+                r = extract_first_word(&interface, &a, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract first word in %s parameter: %m", iftype);
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Short read while reading %s parameter: %m", iftype);
+                if (!ifname_valid(a))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "%s, interface name not valid: %s", iftype, a);
 
-        r = strv_push_pair(l, a, b);
-        if (r < 0)
-                return log_oom();
+                if (isempty(interface)) {
+                        if (ifprefix)
+                                b = strjoin(ifprefix, a);
+                        else
+                                b = strdup(a);
+                } else
+                        b = strdup(interface);
+                if (!b)
+                        return log_oom();
 
-        a = b = NULL;
+                if (!ifname_valid(b))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "%s, interface name not valid: %s", iftype, b);
+
+                r = strv_consume_pair(l, TAKE_PTR(a), TAKE_PTR(b));
+                if (r < 0)
+                        return log_oom();
+        }
+
         return 0;
 }
 

@@ -159,8 +159,7 @@ static int parse_string(sd_lldp_rx *lldp_rx, char **s, const void *q, size_t n) 
         if (!k)
                 return log_oom_debug();
 
-        free(*s);
-        *s = k;
+        free_and_replace(*s, k);
 
         return 1;
 }

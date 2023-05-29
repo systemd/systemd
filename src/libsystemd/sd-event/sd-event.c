@@ -1203,11 +1203,12 @@ static sd_event_source *source_new(sd_event *e, bool floating, EventSourceType t
         assert(type < _SOURCE_EVENT_SOURCE_TYPE_MAX);
         assert(size_table[type] > 0);
 
-        /* We use expand_to_usable() here to tell gcc that it should consider this an object of the full
-         * size, even if we only allocate the initial part we need. */
-        s = expand_to_usable(malloc0(size_table[type]), sizeof(sd_event_source));
+        s = malloc0(size_table[type]);
         if (!s)
                 return NULL;
+        /* We use expand_to_usable() here to tell gcc that it should consider this an object of the full
+         * size, even if we only allocate the initial part we need. */
+        s = expand_to_usable(s, sizeof(sd_event_source));
 
         /* Note: we cannot use compound initialization here, because sizeof(sd_event_source) is likely larger
          * than what we allocated here. */
@@ -2603,7 +2604,6 @@ _public_ int sd_event_source_set_description(sd_event_source *s, const char *des
 _public_ int sd_event_source_get_description(sd_event_source *s, const char **description) {
         assert_return(s, -EINVAL);
         assert_return(description, -EINVAL);
-        assert_return(!event_origin_changed(s->event), -ECHILD);
 
         if (!s->description)
                 return -ENXIO;
@@ -5191,6 +5191,27 @@ _public_ int sd_event_source_is_ratelimited(sd_event_source *s) {
                 return false;
 
         return s->ratelimited;
+}
+
+_public_ int sd_event_source_leave_ratelimit(sd_event_source *s) {
+        int r;
+
+        assert_return(s, -EINVAL);
+
+        if (!EVENT_SOURCE_CAN_RATE_LIMIT(s->type))
+                return 0;
+
+        if (!ratelimit_configured(&s->rate_limit))
+                return 0;
+
+        if (!s->ratelimited)
+                return 0;
+
+        r = event_source_leave_ratelimit(s, /* run_callback */ false);
+        if (r < 0)
+                return r;
+
+        return 1; /* tell caller that we indeed just left the ratelimit state */
 }
 
 _public_ int sd_event_set_signal_exit(sd_event *e, int b) {

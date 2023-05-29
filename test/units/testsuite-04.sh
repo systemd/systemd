@@ -8,7 +8,8 @@ trap "journalctl --rotate --vacuum-size=16M" EXIT
 
 # Rotation/flush test, see https://github.com/systemd/systemd/issues/19895
 journalctl --relinquish-var
-for _ in {0..50}; do
+[[ "$(systemd-detect-virt -v)" == "qemu" ]] && ITERATIONS=10 || ITERATIONS=50
+for ((i = 0; i < ITERATIONS; i++)); do
     dd if=/dev/urandom bs=1M count=1 | base64 | systemd-cat
 done
 journalctl --rotate
@@ -153,8 +154,12 @@ sleep 3
 [[ ! -f "/tmp/i-lose-my-logs" ]]
 systemctl stop forever-print-hola
 
+set +o pipefail
 # https://github.com/systemd/systemd/issues/15528
-journalctl --follow --file=/var/log/journal/*/* | head -n1 || [[ $? -eq 1 ]]
+journalctl --follow --file=/var/log/journal/*/* | head -n1 | grep .
+# https://github.com/systemd/systemd/issues/24565
+journalctl --follow --merge | head -n1 | grep .
+set -o pipefail
 
 add_logs_filtering_override() {
     local unit="${1:?}"

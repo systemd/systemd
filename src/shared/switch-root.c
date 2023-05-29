@@ -36,23 +36,28 @@ int switch_root(const char *new_root,
         assert(new_root);
         assert(IN_SET(mount_flags, MS_MOVE, MS_BIND));
 
-        if (path_equal(new_root, "/"))
-                return 0;
-
         /* Check if we shall remove the contents of the old root */
         old_root_fd = open("/", O_DIRECTORY|O_CLOEXEC);
         if (old_root_fd < 0)
                 return log_error_errno(errno, "Failed to open root directory: %m");
+
+        new_root_fd = open(new_root, O_DIRECTORY|O_CLOEXEC);
+        if (new_root_fd < 0)
+                return log_error_errno(errno, "Failed to open target directory '%s': %m", new_root);
+
+        r = inode_same_at(old_root_fd, "", new_root_fd, "", AT_EMPTY_PATH);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine if old and new root directory are the same: %m");
+        if (r > 0) {
+                log_debug("Skipping switch root, as old and new root directory are the same.");
+                return 0;
+        }
 
         istmp = fd_is_temporary_fs(old_root_fd);
         if (istmp < 0)
                 return log_error_errno(istmp, "Failed to stat root directory: %m");
         if (istmp > 0)
                 log_debug("Root directory is on tmpfs, will do cleanup later.");
-
-        new_root_fd = open(new_root, O_DIRECTORY|O_CLOEXEC);
-        if (new_root_fd < 0)
-                return log_error_errno(errno, "Failed to open target directory '%s': %m", new_root);
 
         if (old_root_after) {
                 /* Determine where we shall place the old root after the transition */
@@ -62,6 +67,13 @@ int switch_root(const char *new_root,
                 if (r == 0) /* Doesn't exist yet. Let's create it */
                         (void) mkdir_p_label(resolved_old_root_after, 0755);
         }
+
+        /* We are about to unmount various file systems with MNT_DETACH (either explicitly via umount() or
+         * indirectly via pivot_root()), and thus do not synchronously wait for them to be fully sync'ed —
+         * all while making them invisible/inaccessible in the file system tree for later code. That makes
+         * sync'ing them then difficult. Let's hence issue a manual sync() here, so that we at least can
+         * guarantee all file systems are an a good state before entering this state. */
+        sync();
 
         /* Work-around for kernel design: the kernel refuses MS_MOVE if any file systems are mounted
          * MS_SHARED. Hence remount them MS_PRIVATE here as a work-around.
@@ -113,6 +125,14 @@ int switch_root(const char *new_root,
         }
         if (r < 0) {
                 log_debug_errno(r, "Pivoting root file system failed, moving mounts instead: %m");
+
+                /* If we have to use MS_MOVE let's first try to get rid of *all* mounts we can, with the
+                 * exception of the path we want to switch to, plus everything leading to it and within
+                 * it. This is necessary because unlike pivot_root() just moving the mount to the root via
+                 * MS_MOVE won't magically unmount anything below it. Once the chroot() succeeds the mounts
+                 * below would still be around but invisible to us, because not accessible via
+                 * /proc/self/mountinfo. Hence, let's clean everything up first, as long as we still can. */
+                (void) umount_recursive_full(NULL, MNT_DETACH, STRV_MAKE(new_root));
 
                 if (mount(".", "/", NULL, MS_MOVE, NULL) < 0)
                         return log_error_errno(errno, "Failed to move %s to /: %m", new_root);

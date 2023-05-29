@@ -1079,7 +1079,7 @@ int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilter
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
 
-                log_debug("Operating on architecture: %s", seccomp_arch_to_string(arch));
+                log_trace("Operating on architecture: %s", seccomp_arch_to_string(arch));
 
                 r = seccomp_init_for_arch(&seccomp, arch, default_action);
                 if (r < 0)
@@ -1113,7 +1113,7 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* filter
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
                 void *syscall_id, *val;
 
-                log_debug("Operating on architecture: %s", seccomp_arch_to_string(arch));
+                log_trace("Operating on architecture: %s", seccomp_arch_to_string(arch));
 
                 r = seccomp_init_for_arch(&seccomp, arch, default_action);
                 if (r < 0)
@@ -1254,7 +1254,7 @@ int seccomp_restrict_namespaces(unsigned long retain) {
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
 
-                log_debug("Operating on architecture: %s", seccomp_arch_to_string(arch));
+                log_trace("Operating on architecture: %s", seccomp_arch_to_string(arch));
 
                 r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
                 if (r < 0)
@@ -1306,7 +1306,7 @@ int seccomp_restrict_namespaces(unsigned long retain) {
                                 continue;
                         }
 
-                        log_debug("Blocking %s.", namespace_info[i].proc_name);
+                        log_trace("Blocking %s.", namespace_info[i].proc_name);
 
                         r = seccomp_rule_add_exact(
                                         seccomp,
@@ -1372,7 +1372,7 @@ int seccomp_protect_sysctl(void) {
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
 
-                log_debug("Operating on architecture: %s", seccomp_arch_to_string(arch));
+                log_trace("Operating on architecture: %s", seccomp_arch_to_string(arch));
 
                 if (IN_SET(arch,
                            SCMP_ARCH_AARCH64,
@@ -1448,7 +1448,7 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
                 bool supported;
 
-                log_debug("Operating on architecture: %s", seccomp_arch_to_string(arch));
+                log_trace("Operating on architecture: %s", seccomp_arch_to_string(arch));
 
                 switch (arch) {
 
@@ -1632,7 +1632,7 @@ int seccomp_restrict_realtime_full(int error_code) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
                 int p;
 
-                log_debug("Operating on architecture: %s", seccomp_arch_to_string(arch));
+                log_trace("Operating on architecture: %s", seccomp_arch_to_string(arch));
 
                 r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ALLOW);
                 if (r < 0)
@@ -1724,7 +1724,7 @@ int seccomp_memory_deny_write_execute(void) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
                 int filter_syscall = 0, block_syscall = 0, shmat_syscall = 0, r;
 
-                log_debug("Operating on architecture: %s", seccomp_arch_to_string(arch));
+                log_trace("Operating on architecture: %s", seccomp_arch_to_string(arch));
 
                 switch (arch) {
 

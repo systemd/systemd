@@ -913,6 +913,11 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
 
                 .default_memory_pressure_watch = CGROUP_PRESSURE_WATCH_AUTO,
                 .default_memory_pressure_threshold_usec = USEC_INFINITY,
+
+                .dump_ratelimit = {
+                        .interval = 10 * USEC_PER_MINUTE,
+                        .burst = 10,
+                },
         };
 
 #if ENABLE_EFI

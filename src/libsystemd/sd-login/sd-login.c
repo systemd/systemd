@@ -124,10 +124,9 @@ _public_ int sd_pid_get_cgroup(pid_t pid, char **cgroup) {
          * cgroup, let's return the "/" in the public APIs instead, as
          * that's easier and less ambiguous for people to grok. */
         if (isempty(c)) {
-                free(c);
-                c = strdup("/");
-                if (!c)
-                        return -ENOMEM;
+                r = free_and_strdup(&c, "/");
+                if (r < 0)
+                        return r;
 
         }
 

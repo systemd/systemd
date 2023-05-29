@@ -1769,6 +1769,7 @@ static int json_format(FILE *f, JsonVariant *v, JsonFormatFlags flags, const cha
 
 int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
         _cleanup_free_ char *s = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         size_t sz = 0;
         int r;
 
@@ -1781,24 +1782,26 @@ int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
         if (flags & JSON_FORMAT_OFF)
                 return -ENOEXEC;
 
-        {
-                _cleanup_fclose_ FILE *f = NULL;
+        f = open_memstream_unlocked(&s, &sz);
+        if (!f)
+                return -ENOMEM;
 
-                f = open_memstream_unlocked(&s, &sz);
-                if (!f)
-                        return -ENOMEM;
-
-                json_variant_dump(v, flags, f, NULL);
-
-                /* Add terminating 0, so that the output buffer is a valid string. */
-                fputc('\0', f);
-
-                r = fflush_and_check(f);
-        }
+        r = json_variant_dump(v, flags, f, NULL);
         if (r < 0)
                 return r;
 
-        assert(s);
+        /* Add terminating 0, so that the output buffer is a valid string. */
+        fputc('\0', f);
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return r;
+
+        f = safe_fclose(f);
+
+        if (!s)
+                return -ENOMEM;
+
         *ret = TAKE_PTR(s);
         assert(sz > 0);
         return (int) sz - 1;
@@ -2185,7 +2188,7 @@ int json_variant_strv(JsonVariant *v, char ***ret) {
         if (!json_variant_is_array(v))
                 return -EINVAL;
 
-        sensitive = v->sensitive;
+        sensitive = json_variant_is_sensitive(v);
 
         size_t n = json_variant_elements(v);
         l = new(char*, n+1);
@@ -2196,7 +2199,7 @@ int json_variant_strv(JsonVariant *v, char ***ret) {
                 JsonVariant *e;
 
                 assert_se(e = json_variant_by_index(v, i));
-                sensitive = sensitive || e->sensitive;
+                sensitive = sensitive || json_variant_is_sensitive(e);
 
                 if (!json_variant_is_string(e)) {
                         l[i] = NULL;

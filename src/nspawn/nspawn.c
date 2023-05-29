@@ -30,6 +30,7 @@
 #include "btrfs-util.h"
 #include "build.h"
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "bus-util.h"
 #include "cap-list.h"
 #include "capability-util.h"
@@ -2092,13 +2093,7 @@ static int resolved_listening(void) {
         if (r == 0)
                 return 0;
 
-        r = sd_bus_get_property_string(bus,
-                                       "org.freedesktop.resolve1",
-                                       "/org/freedesktop/resolve1",
-                                       "org.freedesktop.resolve1.Manager",
-                                       "DNSStubListener",
-                                       &error,
-                                       &dns_stub_listener_mode);
+        r = bus_get_property_string(bus, bus_resolve_mgr, "DNSStubListener", &error, &dns_stub_listener_mode);
         if (r < 0)
                 return log_debug_errno(r, "Failed to query DNSStubListener property: %s", bus_error_message(&error, r));
 
@@ -3402,10 +3397,10 @@ static int inner_child(
                 if (r < 0)
                         return log_error_errno(r, "personality() failed: %m");
 #endif
-        } else if (arg_architecture >= 0 && arg_architecture != native_architecture())
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Selected architecture '%s' not supported locally, refusing.",
-                                       architecture_to_string(arg_architecture));
+        } else if (!arg_quiet && arg_architecture >= 0 && arg_architecture != native_architecture())
+                log_notice("Selected architecture '%s' not supported natively on the local CPU, assuming "
+                           "invocation with qemu userspace emulator (or equivalent) in effect.",
+                           architecture_to_string(arg_architecture));
 
         r = setrlimit_closest_all((const struct rlimit *const*) arg_rlimit, &which_failed);
         if (r < 0)

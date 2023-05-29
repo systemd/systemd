@@ -115,6 +115,9 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
 void client_id_hash_func(const DHCPClientId *p, struct siphash *state);
 int client_id_compare_func(const DHCPClientId *a, const DHCPClientId *b);
 
+DHCPLease *dhcp_lease_free(DHCPLease *lease);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DHCPLease*, dhcp_lease_free);
+
 #define log_dhcp_server_errno(server, error, fmt, ...)          \
         log_interface_prefix_full_errno(                        \
                 "DHCPv4 server: ",                              \

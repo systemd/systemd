@@ -2306,7 +2306,7 @@ static EFI_STATUS initrd_prepare(
                         return EFI_OUT_OF_RESOURCES;
                 initrd = xrealloc(initrd, size, new_size);
 
-                err = handle->Read(handle, &read_size, initrd + size);
+                err = chunked_read(handle, &read_size, initrd + size);
                 if (err != EFI_SUCCESS)
                         return err;
 
@@ -2640,6 +2640,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
         bool menu = false;
 
         init_usec = time_usec();
+
+        /* Ask Shim to leave its protocol around, so that the stub can use it to validate PEs.
+         * By default, Shim uninstalls its protocol when calling StartImage(). */
+        shim_retain_protocol();
 
         err = BS->OpenProtocol(
                         image,

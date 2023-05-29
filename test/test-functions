@@ -214,6 +214,7 @@ BASICTOOLS=(
     script
     sed
     seq
+    setfacl
     setfattr
     setfont
     setpriv
@@ -300,8 +301,8 @@ IS_BUILT_WITH_ASAN=$(is_built_with_asan "$SYSTEMD_JOURNALD" && echo yes || echo 
 IS_BUILT_WITH_COVERAGE=$(is_built_with_coverage && echo yes || echo no)
 
 if get_bool "$IS_BUILT_WITH_ASAN"; then
+    PATH_TO_INIT="$ROOTLIBDIR/systemd-under-asan"
     SKIP_INITRD="${SKIP_INITRD:-yes}"
-    PATH_TO_INIT=$ROOTLIBDIR/systemd-under-asan
     QEMU_MEM="${QEMU_MEM:-2G}"
     QEMU_SMP="${QEMU_SMP:-4}"
 
@@ -475,6 +476,8 @@ run_qemu() {
         kernel_params+=("rd.hostonly=0")
     fi
 
+    # Debian/Ubuntu's initramfs tries to check if it can resume from hibernation
+    # and wastes a minute or so probing disks, skip that as it's not useful here
     kernel_params+=(
         "root=LABEL=systemd_boot"
         "rw"
@@ -486,6 +489,7 @@ run_qemu() {
         "SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-$1.units:/usr/lib/systemd/tests/testdata/units:"
         "systemd.unit=testsuite.target"
         "systemd.wants=testsuite-$1.service"
+        "noresume"
     )
 
     if ! get_bool "$INTERACTIVE_DEBUG"; then
@@ -846,88 +850,96 @@ EOF
 }
 
 create_asan_wrapper() {
-    local asan_wrapper="$initdir/$ROOTLIBDIR/systemd-under-asan"
-    dinfo "Create ASan wrapper as '$asan_wrapper'"
+    local asan_wrapper default_asan_options default_ubsan_options default_environment
 
     [[ -z "$ASAN_RT_PATH" ]] && dfatal "ASAN_RT_PATH is empty, but it shouldn't be"
 
-    # clang: install llvm-symbolizer to generate useful reports
-    # See: https://clang.llvm.org/docs/AddressSanitizer.html#symbolizing-the-reports
-    [[ "$ASAN_COMPILER" == "clang" ]] && image_install "llvm-symbolizer"
+    default_asan_options="${ASAN_OPTIONS:-strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1}"
+    default_ubsan_options="${UBSAN_OPTIONS:-print_stacktrace=1:print_summary=1:halt_on_error=1}"
 
-    cat >"$asan_wrapper" <<EOF
-#!/usr/bin/env bash
+    if [[ "$ASAN_COMPILER" == "clang" ]]; then
+        # clang: install llvm-symbolizer to generate useful reports
+        # See: https://clang.llvm.org/docs/AddressSanitizer.html#symbolizing-the-reports
+        image_install "llvm-symbolizer"
 
-set -x
+        # Let's add the ASan DSO's path to the dynamic linker's cache. This is pretty
+        # unnecessary for gcc & libasan, however, for clang this is crucial, as its
+        # runtime ASan DSO is in a non-standard (library) path.
+        mkdir -p "${initdir:?}/etc/ld.so.conf.d/"
+        echo "${ASAN_RT_PATH%/*}" >"${initdir:?}/etc/ld.so.conf.d/asan-path-override.conf"
+    fi
 
-echo "ASan RT: $ASAN_RT_PATH"
-if [[ ! -e "$ASAN_RT_PATH" ]]; then
-    echo >&2 "Couldn't find ASan RT at '$ASAN_RT_PATH', can't continue"
-    exit 1
-fi
-
-DEFAULT_ASAN_OPTIONS=${ASAN_OPTIONS:-strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1}
-DEFAULT_UBSAN_OPTIONS=${UBSAN_OPTIONS:-print_stacktrace=1:print_summary=1:halt_on_error=1}
-DEFAULT_ENVIRONMENT="ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS"
-
-# Create a simple environment file which can be included by systemd services
-# that need it (i.e. services that utilize DynamicUser=true and bash, etc.)
-cat >/usr/lib/systemd/systemd-asan-env <<INNER_EOF
+    # Create a simple environment file which can be included by systemd services
+    # that need it (i.e. services that utilize DynamicUser=true and bash, etc.)
+    cat >"${initdir:?}/usr/lib/systemd/systemd-asan-env" <<EOF
 LD_PRELOAD=$ASAN_RT_PATH
-ASAN_OPTIONS=$DEFAULT_ASAN_OPTIONS
+ASAN_OPTIONS=$default_asan_options
 LSAN_OPTIONS=detect_leaks=0
-UBSAN_OPTIONS=$DEFAULT_UBSAN_OPTIONS
-INNER_EOF
+UBSAN_OPTIONS=$default_ubsan_options
+EOF
 
-# As right now bash is the PID 1, we can't expect PATH to have a sane value.
-# Let's make one to prevent unexpected "<bin> not found" issues in the future
-export PATH="/sbin:/bin:/usr/sbin:/usr/bin"
+    default_environment=(
+        "ASAN_OPTIONS='$default_asan_options'"
+        "UBSAN_OPTIONS='$default_ubsan_options'"
+        "ASAN_RT_PATH='$ASAN_RT_PATH'"
+    )
 
-mount -t proc proc /proc
-mount -t sysfs sysfs /sys
-mount -o remount,rw /
+    mkdir -p "${initdir:?}/etc/systemd/system.conf.d/"
+    cat >"${initdir:?}/etc/systemd/system.conf.d/asan.conf" <<EOF
+[Manager]
+DefaultEnvironment=${default_environment[*]}
+ManagerEnvironment=${default_environment[*]}
+DefaultTimeoutStartSec=180s
+DefaultStandardOutput=journal+console
+EOF
 
-DEFAULT_ENVIRONMENT="\$DEFAULT_ENVIRONMENT ASAN_RT_PATH=$ASAN_RT_PATH"
+    # ASAN and syscall filters aren't compatible with each other.
+    find "${initdir:?}" -name '*.service' -type f -print0 | xargs -0 sed -i 's/^\(MemoryDeny\|SystemCall\)/#\1/'
 
-if [[ "$ASAN_COMPILER" == "clang" ]]; then
-  # Let's add the ASan DSO's path to the dynamic linker's cache. This is pretty
-  # unnecessary for gcc & libasan, however, for clang this is crucial, as its
-  # runtime ASan DSO is in a non-standard (library) path.
-  echo "${ASAN_RT_PATH%/*}" >/etc/ld.so.conf.d/asan-path-override.conf
-  ldconfig
-fi
-echo DefaultEnvironment=\$DEFAULT_ENVIRONMENT >>/etc/systemd/system.conf
-echo DefaultTimeoutStartSec=180s >>/etc/systemd/system.conf
-echo DefaultStandardOutput=journal+console >>/etc/systemd/system.conf
-
-# ASAN and syscall filters aren't compatible with each other.
-find / -name '*.service' -type f | xargs sed -i 's/^\\(MemoryDeny\\|SystemCall\\)/#\\1/'
-
+    mkdir -p "${initdir:?}/etc/systemd/system/systemd-journald.service.d/"
+    cat >"${initdir:?}/etc/systemd/system/systemd-journald.service.d/asan-env.conf" <<EOF
+[Service]
 # The redirection of ASAN reports to a file prevents them from ending up in /dev/null.
 # But, apparently, sometimes it doesn't work: https://github.com/google/sanitizers/issues/886.
-JOURNALD_CONF_DIR=/etc/systemd/system/systemd-journald.service.d
-mkdir -p "\$JOURNALD_CONF_DIR"
-printf "[Service]\nEnvironment=ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd-journald.asan.log UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS:log_path=/systemd-journald.ubsan.log\n" >"\$JOURNALD_CONF_DIR/env.conf"
+Environment=ASAN_OPTIONS=$default_asan_options:log_path=/systemd-journald.asan.log UBSAN_OPTIONS=$default_ubsan_options:log_path=/systemd-journald.ubsan.log
 
 # Sometimes UBSan sends its reports to stderr regardless of what is specified in log_path
 # Let's try to catch them by redirecting stderr (and stdout just in case) to a file
 # See https://github.com/systemd/systemd/pull/12524#issuecomment-491108821
-printf "[Service]\nStandardOutput=file:/systemd-journald.out\n" >"\$JOURNALD_CONF_DIR/out.conf"
-
-# 90s isn't enough for some services to finish when literally everything is run
-# under ASan+UBSan in containers, which, in turn, are run in VMs.
-# Let's limit which environments such services should be executed in.
-mkdir -p /etc/systemd/system/systemd-hwdb-update.service.d
-printf "[Unit]\nConditionVirtualization=container\n\n[Service]\nTimeoutSec=240s\n" >/etc/systemd/system/systemd-hwdb-update.service.d/env-override.conf
-
-# Let's override another hard-coded timeout that kicks in too early
-mkdir -p /etc/systemd/system/systemd-journal-flush.service.d
-printf "[Service]\nTimeoutSec=180s\n" >/etc/systemd/system/systemd-journal-flush.service.d/timeout.conf
-
-export ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd.asan.log UBSAN_OPTIONS=\$DEFAULT_UBSAN_OPTIONS
-exec "$ROOTLIBDIR/systemd" "\$@"
+StandardOutput=file:/systemd-journald.out
 EOF
 
+    # 90s isn't enough for some services to finish when literally everything is run
+    # under ASan+UBSan in containers, which, in turn, are run in VMs.
+    # Let's limit which environments such services should be executed in.
+    mkdir -p "${initdir:?}/etc/systemd/system/systemd-hwdb-update.service.d/"
+    cat >"${initdir:?}/etc/systemd/system/systemd-hwdb-update.service.d/asan.conf" <<EOF
+[Unit]
+ConditionVirtualization=container
+
+[Service]
+TimeoutSec=240s
+EOF
+
+    # Let's override another hard-coded timeout that kicks in too early
+    mkdir -p "${initdir:?}/etc/systemd/system/systemd-journal-flush.service.d/"
+    cat >"${initdir:?}/etc/systemd/system/systemd-journal-flush.service.d/asan.conf" <<EOF
+[Service]
+TimeoutSec=180s
+EOF
+
+    asan_wrapper="${initdir:?}/${PATH_TO_INIT:?}"
+    # Sanity check to make sure we don't overwrite something we shouldn't.
+    [[ "$asan_wrapper" =~ systemd-under-asan$ ]]
+
+    cat >"$asan_wrapper" <<EOF
+#!/usr/bin/env bash
+set -eux
+
+export ${default_environment[@]}
+[[ -n "\$ASAN_OPTIONS" && -n "\$UBSAN_OPTIONS" ]]
+exec "$ROOTLIBDIR/systemd" "\$@"
+EOF
     chmod 0755 "$asan_wrapper"
 }
 
@@ -958,17 +970,14 @@ install_fs_tools() {
 install_modules() {
     dinfo "Install modules"
 
-    instmods dummy vfat veth
+    instmods bridge dummy ipvlan macvlan vfat veth
     instmods loop =block
     instmods nls_ascii =nls
     instmods overlay =overlayfs
-    # for TEST-35-LOGIN
-    instmods scsi_debug uinput
+    instmods scsi_debug
 
     if get_bool "$LOOKS_LIKE_SUSE"; then
         instmods ext4
-        # for TEST-54-CREDS
-        instmods dmi-sysfs
     fi
 }
 
@@ -1509,8 +1518,8 @@ check_coverage_reports() {
         return 1
     fi
 
-    # Create a coverage report that will later be uploaded. Remove info about
-    # system libraries/headers, as we don't really care about them.
+    # Create a coverage report that will later be uploaded. Remove info about system
+    # libraries/headers and generated files, as we don't really care about them.
     lcov --directory "${root}/${BUILD_DIR:?}" --capture --output-file "${dest}.new"
     if [[ -f "$dest" ]]; then
         # If the destination report file already exists, don't overwrite it, but
@@ -1522,7 +1531,7 @@ check_coverage_reports() {
         # report we did during the setup phase (see test_setup()).
         lcov --add-tracefile "${TESTDIR:?}/coverage-base" --add-tracefile "${dest}.new" -o "${dest}"
     fi
-    lcov --remove "$dest" -o "$dest" '/usr/include/*' '/usr/lib/*'
+    lcov --remove "$dest" -o "$dest" '/usr/include/*' '/usr/lib/*' "${BUILD_DIR:?}/*"
     rm -f "${dest}.new"
 
     # If the test logs contain lines like:
@@ -2652,13 +2661,14 @@ inst_binary() {
 
     # Same as above, but we need to wrap certain libraries unconditionally
     #
-    # chown, getent, login, su, useradd, userdel - dlopen() (not only) systemd's PAM modules
+    # chown, getent, login, setfacl, su, useradd, userdel
+    #    - dlopen() (not only) systemd's PAM modules
     # ls, mkfs.*, mksquashfs, mkswap, setpriv, stat
-    #       - pull in nss_systemd with certain options (like ls -l) when
-    #         nsswitch.conf uses [SUCCESS=merge] (like on Arch Linux)
+    #   - pull in nss_systemd with certain options (like ls -l) when
+    #     nsswitch.conf uses [SUCCESS=merge] (like on Arch Linux)
     # delv, dig - pull in nss_resolve if `resolve` is in nsswitch.conf
     # tar - called by machinectl in TEST-25
-    bin_rx='/(chown|delv|dig|getent|login|ls|mkfs\.[a-z0-9]+|mksquashfs|mkswap|setpriv|stat|su|tar|useradd|userdel)$'
+    bin_rx='/(chown|delv|dig|getent|login|ls|mkfs\.[a-z0-9]+|mksquashfs|mkswap|setfacl|setpriv|stat|su|tar|useradd|userdel)$'
     if get_bool "$IS_BUILT_WITH_ASAN" && [[ "$bin" =~ $bin_rx ]]; then
         wrap_binary=1
     fi
