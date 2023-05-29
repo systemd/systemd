@@ -137,7 +137,7 @@ static int print_efi_option(uint16_t id, int *n_printed, bool in_order) {
         printf("       Status: %sactive%s\n", active ? "" : "in", in_order ? ", boot-order" : "");
         printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                SD_ID128_FORMAT_VAL(partition));
-        printf("         File: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), path);
+        printf("         File: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT, /* force_utf8= */ false), path);
         printf("\n");
 
         (*n_printed)++;
@@ -234,7 +234,7 @@ static int enumerate_binaries(
                                   * one more, and can draw the tree glyph properly. */
                         printf("         %s %s%s\n",
                                *is_first ? "File:" : "     ",
-                               special_glyph(SPECIAL_GLYPH_TREE_BRANCH), *previous);
+                               special_glyph(SPECIAL_GLYPH_TREE_BRANCH, /* force_utf8= */ false), *previous);
                         *is_first = false;
                         *previous = mfree(*previous);
                 }
@@ -287,7 +287,7 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
         if (last) /* let's output the last entry now, since now we know that there will be no more, and can draw the tree glyph properly */
                 printf("         %s %s%s\n",
                        is_first ? "File:" : "     ",
-                       special_glyph(SPECIAL_GLYPH_TREE_RIGHT), last);
+                       special_glyph(SPECIAL_GLYPH_TREE_RIGHT, /* force_utf8= */ false), last);
 
         if (r == 0 && !arg_quiet)
                 log_info("systemd-boot not installed in ESP.");
@@ -455,7 +455,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                                SD_ID128_FORMAT_VAL(loader_part_uuid));
                 else
                         printf("          ESP: n/a\n");
-                printf("         File: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), strna(loader_path));
+                printf("         File: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT, /* force_utf8= */ false), strna(loader_path));
                 printf("\n");
 
                 printf("%sRandom Seed:%s\n", ansi_underline(), ansi_normal());

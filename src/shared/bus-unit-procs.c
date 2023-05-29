@@ -187,7 +187,7 @@ static int dump_processes(
                         }
 
                         more = i+1 < n || cg->children;
-                        special = special_glyph(more ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT);
+                        special = special_glyph(more ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT, /* force_utf8= */ false);
 
                         fprintf(stdout, "%s%s%s%*"PID_PRI" %s%s\n",
                                 prefix,
@@ -224,14 +224,14 @@ static int dump_processes(
                         name++;
 
                         more = i+1 < n;
-                        special = special_glyph(more ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT);
+                        special = special_glyph(more ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT, /* force_utf8= */ false);
 
                         fputs(prefix, stdout);
                         fputs(special, stdout);
                         fputs(name, stdout);
                         fputc('\n', stdout);
 
-                        special = special_glyph(more ? SPECIAL_GLYPH_TREE_VERTICAL : SPECIAL_GLYPH_TREE_SPACE);
+                        special = special_glyph(more ? SPECIAL_GLYPH_TREE_VERTICAL : SPECIAL_GLYPH_TREE_SPACE, /* force_utf8= */ false);
 
                         pp = strjoin(prefix, special);
                         if (!pp)
@@ -313,7 +313,7 @@ static int dump_extra_processes(
 
                 fprintf(stdout, "%s%s %*" PID_PRI " %s\n",
                         prefix,
-                        special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET),
+                        special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET, /* force_utf8= */ false),
                         width, pids[k],
                         name);
         }

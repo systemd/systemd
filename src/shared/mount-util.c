@@ -716,7 +716,7 @@ int mount_verbose_full(
                           what, where, strnull(fl), strempty(o));
         else if (f & MS_MOVE)
                 log_debug("Moving mount %s %s %s (%s \"%s\")...",
-                          what, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), where, strnull(fl), strempty(o));
+                          what, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), where, strnull(fl), strempty(o));
         else
                 log_debug("Mounting %s (%s) on %s (%s \"%s\")...",
                           strna(what), strna(type), where, strnull(fl), strempty(o));

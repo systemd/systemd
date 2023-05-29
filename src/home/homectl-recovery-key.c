@@ -139,7 +139,7 @@ int identity_add_recovery_key(JsonVariant **v) {
         fprintf(stderr,
                 "A secret recovery key has been generated for this account:\n\n"
                 "    %s%s%s",
-                emoji_enabled() ? special_glyph(SPECIAL_GLYPH_LOCK_AND_KEY) : "",
+                emoji_enabled() ? special_glyph(SPECIAL_GLYPH_LOCK_AND_KEY, /* force_utf8= */ false) : "",
                 emoji_enabled() ? " " : "",
                 ansi_highlight());
         fflush(stderr);

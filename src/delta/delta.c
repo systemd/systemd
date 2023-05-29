@@ -92,7 +92,7 @@ static int notify_override_masked(const char *top, const char *bottom) {
 
         printf("%s%s%s     %s %s %s\n",
                ansi_highlight_red(), "[MASKED]", ansi_normal(),
-               top, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), bottom);
+               top, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), bottom);
         return 1;
 }
 
@@ -102,7 +102,7 @@ static int notify_override_equivalent(const char *top, const char *bottom) {
 
         printf("%s%s%s %s %s %s\n",
                ansi_highlight_green(), "[EQUIVALENT]", ansi_normal(),
-               top, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), bottom);
+               top, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), bottom);
         return 1;
 }
 
@@ -112,7 +112,7 @@ static int notify_override_redirected(const char *top, const char *bottom) {
 
         printf("%s%s%s %s %s %s\n",
                ansi_highlight(), "[REDIRECTED]", ansi_normal(),
-               top, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), bottom);
+               top, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), bottom);
         return 1;
 }
 
@@ -122,7 +122,7 @@ static int notify_override_overridden(const char *top, const char *bottom) {
 
         printf("%s%s%s %s %s %s\n",
                ansi_highlight(), "[OVERRIDDEN]", ansi_normal(),
-               top, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), bottom);
+               top, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), bottom);
         return 1;
 }
 
@@ -132,7 +132,7 @@ static int notify_override_extended(const char *top, const char *bottom) {
 
         printf("%s%s%s   %s %s %s\n",
                ansi_highlight(), "[EXTENDED]", ansi_normal(),
-               top, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), bottom);
+               top, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), bottom);
         return 1;
 }
 
@@ -236,7 +236,7 @@ static int enumerate_dir_d(
                         return -ENOMEM;
                 d = p + strlen(toppath) + 1;
 
-                log_debug("Adding at top: %s %s %s", d, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
+                log_debug("Adding at top: %s %s %s", d, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), p);
                 k = ordered_hashmap_put(top, d, p);
                 if (k >= 0) {
                         p = strdup(p);
@@ -248,7 +248,7 @@ static int enumerate_dir_d(
                         return k;
                 }
 
-                log_debug("Adding at bottom: %s %s %s", d, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
+                log_debug("Adding at bottom: %s %s %s", d, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), p);
                 free(ordered_hashmap_remove(bottom, d));
                 k = ordered_hashmap_put(bottom, d, p);
                 if (k < 0) {
@@ -272,7 +272,7 @@ static int enumerate_dir_d(
                         return -ENOMEM;
 
                 log_debug("Adding to drops: %s %s %s %s %s",
-                          unit, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), basename(p), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
+                          unit, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), basename(p), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), p);
                 k = ordered_hashmap_put(h, basename(p), p);
                 if (k < 0) {
                         free(p);
@@ -348,7 +348,7 @@ static int enumerate_dir(
                 if (!p)
                         return -ENOMEM;
 
-                log_debug("Adding at top: %s %s %s", basename(p), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
+                log_debug("Adding at top: %s %s %s", basename(p), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), p);
                 r = ordered_hashmap_put(top, basename(p), p);
                 if (r >= 0) {
                         p = strdup(p);
@@ -357,7 +357,7 @@ static int enumerate_dir(
                 } else if (r != -EEXIST)
                         return r;
 
-                log_debug("Adding at bottom: %s %s %s", basename(p), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), p);
+                log_debug("Adding at bottom: %s %s %s", basename(p), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), p);
                 free(ordered_hashmap_remove(bottom, basename(p)));
                 r = ordered_hashmap_put(bottom, basename(p), p);
                 if (r < 0)

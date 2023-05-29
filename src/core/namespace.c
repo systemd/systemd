@@ -1338,7 +1338,7 @@ static int follow_symlink(
                                        mount_entry_path(m));
 
         log_debug("Followed mount entry path symlink %s %s %s.",
-                  mount_entry_path(m), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), target);
+                  mount_entry_path(m), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), target);
 
         mount_entry_consume_prefix(m, TAKE_PTR(target));
 
@@ -1481,7 +1481,7 @@ static int apply_one_mount(
                         return log_debug_errno(r, "Failed to follow symlinks on %s: %m", mount_entry_source(m));
 
                 log_debug("Followed source symlinks %s %s %s.",
-                          mount_entry_source(m), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), chased);
+                          mount_entry_source(m), special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), chased);
 
                 free_and_replace(m->source_malloc, chased);
 

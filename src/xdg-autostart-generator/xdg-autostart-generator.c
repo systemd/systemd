@@ -44,7 +44,7 @@ static int enumerate_xdg_autostart(Hashmap *all_services) {
         STRV_FOREACH(path, autostart_dirs) {
                 _cleanup_closedir_ DIR *d = NULL;
 
-                log_debug("Scanning autostart directory \"%s\"%s", *path, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                log_debug("Scanning autostart directory \"%s\"%s", *path, special_glyph(SPECIAL_GLYPH_ELLIPSIS, /* force_utf8= */ false));
                 d = opendir(*path);
                 if (!d) {
                         log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,

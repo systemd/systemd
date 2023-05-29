@@ -430,7 +430,7 @@ _public_ int sd_event_new(sd_event** ret) {
 
         if (secure_getenv("SD_EVENT_PROFILE_DELAYS")) {
                 log_debug("Event loop profiling enabled. Logarithmic histogram of event loop iterations in the range 2^0 %s 2^63 us will be logged every 5s.",
-                          special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                          special_glyph(SPECIAL_GLYPH_ELLIPSIS, /* force_utf8= */ false));
                 e->profile_delays = true;
         }
 

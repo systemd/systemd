@@ -93,7 +93,7 @@ static int help(int argc, char *argv[], void *userdata) {
                ansi_normal(),
                ansi_highlight(),
                ansi_normal(),
-               special_glyph(SPECIAL_GLYPH_ARROW_RIGHT));
+               special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false));
 
         return 0;
 }

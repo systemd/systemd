@@ -1016,7 +1016,7 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         if (r > 0)
                 log_debug("Following CNAME/DNAME %s %s %s.",
                           dns_question_first_name(q->question_idna),
-                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false),
                           dns_question_first_name(nq_idna));
 
         k = dns_question_is_equal(q->question_idna, q->question_utf8);
@@ -1033,7 +1033,7 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
                 if (k > 0)
                         log_debug("Following UTF8 CNAME/DNAME %s %s %s.",
                                   dns_question_first_name(q->question_utf8),
-                                  special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                  special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false),
                                   dns_question_first_name(nq_utf8));
         }
 
