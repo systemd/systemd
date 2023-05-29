@@ -335,22 +335,6 @@ DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
         url="https://www.iab.org/documents/correspondence-reports-documents/2013-2/iab-statement-dotless-domains-considered-harmful/">IAB
         Statement</ulink>, and may create a privacy and security risk.</para></listitem>
       </varlistentry>
-      <varlistentry>
-        <term><varname>StaleRetentionSec=</varname></term>
-        <listitem><para>Takes a time duration value in seconds to enable the serve stale feature. The default setting is 0s. If the value is zero, the serve stale feature is disabled.
-        Use this service stale feature to enhance DNS resiliency in the customer's environment, protecting client applications from potential DNS infrastructure failures and outages.
-        <ulink url="https://datatracker.ietf.org/doc/html/rfc8767">RFC 8767</ulink></para>
-          
-        </para>If the value is greater than zero, <command>systemd-resolved</command> retains cache entries for a period equal to the value specified even after their TTL has expired, resulting in the stale records.
-        <command>systemd-resolved</command> use the stale records to answer the questions in the event of the DNS server failure (e.g., Timeout, SERVFAIL) except for NXDOMAIn and positive response from the upstream server.
-        </para>
-           <para>Examples:
-        <programlisting>StaleRetentionSec=0
-StaleRetentionSec=86400
-</programlisting>
-        </para>
-        </listitem>
-      </varlistentry>
     </variablelist>
   </refsect1>
 
