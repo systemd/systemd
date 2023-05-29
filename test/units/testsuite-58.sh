@@ -95,10 +95,11 @@ testcase_basic() {
     local defs imgs output
     local loop volume
 
-    defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.imsg.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod a+rx "$defs"
 
     # 1. create an empty image
 
@@ -118,21 +119,21 @@ last-lba: 2097118"
 
     # 2. Testing with root, root2, home, and swap
 
-    runas testuser tee "$defs/root.conf" <<EOF
+    tee "$defs/root.conf" <<EOF
 [Partition]
 Type=root
 EOF
 
     ln -s root.conf "$defs/root2.conf"
 
-    runas testuser tee "$defs/home.conf" <<EOF
+    tee "$defs/home.conf" <<EOF
 [Partition]
 Type=home
 Label=home-first
 Label=home-always-too-long-xxxxxxxxxxxxxx-%v
 EOF
 
-    runas testuser tee "$defs/swap.conf" <<EOF
+    tee "$defs/swap.conf" <<EOF
 [Partition]
 Type=swap
 SizeMaxBytes=64M
@@ -193,13 +194,13 @@ $imgs/zzz4 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5
 
     # 3. Testing with root, root2, home, swap, and another partition
 
-    runas testuser tee "$defs/swap.conf" <<EOF
+    tee "$defs/swap.conf" <<EOF
 [Partition]
 Type=swap
 SizeMaxBytes=64M
 EOF
 
-    runas testuser tee "$defs/extra.conf" <<EOF
+    tee "$defs/extra.conf" <<EOF
 [Partition]
 Type=linux-generic
 Label=custom_label
@@ -254,7 +255,7 @@ $imgs/zzz5 : start=     1908696, size=     2285568, type=0FC63DAF-8483-4772-8E79
 
     dd if=/dev/urandom of="$imgs/block-copy" bs=4096 count=10240
 
-    runas testuser tee "$defs/extra2.conf" <<EOF
+    tee "$defs/extra2.conf" <<EOF
 [Partition]
 Type=linux-generic
 Label=block-copy
@@ -287,7 +288,7 @@ $imgs/zzz6 : start=     4194264, size=     2097152, type=0FC63DAF-8483-4772-8E79
 
     # 6. Testing Format=/Encrypt=/CopyFiles=
 
-    runas testuser tee "$defs/extra3.conf" <<EOF
+    tee "$defs/extra3.conf" <<EOF
 [Partition]
 Type=linux-generic
 Label=luks-format-copy
@@ -297,6 +298,10 @@ Encrypt=yes
 CopyFiles=$defs:/def
 SizeMinBytes=48M
 EOF
+
+    # CopyFiles will fail if we try to chown the target file to root.
+    # Make the files owned by the user so that the invocation below works.
+    chown testuser -R "$defs"
 
     runas testuser systemd-repart --definitions="$defs" \
                                   --size=auto \
@@ -344,26 +349,27 @@ $imgs/zzz7 : start=     6291416, size=       98304, type=0FC63DAF-8483-4772-8E79
 testcase_dropin() {
     local defs imgs output
 
-    defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod a+rx "$defs"
 
-    runas testuser tee "$defs/root.conf" <<EOF
+    tee "$defs/root.conf" <<EOF
 [Partition]
 Type=swap
 SizeMaxBytes=64M
 UUID=837c3d67-21b3-478e-be82-7e7f83bf96d3
 EOF
 
-    runas testuser mkdir -p "$defs/root.conf.d"
-    runas testuser tee "$defs/root.conf.d/override1.conf" <<EOF
+    mkdir -p "$defs/root.conf.d"
+    tee "$defs/root.conf.d/override1.conf" <<EOF
 [Partition]
 Label=label1
 SizeMaxBytes=32M
 EOF
 
-    runas testuser tee "$defs/root.conf.d/override2.conf" <<EOF
+    tee "$defs/root.conf.d/override2.conf" <<EOF
 [Partition]
 Label=label2
 EOF
@@ -402,14 +408,14 @@ EOF
 testcase_multiple_definitions() {
     local defs imgs output
 
-    defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod a+rx "$defs"
 
-    runas testuser mkdir -p "$defs/1"
-
-    runas testuser tee "$defs/1/root1.conf" <<EOF
+    mkdir -p "$defs/1"
+    tee "$defs/1/root1.conf" <<EOF
 [Partition]
 Type=swap
 SizeMaxBytes=32M
@@ -417,9 +423,8 @@ UUID=7b93d1f2-595d-4ce3-b0b9-837fbd9e63b0
 Label=label1
 EOF
 
-    runas testuser mkdir -p "$defs/2"
-
-    runas testuser tee "$defs/2/root2.conf" <<EOF
+    mkdir -p "$defs/2"
+    tee "$defs/2/root2.conf" <<EOF
 [Partition]
 Type=swap
 SizeMaxBytes=32M
@@ -473,21 +478,22 @@ EOF
 testcase_copy_blocks() {
     local defs imgs output
 
-    defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod a+rx "$defs"
 
     # First, create a disk image and verify its in order
 
-    runas testuser tee "$defs/esp.conf" <<EOF
+    tee "$defs/esp.conf" <<EOF
 [Partition]
 Type=esp
 SizeMinBytes=10M
 Format=vfat
 EOF
 
-    runas testuser tee "$defs/usr.conf" <<EOF
+    tee "$defs/usr.conf" <<EOF
 [Partition]
 Type=usr-${architecture}
 SizeMinBytes=10M
@@ -495,7 +501,7 @@ Format=ext4
 ReadOnly=yes
 EOF
 
-    runas testuser tee "$defs/root.conf" <<EOF
+    tee "$defs/root.conf" <<EOF
 [Partition]
 Type=root-${architecture}
 SizeMinBytes=10M
@@ -522,20 +528,20 @@ EOF
 
     # Then, create another image with CopyBlocks=auto
 
-    runas testuser tee "$defs/esp.conf" <<EOF
+    tee "$defs/esp.conf" <<EOF
 [Partition]
 Type=esp
 CopyBlocks=auto
 EOF
 
-    runas testuser tee "$defs/usr.conf" <<EOF
+    tee "$defs/usr.conf" <<EOF
 [Partition]
 Type=usr-${architecture}
 ReadOnly=yes
 CopyBlocks=auto
 EOF
 
-    runas testuser tee "$defs/root.conf" <<EOF
+    tee "$defs/root.conf" <<EOF
 [Partition]
 Type=root-${architecture}
 CopyBlocks=auto
@@ -555,14 +561,15 @@ EOF
 testcase_unaligned_partition() {
     local defs imgs output
 
-    defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod a+rx "$defs"
 
     # Operate on an image with unaligned partition.
 
-    runas testuser tee "$defs/root.conf" <<EOF
+    tee "$defs/root.conf" <<EOF
 [Partition]
 Type=root-${architecture}
 EOF
@@ -592,12 +599,13 @@ testcase_issue_21817() {
 
     # testcase for #21817
 
-    defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod a+rx "$defs"
 
-    runas testuser tee "$defs/test.conf" <<EOF
+    tee "$defs/test.conf" <<EOF
 [Partition]
 Type=root
 EOF
@@ -628,19 +636,20 @@ testcase_issue_24553() {
 
     # testcase for #24553
 
-    defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod a+rx "$defs"
 
-    runas testuser tee "$defs/root.conf" <<EOF
+    tee "$defs/root.conf" <<EOF
 [Partition]
 Type=root
 SizeMinBytes=10G
 SizeMaxBytes=120G
 EOF
 
-    runas testuser tee "$imgs/partscript" <<EOF
+    tee "$imgs/partscript" <<EOF
 label: gpt
 label-id: C9FFE979-A415-C449-B729-78C7AA664B10
 unit: sectors
@@ -678,7 +687,7 @@ EOF
     assert_in "$imgs/zzz2 : start=      524328, size=    24641456, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\"" "$output"
 
     # 3. Multiple partitions with Priority= (small disk)
-    runas testuser tee "$defs/root.conf" <<EOF
+    tee "$defs/root.conf" <<EOF
 [Partition]
 Type=root
 SizeMinBytes=10G
@@ -686,7 +695,7 @@ SizeMaxBytes=120G
 Priority=100
 EOF
 
-    runas testuser tee "$defs/usr.conf" <<EOF
+    tee "$defs/usr.conf" <<EOF
 [Partition]
 Type=usr
 SizeMinBytes=10M
@@ -726,14 +735,15 @@ EOF
 testcase_zero_uuid() {
     local defs imgs output
 
-    defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod a+rx "$defs"
 
     # Test image with zero UUID.
 
-    runas testuser tee "$defs/root.conf" <<EOF
+    tee "$defs/root.conf" <<EOF
 [Partition]
 Type=root-${architecture}
 UUID=null
@@ -754,12 +764,13 @@ EOF
 testcase_verity() {
     local defs imgs output
 
-    defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod a+rx "$defs"
 
-    runas testuser tee "$defs/verity-data.conf" <<EOF
+    tee "$defs/verity-data.conf" <<EOF
 [Partition]
 Type=root-${architecture}
 CopyFiles=${defs}
@@ -768,7 +779,7 @@ VerityMatchKey=root
 Minimize=guess
 EOF
 
-    runas testuser tee "$defs/verity-hash.conf" <<EOF
+    tee "$defs/verity-hash.conf" <<EOF
 [Partition]
 Type=root-${architecture}-verity
 Verity=hash
@@ -776,7 +787,7 @@ VerityMatchKey=root
 Minimize=yes
 EOF
 
-    runas testuser tee "$defs/verity-sig.conf" <<EOF
+    tee "$defs/verity-sig.conf" <<EOF
 [Partition]
 Type=root-${architecture}-verity-sig
 Verity=signature
@@ -784,7 +795,7 @@ VerityMatchKey=root
 EOF
 
     # Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
-    runas testuser tee >"$defs/verity.openssl.cnf" <<EOF
+    tee >"$defs/verity.openssl.cnf" <<EOF
 [ req ]
 prompt = no
 distinguished_name = req_distinguished_name
@@ -799,16 +810,21 @@ CN = Common Name
 emailAddress = test@email.com
 EOF
 
-    runas testuser openssl req -config "$defs/verity.openssl.cnf" \
-                               -new -x509 \
-                               -newkey rsa:1024 \
-                               -keyout "$defs/verity.key" \
-                               -out "$defs/verity.crt" \
-                               -days 365 \
-                               -nodes
+    openssl req \
+            -config "$defs/verity.openssl.cnf" \
+            -new -x509 \
+            -newkey rsa:1024 \
+            -keyout "$defs/verity.key" \
+            -out "$defs/verity.crt" \
+            -days 365 \
+            -nodes
 
     mkdir -p /run/verity.d
     ln -s "$defs/verity.crt" /run/verity.d/ok.crt
+
+    # CopyFiles will fail if we try to chown the target file to root.
+    # Make the files owned by the user so that the invocation below works.
+    chown testuser -R "$defs"
 
     output=$(runas testuser systemd-repart --definitions="$defs" \
                                            --seed="$seed" \
@@ -843,39 +859,44 @@ EOF
 testcase_exclude_files() {
     local defs imgs root output
 
-    defs="$(runas testuser mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
-    root="$(runas testuser mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(runas testuser mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    root="$(runas testuser mktemp --directory "/var/tmp/test-repart.root.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs' '$root'" RETURN
+    chmod a+rx "$defs"
 
-    runas testuser touch "$root/abc"
-    runas testuser mkdir "$root/usr"
-    runas testuser touch "$root/usr/def"
-    runas testuser touch "$root/usr/qed"
-    runas testuser mkdir "$root/tmp"
-    runas testuser touch "$root/tmp/prs"
-    runas testuser mkdir "$root/proc"
-    runas testuser touch "$root/proc/prs"
-    runas testuser mkdir "$root/zzz"
-    runas testuser mkdir "$root/zzz/usr"
-    runas testuser touch "$root/zzz/usr/prs"
-    runas testuser mkdir "$root/zzz/proc"
-    runas testuser touch "$root/zzz/proc/prs"
+    touch "$root/abc"
+    mkdir "$root/usr"
+    touch "$root/usr/def"
+    touch "$root/usr/qed"
+    mkdir "$root/tmp"
+    touch "$root/tmp/prs"
+    mkdir "$root/proc"
+    touch "$root/proc/prs"
+    mkdir "$root/zzz"
+    mkdir "$root/zzz/usr"
+    touch "$root/zzz/usr/prs"
+    mkdir "$root/zzz/proc"
+    touch "$root/zzz/proc/prs"
 
-    runas testuser tee "$defs/00-root.conf" <<EOF
+    tee "$defs/00-root.conf" <<EOF
 [Partition]
 Type=root-${architecture}
 CopyFiles=/
 CopyFiles=/zzz:/
 EOF
 
-    runas testuser tee "$defs/10-usr.conf" <<EOF
+    tee "$defs/10-usr.conf" <<EOF
 [Partition]
 Type=usr-${architecture}
 CopyFiles=/usr:/
 ExcludeFiles=/usr/qed
 EOF
+
+    # CopyFiles will fail if we try to chown the target file to root.
+    # Make the files owned by the user so that the invocation below works.
+    chown testuser -R "$root"
 
     output=$(runas testuser systemd-repart --definitions="$defs" \
                                            --seed="$seed" \
@@ -933,8 +954,8 @@ testcase_minimize() {
         return
     fi
 
-    defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
@@ -987,8 +1008,8 @@ test_sector() {
         return
     fi
 
-    defs="$(mktemp --directory "/tmp/test-repart.XXXXXXXXXX")"
-    imgs="$(mktemp --directory "/var/tmp/test-repart.XXXXXXXXXX")"
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
 
