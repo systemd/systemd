@@ -15,6 +15,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "label.h"
 #include "log.h"
 #include "macro.h"
 #include "path-util.h"
@@ -287,4 +288,24 @@ int renameat_and_apply_smack_floor_label(int fdf, const char *from, int fdt, con
 #else
         return 0;
 #endif
+}
+
+static int mac_smack_label_pre(int dir_fd, const char *path, mode_t mode) {
+        return 0;
+}
+
+static int mac_smack_label_post(int dir_fd, const char *path) {
+        return mac_smack_fix_full(dir_fd, path, NULL, 0);
+}
+
+int mac_smack_init(void) {
+        static const LabelOps label_ops = {
+                .pre = mac_smack_label_pre,
+                .post = mac_smack_label_post,
+        };
+
+        if (!mac_smack_use())
+                return 0;
+
+        return label_ops_set(&label_ops);
 }
