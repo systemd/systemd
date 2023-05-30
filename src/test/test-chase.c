@@ -643,11 +643,6 @@ TEST(chaseat) {
         result = mfree(result);
 }
 
-static int intro(void) {
-        arg_test_dir = saved_argv[1];
-        return EXIT_SUCCESS;
-}
-
 TEST(chaseat_prefix_root) {
         _cleanup_free_ char *cwd = NULL, *ret = NULL, *expected = NULL;
 
@@ -683,6 +678,11 @@ TEST(chaseat_prefix_root) {
         assert_se(chaseat_prefix_root("./hoge/aaa/../././b", "a/b//./c///", &ret) >= 0);
         assert_se(expected = path_join(cwd, "a/b/c/hoge/aaa/../././b"));
         assert_se(streq(ret, expected));
+}
+
+static int intro(void) {
+        arg_test_dir = saved_argv[1];
+        return EXIT_SUCCESS;
 }
 
 DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);
