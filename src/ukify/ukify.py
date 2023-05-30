@@ -245,6 +245,7 @@ class Section:
         b'.uname' : 'text',
         b'.pcrpkey' : 'text',
         b'.pcrsig' : 'text',
+        b'.sbat' : 'text'
     }
     custom_out_file = {}
 
@@ -1366,7 +1367,7 @@ def finalize_build_options(opts):
             raise ValueError('--secureboot-private-key= and --secureboot-certificate= must be specified together when using --signtool=sbsign')
     else:
         if not bool(opts.sb_cert_name):
-            raise ValueError('--certificate-name must be specified when using --signtool=pesign')
+            raise ValueError('--secureboot-certificate-name must be specified when using --signtool=pesign')
 
     if opts.sign_kernel and not opts.sb_key and not opts.sb_cert_name:
         raise ValueError('--sign-kernel requires either --secureboot-private-key= and --secureboot-certificate= (for sbsign) or --secureboot-certificate-name= (for pesign) to be specified')
