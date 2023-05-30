@@ -168,12 +168,12 @@ const GptPartitionType gpt_partition_type_table[] = {
         { SD_GPT_USR_NATIVE_VERITY_SIG,  "usr-verity-sig",  native_architecture(), .designator = PARTITION_USR_VERITY_SIG  },
 #endif
 #ifdef SD_GPT_ROOT_SECONDARY
-        { SD_GPT_ROOT_NATIVE,            "root-secondary",            native_architecture(), .designator = PARTITION_ROOT            },
-        { SD_GPT_ROOT_NATIVE_VERITY,     "root-secondary-verity",     native_architecture(), .designator = PARTITION_ROOT_VERITY     },
-        { SD_GPT_ROOT_NATIVE_VERITY_SIG, "root-secondary-verity-sig", native_architecture(), .designator = PARTITION_ROOT_VERITY_SIG },
-        { SD_GPT_USR_NATIVE,             "usr-secondary",             native_architecture(), .designator = PARTITION_USR             },
-        { SD_GPT_USR_NATIVE_VERITY,      "usr-secondary-verity",      native_architecture(), .designator = PARTITION_USR_VERITY      },
-        { SD_GPT_USR_NATIVE_VERITY_SIG,  "usr-secondary-verity-sig",  native_architecture(), .designator = PARTITION_USR_VERITY_SIG  },
+        { SD_GPT_ROOT_SECONDARY,            "root-secondary",            ARCHITECTURE_SECONDARY, .designator = PARTITION_ROOT            },
+        { SD_GPT_ROOT_SECONDARY_VERITY,     "root-secondary-verity",     ARCHITECTURE_SECONDARY, .designator = PARTITION_ROOT_VERITY     },
+        { SD_GPT_ROOT_SECONDARY_VERITY_SIG, "root-secondary-verity-sig", ARCHITECTURE_SECONDARY, .designator = PARTITION_ROOT_VERITY_SIG },
+        { SD_GPT_USR_SECONDARY,             "usr-secondary",             ARCHITECTURE_SECONDARY, .designator = PARTITION_USR             },
+        { SD_GPT_USR_SECONDARY_VERITY,      "usr-secondary-verity",      ARCHITECTURE_SECONDARY, .designator = PARTITION_USR_VERITY      },
+        { SD_GPT_USR_SECONDARY_VERITY_SIG,  "usr-secondary-verity-sig",  ARCHITECTURE_SECONDARY, .designator = PARTITION_USR_VERITY_SIG  },
 #endif
 
         { SD_GPT_ESP,                    "esp",           _ARCHITECTURE_INVALID, .designator = PARTITION_ESP },
