@@ -243,10 +243,7 @@ static int enumerate_binaries(
                 /* Do not output this entry immediately, but store what should be printed in a state
                  * variable, because we only will know the tree glyph to print (branch or final edge) once we
                  * read one more entry */
-                if (r > 0)
-                        r = asprintf(previous, "/%s/%s (%s%s%s)", path, de->d_name, ansi_highlight(), v, ansi_normal());
-                else
-                        r = asprintf(previous, "/%s/%s", path, de->d_name);
+                r = asprintf(previous, "/%s/%s (%s%s%s)", path, de->d_name, ansi_highlight(), v, ansi_normal());
                 if (r < 0)
                         return log_oom();
 
