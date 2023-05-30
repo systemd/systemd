@@ -2172,6 +2172,8 @@ userspace = declare_dependency(
         link_args : userspace_c_ld_args,
 )
 
+man_page_depends = []
+
 ############################################################
 
 # binaries that have --help and are intended for use by humans,
