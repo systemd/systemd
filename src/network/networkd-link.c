@@ -462,6 +462,19 @@ void link_check_ready(Link *link) {
                 (!link->network->ipv6_accept_ra_use_autonomous_prefix ||
                  link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_NDISC));
 
+        /* If the uplink for PD is self, then request the corresponding DHCP protocol is also ready. */
+        if (dhcp_pd_ready && dhcp_pd_is_uplink(link, link, /* accept_auto = */ false)) {
+                if (link_dhcp4_enabled(link) && link->network->dhcp_use_6rd &&
+                    link->dhcp_lease && dhcp4_lease_has_pd_prefix(link->dhcp_lease) &&
+                    !dhcp4_ready)
+                        return (void) log_link_debug(link, "%s(): received prefix through DHCPv4-6rd. But DHCPv4 protocol is not finished yet.", __func__);
+
+                if (link_dhcp6_enabled(link) && link->network->dhcp6_use_pd_prefix &&
+                    link->dhcp6_lease && dhcp6_lease_has_pd_prefix(link->dhcp6_lease) &&
+                    !dhcp6_ready)
+                        return (void) log_link_debug(link, "%s(): received prefix through DHCPv6 IA_PD, but DHCPv6 protocol is not finished yet.", __func__);
+        }
+
         /* At least one dynamic addressing protocol is finished. */
         if (!ipv4ll_ready && !dhcp4_ready && !dhcp6_ready && !dhcp_pd_ready && !ndisc_ready)
                 return (void) log_link_debug(link, "%s(): dynamic addressing protocols are enabled but none of them finished yet.", __func__);
