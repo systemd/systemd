@@ -84,15 +84,17 @@
       existing partition of a specific type is then assigned the second configuration file declaring the same
       type, and so on. After this iterative assigning is complete any left-over existing partitions that have
       no matching configuration file are considered "foreign" and left as they are. And any configuration
-      files for which no partition currently exists are understood as a request to create such a
-      partition.</para></listitem>
+      files for which no partition currently exists are understood as a request to create such a partition.
+      </para></listitem>
 
-      <listitem><para>Taking the size constraints and weights declared in the configuration files into
-      account, all partitions that shall be created are now allocated to the disk, taking up all free space,
-      always respecting the size and padding requests. Similarly, existing partitions that should be grown
-      are grown. New partitions are always appended to the end of the partition table, taking the first
-      partition table slot whose index is greater than the indexes of all existing partitions. Partition
-      table slots are never reordered and thus partition numbers are ensured to remain stable. Note that this
+      <listitem><para>Partitions that shall be created are now allocated on the disk, taking the size
+      constraints and weights declared in the configuration files into account. Free space is used within the
+      limits set by size and padding requests. In addition, existing partitions that should be grown are
+      grown. New partitions are always appended to the end of the partition table, taking the first partition
+      table slot whose index is greater than the indexes of all existing partitions. Partitions are never
+      reordered and thus partition numbers remain stable. When partitions are created, they are placed in the
+      smallest area of free space that is large enough to satisfy the size and padding limits. This means
+      that partitions might have different order on disk than in the parition table. Note that this
       allocation happens in memory only, the partition table on disk is not updated yet.</para></listitem>
 
       <listitem><para>All existing partitions for which configuration files exist and which currently have no
