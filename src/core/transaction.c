@@ -1003,7 +1003,7 @@ int transaction_add_job_and_dependencies(
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
                                         if (r != -EBADR) /* job type not applicable */
-                                                return r;
+                                                goto fail;
 
                                         sd_bus_error_free(e);
                                 }
@@ -1025,7 +1025,7 @@ int transaction_add_job_and_dependencies(
                                 r = transaction_add_job_and_dependencies(tr, JOB_VERIFY_ACTIVE, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
                                         if (r != -EBADR) /* job type not applicable */
-                                                return r;
+                                                goto fail;
 
                                         sd_bus_error_free(e);
                                 }
@@ -1102,6 +1102,11 @@ int transaction_add_job_and_dependencies(
         }
 
         return 0;
+fail:
+        /* Recursive call failed to add required jobs so let's drop top level job as well. */
+        transaction_delete_job(tr, ret, false);
+        return r;
+
 }
 
 static bool shall_stop_on_isolate(Transaction *tr, Unit *u) {
