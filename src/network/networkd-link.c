@@ -436,47 +436,45 @@ void link_check_ready(Link *link) {
             !in6_addr_is_set(&link->ipv6ll_address))
                 return (void) log_link_debug(link, "%s(): IPv6LL is not configured yet.", __func__);
 
-        bool has_dynamic_address = false;
-        SET_FOREACH(a, link->addresses) {
-                if (address_is_marked(a))
-                        continue;
-                if (!address_exists(a))
-                        continue;
-                if (IN_SET(a->source,
-                           NETWORK_CONFIG_SOURCE_IPV4LL,
-                           NETWORK_CONFIG_SOURCE_DHCP4,
-                           NETWORK_CONFIG_SOURCE_DHCP6,
-                           NETWORK_CONFIG_SOURCE_DHCP_PD,
-                           NETWORK_CONFIG_SOURCE_NDISC)) {
-                        has_dynamic_address = true;
-                        break;
-                }
-        }
+        /* If no dynamic addressing protocol enabled, assume the interface is ready.
+         * Note, ignore NDisc when ConfigureWithoutCarrier= is enabled, as IPv6AcceptRA= is enabled by default. */
+        if (!link_ipv4ll_enabled(link) && !link_dhcp4_enabled(link) &&
+            !link_dhcp6_enabled(link) && !link_dhcp_pd_is_enabled(link) &&
+            (link->network->configure_without_carrier || !link_ipv6_accept_ra_enabled(link)))
+                goto ready;
 
-        if ((link_ipv4ll_enabled(link) || link_dhcp4_enabled(link) || link_dhcp6_with_address_enabled(link) ||
-             (link_dhcp_pd_is_enabled(link) && link->network->dhcp_pd_assign)) && !has_dynamic_address)
-                /* When DHCP[46] or IPv4LL is enabled, at least one address is acquired by them. */
-                return (void) log_link_debug(link, "%s(): DHCPv4, DHCPv6, DHCP-PD or IPv4LL is enabled but no dynamic address is assigned yet.", __func__);
+        bool ipv4ll_ready =
+                link_ipv4ll_enabled(link) && link->ipv4ll_address_configured &&
+                link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_IPV4LL);
+        bool dhcp4_ready =
+                link_dhcp4_enabled(link) && link->dhcp4_configured &&
+                link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_DHCP4);
+        bool dhcp6_ready =
+                link_dhcp6_enabled(link) && link->dhcp6_configured &&
+                (!link->network->dhcp6_use_address ||
+                 link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_DHCP6));
+        bool dhcp_pd_ready =
+                link_dhcp_pd_is_enabled(link) && link->dhcp_pd_configured &&
+                (!link->network->dhcp_pd_assign ||
+                 link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_DHCP_PD));
+        bool ndisc_ready =
+                link_ipv6_accept_ra_enabled(link) && link->ndisc_configured &&
+                (!link->network->ipv6_accept_ra_use_autonomous_prefix ||
+                 link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_NDISC));
 
-        /* Ignore NDisc when ConfigureWithoutCarrier= is enabled, as IPv6AcceptRA= is enabled by default. */
-        if (link_ipv4ll_enabled(link) || link_dhcp4_enabled(link) ||
-            link_dhcp6_enabled(link) || link_dhcp_pd_is_enabled(link) ||
-            (!link->network->configure_without_carrier && link_ipv6_accept_ra_enabled(link))) {
+        /* At least one dynamic addressing protocol is finished. */
+        if (!ipv4ll_ready && !dhcp4_ready && !dhcp6_ready && !dhcp_pd_ready && !ndisc_ready)
+                return (void) log_link_debug(link, "%s(): dynamic addressing protocols are enabled but none of them finished yet.", __func__);
 
-                if (!link->ipv4ll_address_configured && !link->dhcp4_configured &&
-                    !link->dhcp6_configured && !link->dhcp_pd_configured && !link->ndisc_configured)
-                        /* When DHCP[46], NDisc, or IPv4LL is enabled, at least one protocol must be finished. */
-                        return (void) log_link_debug(link, "%s(): dynamic addresses or routes are not configured.", __func__);
+        log_link_debug(link, "%s(): IPv4LL:%s DHCPv4:%s DHCPv6:%s DHCP-PD:%s NDisc:%s",
+                       __func__,
+                       yes_no(ipv4ll_ready),
+                       yes_no(dhcp4_ready),
+                       yes_no(dhcp6_ready),
+                       yes_no(dhcp_pd_ready),
+                       yes_no(ndisc_ready));
 
-                log_link_debug(link, "%s(): IPv4LL:%s DHCPv4:%s DHCPv6:%s DHCP-PD:%s NDisc:%s",
-                               __func__,
-                               yes_no(link->ipv4ll_address_configured),
-                               yes_no(link->dhcp4_configured),
-                               yes_no(link->dhcp6_configured),
-                               yes_no(link->dhcp_pd_configured),
-                               yes_no(link->ndisc_configured));
-        }
-
+ready:
         link_set_state(link, LINK_STATE_CONFIGURED);
 }
 
