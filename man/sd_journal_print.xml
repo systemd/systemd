@@ -197,10 +197,11 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
     <function>sd_journal_sendv_with_location()</function>, and
     <function>sd_journal_perror_with_location()</function> are similar to their counterparts without
     <literal>_with_location</literal>, but accept additional parameters to explicitly set the source file
-    name, function, and line. Those arguments must contain valid journal entries including the variable name,
-    e.g. <literal>CODE_FILE=src/foo.c</literal>, <literal>CODE_LINE=666</literal>,
-    <literal>CODE_FUNC=myfunc</literal>. These variants are primarily useful when writing custom wrappers,
-    for example in bindings for a different language.</para>
+    name, function, and line. The arguments <literal>file</literal> and <literal>line</literal> must contain valid
+    journal entries including the variable name, e.g. <literal>CODE_FILE=src/foo.c</literal> and
+    <literal>CODE_LINE=666</literal>, while <literal>func</literal> must only contain the function name, i.e. the value
+    without <literal>CODE_FUNC=</literal>. These variants are primarily useful when writing custom wrappers, for
+    example in bindings for a different language.</para>
 
     <para><citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     and <function>sd_journal_print()</function> may
