@@ -28,18 +28,19 @@ int writer_new(RemoteServer *server, Writer **ret) {
         assert(server);
         assert(ret);
 
-        w = new0(Writer, 1);
+        w = new(Writer, 1);
         if (!w)
                 return -ENOMEM;
 
-        w->n_ref = 1;
-        w->metrics = server->metrics;
+        *w = (Writer) {
+                .n_ref = 1,
+                .metrics = server->metrics,
+                .server = server,
+        };
 
         w->mmap = mmap_cache_new();
         if (!w->mmap)
                 return -ENOMEM;
-
-        w->server = server;
 
         if (is_dir(server->output, /* follow = */ true) > 0) {
                 w->output = strdup(server->output);
