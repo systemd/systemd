@@ -344,7 +344,7 @@ static int config_parse_resource_ptype(
 
         assert(rvalue);
 
-        r = gpt_partition_type_from_string(rvalue, &rr->partition_type);
+        r = gpt_partition_type_from_string(rvalue, native_architecture(), &rr->partition_type);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed parse partition type, ignoring: %s", rvalue);
