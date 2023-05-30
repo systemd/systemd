@@ -26,30 +26,33 @@
   <refsect1>
     <title>Description</title>
 
-    <para>A unit configuration file whose name ends in
-    <literal>.target</literal> encodes information about a target unit
-    of systemd, which is used for grouping units and as well-known
-    synchronization points during start-up.</para>
+    <para>A unit configuration file whose name ends in <literal>.target</literal> encodes information about a
+    target unit of systemd. Target units are used to group units and to set synchronization points for
+    ordering dependencies with other unit files.</para>
 
     <para>This unit type has no specific options. See
-    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for the common options of all unit configuration files. The common
-    configuration items are configured in the generic [Unit] and
-    [Install] sections. A separate [Target] section does not exist,
-    since no target-specific options may be configured.</para>
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for the
+    common options of all unit configuration files. The common configuration items are configured in the
+    generic [Unit] and [Install] sections. A separate [Target] section does not exist, since no
+    target-specific options may be configured.</para>
 
-    <para>Target units do not offer any additional functionality on
-    top of the generic functionality provided by units. They exist
-    merely to group units via dependencies (useful as boot targets),
-    and to establish standardized names for synchronization points
-    used in dependencies between units. Among other things, target
-    units are a more flexible replacement for SysV runlevels in the
-    classic SysV init system. (And for compatibility reasons special
-    target units such as <filename>runlevel3.target</filename> exist
-    which are used by the SysV runlevel compatibility code in systemd.
-    See
-    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-    for details).</para>
+    <para>Target units do not offer any additional functionality on top of the generic functionality provided
+    by units. They merely group units, allowing a single target name to be used in <varname>Wants=</varname>
+    and <varname>Requires=</varname> settings to establish a dependency on a set of units defined by the
+    target, and in <varname>Before=</varname> and <varname>After=</varname> settings to establish ordering.
+    Targets establish standardized names for synchronization points during boot and shutdown. Importantly,
+    see <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    for examples and descriptions of standard systemd targets.</para>
+
+    <para>Target units provide a more flexible replacement for SysV runlevels in the classic SysV init
+    system. For compatibility reasons special target units such as <filename>runlevel3.target</filename>
+    exist which are used by the SysV runlevel compatibility code in systemd, see
+    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+    details.</para>
+
+    <para>Note that a target unit file must not be empty, lest it be considered a masked unit. It is
+    recommended to provide a [Unit] section which includes informative <varname>Description=</varname> and
+    <varname>Documentation=</varname> options.</para>
   </refsect1>
 
   <refsect1>
@@ -68,14 +71,18 @@
       <varname>DefaultDependencies=no</varname> is set:</para>
 
       <itemizedlist>
-        <listitem><para>Target units will automatically complement all
-        configured dependencies of type <varname>Wants=</varname> or
-        <varname>Requires=</varname> with dependencies of type
-        <varname>After=</varname> unless <varname>DefaultDependencies=no</varname>
-        is set in the specified units. Note that <varname>Wants=</varname> or
-        <varname>Requires=</varname> must be defined in the target unit itself — if
-        you for example define <varname>Wants=</varname>some.target in
-        some.service, the automatic ordering will not be added.</para></listitem>
+        <listitem><para>Target units will automatically complement all configured dependencies of type
+        <varname>Wants=</varname> or <varname>Requires=</varname> with dependencies of type
+        <varname>After=</varname> unless <varname>DefaultDependencies=no</varname> is set in the specified
+        units.</para>
+
+        <para>Note that the reverse is not true. For example, defining <option>Wants=that.target</option> in
+        <filename index='false'>some.service</filename> will not automatically add the
+        <option>After=that.target</option> ordering dependency for <filename>some.service</filename>.
+        Instead, <filename>some.service</filename> should use the primary synchronization function of target
+        type units, by setting a specific <option>After=that.target</option> or
+        <option>Before=that.target</option> ordering dependency in its .service unit file.
+        </para></listitem>
 
         <listitem><para>Target units automatically gain <varname>Conflicts=</varname>
         and <varname>Before=</varname> dependencies against
