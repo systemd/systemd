@@ -1000,8 +1000,14 @@ int transaction_add_job_and_dependencies(
                         UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PULL_IN_START) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, true, false, false, ignore_order, e);
                                 if (r < 0) {
-                                        if (r != -EBADR) /* job type not applicable */
+                                        if (r != -EBADR) { /* job type not applicable */
+                                                log_unit_error_errno(unit, r, "Cannot add dependency job: %s", bus_error_message(e, r));
+
+                                                /* Recursive call failed adding required jobs so let's drop top level job as well. */
+                                                transaction_delete_job(tr, ret, false);
+
                                                 return r;
+                                        }
 
                                         sd_bus_error_free(e);
                                 }
