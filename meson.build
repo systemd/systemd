@@ -1136,6 +1136,7 @@ else
         elif bpf_compiler == 'gcc'
                 warning('GCC BPF Compiler support is experimental and not recommended.')
                 bpf_gcc = find_program('bpf-gcc',
+                                       'bpf-none-gcc',
                                        required : true,
                                        version : '>= 12.1.0')
                 bpf_gcc_found = bpf_gcc.found()
