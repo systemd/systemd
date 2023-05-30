@@ -737,7 +737,7 @@ $ systemd-analyze verify /tmp/source
 Failed to prepare filename /tmp/source: Invalid argument
 
 $ systemd-analyze verify /tmp/source:alias.service
-/tmp/systemd-analyze-XXXXXX/alias.service:7: Unknown key name 'MysteryKey' in section 'Service', ignoring.
+alias.service:7: Unknown key name 'MysteryKey' in section 'Service', ignoring.
         </programlisting>
       </example>
 
@@ -797,9 +797,10 @@ $ systemd-analyze verify /tmp/source:alias.service
       Packaging Metadata</ulink> documentation for more information.</para>
 
       <example>
-        <title>Table output</title>
+        <title>Print information about a core file as JSON</title>
 
-        <programlisting>$ systemd-analyze inspect-elf --json=pretty /tmp/core.fsverity.1000.f77dac5dc161402aa44e15b7dd9dcf97.58561.1637106137000000
+        <programlisting>$ systemd-analyze inspect-elf --json=pretty \
+        core.fsverity.1000.f77dac5dc161402aa44e15b7dd9dcf97.58561.1637106137000000
 {
         "elfType" : "coredump",
         "elfArchitecture" : "AMD x86-64",
