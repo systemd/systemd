@@ -60,7 +60,7 @@ extern const GptPartitionType gpt_partition_type_table[];
 int gpt_partition_label_valid(const char *s);
 
 GptPartitionType gpt_partition_type_from_uuid(sd_id128_t id);
-int gpt_partition_type_from_string(const char *s, GptPartitionType *ret);
+int gpt_partition_type_from_string(const char *s, Architecture arch, GptPartitionType *ret);
 
 const char *gpt_partition_type_mountpoint_nulstr(GptPartitionType type);
 
