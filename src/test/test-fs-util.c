@@ -740,7 +740,7 @@ TEST(xopenat_lock) {
          * little and assume that's enough time for the child process to get along far enough. It doesn't
          * matter if it doesn't get far enough, in that case we just won't trigger the fallback logic in
          * xopenat_lock(), but the test will still succeed. */
-        assert_se(usleep(20 * USEC_PER_MSEC) >= 0);
+        assert_se(usleep_safe(20 * USEC_PER_MSEC) >= 0);
 
         assert_se(unlinkat(tfd, "abc", AT_REMOVEDIR) >= 0);
         fd = safe_close(fd);

@@ -1962,7 +1962,7 @@ static int run(int argc, char *argv[]) {
                         end = start + BAD_PASSWORD_DELAY_USEC;
 
                 if (n < end)
-                        (void) usleep(usec_sub_unsigned(end, n));
+                        (void) usleep_safe(usec_sub_unsigned(end, n));
         }
         if (r < 0)
                 return r;
