@@ -398,6 +398,32 @@
         disks that use a different sector size as the disk on which the image is produced.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--architecture=</option><arg>ARCH</arg></term>
+
+        <listitem><para>This option allows overriding the architecture used for architecture independent
+        partition type names such as <literal>root</literal> or <literal>usr</literal>. By default these are
+        resolved to the native architecture but this can be overridden using this option. Takes one of
+        <literal>alpha</literal>,
+        <literal>arc</literal>,
+        <literal>arm</literal>,
+        <literal>arm64</literal>,
+        <literal>ia64</literal>,
+        <literal>mips-le</literal>,
+        <literal>mips64-le</literal>,
+        <literal>parisc</literal>,
+        <literal>ppc</literal>,
+        <literal>ppc64</literal>,
+        <literal>ppc64-le</literal>,
+        <literal>riscv32</literal>,
+        <literal>riscv64</literal>,
+        <literal>s390</literal>,
+        <literal>s390x</literal>,
+        <literal>tilegx</literal>,
+        <literal>x86</literal> or
+        <literal>x86-64</literal>.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />

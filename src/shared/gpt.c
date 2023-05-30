@@ -159,14 +159,6 @@ const GptPartitionType gpt_partition_type_table[] = {
         _GPT_ARCH_SEXTET(X86_64,      "x86-64"),
         _GPT_ARCH_SEXTET(X86_64,      "x86_64"), /* Alias: must be listed after x86-64 */
         _GPT_ARCH_SEXTET(X86_64,      "amd64"), /* Alias: must be listed after x86-64 */
-#ifdef SD_GPT_ROOT_NATIVE
-        { SD_GPT_ROOT_NATIVE,            "root",            native_architecture(), .designator = PARTITION_ROOT            },
-        { SD_GPT_ROOT_NATIVE_VERITY,     "root-verity",     native_architecture(), .designator = PARTITION_ROOT_VERITY     },
-        { SD_GPT_ROOT_NATIVE_VERITY_SIG, "root-verity-sig", native_architecture(), .designator = PARTITION_ROOT_VERITY_SIG },
-        { SD_GPT_USR_NATIVE,             "usr",             native_architecture(), .designator = PARTITION_USR             },
-        { SD_GPT_USR_NATIVE_VERITY,      "usr-verity",      native_architecture(), .designator = PARTITION_USR_VERITY      },
-        { SD_GPT_USR_NATIVE_VERITY_SIG,  "usr-verity-sig",  native_architecture(), .designator = PARTITION_USR_VERITY_SIG  },
-#endif
 #ifdef SD_GPT_ROOT_SECONDARY
         { SD_GPT_ROOT_NATIVE,            "root-secondary",            native_architecture(), .designator = PARTITION_ROOT            },
         { SD_GPT_ROOT_NATIVE_VERITY,     "root-secondary-verity",     native_architecture(), .designator = PARTITION_ROOT_VERITY     },
@@ -222,18 +214,34 @@ const char *gpt_partition_type_uuid_to_string_harder(
         return sd_id128_to_uuid_string(id, buffer);
 }
 
-int gpt_partition_type_from_string(const char *s, GptPartitionType *ret) {
+int gpt_partition_type_from_string(const char *s, Architecture arch, GptPartitionType *ret) {
         sd_id128_t id = SD_ID128_NULL;
+        PartitionDesignator d;
         int r;
 
         assert(s);
+        assert(arch >= 0);
+
+        /* We don't return immediately when we find a match, instead we re-resolve by UUID so that we can
+         * support aliases like aarch64 -> arm64 transparently. */
 
         for (size_t i = 0; i < ELEMENTSOF(gpt_partition_type_table) - 1; i++)
                 if (streq(s, gpt_partition_type_table[i].name)) {
-                        /* Don't return immediately, instead re-resolve by UUID so that we can support
-                        * aliases like aarch64 -> arm64 transparently. */
                         id = gpt_partition_type_table[i].uuid;
                         break;
+                }
+
+        /* If we can't find a matching name, fall back to parsing the name as a partition designator and
+         * matching against the partition designator + architecture. */
+
+        if (sd_id128_is_null(id) && (d = partition_designator_from_string(s)) != _PARTITION_DESIGNATOR_INVALID)
+                for (size_t i = 0; i < ELEMENTSOF(gpt_partition_type_table) - 1; i++) {
+                        const GptPartitionType *t = gpt_partition_type_table + i;
+
+                        if (t->designator == d && t->arch == arch) {
+                                id = gpt_partition_type_table[i].uuid;
+                                break;
+                        }
                 }
 
         if (sd_id128_is_null(id)) {

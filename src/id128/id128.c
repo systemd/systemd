@@ -125,7 +125,7 @@ static int verb_show(int argc, char **argv, void *userdata) {
                         else {
                                 GptPartitionType type;
 
-                                r = gpt_partition_type_from_string(*p, &type);
+                                r = gpt_partition_type_from_string(*p, native_architecture(), &type);
                                 if (r < 0)
                                         return log_error_errno(r, "Unknown identifier \"%s\".", *p);
 
