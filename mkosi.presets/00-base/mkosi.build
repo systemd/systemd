@@ -208,6 +208,6 @@ elif [ -d "${DESTDIR}/efi/loader" ]; then
 fi
 if [ -n "${addons_dir}" ]; then
     mkdir -p "${addons_dir}"
-    ukify --secureboot-private-key mkosi.secure-boot.key --secureboot-certificate mkosi.secure-boot.crt --cmdline this_should_be_here -o "${addons_dir}/good.addon.efi"
-    ukify --cmdline this_should_not_be_here -o "${addons_dir}/bad.addon.efi"
+    ukify create --secureboot-private-key mkosi.secure-boot.key --secureboot-certificate mkosi.secure-boot.crt --cmdline this_should_be_here -o "${addons_dir}/good.addon.efi"
+    ukify create --cmdline this_should_not_be_here -o "${addons_dir}/bad.addon.efi"
 fi
