@@ -304,10 +304,13 @@ Timestamp units-load-finish: Thu 2019-03-14 23:28:07 CET
       <title><command>systemd-analyze malloc [<replaceable>D-Bus service</replaceable>…]</command></title>
 
       <para>This command can be used to request the output of the internal memory state (as returned by
-      <citerefentry><refentrytitle>malloc_info</refentrytitle><manvolnum>3</manvolnum></citerefentry>) of
-      a D-Bus service implementing this pattern. If no service is specified, the command will be sent to
+      <citerefentry project='man-pages'><refentrytitle>malloc_info</refentrytitle><manvolnum>3</manvolnum></citerefentry>)
+      of a D-Bus service. If no service is specified, the query will be sent to
       <filename>org.freedesktop.systemd1</filename> (the system or user service manager). The output format
-      is subject to change without notice and should not be parsed by applications.</para>
+      is not guaranteed to be stable and should not be parsed by applications.</para>
+
+      <para>The service must implement the <filename>org.freedesktop.MemoryAllocation1</filename> interface.
+      In the systemd suite, it is currently only implemented by the manager.</para>
     </refsect2>
 
     <refsect2>
