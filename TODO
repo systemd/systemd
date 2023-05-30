@@ -1920,6 +1920,8 @@ Features:
 * dbus: when a unit failed to load (i.e. is in UNIT_ERROR state), we
   should be able to safely try another attempt when the bus call LoadUnit() is invoked.
 
+* document org.freedesktop.MemoryAllocation1
+
 * maybe do not install getty@tty1.service symlink in /etc but in /usr?
 
 * print a nicer explanation if people use variable/specifier expansion in ExecStart= for the first word
