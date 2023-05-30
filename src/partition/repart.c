@@ -1176,7 +1176,7 @@ static int config_parse_type(
 
         assert(rvalue);
 
-        r = gpt_partition_type_from_string(rvalue, type);
+        r = gpt_partition_type_from_string(rvalue, native_architecture(), type);
         if (r < 0)
                 return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse partition type: %s", rvalue);
 
@@ -5782,7 +5782,7 @@ static int parse_partition_types(const char *p, sd_id128_t **partitions, size_t 
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract partition type identifier or GUID: %s", p);
 
-                r = gpt_partition_type_from_string(name, &type);
+                r = gpt_partition_type_from_string(name, native_architecture(), &type);
                 if (r < 0)
                         return log_error_errno(r, "'%s' is not a valid partition type identifier or GUID", name);
 

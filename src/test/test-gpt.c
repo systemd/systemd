@@ -25,7 +25,7 @@ TEST(gpt_types_against_architectures) {
                                 if (!joined)
                                         return (void) log_oom();
 
-                                r = gpt_partition_type_from_string(joined, &type);
+                                r = gpt_partition_type_from_string(joined, native_architecture(), &type);
                                 if (r < 0) {
                                         printf("%s %s\n", RED_CROSS_MARK(), joined);
                                         continue;
@@ -71,14 +71,33 @@ TEST(type_alias_same) {
         for (const GptPartitionType *t = gpt_partition_type_table; t->name; t++) {
                 GptPartitionType x, y;
 
-                x = gpt_partition_type_from_uuid(t->uuid);                   /* search first by uuid */
-                assert_se(gpt_partition_type_from_string(t->name, &y) >= 0); /* search first by name */
+                x = gpt_partition_type_from_uuid(t->uuid); /* search first by uuid */
+                assert_se(gpt_partition_type_from_string(t->name, native_architecture(), &y) >= 0); /* search first by name */
 
                 assert_se(t->arch == x.arch);
                 assert_se(t->arch == y.arch);
                 assert_se(t->designator == x.designator);
                 assert_se(t->designator == y.designator);
         }
+}
+
+TEST(architecture_override) {
+        /* Check that overriding the partition when the generic partition type names are used works. */
+
+        GptPartitionType x;
+
+        assert_se(gpt_partition_type_from_string("root-x86-64-verity-sig", ARCHITECTURE_X86_64, &x) >= 0);
+        assert_se(x.arch == ARCHITECTURE_X86_64);
+        assert_se(gpt_partition_type_from_string("root-x86-64-verity-sig", ARCHITECTURE_ARM64, &x) >= 0);
+        assert_se(x.arch == ARCHITECTURE_X86_64);
+        assert_se(gpt_partition_type_from_string("root-verity-sig", ARCHITECTURE_X86_64, &x) >= 0);
+        assert_se(x.arch == ARCHITECTURE_X86_64);
+        assert_se(gpt_partition_type_from_string("root-verity-sig", ARCHITECTURE_ARM64, &x) >= 0);
+        assert_se(x.arch == ARCHITECTURE_ARM64);
+        assert_se(gpt_partition_type_from_string("esp", ARCHITECTURE_X86_64, &x) >= 0);
+        assert_se(x.arch == _ARCHITECTURE_INVALID);
+        assert_se(gpt_partition_type_from_string("root-secondary", ARCHITECTURE_ARM64, &x) >= 0);
+        assert_se(x.arch == ARCHITECTURE_ARM);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
