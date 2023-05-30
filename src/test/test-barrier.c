@@ -34,9 +34,9 @@ static void set_alarm(usec_t usecs) {
 }
 
 static void sleep_for(usec_t usecs) {
-        /* stupid usleep() might fail if >1000000 */
+        /* stupid usleep_safe() might fail if >1000000 */
         assert_se(usecs < USEC_PER_SEC);
-        usleep(usecs);
+        (void) usleep_safe(usecs);
 }
 
 #define TEST_BARRIER(_FUNCTION, _CHILD_CODE, _WAIT_CHILD, _PARENT_CODE, _WAIT_PARENT)  \
@@ -379,7 +379,7 @@ TEST_BARRIER(barrier_exit,
 /*
  * Test child exit with sleep
  * Same as test_barrier_exit but verifies the test really works due to the
- * child-exit. We add a usleep() which triggers the alarm in the parent and
+ * child-exit. We add a usleep_safe() which triggers the alarm in the parent and
  * causes the test to time out.
  */
 TEST_BARRIER(barrier_no_exit,
