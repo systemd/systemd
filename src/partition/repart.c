@@ -151,6 +151,7 @@ static sd_id128_t *arg_defer_partitions = NULL;
 static size_t arg_n_defer_partitions = 0;
 static uint64_t arg_sector_size = 0;
 static ImagePolicy *arg_image_policy = NULL;
+static Architecture arg_architecture = native_architecture();
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -1176,7 +1177,7 @@ static int config_parse_type(
 
         assert(rvalue);
 
-        r = gpt_partition_type_from_string(rvalue, type);
+        r = gpt_partition_type_from_string(rvalue, arg_architecture, type);
         if (r < 0)
                 return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse partition type: %s", rvalue);
 
@@ -5782,7 +5783,7 @@ static int parse_partition_types(const char *p, sd_id128_t **partitions, size_t 
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract partition type identifier or GUID: %s", p);
 
-                r = gpt_partition_type_from_string(name, &type);
+                r = gpt_partition_type_from_string(name, arg_architecture, &type);
                 if (r < 0)
                         return log_error_errno(r, "'%s' is not a valid partition type identifier or GUID", name);
 
@@ -5847,6 +5848,7 @@ static int help(void) {
                "                          Take partitions of the specified types into account\n"
                "                          but don't populate them yet\n"
                "     --sector-size=SIZE   Set the logical sector size for the image\n"
+               "     --architecture=ARCH  Set the generic architecture for the image\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -5888,6 +5890,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DEFER_PARTITIONS,
                 ARG_SECTOR_SIZE,
                 ARG_SKIP_PARTITIONS,
+                ARG_ARCHITECTURE,
         };
 
         static const struct option options[] = {
@@ -5920,6 +5923,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "exclude-partitions",   required_argument, NULL, ARG_EXCLUDE_PARTITIONS   },
                 { "defer-partitions",     required_argument, NULL, ARG_DEFER_PARTITIONS     },
                 { "sector-size",          required_argument, NULL, ARG_SECTOR_SIZE          },
+                { "architecture",         required_argument, NULL, ARG_ARCHITECTURE         },
                 {}
         };
 
@@ -6218,6 +6222,20 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
+                        break;
+
+                case ARG_ARCHITECTURE:
+                        /* Parsing of these options depends on the specified architecture so enforce that
+                         * --architecture is parsed before these. */
+                        if (arg_n_filter_partitions > 0 || arg_n_defer_partitions > 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "--architecture must be specified before --include-partitions/--exclude-partitions/--defer-partitions");
+
+                        r = architecture_from_string(optarg);
+                        if (r < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid architecture '%s'", optarg);
+
+                        arg_architecture = r;
                         break;
 
                 case '?':

@@ -117,13 +117,19 @@ static const char *const partition_mountpoint_table[_PARTITION_DESIGNATOR_MAX] =
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(partition_mountpoint, PartitionDesignator);
 
-#define _GPT_ARCH_SEXTET(arch, name)                                   \
-        { SD_GPT_ROOT_##arch,              "root-" name,               ARCHITECTURE_##arch, .designator = PARTITION_ROOT            },  \
-        { SD_GPT_ROOT_##arch##_VERITY,     "root-" name "-verity",     ARCHITECTURE_##arch, .designator = PARTITION_ROOT_VERITY     },  \
-        { SD_GPT_ROOT_##arch##_VERITY_SIG, "root-" name "-verity-sig", ARCHITECTURE_##arch, .designator = PARTITION_ROOT_VERITY_SIG },  \
-        { SD_GPT_USR_##arch,               "usr-" name,                ARCHITECTURE_##arch, .designator = PARTITION_USR             },  \
-        { SD_GPT_USR_##arch##_VERITY,      "usr-" name "-verity",      ARCHITECTURE_##arch, .designator = PARTITION_USR_VERITY      },  \
-        { SD_GPT_USR_##arch##_VERITY_SIG,  "usr-" name "-verity-sig",  ARCHITECTURE_##arch, .designator = PARTITION_USR_VERITY_SIG  }
+#define _GPT_ARCH_SEXTET(arch, secondary, name)                                   \
+        { SD_GPT_ROOT_##arch,              "root-" name,               ARCHITECTURE_##arch, .secondary_arch = secondary, .designator = PARTITION_ROOT            },  \
+        { SD_GPT_ROOT_##arch##_VERITY,     "root-" name "-verity",     ARCHITECTURE_##arch, .secondary_arch = secondary, .designator = PARTITION_ROOT_VERITY     },  \
+        { SD_GPT_ROOT_##arch##_VERITY_SIG, "root-" name "-verity-sig", ARCHITECTURE_##arch, .secondary_arch = secondary, .designator = PARTITION_ROOT_VERITY_SIG },  \
+        { SD_GPT_USR_##arch,               "usr-" name,                ARCHITECTURE_##arch, .secondary_arch = secondary, .designator = PARTITION_USR             },  \
+        { SD_GPT_USR_##arch##_VERITY,      "usr-" name "-verity",      ARCHITECTURE_##arch, .secondary_arch = secondary, .designator = PARTITION_USR_VERITY      },  \
+        { SD_GPT_USR_##arch##_VERITY_SIG,  "usr-" name "-verity-sig",  ARCHITECTURE_##arch, .secondary_arch = secondary, .designator = PARTITION_USR_VERITY_SIG  }
+
+#ifdef ARCHITECTURE_SECONDARY
+#define GPT_SECONDARY_ARCH ARCHITECTURE_SECONDARY
+#else
+#define GPT_SECONDARY_ARCH _ARCHITECTURE_INVALID
+#endif
 
 /* Two special cases: alias aarch64 to arm64, and amd64 to x86-64. The DSP mixes debianisms and CPUisms: for
  * x86, it uses x86 and x86_64, but for aarch64 it uses arm64. This is confusing, and leads to issues for
@@ -135,45 +141,45 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(partition_mountpoint, PartitionDesi
  * by UUID so that the canonical entry is always found. */
 
 const GptPartitionType gpt_partition_type_table[] = {
-        _GPT_ARCH_SEXTET(ALPHA,       "alpha"),
-        _GPT_ARCH_SEXTET(ARC,         "arc"),
-        _GPT_ARCH_SEXTET(ARM,         "arm"),
-        _GPT_ARCH_SEXTET(ARM,         "armv7l"), /* Alias: must be listed after arm */
-        _GPT_ARCH_SEXTET(ARM64,       "arm64"),
-        _GPT_ARCH_SEXTET(ARM64,       "aarch64"), /* Alias: must be listed after arm64 */
-        _GPT_ARCH_SEXTET(IA64,        "ia64"),
-        _GPT_ARCH_SEXTET(LOONGARCH64, "loongarch64"),
-        _GPT_ARCH_SEXTET(MIPS_LE,     "mips-le"),
-        _GPT_ARCH_SEXTET(MIPS64_LE,   "mips64-le"),
-        _GPT_ARCH_SEXTET(PARISC,      "parisc"),
-        _GPT_ARCH_SEXTET(PPC,         "ppc"),
-        _GPT_ARCH_SEXTET(PPC64,       "ppc64"),
-        _GPT_ARCH_SEXTET(PPC64_LE,    "ppc64-le"),
-        _GPT_ARCH_SEXTET(PPC64_LE,    "ppc64le"), /* Alias: must be listed after ppc64-le */
-        _GPT_ARCH_SEXTET(RISCV32,     "riscv32"),
-        _GPT_ARCH_SEXTET(RISCV64,     "riscv64"),
-        _GPT_ARCH_SEXTET(S390,        "s390"),
-        _GPT_ARCH_SEXTET(S390X,       "s390x"),
-        _GPT_ARCH_SEXTET(TILEGX,      "tilegx"),
-        _GPT_ARCH_SEXTET(X86,         "x86"),
-        _GPT_ARCH_SEXTET(X86_64,      "x86-64"),
-        _GPT_ARCH_SEXTET(X86_64,      "x86_64"), /* Alias: must be listed after x86-64 */
-        _GPT_ARCH_SEXTET(X86_64,      "amd64"), /* Alias: must be listed after x86-64 */
+        _GPT_ARCH_SEXTET(ALPHA,       _ARCHITECTURE_INVALID, "alpha"),
+        _GPT_ARCH_SEXTET(ARC,         _ARCHITECTURE_INVALID, "arc"),
+        _GPT_ARCH_SEXTET(ARM,         _ARCHITECTURE_INVALID, "arm"),
+        _GPT_ARCH_SEXTET(ARM,         _ARCHITECTURE_INVALID, "armv7l"), /* Alias: must be listed after arm */
+        _GPT_ARCH_SEXTET(ARM64,       ARCHITECTURE_ARM,      "arm64"),
+        _GPT_ARCH_SEXTET(ARM64,       ARCHITECTURE_ARM,      "aarch64"), /* Alias: must be listed after arm64 */
+        _GPT_ARCH_SEXTET(IA64,        _ARCHITECTURE_INVALID, "ia64"),
+        _GPT_ARCH_SEXTET(LOONGARCH64, _ARCHITECTURE_INVALID, "loongarch64"),
+        _GPT_ARCH_SEXTET(MIPS_LE,     _ARCHITECTURE_INVALID, "mips-le"),
+        _GPT_ARCH_SEXTET(MIPS64_LE,   _ARCHITECTURE_INVALID, "mips64-le"),
+        _GPT_ARCH_SEXTET(PARISC,      _ARCHITECTURE_INVALID, "parisc"),
+        _GPT_ARCH_SEXTET(PPC,         _ARCHITECTURE_INVALID, "ppc"),
+        _GPT_ARCH_SEXTET(PPC64,       ARCHITECTURE_PPC,      "ppc64"),
+        _GPT_ARCH_SEXTET(PPC64_LE,    _ARCHITECTURE_INVALID, "ppc64-le"),
+        _GPT_ARCH_SEXTET(PPC64_LE,    _ARCHITECTURE_INVALID, "ppc64le"), /* Alias: must be listed after ppc64-le */
+        _GPT_ARCH_SEXTET(RISCV32,     _ARCHITECTURE_INVALID, "riscv32"),
+        _GPT_ARCH_SEXTET(RISCV64,     _ARCHITECTURE_INVALID, "riscv64"),
+        _GPT_ARCH_SEXTET(S390,        _ARCHITECTURE_INVALID, "s390"),
+        _GPT_ARCH_SEXTET(S390X,       ARCHITECTURE_S390,     "s390x"),
+        _GPT_ARCH_SEXTET(TILEGX,      _ARCHITECTURE_INVALID, "tilegx"),
+        _GPT_ARCH_SEXTET(X86,         _ARCHITECTURE_INVALID, "x86"),
+        _GPT_ARCH_SEXTET(X86_64,      ARCHITECTURE_X86,      "x86-64"),
+        _GPT_ARCH_SEXTET(X86_64,      ARCHITECTURE_X86,      "x86_64"), /* Alias: must be listed after x86-64 */
+        _GPT_ARCH_SEXTET(X86_64,      ARCHITECTURE_X86,      "amd64"), /* Alias: must be listed after x86-64 */
 #ifdef SD_GPT_ROOT_NATIVE
-        { SD_GPT_ROOT_NATIVE,            "root",            native_architecture(), .designator = PARTITION_ROOT            },
-        { SD_GPT_ROOT_NATIVE_VERITY,     "root-verity",     native_architecture(), .designator = PARTITION_ROOT_VERITY     },
-        { SD_GPT_ROOT_NATIVE_VERITY_SIG, "root-verity-sig", native_architecture(), .designator = PARTITION_ROOT_VERITY_SIG },
-        { SD_GPT_USR_NATIVE,             "usr",             native_architecture(), .designator = PARTITION_USR             },
-        { SD_GPT_USR_NATIVE_VERITY,      "usr-verity",      native_architecture(), .designator = PARTITION_USR_VERITY      },
-        { SD_GPT_USR_NATIVE_VERITY_SIG,  "usr-verity-sig",  native_architecture(), .designator = PARTITION_USR_VERITY_SIG  },
+        { SD_GPT_ROOT_NATIVE,            "root",            native_architecture(), GPT_SECONDARY_ARCH, .designator = PARTITION_ROOT            },
+        { SD_GPT_ROOT_NATIVE_VERITY,     "root-verity",     native_architecture(), GPT_SECONDARY_ARCH, .designator = PARTITION_ROOT_VERITY     },
+        { SD_GPT_ROOT_NATIVE_VERITY_SIG, "root-verity-sig", native_architecture(), GPT_SECONDARY_ARCH, .designator = PARTITION_ROOT_VERITY_SIG },
+        { SD_GPT_USR_NATIVE,             "usr",             native_architecture(), GPT_SECONDARY_ARCH, .designator = PARTITION_USR             },
+        { SD_GPT_USR_NATIVE_VERITY,      "usr-verity",      native_architecture(), GPT_SECONDARY_ARCH, .designator = PARTITION_USR_VERITY      },
+        { SD_GPT_USR_NATIVE_VERITY_SIG,  "usr-verity-sig",  native_architecture(), GPT_SECONDARY_ARCH, .designator = PARTITION_USR_VERITY_SIG  },
 #endif
 #ifdef SD_GPT_ROOT_SECONDARY
-        { SD_GPT_ROOT_NATIVE,            "root-secondary",            native_architecture(), .designator = PARTITION_ROOT            },
-        { SD_GPT_ROOT_NATIVE_VERITY,     "root-secondary-verity",     native_architecture(), .designator = PARTITION_ROOT_VERITY     },
-        { SD_GPT_ROOT_NATIVE_VERITY_SIG, "root-secondary-verity-sig", native_architecture(), .designator = PARTITION_ROOT_VERITY_SIG },
-        { SD_GPT_USR_NATIVE,             "usr-secondary",             native_architecture(), .designator = PARTITION_USR             },
-        { SD_GPT_USR_NATIVE_VERITY,      "usr-secondary-verity",      native_architecture(), .designator = PARTITION_USR_VERITY      },
-        { SD_GPT_USR_NATIVE_VERITY_SIG,  "usr-secondary-verity-sig",  native_architecture(), .designator = PARTITION_USR_VERITY_SIG  },
+        { SD_GPT_ROOT_SECONDARY,            "root-secondary",            ARCHITECTURE_SECONDARY, _ARCHITECTURE_INVALID, .designator = PARTITION_ROOT            },
+        { SD_GPT_ROOT_SECONDARY_VERITY,     "root-secondary-verity",     ARCHITECTURE_SECONDARY, _ARCHITECTURE_INVALID, .designator = PARTITION_ROOT_VERITY     },
+        { SD_GPT_ROOT_SECONDARY_VERITY_SIG, "root-secondary-verity-sig", ARCHITECTURE_SECONDARY, _ARCHITECTURE_INVALID, .designator = PARTITION_ROOT_VERITY_SIG },
+        { SD_GPT_USR_SECONDARY,             "usr-secondary",             ARCHITECTURE_SECONDARY, _ARCHITECTURE_INVALID, .designator = PARTITION_USR             },
+        { SD_GPT_USR_SECONDARY_VERITY,      "usr-secondary-verity",      ARCHITECTURE_SECONDARY, _ARCHITECTURE_INVALID, .designator = PARTITION_USR_VERITY      },
+        { SD_GPT_USR_SECONDARY_VERITY_SIG,  "usr-secondary-verity-sig",  ARCHITECTURE_SECONDARY, _ARCHITECTURE_INVALID, .designator = PARTITION_USR_VERITY_SIG  },
 #endif
 
         { SD_GPT_ESP,                    "esp",           _ARCHITECTURE_INVALID, .designator = PARTITION_ESP },
@@ -222,24 +228,67 @@ const char *gpt_partition_type_uuid_to_string_harder(
         return sd_id128_to_uuid_string(id, buffer);
 }
 
-int gpt_partition_type_from_string(const char *s, GptPartitionType *ret) {
+int gpt_partition_type_from_string(const char *s, Architecture arch, GptPartitionType *ret) {
+        _cleanup_free_ char *c = NULL;
         sd_id128_t id = SD_ID128_NULL;
+        PartitionDesignator d;
+        bool secondary = false;
         int r;
 
         assert(s);
+        assert(arch >= 0);
 
-        for (size_t i = 0; i < ELEMENTSOF(gpt_partition_type_table) - 1; i++)
-                if (streq(s, gpt_partition_type_table[i].name)) {
-                        /* Don't return immediately, instead re-resolve by UUID so that we can support
-                        * aliases like aarch64 -> arm64 transparently. */
-                        id = gpt_partition_type_table[i].uuid;
+        if (strstr(s, "-secondary")) {
+                c = strreplace(s, "-secondary", "");
+                if (!c)
+                        return -ENOMEM;
+
+
+                s = c;
+                secondary = true;
+        }
+
+        d = partition_designator_from_string(s);
+
+        FOREACH_ARRAY(t, gpt_partition_type_table, ELEMENTSOF(gpt_partition_type_table) - 1) {
+                /* Don't return immediately, instead re-resolve by UUID so that we can support
+                 * aliases like aarch64 -> arm64 transparently. */
+
+                /* If the string is valid partition designator, find a partition type with matching
+                 * designator and architecture or one with no architecture at all (for esp, xbootldr, ...). */
+                if (d >= 0 && t->designator == d && (t->arch == arch || t->arch == _ARCHITECTURE_INVALID)) {
+                        id = t->uuid;
                         break;
                 }
+
+                /* If the string is not a valid partition designator, find a partition type with an exact
+                 * name match. */
+                if (d < 0 && streq(s, t->name)) {
+                        id = t->uuid;
+                        break;
+                }
+        }
 
         if (sd_id128_is_null(id)) {
                 r = sd_id128_from_string(s, &id);
                 if (r < 0)
                         return r;
+        }
+
+        if (secondary) {
+                GptPartitionType t;
+
+                /* If we're looking for the secondary architecture, check if there is one and then do the
+                 * lookup again. */
+
+                t = gpt_partition_type_from_uuid(id);
+                if (t.secondary_arch >= 0) {
+                        r = gpt_partition_type_from_string(s, t.secondary_arch, &t);
+                        if (r < 0)
+                                return r;
+
+                        id = t.uuid;
+                }
         }
 
         if (ret)
