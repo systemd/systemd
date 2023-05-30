@@ -19,6 +19,10 @@ src="$(dirname "$0")/testdata/test-fstab-generator"
 # fsck(8) is located in /usr/sbin on Debian
 PATH=$PATH:/usr/sbin
 
+# systemd-pcrfs@.service could be enabled or not, depending on the host state
+# of the host system. Override the measurement to avoid the issue.
+export SYSTEMD_FORCE_MEASURE=0
+
 for f in "$src"/test-*.input; do
     echo "*** Running $f"
 
