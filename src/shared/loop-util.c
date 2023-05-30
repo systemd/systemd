@@ -818,7 +818,8 @@ static LoopDevice* loop_device_free(LoopDevice *d) {
 
         /* Now that the block device is released, let's also try to remove it */
         if (control >= 0) {
-                useconds_t delay = 5 * USEC_PER_MSEC;
+                useconds_t delay = 5 * USEC_PER_MSEC;  /* A total delay of 5090 ms between 39 attempts,
+                                                        * (4*5 + 5*10 + 5*20 + … + 3*640) = 5090. */
 
                 for (unsigned attempt = 1;; attempt++) {
                         if (ioctl(control, LOOP_CTL_REMOVE, d->nr) >= 0)
