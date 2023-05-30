@@ -70,6 +70,7 @@
     <filename>remote-fs-pre.target</filename>,
     <filename>remote-fs.target</filename>,
     <filename>rescue.target</filename>,
+    <filename>root-fs-ready.target</filename>,
     <filename>rpcbind.target</filename>,
     <filename>runlevel2.target</filename>,
     <filename>runlevel3.target</filename>,
@@ -620,6 +621,14 @@
             <para>Use the <literal>systemd.unit=rescue.target</literal> kernel command line option
             to boot into this mode. A short alias for this kernel command line option is
             <literal>1</literal>, for compatibility with SysV.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>root-fs-ready.target</filename></term>
+          <listitem>
+            <para>Units that resize the root file system and make it writable are ordered before this target.
+            Units in the early boot that need to create files in the root file system should pull in this
+            target and be ordered after it.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

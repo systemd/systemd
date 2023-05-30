@@ -15,7 +15,7 @@ ConditionVirtualization=!container
 ConditionPathExists=!/etc/initrd-release
 
 DefaultDependencies=no
-After=systemd-remount-fs.service
+After=root-fs-ready.target
 Before=first-boot-complete.target
 RequiresMountsFor={{RANDOM_SEED}}
 Wants=first-boot-complete.target

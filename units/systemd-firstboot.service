@@ -15,7 +15,7 @@ ConditionPathIsReadWrite=/etc
 ConditionFirstBoot=yes
 
 DefaultDependencies=no
-After=systemd-remount-fs.service systemd-sysusers.service systemd-tmpfiles-setup.service
+After=root-fs-ready.target systemd-sysusers.service systemd-tmpfiles-setup.service
 Wants=first-boot-complete.target
 Before=first-boot-complete.target sysinit.target
 Conflicts=shutdown.target
