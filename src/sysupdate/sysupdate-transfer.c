@@ -297,8 +297,8 @@ static int config_parse_resource_path(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-
         _cleanup_free_ char *resolved = NULL;
+        bool dollar_boot = false;
         Resource *rr = ASSERT_PTR(data);
         int r;
 
@@ -306,8 +306,14 @@ static int config_parse_resource_path(
 
         if (streq(rvalue, "auto")) {
                 rr->path_auto = true;
+                rr->path_dollar_boot = false;
                 rr->path = mfree(rr->path);
                 return 0;
+        }
+
+        if (rvalue[0] == '^') {
+                dollar_boot = true;
+                rvalue++;
         }
 
         r = specifier_printf(rvalue, PATH_MAX-1, specifier_table, arg_root, NULL, &resolved);
@@ -322,6 +328,7 @@ static int config_parse_resource_path(
          * path. */
 
         rr->path_auto = false;
+        rr->path_dollar_boot = dollar_boot;
         return free_and_replace(rr->path, resolved);
 }
 
