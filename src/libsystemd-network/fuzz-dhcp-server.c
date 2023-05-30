@@ -19,29 +19,31 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags) {
 
 static int add_lease(sd_dhcp_server *server, const struct in_addr *server_address, uint8_t i) {
         _cleanup_(dhcp_lease_freep) DHCPLease *lease = NULL;
-        static const uint8_t chaddr[] = {3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3};
         int r;
 
         assert(server);
 
-        lease = new0(DHCPLease, 1);
+        lease = new(DHCPLease, 1);
         if (!lease)
                 return -ENOMEM;
 
-        lease->client_id.data = malloc(2);
+        *lease = (DHCPLease) {
+                .address = htobe32(UINT32_C(10) << 24 | i),
+                .chaddr = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 },
+                .expiration = UINT64_MAX,
+                .gateway = server_address->s_addr,
+                .hlen = ETH_ALEN,
+                .htype = ARPHRD_ETHER,
+
+                .client_id.length = 2,
+        };
+
+        lease->client_id.data = new(uint8_t, lease->client_id.length);
         if (!lease->client_id.data)
                 return -ENOMEM;
 
-        lease->client_id.length = 2;
         lease->client_id.data[0] = 2;
         lease->client_id.data[1] = i;
-
-        lease->address = htobe32(UINT32_C(10) << 24 | i);
-        lease->gateway = server_address->s_addr;
-        lease->expiration = UINT64_MAX;
-        lease->htype = ARPHRD_ETHER;
-        lease->hlen = ETH_ALEN;
-        memcpy(lease->chaddr, chaddr, ETH_ALEN);
 
         lease->server = server; /* This must be set just before hashmap_put(). */
 
@@ -54,22 +56,18 @@ static int add_lease(sd_dhcp_server *server, const struct in_addr *server_addres
                 return r;
 
         TAKE_PTR(lease);
-
         return 0;
 }
 
 static int add_static_lease(sd_dhcp_server *server, uint8_t i) {
         uint8_t id[2] = { 2, i };
-        int r;
 
         assert(server);
 
-        r = sd_dhcp_server_set_static_lease(
+        return sd_dhcp_server_set_static_lease(
                                 server,
                                 &(struct in_addr) { .s_addr = htobe32(UINT32_C(10) << 24 | i)},
                                 id, ELEMENTSOF(id));
-
-        return r;
 }
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
