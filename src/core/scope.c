@@ -629,11 +629,6 @@ static void scope_notify_cgroup_empty_event(Unit *u) {
 
         if (IN_SET(s->state, SCOPE_RUNNING, SCOPE_ABANDONED, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL))
                 scope_enter_dead(s, SCOPE_SUCCESS);
-
-        /* If the cgroup empty notification comes when the unit is not active, we must have failed to clean
-         * up the cgroup earlier and should do it now. */
-        if (IN_SET(s->state, SCOPE_DEAD, SCOPE_FAILED))
-                unit_prune_cgroup(u);
 }
 
 static void scope_notify_cgroup_oom_event(Unit *u, bool managed_oom) {
