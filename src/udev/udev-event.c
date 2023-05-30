@@ -1223,7 +1223,7 @@ void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_s
                         if (event->exec_delay_usec > 0) {
                                 log_device_debug(event->dev, "Delaying execution of \"%s\" for %s.",
                                                  command, FORMAT_TIMESPAN(event->exec_delay_usec, USEC_PER_SEC));
-                                (void) usleep(event->exec_delay_usec);
+                                (void) usleep_safe(event->exec_delay_usec);
                         }
 
                         log_device_debug(event->dev, "Running command \"%s\"", command);
