@@ -168,12 +168,12 @@ const GptPartitionType gpt_partition_type_table[] = {
         { SD_GPT_USR_NATIVE_VERITY_SIG,  "usr-verity-sig",  native_architecture(), .designator = PARTITION_USR_VERITY_SIG  },
 #endif
 #ifdef SD_GPT_ROOT_SECONDARY
-        { SD_GPT_ROOT_NATIVE,            "root-secondary",            native_architecture(), .designator = PARTITION_ROOT            },
-        { SD_GPT_ROOT_NATIVE_VERITY,     "root-secondary-verity",     native_architecture(), .designator = PARTITION_ROOT_VERITY     },
-        { SD_GPT_ROOT_NATIVE_VERITY_SIG, "root-secondary-verity-sig", native_architecture(), .designator = PARTITION_ROOT_VERITY_SIG },
-        { SD_GPT_USR_NATIVE,             "usr-secondary",             native_architecture(), .designator = PARTITION_USR             },
-        { SD_GPT_USR_NATIVE_VERITY,      "usr-secondary-verity",      native_architecture(), .designator = PARTITION_USR_VERITY      },
-        { SD_GPT_USR_NATIVE_VERITY_SIG,  "usr-secondary-verity-sig",  native_architecture(), .designator = PARTITION_USR_VERITY_SIG  },
+        { SD_GPT_ROOT_SECONDARY,            "root-secondary",            ARCHITECTURE_SECONDARY, .designator = PARTITION_ROOT            },
+        { SD_GPT_ROOT_SECONDARY_VERITY,     "root-secondary-verity",     ARCHITECTURE_SECONDARY, .designator = PARTITION_ROOT_VERITY     },
+        { SD_GPT_ROOT_SECONDARY_VERITY_SIG, "root-secondary-verity-sig", ARCHITECTURE_SECONDARY, .designator = PARTITION_ROOT_VERITY_SIG },
+        { SD_GPT_USR_SECONDARY,             "usr-secondary",             ARCHITECTURE_SECONDARY, .designator = PARTITION_USR             },
+        { SD_GPT_USR_SECONDARY_VERITY,      "usr-secondary-verity",      ARCHITECTURE_SECONDARY, .designator = PARTITION_USR_VERITY      },
+        { SD_GPT_USR_SECONDARY_VERITY_SIG,  "usr-secondary-verity-sig",  ARCHITECTURE_SECONDARY, .designator = PARTITION_USR_VERITY_SIG  },
 #endif
 
         { SD_GPT_ESP,                    "esp",           _ARCHITECTURE_INVALID, .designator = PARTITION_ESP },
@@ -190,9 +190,9 @@ const GptPartitionType gpt_partition_type_table[] = {
 
 static const GptPartitionType *gpt_partition_type_find_by_uuid(sd_id128_t id) {
 
-        for (size_t i = 0; i < ELEMENTSOF(gpt_partition_type_table) - 1; i++)
-                if (sd_id128_equal(id, gpt_partition_type_table[i].uuid))
-                        return gpt_partition_type_table + i;
+        FOREACH_ARRAY(t, gpt_partition_type_table, ELEMENTSOF(gpt_partition_type_table) - 1)
+                if (sd_id128_equal(id, t->uuid))
+                        return t;
 
         return NULL;
 }
@@ -228,11 +228,11 @@ int gpt_partition_type_from_string(const char *s, GptPartitionType *ret) {
 
         assert(s);
 
-        for (size_t i = 0; i < ELEMENTSOF(gpt_partition_type_table) - 1; i++)
-                if (streq(s, gpt_partition_type_table[i].name)) {
+        FOREACH_ARRAY(t, gpt_partition_type_table, ELEMENTSOF(gpt_partition_type_table) - 1)
+                if (streq(s, t->name)) {
                         /* Don't return immediately, instead re-resolve by UUID so that we can support
                         * aliases like aarch64 -> arm64 transparently. */
-                        id = gpt_partition_type_table[i].uuid;
+                        id = t->uuid;
                         break;
                 }
 
@@ -246,6 +246,18 @@ int gpt_partition_type_from_string(const char *s, GptPartitionType *ret) {
                 *ret = gpt_partition_type_from_uuid(id);
 
         return 0;
+}
+
+GptPartitionType gpt_partition_type_override_architecture(GptPartitionType type, Architecture arch) {
+        assert(arch >= 0);
+
+        FOREACH_ARRAY(t, gpt_partition_type_table, ELEMENTSOF(gpt_partition_type_table) - 1)
+                if (t->designator == type.designator && t->arch == arch)
+                        return *t;
+
+        /* If we can't find an entry with the same designator and the requested architecture, just return the
+         * original partition type. */
+        return type;
 }
 
 Architecture gpt_partition_type_uuid_to_arch(sd_id128_t id) {

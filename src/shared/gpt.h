@@ -62,6 +62,8 @@ int gpt_partition_label_valid(const char *s);
 GptPartitionType gpt_partition_type_from_uuid(sd_id128_t id);
 int gpt_partition_type_from_string(const char *s, GptPartitionType *ret);
 
+GptPartitionType gpt_partition_type_override_architecture(GptPartitionType type, Architecture arch);
+
 const char *gpt_partition_type_mountpoint_nulstr(GptPartitionType type);
 
 bool gpt_partition_type_knows_read_only(GptPartitionType type);
