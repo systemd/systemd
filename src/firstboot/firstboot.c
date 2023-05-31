@@ -1607,7 +1607,7 @@ static int reload_vconsole(sd_bus **bus) {
                 return log_error_errno(r, "Could not watch jobs: %m");
 
         r = bus_call_method(*bus, bus_systemd_mgr, "RestartUnit", &error, &reply,
-                            "ss", "systemd-vconsole-setup.service", "replace");
+                            "ss", "systemd-vconsole-setup-reload.service", "replace");
         if (r < 0)
                 return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
 

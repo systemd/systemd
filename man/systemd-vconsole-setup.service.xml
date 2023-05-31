@@ -17,6 +17,7 @@
 
   <refnamediv>
     <refname>systemd-vconsole-setup.service</refname>
+    <refname>systemd-vconsole-setup-reload.service</refname>
     <refname>systemd-vconsole-setup</refname>
     <refpurpose>Configure the virtual consoles</refpurpose>
   </refnamediv>
@@ -32,14 +33,17 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-vconsole-setup</filename> sets up and configures either all virtual consoles, or — if the
-    optional <replaceable>TTY</replaceable> parameter is provided — a specific one. When the system is booting up, it's
-    called by <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry> during
-    VT console subsystem initialization.  Also,
-    <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> invokes
-    it as needed when language or console changes are made. Internally, this program calls <citerefentry
-    project='mankier'><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry> and <citerefentry
-    project='die-net'><refentrytitle>setfont</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    <para><filename>systemd-vconsole-setup</filename> sets up and configures either all virtual consoles, or
+    — if the optional <replaceable>TTY</replaceable> parameter is provided — a specific one. When the system
+    is booting up, <filename>systemd-vconsole-setup.service</filename> is called by
+    <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry> during
+    VT console subsystem initialization. Also,
+    <citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    invokes it as needed when language or console changes are made.
+    Internally, this program calls
+    <citerefentry project='mankier'><refentrytitle>loadkeys</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    and
+    <citerefentry project='die-net'><refentrytitle>setfont</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     </para>
 
     <para>Execute <command>systemctl restart systemd-vconsole-setup.service</command> in order to apply any manual
@@ -47,6 +51,11 @@
 
     <para>See <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
     information about the configuration files and kernel command line options understood by this program.</para>
+
+    <para>Note that <filename>systemd-vconsole-setup-reload.service</filename> is a second instance of
+    <filename>systemd-vconsole-setup.service</filename> that is used internally by
+    <citerefentry><refentrytitle>systemd-firstboot.service</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    It performs the same role, but does not have the same ordering dependencies.</para>
   </refsect1>
 
   <refsect1>
