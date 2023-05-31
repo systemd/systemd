@@ -10,7 +10,7 @@
 #include "dev-setup.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "limits-util.h"
 #include "main-func.h"
 #include "mkdir-label.h"
@@ -202,7 +202,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = mac_selinux_init();
+        r = mac_init();
         if (r < 0)
                 return r;
 

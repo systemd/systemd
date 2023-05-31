@@ -9,7 +9,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
