@@ -496,25 +496,25 @@ static int pid_notify_with_fds_internal(
         fd = socket(address.sockaddr.sa.sa_family, SOCK_DGRAM|SOCK_CLOEXEC, 0);
         if (fd < 0) {
                 if (!(ERRNO_IS_NOT_SUPPORTED(errno) || errno == ENODEV) || address.sockaddr.sa.sa_family != AF_VSOCK)
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to open datagram notify socket to '%s': %m", e);
 
                 fd = socket(address.sockaddr.sa.sa_family, SOCK_SEQPACKET|SOCK_CLOEXEC, 0);
                 if (fd < 0)
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to open sequential packet socket to '%s': %m", e);
 
                 r = vsock_bind_privileged_port(fd);
                 if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
-                        return r;
+                        return log_debug_errno(r, "Failed to bind socket to privileged port: %m");
 
                 if (connect(fd, &address.sockaddr.sa, address.size) < 0)
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to connect socket to '%s': %m", e);
 
                 msghdr.msg_name = NULL;
                 msghdr.msg_namelen = 0;
         } else if (address.sockaddr.sa.sa_family == AF_VSOCK) {
                 r = vsock_bind_privileged_port(fd);
                 if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
-                        return r;
+                        return log_debug_errno(r, "Failed to bind socket to privileged port: %m");
         }
 
         (void) fd_inc_sndbuf(fd, SNDBUF_SIZE);
@@ -574,7 +574,7 @@ static int pid_notify_with_fds_internal(
                         return 1;
         }
 
-        return -errno;
+        return log_debug_errno(errno, "Failed to send notify message to '%s': %m", e);
 }
 
 _public_ int sd_pid_notify_with_fds(
