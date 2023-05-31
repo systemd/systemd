@@ -450,13 +450,11 @@ static int vsock_bind_privileged_port(int fd) {
         return r;
 }
 
-_public_ int sd_pid_notify_with_fds(
+static int pid_notify_with_fds_internal(
                 pid_t pid,
-                int unset_environment,
                 const char *state,
                 const int *fds,
                 unsigned n_fds) {
-
         SocketAddress address;
         struct iovec iovec;
         struct msghdr msghdr = {
@@ -470,15 +468,11 @@ _public_ int sd_pid_notify_with_fds(
         bool send_ucred;
         int r;
 
-        if (!state) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (!state)
+                return -EINVAL;
 
-        if (n_fds > 0 && !fds) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (n_fds > 0 && !fds)
+                return -EINVAL;
 
         e = getenv("NOTIFY_SOCKET");
         if (!e)
@@ -489,46 +483,38 @@ _public_ int sd_pid_notify_with_fds(
         if (r == -EPROTO)
                 r = socket_address_parse_vsock(&address, e);
         if (r < 0)
-                goto finish;
+                return r;
         msghdr.msg_namelen = address.size;
 
         /* If we didn't get an address (which is a normal pattern when specifying VSOCK tuples) error out,
          * we always require a specific CID. */
-        if (address.sockaddr.vm.svm_family == AF_VSOCK && address.sockaddr.vm.svm_cid == VMADDR_CID_ANY) {
-                r = -EINVAL;
-                goto finish;
-        }
+        if (address.sockaddr.vm.svm_family == AF_VSOCK && address.sockaddr.vm.svm_cid == VMADDR_CID_ANY)
+                return -EINVAL;
 
         /* At the time of writing QEMU does not yet support AF_VSOCK + SOCK_DGRAM and returns
          * ENODEV. Fallback to SOCK_SEQPACKET in that case. */
         fd = socket(address.sockaddr.sa.sa_family, SOCK_DGRAM|SOCK_CLOEXEC, 0);
         if (fd < 0) {
-                if (!(ERRNO_IS_NOT_SUPPORTED(errno) || errno == ENODEV) || address.sockaddr.sa.sa_family != AF_VSOCK) {
-                        r = -errno;
-                        goto finish;
-                }
+                if (!(ERRNO_IS_NOT_SUPPORTED(errno) || errno == ENODEV) || address.sockaddr.sa.sa_family != AF_VSOCK)
+                        return log_debug_errno(errno, "Failed to open datagram notify socket to '%s': %m", e);
 
                 fd = socket(address.sockaddr.sa.sa_family, SOCK_SEQPACKET|SOCK_CLOEXEC, 0);
-                if (fd < 0) {
-                        r = -errno;
-                        goto finish;
-                }
+                if (fd < 0)
+                        return log_debug_errno(errno, "Failed to open sequential packet socket to '%s': %m", e);
 
                 r = vsock_bind_privileged_port(fd);
                 if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
-                        goto finish;
+                        return log_debug_errno(r, "Failed to bind socket to privileged port: %m");
 
-                if (connect(fd, &address.sockaddr.sa, address.size) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
+                if (connect(fd, &address.sockaddr.sa, address.size) < 0)
+                        return log_debug_errno(errno, "Failed to connect socket to '%s': %m", e);
 
                 msghdr.msg_name = NULL;
                 msghdr.msg_namelen = 0;
         } else if (address.sockaddr.sa.sa_family == AF_VSOCK) {
                 r = vsock_bind_privileged_port(fd);
                 if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
-                        goto finish;
+                        return log_debug_errno(r, "Failed to bind socket to privileged port: %m");
         }
 
         (void) fd_inc_sndbuf(fd, SNDBUF_SIZE);
@@ -575,10 +561,8 @@ _public_ int sd_pid_notify_with_fds(
         }
 
         /* First try with fake ucred data, as requested */
-        if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) >= 0) {
-                r = 1;
-                goto finish;
-        }
+        if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) >= 0)
+                return 1;
 
         /* If that failed, try with our own ucred instead */
         if (send_ucred) {
@@ -586,15 +570,24 @@ _public_ int sd_pid_notify_with_fds(
                 if (msghdr.msg_controllen == 0)
                         msghdr.msg_control = NULL;
 
-                if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) >= 0) {
-                        r = 1;
-                        goto finish;
-                }
+                if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) >= 0)
+                        return 1;
         }
 
-        r = -errno;
+        return log_debug_errno(errno, "Failed to send notify message to '%s': %m", e);
+}
 
-finish:
+_public_ int sd_pid_notify_with_fds(
+                pid_t pid,
+                int unset_environment,
+                const char *state,
+                const int *fds,
+                unsigned n_fds) {
+
+        int r;
+
+        r = pid_notify_with_fds_internal(pid, state, fds, n_fds);
+
         if (unset_environment)
                 assert_se(unsetenv("NOTIFY_SOCKET") == 0);
 

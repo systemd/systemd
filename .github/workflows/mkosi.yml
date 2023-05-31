@@ -76,7 +76,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab
-    - uses: systemd/mkosi@e3141cd82206e00e3a6b02c09e08b3d443462063
+    - uses: systemd/mkosi@c3103868cccc722ef45838fdd37fb462c21948f2
 
     - name: Configure
       run: |
@@ -98,6 +98,7 @@ jobs:
 
         [Host]
         ExtraSearchPaths=!*
+        QemuVsock=yes
         EOF
 
         # For erofs, we have to install linux-modules-extra-azure, but that doesn't match the running kernel
@@ -123,3 +124,7 @@ jobs:
 
     - name: Boot ${{ matrix.distro }} QEMU
       run: timeout -k 30 10m mkosi --debug qemu
+
+    # vsock in Github Actions with qemu is broken so for now we check for failures manually.
+    - name: Check ${{ matrix.distro }} QEMU
+      run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
