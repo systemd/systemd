@@ -36,7 +36,7 @@ static void set_alarm(usec_t usecs) {
 static void sleep_for(usec_t usecs) {
         /* stupid usleep() might fail if >1000000 */
         assert_se(usecs < USEC_PER_SEC);
-        usleep(usecs);
+        (void) usleep(usecs);
 }
 
 #define TEST_BARRIER(_FUNCTION, _CHILD_CODE, _WAIT_CHILD, _PARENT_CODE, _WAIT_PARENT)  \
