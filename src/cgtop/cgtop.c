@@ -953,7 +953,7 @@ static int loop(const char *root) {
                 fflush(stdout);
 
                 if (arg_batch)
-                        (void) usleep(usec_add(usec_sub_unsigned(last_refresh, t), arg_delay));
+                        (void) usleep_safe(usec_add(usec_sub_unsigned(last_refresh, t), arg_delay));
                 else {
                         r = read_one_char(stdin, &key, usec_add(usec_sub_unsigned(last_refresh, t), arg_delay), NULL);
                         if (r == -ETIMEDOUT)

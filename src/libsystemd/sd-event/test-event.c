@@ -650,7 +650,7 @@ TEST(ratelimit) {
         for (unsigned i = 0; i < 10; i++) {
                 log_debug("slow loop iteration %u", i);
                 assert_se(sd_event_run(e, UINT64_MAX) >= 0);
-                assert_se(usleep(250 * USEC_PER_MSEC) >= 0);
+                assert_se(usleep_safe(250 * USEC_PER_MSEC) >= 0);
         }
 
         assert_se(sd_event_source_is_ratelimited(s) == 0);
@@ -664,7 +664,7 @@ TEST(ratelimit) {
         for (unsigned i = 0; i < 10; i++) {
                 log_debug("fast event loop iteration %u", i);
                 assert_se(sd_event_run(e, UINT64_MAX) >= 0);
-                assert_se(usleep(10) >= 0);
+                assert_se(usleep_safe(10) >= 0);
         }
         log_info("ratelimit_io_handler: called %u times, event source got ratelimited", count);
         assert_se(count < 10);

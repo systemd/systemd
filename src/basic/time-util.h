@@ -211,6 +211,14 @@ static inline usec_t usec_sub_signed(usec_t timestamp, int64_t delta) {
         return usec_sub_unsigned(timestamp, (usec_t) delta);
 }
 
+static inline int usleep_safe(usec_t usec) {
+        /* usleep() takes useconds_t that is (typically?) uint32_t. Also, usleep() may only support the
+         * range [0, 1000000]. See usleep(3). Let's override usleep() with nanosleep(). */
+
+        // FIXME: use RET_NERRNO() macro here. Currently, this header cannot include errno-util.h.
+        return nanosleep(TIMESPEC_STORE(usec), NULL) < 0 ? -errno : 0;
+}
+
 /* The last second we can format is 31. Dec 9999, 1s before midnight, because otherwise we'd enter 5 digit
  * year territory. However, since we want to stay away from this in all timezones we take one day off. */
 #define USEC_TIMESTAMP_FORMATTABLE_MAX_64BIT ((usec_t) 253402214399000000) /* Thu 9999-12-30 23:59:59 UTC */
