@@ -48,22 +48,22 @@ static void* thread_server(void *p) {
         log_debug("Initializing server");
 
         /* Let's play some games, by slowly creating the socket directory, and renaming it in the middle */
-        (void) usleep(100 * USEC_PER_MSEC);
+        usleep_safe(100 * USEC_PER_MSEC);
 
         assert_se(mkdir_parents(path, 0755) >= 0);
-        (void) usleep(100 * USEC_PER_MSEC);
+        usleep_safe(100 * USEC_PER_MSEC);
 
         assert_se(path_extract_directory(path, &d) >= 0);
         assert_se(asprintf(&suffixed, "%s.%" PRIx64, d, random_u64()) >= 0);
         assert_se(rename(d, suffixed) >= 0);
-        (void) usleep(100 * USEC_PER_MSEC);
+        usleep_safe(100 * USEC_PER_MSEC);
 
         assert_se(asprintf(&suffixed2, "%s.%" PRIx64, d, random_u64()) >= 0);
         assert_se(symlink(suffixed2, d) >= 0);
-        (void) usleep(100 * USEC_PER_MSEC);
+        usleep_safe(100 * USEC_PER_MSEC);
 
         assert_se(symlink(basename(suffixed), suffixed2) >= 0);
-        (void) usleep(100 * USEC_PER_MSEC);
+        usleep_safe(100 * USEC_PER_MSEC);
 
         socklen_t sa_len;
         r = sockaddr_un_set_path(&u.un, path);
@@ -74,13 +74,13 @@ static void* thread_server(void *p) {
         assert_se(fd >= 0);
 
         assert_se(bind(fd, &u.sa, sa_len) >= 0);
-        usleep(100 * USEC_PER_MSEC);
+        usleep_safe(100 * USEC_PER_MSEC);
 
         assert_se(listen(fd, SOMAXCONN_DELUXE) >= 0);
-        usleep(100 * USEC_PER_MSEC);
+        usleep_safe(100 * USEC_PER_MSEC);
 
         assert_se(touch(path) >= 0);
-        usleep(100 * USEC_PER_MSEC);
+        usleep_safe(100 * USEC_PER_MSEC);
 
         log_debug("Initialized server");
 

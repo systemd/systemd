@@ -93,7 +93,7 @@ int efi_get_variable(
                                 return -EBUSY;
 
                         if (try >= EFI_N_RETRIES_NO_DELAY)
-                                (void) usleep(EFI_RETRY_DELAY);
+                                (void) usleep_safe(EFI_RETRY_DELAY);
                 }
 
                 if (n != sizeof(a))

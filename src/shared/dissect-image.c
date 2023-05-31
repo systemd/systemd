@@ -2766,7 +2766,7 @@ static int verity_partition(
 
         try_again:
                 /* Device is being removed by another process. Let's wait for a while. */
-                (void) usleep(2 * USEC_PER_MSEC);
+                (void) usleep_safe(2 * USEC_PER_MSEC);
         }
 
         /* All trials failed or a conflicting verity device exists. Let's try to activate with a unique name. */

@@ -31,27 +31,27 @@ int main(int argc, char *argv[]) {
 
         sd_notify(0,
                   "STATUS=Starting up");
-        usleep(duration);
+        usleep_safe(duration);
 
         sd_notify(0,
                   "STATUS=Running\n"
                   "READY=1");
-        usleep(duration);
+        usleep_safe(duration);
 
         sd_notify(0,
                   "STATUS=Reloading\n"
                   "RELOADING=1");
-        usleep(duration);
+        usleep_safe(duration);
 
         sd_notify(0,
                   "STATUS=Running\n"
                   "READY=1");
-        usleep(duration);
+        usleep_safe(duration);
 
         sd_notify(0,
                   "STATUS=Quitting\n"
                   "STOPPING=1");
-        usleep(duration);
+        usleep_safe(duration);
 
         return EXIT_SUCCESS;
 }

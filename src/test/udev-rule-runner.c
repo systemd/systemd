@@ -130,7 +130,7 @@ static int run(int argc, char *argv[]) {
                 r = safe_atou(argv[3], &us);
                 if (r < 0)
                         return log_error_errno(r, "Invalid delay '%s': %m", argv[3]);
-                usleep(us);
+                usleep_safe(us);
         }
 
         assert_se(udev_rules_load(&rules, RESOLVE_NAME_EARLY) == 0);
