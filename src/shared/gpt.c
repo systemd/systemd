@@ -190,9 +190,9 @@ const GptPartitionType gpt_partition_type_table[] = {
 
 static const GptPartitionType *gpt_partition_type_find_by_uuid(sd_id128_t id) {
 
-        for (size_t i = 0; i < ELEMENTSOF(gpt_partition_type_table) - 1; i++)
-                if (sd_id128_equal(id, gpt_partition_type_table[i].uuid))
-                        return gpt_partition_type_table + i;
+        FOREACH_ARRAY(t, gpt_partition_type_table, ELEMENTSOF(gpt_partition_type_table) - 1)
+                if (sd_id128_equal(id, t->uuid))
+                        return t;
 
         return NULL;
 }
@@ -228,11 +228,11 @@ int gpt_partition_type_from_string(const char *s, GptPartitionType *ret) {
 
         assert(s);
 
-        for (size_t i = 0; i < ELEMENTSOF(gpt_partition_type_table) - 1; i++)
-                if (streq(s, gpt_partition_type_table[i].name)) {
+        FOREACH_ARRAY(t, gpt_partition_type_table, ELEMENTSOF(gpt_partition_type_table) - 1)
+                if (streq(s, t->name)) {
                         /* Don't return immediately, instead re-resolve by UUID so that we can support
                         * aliases like aarch64 -> arm64 transparently. */
-                        id = gpt_partition_type_table[i].uuid;
+                        id = t->uuid;
                         break;
                 }
 
