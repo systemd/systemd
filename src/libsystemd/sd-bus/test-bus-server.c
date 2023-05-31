@@ -21,9 +21,8 @@ struct context {
         bool server_anonymous_auth;
 };
 
-static void *server(void *p) {
+static int _server(struct context *c) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        struct context *c = p;
         sd_id128_t id;
         bool quit = false;
         int r;
@@ -41,18 +40,13 @@ static void *server(void *p) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
 
                 r = sd_bus_process(bus, &m);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to process requests: %m");
-                        goto fail;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to process requests: %m");
 
                 if (r == 0) {
                         r = sd_bus_wait(bus, UINT64_MAX);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to wait: %m");
-                                goto fail;
-                        }
-
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to wait: %m");
                         continue;
                 }
 
@@ -67,10 +61,8 @@ static void *server(void *p) {
                                   (c->server_negotiate_unix_fds && c->client_negotiate_unix_fds));
 
                         r = sd_bus_message_new_method_return(m, &reply);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to allocate return: %m");
-                                goto fail;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to allocate return: %m");
 
                         quit = true;
 
@@ -79,25 +71,22 @@ static void *server(void *p) {
                                         m,
                                         &reply,
                                         &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_UNKNOWN_METHOD, "Unknown method."));
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to allocate return: %m");
-                                goto fail;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to allocate return: %m");
                 }
 
                 if (reply) {
                         r = sd_bus_send(bus, reply, NULL);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to send reply: %m");
-                                goto fail;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to send reply: %m");
                 }
         }
 
-        r = 0;
+        return 0;
+}
 
-fail:
-        return INT_TO_PTR(r);
+static void* server(void *p) {
+        return INT_TO_PTR(_server(p));
 }
 
 static int client(struct context *c) {
