@@ -26,6 +26,7 @@
 #include "fileio.h"
 #include "io-util.h"
 #include "locale-util.h"
+#include "lock-util.h"
 #include "log.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
@@ -588,6 +589,14 @@ int main(int argc, char **argv) {
         utf8 = is_locale_utf8();
 
         context_load_config(&c);
+
+        /* Take lock around the remaining operation to avoid being interrupted by a tty reset operation
+         * performed for services with TTYVHangup=yes. */
+        r = lock_generic(fd, LOCK_BSD, LOCK_EX);
+        if (r < 0) {
+                log_error_errno(r, "Failed to lock console: %m");
+                return EXIT_FAILURE;
+        }
 
         (void) toggle_utf8_sysfs(utf8);
         (void) toggle_utf8_vc(vc, fd, utf8);
