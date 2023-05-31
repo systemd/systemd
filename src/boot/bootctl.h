@@ -42,5 +42,5 @@ static inline const char *arg_dollar_boot_path(void) {
         return arg_xbootldr_path ?: arg_esp_path;
 }
 
-int acquire_esp(bool unprivileged_mode, bool graceful, uint32_t *ret_part, uint64_t *ret_pstart, uint64_t *ret_psize, sd_id128_t *ret_uuid, dev_t *ret_devid);
-int acquire_xbootldr(bool unprivileged_mode, sd_id128_t *ret_uuid, dev_t *ret_devid);
+int acquire_esp(int unprivileged_mode, bool graceful, uint32_t *ret_part, uint64_t *ret_pstart, uint64_t *ret_psize, sd_id128_t *ret_uuid, dev_t *ret_devid);
+int acquire_xbootldr(int unprivileged_mode, sd_id128_t *ret_uuid, dev_t *ret_devid);
