@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Setup Virtual Console
+Description=Virtual Console Setup
 Documentation=man:systemd-vconsole-setup.service(8) man:vconsole.conf(5)
 
 ConditionPathExists=/dev/tty0
