@@ -6,6 +6,7 @@
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 #define __STDC_WANT_IEC_60559_TYPES_EXT__
 #include <float.h>
@@ -91,6 +92,7 @@ int main(void) {
         info(ssize_t);
         info(usec_t);
         info(__time_t);
+        info(useconds_t);
         info(pid_t);
         info(uid_t);
         info(gid_t);
