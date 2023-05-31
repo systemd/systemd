@@ -66,9 +66,9 @@ static int verify_esp_blkid(
         r = blkid_do_safeprobe(b);
         if (r == -2)
                 return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" is ambiguous.", node);
-        else if (r == 1)
+        if (r == 1)
                 return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" does not contain a label.", node);
-        else if (r != 0)
+        if (r != 0)
                 return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe file system \"%s\": %m", node);
 
         r = blkid_probe_lookup_value(b, "TYPE", &v, NULL);
