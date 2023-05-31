@@ -325,6 +325,8 @@ static char* merge_unit_ids(const char* unit_log_field, char * const* pairs) {
         _cleanup_free_ char *ans = NULL;
         size_t size = 0;
 
+        assert(unit_log_field);
+
         STRV_FOREACH_PAIR(unit_id, job_type, pairs) {
                 size_t next;
 
