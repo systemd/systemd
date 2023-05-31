@@ -114,9 +114,15 @@ static int add_ipv6_address(sd_netlink *rtnl, struct state *s) {
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_addr_set_flags(req, IFA_F_PERMANENT);
+        uint32_t flags = IFA_F_PERMANENT|IFA_F_NOPREFIXROUTE;
+        r = sd_rtnl_message_addr_set_flags(req, flags & 0xffu); /* rtnetlink wants low 8 bit of flags via regular flags field… */
         if (r < 0)
                 return r;
+        if ((flags & ~0xffu) != 0) {
+                r = sd_netlink_message_append_u32(req, IFA_FLAGS, flags); /* …and the rest of the flags via IFA_FLAGS */
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_rtnl_message_addr_set_scope(req, RT_SCOPE_HOST);
         if (r < 0)
