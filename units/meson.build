@@ -128,12 +128,13 @@ units = [
          'sockets.target.wants/'],
         ['systemd-journald.socket',             '',
          'sockets.target.wants/'],
+        ['systemd-journald@.socket',            ''],
+        ['systemd-journald-varlink@.socket',    ''],
         ['systemd-kexec.service',               ''],
         ['systemd-machine-id-commit.service',   '',
          'sysinit.target.wants/'],
-        ['systemd-journald@.socket',            ''],
-        ['systemd-journald-varlink@.socket',    ''],
         ['systemd-networkd.socket',             'ENABLE_NETWORKD'],
+        ['systemd-oomd.socket',                 'ENABLE_OOMD'],
         ['systemd-poweroff.service',            ''],
         ['systemd-reboot.service',              ''],
         ['systemd-rfkill.socket',               'ENABLE_RFKILL'],
@@ -168,7 +169,6 @@ units = [
         ['user.slice',                          ''],
         ['var-lib-machines.mount',              'ENABLE_MACHINED',
          'remote-fs.target.wants/ machines.target.wants/'],
-        ['systemd-oomd.socket',                 'ENABLE_OOMD'],
 ]
 
 in_units = [
@@ -258,8 +258,6 @@ in_units = [
         ['systemd-volatile-root.service',        'ENABLE_INITRD'],
         ['systemd-repart.service',               'ENABLE_REPART',
          'sysinit.target.wants/ initrd-root-fs.target.wants/'],
-        ['user-runtime-dir@.service',            ''],
-        ['user@.service',                        ''],
         ['systemd-pcrphase-initrd.service',      'ENABLE_BOOTLOADER HAVE_OPENSSL HAVE_TPM2 ENABLE_INITRD',
          'initrd.target.wants/'],
         ['systemd-pcrphase-sysinit.service',     'ENABLE_BOOTLOADER HAVE_OPENSSL HAVE_TPM2',
@@ -272,6 +270,8 @@ in_units = [
         ['systemd-pcrfs@.service',               'ENABLE_BOOTLOADER HAVE_OPENSSL HAVE_TPM2'],
         ['systemd-growfs-root.service',          ''],
         ['systemd-growfs@.service',              ''],
+        ['user-runtime-dir@.service',            ''],
+        ['user@.service',                        ''],
 ]
 
 add_wants = []
