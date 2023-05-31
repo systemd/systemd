@@ -248,6 +248,18 @@ int gpt_partition_type_from_string(const char *s, GptPartitionType *ret) {
         return 0;
 }
 
+GptPartitionType gpt_partition_type_override_architecture(GptPartitionType type, Architecture arch) {
+        assert(arch >= 0);
+
+        FOREACH_ARRAY(t, gpt_partition_type_table, ELEMENTSOF(gpt_partition_type_table) - 1)
+                if (t->designator == type.designator && t->arch == arch)
+                        return *t;
+
+        /* If we can't find an entry with the same designator and the requested architecture, just return the
+         * original partition type. */
+        return type;
+}
+
 Architecture gpt_partition_type_uuid_to_arch(sd_id128_t id) {
         const GptPartitionType *pt;
 

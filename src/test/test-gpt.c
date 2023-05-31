@@ -81,4 +81,31 @@ TEST(type_alias_same) {
         }
 }
 
+TEST(override_architecture) {
+        GptPartitionType x, y;
+
+        assert_se(gpt_partition_type_from_string("root-x86-64", &x) >= 0);
+        assert_se(x.arch == ARCHITECTURE_X86_64);
+
+        assert_se(gpt_partition_type_from_string("root-arm64", &y) >= 0);
+        assert(y.arch == ARCHITECTURE_ARM64);
+
+        x = gpt_partition_type_override_architecture(x, ARCHITECTURE_ARM64);
+        assert_se(x.arch == y.arch);
+        assert_se(x.designator == y.designator);
+        assert_se(sd_id128_equal(x.uuid, y.uuid));
+        assert_se(streq(x.name, y.name));
+
+        /* If the partition type does not have an architecture, nothing should change. */
+
+        assert_se(gpt_partition_type_from_string("esp", &x) >= 0);
+        y = x;
+
+        x = gpt_partition_type_override_architecture(x, ARCHITECTURE_ARM64);
+        assert_se(x.arch == y.arch);
+        assert_se(x.designator == y.designator);
+        assert_se(sd_id128_equal(x.uuid, y.uuid));
+        assert_se(streq(x.name, y.name));
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
