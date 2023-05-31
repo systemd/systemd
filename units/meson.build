@@ -255,6 +255,7 @@ in_units = [
         ['systemd-user-sessions.service',        'HAVE_PAM',
          'multi-user.target.wants/'],
         ['systemd-vconsole-setup.service',       'ENABLE_VCONSOLE'],
+        ['systemd-vconsole-setup-reload.service', 'ENABLE_VCONSOLE ENABLE_FIRSTBOOT'],
         ['systemd-volatile-root.service',        'ENABLE_INITRD'],
         ['systemd-repart.service',               'ENABLE_REPART',
          'sysinit.target.wants/ initrd-root-fs.target.wants/'],
