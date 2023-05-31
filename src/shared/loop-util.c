@@ -203,7 +203,7 @@ static int loop_configure_fallback(int fd, const struct loop_config *c) {
 
                 /* Sleep some random time, but at least 10ms, at most 250ms. Increase the delay the more
                  * failed attempts we see */
-                (void) usleep(UINT64_C(10) * USEC_PER_MSEC +
+                (void) usleep_safe(UINT64_C(10) * USEC_PER_MSEC +
                               random_u64_range(UINT64_C(240) * USEC_PER_MSEC * n_attempts/64));
         }
 
@@ -595,7 +595,7 @@ static int loop_device_make_internal(
                 usec = random_u64_range(UINT64_C(10) * USEC_PER_MSEC +
                                         UINT64_C(240) * USEC_PER_MSEC * n_attempts/64);
                 log_debug("Trying again after %s.", FORMAT_TIMESPAN(usec, USEC_PER_MSEC));
-                (void) usleep(usec);
+                (void) usleep_safe(usec);
         }
 
         d->backing_file = TAKE_PTR(backing_file);
@@ -833,7 +833,7 @@ static LoopDevice* loop_device_free(LoopDevice *d) {
                                 delay *= 2;
                         }
 
-                        (void) usleep(delay);
+                        (void) usleep_safe(delay);
                 }
         }
 
