@@ -1,6 +1,8 @@
 #!/bin/bash -eux
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+rm -f /testok
+
 # TODO: Figure out why this is failing
 systemctl reset-failed systemd-vconsole-setup.service
 
@@ -17,3 +19,5 @@ fi
 
 # Exit with non-zero EC if the /failed-services file is not empty (we have -e set)
 [[ ! -s /failed-services ]]
+
+touch /testok
