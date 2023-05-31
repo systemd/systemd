@@ -144,13 +144,14 @@ static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;
 static bool arg_split = false;
-static sd_id128_t *arg_filter_partitions = NULL;
+static GptPartitionType *arg_filter_partitions = NULL;
 static size_t arg_n_filter_partitions = 0;
 static FilterPartitionsType arg_filter_partitions_type = FILTER_PARTITIONS_NONE;
-static sd_id128_t *arg_defer_partitions = NULL;
+static GptPartitionType *arg_defer_partitions = NULL;
 static size_t arg_n_defer_partitions = 0;
 static uint64_t arg_sector_size = 0;
 static ImagePolicy *arg_image_policy = NULL;
+static Architecture arg_architecture = _ARCHITECTURE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -428,7 +429,7 @@ static bool partition_exclude(const Partition *p) {
                 return false;
 
         for (size_t i = 0; i < arg_n_filter_partitions; i++)
-                if (sd_id128_equal(p->type.uuid, arg_filter_partitions[i]))
+                if (sd_id128_equal(p->type.uuid, arg_filter_partitions[i].uuid))
                         return arg_filter_partitions_type == FILTER_PARTITIONS_EXCLUDE;
 
         return arg_filter_partitions_type == FILTER_PARTITIONS_INCLUDE;
@@ -438,7 +439,7 @@ static bool partition_defer(const Partition *p) {
         assert(p);
 
         for (size_t i = 0; i < arg_n_defer_partitions; i++)
-                if (sd_id128_equal(p->type.uuid, arg_defer_partitions[i]))
+                if (sd_id128_equal(p->type.uuid, arg_defer_partitions[i].uuid))
                         return true;
 
         return false;
@@ -1179,6 +1180,9 @@ static int config_parse_type(
         r = gpt_partition_type_from_string(rvalue, type);
         if (r < 0)
                 return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse partition type: %s", rvalue);
+
+        if (arg_architecture >= 0)
+                *type = gpt_partition_type_override_architecture(*type, arg_architecture);
 
         return 0;
 }
@@ -5766,7 +5770,7 @@ static int context_minimize(Context *context) {
         return 0;
 }
 
-static int parse_partition_types(const char *p, sd_id128_t **partitions, size_t *n_partitions) {
+static int parse_partition_types(const char *p, GptPartitionType **partitions, size_t *n_partitions) {
         int r;
 
         assert(partitions);
@@ -5789,7 +5793,7 @@ static int parse_partition_types(const char *p, sd_id128_t **partitions, size_t 
                 if (!GREEDY_REALLOC(*partitions, *n_partitions + 1))
                         return log_oom();
 
-                (*partitions)[(*n_partitions)++] = type.uuid;
+                (*partitions)[(*n_partitions)++] = type;
         }
 
         return 0;
@@ -5847,6 +5851,7 @@ static int help(void) {
                "                          Take partitions of the specified types into account\n"
                "                          but don't populate them yet\n"
                "     --sector-size=SIZE   Set the logical sector size for the image\n"
+               "     --architecture=ARCH  Set the generic architecture for the image\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -5888,6 +5893,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DEFER_PARTITIONS,
                 ARG_SECTOR_SIZE,
                 ARG_SKIP_PARTITIONS,
+                ARG_ARCHITECTURE,
         };
 
         static const struct option options[] = {
@@ -5920,6 +5926,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "exclude-partitions",   required_argument, NULL, ARG_EXCLUDE_PARTITIONS   },
                 { "defer-partitions",     required_argument, NULL, ARG_DEFER_PARTITIONS     },
                 { "sector-size",          required_argument, NULL, ARG_SECTOR_SIZE          },
+                { "architecture",         required_argument, NULL, ARG_ARCHITECTURE         },
                 {}
         };
 
@@ -6220,6 +6227,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_ARCHITECTURE:
+                        r = architecture_from_string(optarg);
+                        if (r < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid architecture '%s'", optarg);
+
+                        arg_architecture = r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -6282,6 +6297,14 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_pretty < 0 && isatty(STDOUT_FILENO))
                 arg_pretty = true;
+
+        if (arg_architecture >= 0) {
+                FOREACH_ARRAY(p, arg_filter_partitions, arg_n_filter_partitions)
+                        *p = gpt_partition_type_override_architecture(*p, arg_architecture);
+
+                FOREACH_ARRAY(p, arg_defer_partitions, arg_n_defer_partitions)
+                        *p = gpt_partition_type_override_architecture(*p, arg_architecture);
+        }
 
         return 1;
 }
