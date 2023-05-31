@@ -124,3 +124,7 @@ jobs:
 
     - name: Boot ${{ matrix.distro }} QEMU
       run: timeout -k 30 10m mkosi --debug qemu
+
+    # vsock in Github Actions with qemu is broken so for now we check for failures manually.
+    - name: Check ${{ matrix.distro }} QEMU
+      run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
