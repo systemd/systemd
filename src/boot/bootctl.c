@@ -64,7 +64,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_efi_boot_option_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 int acquire_esp(
-                bool unprivileged_mode,
+                int unprivileged_mode,
                 bool graceful,
                 uint32_t *ret_part,
                 uint64_t *ret_pstart,
@@ -101,7 +101,7 @@ int acquire_esp(
 }
 
 int acquire_xbootldr(
-                bool unprivileged_mode,
+                int unprivileged_mode,
                 sd_id128_t *ret_uuid,
                 dev_t *ret_devid) {
 
