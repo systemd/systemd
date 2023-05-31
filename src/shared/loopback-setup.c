@@ -140,22 +140,22 @@ static int add_ipv6_address(sd_netlink *rtnl, struct state *s) {
         return 0;
 }
 
-static bool check_loopback(sd_netlink *rtnl) {
+static int check_loopback(sd_netlink *rtnl) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         unsigned flags;
         int r;
 
         r = sd_rtnl_message_new_link(rtnl, &req, RTM_GETLINK, LOOPBACK_IFINDEX);
         if (r < 0)
-                return false;
+                return r;
 
         r = sd_netlink_call(rtnl, req, USEC_INFINITY, &reply);
         if (r < 0)
-                return false;
+                return r;
 
         r = sd_rtnl_message_link_get_flags(reply, &flags);
         if (r < 0)
-                return false;
+                return r;
 
         return flags & IFF_UP;
 }
@@ -176,9 +176,11 @@ int loopback_setup(void) {
         };
         int r;
 
+        /* Note, we, generally assume callers ignore the return code here (except test cases), hence only log add LOG_WARN level. */
+
         r = sd_netlink_open(&rtnl);
         if (r < 0)
-                return log_error_errno(r, "Failed to open netlink: %m");
+                return log_warning_errno(r, "Failed to open netlink, ignoring: %m");
 
         /* Note that we add the IP addresses here explicitly even though the kernel does that too implicitly when
          * setting up the loopback device. The reason we do this here a second time (and possibly race against the
@@ -188,35 +190,42 @@ int loopback_setup(void) {
 
         r = add_ipv4_address(rtnl, &state_4);
         if (r < 0)
-                return log_error_errno(r, "Failed to enqueue IPv4 loopback address add request: %m");
+                return log_warning_errno(r, "Failed to enqueue IPv4 loopback address add request, ignoring: %m");
 
         r = add_ipv6_address(rtnl, &state_6);
         if (r < 0)
-                return log_error_errno(r, "Failed to enqueue IPv6 loopback address add request: %m");
+                return log_warning_errno(r, "Failed to enqueue IPv6 loopback address add request, ignoring: %m");
 
         r = start_loopback(rtnl, &state_up);
         if (r < 0)
-                return log_error_errno(r, "Failed to enqueue loopback interface start request: %m");
+                return log_warning_errno(r, "Failed to enqueue loopback interface start request, ignoring: %m");
 
         while (state_4.n_messages + state_6.n_messages + state_up.n_messages > 0) {
                 r = sd_netlink_wait(rtnl, LOOPBACK_SETUP_TIMEOUT_USEC);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to wait for netlink event: %m");
+                        return log_warning_errno(r, "Failed to wait for netlink event, ignoring: %m");
 
                 r = sd_netlink_process(rtnl, NULL);
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to process netlink event: %m");
+                        return log_warning_errno(r, "Failed to process netlink event, ignoring: %m");
         }
 
         /* Note that we don't really care whether the addresses could be added or not */
         if (state_up.rcode != 0) {
-                /* If we lack the permissions to configure the loopback device,
-                 * but we find it to be already configured, let's exit cleanly,
-                 * in order to supported unprivileged containers. */
-                if (ERRNO_IS_PRIVILEGE(state_up.rcode) && check_loopback(rtnl))
-                        return 0;
 
-                return log_warning_errno(state_up.rcode, "Failed to configure loopback network device: %m");
+                /* If we lack the permissions to configure the loopback device, but we find it to be already
+                 * configured, let's exit cleanly, in order to supported unprivileged containers. */
+                if (ERRNO_IS_PRIVILEGE(state_up.rcode)) {
+                        r = check_loopback(rtnl);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to check if loopback device might already be up, ignoring: %m");
+                        else if (r > 0) {
+                                log_debug("Configuring loopback failed, but device is already up, suppressing failure.");
+                                return 0;
+                        }
+                }
+
+                return log_warning_errno(state_up.rcode, "Failed to configure loopback network device, ignoring: %m");
         }
 
         return 0;
