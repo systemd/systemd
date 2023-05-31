@@ -392,6 +392,35 @@
           for light blue, or <literal>ANSI_COLOR="0;38;2;60;110;180"</literal> for Fedora blue.
           </para></listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>VENDOR_NAME=</varname></term>
+
+          <listitem><para>The name of the OS vendor. This is the name of the organization or company which
+          produces the OS. This field is optional.</para>
+
+          <para>This name is intended to be exposed in "About this system" UIs or software update UIs when
+          needed to distinguish the OS vendor from the OS itself. It is intended to be human readable.</para>
+
+          <para>Examples: <literal>VENDOR_NAME="Fedora Project"</literal> for Fedora Linux,
+          <literal>VENDOR_NAME="Canonical"</literal> for Ubuntu.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>VENDOR_URL=</varname></term>
+
+          <listitem><para>The homepage of the OS vendor. This field is optional. The
+          <varname>VENDOR_NAME=</varname> field should be set if this one is, although clients must be
+          robust against either field not being set.</para>
+
+          <para>The value should be in <ulink
+          url="https://tools.ietf.org/html/rfc3986">RFC3986 format</ulink>, and should be
+          <literal>http:</literal> or <literal>https:</literal> URLs. Only one URL shall be listed in the
+          setting.</para>
+
+          <para>Examples: <literal>VENDOR_URL="https://fedoraproject.org/"</literal>,
+          <literal>VENDOR_URL="https://canonical.com/"</literal>.</para></listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
 
