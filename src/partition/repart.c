@@ -5261,7 +5261,7 @@ static int resolve_copy_blocks_auto(
 
         const char *try1 = NULL, *try2 = NULL;
         char p[SYS_BLOCK_PATH_MAX("/slaves")];
-        _cleanup_(closedirp) DIR *d = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
         sd_id128_t found_uuid = SD_ID128_NULL;
         dev_t devno, found = 0;
         int r;

@@ -35,7 +35,7 @@ static int open_passwd_file(const char *root, const char *fname, FILE **ret_file
 }
 
 static int populate_uid_cache(const char *root, Hashmap **ret) {
-        _cleanup_(hashmap_freep) Hashmap *cache = NULL;
+        _cleanup_hashmap_free_ Hashmap *cache = NULL;
         int r;
 
         cache = hashmap_new(&uid_gid_hash_ops);
@@ -76,7 +76,7 @@ static int populate_uid_cache(const char *root, Hashmap **ret) {
 }
 
 static int populate_gid_cache(const char *root, Hashmap **ret) {
-        _cleanup_(hashmap_freep) Hashmap *cache = NULL;
+        _cleanup_hashmap_free_ Hashmap *cache = NULL;
         int r;
 
         cache = hashmap_new(&uid_gid_hash_ops);

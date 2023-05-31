@@ -22,6 +22,7 @@
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "macro.h"
+#include "memstream-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "string-util.h"
@@ -149,7 +150,7 @@ int dlopen_elf(void) {
 }
 
 typedef struct StackContext {
-        FILE *f;
+        MemStream m;
         Dwfl *dwfl;
         Elf *elf;
         unsigned n_thread;
@@ -158,11 +159,10 @@ typedef struct StackContext {
         Set **modules;
 } StackContext;
 
-static StackContext* stack_context_destroy(StackContext *c) {
-        if (!c)
-                return NULL;
+static void stack_context_done(StackContext *c) {
+        assert(c);
 
-        c->f = safe_fclose(c->f);
+        memstream_done(&c->m);
 
         if (c->dwfl) {
                 sym_dwfl_end(c->dwfl);
@@ -173,8 +173,6 @@ static StackContext* stack_context_destroy(StackContext *c) {
                 sym_elf_end(c->elf);
                 c->elf = NULL;
         }
-
-        return NULL;
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Elf *, sym_elf_end, NULL);
@@ -235,8 +233,8 @@ static int frame_callback(Dwfl_Frame *frame, void *userdata) {
                 module_offset = pc - start;
         }
 
-        if (c->f)
-                fprintf(c->f, "#%-2u 0x%016" PRIx64 " %s (%s + 0x%" PRIx64 ")\n", c->n_frame, (uint64_t) pc, strna(symbol), strna(fname), module_offset);
+        if (c->m.f)
+                fprintf(c->m.f, "#%-2u 0x%016" PRIx64 " %s (%s + 0x%" PRIx64 ")\n", c->n_frame, (uint64_t) pc, strna(symbol), strna(fname), module_offset);
         c->n_frame++;
 
         return DWARF_CB_OK;
@@ -251,14 +249,14 @@ static int thread_callback(Dwfl_Thread *thread, void *userdata) {
         if (c->n_thread >= THREADS_MAX)
                 return DWARF_CB_ABORT;
 
-        if (c->n_thread != 0 && c->f)
-                fputc('\n', c->f);
+        if (c->n_thread != 0 && c->m.f)
+                fputc('\n', c->m.f);
 
         c->n_frame = 0;
 
-        if (c->f) {
+        if (c->m.f) {
                 tid = sym_dwfl_thread_tid(thread);
-                fprintf(c->f, "Stack trace of thread " PID_FMT ":\n", tid);
+                fprintf(c->m.f, "Stack trace of thread " PID_FMT ":\n", tid);
         }
 
         if (sym_dwfl_thread_getframes(thread, frame_callback, c) < 0)
@@ -297,10 +295,10 @@ static void report_module_metadata(StackContext *c, const char *name, JsonVarian
         assert(c);
         assert(name);
 
-        if (!c->f)
+        if (!c->m.f)
                 return;
 
-        fprintf(c->f, "Module %s", name);
+        fprintf(c->m.f, "Module %s", name);
 
         if (metadata) {
                 const char
@@ -314,14 +312,14 @@ static void report_module_metadata(StackContext *c, const char *name, JsonVarian
                         /* Version/architecture is only meaningful with a package name.
                          * Skip the detailed fields if package is unknown. */
                         _cleanup_free_ char *id = build_package_reference(type, package, version, arch);
-                        fprintf(c->f, " from %s", strnull(id));
+                        fprintf(c->m.f, " from %s", strnull(id));
                 }
 
                 if (build_id && !(package && version))
-                        fprintf(c->f, ", build-id=%s", build_id);
+                        fprintf(c->m.f, ", build-id=%s", build_id);
         }
 
-        fputs("\n", c->f);
+        fputs("\n", c->m.f);
 }
 
 static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *elf, bool *ret_interpreter_found, StackContext *c) {
@@ -464,8 +462,8 @@ static int parse_buildid(Dwfl_Module *mod, Elf *elf, const char *name, StackCont
                 /* If we don't find a build-id, note it in the journal message, and try
                  * anyway to find the package metadata. It's unlikely to have the latter
                  * without the former, but there's no hard rule. */
-                if (c->f)
-                        fprintf(c->f, "Module %s without build-id.\n", name);
+                if (c->m.f)
+                        fprintf(c->m.f, "Module %s without build-id.\n", name);
         } else {
                 /* We will later parse package metadata json and pass it to our caller. Prepare the
                 * build-id in json format too, so that it can be appended and parsed cleanly. It
@@ -570,13 +568,11 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
         };
 
         _cleanup_(json_variant_unrefp) JsonVariant *package_metadata = NULL;
-        _cleanup_(set_freep) Set *modules = NULL;
-        _cleanup_free_ char *buf = NULL; /* buf should be freed last, c.f closed first (via stack_context_destroy) */
-        _cleanup_(stack_context_destroy) StackContext c = {
+        _cleanup_set_free_ Set *modules = NULL;
+        _cleanup_(stack_context_done) StackContext c = {
                 .package_metadata = &package_metadata,
                 .modules = &modules,
         };
-        size_t sz = 0;
         int r;
 
         assert(fd >= 0);
@@ -584,11 +580,8 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
         if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
                 return log_warning_errno(errno, "Failed to seek to beginning of the core file: %m");
 
-        if (ret) {
-                c.f = open_memstream_unlocked(&buf, &sz);
-                if (!c.f)
-                        return log_oom();
-        }
+        if (ret && !memstream_init(&c.m))
+                return log_oom();
 
         sym_elf_version(EV_CURRENT);
 
@@ -616,16 +609,9 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Could not parse core file, dwfl_getthreads() failed: %s", sym_dwfl_errmsg(sym_dwfl_errno()));
 
         if (ret) {
-                r = fflush_and_check(c.f);
+                r = memstream_finalize(&c.m, ret, NULL);
                 if (r < 0)
                         return log_warning_errno(r, "Could not parse core file, flushing file buffer failed: %m");
-
-                c.f = safe_fclose(c.f);
-
-                if (!buf)
-                        return log_oom();
-
-                *ret = TAKE_PTR(buf);
         }
 
         if (ret_package_metadata)
@@ -636,15 +622,13 @@ static int parse_core(int fd, const char *executable, char **ret, JsonVariant **
 
 static int parse_elf(int fd, const char *executable, char **ret, JsonVariant **ret_package_metadata) {
         _cleanup_(json_variant_unrefp) JsonVariant *package_metadata = NULL, *elf_metadata = NULL;
-        _cleanup_(set_freep) Set *modules = NULL;
-        _cleanup_free_ char *buf = NULL; /* buf should be freed last, c.f closed first (via stack_context_destroy) */
-        _cleanup_(stack_context_destroy) StackContext c = {
+        _cleanup_set_free_ Set *modules = NULL;
+        _cleanup_(stack_context_done) StackContext c = {
                 .package_metadata = &package_metadata,
                 .modules = &modules,
         };
         const char *elf_type;
         GElf_Ehdr elf_header;
-        size_t sz = 0;
         int r;
 
         assert(fd >= 0);
@@ -652,11 +636,8 @@ static int parse_elf(int fd, const char *executable, char **ret, JsonVariant **r
         if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
                 return log_warning_errno(errno, "Failed to seek to beginning of the ELF file: %m");
 
-        if (ret) {
-                c.f = open_memstream_unlocked(&buf, &sz);
-                if (!c.f)
-                        return log_oom();
-        }
+        if (ret && !memstream_init(&c.m))
+                return log_oom();
 
         sym_elf_version(EV_CURRENT);
 
@@ -675,7 +656,7 @@ static int parse_elf(int fd, const char *executable, char **ret, JsonVariant **r
                         return log_warning_errno(r, "Failed to inspect core file: %m");
 
                 if (out)
-                        fprintf(c.f, "%s", out);
+                        fprintf(c.m.f, "%s", out);
 
                 elf_type = "coredump";
         } else {
@@ -725,7 +706,7 @@ static int parse_elf(int fd, const char *executable, char **ret, JsonVariant **r
                         return log_warning_errno(r, "Failed to merge JSON objects: %m");
 
                 if (ret)
-                        fprintf(c.f, "ELF object binary architecture: %s\n", elf_architecture);
+                        fprintf(c.m.f, "ELF object binary architecture: %s\n", elf_architecture);
         }
 #endif
 
@@ -735,16 +716,9 @@ static int parse_elf(int fd, const char *executable, char **ret, JsonVariant **r
                 return log_warning_errno(r, "Failed to merge JSON objects: %m");
 
         if (ret) {
-                r = fflush_and_check(c.f);
+                r = memstream_finalize(&c.m, ret, NULL);
                 if (r < 0)
                         return log_warning_errno(r, "Could not parse ELF file, flushing file buffer failed: %m");
-
-                c.f = safe_fclose(c.f);
-
-                if (!buf)
-                        return log_oom();
-
-                *ret = TAKE_PTR(buf);
         }
 
         if (ret_package_metadata)

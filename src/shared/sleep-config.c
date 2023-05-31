@@ -222,7 +222,7 @@ int battery_is_discharging_and_low(void) {
 /* Store current capacity of each battery before suspension and timestamp */
 int fetch_batteries_capacity_by_name(Hashmap **ret) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_(hashmap_freep) Hashmap *batteries_capacity_by_name = NULL;
+        _cleanup_hashmap_free_ Hashmap *batteries_capacity_by_name = NULL;
         sd_device *dev;
         int r;
 
