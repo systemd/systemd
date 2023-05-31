@@ -638,7 +638,7 @@ TEST(safe_fork) {
 
         if (r == 0) {
                 /* child */
-                usleep(100 * USEC_PER_MSEC);
+                (void) usleep_safe(100 * USEC_PER_MSEC);
 
                 _exit(88);
         }

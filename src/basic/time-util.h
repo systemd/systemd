@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
+#include <unistd.h>
 
 typedef uint64_t usec_t;
 typedef uint64_t nsec_t;
@@ -209,6 +210,15 @@ static inline usec_t usec_sub_signed(usec_t timestamp, int64_t delta) {
                 return usec_add(timestamp, (usec_t) (-delta));
 
         return usec_sub_unsigned(timestamp, (usec_t) delta);
+}
+
+static inline int usleep_safe(usec_t usec) {
+        /* usleep() takes useconds_t that is (typically?) uint32_t. Also, usleep() may only support the
+         * range [0, 1000000]. See usleep(3). */
+        for (; usec > 0; usec = usec_sub_unsigned(usec, USEC_PER_SEC))
+                if (usleep(MIN(usec, USEC_PER_SEC)) < 0)
+                        return -errno;
+        return 0;
 }
 
 /* The last second we can format is 31. Dec 9999, 1s before midnight, because otherwise we'd enter 5 digit

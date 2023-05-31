@@ -341,7 +341,7 @@ int open_terminal(const char *name, int mode) {
                 if (c >= 20)
                         return -errno;
 
-                (void) usleep(50 * USEC_PER_MSEC);
+                (void) usleep_safe(50 * USEC_PER_MSEC);
                 c++;
         }
 
