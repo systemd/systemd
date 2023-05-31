@@ -74,13 +74,13 @@ static void* thread_server(void *p) {
         assert_se(fd >= 0);
 
         assert_se(bind(fd, &u.sa, sa_len) >= 0);
-        usleep(100 * USEC_PER_MSEC);
+        (void) usleep(100 * USEC_PER_MSEC);
 
         assert_se(listen(fd, SOMAXCONN) >= 0);
-        usleep(100 * USEC_PER_MSEC);
+        (void) usleep(100 * USEC_PER_MSEC);
 
         assert_se(touch(path) >= 0);
-        usleep(100 * USEC_PER_MSEC);
+        (void) usleep(100 * USEC_PER_MSEC);
 
         log_debug("Initialized server");
 
