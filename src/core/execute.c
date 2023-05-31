@@ -229,25 +229,34 @@ static int exec_context_tty_size(const ExecContext *context, unsigned *ret_rows,
 }
 
 static void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p) {
-        const char *path;
+        _cleanup_close_ int fd = -EBADF;
+        const char *path = exec_context_tty_path(ASSERT_PTR(context));
 
-        assert(context);
+        /* Take a lock around the device for the duration of the setup that we do here.
+         * systemd-vconsole-setup.service also takes the lock to avoid being interrupted.
+         * We open a new fd that will be closed automatically, and operate on it for convenience.
+         */
 
-        path = exec_context_tty_path(context);
+        if (p && p->stdin_fd >= 0) {
+                fd = xopenat_lock(p->stdin_fd, NULL,
+                                  O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, 0, 0, LOCK_BSD, LOCK_EX);
+                if (fd < 0)
+                        return;
+        } else if (path) {
+                fd = open_terminal(path, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+                if (fd < 0)
+                        return;
 
-        if (context->tty_vhangup) {
-                if (p && p->stdin_fd >= 0)
-                        (void) terminal_vhangup_fd(p->stdin_fd);
-                else if (path)
-                        (void) terminal_vhangup(path);
-        }
+                if (lock_generic(fd, LOCK_BSD, LOCK_EX) < 0)
+                        return;
+        } else
+                return;   /* nothing to do */
 
-        if (context->tty_reset) {
-                if (p && p->stdin_fd >= 0)
-                        (void) reset_terminal_fd(p->stdin_fd, true);
-                else if (path)
-                        (void) reset_terminal(path);
-        }
+        if (context->tty_vhangup)
+                (void) terminal_vhangup_fd(fd);
+
+        if (context->tty_reset)
+                (void) reset_terminal_fd(fd, true);
 
         if (p && p->stdin_fd >= 0) {
                 unsigned rows = context->tty_rows, cols = context->tty_cols;
