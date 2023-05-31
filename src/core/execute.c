@@ -3263,7 +3263,7 @@ static int setup_credentials_internal(
                 /* Determine if we should actually install the prepared mount in the final location by bind
                  * mounting it there. We do so only if the mount is not established there already, and if the
                  * mount is actually non-empty (i.e. carries at least one credential). Not that in the best
-                 * case we are doing all this in a mount namespace, thus noone else will see that we
+                 * case we are doing all this in a mount namespace, thus no one else will see that we
                  * allocated a file system we are getting rid of again here. */
                 if (final_mounted)
                         install = false; /* already installed */
