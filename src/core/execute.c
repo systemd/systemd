@@ -39,6 +39,7 @@
 #include "argv-util.h"
 #include "async.h"
 #include "barrier.h"
+#include "bpf-dlopen.h"
 #include "bpf-lsm.h"
 #include "btrfs-util.h"
 #include "cap-list.h"
@@ -56,6 +57,7 @@
 #include "escape.h"
 #include "exec-credential.h"
 #include "execute.h"
+#include "execute-serialize.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -85,6 +87,7 @@
 #include "seccomp-util.h"
 #include "securebits-util.h"
 #include "selinux-util.h"
+#include "serialize.h"
 #include "signal-util.h"
 #include "smack-util.h"
 #include "socket-util.h"
@@ -1788,6 +1791,8 @@ static int apply_lock_personality(const ExecContext *c, const ExecParameters *p)
 
 #if HAVE_LIBBPF
 static int apply_restrict_filesystems(const ExecContext *c, const ExecParameters *p) {
+        int r;
+
         assert(c);
         assert(p);
 
@@ -1799,6 +1804,11 @@ static int apply_restrict_filesystems(const ExecContext *c, const ExecParameters
                 log_exec_debug(c, p, "LSM BPF not supported, skipping RestrictFileSystems=");
                 return 0;
         }
+
+        /* We are in a new binary, so dl-open again */
+        r = dlopen_bpf();
+        if (r < 0)
+                return r;
 
         return lsm_bpf_restrict_filesystems(c->restrict_filesystems, p->cgroup_id, p->bpf_outer_map_fd, c->restrict_filesystems_allow_list);
 }
@@ -4037,7 +4047,7 @@ static bool exec_context_shall_confirm_spawn(const ExecContext *context) {
 static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***l);
 static int exec_context_named_iofds(const ExecContext *c, const ExecParameters *p, int named_iofds[static 3]);
 
-static int exec_child(
+int exec_invoke(
                 const ExecCommand *command,
                 const ExecContext *context,
                 ExecParameters *params,
@@ -4091,6 +4101,8 @@ static int exec_child(
         /* Explicitly test for CVE-2021-4034 inspired invocations */
         assert(command->path);
         assert(!strv_isempty(command->argv));
+
+        LOG_CONTEXT_PUSH_EXEC(context, params);
 
         if (context->std_input == EXEC_INPUT_SOCKET ||
             context->std_output == EXEC_OUTPUT_SOCKET ||
@@ -5252,7 +5264,6 @@ static int exec_child(
         return log_exec_error_errno(context, params, r, "Failed to execute %s: %m", executable);
 }
 
-
 int exec_spawn(Unit *unit,
                ExecCommand *command,
                const ExecContext *context,
@@ -5261,12 +5272,16 @@ int exec_spawn(Unit *unit,
                const CGroupContext *cgroup_context,
                pid_t *ret) {
 
-        _cleanup_free_ char *subcgroup_path = NULL;
+        char serialization_fd_number[DECIMAL_STR_MAX(int) + 1];
+        _cleanup_free_ char *subcgroup_path = NULL, *log_level = NULL, *executor_path = NULL;
+        _cleanup_fdset_free_ FDSet *fdset = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         pid_t pid;
         int r;
 
         assert(unit);
         assert(unit->manager);
+        assert(unit->manager->executor_fd >= 0);
         assert(command);
         assert(context);
         assert(ret);
@@ -5301,35 +5316,56 @@ int exec_spawn(Unit *unit,
                 }
         }
 
-        pid = fork();
-        if (pid < 0)
-                return log_unit_error_errno(unit, errno, "Failed to fork: %m");
+        /* In order to avoid copy-on-write traps and OOM-kills when pid1's memory.current is above the
+         * child's memory.max, serialize all the state needed to start the unit, and pass it to the
+         * systemd-executor binary. clone() with CLONE_VM + CLONE_VFORK will pause the parent until the exec
+         * and ensure all memory is shared. The child immediately execs the new binary so the delay should
+         * be minimal. Once glibc provides a clone3 wrapper we can switch to that, and clone directly in the
+         * target cgroup. */
 
-        if (pid == 0) {
-                int exit_status;
+        r = open_serialization_file("sd-executor-state", &f);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to open serialization stream: %m");
 
-                r = exec_child(command,
-                               context,
-                               params,
-                               runtime,
-                               cgroup_context,
-                               &exit_status);
+        fdset = fdset_new();
+        if (!fdset)
+                return log_oom();
 
-                if (r < 0) {
-                        const char *status = ASSERT_PTR(
-                                        exit_status_to_string(exit_status, EXIT_STATUS_LIBC | EXIT_STATUS_SYSTEMD));
+        r = exec_serialize_invocation(f, fdset, context, command, params, runtime, cgroup_context);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to serialize parameters: %m");
 
-                        log_unit_struct_errno(unit, LOG_ERR, r,
-                                              "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
-                                              LOG_UNIT_INVOCATION_ID(unit),
-                                              LOG_UNIT_MESSAGE(unit, "Failed at step %s spawning %s: %m",
-                                                               status, command->path),
-                                              "EXECUTABLE=%s", command->path);
-                } else
-                        assert(exit_status == EXIT_SUCCESS);
+        if (fseeko(f, 0, SEEK_SET) == (off_t) -1)
+                return log_unit_error_errno(unit, errno, "Failed to reseek on serialization stream: %m");
 
-                _exit(exit_status);
-        }
+        r = fd_cloexec(fileno(f), false);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to set O_CLOEXEC on serialization fd: %m");
+
+        r = fdset_cloexec(fdset, false);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to set O_CLOEXEC on serialized fds: %m");
+
+        r = log_level_to_string_alloc(log_get_max_level(), &log_level);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to convert log level to string: %m");
+
+        r = fd_get_path(unit->manager->executor_fd, &executor_path);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to get executor path from fd: %m");
+
+        xsprintf(serialization_fd_number, "%i", fileno(f));
+
+        /* The executor binary is pinned, to avoid compatibility problems during upgrades. */
+        r = posix_spawn_wrapper(FORMAT_PROC_FD_PATH(unit->manager->executor_fd),
+                        STRV_MAKE(executor_path,
+                                  "--deserialize", serialization_fd_number,
+                                  "--log-level", log_level,
+                                  "--log-target", log_target_to_string(manager_get_executor_log_target(unit->manager))),
+                        environ,
+                        &pid);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to spawn executor: %m");
 
         log_unit_debug(unit, "Forked %s as "PID_FMT, command->path, pid);
 
@@ -5530,7 +5566,7 @@ int exec_context_destroy_mount_ns_dir(Unit *u) {
         return 0;
 }
 
-static void exec_command_done(ExecCommand *c) {
+void exec_command_done(ExecCommand *c) {
         assert(c);
 
         c->path = mfree(c->path);
@@ -6646,9 +6682,9 @@ static char *destroy_tree(char *path) {
         return mfree(path);
 }
 
-static ExecSharedRuntime* exec_shared_runtime_free(ExecSharedRuntime *rt) {
+void exec_shared_runtime_done(ExecSharedRuntime *rt) {
         if (!rt)
-                return NULL;
+                return;
 
         if (rt->manager)
                 (void) hashmap_remove(rt->manager->exec_shared_runtime_by_id, rt->id);
@@ -6658,6 +6694,11 @@ static ExecSharedRuntime* exec_shared_runtime_free(ExecSharedRuntime *rt) {
         rt->var_tmp_dir = mfree(rt->var_tmp_dir);
         safe_close_pair(rt->netns_storage_socket);
         safe_close_pair(rt->ipcns_storage_socket);
+}
+
+static ExecSharedRuntime* exec_shared_runtime_free(ExecSharedRuntime *rt) {
+        exec_shared_runtime_done(rt);
+
         return mfree(rt);
 }
 
@@ -7183,6 +7224,14 @@ ExecRuntime* exec_runtime_destroy(ExecRuntime *rt) {
         return exec_runtime_free(rt);
 }
 
+void exec_runtime_clear(ExecRuntime *rt) {
+        if (!rt)
+                return;
+
+        safe_close_pair(rt->ephemeral_storage_socket);
+        rt->ephemeral_copy = mfree(rt->ephemeral_copy);
+}
+
 void exec_params_clear(ExecParameters *p) {
         if (!p)
                 return;
@@ -7197,6 +7246,37 @@ void exec_params_clear(ExecParameters *p) {
         p->unit_id = mfree(p->unit_id);
         p->invocation_id = SD_ID128_NULL;
         p->invocation_id_string[0] = '\0';
+        p->confirm_spawn = mfree(p->confirm_spawn);
+}
+
+void exec_params_serialized_done(ExecParameters *p) {
+        if (!p)
+                return;
+
+        for (size_t i = 0; p->fds && i < p->n_socket_fds + p->n_storage_fds; i++)
+                p->fds[i] = safe_close(p->fds[i]);
+
+        p->cgroup_path = mfree(p->cgroup_path);
+
+        p->prefix = strv_free(p->prefix);
+        p->received_credentials_directory = mfree(p->received_credentials_directory);
+        p->received_encrypted_credentials_directory = mfree(p->received_encrypted_credentials_directory);
+
+        for (size_t i = 0; p->idle_pipe && i < 4; i++)
+                p->idle_pipe[i] = safe_close(p->idle_pipe[i]);
+        p->idle_pipe = mfree(p->idle_pipe);
+
+        p->stdin_fd = safe_close(p->stdin_fd);
+        p->stdout_fd = safe_close(p->stdout_fd);
+        p->stderr_fd = safe_close(p->stderr_fd);
+
+        p->notify_socket = mfree(p->notify_socket);
+
+        open_file_free_many(&p->open_files);
+
+        p->fallback_smack_process_label = mfree(p->fallback_smack_process_label);
+
+        exec_params_clear(p);
 }
 
 void exec_directory_done(ExecDirectory *d) {
