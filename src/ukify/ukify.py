@@ -19,7 +19,9 @@
 # pylint: disable=missing-docstring,invalid-name,import-outside-toplevel
 # pylint: disable=consider-using-with,unspecified-encoding,line-too-long
 # pylint: disable=too-many-locals,too-many-statements,too-many-return-statements
-# pylint: disable=too-many-branches,fixme
+# pylint: disable=too-many-branches,too-many-lines,too-many-instance-attributes
+# pylint: disable=too-many-arguments,unnecessary-lambda-assignment,fixme
+# pylint: disable=unused-argument
 
 import argparse
 import configparser
@@ -438,7 +440,7 @@ def call_systemd_measure(uki, linux, opts):
 def join_initrds(initrds):
     if len(initrds) == 0:
         return None
-    elif len(initrds) == 1:
+    if len(initrds) == 1:
         return initrds[0]
 
     seq = []
@@ -478,6 +480,9 @@ def pe_add_sections(uki: UKI, output: str):
             pe.FILE_HEADER.IMAGE_FILE_LOCAL_SYMS_STRIPPED = True
 
     # Old stubs might have been stripped, leading to unaligned raw data values, so let's fix them up here.
+    # pylint thinks that Structure doesn't have various members that it has…
+    # pylint: disable=no-member
+
     for i, section in enumerate(pe.sections):
         oldp = section.PointerToRawData
         oldsz = section.SizeOfRawData
@@ -745,6 +750,7 @@ class ConfigItem:
     ) -> None:
         "Set namespace.<dest>[idx] to value, with idx derived from group"
 
+        # pylint: disable=protected-access
         if group not in namespace._groups:
             namespace._groups += [group]
         idx = namespace._groups.index(group)
@@ -1068,7 +1074,7 @@ def apply_config(namespace, filename=None):
     # Fill in ._groups based on --pcr-public-key=, --pcr-private-key=, and --phases=.
     assert '_groups' not in namespace
     n_pcr_priv = len(namespace.pcr_private_keys or ())
-    namespace._groups = list(range(n_pcr_priv))
+    namespace._groups = list(range(n_pcr_priv))  # pylint: disable=protected-access
 
     cp = configparser.ConfigParser(
         comment_prefixes='#',
