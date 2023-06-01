@@ -111,6 +111,8 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
 
         assert(!!UNIT_VTABLE(u)->serialize == !!UNIT_VTABLE(u)->deserialize_item);
 
+        (void) serialize_item(f, "type", unit_type_to_string(u->type));
+
         if (UNIT_VTABLE(u)->serialize) {
                 r = UNIT_VTABLE(u)->serialize(u, f, fds);
                 if (r < 0)
@@ -230,9 +232,11 @@ static int unit_deserialize_job(Unit *u, FILE *f) {
         if (r < 0)
                 return r;
 
-        r = job_install_deserialized(j);
-        if (r < 0)
-                return r;
+        if (u->manager) {
+                r = job_install_deserialized(j);
+                if (r < 0)
+                        return r;
+        }
 
         TAKE_PTR(j);
         return 0;
@@ -482,6 +486,18 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         r = deserialize_markers(u, v);
                         if (r < 0)
                                 log_unit_debug_errno(u, r, "Failed to deserialize \"%s=%s\", ignoring: %m", l, v);
+                        continue;
+                } else if (streq(l, "type")) {
+                        if (u->type == _UNIT_TYPE_INVALID) {
+                                u->type = unit_type_from_string(v);
+                                if (u->type < 0)
+                                        log_unit_debug(u, "Failed to parse \"%s=%s\", ignoring.", l, v);
+
+                                if (UNIT_VTABLE(u)->init)
+                                        UNIT_VTABLE(u)->init(u);
+                        } else if (!streq(v, unit_type_to_string(u->type)))
+                                log_unit_debug(u, "Ignoring \"%s=%s\", already set to \"%s\".", l, v, unit_type_to_string(u->type));
+
                         continue;
                 }
 
