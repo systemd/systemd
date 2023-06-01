@@ -206,9 +206,9 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                                         progress_bytes,
                                         &progress);
                 else
-                        r = copy_directory_fd_full(
-                                        fd,
-                                        dest,
+                        r = copy_directory_at_full(
+                                        fd, NULL,
+                                        AT_FDCWD, dest,
                                         COPY_REFLINK|
                                         COPY_SAME_MOUNT|
                                         COPY_HARDLINKS|

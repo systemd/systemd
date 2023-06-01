@@ -1286,7 +1286,7 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
                 }
 
                 /* Try to copy as directory? */
-                r = copy_directory_fd(source_fd, arg_target, COPY_REFLINK|COPY_MERGE_EMPTY|COPY_SIGINT|COPY_HARDLINKS);
+                r = copy_directory_at(source_fd, NULL, AT_FDCWD, arg_target, COPY_REFLINK|COPY_MERGE_EMPTY|COPY_SIGINT|COPY_HARDLINKS);
                 if (r >= 0)
                         return 0;
                 if (r != -ENOTDIR)
