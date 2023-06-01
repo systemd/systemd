@@ -506,13 +506,13 @@ static int create_disk(
                         "After=%s\n",
                         d, d);
         else
-                /* For loopback devices, add systemd-tmpfiles-setup-dev.service
-                   dependency to ensure that loopback support is available in
-                   the kernel (/dev/loop-control needs to exist) */
+                /* For loopback devices make sure to explicitly load loop.ko, as this code might run very
+                 * early where device nodes created via systemd-tmpfiles-setup-dev.service might not be
+                 * around yet. Hence let's sync on the module itself. */
                 fprintf(f,
                         "RequiresMountsFor=%s\n"
-                        "Requires=systemd-tmpfiles-setup-dev.service\n"
-                        "After=systemd-tmpfiles-setup-dev.service\n",
+                        "Wants=modprobe@loop.service\n"
+                        "After=modprobe@loop.service\n",
                         u_escaped);
 
         r = generator_write_timeouts(arg_dest, device, name, options, &filtered);
