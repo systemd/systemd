@@ -122,7 +122,7 @@ static int verify_rules_file(UdevRules *rules, const char *fname) {
         unsigned mask = (1U << LOG_ERR) | (1U << LOG_WARNING);
         if (issues & mask)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s: udev rules check failed", fname);
+                                       "%s: udev rules check failed.", fname);
 
         return 0;
 }
@@ -215,7 +215,7 @@ int verify_main(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to enumerate rules files: %m");
                 if (arg_root && strv_isempty(files))
                         return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
-                                               "No rules files found in %s", arg_root);
+                                               "No rules files found in %s.", arg_root);
 
                 return verify_rules(rules, files);
         }
