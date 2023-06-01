@@ -1091,26 +1091,26 @@ static void check_token_delimiters(UdevRuleLine *rule_line, const char *line) {
         if (line == rule_line->line) {
                 /* this is the first token of the rule */
                 if (n_comma > 0)
-                        log_line_warning(rule_line, "Stray leading comma.");
+                        log_line_notice(rule_line, "style: stray leading comma.");
         } else if (isempty(p)) {
                 /* there are no more tokens in the rule */
                 if (n_comma > 0)
-                        log_line_warning(rule_line, "Stray trailing comma.");
+                        log_line_notice(rule_line, "style: stray trailing comma.");
         } else {
                 /* single comma is expected */
                 if (n_comma == 0)
-                        log_line_warning(rule_line, "A comma between tokens is expected.");
+                        log_line_notice(rule_line, "style: a comma between tokens is expected.");
                 else if (n_comma > 1)
-                        log_line_warning(rule_line, "More than one comma between tokens.");
+                        log_line_notice(rule_line, "style: more than one comma between tokens.");
 
                 /* whitespace after comma is expected */
                 if (n_comma > 0) {
                         if (ws_before_comma)
-                                log_line_warning(rule_line, "Stray whitespace before comma.");
+                                log_line_notice(rule_line, "style: stray whitespace before comma.");
                         if (!ws_after_comma)
-                                log_line_warning(rule_line, "Whitespace after comma is expected.");
+                                log_line_notice(rule_line, "style: whitespace after comma is expected.");
                 } else if (!ws_before_comma && !ws_after_comma)
-                        log_line_warning(rule_line, "Whitespace between tokens is expected.");
+                        log_line_notice(rule_line, "style: whitespace between tokens is expected.");
         }
 }
 
@@ -1177,7 +1177,7 @@ static void check_tokens_order(UdevRuleLine *rule_line) {
                 if (t->type == TK_M_RESULT)
                         has_result = true;
                 else if (has_result && t->type == TK_M_PROGRAM) {
-                        log_line_warning(rule_line, "Reordering RESULT check after PROGRAM assignment.");
+                        log_line_notice(rule_line, "style: reordering RESULT check after PROGRAM assignment.");
                         break;
                 }
 }
@@ -1400,7 +1400,7 @@ static void udev_check_unused_labels(UdevRuleLine *line) {
 
         if (FLAGS_SET(line->type, LINE_HAS_LABEL) &&
             !FLAGS_SET(line->type, LINE_IS_REFERENCED))
-                log_line_warning(line, "LABEL=\"%s\" is unused.", line->label);
+                log_line_notice(line, "style: LABEL=\"%s\" is unused.", line->label);
 }
 
 static void udev_check_conflicts_duplicates(UdevRuleLine *line) {
@@ -1424,7 +1424,7 @@ static void udev_check_conflicts_duplicates(UdevRuleLine *line) {
 
                         if (new_duplicates) {
                                 duplicates = new_duplicates;
-                                log_line_warning(line, "duplicate expressions.");
+                                log_line_notice(line, "style: duplicate expressions.");
                         }
                         if (new_conflicts) {
                                 conflicts = new_conflicts;

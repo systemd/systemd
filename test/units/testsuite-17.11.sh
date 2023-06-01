@@ -56,18 +56,21 @@ next_test_number() {
     out="sample-${num_str}.out"
 }
 
-assert_0() {
+assert_0_impl() {
     udevadm verify "$@" >"${out}"
     if [ -f "${exo}" ]; then
         diff -u "${exo}" "${out}"
     elif [ -f "${rules}" ]; then
         diff -u "${workdir}/default_output_1_success" "${out}"
     fi
+}
 
+assert_0() {
+    assert_0_impl "$@"
     next_test_number
 }
 
-assert_1() {
+assert_1_impl() {
     local rc
     set +e
     udevadm verify "$@" >"${out}" 2>"${err}"
@@ -84,7 +87,10 @@ assert_1() {
     elif [ -f "${rules}" ]; then
         diff -u "${workdir}/default_output_1_fail" "${out}"
     fi
+}
 
+assert_1() {
+    assert_1_impl "$@"
     next_test_number
 }
 
@@ -194,6 +200,22 @@ EOF
     assert_1 "${rules}"
 }
 
+test_style_error() {
+    local rule msg
+
+    rule="$1"; shift
+    msg="$1"; shift
+
+    printf '%s\n' "${rule}" >"${rules}"
+    cat >"${exp}" <<EOF
+${rules}:1 ${msg}
+${rules}: udev rules have style issues.
+EOF
+    assert_0_impl --no-style "${rules}"
+    assert_1_impl "${rules}"
+    next_test_number
+}
+
 test_syntax_error '=' 'Invalid key/value pair, ignoring.'
 test_syntax_error 'ACTION{a}=="b"' 'Invalid attribute for ACTION.'
 test_syntax_error 'ACTION:="b"' 'Invalid operator for ACTION.'
@@ -297,7 +319,7 @@ test_syntax_error 'GOTO="a", GOTO="b"
 LABEL="a"' 'Contains multiple GOTO keys, ignoring GOTO="b".'
 test_syntax_error 'LABEL{a}="b"' 'Invalid attribute for LABEL.'
 test_syntax_error 'LABEL=="b"' 'Invalid operator for LABEL.'
-test_syntax_error 'LABEL="b"' 'LABEL="b" is unused.'
+test_style_error 'LABEL="b"' 'style: LABEL="b" is unused.'
 test_syntax_error 'a="b"' "Invalid key 'a'."
 test_syntax_error 'KERNEL=="", KERNEL=="?*", NAME="a"' 'conflicting match expressions, the line has no effect.'
 test_syntax_error 'KERNEL=="abc", KERNEL!="abc", NAME="b"' 'conflicting match expressions, the line has no effect.'
@@ -308,23 +330,23 @@ test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}!=
                   'conflicting match expressions, the line has no effect.'
 test_syntax_error 'ACTION=="a*", ACTION=="bc*", NAME="d"' 'conflicting match expressions, the line has no effect.'
 test_syntax_error 'ACTION=="a*|bc*", ACTION=="d*|ef*", NAME="g"' 'conflicting match expressions, the line has no effect.'
-test_syntax_error 'KERNEL!="", KERNEL=="?*", NAME="a"' 'duplicate expressions.'
-test_syntax_error 'KERNEL=="|a|b", KERNEL=="b|a|", NAME="c"' 'duplicate expressions.'
+test_style_error 'KERNEL!="", KERNEL=="?*", NAME="a"' 'style: duplicate expressions.'
+test_style_error 'KERNEL=="|a|b", KERNEL=="b|a|", NAME="c"' 'style: duplicate expressions.'
 # shellcheck disable=SC2016
-test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}=="?*", ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
-                  'duplicate expressions.'
-test_syntax_error ',ACTION=="a", NAME="b"' 'Stray leading comma.'
-test_syntax_error ' ,ACTION=="a", NAME="b"' 'Stray leading comma.'
-test_syntax_error ', ACTION=="a", NAME="b"' 'Stray leading comma.'
-test_syntax_error 'ACTION=="a", NAME="b",' 'Stray trailing comma.'
-test_syntax_error 'ACTION=="a", NAME="b", ' 'Stray trailing comma.'
-test_syntax_error 'ACTION=="a" NAME="b"' 'A comma between tokens is expected.'
-test_syntax_error 'ACTION=="a",, NAME="b"' 'More than one comma between tokens.'
-test_syntax_error 'ACTION=="a" , NAME="b"' 'Stray whitespace before comma.'
-test_syntax_error 'ACTION=="a",NAME="b"' 'Whitespace after comma is expected.'
-test_syntax_error 'RESULT=="a", PROGRAM="b"' 'Reordering RESULT check after PROGRAM assignment.'
-test_syntax_error 'RESULT=="a*", PROGRAM="b", RESULT=="*c", PROGRAM="d"' \
-        'Reordering RESULT check after PROGRAM assignment.'
+test_style_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}=="?*", ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
+                 'style: duplicate expressions.'
+test_style_error ',ACTION=="a", NAME="b"' 'style: stray leading comma.'
+test_style_error ' ,ACTION=="a", NAME="b"' 'style: stray leading comma.'
+test_style_error ', ACTION=="a", NAME="b"' 'style: stray leading comma.'
+test_style_error 'ACTION=="a", NAME="b",' 'style: stray trailing comma.'
+test_style_error 'ACTION=="a", NAME="b", ' 'style: stray trailing comma.'
+test_style_error 'ACTION=="a" NAME="b"' 'style: a comma between tokens is expected.'
+test_style_error 'ACTION=="a",, NAME="b"' 'style: more than one comma between tokens.'
+test_style_error 'ACTION=="a" , NAME="b"' 'style: stray whitespace before comma.'
+test_style_error 'ACTION=="a",NAME="b"' 'style: whitespace after comma is expected.'
+test_style_error 'RESULT=="a", PROGRAM="b"' 'style: reordering RESULT check after PROGRAM assignment.'
+test_style_error 'RESULT=="a*", PROGRAM="b", RESULT=="*c", PROGRAM="d"' \
+                 'style: reordering RESULT check after PROGRAM assignment.'
 
 cat >"${rules}" <<'EOF'
 KERNEL=="a|b", KERNEL=="a|c", NAME="d"
@@ -357,10 +379,11 @@ LABEL="b"
 LABEL="b"
 EOF
 cat >"${exp}" <<EOF
-${rules}:3 LABEL="b" is unused.
-${rules}: udev rules check failed.
+${rules}:3 style: LABEL="b" is unused.
+${rules}: udev rules have style issues.
 EOF
-assert_1 "${rules}"
+assert_0_impl --no-style "${rules}"
+assert_1_impl "${rules}"
 
 cat >"${rules}" <<'EOF'
 GOTO="a"
@@ -370,7 +393,7 @@ cat >"${exp}" <<EOF
 ${rules}:2 Contains multiple LABEL keys, ignoring LABEL="a".
 ${rules}:1 GOTO="a" has no matching label, ignoring.
 ${rules}:1 The line has no effect any more, dropping.
-${rules}:2 LABEL="b" is unused.
+${rules}:2 style: LABEL="b" is unused.
 ${rules}: udev rules check failed.
 EOF
 assert_1 "${rules}"
@@ -379,7 +402,7 @@ cat >"${rules}" <<'EOF'
 KERNEL!="", KERNEL=="?*", KERNEL=="", NAME="a"
 EOF
 cat >"${exp}" <<EOF
-${rules}:1 duplicate expressions.
+${rules}:1 style: duplicate expressions.
 ${rules}:1 conflicting match expressions, the line has no effect.
 ${rules}: udev rules check failed.
 EOF
@@ -389,21 +412,25 @@ cat >"${rules}" <<'EOF'
 ACTION=="a"NAME="b"
 EOF
 cat >"${exp}" <<EOF
-${rules}:1 A comma between tokens is expected.
-${rules}:1 Whitespace between tokens is expected.
-${rules}: udev rules check failed.
+${rules}:1 style: a comma between tokens is expected.
+${rules}:1 style: whitespace between tokens is expected.
+${rules}: udev rules have style issues.
 EOF
-assert_1 "${rules}"
+assert_0_impl --no-style "${rules}"
+assert_1_impl "${rules}"
+next_test_number
 
 cat >"${rules}" <<'EOF'
 ACTION=="a" ,NAME="b"
 EOF
 cat >"${exp}" <<EOF
-${rules}:1 Stray whitespace before comma.
-${rules}:1 Whitespace after comma is expected.
-${rules}: udev rules check failed.
+${rules}:1 style: stray whitespace before comma.
+${rules}:1 style: whitespace after comma is expected.
+${rules}: udev rules have style issues.
 EOF
-assert_1 "${rules}"
+assert_0_impl --no-style "${rules}"
+assert_1_impl "${rules}"
+next_test_number
 
 # udevadm verify --root
 sed "s|sample-[0-9]*.rules|${workdir}/${rules_dir}/&|" sample-*.exp >"${workdir}/${exp}"
