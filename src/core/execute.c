@@ -57,6 +57,7 @@
 #include "errno-list.h"
 #include "escape.h"
 #include "execute.h"
+#include "execute-serialize.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -92,6 +93,7 @@
 #endif
 #include "securebits-util.h"
 #include "selinux-util.h"
+#include "serialize.h"
 #include "signal-util.h"
 #include "smack-util.h"
 #include "socket-util.h"
@@ -4474,7 +4476,7 @@ static bool exec_context_need_unprivileged_private_users(const ExecContext *cont
 static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***l);
 static int exec_context_named_iofds(const ExecContext *c, const ExecParameters *p, int named_iofds[static 3]);
 
-static int exec_child(
+int exec_child(
                 Unit *unit,
                 const ExecCommand *command,
                 const ExecContext *context,
@@ -5638,6 +5640,21 @@ static int exec_child(
         return log_unit_error_errno(unit, r, "Failed to execute %s: %m", executable);
 }
 
+struct clone_cb_arg {
+        char serialization_fd_number[DECIMAL_STR_MAX(int) + 1];
+        char *executor_path;
+        int executor_fd;
+};
+
+static int clone_cb(void *arg) {
+        struct clone_cb_arg *a = ASSERT_PTR(arg);
+
+        return fexecve_or_execve(
+                        a->executor_fd,
+                        a->executor_path,
+                        STRV_MAKE(a->executor_path, "--deserialize", a->serialization_fd_number),
+                        environ);
+}
 
 int exec_spawn(Unit *unit,
                ExecCommand *command,
@@ -5647,7 +5664,13 @@ int exec_spawn(Unit *unit,
                const CGroupContext *cgroup_context,
                pid_t *ret) {
 
+        static size_t stack_size = 0;
+        _cleanup_close_ int serialization_fd = -EBADF;
         _cleanup_free_ char *subcgroup_path = NULL;
+        _cleanup_fdset_free_ FDSet *fdset = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        struct clone_cb_arg cb_arg;
+        char *stack;
         pid_t pid;
         int r;
 
@@ -5687,36 +5710,87 @@ int exec_spawn(Unit *unit,
                 }
         }
 
-        pid = fork();
-        if (pid < 0)
-                return log_unit_error_errno(unit, errno, "Failed to fork: %m");
+        /* In order to avoid copy-on-write traps and OOM-kills when pid1's memory.current is above the
+         * child's memory.max, serialize all the state needed to start the unit, and pass it to the
+         * systemd-executor binary. clone() with CLONE_VM + CLONE_VFORK will pause the parent until the exec
+         * and ensure all memory is shared. The child immediately execs the new binary so the delay should
+         * be minimal. Once glibc provides a clone3 wrapper we can switch to that, and clone directly in the
+         * target cgroup. */
 
-        if (pid == 0) {
-                int exit_status = EXIT_SUCCESS;
+        serialization_fd = open_serialization_fd("sd-executor-state");
+        if (serialization_fd < 0)
+                return log_unit_error_errno(unit, serialization_fd, "Failed to open serialization fd: %m");
 
-                r = exec_child(unit,
-                               command,
-                               context,
-                               params,
-                               runtime,
-                               cgroup_context,
-                               &exit_status);
+        f = take_fdopen(&serialization_fd, "w+");
+        if (!f)
+                return log_unit_error_errno(unit, serialization_fd, "Failed to open serialization stream: %m");
 
-                if (r < 0) {
-                        const char *status =
-                                exit_status_to_string(exit_status,
-                                                      EXIT_STATUS_LIBC | EXIT_STATUS_SYSTEMD);
+        fdset = fdset_new();
+        if (!fdset)
+                return log_oom();
 
-                        log_unit_struct_errno(unit, LOG_ERR, r,
-                                              "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
-                                              LOG_UNIT_INVOCATION_ID(unit),
-                                              LOG_UNIT_MESSAGE(unit, "Failed at step %s spawning %s: %m",
-                                                               status, command->path),
-                                              "EXECUTABLE=%s", command->path);
-                }
+        r = unit_serialize(unit, f, fdset, /* switching_root */ false);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to serialize unit '%s': %m", unit->id);
 
-                _exit(exit_status);
+        r = exec_command_serialize(command, f);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to serialize ExecCommand: %m");
+
+        r = exec_parameters_serialize(params, f, fdset);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to serialize ExecParameters: %m");
+
+        r = exec_runtime_serialize(runtime, f, fdset);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to serialize ExecRuntime: %m");
+
+        r = exec_context_serialize(context, f, fdset);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to serialize ExecContext: %m");
+
+        r = exec_cgroup_context_serialize(cgroup_context, f);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to serialize CGroupContext: %m");
+
+        if (fseeko(f, 0, SEEK_SET) == (off_t) -1)
+                return log_unit_error_errno(unit, errno, "Failed to reseek on serialization stream: %m");
+
+        r = fd_cloexec(fileno(f), false);
+        if (r < 0)
+                return log_unit_error_errno(unit, errno, "Failed to set O_CLOEXEC on serialization fd: %m");
+
+        r = fdset_cloexec(fdset, false);
+        if (r < 0)
+                return log_unit_error_errno(unit, errno, "Failed to set O_CLOEXEC on serialized fds: %m");
+
+        /* The executor binary is pinned, to avoid compatibility problems during upgrades. */
+        xsprintf(cb_arg.serialization_fd_number, "%i", fileno(f));
+        cb_arg.executor_fd = unit->manager->executor_fd;
+        cb_arg.executor_path = FORMAT_PROC_FD_PATH(unit->manager->executor_fd);
+
+        if (stack_size == 0) {
+                struct rlimit rl;
+
+                r = getrlimit(RLIMIT_STACK, &rl);
+                if (r < 0)
+                        return log_unit_error_errno(unit, errno, "Failed to get RLIMIT_STACK: %m");
+
+                stack_size = MIN(rl.rlim_cur, page_size());
         }
+
+        stack = mmap(NULL,
+                     stack_size,
+                     PROT_READ | PROT_WRITE,
+                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK,
+                     /* fd= */ -1,
+                     /* offset= */ 0);
+        if (stack == MAP_FAILED)
+                return log_unit_error_errno(unit, errno, "Failed to allocate stack: %m");
+
+        pid = clone(clone_cb, stack + stack_size, CLONE_VFORK|CLONE_VM|SIGCHLD, &cb_arg);
+        if (pid < 0)
+                return log_unit_error_errno(unit, errno, "Failed to clone: %m");
 
         log_unit_debug(unit, "Forked %s as "PID_FMT, command->path, pid);
 
