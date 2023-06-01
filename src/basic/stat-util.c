@@ -207,20 +207,13 @@ bool is_fs_type(const struct statfs *s, statfs_f_type_t magic_value) {
         return F_TYPE_EQUAL(s->f_type, magic_value);
 }
 
-int fd_is_fs_type(int fd, statfs_f_type_t magic_value) {
+int is_fs_type_at(int dir_fd, const char *path, statfs_f_type_t magic_value) {
         struct statfs s;
+        int r;
 
-        if (fstatfs(fd, &s) < 0)
-                return -errno;
-
-        return is_fs_type(&s, magic_value);
-}
-
-int path_is_fs_type(const char *path, statfs_f_type_t magic_value) {
-        struct statfs s;
-
-        if (statfs(path, &s) < 0)
-                return -errno;
+        r = xstatfsat(dir_fd, path, &s);
+        if (r < 0)
+                return r;
 
         return is_fs_type(&s, magic_value);
 }
@@ -461,7 +454,6 @@ int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
         _cleanup_close_ int fd = -EBADF;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(path);
         assert(ret);
 
         fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC|O_NOCTTY, /* xopen_flags = */ 0, /* mode = */ 0);
