@@ -21,6 +21,7 @@
 static ResolveNameTiming arg_resolve_name_timing = RESOLVE_NAME_EARLY;
 static char *arg_root = NULL;
 static bool arg_summary = true;
+static bool arg_style = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
@@ -39,6 +40,7 @@ static int help(void) {
                "  -N --resolve-names=early|never       When to resolve names\n"
                "     --root=PATH                       Operate on an alternate filesystem root\n"
                "     --no-summary                      Do not show summary\n"
+               "     --no-style                        Ignore style issues\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -52,6 +54,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_ROOT = 0x100,
                 ARG_NO_SUMMARY,
+                ARG_NO_STYLE,
         };
         static const struct option options[] = {
                 { "help",          no_argument,       NULL, 'h'             },
@@ -59,6 +62,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "resolve-names", required_argument, NULL, 'N'             },
                 { "root",          required_argument, NULL, ARG_ROOT        },
                 { "no-summary",    no_argument,       NULL, ARG_NO_SUMMARY  },
+                { "no-style",      no_argument,       NULL, ARG_NO_STYLE    },
                 {}
         };
 
@@ -95,6 +99,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_summary = false;
                         break;
 
+                case ARG_NO_STYLE:
+                        arg_style = false;
+                        break;
+
                 case '?':
                         return -EINVAL;
                 default:
@@ -123,6 +131,10 @@ static int verify_rules_file(UdevRules *rules, const char *fname) {
         if (issues & mask)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s: udev rules check failed.", fname);
+
+        if (arg_style && (issues & (1U << LOG_NOTICE)))
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: udev rules have style issues.", fname);
 
         return 0;
 }
