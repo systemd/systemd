@@ -35,6 +35,7 @@ libcore_sources = files(
         'efi-random.c',
         'emergency-action.c',
         'execute.c',
+        'execute-serialize.c',
         'generator-setup.c',
         'ima-setup.c',
         'import-creds.c',
