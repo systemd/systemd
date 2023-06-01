@@ -90,7 +90,7 @@ static const char *const io_accounting_metric_field_last[_CGROUP_IO_ACCOUNTING_M
         [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-last",
 };
 
-int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
+int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         int r;
 
         assert(u);
@@ -110,6 +110,10 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         fputc('\n', f);
 
         assert(!!UNIT_VTABLE(u)->serialize == !!UNIT_VTABLE(u)->deserialize_item);
+
+        (void) serialize_item(f, "id-field", u->id_field);
+        (void) serialize_item(f, "id-field-format", u->id_field_format);
+        (void) serialize_item(f, "type", unit_type_to_string(u->type));
 
         if (UNIT_VTABLE(u)->serialize) {
                 r = UNIT_VTABLE(u)->serialize(u, f, fds);
@@ -161,6 +165,8 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
 
         if (u->cgroup_path)
                 (void) serialize_item(f, "cgroup", u->cgroup_path);
+        if (u->cgroup_id > 0)
+                (void) serialize_item_format(f, "cgroup-id", "%" PRIu64, u->cgroup_id);
 
         (void) serialize_bool(f, "cgroup-realized", u->cgroup_realized);
         (void) serialize_cgroup_mask(f, "cgroup-realized-mask", u->cgroup_realized_mask);
@@ -184,6 +190,8 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
 
         if (!sd_id128_is_null(u->invocation_id))
                 (void) serialize_item_format(f, "invocation-id", SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(u->invocation_id));
+        (void) serialize_item(f, "invocation-id-field", u->invocation_id_field);
+        (void) serialize_item(f, "invocation-id-field-format", u->invocation_id_field_format);
 
         (void) serialize_item_format(f, "freezer-state", "%s", freezer_state_to_string(unit_freezer_state(u)));
         (void) serialize_markers(f, u->markers);
@@ -376,7 +384,10 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
 
                         continue;
 
-                } else if (MATCH_DESERIALIZE("cgroup-realized", l, v, parse_boolean, u->cgroup_realized))
+                } else if (MATCH_DESERIALIZE_IMMEDIATE("cgroup-id", l, v, safe_atou64, u->cgroup_id))
+                        continue;
+
+                else if (MATCH_DESERIALIZE("cgroup-realized", l, v, parse_boolean, u->cgroup_realized))
                         continue;
 
                 else if (MATCH_DESERIALIZE_IMMEDIATE("cgroup-realized-mask", l, v, cg_mask_from_string, u->cgroup_realized_mask))
@@ -474,7 +485,34 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         }
 
                         continue;
+                } else if (streq(l, "invocation-id-field")) {
+                        if (strlen(l) > sizeof(u->invocation_id_field) - 1)
+                                log_unit_debug(u, "Invocation ID field name too long, ignoring.");
+                        else
+                                strcpy(u->invocation_id_field, v);
 
+                        continue;
+                } else if (streq(l, "invocation-id-field-format")) {
+                        if (strlen(l) > sizeof(u->invocation_id_field_format) - 1)
+                                log_unit_debug(u, "Invocation ID format name too long, ignoring.");
+                        else
+                                strcpy(u->invocation_id_field_format, v);
+
+                        continue;
+                } else if (streq(l, "id-field")) {
+                        if (strlen(l) > sizeof(u->id_field) - 1)
+                                log_unit_debug(u, "ID field name too long, ignoring.");
+                        else
+                                strcpy(u->id_field, v);
+
+                        continue;
+                } else if (streq(l, "id-field-format")) {
+                        if (strlen(l) > sizeof(u->id_field_format) - 1)
+                                log_unit_debug(u, "ID format name too long, ignoring.");
+                        else
+                                strcpy(u->id_field_format, v);
+
+                        continue;
                 } else if (MATCH_DESERIALIZE("freezer-state", l, v, freezer_state_from_string, u->freezer_state))
                         continue;
 
@@ -482,6 +520,18 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         r = deserialize_markers(u, v);
                         if (r < 0)
                                 log_unit_debug_errno(u, r, "Failed to deserialize \"%s=%s\", ignoring: %m", l, v);
+                        continue;
+                } else if (streq(l, "type")) {
+                        if (u->type == _UNIT_TYPE_INVALID) {
+                                u->type = unit_type_from_string(v);
+                                if (u->type < 0)
+                                        log_unit_debug(u, "Failed to parse \"%s=%s\", ignoring.", l, v);
+
+                                if (UNIT_VTABLE(u)->init)
+                                        UNIT_VTABLE(u)->init(u);
+                        } else if (!streq(v, unit_type_to_string(u->type)))
+                                log_unit_debug(u, "Ignoring \"%s=%s\", already set to \"%s\".", l, v, unit_type_to_string(u->type));
+
                         continue;
                 }
 

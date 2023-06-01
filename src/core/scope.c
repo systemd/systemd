@@ -41,7 +41,8 @@ static void scope_init(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         s->runtime_max_usec = USEC_INFINITY;
-        s->timeout_stop_usec = u->manager->default_timeout_stop_usec;
+        if (u->manager) /* Might be called in sd-executor with no manager object */
+                s->timeout_stop_usec = u->manager->default_timeout_stop_usec;
         u->ignore_on_isolate = true;
         s->user = s->group = NULL;
         s->oom_policy = _OOM_POLICY_INVALID;
