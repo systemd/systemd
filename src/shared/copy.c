@@ -245,7 +245,7 @@ int copy_bytes_full(
                 ssize_t n;
 
                 if (max_bytes <= 0)
-                        return 1; /* return > 0 if we hit the max_bytes limit */
+                        break;
 
                 r = look_for_signals(copy_flags);
                 if (r < 0)
@@ -468,7 +468,14 @@ int copy_bytes_full(
                 copied_something = true;
         }
 
-        return 0; /* return 0 if we hit EOF earlier than the size limit */
+        off_t off = lseek(fdt, 0, SEEK_CUR);
+        if (off < 0 && !ERRNO_IS_NOT_SUPPORTED(errno))
+                return -errno;
+
+        if (off >= 0 && ftruncate(fdt, off) < 0 && !ERRNO_IS_NOT_SUPPORTED(errno))
+                return -errno;
+
+        return max_bytes <= 0; /* return 0 if we hit EOF earlier than the size limit */
 }
 
 static int fd_copy_symlink(
