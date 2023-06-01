@@ -398,7 +398,7 @@ static int run(int argc, char *argv[]) {
                 } else
                         r = crypt_activate_by_volume_key(cd, volume, m, l, arg_activate_flags);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to set up verity device: %m");
+                        return log_error_errno(r, "Failed to set up verity device '%s': %m", volume);
 
         } else if (streq(verb, "detach")) {
                 const char *volume;
@@ -410,17 +410,17 @@ static int run(int argc, char *argv[]) {
 
                 r = crypt_init_by_name(&cd, volume);
                 if (r == -ENODEV) {
-                        log_info("Volume %s already inactive.", volume);
+                        log_info("Volume %s 'already' inactive.", volume);
                         return 0;
                 }
                 if (r < 0)
-                        return log_error_errno(r, "crypt_init_by_name() failed: %m");
+                        return log_error_errno(r, "crypt_init_by_name() for volume '%s' failed: %m", volume);
 
                 cryptsetup_enable_logging(cd);
 
                 r = crypt_deactivate(cd, volume);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to deactivate: %m");
+                        return log_error_errno(r, "Failed to deactivate volume '%s': %m", volume);
 
         } else
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb %s.", verb);
