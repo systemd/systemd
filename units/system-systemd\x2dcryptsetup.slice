@@ -8,6 +8,6 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Cryptsetup Units Slice
+Description=Encrypted Volume Units Service Slice
 Documentation=man:systemd-cryptsetup@.service(8)
 DefaultDependencies=no
