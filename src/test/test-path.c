@@ -23,6 +23,8 @@ typedef void (*test_function_t)(Manager *m);
 static int setup_test(Manager **m) {
         char **tests_path = STRV_MAKE("exists", "existsglobFOOBAR", "changed", "modified", "unit",
                                       "directorynotempty", "makedirectory");
+        _cleanup_free_ char *self_exe = NULL, *self_dir = NULL;
+        _cleanup_close_ int self_dir_fd = -EBADF;
         Manager *tmp = NULL;
         int r;
 
@@ -36,6 +38,20 @@ static int setup_test(Manager **m) {
         if (manager_errno_skip_test(r))
                 return log_tests_skipped_errno(r, "manager_new");
         assert_se(r >= 0);
+
+        /* Prefer sd-executor from the same directory as the test, e.g.: when running unit tests from the
+         * build directory. Fallback to working directory and then the installation path. */
+        assert_se(readlink_and_make_absolute("/proc/self/exe", &self_exe) >= 0);
+        assert_se(path_extract_directory(self_exe, &self_dir) >= 0);
+        assert_se(self_dir_fd = open(self_dir, O_CLOEXEC|O_DIRECTORY));
+
+        tmp->executor_fd = openat(self_dir_fd, "systemd-executor", O_CLOEXEC|O_PATH);
+        if (tmp->executor_fd < 0 && errno == ENOENT)
+                tmp->executor_fd = openat(AT_FDCWD, "systemd-executor", O_CLOEXEC|O_PATH);
+        if (tmp->executor_fd < 0 && errno == ENOENT)
+                tmp->executor_fd = open(SYSTEMD_EXECUTOR_BINARY_PATH, O_CLOEXEC|O_PATH);
+        assert_se(tmp->executor_fd >= 0);
+
         assert_se(manager_startup(tmp, NULL, NULL, NULL) >= 0);
 
         STRV_FOREACH(test_path, tests_path) {

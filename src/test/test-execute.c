@@ -1169,8 +1169,9 @@ typedef struct test_entry {
 
 static void run_tests(RuntimeScope scope, char **patterns) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-        _cleanup_free_ char *unit_paths = NULL;
+        _cleanup_free_ char *unit_paths = NULL, *self_exe = NULL, *self_dir = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_close_ int self_dir_fd = -EBADF;
         int r;
 
         static const test_entry tests[] = {
@@ -1251,6 +1252,19 @@ static void run_tests(RuntimeScope scope, char **patterns) {
         if (manager_errno_skip_test(r))
                 return (void) log_tests_skipped_errno(r, "manager_new");
         assert_se(r >= 0);
+
+        /* Prefer sd-executor from the same directory as the test, e.g.: when running unit tests from the
+         * build directory. Fallback to working directory and then the installation path. */
+        assert_se(readlink_and_make_absolute("/proc/self/exe", &self_exe) >= 0);
+        assert_se(path_extract_directory(self_exe, &self_dir) >= 0);
+        assert_se(self_dir_fd = open(self_dir, O_CLOEXEC|O_DIRECTORY));
+
+        m->executor_fd = openat(self_dir_fd, "systemd-executor", O_CLOEXEC|O_PATH);
+        if (m->executor_fd < 0 && errno == ENOENT)
+                m->executor_fd = openat(AT_FDCWD, "systemd-executor", O_CLOEXEC|O_PATH);
+        if (m->executor_fd < 0 && errno == ENOENT)
+                m->executor_fd = open(SYSTEMD_EXECUTOR_BINARY_PATH, O_CLOEXEC|O_PATH);
+        assert_se(m->executor_fd >= 0);
 
         m->default_std_output = EXEC_OUTPUT_NULL; /* don't rely on host journald */
         assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
