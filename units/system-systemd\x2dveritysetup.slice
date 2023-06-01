@@ -8,6 +8,6 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Encrypted Volume Units Service Slice
+Description=Verity Protection Service Slice
 Documentation=man:systemd-cryptsetup@.service(8)
 DefaultDependencies=no
