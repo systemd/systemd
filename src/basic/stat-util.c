@@ -461,7 +461,6 @@ int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
         _cleanup_close_ int fd = -EBADF;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(path);
         assert(ret);
 
         fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC|O_NOCTTY, /* xopen_flags = */ 0, /* mode = */ 0);
