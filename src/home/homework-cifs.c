@@ -60,7 +60,7 @@ int home_setup_cifs(
         STRV_FOREACH(pw, h->password) {
                 _cleanup_(unlink_and_freep) char *p = NULL;
                 _cleanup_free_ char *options = NULL;
-                _cleanup_(fclosep) FILE *f = NULL;
+                _cleanup_fclose_ FILE *f = NULL;
                 pid_t mount_pid;
                 int exit_status;
 

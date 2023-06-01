@@ -19,6 +19,7 @@
 #include "hostname-util.h"
 #include "idn-util.h"
 #include "io-util.h"
+#include "memstream-util.h"
 #include "missing_network.h"
 #include "missing_socket.h"
 #include "netlink-util.h"
@@ -492,16 +493,15 @@ static int manager_watch_hostname(Manager *m) {
 }
 
 static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        _cleanup_free_ char *buffer = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(memstream_done) MemStream ms = {};
         Manager *m = ASSERT_PTR(userdata);
-        size_t size = 0;
         Link *l;
+        FILE *f;
 
         assert(s);
         assert(si);
 
-        f = open_memstream_unlocked(&buffer, &size);
+        f = memstream_init(&ms);
         if (!f)
                 return log_oom();
 
@@ -516,16 +516,7 @@ static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si
                 LIST_FOREACH(servers, server, l->dns_servers)
                         dns_server_dump(server, f);
 
-        if (fflush_and_check(f) < 0)
-                return log_oom();
-
-        f = safe_fclose(f);
-
-        if (!buffer)
-                return -ENOMEM;
-
-        log_dump(LOG_INFO, buffer);
-        return 0;
+        return memstream_dump(LOG_INFO, &ms);
 }
 
 static int manager_sigusr2(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {

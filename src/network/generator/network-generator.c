@@ -5,6 +5,7 @@
 #include "hostname-util.h"
 #include "log.h"
 #include "macro.h"
+#include "memstream-util.h"
 #include "netif-naming-scheme.h"
 #include "network-generator.h"
 #include "parse-util.h"
@@ -1198,97 +1199,49 @@ void link_dump(Link *link, FILE *f) {
 }
 
 int network_format(Network *network, char **ret) {
-        _cleanup_free_ char *s = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        size_t sz = 0;
-        int r;
+        _cleanup_(memstream_done) MemStream m = {};
+        FILE *f;
 
         assert(network);
         assert(ret);
 
-        f = open_memstream_unlocked(&s, &sz);
+        f = memstream_init(&m);
         if (!f)
                 return -ENOMEM;
 
         network_dump(network, f);
 
-        /* Add terminating 0, so that the output buffer is a valid string. */
-        fputc('\0', f);
-
-        r = fflush_and_check(f);
-        if (r < 0)
-                return r;
-
-        f = safe_fclose(f);
-
-        if (!s)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(s);
-        assert(sz > 0);
-        return (int) sz - 1;
+        return memstream_finalize(&m, ret, NULL);
 }
 
 int netdev_format(NetDev *netdev, char **ret) {
-        _cleanup_free_ char *s = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        size_t sz = 0;
-        int r;
+        _cleanup_(memstream_done) MemStream m = {};
+        FILE *f;
 
         assert(netdev);
         assert(ret);
 
-        f = open_memstream_unlocked(&s, &sz);
+        f = memstream_init(&m);
         if (!f)
                 return -ENOMEM;
 
         netdev_dump(netdev, f);
 
-        /* Add terminating 0, so that the output buffer is a valid string. */
-        fputc('\0', f);
-
-        r = fflush_and_check(f);
-        if (r < 0)
-                return r;
-
-        f = safe_fclose(f);
-
-        if (!s)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(s);
-        assert(sz > 0);
-        return (int) sz - 1;
+        return memstream_finalize(&m, ret, NULL);
 }
 
 int link_format(Link *link, char **ret) {
-        _cleanup_free_ char *s = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        size_t sz = 0;
-        int r;
+        _cleanup_(memstream_done) MemStream m = {};
+        FILE *f;
 
         assert(link);
         assert(ret);
 
-        f = open_memstream_unlocked(&s, &sz);
+        f = memstream_init(&m);
         if (!f)
                 return -ENOMEM;
 
         link_dump(link, f);
 
-        /* Add terminating 0, so that the output buffer is a valid string. */
-        fputc('\0', f);
-
-        r = fflush_and_check(f);
-        if (r < 0)
-                return r;
-
-        f = safe_fclose(f);
-
-        if (!s)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(s);
-        assert(sz > 0);
-        return (int) sz - 1;
+        return memstream_finalize(&m, ret, NULL);
 }
