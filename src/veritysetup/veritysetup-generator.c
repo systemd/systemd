@@ -413,7 +413,7 @@ static int create_veritytab_device(
                         "Wants=modprobe@loop.service\n"
                         "After=modprobe@loop.service\n");
 
-        r = generator_write_veritysetup_service_section(f, name, du_escaped, hu_escaped, roothash, options);
+        r = generator_write_veritysetup_service_section(f, name, du, hu, roothash, options);
         if (r < 0)
                 return r;
 
