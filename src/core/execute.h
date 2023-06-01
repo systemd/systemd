@@ -452,6 +452,14 @@ struct ExecParameters {
 #include "unit.h"
 #include "dynamic-user.h"
 
+int exec_child(Unit *unit,
+               const ExecCommand *command,
+               const ExecContext *context,
+               ExecParameters *params,
+               ExecRuntime *runtime,
+               const CGroupContext *cgroup_context,
+               int *exit_status);
+
 int exec_spawn(Unit *unit,
                ExecCommand *command,
                const ExecContext *context,
@@ -505,6 +513,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(ExecSharedRuntime*, exec_shared_runtime_unref);
 int exec_shared_runtime_serialize(const Manager *m, FILE *f, FDSet *fds);
 int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char *value, FDSet *fds);
 int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds);
+void exec_shared_runtime_done(ExecSharedRuntime *rt);
 void exec_shared_runtime_vacuum(Manager *m);
 
 int exec_runtime_make(const Unit *unit, const ExecContext *context, ExecSharedRuntime *shared, DynamicCreds *creds, ExecRuntime **ret);
@@ -513,6 +522,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(ExecRuntime*, exec_runtime_free);
 ExecRuntime* exec_runtime_destroy(ExecRuntime *rt);
 
 void exec_params_clear(ExecParameters *p);
+void exec_params_serialized_clear(ExecParameters *p);
 
 bool exec_context_get_cpu_affinity_from_numa(const ExecContext *c);
 
