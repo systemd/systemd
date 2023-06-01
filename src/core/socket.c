@@ -120,6 +120,19 @@ static void socket_cleanup_fd_list(SocketPort *p) {
         p->n_auxiliary_fds = 0;
 }
 
+SocketPort *socket_port_free(SocketPort *p) {
+        if (!p)
+                return NULL;
+
+        sd_event_source_unref(p->event_source);
+
+        socket_cleanup_fd_list(p);
+        safe_close(p->fd);
+        free(p->path);
+
+        return mfree(p);
+}
+
 void socket_free_ports(Socket *s) {
         SocketPort *p;
 
@@ -127,13 +140,7 @@ void socket_free_ports(Socket *s) {
 
         while ((p = s->ports)) {
                 LIST_REMOVE(port, s->ports, p);
-
-                sd_event_source_unref(p->event_source);
-
-                socket_cleanup_fd_list(p);
-                safe_close(p->fd);
-                free(p->path);
-                free(p);
+                socket_port_free(p);
         }
 }
 

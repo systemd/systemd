@@ -364,7 +364,7 @@ static int bus_socket_set_transient_property(
                         return r;
 
                 while ((r = sd_bus_message_read(message, "(ss)", &t, &a)) > 0) {
-                        _cleanup_free_ SocketPort *p = NULL;
+                        _cleanup_(socket_port_freep) SocketPort *p = NULL;
 
                         p = new(SocketPort, 1);
                         if (!p)
