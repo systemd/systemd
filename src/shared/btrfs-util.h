@@ -89,8 +89,14 @@ static inline int btrfs_subvol_remove(const char *path, BtrfsRemoveFlags flags) 
         return btrfs_subvol_remove_at(AT_FDCWD, path, flags);
 }
 
-int btrfs_subvol_set_read_only_fd(int fd, bool b);
-int btrfs_subvol_set_read_only(const char *path, bool b);
+int btrfs_subvol_set_read_only_at(int dir_fd, const char *path, bool b);
+static inline int btrfs_subvol_set_read_only_fd(int fd, bool b) {
+        return btrfs_subvol_set_read_only_at(fd, NULL, b);
+}
+static inline int btrfs_subvol_set_read_only(const char *path, bool b) {
+        return btrfs_subvol_set_read_only_at(AT_FDCWD, path, b);
+}
+
 int btrfs_subvol_get_read_only_fd(int fd);
 
 int btrfs_subvol_get_id(int fd, const char *subvolume, uint64_t *ret);
