@@ -68,6 +68,12 @@ if systemctl is-active systemd-oomd.service; then
     systemctl restart systemd-oomd.service
 fi
 
+# Ensure that we can start services even with a very low hard memory cap without oom-kills, but skip under
+# sanitizers as they balloon memory usage.
+if ! [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
+    systemd-run -t -p MemoryMax=10M -p MemorySwapMax=0 -p MemoryZSwapMax=0 /bin/true
+fi
+
 systemctl start testsuite-55-testchill.service
 systemctl start testsuite-55-testbloat.service
 

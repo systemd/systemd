@@ -144,12 +144,27 @@ systemd_sources = files(
         'crash-handler.c',
 )
 
+systemd_executor_sources = files(
+        'executor.c',
+)
+
 executables += [
         libexec_template + {
                 'name' : 'systemd',
                 'dbus' : true,
                 'public' : true,
                 'sources' : systemd_sources,
+                'link_with' : [
+                        libcore,
+                        libshared,
+                ],
+                'dependencies' : libseccomp,
+        },
+        libexec_template + {
+                'name' : 'systemd-executor',
+                'public' : true,
+                'sources' : systemd_executor_sources,
+                'include_directories' : core_includes,
                 'link_with' : [
                         libcore,
                         libshared,
