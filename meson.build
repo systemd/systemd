@@ -262,6 +262,7 @@ conf.set_quoted('SYSCONF_DIR',                                sysconfdir)
 conf.set_quoted('SYSCTL_DIR',                                 sysctldir)
 conf.set_quoted('SYSTEMCTL_BINARY_PATH',                      rootbindir / 'systemctl')
 conf.set_quoted('SYSTEMD_BINARY_PATH',                        rootlibexecdir / 'systemd')
+conf.set_quoted('SYSTEMD_EXECUTOR_BINARY_PATH',               rootlibexecdir / 'systemd-executor')
 conf.set_quoted('SYSTEMD_CATALOG_DIR',                        catalogdir)
 conf.set_quoted('SYSTEMD_CGROUPS_AGENT_PATH',                 rootlibexecdir / 'systemd-cgroups-agent')
 conf.set_quoted('SYSTEMD_CRYPTSETUP_PATH',                    rootlibexecdir / 'systemd-cryptsetup')
@@ -4411,6 +4412,19 @@ if want_tests != 'false' and want_kernel_install
              env : test_env,
              args : args)
 endif
+
+public_programs += executable(
+        'systemd-executor',
+        'src/executor/executor.c',
+        include_directories : core_includes,
+        link_with : [libcore,
+                     libshared],
+        dependencies : [libseccomp,
+                        userspace,
+                        versiondep],
+        install_rpath : rootpkglibdir,
+        install : true,
+        install_dir : rootlibexecdir)
 
 ############################################################
 
