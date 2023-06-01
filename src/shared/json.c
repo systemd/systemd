@@ -1066,6 +1066,42 @@ mismatch:
         return 0.0;
 }
 
+int json_variant_bytes(JsonVariant *v, uint8_t **p, size_t *n) {
+        assert_return(p, -EINVAL);
+        assert_return(n, -EINVAL);
+
+        if (!v) {
+                *n = 0;
+                return 0;
+        }
+        if (!json_variant_is_array(v))
+                return -EINVAL;
+
+        if (json_variant_elements(v) == 0) {
+                *n = 0;
+                return 0;
+        }
+
+        *p = new (uint8_t, json_variant_elements(v));
+        if (!p)
+                return -ENOMEM;
+
+        for (size_t i = 0; i < json_variant_elements(v); i++) {
+                JsonVariant *e = json_variant_by_index(v, i);
+
+                if (!json_variant_is_unsigned(e) || json_variant_unsigned(e) > UINT8_MAX) {
+                        free(*p);
+                        return -EINVAL;
+                }
+
+                (*p)[i] = (uint8_t) json_variant_unsigned(e);
+        }
+
+        *n = json_variant_elements(v);
+
+        return 0;
+}
+
 bool json_variant_is_negative(JsonVariant *v) {
         if (!v)
                 goto mismatch;
