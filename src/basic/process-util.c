@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <linux/oom.h>
 #include <pthread.h>
+#include <spawn.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1724,43 +1725,37 @@ int make_reaper_process(bool b) {
         return 0;
 }
 
-int clone_vm_vfork(int (*callback)(void *), int flags, void *userdata) {
-        static size_t stack_size = 0;
-        char *stack;
+int posix_spawn_wrapper(const char *path, char *const *argv, char *const *envp, pid_t *ret_pid) {
+        posix_spawnattr_t attr;
+        sigset_t mask;
+        pid_t pid;
         int r;
 
-        assert(callback);
-        assert(!FLAGS_SET(flags, CLONE_PARENT_SETTID));
-        assert(!FLAGS_SET(flags, CLONE_CHILD_SETTID));
-        assert(!FLAGS_SET(flags, CLONE_SETTLS));
+        assert(path);
+        assert(argv);
+        assert(ret_pid);
 
-        if (stack_size == 0) {
-                struct rlimit rl;
+        assert_se(sigemptyset(&mask) >= 0);
+        assert_se(sigaddset(&mask, SIGCHLD) >= 0);
 
-                if (getrlimit(RLIMIT_STACK, &rl) < 0)
-                        return log_debug_errno(errno, "Failed to get RLIMIT_STACK: %m");
-
-                stack_size = ROUND_UP(rl.rlim_cur, page_size());
-        }
-
-        stack = mmap(NULL,
-                     stack_size,
-                     PROT_READ | PROT_WRITE,
-                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK,
-                     /* fd= */ -1,
-                     /* offset= */ 0);
-        if (stack == MAP_FAILED)
-                return log_debug_errno(errno, "Failed to allocate stack: %m");
-
-        r = RET_NERRNO(clone(callback, stack + stack_size, CLONE_VFORK|CLONE_VM|flags, userdata));
+        r = posix_spawnattr_init(&attr);
         if (r < 0)
-                log_debug_errno(r, "Failed to clone(): %m");
+                return r;
+        r = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGMASK);
+        if (r < 0)
+                goto out;
+        r = posix_spawnattr_setsigmask(&attr, &mask);
+        if (r < 0)
+                goto out;
 
-        if (munmap(stack, stack_size) < 0) {
-                log_debug_errno(errno, "Failed to unmap stack: %m");
-                if (r >= 0) /* If clone() fails propagate the original error */
-                        return -errno;
-        }
+        r = posix_spawn(&pid, path, NULL, &attr, argv, envp);
+        if (r < 0)
+                goto out;
+
+        *ret_pid = pid;
+
+out:
+        posix_spawnattr_destroy(&attr);
 
         return r;
 }
