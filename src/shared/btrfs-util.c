@@ -17,6 +17,7 @@
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
+#include "chase.h"
 #include "chattr-util.h"
 #include "copy.h"
 #include "fd-util.h"
@@ -70,32 +71,20 @@ static int extract_subvolume_name(const char *path, char **ret) {
         return 0;
 }
 
-int btrfs_is_subvol_fd(int fd) {
+int btrfs_is_subvol_at(int dir_fd, const char *path) {
         struct stat st;
 
-        assert(fd >= 0);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
         /* On btrfs subvolumes always have the inode 256 */
 
-        if (fstat(fd, &st) < 0)
+        if (fstatat(dir_fd, strempty(path), &st, (isempty(path) ? AT_EMPTY_PATH : 0)) < 0)
                 return -errno;
 
         if (!btrfs_might_be_subvol(&st))
                 return 0;
 
-        return fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
-}
-
-int btrfs_is_subvol(const char *path) {
-        _cleanup_close_ int fd = -EBADF;
-
-        assert(path);
-
-        fd = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
-        if (fd < 0)
-                return -errno;
-
-        return btrfs_is_subvol_fd(fd);
+        return is_fs_type_at(dir_fd, path, BTRFS_SUPER_MAGIC);
 }
 
 int btrfs_subvol_make_fd(int fd, const char *subvolume) {
@@ -163,11 +152,16 @@ int btrfs_subvol_make_fallback(const char *path, mode_t mode) {
         return 0; /* plain directory */
 }
 
-int btrfs_subvol_set_read_only_fd(int fd, bool b) {
+int btrfs_subvol_set_read_only_at(int dir_fd, const char *path, bool b) {
+        _cleanup_close_ int fd = -EBADF;
         uint64_t flags, nflags;
         struct stat st;
 
-        assert(fd >= 0);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
+        fd = xopenat(dir_fd, path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY, /* xopen_flags = */ 0, /* mode = */ 0);
+        if (fd < 0)
+                return fd;
 
         if (fstat(fd, &st) < 0)
                 return -errno;
@@ -183,16 +177,6 @@ int btrfs_subvol_set_read_only_fd(int fd, bool b) {
                 return 0;
 
         return RET_NERRNO(ioctl(fd, BTRFS_IOC_SUBVOL_SETFLAGS, &nflags));
-}
-
-int btrfs_subvol_set_read_only(const char *path, bool b) {
-        _cleanup_close_ int fd = -EBADF;
-
-        fd = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
-        if (fd < 0)
-                return -errno;
-
-        return btrfs_subvol_set_read_only_fd(fd, b);
 }
 
 int btrfs_subvol_get_read_only_fd(int fd) {
@@ -1135,25 +1119,21 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
         return 0;
 }
 
-int btrfs_subvol_remove(const char *path, BtrfsRemoveFlags flags) {
+int btrfs_subvol_remove_at(int dir_fd, const char *path, BtrfsRemoveFlags flags) {
         _cleanup_free_ char *subvolume = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(path);
 
-        r = extract_subvolume_name(path, &subvolume);
-        if (r < 0)
-                return r;
-
-        fd = open_parent(path, O_CLOEXEC, 0);
+        fd = chase_and_openat(dir_fd, path, CHASE_PARENT|CHASE_EXTRACT_FILENAME, O_CLOEXEC, &subvolume);
         if (fd < 0)
                 return fd;
 
-        return subvol_remove_children(fd, subvolume, 0, flags);
-}
+        r = validate_subvolume_name(subvolume);
+        if (r < 0)
+                return r;
 
-int btrfs_subvol_remove_fd(int fd, const char *subvolume, BtrfsRemoveFlags flags) {
         return subvol_remove_children(fd, subvolume, 0, flags);
 }
 
@@ -1380,8 +1360,24 @@ static int subvol_snapshot_children(
 
         strncpy(vol_args.name, subvolume, sizeof(vol_args.name)-1);
 
-        if (ioctl(new_fd, BTRFS_IOC_SNAP_CREATE_V2, &vol_args) < 0)
-                return -errno;
+        for (;;) {
+                if (ioctl(new_fd, BTRFS_IOC_SNAP_CREATE_V2, &vol_args) < 0)
+                        return -errno;
+
+                if (!FLAGS_SET(flags, BTRFS_SNAPSHOT_LOCK))
+                        break;
+
+                subvolume_fd = xopenat_lock(new_fd, subvolume,
+                                            O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW,
+                                            /* xopen_flags = */ 0,
+                                            /* mode = */ 0,
+                                            LOCK_BSD,
+                                            LOCK_EX);
+                if (subvolume_fd >= 0)
+                        break;
+                if (subvolume_fd < 0 && subvolume_fd != -ENOENT)
+                        return subvolume_fd;
+        }
 
         if (!(flags & BTRFS_SNAPSHOT_RECURSIVE) &&
             !(flags & BTRFS_SNAPSHOT_QUOTA))
@@ -1500,7 +1496,8 @@ static int subvol_snapshot_children(
                                 return k;
                         }
 
-                        r = subvol_snapshot_children(old_child_fd, new_child_fd, p, sh->objectid, flags & ~BTRFS_SNAPSHOT_FALLBACK_COPY);
+                        r = subvol_snapshot_children(old_child_fd, new_child_fd, p, sh->objectid,
+                                                     flags & ~(BTRFS_SNAPSHOT_FALLBACK_COPY|BTRFS_SNAPSHOT_LOCK));
 
                         /* Restore the readonly flag */
                         if (flags & BTRFS_SNAPSHOT_READ_ONLY) {
@@ -1523,25 +1520,40 @@ static int subvol_snapshot_children(
         if (flags & BTRFS_SNAPSHOT_QUOTA)
                 (void) copy_subtree_quota_limits(new_fd, old_subvol_id, new_subvol_id);
 
-        return 0;
+        return flags & BTRFS_SNAPSHOT_LOCK ? TAKE_FD(subvolume_fd) : 0;
 }
 
-int btrfs_subvol_snapshot_fd_full(
-                int old_fd,
-                const char *new_path,
+int btrfs_subvol_snapshot_at_full(
+                int dir_fdf,
+                const char *from,
+                int dir_fdt,
+                const char *to,
                 BtrfsSnapshotFlags flags,
                 copy_progress_path_t progress_path,
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
 
         _cleanup_free_ char *subvolume = NULL;
-        _cleanup_close_ int new_fd = -EBADF;
+        _cleanup_close_ int old_fd = -EBADF, new_fd = -EBADF, subvolume_fd = -EBADF;
         int r;
 
-        assert(old_fd >= 0);
-        assert(new_path);
+        assert(dir_fdf >= 0 || dir_fdf == AT_FDCWD);
+        assert(dir_fdt >= 0 || dir_fdt == AT_FDCWD);
+        assert(to);
 
-        r = btrfs_is_subvol_fd(old_fd);
+        old_fd = xopenat(dir_fdf, from, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY, /* xopen_flags = */ 0, /* mode = */ 0);
+        if (old_fd < 0)
+                return old_fd;
+
+        new_fd = chase_and_openat(dir_fdt, to, CHASE_PARENT|CHASE_EXTRACT_FILENAME, O_CLOEXEC, &subvolume);
+        if (new_fd < 0)
+                return new_fd;
+
+        r = validate_subvolume_name(subvolume);
+        if (r < 0)
+                return r;
+
+        r = btrfs_is_subvol_at(dir_fdf, from);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -1551,18 +1563,43 @@ int btrfs_subvol_snapshot_fd_full(
                 if (!(flags & BTRFS_SNAPSHOT_FALLBACK_COPY))
                         return -EISDIR;
 
-                r = btrfs_subvol_make(new_path);
-                if (ERRNO_IS_NOT_SUPPORTED(r) && (flags & BTRFS_SNAPSHOT_FALLBACK_DIRECTORY)) {
-                        /* If the destination doesn't support subvolumes, then use a plain directory, if that's requested. */
-                        if (mkdir(new_path, 0755) < 0)
-                                return -errno;
+                for (;;) {
+                        r = btrfs_subvol_make_fd(new_fd, subvolume);
+                        if (ERRNO_IS_NOT_SUPPORTED(r) && (flags & BTRFS_SNAPSHOT_FALLBACK_DIRECTORY)) {
+                                /* If the destination doesn't support subvolumes, then use a plain directory, if that's requested. */
+                                if (mkdirat(new_fd, subvolume, 0755) < 0)
+                                        return -errno;
 
-                        plain_directory = true;
-                } else if (r < 0)
-                        return r;
+                                plain_directory = true;
+                        } else if (r < 0)
+                                return r;
 
-                r = copy_directory_fd_full(
-                                old_fd, new_path,
+                        if (!FLAGS_SET(flags, BTRFS_SNAPSHOT_LOCK))
+                                break;
+
+                        subvolume_fd = xopenat_lock(new_fd, subvolume,
+                                                    O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW,
+                                                    /* xopen_flags = */ 0,
+                                                    /* mode = */ 0,
+                                                    LOCK_BSD,
+                                                    LOCK_EX);
+                        if (subvolume_fd >= 0) {
+                                if (btrfs_is_subvol_fd(subvolume_fd))
+                                        break;
+
+                                /* Not a subvolume? Someone must have deleted the subvolume from under us and
+                                 * replaced it with a directory, let's remove the directory and try again. */
+                                subvolume_fd = safe_close(subvolume_fd);
+
+                                if (unlinkat(new_fd, subvolume, AT_REMOVEDIR) < 0 && errno != ENOENT)
+                                        return -errno;
+                        } else if (subvolume_fd != -ENOENT)
+                                return subvolume_fd;
+                }
+
+                r = copy_directory_at_full(
+                                dir_fdf, from,
+                                new_fd, subvolume,
                                 COPY_MERGE_EMPTY|
                                 COPY_REFLINK|
                                 COPY_SAME_MOUNT|
@@ -1583,50 +1620,22 @@ int btrfs_subvol_snapshot_fd_full(
                                  * it: the IMMUTABLE bit. Let's use this here, if this is requested. */
 
                                 if (flags & BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE)
-                                        (void) chattr_path(new_path, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL, NULL);
+                                        (void) chattr_at(new_fd, subvolume, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL, NULL);
                         } else {
-                                r = btrfs_subvol_set_read_only(new_path, true);
+                                r = btrfs_subvol_set_read_only_at(new_fd, subvolume, true);
                                 if (r < 0)
                                         goto fallback_fail;
                         }
                 }
 
-                return 0;
+                return flags & BTRFS_SNAPSHOT_LOCK ? TAKE_FD(subvolume_fd) : 0;
 
         fallback_fail:
-                (void) rm_rf(new_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+                (void) rm_rf_at(new_fd, subvolume, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
                 return r;
         }
 
-        r = extract_subvolume_name(new_path, &subvolume);
-        if (r < 0)
-                return r;
-
-        new_fd = open_parent(new_path, O_CLOEXEC, 0);
-        if (new_fd < 0)
-                return new_fd;
-
         return subvol_snapshot_children(old_fd, new_fd, subvolume, 0, flags);
-}
-
-int btrfs_subvol_snapshot_full(
-                const char *old_path,
-                const char *new_path,
-                BtrfsSnapshotFlags flags,
-                copy_progress_path_t progress_path,
-                copy_progress_bytes_t progress_bytes,
-                void *userdata) {
-
-        _cleanup_close_ int old_fd = -EBADF;
-
-        assert(old_path);
-        assert(new_path);
-
-        old_fd = open(old_path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
-        if (old_fd < 0)
-                return -errno;
-
-        return btrfs_subvol_snapshot_fd_full(old_fd, new_path, flags, progress_path, progress_bytes, userdata);
 }
 
 int btrfs_qgroup_find_parents(int fd, uint64_t qgroupid, uint64_t **ret) {

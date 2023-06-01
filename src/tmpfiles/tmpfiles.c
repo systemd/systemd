@@ -1540,7 +1540,7 @@ static int fd_set_attribute(
                 return log_error_errno(procfs_fd, "Failed to re-open '%s': %m", path);
 
         unsigned previous, current;
-        r = chattr_full(NULL, procfs_fd, f, item->attribute_mask, &previous, &current, CHATTR_FALLBACK_BITWISE);
+        r = chattr_full(procfs_fd, NULL, f, item->attribute_mask, &previous, &current, CHATTR_FALLBACK_BITWISE);
         if (r == -ENOANO)
                 log_warning("Cannot set file attributes for '%s', maybe due to incompatibility in specified attributes, "
                             "previous=0x%08x, current=0x%08x, expected=0x%08x, ignoring.",
