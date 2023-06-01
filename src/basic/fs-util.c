@@ -1097,7 +1097,6 @@ int xopenat(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(path);
 
         if (isempty(path)) {
                 assert(!FLAGS_SET(open_flags, O_CREAT|O_EXCL));
