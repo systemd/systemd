@@ -28,7 +28,7 @@
 
 DEFINE_TRIVIAL_REF_FUNC(DynamicUser, dynamic_user);
 
-static DynamicUser* dynamic_user_free(DynamicUser *d) {
+DynamicUser* dynamic_user_free(DynamicUser *d) {
         if (!d)
                 return NULL;
 
