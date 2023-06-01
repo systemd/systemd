@@ -5316,6 +5316,7 @@ int unit_acquire_invocation_id(Unit *u) {
 }
 
 int unit_set_exec_params(Unit *u, ExecParameters *p) {
+        const char *confirm_spawn;
         int r;
 
         assert(u);
@@ -5326,7 +5327,13 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
         if (r < 0)
                 return r;
 
-        p->confirm_spawn = manager_get_confirm_spawn(u->manager);
+        confirm_spawn = manager_get_confirm_spawn(u->manager);
+        if (confirm_spawn) {
+                p->confirm_spawn = strdup(confirm_spawn);
+                if (!p->confirm_spawn)
+                        return -ENOMEM;
+        }
+
         p->cgroup_supported = u->manager->cgroup_supported;
         p->prefix = u->manager->prefix;
         SET_FLAG(p->flags, EXEC_PASS_LOG_UNIT|EXEC_CHOWN_DIRECTORIES, MANAGER_IS_SYSTEM(u->manager));

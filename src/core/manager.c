@@ -918,6 +918,8 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                         .interval = 10 * USEC_PER_MINUTE,
                         .burst = 10,
                 },
+
+                .executor_fd = -EBADF,
         };
 
 #if ENABLE_EFI
@@ -1019,6 +1021,46 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
 
                 if (r < 0 && r != -EEXIST)
                         return r;
+
+                m->executor_fd = open(SYSTEMD_EXECUTOR_BINARY_PATH, O_CLOEXEC|O_PATH);
+                if (m->executor_fd < 0)
+                        return log_warning_errno(errno,
+                                                 "Failed to open executor binary '%s': %m",
+                                                 SYSTEMD_EXECUTOR_BINARY_PATH);
+        } else if (!FLAGS_SET(test_run_flags, MANAGER_TEST_DONT_OPEN_EXECUTOR)) {
+                _cleanup_free_ char *self_exe = NULL, *self_dir = NULL, *executor_path = NULL;
+                _cleanup_close_ int self_dir_fd = -EBADF;
+                int level = LOG_DEBUG;
+
+                /* Prefer sd-executor from the same directory as the test, e.g.: when running unit tests from the
+                * build directory. Fallback to working directory and then the installation path. */
+                r = readlink_and_make_absolute("/proc/self/exe", &self_exe);
+                if (r < 0)
+                        return r;
+
+                r = path_extract_directory(self_exe, &self_dir);
+                if (r < 0)
+                        return r;
+
+                self_dir_fd = open(self_dir, O_CLOEXEC|O_DIRECTORY);
+                if (self_dir_fd < 0)
+                        return -errno;
+
+                m->executor_fd = openat(self_dir_fd, "systemd-executor", O_CLOEXEC|O_PATH);
+                if (m->executor_fd < 0 && errno == ENOENT)
+                        m->executor_fd = openat(AT_FDCWD, "systemd-executor", O_CLOEXEC|O_PATH);
+                if (m->executor_fd < 0 && errno == ENOENT) {
+                        m->executor_fd = open(SYSTEMD_EXECUTOR_BINARY_PATH, O_CLOEXEC|O_PATH);
+                        level = LOG_WARNING; /* Tests should normally use local builds */
+                }
+                if (m->executor_fd < 0)
+                        return -errno;
+
+                r = fd_get_path(m->executor_fd, &executor_path);
+                if (r < 0)
+                        return r;
+
+                log_full(level, "Using systemd-executor binary from '%s'", executor_path);
         }
 
         /* Note that we do not set up the notify fd here. We do that after deserialization,
@@ -1679,6 +1721,8 @@ Manager* manager_free(Manager *m) {
 #if BPF_FRAMEWORK
         lsm_bpf_destroy(m->restrict_fs);
 #endif
+
+        safe_close(m->executor_fd);
 
         return mfree(m);
 }
@@ -4829,6 +4873,17 @@ ManagerTimestamp manager_timestamp_initrd_mangle(ManagerTimestamp s) {
             s <= MANAGER_TIMESTAMP_UNITS_LOAD_FINISH)
                 return s - MANAGER_TIMESTAMP_SECURITY_START + MANAGER_TIMESTAMP_INITRD_SECURITY_START;
         return s;
+}
+
+LogTarget manager_get_executor_log_target(Manager *m) {
+        assert(m);
+
+        /* If journald is not available tell sd-executor to go to kmsg, as it might be starting journald */
+
+        if (manager_journal_is_running(m))
+                return log_get_target();
+
+        return LOG_TARGET_KMSG;
 }
 
 static const char *const manager_state_table[_MANAGER_STATE_MAX] = {
