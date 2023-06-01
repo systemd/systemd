@@ -93,7 +93,6 @@ const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
 Unit* unit_new(Manager *m, size_t size) {
         Unit *u;
 
-        assert(m);
         assert(size >= sizeof(Unit));
 
         u = malloc0(size);
@@ -129,7 +128,7 @@ Unit* unit_new(Manager *m, size_t size) {
 
         u->last_section_private = -1;
 
-        u->start_ratelimit = (RateLimit) { m->default_start_limit_interval, m->default_start_limit_burst };
+        u->start_ratelimit = (RateLimit) { m ? m->default_start_limit_interval : 0, m ? m->default_start_limit_burst : 0 };
         u->auto_start_stop_ratelimit = (const RateLimit) { 10 * USEC_PER_SEC, 16 };
 
         return u;
@@ -748,10 +747,11 @@ Unit* unit_free(Unit *u) {
 
         u->transient_file = safe_fclose(u->transient_file);
 
-        if (!MANAGER_IS_RELOADING(u->manager))
+        if (u->manager && !MANAGER_IS_RELOADING(u->manager))
                 unit_remove_transient(u);
 
-        bus_unit_send_removed_signal(u);
+        if (u->manager)
+                bus_unit_send_removed_signal(u);
 
         unit_done(u);
 
@@ -764,12 +764,13 @@ Unit* unit_free(Unit *u) {
 
         unit_free_requires_mounts_for(u);
 
-        SET_FOREACH(t, u->aliases)
-                hashmap_remove_value(u->manager->units, t, u);
-        if (u->id)
+        if (u->manager)
+                SET_FOREACH(t, u->aliases)
+                        hashmap_remove_value(u->manager->units, t, u);
+        if (u->id && u->manager)
                 hashmap_remove_value(u->manager->units, u->id, u);
 
-        if (!sd_id128_is_null(u->invocation_id))
+        if (!sd_id128_is_null(u->invocation_id) && u->manager)
                 hashmap_remove_value(u->manager->units_by_invocation_id, &u->invocation_id, u);
 
         if (u->job) {
@@ -791,7 +792,7 @@ Unit* unit_free(Unit *u) {
         if (slice)
                 unit_add_family_to_cgroup_realize_queue(slice);
 
-        if (u->on_console)
+        if (u->on_console && u->manager)
                 manager_unref_console(u->manager);
 
         fdset_free(u->initial_socket_bind_link_fds);
@@ -802,57 +803,61 @@ Unit* unit_free(Unit *u) {
 
         unit_release_cgroup(u);
 
-        if (!MANAGER_IS_RELOADING(u->manager))
+        if (u->manager && !MANAGER_IS_RELOADING(u->manager))
                 unit_unlink_state_files(u);
 
         unit_unref_uid_gid(u, false);
 
-        (void) manager_update_failed_units(u->manager, u, false);
-        set_remove(u->manager->startup_units, u);
+        if (u->manager) {
+                (void) manager_update_failed_units(u->manager, u, false);
+                set_remove(u->manager->startup_units, u);
+        }
 
         unit_unwatch_all_pids(u);
 
         while (u->refs_by_target)
                 unit_ref_unset(u->refs_by_target);
 
-        if (u->type != _UNIT_TYPE_INVALID)
-                LIST_REMOVE(units_by_type, u->manager->units_by_type[u->type], u);
+        if (u->manager) {
+                if (u->type != _UNIT_TYPE_INVALID)
+                        LIST_REMOVE(units_by_type, u->manager->units_by_type[u->type], u);
 
-        if (u->in_load_queue)
-                LIST_REMOVE(load_queue, u->manager->load_queue, u);
+                if (u->in_load_queue)
+                        LIST_REMOVE(load_queue, u->manager->load_queue, u);
 
-        if (u->in_dbus_queue)
-                LIST_REMOVE(dbus_queue, u->manager->dbus_unit_queue, u);
+                if (u->in_dbus_queue)
+                        LIST_REMOVE(dbus_queue, u->manager->dbus_unit_queue, u);
 
-        if (u->in_cleanup_queue)
-                LIST_REMOVE(cleanup_queue, u->manager->cleanup_queue, u);
+                if (u->in_cleanup_queue)
+                        LIST_REMOVE(cleanup_queue, u->manager->cleanup_queue, u);
 
-        if (u->in_gc_queue)
-                LIST_REMOVE(gc_queue, u->manager->gc_unit_queue, u);
+                if (u->in_gc_queue)
+                        LIST_REMOVE(gc_queue, u->manager->gc_unit_queue, u);
 
-        if (u->in_cgroup_realize_queue)
-                LIST_REMOVE(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
+                if (u->in_cgroup_realize_queue)
+                        LIST_REMOVE(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
 
-        if (u->in_cgroup_empty_queue)
-                LIST_REMOVE(cgroup_empty_queue, u->manager->cgroup_empty_queue, u);
+                if (u->in_cgroup_empty_queue)
+                        LIST_REMOVE(cgroup_empty_queue, u->manager->cgroup_empty_queue, u);
 
-        if (u->in_cgroup_oom_queue)
-                LIST_REMOVE(cgroup_oom_queue, u->manager->cgroup_oom_queue, u);
+                if (u->in_cgroup_oom_queue)
+                        LIST_REMOVE(cgroup_oom_queue, u->manager->cgroup_oom_queue, u);
 
-        if (u->in_target_deps_queue)
-                LIST_REMOVE(target_deps_queue, u->manager->target_deps_queue, u);
+                if (u->in_target_deps_queue)
+                        LIST_REMOVE(target_deps_queue, u->manager->target_deps_queue, u);
 
-        if (u->in_stop_when_unneeded_queue)
-                LIST_REMOVE(stop_when_unneeded_queue, u->manager->stop_when_unneeded_queue, u);
+                if (u->in_stop_when_unneeded_queue)
+                        LIST_REMOVE(stop_when_unneeded_queue, u->manager->stop_when_unneeded_queue, u);
 
-        if (u->in_start_when_upheld_queue)
-                LIST_REMOVE(start_when_upheld_queue, u->manager->start_when_upheld_queue, u);
+                if (u->in_start_when_upheld_queue)
+                        LIST_REMOVE(start_when_upheld_queue, u->manager->start_when_upheld_queue, u);
 
-        if (u->in_stop_when_bound_queue)
-                LIST_REMOVE(stop_when_bound_queue, u->manager->stop_when_bound_queue, u);
+                if (u->in_stop_when_bound_queue)
+                        LIST_REMOVE(stop_when_bound_queue, u->manager->stop_when_bound_queue, u);
 
-        if (u->in_release_resources_queue)
-                LIST_REMOVE(release_resources_queue, u->manager->release_resources_queue, u);
+                if (u->in_release_resources_queue)
+                        LIST_REMOVE(release_resources_queue, u->manager->release_resources_queue, u);
+        }
 
         bpf_firewall_close(u);
 
@@ -1752,9 +1757,9 @@ static int log_unit_internal(void *userdata, int level, int error, const char *f
         va_start(ap, format);
         if (u)
                 r = log_object_internalv(level, error, file, line, func,
-                                         u->manager->unit_log_field,
+                                         unit_log_field(u, NULL),
                                          u->id,
-                                         u->manager->invocation_log_field,
+                                         unit_log_invocation_field(u, NULL),
                                          u->invocation_id_string,
                                          format, ap);
         else
@@ -1850,7 +1855,10 @@ int unit_test_start_limit(Unit *u) {
 bool unit_shall_confirm_spawn(Unit *u) {
         assert(u);
 
-        if (manager_is_confirm_spawn_disabled(u->manager))
+        if (u->manager && manager_is_confirm_spawn_disabled(u->manager))
+                return false;
+
+        if (access("/run/systemd/confirm_spawn_disabled", F_OK) >= 0)
                 return false;
 
         /* For some reasons units remaining in the same process group
@@ -2536,10 +2544,10 @@ static int unit_log_resources(Unit *u) {
         iovec[n_iovec] = IOVEC_MAKE_STRING(t);
         iovec[n_iovec + 1] = IOVEC_MAKE_STRING("MESSAGE_ID=" SD_MESSAGE_UNIT_RESOURCES_STR);
 
-        t = strjoina(u->manager->unit_log_field, u->id);
+        t = strjoina(unit_log_field(u, NULL), u->id);
         iovec[n_iovec + 2] = IOVEC_MAKE_STRING(t);
 
-        t = strjoina(u->manager->invocation_log_field, u->invocation_id_string);
+        t = strjoina(unit_log_invocation_field(u, NULL), u->invocation_id_string);
         iovec[n_iovec + 3] = IOVEC_MAKE_STRING(t);
 
         log_unit_struct_iovec(u, log_level, iovec, n_iovec + 4);
@@ -3405,7 +3413,7 @@ int unit_set_invocation_id(Unit *u, sd_id128_t id) {
         if (sd_id128_equal(u->invocation_id, id))
                 return 0;
 
-        if (!sd_id128_is_null(u->invocation_id))
+        if (u->manager && !sd_id128_is_null(u->invocation_id))
                 (void) hashmap_remove_value(u->manager->units_by_invocation_id, &u->invocation_id, u);
 
         if (sd_id128_is_null(id)) {
@@ -3413,12 +3421,15 @@ int unit_set_invocation_id(Unit *u, sd_id128_t id) {
                 goto reset;
         }
 
+        u->invocation_id = id;
+        sd_id128_to_string(id, u->invocation_id_string);
+
+        if (!u->manager)
+                return 0;
+
         r = hashmap_ensure_allocated(&u->manager->units_by_invocation_id, &id128_hash_ops);
         if (r < 0)
                 goto reset;
-
-        u->invocation_id = id;
-        sd_id128_to_string(id, u->invocation_id_string);
 
         r = hashmap_put(u->manager->units_by_invocation_id, &u->invocation_id, u);
         if (r < 0)
@@ -5201,9 +5212,11 @@ static int unit_ref_uid_internal(
         if (uid_is_valid(*ref_uid)) /* Already set? */
                 return -EBUSY;
 
-        r = _manager_ref_uid(u->manager, uid, clean_ipc);
-        if (r < 0)
-                return r;
+        if (u->manager) {
+                r = _manager_ref_uid(u->manager, uid, clean_ipc);
+                if (r < 0)
+                        return r;
+        }
 
         *ref_uid = uid;
         return 1;
@@ -5301,8 +5314,6 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
         if (r < 0)
                 return r;
 
-        p->runtime_scope = u->manager->runtime_scope;
-
         p->confirm_spawn = manager_get_confirm_spawn(u->manager);
         p->cgroup_supported = u->manager->cgroup_supported;
         p->prefix = u->manager->prefix;
@@ -5314,6 +5325,22 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
 
         p->received_credentials_directory = u->manager->received_credentials_directory;
         p->received_encrypted_credentials_directory = u->manager->received_encrypted_credentials_directory;
+
+        p->shall_confirm_spawn = !!u->manager->confirm_spawn;
+
+        p->default_smack_process_label = u->manager->default_smack_process_label;
+
+        if (u->manager->restrict_fs && p->bpf_outer_map_fd < 0) {
+                int fd = lsm_bpf_map_restrict_fs_fd(u);
+                if (fd < 0)
+                        return fd;
+
+                p->bpf_outer_map_fd = fd;
+        }
+
+        p->user_lookup_fd = fcntl(u->manager->user_lookup_fds[1], F_DUPFD_CLOEXEC, 3);
+        if (p->user_lookup_fd < 0)
+                return -errno;
 
         return 0;
 }

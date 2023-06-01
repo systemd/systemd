@@ -120,11 +120,14 @@ static void service_init(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        s->timeout_start_usec = u->manager->default_timeout_start_usec;
-        s->timeout_stop_usec = u->manager->default_timeout_stop_usec;
-        s->timeout_abort_usec = u->manager->default_timeout_abort_usec;
-        s->timeout_abort_set = u->manager->default_timeout_abort_set;
-        s->restart_usec = u->manager->default_restart_usec;
+        if (u->manager) {
+                s->timeout_start_usec = u->manager->default_timeout_start_usec;
+                s->timeout_stop_usec = u->manager->default_timeout_stop_usec;
+                s->timeout_abort_usec = u->manager->default_timeout_abort_usec;
+                s->timeout_abort_set = u->manager->default_timeout_abort_set;
+                s->restart_usec = u->manager->default_restart_usec;
+                s->exec_context.runtime_scope = MANAGER_IS_SYSTEM(u->manager) ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER;
+        }
         s->restart_max_delay_usec = USEC_INFINITY;
         s->runtime_max_usec = USEC_INFINITY;
         s->type = _SERVICE_TYPE_INVALID;
@@ -134,7 +137,7 @@ static void service_init(Unit *u) {
 
         s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
 
-        s->exec_context.keyring_mode = MANAGER_IS_SYSTEM(u->manager) ?
+        s->exec_context.keyring_mode = !u->manager || MANAGER_IS_SYSTEM(u->manager) ?
                 EXEC_KEYRING_PRIVATE : EXEC_KEYRING_INHERIT;
 
         s->notify_access_override = _NOTIFY_ACCESS_INVALID;
@@ -531,7 +534,7 @@ static int service_add_fd_store(Service *s, int fd_in, const char *name, bool do
         if (!fs->fdname)
                 return -ENOMEM;
 
-        if (do_poll) {
+        if (do_poll && UNIT(s)->manager) {
                 r = sd_event_add_io(UNIT(s)->manager->event, &fs->event_source, fs->fd, 0, on_fd_store_io, fs);
                 if (r < 0 && r != -EPERM) /* EPERM indicates fds that aren't pollable, which is OK */
                         return r;
@@ -1623,11 +1626,13 @@ static int service_spawn_internal(
                 pid_t *ret_pid) {
 
         _cleanup_(exec_params_clear) ExecParameters exec_params = {
-                .flags     = flags,
-                .stdin_fd  = -EBADF,
-                .stdout_fd = -EBADF,
-                .stderr_fd = -EBADF,
-                .exec_fd   = -EBADF,
+                .flags            = flags,
+                .stdin_fd         = -EBADF,
+                .stdout_fd        = -EBADF,
+                .stderr_fd        = -EBADF,
+                .exec_fd          = -EBADF,
+                .bpf_outer_map_fd = -EBADF,
+                .user_lookup_fd   = -EBADF,
         };
         _cleanup_(sd_event_source_unrefp) sd_event_source *exec_fd_source = NULL;
         _cleanup_strv_free_ char **final_env = NULL, **our_env = NULL;
@@ -3355,7 +3360,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
                         fd = fdset_remove(fds, fd);
-                        if (service_allocate_exec_fd_event_source(s, fd, &s->exec_fd_event_source) < 0)
+                        if (!UNIT(s)->manager || service_allocate_exec_fd_event_source(s, fd, &s->exec_fd_event_source) < 0)
                                 safe_close(fd);
                 }
         } else if (streq(key, "watchdog-override-usec")) {

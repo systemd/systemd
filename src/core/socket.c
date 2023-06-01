@@ -83,7 +83,6 @@ static void socket_init(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         s->backlog = SOMAXCONN_DELUXE;
-        s->timeout_usec = u->manager->default_timeout_start_usec;
         s->directory_mode = 0755;
         s->socket_mode = 0666;
 
@@ -94,8 +93,12 @@ static void socket_init(Unit *u) {
         s->ip_ttl = -1;
         s->mark = -1;
 
-        s->exec_context.std_output = u->manager->default_std_output;
-        s->exec_context.std_error = u->manager->default_std_error;
+        if (u->manager) {
+                s->timeout_usec = u->manager->default_timeout_start_usec;
+                s->exec_context.std_output = u->manager->default_std_output;
+                s->exec_context.std_error = u->manager->default_std_error;
+                s->exec_context.runtime_scope = MANAGER_IS_SYSTEM(u->manager) ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER;
+        }
 
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
 
@@ -1917,11 +1920,13 @@ static int socket_coldplug(Unit *u) {
 static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
 
         _cleanup_(exec_params_clear) ExecParameters exec_params = {
-                .flags     = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
-                .stdin_fd  = -EBADF,
-                .stdout_fd = -EBADF,
-                .stderr_fd = -EBADF,
-                .exec_fd   = -EBADF,
+                .flags            = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
+                .stdin_fd         = -EBADF,
+                .stdout_fd        = -EBADF,
+                .stderr_fd        = -EBADF,
+                .exec_fd          = -EBADF,
+                .bpf_outer_map_fd = -EBADF,
+                .user_lookup_fd   = -EBADF,
         };
         pid_t pid;
         int r;
