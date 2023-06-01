@@ -28,6 +28,7 @@ typedef enum CopyFlags {
         COPY_ALL_XATTRS    = 1 << 13, /* Preserve all xattrs when copying, not just those in the user namespace */
         COPY_HOLES         = 1 << 14, /* Copy holes */
         COPY_GRACEFUL_WARN = 1 << 15, /* Skip copying file types that aren't supported by the target filesystem */
+        COPY_TRUNCATE      = 1 << 16, /* Truncate to current file offset after copying */
 } CopyFlags;
 
 typedef enum DenyType {
