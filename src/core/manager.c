@@ -918,6 +918,8 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                         .interval = 10 * USEC_PER_MINUTE,
                         .burst = 10,
                 },
+
+                .executor_fd = -EBADF,
         };
 
 #if ENABLE_EFI
@@ -1034,6 +1036,37 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
 
                 if (r < 0 && r != -EEXIST)
                         return r;
+
+                m->executor_fd = open(SYSTEMD_EXECUTOR_BINARY_PATH, O_CLOEXEC|O_PATH);
+                if (m->executor_fd < 0)
+                        return log_warning_errno(errno,
+                                                 "Failed to open executor binary '%s': %m",
+                                                 SYSTEMD_EXECUTOR_BINARY_PATH);
+        } else if (!FLAGS_SET(test_run_flags, MANAGER_TEST_DONT_OPEN_EXECUTOR)) {
+                _cleanup_free_ char *self_exe = NULL, *self_dir = NULL;
+                _cleanup_close_ int self_dir_fd = -EBADF;
+
+                /* Prefer sd-executor from the same directory as the test, e.g.: when running unit tests from the
+                * build directory. Fallback to working directory and then the installation path. */
+                r = readlink_and_make_absolute("/proc/self/exe", &self_exe);
+                if (r < 0)
+                        return r;
+
+                r = path_extract_directory(self_exe, &self_dir);
+                if (r < 0)
+                        return r;
+
+                self_dir_fd = open(self_dir, O_CLOEXEC|O_DIRECTORY);
+                if (self_dir_fd < 0)
+                        return -errno;
+
+                m->executor_fd = openat(self_dir_fd, "systemd-executor", O_CLOEXEC|O_PATH);
+                if (m->executor_fd < 0 && errno == ENOENT)
+                        m->executor_fd = openat(AT_FDCWD, "systemd-executor", O_CLOEXEC|O_PATH);
+                if (m->executor_fd < 0 && errno == ENOENT)
+                        m->executor_fd = open(SYSTEMD_EXECUTOR_BINARY_PATH, O_CLOEXEC|O_PATH);
+                if (m->executor_fd < 0)
+                        return -errno;
         }
 
         m->taint_usr =
@@ -1706,6 +1739,8 @@ Manager* manager_free(Manager *m) {
 #if BPF_FRAMEWORK
         lsm_bpf_destroy(m->restrict_fs);
 #endif
+
+        safe_close(m->executor_fd);
 
         return mfree(m);
 }
