@@ -47,7 +47,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_usr_data_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_hash_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_options, freep);
 
-static int create_device(
+static int create_special_device(
                 const char *name,
                 const char *service,
                 const char *roothash,
@@ -58,6 +58,8 @@ static int create_device(
         _cleanup_free_ char *u = NULL, *v = NULL, *d = NULL, *e = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
+
+        /* Creates a systemd-veritysetup@.service instance for the special kernel cmdline specified root + usr devices. */
 
         assert(name);
         assert(service);
@@ -124,11 +126,11 @@ static int create_device(
 }
 
 static int create_root_device(void) {
-        return create_device("root", SYSTEMD_VERITYSETUP_SERVICE_ROOT, arg_root_hash, arg_root_data_what, arg_root_hash_what, arg_root_options);
+        return create_special_device("root", SYSTEMD_VERITYSETUP_SERVICE_ROOT, arg_root_hash, arg_root_data_what, arg_root_hash_what, arg_root_options);
 }
 
 static int create_usr_device(void) {
-        return create_device("usr", SYSTEMD_VERITYSETUP_SERVICE_USR, arg_usr_hash, arg_usr_data_what, arg_usr_hash_what, arg_usr_options);
+        return create_special_device("usr", SYSTEMD_VERITYSETUP_SERVICE_USR, arg_usr_hash, arg_usr_data_what, arg_usr_hash_what, arg_usr_options);
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
@@ -299,7 +301,7 @@ static bool attach_in_initrd(const char *name, const char *options) {
                 STR_IN_SET(name, "root", "usr");
 }
 
-static int create_disk(
+static int create_veritytab_device(
                 const char *name,
                 const char *data_device,
                 const char *hash_device,
@@ -313,6 +315,8 @@ static int create_disk(
         const char *dmname;
         bool noauto, nofail, netdev, need_loop = false;
         int r;
+
+        /* Creates a systemd-veritysetup@.service instance for volumes specified in /etc/veritytab. */
 
         assert(name);
         assert(data_device);
@@ -475,7 +479,8 @@ static int add_veritytab_devices(void) {
                 if (!hash_uuid)
                         hash_uuid = path_startswith(hash_device, "/dev/disk/by-uuid/");
 
-                r = create_disk(name,
+                r = create_veritytab_device(
+                                name,
                                 data_device,
                                 hash_device,
                                 roothash,
