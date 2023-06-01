@@ -70,32 +70,20 @@ static int extract_subvolume_name(const char *path, char **ret) {
         return 0;
 }
 
-int btrfs_is_subvol_fd(int fd) {
+int btrfs_is_subvol_at(int dir_fd, const char *path) {
         struct stat st;
 
-        assert(fd >= 0);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
         /* On btrfs subvolumes always have the inode 256 */
 
-        if (fstat(fd, &st) < 0)
+        if (fstatat(dir_fd, strempty(path), &st, (isempty(path) ? AT_EMPTY_PATH : 0)) < 0)
                 return -errno;
 
         if (!btrfs_might_be_subvol(&st))
                 return 0;
 
-        return fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
-}
-
-int btrfs_is_subvol(const char *path) {
-        _cleanup_close_ int fd = -EBADF;
-
-        assert(path);
-
-        fd = open(path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
-        if (fd < 0)
-                return -errno;
-
-        return btrfs_is_subvol_fd(fd);
+        return is_fs_type_at(dir_fd, path, BTRFS_SUPER_MAGIC);
 }
 
 int btrfs_subvol_make_fd(int fd, const char *subvolume) {
