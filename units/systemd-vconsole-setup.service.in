@@ -7,8 +7,15 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
+{% if ENABLE_FIRSTBOOT %}
+# Note that this service exists in two copies: systemd-vconsole-setup.service
+# and systemd-vconsole-setup-reload.service. The second one is used internally
+# by systemd-firstboot.service to start a second copy of the unit without
+# ordering dependencies. The first copy should be used in all other cases.
+{% endif %}
+
 [Unit]
-Description=Setup Virtual Console
+Description=Virtual Console Setup
 Documentation=man:systemd-vconsole-setup.service(8) man:vconsole.conf(5)
 
 ConditionPathExists=/dev/tty0

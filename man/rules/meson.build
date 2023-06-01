@@ -1097,7 +1097,7 @@ manpages = [
  ['systemd-userdbd.service', '8', ['systemd-userdbd'], 'ENABLE_USERDB'],
  ['systemd-vconsole-setup.service',
   '8',
-  ['systemd-vconsole-setup'],
+  ['systemd-vconsole-setup', 'systemd-vconsole-setup-reload.service'],
   'ENABLE_VCONSOLE'],
  ['systemd-veritysetup-generator', '8', [], 'HAVE_LIBCRYPTSETUP'],
  ['systemd-veritysetup@.service',
