@@ -454,6 +454,14 @@ struct ExecParameters {
 #include "unit.h"
 #include "dynamic-user.h"
 
+int exec_child(Unit *unit,
+               const ExecCommand *command,
+               const ExecContext *context,
+               const ExecParameters *params,
+               ExecRuntime *runtime,
+               const CGroupContext *cgroup_context,
+               int *exit_status);
+
 int exec_spawn(Unit *unit,
                ExecCommand *command,
                const ExecContext *context,
