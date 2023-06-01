@@ -798,6 +798,10 @@ typedef struct UnitVTable {
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
 
 static inline const UnitVTable* UNIT_VTABLE(const Unit *u) {
+        assert(u);
+        assert(u->type >= 0);
+        assert(u->type < _UNIT_TYPE_MAX);
+
         return unit_vtable[u->type];
 }
 
@@ -1091,6 +1095,30 @@ Condition *unit_find_failed_condition(Unit *u);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
+#define unit_log_field(unit, context)                                                                           \
+        ({                                                                                                      \
+                const ExecContext *__c = (context) ?: (unit) ? unit_get_exec_context((unit)) : NULL;            \
+                __c && __c->runtime_scope == RUNTIME_SCOPE_USER ? "USER_UNIT=" : "UNIT=";                       \
+        })
+
+#define unit_log_format_string(unit, context)                                                                   \
+        ({                                                                                                      \
+                const ExecContext *__c = (context) ?: (unit) ? unit_get_exec_context((unit)) : NULL;            \
+                __c && __c->runtime_scope == RUNTIME_SCOPE_USER ? "USER_UNIT=%s" : "UNIT=%s";                   \
+        })
+
+#define unit_log_invocation_field(unit, context)                                                                \
+        ({                                                                                                      \
+                const ExecContext *__c = (context) ?: (unit) ? unit_get_exec_context((unit)) : NULL;            \
+                __c && __c->runtime_scope == RUNTIME_SCOPE_USER ? "USER_INVOCATION_ID=" : "INVOCATION_ID=";     \
+        })
+
+#define unit_log_invocation_format_string(unit, context)                                                        \
+        ({                                                                                                      \
+                const ExecContext *__c = (context) ?: (unit) ? unit_get_exec_context((unit)) : NULL;            \
+                __c && __c->runtime_scope == RUNTIME_SCOPE_USER ? "USER_INVOCATION_ID=%s" : "INVOCATION_ID=%s"; \
+        })
+
 #define log_unit_full_errno_zerook(unit, level, error, ...)             \
         ({                                                              \
                 const Unit *_u = (unit);                                \
@@ -1102,7 +1130,7 @@ Condition *unit_find_failed_condition(Unit *u);
                 LOG_CONTEXT_PUSH_IOV(_c ? _c->log_extra_fields : NULL,  \
                                      _c ? _c->n_log_extra_fields : 0);  \
                 !_do_log ? -ERRNO_VALUE(error) :                        \
-                        _u ? log_object_internal(_l, error, PROJECT_FILE, __LINE__, __func__, _u->manager->unit_log_field, _u->id, _u->manager->invocation_log_field, _u->invocation_id_string, ##__VA_ARGS__) : \
+                        _u ? log_object_internal(_l, error, PROJECT_FILE, __LINE__, __func__, unit_log_field(NULL, _c), _u->id, unit_log_invocation_field(NULL, _c), _u->invocation_id_string, ##__VA_ARGS__) : \
                                 log_internal(_l, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
         })
 
@@ -1169,8 +1197,8 @@ Condition *unit_find_failed_condition(Unit *u);
 
 /* Like LOG_MESSAGE(), but with the unit name prefixed. */
 #define LOG_UNIT_MESSAGE(unit, fmt, ...) LOG_MESSAGE("%s: " fmt, (unit)->id, ##__VA_ARGS__)
-#define LOG_UNIT_ID(unit) (unit)->manager->unit_log_format_string, (unit)->id
-#define LOG_UNIT_INVOCATION_ID(unit) (unit)->manager->invocation_log_format_string, (unit)->invocation_id_string
+#define LOG_UNIT_ID(unit) unit_log_format_string(unit, NULL), (unit)->id
+#define LOG_UNIT_INVOCATION_ID(unit) unit_log_invocation_format_string(unit, NULL), (unit)->invocation_id_string
 
 const char* collect_mode_to_string(CollectMode m) _const_;
 CollectMode collect_mode_from_string(const char *s) _pure_;
@@ -1229,8 +1257,8 @@ typedef struct UnitForEachDependencyData {
 #define _LOG_CONTEXT_PUSH_UNIT(unit, u, c)                                                      \
         const Unit *u = (unit);                                                                 \
         const ExecContext *c = unit_get_exec_context(u);                                        \
-        LOG_CONTEXT_PUSH_KEY_VALUE(u->manager->unit_log_field, u->id);                          \
-        LOG_CONTEXT_PUSH_KEY_VALUE(u->manager->invocation_log_field, u->invocation_id_string);  \
+        LOG_CONTEXT_PUSH_KEY_VALUE(unit_log_field(NULL, c), u->id);                                   \
+        LOG_CONTEXT_PUSH_KEY_VALUE(unit_log_invocation_field(NULL, c), u->invocation_id_string);      \
         LOG_CONTEXT_PUSH_IOV(c ? c->log_extra_fields : NULL, c ? c->n_log_extra_fields : 0)
 
 #define LOG_CONTEXT_PUSH_UNIT(unit) \
