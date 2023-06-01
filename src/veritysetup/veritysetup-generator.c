@@ -402,11 +402,12 @@ static int create_disk(
         }
 
         if (need_loop)
-                /* For loopback devices, add systemd-tmpfiles-setup-dev.service dependency to ensure that
-                 * loopback support is available in the kernel (/dev/loop-control needs to exist) */
+                /* For loopback devices make sure to explicitly load loop.ko, as this code might run very
+                 * early where device nodes created via systemd-tmpfiles-setup-dev.service might not be
+                 * around yet. Hence let's sync on the module itself. */
                 fprintf(f,
-                        "Requires=systemd-tmpfiles-setup-dev.service\n"
-                        "After=systemd-tmpfiles-setup-dev.service\n");
+                        "Wants=modprobe@loop.service\n"
+                        "After=modprobe@loop.service\n");
 
         r = generator_write_veritysetup_service_section(f, name, du_escaped, hu_escaped, roothash, options);
         if (r < 0)
