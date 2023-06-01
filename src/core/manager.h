@@ -475,6 +475,10 @@ struct Manager {
         RateLimit dump_ratelimit;
 
         sd_event_source *memory_pressure_event_source;
+
+        /* Pin the systemd-executor binary, so that it never changes until re-exec, ensuring we don't have
+         * serialization/deserialization compatibility issues during upgrades. */
+        int executor_fd;
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
