@@ -986,7 +986,7 @@ static int attach_tcrypt(
 
         if (arg_tcrypt_veracrypt)
                 params.flags |= CRYPT_TCRYPT_VERA_MODES;
-        
+
         if (arg_tcrypt_veracrypt && arg_tcrypt_veracrypt_pim != 0)
                 params.veracrypt_pim = arg_tcrypt_veracrypt_pim;
 
