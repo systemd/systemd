@@ -84,8 +84,10 @@ static inline int btrfs_subvol_snapshot(const char *old_path, const char *new_pa
         return btrfs_subvol_snapshot_full(old_path, new_path, flags, NULL, NULL, NULL);
 }
 
-int btrfs_subvol_remove(const char *path, BtrfsRemoveFlags flags);
-int btrfs_subvol_remove_fd(int fd, const char *subvolume, BtrfsRemoveFlags flags);
+int btrfs_subvol_remove_at(int dir_fd, const char *path, BtrfsRemoveFlags flags);
+static inline int btrfs_subvol_remove(const char *path, BtrfsRemoveFlags flags) {
+        return btrfs_subvol_remove_at(AT_FDCWD, path, flags);
+}
 
 int btrfs_subvol_set_read_only_fd(int fd, bool b);
 int btrfs_subvol_set_read_only(const char *path, bool b);
