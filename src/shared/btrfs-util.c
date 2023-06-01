@@ -17,6 +17,7 @@
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
+#include "chase.h"
 #include "chattr-util.h"
 #include "copy.h"
 #include "fd-util.h"
@@ -1123,25 +1124,21 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
         return 0;
 }
 
-int btrfs_subvol_remove(const char *path, BtrfsRemoveFlags flags) {
+int btrfs_subvol_remove_at(int dir_fd, const char *path, BtrfsRemoveFlags flags) {
         _cleanup_free_ char *subvolume = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(path);
 
-        r = extract_subvolume_name(path, &subvolume);
-        if (r < 0)
-                return r;
-
-        fd = open_parent(path, O_CLOEXEC, 0);
+        fd = chase_and_openat(dir_fd, path, CHASE_PARENT|CHASE_EXTRACT_FILENAME, O_CLOEXEC, &subvolume);
         if (fd < 0)
                 return fd;
 
-        return subvol_remove_children(fd, subvolume, 0, flags);
-}
+        r = validate_subvolume_name(subvolume);
+        if (r < 0)
+                return r;
 
-int btrfs_subvol_remove_fd(int fd, const char *subvolume, BtrfsRemoveFlags flags) {
         return subvol_remove_children(fd, subvolume, 0, flags);
 }
 

@@ -228,7 +228,7 @@ static int rm_rf_inner_child(
                 if ((flags & REMOVE_SUBVOLUME) && btrfs_might_be_subvol(&st)) {
                         /* This could be a subvolume, try to remove it */
 
-                        r = btrfs_subvol_remove_fd(fd, fname, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
+                        r = btrfs_subvol_remove_at(fd, fname, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
                         if (r < 0) {
                                 if (!IN_SET(r, -ENOTTY, -EINVAL))
                                         return r;
