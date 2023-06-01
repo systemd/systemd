@@ -28,7 +28,7 @@
 
 DEFINE_TRIVIAL_REF_FUNC(DynamicUser, dynamic_user);
 
-static DynamicUser* dynamic_user_free(DynamicUser *d) {
+DynamicUser* dynamic_user_free(DynamicUser *d) {
         if (!d)
                 return NULL;
 
@@ -846,4 +846,13 @@ DynamicCreds* dynamic_creds_destroy(DynamicCreds *creds) {
         creds->group = dynamic_user_destroy(creds->group);
 
         return mfree(creds);
+}
+
+void dynamic_creds_done(DynamicCreds *creds) {
+        if (!creds)
+                return;
+
+        if (creds->group != creds->user)
+                dynamic_user_free(creds->group);
+        creds->group = creds->user = dynamic_user_free(creds->user);
 }
