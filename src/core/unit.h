@@ -206,6 +206,9 @@ typedef struct Unit {
         Unit *merged_into;
 
         char *id;   /* The one special name that we use for identification */
+        /* Used for logging, could be shorter as UNIT=, keep space for either */
+        char id_field[STRLEN("USER_UNIT=") + 1];
+        char id_field_format[STRLEN("USER_UNIT=%s") + 1];
         char *instance;
 
         Set *aliases; /* All the other names. */
@@ -443,6 +446,9 @@ typedef struct Unit {
         /* The current invocation ID */
         sd_id128_t invocation_id;
         char invocation_id_string[SD_ID128_STRING_MAX]; /* useful when logging */
+        /* Also for logging, could be shorter as INVOCATION_ID=, keep space for either */
+        char invocation_id_field[STRLEN("USER_INVOCATION_ID=") + 1];
+        char invocation_id_field_format[STRLEN("USER_INVOCATION_ID=%s") + 1];
 
         /* Garbage collect us we nobody wants or requires us anymore */
         bool stop_when_unneeded;
@@ -798,6 +804,10 @@ typedef struct UnitVTable {
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
 
 static inline const UnitVTable* UNIT_VTABLE(const Unit *u) {
+        assert(u);
+        assert(u->type >= 0);
+        assert(u->type < _UNIT_TYPE_MAX);
+
         return unit_vtable[u->type];
 }
 
@@ -1102,7 +1112,7 @@ Condition *unit_find_failed_condition(Unit *u);
                 LOG_CONTEXT_PUSH_IOV(_c ? _c->log_extra_fields : NULL,  \
                                      _c ? _c->n_log_extra_fields : 0);  \
                 !_do_log ? -ERRNO_VALUE(error) :                        \
-                        _u ? log_object_internal(_l, error, PROJECT_FILE, __LINE__, __func__, _u->manager->unit_log_field, _u->id, _u->manager->invocation_log_field, _u->invocation_id_string, ##__VA_ARGS__) : \
+                        _u ? log_object_internal(_l, error, PROJECT_FILE, __LINE__, __func__, _u->id_field, _u->id, _u->invocation_id_field, _u->invocation_id_string, ##__VA_ARGS__) : \
                                 log_internal(_l, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
         })
 
@@ -1169,8 +1179,8 @@ Condition *unit_find_failed_condition(Unit *u);
 
 /* Like LOG_MESSAGE(), but with the unit name prefixed. */
 #define LOG_UNIT_MESSAGE(unit, fmt, ...) LOG_MESSAGE("%s: " fmt, (unit)->id, ##__VA_ARGS__)
-#define LOG_UNIT_ID(unit) (unit)->manager->unit_log_format_string, (unit)->id
-#define LOG_UNIT_INVOCATION_ID(unit) (unit)->manager->invocation_log_format_string, (unit)->invocation_id_string
+#define LOG_UNIT_ID(unit) (unit)->id_field_format, (unit)->id
+#define LOG_UNIT_INVOCATION_ID(unit) (unit)->invocation_id_field_format, (unit)->invocation_id_string
 
 const char* collect_mode_to_string(CollectMode m) _const_;
 CollectMode collect_mode_from_string(const char *s) _pure_;
@@ -1229,8 +1239,8 @@ typedef struct UnitForEachDependencyData {
 #define _LOG_CONTEXT_PUSH_UNIT(unit, u, c)                                                      \
         const Unit *u = (unit);                                                                 \
         const ExecContext *c = unit_get_exec_context(u);                                        \
-        LOG_CONTEXT_PUSH_KEY_VALUE(u->manager->unit_log_field, u->id);                          \
-        LOG_CONTEXT_PUSH_KEY_VALUE(u->manager->invocation_log_field, u->invocation_id_string);  \
+        LOG_CONTEXT_PUSH_KEY_VALUE(u->id_field, u->id);                                         \
+        LOG_CONTEXT_PUSH_KEY_VALUE(u->invocation_id_field, u->invocation_id_string);            \
         LOG_CONTEXT_PUSH_IOV(c ? c->log_extra_fields : NULL, c ? c->n_log_extra_fields : 0)
 
 #define LOG_CONTEXT_PUSH_UNIT(unit) \

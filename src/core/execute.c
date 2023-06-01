@@ -59,6 +59,7 @@
 #include "execute.h"
 #include "exit-status.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "format-util.h"
 #include "glob-util.h"
 #include "hexdecoct.h"
@@ -1771,20 +1772,21 @@ static int apply_lock_personality(const Unit* u, const ExecContext *c) {
 #endif
 
 #if HAVE_LIBBPF
-static int apply_restrict_filesystems(Unit *u, const ExecContext *c) {
+static int apply_restrict_filesystems(Unit *u, const ExecContext *c, const ExecParameters *p) {
         assert(u);
         assert(c);
+        assert(p);
 
         if (!exec_context_restrict_filesystems_set(c))
                 return 0;
 
-        if (!u->manager->restrict_fs) {
+        if (p->bpf_outer_map_fd < 0) {
                 /* LSM BPF is unsupported or lsm_bpf_setup failed */
                 log_unit_debug(u, "LSM BPF not supported, skipping RestrictFileSystems=");
                 return 0;
         }
 
-        return lsm_bpf_unit_restrict_filesystems(u, c->restrict_filesystems, c->restrict_filesystems_allow_list);
+        return lsm_bpf_unit_restrict_filesystems(u, c->restrict_filesystems, p->bpf_outer_map_fd, c->restrict_filesystems_allow_list);
 }
 #endif
 
@@ -2722,26 +2724,26 @@ fail:
 
 #if ENABLE_SMACK
 static int setup_smack(
-                const Manager *manager,
+                const ExecParameters *params,
                 const ExecContext *context,
                 int executable_fd) {
         int r;
 
-        assert(context);
+        assert(params);
         assert(executable_fd >= 0);
 
         if (context->smack_process_label) {
                 r = mac_smack_apply_pid(0, context->smack_process_label);
                 if (r < 0)
                         return r;
-        } else if (manager->default_smack_process_label) {
+        } else if (params->default_smack_process_label) {
                 _cleanup_free_ char *exec_label = NULL;
 
                 r = mac_smack_read_fd(executable_fd, SMACK_ATTR_EXEC, &exec_label);
                 if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
                         return r;
 
-                r = mac_smack_apply_pid(0, exec_label ?: manager->default_smack_process_label);
+                r = mac_smack_apply_pid(0, exec_label ?: params->default_smack_process_label);
                 if (r < 0)
                         return r;
         }
@@ -3222,6 +3224,14 @@ static int apply_mount_namespace(
         if (context->mount_propagation_flag == MS_SHARED)
                 log_unit_debug(u, "shared mount propagation hidden by other fs namespacing unit settings: ignoring");
 
+        if (exec_context_has_credentials(context) &&
+            params->prefix[EXEC_DIRECTORY_RUNTIME] &&
+            FLAGS_SET(params->flags, EXEC_WRITE_CREDENTIALS)) {
+                creds_path = path_join(params->prefix[EXEC_DIRECTORY_RUNTIME], "credentials", u->id);
+                if (!creds_path)
+                        return -ENOMEM;
+        }
+
         if (params->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
                 propagate_dir = path_join("/run/systemd/propagate/", u->id);
                 if (!propagate_dir)
@@ -3514,7 +3524,6 @@ static void append_socket_pair(int *array, size_t *n, const int pair[static 2]) 
 static int close_remaining_fds(
                 const ExecParameters *params,
                 const ExecRuntime *runtime,
-                int user_lookup_fd,
                 int socket_fd,
                 const int *fds, size_t n_fds) {
 
@@ -3552,8 +3561,8 @@ static int close_remaining_fds(
                         append_socket_pair(dont_close, &n_dont_close, runtime->dynamic_creds->group->storage_socket);
         }
 
-        if (user_lookup_fd >= 0)
-                dont_close[n_dont_close++] = user_lookup_fd;
+        if (params->user_lookup_fd >= 0)
+                dont_close[n_dont_close++] = params->user_lookup_fd;
 
         return close_all_fds(dont_close, n_dont_close);
 }
@@ -3924,20 +3933,16 @@ static bool exec_context_need_unprivileged_private_users(
                !strv_isempty(context->no_exec_paths);
 }
 
+static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***l);
+static int exec_context_named_iofds(const ExecContext *c, const ExecParameters *p, int named_iofds[static 3]);
+
 static int exec_child(
                 Unit *unit,
                 const ExecCommand *command,
                 const ExecContext *context,
-                const ExecParameters *params,
+                ExecParameters *params,
                 ExecRuntime *runtime,
                 const CGroupContext *cgroup_context,
-                int socket_fd,
-                const int named_iofds[static 3],
-                int *params_fds,
-                size_t n_socket_fds,
-                size_t n_storage_fds,
-                char **files_env,
-                int user_lookup_fd,
                 int *exit_status) {
 
         _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **joined_exec_search_path = NULL, **accum_env = NULL, **replaced_argv = NULL;
@@ -3968,7 +3973,7 @@ static int exec_child(
         gid_t saved_gid = getgid();
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
-        size_t n_fds = n_socket_fds + n_storage_fds, /* fds to pass to the child */
+        size_t n_fds, /* fds to pass to the child */
                n_keep_fds; /* total number of fds not to close */
         int secure_bits;
         _cleanup_free_ gid_t *gids_after_pam = NULL;
@@ -3976,6 +3981,9 @@ static int exec_child(
         _cleanup_free_ int *fds = NULL;
         _cleanup_strv_free_ char **fdnames = NULL;
         _cleanup_close_ int creds_fd = -EBADF;
+
+        int socket_fd, named_iofds[3] = { -1, -1, -1 }, *params_fds = NULL;
+        size_t n_storage_fds = 0, n_socket_fds = 0;
 
         assert(unit);
         assert(command);
@@ -3986,6 +3994,29 @@ static int exec_child(
         /* Explicitly test for CVE-2021-4034 inspired invocations */
         assert(command->path);
         assert(!strv_isempty(command->argv));
+
+        if (context->std_input == EXEC_INPUT_SOCKET ||
+            context->std_output == EXEC_OUTPUT_SOCKET ||
+            context->std_error == EXEC_OUTPUT_SOCKET) {
+
+                if (params->n_socket_fds > 1)
+                        return log_unit_error_errno(unit, SYNTHETIC_ERRNO(EINVAL), "Got more than one socket.");
+
+                if (params->n_socket_fds == 0)
+                        return log_unit_error_errno(unit, SYNTHETIC_ERRNO(EINVAL), "Got no socket.");
+
+                socket_fd = params->fds[0];
+        } else {
+                socket_fd = -EBADF;
+                params_fds = params->fds;
+                n_socket_fds = params->n_socket_fds;
+                n_storage_fds = params->n_storage_fds;
+        }
+        n_fds = n_socket_fds + n_storage_fds;
+
+        r = exec_context_named_iofds(context, params, named_iofds);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to load a named file descriptor: %m");
 
         rename_process_from_path(command->path);
 
@@ -4048,14 +4079,8 @@ static int exec_child(
         }
 
 #if HAVE_LIBBPF
-        if (unit->manager->restrict_fs) {
-                int bpf_map_fd = lsm_bpf_map_restrict_fs_fd(unit);
-                if (bpf_map_fd < 0) {
-                        *exit_status = EXIT_FDS;
-                        return log_unit_error_errno(unit, bpf_map_fd, "Failed to get restrict filesystems BPF map fd: %m");
-                }
-
-                r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, bpf_map_fd, &bpf_map_fd);
+        if (params->bpf_outer_map_fd >= 0) {
+                r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, params->bpf_outer_map_fd, (int *)&params->bpf_outer_map_fd);
                 if (r < 0) {
                         *exit_status = EXIT_FDS;
                         return log_unit_error_errno(unit, r, "Failed to shift fd and set FD_CLOEXEC: %m");
@@ -4063,7 +4088,7 @@ static int exec_child(
         }
 #endif
 
-        r = close_remaining_fds(params, runtime, user_lookup_fd, socket_fd, keep_fds, n_keep_fds);
+        r = close_remaining_fds(params, runtime, socket_fd, keep_fds, n_keep_fds);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_unit_error_errno(unit, r, "Failed to close unwanted file descriptors: %m");
@@ -4077,7 +4102,7 @@ static int exec_child(
 
         exec_context_tty_reset(context, params);
 
-        if (unit_shall_confirm_spawn(unit)) {
+        if (params->shall_confirm_spawn && unit_shall_confirm_spawn(unit)) {
                 _cleanup_free_ char *cmdline = NULL;
 
                 cmdline = quote_command_line(command->argv, SHELL_ESCAPE_EMPTY);
@@ -4170,13 +4195,13 @@ static int exec_child(
                 return log_unit_error_errno(unit, r, "Failed to determine supplementary groups: %m");
         }
 
-        r = send_user_lookup(unit, user_lookup_fd, uid, gid);
+        r = send_user_lookup(unit, params->user_lookup_fd, uid, gid);
         if (r < 0) {
                 *exit_status = EXIT_USER;
                 return log_unit_error_errno(unit, r, "Failed to send user credentials to PID1: %m");
         }
 
-        user_lookup_fd = safe_close(user_lookup_fd);
+        params->user_lookup_fd = safe_close(params->user_lookup_fd);
 
         r = acquire_home(context, uid, &home, &home_buffer);
         if (r < 0) {
@@ -4483,7 +4508,7 @@ static int exec_child(
                                    joined_exec_search_path,
                                    pass_env,
                                    context->environment,
-                                   files_env);
+                                   params->files_env);
         if (!accum_env) {
                 *exit_status = EXIT_MEMORY;
                 return log_oom();
@@ -4812,8 +4837,8 @@ static int exec_child(
 #if ENABLE_SMACK
                 /* LSM Smack needs the capability CAP_MAC_ADMIN to change the current execution security context of the
                  * process. This is the latest place before dropping capabilities. Other MAC context are set later. */
-                if (use_smack) {
-                        r = setup_smack(unit->manager, context, executable_fd);
+                if (use_smack && context->smack_process_label) {
+                        r = setup_smack(params, context, executable_fd);
                         if (r < 0 && !context->smack_process_label_ignore) {
                                 *exit_status = EXIT_SMACK_PROCESS_LABEL;
                                 return log_unit_error_errno(unit, r, "Failed to set SMACK process label: %m");
@@ -5043,7 +5068,7 @@ static int exec_child(
 #endif
 
 #if HAVE_LIBBPF
-                r = apply_restrict_filesystems(unit, context);
+                r = apply_restrict_filesystems(unit, context, params);
                 if (r < 0) {
                         *exit_status = EXIT_BPF;
                         return log_unit_error_errno(unit, r, "Failed to restrict filesystems: %m");
@@ -5118,24 +5143,21 @@ static int exec_child(
         return log_unit_error_errno(unit, r, "Failed to execute %s: %m", executable);
 }
 
-static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***l);
-static int exec_context_named_iofds(const ExecContext *c, const ExecParameters *p, int named_iofds[static 3]);
 
 int exec_spawn(Unit *unit,
                ExecCommand *command,
                const ExecContext *context,
-               const ExecParameters *params,
+               ExecParameters *params,
                ExecRuntime *runtime,
                const CGroupContext *cgroup_context,
                pid_t *ret) {
 
-        int socket_fd, r, named_iofds[3] = { -1, -1, -1 }, *fds = NULL;
         _cleanup_free_ char *subcgroup_path = NULL;
-        _cleanup_strv_free_ char **files_env = NULL;
-        size_t n_storage_fds = 0, n_socket_fds = 0;
         pid_t pid;
+        int r;
 
         assert(unit);
+        assert(unit->manager);
         assert(command);
         assert(context);
         assert(ret);
@@ -5144,29 +5166,7 @@ int exec_spawn(Unit *unit,
 
         LOG_CONTEXT_PUSH_UNIT(unit);
 
-        if (context->std_input == EXEC_INPUT_SOCKET ||
-            context->std_output == EXEC_OUTPUT_SOCKET ||
-            context->std_error == EXEC_OUTPUT_SOCKET) {
-
-                if (params->n_socket_fds > 1)
-                        return log_unit_error_errno(unit, SYNTHETIC_ERRNO(EINVAL), "Got more than one socket.");
-
-                if (params->n_socket_fds == 0)
-                        return log_unit_error_errno(unit, SYNTHETIC_ERRNO(EINVAL), "Got no socket.");
-
-                socket_fd = params->fds[0];
-        } else {
-                socket_fd = -EBADF;
-                fds = params->fds;
-                n_socket_fds = params->n_socket_fds;
-                n_storage_fds = params->n_storage_fds;
-        }
-
-        r = exec_context_named_iofds(context, params, named_iofds);
-        if (r < 0)
-                return log_unit_error_errno(unit, r, "Failed to load a named file descriptor: %m");
-
-        r = exec_context_load_environment(unit, context, &files_env);
+        r = exec_context_load_environment(unit, context, &params->files_env);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to load environment files: %m");
 
@@ -5205,13 +5205,6 @@ int exec_spawn(Unit *unit,
                                params,
                                runtime,
                                cgroup_context,
-                               socket_fd,
-                               named_iofds,
-                               fds,
-                               n_socket_fds,
-                               n_storage_fds,
-                               files_env,
-                               unit->manager->user_lookup_fds[1],
                                &exit_status);
 
                 if (r < 0) {
@@ -5246,6 +5239,9 @@ int exec_spawn(Unit *unit,
 
 void exec_context_init(ExecContext *c) {
         assert(c);
+
+        /* When initializing a bool member to 'true', make sure to serialize in execute-serialize.c using
+         * serialize_bool() instead of serialize_bool_elide(). */
 
         c->umask = 0022;
         c->ioprio = IOPRIO_DEFAULT_CLASS_AND_PRIO;
@@ -6746,7 +6742,7 @@ int exec_shared_runtime_serialize(const Manager *m, FILE *f, FDSet *fds) {
 
 int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char *value, FDSet *fds) {
         _cleanup_(exec_shared_runtime_freep) ExecSharedRuntime *rt_create = NULL;
-        ExecSharedRuntime *rt;
+        ExecSharedRuntime *rt = NULL;
         int r;
 
         /* This is for the migration from old (v237 or earlier) deserialization text.
@@ -6765,10 +6761,12 @@ int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char 
                 return 0;
         }
 
-        if (hashmap_ensure_allocated(&u->manager->exec_shared_runtime_by_id, &string_hash_ops) < 0)
-                return log_oom();
+        if (u->manager) {
+                if (hashmap_ensure_allocated(&u->manager->exec_shared_runtime_by_id, &string_hash_ops) < 0)
+                        return log_oom();
 
-        rt = hashmap_get(u->manager->exec_shared_runtime_by_id, u->id);
+                rt = hashmap_get(u->manager->exec_shared_runtime_by_id, u->id);
+        }
         if (!rt) {
                 if (exec_shared_runtime_allocate(&rt_create, u->id) < 0)
                         return log_oom();
@@ -6810,7 +6808,7 @@ int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char 
                 return 0;
 
         /* If the object is newly created, then put it to the hashmap which manages ExecSharedRuntime objects. */
-        if (rt_create) {
+        if (rt_create && u->manager) {
                 r = hashmap_put(u->manager->exec_shared_runtime_by_id, rt_create->id, rt_create);
                 if (r < 0) {
                         log_unit_debug_errno(u, r, "Failed to put runtime parameter to manager's storage: %m");
@@ -7036,8 +7034,11 @@ void exec_params_clear(ExecParameters *p) {
 
         p->environment = strv_free(p->environment);
         p->fd_names = strv_free(p->fd_names);
+        p->files_env = strv_free(p->files_env);
         p->fds = mfree(p->fds);
         p->exec_fd = safe_close(p->exec_fd);
+        p->user_lookup_fd = safe_close(p->user_lookup_fd);
+        p->bpf_outer_map_fd = -EBADF;
 }
 
 void exec_directory_done(ExecDirectory *d) {
