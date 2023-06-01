@@ -81,6 +81,8 @@ assert_1() {
 
     if [ -f "${exo}" ]; then
         diff -u "${exo}" "${out}"
+    elif [ -f "${rules}" ]; then
+        diff -u "${workdir}/default_output_1_fail" "${out}"
     fi
 
     next_test_number
@@ -127,7 +129,6 @@ assert_0 "${rules_dir}"
 
 # Directory with a loop.
 ln -s . "${rules_dir}/loop.rules"
-cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules_dir}"
 rm "${rules_dir}/loop.rules"
 
@@ -155,7 +156,6 @@ assert_0 "${rules}"
 # Failed to parse rules file ${rules}: No buffer space available
 printf '%16384s\n' ' ' >"${rules}"
 echo "Failed to parse rules file ${rules}: No buffer space available" >"${exp}"
-cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 {
@@ -171,7 +171,6 @@ cat >"${exp}" <<EOF
 ${rules}:5 Line is too long, ignored.
 ${rules}: udev rules check failed.
 EOF
-cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 printf '\\\n' >"${rules}"
@@ -179,7 +178,6 @@ cat >"${exp}" <<EOF
 ${rules}:1 Unexpected EOF after line continuation, line ignored.
 ${rules}: udev rules check failed.
 EOF
-cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 test_syntax_error() {
@@ -193,7 +191,6 @@ test_syntax_error() {
 ${rules}:1 ${msg}
 ${rules}: udev rules check failed.
 EOF
-    cp "${workdir}/default_output_1_fail" "${exo}"
     assert_1 "${rules}"
 }
 
@@ -346,7 +343,6 @@ ${rules}:1 GOTO="a" has no matching label, ignoring.
 ${rules}:1 The line has no effect any more, dropping.
 ${rules}: udev rules check failed.
 EOF
-cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 cat >"${rules}" <<'EOF'
@@ -364,7 +360,6 @@ cat >"${exp}" <<EOF
 ${rules}:3 LABEL="b" is unused.
 ${rules}: udev rules check failed.
 EOF
-cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 cat >"${rules}" <<'EOF'
@@ -378,7 +373,6 @@ ${rules}:1 The line has no effect any more, dropping.
 ${rules}:2 LABEL="b" is unused.
 ${rules}: udev rules check failed.
 EOF
-cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 cat >"${rules}" <<'EOF'
@@ -389,7 +383,6 @@ ${rules}:1 duplicate expressions.
 ${rules}:1 conflicting match expressions, the line has no effect.
 ${rules}: udev rules check failed.
 EOF
-cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 cat >"${rules}" <<'EOF'
@@ -400,7 +393,6 @@ ${rules}:1 A comma between tokens is expected.
 ${rules}:1 Whitespace between tokens is expected.
 ${rules}: udev rules check failed.
 EOF
-cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 cat >"${rules}" <<'EOF'
@@ -411,7 +403,6 @@ ${rules}:1 Stray whitespace before comma.
 ${rules}:1 Whitespace after comma is expected.
 ${rules}: udev rules check failed.
 EOF
-cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 # udevadm verify --root
