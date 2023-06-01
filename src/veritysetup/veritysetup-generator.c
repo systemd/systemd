@@ -102,10 +102,9 @@ static int create_device(
                 return r;
 
         fprintf(f,
-                "Conflicts=umount.target\n"
+                "Before=veritysetup.target\n"
                 "BindsTo=%s %s\n"
-                "After=%s %s\n"
-                "Before=veritysetup.target umount.target\n",
+                "After=%s %s\n",
                 d, e,
                 d, e);
 
@@ -288,6 +287,18 @@ static int determine_devices(void) {
         return determine_device("usr", arg_usr_hash, &arg_usr_data_what, &arg_usr_hash_what);
 }
 
+static bool attach_in_initrd(const char *name, const char *options) {
+        assert(name);
+
+        /* Imply x-initrd.attach in case the volume name is among those defined in the Discoverable Partition
+         * Specification for partitions that we require to be mounted during the initrd → host transition,
+         * i.e. for the root fs itself, and /usr/. This mirrors similar behaviour in
+         * systemd-fstab-generator. */
+
+        return fstab_test_option(options, "x-initrd.attach\0") ||
+                STR_IN_SET(name, "root", "usr");
+}
+
 static int create_disk(
                 const char *name,
                 const char *data_device,
@@ -300,7 +311,7 @@ static int create_disk(
                             *du_escaped = NULL, *hu_escaped = NULL, *name_escaped = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *dmname;
-        bool noauto, nofail, netdev, attach_in_initrd;
+        bool noauto, nofail, netdev;
         int r;
 
         assert(name);
@@ -311,7 +322,6 @@ static int create_disk(
         noauto = fstab_test_yes_no_option(options, "noauto\0" "auto\0");
         nofail = fstab_test_yes_no_option(options, "nofail\0" "fail\0");
         netdev = fstab_test_option(options, "_netdev\0");
-        attach_in_initrd = fstab_test_option(options, "x-initrd.attach\0");
 
         name_escaped = specifier_escape(name);
         if (!name_escaped)
@@ -361,8 +371,10 @@ static int create_disk(
                 fprintf(f, "After=remote-fs-pre.target\n");
 
         /* If initrd takes care of attaching the disk then it should also detach it during shutdown. */
-        if (!attach_in_initrd)
-                fprintf(f, "Conflicts=umount.target\n");
+        if (!attach_in_initrd(name, options))
+                fprintf(f,
+                        "Conflicts=umount.target\n"
+                        "Before=umount.target\n");
 
         if (!nofail)
                 fprintf(f,
@@ -372,8 +384,7 @@ static int create_disk(
         if (path_startswith(du, "/dev/"))
                 fprintf(f,
                         "BindsTo=%s\n"
-                        "After=%s\n"
-                        "Before=umount.target\n",
+                        "After=%s\n",
                         dd, dd);
         else
                 /* For loopback devices, add systemd-tmpfiles-setup-dev.service
@@ -388,8 +399,7 @@ static int create_disk(
         if (path_startswith(hu, "/dev/"))
                 fprintf(f,
                         "BindsTo=%s\n"
-                        "After=%s\n"
-                        "Before=umount.target\n",
+                        "After=%s\n",
                         hd, hd);
         else
                 /* For loopback devices, add systemd-tmpfiles-setup-dev.service
