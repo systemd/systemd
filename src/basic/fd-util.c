@@ -891,20 +891,37 @@ int fd_get_diskseq(int fd, uint64_t *ret) {
         return 0;
 }
 
-int dir_fd_is_root(int dir_fd) {
+int path_is_root_at(int dir_fd, const char *path) {
         STRUCT_NEW_STATX_DEFINE(st);
         STRUCT_NEW_STATX_DEFINE(pst);
+        _cleanup_free_ char *p = NULL;
+        const char *parent;
         int r;
 
-        assert(dir_fd >= 0);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
-        r = statx_fallback(dir_fd, ".", 0, STATX_TYPE|STATX_INO|STATX_MNT_ID, &st.sx);
+        path = empty_to_null(path);
+
+        r = statx_fallback(dir_fd, path ?: ".", 0, STATX_TYPE|STATX_INO|STATX_MNT_ID, &st.sx);
         if (r == -ENOTDIR)
                 return false;
         if (r < 0)
                 return r;
 
-        r = statx_fallback(dir_fd, "..", 0, STATX_TYPE|STATX_INO|STATX_MNT_ID, &pst.sx);
+        if (path) {
+                r = path_extract_directory(path, &p);
+                if (r >= 0)
+                        parent = p;
+                else if (r == -EDESTADDRREQ)
+                        parent = ".";
+                else if (r == -EADDRNOTAVAIL)
+                        parent = "..";
+                else if (r < 0)
+                        return r;
+        } else
+                parent = "..";
+
+        r = statx_fallback(dir_fd, parent, 0, STATX_TYPE|STATX_INO|STATX_MNT_ID, &pst.sx);
         if (r < 0)
                 return r;
 
@@ -926,7 +943,7 @@ int dir_fd_is_root(int dir_fd) {
         if (!FLAGS_SET(st.nsx.stx_mask, STATX_MNT_ID)) {
                 int mntid;
 
-                r = path_get_mnt_id_at(dir_fd, "", &mntid);
+                r = path_get_mnt_id_at(dir_fd, path, &mntid);
                 if (r == -ENOSYS)
                         return true; /* skip the mount ID check */
                 if (r < 0)
@@ -940,7 +957,7 @@ int dir_fd_is_root(int dir_fd) {
         if (!FLAGS_SET(pst.nsx.stx_mask, STATX_MNT_ID)) {
                 int mntid;
 
-                r = path_get_mnt_id_at(dir_fd, "..", &mntid);
+                r = path_get_mnt_id_at(dir_fd, parent, &mntid);
                 if (r == -ENOSYS)
                         return true; /* skip the mount ID check */
                 if (r < 0)
