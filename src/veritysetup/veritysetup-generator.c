@@ -50,49 +50,40 @@ STATIC_DESTRUCTOR_REGISTER(arg_usr_options, freep);
 static int create_device(
                 const char *name,
                 const char *service,
-                const char *hash,
+                const char *roothash,
                 const char *data_what,
                 const char *hash_what,
                 const char *options) {
 
-        _cleanup_free_ char *u = NULL, *v = NULL, *d = NULL, *e = NULL, *u_escaped = NULL, *v_escaped = NULL,
-                            *hash_escaped = NULL, *options_escaped = NULL;
+        _cleanup_free_ char *u = NULL, *v = NULL, *d = NULL, *e = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        const char *to, *from;
         int r;
 
         assert(name);
         assert(service);
 
         /* If all three pieces of information are missing, then verity is turned off */
-        if (!hash && !data_what && !hash_what)
+        if (!roothash && !data_what && !hash_what)
                 return 0;
 
         /* if one of them is missing however, the data is simply incomplete and this is an error */
-        if (!hash)
-                log_error("Verity information for %s incomplete, hash unspecified.", name);
+        if (!roothash)
+                log_error("Verity information for %s incomplete, root hash unspecified.", name);
         if (!data_what)
                 log_error("Verity information for %s incomplete, data device unspecified.", name);
         if (!hash_what)
                 log_error("Verity information for %s incomplete, hash device unspecified.", name);
 
-        if (!hash || !data_what || !hash_what)
+        if (!roothash || !data_what || !hash_what)
                 return -EINVAL;
 
-        log_debug("Using %s verity data device %s, hash device %s, options %s, and hash %s.", name, data_what, hash_what, options, hash);
+        log_debug("Using %s verity data device %s, hash device %s, options %s, and hash %s.", name, data_what, hash_what, options, roothash);
 
         u = fstab_node_to_udev_node(data_what);
         if (!u)
                 return log_oom();
         v = fstab_node_to_udev_node(hash_what);
         if (!v)
-                return log_oom();
-
-        u_escaped = specifier_escape(u);
-        if (!u_escaped)
-                return log_oom();
-        v_escaped = specifier_escape(v);
-        if (!v_escaped)
                 return log_oom();
 
         r = unit_name_from_path(u, ".device", &d);
@@ -102,49 +93,33 @@ static int create_device(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        options_escaped = specifier_escape(strempty(options));
-        if (!options_escaped)
-                return log_oom();
-
-        hash_escaped = specifier_escape(hash);
-        if (!hash_escaped)
-                return log_oom();
-
         r = generator_open_unit_file(arg_dest, NULL, service, &f);
         if (r < 0)
                 return r;
 
+        r = generator_write_veritysetup_unit_section(f, "/proc/cmdline");
+        if (r < 0)
+                return r;
+
         fprintf(f,
-                "[Unit]\n"
-                "Description=Verity Protection Setup for %%I\n"
-                "Documentation=man:systemd-veritysetup-generator(8) man:systemd-veritysetup@.service(8)\n"
-                "SourcePath=/proc/cmdline\n"
-                "DefaultDependencies=no\n"
                 "Conflicts=umount.target\n"
                 "BindsTo=%s %s\n"
-                "IgnoreOnIsolate=true\n"
-                "After=veritysetup-pre.target systemd-udevd-kernel.socket %s %s\n"
-                "Before=veritysetup.target umount.target\n"
-                "\n[Service]\n"
-                "Type=oneshot\n"
-                "RemainAfterExit=yes\n"
-                "ExecStart=" ROOTLIBEXECDIR "/systemd-veritysetup attach '%s' '%s' '%s' '%s' '%s'\n"
-                "ExecStop=" ROOTLIBEXECDIR "/systemd-veritysetup detach '%s' \n",
+                "After=%s %s\n"
+                "Before=veritysetup.target umount.target\n",
                 d, e,
-                d, e,
-                name, u_escaped, v_escaped, hash_escaped, options_escaped,
-                name);
+                d, e);
+
+        r = generator_write_veritysetup_service_section(f, name, u, v, roothash, options);
+        if (r < 0)
+                return r;
 
         r = fflush_and_check(f);
         if (r < 0)
                 return log_error_errno(r, "Failed to write file unit %s: %m", service);
 
-        to = strjoina(arg_dest, "/veritysetup.target.requires/", service);
-        from = strjoina("../", service);
-
-        (void) mkdir_parents(to, 0755);
-        if (symlink(from, to) < 0)
-                return log_error_errno(errno, "Failed to create symlink %s: %m", to);
+        r = generator_add_symlink(arg_dest, "veritysetup.target", "requires", service);
+        if (r < 0)
+                return r;
 
         return 0;
 }
