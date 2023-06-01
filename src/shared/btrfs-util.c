@@ -1561,8 +1561,9 @@ int btrfs_subvol_snapshot_fd_full(
                 } else if (r < 0)
                         return r;
 
-                r = copy_directory_fd_full(
-                                old_fd, new_path,
+                r = copy_directory_at_full(
+                                old_fd, NULL,
+                                AT_FDCWD, new_path,
                                 COPY_MERGE_EMPTY|
                                 COPY_REFLINK|
                                 COPY_SAME_MOUNT|
