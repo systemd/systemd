@@ -425,11 +425,14 @@ static int rm_rf_children_impl(
         return ret;
 }
 
-int rm_rf(const char *path, RemoveFlags flags) {
+int rm_rf_at(int dir_fd, const char *path, RemoveFlags flags) {
         mode_t old_mode;
         int fd, r, q = 0;
 
-        assert(path);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
+        if (FLAGS_SET(flags, REMOVE_ROOT))
+                assert(path && !dot_or_dot_dot(path)); /* unlinkat() does not support AT_EMPTY_PATH or "." so a path must be provided here. */
 
         /* For now, don't support dropping subvols when also only dropping directories, since we can't do
          * this race-freely. */
@@ -438,14 +441,13 @@ int rm_rf(const char *path, RemoveFlags flags) {
 
         /* We refuse to clean the root file system with this call. This is extra paranoia to never cause a
          * really seriously broken system. */
-        if (path_equal_or_inode_same(path, "/", AT_SYMLINK_NOFOLLOW))
+        if (path_is_root_at(dir_fd, path) > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM),
-                                       "Attempted to remove entire root file system (\"%s\"), and we can't allow that.",
-                                       path);
+                                       "Attempted to remove entire root file system, and we can't allow that.");
 
         if (FLAGS_SET(flags, REMOVE_SUBVOLUME | REMOVE_ROOT | REMOVE_PHYSICAL)) {
                 /* Try to remove as subvolume first */
-                r = btrfs_subvol_remove(path, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
+                r = btrfs_subvol_remove_at(dir_fd, path, BTRFS_REMOVE_RECURSIVE|BTRFS_REMOVE_QUOTA);
                 if (r >= 0)
                         return r;
 
@@ -458,13 +460,13 @@ int rm_rf(const char *path, RemoveFlags flags) {
                 /* Not btrfs or not a subvolume */
         }
 
-        fd = openat_harder(AT_FDCWD, path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME, flags, &old_mode);
+        fd = openat_harder(dir_fd, path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME, flags, &old_mode);
         if (fd >= 0) {
                 /* We have a dir */
                 r = rm_rf_children_impl(fd, flags, NULL, old_mode);
 
                 if (FLAGS_SET(flags, REMOVE_ROOT))
-                        q = RET_NERRNO(rmdir(path));
+                        q = RET_NERRNO(unlinkat(dir_fd, path, AT_REMOVEDIR));
         } else {
                 r = fd;
                 if (FLAGS_SET(flags, REMOVE_MISSING_OK) && r == -ENOENT)
@@ -479,8 +481,9 @@ int rm_rf(const char *path, RemoveFlags flags) {
                 if (!FLAGS_SET(flags, REMOVE_PHYSICAL)) {
                         struct statfs s;
 
-                        if (statfs(path, &s) < 0)
-                                return -errno;
+                        r = xstatfsat(dir_fd, path, &s);
+                        if (r < 0)
+                                return r;
                         if (is_physical_fs(&s))
                                 return log_error_errno(SYNTHETIC_ERRNO(EPERM),
                                                        "Attempted to remove files from a disk file system under \"%s\", refusing.",
@@ -488,7 +491,7 @@ int rm_rf(const char *path, RemoveFlags flags) {
                 }
 
                 r = 0;
-                q = RET_NERRNO(unlink(path));
+                q = RET_NERRNO(unlinkat(dir_fd, path, 0));
         }
 
         if (r < 0)
