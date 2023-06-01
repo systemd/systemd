@@ -311,7 +311,7 @@ static int create_disk(
                             *du_escaped = NULL, *hu_escaped = NULL, *name_escaped = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *dmname;
-        bool noauto, nofail, netdev;
+        bool noauto, nofail, netdev, need_loop = false;
         int r;
 
         assert(name);
@@ -386,30 +386,27 @@ static int create_disk(
                         "BindsTo=%s\n"
                         "After=%s\n",
                         dd, dd);
-        else
-                /* For loopback devices, add systemd-tmpfiles-setup-dev.service
-                   dependency to ensure that loopback support is available in
-                   the kernel (/dev/loop-control needs to exist) */
-                fprintf(f,
-                        "RequiresMountsFor=%s\n"
-                        "Requires=systemd-tmpfiles-setup-dev.service\n"
-                        "After=systemd-tmpfiles-setup-dev.service\n",
-                        du_escaped);
+        else {
+                fprintf(f, "RequiresMountsFor=%s\n", du_escaped);
+                need_loop = true;
+        }
 
         if (path_startswith(hu, "/dev/"))
                 fprintf(f,
                         "BindsTo=%s\n"
                         "After=%s\n",
                         hd, hd);
-        else
-                /* For loopback devices, add systemd-tmpfiles-setup-dev.service
-                   dependency to ensure that loopback support is available in
-                   the kernel (/dev/loop-control needs to exist) */
+        else {
+                fprintf(f, "RequiresMountsFor=%s\n", hu_escaped);
+                need_loop = true;
+        }
+
+        if (need_loop)
+                /* For loopback devices, add systemd-tmpfiles-setup-dev.service dependency to ensure that
+                 * loopback support is available in the kernel (/dev/loop-control needs to exist) */
                 fprintf(f,
-                        "RequiresMountsFor=%s\n"
                         "Requires=systemd-tmpfiles-setup-dev.service\n"
-                        "After=systemd-tmpfiles-setup-dev.service\n",
-                        hu_escaped);
+                        "After=systemd-tmpfiles-setup-dev.service\n");
 
         r = generator_write_veritysetup_service_section(f, name, du_escaped, hu_escaped, roothash, options);
         if (r < 0)
