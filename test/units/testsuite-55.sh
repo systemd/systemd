@@ -46,6 +46,9 @@ if systemctl is-active systemd-oomd.service; then
     systemctl restart systemd-oomd.service
 fi
 
+# ensure that we can start services even with a very low hard memory cap without oom-kills
+systemd-run -t -p MemoryMax=500K -p MemorySwapMax=0 -p MemoryZSwapMax=0 /bin/true
+
 systemctl start testsuite-55-testchill.service
 systemctl start testsuite-55-testbloat.service
 
