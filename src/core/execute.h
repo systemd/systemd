@@ -27,6 +27,7 @@ typedef struct Manager Manager;
 #include "numa-util.h"
 #include "open-file.h"
 #include "path-util.h"
+#include "runtime-scope.h"
 #include "set.h"
 #include "time-util.h"
 
@@ -363,6 +364,8 @@ struct ExecContext {
         Hashmap *load_credentials; /* output id → ExecLoadCredential */
 
         ImagePolicy *root_image_policy, *mount_image_policy, *extension_image_policy;
+
+        RuntimeScope scope;
 };
 
 static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
@@ -426,6 +429,7 @@ struct ExecParameters {
         const char *received_encrypted_credentials_directory;
 
         const char *confirm_spawn;
+        bool shall_confirm_spawn;
 
         usec_t watchdog_usec;
 
@@ -441,6 +445,12 @@ struct ExecParameters {
         const char *notify_socket;
 
         LIST_HEAD(OpenFile, open_files);
+
+        const char *default_smack_process_label;
+
+        char **files_env;
+        int user_lookup_fd;
+        int bpf_outer_map_fd;
 };
 
 #include "unit.h"
@@ -449,7 +459,7 @@ struct ExecParameters {
 int exec_spawn(Unit *unit,
                ExecCommand *command,
                const ExecContext *context,
-               const ExecParameters *exec_params,
+               ExecParameters *exec_params,
                ExecRuntime *runtime,
                const CGroupContext *cgroup_context,
                pid_t *ret);
