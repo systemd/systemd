@@ -76,7 +76,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab
-    - uses: systemd/mkosi@c3103868cccc722ef45838fdd37fb462c21948f2
+    - uses: systemd/mkosi@e59f763872e4d5f96acb11b4a77995b986bb31cc
 
     - name: Configure
       run: |
@@ -87,7 +87,6 @@ jobs:
 
         [Content]
         Environment=CI_BUILD=1
-                    DEFAULT_TIMEOUT_SEC=180
                     SLOW_TESTS=true
 
         [Output]
@@ -95,6 +94,8 @@ jobs:
                                systemd.journald.max_level_console=debug
                                # udev's debug log output is very verbose, so up it to info in CI.
                                udev.log_level=info
+                               # Root device can take a long time to appear, so let's bump the timeout.
+                               systemd.default_device_timeout_sec=180
 
         [Host]
         ExtraSearchPaths=!*
