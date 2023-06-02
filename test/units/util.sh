@@ -125,3 +125,18 @@ wait_for_file() {
 
     timeout "$timeout" bash -c "while [[ ! -e $file ]]; do sleep .5; done"
 }
+
+# Wait until command succeeds
+wait_until() {
+    local timeout=60
+    local cmd
+
+    if [[ $1 == '-t' ]]; then
+        timeout="$2"
+        shift 2
+    fi
+
+    cmd="$*"
+
+    timeout "$timeout" bash -c "while ! $cmd; do sleep .5; done"
+}
