@@ -210,3 +210,8 @@ int get_process_threads(pid_t pid);
 
 int is_reaper_process(void);
 int make_reaper_process(bool b);
+
+/* Forks and invokes 'callback' with 'userdata' using CLONE_VM and CLONE_VFORK, which means the caller will
+ * be blocked until the child either exits or exec's. The memory of the child will be fully shared with the
+ * memory of the parent, so that there are no copy-on-write or memory.max issues. */
+int clone_vm_vfork(int (*callback)(void *), int flags, void *userdata);
