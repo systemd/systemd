@@ -3,6 +3,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 # Limit the maximum journal size
 trap "journalctl --rotate --vacuum-size=16M" EXIT
 
@@ -169,7 +172,7 @@ systemd-cat -t "$ID" /bin/sh -c 'echo hogehoge'
 # shellcheck disable=SC2016
 timeout 10 bash -c 'while ! [[ -f /tmp/issue-26746-log && "$(cat /tmp/issue-26746-log)" =~ hogehoge ]]; do sleep .5; done'
 pkill -TERM journalctl
-timeout 10 bash -c 'while ! test -f /tmp/issue-26746-cursor; do sleep .5; done'
+wait_for_file -t 10 /tmp/issue-26746-cursor
 CURSOR_FROM_FILE="$(cat /tmp/issue-26746-cursor)"
 CURSOR_FROM_JOURNAL="$(journalctl -t "$ID" --output=export MESSAGE=hogehoge | sed -n -e '/__CURSOR=/ { s/__CURSOR=//; p }')"
 test "$CURSOR_FROM_FILE" = "$CURSOR_FROM_JOURNAL"
