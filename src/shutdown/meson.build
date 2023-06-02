@@ -2,6 +2,7 @@
 
 systemd_shutdown_sources = files(
         'detach-dm.c',
+        'detach-loopback.c',
         'detach-md.c',
         'shutdown.c',
         'umount.c',
