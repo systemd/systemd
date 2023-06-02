@@ -153,6 +153,10 @@ Features:
   dont), of sd-stub and data supplied by user. Then measure sbat too in
   sd-stub, explicitly.
 
+* figure out what to do about credentials sealed to PCRs in kexec + soft-reboot
+  scenarios. Maybe insist sealing is done additionally against some keypair in
+  the TPM to which access is updated on each boot, for the next, or so?
+
 * open up creds for uses in generators, and document clearly that encrypted
   creds are only supported if strictly tpm bound, but not when using the host
   secret (as that is only avilable if /var/ is around.
@@ -161,6 +165,11 @@ Features:
   busy, so that autofs release can never happen. (this is generally a good
   idea, and specifically works around the fact the autofs ignores busy by mount
   namespaces)
+
+* refuse using the switch-root operation without /etc/initrd-release. Now
+  that we have a concept of userspace reboot, we can clearly say: switch-root
+  is for transitioning from initrd to host (or initrd to next initrd), while
+  userspace reboot is for switching host to next version of the host.
 
 * mount most file systems with a restrictive uidmap. e.g. mount /usr/ with a
   uidmap that blocks out anything outside 0…1000 (i.e. system users) and similar.

@@ -10,6 +10,7 @@
 
 #include "base-filesystem.h"
 #include "chase.h"
+#include "creds-util.h"
 #include "fd-util.h"
 #include "initrd-util.h"
 #include "log.h"
@@ -27,14 +28,26 @@
 
 int switch_root(const char *new_root,
                 const char *old_root_after,   /* path below the new root, where to place the old root after the transition; may be NULL to unmount it */
-                unsigned long mount_flags) {  /* MS_MOVE or MS_BIND used for /proc/, /dev/, /run/, /sys/ */
+                SwitchRootFlags flags) {
+
+        struct {
+                const char *path;
+                unsigned long mount_flags;
+        } transfer_table[] = {
+                { "/dev",                                 MS_BIND|MS_REC }, /* Recursive, because we want to save the original /dev/shm + /dev/pts and similar */
+                { "/sys",                                 MS_BIND|MS_REC }, /* Similar, we want to retain various API VFS, or the cgroupv1 /sys/fs/cgroup/ tree */
+                { "/proc",                                MS_BIND|MS_REC }, /* Similar */
+                { "/run",                                 MS_BIND        }, /* Stuff mounted below this we don't save, as it might have lost its relevance, i.e. credentials, removable media and such, we rather want that the new boot mounts this fresh */
+                { SYSTEM_CREDENTIALS_DIRECTORY,           MS_BIND        }, /* Credentials passed into the system should survive */
+                { ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, MS_BIND        }, /* Similar */
+                { "/run/host",                            MS_BIND|MS_REC }, /* Host supplied hierarchy should also survive */
+        };
 
         _cleanup_close_ int old_root_fd = -EBADF, new_root_fd = -EBADF;
         _cleanup_free_ char *resolved_old_root_after = NULL;
         int r, istmp;
 
         assert(new_root);
-        assert(IN_SET(mount_flags, MS_MOVE, MS_BIND));
 
         /* Check if we shall remove the contents of the old root */
         old_root_fd = open("/", O_DIRECTORY|O_CLOEXEC);
@@ -53,11 +66,19 @@ int switch_root(const char *new_root,
                 return 0;
         }
 
-        istmp = fd_is_temporary_fs(old_root_fd);
-        if (istmp < 0)
-                return log_error_errno(istmp, "Failed to stat root directory: %m");
-        if (istmp > 0)
-                log_debug("Root directory is on tmpfs, will do cleanup later.");
+        /* Make the new root directory a mount point if it isn't */
+        r = fd_make_mount_point(new_root_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make new root directory a mount point: %m");
+
+        if (FLAGS_SET(flags, SWITCH_ROOT_DESTROY_OLD_ROOT)) {
+                istmp = fd_is_temporary_fs(old_root_fd);
+                if (istmp < 0)
+                        return log_error_errno(istmp, "Failed to stat root directory: %m");
+                if (istmp > 0)
+                        log_debug("Root directory is on tmpfs, will do cleanup later.");
+        } else
+                istmp = -1; /* don't know */
 
         if (old_root_after) {
                 /* Determine where we shall place the old root after the transition */
@@ -73,7 +94,8 @@ int switch_root(const char *new_root,
          * all while making them invisible/inaccessible in the file system tree for later code. That makes
          * sync'ing them then difficult. Let's hence issue a manual sync() here, so that we at least can
          * guarantee all file systems are an a good state before entering this state. */
-        sync();
+        if (!FLAGS_SET(flags, SWITCH_ROOT_DONT_SYNC))
+                sync();
 
         /* Work-around for kernel design: the kernel refuses MS_MOVE if any file systems are mounted
          * MS_SHARED. Hence remount them MS_PRIVATE here as a work-around.
@@ -82,31 +104,34 @@ int switch_root(const char *new_root,
         if (mount(NULL, "/", NULL, MS_REC|MS_PRIVATE, NULL) < 0)
                 return log_error_errno(errno, "Failed to set \"/\" mount propagation to private: %m");
 
-        FOREACH_STRING(path, "/sys", "/dev", "/run", "/proc") {
-                _cleanup_free_ char *chased = NULL;
-
-                r = chase(path, new_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &chased, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, path);
-                if (r > 0) {
-                        /* Already exists. Let's see if it is a mount point already. */
-                        r = path_is_mount_point(chased, NULL, 0);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to determine whether %s is a mount point: %m", chased);
-                        if (r > 0) /* If it is already mounted, then do nothing */
-                                continue;
-                } else
-                         /* Doesn't exist yet? */
-                        (void) mkdir_p_label(chased, 0755);
-
-                if (mount(path, chased, NULL, mount_flags, NULL) < 0)
-                        return log_error_errno(errno, "Failed to mount %s to %s: %m", path, chased);
-        }
-
         /* Do not fail if base_filesystem_create() fails. Not all switch roots are like base_filesystem_create() wants
          * them to look like. They might even boot, if they are RO and don't have the FS layout. Just ignore the error
          * and switch_root() nevertheless. */
         (void) base_filesystem_create_fd(new_root_fd, new_root, UID_INVALID, GID_INVALID);
+
+        FOREACH_ARRAY(transfer, transfer_table, ELEMENTSOF(transfer_table)) {
+                _cleanup_free_ char *chased = NULL;
+
+                if (access(transfer->path, F_OK) < 0) {
+                        log_debug_errno(errno, "Path '%s' to move to target root directory, not found, ignoring: %m", transfer->path);
+                        continue;
+                }
+
+                r = chase(transfer->path, new_root, CHASE_PREFIX_ROOT, &chased, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, transfer->path);
+
+                /* Let's see if it is a mount point already. */
+                r = path_is_mount_point(chased, NULL, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine whether %s is a mount point: %m", chased);
+                if (r > 0) /* If it is already mounted, then do nothing */
+                        continue;
+
+                r = mount_nofollow_verbose(LOG_ERR, transfer->path, chased, NULL, transfer->mount_flags, NULL);
+                if (r < 0)
+                        return r;
+        }
 
         if (fchdir(new_root_fd) < 0)
                 return log_error_errno(errno, "Failed to change directory to %s: %m", new_root);
@@ -144,7 +169,7 @@ int switch_root(const char *new_root,
                         return log_error_errno(errno, "Failed to change directory: %m");
         }
 
-        if (istmp) {
+        if (istmp > 0) {
                 struct stat rb;
 
                 if (fstat(old_root_fd, &rb) < 0)

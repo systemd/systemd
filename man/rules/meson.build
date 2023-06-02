@@ -1036,6 +1036,7 @@ manpages = [
  ['systemd-sleep.conf', '5', ['sleep.conf.d'], ''],
  ['systemd-socket-activate', '1', [], ''],
  ['systemd-socket-proxyd', '8', [], ''],
+ ['systemd-soft-reboot.service', '8', [], ''],
  ['systemd-stdio-bridge', '1', [], ''],
  ['systemd-stub',
   '7',
