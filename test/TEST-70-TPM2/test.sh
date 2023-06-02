@@ -11,8 +11,7 @@ TEST_REQUIRE_INSTALL_TESTS=0
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
-command -v swtpm >/dev/null 2>&1 || exit 0
-command -v tpm2_pcrextend >/dev/null 2>&1 || exit 0
+test_require_bin swtpm tpm2_pcrextend
 
 test_append_files() {
     local workspace="${1:?}"
