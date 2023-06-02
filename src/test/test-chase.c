@@ -596,6 +596,10 @@ TEST(chaseat) {
         assert_se(streq(result, "."));
         result = mfree(result);
 
+        assert_se(chaseat(tfd, NULL, CHASE_PARENT|CHASE_AT_RESOLVE_IN_ROOT|CHASE_EXTRACT_FILENAME, &result, NULL) >= 0);
+        assert_se(streq(result, "."));
+        result = mfree(result);
+
         /* Test chase_and_openat() */
 
         fd = chase_and_openat(tfd, "o/p/e/n/f/i/l/e", CHASE_MKDIR_0755, O_CREAT|O_EXCL|O_CLOEXEC, NULL);
