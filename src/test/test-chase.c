@@ -612,6 +612,12 @@ TEST(chaseat) {
         assert_se(fd_verify_directory(fd) >= 0);
         fd = safe_close(fd);
 
+        fd = chase_and_openat(tfd, NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY|O_CLOEXEC, &result);
+        assert_se(fd >= 0);
+        assert_se(streq(result, "."));
+        fd = safe_close(fd);
+        result = mfree(result);
+
         /* Test chase_and_openatdir() */
 
         assert_se(chase_and_opendirat(tfd, "o/p/e/n/d/i", 0, &result, &dir) >= 0);
