@@ -18,9 +18,31 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "string-util.h"
-#include "umount.h"
 
-static int md_list_get(MountPoint **head) {
+typedef struct RaidDevice {
+        char *path;
+        dev_t devnum;
+        LIST_FIELDS(struct RaidDevice, raid_device);
+} RaidDevice;
+
+static void raid_device_free(RaidDevice **head, RaidDevice *m) {
+        assert(head);
+        assert(m);
+
+        LIST_REMOVE(raid_device, *head, m);
+
+        free(m->path);
+        free(m);
+}
+
+static void raid_device_list_free(RaidDevice **head) {
+        assert(head);
+
+        while (*head)
+                raid_device_free(head, *head);
+}
+
+static int md_list_get(RaidDevice **head) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         sd_device *d;
         int r;
@@ -51,7 +73,7 @@ static int md_list_get(MountPoint **head) {
         FOREACH_DEVICE(e, d) {
                 _cleanup_free_ char *p = NULL;
                 const char *dn, *md_level;
-                MountPoint *m;
+                RaidDevice *m;
                 dev_t devnum;
 
                 if (sd_device_get_devnum(d, &devnum) < 0 ||
@@ -73,22 +95,22 @@ static int md_list_get(MountPoint **head) {
                 if (!p)
                         return -ENOMEM;
 
-                m = new(MountPoint, 1);
+                m = new(RaidDevice, 1);
                 if (!m)
                         return -ENOMEM;
 
-                *m = (MountPoint) {
+                *m = (RaidDevice) {
                         .path = TAKE_PTR(p),
                         .devnum = devnum,
                 };
 
-                LIST_PREPEND(mount_point, *head, m);
+                LIST_PREPEND(raid_device, *head, m);
         }
 
         return 0;
 }
 
-static int delete_md(MountPoint *m) {
+static int delete_md(RaidDevice *m) {
         _cleanup_close_ int fd = -EBADF;
 
         assert(m);
@@ -105,7 +127,7 @@ static int delete_md(MountPoint *m) {
         return RET_NERRNO(ioctl(fd, STOP_ARRAY, NULL));
 }
 
-static int md_points_list_detach(MountPoint **head, bool *changed, bool last_try) {
+static int md_points_list_detach(RaidDevice **head, bool *changed, bool last_try) {
         int n_failed = 0, r;
         dev_t rootdev = 0;
 
@@ -114,7 +136,7 @@ static int md_points_list_detach(MountPoint **head, bool *changed, bool last_try
 
         (void) get_block_device("/", &rootdev);
 
-        LIST_FOREACH(mount_point, m, *head) {
+        LIST_FOREACH(raid_device, m, *head) {
                 if (major(rootdev) != 0 && rootdev == m->devnum) {
                         n_failed ++;
                         continue;
@@ -129,14 +151,14 @@ static int md_points_list_detach(MountPoint **head, bool *changed, bool last_try
                 }
 
                 *changed = true;
-                mount_point_free(head, m);
+                raid_device_free(head, m);
         }
 
         return n_failed;
 }
 
 int md_detach_all(bool *changed, bool last_try) {
-        _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, md_list_head);
+        _cleanup_(raid_device_list_free) LIST_HEAD(RaidDevice, md_list_head);
         int r;
 
         assert(changed);
