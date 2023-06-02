@@ -174,15 +174,21 @@ static int delete_loopback(const char *device) {
 
 static int loopback_points_list_detach(LoopbackDevice **head, bool *changed, bool last_try) {
         int n_failed = 0, r;
-        dev_t rootdev = 0;
+        dev_t rootdev = 0, usrdev = 0;
 
         assert(head);
         assert(changed);
 
-        (void) get_block_device("/", &rootdev);
+        (void) get_block_device_harder("/", &rootdev);
+        (void) block_get_whole_disk(rootdev, &rootdev);
+
+        (void) get_block_device_harder("/usr", &usrdev);
+        (void) block_get_whole_disk(usrdev, &usrdev);
 
         LIST_FOREACH(loopback_device, m, *head) {
-                if (major(rootdev) != 0 && rootdev == m->devnum) {
+                if ((major(rootdev) != 0 && rootdev == m->devnum) ||
+                    (major(usrdev) != 0 && usrdev == m->devnum)) {
+                        log_debug("Not detaching loopback device %s that backs the OS itself, skipping.", m->path);
                         n_failed++;
                         continue;
                 }
