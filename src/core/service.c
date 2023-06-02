@@ -1223,6 +1223,7 @@ static void service_search_main_pid(Service *s) {
 static void service_set_state(Service *s, ServiceState state) {
         ServiceState old_state;
         const UnitActiveState *table;
+        int r;
 
         assert(s);
 
@@ -1290,6 +1291,21 @@ static void service_set_state(Service *s, ServiceState state) {
                 log_unit_debug(UNIT(s), "Changed %s -> %s", service_state_to_string(old_state), service_state_to_string(state));
 
         unit_notify(UNIT(s), table[old_state], table[state], s->reload_result == SERVICE_SUCCESS);
+
+        // XXX this would warrant trigger-like relationship and a new unit type
+        _cleanup_set_free_ Set *following_set = NULL;
+        r = unit_following_set(UNIT(s), &following_set);
+        if (r > 0) {
+                Unit *f;
+                SET_FOREACH(f, following_set) {
+                        Service *fs = SERVICE(f);
+                        if (!fs)
+                                continue;
+                        // XXX needs to be transformed, 'passivate' on generation != 'passivate' on handler "service"
+                        log_unit_debug(UNIT(s), "Propagating state %s to %s", service_state_to_string(state), f->id);
+                        service_set_state(fs, state);
+                }
+        }
 }
 
 static usec_t service_coldplug_timeout(Service *s) {
