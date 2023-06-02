@@ -247,6 +247,25 @@ static void service_override_notify_access(Service *s, NotifyAccess notify_acces
         log_unit_debug(UNIT(s), "notify_access_override=%s", notify_access_to_string(s->notify_access_override));
 }
 
+void service_set_current_generation(Service *s, Service *cs) {
+        Unit *prev_gen;
+
+        assert(s);
+        assert(cs);
+
+        log_unit_debug(UNIT(s), "setting current generation %s", UNIT(cs)->id);
+        prev_gen = UNIT_DEREF(s->current_gen_service);
+        unit_ref_set(&s->current_gen_service, UNIT(s), UNIT(cs));
+        /* current_gen_service will have stop job via follow-forwarding,
+         * all matured generations will have propagated jobs (stop on stop, nothing on restart).
+         * State of current_gen_service is observed by the handle service, so handle service will not be GC'd
+         * as long as current_gen_service is active. We need a reference from matured generations to keep
+         * handle service around (to ultimately stop them).
+         */
+        if (prev_gen)
+                unit_add_dependency(prev_gen, UNIT_RAW_STOP_PROPAGATED_FROM, UNIT(s), true, UNIT_DEPENDENCY_IMPLICIT);
+}
+
 static void service_stop_watchdog(Service *s) {
         assert(s);
 
@@ -471,6 +490,8 @@ static void service_done(Unit *u) {
 
         s->usb_function_descriptors = mfree(s->usb_function_descriptors);
         s->usb_function_strings = mfree(s->usb_function_strings);
+
+        unit_ref_unset(&s->current_gen_service);
 
         service_stop_watchdog(s);
 
@@ -1379,6 +1400,36 @@ static int service_coldplug(Unit *u) {
 
         service_set_state(s, s->deserialized_state);
         return 0;
+}
+
+static int service_rtemplate_handle(Service *s, Service **ret) {
+        _cleanup_free_ char *name = NULL, *prefix = NULL;
+        Unit *u = UNIT(s);
+        Unit *handle;
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        if (!unit_name_is_valid(u->id, UNIT_NAME_GENERATION))
+                return 0;
+
+        r = unit_name_to_prefix(u->id, &prefix);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to build prefix unit name: %m");
+
+        r = unit_name_build_from_type(prefix, UNIT_ARG_GENERATION(NULL), UNIT_SERVICE, &name);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to build unit name: %m");
+
+        handle = manager_get_unit(u->manager, name);
+        if (!handle) {
+                log_unit_warning(u, "Unhandled rtemplate generation.");
+                return 0;
+        }
+
+        *ret = SERVICE(handle);
+        return 1;
 }
 
 static int service_collect_fds(
@@ -4845,6 +4896,40 @@ static const char* service_status_text(Unit *u) {
         return s->status_text;
 }
 
+static Unit *service_following(Unit *u) {
+        Service *s = SERVICE(u);
+        assert(s);
+        return UNIT_DEREF(s->current_gen_service);
+}
+
+static int service_following_set(Unit *u, Set **_set) {
+        Service *s = SERVICE(u);
+        Service *other;
+        _cleanup_set_free_ Set *set = NULL;
+        int r;
+
+        assert(s);
+        assert(_set);
+
+        r = service_rtemplate_handle(s, &other);
+        if (r <= 0) /* 0 is empty set */
+                return r;
+
+        if (service_following(UNIT(other)) != u)
+                return 0;
+
+        set = set_new(NULL);
+        if (!set)
+                return -ENOMEM;
+
+        r = set_put(set, UNIT(other));
+        if (r < 0)
+                return r;
+
+        *_set = TAKE_PTR(set);
+        return 1;
+}
+
 static int service_clean(Unit *u, ExecCleanMask mask) {
         _cleanup_strv_free_ char **l = NULL;
         bool may_clean_fdstore = false;
@@ -5141,6 +5226,9 @@ const UnitVTable service_vtable = {
         .needs_console = service_needs_console,
         .exit_status = service_exit_status,
         .status_text = service_status_text,
+
+        .following = service_following,
+        .following_set = service_following_set,
 
         .status_message_formats = {
                 .finished_start_job = {

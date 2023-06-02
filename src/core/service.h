@@ -143,6 +143,8 @@ struct Service {
         bool watchdog_override_enable;
         sd_event_source *watchdog_event_source;
 
+        UnitRef current_gen_service;
+
         ExecCommand* exec_command[_SERVICE_EXEC_COMMAND_MAX];
 
         ExecContext exec_context;
@@ -254,6 +256,7 @@ int service_set_socket_fd(Service *s, int fd, struct Socket *socket, struct Sock
 void service_release_socket_fd(Service *s);
 
 usec_t service_restart_usec_next(Service *s);
+void service_set_current_generation(Service *s, Service *cs);
 
 const char* service_restart_to_string(ServiceRestart i) _const_;
 ServiceRestart service_restart_from_string(const char *s) _pure_;
