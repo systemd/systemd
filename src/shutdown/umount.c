@@ -7,7 +7,6 @@
 #include <fcntl.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
-#include <sys/swap.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -163,53 +162,6 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                 TAKE_PTR(remount_options);
 
                 LIST_PREPEND(mount_point, *head, TAKE_PTR(m));
-        }
-
-        return 0;
-}
-
-int swap_list_get(const char *swaps, MountPoint **head) {
-        _cleanup_(mnt_free_tablep) struct libmnt_table *t = NULL;
-        _cleanup_(mnt_free_iterp) struct libmnt_iter *i = NULL;
-        int r;
-
-        assert(head);
-
-        t = mnt_new_table();
-        i = mnt_new_iter(MNT_ITER_FORWARD);
-        if (!t || !i)
-                return log_oom();
-
-        r = mnt_table_parse_swaps(t, swaps);
-        if (r == -ENOENT) /* no /proc/swaps is fine */
-                return 0;
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse %s: %m", swaps ?: "/proc/swaps");
-
-        for (;;) {
-                struct libmnt_fs *fs;
-                _cleanup_free_ MountPoint *swap = NULL;
-                const char *source;
-
-                r = mnt_table_next_fs(t, i, &fs);
-                if (r == 1) /* EOF */
-                        break;
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get next entry from %s: %m", swaps ?: "/proc/swaps");
-
-                source = mnt_fs_get_source(fs);
-                if (!source)
-                        continue;
-
-                swap = new0(MountPoint, 1);
-                if (!swap)
-                        return log_oom();
-
-                swap->path = strdup(source);
-                if (!swap->path)
-                        return log_oom();
-
-                LIST_PREPEND(mount_point, *head, TAKE_PTR(swap));
         }
 
         return 0;
@@ -509,27 +461,6 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool last_
         return n_failed;
 }
 
-static int swap_points_list_off(MountPoint **head, bool *changed) {
-        int n_failed = 0;
-
-        assert(head);
-        assert(changed);
-
-        LIST_FOREACH(mount_point, m, *head) {
-                log_info("Deactivating swap %s.", m->path);
-                if (swapoff(m->path) < 0) {
-                        log_warning_errno(errno, "Could not deactivate swap %s: %m", m->path);
-                        n_failed++;
-                        continue;
-                }
-
-                *changed = true;
-                mount_point_free(head, m);
-        }
-
-        return n_failed;
-}
-
 static int umount_all_once(bool *changed, bool last_try) {
         _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, mp_list_head);
         int r;
@@ -561,19 +492,4 @@ int umount_all(bool *changed, bool last_try) {
         } while (umount_changed);
 
         return r;
-}
-
-int swapoff_all(bool *changed) {
-        _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, swap_list_head);
-        int r;
-
-        assert(changed);
-
-        LIST_HEAD_INIT(swap_list_head);
-
-        r = swap_list_get(NULL, &swap_list_head);
-        if (r < 0)
-                return r;
-
-        return swap_points_list_off(&swap_list_head, changed);
 }

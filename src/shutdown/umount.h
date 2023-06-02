@@ -8,7 +8,6 @@
 #include "list.h"
 
 int umount_all(bool *changed, bool last_try);
-int swapoff_all(bool *changed);
 
 /* This is exported just for testing */
 typedef struct MountPoint {
@@ -25,4 +24,3 @@ typedef struct MountPoint {
 int mount_points_list_get(const char *mountinfo, MountPoint **head);
 void mount_point_free(MountPoint **head, MountPoint *m);
 void mount_points_list_free(MountPoint **head);
-int swap_list_get(const char *swaps, MountPoint **head);
