@@ -9,7 +9,6 @@
 
 int umount_all(bool *changed, bool last_try);
 int swapoff_all(bool *changed);
-int loopback_detach_all(bool *changed, bool last_try);
 
 /* This is exported just for testing */
 typedef struct MountPoint {
