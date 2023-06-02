@@ -1099,6 +1099,24 @@ int make_mount_point(const char *path) {
         return 1;
 }
 
+int fd_make_mount_point(int fd) {
+        int r;
+
+        assert(fd >= 0);
+
+        r = fd_is_mount_point(fd, NULL, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine whether file descriptor is a mount point: %m");
+        if (r > 0)
+                return 0;
+
+        r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(fd), FORMAT_PROC_FD_PATH(fd), NULL, MS_BIND|MS_REC, NULL);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 int make_userns(uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping) {
         _cleanup_close_ int userns_fd = -EBADF;
         _cleanup_free_ char *line = NULL;
