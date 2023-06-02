@@ -1408,7 +1408,12 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
-static int determine_device(char **what, const char *hash, const char *name) {
+static int determine_device(
+                char **what,
+                int *rw,
+                char **options,
+                const char *hash,
+                const char *name) {
 
         assert(what);
         assert(name);
@@ -1427,17 +1432,22 @@ static int determine_device(char **what, const char *hash, const char *name) {
         if (!*what)
                 return log_oom();
 
-        log_info("Using verity %s device %s.", name, *what);
+        /* Verity is always read-only */
+        if (rw)
+                *rw = false;
+        if (options && !strextend_with_separator(options, ",", "ro"))
+                return log_oom();
 
+        log_info("Using verity %s device %s.", name, *what);
         return 1;
 }
 
 static int determine_root(void) {
-        return determine_device(&arg_root_what, arg_root_hash, "root");
+        return determine_device(&arg_root_what, &arg_root_rw, NULL, arg_root_hash, "root");
 }
 
 static int determine_usr(void) {
-        return determine_device(&arg_usr_what, arg_usr_hash, "usr");
+        return determine_device(&arg_usr_what, NULL, &arg_usr_options, arg_usr_hash, "usr");
 }
 
 /* If arg_sysroot_check is false, run as generator in the usual fashion.
