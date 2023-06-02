@@ -15,14 +15,14 @@ command -v swtpm >/dev/null 2>&1 || exit 0
 command -v tpm2_pcrextend >/dev/null 2>&1 || exit 0
 
 test_append_files() {
-        local workspace="${1:?}"
+    local workspace="${1:?}"
 
-        instmods tpm tpm_tis tpm_ibmvtpm
-        install_dmevent
-        generate_module_dependencies
-        inst_binary tpm2_pcrextend
-        inst_binary tpm2_pcrread
-        inst_binary openssl
+    instmods tpm tpm_tis tpm_ibmvtpm
+    install_dmevent
+    generate_module_dependencies
+    inst_binary tpm2_pcrextend
+    inst_binary tpm2_pcrread
+    inst_binary openssl
 }
 
 do_test "$@"
