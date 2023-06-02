@@ -16,9 +16,31 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "sync-util.h"
-#include "umount.h"
 
-static int dm_list_get(MountPoint **head) {
+typedef struct DeviceMapper {
+        char *path;
+        dev_t devnum;
+        LIST_FIELDS(struct DeviceMapper, device_mapper);
+} DeviceMapper;
+
+static void device_mapper_free(DeviceMapper **head, DeviceMapper *m) {
+        assert(head);
+        assert(m);
+
+        LIST_REMOVE(device_mapper, *head, m);
+
+        free(m->path);
+        free(m);
+}
+
+static void device_mapper_list_free(DeviceMapper **head) {
+        assert(head);
+
+        while (*head)
+                device_mapper_free(head, *head);
+}
+
+static int dm_list_get(DeviceMapper **head) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         sd_device *d;
         int r;
@@ -44,7 +66,7 @@ static int dm_list_get(MountPoint **head) {
         FOREACH_DEVICE(e, d) {
                 _cleanup_free_ char *p = NULL;
                 const char *dn;
-                MountPoint *m;
+                DeviceMapper *m;
                 dev_t devnum;
 
                 if (sd_device_get_devnum(d, &devnum) < 0 ||
@@ -55,22 +77,22 @@ static int dm_list_get(MountPoint **head) {
                 if (!p)
                         return -ENOMEM;
 
-                m = new(MountPoint, 1);
+                m = new(DeviceMapper, 1);
                 if (!m)
                         return -ENOMEM;
 
-                *m = (MountPoint) {
+                *m = (DeviceMapper) {
                         .path = TAKE_PTR(p),
                         .devnum = devnum,
                 };
 
-                LIST_PREPEND(mount_point, *head, m);
+                LIST_PREPEND(device_mapper, *head, m);
         }
 
         return 0;
 }
 
-static int delete_dm(MountPoint *m) {
+static int delete_dm(DeviceMapper *m) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
@@ -97,7 +119,7 @@ static int delete_dm(MountPoint *m) {
         }));
 }
 
-static int dm_points_list_detach(MountPoint **head, bool *changed, bool last_try) {
+static int dm_points_list_detach(DeviceMapper **head, bool *changed, bool last_try) {
         int n_failed = 0, r;
         dev_t rootdev = 0;
 
@@ -106,7 +128,7 @@ static int dm_points_list_detach(MountPoint **head, bool *changed, bool last_try
 
         (void) get_block_device("/", &rootdev);
 
-        LIST_FOREACH(mount_point, m, *head) {
+        LIST_FOREACH(device_mapper, m, *head) {
                 if (major(rootdev) != 0 && rootdev == m->devnum) {
                         n_failed ++;
                         continue;
@@ -121,14 +143,14 @@ static int dm_points_list_detach(MountPoint **head, bool *changed, bool last_try
                 }
 
                 *changed = true;
-                mount_point_free(head, m);
+                device_mapper_free(head, m);
         }
 
         return n_failed;
 }
 
 int dm_detach_all(bool *changed, bool last_try) {
-        _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, dm_list_head);
+        _cleanup_(device_mapper_list_free) LIST_HEAD(DeviceMapper, dm_list_head);
         int r;
 
         assert(changed);
