@@ -23,6 +23,7 @@
 #include "cgroup-util.h"
 #include "constants.h"
 #include "coredump-util.h"
+#include "detach-dm.h"
 #include "detach-md.h"
 #include "errno-util.h"
 #include "exec-util.h"
