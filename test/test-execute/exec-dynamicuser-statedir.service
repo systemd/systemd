@@ -11,9 +11,11 @@ ExecStart=test -w %S/aaa/ccc
 ExecStart=test -w %S/xxx
 ExecStart=test -w %S/xxx/yyy
 ExecStart=test -w %S/xxx/zzz
+ExecStart=test -w %S/abc
 ExecStart=test -w %S/aaa/111
 ExecStart=test -w %S/aaa/222
 ExecStart=test -w %S/aaa/333
+ExecStart=test -w %S/d:ef
 
 ExecStart=test -d %S/waldo
 ExecStart=test -d %S/quux/pief
@@ -23,9 +25,11 @@ ExecStart=test -d %S/aaa/ccc
 ExecStart=test -d %S/xxx
 ExecStart=test -d %S/xxx/yyy
 ExecStart=test -d %S/xxx/zzz
+ExecStart=test -d %S/abc
 ExecStart=test -L %S/aaa/111
 ExecStart=test -L %S/aaa/222
 ExecStart=test -L %S/aaa/333
+ExecStart=test -L %S/d:ef
 
 ExecStart=touch %S/waldo/hoge
 ExecStart=touch %S/quux/pief/hoge
@@ -35,9 +39,11 @@ ExecStart=touch %S/aaa/ccc/hoge
 ExecStart=touch %S/xxx/hoge
 ExecStart=touch %S/xxx/yyy/hoge
 ExecStart=touch %S/xxx/zzz/hoge
+ExecStart=touch %S/abc/hoge
 ExecStart=touch %S/aaa/111/foo
 ExecStart=touch %S/aaa/222/foo
 ExecStart=touch %S/aaa/333/foo
+ExecStart=touch %S/d:ef/foo
 
 ExecStart=test -f %S/waldo/hoge
 ExecStart=test -f %S/quux/pief/hoge
@@ -47,12 +53,14 @@ ExecStart=test -f %S/aaa/ccc/hoge
 ExecStart=test -f %S/xxx/hoge
 ExecStart=test -f %S/xxx/yyy/hoge
 ExecStart=test -f %S/xxx/zzz/hoge
+ExecStart=test -f %S/abc/hoge
 ExecStart=test -f %S/aaa/111/foo
 ExecStart=test -f %S/aaa/222/foo
 ExecStart=test -f %S/aaa/333/foo
 ExecStart=test -f %S/xxx/foo
 ExecStart=test -f %S/xxx/yyy/foo
 ExecStart=test -f %S/xxx/zzz/foo
+ExecStart=test -f %S/d:ef/foo
 
 ExecStart=test -f %S/private/waldo/hoge
 ExecStart=test -f %S/private/quux/pief/hoge
@@ -62,6 +70,7 @@ ExecStart=test -f %S/private/aaa/ccc/hoge
 ExecStart=test -f %S/private/xxx/hoge
 ExecStart=test -f %S/private/xxx/yyy/hoge
 ExecStart=test -f %S/private/xxx/zzz/hoge
+ExecStart=test -f %S/private/abc/hoge
 ExecStart=test -f %S/private/aaa/111/foo
 ExecStart=test -f %S/private/aaa/222/foo
 ExecStart=test -f %S/private/aaa/333/foo
@@ -69,8 +78,8 @@ ExecStart=test -f %S/private/xxx/foo
 ExecStart=test -f %S/private/xxx/yyy/foo
 ExecStart=test -f %S/private/xxx/zzz/foo
 
-ExecStart=sh -x -c 'test "$$STATE_DIRECTORY" = "%S/aaa:%S/aaa/bbb:%S/aaa/ccc:%S/quux/pief:%S/waldo:%S/xxx:%S/xxx/yyy:%S/xxx/zzz"'
+ExecStart=sh -x -c 'test "$$STATE_DIRECTORY" = "%S/aaa:%S/aaa/bbb:%S/aaa/ccc:%S/abc:%S/quux/pief:%S/waldo:%S/xxx:%S/xxx/yyy:%S/xxx/zzz"'
 
 Type=oneshot
 DynamicUser=yes
-StateDirectory=waldo quux/pief aaa/bbb aaa aaa/ccc xxx/yyy:aaa/111 xxx:aaa/222 xxx/zzz:aaa/333
+StateDirectory=waldo quux/pief aaa/bbb aaa aaa/ccc xxx/yyy:aaa/111 xxx:aaa/222 xxx/zzz:aaa/333 abc:d\:ef
