@@ -18,9 +18,31 @@
 #include "detach-loopback.h"
 #include "device-util.h"
 #include "fd-util.h"
-#include "umount.h"
 
-static int loopback_list_get(MountPoint **head) {
+typedef struct LoopbackDevice {
+        char *path;
+        dev_t devnum;
+        LIST_FIELDS(struct LoopbackDevice, loopback_device);
+} LoopbackDevice;
+
+static void loopback_device_free(LoopbackDevice **head, LoopbackDevice *m) {
+        assert(head);
+        assert(m);
+
+        LIST_REMOVE(loopback_device, *head, m);
+
+        free(m->path);
+        free(m);
+}
+
+static void loopback_device_list_free(LoopbackDevice **head) {
+        assert(head);
+
+        while (*head)
+                loopback_device_free(head, *head);
+}
+
+static int loopback_list_get(LoopbackDevice **head) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         sd_device *d;
         int r;
@@ -50,7 +72,7 @@ static int loopback_list_get(MountPoint **head) {
         FOREACH_DEVICE(e, d) {
                 _cleanup_free_ char *p = NULL;
                 const char *dn;
-                MountPoint *lb;
+                LoopbackDevice *lb;
                 dev_t devnum;
 
                 if (sd_device_get_devnum(d, &devnum) < 0 ||
@@ -61,16 +83,16 @@ static int loopback_list_get(MountPoint **head) {
                 if (!p)
                         return -ENOMEM;
 
-                lb = new(MountPoint, 1);
+                lb = new(LoopbackDevice, 1);
                 if (!lb)
                         return -ENOMEM;
 
-                *lb = (MountPoint) {
+                *lb = (LoopbackDevice) {
                         .path = TAKE_PTR(p),
                         .devnum = devnum,
                 };
 
-                LIST_PREPEND(mount_point, *head, lb);
+                LIST_PREPEND(loopback_device, *head, lb);
         }
 
         return 0;
@@ -151,7 +173,7 @@ static int delete_loopback(const char *device) {
         return -EBUSY; /* Nothing changed, the device is still attached, hence it apparently is still busy */
 }
 
-static int loopback_points_list_detach(MountPoint **head, bool *changed, bool last_try) {
+static int loopback_points_list_detach(LoopbackDevice **head, bool *changed, bool last_try) {
         int n_failed = 0, r;
         dev_t rootdev = 0;
 
@@ -160,7 +182,7 @@ static int loopback_points_list_detach(MountPoint **head, bool *changed, bool la
 
         (void) get_block_device("/", &rootdev);
 
-        LIST_FOREACH(mount_point, m, *head) {
+        LIST_FOREACH(loopback_device, m, *head) {
                 if (major(rootdev) != 0 && rootdev == m->devnum) {
                         n_failed++;
                         continue;
@@ -176,14 +198,14 @@ static int loopback_points_list_detach(MountPoint **head, bool *changed, bool la
                 if (r > 0)
                         *changed = true;
 
-                mount_point_free(head, m);
+                loopback_device_free(head, m);
         }
 
         return n_failed;
 }
 
 int loopback_detach_all(bool *changed, bool last_try) {
-        _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, loopback_list_head);
+        _cleanup_(loopback_device_list_free) LIST_HEAD(LoopbackDevice, loopback_list_head);
         int r;
 
         assert(changed);

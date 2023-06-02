@@ -24,12 +24,11 @@ static void test_mount_points_list_one(const char *fname) {
         assert_se(mount_points_list_get(fname, &mp_list_head) >= 0);
 
         LIST_FOREACH(mount_point, m, mp_list_head)
-                log_debug("path=%s o=%s f=0x%lx try-ro=%s dev=%u:%u",
+                log_debug("path=%s o=%s f=0x%lx try-ro=%s",
                           m->path,
                           strempty(m->remount_options),
                           m->remount_flags,
-                          yes_no(m->try_remount_ro),
-                          major(m->devnum), minor(m->devnum));
+                          yes_no(m->try_remount_ro));
 }
 
 TEST(mount_points_list) {
