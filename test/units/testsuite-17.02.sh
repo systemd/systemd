@@ -32,18 +32,18 @@ udevadm control --log-priority=debug --reload --timeout=30
 ip link add hoge type dummy
 udevadm wait --timeout=30 --settle /sys/devices/virtual/net/hoge
 assert_not_in "ID_RENAMING=" "$(udevadm info /sys/devices/virtual/net/hoge)"
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/hoge)" != "active" ]]; do sleep .5; done'
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/hoge)" != "active" ]]; do sleep .5; done'
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/hoge)" == "active" ]]
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/hoge)" == "active" ]]
 
 udevadm trigger --action=online --settle /sys/devices/virtual/net/hoge
 assert_in "ID_RENAMING=" "$(udevadm info /sys/devices/virtual/net/hoge)"
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/hoge)" != "inactive" ]]; do sleep .5; done'
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/hoge)" != "inactive" ]]; do sleep .5; done'
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/hoge)" == "inactive" ]]
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/hoge)" == "inactive" ]]
 
 udevadm trigger --action=move --settle /sys/devices/virtual/net/hoge
 assert_not_in "ID_RENAMING=" "$(udevadm info /sys/devices/virtual/net/hoge)"
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/hoge)" != "active" ]]; do sleep .5; done'
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/hoge)" != "active" ]]; do sleep .5; done'
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/hoge)" == "active" ]]
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/hoge)" == "active" ]]
 
 # test for renaming interface with NAME= (issue #25106)
 
@@ -64,18 +64,18 @@ udevadm control --log-priority=debug --reload --timeout=30
 udevadm trigger --action=add --settle /sys/devices/virtual/net/hoge
 udevadm wait --timeout=30 --settle /sys/devices/virtual/net/foobar
 assert_not_in "ID_RENAMING=" "$(udevadm info /sys/devices/virtual/net/foobar)"
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/hoge)" != "inactive" ]]; do sleep .5; done'
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/hoge)" != "inactive" ]]; do sleep .5; done'
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/foobar)" != "active" ]]; do sleep .5; done'
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/foobar)" != "active" ]]; do sleep .5; done'
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/hoge)" == "inactive" ]]
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/hoge)" == "inactive" ]]
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/foobar)" == "active" ]]
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/foobar)" == "active" ]]
 
 udevadm trigger --action=add --settle /sys/devices/virtual/net/foobar
 udevadm wait --timeout=30 --settle /sys/devices/virtual/net/hoge
 assert_not_in "ID_RENAMING=" "$(udevadm info /sys/devices/virtual/net/hoge)"
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/hoge)" != "active" ]]; do sleep .5; done'
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/hoge)" != "active" ]]; do sleep .5; done'
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/foobar)" != "inactive" ]]; do sleep .5; done'
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/foobar)" != "inactive" ]]; do sleep .5; done'
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/hoge)" == "active" ]]
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/hoge)" == "active" ]]
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/foobar)" == "inactive" ]]
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/foobar)" == "inactive" ]]
 
 # cleanup
 rm -f /run/udev/rules.d/50-testsuite.rules
@@ -85,17 +85,17 @@ udevadm control --reload --timeout=30
 
 ip link set hoge name foobar
 udevadm wait --timeout=30 --settle /sys/devices/virtual/net/foobar
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/hoge)" != "inactive" ]]; do sleep .5; done'
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/hoge)" != "inactive" ]]; do sleep .5; done'
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/foobar)" != "active" ]]; do sleep .5; done'
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/foobar)" != "active" ]]; do sleep .5; done'
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/hoge)" == "inactive" ]]
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/hoge)" == "inactive" ]]
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/foobar)" == "active" ]]
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/foobar)" == "active" ]]
 
 ip link set foobar name hoge
 udevadm wait --timeout=30 --settle /sys/devices/virtual/net/hoge
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/hoge)" != "active" ]]; do sleep .5; done'
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/hoge)" != "active" ]]; do sleep .5; done'
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/foobar)" != "inactive" ]]; do sleep .5; done'
-timeout 30 bash -c 'while [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/foobar)" != "inactive" ]]; do sleep .5; done'
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/hoge)" == "active" ]]
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/hoge)" == "active" ]]
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/devices/virtual/net/foobar)" == "inactive" ]]
+wait_until -t 30 [[ "$(systemctl show --property=ActiveState --value /sys/subsystem/net/devices/foobar)" == "inactive" ]]
 
 # cleanup
 ip link del hoge
@@ -172,7 +172,7 @@ EOF
     done
     test -n "$found"
 
-    timeout 30 bash -c "while ! journalctl _PID=1 _COMM=systemd --since $since | grep -q 'foobar: systemd-udevd failed to process the device, ignoring: File exists'; do sleep 1; done"
+    wait_until -t 30 journalctl _PID=1 _COMM=systemd --since $since | grep -q 'foobar: systemd-udevd failed to process the device, ignoring: File exists'
     # check if the invalid SYSTEMD_ALIAS property for the interface foobar is ignored by PID1
     assert_eq "$(systemctl show --property=SysFSPath --value /sys/subsystem/net/devices/hoge)" "/sys/devices/virtual/net/hoge"
 }

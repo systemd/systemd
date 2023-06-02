@@ -3,6 +3,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 systemd-analyze log-level debug
 
 systemctl disable --now systemd-timesyncd.service
@@ -18,11 +21,11 @@ test ! -f /tmp/clock-changed
 
 timedatectl set-timezone Europe/Kiev
 
-while test ! -f /tmp/timezone-changed ; do sleep .5 ; done
+wait_for_file /tmp/timezone-changed
 
 timedatectl set-time 2018-1-1
 
-while test ! -f /tmp/clock-changed ; do sleep .5 ; done
+wait_for_file /tmp/clock-changed
 
 systemd-analyze log-level info
 
