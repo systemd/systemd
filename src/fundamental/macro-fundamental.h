@@ -108,7 +108,6 @@
 
 #define assert_cc(expr) static_assert(expr, #expr)
 
-
 #define UNIQ_T(x, uniq) CONCATENATE(__unique_prefix_, CONCATENATE(x, uniq))
 #define UNIQ __COUNTER__
 
@@ -252,6 +251,16 @@
                 const typeof(y) UNIQ_T(Y, yq) = (y);                    \
                 (UNIQ_T(X, xq) / UNIQ_T(Y, yq) + !!(UNIQ_T(X, xq) % UNIQ_T(Y, yq))); \
         })
+
+/* Rounds up x to the next multiple of y. Resolves to typeof(x) -1 in case of overflow */
+#define __ROUND_UP(q, x, y)                                             \
+        ({                                                              \
+                const typeof(y) UNIQ_T(A, q) = (y);                     \
+                const typeof(x) UNIQ_T(B, q) = DIV_ROUND_UP((x), UNIQ_T(A, q)); \
+                typeof(x) UNIQ_T(C, q);                                 \
+                __builtin_mul_overflow(UNIQ_T(B, q), UNIQ_T(A, q), &UNIQ_T(C, q)) ? (typeof(x)) -1 : UNIQ_T(C, q); \
+        })
+#define ROUND_UP(x, y) __ROUND_UP(UNIQ, (x), (y))
 
 #define  CASE_F_1(X)      case X:
 #define  CASE_F_2(X, ...) case X:  CASE_F_1( __VA_ARGS__)
