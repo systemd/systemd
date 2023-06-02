@@ -5,6 +5,8 @@
   Copyright © 2010 ProFUSION embedded systems
 ***/
 
+#include <stdbool.h>
+
 #include "list.h"
 
 int umount_all(bool *changed, bool last_try);
@@ -17,10 +19,8 @@ typedef struct MountPoint {
         bool try_remount_ro;
         bool umount_lazily;
         bool leaf;
-        dev_t devnum;
         LIST_FIELDS(struct MountPoint, mount_point);
 } MountPoint;
 
 int mount_points_list_get(const char *mountinfo, MountPoint **head);
-void mount_point_free(MountPoint **head, MountPoint *m);
 void mount_points_list_free(MountPoint **head);
