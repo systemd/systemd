@@ -20,17 +20,16 @@ static inline _Noreturn void _coverage__exit(int status) {
 }
 #define _exit(x) _coverage__exit(x)
 
-/* gcov provides wrappers for the exec*() calls but there's none for execveat(),
- * which means we lose all coverage prior to the call. To mitigate this, let's
- * add a simple execveat() wrapper in gcov's style[0], which dumps and resets
- * the coverage data when needed.
- *
- * This applies only when we're built with -Dfexecve=true.
+/* gcov provides wrappers for the exec*() calls but there's none for execveat()
+ * and execvpe() which means we lose all coverage prior to such call. To mitigate
+ * this, let's add simple wrappers in gcov's style[0] for these exec*() calls,
+ * which dump and reset the coverage data as needed.
  *
  * [0] https://gcc.gnu.org/git/?p=gcc.git;a=blob;f=libgcc/libgcov-interface.c;h=b2ee930864183b78c8826255183ca86e15e21ded;hb=HEAD
  */
 
 extern int execveat(int, const char *, char * const [], char * const [], int);
+extern int execvpe(const char *, char * const [], char * const []);
 
 static inline int _coverage_execveat(
                         int dirfd,
@@ -45,3 +44,15 @@ static inline int _coverage_execveat(
         return r;
 }
 #define execveat(d,p,a,e,f) _coverage_execveat(d, p, a, e, f)
+
+static inline int _coverage_execvpe(
+                        const char *file,
+                        char * const argv[],
+                        char * const envp[]) {
+        __gcov_dump();
+        int r = execvpe(file, argv, envp);
+        __gcov_reset();
+
+        return r;
+}
+#define execvpe(f,a,e) _coverage_execvpe(f, a, e)

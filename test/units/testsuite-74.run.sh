@@ -7,17 +7,10 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-# FIXME(?):
-#   - empty ExecStart= is always inserted
-#   - weird results with systemd-run --property=ExecStart=false true
-#   - group settings for each section?
-#       - i.e systemd-run --remain-after-exit --on-clock-change
-#         --timer-property=After=systemd-journald.service true
-#         generates a unit that has two [Unit] and two [Timer] sections
-
 systemd-run --help --no-pager
 systemd-run --version
 systemd-run --no-ask-password true
+systemd-run --no-block --collect true
 
 export PARENT_FOO=bar
 touch /tmp/public-marker
@@ -37,8 +30,9 @@ systemd-run --wait --pipe --slice-inherit --slice=foo \
             bash -xec '[[ "$(</proc/self/cgroup)" =~ /system\.slice/system-foo\.slice/run-.+\.service$ ]]'
 # We should not inherit caller's environment
 systemd-run --wait --pipe bash -xec '[[ -z "$PARENT_FOO" ]]'
-systemd-run --wait --pipe bash -xec '[[ "$PWD" == / ]]'
+systemd-run --wait --pipe bash -xec '[[ "$PWD" == / && -n "$INVOCATION_ID" ]]'
 systemd-run --wait --pipe \
+            --send-sighup \
             --working-directory="" \
             --working-directory=/tmp \
             bash -xec '[[ "$PWD" == /tmp ]]'
@@ -84,6 +78,13 @@ systemd-run --wait --pipe --user --machine=testuser@ \
             bash -xec '[[ "$(</proc/self/cgroup)" =~ /user\.slice/.+/run-.+\.service$ ]]'
 systemd-run --wait --pipe --user --machine=testuser@ \
             bash -xec '[[ "$(id -nu)" == testuser && "$(id -ng)" == testuser ]]'
+systemd-run --wait --pipe --user --machine=testuser@ \
+            bash -xec '[[ "$PWD" == /home/testuser && -n "$INVOCATION_ID" ]]'
+systemd-run --wait --pipe --user --machine=testuser@ \
+            --property=LimitCORE=1M:2M \
+            --property=LimitCORE=16M:32M \
+            --property=PrivateTmp=yes \
+            bash -xec '[[ "$(ulimit -c -S)" -eq 16384 && "$(ulimit -c -H)" -eq 32768 && ! -e /tmp/public-marker ]]'
 
 : "Transient scope (system daemon)"
 systemd-run --scope \
@@ -100,6 +101,10 @@ systemd-run --scope --slice-inherit --slice=foo \
             bash -xec '[[ "$(</proc/self/cgroup)" =~ /system\.slice/system-foo\.slice/run-.+\.scope$ ]]'
 # We should inherit caller's environment
 systemd-run --scope bash -xec '[[ "$PARENT_FOO" == bar ]]'
+systemd-run --scope \
+            --property=RuntimeMaxSec=10 \
+            --property=RuntimeMaxSec=infinity \
+            true
 
 : "Transient scope (user daemon)"
 # FIXME: https://github.com/systemd/systemd/issues/27883
@@ -190,8 +195,16 @@ grep -q "^SocketMode=0644$" "/run/systemd/transient/$UNIT.socket"
 grep -qE "^ExecStart=.*/bin/true.*$" "/run/systemd/transient/$UNIT.service"
 systemctl stop "$UNIT.socket" "$UNIT.service" || :
 
+: "Interactive options"
+SHELL=/bin/true systemd-run --shell
+SHELL=/bin/true systemd-run --scope --shell
+systemd-run --wait --pty true
+systemd-run --wait --machine=.host --pty true
+(! SHELL=/bin/false systemd-run --quiet --shell)
+
 (! systemd-run)
 (! systemd-run "")
+(! systemd-run --foo=bar)
 (! systemd-run --wait --pipe --slice=foo.service true)
 
 for opt in nice on-{active,boot,calendar,startup,unit-active,unit-inactive} property service-type setenv; do
