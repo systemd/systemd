@@ -326,6 +326,17 @@ if get_bool "$IS_BUILT_WITH_ASAN"; then
     echo "Detected ASan RT '$ASAN_RT_NAME' located at '$ASAN_RT_PATH'"
 fi
 
+test_require_bin() {
+    local bin
+
+    for bin in "$@"; do
+        if ! command -v "$bin" >/dev/null; then
+            echo "Required binary $bin not available, skipping the test"
+            exit 0
+        fi
+    done
+}
+
 find_qemu_bin() {
     QEMU_BIN="${QEMU_BIN:-""}"
     # SUSE and Red Hat call the binary qemu-kvm. Debian and Gentoo call it kvm.
