@@ -29,7 +29,7 @@
 #include "umount.h"
 #include "virt.h"
 
-void mount_point_free(MountPoint **head, MountPoint *m) {
+static void mount_point_free(MountPoint **head, MountPoint *m) {
         assert(head);
         assert(m);
 
