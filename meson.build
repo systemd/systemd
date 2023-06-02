@@ -1527,7 +1527,7 @@ conf.set10('HAVE_LIBFIDO2', have)
 
 want_tpm2 = get_option('tpm2')
 if want_tpm2 != 'false' and not skip_deps
-        tpm2 = dependency('tss2-esys tss2-rc tss2-mu',
+        tpm2 = dependency('tss2-esys tss2-rc tss2-mu tss2-tcti-device',
                           required : want_tpm2 == 'true')
         have = tpm2.found()
         have_esys3 = tpm2.version().version_compare('>= 3.0.0')
