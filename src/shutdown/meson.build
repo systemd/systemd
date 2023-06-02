@@ -4,6 +4,7 @@ systemd_shutdown_sources = files(
         'detach-dm.c',
         'detach-loopback.c',
         'detach-md.c',
+        'detach-swap.c',
         'shutdown.c',
         'umount.c',
 )
@@ -11,6 +12,7 @@ systemd_shutdown_sources = files(
 tests += [
         {
                 'sources' : files(
+                        'detach-swap.c',
                         'test-umount.c',
                         'umount.c',
                 ),
