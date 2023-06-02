@@ -376,8 +376,9 @@ static int relabel_cb(
                 return RECURSE_DIR_CONTINUE;
 
         case RECURSE_DIR_ENTER:
-                /* /run/initramfs is static data and big, no need to dynamically relabel its contents at boot... */
-                if (path_equal(path, "/run/initramfs"))
+                /* /run/initramfs/ + /run/nextroot/ are static data and big, no need to dynamically relabel
+                 * its contents at boot... */
+                if (PATH_STARTSWITH_SET(path, "/run/initramfs", "/run/nextroot"))
                         return RECURSE_DIR_SKIP_ENTRY;
 
                 _fallthrough_;
