@@ -9,10 +9,7 @@ NSPAWN_ARGUMENTS="--private-network"
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
-if ! command -v knotd >/dev/null; then
-    echo "This test requires Knot DNS server, skipping..."
-    exit 0
-fi
+test_require_bin knotd
 
 # We need at least Knot 3.0 which support (among others) the ds-push directive
 if ! knotc -c "${TEST_BASE_DIR:?}/knot-data/knot.conf" conf-check; then
