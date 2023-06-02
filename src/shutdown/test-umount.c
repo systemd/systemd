@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "detach-swap.h"
 #include "errno-util.h"
 #include "log.h"
 #include "path-util.h"
