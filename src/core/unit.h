@@ -848,6 +848,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Unit *, unit_free);
 
 int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret);
 int unit_add_name(Unit *u, const char *name);
+int unit_new_next_generation(Manager *m, Unit *u, const char *name, Unit **ret);
 
 int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_reference, UnitDependencyMask mask);
 int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit *other, bool add_reference, UnitDependencyMask mask);

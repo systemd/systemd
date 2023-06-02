@@ -7,6 +7,7 @@
 #include "unit-def.h"
 
 #define UNIT_NAME_MAX 256
+#define UNIT_NAME_GENERATION_MAX 33 /* SD_ID128_FORMAT_STR + NULL byte */
 
 typedef enum UnitNameFlags {
         UNIT_NAME_PLAIN      = 1 << 0, /* Allow foo.service */

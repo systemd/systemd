@@ -162,6 +162,45 @@ int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret) {
         return r;
 }
 
+static int unit_next_generation_name(Unit *u, UnitInstanceArg *ret) {
+        sd_id128_t rnd;
+        int r;
+
+        // XXX u is unused, no fancy state-dependent naming?
+        /* u may be handle or a generation unit */
+        assert(ret);
+
+        r = sd_id128_randomize(&rnd);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to generate random generation name: %m");
+
+        snprintf((char *)ret->generation, UNIT_NAME_GENERATION_MAX, SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(rnd));
+        return 0;
+}
+
+int unit_new_next_generation(Manager *m, Unit *u, const char *name, Unit **ret) {
+        UnitInstanceArg gen = {};
+        Unit *next_u;
+        _cleanup_free_ char *new_id;
+        int r;
+
+        gen.generation = alloca_safe(UNIT_NAME_GENERATION_MAX);
+        r = unit_next_generation_name(u, &gen);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to allocate generation name: %m");
+
+        r = unit_name_replace_instance(name, gen, &new_id);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to build id (%s + %s): %m", name, gen.generation);
+
+        r = unit_new_for_name(m, sizeof(Service), new_id, &next_u);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to allocate generation unit %s: %m", new_id);
+
+        *ret = next_u;
+        return 0;
+}
+
 bool unit_has_name(const Unit *u, const char *name) {
         assert(u);
         assert(name);
