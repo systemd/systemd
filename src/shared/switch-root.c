@@ -66,6 +66,11 @@ int switch_root(const char *new_root,
                 return 0;
         }
 
+        /* Make the new root directory a mount point if it isn't */
+        r = fd_make_mount_point(new_root_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make new root directory a mount point: %m");
+
         if (FLAGS_SET(flags, SWITCH_ROOT_DESTROY_OLD_ROOT)) {
                 istmp = fd_is_temporary_fs(old_root_fd);
                 if (istmp < 0)

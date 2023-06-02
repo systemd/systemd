@@ -163,12 +163,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int switch_root_initramfs(void) {
-        if (mount("/run/initramfs", "/run/initramfs", NULL, MS_BIND, NULL) < 0)
-                return log_error_errno(errno, "Failed to mount bind /run/initramfs on /run/initramfs: %m");
-
-        if (mount(NULL, "/run/initramfs", NULL, MS_PRIVATE, NULL) < 0)
-                return log_error_errno(errno, "Failed to make /run/initramfs private mount: %m");
-
         /* Do not detach the old root, because /run/initramfs/shutdown needs to access it.
          *
          * Disable sync() during switch-root, we after all sync'ed here plenty, and a dumb sync (as opposed
