@@ -9,7 +9,24 @@
 #include "detach-swap.h"
 #include "libmount-util.h"
 
-int swap_list_get(const char *swaps, MountPoint **head) {
+static void swap_device_free(SwapDevice **head, SwapDevice *m) {
+        assert(head);
+        assert(m);
+
+        LIST_REMOVE(swap_device, *head, m);
+
+        free(m->path);
+        free(m);
+}
+
+void swap_devices_list_free(SwapDevice **head) {
+        assert(head);
+
+        while (*head)
+                swap_device_free(head, *head);
+}
+
+int swap_list_get(const char *swaps, SwapDevice **head) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *t = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *i = NULL;
         int r;
@@ -29,7 +46,7 @@ int swap_list_get(const char *swaps, MountPoint **head) {
 
         for (;;) {
                 struct libmnt_fs *fs;
-                _cleanup_free_ MountPoint *swap = NULL;
+                _cleanup_free_ SwapDevice *swap = NULL;
                 const char *source;
 
                 r = mnt_table_next_fs(t, i, &fs);
@@ -42,7 +59,7 @@ int swap_list_get(const char *swaps, MountPoint **head) {
                 if (!source)
                         continue;
 
-                swap = new0(MountPoint, 1);
+                swap = new0(SwapDevice, 1);
                 if (!swap)
                         return log_oom();
 
@@ -50,19 +67,19 @@ int swap_list_get(const char *swaps, MountPoint **head) {
                 if (!swap->path)
                         return log_oom();
 
-                LIST_PREPEND(mount_point, *head, TAKE_PTR(swap));
+                LIST_PREPEND(swap_device, *head, TAKE_PTR(swap));
         }
 
         return 0;
 }
 
-static int swap_points_list_off(MountPoint **head, bool *changed) {
+static int swap_points_list_off(SwapDevice **head, bool *changed) {
         int n_failed = 0;
 
         assert(head);
         assert(changed);
 
-        LIST_FOREACH(mount_point, m, *head) {
+        LIST_FOREACH(swap_device, m, *head) {
                 log_info("Deactivating swap %s.", m->path);
                 if (swapoff(m->path) < 0) {
                         log_warning_errno(errno, "Could not deactivate swap %s: %m", m->path);
@@ -71,14 +88,14 @@ static int swap_points_list_off(MountPoint **head, bool *changed) {
                 }
 
                 *changed = true;
-                mount_point_free(head, m);
+                swap_device_free(head, m);
         }
 
         return n_failed;
 }
 
 int swapoff_all(bool *changed) {
-        _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, swap_list_head);
+        _cleanup_(swap_devices_list_free) LIST_HEAD(SwapDevice, swap_list_head);
         int r;
 
         assert(changed);
