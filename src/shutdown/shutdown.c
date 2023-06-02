@@ -452,7 +452,7 @@ int main(int argc, char *argv[]) {
                         } else if (r > 0)
                                 log_info("Not all file systems unmounted, %d left.", r);
                         else
-                                log_error_errno(r, "Failed to unmount file systems: %m");
+                                log_error_errno(r, "Unable to unmount file systems: %m");
                 }
 
                 if (need_swapoff) {
@@ -464,7 +464,7 @@ int main(int argc, char *argv[]) {
                         } else if (r > 0)
                                 log_info("Not all swaps deactivated, %d left.", r);
                         else
-                                log_error_errno(r, "Failed to deactivate swaps: %m");
+                                log_error_errno(r, "Unable to deactivate swaps: %m");
                 }
 
                 if (need_loop_detach) {
@@ -476,7 +476,7 @@ int main(int argc, char *argv[]) {
                         } else if (r > 0)
                                 log_info("Not all loop devices detached, %d left.", r);
                         else
-                                log_error_errno(r, "Failed to detach loop devices: %m");
+                                log_error_errno(r, "Unable to detach loop devices: %m");
                 }
 
                 if (need_md_detach) {
@@ -488,7 +488,7 @@ int main(int argc, char *argv[]) {
                         } else if (r > 0)
                                 log_info("Not all MD devices stopped, %d left.", r);
                         else
-                                log_error_errno(r, "Failed to stop MD devices: %m");
+                                log_error_errno(r, "Unable to stop MD devices: %m");
                 }
 
                 if (need_dm_detach) {
@@ -500,7 +500,7 @@ int main(int argc, char *argv[]) {
                         } else if (r > 0)
                                 log_info("Not all DM devices detached, %d left.", r);
                         else
-                                log_error_errno(r, "Failed to detach DM devices: %m");
+                                log_error_errno(r, "Unable to detach DM devices: %m");
                 }
 
                 if (!need_umount && !need_swapoff && !need_loop_detach && !need_dm_detach
@@ -567,7 +567,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (need_umount || need_swapoff || need_loop_detach || need_dm_detach || need_md_detach)
-                log_error("Failed to finalize%s%s%s%s%s ignoring.",
+                log_error("Unable to finalize remaining%s%s%s%s%s ignoring.",
                           need_umount ? " file systems," : "",
                           need_swapoff ? " swap devices," : "",
                           need_loop_detach ? " loop devices," : "",
