@@ -13,7 +13,7 @@ at_exit() {
     set +e
 
     machinectl status long-running >/dev/null && machinectl kill --signal=KILL long-running
-    mountpoint -q /var/lib/machines && timeout 10 sh -c "while ! umount /var/lib/machines; do sleep .5; done"
+    mountpoint -q /var/lib/machines && wait_until -t 10 umount /var/lib/machines
     [[ -n "${NSPAWN_FRAGMENT:-}" ]] && rm -f "/etc/systemd/nspawn/$NSPAWN_FRAGMENT" "/var/lib/machines/$NSPAWN_FRAGMENT"
     rm -f /run/systemd/nspawn/*.nspawn
 }
@@ -182,7 +182,7 @@ machinectl import-fs /tmp/container.dir container-dir
 machinectl start container-dir
 rm -fr /tmp/container.dir
 
-timeout 10 bash -c "while ! machinectl clean --all; do sleep .5; done"
+wait_until -t 10 machinectl clean --all
 
 NSPAWN_FRAGMENT="machinectl-test-$RANDOM.nspawn"
 cat >"/var/lib/machines/$NSPAWN_FRAGMENT" <<EOF
