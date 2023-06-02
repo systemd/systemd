@@ -5,9 +5,11 @@
 #include <limits.h>
 #include <linux/oom.h>
 #include <pthread.h>
+#include <spawn.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
@@ -1721,6 +1723,41 @@ int make_reaper_process(bool b) {
                 return -errno;
 
         return 0;
+}
+
+int posix_spawn_wrapper(const char *path, char *const *argv, char *const *envp, pid_t *ret_pid) {
+        posix_spawnattr_t attr;
+        sigset_t mask;
+        pid_t pid;
+        int r;
+
+        assert(path);
+        assert(argv);
+        assert(ret_pid);
+
+        assert_se(sigemptyset(&mask) >= 0);
+        assert_se(sigaddset(&mask, SIGCHLD) >= 0);
+
+        r = posix_spawnattr_init(&attr);
+        if (r < 0)
+                return r;
+        r = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGMASK);
+        if (r < 0)
+                goto out;
+        r = posix_spawnattr_setsigmask(&attr, &mask);
+        if (r < 0)
+                goto out;
+
+        r = posix_spawn(&pid, path, NULL, &attr, argv, envp);
+        if (r < 0)
+                goto out;
+
+        *ret_pid = pid;
+
+out:
+        posix_spawnattr_destroy(&attr);
+
+        return r;
 }
 
 static const char *const sigchld_code_table[] = {
