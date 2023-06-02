@@ -140,3 +140,18 @@ wait_until() {
 
     timeout "$timeout" bash -c "while ! $cmd; do sleep .5; done"
 }
+
+# Wait while command is succeeding
+wait_while() {
+    local timeout=60
+    local cmd
+
+    if [[ $1 == '-t' ]]; then
+        timeout="$2"
+        shift 2
+    fi
+
+    cmd="$*"
+
+    timeout "$timeout" bash -c "while $cmd; do sleep .5; done"
+}
