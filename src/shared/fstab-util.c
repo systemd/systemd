@@ -54,7 +54,7 @@ bool fstab_is_extrinsic(const char *mount, const char *opts) {
 
         /* If this is an initrd mount, and we are not in the initrd, then leave
          * this around forever, too. */
-        if (opts && fstab_test_option(opts, "x-initrd.mount\0") && !in_initrd())
+        if (fstab_test_option(opts, "x-initrd.mount\0") && !in_initrd())
                 return true;
 
         return false;

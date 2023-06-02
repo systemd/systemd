@@ -8,7 +8,6 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Block Device Preparation for %f
-Documentation=man:systemd.special(7)
+Description=Verity Protection Service Slice
+Documentation=man:systemd-cryptsetup@.service(8)
 DefaultDependencies=no
-StopWhenUnneeded=yes

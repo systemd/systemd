@@ -986,7 +986,7 @@ static int attach_tcrypt(
 
         if (arg_tcrypt_veracrypt)
                 params.flags |= CRYPT_TCRYPT_VERA_MODES;
-        
+
         if (arg_tcrypt_veracrypt && arg_tcrypt_veracrypt_pim != 0)
                 params.veracrypt_pim = arg_tcrypt_veracrypt_pim;
 
@@ -2324,13 +2324,13 @@ static int run(int argc, char *argv[]) {
                         return 0;
                 }
                 if (r < 0)
-                        return log_error_errno(r, "crypt_init_by_name() failed: %m");
+                        return log_error_errno(r, "crypt_init_by_name() for volume '%s' failed: %m", volume);
 
                 cryptsetup_enable_logging(cd);
 
                 r = crypt_deactivate(cd, volume);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to deactivate: %m");
+                        return log_error_errno(r, "Failed to deactivate '%s': %m", volume);
 
         } else
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb %s.", verb);
