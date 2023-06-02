@@ -770,7 +770,7 @@ int unlinkat_deallocate(int fd, const char *name, UnlinkDeallocateFlags flags) {
          * punch-hole/truncate this to release the disk space. */
 
         bs = MAX(st.st_blksize, 512);
-        l = DIV_ROUND_UP(st.st_size, bs) * bs; /* Round up to next block size */
+        l = ROUND_UP(st.st_size, bs); /* Round up to next block size */
 
         if (fallocate(truncate_fd, FALLOC_FL_PUNCH_HOLE|FALLOC_FL_KEEP_SIZE, 0, l) >= 0)
                 return 0; /* Successfully punched a hole! 😊 */
