@@ -37,6 +37,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from hashlib import sha256
 from typing import (Any,
                     Callable,
                     IO,
@@ -234,6 +235,19 @@ class Section:
     content: pathlib.Path
     tmpfile: Optional[IO] = None
     measure: bool = False
+    sections_to_show = {
+        b'.linux' : 'binary',
+        b'.initrd' : 'binary',
+        b'.splash' : 'binary',
+        b'.dtb' : 'binary',
+        b'.cmdline' : 'text',
+        b'.osrel' : 'text',
+        b'.uname' : 'text',
+        b'.pcrpkey' : 'text',
+        b'.pcrsig' : 'text',
+        b'.sbat' : 'text'
+    }
+    custom_out_file = {}
 
     @classmethod
     def create(cls, name, contents, **kwargs):
@@ -261,6 +275,27 @@ class Section:
             contents = pathlib.Path(contents[1:])
 
         return cls.create(name, contents)
+
+    @classmethod
+    def parse_text_arg(cls, s):
+        try:
+            name, ttype = s.split(':')
+        except ValueError as e:
+            raise ValueError(f'Cannot parse section spec (name or type missing): {s!r}') from e
+
+        if '@' in ttype:
+            try:
+                ttype, path = ttype.split('@')
+            except ValueError as e:
+                raise ValueError(f'Cannot parse section spec (type or path missing): {ttype!r}') from e
+            outfile = pathlib.Path(path)
+            Section.custom_out_file[name] = outfile
+
+        if ttype != 'binary' and ttype != 'text':
+            raise ValueError(f'Cannot parse section spec (type can only be binary or text): {ttype!r}')
+
+        Section.sections_to_show[name.encode('utf-8')] = ttype
+        return Section.sections_to_show
 
     def size(self):
         return self.content.stat().st_size
@@ -327,7 +362,7 @@ def check_splash(filename):
     print(f'Splash image {filename} is {img.width}×{img.height} pixels')
 
 
-def check_inputs(opts):
+def check_build_inputs(opts):
     for name, value in vars(opts).items():
         if name in {'output', 'tools'}:
             continue
@@ -614,31 +649,32 @@ def make_uki(opts):
     # kernel payload signing
 
     sign_tool = None
-    if opts.signtool == 'sbsign':
-        sign_tool = find_sbsign(opts=opts)
-        sign = sbsign_sign
-        verify_tool = SBVERIFY
-    else:
-        sign_tool = find_pesign(opts=opts)
-        sign = pesign_sign
-        verify_tool = PESIGCHECK
-
     sign_args_present = opts.sb_key or opts.sb_cert_name
-
-    if sign_tool is None and sign_args_present:
-        raise ValueError(f'{opts.signtool}, required for signing, is not installed')
-
     sign_kernel = opts.sign_kernel
-    if sign_kernel is None and opts.linux is not None and sign_args_present:
-        # figure out if we should sign the kernel
-        sign_kernel = verify(verify_tool, opts)
+    sign = None
+    linux = opts.linux
 
-    if sign_kernel:
-        linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
-        linux = pathlib.Path(linux_signed.name)
-        sign(sign_tool, opts.linux, linux, opts=opts)
-    else:
-        linux = opts.linux
+    if sign_args_present:
+        if opts.signtool == 'sbsign':
+            sign_tool = find_sbsign(opts=opts)
+            sign = sbsign_sign
+            verify_tool = SBVERIFY
+        else:
+            sign_tool = find_pesign(opts=opts)
+            sign = pesign_sign
+            verify_tool = PESIGCHECK
+
+        if sign_tool is None:
+            raise ValueError(f'{opts.signtool}, required for signing, is not installed')
+
+        if sign_kernel is None and opts.linux is not None:
+            # figure out if we should sign the kernel
+            sign_kernel = verify(verify_tool, opts)
+
+        if sign_kernel:
+            linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
+            linux = pathlib.Path(linux_signed.name)
+            sign(sign_tool, opts.linux, linux, opts=opts)
 
     if opts.uname is None and opts.linux is not None:
         print('Kernel version not specified, starting autodetection 😖.')
@@ -688,22 +724,74 @@ def make_uki(opts):
 
     if sign_args_present:
         unsigned = tempfile.NamedTemporaryFile(prefix='uki')
-        output = unsigned.name
+        unsigned_output = unsigned.name
     else:
-        output = opts.output
+        unsigned_output = opts.output
 
-    pe_add_sections(uki, output)
+    pe_add_sections(uki, unsigned_output)
 
     # UKI signing
 
     if sign_args_present:
-        sign(sign_tool, unsigned.name, opts.output, opts=opts)
+        assert sign
+        sign(sign_tool, unsigned_output, opts.output, opts=opts)
 
         # We end up with no executable bits, let's reapply them
         os.umask(umask := os.umask(0))
         os.chmod(opts.output, 0o777 & ~umask)
 
     print(f"Wrote {'signed' if sign_args_present else 'unsigned'} {opts.output}")
+
+
+def pe_read_single_section(section, opts, name, text):
+    data = section.get_data(ignore_padding=True)
+    size = section.Misc_VirtualSize
+    h = sha256(data).hexdigest()
+    data_printed = None
+
+    if text:
+        try:
+            data_printed = data.decode()
+        except UnicodeDecodeError:
+            print(f"Warning! {name} cannot be read")
+            data_printed = None
+
+    tmp = {
+        'size' : size,
+        'sha256' : h,
+    }
+
+    if text:
+        tmp['text'] = data_printed
+
+    if opts.json:
+        out_str = json.dumps(tmp)
+    else:
+        out_str = f"{name}:\nsize: {size} bytes\nsha256: {h}\n"
+        if text:
+            out_str += f"text:\n{data_printed}\n"
+        print(out_str)
+
+    if name in Section.custom_out_file:
+        Section.custom_out_file[name].write_text(out_str)
+
+    return tmp
+
+
+def pe_read_sections(opts):
+    pe = pefile.PE(opts.file, fast_load=True)
+    json_obj = {}
+    for section in pe.sections:
+        name = section.Name.rstrip(b"\x00")
+        text_format = False
+        if name in Section.sections_to_show:
+            text_format = Section.sections_to_show[name] == 'text'
+        if opts.verbose or name in Section.sections_to_show:
+            named = name.decode()
+            json_obj[named] = pe_read_single_section(section, opts, named, text_format)
+
+    if opts.json:
+        json.dump(json_obj, sys.stdout)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -833,14 +921,47 @@ class ConfigItem:
             value = self.metavar or self.argparse_dest().upper()
         return (section_name, key, value)
 
-
-CONFIG_ITEMS = [
+CONFIG_ITEMS_COMMON = [
     ConfigItem(
         '--version',
         action = 'version',
         version = f'ukify {__version__}',
     ),
+]
 
+CONFIG_ITEMS_DISPLAY = [
+    ConfigItem(
+        'file',
+        nargs = 1,
+        type = pathlib.Path,
+        help = 'path to the PE.',
+        config_key = 'UKI/PEPath',
+    ),
+
+    ConfigItem(
+        '--section',
+        dest = 'sections',
+        metavar = 'NAME:TYPE@PATH',
+        type = Section.parse_text_arg,
+        action = 'append',
+        default = [],
+        help = 'additional section as name and content type (binary or text). Example: .linux:binary',
+    ),
+
+    ConfigItem(
+        '--json',
+        help = 'print in json format',
+        action = 'store_true',
+    ),
+
+    ConfigItem(
+        '--verbose',
+        help = 'print all sections found',
+        action = 'store_true',
+    ),
+]
+
+CONFIG_ITEMS_CREATE = [
     ConfigItem(
         '--summary',
         help = 'print parsed config and exit',
@@ -1054,16 +1175,32 @@ uki.addon,1,UKI Addon,uki.addon,1,https://www.freedesktop.org/software/systemd/m
     ),
 ]
 
-CONFIGFILE_ITEMS = { item.config_key:item
-                     for item in CONFIG_ITEMS
-                     if item.config_key }
+
+CONFIGFILE_CREATE_ITEMS = {item.config_key:item
+                           for item in CONFIG_ITEMS_CREATE
+                           if item.config_key}
 
 
-def apply_config(namespace, filename=None):
+CONFIGFILE_DISPLAY_ITEMS = {item.config_key:item
+                            for item in CONFIG_ITEMS_DISPLAY
+                            if item.config_key}
+
+
+CONFIGFILE_COMMON_ITEMS = {item.config_key:item
+                           for item in CONFIG_ITEMS_COMMON
+                           if item.config_key}
+
+
+CONFIGFILE_ALL_ITEMS = {**CONFIGFILE_CREATE_ITEMS,
+                        **CONFIGFILE_DISPLAY_ITEMS,
+                        **CONFIGFILE_COMMON_ITEMS}
+
+
+def apply_main_config(namespace, filename=None):
+    if filename is None and "config" in namespace:
+            filename = namespace.config
     if filename is None:
-        filename = namespace.config
-    if filename is None:
-        return
+            return
 
     # Fill in ._groups based on --pcr-public-key=, --pcr-private-key=, and --phases=.
     assert '_groups' not in namespace
@@ -1093,15 +1230,36 @@ def apply_config(namespace, filename=None):
         else:
             group = None
         for key, value in section.items():
-            if item := CONFIGFILE_ITEMS.get(f'{section_name}/{key}'):
+            if item := CONFIGFILE_ALL_ITEMS.get(f'{section_name}/{key}'):
                 item.apply_config(namespace, section_name, group, key, value)
             else:
                 print(f'Unknown config setting [{section_name}] {key}=')
 
 
-def config_example():
+def apply_create_config(opts):
+    # Check that --pcr-public-key=, --pcr-private-key=, and --phases=
+    # have either the same number of arguments are are not specified at all.
+    n_pcr_pub = None if opts.pcr_public_keys is None else len(opts.pcr_public_keys)
+    n_pcr_priv = None if opts.pcr_private_keys is None else len(opts.pcr_private_keys)
+    n_phase_path_groups = None if opts.phase_path_groups is None else len(opts.phase_path_groups)
+    if n_pcr_pub is not None and n_pcr_pub != n_pcr_priv:
+        raise ValueError('--pcr-public-key= specifications must match --pcr-private-key=')
+    if n_phase_path_groups is not None and n_phase_path_groups != n_pcr_priv:
+        raise ValueError('--phases= specifications must match --pcr-private-key=')
+    return opts
+
+
+def apply_config(namespace, filename=None):
+    if namespace.action == BUILD_COMMAND:
+        apply_create_config(namespace)
+    elif namespace.action == DISPLAY_COMMAND:
+        namespace.file = namespace.file[0]
+    apply_main_config(namespace, filename)
+
+
+def config_example(conf_items):
     prev_section = None
-    for item in CONFIG_ITEMS:
+    for item in conf_items:
         section, key, value = item.config_example()
         if section:
             if prev_section != section:
@@ -1112,27 +1270,67 @@ def config_example():
             yield f'{key} = {value}'
 
 
-def create_parser():
-    p = argparse.ArgumentParser(
-        description='Build and sign Unified Kernel Images',
-        allow_abbrev=False,
-        usage='''\
-ukify [options…] [LINUX INITRD…]
-''',
-        epilog='\n  '.join(('config file:', *config_example())),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-
-    for item in CONFIG_ITEMS:
+def add_items_to_parser(conf_items, p):
+    for item in conf_items:
         item.add_to(p)
 
     # Suppress printing of usage synopsis on errors
     p.error = lambda message: p.exit(2, f'{p.prog}: error: {message}\n')
 
+
+def create_main_parser():
+    p = argparse.ArgumentParser(
+        description=f'Create and display information of Unified Kernel Images.\n\nAvailable actions are {ACCEPTED_COMMANDS}.\nRun ukify [action] --help for more info.',
+        allow_abbrev=False,
+        usage = """\nukify [action] [options…]""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    add_items_to_parser(CONFIG_ITEMS_COMMON, p)
+
     return p
 
 
-def finalize_options(opts):
+def make_subparser(subparser, name, conf_items, descr, usage):
+    p = subparser.add_parser(
+        name,
+        description=descr,
+        allow_abbrev=False,
+        usage=usage,
+        add_help=True,
+        epilog= '\n  '.join(('config file:', *config_example(conf_items))),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    add_items_to_parser(conf_items, p)
+
+    return p
+
+BUILD_COMMAND = 'build'
+DISPLAY_COMMAND = 'inspect'
+ACCEPTED_COMMANDS = [BUILD_COMMAND, DISPLAY_COMMAND]
+
+def build_subparser(subparser):
+    descr = 'Build and sign Unified Kernel Images'
+    usage = f"""\nukify {BUILD_COMMAND} [options…] [LINUX INITRD…]"""
+    return make_subparser(subparser, BUILD_COMMAND, CONFIG_ITEMS_CREATE, descr, usage)
+
+
+def display_subparser(subparser):
+    descr = 'Display PE information'
+    usage = f"""\nukify {DISPLAY_COMMAND} [options…] [PE_FILE]"""
+    return make_subparser(subparser, DISPLAY_COMMAND, CONFIG_ITEMS_DISPLAY, descr, usage)
+
+
+def create_parser():
+    p = create_main_parser()
+    subparsers = p.add_subparsers(help='action to perform. Run ukify [action] --help for more info', dest='action')
+    build_subparser(subparsers)
+    display_subparser(subparsers)
+    return p
+
+
+def finalize_build_options(opts):
     if opts.cmdline and opts.cmdline.startswith('@'):
         opts.cmdline = pathlib.Path(opts.cmdline[1:])
     elif opts.cmdline:
@@ -1169,7 +1367,7 @@ def finalize_options(opts):
             raise ValueError('--secureboot-private-key= and --secureboot-certificate= must be specified together when using --signtool=sbsign')
     else:
         if not bool(opts.sb_cert_name):
-            raise ValueError('--certificate-name must be specified when using --signtool=pesign')
+            raise ValueError('--secureboot-certificate-name must be specified when using --signtool=pesign')
 
     if opts.sign_kernel and not opts.sb_key and not opts.sb_cert_name:
         raise ValueError('--sign-kernel requires either --secureboot-private-key= and --secureboot-certificate= (for sbsign) or --secureboot-certificate-name= (for pesign) to be specified')
@@ -1189,19 +1387,42 @@ def finalize_options(opts):
         sys.exit()
 
 
-def parse_args(args=None):
-    p = create_parser()
-    opts = p.parse_args(args)
+def finalize_options(opts):
+    if opts.action == BUILD_COMMAND:
+        finalize_build_options(opts)
 
-    # Check that --pcr-public-key=, --pcr-private-key=, and --phases=
-    # have either the same number of arguments are are not specified at all.
-    n_pcr_pub = None if opts.pcr_public_keys is None else len(opts.pcr_public_keys)
-    n_pcr_priv = None if opts.pcr_private_keys is None else len(opts.pcr_private_keys)
-    n_phase_path_groups = None if opts.phase_path_groups is None else len(opts.phase_path_groups)
-    if n_pcr_pub is not None and n_pcr_pub != n_pcr_priv:
-        raise ValueError('--pcr-public-key= specifications must match --pcr-private-key=')
-    if n_phase_path_groups is not None and n_phase_path_groups != n_pcr_priv:
-        raise ValueError('--phases= specifications must match --pcr-private-key=')
+
+
+def find_verb(args):
+    for command in args:
+        if len(command) and command[0] != '-':
+            return command
+    return None
+
+
+def parse_args(args=None):
+    if args is None:
+        args = sys.argv[1:]
+    # find if there is a positional argument (can be verb or positional)
+    positional = find_verb(args)
+
+    if positional is None:
+        # either we are creating an add-on, or it's help or version.
+        # let's try main parse args:
+        p = create_main_parser()
+        opts, args = p.parse_known_args(args)
+
+        if len(args) > 0:
+            # then it is the add-on, use default BUILD_COMMAND
+            args = [BUILD_COMMAND] + args
+        else:
+            args = ['--help'];
+    elif positional not in ACCEPTED_COMMANDS:
+        args = [BUILD_COMMAND] + args
+
+    # we have a positional, let's try
+    p = create_parser()
+    opts = p.parse_args(args=args)
 
     apply_config(opts)
 
@@ -1212,8 +1433,11 @@ def parse_args(args=None):
 
 def main():
     opts = parse_args()
-    check_inputs(opts)
-    make_uki(opts)
+    if opts.action == DISPLAY_COMMAND:
+        pe_read_sections(opts)
+    else:
+        check_build_inputs(opts)
+        make_uki(opts)
 
 
 if __name__ == '__main__':
