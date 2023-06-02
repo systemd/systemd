@@ -26,6 +26,7 @@
 #include "detach-dm.h"
 #include "detach-loopback.h"
 #include "detach-md.h"
+#include "detach-swap.h"
 #include "errno-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
