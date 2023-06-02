@@ -47,6 +47,7 @@ bool fstab_is_extrinsic(const char *mount, const char *opts) {
 
         if (PATH_STARTSWITH_SET(mount,
                                 "/run/initramfs",    /* This should stay around from before we boot until after we shutdown */
+                                "/run/nextroot",     /* Similar (though might be updated from the host) */
                                 "/proc",             /* All of this is API VFS */
                                 "/sys",              /* … dito … */
                                 "/dev"))             /* … dito … */
