@@ -7,8 +7,15 @@
 
 #include <stdbool.h>
 
-#include "umount.h"
+#include "list.h"
 
 int swapoff_all(bool *changed);
 
-int swap_list_get(const char *swaps, MountPoint **head);
+/* This is exported just for testing */
+typedef struct SwapDevice {
+        char *path;
+        LIST_FIELDS(struct SwapDevice, swap_device);
+} SwapDevice;
+
+int swap_list_get(const char *swaps, SwapDevice **head);
+void swap_devices_list_free(SwapDevice **head);
