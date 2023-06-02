@@ -134,6 +134,14 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D analyze=true
         -D bpf-framework=true
         -D ukify=true
+        -D seccomp=true
+        -D selinux=auto
+        -D apparmor=auto
+        -D smack=true
+        -D ima=true
+        -D first-boot-full-preset=true
+        -D initrd=true
+        -D fexecve=true
     )
 
     # On debian-like systems the library directory is not /usr/lib64 but /usr/lib/<arch-triplet>/.
