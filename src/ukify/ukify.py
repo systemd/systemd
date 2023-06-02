@@ -327,7 +327,7 @@ def check_splash(filename):
     print(f'Splash image {filename} is {img.width}×{img.height} pixels')
 
 
-def check_inputs(opts):
+def check_build_inputs(opts):
     for name, value in vars(opts).items():
         if name in {'output', 'tools'}:
             continue
@@ -835,14 +835,16 @@ class ConfigItem:
             value = self.metavar or self.argparse_dest().upper()
         return (section_name, key, value)
 
-
-CONFIG_ITEMS = [
+CONFIG_ITEMS_COMMON = [
     ConfigItem(
         '--version',
         action = 'version',
         version = f'ukify {__version__}',
     ),
+]
 
+
+CONFIG_ITEMS_CREATE = [
     ConfigItem(
         '--summary',
         help = 'print parsed config and exit',
@@ -1056,12 +1058,22 @@ uki.addon,1,UKI Addon,uki.addon,1,https://www.freedesktop.org/software/systemd/m
     ),
 ]
 
-CONFIGFILE_ITEMS = { item.config_key:item
-                     for item in CONFIG_ITEMS
-                     if item.config_key }
+
+CONFIGFILE_CREATE_ITEMS = {item.config_key:item
+                           for item in CONFIG_ITEMS_CREATE
+                           if item.config_key}
 
 
-def apply_config(namespace, filename=None):
+CONFIGFILE_COMMON_ITEMS = {item.config_key:item
+                           for item in CONFIG_ITEMS_COMMON
+                           if item.config_key}
+
+
+CONFIGFILE_ALL_ITEMS = {**CONFIGFILE_CREATE_ITEMS,
+                        **CONFIGFILE_COMMON_ITEMS}
+
+
+def apply_main_config(namespace, filename=None):
     if filename is None:
         filename = namespace.config
     if filename is None:
@@ -1095,15 +1107,33 @@ def apply_config(namespace, filename=None):
         else:
             group = None
         for key, value in section.items():
-            if item := CONFIGFILE_ITEMS.get(f'{section_name}/{key}'):
+            if item := CONFIGFILE_ALL_ITEMS.get(f'{section_name}/{key}'):
                 item.apply_config(namespace, section_name, group, key, value)
             else:
                 print(f'Unknown config setting [{section_name}] {key}=')
 
 
-def config_example():
+def apply_create_config(opts):
+    # Check that --pcr-public-key=, --pcr-private-key=, and --phases=
+    # have either the same number of arguments are are not specified at all.
+    n_pcr_pub = None if opts.pcr_public_keys is None else len(opts.pcr_public_keys)
+    n_pcr_priv = None if opts.pcr_private_keys is None else len(opts.pcr_private_keys)
+    n_phase_path_groups = None if opts.phase_path_groups is None else len(opts.phase_path_groups)
+    if n_pcr_pub is not None and n_pcr_pub != n_pcr_priv:
+        raise ValueError('--pcr-public-key= specifications must match --pcr-private-key=')
+    if n_phase_path_groups is not None and n_phase_path_groups != n_pcr_priv:
+        raise ValueError('--phases= specifications must match --pcr-private-key=')
+    return opts
+
+
+def apply_config(namespace, filename=None):
+    apply_create_config(namespace)
+    apply_main_config(namespace, filename)
+
+
+def config_example(conf_items):
     prev_section = None
-    for item in CONFIG_ITEMS:
+    for item in conf_items:
         section, key, value = item.config_example()
         if section:
             if prev_section != section:
@@ -1114,27 +1144,59 @@ def config_example():
             yield f'{key} = {value}'
 
 
-def create_parser():
-    p = argparse.ArgumentParser(
-        description='Build and sign Unified Kernel Images',
-        allow_abbrev=False,
-        usage='''\
-ukify [options…] [LINUX INITRD…]
-''',
-        epilog='\n  '.join(('config file:', *config_example())),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-
-    for item in CONFIG_ITEMS:
+def add_items_to_parser(conf_items, p):
+    for item in conf_items:
         item.add_to(p)
 
     # Suppress printing of usage synopsis on errors
     p.error = lambda message: p.exit(2, f'{p.prog}: error: {message}\n')
 
+
+def create_main_parser():
+    p = argparse.ArgumentParser(
+        description=f'Create Unified Kernel Images.\n\nAvailable actions are {ACCEPTED_COMMANDS}.\nRun ukify [action] --help for more info.',
+        allow_abbrev=False,
+        usage = """\nukify [action] [options…]""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    add_items_to_parser(CONFIG_ITEMS_COMMON, p)
+
     return p
 
 
-def finalize_options(opts):
+def make_subparser(subparser, name, conf_items, descr, usage):
+    p = subparser.add_parser(
+        name,
+        description=descr,
+        allow_abbrev=False,
+        usage=usage,
+        add_help=True,
+        epilog= '\n  '.join(('config file:', *config_example(conf_items))),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    add_items_to_parser(conf_items, p)
+
+    return p
+
+BUILD_COMMAND = 'build'
+ACCEPTED_COMMANDS = [BUILD_COMMAND]
+
+def build_subparser(subparser):
+    descr = 'Build and sign Unified Kernel Images'
+    usage = f"""\nukify {BUILD_COMMAND} [options…] [LINUX INITRD…]"""
+    return make_subparser(subparser, BUILD_COMMAND, CONFIG_ITEMS_CREATE, descr, usage)
+
+
+def create_parser():
+    p = create_main_parser()
+    subparsers = p.add_subparsers(help='action to perform. Run ukify [action] --help for more info', dest='action')
+    build_subparser(subparsers)
+    return p
+
+
+def finalize_build_options(opts):
     if opts.cmdline and opts.cmdline.startswith('@'):
         opts.cmdline = pathlib.Path(opts.cmdline[1:])
     elif opts.cmdline:
@@ -1185,25 +1247,44 @@ def finalize_options(opts):
     for section in opts.sections:
         section.check_name()
 
+def finalize_options(opts):
     if opts.summary:
         # TODO: replace pprint() with some fancy formatting.
         pprint.pprint(vars(opts))
         sys.exit()
+    finalize_build_options(opts)
+
+
+def find_verb(args):
+    for command in args:
+        if len(command) and command[0] != '-':
+            return command
+    return None
 
 
 def parse_args(args=None):
-    p = create_parser()
-    opts = p.parse_args(args)
+    if args is None:
+        args = sys.argv[1:]
+    # find if there is a positional argument (can be verb or positional)
+    positional = find_verb(args)
 
-    # Check that --pcr-public-key=, --pcr-private-key=, and --phases=
-    # have either the same number of arguments are are not specified at all.
-    n_pcr_pub = None if opts.pcr_public_keys is None else len(opts.pcr_public_keys)
-    n_pcr_priv = None if opts.pcr_private_keys is None else len(opts.pcr_private_keys)
-    n_phase_path_groups = None if opts.phase_path_groups is None else len(opts.phase_path_groups)
-    if n_pcr_pub is not None and n_pcr_pub != n_pcr_priv:
-        raise ValueError('--pcr-public-key= specifications must match --pcr-private-key=')
-    if n_phase_path_groups is not None and n_phase_path_groups != n_pcr_priv:
-        raise ValueError('--phases= specifications must match --pcr-private-key=')
+    if positional is None:
+        # either we are creating an add-on, or it's help or version.
+        # let's try main parse args:
+        p = create_main_parser()
+        opts, args = p.parse_known_args(args)
+
+        if len(args) > 0:
+            # then it is the add-on, use default BUILD_COMMAND
+            args = [BUILD_COMMAND] + args
+        else:
+            args = ['--help'];
+    elif positional not in ACCEPTED_COMMANDS:
+        args = [BUILD_COMMAND] + args
+
+    # we have a positional, let's try
+    p = create_parser()
+    opts = p.parse_args(args=args)
 
     apply_config(opts)
 
@@ -1214,7 +1295,7 @@ def parse_args(args=None):
 
 def main():
     opts = parse_args()
-    check_inputs(opts)
+    check_build_inputs(opts)
     make_uki(opts)
 
 
