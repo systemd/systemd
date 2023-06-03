@@ -128,6 +128,17 @@
         </para></listitem>
       </varlistentry>
     </variablelist>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_NSS_NO_STALE</varname></term>
+
+        <listitem><para>Takes a boolean argument. When false, the cache of expired records (stale data) will
+        not be used to answer the question.
+        <citerefentry><refentrytitle>systemd-resolved</refentrytitle></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
