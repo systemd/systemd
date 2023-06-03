@@ -168,11 +168,10 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
 }
 
 static bool nonunmountable_path(const char *path) {
-        return path_equal(path, "/")
-#if ! HAVE_SPLIT_USR
-                || path_equal(path, "/usr")
-#endif
-                || path_startswith(path, "/run/initramfs");
+        assert(path);
+
+        return PATH_IN_SET(path, "/", "/usr") ||
+                path_startswith(path, "/run/initramfs");
 }
 
 static void log_umount_blockers(const char *mnt) {
