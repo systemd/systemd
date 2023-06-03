@@ -46,8 +46,7 @@ int dns_cache_lookup(
                 DnsAnswer **ret_answer,
                 DnsPacket **ret_full_packet,
                 uint64_t *ret_query_flags,
-                DnssecResult *ret_dnssec_result,
-                bool use_stale_data);
+                DnssecResult *ret_dnssec_result);
 
 int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_family, const union in_addr_union *owner_address);
 
