@@ -18,8 +18,8 @@
 /* We never keep any item longer than 2h in our cache */
 #define CACHE_TTL_MAX_USEC (2 * USEC_PER_HOUR)
 
-/* The max clamp tll for stale data is set to 30seconds. */
-#define CACHE_STALE_CLAMP_TTL_MAX_USEC (30 * USEC_PER_SEC)
+/* The max clamp tll for stale data is set to one second. */
+#define CACHE_STALE_CLAMP_TTL_MAX_USEC (1 * USEC_PER_SEC)
 
 /* How long to cache strange rcodes, i.e. rcodes != SUCCESS and != NXDOMAIN (specifically: that's only SERVFAIL for
  * now) */
@@ -45,7 +45,8 @@ struct DnsCacheItem {
         DnsAnswer *answer;       /* The full validated answer, if this is an RRset acquired via a "primary" lookup */
         DnsPacket *full_packet;  /* The full packet this information was acquired with */
 
-        usec_t until;            /*  If StaleRetentionSec is greater than zero, until is set to a duration of StaleRetentionSec from the date of creation. If StaleRetentionSec is zero, both until and ttl_expiry will set to ttl. */
+        usec_t until;            /*  If StaleRetentionSec is greater than zero, until is set to a duration of StaleRetentionSec from the date of creation. If StaleRetentionSec is zero, both until and until_valid will set to ttl. */
+        usec_t until_valid;      /* The key is for storing the time when the TTL set to expire. */
         uint64_t query_flags;    /* SD_RESOLVED_AUTHENTICATED and/or SD_RESOLVED_CONFIDENTIAL */
         DnssecResult dnssec_result;
 
@@ -57,7 +58,6 @@ struct DnsCacheItem {
         LIST_FIELDS(DnsCacheItem, by_key);
 
         bool shared_owner;
-        usec_t until_valid;        /* The key is for storing the time when the TTL set to expire. */
 };
 
 /* Returns true if this is a cache item created as result of an explicit lookup, or created as "side-effect"
@@ -535,8 +535,7 @@ static int dns_cache_put_negative(
                 usec_t timestamp,
                 DnsResourceRecord *soa,
                 int owner_family,
-                const union in_addr_union *owner_address,
-                usec_t stale_retention_usec) {
+                const union in_addr_union *owner_address) {
 
         _cleanup_(dns_cache_item_freep) DnsCacheItem *i = NULL;
         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
@@ -545,10 +544,6 @@ static int dns_cache_put_negative(
         assert(c);
         assert(key);
         assert(owner_address);
-
-        /* Don't store the negative responses if the StaleRetentionSec is greater than zero. */
-        if (stale_retention_usec > 0 && rcode != DNS_RCODE_NXDOMAIN)
-                        return 0;
 
         /* Never cache pseudo RR keys. DNS_TYPE_ANY is particularly
          * important to filter out as we use this as a pseudo-type for
@@ -851,8 +846,7 @@ int dns_cache_put(
                         timestamp,
                         soa,
                         owner_family,
-                        owner_address,
-                        stale_retention_usec);
+                        owner_address);
         if (r < 0)
                 goto fail;
 
@@ -991,8 +985,7 @@ int dns_cache_lookup(
                 DnsAnswer **ret_answer,
                 DnsPacket **ret_full_packet,
                 uint64_t *ret_query_flags,
-                DnssecResult *ret_dnssec_result,
-                bool use_stale_data) {
+                DnssecResult *ret_dnssec_result) {
 
         _cleanup_(dns_packet_unrefp) DnsPacket *full_packet = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
@@ -1047,10 +1040,10 @@ int dns_cache_lookup(
                 }
 
                 /* Skip the next part if ttl is expired in first attempt*/
-                if (!use_stale_data && j->until_valid < current) {
+                if (FLAGS_SET(query_flags, SD_RESOLVED_NO_STALE) && j->until_valid < current) {
                         log_debug("First attempt: TTL expired for %s Use stale data: %d",
                                                 dns_resource_key_to_string(key, key_str, sizeof key_str),
-                                                use_stale_data);
+                                                !FLAGS_SET(query_flags, SD_RESOLVED_NO_STALE));
 
                         goto miss;
                 }
@@ -1087,6 +1080,11 @@ int dns_cache_lookup(
                         dnssec_result = _DNSSEC_RESULT_INVALID;
                 }
 
+                /* If the question is being resolved using stale data, the clamp TTL will be set to one second. */
+                usec_t until = FLAGS_SET(query_flags, SD_RESOLVED_NO_STALE)
+                        ? j->until_valid
+                        : (current + CACHE_STALE_CLAMP_TTL_MAX_USEC);
+
                 /* Append the answer RRs to our answer. Ideally we have the answer object, which we
                  * preferably use. But if the cached entry was generated as "side-effect" of a reply,
                  * i.e. from validated auxiliary records rather than from the main reply, then we use the
@@ -1099,19 +1097,15 @@ int dns_cache_lookup(
                         if (!j->by_key_prev || j->answer != j->by_key_prev->answer) {
                                 DnsAnswerItem *item;
 
-                                /* Answer question from the cache
-                                 * For the initial attempt, answer the question from the cache (honors ttl property).
-                                 * On the second attempt, if StaleRetentionSec is greater than zero, try to answer the question using stale date (honors until property)
-                                 * If the question is resolved using stale data, the clamp TTL will be set as the minimum value between the TTL and 30 seconds. */
                                 DNS_ANSWER_FOREACH_ITEM(item, j->answer) {
-                                               r = answer_add_clamp_ttl(
+                                        r = answer_add_clamp_ttl(
                                                         &answer,
                                                         item->rr,
                                                         item->ifindex,
                                                         item->flags,
                                                         item->rrsig,
                                                         query_flags,
-                                                        use_stale_data ? (current + MIN(item->rr->ttl * USEC_PER_SEC, CACHE_STALE_CLAMP_TTL_MAX_USEC)) : j->until_valid,
+                                                        until,
                                                         current);
                                         if (r < 0)
                                                 return r;
@@ -1126,7 +1120,7 @@ int dns_cache_lookup(
                                         FLAGS_SET(j->query_flags, SD_RESOLVED_AUTHENTICATED) ? DNS_ANSWER_AUTHENTICATED : 0,
                                         NULL,
                                         query_flags,
-                                        use_stale_data ? (current + MIN(j->rr->ttl * USEC_PER_SEC, CACHE_STALE_CLAMP_TTL_MAX_USEC)) : j->until_valid,
+                                        until,
                                         current);
                         if (r < 0)
                                 return r;

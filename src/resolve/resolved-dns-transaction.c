@@ -1698,22 +1698,21 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 /* Let's then prune all outdated entries */
                 dns_cache_prune(&t->scope->cache);
 
-                /* For the initial attempt, answer the question from the cache (honors ttl property).
+                /* For the initial attempt or when no stale data is requested, disable serve stale and answer the question from the cache (honors ttl property).
                  * On the second attempt, if StaleRetentionSec is greater than zero, try to answer the question using stale date (honors until property) */
-                bool use_stale_data = false;
-                if (t->scope->manager->stale_retention_usec > 0 && t->n_attempts > 1)
-                        use_stale_data = true;
+                uint64_t query_flags = t->query_flags;
+                if (t->n_attempts == 1 || t->scope->manager->stale_retention_usec == 0)
+                        SET_FLAG(query_flags, SD_RESOLVED_NO_STALE, true);
 
                 r = dns_cache_lookup(
                                 &t->scope->cache,
                                 dns_transaction_key(t),
-                                t->query_flags,
+                                query_flags,
                                 &t->answer_rcode,
                                 &t->answer,
                                 &t->received,
                                 &t->answer_query_flags,
-                                &t->answer_dnssec_result,
-                                use_stale_data);
+                                &t->answer_dnssec_result);
                 if (r < 0)
                         return r;
                 if (r > 0) {
@@ -1725,7 +1724,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                                 dns_transaction_reset_answer(t);
                         else {
                                 /* log as info if the question is answered using stale data. */
-                                if (use_stale_data) {
+                                if (t->n_attempts > 1 && !FLAGS_SET(query_flags, SD_RESOLVED_NO_STALE)) {
                                         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
                                         log_info("Serve Stale response rcode=%s for %s",
                                                 FORMAT_DNS_RCODE(t->answer_rcode),
