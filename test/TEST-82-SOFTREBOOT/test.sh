@@ -3,6 +3,8 @@
 set -e
 
 TEST_DESCRIPTION="Test Soft-Rebooting"
+# We temporarily remount rootfs read-only, so ignore any missing coverage
+IGNORE_MISSING_COVERAGE=yes
 
 # shellcheck source=test/test-functions
 . "$TEST_BASE_DIR/test-functions"
