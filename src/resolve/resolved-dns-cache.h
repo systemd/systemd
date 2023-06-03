@@ -35,7 +35,8 @@ int dns_cache_put(
                 DnssecResult dnssec_result,
                 uint32_t nsec_ttl,
                 int owner_family,
-                const union in_addr_union *owner_address);
+                const union in_addr_union *owner_address,
+                usec_t stale_retention_usec);
 
 int dns_cache_lookup(
                 DnsCache *c,

@@ -464,6 +464,7 @@ node /org/freedesktop/resolve1 {
 #define SD_RESOLVED_FROM_ZONE         (UINT64_C(1) &lt;&lt; 21)
 #define SD_RESOLVED_FROM_TRUST_ANCHOR (UINT64_C(1) &lt;&lt; 22)
 #define SD_RESOLVED_FROM_NETWORK      (UINT64_C(1) &lt;&lt; 23)
+#define SD_RESOLVED_NO_STALE          (UINT64_C(1) &lt;&lt; 24)
         </programlisting>
 
         <para>On input, the first five flags control the protocols to use for the look-up. They refer to
@@ -526,6 +527,9 @@ node /org/freedesktop/resolve1 {
 
         <para>With CLAMP_TTL, if reply is answered from cache, the TTLs will be adjusted by age of cache
         entry.</para>
+
+        <para>NO_STALE can be set to disable serving stale records in case upstream not reachable
+        or server failure occurs.</para>
 
         <para>The next six bits flags are used in output and provide information about the source of the answer.
         CONFIDENTIAL means the query was resolved via encrypted channels or never left this system.
