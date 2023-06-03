@@ -1098,7 +1098,7 @@ int dns_cache_lookup(
                                 DnsAnswerItem *item;
 
                                 DNS_ANSWER_FOREACH_ITEM(item, j->answer) {
-                                        r = answer_add_clamp_ttl(
+                                               r = answer_add_clamp_ttl(
                                                         &answer,
                                                         item->rr,
                                                         item->ifindex,
