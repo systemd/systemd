@@ -1393,8 +1393,8 @@ static int dump_lldp_neighbors(Table *table, const char *prefix, int ifindex) {
 
 static int dump_dhcp_leases(Table *table, const char *prefix, sd_bus *bus, const LinkInfo *link) {
         _cleanup_strv_free_ char **buf = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        JsonVariant *i = NULL;
         int r;
 
         assert(table);
@@ -1402,80 +1402,65 @@ static int dump_dhcp_leases(Table *table, const char *prefix, sd_bus *bus, const
         assert(bus);
         assert(link);
 
-        r = link_get_property(bus, link, &error, &reply, "org.freedesktop.network1.DHCPServer", "Leases");
-        if (r < 0) {
-                bool quiet = sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY);
+        r = get_description(bus, &v);
+        if (r < 0)
+                return r;
 
-                log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING,
-                               r, "Failed to query link DHCP leases: %s", bus_error_message(&error, r));
-                return 0;
+        JSON_VARIANT_ARRAY_FOREACH(i, json_variant_by_key(v, "Interfaces")) {
+                JsonVariant *dhcp_server = NULL, *lease = NULL;
+
+                if (json_variant_integer(json_variant_by_key(i, "Index")) != link->ifindex)
+                        continue;
+
+                dhcp_server = json_variant_by_key(i, "DHCPServer");
+                if (json_variant_is_null(dhcp_server))
+                        continue;
+
+                JSON_VARIANT_ARRAY_FOREACH(lease, json_variant_by_key(dhcp_server, "Leases")) {
+                        _cleanup_free_ uint8_t *client_id = NULL, *addr = NULL;
+                        _cleanup_free_ char *hostname = NULL, *id = NULL, *ip = NULL;
+                        size_t client_id_sz, addr_sz;
+                        uint64_t expiration_usec;
+
+                        r = json_variant_bytes(
+                                        json_variant_by_key(lease, "ClientId"), &client_id, &client_id_sz);
+                        if (r < 0)
+                                return r;
+                        r = sd_dhcp_client_id_to_string((void *) client_id, client_id_sz, &id);
+                        if (r < 0)
+                                return r;
+
+                        r = json_variant_bytes(json_variant_by_key(lease, "Address"), &addr, &addr_sz);
+                        if (r < 0)
+                                return r;
+                        if (addr_sz != sizeof(in_addr_t))
+                                return -EINVAL;
+                        r = in_addr_to_string(AF_INET, (void *) addr, &ip);
+                        if (r < 0)
+                                return r;
+
+                        if (json_variant_by_key(lease, "Hostname"))
+                                asprintf(&hostname,
+                                         ", \"%s\"",
+                                         json_variant_string(json_variant_by_key(lease, "Hostname")));
+                        else
+                                hostname = strdup("");
+
+                        expiration_usec = json_variant_unsigned(json_variant_by_key(lease, "ExpirationUSec"));
+
+                        r = strv_extendf(
+                                        &buf,
+                                        "%s (to %s%s), expires in %s",
+                                        ip,
+                                        id,
+                                        hostname,
+                                        FORMAT_TIMESPAN(expiration_usec - now(CLOCK_BOOTTIME), USEC_PER_SEC));
+                        if (r < 0)
+                                return r;
+                }
+
+                break;
         }
-
-        r = sd_bus_message_enter_container(reply, 'v', "a(uayayayayt)");
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_message_enter_container(reply, 'a', "(uayayayayt)");
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        while ((r = sd_bus_message_enter_container(reply, 'r', "uayayayayt")) > 0) {
-                _cleanup_free_ char *id = NULL, *ip = NULL;
-                const void *client_id, *addr, *gtw, *hwaddr;
-                size_t client_id_sz, sz;
-                uint64_t expiration;
-                uint32_t family;
-
-                r = sd_bus_message_read(reply, "u", &family);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_read_array(reply, 'y', &client_id, &client_id_sz);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_read_array(reply, 'y', &addr, &sz);
-                if (r < 0 || sz != 4)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_read_array(reply, 'y', &gtw, &sz);
-                if (r < 0 || sz != 4)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_read_array(reply, 'y', &hwaddr, &sz);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_read_basic(reply, 't', &expiration);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_dhcp_client_id_to_string(client_id, client_id_sz, &id);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = in_addr_to_string(family, addr, &ip);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = strv_extendf(&buf, "%s (to %s)", ip, id);
-                if (r < 0)
-                        return log_oom();
-
-                r = sd_bus_message_exit_container(reply);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-        }
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
 
         if (strv_isempty(buf)) {
                 r = strv_extendf(&buf, "none");
