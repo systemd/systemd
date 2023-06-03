@@ -100,6 +100,7 @@ int64_t json_variant_integer(JsonVariant *v);
 uint64_t json_variant_unsigned(JsonVariant *v);
 double json_variant_real(JsonVariant *v);
 bool json_variant_boolean(JsonVariant *v);
+int json_variant_bytes(JsonVariant *v, uint8_t **p, size_t *n);
 
 JsonVariantType json_variant_type(JsonVariant *v);
 bool json_variant_has_type(JsonVariant *v, JsonVariantType type);
