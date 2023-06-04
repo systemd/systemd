@@ -17,24 +17,19 @@ KERNEL_APPEND+=" rd.luks=1 luks.name=$PART_UUID=$DM_NAME luks.key=$PART_UUID=/ke
 QEMU_OPTIONS+=" -drive format=raw,cache=unsafe,file=${STATEDIR:?}/keydev.img"
 
 check_result_qemu() {
-    local ret=1
+    local ret
 
     mount_initdir
-    [[ -e "${initdir:?}/testok" ]] && ret=0
-    [[ -f "$initdir/failed" ]] && cp -a "$initdir/failed" "${TESTDIR:?}"
 
     cryptsetup luksOpen "${LOOPDEV:?}p2" "${DM_NAME:?}" <"$TESTDIR/keyfile"
     mount "/dev/mapper/$DM_NAME" "$initdir/var"
-    save_journal "$initdir/var/log/journal"
-    check_coverage_reports "${initdir:?}" || ret=5
+
+    check_result_common "${initdir:?}" && ret=0 || ret=$?
+
     _umount_dir "$initdir/var"
     _umount_dir "$initdir"
     cryptsetup luksClose "/dev/mapper/$DM_NAME"
 
-    [[ -f "$TESTDIR/failed" ]] && cat "$TESTDIR/failed"
-    echo "${JOURNAL_LIST:-No journals were saved}"
-
-    test -s "$TESTDIR/failed" && ret=1
     return $ret
 }
 
