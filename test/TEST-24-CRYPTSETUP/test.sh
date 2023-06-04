@@ -12,7 +12,7 @@ TEST_FORCE_NEWIMAGE=1
 
 PART_UUID="deadbeef-dead-dead-beef-000000000000"
 DM_NAME="test24_varcrypt"
-KERNEL_APPEND+=" rd.luks=1 luks.name=$PART_UUID=$DM_NAME luks.key=$PART_UUID=/keyfile:LABEL=varcrypt_keydev"
+KERNEL_APPEND+=" rd.luks=1 rd.luks.name=$PART_UUID=$DM_NAME rd.luks.key=$PART_UUID=/keyfile:LABEL=varcrypt_keydev"
 QEMU_OPTIONS+=" -drive format=raw,cache=unsafe,file=${STATEDIR:?}/keydev.img"
 
 check_result_qemu() {
@@ -61,6 +61,7 @@ test_create_image() {
     mkdir -p "$STATEDIR/keydev"
     mount "$STATEDIR/keydev.img" "$STATEDIR/keydev"
     echo -n test >"$STATEDIR/keydev/keyfile"
+    sync "$STATEDIR/keydev"
     umount "$STATEDIR/keydev"
 
     cat >>"$initdir/etc/fstab" <<EOF
@@ -97,9 +98,9 @@ EOF
 }
 
 cleanup_root_var() {
-    ddebug "umount ${initdir:?}/var"
-    mountpoint "$initdir/var" && umount "$initdir/var"
+    mountpoint -q "$initdir/var" && umount "$initdir/var"
     [[ -b "/dev/mapper/${DM_NAME:?}" ]] && cryptsetup luksClose "/dev/mapper/$DM_NAME"
+    mountpoint -q "${STATEDIR:?}/keydev" && umount "$STATEDIR/keydev"
 }
 
 test_cleanup() {
