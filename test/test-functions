@@ -1419,7 +1419,7 @@ cleanup_loopdev() {
 add_at_exit_handler cleanup_loopdev
 
 create_empty_image() {
-    if [ -z "${IMAGE_NAME:=}" ]; then
+    if [[ -z "${IMAGE_NAME:=}" ]]; then
         echo "create_empty_image: \$IMAGE_NAME not set"
         exit 1
     fi
@@ -1429,13 +1429,13 @@ create_empty_image() {
     local data_size=100
     if ! get_bool "$NO_BUILD"; then
         if meson configure "${BUILD_DIR:?}" | grep 'static-lib\|standalone-binaries' | awk '{ print $2 }' | grep -q 'true'; then
-            root_size=$((root_size+=200))
+            root_size=$((root_size + 200))
         fi
         if meson configure "${BUILD_DIR:?}" | grep 'link-.*-shared' | awk '{ print $2 }' | grep -q 'false'; then
-            root_size=$((root_size+=200))
+            root_size=$((root_size + 200))
         fi
         if get_bool "$IS_BUILT_WITH_COVERAGE"; then
-            root_size=$((root_size+=250))
+            root_size=$((root_size + 250))
         fi
         if get_bool "$IS_BUILT_WITH_ASAN"; then
             root_size=$((root_size * 2))
@@ -1455,8 +1455,8 @@ create_empty_image() {
     # Create the blank file to use as a root filesystem
     truncate -s "${root_size}M" "$IMAGE_PUBLIC"
 
-    LOOPDEV=$(losetup --show -P -f "$IMAGE_PUBLIC")
-    [ -b "$LOOPDEV" ] || return 1
+    LOOPDEV="$(losetup --show -P -f "$IMAGE_PUBLIC")"
+    [[ -b "$LOOPDEV" ]] || return 1
     # Create two partitions - a root one and a data one (utilized by some tests)
     sfdisk "$LOOPDEV" <<EOF
 label: gpt
