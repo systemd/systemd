@@ -181,6 +181,7 @@ in_units = [
         ['emergency.service',                    ''],
         ['getty@.service',                       '',
          'autovt@.service'],
+        ['initrd-battery-check.service',         'ENABLE_INITRD'],
         ['initrd-parse-etc.service',             'ENABLE_INITRD'],
         ['kmod-static-nodes.service',            'HAVE_KMOD ENABLE_TMPFILES',
          'sysinit.target.wants/'],
