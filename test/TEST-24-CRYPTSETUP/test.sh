@@ -62,6 +62,7 @@ test_create_image() {
     mkdir -p "$STATEDIR/keydev"
     mount "$STATEDIR/keydev.img" "$STATEDIR/keydev"
     echo -n test >"$STATEDIR/keydev/keyfile"
+    sync "$STATEDIR/keydev"
     umount "$STATEDIR/keydev"
 
     cat >>"$initdir/etc/fstab" <<EOF
@@ -98,9 +99,9 @@ EOF
 }
 
 cleanup_root_var() {
-    ddebug "umount ${initdir:?}/var"
-    mountpoint "$initdir/var" && umount "$initdir/var"
+    mountpoint -q "$initdir/var" && umount "$initdir/var"
     [[ -b "/dev/mapper/${DM_NAME:?}" ]] && cryptsetup luksClose "/dev/mapper/$DM_NAME"
+    mountpoint -q "${STATEDIR:?}/keydev" && umount "$STATEDIR/keydev"
 }
 
 test_cleanup() {
