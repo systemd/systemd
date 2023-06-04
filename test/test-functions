@@ -1442,8 +1442,10 @@ create_empty_image() {
         fi
     fi
 
-    if [ "$IMAGE_NAME" = "repart" ]; then
+    if [[ "$IMAGE_NAME" == "repart" ]]; then
         root_size=$((root_size+=1000))
+    elif [[ "$IMAGE_NAME" == "cryptsetup" ]]; then
+        data_size=$((data_size+=100))
     fi
 
     echo "Setting up ${IMAGE_PUBLIC:?} (${root_size} MB)"
