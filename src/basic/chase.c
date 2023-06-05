@@ -618,11 +618,51 @@ int chaseat_prefix_root(const char *path, const char *root, char **ret) {
         return 0;
 }
 
+int chase_extract_filename(const char *path, const char *root, char **ret) {
+        int r;
+
+        /* This is similar to path_extract_filename(), but takes root directory.
+         * The result should be consistent with chase() with CHASE_EXTRACT_FILENAME. */
+
+        assert(path);
+        assert(ret);
+
+        if (isempty(path))
+                return -EINVAL;
+
+        if (!path_is_absolute(path))
+                return -EINVAL;
+
+        if (!empty_or_root(root)) {
+                _cleanup_free_ char *root_abs = NULL;
+
+                r = path_make_absolute_cwd(root, &root_abs);
+                if (r < 0)
+                        return r;
+
+                path = path_startswith(path, root_abs);
+                if (!path)
+                        return -EINVAL;
+        }
+
+        if (!isempty(path)) {
+                r = path_extract_filename(path, ret);
+                if (r != -EADDRNOTAVAIL)
+                        return r;
+        }
+
+        char *fname = strdup(".");
+        if (!fname)
+                return -ENOMEM;
+
+        *ret = fname;
+        return 0;
+}
+
 int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, int open_flags, char **ret_path) {
         _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL, *fname = NULL;
         mode_t mode = open_flags & O_DIRECTORY ? 0755 : 0644;
-        const char *q;
         int r;
 
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
@@ -640,13 +680,10 @@ int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, i
                 return r;
         assert(path_fd >= 0);
 
-        assert_se(q = path_startswith(p, empty_to_root(root)));
-        if (isempty(q))
-                q = ".";
-
-        if (!FLAGS_SET(chase_flags, CHASE_PARENT)) {
-                r = path_extract_filename(q, &fname);
-                if (r < 0 && r != -EADDRNOTAVAIL)
+        if (!FLAGS_SET(chase_flags, CHASE_PARENT) &&
+            !FLAGS_SET(chase_flags, CHASE_EXTRACT_FILENAME)) {
+                r = chase_extract_filename(p, root, &fname);
+                if (r < 0)
                         return r;
         }
 
