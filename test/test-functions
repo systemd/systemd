@@ -852,7 +852,7 @@ setup_selinux() {
     fi
 
     local conf_dir=/etc/selinux
-    local fixfiles_tools=(bash uname cat sort uniq awk grep egrep head expr find rm secon setfiles)
+    local fixfiles_tools=(awk bash cat chcon expr find grep head secon setfiles rm sort uname uniq)
 
     # Make sure the following statement can't expand to "/" to prevent
     # a potential where-are-my-backups situation
@@ -861,6 +861,16 @@ setup_selinux() {
         dfatal "Failed to copy $conf_dir"
         exit 1
     fi
+
+    # We use a custom autorelabel service instead of the SELinux provided set
+    # of units & a generator, since the generator overrides the default target
+    # to the SELinux one when it detects /.autorelabel. However, we use
+    # systemd.unit= on the kernel command cmdline which always takes precedence,
+    # rendering all SELinux efforts useless. Also, pulling in selinux-autorelabel.service
+    # explicitly doesn't work either, as it doesn't check for the presence of /.autorelabel
+    # and does the relabeling uncoditionaly which always ends with a reboot, so
+    # we end up in a reboot loop (and it also spews quite a lot of errors as it
+    # wants /etc/fstab and dracut-initramfs-restore).
 
     touch "$initdir/.autorelabel"
     mkdir -p "$initdir/usr/lib/systemd/tests/testdata/units/basic.target.wants"
