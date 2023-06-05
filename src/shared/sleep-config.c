@@ -18,6 +18,7 @@
 #include "sd-device.h"
 
 #include "alloc-util.h"
+#include "battery-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "conf-parser.h"
@@ -34,15 +35,14 @@
 #include "log.h"
 #include "macro.h"
 #include "path-util.h"
-#include "sleep-config.h"
 #include "siphash24.h"
+#include "sleep-config.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "udev-util.h"
 
 #define BATTERY_LOW_CAPACITY_LEVEL 5
 #define DISCHARGE_RATE_FILEPATH "/var/lib/systemd/sleep/battery_discharge_percentage_rate_per_hour"

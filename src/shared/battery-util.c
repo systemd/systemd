@@ -1,0 +1,178 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include "sd-device.h"
+
+#include "device-private.h"
+#include "device-util.h"
+#include "string-util.h"
+#include "battery-util.h"
+
+static int device_is_power_sink(sd_device *device) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        bool found_source = false, found_sink = false;
+        sd_device *parent, *d;
+        int r;
+
+        assert(device);
+
+        /* USB-C power supply device has two power roles: source or sink. See,
+         * https://docs.kernel.org/admin-guide/abi-testing.html#abi-file-testing-sysfs-class-typec */
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_subsystem(e, "typec", true);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_parent(device, &parent);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_parent(e, parent);
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE(e, d) {
+                const char *val;
+
+                r = sd_device_get_sysattr_value(d, "power_role", &val);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                log_device_debug_errno(d, r, "Failed to read 'power_role' sysfs attribute, ignoring: %m");
+                        continue;
+                }
+
+                if (strstr(val, "[source]")) {
+                        found_source = true;
+                        log_device_debug(d, "The USB type-C port is in power source mode.");
+                } else if (strstr(val, "[sink]")) {
+                        found_sink = true;
+                        log_device_debug(d, "The USB type-C port is in power sink mode.");
+                }
+        }
+
+        if (found_sink)
+                log_device_debug(device, "The USB type-C device has at least one port in power sink mode.");
+        else if (!found_source)
+                log_device_debug(device, "The USB type-C device has no port in power source mode, assuming the device is in power sink mode.");
+        else
+                log_device_debug(device, "All USB type-C ports are in power source mode.");
+
+        return found_sink || !found_source;
+}
+
+static bool battery_is_discharging(sd_device *d) {
+        const char *val;
+        int r;
+
+        assert(d);
+
+        r = sd_device_get_sysattr_value(d, "scope", &val);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_device_debug_errno(d, r, "Failed to read 'scope' sysfs attribute, ignoring: %m");
+        } else if (streq(val, "Device")) {
+                log_device_debug(d, "The power supply is a device battery, ignoring device.");
+                return false;
+        }
+
+        r = device_get_sysattr_bool(d, "present");
+        if (r < 0)
+                log_device_debug_errno(d, r, "Failed to read 'present' sysfs attribute, assuming the battery is present: %m");
+        else if (r == 0) {
+                log_device_debug(d, "The battery is not present, ignoring the power supply.");
+                return false;
+        }
+
+        /* Possible values: "Unknown", "Charging", "Discharging", "Not charging", "Full" */
+        r = sd_device_get_sysattr_value(d, "status", &val);
+        if (r < 0) {
+                log_device_debug_errno(d, r, "Failed to read 'status' sysfs attribute, assuming the battery is discharging: %m");
+                return true;
+        }
+        if (!streq(val, "Discharging")) {
+                log_device_debug(d, "The battery status is '%s', assuming the battery is not used as a power source of this machine.", val);
+                return false;
+        }
+
+        return true;
+}
+
+int on_ac_power(void) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        bool found_ac_online = false, found_discharging_battery = false;
+        sd_device *d;
+        int r;
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_subsystem(e, "power_supply", true);
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE(e, d) {
+                /* See
+                 * https://github.com/torvalds/linux/blob/4eef766b7d4d88f0b984781bc1bcb574a6eafdc7/include/linux/power_supply.h#L176
+                 * for defined power source types. Also see:
+                 * https://docs.kernel.org/admin-guide/abi-testing.html#abi-file-testing-sysfs-class-power */
+
+                const char *val;
+                r = sd_device_get_sysattr_value(d, "type", &val);
+                if (r < 0) {
+                        log_device_debug_errno(d, r, "Failed to read 'type' sysfs attribute, ignoring device: %m");
+                        continue;
+                }
+
+                /* Ignore USB-C power supply in source mode. See issue #21988. */
+                if (streq(val, "USB")) {
+                        r = device_is_power_sink(d);
+                        if (r <= 0) {
+                                if (r < 0)
+                                        log_device_debug_errno(d, r, "Failed to determine the current power role, ignoring device: %m");
+                                else
+                                        log_device_debug(d, "USB power supply is in source mode, ignoring device.");
+                                continue;
+                        }
+                }
+
+                if (streq(val, "Battery")) {
+                        if (battery_is_discharging(d)) {
+                                found_discharging_battery = true;
+                                log_device_debug(d, "The power supply is a battery and currently discharging.");
+                        }
+                        continue;
+                }
+
+                r = device_get_sysattr_unsigned(d, "online", NULL);
+                if (r < 0) {
+                        log_device_debug_errno(d, r, "Failed to query 'online' sysfs attribute, ignoring device: %m");
+                        continue;
+                } else if (r > 0)  /* At least 1 and 2 are defined as different types of 'online' */
+                        found_ac_online = true;
+
+                log_device_debug(d, "The power supply is currently %s.", r > 0 ? "online" : "offline");
+        }
+
+        if (found_ac_online) {
+                log_debug("Found at least one online non-battery power supply, system is running on AC.");
+                return true;
+        } else if (found_discharging_battery) {
+                log_debug("Found at least one discharging battery and no online power sources, assuming system is running from battery.");
+                return false;
+        } else {
+                log_debug("No power supply reported online and no discharging battery found, assuming system is running on AC.");
+                return true;
+        }
+}
