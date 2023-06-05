@@ -549,7 +549,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
          * applied after we are done. For that we invalidate anything already realized, so that we can
          * realize it again. */
         if (u->cgroup_realized) {
-                unit_invalidate_cgroup(u, _CGROUP_MASK_ALL);
+                unit_invalidate_cgroup(u, _CGROUP_MASK_ALL^unit_get_delegate_mask(u));
                 unit_invalidate_cgroup_bpf(u);
         }
 
