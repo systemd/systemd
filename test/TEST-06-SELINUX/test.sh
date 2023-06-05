@@ -42,16 +42,13 @@ test_append_files() {
     fi
 
     mkdir "$workspace/systemd-test-module"
-    cp systemd_test.te "$workspace/systemd-test-module"
-    cp systemd_test.if "$workspace/systemd-test-module"
-    cp systemd_test.fc "$workspace/systemd-test-module"
+    cp -v systemd_test.* "$workspace/systemd-test-module/"
+    image_install checkmodule load_policy m4 make sefcontext_compile semodule semodule_package runcon
     image_install -o sesearch
-    image_install runcon
-    image_install checkmodule semodule semodule_package m4 make load_policy sefcontext_compile
     image_install -o /usr/libexec/selinux/hll/pp # Fedora/RHEL/...
     image_install -o /usr/lib/selinux/hll/pp     # Debian/Ubuntu/...
 
-    if ! chroot "$workspace" make -C /systemd-test-module -f /usr/share/selinux/devel/Makefile clean systemd_test.pp; then
+    if ! chroot "$workspace" make -C /systemd-test-module -f /usr/share/selinux/devel/Makefile clean load systemd_test.pp QUIET=n; then
         dfatal "Failed to build the systemd test module"
         exit 1
     fi
