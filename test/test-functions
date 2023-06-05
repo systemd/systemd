@@ -69,21 +69,14 @@ _at_exit() {
     # Run the EXIT handlers in reverse order
     for ((i = ${#_AT_EXIT_HANDLERS[@]} - 1; i >= 0; i--)); do
         ddebug "Running EXIT handler '${_AT_EXIT_HANDLERS[$i]}'"
-        "${_AT_EXIT_HANDLERS[$i]}"
+        eval "${_AT_EXIT_HANDLERS[$i]}"
     done
 }
 
 trap _at_exit EXIT
 
 add_at_exit_handler() {
-    local handler="${1?}"
-
-    if [[ "$(type -t "$handler")" != "function" ]]; then
-        dfatal "'$handler' is not a function"
-        exit 1
-    fi
-
-    _AT_EXIT_HANDLERS+=("$handler")
+    _AT_EXIT_HANDLERS+=("${1:?}")
 }
 
 # Decide if we can (and want to) run qemu with KVM acceleration.
@@ -333,6 +326,17 @@ if get_bool "$IS_BUILT_WITH_ASAN"; then
     echo "Detected ASan RT '$ASAN_RT_NAME' located at '$ASAN_RT_PATH'"
 fi
 
+test_require_bin() {
+    local bin
+
+    for bin in "$@"; do
+        if ! command -v "$bin" >/dev/null; then
+            echo "Required binary $bin not available, skipping the test"
+            exit 0
+        fi
+    done
+}
+
 find_qemu_bin() {
     QEMU_BIN="${QEMU_BIN:-""}"
     # SUSE and Red Hat call the binary qemu-kvm. Debian and Gentoo call it kvm.
@@ -362,6 +366,48 @@ find_qemu_bin() {
         echo "Could not find a suitable qemu binary" >&2
         return 1
     fi
+}
+
+qemu_setup_swtpm_socket() {
+    local pid state_dir tpm_device
+
+    if ! tpm_device="$(qemu_get_tpm_device)"; then
+        dinfo "Found QEMU version is too old for TPM2 on ppc64le"
+        exit 0
+    fi
+
+    state_dir="$(mktemp -d)"
+    swtpm socket --tpm2 --tpmstate dir="$state_dir" --ctrl type=unixio,path="$state_dir/sock" &
+    pid=$!
+    if ! kill -0 "$pid"; then
+        echo >&2 "Failed to setup swtpm socket"
+        return 1
+    fi
+
+    dinfo "Started swtpm as PID $pid with state dir $state_dir"
+
+    add_at_exit_handler "kill -TERM $pid 2>/dev/null; rm -rf '$state_dir'"
+
+    QEMU_OPTIONS+=" -chardev socket,id=chrtpm,path=$state_dir/sock -tpmdev emulator,id=tpm0,chardev=chrtpm -device $tpm_device,tpmdev=tpm0"
+    dinfo "Configured emulated TPM2 device $tpm_device"
+
+    return 0
+}
+
+qemu_get_tpm_device() {
+    local tpm_device="tpm-tis"
+
+    if [[ "$(uname -m)" == "ppc64le" ]]; then
+        # tpm-spapr support was introduced in qemu 5.0.0
+        if ! qemu_min_version "5.0.0"; then
+            return 1
+        fi
+
+        tpm_device="tpm-spapr"
+    fi
+
+    echo "$tpm_device"
+    return 0
 }
 
 # Compares argument #1=X.Y.Z (X&Y&Z = numeric) to the version of the installed qemu
@@ -453,6 +499,10 @@ run_qemu() {
     fi
 
     find_qemu_bin || return 1
+
+    if get_bool "${TEST_SETUP_SWTPM:-}"; then
+        qemu_setup_swtpm_socket || return 1
+    fi
 
     # Umount initdir to avoid concurrent access to the filesystem
     _umount_dir "$initdir"
@@ -1373,7 +1423,7 @@ cleanup_loopdev() {
 add_at_exit_handler cleanup_loopdev
 
 create_empty_image() {
-    if [ -z "${IMAGE_NAME:=}" ]; then
+    if [[ -z "${IMAGE_NAME:=}" ]]; then
         echo "create_empty_image: \$IMAGE_NAME not set"
         exit 1
     fi
@@ -1383,21 +1433,24 @@ create_empty_image() {
     local data_size=100
     if ! get_bool "$NO_BUILD"; then
         if meson configure "${BUILD_DIR:?}" | grep 'static-lib\|standalone-binaries' | awk '{ print $2 }' | grep -q 'true'; then
-            root_size=$((root_size+=200))
+            root_size=$((root_size + 200))
         fi
         if meson configure "${BUILD_DIR:?}" | grep 'link-.*-shared' | awk '{ print $2 }' | grep -q 'false'; then
-            root_size=$((root_size+=200))
+            root_size=$((root_size + 200))
         fi
         if get_bool "$IS_BUILT_WITH_COVERAGE"; then
-            root_size=$((root_size+=250))
+            root_size=$((root_size + 250))
         fi
         if get_bool "$IS_BUILT_WITH_ASAN"; then
             root_size=$((root_size * 2))
         fi
     fi
 
-    if [ "$IMAGE_NAME" = "repart" ]; then
-        root_size=$((root_size+=1000))
+    if [[ "${IMAGE_ADDITIONAL_ROOT_SIZE:-0}" -gt 0 ]]; then
+        root_size=$((root_size + IMAGE_ADDITIONAL_ROOT_SIZE))
+    fi
+    if [[ "${IMAGE_ADDITIONAL_DATA_SIZE:-0}" -gt 0 ]]; then
+        data_size=$((data_size + IMAGE_ADDITIONAL_DATA_SIZE))
     fi
 
     echo "Setting up ${IMAGE_PUBLIC:?} (${root_size} MB)"
@@ -1406,8 +1459,8 @@ create_empty_image() {
     # Create the blank file to use as a root filesystem
     truncate -s "${root_size}M" "$IMAGE_PUBLIC"
 
-    LOOPDEV=$(losetup --show -P -f "$IMAGE_PUBLIC")
-    [ -b "$LOOPDEV" ] || return 1
+    LOOPDEV="$(losetup --show -P -f "$IMAGE_PUBLIC")"
+    [[ -b "$LOOPDEV" ]] || return 1
     # Create two partitions - a root one and a data one (utilized by some tests)
     sfdisk "$LOOPDEV" <<EOF
 label: gpt
@@ -1662,8 +1715,7 @@ check_result_nspawn() {
         fi
     fi
 
-    check_result_common "${workspace}"
-    ret=$?
+    check_result_common "${workspace}" && ret=0 || ret=$?
 
     _umount_dir "${initdir:?}"
 
@@ -1683,8 +1735,7 @@ check_result_qemu() {
         fi
     fi
 
-    check_result_common "${initdir:?}"
-    ret=$?
+    check_result_common "${initdir:?}" && ret=0 || ret=$?
 
     _umount_dir "${initdir:?}"
 

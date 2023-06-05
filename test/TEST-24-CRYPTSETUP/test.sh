@@ -4,6 +4,7 @@ set -e
 
 TEST_DESCRIPTION="cryptsetup systemd setup"
 IMAGE_NAME="cryptsetup"
+IMAGE_ADDITIONAL_DATA_SIZE=100
 TEST_NO_NSPAWN=1
 TEST_FORCE_NEWIMAGE=1
 
@@ -12,28 +13,29 @@ TEST_FORCE_NEWIMAGE=1
 
 PART_UUID="deadbeef-dead-dead-beef-000000000000"
 DM_NAME="test24_varcrypt"
-KERNEL_APPEND+=" rd.luks=1 luks.name=$PART_UUID=$DM_NAME luks.key=$PART_UUID=/keyfile:LABEL=varcrypt_keydev"
+KERNEL_OPTIONS=(
+    "rd.luks=1"
+    "luks.name=$PART_UUID=$DM_NAME"
+    "luks.key=$PART_UUID=/keyfile:LABEL=varcrypt_keydev"
+    "luks.options=$PART_UUID=x-initrd.attach"
+)
+KERNEL_APPEND+=" ${KERNEL_OPTIONS[*]}"
 QEMU_OPTIONS+=" -drive format=raw,cache=unsafe,file=${STATEDIR:?}/keydev.img"
 
 check_result_qemu() {
-    local ret=1
+    local ret
 
     mount_initdir
-    [[ -e "${initdir:?}/testok" ]] && ret=0
-    [[ -f "$initdir/failed" ]] && cp -a "$initdir/failed" "${TESTDIR:?}"
 
     cryptsetup luksOpen "${LOOPDEV:?}p2" "${DM_NAME:?}" <"$TESTDIR/keyfile"
     mount "/dev/mapper/$DM_NAME" "$initdir/var"
-    save_journal "$initdir/var/log/journal"
-    check_coverage_reports "${initdir:?}" || ret=5
+
+    check_result_common "${initdir:?}" && ret=0 || ret=$?
+
     _umount_dir "$initdir/var"
     _umount_dir "$initdir"
     cryptsetup luksClose "/dev/mapper/$DM_NAME"
 
-    [[ -f "$TESTDIR/failed" ]] && cat "$TESTDIR/failed"
-    echo "${JOURNAL_LIST:-No journals were saved}"
-
-    test -s "$TESTDIR/failed" && ret=1
     return $ret
 }
 
@@ -61,6 +63,7 @@ test_create_image() {
     mkdir -p "$STATEDIR/keydev"
     mount "$STATEDIR/keydev.img" "$STATEDIR/keydev"
     echo -n test >"$STATEDIR/keydev/keyfile"
+    sync "$STATEDIR/keydev"
     umount "$STATEDIR/keydev"
 
     cat >>"$initdir/etc/fstab" <<EOF
@@ -97,9 +100,9 @@ EOF
 }
 
 cleanup_root_var() {
-    ddebug "umount ${initdir:?}/var"
-    mountpoint "$initdir/var" && umount "$initdir/var"
+    mountpoint -q "$initdir/var" && umount "$initdir/var"
     [[ -b "/dev/mapper/${DM_NAME:?}" ]] && cryptsetup luksClose "/dev/mapper/$DM_NAME"
+    mountpoint -q "${STATEDIR:?}/keydev" && umount "$STATEDIR/keydev"
 }
 
 test_cleanup() {
