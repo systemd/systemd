@@ -28,11 +28,11 @@ cp -a "$ROOTDIR/hwdb.d" "$D/etc/udev/hwdb.d"
 err=$("$SYSTEMD_HWDB" update --root "$D" 2>&1 >/dev/null) && rc= || rc=$?
 if [ -n "$err" ]; then
     echo "$err"
-    exit ${rc:-1}
+    exit "${rc:-1}"
 fi
 if [ -n "$rc" ]; then
     echo "$SYSTEMD_HWDB returned $rc"
-    exit $rc
+    exit "$rc"
 fi
 
 if [ ! -e "$D/etc/udev/hwdb.bin" ]; then
@@ -47,7 +47,7 @@ cp -a "$ROOTDIR/test/hwdb.d" "$D/etc/udev/hwdb.d"
 err=$("$SYSTEMD_HWDB" update --root "$D" 2>&1 >/dev/null) && rc= || rc=$?
 if [ -n "$rc" ]; then
     echo "$SYSTEMD_HWDB returned $rc"
-    exit $rc
+    exit "$rc"
 fi
 if [ -n "$err" ]; then
     echo "Expected warnings"

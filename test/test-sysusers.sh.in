@@ -140,7 +140,7 @@ for f in $(find "$SOURCE"/test-*.input | sort -V); do
 
     # shellcheck disable=SC2050
     [ @ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES@ = 1 ] && bound=555 || bound=$system_guid_max
-    compare "${f%.*}" "(with login.defs)" $bound
+    compare "${f%.*}" "(with login.defs)" "$bound"
 done
 
 rm -f "$TESTDIR"/etc/sysusers.d/* "$TESTDIR"/usr/lib/sysusers.d/*
@@ -156,7 +156,7 @@ for f in $(find "$SOURCE"/test-*.input | sort -V); do
 
     # shellcheck disable=SC2050
     [ @ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES@ = 1 ] && bound=555 || bound=$system_guid_max
-    compare "${f%.*}" "(with login.defs symlinked)" $bound
+    compare "${f%.*}" "(with login.defs symlinked)" "$bound"
 done
 
 rm -f "$TESTDIR"/etc/sysusers.d/* "$TESTDIR"/usr/lib/sysusers.d/*
