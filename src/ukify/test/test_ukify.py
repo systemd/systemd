@@ -50,9 +50,9 @@ def test_round_up():
     assert ukify.round_up(4097) == 8192
 
 def test_namespace_creation():
-    ns = ukify.create_parser().parse_args(('A','B'))
-    assert ns.linux == pathlib.Path('A')
-    assert ns.initrd == [pathlib.Path('B')]
+    ns = ukify.create_parser().parse_args(())
+    assert ns.linux == None
+    assert ns.initrd == []
 
 def test_config_example():
     ex = ukify.config_example()
@@ -87,7 +87,7 @@ def test_apply_config(tmp_path):
         Phases = {':'.join(ukify.KNOWN_PHASES)}
         '''))
 
-    ns = ukify.create_parser().parse_args(('A','B'))
+    ns = ukify.create_parser().parse_args(())
     ns.linux = None
     ns.initrd = []
     ukify.apply_config(ns, config)
