@@ -428,6 +428,18 @@
         <literal>x86-64</literal>.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--offline=</option><arg>BOOL</arg></term>
+
+        <listitem><para>Instructs <command>systemd-repart</command> to build the image offline. Takes a
+        boolean or <literal>auto</literal>. Defaults to <literal>auto</literal>. If enabled, the image is
+        built without using loop devices. This is useful to build images unprivileged or when loop devices
+        are not available. If disabled, the image is always built using loop devices. If
+        <literal>auto</literal>, <command>systemd-repart</command> will build the image online if possible
+        and fall back to building the image offline if loop devices are not available or cannot be accessed
+        due to missing permissions.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
