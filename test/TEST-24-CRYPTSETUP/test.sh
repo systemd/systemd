@@ -13,7 +13,13 @@ TEST_FORCE_NEWIMAGE=1
 
 PART_UUID="deadbeef-dead-dead-beef-000000000000"
 DM_NAME="test24_varcrypt"
-KERNEL_APPEND+=" rd.luks=1 luks.name=$PART_UUID=$DM_NAME luks.key=$PART_UUID=/keyfile:LABEL=varcrypt_keydev"
+KERNEL_OPTIONS=(
+    "rd.luks=1"
+    "luks.name=$PART_UUID=$DM_NAME"
+    "luks.key=$PART_UUID=/keyfile:LABEL=varcrypt_keydev"
+    "luks.options=$PART_UUID=x-initrd.attach"
+)
+KERNEL_APPEND+=" ${KERNEL_OPTIONS[*]}"
 QEMU_OPTIONS+=" -drive format=raw,cache=unsafe,file=${STATEDIR:?}/keydev.img"
 
 check_result_qemu() {
