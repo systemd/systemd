@@ -98,6 +98,13 @@ INTERACTIVE_DEBUG=1
     (e.g. by setting a usable default terminal, suppressing the shutdown after
     the test, etc.)
 
+TEST_MATCH_SUBTEST=subtest
+    If the test makes use of `run_subtests` use this variable to provide
+    a POSIX extended regex to run only subtests matching the expression
+
+TEST_MATCH_TESTCASE=testcase
+    Same as $TEST_MATCH_SUBTEST but for subtests that make use of `run_testcases`
+
 The kernel and initrd can be specified with $KERNEL_BIN and $INITRD. (Fedora's
 or Debian's default kernel path and initrd are used by default.)
 
