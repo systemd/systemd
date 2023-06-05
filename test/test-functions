@@ -852,7 +852,7 @@ setup_selinux() {
     fi
 
     local conf_dir=/etc/selinux
-    local fixfiles_tools=(awk bash cat chcon expr find grep head secon setfiles rm sort uname uniq)
+    local fixfiles_tools=(awk bash cat chcon expr egrep find grep head secon setfiles rm sort uname uniq)
 
     # Make sure the following statement can't expand to "/" to prevent
     # a potential where-are-my-backups situation
