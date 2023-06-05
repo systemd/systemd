@@ -17,6 +17,7 @@
 #include "sd-bus.h"
 #include "sd-messages.h"
 
+#include "battery-util.h"
 #include "btrfs-util.h"
 #include "build.h"
 #include "bus-error.h"

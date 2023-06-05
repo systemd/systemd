@@ -7,6 +7,8 @@
 #include "string-util.h"
 #include "battery-util.h"
 
+#define BATTERY_LOW_CAPACITY_LEVEL 5
+
 static int device_is_power_sink(sd_device *device) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         bool found_source = false, found_sink = false;
@@ -175,4 +177,82 @@ int on_ac_power(void) {
                 log_debug("No power supply reported online and no discharging battery found, assuming system is running on AC.");
                 return true;
         }
+}
+
+/* Get the list of batteries */
+int battery_enumerator_new(sd_device_enumerator **ret) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        int r;
+
+        assert(ret);
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_subsystem(e, "power_supply", /* match = */ true);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_sysattr(e, "type", "Battery", /* match = */ true);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_sysattr(e, "present", "1", /* match = */ true);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_sysattr(e, "scope", "Device", /* match = */ false);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(e);
+        return 0;
+}
+
+/* Battery percentage capacity fetched from capacity file and if in range 0-100 then returned */
+int battery_read_capacity_percentage(sd_device *dev) {
+        int battery_capacity, r;
+
+        assert(dev);
+
+        r = device_get_sysattr_int(dev, "capacity", &battery_capacity);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to read/parse POWER_SUPPLY_CAPACITY: %m");
+
+        if (battery_capacity < 0 || battery_capacity > 100)
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ERANGE), "Invalid battery capacity");
+
+        return battery_capacity;
+}
+
+/* If a battery whose percentage capacity is <= 5% exists, and we're not on AC power, return success */
+int battery_is_discharging_and_low(void) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *dev;
+        int r;
+
+         /* We have not used battery capacity_level since value is set to full
+         * or Normal in case ACPI is not working properly. In case of no battery
+         * 0 will be returned and system will be suspended for 1st cycle then hibernated */
+
+        r = on_ac_power();
+        if (r < 0)
+                log_debug_errno(r, "Failed to check if the system is running on AC, assuming it is not: %m");
+        if (r > 0)
+                return false;
+
+        r = battery_enumerator_new(&e);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to initialize battery enumerator: %m");
+
+        FOREACH_DEVICE(e, dev)
+                if (battery_read_capacity_percentage(dev) > BATTERY_LOW_CAPACITY_LEVEL)
+                        return false;
+
+        return true;
 }
