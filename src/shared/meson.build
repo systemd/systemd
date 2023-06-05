@@ -6,6 +6,7 @@ shared_sources = files(
         'ask-password-api.c',
         'barrier.c',
         'base-filesystem.c',
+        'battery-util.c',
         'binfmt-util.c',
         'bitmap.c',
         'blockdev-util.c',

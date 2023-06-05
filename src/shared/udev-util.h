@@ -55,8 +55,6 @@ bool devpath_conflict(const char *a, const char *b);
 int udev_queue_is_empty(void);
 int udev_queue_init(void);
 
-int on_ac_power(void);
-
 bool udev_available(void);
 
 #if HAVE_SYS_SDT_H

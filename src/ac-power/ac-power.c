@@ -2,9 +2,9 @@
 
 #include <getopt.h>
 
+#include "battery-util.h"
 #include "build.h"
 #include "main-func.h"
-#include "udev-util.h"
 
 static bool arg_verbose = false;
 
