@@ -152,6 +152,7 @@ static size_t arg_n_defer_partitions = 0;
 static uint64_t arg_sector_size = 0;
 static ImagePolicy *arg_image_policy = NULL;
 static Architecture arg_architecture = _ARCHITECTURE_INVALID;
+static int arg_offline = -1;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -3253,21 +3254,23 @@ static int partition_target_prepare(
         /* Loopback block devices are not only useful to turn regular files into block devices, but
          * also to cut out sections of block devices into new block devices. */
 
-        r = loop_device_make(whole_fd, O_RDWR, p->offset, size, 0, 0, LOCK_EX, &d);
-        if (r < 0 && r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))
-                return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
-        if (r >= 0) {
-                t->loop = TAKE_PTR(d);
-                *ret = TAKE_PTR(t);
-                return 0;
+        if (arg_offline <= 0) {
+                r = loop_device_make(whole_fd, O_RDWR, p->offset, size, 0, 0, LOCK_EX, &d);
+                if (r < 0 && (arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))))
+                        return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
+                if (r >= 0) {
+                        t->loop = TAKE_PTR(d);
+                        *ret = TAKE_PTR(t);
+                        return 0;
+                }
+
+                log_debug_errno(r, "No access to loop devices, falling back to a regular file");
         }
 
         /* If we can't allocate a loop device, let's write to a regular file that we copy into the final
          * image so we can run in containers and without needing root privileges. On filesystems with
          * reflinking support, we can take advantage of this and just reflink the result into the image.
          */
-
-        log_debug_errno(r, "No access to loop devices, falling back to a regular file");
 
         r = prepare_temporary_file(t, size);
         if (r < 0)
@@ -5852,6 +5855,7 @@ static int help(void) {
                "                          but don't populate them yet\n"
                "     --sector-size=SIZE   Set the logical sector size for the image\n"
                "     --architecture=ARCH  Set the generic architecture for the image\n"
+               "     --offline=BOOL       Whether to build the image offline\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -5894,6 +5898,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SECTOR_SIZE,
                 ARG_SKIP_PARTITIONS,
                 ARG_ARCHITECTURE,
+                ARG_OFFLINE,
         };
 
         static const struct option options[] = {
@@ -5927,6 +5932,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "defer-partitions",     required_argument, NULL, ARG_DEFER_PARTITIONS     },
                 { "sector-size",          required_argument, NULL, ARG_SECTOR_SIZE          },
                 { "architecture",         required_argument, NULL, ARG_ARCHITECTURE         },
+                { "offline",              required_argument, NULL, ARG_OFFLINE              },
                 {}
         };
 
@@ -6233,6 +6239,19 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid architecture '%s'", optarg);
 
                         arg_architecture = r;
+                        break;
+
+                case ARG_OFFLINE:
+                        if (streq(optarg, "auto"))
+                                arg_offline = -1;
+                        else {
+                                r = parse_boolean_argument("--offline=", optarg, NULL);
+                                if (r < 0)
+                                        return r;
+
+                                arg_offline = r;
+                        }
+
                         break;
 
                 case '?':
