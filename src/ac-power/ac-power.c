@@ -8,12 +8,18 @@
 
 static bool arg_verbose = false;
 
+static enum {
+        ACTION_AC_POWER,
+        ACTION_LOW,
+} arg_action = ACTION_AC_POWER;
+
 static void help(void) {
         printf("%s\n\n"
                "Report whether we are connected to an external power source.\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
-               "  -v --verbose          Show state as text\n",
+               "  -v --verbose          Show state as text\n"
+               "     --low              Checks if battery is discharing and low\n",
                program_invocation_short_name);
 }
 
@@ -21,12 +27,14 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_LOW,
         };
 
         static const struct option options[] = {
                 { "help",    no_argument, NULL, 'h'         },
                 { "version", no_argument, NULL, ARG_VERSION },
                 { "verbose", no_argument, NULL, 'v'         },
+                { "low",     no_argument, NULL, ARG_LOW     },
                 {}
         };
 
@@ -48,6 +56,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'v':
                         arg_verbose = true;
+                        break;
+
+                case ARG_LOW:
+                        arg_action = ACTION_LOW;
                         break;
 
                 case '?':
@@ -78,9 +90,15 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = on_ac_power();
-        if (r < 0)
-                return log_error_errno(r, "Failed to read AC status: %m");
+        if (arg_action == ACTION_AC_POWER) {
+                r = on_ac_power();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read AC status: %m");
+        } else {
+                r = battery_is_discharging_and_low();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read battery discharging + low status: %m");
+        }
 
         if (arg_verbose)
                 puts(yes_no(r));
