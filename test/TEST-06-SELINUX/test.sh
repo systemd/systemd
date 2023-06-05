@@ -43,9 +43,8 @@ test_append_files() {
 
     mkdir "$workspace/systemd-test-module"
     cp -v systemd_test.* "$workspace/systemd-test-module/"
+    image_install checkmodule load_policy m4 make sefcontext_compile semodule semodule_package runcon
     image_install -o sesearch
-    image_install runcon
-    image_install checkmodule semodule semodule_package m4 make load_policy sefcontext_compile
     image_install -o /usr/libexec/selinux/hll/pp # Fedora/RHEL/...
     image_install -o /usr/lib/selinux/hll/pp     # Debian/Ubuntu/...
 
