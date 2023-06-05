@@ -2004,7 +2004,8 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                  * are only transitionary and followed by an automatic restart. We have fine-grained
                  * low-level states for this though so that software can distinguish the permanent UNIT_INACTIVE
                  * state from this transitionary UNIT_INACTIVE state by looking at the low-level states. */
-                service_set_state(s, restart_state);
+                if (s->restart_mode != SERVICE_RESTART_MODE_QUICK)
+                        service_set_state(s, restart_state);
 
                 r = service_arm_timer(s, /* relative= */ true, service_restart_usec_next(s));
                 if (r < 0)
@@ -5000,6 +5001,13 @@ static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_restart, ServiceRestart);
+
+static const char* const service_restart_mode_table[_SERVICE_RESTART_MODE_MAX] = {
+        [SERVICE_RESTART_MODE_NORMAL] = "normal",
+        [SERVICE_RESTART_MODE_QUICK]  = "quick",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(service_restart_mode, ServiceRestartMode);
 
 static const char* const service_type_table[_SERVICE_TYPE_MAX] = {
         [SERVICE_SIMPLE]        = "simple",
