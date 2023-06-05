@@ -185,7 +185,7 @@ static void show_cg_info(const char *controller, const char *path) {
         if (cg_all_unified() == 0 && controller && !streq(controller, SYSTEMD_CGROUP_CONTROLLER))
                 printf("Controller %s; ", controller);
 
-        printf("Control group %s:\n", empty_to_root(path));
+        printf("CGroup %s:\n", empty_to_root(path));
         fflush(stdout);
 }
 
