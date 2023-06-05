@@ -94,7 +94,7 @@
       table slot whose index is greater than the indexes of all existing partitions. Partitions are never
       reordered and thus partition numbers remain stable. When partitions are created, they are placed in the
       smallest area of free space that is large enough to satisfy the size and padding limits. This means
-      that partitions might have different order on disk than in the parition table. Note that this
+      that partitions might have different order on disk than in the partition table. Note that this
       allocation happens in memory only, the partition table on disk is not updated yet.</para></listitem>
 
       <listitem><para>All existing partitions for which configuration files exist and which currently have no
