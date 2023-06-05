@@ -1442,8 +1442,11 @@ create_empty_image() {
         fi
     fi
 
-    if [ "$IMAGE_NAME" = "repart" ]; then
-        root_size=$((root_size+=1000))
+    if [[ "${IMAGE_ADDITIONAL_ROOT_SIZE:-0}" -gt 0 ]]; then
+        root_size=$((root_size + IMAGE_ADDITIONAL_ROOT_SIZE))
+    fi
+    if [[ "${IMAGE_ADDITIONAL_DATA_SIZE:-0}" -gt 0 ]]; then
+        data_size=$((data_size + IMAGE_ADDITIONAL_DATA_SIZE))
     fi
 
     echo "Setting up ${IMAGE_PUBLIC:?} (${root_size} MB)"
