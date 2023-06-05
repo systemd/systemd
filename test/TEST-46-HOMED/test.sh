@@ -11,10 +11,7 @@ TEST_DESCRIPTION="testing homed"
 . "${TEST_BASE_DIR:?}/test-functions"
 
 get_bool "${NO_BUILD:-}" && HOMECTL_BIN="homectl" || HOMECTL_BIN="${BUILD_DIR:?}/homectl"
-if ! command -v "$HOMECTL_BIN" >/dev/null; then
-    echo "Built without systemd-homed, skipping the test"
-    exit 0
-fi
+test_require_bin "$HOMECTL_BIN"
 
 # Need loop devices for mounting images
 test_append_files() {
