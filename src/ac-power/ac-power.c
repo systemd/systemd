@@ -19,7 +19,7 @@ static void help(void) {
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "  -v --verbose          Show state as text\n"
-               "     --low              Checks if battery is discharing and low\n",
+               "     --low              Check if battery is discharging and low\n",
                program_invocation_short_name);
 }
 
