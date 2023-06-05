@@ -750,7 +750,7 @@ static int open_drive(Context *c) {
                 if (++cnt >= 20 || errno != EBUSY)
                         return log_debug_errno(errno, "Unable to open '%s': %m", arg_node);
 
-                (void) usleep(100 * USEC_PER_MSEC + random_u64_range(100 * USEC_PER_MSEC));
+                (void) usleep_safe(100 * USEC_PER_MSEC + random_u64_range(100 * USEC_PER_MSEC));
         }
 
         log_debug("probing: '%s'", arg_node);

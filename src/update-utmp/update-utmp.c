@@ -112,7 +112,7 @@ static int get_current_runlevel(Context *c) {
                                                                UINT64_C(240) * USEC_PER_MSEC * n_attempts/64);
                                 log_debug_errno(r, "Failed to get state of %s, retrying after %s: %s",
                                                 e->special, FORMAT_TIMESPAN(usec, USEC_PER_MSEC), bus_error_message(&error, r));
-                                (void) usleep(usec);
+                                (void) usleep_safe(usec);
                                 goto reconnect;
                         }
                         if (r < 0)
