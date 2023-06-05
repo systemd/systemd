@@ -233,7 +233,7 @@ int battery_read_capacity_percentage(sd_device *dev) {
 /* If a battery whose percentage capacity is <= 5% exists, and we're not on AC power, return success */
 int battery_is_discharging_and_low(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        bool unsure = false, found_low = false;
+        bool found_low = false;
         sd_device *dev;
         int r;
 
@@ -255,25 +255,15 @@ int battery_is_discharging_and_low(void) {
                 int level;
 
                 level = battery_read_capacity_percentage(dev);
-                if (level < 0) {
-                        unsure = true;
+                if (level < 0)
+                        /* If we found a battery whose state we couldn't read, skip it */
                         continue;
-                }
-
                 if (level > BATTERY_LOW_CAPACITY_LEVEL) /* Found a charged battery */
                         return false;
 
                 found_low = true;
         }
 
-        /* If we found a battery whose state we couldn't read, don't assume we are in low battery state */
-        if (unsure)
-                return false;
-
-        /* Found no charged battery, but did find low batteries */
-        if (found_low)
-                return true;
-
-        /* Found neither charged nor low batteries? let's return that we aren't on low battery state */
-        return false;
+        /* If found neither charged nor low batteries, assume that we aren't in low battery state */
+        return found_low;
 }
