@@ -788,6 +788,14 @@
           </listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><option>--no-style</option></term>
+          <listitem>
+            <para>Ignore style issues. When specified, even if style issues are found in udev rules files,
+            the exit status is <constant>0</constant> if no syntactic or semantic errors are found.</para>
+          </listitem>
+        </varlistentry>
+
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>

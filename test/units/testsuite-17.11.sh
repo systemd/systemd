@@ -56,18 +56,21 @@ next_test_number() {
     out="sample-${num_str}.out"
 }
 
-assert_0() {
+assert_0_impl() {
     udevadm verify "$@" >"${out}"
     if [ -f "${exo}" ]; then
         diff -u "${exo}" "${out}"
     elif [ -f "${rules}" ]; then
         diff -u "${workdir}/default_output_1_success" "${out}"
     fi
+}
 
+assert_0() {
+    assert_0_impl "$@"
     next_test_number
 }
 
-assert_1() {
+assert_1_impl() {
     local rc
     set +e
     udevadm verify "$@" >"${out}" 2>"${err}"
@@ -81,8 +84,13 @@ assert_1() {
 
     if [ -f "${exo}" ]; then
         diff -u "${exo}" "${out}"
+    elif [ -f "${rules}" ]; then
+        diff -u "${workdir}/default_output_1_fail" "${out}"
     fi
+}
 
+assert_1() {
+    assert_1_impl "$@"
     next_test_number
 }
 
@@ -127,7 +135,6 @@ assert_0 "${rules_dir}"
 
 # Directory with a loop.
 ln -s . "${rules_dir}/loop.rules"
-cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules_dir}"
 rm "${rules_dir}/loop.rules"
 
@@ -155,7 +162,6 @@ assert_0 "${rules}"
 # Failed to parse rules file ${rules}: No buffer space available
 printf '%16384s\n' ' ' >"${rules}"
 echo "Failed to parse rules file ${rules}: No buffer space available" >"${exp}"
-cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 {
@@ -168,18 +174,16 @@ assert_0 "${rules}"
 printf 'RUN+="/bin/true"%8176s\\\n #\n' ' ' ' ' >"${rules}"
 echo >>"${rules}"
 cat >"${exp}" <<EOF
-${rules}:5 Line is too long, ignored
-${rules}: udev rules check failed
+${rules}:5 Line is too long, ignored.
+${rules}: udev rules check failed.
 EOF
-cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 printf '\\\n' >"${rules}"
 cat >"${exp}" <<EOF
-${rules}:1 Unexpected EOF after line continuation, line ignored
-${rules}: udev rules check failed
+${rules}:1 Unexpected EOF after line continuation, line ignored.
+${rules}: udev rules check failed.
 EOF
-cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 test_syntax_error() {
@@ -191,10 +195,25 @@ test_syntax_error() {
     printf '%s\n' "${rule}" >"${rules}"
     cat >"${exp}" <<EOF
 ${rules}:1 ${msg}
-${rules}: udev rules check failed
+${rules}: udev rules check failed.
 EOF
-    cp "${workdir}/default_output_1_fail" "${exo}"
     assert_1 "${rules}"
+}
+
+test_style_error() {
+    local rule msg
+
+    rule="$1"; shift
+    msg="$1"; shift
+
+    printf '%s\n' "${rule}" >"${rules}"
+    cat >"${exp}" <<EOF
+${rules}:1 ${msg}
+${rules}: udev rules have style issues.
+EOF
+    assert_0_impl --no-style "${rules}"
+    assert_1_impl "${rules}"
+    next_test_number
 }
 
 test_syntax_error '=' 'Invalid key/value pair, ignoring.'
@@ -273,12 +292,12 @@ test_syntax_error 'OWNER{a}="b"' 'Invalid attribute for OWNER.'
 test_syntax_error 'OWNER-="b"' 'Invalid operator for OWNER.'
 test_syntax_error 'OWNER!="b"' 'Invalid operator for OWNER.'
 test_syntax_error 'OWNER+="0"' "OWNER key takes '=' or ':=' operator, assuming '='."
-test_syntax_error 'OWNER=":nosuchuser:"' "Unknown user ':nosuchuser:', ignoring"
+test_syntax_error 'OWNER=":nosuchuser:"' "Unknown user ':nosuchuser:', ignoring."
 test_syntax_error 'GROUP{a}="b"' 'Invalid attribute for GROUP.'
 test_syntax_error 'GROUP-="b"' 'Invalid operator for GROUP.'
 test_syntax_error 'GROUP!="b"' 'Invalid operator for GROUP.'
 test_syntax_error 'GROUP+="0"' "GROUP key takes '=' or ':=' operator, assuming '='."
-test_syntax_error 'GROUP=":nosuchgroup:"' "Unknown group ':nosuchgroup:', ignoring"
+test_syntax_error 'GROUP=":nosuchgroup:"' "Unknown group ':nosuchgroup:', ignoring."
 test_syntax_error 'MODE{a}="b"' 'Invalid attribute for MODE.'
 test_syntax_error 'MODE-="b"' 'Invalid operator for MODE.'
 test_syntax_error 'MODE!="b"' 'Invalid operator for MODE.'
@@ -292,42 +311,42 @@ test_syntax_error 'SECLABEL{a}:="b"' "SECLABEL key takes '=' or '+=' operator, a
 test_syntax_error 'RUN=="b"' 'Invalid operator for RUN.'
 test_syntax_error 'RUN-="b"' 'Invalid operator for RUN.'
 test_syntax_error 'RUN="%"' 'Invalid value "%" for RUN (char 1: invalid substitution type), ignoring.'
-test_syntax_error 'RUN{builtin}+="foo"' "Unknown builtin command 'foo', ignoring"
+test_syntax_error 'RUN{builtin}+="foo"' "Unknown builtin command 'foo', ignoring."
 test_syntax_error 'GOTO{a}="b"' 'Invalid attribute for GOTO.'
 test_syntax_error 'GOTO=="b"' 'Invalid operator for GOTO.'
-test_syntax_error 'NAME="a", GOTO="b"' 'GOTO="b" has no matching label, ignoring'
+test_syntax_error 'NAME="a", GOTO="b"' 'GOTO="b" has no matching label, ignoring.'
 test_syntax_error 'GOTO="a", GOTO="b"
 LABEL="a"' 'Contains multiple GOTO keys, ignoring GOTO="b".'
 test_syntax_error 'LABEL{a}="b"' 'Invalid attribute for LABEL.'
 test_syntax_error 'LABEL=="b"' 'Invalid operator for LABEL.'
-test_syntax_error 'LABEL="b"' 'LABEL="b" is unused.'
-test_syntax_error 'a="b"' "Invalid key 'a'"
-test_syntax_error 'KERNEL=="", KERNEL=="?*", NAME="a"' 'conflicting match expressions, the line has no effect'
-test_syntax_error 'KERNEL=="abc", KERNEL!="abc", NAME="b"' 'conflicting match expressions, the line has no effect'
-test_syntax_error 'KERNEL=="|a|b", KERNEL!="b|a|", NAME="c"' 'conflicting match expressions, the line has no effect'
-test_syntax_error 'KERNEL=="a|b", KERNEL=="c|d|e", NAME="f"' 'conflicting match expressions, the line has no effect'
+test_style_error 'LABEL="b"' 'style: LABEL="b" is unused.'
+test_syntax_error 'a="b"' "Invalid key 'a'."
+test_syntax_error 'KERNEL=="", KERNEL=="?*", NAME="a"' 'conflicting match expressions, the line has no effect.'
+test_syntax_error 'KERNEL=="abc", KERNEL!="abc", NAME="b"' 'conflicting match expressions, the line has no effect.'
+test_syntax_error 'KERNEL=="|a|b", KERNEL!="b|a|", NAME="c"' 'conflicting match expressions, the line has no effect.'
+test_syntax_error 'KERNEL=="a|b", KERNEL=="c|d|e", NAME="f"' 'conflicting match expressions, the line has no effect.'
 # shellcheck disable=SC2016
 test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}!="?*", ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
-                  'conflicting match expressions, the line has no effect'
-test_syntax_error 'ACTION=="a*", ACTION=="bc*", NAME="d"' 'conflicting match expressions, the line has no effect'
-test_syntax_error 'ACTION=="a*|bc*", ACTION=="d*|ef*", NAME="g"' 'conflicting match expressions, the line has no effect'
-test_syntax_error 'KERNEL!="", KERNEL=="?*", NAME="a"' 'duplicate expressions'
-test_syntax_error 'KERNEL=="|a|b", KERNEL=="b|a|", NAME="c"' 'duplicate expressions'
+                  'conflicting match expressions, the line has no effect.'
+test_syntax_error 'ACTION=="a*", ACTION=="bc*", NAME="d"' 'conflicting match expressions, the line has no effect.'
+test_syntax_error 'ACTION=="a*|bc*", ACTION=="d*|ef*", NAME="g"' 'conflicting match expressions, the line has no effect.'
+test_syntax_error 'KERNEL!="", KERNEL=="?*", NAME="a"' 'duplicate expressions.'
+test_syntax_error 'KERNEL=="|a|b", KERNEL=="b|a|", NAME="c"' 'duplicate expressions.'
 # shellcheck disable=SC2016
 test_syntax_error 'ENV{DISKSEQ}=="?*", ENV{DEVTYPE}!="partition", ENV{DISKSEQ}=="?*", ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}"' \
-                  'duplicate expressions'
-test_syntax_error ',ACTION=="a", NAME="b"' 'Stray leading comma.'
-test_syntax_error ' ,ACTION=="a", NAME="b"' 'Stray leading comma.'
-test_syntax_error ', ACTION=="a", NAME="b"' 'Stray leading comma.'
-test_syntax_error 'ACTION=="a", NAME="b",' 'Stray trailing comma.'
-test_syntax_error 'ACTION=="a", NAME="b", ' 'Stray trailing comma.'
-test_syntax_error 'ACTION=="a" NAME="b"' 'A comma between tokens is expected.'
-test_syntax_error 'ACTION=="a",, NAME="b"' 'More than one comma between tokens.'
-test_syntax_error 'ACTION=="a" , NAME="b"' 'Stray whitespace before comma.'
-test_syntax_error 'ACTION=="a",NAME="b"' 'Whitespace after comma is expected.'
+                  'duplicate expressions.'
+test_style_error ',ACTION=="a", NAME="b"' 'style: stray leading comma.'
+test_style_error ' ,ACTION=="a", NAME="b"' 'style: stray leading comma.'
+test_style_error ', ACTION=="a", NAME="b"' 'style: stray leading comma.'
+test_style_error 'ACTION=="a", NAME="b",' 'style: stray trailing comma.'
+test_style_error 'ACTION=="a", NAME="b", ' 'style: stray trailing comma.'
+test_style_error 'ACTION=="a" NAME="b"' 'style: a comma between tokens is expected.'
+test_style_error 'ACTION=="a",, NAME="b"' 'style: more than one comma between tokens.'
+test_style_error 'ACTION=="a" , NAME="b"' 'style: stray whitespace before comma.'
+test_style_error 'ACTION=="a",NAME="b"' 'style: whitespace after comma is expected.'
 test_syntax_error 'RESULT=="a", PROGRAM="b"' 'Reordering RESULT check after PROGRAM assignment.'
 test_syntax_error 'RESULT=="a*", PROGRAM="b", RESULT=="*c", PROGRAM="d"' \
-        'Reordering RESULT check after PROGRAM assignment.'
+                  'Reordering RESULT check after PROGRAM assignment.'
 
 cat >"${rules}" <<'EOF'
 KERNEL=="a|b", KERNEL=="a|c", NAME="d"
@@ -342,11 +361,10 @@ assert_0 "${rules}"
 
 echo 'GOTO="a"' >"${rules}"
 cat >"${exp}" <<EOF
-${rules}:1 GOTO="a" has no matching label, ignoring
+${rules}:1 GOTO="a" has no matching label, ignoring.
 ${rules}:1 The line has no effect any more, dropping.
-${rules}: udev rules check failed
+${rules}: udev rules check failed.
 EOF
-cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 cat >"${rules}" <<'EOF'
@@ -361,11 +379,11 @@ LABEL="b"
 LABEL="b"
 EOF
 cat >"${exp}" <<EOF
-${rules}:3 LABEL="b" is unused.
-${rules}: udev rules check failed
+${rules}:3 style: LABEL="b" is unused.
+${rules}: udev rules have style issues.
 EOF
-cp "${workdir}/default_output_1_fail" "${exo}"
-assert_1 "${rules}"
+assert_0_impl --no-style "${rules}"
+assert_1_impl "${rules}"
 
 cat >"${rules}" <<'EOF'
 GOTO="a"
@@ -373,46 +391,46 @@ LABEL="a", LABEL="b"
 EOF
 cat >"${exp}" <<EOF
 ${rules}:2 Contains multiple LABEL keys, ignoring LABEL="a".
-${rules}:1 GOTO="a" has no matching label, ignoring
+${rules}:1 GOTO="a" has no matching label, ignoring.
 ${rules}:1 The line has no effect any more, dropping.
-${rules}:2 LABEL="b" is unused.
-${rules}: udev rules check failed
+${rules}:2 style: LABEL="b" is unused.
+${rules}: udev rules check failed.
 EOF
-cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 cat >"${rules}" <<'EOF'
 KERNEL!="", KERNEL=="?*", KERNEL=="", NAME="a"
 EOF
 cat >"${exp}" <<EOF
-${rules}:1 duplicate expressions
-${rules}:1 conflicting match expressions, the line has no effect
-${rules}: udev rules check failed
+${rules}:1 duplicate expressions.
+${rules}:1 conflicting match expressions, the line has no effect.
+${rules}: udev rules check failed.
 EOF
-cp "${workdir}/default_output_1_fail" "${exo}"
 assert_1 "${rules}"
 
 cat >"${rules}" <<'EOF'
 ACTION=="a"NAME="b"
 EOF
 cat >"${exp}" <<EOF
-${rules}:1 A comma between tokens is expected.
-${rules}:1 Whitespace between tokens is expected.
-${rules}: udev rules check failed
+${rules}:1 style: a comma between tokens is expected.
+${rules}:1 style: whitespace between tokens is expected.
+${rules}: udev rules have style issues.
 EOF
-cp "${workdir}/default_output_1_fail" "${exo}"
-assert_1 "${rules}"
+assert_0_impl --no-style "${rules}"
+assert_1_impl "${rules}"
+next_test_number
 
 cat >"${rules}" <<'EOF'
 ACTION=="a" ,NAME="b"
 EOF
 cat >"${exp}" <<EOF
-${rules}:1 Stray whitespace before comma.
-${rules}:1 Whitespace after comma is expected.
-${rules}: udev rules check failed
+${rules}:1 style: stray whitespace before comma.
+${rules}:1 style: whitespace after comma is expected.
+${rules}: udev rules have style issues.
 EOF
-cp "${workdir}/default_output_1_fail" "${exo}"
-assert_1 "${rules}"
+assert_0_impl --no-style "${rules}"
+assert_1_impl "${rules}"
+next_test_number
 
 # udevadm verify --root
 sed "s|sample-[0-9]*.rules|${workdir}/${rules_dir}/&|" sample-*.exp >"${workdir}/${exp}"
