@@ -118,6 +118,11 @@ run_subtests() {
     fi
 
     for subtest in "${subtests[@]}"; do
+        if [[ -n "${TEST_MATCH_SUBTEST:-}" ]] && ! [[ "$subtest" =~ $TEST_MATCH_SUBTEST ]]; then
+            echo "Skipping $subtest (not matching '$TEST_MATCH_SUBTEST')"
+            continue
+        fi
+
         : "--- $subtest BEGIN ---"
         "./$subtest" && _PASSED_TESTS+=("$subtest") || _FAILED_TESTS+=("$subtest")
         : "--- $subtest END ---"
@@ -139,6 +144,11 @@ run_testcases() {
     fi
 
     for testcase in "${testcases[@]}"; do
+        if [[ -n "${TEST_MATCH_TESTCASE:-}" ]] && ! [[ "$testcase" =~ $TEST_MATCH_TESTCASE ]]; then
+            echo "Skipping $testcase (not matching '$TEST_MATCH_TESTCASE')"
+            continue
+        fi
+
         : "+++ $testcase BEGIN +++"
         # Note: the subshell here is used purposefully, otherwise we might
         #       unexpectedly inherit a RETURN trap handler from the called
