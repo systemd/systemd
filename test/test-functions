@@ -490,6 +490,8 @@ run_qemu() {
         "systemd.unit=testsuite.target"
         "systemd.wants=testsuite-$1.service"
         "noresume"
+        ${TEST_MATCH_SUBTEST:+"systemd.setenv=TEST_MATCH_SUBTEST=$TEST_MATCH_SUBTEST"}
+        ${TEST_MATCH_TESTCASE:+"systemd.setenv=TEST_MATCH_TESTCASE=$TEST_MATCH_TESTCASE"}
     )
 
     if ! get_bool "$INTERACTIVE_DEBUG"; then
@@ -567,6 +569,8 @@ run_nspawn() {
         "$PATH_TO_INIT"
         "systemd.unit=testsuite.target"
         "systemd.wants=testsuite-$2.service"
+        ${TEST_MATCH_SUBTEST:+"systemd.setenv=TEST_MATCH_SUBTEST=$TEST_MATCH_SUBTEST"}
+        ${TEST_MATCH_TESTCASE:+"systemd.setenv=TEST_MATCH_TESTCASE=$TEST_MATCH_TESTCASE"}
     )
 
     if ! get_bool "$INTERACTIVE_DEBUG"; then
