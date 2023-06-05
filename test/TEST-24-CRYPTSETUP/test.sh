@@ -4,6 +4,7 @@ set -e
 
 TEST_DESCRIPTION="cryptsetup systemd setup"
 IMAGE_NAME="cryptsetup"
+IMAGE_ADDITIONAL_DATA_SIZE=100
 TEST_NO_NSPAWN=1
 TEST_FORCE_NEWIMAGE=1
 
