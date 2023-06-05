@@ -50,12 +50,14 @@ def test_round_up():
     assert ukify.round_up(4097) == 8192
 
 def test_namespace_creation():
-    ns = ukify.create_parser().parse_args(('A','B'))
+    ns = ukify.parse_args(['A','B'])
     assert ns.linux == pathlib.Path('A')
     assert ns.initrd == [pathlib.Path('B')]
+    ns = ukify.parse_args((ukify.DISPLAY_COMMAND, 'A'))
+    assert ns.file == pathlib.Path('A')
 
 def test_config_example():
-    ex = ukify.config_example()
+    ex = ukify.config_example(ukify.CONFIG_ITEMS_CREATE)
     assert '[UKI]' in ex
     assert 'Splash = BMP' in ex
 
@@ -87,7 +89,7 @@ def test_apply_config(tmp_path):
         Phases = {':'.join(ukify.KNOWN_PHASES)}
         '''))
 
-    ns = ukify.create_parser().parse_args(('A','B'))
+    ns = ukify.create_parser().parse_args((ukify.BUILD_COMMAND, 'A','B'))
     ns.linux = None
     ns.initrd = []
     ukify.apply_config(ns, config)
@@ -113,7 +115,7 @@ def test_apply_config(tmp_path):
     assert ns.pcr_public_keys == [pathlib.Path('some/path8')]
     assert ns.phase_path_groups == [['enter-initrd:leave-initrd:sysinit:ready:shutdown:final']]
 
-    ukify.finalize_options(ns)
+    ukify.finalize_build_options(ns)
 
     assert ns.linux == pathlib.Path('LINUX')
     assert ns.initrd == [pathlib.Path('initrd1'),
@@ -264,7 +266,7 @@ def test_config_priority(tmp_path):
          ])
 
     ukify.apply_config(opts, config)
-    ukify.finalize_options(opts)
+    ukify.finalize_build_options(opts)
 
     assert opts.linux == pathlib.Path('/ARG1')
     assert opts.initrd == [pathlib.Path('initrd1'),
@@ -298,6 +300,20 @@ def test_config_priority(tmp_path):
 def test_help(capsys):
     with pytest.raises(SystemExit):
         ukify.parse_args(['--help'])
+    out = capsys.readouterr()
+    assert '--version' in out.out
+    assert not out.err
+
+def test_help_create(capsys):
+    with pytest.raises(SystemExit):
+        ukify.parse_args([ukify.BUILD_COMMAND, '--help'])
+    out = capsys.readouterr()
+    assert '--section' in out.out
+    assert not out.err
+
+def test_help_display(capsys):
+    with pytest.raises(SystemExit):
+        ukify.parse_args([ukify.DISPLAY_COMMAND, '--help'])
     out = capsys.readouterr()
     assert '--section' in out.out
     assert not out.err
@@ -347,7 +363,7 @@ def test_basic_operation(kernel_initrd, tmpdir):
     output = f'{tmpdir}/basic.efi'
     opts = ukify.parse_args(kernel_initrd + [f'--output={output}'])
     try:
-        ukify.check_inputs(opts)
+        ukify.check_build_inputs(opts)
     except OSError as e:
         pytest.skip(str(e))
 
@@ -371,7 +387,7 @@ def test_sections(kernel_initrd, tmpdir):
     ])
 
     try:
-        ukify.check_inputs(opts)
+        ukify.check_build_inputs(opts)
     except OSError as e:
         pytest.skip(str(e))
 
@@ -392,7 +408,7 @@ def test_addon(kernel_initrd, tmpdir):
     ])
 
     try:
-        ukify.check_inputs(opts)
+        ukify.check_build_inputs(opts)
     except OSError as e:
         pytest.skip(str(e))
 
@@ -440,7 +456,7 @@ def test_efi_signing_sbsign(kernel_initrd, tmpdir):
     ])
 
     try:
-        ukify.check_inputs(opts)
+        ukify.check_build_inputs(opts)
     except OSError as e:
         pytest.skip(str(e))
 
@@ -484,7 +500,7 @@ def test_efi_signing_pesign(kernel_initrd, tmpdir):
     ])
 
     try:
-        ukify.check_inputs(opts)
+        ukify.check_build_inputs(opts)
     except OSError as e:
         pytest.skip(str(e))
 
@@ -497,6 +513,55 @@ def test_efi_signing_pesign(kernel_initrd, tmpdir):
     ], text=True)
 
     assert f"The signer's common name is {author}" in dump
+
+def test_efi_read(kernel_initrd, tmpdir, capsys):
+    if kernel_initrd is None:
+        pytest.skip('linux+initrd not found')
+    if not shutil.which('sbsign'):
+        pytest.skip('sbsign not found')
+
+    ourdir = pathlib.Path(__file__).parent
+    cert = unbase64(ourdir / 'example.signing.crt.base64')
+    key = unbase64(ourdir / 'example.signing.key.base64')
+
+    output = f'{tmpdir}/signed2.efi'
+    uname_arg='1.2.3'
+    osrel_arg='Linux'
+    cmdline_arg='ARG1 ARG2 ARG3'
+    opts = ukify.parse_args([
+        ukify.BUILD_COMMAND,
+        *kernel_initrd,
+        f'--cmdline={cmdline_arg}',
+        f'--os-release={osrel_arg}',
+        f'--uname={uname_arg}',
+        f'--output={output}',
+        f'--secureboot-certificate={cert.name}',
+        f'--secureboot-private-key={key.name}',
+    ])
+
+    ukify.check_build_inputs(opts)
+    ukify.make_uki(opts)
+
+    opts = ukify.parse_args([
+        ukify.DISPLAY_COMMAND,
+        f'{output}',
+    ])
+
+    ukify.pe_read_sections(opts)
+    text = capsys.readouterr().out
+
+    expected_osrel=f'.osrel:\nsize: {len(osrel_arg)}'
+    assert(expected_osrel in text)
+    expected_cmdline=f'.cmdline:\nsize: {len(cmdline_arg)}'
+    assert(expected_cmdline in text)
+    expected_uname=f'.uname:\nsize: {len(uname_arg)}'
+    assert(expected_uname in text)
+
+    expected_initrd='.initrd:\nsize:'
+    assert(expected_initrd in text)
+    expected_linux='.linux:\nsize:'
+    assert(expected_linux in text)
+
 
 def test_pcr_signing(kernel_initrd, tmpdir):
     if kernel_initrd is None:
@@ -524,7 +589,7 @@ def test_pcr_signing(kernel_initrd, tmpdir):
     ])
 
     try:
-        ukify.check_inputs(opts)
+        ukify.check_build_inputs(opts)
     except OSError as e:
         pytest.skip(str(e))
 
@@ -595,7 +660,7 @@ def test_pcr_signing2(kernel_initrd, tmpdir):
     ])
 
     try:
-        ukify.check_inputs(opts)
+        ukify.check_build_inputs(opts)
     except OSError as e:
         pytest.skip(str(e))
 
