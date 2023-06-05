@@ -1486,6 +1486,7 @@ static void cgroup_context_apply(
 
         assert(u);
 
+        apply_mask &= unit_get_delegate_mask(u);
         /* Nothing to do? Exit early! */
         if (apply_mask == 0)
                 return;
