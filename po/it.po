@@ -2,13 +2,13 @@
 #
 # Italian translation for systemd package
 # Traduzione in italiano per il pacchetto systemd
-# Daniele Medri <dmedri@gmail.com>, 2013-2022.
+# Daniele Medri <dmedri@gmail.com>, 2013-2023.
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-10-20 10:35+0200\n"
-"PO-Revision-Date: 2022-04-26 15:57+0200\n"
+"POT-Creation-Date: 2023-06-05 11:40+0200\n"
+"PO-Revision-Date: 2023-06-05 11:44+0200\n"
 "Last-Translator: Daniele Medri <dmedri@gmail.com>\n"
 "Language-Team: italian\n"
 "Language: it\n"
@@ -16,7 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Poedit 2.4.2\n"
+"X-Generator: Poedit 3.2.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -68,6 +68,17 @@ msgstr "Ricarica lo stato di systemd"
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
 msgstr "Autenticazione richiesta per ricaricare lo stato di systemd."
+
+#: src/core/org.freedesktop.systemd1.policy.in:74
+msgid "Dump the systemd state without rate limits"
+msgstr "Eseguire il dump dello stato di systemd senza limiti di frequenza"
+
+#: src/core/org.freedesktop.systemd1.policy.in:75
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
+msgstr ""
+"L'autenticazione è richiesta per il dump dello stato di systemd senza limiti "
+"di frequenza."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
@@ -934,23 +945,23 @@ msgstr ""
 "Autenticazione richiesta per verificare se la sincronizzazione dell'orario "
 "in rete deve essere attivata."
 
-#: src/core/dbus-unit.c:359
+#: src/core/dbus-unit.c:364
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Autenticazione richiesta per avviare '$(unit)'."
 
-#: src/core/dbus-unit.c:360
+#: src/core/dbus-unit.c:365
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Autenticazione richiesta per fermare '$(unit)'."
 
-#: src/core/dbus-unit.c:361
+#: src/core/dbus-unit.c:366
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Autenticazione richiesta per ricaricare '$(unit)'."
 
-#: src/core/dbus-unit.c:362 src/core/dbus-unit.c:363
+#: src/core/dbus-unit.c:367 src/core/dbus-unit.c:368
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Autenticazione richiesta per riavviare '$(unit)'."
 
-#: src/core/dbus-unit.c:546
+#: src/core/dbus-unit.c:565
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -958,16 +969,16 @@ msgstr ""
 "Autenticazione richiesta per inviare un segnale UNIX ai processi di "
 "'$(unit)'."
 
-#: src/core/dbus-unit.c:576
+#: src/core/dbus-unit.c:595
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Autenticazione richiesta per riconfigurare lo stato \"fallito\" di '$(unit)'."
 
-#: src/core/dbus-unit.c:608
+#: src/core/dbus-unit.c:627
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Autenticazione richiesta per configurare le proprietà di '$(unit)'."
 
-#: src/core/dbus-unit.c:714
+#: src/core/dbus-unit.c:728
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -975,7 +986,7 @@ msgstr ""
 "Autenticazione richiesta per eliminare i file e le directory associate a "
 "'$(unit)'."
 
-#: src/core/dbus-unit.c:762
+#: src/core/dbus-unit.c:776
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
