@@ -304,7 +304,7 @@ int fchmod_opath(int fd, mode_t m) {
 }
 
 int futimens_opath(int fd, const struct timespec ts[2]) {
-        /* Similar to fchmod_path() but for futimens() */
+        /* Similar to fchmod_opath() but for futimens() */
 
         if (utimensat(AT_FDCWD, FORMAT_PROC_FD_PATH(fd), ts, 0) < 0) {
                 if (errno != ENOENT)
