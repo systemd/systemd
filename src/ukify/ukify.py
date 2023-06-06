@@ -33,6 +33,7 @@ import json
 import os
 import pathlib
 import pprint
+import pydoc
 import re
 import shlex
 import shutil
@@ -43,6 +44,7 @@ from typing import (Any,
                     Callable,
                     IO,
                     Optional,
+                    Sequence,
                     Union)
 
 import pefile  # type: ignore
@@ -86,6 +88,15 @@ def guess_efi_arch():
 
     print(f'Host arch {arch!r}, EFI arch {efi_arch!r}')
     return efi_arch
+
+
+def page(text: str, enabled: Optional[bool]) -> None:
+    if enabled:
+        # Initialize less options from $SYSTEMD_LESS or provide a suitable fallback.
+        os.environ['LESS'] = os.getenv('SYSTEMD_LESS', 'FRSXMK')
+        pydoc.pager(text)
+    else:
+        print(text)
 
 
 def shell_join(cmd):
@@ -1128,10 +1139,23 @@ def config_example():
             yield f'{key} = {value}'
 
 
+class PagerHelpAction(argparse._HelpAction):  # pylint: disable=protected-access
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[str, Sequence[Any], None] = None,
+        option_string: Optional[str] = None
+    ) -> None:
+        page(parser.format_help(), True)
+        parser.exit()
+
+
 def create_parser():
     p = argparse.ArgumentParser(
         description='Build and sign Unified Kernel Images',
         allow_abbrev=False,
+        add_help=False,
         usage='''\
 ukify [options…] [LINUX INITRD…]
 ''',
@@ -1144,6 +1168,13 @@ ukify [options…] [LINUX INITRD…]
 
     # Suppress printing of usage synopsis on errors
     p.error = lambda message: p.exit(2, f'{p.prog}: error: {message}\n')
+
+    # Make --help paged
+    p.add_argument(
+        '-h', '--help',
+        action=PagerHelpAction,
+        help='show this help message and exit',
+    )
 
     return p
 
