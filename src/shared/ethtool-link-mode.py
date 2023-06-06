@@ -2,21 +2,27 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 import re
+import shlex
+import subprocess
 import sys
 
 OVERRIDES = {
     'autoneg' : 'autonegotiation',
 }
 
-xml = sys.argv[1] == '--xml'
+mode, cpp, header = sys.argv[1:]
+xml = mode == '--xml'
 
-f = open(sys.argv[-1])
-for line in f:
+command = [*shlex.split(cpp), '-include', header, '-']
+out = subprocess.check_output(command, stdin=subprocess.DEVNULL, universal_newlines=True)
+
+lines = iter(out.splitlines())
+for line in lines:
     if line.startswith('enum ethtool_link_mode_bit_indices {'):
         break
 
 entries = []
-for line in f:
+for line in lines:
     if line.startswith('}'):
         break
     # ETHTOOL_LINK_MODE_10baseT_Half_BIT	= 0,

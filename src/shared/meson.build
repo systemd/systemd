@@ -275,7 +275,7 @@ ethtool_link_mode_h = custom_target(
         fname,
         input : ['ethtool-link-mode.py', 'linux/ethtool.h'],
         output : fname,
-        command : [python, '@INPUT0@', '@INPUT1@'],
+        command : [python, '@INPUT0@', '--header', cpp, '@INPUT1@'],
         capture : true)
 shared_sources += ethtool_link_mode_h
 
@@ -284,7 +284,7 @@ ethtool_link_mode_xml = custom_target(
         fname,
         input : ['ethtool-link-mode.py', 'linux/ethtool.h'],
         output : fname,
-        command : [python, '@INPUT0@', '--xml', '@INPUT1@'],
+        command : [python, '@INPUT0@', '--xml', cpp, '@INPUT1@'],
         capture : true)
 man_page_depends += ethtool_link_mode_xml
 
