@@ -385,15 +385,21 @@ def test_sections(kernel_initrd, tmpdir):
 
 def test_addon(kernel_initrd, tmpdir):
     output = f'{tmpdir}/addon.efi'
-    opts = ukify.parse_args([
+    args = [
         f'--output={output}',
         '--cmdline=ARG1 ARG2 ARG3',
         '--section=.test:CONTENTZ',
-    ])
+    ]
+    if stub := os.getenv('EFI_ADDON'):
+        args += [f'--stub={stub}']
+        expected_exceptions = ()
+    else:
+        expected_exceptions = FileNotFoundError,
 
+    opts = ukify.parse_args(args)
     try:
         ukify.check_inputs(opts)
-    except OSError as e:
+    except expected_exceptions as e:
         pytest.skip(str(e))
 
     ukify.make_uki(opts)
