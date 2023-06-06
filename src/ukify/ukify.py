@@ -1157,7 +1157,7 @@ def create_parser():
         allow_abbrev=False,
         add_help=False,
         usage='''\
-ukify [options…] [LINUX INITRD…]
+ukify [options…] VERB
 ''',
         epilog='\n  '.join(('config file:', *config_example())),
         formatter_class=argparse.RawDescriptionHelpFormatter,
