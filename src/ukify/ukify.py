@@ -438,7 +438,7 @@ def call_systemd_measure(uki, linux, opts):
 
 
 def join_initrds(initrds):
-    if len(initrds) == 0:
+    if not initrds:
         return None
     if len(initrds) == 1:
         return initrds[0]
@@ -820,7 +820,10 @@ class ConfigItem:
         else:
             conv = lambda s:s
 
-        if self.nargs == '*':
+        # This is a bit ugly, but --initrd is the only option which is specified
+        # with multiple args on the command line and a space-separated list in the
+        # config file.
+        if self.name == '--initrd':
             value = [conv(v) for v in value.split()]
         else:
             value = conv(value)
@@ -840,7 +843,16 @@ class ConfigItem:
         return (section_name, key, value)
 
 
+VERBS = ('build',)
+
 CONFIG_ITEMS = [
+    ConfigItem(
+        'positional',
+        metavar = 'VERB',
+        nargs = '*',
+        help = f"operation to perform ({','.join(VERBS)})",
+    ),
+
     ConfigItem(
         '--version',
         action = 'version',
@@ -854,20 +866,18 @@ CONFIG_ITEMS = [
     ),
 
     ConfigItem(
-        'linux',
-        metavar = 'LINUX',
+        '--linux',
         type = pathlib.Path,
-        nargs = '?',
         help = 'vmlinuz file [.linux section]',
         config_key = 'UKI/Linux',
     ),
 
     ConfigItem(
-        'initrd',
-        metavar = 'INITRD…',
+        '--initrd',
+        metavar = 'INITRD',
         type = pathlib.Path,
-        nargs = '*',
-        help = 'initrd files [.initrd section]',
+        action = 'append',
+        help = 'initrd file [part of .initrd section]',
         config_key = 'UKI/Initrd',
         config_push = ConfigItem.config_list_prepend,
     ),
@@ -1199,6 +1209,20 @@ def parse_args(args=None):
     p = create_parser()
     opts = p.parse_args(args)
 
+    # Figure out which syntax is being used, one of:
+    # ukify verb --arg --arg --arg
+    # ukify linux initrd…
+    if len(opts.positional) == 1 and opts.positional[0] in VERBS:
+        opts.verb = opts.positional[0]
+    elif opts.linux or opts.initrd:
+        raise ValueError('--linux/--initrd options cannot be used with positional arguments')
+    else:
+        print("Assuming obsolete commandline syntax with no verb. Please use 'build'.")
+        if opts.positional:
+            opts.linux = pathlib.Path(opts.positional[0])
+        opts.initrd = [pathlib.Path(arg) for arg in opts.positional[1:]]
+        opts.verb = 'build'
+
     # Check that --pcr-public-key=, --pcr-private-key=, and --phases=
     # have either the same number of arguments are are not specified at all.
     n_pcr_pub = None if opts.pcr_public_keys is None else len(opts.pcr_public_keys)
@@ -1219,6 +1243,7 @@ def parse_args(args=None):
 def main():
     opts = parse_args()
     check_inputs(opts)
+    assert opts.verb == 'build'
     make_uki(opts)
 
 
