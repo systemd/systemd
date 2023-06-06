@@ -381,6 +381,19 @@ def combine_signatures(pcrsigs):
     return json.dumps(combined)
 
 
+def key_path_groups(opts):
+    if not opts.pcr_private_keys:
+        return
+
+    n_priv = len(opts.pcr_private_keys or ())
+    pub_keys = opts.pcr_public_keys or [None] * n_priv
+    pp_groups = opts.phase_path_groups or [None] * n_priv
+
+    yield from zip(opts.pcr_private_keys,
+                   pub_keys,
+                   pp_groups)
+
+
 def call_systemd_measure(uki, linux, opts):
     measure_tool = find_tool('systemd-measure',
                              '/usr/lib/systemd/systemd-measure',
@@ -414,10 +427,6 @@ def call_systemd_measure(uki, linux, opts):
     # PCR signing
 
     if opts.pcr_private_keys:
-        n_priv = len(opts.pcr_private_keys or ())
-        pp_groups = opts.phase_path_groups or [None] * n_priv
-        pub_keys = opts.pcr_public_keys or [None] * n_priv
-
         pcrsigs = []
 
         cmd = [
@@ -431,9 +440,7 @@ def call_systemd_measure(uki, linux, opts):
               for bank in banks),
         ]
 
-        for priv_key, pub_key, group in zip(opts.pcr_private_keys,
-                                            pub_keys,
-                                            pp_groups):
+        for priv_key, pub_key, group in key_path_groups(opts):
             extra = [f'--private-key={priv_key}']
             if pub_key:
                 extra += [f'--public-key={pub_key}']
