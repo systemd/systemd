@@ -870,6 +870,25 @@ _public_ int sd_session_get_remote_host(const char *session, char **remote_host)
         return session_get_string(session, "REMOTE_HOST", remote_host);
 }
 
+_public_ int sd_session_get_leader(const char *session, pid_t *leader) {
+        _cleanup_free_ char *leader_string = NULL;
+        pid_t pid;
+        int r;
+
+        assert_return(leader, -EINVAL);
+
+        r = session_get_string(session, "LEADER", &leader_string);
+        if (r < 0)
+                return r;
+
+        r = parse_pid(leader_string, &pid);
+        if (r < 0)
+                return r;
+
+        *leader = pid;
+        return 0;
+}
+
 _public_ int sd_seat_get_active(const char *seat, char **session, uid_t *uid) {
         _cleanup_free_ char *p = NULL, *s = NULL, *t = NULL;
         int r;

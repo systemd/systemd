@@ -184,6 +184,9 @@ int sd_session_get_desktop(const char *session, char **desktop);
 /* Determine the X11 display of this session. */
 int sd_session_get_display(const char *session, char **display);
 
+/* Determine the leader process of this session. */
+int sd_session_get_leader(const char *session, pid_t *leader);
+
 /* Determine the remote host of this session. */
 int sd_session_get_remote_host(const char *session, char **remote_host);
 
