@@ -992,7 +992,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "LockPersonality",
                               "ProtectHostname",
                               "MemoryKSM",
-                              "RestrictSUIDSGID"))
+                              "RestrictSUIDSGID",
+                              "RootEphemeral"))
                 return bus_append_parse_boolean(m, field, eq);
 
         if (STR_IN_SET(field, "ReadWriteDirectories",
