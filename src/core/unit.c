@@ -92,7 +92,6 @@ const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
 Unit* unit_new(Manager *m, size_t size) {
         Unit *u;
 
-        assert(m);
         assert(size >= sizeof(Unit));
 
         u = malloc0(size);
@@ -128,7 +127,7 @@ Unit* unit_new(Manager *m, size_t size) {
 
         u->last_section_private = -1;
 
-        u->start_ratelimit = (RateLimit) { m->default_start_limit_interval, m->default_start_limit_burst };
+        u->start_ratelimit = (RateLimit) { m ? m->default_start_limit_interval : 0, m ? m->default_start_limit_burst : 0 };
         u->auto_start_stop_ratelimit = (const RateLimit) { 10 * USEC_PER_SEC, 16 };
 
         return u;
@@ -1857,7 +1856,10 @@ int unit_test_start_limit(Unit *u) {
 bool unit_shall_confirm_spawn(Unit *u) {
         assert(u);
 
-        if (manager_is_confirm_spawn_disabled(u->manager))
+        if (u->manager && manager_is_confirm_spawn_disabled(u->manager))
+                return false;
+
+        if (access("/run/systemd/confirm_spawn_disabled", F_OK) >= 0)
                 return false;
 
         /* For some reasons units remaining in the same process group
@@ -3413,12 +3415,15 @@ int unit_set_invocation_id(Unit *u, sd_id128_t id) {
                 goto reset;
         }
 
+        u->invocation_id = id;
+        sd_id128_to_string(id, u->invocation_id_string);
+
+        if (!u->manager)
+                return 0;
+
         r = hashmap_ensure_allocated(&u->manager->units_by_invocation_id, &id128_hash_ops);
         if (r < 0)
                 goto reset;
-
-        u->invocation_id = id;
-        sd_id128_to_string(id, u->invocation_id_string);
 
         r = hashmap_put(u->manager->units_by_invocation_id, &u->invocation_id, u);
         if (r < 0)
@@ -5173,9 +5178,11 @@ static int unit_ref_uid_internal(
         if (uid_is_valid(*ref_uid)) /* Already set? */
                 return -EBUSY;
 
-        r = _manager_ref_uid(u->manager, uid, clean_ipc);
-        if (r < 0)
-                return r;
+        if (u->manager) {
+                r = _manager_ref_uid(u->manager, uid, clean_ipc);
+                if (r < 0)
+                        return r;
+        }
 
         *ref_uid = uid;
         return 1;
@@ -5284,6 +5291,22 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
 
         p->received_credentials_directory = u->manager->received_credentials_directory;
         p->received_encrypted_credentials_directory = u->manager->received_encrypted_credentials_directory;
+
+        p->shall_confirm_spawn = u->manager->confirm_spawn;
+
+        p->default_smack_process_label = u->manager->default_smack_process_label;
+
+        if (u->manager->restrict_fs && p->bpf_outer_map_fd < 0) {
+                int fd = lsm_bpf_map_restrict_fs_fd(u);
+                if (fd < 0)
+                        return fd;
+
+                p->bpf_outer_map_fd = fd;
+        }
+
+        p->user_lookup_fd = fcntl(u->manager->user_lookup_fds[1], F_DUPFD_CLOEXEC, 3);
+        if (p->user_lookup_fd < 0)
+                return -errno;
 
         return 0;
 }
