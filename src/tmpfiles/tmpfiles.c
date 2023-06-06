@@ -720,7 +720,7 @@ static int dir_cleanup(
                                 }
 
                                 if (flock(dirfd(sub_dir), LOCK_EX|LOCK_NB) < 0) {
-                                        log_debug_errno(errno, "Couldn't acquire shared BSD lock on directory \"%s\", skipping: %m", p);
+                                        log_debug_errno(errno, "Couldn't acquire shared BSD lock on directory \"%s\", skipping: %m", sub_path);
                                         continue;
                                 }
 
@@ -808,7 +808,7 @@ static int dir_cleanup(
                         if (fd < 0 && fd != -ENOENT)
                                 log_warning_errno(fd, "Opening file \"%s\" failed, ignoring: %m", sub_path);
                         if (fd >= 0 && flock(fd, LOCK_EX|LOCK_NB) < 0 && errno == EAGAIN) {
-                                log_debug_errno(errno, "Couldn't acquire shared BSD lock on file \"%s\", skipping: %m", p);
+                                log_debug_errno(errno, "Couldn't acquire shared BSD lock on file \"%s\", skipping: %m", sub_path);
                                 continue;
                         }
 
