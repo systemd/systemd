@@ -1229,6 +1229,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RootHashSignature", "ay", property_get_root_hash_sig, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootHashSignaturePath", "s", NULL, offsetof(ExecContext, root_hash_sig_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootVerity", "s", NULL, offsetof(ExecContext, root_verity), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RootEphemeral", "b", bus_property_get_bool, offsetof(ExecContext, root_ephemeral), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ExtensionDirectories", "as", NULL, offsetof(ExecContext, extension_directories), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ExtensionImages", "a(sba(ss))", property_get_extension_images, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MountImages", "a(ssba(ss))", property_get_mount_images, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1861,6 +1862,9 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "RootDirectory"))
                 return bus_set_transient_path(u, name, &c->root_directory, message, flags, error);
+
+        if (streq(name, "RootEphemeral"))
+                return bus_set_transient_bool(u, name, &c->root_ephemeral, message, flags, error);
 
         if (streq(name, "SyslogIdentifier"))
                 return bus_set_transient_string(u, name, &c->syslog_identifier, message, flags, error);
