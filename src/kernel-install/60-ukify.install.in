@@ -183,11 +183,10 @@ def call_ukify(opts):
     # The solution with runpy gives a dictionary, which isn't great, but will do.
     ukify = runpy.run_path(UKIFY, run_name='ukify')
 
-    # Create "empty" namespace. We want to override just a few settings,
-    # so it doesn't make sense to duplicate all the fields. We use a hack
-    # to pre-populate the namespace like argparse would, all defaults.
-    # We need to specify the two mandatory arguments to not get an error.
-    opts2 = ukify['create_parser']().parse_args(('A','B'))
+    # Create "empty" namespace. We want to override just a few settings, so it
+    # doesn't make sense to configure everything. We pretend to parse an empty
+    # argument set to prepopulate the namespace with the defaults.
+    opts2 = ukify['create_parser']().parse_args(())
 
     opts2.config = config_file_location()
     opts2.uname = opts.kernel_version

@@ -278,6 +278,7 @@ endif
 
 boot_targets = []
 efi_elf_binaries = []
+efi_addon = ''
 efi_archspecs = [
         {
                 'arch' : efi_arch,
@@ -375,6 +376,11 @@ foreach efi_elf_binary : efi_elf_binaries
         boot_targets += exe
         if name.startswith('linux')
                 boot_stubs += exe
+        endif
+
+        # This is supposed to match exactly one time
+        if name == 'addon@0@.efi.stub'.format(efi_arch)
+                efi_addon = exe.full_path()
         endif
 endforeach
 
