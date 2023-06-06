@@ -3950,7 +3950,7 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
 
         self.wait_operstate('dummy98', 'off')
         self.wait_operstate('test1', 'enslaved')
-        self.wait_operstate('bond99', 'degraded-carrier')
+        self.wait_operstate('bond99', 'routable')
 
         check_output('ip link set dummy98 up')
 
@@ -4121,7 +4121,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'ff00::/8 table local (proto kernel )?metric 256 (linkdown )?pref medium')
 
         remove_link('test1')
-        self.wait_operstate('bridge99', 'degraded-carrier')
+        self.wait_operstate('bridge99', 'routable')
 
         output = check_output('ip -d link show bridge99')
         print(output)
