@@ -8,7 +8,7 @@
 #include "conf-parser.h"
 #include "ether-addr-util.h"
 
-#define N_ADVERTISE 3
+#define N_ADVERTISE 4
 
 /* we can't use DUPLEX_ prefix, as it
  * clashes with <linux/ethtool.h> */

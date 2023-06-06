@@ -7,6 +7,8 @@ class CustomResolver(tree.Resolver):
     def resolve(self, url, id, context):
         if 'custom-entities.ent' in url:
             return self.resolve_filename('man/custom-entities.ent', context)
+        if 'ethtool-link-mode' in url:
+            return self.resolve_filename('src/shared/ethtool-link-mode.xml', context)
 
 _parser = tree.XMLParser()
 _parser.resolvers.add(CustomResolver())
