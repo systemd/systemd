@@ -341,10 +341,6 @@ static int run(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
         }
 
-        r = dlopen_tpm2();
-        if (r < 0)
-                return log_error_errno(r, "Failed to load TPM2 libraries: %m");
-
         _cleanup_tpm2_context_ Tpm2Context *c = NULL;
         r = tpm2_context_new(arg_tpm2_device, &c);
         if (r < 0)

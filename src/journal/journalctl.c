@@ -49,6 +49,7 @@
 #include "logs-show.h"
 #include "main-func.h"
 #include "memory-util.h"
+#include "memstream-util.h"
 #include "missing_sched.h"
 #include "mkdir.h"
 #include "mount-util.h"
@@ -65,6 +66,7 @@
 #include "rlimit-util.h"
 #include "set.h"
 #include "sigbus.h"
+#include "signal-util.h"
 #include "static-destruct.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -115,7 +117,7 @@ static char *arg_verify_key = NULL;
 static usec_t arg_interval = DEFAULT_FSS_INTERVAL_USEC;
 static bool arg_force = false;
 #endif
-static usec_t arg_since, arg_until;
+static usec_t arg_since = 0, arg_until = 0;
 static bool arg_since_set = false, arg_until_set = false;
 static char **arg_syslog_identifier = NULL;
 static char **arg_system_units = NULL;
@@ -173,9 +175,8 @@ static enum {
 
 typedef struct BootId {
         sd_id128_t id;
-        uint64_t first;
-        uint64_t last;
-        LIST_FIELDS(struct BootId, boot_list);
+        usec_t first_usec;
+        usec_t last_usec;
 } BootId;
 
 static int add_matches_for_device(sd_journal *j, const char *devpath) {
@@ -1048,7 +1049,10 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if (arg_follow && !arg_no_tail && !arg_since && arg_lines == ARG_LINES_DEFAULT)
+        if (arg_no_tail)
+                arg_lines = ARG_LINES_ALL;
+
+        if (arg_follow && !arg_since_set && arg_lines == ARG_LINES_DEFAULT)
                 arg_lines = 10;
 
         if (arg_follow && !arg_merge && !arg_boot) {
@@ -1190,23 +1194,13 @@ static int add_matches(sd_journal *j, char **args) {
         return 0;
 }
 
-static void boot_id_free_all(BootId *l) {
-
-        while (l) {
-                BootId *i = l;
-                LIST_REMOVE(boot_list, l, i);
-                free(i);
-        }
-}
-
-static int discover_next_boot(sd_journal *j,
+static int discover_next_boot(
+                sd_journal *j,
                 sd_id128_t previous_boot_id,
                 bool advance_older,
-                BootId **ret) {
+                BootId *ret) {
 
-        _cleanup_free_ BootId *next_boot = NULL;
-        char match[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX] = "_BOOT_ID=";
-        sd_id128_t boot_id;
+        BootId boot;
         int r;
 
         assert(j);
@@ -1230,10 +1224,12 @@ static int discover_next_boot(sd_journal *j,
                         r = sd_journal_next(j);
                 if (r < 0)
                         return r;
-                else if (r == 0)
+                else if (r == 0) {
+                        *ret = (BootId) {};
                         return 0; /* End of journal, yay. */
+                }
 
-                r = sd_journal_get_monotonic_usec(j, NULL, &boot_id);
+                r = sd_journal_get_monotonic_usec(j, NULL, &boot.id);
                 if (r < 0)
                         return r;
 
@@ -1245,21 +1241,14 @@ static int discover_next_boot(sd_journal *j,
                  * speed things up, but let's not trust that it is complete, and hence, manually advance as
                  * necessary. */
 
-        } while (sd_id128_equal(boot_id, previous_boot_id));
+        } while (sd_id128_equal(boot.id, previous_boot_id));
 
-        next_boot = new0(BootId, 1);
-        if (!next_boot)
-                return -ENOMEM;
-
-        next_boot->id = boot_id;
-
-        r = sd_journal_get_realtime_usec(j, &next_boot->first);
+        r = sd_journal_get_realtime_usec(j, &boot.first_usec);
         if (r < 0)
                 return r;
 
         /* Now seek to the last occurrence of this boot ID. */
-        sd_id128_to_string(next_boot->id, match + STRLEN("_BOOT_ID="));
-        r = sd_journal_add_match(j, match, sizeof(match) - 1);
+        r = add_match_boot_id(j, boot.id);
         if (r < 0)
                 return r;
 
@@ -1280,148 +1269,145 @@ static int discover_next_boot(sd_journal *j,
                 return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
                                        "Whoopsie! We found a boot ID but can't read its last entry."); /* This shouldn't happen. We just came from this very boot ID. */
 
-        r = sd_journal_get_realtime_usec(j, &next_boot->last);
+        r = sd_journal_get_realtime_usec(j, &boot.last_usec);
         if (r < 0)
                 return r;
 
-        *ret = TAKE_PTR(next_boot);
-
-        return 0;
+        sd_journal_flush_matches(j);
+        *ret = boot;
+        return 1;
 }
 
-static int get_boots(
-                sd_journal *j,
-                BootId **boots,
-                sd_id128_t *boot_id,
-                int offset) {
-
-        bool skip_once;
-        int r, count = 0;
-        BootId *head = NULL, *tail = NULL;
-        const bool advance_older = boot_id && offset <= 0;
-        sd_id128_t previous_boot_id;
+static int find_boot_by_id(sd_journal *j) {
+        int r;
 
         assert(j);
 
-        /* Adjust for the asymmetry that offset 0 is
-         * the last (and current) boot, while 1 is considered the
-         * (chronological) first boot in the journal. */
-        skip_once = boot_id && sd_id128_is_null(*boot_id) && offset <= 0;
-
-        /* Advance to the earliest/latest occurrence of our reference
-         * boot ID (taking our lookup direction into account), so that
-         * discover_next_boot() can do its job.
-         * If no reference is given, the journal head/tail will do,
-         * they're "virtual" boots after all. */
-        if (boot_id && !sd_id128_is_null(*boot_id)) {
-                char match[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX] = "_BOOT_ID=";
-
-                sd_journal_flush_matches(j);
-
-                sd_id128_to_string(*boot_id, match + STRLEN("_BOOT_ID="));
-                r = sd_journal_add_match(j, match, sizeof(match) - 1);
-                if (r < 0)
-                        return r;
-
-                if (advance_older)
-                        r = sd_journal_seek_head(j); /* seek to oldest */
-                else
-                        r = sd_journal_seek_tail(j); /* seek to newest */
-                if (r < 0)
-                        return r;
-
-                if (advance_older)
-                        r = sd_journal_next(j);     /* read the oldest entry */
-                else
-                        r = sd_journal_previous(j); /* read the most recently added entry */
-                if (r < 0)
-                        return r;
-                else if (r == 0)
-                        goto finish;
-                else if (offset == 0) {
-                        count = 1;
-                        goto finish;
-                }
-
-                /* At this point the read pointer is positioned at the oldest/newest occurrence of the reference boot
-                 * ID. After flushing the matches, one more invocation of _previous()/_next() will hence place us at
-                 * the following entry, which must then have an older/newer boot ID */
-        } else {
-
-                if (advance_older)
-                        r = sd_journal_seek_tail(j); /* seek to newest */
-                else
-                        r = sd_journal_seek_head(j); /* seek to oldest */
-                if (r < 0)
-                        return r;
-
-                /* No sd_journal_next()/_previous() here.
-                 *
-                 * At this point the read pointer is positioned after the newest/before the oldest entry in the whole
-                 * journal. The next invocation of _previous()/_next() will hence position us at the newest/oldest
-                 * entry we have. */
-        }
-
-        previous_boot_id = SD_ID128_NULL;
-        for (;;) {
-                _cleanup_free_ BootId *current = NULL;
-
-                r = discover_next_boot(j, previous_boot_id, advance_older, &current);
-                if (r < 0) {
-                        boot_id_free_all(head);
-                        return r;
-                }
-
-                if (!current)
-                        break;
-
-                previous_boot_id = current->id;
-
-                if (boot_id) {
-                        if (!skip_once)
-                                offset += advance_older ? 1 : -1;
-                        skip_once = false;
-
-                        if (offset == 0) {
-                                count = 1;
-                                *boot_id = current->id;
-                                break;
-                        }
-                } else {
-                        LIST_FOREACH(boot_list, id, head) {
-                                if (sd_id128_equal(id->id, current->id)) {
-                                        /* boot id already stored, something wrong with the journal files */
-                                        /* exiting as otherwise this problem would cause forever loop */
-                                        goto finish;
-                                }
-                        }
-                        LIST_INSERT_AFTER(boot_list, head, tail, current);
-                        tail = TAKE_PTR(current);
-                        count++;
-                }
-        }
-
-finish:
-        if (boots)
-                *boots = head;
-
         sd_journal_flush_matches(j);
 
-        return count;
+        r = add_match_boot_id(j, arg_boot_id);
+        if (r < 0)
+                return r;
+
+        r = sd_journal_seek_head(j); /* seek to oldest */
+        if (r < 0)
+                return r;
+
+        r = sd_journal_next(j);      /* read the oldest entry */
+        if (r < 0)
+                return r;
+
+        /* At this point the read pointer is positioned at the oldest occurrence of the reference boot ID.
+         * After flushing the matches, one more invocation of _previous() will hence place us at the
+         * following entry, which must then have an older boot ID */
+
+        sd_journal_flush_matches(j);
+        return r > 0;
+}
+
+static int find_boot_by_offset(sd_journal *j) {
+        bool advance_older, skip_once;
+        int r;
+
+        /* Adjust for the asymmetry that offset 0 is the last (and current) boot, while 1 is considered the
+         * (chronological) first boot in the journal. */
+        advance_older = skip_once = arg_boot_offset <= 0;
+
+        if (advance_older)
+                r = sd_journal_seek_tail(j); /* seek to newest */
+        else
+                r = sd_journal_seek_head(j); /* seek to oldest */
+        if (r < 0)
+                return r;
+
+        /* No sd_journal_next()/_previous() here.
+         *
+         * At this point the read pointer is positioned after the newest/before the oldest entry in the whole
+         * journal. The next invocation of _previous()/_next() will hence position us at the newest/oldest
+         * entry we have. */
+
+        int offset = arg_boot_offset;
+        sd_id128_t previous_boot_id = SD_ID128_NULL;
+        for (;;) {
+                BootId boot;
+
+                r = discover_next_boot(j, previous_boot_id, advance_older, &boot);
+                if (r <= 0)
+                        return r;
+
+                previous_boot_id = boot.id;
+
+                if (!skip_once)
+                        offset += advance_older ? 1 : -1;
+                skip_once = false;
+
+                if (offset == 0) {
+                        arg_boot_id = boot.id;
+                        return true;
+                }
+        }
+}
+
+static int get_boots(sd_journal *j, BootId **ret_boots, size_t *ret_n_boots) {
+        _cleanup_free_ BootId *boots = NULL;
+        size_t n_boots = 0;
+        int r;
+
+        assert(j);
+        assert(ret_boots);
+        assert(ret_n_boots);
+
+        r = sd_journal_seek_head(j); /* seek to oldest */
+        if (r < 0)
+                return r;
+
+        /* No sd_journal_next()/_previous() here.
+         *
+         * At this point the read pointer is positioned before the oldest entry in the whole journal. The
+         * next invocation of _next() will hence position us at the oldest entry we have. */
+
+        sd_id128_t previous_boot_id = SD_ID128_NULL;
+        for (;;) {
+                BootId boot;
+
+                r = discover_next_boot(j, previous_boot_id, /* advance_older = */ false, &boot);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                previous_boot_id = boot.id;
+
+                FOREACH_ARRAY(i, boots, n_boots)
+                        if (sd_id128_equal(i->id, boot.id))
+                                /* The boot id is already stored, something wrong with the journal files.
+                                 * Exiting as otherwise this problem would cause an infinite loop. */
+                                break;
+
+                if (!GREEDY_REALLOC(boots, n_boots + 1))
+                        return -ENOMEM;
+
+                boots[n_boots++] = boot;
+        }
+
+        *ret_boots = TAKE_PTR(boots);
+        *ret_n_boots = n_boots;
+        return n_boots > 0;
 }
 
 static int list_boots(sd_journal *j) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        BootId *all_ids;
-        int count, i, r;
+        _cleanup_free_ BootId *boots = NULL;
+        size_t n_boots;
+        int r;
 
         assert(j);
 
-        count = get_boots(j, &all_ids, NULL, 0);
-        if (count < 0)
-                return log_error_errno(count, "Failed to determine boots: %m");
-        if (count == 0)
-                return count;
+        r = get_boots(j, &boots, &n_boots);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine boots: %m");
+        if (r == 0)
+                return 0;
 
         table = table_new("idx", "boot id", "first entry", "last entry");
         if (!table)
@@ -1437,31 +1423,25 @@ static int list_boots(sd_journal *j) {
         (void) table_set_sort(table, (size_t) 0);
         (void) table_set_reverse(table, 0, arg_reverse);
 
-        i = 0;
-        LIST_FOREACH(boot_list, id, all_ids) {
+        FOREACH_ARRAY(i, boots, n_boots) {
                 r = table_add_many(table,
-                                   TABLE_INT, i - count + 1,
+                                   TABLE_INT, (int)(i - boots) - (int) n_boots + 1,
                                    TABLE_SET_ALIGN_PERCENT, 100,
-                                   TABLE_ID128, id->id,
-                                   TABLE_TIMESTAMP, id->first,
-                                   TABLE_TIMESTAMP, id->last);
+                                   TABLE_ID128, i->id,
+                                   TABLE_TIMESTAMP, i->first_usec,
+                                   TABLE_TIMESTAMP, i->last_usec);
                 if (r < 0)
                         return table_log_add_error(r);
-                i++;
         }
 
         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, !arg_quiet);
         if (r < 0)
                 return table_log_print_error(r);
 
-        boot_id_free_all(all_ids);
-
         return 0;
 }
 
 static int add_boot(sd_journal *j) {
-        char match[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX] = "_BOOT_ID=";
-        sd_id128_t boot_id;
         int r;
 
         assert(j);
@@ -1476,25 +1456,27 @@ static int add_boot(sd_journal *j) {
             !arg_directory && !arg_file && !arg_root)
                 return add_match_this_boot(j, arg_machine);
 
-        boot_id = arg_boot_id;
-        r = get_boots(j, NULL, &boot_id, arg_boot_offset);
-        assert(r <= 1);
-        if (r <= 0) {
-                const char *reason = (r == 0) ? "No such boot ID in journal" : STRERROR(r);
-
-                if (sd_id128_is_null(arg_boot_id))
-                        log_error("Data from the specified boot (%+i) is not available: %s",
-                                  arg_boot_offset, reason);
-                else
-                        log_error("Data from the specified boot ("SD_ID128_FORMAT_STR") is not available: %s",
-                                  SD_ID128_FORMAT_VAL(arg_boot_id), reason);
-
-                return r == 0 ? -ENODATA : r;
+        if (sd_id128_is_null(arg_boot_id)) {
+                r = find_boot_by_offset(j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find journal entry from the specified boot offset (%+i): %m",
+                                               arg_boot_offset);
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENODATA),
+                                               "No journal boot entry found from the specified boot offset (%+i).",
+                                               arg_boot_offset);
+        } else {
+                r = find_boot_by_id(j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find journal entry from the specified boot ID (%s): %m",
+                                               SD_ID128_TO_STRING(arg_boot_id));
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENODATA),
+                                               "No journal boot entry found from the specified boot ID (%s).",
+                                               SD_ID128_TO_STRING(arg_boot_id));
         }
 
-        sd_id128_to_string(boot_id, match + STRLEN("_BOOT_ID="));
-
-        r = sd_journal_add_match(j, match, sizeof(match) - 1);
+        r = add_match_boot_id(j, arg_boot_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match: %m");
 
@@ -1777,15 +1759,14 @@ static int format_journal_url(
                 sd_id128_t machine,
                 bool full,
                 char **ret_url) {
-        _cleanup_free_ char *url = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        size_t url_size = 0;
-        int r;
+
+        _cleanup_(memstream_done) MemStream m = {};
+        FILE *f;
 
         assert(seed);
         assert(seed_size > 0);
 
-        f = open_memstream_unlocked(&url, &url_size);
+        f = memstream_init(&m);
         if (!f)
                 return -ENOMEM;
 
@@ -1806,13 +1787,7 @@ static int format_journal_url(
                         fprintf(f, ";hostname=%s", hn);
         }
 
-        r = fflush_and_check(f);
-        if (r < 0)
-                return r;
-
-        f = safe_fclose(f);
-        *ret_url = TAKE_PTR(url);
-        return 0;
+        return memstream_finalize(&m, ret_url, NULL);
 }
 #endif
 
@@ -2077,51 +2052,295 @@ static int sync_journal(void) {
         return simple_varlink_call("--sync", "io.systemd.Journal.Synchronize");
 }
 
-static int wait_for_change(sd_journal *j, int poll_fd) {
-        struct pollfd pollfds[] = {
-                { .fd = poll_fd, .events = POLLIN },
-                { .fd = STDOUT_FILENO },
-        };
-        usec_t timeout;
-        int r;
+static int action_list_fields(sd_journal *j) {
+        const void *data;
+        size_t size;
+        int r, n_shown = 0;
 
-        assert(j);
-        assert(poll_fd >= 0);
+        assert(arg_field);
 
-        /* Much like sd_journal_wait() but also keeps an eye on STDOUT, and exits as soon as we see a POLLHUP on that,
-         * i.e. when it is closed. */
-
-        r = sd_journal_get_timeout(j, &timeout);
+        r = sd_journal_set_data_threshold(j, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine journal waiting time: %m");
+                return log_error_errno(r, "Failed to unset data size threshold: %m");
 
-        r = ppoll_usec(pollfds, ELEMENTSOF(pollfds), timeout);
-        if (r == -EINTR)
-                return 0;
+        r = sd_journal_query_unique(j, arg_field);
         if (r < 0)
-                return log_error_errno(r, "Couldn't wait for journal event: %m");
+                return log_error_errno(r, "Failed to query unique data objects: %m");
 
-        if (pollfds[1].revents & (POLLHUP|POLLERR)) /* STDOUT has been closed? */
-                return log_debug_errno(SYNTHETIC_ERRNO(ECANCELED),
-                                       "Standard output has been closed.");
+        SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
+                const void *eq;
 
-        r = sd_journal_process(j);
-        if (r < 0)
-                return log_error_errno(r, "Failed to process journal events: %m");
+                if (arg_lines >= 0 && n_shown >= arg_lines)
+                        break;
+
+                eq = memchr(data, '=', size);
+                if (eq)
+                        printf("%.*s\n", (int) (size - ((const uint8_t*) eq - (const uint8_t*) data + 1)), (const char*) eq + 1);
+                else
+                        printf("%.*s\n", (int) size, (const char*) data);
+
+                n_shown++;
+        }
 
         return 0;
 }
 
+static int update_cursor(sd_journal *j) {
+        _cleanup_free_ char *cursor = NULL;
+        int r;
+
+        assert(j);
+
+        if (!arg_show_cursor && !arg_cursor_file)
+                return 0;
+
+        r = sd_journal_get_cursor(j, &cursor);
+        if (r == -EADDRNOTAVAIL)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to get cursor: %m");
+
+        if (arg_show_cursor)
+                printf("-- cursor: %s\n", cursor);
+
+        if (arg_cursor_file) {
+                r = write_string_file(arg_cursor_file, cursor, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_ATOMIC);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write new cursor to %s: %m", arg_cursor_file);
+        }
+
+        return 0;
+}
+
+typedef struct Context {
+        sd_journal *journal;
+        bool need_seek;
+        bool since_seeked;
+        bool ellipsized;
+        bool previous_boot_id_valid;
+        sd_id128_t previous_boot_id;
+        sd_id128_t previous_boot_id_output;
+        dual_timestamp previous_ts_output;
+} Context;
+
+static int show(Context *c) {
+        sd_journal *j;
+        int r, n_shown = 0;
+
+        assert(c);
+
+        j = ASSERT_PTR(c->journal);
+
+        while (arg_lines < 0 || n_shown < arg_lines || arg_follow) {
+                int flags;
+                size_t highlight[2] = {};
+
+                if (c->need_seek) {
+                        r = sd_journal_step_one(j, !arg_reverse);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to iterate through journal: %m");
+                        if (r == 0)
+                                break;
+                }
+
+                if (arg_until_set && !arg_reverse && (arg_lines < 0 || arg_since_set)) {
+                        /* If --lines= is set, we usually rely on the n_shown to tell us
+                         * when to stop. However, if --since= is set too, we may end up
+                         * having less than --lines= to output. In this case let's also
+                         * check if the entry is in range. */
+
+                        usec_t usec;
+
+                        r = sd_journal_get_realtime_usec(j, &usec);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine timestamp: %m");
+                        if (usec > arg_until)
+                                break;
+                }
+
+                if (arg_since_set && (arg_reverse || !c->since_seeked)) {
+                        usec_t usec;
+
+                        r = sd_journal_get_realtime_usec(j, &usec);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine timestamp: %m");
+
+                        if (usec < arg_since) {
+                                if (arg_reverse)
+                                        break; /* Reached the earliest entry */
+
+                                /* arg_lines >= 0 (!since_seeked):
+                                 * We jumped arg_lines back and it seems to be too much */
+                                r = sd_journal_seek_realtime_usec(j, arg_since);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to seek to date: %m");
+                                c->since_seeked = true;
+
+                                c->need_seek = true;
+                                continue;
+                        }
+                        c->since_seeked = true; /* We're surely within the range of --since now */
+                }
+
+                if (!arg_merge && !arg_quiet) {
+                        sd_id128_t boot_id;
+
+                        r = sd_journal_get_monotonic_usec(j, NULL, &boot_id);
+                        if (r >= 0) {
+                                if (c->previous_boot_id_valid &&
+                                    !sd_id128_equal(boot_id, c->previous_boot_id))
+                                        printf("%s-- Boot "SD_ID128_FORMAT_STR" --%s\n",
+                                               ansi_highlight(), SD_ID128_FORMAT_VAL(boot_id), ansi_normal());
+
+                                c->previous_boot_id = boot_id;
+                                c->previous_boot_id_valid = true;
+                        }
+                }
+
+                if (arg_compiled_pattern) {
+                        const void *message;
+                        size_t len;
+
+                        r = sd_journal_get_data(j, "MESSAGE", &message, &len);
+                        if (r < 0) {
+                                if (r == -ENOENT) {
+                                        c->need_seek = true;
+                                        continue;
+                                }
+
+                                return log_error_errno(r, "Failed to get MESSAGE field: %m");
+                        }
+
+                        assert_se(message = startswith(message, "MESSAGE="));
+
+                        r = pattern_matches_and_log(arg_compiled_pattern, message,
+                                                    len - strlen("MESSAGE="), highlight);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                c->need_seek = true;
+                                continue;
+                        }
+                }
+
+                flags =
+                        arg_all * OUTPUT_SHOW_ALL |
+                        arg_full * OUTPUT_FULL_WIDTH |
+                        colors_enabled() * OUTPUT_COLOR |
+                        arg_catalog * OUTPUT_CATALOG |
+                        arg_utc * OUTPUT_UTC |
+                        arg_no_hostname * OUTPUT_NO_HOSTNAME;
+
+                r = show_journal_entry(stdout, j, arg_output, 0, flags,
+                                       arg_output_fields, highlight, &c->ellipsized,
+                                       &c->previous_ts_output, &c->previous_boot_id_output);
+                c->need_seek = true;
+                if (r == -EADDRNOTAVAIL)
+                        break;
+                if (r < 0)
+                        return r;
+
+                n_shown++;
+
+                /* If journalctl take a long time to process messages, and during that time journal file
+                 * rotation occurs, a journalctl client will keep those rotated files open until it calls
+                 * sd_journal_process(), which typically happens as a result of calling sd_journal_wait() below
+                 * in the "following" case.  By periodically calling sd_journal_process() during the processing
+                 * loop we shrink the window of time a client instance has open file descriptors for rotated
+                 * (deleted) journal files. */
+                if ((n_shown % PROCESS_INOTIFY_INTERVAL) == 0) {
+                        r = sd_journal_process(j);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to process inotify events: %m");
+                }
+        }
+
+        return n_shown;
+}
+
+static int show_and_fflush(Context *c, sd_event_source *s) {
+        int r;
+
+        assert(c);
+        assert(s);
+
+        r = show(c);
+        if (r < 0)
+                return sd_event_exit(sd_event_source_get_event(s), r);
+
+        fflush(stdout);
+        return 0;
+}
+
+static int on_journal_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        assert(s);
+
+        r = sd_journal_process(c->journal);
+        if (r < 0) {
+                log_error_errno(r, "Failed to process journal events: %m");
+                return sd_event_exit(sd_event_source_get_event(s), r);
+        }
+
+        return show_and_fflush(c, s);
+}
+
+static int on_first_event(sd_event_source *s, void *userdata) {
+        return show_and_fflush(userdata, s);
+}
+
+static int on_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        assert(s);
+        assert(si);
+        assert(IN_SET(si->ssi_signo, SIGTERM, SIGINT));
+
+        return sd_event_exit(sd_event_source_get_event(s), si->ssi_signo);
+}
+
+static int setup_event(Context *c, int fd, sd_event **ret) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        int r;
+
+        assert(arg_follow);
+        assert(c);
+        assert(fd >= 0);
+        assert(ret);
+
+        r = sd_event_default(&e);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate sd_event object: %m");
+
+        (void) sd_event_add_signal(e, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_signal, NULL);
+        (void) sd_event_add_signal(e, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_signal, NULL);
+
+        r = sd_event_add_io(e, NULL, fd, EPOLLIN, &on_journal_event, c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add io event source for journal: %m");
+
+        /* Also keeps an eye on STDOUT, and exits as soon as we see a POLLHUP on that, i.e. when it is closed. */
+        r = sd_event_add_io(e, NULL, STDOUT_FILENO, EPOLLHUP|EPOLLERR, NULL, INT_TO_PTR(-ECANCELED));
+        if (r < 0)
+                return log_error_errno(r, "Failed to add io event source for stdout: %m");
+
+        if (arg_lines != 0 || arg_since_set) {
+                r = sd_event_add_defer(e, NULL, on_first_event, c);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add defer event source: %m");
+        }
+
+        *ret = TAKE_PTR(e);
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
+        bool need_seek = false, since_seeked = false, use_cursor = false, after_cursor = false;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
-        bool previous_boot_id_valid = false, first_line = true, ellipsized = false, need_seek = false, since_seeked = false;
-        bool use_cursor = false, after_cursor = false;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        sd_id128_t previous_boot_id = SD_ID128_NULL, previous_boot_id_output = SD_ID128_NULL;
-        dual_timestamp previous_ts_output = DUAL_TIMESTAMP_NULL;
         _cleanup_close_ int machine_fd = -EBADF;
-        int n_shown = 0, r, poll_fd = -EBADF;
+        int n_shown, r, poll_fd = -EBADF;
 
         setlocale(LC_ALL, "");
         log_setup();
@@ -2400,37 +2619,8 @@ static int run(int argc, char *argv[]) {
                 log_debug("Journal filter: %s", filter);
         }
 
-        if (arg_action == ACTION_LIST_FIELDS) {
-                const void *data;
-                size_t size;
-
-                assert(arg_field);
-
-                r = sd_journal_set_data_threshold(j, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to unset data size threshold: %m");
-
-                r = sd_journal_query_unique(j, arg_field);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to query unique data objects: %m");
-
-                SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
-                        const void *eq;
-
-                        if (arg_lines >= 0 && n_shown >= arg_lines)
-                                break;
-
-                        eq = memchr(data, '=', size);
-                        if (eq)
-                                printf("%.*s\n", (int) (size - ((const uint8_t*) eq - (const uint8_t*) data + 1)), (const char*) eq + 1);
-                        else
-                                printf("%.*s\n", (int) size, (const char*) data);
-
-                        n_shown++;
-                }
-
-                return 0;
-        }
+        if (arg_action == ACTION_LIST_FIELDS)
+                return action_list_fields(j);
 
         /* Opening the fd now means the first sd_journal_wait() will actually wait */
         if (arg_follow) {
@@ -2559,169 +2749,53 @@ static int run(int argc, char *argv[]) {
                 }
         }
 
-        for (;;) {
-                while (arg_lines < 0 || n_shown < arg_lines || (arg_follow && !first_line)) {
-                        int flags;
-                        size_t highlight[2] = {};
+        Context c = {
+                .journal = j,
+                .need_seek = need_seek,
+                .since_seeked = since_seeked,
+        };
 
-                        if (need_seek) {
-                                if (!arg_reverse)
-                                        r = sd_journal_next(j);
-                                else
-                                        r = sd_journal_previous(j);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to iterate through journal: %m");
-                                if (r == 0)
-                                        break;
-                        }
+        if (arg_follow) {
+                _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+                int sig;
 
-                        if (arg_until_set && !arg_reverse && (arg_lines < 0 || arg_since_set)) {
-                                /* If --lines= is set, we usually rely on the n_shown to tell us
-                                 * when to stop. However, if --since= is set too, we may end up
-                                 * having less than --lines= to output. In this case let's also
-                                 * check if the entry is in range. */
+                assert(poll_fd >= 0);
 
-                                usec_t usec;
-
-                                r = sd_journal_get_realtime_usec(j, &usec);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to determine timestamp: %m");
-                                if (usec > arg_until)
-                                        break;
-                        }
-
-                        if (arg_since_set && (arg_reverse || !since_seeked)) {
-                                usec_t usec;
-
-                                r = sd_journal_get_realtime_usec(j, &usec);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to determine timestamp: %m");
-
-                                if (usec < arg_since) {
-                                        if (arg_reverse)
-                                                break; /* Reached the earliest entry */
-
-                                        /* arg_lines >= 0 (!since_seeked):
-                                         * We jumped arg_lines back and it seems to be too much */
-                                        r = sd_journal_seek_realtime_usec(j, arg_since);
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to seek to date: %m");
-                                        since_seeked = true;
-
-                                        need_seek = true;
-                                        continue;
-                                }
-                                since_seeked = true; /* We're surely within the range of --since now */
-                        }
-
-                        if (!arg_merge && !arg_quiet) {
-                                sd_id128_t boot_id;
-
-                                r = sd_journal_get_monotonic_usec(j, NULL, &boot_id);
-                                if (r >= 0) {
-                                        if (previous_boot_id_valid &&
-                                            !sd_id128_equal(boot_id, previous_boot_id))
-                                                printf("%s-- Boot "SD_ID128_FORMAT_STR" --%s\n",
-                                                       ansi_highlight(), SD_ID128_FORMAT_VAL(boot_id), ansi_normal());
-
-                                        previous_boot_id = boot_id;
-                                        previous_boot_id_valid = true;
-                                }
-                        }
-
-                        if (arg_compiled_pattern) {
-                                const void *message;
-                                size_t len;
-
-                                r = sd_journal_get_data(j, "MESSAGE", &message, &len);
-                                if (r < 0) {
-                                        if (r == -ENOENT) {
-                                                need_seek = true;
-                                                continue;
-                                        }
-
-                                        return log_error_errno(r, "Failed to get MESSAGE field: %m");
-                                }
-
-                                assert_se(message = startswith(message, "MESSAGE="));
-
-                                r = pattern_matches_and_log(arg_compiled_pattern, message,
-                                                            len - strlen("MESSAGE="), highlight);
-                                if (r < 0)
-                                        return r;
-                                if (r == 0) {
-                                        need_seek = true;
-                                        continue;
-                                }
-                        }
-
-                        flags =
-                                arg_all * OUTPUT_SHOW_ALL |
-                                arg_full * OUTPUT_FULL_WIDTH |
-                                colors_enabled() * OUTPUT_COLOR |
-                                arg_catalog * OUTPUT_CATALOG |
-                                arg_utc * OUTPUT_UTC |
-                                arg_no_hostname * OUTPUT_NO_HOSTNAME;
-
-                        r = show_journal_entry(stdout, j, arg_output, 0, flags,
-                                               arg_output_fields, highlight, &ellipsized,
-                                               &previous_ts_output, &previous_boot_id_output);
-                        need_seek = true;
-                        if (r == -EADDRNOTAVAIL)
-                                break;
-                        if (r < 0)
-                                return r;
-
-                        n_shown++;
-
-                        /* If journalctl take a long time to process messages, and during that time journal file
-                         * rotation occurs, a journalctl client will keep those rotated files open until it calls
-                         * sd_journal_process(), which typically happens as a result of calling sd_journal_wait() below
-                         * in the "following" case.  By periodically calling sd_journal_process() during the processing
-                         * loop we shrink the window of time a client instance has open file descriptors for rotated
-                         * (deleted) journal files. */
-                        if ((n_shown % PROCESS_INOTIFY_INTERVAL) == 0) {
-                                r = sd_journal_process(j);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to process inotify events: %m");
-                        }
-                }
-
-                if (!arg_follow) {
-                        if (n_shown == 0 && !arg_quiet)
-                                printf("-- No entries --\n");
-                        break;
-                }
-
-                fflush(stdout);
-
-                r = wait_for_change(j, poll_fd);
+                r = setup_event(&c, poll_fd, &e);
                 if (r < 0)
                         return r;
 
-                first_line = false;
+                r = sd_event_loop(e);
+                if (r < 0)
+                        return r;
+                sig = r;
+
+                /* unref signal event sources. */
+                e = sd_event_unref(e);
+
+                r = update_cursor(j);
+                if (r < 0)
+                        return r;
+
+                /* re-send the original signal. */
+                assert(SIGNAL_VALID(sig));
+                if (raise(sig) < 0)
+                        log_error("Failed to raise the original signal SIG%s, ignoring: %m", signal_to_string(sig));
+
+                return 0;
         }
 
-        if (arg_show_cursor || arg_cursor_file) {
-                _cleanup_free_ char *cursor = NULL;
+        r = show(&c);
+        if (r < 0)
+                return r;
+        n_shown = r;
 
-                r = sd_journal_get_cursor(j, &cursor);
-                if (r < 0 && r != -EADDRNOTAVAIL)
-                        return log_error_errno(r, "Failed to get cursor: %m");
-                if (r >= 0) {
-                        if (arg_show_cursor)
-                                printf("-- cursor: %s\n", cursor);
+        if (n_shown == 0 && !arg_quiet)
+                printf("-- No entries --\n");
 
-                        if (arg_cursor_file) {
-                                r = write_string_file(arg_cursor_file, cursor,
-                                                      WRITE_STRING_FILE_CREATE |
-                                                      WRITE_STRING_FILE_ATOMIC);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to write new cursor to %s: %m",
-                                                               arg_cursor_file);
-                        }
-                }
-        }
+        r = update_cursor(j);
+        if (r < 0)
+                return r;
 
         if (arg_compiled_pattern && n_shown == 0)
                 /* --grep was used, no error was thrown, but the pattern didn't

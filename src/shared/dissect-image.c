@@ -1217,16 +1217,19 @@ static int dissect_image(
                                 }
 
                                 if (m->partitions[type.designator].found) {
+                                        int c;
+
                                         /* For most partition types the first one we see wins. Except for the
                                          * rootfs and /usr, where we do a version compare of the label, and
                                          * let the newest version win. This permits a simple A/B versioning
                                          * scheme in OS images. */
 
-                                        if (compare_arch(type.arch, m->partitions[type.designator].architecture) <= 0)
+                                        c = compare_arch(type.arch, m->partitions[type.designator].architecture);
+                                        if (c < 0) /* the arch we already found is better than the one we found now */
                                                 continue;
-
-                                        if (!partition_designator_is_versioned(type.designator) ||
-                                            strverscmp_improved(m->partitions[type.designator].label, label) >= 0)
+                                        if (c == 0 && /* same arch? then go by version in label */
+                                            (!partition_designator_is_versioned(type.designator) ||
+                                             strverscmp_improved(label, m->partitions[type.designator].label) <= 0))
                                                 continue;
 
                                         dissected_partition_done(m->partitions + type.designator);
@@ -2019,6 +2022,27 @@ static int mount_root_tmpfs(const char *where, uid_t uid_shift, DissectImageFlag
         return 1;
 }
 
+static int mount_point_is_available(const char *where, const char *path, bool missing_ok) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        /* Check whether <path> is suitable as a mountpoint, i.e. is an empty directory
+         * or does not exist at all (when missing_ok). */
+
+        r = chase(path, where, CHASE_PREFIX_ROOT, &p, NULL);
+        if (r == -ENOENT)
+                return missing_ok;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to chase \"%s\": %m", path);
+
+        r = dir_is_empty(p, /* ignore_hidden_or_backup= */ false);
+        if (r == -ENOTDIR)
+                return false;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to check directory \"%s\": %m", p);
+        return true;
+}
+
 int dissected_image_mount(
                 DissectedImage *m,
                 const char *where,
@@ -2026,7 +2050,7 @@ int dissected_image_mount(
                 uid_t uid_range,
                 DissectImageFlags flags) {
 
-        int r, xbootldr_mounted;
+        int r;
 
         assert(m);
         assert(where);
@@ -2110,45 +2134,42 @@ int dissected_image_mount(
         if (r < 0)
                 return r;
 
-        xbootldr_mounted = mount_partition(PARTITION_XBOOTLDR, m->partitions + PARTITION_XBOOTLDR, where, "/boot", uid_shift, uid_range, flags);
-        if (xbootldr_mounted < 0)
-                return xbootldr_mounted;
+        int slash_boot_is_available;
+        r = slash_boot_is_available = mount_point_is_available(where, "/boot", /* missing_ok = */ true);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                r = mount_partition(PARTITION_XBOOTLDR, m->partitions + PARTITION_XBOOTLDR, where, "/boot", uid_shift, uid_range, flags);
+                if (r < 0)
+                        return r;
+                slash_boot_is_available = !r;
+        }
 
         if (m->partitions[PARTITION_ESP].found) {
-                int esp_done = false;
+                const char *esp_path = NULL;
 
-                /* Mount the ESP to /efi if it exists. If it doesn't exist, use /boot instead, but only if it
-                 * exists and is empty, and we didn't already mount the XBOOTLDR partition into it. */
+                /* Mount the ESP to /boot/ if it exists and is empty and we didn't already mount the XBOOTLDR
+                 * partition into it. Otherwise, use /efi instead, but only if it exists and is empty. */
 
-                r = chase("/efi", where, CHASE_PREFIX_ROOT, NULL, NULL);
-                if (r < 0) {
-                        if (r != -ENOENT)
+                if (slash_boot_is_available) {
+                        r = mount_point_is_available(where, "/boot", /* missing_ok = */ false);
+                        if (r < 0)
                                 return r;
-
-                        /* /efi doesn't exist. Let's see if /boot is suitable then */
-
-                        if (!xbootldr_mounted) {
-                                _cleanup_free_ char *p = NULL;
-
-                                r = chase("/boot", where, CHASE_PREFIX_ROOT, &p, NULL);
-                                if (r < 0) {
-                                        if (r != -ENOENT)
-                                                return r;
-                                } else if (dir_is_empty(p, /* ignore_hidden_or_backup= */ false) > 0) {
-                                        /* It exists and is an empty directory. Let's mount the ESP there. */
-                                        r = mount_partition(PARTITION_ESP, m->partitions + PARTITION_ESP, where, "/boot", uid_shift, uid_range, flags);
-                                        if (r < 0)
-                                                return r;
-
-                                        esp_done = true;
-                                }
-                        }
+                        if (r > 0)
+                                esp_path = "/boot";
                 }
 
-                if (!esp_done) {
-                        /* OK, let's mount the ESP now to /efi (possibly creating the dir if missing) */
+                if (!esp_path) {
+                        r = mount_point_is_available(where, "/efi", /* missing_ok = */ true);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                esp_path = "/efi";
+                }
 
-                        r = mount_partition(PARTITION_ESP, m->partitions + PARTITION_ESP, where, "/efi", uid_shift, uid_range, flags);
+                if (esp_path) {
+                        /* OK, let's mount the ESP now (possibly creating the dir if missing) */
+                        r = mount_partition(PARTITION_ESP, m->partitions + PARTITION_ESP, where, esp_path, uid_shift, uid_range, flags);
                         if (r < 0)
                                 return r;
                 }

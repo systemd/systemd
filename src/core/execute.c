@@ -65,7 +65,7 @@
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "ioprio-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "log.h"
 #include "macro.h"
 #include "manager.h"
@@ -1539,7 +1539,7 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
                 context_has_syscall_logs(c);
 }
 
-static bool exec_context_has_credentials(const ExecContext *context) {
+bool exec_context_has_credentials(const ExecContext *context) {
 
         assert(context);
 
@@ -2787,7 +2787,7 @@ static char **credential_search_path(
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *t = strv_join(l, ":");
 
-                log_debug("Credential search path is: %s", t);
+                log_debug("Credential search path is: %s", strempty(t));
         }
 
         return TAKE_PTR(l);
@@ -3263,7 +3263,7 @@ static int setup_credentials_internal(
                 /* Determine if we should actually install the prepared mount in the final location by bind
                  * mounting it there. We do so only if the mount is not established there already, and if the
                  * mount is actually non-empty (i.e. carries at least one credential). Not that in the best
-                 * case we are doing all this in a mount namespace, thus noone else will see that we
+                 * case we are doing all this in a mount namespace, thus no one else will see that we
                  * allocated a file system we are getting rid of again here. */
                 if (final_mounted)
                         install = false; /* already installed */
@@ -5193,6 +5193,16 @@ static int exec_child(
                         return r;
         }
 
+        if (context->memory_ksm >= 0)
+                if (prctl(PR_SET_MEMORY_MERGE, context->memory_ksm) < 0) {
+                        if (ERRNO_IS_NOT_SUPPORTED(errno))
+                                log_unit_debug_errno(unit, errno, "KSM support not available, ignoring.");
+                        else {
+                                *exit_status = EXIT_KSM;
+                                return log_unit_error_errno(unit, errno, "Failed to set KSM: %m");
+                        }
+                }
+
         /* Drop groups as early as possible.
          * This needs to be done after PrivateDevices=y setup as device nodes should be owned by the host's root.
          * For non-root in a userns, devices will be owned by the user/group before the group change, and nobody. */
@@ -5773,6 +5783,7 @@ void exec_context_init(ExecContext *c) {
         c->tty_cols = UINT_MAX;
         numa_policy_reset(&c->numa_policy);
         c->private_mounts = -1;
+        c->memory_ksm = -1;
 }
 
 void exec_context_done(ExecContext *c) {

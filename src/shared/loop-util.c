@@ -677,9 +677,9 @@ int loop_device_make_by_path_at(
         direct_flags = FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO) ? O_DIRECT : 0;
         rdwr_flags = open_flags >= 0 ? open_flags : O_RDWR;
 
-        fd = xopenat(dir_fd, path, basic_flags|direct_flags|rdwr_flags, 0);
+        fd = xopenat(dir_fd, path, basic_flags|direct_flags|rdwr_flags, /* xopen_flags = */ 0, /* mode = */ 0);
         if (fd < 0 && direct_flags != 0) /* If we had O_DIRECT on, and things failed with that, let's immediately try again without */
-                fd = xopenat(dir_fd, path, basic_flags|rdwr_flags, 0);
+                fd = xopenat(dir_fd, path, basic_flags|rdwr_flags, /* xopen_flags = */ 0, /* mode = */ 0);
         else
                 direct = direct_flags != 0;
         if (fd < 0) {
@@ -689,9 +689,9 @@ int loop_device_make_by_path_at(
                 if (open_flags >= 0 || !(ERRNO_IS_PRIVILEGE(r) || r == -EROFS))
                         return r;
 
-                fd = xopenat(dir_fd, path, basic_flags|direct_flags|O_RDONLY, 0);
+                fd = xopenat(dir_fd, path, basic_flags|direct_flags|O_RDONLY, /* xopen_flags = */ 0, /* mode = */ 0);
                 if (fd < 0 && direct_flags != 0) /* as above */
-                        fd = xopenat(dir_fd, path, basic_flags|O_RDONLY, 0);
+                        fd = xopenat(dir_fd, path, basic_flags|O_RDONLY, /* xopen_flags = */ 0, /* mode = */ 0);
                 else
                         direct = direct_flags != 0;
                 if (fd < 0)
@@ -817,16 +817,25 @@ static LoopDevice* loop_device_free(LoopDevice *d) {
         }
 
         /* Now that the block device is released, let's also try to remove it */
-        if (control >= 0)
-                for (unsigned n_attempts = 0;;) {
+        if (control >= 0) {
+                useconds_t delay = 5 * USEC_PER_MSEC;  /* A total delay of 5090 ms between 39 attempts,
+                                                        * (4*5 + 5*10 + 5*20 + … + 3*640) = 5090. */
+
+                for (unsigned attempt = 1;; attempt++) {
                         if (ioctl(control, LOOP_CTL_REMOVE, d->nr) >= 0)
                                 break;
-                        if (errno != EBUSY || ++n_attempts >= 64) {
+                        if (errno != EBUSY || attempt > 38) {
                                 log_debug_errno(errno, "Failed to remove device %s: %m", strna(d->node));
                                 break;
                         }
-                        (void) usleep(50 * USEC_PER_MSEC);
+                        if (attempt % 5 == 0) {
+                                log_debug("Device is still busy after %u attempts…", attempt);
+                                delay *= 2;
+                        }
+
+                        (void) usleep(delay);
                 }
+        }
 
         free(d->node);
         sd_device_unref(d->dev);

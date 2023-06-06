@@ -3,6 +3,7 @@
 [Unit]
 Description=File System Check on /dev/disk/by-uuid/3f5ad593-4546-4a94-a374-bcfb68aa11f7
 Documentation=man:systemd-fsck-root.service(8)
+
 DefaultDependencies=no
 BindsTo=dev-disk-by\x2duuid-3f5ad593\x2d4546\x2d4a94\x2da374\x2dbcfb68aa11f7.device
 Conflicts=shutdown.target
@@ -13,4 +14,4 @@ Before=shutdown.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/lib/systemd/systemd-fsck /dev/disk/by-uuid/3f5ad593-4546-4a94-a374-bcfb68aa11f7
-TimeoutSec=0
+TimeoutSec=infinity

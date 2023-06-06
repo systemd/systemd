@@ -76,7 +76,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab
-    - uses: systemd/mkosi@e3141cd82206e00e3a6b02c09e08b3d443462063
+    - uses: systemd/mkosi@e59f763872e4d5f96acb11b4a77995b986bb31cc
 
     - name: Configure
       run: |
@@ -87,7 +87,6 @@ jobs:
 
         [Content]
         Environment=CI_BUILD=1
-                    DEFAULT_TIMEOUT_SEC=120
                     SLOW_TESTS=true
 
         [Output]
@@ -95,9 +94,12 @@ jobs:
                                systemd.journald.max_level_console=debug
                                # udev's debug log output is very verbose, so up it to info in CI.
                                udev.log_level=info
+                               # Root device can take a long time to appear, so let's bump the timeout.
+                               systemd.default_device_timeout_sec=180
 
         [Host]
         ExtraSearchPaths=!*
+        QemuVsock=yes
         EOF
 
         # For erofs, we have to install linux-modules-extra-azure, but that doesn't match the running kernel
@@ -123,3 +125,7 @@ jobs:
 
     - name: Boot ${{ matrix.distro }} QEMU
       run: timeout -k 30 10m mkosi --debug qemu
+
+    # vsock in Github Actions with qemu is broken so for now we check for failures manually.
+    - name: Check ${{ matrix.distro }} QEMU
+      run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"

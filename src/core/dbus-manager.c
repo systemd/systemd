@@ -1713,6 +1713,45 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int method_soft_reboot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_free_ char *rt = NULL;
+        Manager *m = ASSERT_PTR(userdata);
+        const char *root;
+        int r;
+
+        assert(message);
+
+        r = verify_run_space_permissive("soft reboot may fail", error);
+        if (r < 0)
+                return r;
+
+        r = mac_selinux_access_check(message, "reboot", error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(message, "s", &root);
+        if (r < 0)
+                return r;
+
+        if (!isempty(root)) {
+                if (!path_is_valid(root))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "New root directory '%s' must be a valid path.", root);
+                if (!path_is_absolute(root))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "New root directory path '%s' is not absolute.", root);
+
+                rt = strdup(root);
+                if (!rt)
+                        return -ENOMEM;
+        }
+
+        free_and_replace(m->switch_root, rt);
+        m->objective = MANAGER_SOFT_REBOOT;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -1772,8 +1811,8 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *e
 
 static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *ri = NULL, *rt = NULL;
-        const char *root, *init;
         Manager *m = ASSERT_PTR(userdata);
+        const char *root, *init;
         int r;
 
         assert(message);
@@ -2153,7 +2192,7 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         UnitFileList *item;
-        _cleanup_(hashmap_freep) Hashmap *h = NULL;
+        _cleanup_hashmap_free_ Hashmap *h = NULL;
         int r;
 
         assert(message);
@@ -3260,6 +3299,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
                       NULL,
                       method_reboot,
                       SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
+        SD_BUS_METHOD_WITH_ARGS("SoftReboot",
+                                SD_BUS_ARGS("s", new_root),
+                                SD_BUS_NO_RESULT,
+                                method_soft_reboot,
+                                SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
         SD_BUS_METHOD("PowerOff",
                       NULL,
                       NULL,

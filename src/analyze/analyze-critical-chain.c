@@ -29,7 +29,7 @@ static int list_dependencies_print(
         printf("%s", special_glyph(last ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH));
 
         if (times) {
-                if (times->time > 0)
+                if (timestamp_is_set(times->time))
                         printf("%s%s @%s +%s%s", ansi_highlight_red(), name,
                                FORMAT_TIMESPAN(times->activating - boot->userspace_time, USEC_PER_MSEC),
                                FORMAT_TIMESPAN(times->time, USEC_PER_MSEC), ansi_normal());

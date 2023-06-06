@@ -26,7 +26,7 @@
 #include "in-addr-util.h"
 #include "io-util.h"
 #include "ip-protocol-list.h"
-#include "label.h"
+#include "label-util.h"
 #include "log.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
@@ -120,6 +120,19 @@ static void socket_cleanup_fd_list(SocketPort *p) {
         p->n_auxiliary_fds = 0;
 }
 
+SocketPort *socket_port_free(SocketPort *p) {
+        if (!p)
+                return NULL;
+
+        sd_event_source_unref(p->event_source);
+
+        socket_cleanup_fd_list(p);
+        safe_close(p->fd);
+        free(p->path);
+
+        return mfree(p);
+}
+
 void socket_free_ports(Socket *s) {
         SocketPort *p;
 
@@ -127,13 +140,7 @@ void socket_free_ports(Socket *s) {
 
         while ((p = s->ports)) {
                 LIST_REMOVE(port, s->ports, p);
-
-                sd_event_source_unref(p->event_source);
-
-                socket_cleanup_fd_list(p);
-                safe_close(p->fd);
-                free(p->path);
-                free(p);
+                socket_port_free(p);
         }
 }
 
@@ -716,7 +723,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, strna(s->user),
                         prefix, strna(s->group));
 
-        if (s->keep_alive_time > 0)
+        if (timestamp_is_set(s->keep_alive_time))
                 fprintf(f,
                         "%sKeepAliveTimeSec: %s\n",
                         prefix, FORMAT_TIMESPAN(s->keep_alive_time, USEC_PER_SEC));
@@ -973,7 +980,7 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
                         log_unit_warning_errno(UNIT(s), r, "SO_KEEPALIVE failed: %m");
         }
 
-        if (s->keep_alive_time > 0) {
+        if (timestamp_is_set(s->keep_alive_time)) {
                 r = setsockopt_int(fd, SOL_TCP, TCP_KEEPIDLE, s->keep_alive_time / USEC_PER_SEC);
                 if (r < 0)
                         log_unit_warning_errno(UNIT(s), r, "TCP_KEEPIDLE failed: %m");
@@ -1844,7 +1851,7 @@ static void socket_set_state(Socket *s, SocketState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(s), "Changed %s -> %s", socket_state_to_string(old_state), socket_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], 0);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
 }
 
 static int socket_coldplug(Unit *u) {

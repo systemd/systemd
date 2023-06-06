@@ -21,4 +21,4 @@ Before=shutdown.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart={{ROOTLIBEXECDIR}}/systemd-growfs %f
-TimeoutSec=0
+TimeoutSec=infinity

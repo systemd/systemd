@@ -910,7 +910,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
 
 static int display_services(int argc, char *argv[], void *userdata) {
         _cleanup_(table_unrefp) Table *t = NULL;
-        _cleanup_(closedirp) DIR *d = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
         int r;
 
         d = opendir("/run/systemd/userdb/");

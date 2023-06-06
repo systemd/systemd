@@ -40,6 +40,7 @@ typedef struct DHCPLease {
         be32_t gateway;
         uint8_t chaddr[16];
         usec_t expiration;
+        char *hostname;
 } DHCPLease;
 
 struct sd_dhcp_server {
@@ -102,6 +103,7 @@ typedef struct DHCPRequest {
         be32_t requested_ip;
         uint32_t lifetime;
         const uint8_t *agent_info_option;
+        char *hostname;
 } DHCPRequest;
 
 extern const struct hash_ops dhcp_lease_hash_ops;
@@ -114,6 +116,9 @@ int dhcp_server_send_packet(sd_dhcp_server *server,
 
 void client_id_hash_func(const DHCPClientId *p, struct siphash *state);
 int client_id_compare_func(const DHCPClientId *a, const DHCPClientId *b);
+
+DHCPLease *dhcp_lease_free(DHCPLease *lease);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DHCPLease*, dhcp_lease_free);
 
 #define log_dhcp_server_errno(server, error, fmt, ...)          \
         log_interface_prefix_full_errno(                        \

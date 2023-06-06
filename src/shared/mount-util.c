@@ -22,7 +22,7 @@
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "initrd-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "libmount-util.h"
 #include "missing_mount.h"
 #include "missing_syscall.h"
@@ -79,7 +79,7 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
                                 continue;
 
                         if (prefix && !path_startswith(path, prefix)) {
-                                log_debug("Not unmounting %s, outside of prefix: %s", path, prefix);
+                                log_trace("Not unmounting %s, outside of prefix: %s", path, prefix);
                                 continue;
                         }
 
@@ -99,7 +99,7 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
                                 continue;
                         }
 
-                        log_debug("Successfully unmounted %s", path);
+                        log_trace("Successfully unmounted %s", path);
 
                         again = true;
                         n++;
@@ -266,7 +266,7 @@ int bind_remount_recursive_with_mountinfo(
 
                                         if (path_startswith(path, *i)) {
                                                 deny_listed = true;
-                                                log_debug("Not remounting %s deny-listed by %s, called for %s", path, *i, prefix);
+                                                log_trace("Not remounting %s deny-listed by %s, called for %s", path, *i, prefix);
                                                 break;
                                         }
                                 }
@@ -376,7 +376,7 @@ int bind_remount_recursive_with_mountinfo(
                                 continue;
                         }
 
-                        log_debug("Remounted %s.", x);
+                        log_trace("Remounted %s.", x);
                 }
         }
 }
@@ -1093,6 +1093,24 @@ int make_mount_point(const char *path) {
                 return 0;
 
         r = mount_nofollow_verbose(LOG_DEBUG, path, path, NULL, MS_BIND|MS_REC, NULL);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+int fd_make_mount_point(int fd) {
+        int r;
+
+        assert(fd >= 0);
+
+        r = fd_is_mount_point(fd, NULL, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine whether file descriptor is a mount point: %m");
+        if (r > 0)
+                return 0;
+
+        r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(fd), FORMAT_PROC_FD_PATH(fd), NULL, MS_BIND|MS_REC, NULL);
         if (r < 0)
                 return r;
 

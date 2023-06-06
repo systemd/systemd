@@ -9,11 +9,13 @@
 #include "alloc-util.h"
 #include "escape.h"
 #include "extract-word.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "gunicode.h"
 #include "locale-util.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "memstream-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -603,8 +605,8 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                 STATE_CSI,
                 STATE_CSO,
         } state = STATE_OTHER;
-        char *obuf = NULL;
-        size_t osz = 0, isz, shift[2] = {}, n_carriage_returns = 0;
+        _cleanup_(memstream_done) MemStream m = {};
+        size_t isz, shift[2] = {}, n_carriage_returns = 0;
         FILE *f;
 
         assert(ibuf);
@@ -628,7 +630,7 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
 
         /* Note we turn off internal locking on f for performance reasons. It's safe to do so since we
          * created f here and it doesn't leave our scope. */
-        f = open_memstream_unlocked(&obuf, &osz);
+        f = memstream_init(&m);
         if (!f)
                 return NULL;
 
@@ -713,16 +715,11 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                 }
         }
 
-        if (fflush_and_check(f) < 0) {
-                fclose(f);
-                return mfree(obuf);
-        }
-        fclose(f);
+        char *obuf;
+        if (memstream_finalize(&m, &obuf, _isz) < 0)
+                return NULL;
 
         free_and_replace(*ibuf, obuf);
-
-        if (_isz)
-                *_isz = osz;
 
         if (highlight) {
                 highlight[0] += shift[0];
@@ -955,8 +952,7 @@ int free_and_strdup(char **p, const char *s) {
         } else
                 t = NULL;
 
-        free(*p);
-        *p = t;
+        free_and_replace(*p, t);
 
         return 1;
 }

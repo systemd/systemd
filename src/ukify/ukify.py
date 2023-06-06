@@ -19,7 +19,9 @@
 # pylint: disable=missing-docstring,invalid-name,import-outside-toplevel
 # pylint: disable=consider-using-with,unspecified-encoding,line-too-long
 # pylint: disable=too-many-locals,too-many-statements,too-many-return-statements
-# pylint: disable=too-many-branches,fixme
+# pylint: disable=too-many-branches,too-many-lines,too-many-instance-attributes
+# pylint: disable=too-many-arguments,unnecessary-lambda-assignment,fixme
+# pylint: disable=unused-argument
 
 import argparse
 import configparser
@@ -436,9 +438,9 @@ def call_systemd_measure(uki, linux, opts):
 
 
 def join_initrds(initrds):
-    if len(initrds) == 0:
+    if not initrds:
         return None
-    elif len(initrds) == 1:
+    if len(initrds) == 1:
         return initrds[0]
 
     seq = []
@@ -478,6 +480,9 @@ def pe_add_sections(uki: UKI, output: str):
             pe.FILE_HEADER.IMAGE_FILE_LOCAL_SYMS_STRIPPED = True
 
     # Old stubs might have been stripped, leading to unaligned raw data values, so let's fix them up here.
+    # pylint thinks that Structure doesn't have various members that it has…
+    # pylint: disable=no-member
+
     for i, section in enumerate(pe.sections):
         oldp = section.PointerToRawData
         oldsz = section.SizeOfRawData
@@ -635,7 +640,7 @@ def make_uki(opts):
 
     if sign_kernel:
         linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
-        linux = linux_signed.name
+        linux = pathlib.Path(linux_signed.name)
         sign(sign_tool, opts.linux, linux, opts=opts)
     else:
         linux = opts.linux
@@ -658,10 +663,10 @@ def make_uki(opts):
         ('.osrel',   opts.os_release, True ),
         ('.cmdline', opts.cmdline,    True ),
         ('.dtb',     opts.devicetree, True ),
+        ('.uname',   opts.uname,      True ),
         ('.splash',  opts.splash,     True ),
         ('.pcrpkey', pcrpkey,         True ),
         ('.initrd',  initrd,          True ),
-        ('.uname',   opts.uname,      False),
 
         # linux shall be last to leave breathing room for decompression.
         # We'll add it later.
@@ -679,10 +684,12 @@ def make_uki(opts):
 
     call_systemd_measure(uki, linux, opts=opts)
 
-    # UKI creation
+    # UKI or addon creation - addons don't use the stub so we add SBAT manually
 
     if linux is not None:
         uki.add_section(Section.create('.linux', linux, measure=True))
+    elif opts.sbat:
+        uki.add_section(Section.create('.sbat', opts.sbat, measure=False))
 
     if sign_args_present:
         unsigned = tempfile.NamedTemporaryFile(prefix='uki')
@@ -743,6 +750,7 @@ class ConfigItem:
     ) -> None:
         "Set namespace.<dest>[idx] to value, with idx derived from group"
 
+        # pylint: disable=protected-access
         if group not in namespace._groups:
             namespace._groups += [group]
         idx = namespace._groups.index(group)
@@ -812,7 +820,10 @@ class ConfigItem:
         else:
             conv = lambda s:s
 
-        if self.nargs == '*':
+        # This is a bit ugly, but --initrd is the only option which is specified
+        # with multiple args on the command line and a space-separated list in the
+        # config file.
+        if self.name == '--initrd':
             value = [conv(v) for v in value.split()]
         else:
             value = conv(value)
@@ -832,7 +843,16 @@ class ConfigItem:
         return (section_name, key, value)
 
 
+VERBS = ('build',)
+
 CONFIG_ITEMS = [
+    ConfigItem(
+        'positional',
+        metavar = 'VERB',
+        nargs = '*',
+        help = f"operation to perform ({','.join(VERBS)})",
+    ),
+
     ConfigItem(
         '--version',
         action = 'version',
@@ -846,20 +866,18 @@ CONFIG_ITEMS = [
     ),
 
     ConfigItem(
-        'linux',
-        metavar = 'LINUX',
+        '--linux',
         type = pathlib.Path,
-        nargs = '?',
         help = 'vmlinuz file [.linux section]',
         config_key = 'UKI/Linux',
     ),
 
     ConfigItem(
-        'initrd',
-        metavar = 'INITRD…',
+        '--initrd',
+        metavar = 'INITRD',
         type = pathlib.Path,
-        nargs = '*',
-        help = 'initrd files [.initrd section]',
+        action = 'append',
+        help = 'initrd file [part of .initrd section]',
         config_key = 'UKI/Initrd',
         config_push = ConfigItem.config_list_prepend,
     ),
@@ -925,6 +943,16 @@ CONFIG_ITEMS = [
         type = pathlib.Path,
         help = 'path to the sd-stub file [.text,.data,… sections]',
         config_key = 'UKI/Stub',
+    ),
+
+    ConfigItem(
+        '--sbat',
+        metavar = 'TEXT|@PATH',
+        help = 'SBAT policy [.sbat section] for addons',
+        default = """sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
+uki.addon,1,UKI Addon,uki.addon,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html
+""",
+        config_key = 'Addon/SBAT',
     ),
 
     ConfigItem(
@@ -1056,7 +1084,7 @@ def apply_config(namespace, filename=None):
     # Fill in ._groups based on --pcr-public-key=, --pcr-private-key=, and --phases=.
     assert '_groups' not in namespace
     n_pcr_priv = len(namespace.pcr_private_keys or ())
-    namespace._groups = list(range(n_pcr_priv))
+    namespace._groups = list(range(n_pcr_priv))  # pylint: disable=protected-access
 
     cp = configparser.ConfigParser(
         comment_prefixes='#',
@@ -1141,7 +1169,10 @@ def finalize_options(opts):
         opts.efi_arch = guess_efi_arch()
 
     if opts.stub is None:
-        opts.stub = pathlib.Path(f'/usr/lib/systemd/boot/efi/linux{opts.efi_arch}.efi.stub')
+        if opts.linux is not None:
+            opts.stub = pathlib.Path(f'/usr/lib/systemd/boot/efi/linux{opts.efi_arch}.efi.stub')
+        else:
+            opts.stub = pathlib.Path(f'/usr/lib/systemd/boot/efi/addon{opts.efi_arch}.efi.stub')
 
     if opts.signing_engine is None:
         if opts.sb_key:
@@ -1178,6 +1209,20 @@ def parse_args(args=None):
     p = create_parser()
     opts = p.parse_args(args)
 
+    # Figure out which syntax is being used, one of:
+    # ukify verb --arg --arg --arg
+    # ukify linux initrd…
+    if len(opts.positional) == 1 and opts.positional[0] in VERBS:
+        opts.verb = opts.positional[0]
+    elif opts.linux or opts.initrd:
+        raise ValueError('--linux/--initrd options cannot be used with positional arguments')
+    else:
+        print("Assuming obsolete commandline syntax with no verb. Please use 'build'.")
+        if opts.positional:
+            opts.linux = pathlib.Path(opts.positional[0])
+        opts.initrd = [pathlib.Path(arg) for arg in opts.positional[1:]]
+        opts.verb = 'build'
+
     # Check that --pcr-public-key=, --pcr-private-key=, and --phases=
     # have either the same number of arguments are are not specified at all.
     n_pcr_pub = None if opts.pcr_public_keys is None else len(opts.pcr_public_keys)
@@ -1198,6 +1243,7 @@ def parse_args(args=None):
 def main():
     opts = parse_args()
     check_inputs(opts)
+    assert opts.verb == 'build'
     make_uki(opts)
 
 

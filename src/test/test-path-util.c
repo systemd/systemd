@@ -600,6 +600,17 @@ TEST(path_startswith) {
         test_path_startswith_one("/foo/bar/barfoo/", "////foo/bar/barfoo/", "/foo/bar/barfoo/", "");
         test_path_startswith_one("/foo/bar/barfoo/", "/foo/bar/barfoo", "/foo/bar/barfoo/", "");
 
+        test_path_startswith_one("/foo/./bar///barfoo/./.", "/foo", "/foo/./", "bar///barfoo/./.");
+        test_path_startswith_one("/foo/./bar///barfoo/./.", "/foo/", "/foo/./", "bar///barfoo/./.");
+        test_path_startswith_one("/foo/./bar///barfoo/./.", "/", "/", "foo/./bar///barfoo/./.");
+        test_path_startswith_one("/foo/./bar///barfoo/./.", "////", "/",  "foo/./bar///barfoo/./.");
+        test_path_startswith_one("/foo/./bar///barfoo/./.", "/foo//bar/////barfoo///", "/foo/./bar///barfoo/./.", "");
+        test_path_startswith_one("/foo/./bar///barfoo/./.", "/foo/bar/barfoo////", "/foo/./bar///barfoo/./.", "");
+        test_path_startswith_one("/foo/./bar///barfoo/./.", "/foo/bar///barfoo/", "/foo/./bar///barfoo/./.", "");
+        test_path_startswith_one("/foo/./bar///barfoo/./.", "/foo////bar/barfoo/", "/foo/./bar///barfoo/./.", "");
+        test_path_startswith_one("/foo/./bar///barfoo/./.", "////foo/bar/barfoo/", "/foo/./bar///barfoo/./.", "");
+        test_path_startswith_one("/foo/./bar///barfoo/./.", "/foo/bar/barfoo", "/foo/./bar///barfoo/./.", "");
+
         test_path_startswith_one("/foo/bar/barfoo/", "/foo/bar/barfooa/", NULL, NULL);
         test_path_startswith_one("/foo/bar/barfoo/", "/foo/bar/barfooa", NULL, NULL);
         test_path_startswith_one("/foo/bar/barfoo/", "", NULL, NULL);

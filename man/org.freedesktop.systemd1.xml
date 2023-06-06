@@ -183,6 +183,8 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.systemd1.Privileged("true")
       Reboot();
       @org.freedesktop.systemd1.Privileged("true")
+      SoftReboot(in  s new_root);
+      @org.freedesktop.systemd1.Privileged("true")
       PowerOff();
       @org.freedesktop.systemd1.Privileged("true")
       Halt();
@@ -912,6 +914,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="Reboot()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="SoftReboot()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="PowerOff()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Halt()"/>
@@ -1415,15 +1419,18 @@ node /org/freedesktop/systemd1 {
       <para><function>Exit()</function> may be invoked to ask the manager to exit. This is not available for
       the system manager and is useful only for user session managers.</para>
 
-      <para><function>Reboot()</function>, <function>PowerOff()</function>, <function>Halt()</function>, or
-      <function>KExec()</function> may be used to ask for immediate reboot, powering down, halt or kexec
-      based reboot of the system. Note that this does not shut down any services and immediately transitions
-      into the reboot process. These functions are normally only called as the last step of shutdown and should
-      not be called directly. To shut down the machine, it is generally a better idea to invoke
-      <function>Reboot()</function> or <function>PowerOff()</function> on the
+      <para><function>Reboot()</function>, <function>PowerOff()</function>, <function>Halt()</function>,
+      <function>KExec()</function> and <function>SoftReboot()</function> may be used to ask for immediate
+      reboot, powering down, halt, kexec based reboot, or soft reboot of the system. Note that this does not
+      shut down any services and immediately transitions into the later shutdown operation. These functions
+      are normally only called as the last step of shutdown and should not be called directly. To shut down
+      the machine, it is generally a better idea to invoke <function>Reboot()</function>,
+      <function>RebootWithFlags()</function> or <function>PowerOff()</function> on the
       <filename>systemd-logind</filename> manager object; see
       <citerefentry><refentrytitle>org.freedesktop.login1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-      for more information.</para>
+      for more information. <function>SoftReboot()</function> accepts an argument indicating the path for the
+      root file system to activate for the next boot cycle. If an empty string is specified the
+      <filename>/run/nextroot/</filename> path is used if it exists.</para>
 
       <para><function>SwitchRoot()</function> may be used to transition to a new root directory. This is
       intended to be used in the initrd, and also to transition from the host system into a shutdown initrd.
@@ -3167,6 +3174,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectHostname = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b MemoryKSM = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IPCNamespacePath = '...';
@@ -3731,6 +3740,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property ProcSubset is not documented!-->
 
     <!--property ProtectHostname is not documented!-->
+
+    <!--property MemoryKSM is not documented!-->
 
     <!--property NetworkNamespacePath is not documented!-->
 
@@ -4397,6 +4408,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="ProcSubset"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostname"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
 
@@ -5177,6 +5190,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectHostname = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b MemoryKSM = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IPCNamespacePath = '...';
@@ -5753,6 +5768,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property ProcSubset is not documented!-->
 
     <!--property ProtectHostname is not documented!-->
+
+    <!--property MemoryKSM is not documented!-->
 
     <!--property NetworkNamespacePath is not documented!-->
 
@@ -6399,6 +6416,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="ProcSubset"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostname"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
 
@@ -7054,6 +7073,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectHostname = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b MemoryKSM = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IPCNamespacePath = '...';
@@ -7558,6 +7579,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property ProcSubset is not documented!-->
 
     <!--property ProtectHostname is not documented!-->
+
+    <!--property MemoryKSM is not documented!-->
 
     <!--property NetworkNamespacePath is not documented!-->
 
@@ -8122,6 +8145,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="ProcSubset"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostname"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
 
@@ -8904,6 +8929,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ProtectHostname = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b MemoryKSM = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s NetworkNamespacePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s IPCNamespacePath = '...';
@@ -9394,6 +9421,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property ProcSubset is not documented!-->
 
     <!--property ProtectHostname is not documented!-->
+
+    <!--property MemoryKSM is not documented!-->
 
     <!--property NetworkNamespacePath is not documented!-->
 
@@ -9944,6 +9973,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="ProcSubset"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ProtectHostname"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MemoryKSM"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NetworkNamespacePath"/>
 

@@ -519,6 +519,55 @@ TEST(umount_recursive) {
         }
 }
 
+TEST(fd_make_mount_point) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0) {
+                (void) log_tests_skipped("not running privileged");
+                return;
+        }
+
+        assert_se(mkdtemp_malloc(NULL, &t) >= 0);
+
+        assert_se(asprintf(&s, "%s/somerandomname%" PRIu64, t, random_u64()) >= 0);
+        assert_se(s);
+        assert_se(mkdir(s, 0700) >= 0);
+
+        r = safe_fork("(make_mount-point)",
+                      FORK_RESET_SIGNALS |
+                      FORK_CLOSE_ALL_FDS |
+                      FORK_DEATHSIG |
+                      FORK_WAIT |
+                      FORK_REOPEN_LOG |
+                      FORK_LOG |
+                      FORK_NEW_MOUNTNS |
+                      FORK_MOUNTNS_SLAVE,
+                      NULL);
+        assert_se(r >= 0);
+
+        if (r == 0) {
+                _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
+
+                fd = open(s, O_PATH|O_CLOEXEC);
+                assert_se(fd >= 0);
+
+                assert_se(fd_is_mount_point(fd, NULL, AT_SYMLINK_FOLLOW) == 0);
+
+                assert_se(fd_make_mount_point(fd) > 0);
+
+                /* Reopen the inode so that we end up on the new mount */
+                fd2 = open(s, O_PATH|O_CLOEXEC);
+
+                assert_se(fd_is_mount_point(fd2, NULL, AT_SYMLINK_FOLLOW) > 0);
+
+                assert_se(fd_make_mount_point(fd2) == 0);
+
+                _exit(EXIT_SUCCESS);
+        }
+}
+
 static int intro(void) {
          /* Create a dummy network interface for testing remount_sysfs(). */
         (void) system("ip link add dummy-test-mnt type dummy");

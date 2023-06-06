@@ -206,7 +206,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         /* If we receive an absolute path together with AT_FDCWD, we need to return an absolute path, because
          * a relative path would be interpreted relative to the current working directory. Also, let's make
          * the result absolute when the file descriptor of the root directory is specified. */
-        bool need_absolute = (dir_fd == AT_FDCWD && path_is_absolute(path)) || dir_fd_is_root(dir_fd) > 0;
+        bool need_absolute = (dir_fd == AT_FDCWD && path_is_absolute(path)) || (dir_fd >= 0 && dir_fd_is_root(dir_fd) > 0);
         if (need_absolute) {
                 done = strdup("/");
                 if (!done)
@@ -325,7 +325,11 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                                 return r;
 
                         if (FLAGS_SET(flags, CHASE_MKDIR_0755) && !isempty(todo)) {
-                                child = xopenat(fd, first, O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC, 0755);
+                                child = xopenat(fd,
+                                                first,
+                                                O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,
+                                                /* xopen_flags = */ 0,
+                                                0755);
                                 if (child < 0)
                                         return child;
                         } else if (FLAGS_SET(flags, CHASE_PARENT) && isempty(todo)) {
@@ -614,11 +618,51 @@ int chaseat_prefix_root(const char *path, const char *root, char **ret) {
         return 0;
 }
 
+int chase_extract_filename(const char *path, const char *root, char **ret) {
+        int r;
+
+        /* This is similar to path_extract_filename(), but takes root directory.
+         * The result should be consistent with chase() with CHASE_EXTRACT_FILENAME. */
+
+        assert(path);
+        assert(ret);
+
+        if (isempty(path))
+                return -EINVAL;
+
+        if (!path_is_absolute(path))
+                return -EINVAL;
+
+        if (!empty_or_root(root)) {
+                _cleanup_free_ char *root_abs = NULL;
+
+                r = path_make_absolute_cwd(root, &root_abs);
+                if (r < 0)
+                        return r;
+
+                path = path_startswith(path, root_abs);
+                if (!path)
+                        return -EINVAL;
+        }
+
+        if (!isempty(path)) {
+                r = path_extract_filename(path, ret);
+                if (r != -EADDRNOTAVAIL)
+                        return r;
+        }
+
+        char *fname = strdup(".");
+        if (!fname)
+                return -ENOMEM;
+
+        *ret = fname;
+        return 0;
+}
+
 int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, int open_flags, char **ret_path) {
         _cleanup_close_ int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL, *fname = NULL;
         mode_t mode = open_flags & O_DIRECTORY ? 0755 : 0644;
-        const char *q;
         int r;
 
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
@@ -628,6 +672,7 @@ int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, i
                 /* Shortcut this call if none of the special features of this call are requested */
                 return RET_NERRNO(xopenat(AT_FDCWD, path,
                                           open_flags | (FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0),
+                                          /* xopen_flags = */ 0,
                                           mode));
 
         r = chase(path, root, CHASE_PARENT|chase_flags, &p, &path_fd);
@@ -635,17 +680,14 @@ int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, i
                 return r;
         assert(path_fd >= 0);
 
-        assert_se(q = path_startswith(p, empty_to_root(root)));
-        if (isempty(q))
-                q = ".";
-
-        if (!FLAGS_SET(chase_flags, CHASE_PARENT)) {
-                r = path_extract_filename(q, &fname);
-                if (r < 0 && r != -EADDRNOTAVAIL)
+        if (!FLAGS_SET(chase_flags, CHASE_PARENT) &&
+            !FLAGS_SET(chase_flags, CHASE_EXTRACT_FILENAME)) {
+                r = chase_extract_filename(p, root, &fname);
+                if (r < 0)
                         return r;
         }
 
-        r = xopenat(path_fd, strempty(fname), open_flags|O_NOFOLLOW, mode);
+        r = xopenat(path_fd, strempty(fname), open_flags|O_NOFOLLOW, /* xopen_flags = */ 0, mode);
         if (r < 0)
                 return r;
 
@@ -834,6 +876,7 @@ int chase_and_openat(int dir_fd, const char *path, ChaseFlags chase_flags, int o
                 /* Shortcut this call if none of the special features of this call are requested */
                 return RET_NERRNO(xopenat(dir_fd, path,
                                           open_flags | (FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0),
+                                          /* xopen_flags = */ 0,
                                           mode));
 
         r = chaseat(dir_fd, path, chase_flags|CHASE_PARENT, &p, &path_fd);
@@ -846,7 +889,7 @@ int chase_and_openat(int dir_fd, const char *path, ChaseFlags chase_flags, int o
                         return r;
         }
 
-        r = xopenat(path_fd, strempty(fname), open_flags|O_NOFOLLOW, mode);
+        r = xopenat(path_fd, strempty(fname), open_flags|O_NOFOLLOW, /* xopen_flags = */ 0, mode);
         if (r < 0)
                 return r;
 

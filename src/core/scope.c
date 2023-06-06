@@ -127,7 +127,7 @@ static void scope_set_state(Scope *s, ScopeState state) {
         if (state != old_state)
                 log_debug("%s changed %s -> %s", UNIT(s)->id, scope_state_to_string(old_state), scope_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], 0);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
 }
 
 static int scope_add_default_dependencies(Scope *s) {
@@ -629,11 +629,6 @@ static void scope_notify_cgroup_empty_event(Unit *u) {
 
         if (IN_SET(s->state, SCOPE_RUNNING, SCOPE_ABANDONED, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL))
                 scope_enter_dead(s, SCOPE_SUCCESS);
-
-        /* If the cgroup empty notification comes when the unit is not active, we must have failed to clean
-         * up the cgroup earlier and should do it now. */
-        if (IN_SET(s->state, SCOPE_DEAD, SCOPE_FAILED))
-                unit_prune_cgroup(u);
 }
 
 static void scope_notify_cgroup_oom_event(Unit *u, bool managed_oom) {

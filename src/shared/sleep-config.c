@@ -18,6 +18,7 @@
 #include "sd-device.h"
 
 #include "alloc-util.h"
+#include "battery-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "conf-parser.h"
@@ -34,17 +35,15 @@
 #include "log.h"
 #include "macro.h"
 #include "path-util.h"
-#include "sleep-config.h"
 #include "siphash24.h"
+#include "sleep-config.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "udev-util.h"
 
-#define BATTERY_LOW_CAPACITY_LEVEL 5
 #define DISCHARGE_RATE_FILEPATH "/var/lib/systemd/sleep/battery_discharge_percentage_rate_per_hour"
 #define BATTERY_DISCHARGE_RATE_HASH_KEY SD_ID128_MAKE(5f,9a,20,18,38,76,46,07,8d,36,58,0b,bb,c4,e0,63)
 #define SYS_ENTRY_RAW_FILE_TYPE1 "/sys/firmware/dmi/entries/1-0/raw"
@@ -128,41 +127,6 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
         return 0;
 }
 
-/* Get the list of batteries */
-static int battery_enumerator_new(sd_device_enumerator **ret) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        int r;
-
-        assert(ret);
-
-        r = sd_device_enumerator_new(&e);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_subsystem(e, "power_supply", /* match = */ true);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_allow_uninitialized(e);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_sysattr(e, "type", "Battery", /* match = */ true);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_sysattr(e, "present", "1", /* match = */ true);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_sysattr(e, "scope", "Device", /* match = */ false);
-        if (r < 0)
-                return r;
-
-        *ret = TAKE_PTR(e);
-        return 0;
-}
-
 int get_capacity_by_name(Hashmap *capacities_by_name, const char *name) {
         void *p;
 
@@ -176,53 +140,10 @@ int get_capacity_by_name(Hashmap *capacities_by_name, const char *name) {
         return PTR_TO_CAPACITY(p);
 }
 
-/* Battery percentage capacity fetched from capacity file and if in range 0-100 then returned */
-static int read_battery_capacity_percentage(sd_device *dev) {
-        int battery_capacity, r;
-
-        assert(dev);
-
-        r = device_get_sysattr_int(dev, "capacity", &battery_capacity);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to read/parse POWER_SUPPLY_CAPACITY: %m");
-
-        if (battery_capacity < 0 || battery_capacity > 100)
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ERANGE), "Invalid battery capacity");
-
-        return battery_capacity;
-}
-
-/* If a battery whose percentage capacity is <= 5% exists, and we're not on AC power, return success */
-int battery_is_discharging_and_low(void) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        sd_device *dev;
-        int r;
-
-         /* We have not used battery capacity_level since value is set to full
-         * or Normal in case ACPI is not working properly. In case of no battery
-         * 0 will be returned and system will be suspended for 1st cycle then hibernated */
-
-        r = on_ac_power();
-        if (r < 0)
-                log_debug_errno(r, "Failed to check if the system is running on AC, assuming it is not: %m");
-        if (r > 0)
-                return false;
-
-        r = battery_enumerator_new(&e);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to initialize battery enumerator: %m");
-
-        FOREACH_DEVICE(e, dev)
-                if (read_battery_capacity_percentage(dev) > BATTERY_LOW_CAPACITY_LEVEL)
-                        return false;
-
-        return true;
-}
-
 /* Store current capacity of each battery before suspension and timestamp */
 int fetch_batteries_capacity_by_name(Hashmap **ret) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_(hashmap_freep) Hashmap *batteries_capacity_by_name = NULL;
+        _cleanup_hashmap_free_ Hashmap *batteries_capacity_by_name = NULL;
         sd_device *dev;
         int r;
 
@@ -241,7 +162,7 @@ int fetch_batteries_capacity_by_name(Hashmap **ret) {
                 const char *battery_name;
                 int battery_capacity;
 
-                battery_capacity = r = read_battery_capacity_percentage(dev);
+                battery_capacity = r = battery_read_capacity_percentage(dev);
                 if (r < 0)
                         continue;
 

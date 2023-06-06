@@ -7,6 +7,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
+#include "memstream-util.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -823,8 +824,8 @@ int bus_match_parse(
 }
 
 char *bus_match_to_string(struct bus_match_component *components, size_t n_components) {
-        _cleanup_free_ char *buffer = NULL;
-        size_t size = 0;
+        _cleanup_(memstream_done) MemStream m = {};
+        FILE *f;
         int r;
 
         if (n_components <= 0)
@@ -832,7 +833,7 @@ char *bus_match_to_string(struct bus_match_component *components, size_t n_compo
 
         assert(components);
 
-        FILE *f = open_memstream_unlocked(&buffer, &size);
+        f = memstream_init(&m);
         if (!f)
                 return NULL;
 
@@ -854,11 +855,12 @@ char *bus_match_to_string(struct bus_match_component *components, size_t n_compo
                 fputc('\'', f);
         }
 
-        r = fflush_and_check(f);
-        safe_fclose(f);
+        char *buffer;
+        r = memstream_finalize(&m, &buffer, NULL);
         if (r < 0)
                 return NULL;
-        return TAKE_PTR(buffer);
+
+        return buffer;
 }
 
 int bus_match_add(

@@ -1483,7 +1483,7 @@ static int start_transient_scope(sd_bus *bus) {
 
         r = bus_wait_for_jobs_new(bus, &w);
         if (r < 0)
-                return log_oom();
+                return log_error_errno(r, "Could not watch jobs: %m");
 
         if (arg_unit) {
                 r = unit_name_mangle_with_suffix(arg_unit, "as unit",
@@ -1725,7 +1725,7 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
 
         r = bus_wait_for_jobs_new(bus, &w);
         if (r < 0)
-                return log_oom();
+                return log_error_errno(r, "Could not watch jobs: %m");
 
         if (arg_unit) {
                 switch (unit_name_to_type(arg_unit)) {

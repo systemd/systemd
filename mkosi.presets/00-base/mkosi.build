@@ -51,8 +51,6 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
     CONFIGURE_OPTS=(
         -D sysvinit-path="$sysvinit_path"
         -D rootprefix="$rootprefix"
-        -D default-timeout-sec="${DEFAULT_TIMEOUT_SEC:-10}"
-        -D default-user-timeout-sec="${DEFAULT_TIMEOUT_SEC:-10}"
         -D man=false
         -D translations=false
         -D version-tag="${VERSION_TAG}"
@@ -136,6 +134,14 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D analyze=true
         -D bpf-framework=true
         -D ukify=true
+        -D seccomp=true
+        -D selinux=auto
+        -D apparmor=auto
+        -D smack=true
+        -D ima=true
+        -D first-boot-full-preset=true
+        -D initrd=true
+        -D fexecve=true
     )
 
     # On debian-like systems the library directory is not /usr/lib64 but /usr/lib/<arch-triplet>/.
@@ -176,6 +182,12 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         )
     fi
 
+    if grep -q '^ID="opensuse' /etc/os-release; then
+        CONFIGURE_OPTS+=(
+            -Dbpf-compiler=gcc
+        )
+    fi
+
     ( set -x; meson setup "$BUILDDIR" "${CONFIGURE_OPTS[@]}" )
 fi
 
@@ -193,3 +205,15 @@ if [ "$WITH_TESTS" = 1 ]; then
 fi
 
 ( set -x; meson install -C "$BUILDDIR" --quiet --no-rebuild --only-changed )
+
+# Ensure that side-loaded PE addons are loaded if signed, and ignored if not
+if [ -d "${DESTDIR}/boot/loader" ]; then
+    addons_dir="${DESTDIR}/boot/loader/addons"
+elif [ -d "${DESTDIR}/efi/loader" ]; then
+    addons_dir="${DESTDIR}/efi/loader/addons"
+fi
+if [ -n "${addons_dir}" ]; then
+    mkdir -p "${addons_dir}"
+    ukify --secureboot-private-key mkosi.secure-boot.key --secureboot-certificate mkosi.secure-boot.crt --cmdline this_should_be_here -o "${addons_dir}/good.addon.efi"
+    ukify --cmdline this_should_not_be_here -o "${addons_dir}/bad.addon.efi"
+fi

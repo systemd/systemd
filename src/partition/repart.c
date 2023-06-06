@@ -144,13 +144,15 @@ static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;
 static bool arg_split = false;
-static sd_id128_t *arg_filter_partitions = NULL;
+static GptPartitionType *arg_filter_partitions = NULL;
 static size_t arg_n_filter_partitions = 0;
 static FilterPartitionsType arg_filter_partitions_type = FILTER_PARTITIONS_NONE;
-static sd_id128_t *arg_defer_partitions = NULL;
+static GptPartitionType *arg_defer_partitions = NULL;
 static size_t arg_n_defer_partitions = 0;
 static uint64_t arg_sector_size = 0;
 static ImagePolicy *arg_image_policy = NULL;
+static Architecture arg_architecture = _ARCHITECTURE_INVALID;
+static int arg_offline = -1;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -230,7 +232,8 @@ typedef struct Partition {
 
         char *format;
         char **copy_files;
-        char **exclude_files;
+        char **exclude_files_source;
+        char **exclude_files_target;
         char **make_directories;
         EncryptMode encrypt;
         VerityMode verity;
@@ -374,7 +377,8 @@ static Partition* partition_free(Partition *p) {
 
         free(p->format);
         strv_free(p->copy_files);
-        strv_free(p->exclude_files);
+        strv_free(p->exclude_files_source);
+        strv_free(p->exclude_files_target);
         strv_free(p->make_directories);
         free(p->verity_match_key);
 
@@ -401,7 +405,8 @@ static void partition_foreignize(Partition *p) {
 
         p->format = mfree(p->format);
         p->copy_files = strv_free(p->copy_files);
-        p->exclude_files = strv_free(p->exclude_files);
+        p->exclude_files_source = strv_free(p->exclude_files_source);
+        p->exclude_files_target = strv_free(p->exclude_files_target);
         p->make_directories = strv_free(p->make_directories);
         p->verity_match_key = mfree(p->verity_match_key);
 
@@ -425,7 +430,7 @@ static bool partition_exclude(const Partition *p) {
                 return false;
 
         for (size_t i = 0; i < arg_n_filter_partitions; i++)
-                if (sd_id128_equal(p->type.uuid, arg_filter_partitions[i]))
+                if (sd_id128_equal(p->type.uuid, arg_filter_partitions[i].uuid))
                         return arg_filter_partitions_type == FILTER_PARTITIONS_EXCLUDE;
 
         return arg_filter_partitions_type == FILTER_PARTITIONS_INCLUDE;
@@ -435,7 +440,7 @@ static bool partition_defer(const Partition *p) {
         assert(p);
 
         for (size_t i = 0; i < arg_n_defer_partitions; i++)
-                if (sd_id128_equal(p->type.uuid, arg_defer_partitions[i]))
+                if (sd_id128_equal(p->type.uuid, arg_defer_partitions[i].uuid))
                         return true;
 
         return false;
@@ -1177,6 +1182,9 @@ static int config_parse_type(
         if (r < 0)
                 return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse partition type: %s", rvalue);
 
+        if (arg_architecture >= 0)
+                *type = gpt_partition_type_override_architecture(*type, arg_architecture);
+
         return 0;
 }
 
@@ -1597,31 +1605,32 @@ static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_minimize, minimize_mod
 static int partition_read_definition(Partition *p, const char *path, const char *const *conf_file_dirs) {
 
         ConfigTableItem table[] = {
-                { "Partition", "Type",            config_parse_type,          0, &p->type              },
-                { "Partition", "Label",           config_parse_label,         0, &p->new_label         },
-                { "Partition", "UUID",            config_parse_uuid,          0, p                     },
-                { "Partition", "Priority",        config_parse_int32,         0, &p->priority          },
-                { "Partition", "Weight",          config_parse_weight,        0, &p->weight            },
-                { "Partition", "PaddingWeight",   config_parse_weight,        0, &p->padding_weight    },
-                { "Partition", "SizeMinBytes",    config_parse_size4096,      1, &p->size_min          },
-                { "Partition", "SizeMaxBytes",    config_parse_size4096,     -1, &p->size_max          },
-                { "Partition", "PaddingMinBytes", config_parse_size4096,      1, &p->padding_min       },
-                { "Partition", "PaddingMaxBytes", config_parse_size4096,     -1, &p->padding_max       },
-                { "Partition", "FactoryReset",    config_parse_bool,          0, &p->factory_reset     },
-                { "Partition", "CopyBlocks",      config_parse_copy_blocks,   0, p                     },
-                { "Partition", "Format",          config_parse_fstype,        0, &p->format            },
-                { "Partition", "CopyFiles",       config_parse_copy_files,    0, &p->copy_files        },
-                { "Partition", "ExcludeFiles",    config_parse_exclude_files, 0, &p->exclude_files     },
-                { "Partition", "MakeDirectories", config_parse_make_dirs,     0, p                     },
-                { "Partition", "Encrypt",         config_parse_encrypt,       0, &p->encrypt           },
-                { "Partition", "Verity",          config_parse_verity,        0, &p->verity            },
-                { "Partition", "VerityMatchKey",  config_parse_string,        0, &p->verity_match_key  },
-                { "Partition", "Flags",           config_parse_gpt_flags,     0, &p->gpt_flags         },
-                { "Partition", "ReadOnly",        config_parse_tristate,      0, &p->read_only         },
-                { "Partition", "NoAuto",          config_parse_tristate,      0, &p->no_auto           },
-                { "Partition", "GrowFileSystem",  config_parse_tristate,      0, &p->growfs            },
-                { "Partition", "SplitName",       config_parse_string,        0, &p->split_name_format },
-                { "Partition", "Minimize",        config_parse_minimize,      0, &p->minimize          },
+                { "Partition", "Type",               config_parse_type,          0, &p->type                 },
+                { "Partition", "Label",              config_parse_label,         0, &p->new_label            },
+                { "Partition", "UUID",               config_parse_uuid,          0, p                        },
+                { "Partition", "Priority",           config_parse_int32,         0, &p->priority             },
+                { "Partition", "Weight",             config_parse_weight,        0, &p->weight               },
+                { "Partition", "PaddingWeight",      config_parse_weight,        0, &p->padding_weight       },
+                { "Partition", "SizeMinBytes",       config_parse_size4096,      1, &p->size_min             },
+                { "Partition", "SizeMaxBytes",       config_parse_size4096,     -1, &p->size_max             },
+                { "Partition", "PaddingMinBytes",    config_parse_size4096,      1, &p->padding_min          },
+                { "Partition", "PaddingMaxBytes",    config_parse_size4096,     -1, &p->padding_max          },
+                { "Partition", "FactoryReset",       config_parse_bool,          0, &p->factory_reset        },
+                { "Partition", "CopyBlocks",         config_parse_copy_blocks,   0, p                        },
+                { "Partition", "Format",             config_parse_fstype,        0, &p->format               },
+                { "Partition", "CopyFiles",          config_parse_copy_files,    0, &p->copy_files           },
+                { "Partition", "ExcludeFiles",       config_parse_exclude_files, 0, &p->exclude_files_source },
+                { "Partition", "ExcludeFilesTarget", config_parse_exclude_files, 0, &p->exclude_files_target },
+                { "Partition", "MakeDirectories",    config_parse_make_dirs,     0, p                        },
+                { "Partition", "Encrypt",            config_parse_encrypt,       0, &p->encrypt              },
+                { "Partition", "Verity",             config_parse_verity,        0, &p->verity               },
+                { "Partition", "VerityMatchKey",     config_parse_string,        0, &p->verity_match_key     },
+                { "Partition", "Flags",              config_parse_gpt_flags,     0, &p->gpt_flags            },
+                { "Partition", "ReadOnly",           config_parse_tristate,      0, &p->read_only            },
+                { "Partition", "NoAuto",             config_parse_tristate,      0, &p->no_auto              },
+                { "Partition", "GrowFileSystem",     config_parse_tristate,      0, &p->growfs               },
+                { "Partition", "SplitName",          config_parse_string,        0, &p->split_name_format    },
+                { "Partition", "Minimize",           config_parse_minimize,      0, &p->minimize             },
                 {}
         };
         int r;
@@ -3146,29 +3155,85 @@ static int context_wipe_and_discard(Context *context) {
         return 0;
 }
 
+typedef struct DecryptedPartitionTarget {
+        int fd;
+        char *volume;
+        struct crypt_device *device;
+} DecryptedPartitionTarget;
+
+static DecryptedPartitionTarget* decrypted_partition_target_free(DecryptedPartitionTarget *t) {
+#ifdef HAVE_LIBCRYPTSETUP
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        if (!t)
+                return NULL;
+
+        r = path_extract_filename(t->volume, &name);
+        if (r < 0) {
+                assert(r == -ENOMEM);
+                log_oom();
+        }
+
+        safe_close(t->fd);
+
+        if (name) {
+                /* udev or so might access out block device in the background while we are done. Let's hence
+                 * force detach the volume. We sync'ed before, hence this should be safe. */
+                r = sym_crypt_deactivate_by_name(t->device, name, CRYPT_DEACTIVATE_FORCE);
+                if (r < 0)
+                        log_error_errno(r, "Failed to deactivate LUKS device: %m");
+        }
+
+        sym_crypt_free(t->device);
+        free(t->volume);
+        free(t);
+#endif
+        return NULL;
+}
+
 typedef struct {
         LoopDevice *loop;
         int fd;
         char *path;
         int whole_fd;
+        DecryptedPartitionTarget *decrypted;
 } PartitionTarget;
 
 static int partition_target_fd(PartitionTarget *t) {
         assert(t);
         assert(t->loop || t->fd >= 0 || t->whole_fd >= 0);
-        return t->loop ? t->loop->fd : t->fd >= 0 ?  t->fd : t->whole_fd;
+
+        if (t->decrypted)
+                return t->decrypted->fd;
+
+        if (t->loop)
+                return t->loop->fd;
+
+        if (t->fd >= 0)
+                return t->fd;
+
+        return t->whole_fd;
 }
 
 static const char* partition_target_path(PartitionTarget *t) {
         assert(t);
         assert(t->loop || t->path);
-        return t->loop ? t->loop->node : t->path;
+
+        if (t->decrypted)
+                return t->decrypted->volume;
+
+        if (t->loop)
+                return t->loop->node;
+
+        return t->path;
 }
 
 static PartitionTarget *partition_target_free(PartitionTarget *t) {
         if (!t)
                 return NULL;
 
+        decrypted_partition_target_free(t->decrypted);
         loop_device_unref(t->loop);
         safe_close(t->fd);
         unlink_and_free(t->path);
@@ -3245,21 +3310,23 @@ static int partition_target_prepare(
         /* Loopback block devices are not only useful to turn regular files into block devices, but
          * also to cut out sections of block devices into new block devices. */
 
-        r = loop_device_make(whole_fd, O_RDWR, p->offset, size, 0, 0, LOCK_EX, &d);
-        if (r < 0 && r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))
-                return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
-        if (r >= 0) {
-                t->loop = TAKE_PTR(d);
-                *ret = TAKE_PTR(t);
-                return 0;
+        if (arg_offline <= 0) {
+                r = loop_device_make(whole_fd, O_RDWR, p->offset, size, 0, 0, LOCK_EX, &d);
+                if (r < 0 && (arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))))
+                        return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
+                if (r >= 0) {
+                        t->loop = TAKE_PTR(d);
+                        *ret = TAKE_PTR(t);
+                        return 0;
+                }
+
+                log_debug_errno(r, "No access to loop devices, falling back to a regular file");
         }
 
         /* If we can't allocate a loop device, let's write to a regular file that we copy into the final
          * image so we can run in containers and without needing root privileges. On filesystems with
          * reflinking support, we can take advantage of this and just reflink the result into the image.
          */
-
-        log_debug_errno(r, "No access to loop devices, falling back to a regular file");
 
         r = prepare_temporary_file(t, size);
         if (r < 0)
@@ -3274,6 +3341,7 @@ static int partition_target_grow(PartitionTarget *t, uint64_t size) {
         int r;
 
         assert(t);
+        assert(!t->decrypted);
 
         if (t->loop) {
                 r = loop_device_refresh_size(t->loop, UINT64_MAX, size);
@@ -3296,6 +3364,9 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
         assert(t);
 
         assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+
+        if (t->decrypted && fsync(t->decrypted->fd) < 0)
+                return log_error_errno(errno, "Failed to sync changes to '%s': %m", t->decrypted->volume);
 
         if (t->loop) {
                 r = loop_device_sync(t->loop);
@@ -3329,12 +3400,13 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
         return 0;
 }
 
-static int partition_encrypt(Context *context, Partition *p, const char *node) {
+static int partition_encrypt(Context *context, Partition *p, PartitionTarget *target, bool offline) {
 #if HAVE_LIBCRYPTSETUP && HAVE_CRYPT_SET_DATA_OFFSET && HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE && HAVE_CRYPT_REENCRYPT
+        const char *node = partition_target_path(target);
         struct crypt_params_luks2 luks_params = {
                 .label = strempty(ASSERT_PTR(p)->new_label),
                 .sector_size = ASSERT_PTR(context)->sector_size,
-                .data_device = node,
+                .data_device = offline ? node : NULL,
         };
         struct crypt_params_reencrypt reencrypt_params = {
                 .mode = CRYPT_REENCRYPT_ENCRYPT,
@@ -3347,7 +3419,7 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
         _cleanup_fclose_ FILE *h = NULL;
-        _cleanup_free_ char *hp = NULL;
+        _cleanup_free_ char *hp = NULL, *vol = NULL, *dm_name = NULL;
         const char *passphrase = NULL;
         size_t passphrase_size = 0;
         const char *vt;
@@ -3363,39 +3435,51 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
 
         log_info("Encrypting future partition %" PRIu64 "...", p->partno);
 
-        r = var_tmp_dir(&vt);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine temporary files directory: %m");
+        if (offline) {
+                r = var_tmp_dir(&vt);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine temporary files directory: %m");
 
-        r = fopen_temporary_child(vt, &h, &hp);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create temporary LUKS header file: %m");
+                r = fopen_temporary_child(vt, &h, &hp);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create temporary LUKS header file: %m");
 
-        /* Weird cryptsetup requirement which requires the header file to be the size of at least one sector. */
-        r = ftruncate(fileno(h), context->sector_size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to grow temporary LUKS header file: %m");
+                /* Weird cryptsetup requirement which requires the header file to be the size of at least one
+                 * sector. */
+                r = ftruncate(fileno(h), context->sector_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to grow temporary LUKS header file: %m");
+        } else {
+                if (asprintf(&dm_name, "luks-repart-%08" PRIx64, random_u64()) < 0)
+                        return log_oom();
 
-        r = sym_crypt_init(&cd, hp);
+                vol = path_join("/dev/mapper/", dm_name);
+                if (!vol)
+                        return log_oom();
+        }
+
+        r = sym_crypt_init(&cd, offline ? hp : node);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate libcryptsetup context for %s: %m", hp);
 
         cryptsetup_enable_logging(cd);
 
-        /* Disable kernel keyring usage by libcryptsetup as a workaround for
-         * https://gitlab.com/cryptsetup/cryptsetup/-/merge_requests/273. This makes sure that we can do
-         * offline encryption even when repart is running in a container. */
-        r = sym_crypt_volume_key_keyring(cd, false);
-        if (r < 0)
-                return log_error_errno(r, "Failed to disable kernel keyring: %m");
+        if (offline) {
+                /* Disable kernel keyring usage by libcryptsetup as a workaround for
+                 * https://gitlab.com/cryptsetup/cryptsetup/-/merge_requests/273. This makes sure that we can
+                 * do offline encryption even when repart is running in a container. */
+                r = sym_crypt_volume_key_keyring(cd, false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to disable kernel keyring: %m");
 
-        r = sym_crypt_metadata_locking(cd, false);
-        if (r < 0)
-                return log_error_errno(r, "Failed to disable metadata locking: %m");
+                r = sym_crypt_metadata_locking(cd, false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to disable metadata locking: %m");
 
-        r = sym_crypt_set_data_offset(cd, LUKS2_METADATA_SIZE / 512);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set data offset: %m");
+                r = sym_crypt_set_data_offset(cd, LUKS2_METADATA_SIZE / 512);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set data offset: %m");
+        }
 
         r = sym_crypt_format(cd,
                          CRYPT_LUKS2,
@@ -3506,51 +3590,84 @@ static int partition_encrypt(Context *context, Partition *p, const char *node) {
 #endif
         }
 
-        r = sym_crypt_reencrypt_init_by_passphrase(
-                        cd,
-                        NULL,
-                        passphrase,
-                        passphrase_size,
-                        CRYPT_ANY_SLOT,
-                        0,
-                        sym_crypt_get_cipher(cd),
-                        sym_crypt_get_cipher_mode(cd),
-                        &reencrypt_params);
-        if (r < 0)
-                return log_error_errno(r, "Failed to prepare for reencryption: %m");
+        if (offline) {
+                r = sym_crypt_reencrypt_init_by_passphrase(
+                                cd,
+                                NULL,
+                                passphrase,
+                                passphrase_size,
+                                CRYPT_ANY_SLOT,
+                                0,
+                                sym_crypt_get_cipher(cd),
+                                sym_crypt_get_cipher_mode(cd),
+                                &reencrypt_params);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to prepare for reencryption: %m");
 
-        /* crypt_reencrypt_init_by_passphrase() doesn't actually put the LUKS header at the front, we have
-         * to do that ourselves. */
+                /* crypt_reencrypt_init_by_passphrase() doesn't actually put the LUKS header at the front, we
+                 * have to do that ourselves. */
 
-        sym_crypt_free(cd);
-        cd = NULL;
+                sym_crypt_free(cd);
+                cd = NULL;
 
-        r = sym_crypt_init(&cd, node);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate libcryptsetup context for %s: %m", node);
+                r = sym_crypt_init(&cd, node);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate libcryptsetup context for %s: %m", node);
 
-        r = sym_crypt_header_restore(cd, CRYPT_LUKS2, hp);
-        if (r < 0)
-                return log_error_errno(r, "Failed to place new LUKS header at head of %s: %m", node);
+                r = sym_crypt_header_restore(cd, CRYPT_LUKS2, hp);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to place new LUKS header at head of %s: %m", node);
 
-        reencrypt_params.flags &= ~CRYPT_REENCRYPT_INITIALIZE_ONLY;
+                reencrypt_params.flags &= ~CRYPT_REENCRYPT_INITIALIZE_ONLY;
 
-        r = sym_crypt_reencrypt_init_by_passphrase(
-                        cd,
-                        NULL,
-                        passphrase,
-                        passphrase_size,
-                        CRYPT_ANY_SLOT,
-                        0,
-                        NULL,
-                        NULL,
-                        &reencrypt_params);
-        if (r < 0)
-                return log_error_errno(r, "Failed to load reencryption context: %m");
+                r = sym_crypt_reencrypt_init_by_passphrase(
+                                cd,
+                                NULL,
+                                passphrase,
+                                passphrase_size,
+                                CRYPT_ANY_SLOT,
+                                0,
+                                NULL,
+                                NULL,
+                                &reencrypt_params);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load reencryption context: %m");
 
-        r = sym_crypt_reencrypt(cd, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to encrypt %s: %m", node);
+                r = sym_crypt_reencrypt(cd, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to encrypt %s: %m", node);
+        } else {
+                _cleanup_free_ DecryptedPartitionTarget *t = NULL;
+                _cleanup_close_ int dev_fd = -1;
+
+                r = sym_crypt_activate_by_volume_key(
+                                cd,
+                                dm_name,
+                                NULL,
+                                VOLUME_KEY_SIZE,
+                                arg_discard ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to activate LUKS superblock: %m");
+
+                dev_fd = open(vol, O_RDWR|O_CLOEXEC|O_NOCTTY);
+                if (dev_fd < 0)
+                        return log_error_errno(errno, "Failed to open LUKS volume '%s': %m", vol);
+
+                if (flock(dev_fd, LOCK_EX) < 0)
+                        return log_error_errno(errno, "Failed to lock '%s': %m", vol);
+
+                t = new(DecryptedPartitionTarget, 1);
+                if (!t)
+                        return log_oom();
+
+                *t = (DecryptedPartitionTarget) {
+                        .fd = TAKE_FD(dev_fd),
+                        .volume = TAKE_PTR(vol),
+                        .device = TAKE_PTR(cd),
+                };
+
+                target->decrypted = TAKE_PTR(t);
+        }
 
         log_info("Successfully encrypted future partition %" PRIu64 ".", p->partno);
 
@@ -3822,6 +3939,12 @@ static int context_copy_blocks(Context *context) {
                 if (r < 0)
                         return r;
 
+                if (p->encrypt != ENCRYPT_OFF && t->loop) {
+                        r = partition_encrypt(context, p, t, /* offline = */ false);
+                        if (r < 0)
+                                return r;
+                }
+
                 log_info("Copying in '%s' (%s) on block level into future partition %" PRIu64 ".",
                          p->copy_blocks_path, FORMAT_BYTES(p->copy_blocks_size), p->partno);
 
@@ -3829,8 +3952,10 @@ static int context_copy_blocks(Context *context) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy in data from '%s': %m", p->copy_blocks_path);
 
-                if (p->encrypt != ENCRYPT_OFF) {
-                        r = partition_encrypt(context, p, partition_target_path(t));
+                log_info("Copying in of '%s' on block level completed.", p->copy_blocks_path);
+
+                if (p->encrypt != ENCRYPT_OFF && !t->loop) {
+                        r = partition_encrypt(context, p, t, /* offline = */ true);
                         if (r < 0)
                                 return r;
                 }
@@ -3838,8 +3963,6 @@ static int context_copy_blocks(Context *context) {
                 r = partition_target_sync(context, p, t);
                 if (r < 0)
                         return r;
-
-                log_info("Copying in of '%s' on block level completed.", p->copy_blocks_path);
 
                 if (p->siblings[VERITY_HASH] && !partition_defer(p->siblings[VERITY_HASH])) {
                         r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
@@ -3913,8 +4036,24 @@ static int make_copy_files_denylist(
 
         /* Add the user configured excludes. */
 
-        STRV_FOREACH(e, p->exclude_files) {
+        STRV_FOREACH(e, p->exclude_files_source) {
                 r = add_exclude_path(*e, &denylist, endswith(*e, "/") ? DENY_CONTENTS : DENY_INODE);
+                if (r < 0)
+                        return r;
+        }
+
+        STRV_FOREACH(e, p->exclude_files_target) {
+                _cleanup_free_ char *path = NULL;
+
+                const char *s = path_startswith(*e, target);
+                if (!s)
+                        continue;
+
+                path = path_join(source, s);
+                if (!path)
+                        return log_oom();
+
+                r = add_exclude_path(path, &denylist, endswith(*e, "/") ? DENY_CONTENTS : DENY_INODE);
                 if (r < 0)
                         return r;
         }
@@ -4243,6 +4382,16 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return r;
 
+                if (p->encrypt != ENCRYPT_OFF && t->loop) {
+                        r = partition_target_grow(t, p->new_size);
+                        if (r < 0)
+                                return r;
+
+                        r = partition_encrypt(context, p, t, /* offline = */ false);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to encrypt device: %m");
+                }
+
                 log_info("Formatting future partition %" PRIu64 ".", p->partno);
 
                 /* If we're not writing to a loop device or if we're populating a read-only filesystem, we
@@ -4278,17 +4427,17 @@ static int context_mkfs(Context *context) {
                 if (partition_needs_populate(p) && !root) {
                         assert(t->loop);
 
-                        r = partition_populate_filesystem(context, p, t->loop->node);
+                        r = partition_populate_filesystem(context, p, partition_target_path(t));
                         if (r < 0)
                                 return r;
                 }
 
-                if (p->encrypt != ENCRYPT_OFF) {
+                if (p->encrypt != ENCRYPT_OFF && !t->loop) {
                         r = partition_target_grow(t, p->new_size);
                         if (r < 0)
                                 return r;
 
-                        r = partition_encrypt(context, p, partition_target_path(t));
+                        r = partition_encrypt(context, p, t, /* offline = */ true);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to encrypt device: %m");
                 }
@@ -5237,7 +5386,7 @@ static int resolve_copy_blocks_auto(
 
         const char *try1 = NULL, *try2 = NULL;
         char p[SYS_BLOCK_PATH_MAX("/slaves")];
-        _cleanup_(closedirp) DIR *d = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
         sd_id128_t found_uuid = SD_ID128_NULL;
         dev_t devno, found = 0;
         int r;
@@ -5746,7 +5895,7 @@ static int context_minimize(Context *context) {
         return 0;
 }
 
-static int parse_partition_types(const char *p, sd_id128_t **partitions, size_t *n_partitions) {
+static int parse_partition_types(const char *p, GptPartitionType **partitions, size_t *n_partitions) {
         int r;
 
         assert(partitions);
@@ -5769,7 +5918,7 @@ static int parse_partition_types(const char *p, sd_id128_t **partitions, size_t 
                 if (!GREEDY_REALLOC(*partitions, *n_partitions + 1))
                         return log_oom();
 
-                (*partitions)[(*n_partitions)++] = type.uuid;
+                (*partitions)[(*n_partitions)++] = type;
         }
 
         return 0;
@@ -5827,6 +5976,8 @@ static int help(void) {
                "                          Take partitions of the specified types into account\n"
                "                          but don't populate them yet\n"
                "     --sector-size=SIZE   Set the logical sector size for the image\n"
+               "     --architecture=ARCH  Set the generic architecture for the image\n"
+               "     --offline=BOOL       Whether to build the image offline\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -5868,6 +6019,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DEFER_PARTITIONS,
                 ARG_SECTOR_SIZE,
                 ARG_SKIP_PARTITIONS,
+                ARG_ARCHITECTURE,
+                ARG_OFFLINE,
         };
 
         static const struct option options[] = {
@@ -5900,6 +6053,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "exclude-partitions",   required_argument, NULL, ARG_EXCLUDE_PARTITIONS   },
                 { "defer-partitions",     required_argument, NULL, ARG_DEFER_PARTITIONS     },
                 { "sector-size",          required_argument, NULL, ARG_SECTOR_SIZE          },
+                { "architecture",         required_argument, NULL, ARG_ARCHITECTURE         },
+                { "offline",              required_argument, NULL, ARG_OFFLINE              },
                 {}
         };
 
@@ -6200,6 +6355,27 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_ARCHITECTURE:
+                        r = architecture_from_string(optarg);
+                        if (r < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid architecture '%s'", optarg);
+
+                        arg_architecture = r;
+                        break;
+
+                case ARG_OFFLINE:
+                        if (streq(optarg, "auto"))
+                                arg_offline = -1;
+                        else {
+                                r = parse_boolean_argument("--offline=", optarg, NULL);
+                                if (r < 0)
+                                        return r;
+
+                                arg_offline = r;
+                        }
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -6262,6 +6438,14 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_pretty < 0 && isatty(STDOUT_FILENO))
                 arg_pretty = true;
+
+        if (arg_architecture >= 0) {
+                FOREACH_ARRAY(p, arg_filter_partitions, arg_n_filter_partitions)
+                        *p = gpt_partition_type_override_architecture(*p, arg_architecture);
+
+                FOREACH_ARRAY(p, arg_defer_partitions, arg_n_defer_partitions)
+                        *p = gpt_partition_type_override_architecture(*p, arg_architecture);
+        }
 
         return 1;
 }

@@ -260,7 +260,7 @@ TEST(invalid_unquote) {
 }
 
 TEST(strv_split) {
-        _cleanup_(strv_free_erasep) char **l = NULL;
+        _cleanup_strv_free_erase_ char **l = NULL;
         const char str[] = "one,two,three";
 
         l = strv_split(str, ",");

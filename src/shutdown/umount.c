@@ -5,30 +5,14 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/dm-ioctl.h>
-#include <linux/major.h>
-#include <linux/raid/md_u.h>
-#include <linux/loop.h>
 #include <sys/mount.h>
-#include <sys/swap.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
-#if HAVE_VALGRIND_MEMCHECK_H
-#include <valgrind/memcheck.h>
-#endif
-
-#include "sd-device.h"
-
 #include "alloc-util.h"
-#include "blockdev-util.h"
 #include "chase.h"
-#include "constants.h"
-#include "device-util.h"
-#include "devnum-util.h"
 #include "dirent-util.h"
-#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -39,14 +23,9 @@
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "signal-util.h"
-#include "stat-util.h"
-#include "string-util.h"
-#include "strv.h"
-#include "sync-util.h"
 #include "umount.h"
 #include "virt.h"
 
@@ -188,354 +167,11 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
         return 0;
 }
 
-int swap_list_get(const char *swaps, MountPoint **head) {
-        _cleanup_(mnt_free_tablep) struct libmnt_table *t = NULL;
-        _cleanup_(mnt_free_iterp) struct libmnt_iter *i = NULL;
-        int r;
-
-        assert(head);
-
-        t = mnt_new_table();
-        i = mnt_new_iter(MNT_ITER_FORWARD);
-        if (!t || !i)
-                return log_oom();
-
-        r = mnt_table_parse_swaps(t, swaps);
-        if (r == -ENOENT) /* no /proc/swaps is fine */
-                return 0;
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse %s: %m", swaps ?: "/proc/swaps");
-
-        for (;;) {
-                struct libmnt_fs *fs;
-                _cleanup_free_ MountPoint *swap = NULL;
-                const char *source;
-
-                r = mnt_table_next_fs(t, i, &fs);
-                if (r == 1) /* EOF */
-                        break;
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get next entry from %s: %m", swaps ?: "/proc/swaps");
-
-                source = mnt_fs_get_source(fs);
-                if (!source)
-                        continue;
-
-                swap = new0(MountPoint, 1);
-                if (!swap)
-                        return log_oom();
-
-                swap->path = strdup(source);
-                if (!swap->path)
-                        return log_oom();
-
-                LIST_PREPEND(mount_point, *head, TAKE_PTR(swap));
-        }
-
-        return 0;
-}
-
-static int loopback_list_get(MountPoint **head) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        sd_device *d;
-        int r;
-
-        assert(head);
-
-        r = sd_device_enumerator_new(&e);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_allow_uninitialized(e);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_subsystem(e, "block", true);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_sysname(e, "loop*");
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_sysattr(e, "loop/backing_file", NULL, true);
-        if (r < 0)
-                return r;
-
-        FOREACH_DEVICE(e, d) {
-                _cleanup_free_ char *p = NULL;
-                const char *dn;
-                MountPoint *lb;
-                dev_t devnum;
-
-                if (sd_device_get_devnum(d, &devnum) < 0 ||
-                    sd_device_get_devname(d, &dn) < 0)
-                        continue;
-
-                p = strdup(dn);
-                if (!p)
-                        return -ENOMEM;
-
-                lb = new(MountPoint, 1);
-                if (!lb)
-                        return -ENOMEM;
-
-                *lb = (MountPoint) {
-                        .path = TAKE_PTR(p),
-                        .devnum = devnum,
-                };
-
-                LIST_PREPEND(mount_point, *head, lb);
-        }
-
-        return 0;
-}
-
-static int dm_list_get(MountPoint **head) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        sd_device *d;
-        int r;
-
-        assert(head);
-
-        r = sd_device_enumerator_new(&e);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_allow_uninitialized(e);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_subsystem(e, "block", true);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_sysname(e, "dm-*");
-        if (r < 0)
-                return r;
-
-        FOREACH_DEVICE(e, d) {
-                _cleanup_free_ char *p = NULL;
-                const char *dn;
-                MountPoint *m;
-                dev_t devnum;
-
-                if (sd_device_get_devnum(d, &devnum) < 0 ||
-                    sd_device_get_devname(d, &dn) < 0)
-                        continue;
-
-                p = strdup(dn);
-                if (!p)
-                        return -ENOMEM;
-
-                m = new(MountPoint, 1);
-                if (!m)
-                        return -ENOMEM;
-
-                *m = (MountPoint) {
-                        .path = TAKE_PTR(p),
-                        .devnum = devnum,
-                };
-
-                LIST_PREPEND(mount_point, *head, m);
-        }
-
-        return 0;
-}
-
-static int md_list_get(MountPoint **head) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        sd_device *d;
-        int r;
-
-        assert(head);
-
-        r = sd_device_enumerator_new(&e);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_allow_uninitialized(e);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_subsystem(e, "block", true);
-        if (r < 0)
-                return r;
-
-        r = sd_device_enumerator_add_match_sysname(e, "md*");
-        if (r < 0)
-                return r;
-
-        /* Filter out partitions. */
-        r = sd_device_enumerator_add_match_property(e, "DEVTYPE", "disk");
-        if (r < 0)
-                return r;
-
-        FOREACH_DEVICE(e, d) {
-                _cleanup_free_ char *p = NULL;
-                const char *dn, *md_level;
-                MountPoint *m;
-                dev_t devnum;
-
-                if (sd_device_get_devnum(d, &devnum) < 0 ||
-                    sd_device_get_devname(d, &dn) < 0)
-                        continue;
-
-                r = sd_device_get_property_value(d, "MD_LEVEL", &md_level);
-                if (r < 0) {
-                        log_warning_errno(r, "Failed to get MD_LEVEL property for %s, ignoring: %m", dn);
-                        continue;
-                }
-
-                /* MD "containers" are a special type of MD devices, used for external metadata.  Since it
-                 * doesn't provide RAID functionality in itself we don't need to stop it. */
-                if (streq(md_level, "container"))
-                        continue;
-
-                p = strdup(dn);
-                if (!p)
-                        return -ENOMEM;
-
-                m = new(MountPoint, 1);
-                if (!m)
-                        return -ENOMEM;
-
-                *m = (MountPoint) {
-                        .path = TAKE_PTR(p),
-                        .devnum = devnum,
-                };
-
-                LIST_PREPEND(mount_point, *head, m);
-        }
-
-        return 0;
-}
-
-static int delete_loopback(const char *device) {
-        _cleanup_close_ int fd = -EBADF;
-        struct loop_info64 info;
-
-        assert(device);
-
-        fd = open(device, O_RDONLY|O_CLOEXEC);
-        if (fd < 0) {
-                log_debug_errno(errno, "Failed to open loopback device %s: %m", device);
-                return errno == ENOENT ? 0 : -errno;
-        }
-
-        /* Loopback block devices don't sync in-flight blocks when we clear the fd, hence sync explicitly
-         * first */
-        if (fsync(fd) < 0)
-                log_debug_errno(errno, "Failed to sync loop block device %s, ignoring: %m", device);
-
-        if (ioctl(fd, LOOP_CLR_FD, 0) < 0) {
-                if (errno == ENXIO) /* Nothing bound, didn't do anything */
-                        return 0;
-
-                if (errno != EBUSY)
-                        return log_debug_errno(errno, "Failed to clear loopback device %s: %m", device);
-
-                if (ioctl(fd, LOOP_GET_STATUS64, &info) < 0) {
-                        if (errno == ENXIO) /* What? Suddenly detached after all? That's fine by us then. */
-                                return 1;
-
-                        log_debug_errno(errno, "Failed to invoke LOOP_GET_STATUS64 on loopback device %s, ignoring: %m", device);
-                        return -EBUSY; /* propagate original error */
-                }
-
-#if HAVE_VALGRIND_MEMCHECK_H
-                VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
-#endif
-
-                if (FLAGS_SET(info.lo_flags, LO_FLAGS_AUTOCLEAR)) /* someone else already set LO_FLAGS_AUTOCLEAR for us? fine by us */
-                        return -EBUSY; /* propagate original error */
-
-                info.lo_flags |= LO_FLAGS_AUTOCLEAR;
-                if (ioctl(fd, LOOP_SET_STATUS64, &info) < 0) {
-                        if (errno == ENXIO) /* Suddenly detached after all? Fine by us */
-                                return 1;
-
-                        log_debug_errno(errno, "Failed to set LO_FLAGS_AUTOCLEAR flag for loop device %s, ignoring: %m", device);
-                } else
-                        log_debug("Successfully set LO_FLAGS_AUTOCLEAR flag for loop device %s.", device);
-
-                return -EBUSY;
-        }
-
-        if (ioctl(fd, LOOP_GET_STATUS64, &info) < 0) {
-                /* If the LOOP_CLR_FD above succeeded we'll see ENXIO here. */
-                if (errno == ENXIO)
-                        log_debug("Successfully detached loopback device %s.", device);
-                else
-                        log_debug_errno(errno, "Failed to invoke LOOP_GET_STATUS64 on loopback device %s, ignoring: %m", device); /* the LOOP_CLR_FD at least worked, let's hope for the best */
-
-                return 1;
-        }
-
-#if HAVE_VALGRIND_MEMCHECK_H
-        VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
-#endif
-
-        /* Linux makes LOOP_CLR_FD succeed whenever LO_FLAGS_AUTOCLEAR is set without actually doing
-         * anything. Very confusing. Let's hence not claim we did anything in this case. */
-        if (FLAGS_SET(info.lo_flags, LO_FLAGS_AUTOCLEAR))
-                log_debug("Successfully called LOOP_CLR_FD on a loopback device %s with autoclear set, which is a NOP.", device);
-        else
-                log_debug("Weird, LOOP_CLR_FD succeeded but the device is still attached on %s.", device);
-
-        return -EBUSY; /* Nothing changed, the device is still attached, hence it apparently is still busy */
-}
-
-static int delete_dm(MountPoint *m) {
-        _cleanup_close_ int fd = -EBADF;
-        int r;
-
-        assert(m);
-        assert(major(m->devnum) != 0);
-        assert(m->path);
-
-        fd = open("/dev/mapper/control", O_RDWR|O_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        r = fsync_path_at(AT_FDCWD, m->path);
-        if (r < 0)
-                log_debug_errno(r, "Failed to sync DM block device %s, ignoring: %m", m->path);
-
-        return RET_NERRNO(ioctl(fd, DM_DEV_REMOVE, &(struct dm_ioctl) {
-                .version = {
-                        DM_VERSION_MAJOR,
-                        DM_VERSION_MINOR,
-                        DM_VERSION_PATCHLEVEL
-                },
-                .data_size = sizeof(struct dm_ioctl),
-                .dev = m->devnum,
-        }));
-}
-
-static int delete_md(MountPoint *m) {
-        _cleanup_close_ int fd = -EBADF;
-
-        assert(m);
-        assert(major(m->devnum) != 0);
-        assert(m->path);
-
-        fd = open(m->path, O_RDONLY|O_CLOEXEC|O_EXCL);
-        if (fd < 0)
-                return -errno;
-
-        if (fsync(fd) < 0)
-                log_debug_errno(errno, "Failed to sync MD block device %s, ignoring: %m", m->path);
-
-        return RET_NERRNO(ioctl(fd, STOP_ARRAY, NULL));
-}
-
 static bool nonunmountable_path(const char *path) {
-        return path_equal(path, "/")
-#if ! HAVE_SPLIT_USR
-                || path_equal(path, "/usr")
-#endif
-                || path_startswith(path, "/run/initramfs");
+        assert(path);
+
+        return PATH_IN_SET(path, "/", "/usr") ||
+                path_startswith(path, "/run/initramfs");
 }
 
 static void log_umount_blockers(const char *mnt) {
@@ -605,7 +241,7 @@ static void log_umount_blockers(const char *mnt) {
 }
 
 static int remount_with_timeout(MountPoint *m, bool last_try) {
-        _cleanup_(close_pairp) int pfd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pfd[2] = PIPE_EBADF;
         _cleanup_(sigkill_nowaitp) pid_t pid = 0;
         int r;
 
@@ -661,7 +297,7 @@ static int remount_with_timeout(MountPoint *m, bool last_try) {
 }
 
 static int umount_with_timeout(MountPoint *m, bool last_try) {
-        _cleanup_(close_pairp) int pfd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pfd[2] = PIPE_EBADF;
         _cleanup_(sigkill_nowaitp) pid_t pid = 0;
         int r;
 
@@ -824,118 +460,6 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool last_
         return n_failed;
 }
 
-static int swap_points_list_off(MountPoint **head, bool *changed) {
-        int n_failed = 0;
-
-        assert(head);
-        assert(changed);
-
-        LIST_FOREACH(mount_point, m, *head) {
-                log_info("Deactivating swap %s.", m->path);
-                if (swapoff(m->path) < 0) {
-                        log_warning_errno(errno, "Could not deactivate swap %s: %m", m->path);
-                        n_failed++;
-                        continue;
-                }
-
-                *changed = true;
-                mount_point_free(head, m);
-        }
-
-        return n_failed;
-}
-
-static int loopback_points_list_detach(MountPoint **head, bool *changed, bool last_try) {
-        int n_failed = 0, r;
-        dev_t rootdev = 0;
-
-        assert(head);
-        assert(changed);
-
-        (void) get_block_device("/", &rootdev);
-
-        LIST_FOREACH(mount_point, m, *head) {
-                if (major(rootdev) != 0 && rootdev == m->devnum) {
-                        n_failed++;
-                        continue;
-                }
-
-                log_info("Detaching loopback %s.", m->path);
-                r = delete_loopback(m->path);
-                if (r < 0) {
-                        log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Could not detach loopback %s: %m", m->path);
-                        n_failed++;
-                        continue;
-                }
-                if (r > 0)
-                        *changed = true;
-
-                mount_point_free(head, m);
-        }
-
-        return n_failed;
-}
-
-static int dm_points_list_detach(MountPoint **head, bool *changed, bool last_try) {
-        int n_failed = 0, r;
-        dev_t rootdev = 0;
-
-        assert(head);
-        assert(changed);
-
-        (void) get_block_device("/", &rootdev);
-
-        LIST_FOREACH(mount_point, m, *head) {
-                if (major(rootdev) != 0 && rootdev == m->devnum) {
-                        n_failed ++;
-                        continue;
-                }
-
-                log_info("Detaching DM %s (" DEVNUM_FORMAT_STR ").", m->path, DEVNUM_FORMAT_VAL(m->devnum));
-                r = delete_dm(m);
-                if (r < 0) {
-                        log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Could not detach DM %s: %m", m->path);
-                        n_failed++;
-                        continue;
-                }
-
-                *changed = true;
-                mount_point_free(head, m);
-        }
-
-        return n_failed;
-}
-
-static int md_points_list_detach(MountPoint **head, bool *changed, bool last_try) {
-        int n_failed = 0, r;
-        dev_t rootdev = 0;
-
-        assert(head);
-        assert(changed);
-
-        (void) get_block_device("/", &rootdev);
-
-        LIST_FOREACH(mount_point, m, *head) {
-                if (major(rootdev) != 0 && rootdev == m->devnum) {
-                        n_failed ++;
-                        continue;
-                }
-
-                log_info("Stopping MD %s (" DEVNUM_FORMAT_STR ").", m->path, DEVNUM_FORMAT_VAL(m->devnum));
-                r = delete_md(m);
-                if (r < 0) {
-                        log_full_errno(last_try ? LOG_ERR : LOG_INFO, r, "Could not stop MD %s: %m", m->path);
-                        n_failed++;
-                        continue;
-                }
-
-                *changed = true;
-                mount_point_free(head, m);
-        }
-
-        return n_failed;
-}
-
 static int umount_all_once(bool *changed, bool last_try) {
         _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, mp_list_head);
         int r;
@@ -967,64 +491,4 @@ int umount_all(bool *changed, bool last_try) {
         } while (umount_changed);
 
         return r;
-}
-
-int swapoff_all(bool *changed) {
-        _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, swap_list_head);
-        int r;
-
-        assert(changed);
-
-        LIST_HEAD_INIT(swap_list_head);
-
-        r = swap_list_get(NULL, &swap_list_head);
-        if (r < 0)
-                return r;
-
-        return swap_points_list_off(&swap_list_head, changed);
-}
-
-int loopback_detach_all(bool *changed, bool last_try) {
-        _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, loopback_list_head);
-        int r;
-
-        assert(changed);
-
-        LIST_HEAD_INIT(loopback_list_head);
-
-        r = loopback_list_get(&loopback_list_head);
-        if (r < 0)
-                return r;
-
-        return loopback_points_list_detach(&loopback_list_head, changed, last_try);
-}
-
-int dm_detach_all(bool *changed, bool last_try) {
-        _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, dm_list_head);
-        int r;
-
-        assert(changed);
-
-        LIST_HEAD_INIT(dm_list_head);
-
-        r = dm_list_get(&dm_list_head);
-        if (r < 0)
-                return r;
-
-        return dm_points_list_detach(&dm_list_head, changed, last_try);
-}
-
-int md_detach_all(bool *changed, bool last_try) {
-        _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, md_list_head);
-        int r;
-
-        assert(changed);
-
-        LIST_HEAD_INIT(md_list_head);
-
-        r = md_list_get(&md_list_head);
-        if (r < 0)
-                return r;
-
-        return md_points_list_detach(&md_list_head, changed, last_try);
 }

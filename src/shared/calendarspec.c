@@ -12,8 +12,10 @@
 #include "alloc-util.h"
 #include "calendarspec.h"
 #include "errno-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
+#include "memstream-util.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "sort-util.h"
@@ -37,8 +39,7 @@ assert_cc(INT_MAX >= USEC_PER_SEC);
 static CalendarComponent* chain_free(CalendarComponent *c) {
         while (c) {
                 CalendarComponent *n = c->next;
-                free(c);
-                c = n;
+                free_and_replace(c, n);
         }
         return NULL;
 }
@@ -336,16 +337,14 @@ static void format_chain(FILE *f, int space, const CalendarComponent *c, bool us
         _format_chain(f, space, c, /* start = */ true, usec);
 }
 
-int calendar_spec_to_string(const CalendarSpec *c, char **p) {
-        char *buf = NULL;
-        size_t sz = 0;
+int calendar_spec_to_string(const CalendarSpec *c, char **ret) {
+        _cleanup_(memstream_done) MemStream m = {};
         FILE *f;
-        int r;
 
         assert(c);
-        assert(p);
+        assert(ret);
 
-        f = open_memstream_unlocked(&buf, &sz);
+        f = memstream_init(&m);
         if (!f)
                 return -ENOMEM;
 
@@ -383,16 +382,7 @@ int calendar_spec_to_string(const CalendarSpec *c, char **p) {
                 }
         }
 
-        r = fflush_and_check(f);
-        fclose(f);
-
-        if (r < 0) {
-                free(buf);
-                return r;
-        }
-
-        *p = buf;
-        return 0;
+        return memstream_finalize(&m, ret, NULL);
 }
 
 static int parse_weekdays(const char **p, CalendarSpec *c) {
@@ -878,7 +868,7 @@ finish:
         return 0;
 }
 
-int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
+int calendar_spec_from_string(const char *p, CalendarSpec **ret) {
         const char *utc;
         _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
         _cleanup_free_ char *p_tmp = NULL;
@@ -1098,8 +1088,8 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
         if (!calendar_spec_valid(c))
                 return -EINVAL;
 
-        if (spec)
-                *spec = TAKE_PTR(c);
+        if (ret)
+                *ret = TAKE_PTR(c);
         return 0;
 }
 
@@ -1161,7 +1151,7 @@ static int find_matching_component(
                 } else if (c->repeat > 0) {
                         int k;
 
-                        k = start + c->repeat * DIV_ROUND_UP(*val - start, c->repeat);
+                        k = start + ROUND_UP(*val - start, c->repeat);
 
                         if ((!d_set || k < d) && (stop < 0 || k <= stop)) {
                                 d = k;

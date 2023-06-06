@@ -3,6 +3,7 @@
 [Unit]
 Description=File System Check on /dev/disk/by-label/Root
 Documentation=man:systemd-fsck-root.service(8)
+
 DefaultDependencies=no
 BindsTo=dev-disk-by\x2dlabel-Root.device
 Conflicts=shutdown.target
@@ -13,4 +14,4 @@ Before=shutdown.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/lib/systemd/systemd-fsck /dev/disk/by-label/Root
-TimeoutSec=0
+TimeoutSec=infinity

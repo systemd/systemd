@@ -3,6 +3,7 @@
 [Unit]
 Description=File System Check on /dev/sdx1
 Documentation=man:systemd-fsck-root.service(8)
+
 DefaultDependencies=no
 BindsTo=dev-sdx1.device
 Conflicts=shutdown.target
@@ -13,4 +14,4 @@ Before=shutdown.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/lib/systemd/systemd-fsck /dev/sdx1
-TimeoutSec=0
+TimeoutSec=infinity

@@ -206,7 +206,7 @@ int copy_data_fd(int fd) {
                         /* Hmm, pity, this didn't fit. Let's fall back to /tmp then, see below */
 
                 } else {
-                        _cleanup_(close_pairp) int pipefds[2] = PIPE_EBADF;
+                        _cleanup_close_pair_ int pipefds[2] = PIPE_EBADF;
                         int isz;
 
                         /* If memfds aren't available, use a pipe. Set O_NONBLOCK so that we will get EAGAIN rather

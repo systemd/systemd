@@ -96,6 +96,8 @@ static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
+        pager_open(arg_pager_flags);
+
         r = terminal_urlify_man("systemd-dissect", "1", &link);
         if (r < 0)
                 return log_oom();
@@ -1567,7 +1569,7 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
 }
 
 static int action_discover(void) {
-        _cleanup_(hashmap_freep) Hashmap *images = NULL;
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
         Image *img;
         int r;

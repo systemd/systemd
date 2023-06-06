@@ -304,7 +304,7 @@ static void log_unknown_owner(sd_device *dev, UdevRuleLine *line, int error, con
 
         if (IN_SET(abs(error), ENOENT, ESRCH))
                 log_udev_rule_internal(dev, line->rule_file, line->line_number, LOG_ERR, error,
-                                       "Unknown %s '%s', ignoring", entity, name);
+                                       "Unknown %s '%s', ignoring.", entity, name);
         else
                 log_udev_rule_internal(dev, line->rule_file, line->line_number, LOG_ERR, error,
                                        "Failed to resolve %s '%s', ignoring: %m", entity, name);
@@ -844,7 +844,7 @@ static int parse_token(UdevRuleLine *rule_line, const char *key, char *attr, Ude
 
                         cmd = udev_builtin_lookup(value);
                         if (cmd >= 0) {
-                                log_line_debug(rule_line, "Found builtin command '%s' for %s, replacing attribute", value, key);
+                                log_line_debug(rule_line, "Found builtin command '%s' for %s, replacing attribute.", value, key);
                                 r = rule_line_add_token(rule_line, TK_M_IMPORT_BUILTIN, op, value, UDEV_BUILTIN_CMD_TO_PTR(cmd));
                         } else
                                 r = rule_line_add_token(rule_line, TK_M_IMPORT_PROGRAM, op, value, NULL);
@@ -940,7 +940,7 @@ static int parse_token(UdevRuleLine *rule_line, const char *key, char *attr, Ude
                         check_value_format_and_warn(rule_line, key, value, true);
                         r = rule_line_add_token(rule_line, TK_A_OWNER, op, value, NULL);
                 } else {
-                        log_line_debug(rule_line, "User name resolution is disabled, ignoring %s=%s", key, value);
+                        log_line_debug(rule_line, "User name resolution is disabled, ignoring %s=\"%s\".", key, value);
                         return 0;
                 }
         } else if (streq(key, "GROUP")) {
@@ -968,7 +968,7 @@ static int parse_token(UdevRuleLine *rule_line, const char *key, char *attr, Ude
                         check_value_format_and_warn(rule_line, key, value, true);
                         r = rule_line_add_token(rule_line, TK_A_GROUP, op, value, NULL);
                 } else {
-                        log_line_debug(rule_line, "Resolving group name is disabled, ignoring GROUP=\"%s\"", value);
+                        log_line_debug(rule_line, "Resolving group name is disabled, ignoring GROUP=\"%s\".", value);
                         return 0;
                 }
         } else if (streq(key, "MODE")) {
@@ -1013,7 +1013,7 @@ static int parse_token(UdevRuleLine *rule_line, const char *key, char *attr, Ude
                         cmd = udev_builtin_lookup(value);
                         if (cmd < 0)
                                 return log_line_error_errno(rule_line, SYNTHETIC_ERRNO(EINVAL),
-                                                             "Unknown builtin command '%s', ignoring", value);
+                                                             "Unknown builtin command '%s', ignoring.", value);
                         r = rule_line_add_token(rule_line, TK_A_RUN_BUILTIN, op, value, UDEV_BUILTIN_CMD_TO_PTR(cmd));
                 } else
                         return log_line_invalid_attr(rule_line, key);
@@ -1043,7 +1043,7 @@ static int parse_token(UdevRuleLine *rule_line, const char *key, char *attr, Ude
                 SET_FLAG(rule_line->type, LINE_HAS_LABEL, true);
                 return 1;
         } else
-                return log_line_error_errno(rule_line, SYNTHETIC_ERRNO(EINVAL), "Invalid key '%s'", key);
+                return log_line_error_errno(rule_line, SYNTHETIC_ERRNO(EINVAL), "Invalid key '%s'.", key);
         if (r < 0)
                 return log_oom();
 
@@ -1091,26 +1091,26 @@ static void check_token_delimiters(UdevRuleLine *rule_line, const char *line) {
         if (line == rule_line->line) {
                 /* this is the first token of the rule */
                 if (n_comma > 0)
-                        log_line_warning(rule_line, "Stray leading comma.");
+                        log_line_notice(rule_line, "style: stray leading comma.");
         } else if (isempty(p)) {
                 /* there are no more tokens in the rule */
                 if (n_comma > 0)
-                        log_line_warning(rule_line, "Stray trailing comma.");
+                        log_line_notice(rule_line, "style: stray trailing comma.");
         } else {
                 /* single comma is expected */
                 if (n_comma == 0)
-                        log_line_warning(rule_line, "A comma between tokens is expected.");
+                        log_line_notice(rule_line, "style: a comma between tokens is expected.");
                 else if (n_comma > 1)
-                        log_line_warning(rule_line, "More than one comma between tokens.");
+                        log_line_notice(rule_line, "style: more than one comma between tokens.");
 
                 /* whitespace after comma is expected */
                 if (n_comma > 0) {
                         if (ws_before_comma)
-                                log_line_warning(rule_line, "Stray whitespace before comma.");
+                                log_line_notice(rule_line, "style: stray whitespace before comma.");
                         if (!ws_after_comma)
-                                log_line_warning(rule_line, "Whitespace after comma is expected.");
+                                log_line_notice(rule_line, "style: whitespace after comma is expected.");
                 } else if (!ws_before_comma && !ws_after_comma)
-                        log_line_warning(rule_line, "Whitespace between tokens is expected.");
+                        log_line_notice(rule_line, "style: whitespace between tokens is expected.");
         }
 }
 
@@ -1274,14 +1274,14 @@ static void rule_resolve_goto(UdevRuleFile *rule_file) {
                         }
 
                 if (!line->goto_line) {
-                        log_line_error(line, "GOTO=\"%s\" has no matching label, ignoring",
+                        log_line_error(line, "GOTO=\"%s\" has no matching label, ignoring.",
                                        line->goto_label);
 
                         SET_FLAG(line->type, LINE_HAS_GOTO, false);
                         line->goto_label = NULL;
 
                         if ((line->type & ~(LINE_HAS_LABEL|LINE_IS_REFERENCED)) == 0) {
-                                log_line_notice(line, "The line has no effect any more, dropping.");
+                                log_line_warning(line, "The line has no effect any more, dropping.");
                                 /* LINE_IS_REFERENCED implies LINE_HAS_LABEL */
                                 if (line->type & LINE_HAS_LABEL)
                                         udev_rule_line_clear_tokens(line);
@@ -1400,7 +1400,7 @@ static void udev_check_unused_labels(UdevRuleLine *line) {
 
         if (FLAGS_SET(line->type, LINE_HAS_LABEL) &&
             !FLAGS_SET(line->type, LINE_IS_REFERENCED))
-                log_line_warning(line, "LABEL=\"%s\" is unused.", line->label);
+                log_line_notice(line, "style: LABEL=\"%s\" is unused.", line->label);
 }
 
 static void udev_check_conflicts_duplicates(UdevRuleLine *line) {
@@ -1424,11 +1424,11 @@ static void udev_check_conflicts_duplicates(UdevRuleLine *line) {
 
                         if (new_duplicates) {
                                 duplicates = new_duplicates;
-                                log_line_warning(line, "duplicate expressions");
+                                log_line_warning(line, "duplicate expressions.");
                         }
                         if (new_conflicts) {
                                 conflicts = new_conflicts;
-                                log_line_error(line, "conflicting match expressions, the line has no effect");
+                                log_line_error(line, "conflicting match expressions, the line has no effect.");
                         }
                         if (conflicts && duplicates)
                                 return;
@@ -1544,7 +1544,7 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename, bool extra_che
                 }
 
                 if (ignore_line)
-                        log_file_error(rule_file, line_nr, "Line is too long, ignored");
+                        log_file_error(rule_file, line_nr, "Line is too long, ignored.");
                 else if (len > 0)
                         (void) rule_add_line(rule_file, line, line_nr, extra_checks);
 
@@ -1554,7 +1554,7 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename, bool extra_che
 
         if (continuation)
                 log_file_error(rule_file, line_nr,
-                               "Unexpected EOF after line continuation, line ignored");
+                               "Unexpected EOF after line continuation, line ignored.");
 
         rule_resolve_goto(rule_file);
 

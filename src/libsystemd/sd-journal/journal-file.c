@@ -688,7 +688,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         }
 
         /* Increase by larger blocks at once */
-        new_size = DIV_ROUND_UP(new_size, FILE_SIZE_INCREASE) * FILE_SIZE_INCREASE;
+        new_size = ROUND_UP(new_size, FILE_SIZE_INCREASE);
         if (f->metrics.max_size > 0 && new_size > f->metrics.max_size)
                 new_size = f->metrics.max_size;
 
@@ -2122,7 +2122,8 @@ static int journal_file_link_entry(
 
         f->header->tail_entry_realtime = o->entry.realtime;
         f->header->tail_entry_monotonic = o->entry.monotonic;
-        f->header->tail_entry_offset = offset;
+        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset))
+                f->header->tail_entry_offset = htole64(offset);
         f->newest_mtime = 0; /* we have a new tail entry now, explicitly invalidate newest boot id/timestamp info */
 
         /* Link up the items */
