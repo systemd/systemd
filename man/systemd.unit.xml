@@ -888,6 +888,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>OnSuccessJobMode=</varname></term>
         <term><varname>OnFailureJobMode=</varname></term>
 
         <listitem><para>Takes a value of
@@ -899,12 +900,12 @@
         <literal>ignore-dependencies</literal> or
         <literal>ignore-requirements</literal>. Defaults to
         <literal>replace</literal>. Specifies how the units listed in
-        <varname>OnFailure=</varname> will be enqueued. See
+        <varname>OnSuccess=</varname>/<varname>OnFailure=</varname> will be enqueued. See
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <option>--job-mode=</option> option for details on the
         possible values. If this is set to <literal>isolate</literal>,
         only a single unit may be listed in
-        <varname>OnFailure=</varname>.</para></listitem>
+        <varname>OnSuccess=</varname>/<varname>OnFailure=</varname>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
