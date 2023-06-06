@@ -43,8 +43,13 @@ typedef enum BtrfsRemoveFlags {
         BTRFS_REMOVE_QUOTA     = 1 << 1,
 } BtrfsRemoveFlags;
 
-int btrfs_is_subvol_fd(int fd);
-int btrfs_is_subvol(const char *path);
+int btrfs_is_subvol_at(int dir_fd, const char *path);
+static inline int btrfs_is_subvol_fd(int fd) {
+        return btrfs_is_subvol_at(fd, NULL);
+}
+static inline int btrfs_is_subvol(const char *path) {
+        return btrfs_is_subvol_at(AT_FDCWD, path);
+}
 
 int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret);
 static inline int btrfs_get_block_device(const char *path, dev_t *ret) {
@@ -69,21 +74,24 @@ int btrfs_subvol_make_fd(int fd, const char *subvolume);
 
 int btrfs_subvol_make_fallback(const char *path, mode_t);
 
-int btrfs_subvol_snapshot_fd_full(int old_fd, const char *new_path, BtrfsSnapshotFlags flags, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
-static inline int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, BtrfsSnapshotFlags flags) {
-        return btrfs_subvol_snapshot_fd_full(old_fd, new_path, flags, NULL, NULL, NULL);
+int btrfs_subvol_snapshot_at_full(int dir_fdf, const char *from, int dir_fdt, const char *to, BtrfsSnapshotFlags flags, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
+static inline int btrfs_subvol_snapshot_at(int dir_fdf, const char *from, int dir_fdt, const char *to, BtrfsSnapshotFlags flags) {
+        return btrfs_subvol_snapshot_at_full(dir_fdf, from, dir_fdt, to, flags, NULL, NULL, NULL);
 }
 
-int btrfs_subvol_snapshot_full(const char *old_path, const char *new_path, BtrfsSnapshotFlags flags, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
-static inline int btrfs_subvol_snapshot(const char *old_path, const char *new_path, BtrfsSnapshotFlags flags) {
-        return btrfs_subvol_snapshot_full(old_path, new_path, flags, NULL, NULL, NULL);
+int btrfs_subvol_remove_at(int dir_fd, const char *path, BtrfsRemoveFlags flags);
+static inline int btrfs_subvol_remove(const char *path, BtrfsRemoveFlags flags) {
+        return btrfs_subvol_remove_at(AT_FDCWD, path, flags);
 }
 
-int btrfs_subvol_remove(const char *path, BtrfsRemoveFlags flags);
-int btrfs_subvol_remove_fd(int fd, const char *subvolume, BtrfsRemoveFlags flags);
+int btrfs_subvol_set_read_only_at(int dir_fd, const char *path, bool b);
+static inline int btrfs_subvol_set_read_only_fd(int fd, bool b) {
+        return btrfs_subvol_set_read_only_at(fd, NULL, b);
+}
+static inline int btrfs_subvol_set_read_only(const char *path, bool b) {
+        return btrfs_subvol_set_read_only_at(AT_FDCWD, path, b);
+}
 
-int btrfs_subvol_set_read_only_fd(int fd, bool b);
-int btrfs_subvol_set_read_only(const char *path, bool b);
 int btrfs_subvol_get_read_only_fd(int fd);
 
 int btrfs_subvol_get_id(int fd, const char *subvolume, uint64_t *ret);
