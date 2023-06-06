@@ -826,4 +826,5 @@ global:
         sd_pid_notify_barrier;
         sd_event_source_leave_ratelimit;
         sd_journal_step_one;
+        sd_session_get_leader;
 } LIBSYSTEMD_253;
