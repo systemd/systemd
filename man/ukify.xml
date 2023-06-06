@@ -415,7 +415,7 @@
     <example>
       <title>All the bells and whistles</title>
 
-      <programlisting># /usr/lib/systemd/ukify build \
+      <programlisting>$ /usr/lib/systemd/ukify build \
       --linux=/lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
       --initrd=early_cpio \
       --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img \
@@ -472,7 +472,7 @@ Phases=enter-initrd:leave-initrd
        enter-initrd:leave-initrd:sysinit
        enter-initrd:leave-initrd:sysinit:ready
 
-# /usr/lib/systemd/ukify -c ukify.conf build \
+$ /usr/lib/systemd/ukify -c ukify.conf build \
         --linux=/lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
         --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img
       </programlisting>
