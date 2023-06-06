@@ -588,7 +588,7 @@ def test_pcr_signing(kernel_initrd, tmpdir):
         '--uname=1.2.3',
         '--cmdline=ARG1 ARG2 ARG3',
         '--os-release=ID=foobar\n',
-        '--pcr-banks=sha1',   # use sha1 as that is most likely to be supported
+        '--pcr-banks=sha1',   # use sha1 because it doesn't really matter
         f'--pcrpkey={pub.name}',
         f'--pcr-public-key={pub.name}',
         f'--pcr-private-key={priv.name}',
@@ -655,7 +655,7 @@ def test_pcr_signing2(kernel_initrd, tmpdir):
         '--uname=1.2.3',
         '--cmdline=ARG1 ARG2 ARG3',
         '--os-release=ID=foobar\n',
-        '--pcr-banks=sha1',   # use sha1 as that is most likely to be supported
+        '--pcr-banks=sha1',
         f'--pcrpkey={pub2.name}',
         f'--pcr-public-key={pub.name}',
         f'--pcr-private-key={priv.name}',
