@@ -13,13 +13,6 @@ typedef enum TPM2Flags {
         TPM2_FLAGS_USE_PIN = 1 << 0,
 } TPM2Flags;
 
-
-typedef enum Tpm2SRKTemplateFlags {
-        TPM2_SRK_TEMPLATE_ECC       = 1 << 0,
-        TPM2_SRK_TEMPLATE_NEW_STYLE = 1 << 1,
-        _TPM2_SRK_TEMPLATE_MAX      = TPM2_SRK_TEMPLATE_NEW_STYLE|TPM2_SRK_TEMPLATE_ECC,
-} Tpm2SRKTemplateFlags;
-
 /* As per https://trustedcomputinggroup.org/wp-content/uploads/TCG_PCClient_PFP_r1p05_v23_pub.pdf a
  * TPM2 on a Client PC must have at least 24 PCRs. This hardcodes our expectation of 24. */
 #define TPM2_PCRS_MAX 24U
@@ -67,18 +60,22 @@ typedef struct {
         void *tcti_dl;
         TSS2_TCTI_CONTEXT *tcti_context;
         ESYS_CONTEXT *esys_context;
+
+        /* Some selected cached capabilities of the TPM */
+        TPML_CCA capability_commands;
+        TPML_PCR_SELECTION capability_pcrs;
 } Tpm2Context;
 
 int tpm2_context_new(const char *device, Tpm2Context **ret_context);
 Tpm2Context *tpm2_context_ref(Tpm2Context *context);
 Tpm2Context *tpm2_context_unref(Tpm2Context *context);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Context*, tpm2_context_unref);
-#define _cleanup_tpm2_context_ _cleanup_(tpm2_context_unrefp)
 
 typedef struct {
         Tpm2Context *tpm2_context;
         ESYS_TR esys_handle;
-        bool keep;
+
+        bool no_flush;
 } Tpm2Handle;
 
 #define _tpm2_handle(c, h) { .tpm2_context = (c), .esys_handle = (h), }
@@ -87,7 +84,11 @@ static const Tpm2Handle TPM2_HANDLE_NONE = _tpm2_handle(NULL, ESYS_TR_NONE);
 int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle);
 Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Handle*, tpm2_handle_free);
-#define _cleanup_tpm2_handle_ _cleanup_(tpm2_handle_freep)
+
+int tpm2_supports_alg(Tpm2Context *c, TPM2_ALG_ID alg);
+int tpm2_supports_command(Tpm2Context *c, TPM2_CC command);
+
+bool tpm2_test_parms(Tpm2Context *c, TPMI_ALG_PUBLIC alg, const TPMU_PUBLIC_PARMS *parms);
 
 int tpm2_get_good_pcr_banks(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH **ret_banks);
 int tpm2_get_good_pcr_banks_strv(Tpm2Context *c, uint32_t pcr_mask, char ***ret);
@@ -112,8 +113,6 @@ void tpm2_tpml_pcr_selection_sub(TPML_PCR_SELECTION *a, const TPML_PCR_SELECTION
 char *tpm2_tpml_pcr_selection_to_string(const TPML_PCR_SELECTION *l);
 size_t tpm2_tpml_pcr_selection_weight(const TPML_PCR_SELECTION *l);
 #define tpm2_tpml_pcr_selection_is_empty(l) (tpm2_tpml_pcr_selection_weight(l) == 0)
-
-const TPM2B_PUBLIC *tpm2_get_primary_template(Tpm2SRKTemplateFlags flags);
 
 #else /* HAVE_TPM2 */
 typedef struct {} Tpm2Context;
