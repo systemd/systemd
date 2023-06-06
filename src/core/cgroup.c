@@ -2141,7 +2141,7 @@ int unit_set_cgroup_path(Unit *u, const char *path) {
                         return -ENOMEM;
         }
 
-        if (p) {
+        if (p && u->manager) {
                 r = hashmap_put(u->manager->cgroup_unit, p, u);
                 if (r < 0)
                         return r;
@@ -2166,6 +2166,9 @@ int unit_watch_cgroup(Unit *u) {
                 return 0;
 
         if (u->cgroup_control_inotify_wd >= 0)
+                return 0;
+
+        if (!u->manager)
                 return 0;
 
         /* Only applies to the unified hierarchy */
@@ -2233,6 +2236,9 @@ int unit_watch_cgroup_memory(Unit *u) {
                 return 0;
 
         if (u->cgroup_memory_inotify_wd >= 0)
+                return 0;
+
+        if (!u->manager)
                 return 0;
 
         /* Only applies to the unified hierarchy */
@@ -2612,6 +2618,9 @@ void unit_add_to_cgroup_realize_queue(Unit *u) {
         if (u->in_cgroup_realize_queue)
                 return;
 
+        if (!u->manager)
+                return;
+
         LIST_APPEND(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
         u->in_cgroup_realize_queue = true;
 }
@@ -2888,6 +2897,9 @@ int unit_realize_cgroup(Unit *u) {
 
 void unit_release_cgroup(Unit *u) {
         assert(u);
+
+        if (!u->manager)
+                return;
 
         /* Forgets all cgroup details for this cgroup — but does *not* destroy the cgroup. This is hence OK to call
          * when we close down everything for reexecution, where we really want to leave the cgroup in place. */
