@@ -698,5 +698,57 @@ def test_pcr_signing2(kernel_initrd, tmpdir):
     assert list(sig.keys()) == ['sha1']
     assert len(sig['sha1']) == 6   # six items for six phases paths
 
+def test_key_cert_generation(tmpdir):
+    opts = ukify.parse_args([
+        'genkey',
+        f"--pcr-public-key={tmpdir / 'pcr1.pub.pem'}",
+        f"--pcr-private-key={tmpdir / 'pcr1.priv.pem'}",
+        '--phases=enter-initrd enter-initrd:leave-initrd',
+        f"--pcr-public-key={tmpdir / 'pcr2.pub.pem'}",
+        f"--pcr-private-key={tmpdir / 'pcr2.priv.pem'}",
+        '--phases=sysinit ready',
+        f"--secureboot-private-key={tmpdir / 'sb.priv.pem'}",
+        f"--secureboot-certificate={tmpdir / 'sb.cert.pem'}",
+    ])
+    assert opts.verb == 'genkey'
+    ukify.check_cert_and_keys_nonexistent(opts)
+    ukify.generate_keys(opts)
+
+    if not shutil.which('openssl'):
+        return
+
+    for key in (tmpdir / 'pcr1.priv.pem',
+                tmpdir / 'pcr2.priv.pem',
+                tmpdir / 'sb.priv.pem'):
+        out = subprocess.check_output([
+            'openssl', 'rsa',
+            '-in', key,
+            '-text',
+            '-noout',
+        ], text = True)
+        assert 'Private-Key' in out
+        assert '2048 bit' in out
+
+    for pub in (tmpdir / 'pcr1.pub.pem',
+                tmpdir / 'pcr2.pub.pem'):
+        out = subprocess.check_output([
+            'openssl', 'rsa',
+            '-pubin',
+            '-in', pub,
+            '-text',
+            '-noout',
+        ], text = True)
+        assert 'Public-Key' in out
+        assert '2048 bit' in out
+
+    out = subprocess.check_output([
+        'openssl', 'x509',
+        '-in', tmpdir / 'sb.cert.pem',
+        '-text',
+        '-noout',
+    ], text = True)
+    assert 'Certificate' in out
+    assert 'Issuer: CN = SecureBoot signing key on host' in out
+
 if __name__ == '__main__':
     sys.exit(pytest.main(sys.argv))
