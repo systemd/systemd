@@ -501,10 +501,6 @@ def test_efi_signing_pesign(kernel_initrd, tmpdir):
 def test_pcr_signing(kernel_initrd, tmpdir):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
-    if os.getuid() != 0:
-        pytest.skip('must be root to access tpm2')
-    if subprocess.call(['systemd-creds', 'has-tpm2', '-q']) != 0:
-        pytest.skip('tpm2 is not available')
 
     ourdir = pathlib.Path(__file__).parent
     pub = unbase64(ourdir / 'example.tpm2-pcr-public.pem.base64')
@@ -562,10 +558,6 @@ def test_pcr_signing(kernel_initrd, tmpdir):
 def test_pcr_signing2(kernel_initrd, tmpdir):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
-    if os.getuid() != 0:
-        pytest.skip('must be root to access tpm2')
-    if subprocess.call(['systemd-creds', 'has-tpm2', '-q']) != 0:
-        pytest.skip('tpm2 is not available')
 
     ourdir = pathlib.Path(__file__).parent
     pub = unbase64(ourdir / 'example.tpm2-pcr-public.pem.base64')
