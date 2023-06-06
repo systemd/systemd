@@ -15,4 +15,4 @@ Before=shutdown.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/lib/systemd/systemd-makefs ext4 /dev/sdx12
-TimeoutSec=0
+TimeoutSec=infinity
