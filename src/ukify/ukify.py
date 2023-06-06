@@ -25,17 +25,21 @@
 
 import argparse
 import configparser
+import contextlib
 import collections
 import dataclasses
+import datetime
 import fnmatch
 import itertools
 import json
 import os
 import pathlib
 import pprint
+import pydoc
 import re
 import shlex
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -43,6 +47,8 @@ from typing import (Any,
                     Callable,
                     IO,
                     Optional,
+                    Sequence,
+                    Tuple,
                     Union)
 
 import pefile  # type: ignore
@@ -86,6 +92,15 @@ def guess_efi_arch():
 
     print(f'Host arch {arch!r}, EFI arch {efi_arch!r}')
     return efi_arch
+
+
+def page(text: str, enabled: Optional[bool]) -> None:
+    if enabled:
+        # Initialize less options from $SYSTEMD_LESS or provide a suitable fallback.
+        os.environ['LESS'] = os.getenv('SYSTEMD_LESS', 'FRSXMK')
+        pydoc.pager(text)
+    else:
+        print(text)
 
 
 def shell_join(cmd):
@@ -345,6 +360,17 @@ def check_inputs(opts):
     check_splash(opts.splash)
 
 
+def check_cert_and_keys_nonexistent(opts):
+    # Raise if any of the keys and certs are found on disk
+    paths = itertools.chain(
+        (opts.sb_key, opts.sb_cert),
+        *((priv_key, pub_key)
+          for priv_key, pub_key, _ in key_path_groups(opts)))
+    for path in paths:
+        if path and path.exists():
+            raise ValueError(f'{path} is present')
+
+
 def find_tool(name, fallback=None, opts=None):
     if opts and opts.tools:
         for d in opts.tools:
@@ -368,6 +394,19 @@ def combine_signatures(pcrsigs):
                 if sig not in combined[bank]:
                     combined[bank] += [sig]
     return json.dumps(combined)
+
+
+def key_path_groups(opts):
+    if not opts.pcr_private_keys:
+        return
+
+    n_priv = len(opts.pcr_private_keys or ())
+    pub_keys = opts.pcr_public_keys or [None] * n_priv
+    pp_groups = opts.phase_path_groups or [None] * n_priv
+
+    yield from zip(opts.pcr_private_keys,
+                   pub_keys,
+                   pp_groups)
 
 
 def call_systemd_measure(uki, linux, opts):
@@ -403,10 +442,6 @@ def call_systemd_measure(uki, linux, opts):
     # PCR signing
 
     if opts.pcr_private_keys:
-        n_priv = len(opts.pcr_private_keys or ())
-        pp_groups = opts.phase_path_groups or [None] * n_priv
-        pub_keys = opts.pcr_public_keys or [None] * n_priv
-
         pcrsigs = []
 
         cmd = [
@@ -420,9 +455,7 @@ def call_systemd_measure(uki, linux, opts):
               for bank in banks),
         ]
 
-        for priv_key, pub_key, group in zip(opts.pcr_private_keys,
-                                            pub_keys,
-                                            pp_groups):
+        for priv_key, pub_key, group in key_path_groups(opts):
             extra = [f'--private-key={priv_key}']
             if pub_key:
                 extra += [f'--public-key={pub_key}']
@@ -711,6 +744,108 @@ def make_uki(opts):
     print(f"Wrote {'signed' if sign_args_present else 'unsigned'} {opts.output}")
 
 
+ONE_DAY = datetime.timedelta(1, 0, 0)
+
+
+@contextlib.contextmanager
+def temporary_umask(mask: int):
+    # Drop <mask> bits from umask
+    old = os.umask(0)
+    os.umask(old | mask)
+    try:
+        yield
+    finally:
+        os.umask(old)
+
+
+def generate_key_cert_pair(
+        common_name: str,
+        keylength: int = 2048,
+        valid_days: int = 365 * 10,  # TODO: can we drop the expiration date?
+) -> Tuple[bytes]:
+
+    from cryptography import x509
+    import cryptography.hazmat.primitives as hp
+
+    key = hp.asymmetric.rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=keylength)
+    cert = x509.CertificateBuilder(
+    ).subject_name(
+        x509.Name([x509.NameAttribute(x509.oid.NameOID.COMMON_NAME, common_name)])
+    ).issuer_name(
+        x509.Name([x509.NameAttribute(x509.oid.NameOID.COMMON_NAME, common_name)])
+    ).not_valid_before(
+        datetime.datetime.today() - ONE_DAY
+    ).not_valid_after(
+        datetime.datetime.today() + ONE_DAY * valid_days
+    ).serial_number(
+        x509.random_serial_number()
+    ).public_key(
+        key.public_key()
+    ).add_extension(
+        x509.BasicConstraints(ca=False, path_length=None),
+        critical=True,
+    ).sign(
+        private_key=key,
+        algorithm=hp.hashes.SHA256(),
+    )
+
+    cert_pem = cert.public_bytes(
+        encoding=hp.serialization.Encoding.PEM,
+    )
+    key_pem = key.private_bytes(
+        encoding=hp.serialization.Encoding.PEM,
+        format=hp.serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=hp.serialization.NoEncryption(),
+    )
+
+    return key_pem, cert_pem
+
+
+def generate_priv_pub_key_pair(keylength : int = 2048) -> Tuple[bytes]:
+    import cryptography.hazmat.primitives as hp
+
+    key = hp.asymmetric.rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=keylength)
+    priv_key_pem = key.private_bytes(
+        encoding=hp.serialization.Encoding.PEM,
+        format=hp.serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=hp.serialization.NoEncryption(),
+    )
+    pub_key_pem = key.public_key().public_bytes(
+        encoding=hp.serialization.Encoding.PEM,
+        format=hp.serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+
+    return priv_key_pem, pub_key_pem
+
+
+def generate_keys(opts):
+    # This will generate keys and certificates and write them to the paths that
+    # are specified as input paths.
+    if opts.sb_key or opts.sb_cert:
+        fqdn = socket.getfqdn()
+        cn = f'SecureBoot signing key on host {fqdn}'
+        key_pem, cert_pem = generate_key_cert_pair(common_name=cn)
+        print(f'Writing SecureBoot private key to {opts.sb_key}')
+        with temporary_umask(0o077):
+            opts.sb_key.write_bytes(key_pem)
+        print(f'Writing SecureBoot certicate to {opts.sb_cert}')
+        opts.sb_cert.write_bytes(cert_pem)
+
+    for priv_key, pub_key, _ in key_path_groups(opts):
+        priv_key_pem, pub_key_pem = generate_priv_pub_key_pair()
+
+        print(f'Writing private key to {priv_key}')
+        with temporary_umask(0o077):
+            priv_key.write_bytes(priv_key_pem)
+        if pub_key:
+            print(f'Writing public key to {pub_key}')
+            pub_key.write_bytes(pub_key_pem)
+
+
 @dataclasses.dataclass(frozen=True)
 class ConfigItem:
     @staticmethod
@@ -843,7 +978,7 @@ class ConfigItem:
         return (section_name, key, value)
 
 
-VERBS = ('build',)
+VERBS = ('build', 'genkey')
 
 CONFIG_ITEMS = [
     ConfigItem(
@@ -1128,12 +1263,25 @@ def config_example():
             yield f'{key} = {value}'
 
 
+class PagerHelpAction(argparse._HelpAction):  # pylint: disable=protected-access
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[str, Sequence[Any], None] = None,
+        option_string: Optional[str] = None
+    ) -> None:
+        page(parser.format_help(), True)
+        parser.exit()
+
+
 def create_parser():
     p = argparse.ArgumentParser(
         description='Build and sign Unified Kernel Images',
         allow_abbrev=False,
+        add_help=False,
         usage='''\
-ukify [options…] [LINUX INITRD…]
+ukify [options…] VERB
 ''',
         epilog='\n  '.join(('config file:', *config_example())),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1144,6 +1292,13 @@ ukify [options…] [LINUX INITRD…]
 
     # Suppress printing of usage synopsis on errors
     p.error = lambda message: p.exit(2, f'{p.prog}: error: {message}\n')
+
+    # Make --help paged
+    p.add_argument(
+        '-h', '--help',
+        action=PagerHelpAction,
+        help='show this help message and exit',
+    )
 
     return p
 
@@ -1190,7 +1345,7 @@ def finalize_options(opts):
     if opts.sign_kernel and not opts.sb_key and not opts.sb_cert_name:
         raise ValueError('--sign-kernel requires either --secureboot-private-key= and --secureboot-certificate= (for sbsign) or --secureboot-certificate-name= (for pesign) to be specified')
 
-    if opts.output is None:
+    if opts.verb == 'build' and opts.output is None:
         if opts.linux is None:
             raise ValueError('--output= must be specified when building a PE addon')
         suffix = '.efi' if opts.sb_key or opts.sb_cert_name else '.unsigned.efi'
@@ -1242,9 +1397,14 @@ def parse_args(args=None):
 
 def main():
     opts = parse_args()
-    check_inputs(opts)
-    assert opts.verb == 'build'
-    make_uki(opts)
+    if opts.verb == 'build':
+        check_inputs(opts)
+        make_uki(opts)
+    elif opts.verb == 'genkey':
+        check_cert_and_keys_nonexistent(opts)
+        generate_keys(opts)
+    else:
+        assert False
 
 
 if __name__ == '__main__':
