@@ -67,6 +67,9 @@ typedef struct {
         void *tcti_dl;
         TSS2_TCTI_CONTEXT *tcti_context;
         ESYS_CONTEXT *esys_context;
+
+        /* Some selected cached capabilities of the TPM */
+        TPML_PCR_SELECTION capability_pcrs;
 } Tpm2Context;
 
 int tpm2_context_new(const char *device, Tpm2Context **ret_context);
@@ -88,6 +91,10 @@ int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle);
 Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Handle*, tpm2_handle_free);
 #define _cleanup_tpm2_handle_ _cleanup_(tpm2_handle_freep)
+
+int tpm2_supports_alg(Tpm2Context *c, TPM2_ALG_ID alg);
+
+bool tpm2_test_parms(Tpm2Context *c, TPMI_ALG_PUBLIC alg, const TPMU_PUBLIC_PARMS *parms);
 
 int tpm2_get_good_pcr_banks(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH **ret_banks);
 int tpm2_get_good_pcr_banks_strv(Tpm2Context *c, uint32_t pcr_mask, char ***ret);
