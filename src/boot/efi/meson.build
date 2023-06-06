@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 efi_config_h_dir = meson.current_build_dir()
+efi_addon = ''
 
 if efi_arch != ''
         libefitest = static_library(
@@ -375,6 +376,11 @@ foreach efi_elf_binary : efi_elf_binaries
         boot_targets += exe
         if name.startswith('linux')
                 boot_stubs += exe
+        endif
+
+        # This is supposed to match exactly one time
+        if name == 'addon@0@.efi.stub'.format(efi_arch)
+                efi_addon = exe.full_path()
         endif
 endforeach
 
