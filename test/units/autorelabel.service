@@ -12,7 +12,7 @@ ConditionPathExists=|/.autorelabel
 [Service]
 ExecStart=sh -xec 'echo 0 >/sys/fs/selinux/enforce; fixfiles -f -F relabel; rm /.autorelabel; systemctl --force reboot'
 Type=oneshot
-TimeoutSec=0
+TimeoutSec=infinity
 RemainAfterExit=yes
 StandardOutput=journal+console
 
