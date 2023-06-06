@@ -4,6 +4,7 @@
 # pylint: disable=missing-docstring,redefined-outer-name,invalid-name
 # pylint: disable=unused-import,import-outside-toplevel,useless-else-on-loop
 # pylint: disable=consider-using-with,wrong-import-position,unspecified-encoding
+# pylint: disable=protected-access
 
 import base64
 import json
@@ -106,7 +107,7 @@ def test_apply_config(tmp_path):
     assert ns.signing_engine == 'engine1'
     assert ns.sb_key == 'some/path5'
     assert ns.sb_cert == 'some/path6'
-    assert ns.sign_kernel == False
+    assert ns.sign_kernel is False
 
     assert ns._groups == ['NAME']
     assert ns.pcr_private_keys == [pathlib.Path('some/path7')]
@@ -129,7 +130,7 @@ def test_apply_config(tmp_path):
     assert ns.signing_engine == 'engine1'
     assert ns.sb_key == 'some/path5'
     assert ns.sb_cert == 'some/path6'
-    assert ns.sign_kernel == False
+    assert ns.sign_kernel is False
 
     assert ns._groups == ['NAME']
     assert ns.pcr_private_keys == [pathlib.Path('some/path7')]
@@ -447,7 +448,7 @@ def test_sections(kernel_initrd, tmpdir):
     for sect in 'text osrel cmdline linux initrd uname test'.split():
         assert re.search(fr'^\s*\d+\s+.{sect}\s+0', dump, re.MULTILINE)
 
-def test_addon(kernel_initrd, tmpdir):
+def test_addon(tmpdir):
     output = f'{tmpdir}/addon.efi'
     args = [
         'build',
@@ -459,7 +460,7 @@ def test_addon(kernel_initrd, tmpdir):
         args += [f'--stub={stub}']
         expected_exceptions = ()
     else:
-        expected_exceptions = FileNotFoundError,
+        expected_exceptions = (FileNotFoundError,)
 
     opts = ukify.parse_args(args)
     try:
