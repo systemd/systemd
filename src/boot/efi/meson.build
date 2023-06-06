@@ -376,6 +376,11 @@ foreach efi_elf_binary : efi_elf_binaries
         if name.startswith('linux')
                 boot_stubs += exe
         endif
+
+        # This is supposed to match exactly one time
+        if name == 'addon@0@.efi.stub'.format(efi_arch)
+                efi_addon = exe
+        endif
 endforeach
 
 alias_target('systemd-boot', boot_targets)

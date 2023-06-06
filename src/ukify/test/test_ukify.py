@@ -50,9 +50,9 @@ def test_round_up():
     assert ukify.round_up(4097) == 8192
 
 def test_namespace_creation():
-    ns = ukify.create_parser().parse_args(('A','B'))
-    assert ns.linux == pathlib.Path('A')
-    assert ns.initrd == [pathlib.Path('B')]
+    ns = ukify.create_parser().parse_args(())
+    assert ns.linux == None
+    assert ns.initrd == None
 
 def test_config_example():
     ex = ukify.config_example()
@@ -87,7 +87,7 @@ def test_apply_config(tmp_path):
         Phases = {':'.join(ukify.KNOWN_PHASES)}
         '''))
 
-    ns = ukify.create_parser().parse_args(('A','B'))
+    ns = ukify.create_parser().parse_args(())
     ns.linux = None
     ns.initrd = []
     ukify.apply_config(ns, config)
@@ -143,7 +143,7 @@ def test_parse_args_minimal():
     assert opts.os_release in (pathlib.Path('/etc/os-release'),
                                pathlib.Path('/usr/lib/os-release'))
 
-def test_parse_args_many():
+def test_parse_args_many_deprecated():
     opts = ukify.parse_args(
         ['/ARG1', '///ARG2', '/ARG3 WITH SPACE',
          '--cmdline=a b c',
@@ -186,9 +186,57 @@ def test_parse_args_many():
     assert opts.output == pathlib.Path('OUTPUT')
     assert opts.measure is False
 
+def test_parse_args_many():
+    opts = ukify.parse_args(
+        ['build',
+         '--linux=/ARG1',
+         '--initrd=///ARG2',
+         '--initrd=/ARG3 WITH SPACE',
+         '--cmdline=a b c',
+         '--os-release=K1=V1\nK2=V2',
+         '--devicetree=DDDDTTTT',
+         '--splash=splash',
+         '--pcrpkey=PATH',
+         '--uname=1.2.3',
+         '--stub=STUBPATH',
+         '--pcr-private-key=PKEY1',
+         '--pcr-public-key=PKEY2',
+         '--pcr-banks=SHA1,SHA256',
+         '--signing-engine=ENGINE',
+         '--secureboot-private-key=SBKEY',
+         '--secureboot-certificate=SBCERT',
+         '--sign-kernel',
+         '--no-sign-kernel',
+         '--tools=TOOLZ///',
+         '--output=OUTPUT',
+         '--measure',
+         '--no-measure',
+         ])
+    assert opts.linux == pathlib.Path('/ARG1')
+    assert opts.initrd == [pathlib.Path('/ARG2'), pathlib.Path('/ARG3 WITH SPACE')]
+    assert opts.cmdline == 'a b c'
+    assert opts.os_release == 'K1=V1\nK2=V2'
+    assert opts.devicetree == pathlib.Path('DDDDTTTT')
+    assert opts.splash == pathlib.Path('splash')
+    assert opts.pcrpkey == pathlib.Path('PATH')
+    assert opts.uname == '1.2.3'
+    assert opts.stub == pathlib.Path('STUBPATH')
+    assert opts.pcr_private_keys == [pathlib.Path('PKEY1')]
+    assert opts.pcr_public_keys == [pathlib.Path('PKEY2')]
+    assert opts.pcr_banks == ['SHA1', 'SHA256']
+    assert opts.signing_engine == 'ENGINE'
+    assert opts.sb_key == 'SBKEY'
+    assert opts.sb_cert == 'SBCERT'
+    assert opts.sign_kernel is False
+    assert opts.tools == [pathlib.Path('TOOLZ/')]
+    assert opts.output == pathlib.Path('OUTPUT')
+    assert opts.measure is False
+
 def test_parse_sections():
     opts = ukify.parse_args(
-        ['/ARG1', '/ARG2',
+        ['build',
+         '--linux=/ARG1',
+         '--initrd=/ARG2',
          '--section=test:TESTTESTTEST',
          '--section=test2:@FILE',
          ])
@@ -239,7 +287,10 @@ def test_config_priority(tmp_path):
         '''))
 
     opts = ukify.parse_args(
-        ['/ARG1', '///ARG2', '/ARG3 WITH SPACE',
+        ['build',
+         '--linux=/ARG1',
+         '--initrd=///ARG2',
+         '--initrd=/ARG3 WITH SPACE',
          '--cmdline= a  b  c ',
          '--os-release=K1=V1\nK2=V2',
          '--devicetree=DDDDTTTT',
@@ -302,9 +353,17 @@ def test_help(capsys):
     assert '--section' in out.out
     assert not out.err
 
-def test_help_error(capsys):
+def test_help_error_deprecated(capsys):
     with pytest.raises(SystemExit):
         ukify.parse_args(['a', 'b', '--no-such-option'])
+    out = capsys.readouterr()
+    assert not out.out
+    assert '--no-such-option' in out.err
+    assert len(out.err.splitlines()) == 1
+
+def test_help_error(capsys):
+    with pytest.raises(SystemExit):
+        ukify.parse_args(['build', '--no-such-option'])
     out = capsys.readouterr()
     assert not out.out
     assert '--no-such-option' in out.err
@@ -326,7 +385,7 @@ def kernel_initrd():
             initrd = f"{item['root']}{item['initrd'][0].split(' ')[0]}"
         except (KeyError, IndexError):
             continue
-        return [linux, initrd]
+        return ['--linux', linux, '--initrd', initrd]
     else:
         return None
 
@@ -345,7 +404,11 @@ def test_basic_operation(kernel_initrd, tmpdir):
         pytest.skip('linux+initrd not found')
 
     output = f'{tmpdir}/basic.efi'
-    opts = ukify.parse_args(kernel_initrd + [f'--output={output}'])
+    opts = ukify.parse_args([
+        'build',
+        *kernel_initrd,
+        f'--output={output}',
+    ])
     try:
         ukify.check_inputs(opts)
     except OSError as e:
@@ -362,6 +425,7 @@ def test_sections(kernel_initrd, tmpdir):
 
     output = f'{tmpdir}/basic.efi'
     opts = ukify.parse_args([
+        'build',
         *kernel_initrd,
         f'--output={output}',
         '--uname=1.2.3',
@@ -385,15 +449,22 @@ def test_sections(kernel_initrd, tmpdir):
 
 def test_addon(kernel_initrd, tmpdir):
     output = f'{tmpdir}/addon.efi'
-    opts = ukify.parse_args([
+    args = [
+        'build',
         f'--output={output}',
         '--cmdline=ARG1 ARG2 ARG3',
         '--section=.test:CONTENTZ',
-    ])
+    ]
+    if stub := os.getenv('EFI_ADDON'):
+        args += [f'--stub={stub}']
+        expected_exceptions = ()
+    else:
+        expected_exceptions = FileNotFoundError,
 
+    opts = ukify.parse_args(args)
     try:
         ukify.check_inputs(opts)
-    except OSError as e:
+    except expected_exceptions as e:
         pytest.skip(str(e))
 
     ukify.make_uki(opts)
@@ -416,7 +487,8 @@ def test_uname_scraping(kernel_initrd):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
 
-    uname = ukify.Uname.scrape(kernel_initrd[0])
+    assert kernel_initrd[0] == '--linux'
+    uname = ukify.Uname.scrape(kernel_initrd[1])
     assert re.match(r'\d+\.\d+\.\d+', uname)
 
 def test_efi_signing_sbsign(kernel_initrd, tmpdir):
@@ -431,6 +503,7 @@ def test_efi_signing_sbsign(kernel_initrd, tmpdir):
 
     output = f'{tmpdir}/signed.efi'
     opts = ukify.parse_args([
+        'build',
         *kernel_initrd,
         f'--output={output}',
         '--uname=1.2.3',
@@ -474,6 +547,7 @@ def test_efi_signing_pesign(kernel_initrd, tmpdir):
 
     output = f'{tmpdir}/signed.efi'
     opts = ukify.parse_args([
+        'build',
         *kernel_initrd,
         f'--output={output}',
         '--uname=1.2.3',
@@ -501,10 +575,6 @@ def test_efi_signing_pesign(kernel_initrd, tmpdir):
 def test_pcr_signing(kernel_initrd, tmpdir):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
-    if os.getuid() != 0:
-        pytest.skip('must be root to access tpm2')
-    if subprocess.call(['systemd-creds', 'has-tpm2', '-q']) != 0:
-        pytest.skip('tpm2 is not available')
 
     ourdir = pathlib.Path(__file__).parent
     pub = unbase64(ourdir / 'example.tpm2-pcr-public.pem.base64')
@@ -512,6 +582,7 @@ def test_pcr_signing(kernel_initrd, tmpdir):
 
     output = f'{tmpdir}/signed.efi'
     opts = ukify.parse_args([
+        'build',
         *kernel_initrd,
         f'--output={output}',
         '--uname=1.2.3',
@@ -562,10 +633,6 @@ def test_pcr_signing(kernel_initrd, tmpdir):
 def test_pcr_signing2(kernel_initrd, tmpdir):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
-    if os.getuid() != 0:
-        pytest.skip('must be root to access tpm2')
-    if subprocess.call(['systemd-creds', 'has-tpm2', '-q']) != 0:
-        pytest.skip('tpm2 is not available')
 
     ourdir = pathlib.Path(__file__).parent
     pub = unbase64(ourdir / 'example.tpm2-pcr-public.pem.base64')
@@ -578,8 +645,12 @@ def test_pcr_signing2(kernel_initrd, tmpdir):
         microcode.write(b'1234567890')
 
     output = f'{tmpdir}/signed.efi'
+    assert kernel_initrd[0] == '--linux'
     opts = ukify.parse_args([
-        kernel_initrd[0], microcode.name, kernel_initrd[1],
+        'build',
+        *kernel_initrd[:2],
+        f'--initrd={microcode.name}',
+        *kernel_initrd[2:],
         f'--output={output}',
         '--uname=1.2.3',
         '--cmdline=ARG1 ARG2 ARG3',

@@ -15,6 +15,10 @@ test_env.set('SYSTEMD_LANGUAGE_FALLBACK_MAP', language_fallback_map)
 test_env.set('PATH', project_build_root + ':' + path)
 test_env.set('PROJECT_BUILD_ROOT', project_build_root)
 
+if efi_arch != ''
+        test_env.set('EFI_ADDON', efi_addon.full_path())
+endif
+
 ############################################################
 
 generate_sym_test_py = find_program('generate-sym-test.py')
