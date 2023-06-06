@@ -891,12 +891,21 @@ int fd_get_diskseq(int fd, uint64_t *ret) {
         return 0;
 }
 
-int dir_fd_is_root(int dir_fd) {
+int path_is_root_at(int dir_fd, const char *path) {
         STRUCT_NEW_STATX_DEFINE(st);
         STRUCT_NEW_STATX_DEFINE(pst);
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
-        assert(dir_fd >= 0);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
+        if (!isempty(path)) {
+                fd = openat(dir_fd, path, O_PATH|O_CLOEXEC);
+                if (fd < 0)
+                        return -errno;
+
+                dir_fd = fd;
+        }
 
         r = statx_fallback(dir_fd, ".", 0, STATX_TYPE|STATX_INO|STATX_MNT_ID, &st.sx);
         if (r == -ENOTDIR)
