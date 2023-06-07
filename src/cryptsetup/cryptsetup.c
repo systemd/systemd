@@ -832,7 +832,7 @@ static int measure_volume_key(
         }
 
 #if HAVE_TPM2
-        _cleanup_tpm2_context_ Tpm2Context *c = NULL;
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         r = tpm2_context_new(arg_tpm2_device, &c);
         if (r < 0)
                 return r;
