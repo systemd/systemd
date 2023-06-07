@@ -1187,6 +1187,31 @@ ukify [options…] VERB
 
 
 def finalize_options(opts):
+    # Figure out which syntax is being used, one of:
+    # ukify verb --arg --arg --arg
+    # ukify linux initrd…
+    if len(opts.positional) == 1 and opts.positional[0] in VERBS:
+        opts.verb = opts.positional[0]
+    elif opts.linux or opts.initrd:
+        raise ValueError('--linux/--initrd options cannot be used with positional arguments')
+    else:
+        print("Assuming obsolete commandline syntax with no verb. Please use 'build'.")
+        if opts.positional:
+            opts.linux = pathlib.Path(opts.positional[0])
+        # If we have initrds from parsing config files, append our positional args at the end
+        opts.initrd = (opts.initrd or []) + [pathlib.Path(arg) for arg in opts.positional[1:]]
+        opts.verb = 'build'
+
+    # Check that --pcr-public-key=, --pcr-private-key=, and --phases=
+    # have either the same number of arguments are are not specified at all.
+    n_pcr_pub = None if opts.pcr_public_keys is None else len(opts.pcr_public_keys)
+    n_pcr_priv = None if opts.pcr_private_keys is None else len(opts.pcr_private_keys)
+    n_phase_path_groups = None if opts.phase_path_groups is None else len(opts.phase_path_groups)
+    if n_pcr_pub is not None and n_pcr_pub != n_pcr_priv:
+        raise ValueError('--pcr-public-key= specifications must match --pcr-private-key=')
+    if n_phase_path_groups is not None and n_phase_path_groups != n_pcr_priv:
+        raise ValueError('--phases= specifications must match --pcr-private-key=')
+
     if opts.cmdline and opts.cmdline.startswith('@'):
         opts.cmdline = pathlib.Path(opts.cmdline[1:])
     elif opts.cmdline:
@@ -1244,37 +1269,9 @@ def finalize_options(opts):
 
 
 def parse_args(args=None):
-    p = create_parser()
-    opts = p.parse_args(args)
-
-    # Figure out which syntax is being used, one of:
-    # ukify verb --arg --arg --arg
-    # ukify linux initrd…
-    if len(opts.positional) == 1 and opts.positional[0] in VERBS:
-        opts.verb = opts.positional[0]
-    elif opts.linux or opts.initrd:
-        raise ValueError('--linux/--initrd options cannot be used with positional arguments')
-    else:
-        print("Assuming obsolete commandline syntax with no verb. Please use 'build'.")
-        if opts.positional:
-            opts.linux = pathlib.Path(opts.positional[0])
-        opts.initrd = [pathlib.Path(arg) for arg in opts.positional[1:]]
-        opts.verb = 'build'
-
-    # Check that --pcr-public-key=, --pcr-private-key=, and --phases=
-    # have either the same number of arguments are are not specified at all.
-    n_pcr_pub = None if opts.pcr_public_keys is None else len(opts.pcr_public_keys)
-    n_pcr_priv = None if opts.pcr_private_keys is None else len(opts.pcr_private_keys)
-    n_phase_path_groups = None if opts.phase_path_groups is None else len(opts.phase_path_groups)
-    if n_pcr_pub is not None and n_pcr_pub != n_pcr_priv:
-        raise ValueError('--pcr-public-key= specifications must match --pcr-private-key=')
-    if n_phase_path_groups is not None and n_phase_path_groups != n_pcr_priv:
-        raise ValueError('--phases= specifications must match --pcr-private-key=')
-
+    opts = create_parser().parse_args(args)
     apply_config(opts)
-
     finalize_options(opts)
-
     return opts
 
 
