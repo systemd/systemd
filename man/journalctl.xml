@@ -118,8 +118,8 @@
         <option>--user</option>).  If neither is specified, show all messages that the user can see.
         </para>
 
-        <para>The <option>--user</option> option affects how <option>--unit</option> arguments are
-        treated. See <option>--unit</option>.</para></listitem>
+        <para>The <option>--user</option> option affects how <option>--unit=</option> arguments are
+        treated. See <option>--unit=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -295,8 +295,8 @@
         <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         unit, all logs of children of the slice will be shown.</para>
 
-        <para>With <option>--user</option>, all <option>--unit</option> arguments will be converted to match
-        user messages as if specified with <option>--user-unit</option>.</para>
+        <para>With <option>--user</option>, all <option>--unit=</option> arguments will be converted to match
+        user messages as if specified with <option>--user-unit=</option>.</para>
 
         <para>This parameter can be specified multiple times.</para></listitem>
       </varlistentry>
