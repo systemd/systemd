@@ -116,6 +116,12 @@ struct Manager {
         sd_event_source *event_save_time;
         usec_t save_time_interval_usec;
         bool save_on_exit;
+
+        /* Used to coalesce bus PropertiesChanged events */
+        sd_event_source *deferred_link_ntp_server_event_source;
+        sd_event_source *deferred_system_ntp_server_event_source;
+        sd_event_source *deferred_runtime_ntp_server_event_source;
+        sd_event_source *deferred_fallback_ntp_server_event_source;
 };
 
 int manager_new(Manager **ret);
@@ -133,3 +139,8 @@ void manager_disconnect(Manager *m);
 bool manager_is_connected(Manager *m);
 
 int manager_setup_save_time_event(Manager *m);
+
+int bus_manager_emit_link_ntp_server_changed(Manager *m);
+int bus_manager_emit_system_ntp_server_changed(Manager *m);
+int bus_manager_emit_runtime_ntp_server_changed(Manager *m);
+int bus_manager_emit_fallback_ntp_server_changed(Manager *m);

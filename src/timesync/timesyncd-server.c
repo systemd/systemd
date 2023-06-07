@@ -67,6 +67,7 @@ int server_name_new(
                 const char *string) {
 
         ServerName *n;
+        int r;
 
         assert(m);
         assert(string);
@@ -89,15 +90,27 @@ int server_name_new(
         switch (type) {
         case SERVER_SYSTEM:
                 LIST_APPEND(names, m->system_servers, n);
+                r = sd_event_source_set_enabled(m->deferred_system_ntp_server_event_source, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to reenable system ntp server change event source!");
                 break;
         case SERVER_LINK:
                 LIST_APPEND(names, m->link_servers, n);
+                r = sd_event_source_set_enabled(m->deferred_link_ntp_server_event_source, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to reenable link ntp server change event source!");
                 break;
         case SERVER_FALLBACK:
                 LIST_APPEND(names, m->fallback_servers, n);
+                r = sd_event_source_set_enabled(m->deferred_fallback_ntp_server_event_source, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to reenable fallback ntp server change event source!");
                 break;
         case SERVER_RUNTIME:
                 LIST_APPEND(names, m->runtime_servers, n);
+                r = sd_event_source_set_enabled(m->deferred_runtime_ntp_server_event_source, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to reenable runtime ntp server change event source!");
                 break;
         default:
                 assert_not_reached();
@@ -117,20 +130,37 @@ int server_name_new(
 }
 
 ServerName *server_name_free(ServerName *n) {
+        int r;
         if (!n)
                 return NULL;
 
         server_name_flush_addresses(n);
 
         if (n->manager) {
-                if (n->type == SERVER_SYSTEM)
+                if (n->type == SERVER_SYSTEM) {
                         LIST_REMOVE(names, n->manager->system_servers, n);
-                else if (n->type == SERVER_LINK)
+                        r = sd_event_source_set_enabled(n->manager->deferred_system_ntp_server_event_source, SD_EVENT_ONESHOT);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to reenable system ntp server change event source!");
+                }
+                else if (n->type == SERVER_LINK) {
                         LIST_REMOVE(names, n->manager->link_servers, n);
-                else if (n->type == SERVER_FALLBACK)
+                        r = sd_event_source_set_enabled(n->manager->deferred_link_ntp_server_event_source, SD_EVENT_ONESHOT);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to reenable link ntp server change event source!");
+                }
+                else if (n->type == SERVER_FALLBACK) {
                         LIST_REMOVE(names, n->manager->fallback_servers, n);
-                else if (n->type == SERVER_RUNTIME)
+                        r = sd_event_source_set_enabled(n->manager->deferred_fallback_ntp_server_event_source, SD_EVENT_ONESHOT);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to reenable fallback ntp server change event source!");
+                }
+                else if (n->type == SERVER_RUNTIME) {
                         LIST_REMOVE(names, n->manager->runtime_servers, n);
+                        r = sd_event_source_set_enabled(n->manager->deferred_runtime_ntp_server_event_source, SD_EVENT_ONESHOT);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to reenable runtime ntp server change event source!");
+                }
                 else
                         assert_not_reached();
 
