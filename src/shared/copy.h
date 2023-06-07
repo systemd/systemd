@@ -29,6 +29,7 @@ typedef enum CopyFlags {
         COPY_HOLES         = 1 << 14, /* Copy holes */
         COPY_GRACEFUL_WARN = 1 << 15, /* Skip copying file types that aren't supported by the target filesystem */
         COPY_TRUNCATE      = 1 << 16, /* Truncate to current file offset after copying */
+        COPY_LOCK_BSD      = 1 << 17, /* Return a BSD exclusively locked file descriptor referring to the copied image/directory. */
 } CopyFlags;
 
 typedef enum DenyType {
