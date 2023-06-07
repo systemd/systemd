@@ -122,3 +122,10 @@ bool gid_is_system(gid_t gid) {
 
         return gid <= defs->system_gid_max;
 }
+
+bool uid_for_system_journal(uid_t uid) {
+
+        /* Returns true if the specified UID shall get its data stored in the system journal. */
+
+        return uid_is_system(uid) || uid_is_dynamic(uid) || uid == UID_NOBODY || uid_is_container(uid);
+}

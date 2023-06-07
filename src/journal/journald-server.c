@@ -238,13 +238,6 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
                               NULL);
 }
 
-static bool uid_for_system_journal(uid_t uid) {
-
-        /* Returns true if the specified UID shall get its data stored in the system journal. */
-
-        return uid_is_system(uid) || uid_is_dynamic(uid) || uid == UID_NOBODY;
-}
-
 static void server_add_acls(ManagedJournalFile *f, uid_t uid) {
         assert(f);
 
