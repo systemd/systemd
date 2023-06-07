@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <fcntl.h>
 #include <linux/fs.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -39,13 +40,15 @@ typedef enum ChattrApplyFlags {
         CHATTR_WARN_UNSUPPORTED_FLAGS = 1 << 1,
 } ChattrApplyFlags;
 
-int chattr_full(const char *path, int fd, unsigned value, unsigned mask, unsigned *ret_previous, unsigned *ret_final, ChattrApplyFlags flags);
-
+int chattr_full(int dir_fd, const char *path, unsigned value, unsigned mask, unsigned *ret_previous, unsigned *ret_final, ChattrApplyFlags flags);
+static inline int chattr_at(int dir_fd, const char *path, unsigned value, unsigned mask, unsigned *previous) {
+        return chattr_full(dir_fd, path, value, mask, previous, NULL, 0);
+}
 static inline int chattr_fd(int fd, unsigned value, unsigned mask, unsigned *previous) {
-        return chattr_full(NULL, fd, value, mask, previous, NULL, 0);
+        return chattr_full(fd, NULL, value, mask, previous, NULL, 0);
 }
 static inline int chattr_path(const char *path, unsigned value, unsigned mask, unsigned *previous) {
-        return chattr_full(path, -1, value, mask, previous, NULL, 0);
+        return chattr_full(AT_FDCWD, path, value, mask, previous, NULL, 0);
 }
 
 int read_attr_fd(int fd, unsigned *ret);
@@ -57,5 +60,5 @@ int read_attr_path(const char *p, unsigned *ret);
 #define CHATTR_SECRET_FLAGS (FS_SECRM_FL|FS_NODUMP_FL|FS_SYNC_FL|FS_NOCOW_FL)
 
 static inline int chattr_secret(int fd, ChattrApplyFlags flags) {
-        return chattr_full(NULL, fd, CHATTR_SECRET_FLAGS, CHATTR_SECRET_FLAGS, NULL, NULL, flags|CHATTR_FALLBACK_BITWISE);
+        return chattr_full(fd, NULL, CHATTR_SECRET_FLAGS, CHATTR_SECRET_FLAGS, NULL, NULL, flags|CHATTR_FALLBACK_BITWISE);
 }

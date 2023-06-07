@@ -1967,62 +1967,6 @@ static bool home_read_only(
         return false;
 }
 
-static int verity_settings_prepare(
-                VeritySettings *verity,
-                const char *root_image,
-                const void *root_hash,
-                size_t root_hash_size,
-                const char *root_hash_path,
-                const void *root_hash_sig,
-                size_t root_hash_sig_size,
-                const char *root_hash_sig_path,
-                const char *verity_data_path) {
-
-        int r;
-
-        assert(verity);
-
-        if (root_hash) {
-                void *d;
-
-                d = memdup(root_hash, root_hash_size);
-                if (!d)
-                        return -ENOMEM;
-
-                free_and_replace(verity->root_hash, d);
-                verity->root_hash_size = root_hash_size;
-                verity->designator = PARTITION_ROOT;
-        }
-
-        if (root_hash_sig) {
-                void *d;
-
-                d = memdup(root_hash_sig, root_hash_sig_size);
-                if (!d)
-                        return -ENOMEM;
-
-                free_and_replace(verity->root_hash_sig, d);
-                verity->root_hash_sig_size = root_hash_sig_size;
-                verity->designator = PARTITION_ROOT;
-        }
-
-        if (verity_data_path) {
-                r = free_and_strdup(&verity->data_path, verity_data_path);
-                if (r < 0)
-                        return r;
-        }
-
-        r = verity_settings_load(
-                        verity,
-                        root_image,
-                        root_hash_path,
-                        root_hash_sig_path);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to load root hash: %m");
-
-        return 0;
-}
-
 int setup_namespace(
                 const char* root_directory,
                 const char* root_image,
@@ -2048,13 +1992,7 @@ int setup_namespace(
                 const char *creds_path,
                 const char *log_namespace,
                 unsigned long mount_propagation_flag,
-                const void *root_hash,
-                size_t root_hash_size,
-                const char *root_hash_path,
-                const void *root_hash_sig,
-                size_t root_hash_sig_size,
-                const char *root_hash_sig_path,
-                const char *verity_data_path,
+                VeritySettings *verity,
                 const MountImage *extension_images,
                 size_t n_extension_images,
                 const ImagePolicy *extension_image_policy,
@@ -2067,7 +2005,6 @@ int setup_namespace(
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
-        _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         _cleanup_strv_free_ char **hierarchies = NULL;
         MountEntry *m = NULL, *mounts = NULL;
         bool require_prefix = false, setup_propagate = false;
@@ -2107,16 +2044,7 @@ int setup_namespace(
                     strv_isempty(read_write_paths))
                         dissect_image_flags |= DISSECT_IMAGE_READ_ONLY;
 
-                r = verity_settings_prepare(
-                                &verity,
-                                root_image,
-                                root_hash, root_hash_size, root_hash_path,
-                                root_hash_sig, root_hash_sig_size, root_hash_sig_path,
-                                verity_data_path);
-                if (r < 0)
-                        return r;
-
-                SET_FLAG(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE, verity.data_path);
+                SET_FLAG(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE, verity->data_path);
 
                 r = loop_device_make_by_path(
                                 root_image,
@@ -2130,7 +2058,7 @@ int setup_namespace(
 
                 r = dissect_loop_device(
                                 loop_device,
-                                &verity,
+                                verity,
                                 root_image_mount_options,
                                 root_image_policy,
                                 dissect_image_flags,
@@ -2141,14 +2069,14 @@ int setup_namespace(
                 r = dissected_image_load_verity_sig_partition(
                                 dissected_image,
                                 loop_device->fd,
-                                &verity);
+                                verity);
                 if (r < 0)
                         return r;
 
                 r = dissected_image_decrypt(
                                 dissected_image,
                                 NULL,
-                                &verity,
+                                verity,
                                 dissect_image_flags);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to decrypt dissected image: %m");
