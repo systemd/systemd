@@ -911,9 +911,9 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAns
                 if (r < 0)
                         goto fail;
 
-                /* RFC 2782 states "Unless and until permitted by future standards
-                 * action, name compression is not to be used for this field." */
-                r = dns_packet_append_name(p, rr->srv.name, false, true, NULL);
+                /* RFC 2782 states "Unless and until permitted by future standards action, name compression
+                 * is not to be used for this field." Hence we turn off compression here. */
+                r = dns_packet_append_name(p, rr->srv.name, /* allow_compression= */ false, /* canonical_candidate= */ true, NULL);
                 break;
 
         case DNS_TYPE_PTR:
@@ -1728,7 +1728,13 @@ int dns_packet_read_rr(
                 r = dns_packet_read_uint16(p, &rr->srv.port, NULL);
                 if (r < 0)
                         return r;
-                r = dns_packet_read_name(p, &rr->srv.name, true, NULL);
+
+                /* RFC 2782 states "Unless and until permitted by future standards action, name compression
+                 * is not to be used for this field." Nonetheless, we support it here, in the interest of
+                 * increasing compatibility with implementations that do not implement this correctly. After
+                 * all we didn't do this right once upon a time ourselves (see
+                 * https://github.com/systemd/systemd/issues/9793). */
+                r = dns_packet_read_name(p, &rr->srv.name, /* allow_compression= */ true, NULL);
                 break;
 
         case DNS_TYPE_PTR:
