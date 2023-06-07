@@ -154,7 +154,6 @@ shared_sources = files(
         'tomoyo-util.c',
         'tpm2-util.c',
         'udev-util.c',
-        'uid-alloc-range.c',
         'user-record-nss.c',
         'user-record-show.c',
         'user-record.c',
