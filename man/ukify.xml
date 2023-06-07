@@ -25,6 +25,7 @@
       <command>/usr/lib/systemd/ukify</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">build</arg>
+      <arg choice="plain">genkey</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -415,7 +416,7 @@
     <example>
       <title>All the bells and whistles</title>
 
-      <programlisting># /usr/lib/systemd/ukify build \
+      <programlisting>$ /usr/lib/systemd/ukify build \
       --linux=/lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
       --initrd=early_cpio \
       --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img \
@@ -472,7 +473,7 @@ Phases=enter-initrd:leave-initrd
        enter-initrd:leave-initrd:sysinit
        enter-initrd:leave-initrd:sysinit:ready
 
-# /usr/lib/systemd/ukify -c ukify.conf build \
+$ /usr/lib/systemd/ukify -c ukify.conf build \
         --linux=/lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
         --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img
       </programlisting>
@@ -497,6 +498,36 @@ Phases=enter-initrd:leave-initrd
 
       <para>This creates a signed PE binary that contains the additional kernel command line parameter
       <literal>debug</literal> with SBAT metadata referring to the owner of the addon.</para>
+    </example>
+
+    <example>
+      <title>Decide signing policy and create certificate and keys</title>
+
+      <para>First, let's create an config file that specifies what signatures shall be made:</para>
+
+      <programlisting># cat >/etc/kernel/uki.conf &lt;&lt;EOF
+<xi:include href="uki.conf.example" parse="text" />EOF</programlisting>
+
+      <para>Next, we can generate the certificate and keys:</para>
+      <programlisting># /usr/lib/systemd/ukify genkey --config=/etc/kernel/uki.conf
+Writing SecureBoot private key to /etc/kernel/secure-boot.key.pem
+Writing SecureBoot certicate to /etc/kernel/secure-boot.cert.pem
+Writing private key to /etc/kernel/pcr-initrd.key.pem
+Writing public key to /etc/kernel/pcr-initrd.pub.pem
+Writing private key to /etc/kernel/pcr-system.key.pem
+Writing public key to /etc/kernel/pcr-system.pub.pem
+</programlisting>
+
+      <para>(Both operations need to be done as root to allow write access
+      to <filename>/etc/kernel/</filename>.)</para>
+
+      <para>Subsequent invocations of using the config file
+      (<command>/usr/lib/systemd/ukify build --config=/etc/kernel/uki.conf</command>)
+      will use this certificate and key files. Note that the
+      <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      plugin <filename>60-ukify.install</filename> uses <filename>/etc/kernel/uki.conf</filename>
+      by default, so after this file has been created, installations of kernels that create a UKI on the
+      local machine using <command>kernel-install</command> would perform signing using this config.</para>
     </example>
   </refsect1>
 
