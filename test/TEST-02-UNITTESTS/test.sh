@@ -8,6 +8,8 @@ RUN_IN_UNPRIVILEGED_CONTAINER=yes
 # remounts the whole / as read-only), so let's ignore the gcov errors in such
 # case
 IGNORE_MISSING_COVERAGE=yes
+# Always run the unit tests under QEMU and nspawn
+TEST_PREFER_NSPAWN=no
 
 # embed some newlines in the kernel command line to stress our test suite
 KERNEL_APPEND="
