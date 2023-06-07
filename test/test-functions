@@ -931,6 +931,7 @@ create_asan_wrapper() {
         # runtime ASan DSO is in a non-standard (library) path.
         mkdir -p "${initdir:?}/etc/ld.so.conf.d/"
         echo "${ASAN_RT_PATH%/*}" >"${initdir:?}/etc/ld.so.conf.d/asan-path-override.conf"
+        ldconfig -r "$initdir"
     fi
 
     # Create a simple environment file which can be included by systemd services
