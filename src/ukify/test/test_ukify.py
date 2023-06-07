@@ -87,7 +87,7 @@ def test_apply_config(tmp_path):
         Phases = {':'.join(ukify.KNOWN_PHASES)}
         '''))
 
-    ns = ukify.create_parser().parse_args(())
+    ns = ukify.create_parser().parse_args(['build'])
     ns.linux = None
     ns.initrd = []
     ukify.apply_config(ns, config)
