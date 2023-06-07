@@ -15,6 +15,8 @@
 #include <unistd.h>
 #include <utmpx.h>
 
+#include <linux/fs.h> /* Must be included after <sys/mount.h> */
+
 #if HAVE_PAM
 #include <security/pam_appl.h>
 #endif
@@ -43,6 +45,7 @@
 #include "async.h"
 #include "barrier.h"
 #include "bpf-lsm.h"
+#include "btrfs-util.h"
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"
@@ -66,6 +69,7 @@
 #include "io-util.h"
 #include "ioprio-util.h"
 #include "label-util.h"
+#include "lock-util.h"
 #include "log.h"
 #include "macro.h"
 #include "manager.h"
@@ -2169,6 +2173,10 @@ bool exec_needs_network_namespace(const ExecContext *context) {
         return context->private_network || context->network_namespace_path;
 }
 
+static bool exec_needs_ephemeral(const ExecContext *context) {
+        return (context->root_image || context->root_directory) && context->root_ephemeral;
+}
+
 static bool exec_needs_ipc_namespace(const ExecContext *context) {
         assert(context);
 
@@ -3689,21 +3697,124 @@ static bool insist_on_sandboxing(
         return false;
 }
 
+static int setup_ephemeral(const ExecContext *context, ExecRuntime *runtime) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        if (!runtime || !runtime->ephemeral)
+                return 0;
+
+        r = posix_lock(runtime->ephemeral_storage_socket[0], LOCK_EX);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to lock ephemeral storage socket: %m");
+
+        CLEANUP_POSIX_UNLOCK(runtime->ephemeral_storage_socket[0]);
+
+        fd = receive_one_fd(runtime->ephemeral_storage_socket[0], MSG_PEEK|MSG_DONTWAIT);
+        if (fd >= 0)
+                /* We got an fd! That means ephemeral has already been set up, so nothing to do here. */
+                return 0;
+
+        if (fd != -EAGAIN)
+                return log_debug_errno(fd, "Failed to receive file descriptor queued on ephemeral storage socket: %m");
+
+        log_debug("Making ephemeral snapshot of %s to %s",
+                  context->root_image ?: context->root_directory, runtime->ephemeral);
+
+        if (context->root_image)
+                fd = copy_file_full(context->root_image, runtime->ephemeral, O_EXCL, 0600,
+                                    FS_NOCOW_FL, FS_NOCOW_FL,
+                                    COPY_LOCK_BSD|COPY_REFLINK|COPY_CRTIME,
+                                    NULL, NULL);
+        else
+                fd = btrfs_subvol_snapshot_at(AT_FDCWD, context->root_directory,
+                                              AT_FDCWD, runtime->ephemeral,
+                                              BTRFS_SNAPSHOT_FALLBACK_COPY |
+                                              BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
+                                              BTRFS_SNAPSHOT_RECURSIVE |
+                                              BTRFS_SNAPSHOT_LOCK_BSD);
+        if (fd < 0)
+                return log_debug_errno(fd, "Failed to snapshot %s to %s: %m",
+                                       context->root_image ?: context->root_directory, runtime->ephemeral);
+
+        r = send_one_fd(runtime->ephemeral_storage_socket[1], fd, MSG_DONTWAIT);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to queue file descriptor on ephemeral storage socket: %m");
+
+        return 1;
+}
+
+static int verity_settings_prepare(
+                VeritySettings *verity,
+                const char *root_image,
+                const void *root_hash,
+                size_t root_hash_size,
+                const char *root_hash_path,
+                const void *root_hash_sig,
+                size_t root_hash_sig_size,
+                const char *root_hash_sig_path,
+                const char *verity_data_path) {
+
+        int r;
+
+        assert(verity);
+
+        if (root_hash) {
+                void *d;
+
+                d = memdup(root_hash, root_hash_size);
+                if (!d)
+                        return -ENOMEM;
+
+                free_and_replace(verity->root_hash, d);
+                verity->root_hash_size = root_hash_size;
+                verity->designator = PARTITION_ROOT;
+        }
+
+        if (root_hash_sig) {
+                void *d;
+
+                d = memdup(root_hash_sig, root_hash_sig_size);
+                if (!d)
+                        return -ENOMEM;
+
+                free_and_replace(verity->root_hash_sig, d);
+                verity->root_hash_sig_size = root_hash_sig_size;
+                verity->designator = PARTITION_ROOT;
+        }
+
+        if (verity_data_path) {
+                r = free_and_strdup(&verity->data_path, verity_data_path);
+                if (r < 0)
+                        return r;
+        }
+
+        r = verity_settings_load(
+                        verity,
+                        root_image,
+                        root_hash_path,
+                        root_hash_sig_path);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to load root hash: %m");
+
+        return 0;
+}
+
 static int apply_mount_namespace(
                 const Unit *u,
                 ExecCommandFlags command_flags,
                 const ExecContext *context,
                 const ExecParameters *params,
-                const ExecRuntime *runtime,
+                ExecRuntime *runtime,
                 const char *memory_pressure_path,
                 char **error_path) {
 
+        _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
                         **read_write_paths_cleanup = NULL;
-        const char *tmp_dir = NULL, *var_tmp_dir = NULL;
-        const char *root_dir = NULL, *root_image = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
                         *extension_dir = NULL;
+        const char *root_dir = NULL, *root_image = NULL, *tmp_dir = NULL, *var_tmp_dir = NULL;
         char **read_write_paths;
         NamespaceInfo ns_info;
         bool needs_sandboxing;
@@ -3716,10 +3827,14 @@ static int apply_mount_namespace(
         CLEANUP_ARRAY(bind_mounts, n_bind_mounts, bind_mount_free_many);
 
         if (params->flags & EXEC_APPLY_CHROOT) {
-                root_image = context->root_image;
+                r = setup_ephemeral(context, runtime);
+                if (r < 0)
+                        return r;
 
-                if (!root_image)
-                        root_dir = context->root_directory;
+                if (context->root_image)
+                        root_image = (runtime ? runtime->ephemeral : NULL) ?: context->root_image;
+                else
+                        root_dir = (runtime ? runtime->ephemeral : NULL) ?: context->root_directory;
         }
 
         r = compile_bind_mounts(context, params, &bind_mounts, &n_bind_mounts, &empty_directories);
@@ -3822,6 +3937,17 @@ static int apply_mount_namespace(
                 if (asprintf(&extension_dir, "/run/user/" UID_FMT "/systemd/unit-extensions", geteuid()) < 0)
                         return -ENOMEM;
 
+        if (root_image) {
+                r = verity_settings_prepare(
+                        &verity,
+                        root_image,
+                        context->root_hash, context->root_hash_size, context->root_hash_path,
+                        context->root_hash_sig, context->root_hash_sig_size, context->root_hash_sig_path,
+                        context->root_verity);
+                if (r < 0)
+                        return r;
+        }
+
         r = setup_namespace(
                         root_dir,
                         root_image,
@@ -3847,9 +3973,7 @@ static int apply_mount_namespace(
                         creds_path,
                         context->log_namespace,
                         context->mount_propagation_flag,
-                        context->root_hash, context->root_hash_size, context->root_hash_path,
-                        context->root_hash_sig, context->root_hash_sig_size, context->root_hash_sig_path,
-                        context->root_verity,
+                        &verity,
                         context->extension_images,
                         context->n_extension_images,
                         context->extension_image_policy ?: &image_policy_sysext,
@@ -3891,6 +4015,7 @@ static int apply_mount_namespace(
 static int apply_working_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
+                ExecRuntime *runtime,
                 const char *home,
                 int *exit_status) {
 
@@ -3914,7 +4039,7 @@ static int apply_working_directory(
         if (params->flags & EXEC_APPLY_CHROOT)
                 d = wd;
         else
-                d = prefix_roota(context->root_directory, wd);
+                d = prefix_roota((runtime ? runtime->ephemeral : NULL) ?: context->root_directory, wd);
 
         if (chdir(d) < 0 && !context->working_directory_missing_ok) {
                 *exit_status = EXIT_CHDIR;
@@ -3927,6 +4052,7 @@ static int apply_working_directory(
 static int apply_root_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
+                ExecRuntime *runtime,
                 const bool needs_mount_ns,
                 int *exit_status) {
 
@@ -3935,7 +4061,7 @@ static int apply_root_directory(
 
         if (params->flags & EXEC_APPLY_CHROOT)
                 if (!needs_mount_ns && context->root_directory)
-                        if (chroot(context->root_directory) < 0) {
+                        if (chroot((runtime ? runtime->ephemeral : NULL) ?: context->root_directory) < 0) {
                                 *exit_status = EXIT_CHROOT;
                                 return -errno;
                         }
@@ -4072,7 +4198,7 @@ static int close_remaining_fds(
                 const int *fds, size_t n_fds) {
 
         size_t n_dont_close = 0;
-        int dont_close[n_fds + 12];
+        int dont_close[n_fds + 14];
 
         assert(params);
 
@@ -4089,6 +4215,9 @@ static int close_remaining_fds(
                 memcpy(dont_close + n_dont_close, fds, sizeof(int) * n_fds);
                 n_dont_close += n_fds;
         }
+
+        if (runtime)
+                append_socket_pair(dont_close, &n_dont_close, runtime->ephemeral_storage_socket);
 
         if (runtime && runtime->shared) {
                 append_socket_pair(dont_close, &n_dont_close, runtime->shared->netns_storage_socket);
@@ -5385,7 +5514,7 @@ static int exec_child(
         }
 
         /* chroot to root directory first, before we lose the ability to chroot */
-        r = apply_root_directory(context, params, needs_mount_namespace, exit_status);
+        r = apply_root_directory(context, params, runtime, needs_mount_namespace, exit_status);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Chrooting to the requested root directory failed: %m");
 
@@ -5411,7 +5540,7 @@ static int exec_child(
 
         /* Apply working directory here, because the working directory might be on NFS and only the user running
          * this service might have the correct privilege to change to the working directory */
-        r = apply_working_directory(context, params, home, exit_status);
+        r = apply_working_directory(context, params, runtime, home, exit_status);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Changing to the requested working directory failed: %m");
 
@@ -6222,6 +6351,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sUMask: %04o\n"
                 "%sWorkingDirectory: %s\n"
                 "%sRootDirectory: %s\n"
+                "%sRootEphemeral: %s\n"
                 "%sNonBlocking: %s\n"
                 "%sPrivateTmp: %s\n"
                 "%sPrivateDevices: %s\n"
@@ -6246,6 +6376,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, c->umask,
                 prefix, empty_to_root(c->working_directory),
                 prefix, empty_to_root(c->root_directory),
+                prefix, yes_no(c->root_ephemeral),
                 prefix, yes_no(c->non_blocking),
                 prefix, yes_no(c->private_tmp),
                 prefix, yes_no(c->private_devices),
@@ -7041,7 +7172,7 @@ int exec_command_append(ExecCommand *c, const char *path, ...) {
         return 0;
 }
 
-static void *remove_tmpdir_thread(void *p) {
+static void *rm_rf_thread(void *p) {
         _cleanup_free_ char *path = p;
 
         (void) rm_rf(path, REMOVE_ROOT|REMOVE_PHYSICAL);
@@ -7081,7 +7212,7 @@ ExecSharedRuntime* exec_shared_runtime_destroy(ExecSharedRuntime *rt) {
         if (rt->tmp_dir && !streq(rt->tmp_dir, RUN_SYSTEMD_EMPTY)) {
                 log_debug("Spawning thread to nuke %s", rt->tmp_dir);
 
-                r = asynchronous_job(remove_tmpdir_thread, rt->tmp_dir);
+                r = asynchronous_job(rm_rf_thread, rt->tmp_dir);
                 if (r < 0)
                         log_warning_errno(r, "Failed to nuke %s: %m", rt->tmp_dir);
                 else
@@ -7091,7 +7222,7 @@ ExecSharedRuntime* exec_shared_runtime_destroy(ExecSharedRuntime *rt) {
         if (rt->var_tmp_dir && !streq(rt->var_tmp_dir, RUN_SYSTEMD_EMPTY)) {
                 log_debug("Spawning thread to nuke %s", rt->var_tmp_dir);
 
-                r = asynchronous_job(remove_tmpdir_thread, rt->var_tmp_dir);
+                r = asynchronous_job(rm_rf_thread, rt->var_tmp_dir);
                 if (r < 0)
                         log_warning_errno(r, "Failed to nuke %s: %m", rt->var_tmp_dir);
                 else
@@ -7531,14 +7662,37 @@ void exec_shared_runtime_vacuum(Manager *m) {
         }
 }
 
-int exec_runtime_make(ExecSharedRuntime *shared, DynamicCreds *creds, ExecRuntime **ret) {
+int exec_runtime_make(
+                const Unit *unit,
+                const ExecContext *context,
+                ExecSharedRuntime *shared,
+                DynamicCreds *creds,
+                ExecRuntime **ret) {
+        _cleanup_close_pair_ int ephemeral_storage_socket[2] = PIPE_EBADF;
+        _cleanup_free_ char *ephemeral = NULL;
         _cleanup_(exec_runtime_freep) ExecRuntime *rt = NULL;
+        int r;
 
+        assert(unit);
+        assert(context);
         assert(ret);
 
-        if (!shared && !creds) {
+        if (!shared && !creds && !exec_needs_ephemeral(context)) {
                 *ret = NULL;
                 return 0;
+        }
+
+        if (exec_needs_ephemeral(context)) {
+                r = mkdir_p("/var/lib/systemd/ephemeral", 0755);
+                if (r < 0)
+                        return r;
+
+                r = tempfn_random_child("/var/lib/systemd/ephemeral", unit->id, &ephemeral);
+                if (r < 0)
+                        return r;
+
+                if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, ephemeral_storage_socket) < 0)
+                        return -errno;
         }
 
         rt = new(ExecRuntime, 1);
@@ -7548,6 +7702,9 @@ int exec_runtime_make(ExecSharedRuntime *shared, DynamicCreds *creds, ExecRuntim
         *rt = (ExecRuntime) {
                 .shared = shared,
                 .dynamic_creds = creds,
+                .ephemeral = TAKE_PTR(ephemeral),
+                .ephemeral_storage_socket[0] = TAKE_FD(ephemeral_storage_socket[0]),
+                .ephemeral_storage_socket[1] = TAKE_FD(ephemeral_storage_socket[1]),
         };
 
         *ret = TAKE_PTR(rt);
@@ -7555,11 +7712,24 @@ int exec_runtime_make(ExecSharedRuntime *shared, DynamicCreds *creds, ExecRuntim
 }
 
 ExecRuntime* exec_runtime_free(ExecRuntime *rt) {
+        int r;
+
         if (!rt)
                 return NULL;
 
         exec_shared_runtime_unref(rt->shared);
         dynamic_creds_unref(rt->dynamic_creds);
+
+        if (rt->ephemeral) {
+                r = asynchronous_job(rm_rf_thread, rt->ephemeral);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to nuke %s: %m", rt->ephemeral);
+                else
+                        rt->ephemeral = NULL;
+        }
+
+        free(rt->ephemeral);
+        safe_close_pair(rt->ephemeral_storage_socket);
         return mfree(rt);
 }
 
