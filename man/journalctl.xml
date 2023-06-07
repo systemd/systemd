@@ -119,7 +119,11 @@
         </para>
 
         <para>The <option>--user</option> option affects how <option>--unit=</option> arguments are
-        treated. See <option>--unit=</option>.</para></listitem>
+        treated. See <option>--unit=</option>.</para>
+
+        <para>Note that <option>--user</option> only works if persistent logging is enabled, via the
+        <varname>Storage=</varname> setting in
+        <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
