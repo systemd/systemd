@@ -4,6 +4,7 @@
 # pylint: disable=missing-docstring,redefined-outer-name,invalid-name
 # pylint: disable=unused-import,import-outside-toplevel,useless-else-on-loop
 # pylint: disable=consider-using-with,wrong-import-position,unspecified-encoding
+# pylint: disable=protected-access
 
 import base64
 import json
@@ -87,7 +88,7 @@ def test_apply_config(tmp_path):
         Phases = {':'.join(ukify.KNOWN_PHASES)}
         '''))
 
-    ns = ukify.create_parser().parse_args(())
+    ns = ukify.create_parser().parse_args(['build'])
     ns.linux = None
     ns.initrd = []
     ukify.apply_config(ns, config)
@@ -106,7 +107,7 @@ def test_apply_config(tmp_path):
     assert ns.signing_engine == 'engine1'
     assert ns.sb_key == 'some/path5'
     assert ns.sb_cert == 'some/path6'
-    assert ns.sign_kernel == False
+    assert ns.sign_kernel is False
 
     assert ns._groups == ['NAME']
     assert ns.pcr_private_keys == [pathlib.Path('some/path7')]
@@ -129,7 +130,7 @@ def test_apply_config(tmp_path):
     assert ns.signing_engine == 'engine1'
     assert ns.sb_key == 'some/path5'
     assert ns.sb_cert == 'some/path6'
-    assert ns.sign_kernel == False
+    assert ns.sign_kernel is False
 
     assert ns._groups == ['NAME']
     assert ns.pcr_private_keys == [pathlib.Path('some/path7')]
@@ -447,7 +448,7 @@ def test_sections(kernel_initrd, tmpdir):
     for sect in 'text osrel cmdline linux initrd uname test'.split():
         assert re.search(fr'^\s*\d+\s+.{sect}\s+0', dump, re.MULTILINE)
 
-def test_addon(kernel_initrd, tmpdir):
+def test_addon(tmpdir):
     output = f'{tmpdir}/addon.efi'
     args = [
         'build',
@@ -459,7 +460,7 @@ def test_addon(kernel_initrd, tmpdir):
         args += [f'--stub={stub}']
         expected_exceptions = ()
     else:
-        expected_exceptions = FileNotFoundError,
+        expected_exceptions = (FileNotFoundError,)
 
     opts = ukify.parse_args(args)
     try:
@@ -588,7 +589,7 @@ def test_pcr_signing(kernel_initrd, tmpdir):
         '--uname=1.2.3',
         '--cmdline=ARG1 ARG2 ARG3',
         '--os-release=ID=foobar\n',
-        '--pcr-banks=sha1',   # use sha1 as that is most likely to be supported
+        '--pcr-banks=sha1',   # use sha1 because it doesn't really matter
         f'--pcrpkey={pub.name}',
         f'--pcr-public-key={pub.name}',
         f'--pcr-private-key={priv.name}',
@@ -655,7 +656,7 @@ def test_pcr_signing2(kernel_initrd, tmpdir):
         '--uname=1.2.3',
         '--cmdline=ARG1 ARG2 ARG3',
         '--os-release=ID=foobar\n',
-        '--pcr-banks=sha1',   # use sha1 as that is most likely to be supported
+        '--pcr-banks=sha1',
         f'--pcrpkey={pub2.name}',
         f'--pcr-public-key={pub.name}',
         f'--pcr-private-key={priv.name}',
@@ -697,6 +698,58 @@ def test_pcr_signing2(kernel_initrd, tmpdir):
     sig = json.loads(sig)
     assert list(sig.keys()) == ['sha1']
     assert len(sig['sha1']) == 6   # six items for six phases paths
+
+def test_key_cert_generation(tmpdir):
+    opts = ukify.parse_args([
+        'genkey',
+        f"--pcr-public-key={tmpdir / 'pcr1.pub.pem'}",
+        f"--pcr-private-key={tmpdir / 'pcr1.priv.pem'}",
+        '--phases=enter-initrd enter-initrd:leave-initrd',
+        f"--pcr-public-key={tmpdir / 'pcr2.pub.pem'}",
+        f"--pcr-private-key={tmpdir / 'pcr2.priv.pem'}",
+        '--phases=sysinit ready',
+        f"--secureboot-private-key={tmpdir / 'sb.priv.pem'}",
+        f"--secureboot-certificate={tmpdir / 'sb.cert.pem'}",
+    ])
+    assert opts.verb == 'genkey'
+    ukify.check_cert_and_keys_nonexistent(opts)
+    ukify.generate_keys(opts)
+
+    if not shutil.which('openssl'):
+        return
+
+    for key in (tmpdir / 'pcr1.priv.pem',
+                tmpdir / 'pcr2.priv.pem',
+                tmpdir / 'sb.priv.pem'):
+        out = subprocess.check_output([
+            'openssl', 'rsa',
+            '-in', key,
+            '-text',
+            '-noout',
+        ], text = True)
+        assert 'Private-Key' in out
+        assert '2048 bit' in out
+
+    for pub in (tmpdir / 'pcr1.pub.pem',
+                tmpdir / 'pcr2.pub.pem'):
+        out = subprocess.check_output([
+            'openssl', 'rsa',
+            '-pubin',
+            '-in', pub,
+            '-text',
+            '-noout',
+        ], text = True)
+        assert 'Public-Key' in out
+        assert '2048 bit' in out
+
+    out = subprocess.check_output([
+        'openssl', 'x509',
+        '-in', tmpdir / 'sb.cert.pem',
+        '-text',
+        '-noout',
+    ], text = True)
+    assert 'Certificate' in out
+    assert 'Issuer: CN = SecureBoot signing key on host' in out
 
 if __name__ == '__main__':
     sys.exit(pytest.main(sys.argv))
