@@ -9,29 +9,29 @@
 #include "chattr-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "macro.h"
 #include "string-util.h"
 
-int chattr_full(const char *path,
-                int fd,
-                unsigned value,
-                unsigned mask,
-                unsigned *ret_previous,
-                unsigned *ret_final,
-                ChattrApplyFlags flags) {
+int chattr_full(
+              int dir_fd,
+              const char *path,
+              unsigned value,
+              unsigned mask,
+              unsigned *ret_previous,
+              unsigned *ret_final,
+              ChattrApplyFlags flags) {
 
-        _cleanup_close_ int fd_will_close = -EBADF;
+        _cleanup_close_ int fd = -EBADF;
         unsigned old_attr, new_attr;
         int set_flags_errno = 0;
         struct stat st;
 
-        assert(path || fd >= 0);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
-        if (fd < 0) {
-                fd = fd_will_close = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
-                if (fd < 0)
-                        return -errno;
-        }
+        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, /* xopen_flags = */ 0, /* mode = */ 0);
+        if (fd < 0)
+                return -errno;
 
         if (fstat(fd, &st) < 0)
                 return -errno;

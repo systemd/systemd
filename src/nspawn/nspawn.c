@@ -5564,13 +5564,13 @@ static int run(int argc, char *argv[]) {
 
                         {
                                 BLOCK_SIGNALS(SIGINT);
-                                r = btrfs_subvol_snapshot(arg_directory, np,
-                                                          (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
-                                                          BTRFS_SNAPSHOT_FALLBACK_COPY |
-                                                          BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
-                                                          BTRFS_SNAPSHOT_RECURSIVE |
-                                                          BTRFS_SNAPSHOT_QUOTA |
-                                                          BTRFS_SNAPSHOT_SIGINT);
+                                r = btrfs_subvol_snapshot_at(AT_FDCWD, arg_directory, AT_FDCWD, np,
+                                                             (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
+                                                             BTRFS_SNAPSHOT_FALLBACK_COPY |
+                                                             BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
+                                                             BTRFS_SNAPSHOT_RECURSIVE |
+                                                             BTRFS_SNAPSHOT_QUOTA |
+                                                             BTRFS_SNAPSHOT_SIGINT);
                         }
                         if (r == -EINTR) {
                                 log_error_errno(r, "Interrupted while copying file system tree to %s, removed again.", np);
@@ -5605,14 +5605,14 @@ static int run(int argc, char *argv[]) {
 
                                 {
                                         BLOCK_SIGNALS(SIGINT);
-                                        r = btrfs_subvol_snapshot(arg_template, arg_directory,
-                                                                  (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
-                                                                  BTRFS_SNAPSHOT_FALLBACK_COPY |
-                                                                  BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
-                                                                  BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE |
-                                                                  BTRFS_SNAPSHOT_RECURSIVE |
-                                                                  BTRFS_SNAPSHOT_QUOTA |
-                                                                  BTRFS_SNAPSHOT_SIGINT);
+                                        r = btrfs_subvol_snapshot_at(AT_FDCWD, arg_template, AT_FDCWD, arg_directory,
+                                                                     (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
+                                                                     BTRFS_SNAPSHOT_FALLBACK_COPY |
+                                                                     BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
+                                                                     BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE |
+                                                                     BTRFS_SNAPSHOT_RECURSIVE |
+                                                                     BTRFS_SNAPSHOT_QUOTA |
+                                                                     BTRFS_SNAPSHOT_SIGINT);
                                 }
                                 if (r == -EEXIST)
                                         log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,

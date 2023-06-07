@@ -201,6 +201,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RootEphemeral=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If enabled, executed processes will run in an ephemeral
+        copy of the root directory or root image. The ephemeral copy is placed in
+        <filename>/var/lib/systemd/ephemeral/</filename> while the service is active and is cleaned up when
+        the service is stopped or restarted. If <varname>RootDirectory=</varname> is used and the root
+        directory is a subvolume, the ephemeral copy will be created by making a snapshot of the subvolume.
+        </para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RootHash=</varname></term>
 
         <listitem><para>Takes a data integrity (dm-verity) root hash specified in hexadecimal, or the path to a file
