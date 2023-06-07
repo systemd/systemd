@@ -187,17 +187,13 @@
       <varlistentry>
         <term><varname>OnCalendar=</varname></term>
 
-        <listitem><para>Defines realtime (i.e. wallclock) timers with
-        calendar event expressions. See
-        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for more information on the syntax of calendar event
-        expressions. Otherwise, the semantics are similar to
+        <listitem><para>Defines realtime (i.e. wallclock) timers with calendar event expressions. See
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        more information on the syntax of calendar event expressions. Otherwise, the semantics are similar to
         <varname>OnActiveSec=</varname> and related settings.</para>
 
-        <para>Note that timers do not necessarily expire at the
-        precise time configured with this setting, as it is subject to
-        the <varname>AccuracySec=</varname> setting
-        below.</para>
+        <para>Note that timers do not necessarily expire at the precise time configured with this setting, as
+        it is subject to the <varname>AccuracySec=</varname> setting below.</para>
 
         <para>May be specified more than once, in which case the timer unit will trigger whenever any of the
         specified expressions elapse. Moreover calendar timers and monotonic timers (see above) may be
@@ -205,7 +201,15 @@
 
         <para>If the empty string is assigned to any of these options, the list of timers is reset (both
         <varname>OnCalendar=</varname> timers and monotonic timers, see above), and all prior assignments
-        will have no effect.</para></listitem>
+        will have no effect.</para>
+
+        <para>Note that calendar timers might be triggered at unexpected times if the system's realtime clock
+        is not set correctly. Specifically, on systems that lack a battery-buffered Realtime Clock (RTC) it
+        might be wise to enable <filename>systemd-time-wait-sync.service</filename> to ensure the clock is
+        adjusted to a network time source <emphasis>before</emphasis> the timer event is set up. Timer units
+        with at least one <varname>OnCalendar=</varname> expression are automatically ordered after
+        <filename>time-sync.target</filename>, which <filename>systemd-time-wait-sync.service</filename> is
+        ordered before.</para></listitem>
       </varlistentry>
 
       <varlistentry>
