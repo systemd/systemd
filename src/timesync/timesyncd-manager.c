@@ -955,6 +955,8 @@ Manager* manager_free(Manager *m) {
 
         sd_event_source_unref(m->event_save_time);
 
+        sd_event_source_unref(m->deferred_ntp_server_event_source);
+
         sd_resolve_unref(m->resolve);
         sd_event_unref(m->event);
 
@@ -1220,4 +1222,72 @@ static int manager_save_time_and_rearm(Manager *m, usec_t t) {
         }
 
         return 0;
+}
+
+static const char* ntp_server_property_name[_SERVER_TYPE_MAX] = {
+        [SERVER_SYSTEM]   = "SystemNTPServers",
+        [SERVER_FALLBACK] = "FallbackNTPServers",
+        [SERVER_LINK] = "LinkNTPServers",
+        [SERVER_RUNTIME] = "RuntimeNTPServers",
+};
+
+static int ntp_server_emit_changed_strv(Manager *manager, char **properties) {
+        assert(manager);
+        assert(properties);
+
+        if (sd_bus_is_ready(manager->bus) <= 0)
+                return 0;
+
+        return sd_bus_emit_properties_changed_strv(
+                        manager->bus,
+                        "/org/freedesktop/timesync1",
+                        "org.freedesktop.timesync1.Manager",
+                        properties);
+}
+
+static int on_deferred_ntp_server(sd_event_source *s, void *userdata) {
+        int r;
+        _cleanup_strv_free_ char **p = NULL;
+        Manager *m = ASSERT_PTR(userdata);
+
+        m->deferred_ntp_server_event_source = sd_event_source_disable_unref(m->deferred_ntp_server_event_source);
+
+        for (int type = SERVER_SYSTEM; type < _SERVER_TYPE_MAX; type++)
+                if (m->ntp_server_change_mask & (1U << type))
+                        if (strv_extend(&p, ntp_server_property_name[type]) < 0)
+                                log_oom();
+
+        m->ntp_server_change_mask = 0;
+
+        if (strv_isempty(p))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOMEM), "Failed to build ntp server event strv!");
+
+        r = ntp_server_emit_changed_strv(m, p);
+        if (r < 0)
+                log_warning_errno(r, "Could not emit ntp server changed properties, ignoring: %m");
+
+        return 0;
+}
+
+int bus_manager_emit_ntp_server_changed(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if (m->deferred_ntp_server_event_source)
+                return 0;
+
+        if (!m->event)
+                return 0;
+
+        if (IN_SET(sd_event_get_state(m->event), SD_EVENT_FINISHED, SD_EVENT_EXITING))
+                return 0;
+
+        r = sd_event_add_defer(m->event, &m->deferred_ntp_server_event_source, on_deferred_ntp_server, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate ntp server event source: %m");
+
+        (void) sd_event_source_set_description(m->deferred_ntp_server_event_source, "deferred-ntp-server");
+
+        return 1;
 }
