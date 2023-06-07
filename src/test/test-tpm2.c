@@ -760,6 +760,44 @@ TEST(calculate_policy_pcr) {
         assert_se(digest_check(&d, "7481fd1b116078eb3ac2456e4ad542c9b46b9b8eb891335771ca8e7c8f8e4415"));
 }
 
+TEST(tpm_required_tests) {
+        int r;
+
+        _cleanup_tpm2_context_ Tpm2Context *c = NULL;
+        r = tpm2_context_new(NULL, &c);
+        if (r < 0) {
+                log_tests_skipped("Could not find TPM");
+                return;
+        }
+
+        TPMU_PUBLIC_PARMS parms = {
+                .symDetail.sym = {
+                        .algorithm = TPM2_ALG_AES,
+                        .keyBits.aes = 128,
+                        .mode.aes = TPM2_ALG_CFB,
+                },
+        };
+
+        /* Test with invalid parms */
+        assert_se(!tpm2_test_parms(c, TPM2_ALG_CFB, &parms));
+
+        TPMU_PUBLIC_PARMS invalid_parms = parms;
+        invalid_parms.symDetail.sym.keyBits.aes = 1;
+        assert_se(!tpm2_test_parms(c, TPM2_ALG_SYMCIPHER, &invalid_parms));
+
+        /* Test with valid parms */
+        assert_se(tpm2_test_parms(c, TPM2_ALG_SYMCIPHER, &parms));
+
+        /* Test invalid algs */
+        assert_se(tpm2_supports_alg(c, TPM2_ALG_ERROR) == 0);
+        assert_se(tpm2_supports_alg(c, TPM2_ALG_LAST + 1) == 0);
+
+        /* Test valid algs */
+        assert_se(tpm2_supports_alg(c, TPM2_ALG_RSA) == 1);
+        assert_se(tpm2_supports_alg(c, TPM2_ALG_AES) == 1);
+        assert_se(tpm2_supports_alg(c, TPM2_ALG_CFB) == 1);
+}
+
 #endif /* HAVE_TPM2 */
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
