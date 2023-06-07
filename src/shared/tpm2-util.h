@@ -76,7 +76,6 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context);
 Tpm2Context *tpm2_context_ref(Tpm2Context *context);
 Tpm2Context *tpm2_context_unref(Tpm2Context *context);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Context*, tpm2_context_unref);
-#define _cleanup_tpm2_context_ _cleanup_(tpm2_context_unrefp)
 
 typedef struct {
         Tpm2Context *tpm2_context;
@@ -90,7 +89,6 @@ static const Tpm2Handle TPM2_HANDLE_NONE = _tpm2_handle(NULL, ESYS_TR_NONE);
 int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle);
 Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Handle*, tpm2_handle_free);
-#define _cleanup_tpm2_handle_ _cleanup_(tpm2_handle_freep)
 
 int tpm2_supports_alg(Tpm2Context *c, TPM2_ALG_ID alg);
 
