@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <fcntl.h>
 #include <sys/stat.h>
 
 #include "alloc-util.h"
@@ -26,7 +27,10 @@ int fstatat_harder(int dfd,
 
 int rm_rf_children(int fd, RemoveFlags flags, const struct stat *root_dev);
 int rm_rf_child(int fd, const char *name, RemoveFlags flags);
-int rm_rf(const char *path, RemoveFlags flags);
+int rm_rf_at(int dir_fd, const char *path, RemoveFlags flags);
+static inline int rm_rf(const char *path, RemoveFlags flags) {
+        return rm_rf_at(AT_FDCWD, path, flags);
+}
 
 /* Useful for usage with _cleanup_(), destroys a directory and frees the pointer */
 static inline char *rm_rf_physical_and_free(char *p) {

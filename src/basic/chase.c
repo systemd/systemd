@@ -81,7 +81,6 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         const char *todo;
         int r;
 
-        assert(path);
         assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
         assert(!FLAGS_SET(flags, CHASE_STEP|CHASE_EXTRACT_FILENAME));
         assert(!FLAGS_SET(flags, CHASE_TRAIL_SLASH|CHASE_EXTRACT_FILENAME));

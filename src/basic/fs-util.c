@@ -1097,7 +1097,6 @@ int xopenat(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(path);
 
         if (isempty(path)) {
                 assert(!FLAGS_SET(open_flags, O_CREAT|O_EXCL));
@@ -1178,7 +1177,7 @@ int xopenat_lock(
 
         /* POSIX/UNPOSIX locks don't work on directories (errno is set to -EBADF so let's return early with
          * the same error here). */
-        if (FLAGS_SET(open_flags, O_DIRECTORY) && locktype != LOCK_BSD)
+        if (FLAGS_SET(open_flags, O_DIRECTORY) && !IN_SET(locktype, LOCK_BSD, LOCK_NONE))
                 return -EBADF;
 
         for (;;) {
