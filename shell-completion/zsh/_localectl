@@ -12,8 +12,8 @@ _localectl_set-locale() {
 
     local expl suf
     _locales=( ${(f)"$(_call_program locales "$service" list-locales)"} )
-    compset -P1 '*='
     if [[ -prefix 1 *\= ]]; then
+        compset -P1 '*='
         local conf=${PREFIX%%\=*}
         _wanted locales expl "locales configs" \
             _combination localeconfs  confs=$conf locales "$@" -
