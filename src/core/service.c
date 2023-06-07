@@ -2029,7 +2029,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         /* Reset NotifyAccess override */
         s->notify_access_override = _NOTIFY_ACCESS_INVALID;
 
-        /* We want fresh tmpdirs in case service is started again immediately */
+        /* We want fresh tmpdirs and ephemeral snapshots in case the service is started again immediately. */
         s->exec_runtime = exec_runtime_destroy(s->exec_runtime);
 
         /* Also, remove the runtime directory */
