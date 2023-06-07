@@ -295,7 +295,6 @@ IS_BUILT_WITH_COVERAGE=$(is_built_with_coverage && echo yes || echo no)
 
 if get_bool "$IS_BUILT_WITH_ASAN"; then
     PATH_TO_INIT="$ROOTLIBDIR/systemd-under-asan"
-    SKIP_INITRD="${SKIP_INITRD:-yes}"
     QEMU_MEM="${QEMU_MEM:-2G}"
     QEMU_SMP="${QEMU_SMP:-4}"
 
@@ -577,7 +576,7 @@ run_qemu() {
         kernel_params+=("${user_kernel_append[@]}")
     fi
 
-    if [[ "$INITRD" ]] && ! get_bool "$SKIP_INITRD"; then
+    if [[ -n "$INITRD" ]]; then
         qemu_options+=(-initrd "$INITRD")
     fi
 
