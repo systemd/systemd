@@ -713,6 +713,9 @@ def test_key_cert_generation(tmpdir):
     ])
     assert opts.verb == 'genkey'
     ukify.check_cert_and_keys_nonexistent(opts)
+
+    pytest.importorskip('cryptography')
+
     ukify.generate_keys(opts)
 
     if not shutil.which('openssl'):
