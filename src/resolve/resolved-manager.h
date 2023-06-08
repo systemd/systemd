@@ -43,6 +43,7 @@ struct Manager {
         DnsCacheMode enable_cache;
         bool cache_from_localhost;
         DnsStubListenerMode dns_stub_listener_mode;
+        usec_t stale_retention_usec;
 
 #if ENABLE_DNS_OVER_TLS
         DnsTlsManagerData dnstls_data;
