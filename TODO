@@ -129,6 +129,10 @@ Deprecations and removals:
 
 Features:
 
+* resolved: take possession of some IPv6 ULA address (let's say
+  fd00:5353:5353:5353:5353:5353:5353:5353), and listen on port 53 on it for the
+  local stubs, so that we can make the stub available via ipv6 too.
+
 * introduce a .microcode PE section for sd-stub which we'll pass as first initrd
   to the kernel which will then upload it to the CPU. This should be distinct
   from .initrd to guarantee right ordering. also, and maybe more importantly
