@@ -639,7 +639,7 @@ int xdg_autostart_service_generate_unit(
                 "ExitType=cgroup\n"
                 "ExecStart=:%s\n"
                 "Restart=no\n"
-                "TimeoutSec=5s\n"
+                "TimeoutStopSec=5s\n"
                 "Slice=app.slice\n",
                 exec_start);
 
