@@ -32,10 +32,7 @@ StandardError=tty
 # Optionally, pick up basic fields from credentials passed to the service
 # manager. This is useful for importing this data from nspawn's
 # --set-credential= switch.
-LoadCredential=passwd.hashed-password.root
-LoadCredential=passwd.plaintext-password.root
-LoadCredential=passwd.shell.root
-LoadCredential=firstboot.locale
-LoadCredential=firstboot.locale-messages
-LoadCredential=firstboot.keymap
-LoadCredential=firstboot.timezone
+ImportCredential=passwd.hashed-password.root
+ImportCredential=passwd.plaintext-password.root
+ImportCredential=passwd.shell.root
+ImportCredential=firstboot.*
