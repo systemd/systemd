@@ -209,7 +209,16 @@
         adjusted to a network time source <emphasis>before</emphasis> the timer event is set up. Timer units
         with at least one <varname>OnCalendar=</varname> expression are automatically ordered after
         <filename>time-sync.target</filename>, which <filename>systemd-time-wait-sync.service</filename> is
-        ordered before.</para></listitem>
+        ordered before.</para>
+
+        <para>When a system is temporarily put to sleep (i.e. system suspend or hibernation) the realtime
+        clock does not pause. When a calendar timer elapses while the system is sleeping it will not be acted
+        on immediately, but once the system is later resumed it will catch up and process all timers that
+        triggered while the system was sleeping. Note that if a calendar timer elapsed more than once while
+        the system was continously sleeping the timer will only result in a single service activation. If
+        <varname>WakeSystem=</varname> (see below) is enabled a calendar time event elapsing while the system
+        is suspended will cause the system to wake up (under the condition the system's hardware supports
+        time-triggered wake-up functionality).</para></listitem>
       </varlistentry>
 
       <varlistentry>
