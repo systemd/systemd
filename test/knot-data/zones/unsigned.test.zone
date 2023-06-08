@@ -20,3 +20,4 @@ ns1                   AAAA fd00:dead:beef:cafe::1
                       A    10.0.0.101
                       AAAA fd00:dead:beef:cafe::101
 mail                  A    10.0.0.111
+stale1          1     A    10.0.0.112
