@@ -225,8 +225,6 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
         return 0;
 }
 
-#define tpm2_capability_pcrs(c) ((c)->capability_pcrs)
-
 /* Get the TPMA_ALGORITHM for a TPM2_ALG_ID.
  *
  * Returns 1 if the TPM supports the algorithm and the TPMA_ALGORITHM is provided, or 0 if the TPM does not
@@ -1796,15 +1794,13 @@ static int tpm2_get_best_pcr_bank(
                 uint32_t pcr_mask,
                 TPMI_ALG_HASH *ret) {
 
-        TPML_PCR_SELECTION pcrs;
         TPMI_ALG_HASH supported_hash = 0, hash_with_valid_pcr = 0;
         int r;
 
         assert(c);
         assert(ret);
 
-        pcrs = tpm2_capability_pcrs(c);
-        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection, &pcrs) {
+        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection, &c->capability_pcrs) {
                 TPMI_ALG_HASH hash = selection->hash;
                 int good;
 
@@ -1879,15 +1875,13 @@ int tpm2_get_good_pcr_banks(
                 TPMI_ALG_HASH **ret) {
 
         _cleanup_free_ TPMI_ALG_HASH *good_banks = NULL, *fallback_banks = NULL;
-        TPML_PCR_SELECTION pcrs;
         size_t n_good_banks = 0, n_fallback_banks = 0;
         int r;
 
         assert(c);
         assert(ret);
 
-        pcrs = tpm2_capability_pcrs(c);
-        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection, &pcrs) {
+        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection, &c->capability_pcrs) {
                 TPMI_ALG_HASH hash = selection->hash;
 
                 /* Let's see if this bank is superficially OK, i.e. has at least 24 enabled registers */
