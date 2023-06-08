@@ -241,6 +241,9 @@ void bus_job_send_change_signal(Job *j) {
         if (j->in_dbus_queue) {
                 LIST_REMOVE(dbus_queue, j->manager->dbus_job_queue, j);
                 j->in_dbus_queue = false;
+
+                /* The job might be good to be GC once its pending signals have been sent */
+                job_add_to_gc_queue(j);
         }
 
         r = bus_foreach_bus(j->manager, j->bus_track, j->sent_dbus_new_signal ? send_changed_signal : send_new_signal, j);

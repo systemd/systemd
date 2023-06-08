@@ -447,6 +447,10 @@ bool unit_may_gc(Unit *u) {
         if (u->in_cgroup_empty_queue || u->in_cgroup_oom_queue)
                 return false;
 
+        /* Make sure to send out D-Bus events before we unload the unit */
+        if (u->in_dbus_queue)
+                return false;
+
         if (sd_bus_track_count(u->bus_track) > 0)
                 return false;
 
