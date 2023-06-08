@@ -121,11 +121,7 @@ jobs:
       run: mkosi --debug
 
     - name: Boot ${{ matrix.distro }} systemd-nspawn
-      run: sudo mkosi --debug boot
+      run: test "$(sudo mkosi --debug boot 1>&2; echo $?)" -eq 123
 
     - name: Boot ${{ matrix.distro }} QEMU
-      run: timeout -k 30 10m mkosi --debug qemu
-
-    # vsock in Github Actions with qemu is broken so for now we check for failures manually.
-    - name: Check ${{ matrix.distro }} QEMU
-      run: sudo mkosi shell bash -c "[[ -e /testok ]] || { cat /failed-services; exit 1; }"
+      run: timeout -k 30 10m test "$(mkosi --debug qemu 1>&2; echo $?)" -eq 123
