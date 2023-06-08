@@ -1444,6 +1444,10 @@ bool job_may_gc(Job *j) {
         if (!UNIT_VTABLE(j->unit)->gc_jobs)
                 return false;
 
+        /* Make sure to send out pending D-Bus events before we unload the unit */
+        if (j->in_dbus_queue)
+                return false;
+
         if (sd_bus_track_count(j->bus_track) > 0)
                 return false;
 
