@@ -18,8 +18,8 @@
 /* We never keep any item longer than 2h in our cache */
 #define CACHE_TTL_MAX_USEC (2 * USEC_PER_HOUR)
 
-/* The max clamp tll for stale data is set to one second. */
-#define CACHE_STALE_CLAMP_TTL_MAX_USEC (1 * USEC_PER_SEC)
+/* The max clamp TTL for stale data is set to 30 seconds as per the RFC 8767 */
+#define CACHE_STALE_CLAMP_TTL_MAX_USEC (30 * USEC_PER_SEC)
 
 /* How long to cache strange rcodes, i.e. rcodes != SUCCESS and != NXDOMAIN (specifically: that's only SERVFAIL for
  * now) */
@@ -1039,11 +1039,10 @@ int dns_cache_lookup(
                         goto miss;
                 }
 
-                /* Skip the next part if ttl is expired in first attempt*/
+                /* Skip the next part if ttl is expired and requested with no stale flag*/
                 if (FLAGS_SET(query_flags, SD_RESOLVED_NO_STALE) && j->until_valid < current) {
-                        log_debug("First attempt: TTL expired for %s Use stale data: %d",
-                                                dns_resource_key_to_string(key, key_str, sizeof key_str),
-                                                !FLAGS_SET(query_flags, SD_RESOLVED_NO_STALE));
+                        log_debug("Requested with no stale and TTL expired for %s",
+                                                dns_resource_key_to_string(key, key_str, sizeof key_str));
 
                         goto miss;
                 }
@@ -1080,9 +1079,15 @@ int dns_cache_lookup(
                         dnssec_result = _DNSSEC_RESULT_INVALID;
                 }
 
-                /* If the question is being resolved using stale data, the clamp TTL will be set to one second. */
+                /* If the question is being resolved using stale data, the clamp TTL will be set to 30 seconds. */
                 usec_t until = FLAGS_SET(query_flags, SD_RESOLVED_NO_STALE) ? j->until_valid
                                                                             : (current + CACHE_STALE_CLAMP_TTL_MAX_USEC);
+                log_info("current:%"PRIu64" until:%"PRIu64" ttl:%"PRIu64" no_stale:%s for %s",
+                                                current,
+                                                until,
+                                                (until-current) / USEC_PER_SEC,
+                                                FLAGS_SET(query_flags, SD_RESOLVED_NO_STALE) ? "yes" : "no",
+                                                dns_resource_key_to_string(key, key_str, sizeof key_str));
 
                 /* Append the answer RRs to our answer. Ideally we have the answer object, which we
                  * preferably use. But if the cached entry was generated as "side-effect" of a reply,

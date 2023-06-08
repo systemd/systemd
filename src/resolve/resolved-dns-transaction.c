@@ -1698,11 +1698,13 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 /* Let's then prune all outdated entries */
                 dns_cache_prune(&t->scope->cache);
 
-                /* For the initial attempt or when no stale data is requested, disable serve stale and answer the question from the cache (honors ttl property).
-                 * On the second attempt, if StaleRetentionSec is greater than zero, try to answer the question using stale date (honors until property) */
+                /* For the initial attempt or when no stale data is requested, disable serve stale
+                 * and answer the question from the cache (honors ttl property).
+                 * On the second attempt, if StaleRetentionSec is greater than zero,
+                 * try to answer the question using stale date (honors until property) */
                 uint64_t query_flags = t->query_flags;
                 if (t->n_attempts == 1 || t->scope->manager->stale_retention_usec == 0)
-                        SET_FLAG(query_flags, SD_RESOLVED_NO_STALE, true);
+                        query_flags |= SD_RESOLVED_NO_STALE;
 
                 r = dns_cache_lookup(
                                 &t->scope->cache,
@@ -1726,7 +1728,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                                 /* log as info if the question is answered using stale data. */
                                 if (t->n_attempts > 1 && !FLAGS_SET(query_flags, SD_RESOLVED_NO_STALE)) {
                                         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
-                                        log_info("Serve Stale response rcode=%s for %s",
+                                        log_debug("Serve Stale response rcode=%s for %s",
                                                 FORMAT_DNS_RCODE(t->answer_rcode),
                                                 dns_resource_key_to_string(dns_transaction_key(t), key_str, sizeof key_str));
                                 }
