@@ -17,6 +17,12 @@ if ! knotc -c "${TEST_BASE_DIR:?}/knot-data/knot.conf" conf-check; then
     exit 0
 fi
 
+# We need nftables to test the serve stale feature
+if ! nft -V; then
+    echo "This test requires nftables. skipping..."
+    exit 0
+fi
+
 test_append_files() {
     local workspace="${1:?}"
     # Install knot
@@ -36,6 +42,9 @@ test_append_files() {
 
     # Install DNS-related utilities (usually found in the bind-utils package)
     image_install delv dig host nslookup
+
+    # Install nftables
+    image_install nft
 }
 
 do_test "$@"
