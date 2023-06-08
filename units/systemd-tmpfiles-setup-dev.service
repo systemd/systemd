@@ -22,4 +22,4 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart=systemd-tmpfiles --prefix=/dev --create --boot --graceful
 SuccessExitStatus=DATAERR CANTCREAT
-LoadCredential=tmpfiles.extra
+ImportCredential=tmpfiles.*
