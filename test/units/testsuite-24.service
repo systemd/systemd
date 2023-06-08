@@ -5,5 +5,5 @@ After=multi-user.target
 
 [Service]
 ExecStartPre=rm -f /failed /testok
-ExecStart=sh -x -e -c 'mountpoint /var; systemctl --state=failed --no-legend --no-pager >/failed; echo OK >/testok'
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
 Type=oneshot

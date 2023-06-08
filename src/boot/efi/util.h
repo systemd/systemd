@@ -6,6 +6,9 @@
 #include "proto/file-io.h"
 #include "string-util-fundamental.h"
 
+/* This is provided by linker script. */
+extern uint8_t __ImageBase;
+
 static inline void free(void *p) {
         if (!p)
                 return;
@@ -97,6 +100,7 @@ void convert_efi_path(char16_t *path);
 char16_t *xstr8_to_path(const char *stra);
 void mangle_stub_cmdline(char16_t *cmdline);
 
+EFI_STATUS chunked_read(EFI_FILE *file, size_t *size, void *buf);
 EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, size_t off, size_t size, char **content, size_t *content_size);
 
 static inline void file_closep(EFI_FILE **handle) {
@@ -159,13 +163,12 @@ static inline void *PHYSICAL_ADDRESS_TO_POINTER(EFI_PHYSICAL_ADDRESS addr) {
 
 uint64_t get_os_indications_supported(void);
 
-#ifdef EFI_DEBUG
-/* Report the relocated position of text and data sections so that a debugger
- * can attach to us. See debug-sd-boot.sh for how this can be done. */
+/* If EFI_DEBUG, print our name and version and also report the address of the image base so a debugger can
+ * be attached. See debug-sd-boot.sh for how this can be done. */
 void notify_debugger(const char *identity, bool wait);
+
+#ifdef EFI_DEBUG
 void hexdump(const char16_t *prefix, const void *data, size_t size);
-#else
-#  define notify_debugger(i, w)
 #endif
 
 /* On x86 the compiler assumes a different incoming stack alignment than what we get.
@@ -209,3 +212,5 @@ static inline bool efi_guid_equal(const EFI_GUID *a, const EFI_GUID *b) {
 }
 
 void *find_configuration_table(const EFI_GUID *guid);
+
+char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path);

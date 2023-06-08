@@ -1413,17 +1413,47 @@ static int dump_impl(
 
         assert(message);
 
-        /* Anyone can call this method */
-
+        /* 'status' access is the bare minimum always needed for this, as the policy might straight out
+         * forbid a client from querying any information from systemd, regardless of any rate limiting. */
         r = mac_selinux_access_check(message, "status", error);
         if (r < 0)
                 return r;
+
+        /* Rate limit reached? Check if the caller is privileged/allowed by policy to bypass this. We
+         * check the rate limit first to avoid the expensive roundtrip to polkit when not needed. */
+        if (!ratelimit_below(&m->dump_ratelimit)) {
+                /* We need a way for SELinux to constrain the operation when the rate limit is active, even
+                 * if polkit would allow it, but we cannot easily add new named permissions, so we need to
+                 * use an existing one. Reload/reexec are also slow but non-destructive/modifying
+                 * operations, and can cause PID1 to stall. So it seems similar enough in terms of security
+                 * considerations and impact, and thus use the same access check for dumps which, given the
+                 * large amount of data to fetch, can stall PID1 for quite some time. */
+                r = mac_selinux_access_check(message, "reload", error);
+                if (r < 0)
+                        goto ratelimited;
+
+                r = bus_verify_bypass_dump_ratelimit_async(m, message, error);
+                if (r < 0)
+                        goto ratelimited;
+                if (r == 0)
+                        /* No authorization for now, but the async polkit stuff will call us again when it
+                         * has it */
+                        return 1;
+        }
 
         r = manager_get_dump_string(m, patterns, &dump);
         if (r < 0)
                 return r;
 
         return reply(message, dump);
+
+ratelimited:
+        log_warning("Dump request rejected due to rate limit on unprivileged callers, blocked for %s.",
+                    FORMAT_TIMESPAN(ratelimit_left(&m->dump_ratelimit), USEC_PER_SEC));
+        return sd_bus_error_setf(error,
+                                 SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                 "Dump request rejected due to rate limit on unprivileged callers, blocked for %s.",
+                                 FORMAT_TIMESPAN(ratelimit_left(&m->dump_ratelimit), USEC_PER_SEC));
 }
 
 static int reply_dump(sd_bus_message *message, char *dump) {
@@ -1683,6 +1713,45 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int method_soft_reboot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_free_ char *rt = NULL;
+        Manager *m = ASSERT_PTR(userdata);
+        const char *root;
+        int r;
+
+        assert(message);
+
+        r = verify_run_space_permissive("soft reboot may fail", error);
+        if (r < 0)
+                return r;
+
+        r = mac_selinux_access_check(message, "reboot", error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(message, "s", &root);
+        if (r < 0)
+                return r;
+
+        if (!isempty(root)) {
+                if (!path_is_valid(root))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "New root directory '%s' must be a valid path.", root);
+                if (!path_is_absolute(root))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "New root directory path '%s' is not absolute.", root);
+
+                rt = strdup(root);
+                if (!rt)
+                        return -ENOMEM;
+        }
+
+        free_and_replace(m->switch_root, rt);
+        m->objective = MANAGER_SOFT_REBOOT;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -1742,8 +1811,8 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *e
 
 static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *ri = NULL, *rt = NULL;
-        const char *root, *init;
         Manager *m = ASSERT_PTR(userdata);
+        const char *root, *init;
         int r;
 
         assert(message);
@@ -2123,7 +2192,7 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         UnitFileList *item;
-        _cleanup_(hashmap_freep) Hashmap *h = NULL;
+        _cleanup_hashmap_free_ Hashmap *h = NULL;
         int r;
 
         assert(message);
@@ -3230,6 +3299,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
                       NULL,
                       method_reboot,
                       SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
+        SD_BUS_METHOD_WITH_ARGS("SoftReboot",
+                                SD_BUS_ARGS("s", new_root),
+                                SD_BUS_NO_RESULT,
+                                method_soft_reboot,
+                                SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
         SD_BUS_METHOD("PowerOff",
                       NULL,
                       NULL,

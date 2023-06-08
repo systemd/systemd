@@ -443,7 +443,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(ordered_hashmap_freep) OrderedHashmap *sysctl_options = NULL;
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *sysctl_options = NULL;
         int r, k;
 
         r = parse_argv(argc, argv);

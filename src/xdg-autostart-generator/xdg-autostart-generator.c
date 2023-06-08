@@ -95,7 +95,7 @@ static int enumerate_xdg_autostart(Hashmap *all_services) {
 }
 
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
-        _cleanup_(hashmap_freep) Hashmap *all_services = NULL;
+        _cleanup_hashmap_free_ Hashmap *all_services = NULL;
         XdgAutostartService *service;
         int r;
 

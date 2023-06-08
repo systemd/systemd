@@ -17,6 +17,7 @@
 #include "sd-bus.h"
 #include "sd-messages.h"
 
+#include "battery-util.h"
 #include "btrfs-util.h"
 #include "build.h"
 #include "bus-error.h"
@@ -147,13 +148,7 @@ static int lock_all_homes(void) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to connect to system bus, ignoring: %m");
 
-        r = sd_bus_message_new_method_call(
-                        bus,
-                        &m,
-                        "org.freedesktop.home1",
-                        "/org/freedesktop/home1",
-                        "org.freedesktop.home1.Manager",
-                        "LockAllHomes");
+        r = bus_message_new_method_call(bus, &m, bus_home_mgr, "LockAllHomes");
         if (r < 0)
                 return bus_log_create_error(r);
 

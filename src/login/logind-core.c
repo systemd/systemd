@@ -8,6 +8,7 @@
 #include "sd-device.h"
 
 #include "alloc-util.h"
+#include "battery-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"

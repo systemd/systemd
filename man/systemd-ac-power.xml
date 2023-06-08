@@ -50,6 +50,14 @@
         <listitem><para>Show result as text instead of just returning success or failure.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--low</option></term>
+
+        <listitem><para>Instead of showing AC power state, show low battery state. In this case will return
+        zero if all batteries are currently discharging and below 5% of maximum charge. Returns non-zero
+        otherwise.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>

@@ -6173,10 +6173,14 @@ int unit_load_fragment(Unit *u) {
          * declared in the file system. In particular, this is true (and frequent) for device and swap units.
          */
         const char *id = u->id;
-        _cleanup_free_ char *free_id = NULL;
+        _cleanup_free_ char *filename = NULL, *free_id = NULL;
 
         if (fragment) {
-                id = basename(fragment);
+                r = path_extract_filename(fragment, &filename);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to extract filename from fragment '%s': %m", fragment);
+                id = filename;
+
                 if (unit_name_is_valid(id, UNIT_NAME_TEMPLATE)) {
                         assert(u->instance); /* If we're not trying to use a template for non-instanced unit,
                                               * this must be set. */

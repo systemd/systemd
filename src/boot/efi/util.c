@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "device-path-util.h"
 #include "proto/device-path.h"
 #include "proto/simple-text-io.h"
 #include "ticks.h"
 #include "util.h"
+#include "version.h"
 
 EFI_STATUS parse_boolean(const char *v, bool *b) {
         assert(b);
@@ -266,6 +268,9 @@ char16_t *xstr8_to_path(const char *str8) {
 void mangle_stub_cmdline(char16_t *cmdline) {
         char16_t *p = cmdline;
 
+        if (!cmdline)
+                return;
+
         for (; *cmdline != '\0'; cmdline++)
                 /* Convert ASCII control characters to spaces. */
                 if (*cmdline <= 0x1F)
@@ -280,6 +285,44 @@ void mangle_stub_cmdline(char16_t *cmdline) {
 
                 *cmdline = '\0';
         }
+}
+
+EFI_STATUS chunked_read(EFI_FILE *file, size_t *size, void *buf) {
+        EFI_STATUS err;
+
+        assert(file);
+        assert(size);
+        assert(buf);
+
+        /* This is a drop-in replacement for EFI_FILE->Read() with the same API behavior.
+         * Some broken firmwares cannot handle large file reads and will instead return
+         * an error. As a workaround, read such files in small chunks.
+         * Note that we cannot just try reading the whole file first on such firmware as
+         * that will permanently break the handle even if it is re-opened.
+         *
+         * https://github.com/systemd/systemd/issues/25911 */
+
+        if (*size == 0)
+                return EFI_SUCCESS;
+
+        size_t read = 0, remaining = *size;
+        while (remaining > 0) {
+                size_t chunk = MIN(1024U * 1024U, remaining);
+
+                err = file->Read(file, &chunk, (uint8_t *) buf + read);
+                if (err != EFI_SUCCESS)
+                        return err;
+                if (chunk == 0)
+                        /* Caller requested more bytes than are in file. */
+                        break;
+
+                assert(chunk <= remaining);
+                read += chunk;
+                remaining -= chunk;
+        }
+
+        *size = read;
+        return EFI_SUCCESS;
 }
 
 EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, size_t off, size_t size, char **ret, size_t *ret_size) {
@@ -315,13 +358,11 @@ EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, size_t off, size_t siz
         size_t extra = size % sizeof(char16_t) + sizeof(char16_t);
 
         buf = xmalloc(size + extra);
-        if (size > 0) {
-                err = handle->Read(handle, &size, buf);
-                if (err != EFI_SUCCESS)
-                        return err;
-        }
+        err = chunked_read(handle, &size, buf);
+        if (err != EFI_SUCCESS)
+                return err;
 
-        /* Note that handle->Read() changes size to reflect the actually bytes read. */
+        /* Note that chunked_read() changes size to reflect the actual bytes read. */
         memset(buf + size, 0, extra);
 
         *ret = TAKE_PTR(buf);
@@ -507,10 +548,9 @@ uint64_t get_os_indications_supported(void) {
         return osind;
 }
 
-#ifdef EFI_DEBUG
-extern uint8_t __ImageBase;
 __attribute__((noinline)) void notify_debugger(const char *identity, volatile bool wait) {
-        printf("%s@%p\n", identity, &__ImageBase);
+#ifdef EFI_DEBUG
+        printf("%s@%p %s\n", identity, &__ImageBase, GIT_VERSION);
         if (wait)
                 printf("Waiting for debugger to attach...\n");
 
@@ -518,15 +558,15 @@ __attribute__((noinline)) void notify_debugger(const char *identity, volatile bo
          * has attached to us. Just "set variable wait = 0" or "return" to continue. */
         while (wait)
                 /* Prefer asm based stalling so that gdb has a source location to present. */
-#if defined(__i386__) || defined(__x86_64__)
+#  if defined(__i386__) || defined(__x86_64__)
                 asm volatile("pause");
-#elif defined(__aarch64__)
+#  elif defined(__aarch64__)
                 asm volatile("wfi");
-#else
+#  else
                 BS->Stall(5000);
+#  endif
 #endif
 }
-#endif
 
 #ifdef EFI_DEBUG
 void hexdump(const char16_t *prefix, const void *data, size_t size) {
@@ -628,4 +668,27 @@ void *find_configuration_table(const EFI_GUID *guid) {
                         return ST->ConfigurationTable[i].VendorTable;
 
         return NULL;
+}
+
+char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path) {
+        if (!file_path)
+                return NULL;
+
+        /* A device path is allowed to have more than one file path node. If that is the case they are
+         * supposed to be concatenated. Unfortunately, the device path to text protocol simply converts the
+         * nodes individually and then combines those with the usual '/' for device path nodes. But this does
+         * not create a legal EFI file path that the file protocol can use. */
+
+        /* Make sure we really only got file paths. */
+        for (const EFI_DEVICE_PATH *node = file_path; !device_path_is_end(node);
+             node = device_path_next_node(node))
+                if (node->Type != MEDIA_DEVICE_PATH || node->SubType != MEDIA_FILEPATH_DP)
+                        return NULL;
+
+        _cleanup_free_ char16_t *file_path_str = NULL;
+        if (device_path_to_str(file_path, &file_path_str) != EFI_SUCCESS)
+                return NULL;
+
+        convert_efi_path(file_path_str);
+        return xasprintf("%ls.extra.d", file_path_str);
 }

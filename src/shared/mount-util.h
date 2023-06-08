@@ -12,7 +12,12 @@
 #include "macro.h"
 
 int repeat_unmount(const char *path, int flags);
-int umount_recursive(const char *target, int flags);
+
+int umount_recursive_full(const char *target, int flags, char **keep);
+
+static inline int umount_recursive(const char *target, int flags) {
+        return umount_recursive_full(target, flags, NULL);
+}
 
 int bind_remount_recursive_with_mountinfo(const char *prefix, unsigned long new_flags, unsigned long flags_mask, char **deny_list, FILE *proc_self_mountinfo);
 static inline int bind_remount_recursive(const char *prefix, unsigned long new_flags, unsigned long flags_mask, char **deny_list) {
@@ -95,6 +100,7 @@ int bind_mount_in_namespace(pid_t target, const char *propagate_path, const char
 int mount_image_in_namespace(pid_t target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, bool read_only, bool make_file_or_directory, const MountOptions *options, const ImagePolicy *image_policy);
 
 int make_mount_point(const char *path);
+int fd_make_mount_point(int fd);
 
 typedef enum RemountIdmapping {
         REMOUNT_IDMAPPING_NONE,

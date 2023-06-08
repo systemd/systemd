@@ -871,7 +871,7 @@ int user_record_set_hashed_password(UserRecord *h, char **hashed_password) {
 
 int user_record_set_password(UserRecord *h, char **password, bool prepend) {
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
-        _cleanup_(strv_free_erasep) char **e = NULL;
+        _cleanup_strv_free_erase_ char **e = NULL;
         int r;
 
         assert(h);
@@ -933,7 +933,7 @@ int user_record_set_password(UserRecord *h, char **password, bool prepend) {
 
 int user_record_set_token_pin(UserRecord *h, char **pin, bool prepend) {
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
-        _cleanup_(strv_free_erasep) char **e = NULL;
+        _cleanup_strv_free_erase_ char **e = NULL;
         int r;
 
         assert(h);

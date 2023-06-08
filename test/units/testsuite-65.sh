@@ -53,6 +53,21 @@ systemd-analyze dot --require systemd-journald.service systemd-logind.service >/
 systemd-analyze dot "systemd-*.service" >/dev/null
 (! systemd-analyze dot systemd-journald.service systemd-logind.service "*" bbb ccc)
 # dump
+# this should be rate limited to 10 calls in 10 minutes for unprivileged callers
+for _ in {1..10}; do
+    runas testuser systemd-analyze dump systemd-journald.service >/dev/null
+done
+(! runas testuser systemd-analyze dump >/dev/null)
+# still limited after a reload
+systemctl daemon-reload
+(! runas testuser systemd-analyze dump >/dev/null)
+# and a re-exec
+systemctl daemon-reexec
+(! runas testuser systemd-analyze dump >/dev/null)
+# privileged call, so should not be rate limited
+for _ in {1..10}; do
+    systemd-analyze dump systemd-journald.service >/dev/null
+done
 systemd-analyze dump >/dev/null
 systemd-analyze dump "*" >/dev/null
 systemd-analyze dump "*.socket" >/dev/null

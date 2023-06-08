@@ -26,6 +26,7 @@
 #include "io-util.h"
 #include "ioprio-util.h"
 #include "journal-file.h"
+#include "memstream-util.h"
 #include "missing_ioprio.h"
 #include "mountpoint-util.h"
 #include "namespace.h"
@@ -1346,6 +1347,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("ProtectProc", "s", property_get_protect_proc, offsetof(ExecContext, protect_proc), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProcSubset", "s", property_get_proc_subset, offsetof(ExecContext, proc_subset), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ProtectHostname", "b", bus_property_get_bool, offsetof(ExecContext, protect_hostname), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MemoryKSM", "b", bus_property_get_tristate, offsetof(ExecContext, memory_ksm), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NetworkNamespacePath", "s", NULL, offsetof(ExecContext, network_namespace_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IPCNamespacePath", "s", NULL, offsetof(ExecContext, ipc_namespace_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootImagePolicy", "s", property_get_image_policy, offsetof(ExecContext, root_image_policy), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1616,14 +1618,14 @@ int bus_set_transient_exec_command(
                 return r;
 
         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                _cleanup_(memstream_done) MemStream m = {};
                 _cleanup_free_ char *buf = NULL;
-                _cleanup_fclose_ FILE *f = NULL;
-                size_t size = 0;
+                FILE *f;
 
                 if (n == 0)
                         *exec_command = exec_command_free_list(*exec_command);
 
-                f = open_memstream_unlocked(&buf, &size);
+                f = memstream_init(&m);
                 if (!f)
                         return -ENOMEM;
 
@@ -1656,7 +1658,7 @@ int bus_set_transient_exec_command(
                         }
                 }
 
-                r = fflush_and_check(f);
+                r = memstream_finalize(&m, &buf, NULL);
                 if (r < 0)
                         return r;
 
@@ -2022,6 +2024,9 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "ProtectHostname"))
                 return bus_set_transient_bool(u, name, &c->protect_hostname, message, flags, error);
+
+        if (streq(name, "MemoryKSM"))
+                return bus_set_transient_tristate(u, name, &c->memory_ksm, message, flags, error);
 
         if (streq(name, "UtmpIdentifier"))
                 return bus_set_transient_string(u, name, &c->utmp_id, message, flags, error);
@@ -3220,17 +3225,16 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (streq(name, "EnvironmentFiles")) {
-
+                _cleanup_(memstream_done) MemStream m = {};
                 _cleanup_free_ char *joined = NULL;
-                _cleanup_fclose_ FILE *f = NULL;
                 _cleanup_strv_free_ char **l = NULL;
-                size_t size = 0;
+                FILE *f;
 
                 r = sd_bus_message_enter_container(message, 'a', "(sb)");
                 if (r < 0)
                         return r;
 
-                f = open_memstream_unlocked(&joined, &size);
+                f = memstream_init(&m);
                 if (!f)
                         return -ENOMEM;
 
@@ -3286,7 +3290,7 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                r = fflush_and_check(f);
+                r = memstream_finalize(&m, &joined, NULL);
                 if (r < 0)
                         return r;
 

@@ -68,6 +68,10 @@
     <para>Note that <filename>systemd-poweroff.service</filename> (and the related units) should never be
     executed directly. Instead, trigger system shutdown with a command such as <literal>systemctl
     poweroff</literal>.</para>
+
+    <para>Another form of shutdown is provided by the
+    <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    functionality. It reboots only the OS userspace, leaving the kernel, firmware, and hardware as it is.</para>
   </refsect1>
 
   <refsect1>
@@ -78,6 +82,7 @@
       <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>
   </refsect1>

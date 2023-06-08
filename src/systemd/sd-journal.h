@@ -93,6 +93,7 @@ void sd_journal_close(sd_journal *j);
 
 int sd_journal_previous(sd_journal *j);
 int sd_journal_next(sd_journal *j);
+int sd_journal_step_one(sd_journal *j, int advanced);
 
 int sd_journal_previous_skip(sd_journal *j, uint64_t skip);
 int sd_journal_next_skip(sd_journal *j, uint64_t skip);

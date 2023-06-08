@@ -122,7 +122,7 @@ not_found:
 }
 
 static int add_credentials_to_table(Table *t, bool encrypted) {
-        _cleanup_(closedirp) DIR *d = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
         const char *prefix;
         int r;
 
@@ -382,7 +382,7 @@ static int verb_cat(int argc, char **argv, void *userdata) {
 
                 /* Look both in regular and in encrypted credentials */
                 for (encrypted = 0; encrypted < 2; encrypted++) {
-                        _cleanup_(closedirp) DIR *d = NULL;
+                        _cleanup_closedir_ DIR *d = NULL;
 
                         r = open_credential_directory(encrypted, &d, NULL);
                         if (r < 0)

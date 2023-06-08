@@ -298,7 +298,7 @@ static void timer_set_state(Timer *t, TimerState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(t), "Changed %s -> %s", timer_state_to_string(old_state), timer_state_to_string(state));
 
-        unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state], 0);
+        unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
 }
 
 static void timer_enter_waiting(Timer *t, bool time_change);
@@ -399,14 +399,12 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                          * to that. If we don't, just start from
                          * the activation time. */
 
-                        if (t->last_trigger.realtime > 0)
+                        if (dual_timestamp_is_set(&t->last_trigger))
                                 b = t->last_trigger.realtime;
-                        else {
-                                if (state_translation_table[t->state] == UNIT_ACTIVE)
-                                        b = UNIT(t)->inactive_exit_timestamp.realtime;
-                                else
-                                        b = ts.realtime;
-                        }
+                        else if (dual_timestamp_is_set(&UNIT(t)->inactive_exit_timestamp))
+                                b = UNIT(t)->inactive_exit_timestamp.realtime;
+                        else
+                                b = ts.realtime;
 
                         r = calendar_spec_next_usec(v->calendar_spec, b, &v->next_elapse);
                         if (r < 0)
@@ -690,7 +688,7 @@ static int timer_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_item(f, "state", timer_state_to_string(t->state));
         (void) serialize_item(f, "result", timer_result_to_string(t->result));
 
-        if (t->last_trigger.realtime > 0)
+        if (dual_timestamp_is_set(&t->last_trigger))
                 (void) serialize_usec(f, "last-trigger-realtime", t->last_trigger.realtime);
 
         if (t->last_trigger.monotonic > 0)

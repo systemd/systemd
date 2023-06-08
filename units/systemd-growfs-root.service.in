@@ -10,13 +10,14 @@
 [Unit]
 Description=Grow Root File System
 Documentation=man:systemd-growfs-root.service(8)
+
 DefaultDependencies=no
-Conflicts=shutdown.target
 After=systemd-repart.service systemd-remount-fs.service
+Conflicts=shutdown.target
 Before=shutdown.target
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart={{ROOTLIBEXECDIR}}/systemd-growfs /
-TimeoutSec=0
+TimeoutSec=infinity

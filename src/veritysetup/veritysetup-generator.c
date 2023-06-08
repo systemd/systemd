@@ -47,52 +47,45 @@ STATIC_DESTRUCTOR_REGISTER(arg_usr_data_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_hash_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_options, freep);
 
-static int create_device(
+static int create_special_device(
                 const char *name,
                 const char *service,
-                const char *hash,
+                const char *roothash,
                 const char *data_what,
                 const char *hash_what,
                 const char *options) {
 
-        _cleanup_free_ char *u = NULL, *v = NULL, *d = NULL, *e = NULL, *u_escaped = NULL, *v_escaped = NULL,
-                            *hash_escaped = NULL, *options_escaped = NULL;
+        _cleanup_free_ char *u = NULL, *v = NULL, *d = NULL, *e = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        const char *to, *from;
         int r;
+
+        /* Creates a systemd-veritysetup@.service instance for the special kernel cmdline specified root + usr devices. */
 
         assert(name);
         assert(service);
 
         /* If all three pieces of information are missing, then verity is turned off */
-        if (!hash && !data_what && !hash_what)
+        if (!roothash && !data_what && !hash_what)
                 return 0;
 
         /* if one of them is missing however, the data is simply incomplete and this is an error */
-        if (!hash)
-                log_error("Verity information for %s incomplete, hash unspecified.", name);
+        if (!roothash)
+                log_error("Verity information for %s incomplete, root hash unspecified.", name);
         if (!data_what)
                 log_error("Verity information for %s incomplete, data device unspecified.", name);
         if (!hash_what)
                 log_error("Verity information for %s incomplete, hash device unspecified.", name);
 
-        if (!hash || !data_what || !hash_what)
+        if (!roothash || !data_what || !hash_what)
                 return -EINVAL;
 
-        log_debug("Using %s verity data device %s, hash device %s, options %s, and hash %s.", name, data_what, hash_what, options, hash);
+        log_debug("Using %s verity data device %s, hash device %s, options %s, and hash %s.", name, data_what, hash_what, options, roothash);
 
         u = fstab_node_to_udev_node(data_what);
         if (!u)
                 return log_oom();
         v = fstab_node_to_udev_node(hash_what);
         if (!v)
-                return log_oom();
-
-        u_escaped = specifier_escape(u);
-        if (!u_escaped)
-                return log_oom();
-        v_escaped = specifier_escape(v);
-        if (!v_escaped)
                 return log_oom();
 
         r = unit_name_from_path(u, ".device", &d);
@@ -102,59 +95,42 @@ static int create_device(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        options_escaped = specifier_escape(strempty(options));
-        if (!options_escaped)
-                return log_oom();
-
-        hash_escaped = specifier_escape(hash);
-        if (!hash_escaped)
-                return log_oom();
-
         r = generator_open_unit_file(arg_dest, NULL, service, &f);
         if (r < 0)
                 return r;
 
+        r = generator_write_veritysetup_unit_section(f, "/proc/cmdline");
+        if (r < 0)
+                return r;
+
         fprintf(f,
-                "[Unit]\n"
-                "Description=Verity Protection Setup for %%I\n"
-                "Documentation=man:systemd-veritysetup-generator(8) man:systemd-veritysetup@.service(8)\n"
-                "SourcePath=/proc/cmdline\n"
-                "DefaultDependencies=no\n"
-                "Conflicts=umount.target\n"
+                "Before=veritysetup.target\n"
                 "BindsTo=%s %s\n"
-                "IgnoreOnIsolate=true\n"
-                "After=veritysetup-pre.target systemd-udevd-kernel.socket %s %s\n"
-                "Before=veritysetup.target umount.target\n"
-                "\n[Service]\n"
-                "Type=oneshot\n"
-                "RemainAfterExit=yes\n"
-                "ExecStart=" ROOTLIBEXECDIR "/systemd-veritysetup attach '%s' '%s' '%s' '%s' '%s'\n"
-                "ExecStop=" ROOTLIBEXECDIR "/systemd-veritysetup detach '%s' \n",
+                "After=%s %s\n",
                 d, e,
-                d, e,
-                name, u_escaped, v_escaped, hash_escaped, options_escaped,
-                name);
+                d, e);
+
+        r = generator_write_veritysetup_service_section(f, name, u, v, roothash, options);
+        if (r < 0)
+                return r;
 
         r = fflush_and_check(f);
         if (r < 0)
                 return log_error_errno(r, "Failed to write file unit %s: %m", service);
 
-        to = strjoina(arg_dest, "/veritysetup.target.requires/", service);
-        from = strjoina("../", service);
-
-        (void) mkdir_parents(to, 0755);
-        if (symlink(from, to) < 0)
-                return log_error_errno(errno, "Failed to create symlink %s: %m", to);
+        r = generator_add_symlink(arg_dest, "veritysetup.target", "requires", service);
+        if (r < 0)
+                return r;
 
         return 0;
 }
 
 static int create_root_device(void) {
-        return create_device("root", SYSTEMD_VERITYSETUP_SERVICE_ROOT, arg_root_hash, arg_root_data_what, arg_root_hash_what, arg_root_options);
+        return create_special_device("root", SYSTEMD_VERITYSETUP_SERVICE_ROOT, arg_root_hash, arg_root_data_what, arg_root_hash_what, arg_root_options);
 }
 
 static int create_usr_device(void) {
-        return create_device("usr", SYSTEMD_VERITYSETUP_SERVICE_USR, arg_usr_hash, arg_usr_data_what, arg_usr_hash_what, arg_usr_options);
+        return create_special_device("usr", SYSTEMD_VERITYSETUP_SERVICE_USR, arg_usr_hash, arg_usr_data_what, arg_usr_hash_what, arg_usr_options);
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
@@ -313,7 +289,19 @@ static int determine_devices(void) {
         return determine_device("usr", arg_usr_hash, &arg_usr_data_what, &arg_usr_hash_what);
 }
 
-static int create_disk(
+static bool attach_in_initrd(const char *name, const char *options) {
+        assert(name);
+
+        /* Imply x-initrd.attach in case the volume name is among those defined in the Discoverable Partition
+         * Specification for partitions that we require to be mounted during the initrd → host transition,
+         * i.e. for the root fs itself, and /usr/. This mirrors similar behaviour in
+         * systemd-fstab-generator. */
+
+        return fstab_test_option(options, "x-initrd.attach\0") ||
+                STR_IN_SET(name, "root", "usr");
+}
+
+static int create_veritytab_device(
                 const char *name,
                 const char *data_device,
                 const char *hash_device,
@@ -325,8 +313,10 @@ static int create_disk(
                             *du_escaped = NULL, *hu_escaped = NULL, *name_escaped = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *dmname;
-        bool noauto, nofail, netdev, attach_in_initrd;
+        bool noauto, nofail, netdev, need_loop = false;
         int r;
+
+        /* Creates a systemd-veritysetup@.service instance for volumes specified in /etc/veritytab. */
 
         assert(name);
         assert(data_device);
@@ -336,7 +326,6 @@ static int create_disk(
         noauto = fstab_test_yes_no_option(options, "noauto\0" "auto\0");
         nofail = fstab_test_yes_no_option(options, "nofail\0" "fail\0");
         netdev = fstab_test_option(options, "_netdev\0");
-        attach_in_initrd = fstab_test_option(options, "x-initrd.attach\0");
 
         name_escaped = specifier_escape(name);
         if (!name_escaped)
@@ -386,8 +375,10 @@ static int create_disk(
                 fprintf(f, "After=remote-fs-pre.target\n");
 
         /* If initrd takes care of attaching the disk then it should also detach it during shutdown. */
-        if (!attach_in_initrd)
-                fprintf(f, "Conflicts=umount.target\n");
+        if (!attach_in_initrd(name, options))
+                fprintf(f,
+                        "Conflicts=umount.target\n"
+                        "Before=umount.target\n");
 
         if (!nofail)
                 fprintf(f,
@@ -397,36 +388,32 @@ static int create_disk(
         if (path_startswith(du, "/dev/"))
                 fprintf(f,
                         "BindsTo=%s\n"
-                        "After=%s\n"
-                        "Before=umount.target\n",
+                        "After=%s\n",
                         dd, dd);
-        else
-                /* For loopback devices, add systemd-tmpfiles-setup-dev.service
-                   dependency to ensure that loopback support is available in
-                   the kernel (/dev/loop-control needs to exist) */
-                fprintf(f,
-                        "RequiresMountsFor=%s\n"
-                        "Requires=systemd-tmpfiles-setup-dev.service\n"
-                        "After=systemd-tmpfiles-setup-dev.service\n",
-                        du_escaped);
+        else {
+                fprintf(f, "RequiresMountsFor=%s\n", du_escaped);
+                need_loop = true;
+        }
 
         if (path_startswith(hu, "/dev/"))
                 fprintf(f,
                         "BindsTo=%s\n"
-                        "After=%s\n"
-                        "Before=umount.target\n",
+                        "After=%s\n",
                         hd, hd);
-        else
-                /* For loopback devices, add systemd-tmpfiles-setup-dev.service
-                   dependency to ensure that loopback support is available in
-                   the kernel (/dev/loop-control needs to exist) */
-                fprintf(f,
-                        "RequiresMountsFor=%s\n"
-                        "Requires=systemd-tmpfiles-setup-dev.service\n"
-                        "After=systemd-tmpfiles-setup-dev.service\n",
-                        hu_escaped);
+        else {
+                fprintf(f, "RequiresMountsFor=%s\n", hu_escaped);
+                need_loop = true;
+        }
 
-        r = generator_write_veritysetup_service_section(f, name, du_escaped, hu_escaped, roothash, options);
+        if (need_loop)
+                /* For loopback devices make sure to explicitly load loop.ko, as this code might run very
+                 * early where device nodes created via systemd-tmpfiles-setup-dev.service might not be
+                 * around yet. Hence let's sync on the module itself. */
+                fprintf(f,
+                        "Wants=modprobe@loop.service\n"
+                        "After=modprobe@loop.service\n");
+
+        r = generator_write_veritysetup_service_section(f, name, du, hu, roothash, options);
         if (r < 0)
                 return r;
 
@@ -492,7 +479,8 @@ static int add_veritytab_devices(void) {
                 if (!hash_uuid)
                         hash_uuid = path_startswith(hash_device, "/dev/disk/by-uuid/");
 
-                r = create_disk(name,
+                r = create_veritytab_device(
+                                name,
                                 data_device,
                                 hash_device,
                                 roothash,

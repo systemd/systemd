@@ -33,6 +33,7 @@
     <refname>sd_session_get_vt</refname>
     <refname>sd_session_get_remote_host</refname>
     <refname>sd_session_get_remote_user</refname>
+    <refname>sd_session_get_leader</refname>
     <refpurpose>Determine state of a specific session</refpurpose>
   </refnamediv>
 
@@ -108,6 +109,12 @@
         <funcdef>int <function>sd_session_get_display</function></funcdef>
         <paramdef>const char *<parameter>session</parameter></paramdef>
         <paramdef>char **<parameter>display</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_session_get_leader</function></funcdef>
+        <paramdef>const char *<parameter>session</parameter></paramdef>
+        <paramdef>pid_t *<parameter>leader</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -236,6 +243,10 @@
     <citerefentry project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use.</para>
 
+    <para><function>sd_session_get_leader()</function> may be used to
+    determine the PID of the leader of the session identified by the
+    specified session identifier.</para>
+
     <para><function>sd_session_get_remote_host()</function> may be
     used to determine the remote hostname of the session identified by
     the specified session identifier. The returned string needs to be
@@ -284,6 +295,7 @@
     <function>sd_session_get_type()</function>,
     <function>sd_session_get_class()</function>,
     <function>sd_session_get_display()</function>,
+    <function>sd_session_get_leader()</function>,
     <function>sd_session_get_remote_user()</function>,
     <function>sd_session_get_remote_host()</function> and
     <function>sd_session_get_tty()</function> return 0 or

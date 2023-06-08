@@ -124,10 +124,9 @@ _public_ int sd_pid_get_cgroup(pid_t pid, char **cgroup) {
          * cgroup, let's return the "/" in the public APIs instead, as
          * that's easier and less ambiguous for people to grok. */
         if (isempty(c)) {
-                free(c);
-                c = strdup("/");
-                if (!c)
-                        return -ENOMEM;
+                r = free_and_strdup(&c, "/");
+                if (r < 0)
+                        return r;
 
         }
 
@@ -869,6 +868,25 @@ _public_ int sd_session_get_remote_user(const char *session, char **remote_user)
 
 _public_ int sd_session_get_remote_host(const char *session, char **remote_host) {
         return session_get_string(session, "REMOTE_HOST", remote_host);
+}
+
+_public_ int sd_session_get_leader(const char *session, pid_t *leader) {
+        _cleanup_free_ char *leader_string = NULL;
+        pid_t pid;
+        int r;
+
+        assert_return(leader, -EINVAL);
+
+        r = session_get_string(session, "LEADER", &leader_string);
+        if (r < 0)
+                return r;
+
+        r = parse_pid(leader_string, &pid);
+        if (r < 0)
+                return r;
+
+        *leader = pid;
+        return 0;
 }
 
 _public_ int sd_seat_get_active(const char *seat, char **session, uid_t *uid) {

@@ -923,13 +923,13 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
 
                 new_path = strjoina("/var/lib/machines/", new_name);
 
-                r = btrfs_subvol_snapshot(i->path, new_path,
-                                          (read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
-                                          BTRFS_SNAPSHOT_FALLBACK_COPY |
-                                          BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
-                                          BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE |
-                                          BTRFS_SNAPSHOT_RECURSIVE |
-                                          BTRFS_SNAPSHOT_QUOTA);
+                r = btrfs_subvol_snapshot_at(AT_FDCWD, i->path, AT_FDCWD, new_path,
+                                             (read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
+                                             BTRFS_SNAPSHOT_FALLBACK_COPY |
+                                             BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
+                                             BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE |
+                                             BTRFS_SNAPSHOT_RECURSIVE |
+                                             BTRFS_SNAPSHOT_QUOTA);
                 if (r >= 0)
                         /* Enable "subtree" quotas for the copy, if we didn't copy any quota from the source. */
                         (void) btrfs_subvol_auto_qgroup(new_path, 0, true);

@@ -242,13 +242,7 @@ static int maybe_reload(sd_bus **bus) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_new_method_call(
-                        *bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Reload");
+        r = bus_message_new_method_call(*bus, &m, bus_systemd_mgr, "Reload");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -566,12 +560,10 @@ static int maybe_enable_disable(sd_bus *bus, const char *path, bool enable) {
         if (!names)
                 return log_oom();
 
-        r = sd_bus_message_new_method_call(
+        r = bus_message_new_method_call(
                 bus,
                 &m,
-                "org.freedesktop.systemd1",
-                "/org/freedesktop/systemd1",
-                "org.freedesktop.systemd1.Manager",
+                bus_systemd_mgr,
                 enable ? "EnableUnitFilesWithFlags" : "DisableUnitFilesWithFlags");
         if (r < 0)
                 return bus_log_create_error(r);

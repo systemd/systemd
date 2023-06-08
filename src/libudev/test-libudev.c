@@ -91,7 +91,7 @@ static void print_device(struct udev_device *device) {
 }
 
 static void test_device(struct udev *udev, const char *syspath) {
-        _cleanup_(udev_device_unrefp) struct udev_device *device;
+        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
 
         log_info("/* %s, device %s */", __func__, syspath);
         device = udev_device_new_from_syspath(udev, syspath);
@@ -102,7 +102,7 @@ static void test_device(struct udev *udev, const char *syspath) {
 }
 
 static void test_device_parents(struct udev *udev, const char *syspath) {
-        _cleanup_(udev_device_unrefp) struct udev_device *device;
+        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
         struct udev_device *device_parent;
 
         log_info("/* %s, device %s */", __func__, syspath);
@@ -172,7 +172,7 @@ static int enumerate_print_list(struct udev_enumerate *enumerate) {
 
 static void test_monitor(struct udev *udev) {
         _cleanup_(udev_monitor_unrefp) struct udev_monitor *udev_monitor;
-        _cleanup_close_ int fd_ep;
+        _cleanup_close_ int fd_ep = -EBADF;
         int fd_udev;
         struct epoll_event ep_udev = {
                 .events = EPOLLIN,

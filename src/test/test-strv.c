@@ -200,8 +200,8 @@ TEST(strv_join_full) {
 }
 
 static void test_strv_unquote_one(const char *quoted, char **list) {
-        _cleanup_strv_free_ char **s;
-        _cleanup_free_ char *j;
+        _cleanup_strv_free_ char **s = NULL;
+        _cleanup_free_ char *j = NULL;
         unsigned i = 0;
         int r;
 
@@ -260,7 +260,7 @@ TEST(invalid_unquote) {
 }
 
 TEST(strv_split) {
-        _cleanup_(strv_free_erasep) char **l = NULL;
+        _cleanup_strv_free_erase_ char **l = NULL;
         const char str[] = "one,two,three";
 
         l = strv_split(str, ",");

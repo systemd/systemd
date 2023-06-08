@@ -4,6 +4,7 @@
 
 #include "bus-common-errors.h"
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "chase.h"
 #include "conf-files.h"
 #include "copy.h"
@@ -356,7 +357,7 @@ static int portable_extract_by_path(
         else {
                 _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
                 _cleanup_(rmdir_and_freep) char *tmpdir = NULL;
-                _cleanup_(close_pairp) int seq[2] = PIPE_EBADF;
+                _cleanup_close_pair_ int seq[2] = PIPE_EBADF;
                 _cleanup_(sigkill_waitp) pid_t child = 0;
 
                 /* We now have a loopback block device, let's fork off a child in its own mount namespace, mount it
@@ -688,7 +689,7 @@ int portable_extract(
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
-        _cleanup_(strv_freep) char **valid_prefixes = NULL;
+        _cleanup_strv_free_ char **valid_prefixes = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
         int r;
 
@@ -780,13 +781,7 @@ static int unit_file_is_active(
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
                 const char *at, *prefix, *joined;
 
-                r = sd_bus_message_new_method_call(
-                                bus,
-                                &m,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1",
-                                "org.freedesktop.systemd1.Manager",
-                                "ListUnitsByPatterns");
+                r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "ListUnitsByPatterns");
                 if (r < 0)
                         return r;
 

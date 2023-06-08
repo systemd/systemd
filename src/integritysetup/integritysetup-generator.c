@@ -100,7 +100,7 @@ static int create_disk(
                 "[Service]\n"
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
-                "TimeoutSec=0\n"
+                "TimeoutSec=infinity\n"
                 "ExecStart=" ROOTLIBEXECDIR "/systemd-integritysetup attach '%s' '%s' '%s' '%s'\n"
                 "ExecStop=" ROOTLIBEXECDIR "/systemd-integritysetup detach '%s'\n",
                 name_escaped, device, empty_to_dash(key_file_escaped), empty_to_dash(options),

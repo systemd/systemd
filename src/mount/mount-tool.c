@@ -814,7 +814,7 @@ static int find_loop_device(const char *backing_file, sd_device **ret) {
                         continue;
                 }
 
-                if (files_same(s, backing_file, 0) <= 0)
+                if (inode_same(s, backing_file, 0) <= 0)
                         continue;
 
                 *ret = sd_device_ref(dev);

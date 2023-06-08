@@ -64,7 +64,7 @@ static int keymap_recurse_dir_callback(
 }
 
 int get_keymaps(char ***ret) {
-        _cleanup_(set_free_freep) Set *keymaps = NULL;
+        _cleanup_set_free_free_ Set *keymaps = NULL;
         int r;
 
         keymaps = set_new(&string_hash_ops);

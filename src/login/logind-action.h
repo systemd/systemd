@@ -9,6 +9,7 @@ typedef enum HandleAction {
         HANDLE_REBOOT,
         HANDLE_HALT,
         HANDLE_KEXEC,
+        HANDLE_SOFT_REBOOT,
         HANDLE_SUSPEND,
         HANDLE_HIBERNATE,
         HANDLE_HYBRID_SLEEP,

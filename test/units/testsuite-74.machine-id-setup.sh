@@ -4,6 +4,11 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/test-control.sh
+. "$(dirname "$0")"/test-control.sh
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 root_mock() {
     local root="${1:?}"
 
@@ -69,14 +74,4 @@ testcase_transient() {
 systemctl --state=failed --no-legend --no-pager >/failed
 test ! -s /failed
 
-# Create a list of all functions prefixed with testcase_
-mapfile -t TESTCASES < <(declare -F | awk '$3 ~ /^testcase_/ {print $3;}')
-
-if [[ "${#TESTCASES[@]}" -eq 0 ]]; then
-    echo >&2 "No test cases found, this is most likely an error"
-    exit 1
-fi
-
-for testcase in "${TESTCASES[@]}"; do
-    "$testcase"
-done
+run_testcases

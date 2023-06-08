@@ -6,10 +6,11 @@
 #include "sd-bus.h"
 
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "dev-setup.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "limits-util.h"
 #include "main-func.h"
 #include "mkdir-label.h"
@@ -33,13 +34,13 @@ static int acquire_runtime_dir_properties(uint64_t *size, uint64_t *inodes) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
-        r = sd_bus_get_property_trivial(bus, "org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager", "RuntimeDirectorySize", &error, 't', size);
+        r = bus_get_property_trivial(bus, bus_login_mgr, "RuntimeDirectorySize", &error, 't', size);
         if (r < 0) {
                 log_warning_errno(r, "Failed to acquire runtime directory size, ignoring: %s", bus_error_message(&error, r));
                 *size = physical_memory_scale(10U, 100U); /* 10% */
         }
 
-        r = sd_bus_get_property_trivial(bus, "org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager", "RuntimeDirectoryInodesMax", &error, 't', inodes);
+        r = bus_get_property_trivial(bus, bus_login_mgr, "RuntimeDirectoryInodesMax", &error, 't', inodes);
         if (r < 0) {
                 log_warning_errno(r, "Failed to acquire number of inodes for runtime directory, ignoring: %s", bus_error_message(&error, r));
                 *inodes = DIV_ROUND_UP(*size, 4096);
@@ -201,7 +202,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = mac_selinux_init();
+        r = mac_init();
         if (r < 0)
                 return r;
 

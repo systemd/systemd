@@ -226,9 +226,8 @@ static int enumerate_binaries(
                         return log_error_errno(errno, "Failed to open file for reading: %m");
 
                 r = get_file_version(fd, &v);
-                if (r == -ESRCH) /* Not the file we are looking for. */
-                        continue;
-                if (r < 0)
+
+                if (r < 0 && r != -ESRCH)
                         return r;
 
                 if (*previous) { /* Let's output the previous entry now, since now we know that there will be
@@ -243,10 +242,10 @@ static int enumerate_binaries(
                 /* Do not output this entry immediately, but store what should be printed in a state
                  * variable, because we only will know the tree glyph to print (branch or final edge) once we
                  * read one more entry */
-                if (r > 0)
-                        r = asprintf(previous, "/%s/%s (%s%s%s)", path, de->d_name, ansi_highlight(), v, ansi_normal());
-                else
+                if (r == -ESRCH) /* No systemd-owned file but still interesting to print */
                         r = asprintf(previous, "/%s/%s", path, de->d_name);
+                else /* if (r >= 0) */
+                        r = asprintf(previous, "/%s/%s (%s%s%s)", path, de->d_name, ansi_highlight(), v, ansi_normal());
                 if (r < 0)
                         return log_oom();
 
@@ -319,7 +318,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
         dev_t esp_devid = 0, xbootldr_devid = 0;
         int r, k;
 
-        r = acquire_esp(/* unprivileged_mode= */ geteuid() != 0, /* graceful= */ false, NULL, NULL, NULL, &esp_uuid, &esp_devid);
+        r = acquire_esp(/* unprivileged_mode= */ -1, /* graceful= */ false, NULL, NULL, NULL, &esp_uuid, &esp_devid);
         if (arg_print_esp_path) {
                 if (r == -EACCES) /* If we couldn't acquire the ESP path, log about access errors (which is the only
                                    * error the find_esp_and_warn() won't log on its own) */
@@ -330,7 +329,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 puts(arg_esp_path);
         }
 
-        r = acquire_xbootldr(/* unprivileged_mode= */ geteuid() != 0, &xbootldr_uuid, &xbootldr_devid);
+        r = acquire_xbootldr(/* unprivileged_mode= */ -1, &xbootldr_uuid, &xbootldr_devid);
         if (arg_print_dollar_boot_path) {
                 if (r == -EACCES)
                         return log_error_errno(r, "Failed to determine XBOOTLDR partition: %m");
@@ -770,13 +769,13 @@ int verb_list(int argc, char *argv[], void *userdata) {
          * Here we're interested in the latter but not the former, hence request the mode, and log about
          * EACCES. */
 
-        r = acquire_esp(/* unprivileged_mode= */ geteuid() != 0, /* graceful= */ false, NULL, NULL, NULL, NULL, &esp_devid);
+        r = acquire_esp(/* unprivileged_mode= */ -1, /* graceful= */ false, NULL, NULL, NULL, NULL, &esp_devid);
         if (r == -EACCES) /* We really need the ESP path for this call, hence also log about access errors */
                 return log_error_errno(r, "Failed to determine ESP location: %m");
         if (r < 0)
                 return r;
 
-        r = acquire_xbootldr(/* unprivileged_mode= */ geteuid() != 0, NULL, &xbootldr_devid);
+        r = acquire_xbootldr(/* unprivileged_mode= */ -1, NULL, &xbootldr_devid);
         if (r == -EACCES)
                 return log_error_errno(r, "Failed to determine XBOOTLDR partition: %m");
         if (r < 0)

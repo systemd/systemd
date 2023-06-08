@@ -45,6 +45,7 @@ int logind_reboot(enum action a) {
                 [ACTION_POWEROFF]               = "PowerOff",
                 [ACTION_REBOOT]                 = "Reboot",
                 [ACTION_KEXEC]                  = "Reboot",
+                [ACTION_SOFT_REBOOT]            = "Reboot",
                 [ACTION_HALT]                   = "Halt",
                 [ACTION_SUSPEND]                = "Suspend",
                 [ACTION_HIBERNATE]              = "Hibernate",
@@ -80,6 +81,7 @@ int logind_reboot(enum action a) {
 
         SET_FLAG(flags, SD_LOGIND_ROOT_CHECK_INHIBITORS, arg_check_inhibitors > 0);
         SET_FLAG(flags, SD_LOGIND_REBOOT_VIA_KEXEC, a == ACTION_KEXEC);
+        SET_FLAG(flags, SD_LOGIND_SOFT_REBOOT, a == ACTION_SOFT_REBOOT);
 
         r = bus_call_method(bus, bus_login_mgr, method_with_flags, &error, NULL, "t", flags);
         if (r >= 0)

@@ -204,7 +204,7 @@ static void test_oomd_update_cgroup_contexts_between_hashmaps(void) {
 }
 
 static void test_oomd_system_context_acquire(void) {
-        _cleanup_(unlink_tempfilep) char path[] = "/oomdgetsysctxtestXXXXXX";
+        _cleanup_(unlink_tempfilep) char path[] = "/tmp/oomdgetsysctxtestXXXXXX";
         _cleanup_close_ int fd = -EBADF;
         OomdSystemContext ctx;
 

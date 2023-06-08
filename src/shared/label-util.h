@@ -24,3 +24,5 @@ static inline int symlink_atomic_label(const char *from, const char *to) {
 int mknod_label(const char *pathname, mode_t mode, dev_t dev);
 
 int btrfs_subvol_make_label(const char *path);
+
+int mac_init(void);

@@ -576,16 +576,15 @@ node /org/freedesktop/login1 {
 
       <para><function>PowerOff()</function>, <function>Reboot()</function>, <function>Halt()</function>,
       <function>Suspend()</function>, and <function>Hibernate()</function> result in the system being powered
-      off, rebooted, halted (shut down without turning off power), suspended (the system state is
-      saved to RAM and the CPU is turned off), or hibernated (the system state is saved to disk and
-      the machine is powered down). <function>HybridSleep()</function> results in the system entering a
-      hybrid-sleep mode, i.e. the system is both hibernated and suspended.
-      <function>SuspendThenHibernate()</function> results in the system being suspended, then later woken
-      using an RTC timer and hibernated. The only argument is the polkit interactivity boolean
-      <varname>interactive</varname> (see below). The main purpose of these calls is that they enforce
-      polkit policy and hence allow powering off/rebooting/suspending/hibernating even by unprivileged
-      users. They also enforce inhibition locks for non-privileged users. UIs should expose these calls
-      as the primary mechanism to poweroff/reboot/suspend/hibernate the machine. Methods
+      off, rebooted, halted (shut down without turning off power), suspended (the system state is saved to
+      RAM and the CPU is turned off), or hibernated (the system state is saved to disk and the machine is
+      powered down). <function>HybridSleep()</function> results in the system entering a hybrid-sleep mode,
+      i.e. the system is both hibernated and suspended.  <function>SuspendThenHibernate()</function> results
+      in the system being suspended, then later woken using an RTC timer and hibernated. The only argument is
+      the polkit interactivity boolean <varname>interactive</varname> (see below). The main purpose of these
+      calls is that they enforce polkit policy and hence allow powering off/rebooting/suspending/hibernating
+      even by unprivileged users. They also enforce inhibition locks for non-privileged users. UIs should
+      expose these calls as the primary mechanism to poweroff/reboot/suspend/hibernate the machine. Methods
       <function>PowerOffWithFlags()</function>, <function>RebootWithFlags()</function>,
       <function>HaltWithFlags()</function>, <function>SuspendWithFlags()</function>,
       <function>HibernateWithFlags()</function>, <function>HybridSleepWithFlags()</function> and
@@ -594,12 +593,14 @@ node /org/freedesktop/login1 {
       <programlisting>
 #define SD_LOGIND_ROOT_CHECK_INHIBITORS  (UINT64_C(1) &lt;&lt; 0)
 #define SD_LOGIND_KEXEC_REBOOT           (UINT64_C(1) &lt;&lt; 1)
+#define SD_LOGIND_SOFT_REBOOT            (UINT64_C(1) &lt;&lt; 2)
       </programlisting>
-      <para> When the <varname>flags</varname> is 0 then these methods behave just like the versions
-      without flags. When <constant>SD_LOGIND_ROOT_CHECK_INHIBITORS</constant> (0x01) is set, active
-      inhibitors are honoured for privileged users too. When <constant>SD_LOGIND_KEXEC_REBOOT</constant>
-      (0x02) is set, then <function>RebootWithFlags()</function> perform kexec reboot if kexec
-      kernel is loaded.</para>
+      <para>When the <varname>flags</varname> is 0 then these methods behave just like the versions without
+      flags. When <constant>SD_LOGIND_ROOT_CHECK_INHIBITORS</constant> (0x01) is set, active inhibitors are
+      honoured for privileged users too. When <constant>SD_LOGIND_KEXEC_REBOOT</constant> (0x02) is set, then
+      <function>RebootWithFlags()</function> performs a kexec reboot if kexec kernel is loaded. When
+      <constant>SD_LOGIND_SOFT_REBOOT</constant> (0x04) is set, then <function>RebootWithFlags()</function>
+      performs a userspace reboot only.</para>
 
       <para><function>SetRebootParameter()</function> sets a parameter for a subsequent reboot operation.
       See the description of <command>reboot</command> in

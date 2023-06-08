@@ -224,6 +224,7 @@ static int write_fsck_sysroot_service(
                 "[Unit]\n"
                 "Description=File System Check on %2$s\n"
                 "Documentation=man:%3$s(8)\n"
+                "\n"
                 "DefaultDependencies=no\n"
                 "BindsTo=%4$s\n"
                 "Conflicts=shutdown.target\n"
@@ -234,7 +235,7 @@ static int write_fsck_sysroot_service(
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
                 "ExecStart=" SYSTEMD_FSCK_PATH " %7$s\n"
-                "TimeoutSec=0\n",
+                "TimeoutSec=infinity\n",
                 program_invocation_short_name,
                 escaped,
                 unit,
@@ -517,17 +518,19 @@ int generator_hook_up_mkswap(
                 "[Unit]\n"
                 "Description=Make Swap on %%f\n"
                 "Documentation=man:systemd-mkswap@.service(8)\n"
+                "\n"
                 "DefaultDependencies=no\n"
                 "BindsTo=%%i.device\n"
-                "Conflicts=shutdown.target\n"
                 "After=%%i.device\n"
-                "Before=shutdown.target %s\n"
+                "Before=%s\n"
+                "Conflicts=shutdown.target\n"
+                "Before=shutdown.target\n"
                 "\n"
                 "[Service]\n"
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
                 "ExecStart="SYSTEMD_MAKEFS_PATH " swap %s\n"
-                "TimeoutSec=0\n",
+                "TimeoutSec=infinity\n",
                 program_invocation_short_name,
                 where_unit,
                 escaped);
@@ -602,19 +605,21 @@ int generator_hook_up_mkfs(
                 "[Unit]\n"
                 "Description=Make File System on %%f\n"
                 "Documentation=man:systemd-makefs@.service(8)\n"
+                "\n"
                 "DefaultDependencies=no\n"
                 "BindsTo=%%i.device\n"
-                "Conflicts=shutdown.target\n"
                 "After=%%i.device\n"
                 /* fsck might or might not be used, so let's be safe and order
                  * ourselves before both systemd-fsck@.service and the mount unit. */
-                "Before=shutdown.target %s %s\n"
+                "Before=%s %s\n"
+                "Conflicts=shutdown.target\n"
+                "Before=shutdown.target\n"
                 "\n"
                 "[Service]\n"
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
                 "ExecStart="SYSTEMD_MAKEFS_PATH " %s %s\n"
-                "TimeoutSec=0\n",
+                "TimeoutSec=infinity\n",
                 program_invocation_short_name,
                 fsck_unit,
                 where_unit,
@@ -748,11 +753,12 @@ int generator_write_cryptsetup_unit_section(
                 fprintf(f, "SourcePath=%s\n", source);
 
         fprintf(f,
+                "\n"
                 "DefaultDependencies=no\n"
-                "IgnoreOnIsolate=true\n"
                 "After=cryptsetup-pre.target systemd-udevd-kernel.socket\n"
                 "Before=blockdev@dev-mapper-%%i.target\n"
-                "Wants=blockdev@dev-mapper-%%i.target\n");
+                "Wants=blockdev@dev-mapper-%%i.target\n"
+                "IgnoreOnIsolate=true\n");
 
         return 0;
 }
@@ -795,7 +801,7 @@ int generator_write_cryptsetup_service_section(
                 "[Service]\n"
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
-                "TimeoutSec=0\n"          /* The binary handles timeouts on its own */
+                "TimeoutSec=infinity\n"   /* The binary handles timeouts on its own */
                 "KeyringMode=shared\n"    /* Make sure we can share cached keys among instances */
                 "OOMScoreAdjust=500\n"    /* Unlocking can allocate a lot of memory if Argon2 is used */
                 "ExecStart=" SYSTEMD_CRYPTSETUP_PATH " attach '%s' '%s' '%s' '%s'\n"

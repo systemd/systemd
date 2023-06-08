@@ -856,16 +856,18 @@
         <term><varname>JoinsNamespaceOf=</varname></term>
 
         <listitem><para>For units that start processes (such as service units), lists one or more other units
-        whose network and/or temporary file namespace to join. This only applies to unit types which support
-        the <varname>PrivateNetwork=</varname>, <varname>NetworkNamespacePath=</varname>,
+        whose network and/or temporary file namespace to join. If this is specified on a unit (say, a.service
+        has <varname>JoinsNamespaceOf=b.service</varname>), then this the inverse dependency
+        (<varname>JoinsNamespaceOf=a.service</varname> for b.service) is implied. This only applies to unit
+        types which support the <varname>PrivateNetwork=</varname>, <varname>NetworkNamespacePath=</varname>,
         <varname>PrivateIPC=</varname>, <varname>IPCNamespacePath=</varname>, and
         <varname>PrivateTmp=</varname> directives (see
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
         details). If a unit that has this setting set is started, its processes will see the same
         <filename>/tmp/</filename>, <filename>/var/tmp/</filename>, IPC namespace and network namespace as
-        one listed unit that is started. If multiple listed units are already started, it is not defined
-        which namespace is joined. Note that this setting only has an effect if
-        <varname>PrivateNetwork=</varname>/<varname>NetworkNamespacePath=</varname>,
+        one listed unit that is started. If multiple listed units are already started and these do not share
+        their namespace, then it is not defined which namespace is joined. Note that this setting only has an
+        effect if <varname>PrivateNetwork=</varname>/<varname>NetworkNamespacePath=</varname>,
         <varname>PrivateIPC=</varname>/<varname>IPCNamespacePath=</varname> and/or
         <varname>PrivateTmp=</varname> is enabled for both the unit that joins the namespace and the unit
         whose namespace is joined.</para></listitem>
@@ -886,6 +888,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>OnSuccessJobMode=</varname></term>
         <term><varname>OnFailureJobMode=</varname></term>
 
         <listitem><para>Takes a value of
@@ -897,12 +900,12 @@
         <literal>ignore-dependencies</literal> or
         <literal>ignore-requirements</literal>. Defaults to
         <literal>replace</literal>. Specifies how the units listed in
-        <varname>OnFailure=</varname> will be enqueued. See
+        <varname>OnSuccess=</varname>/<varname>OnFailure=</varname> will be enqueued. See
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <option>--job-mode=</option> option for details on the
         possible values. If this is set to <literal>isolate</literal>,
         only a single unit may be listed in
-        <varname>OnFailure=</varname>.</para></listitem>
+        <varname>OnSuccess=</varname>/<varname>OnFailure=</varname>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -997,27 +1000,34 @@
         <term><varname>FailureAction=</varname></term>
         <term><varname>SuccessAction=</varname></term>
 
-        <listitem><para>Configure the action to take when the unit stops and enters a failed state or inactive state.
-        Takes one of <option>none</option>, <option>reboot</option>, <option>reboot-force</option>,
-        <option>reboot-immediate</option>, <option>poweroff</option>, <option>poweroff-force</option>,
-        <option>poweroff-immediate</option>, <option>exit</option>, and <option>exit-force</option>. In system mode,
-        all options are allowed. In user mode, only <option>none</option>, <option>exit</option>, and
-        <option>exit-force</option> are allowed. Both options default to <option>none</option>.</para>
+        <listitem><para>Configure the action to take when the unit stops and enters a failed state or
+        inactive state.  Takes one of <option>none</option>, <option>reboot</option>,
+        <option>reboot-force</option>, <option>reboot-immediate</option>, <option>poweroff</option>,
+        <option>poweroff-force</option>, <option>poweroff-immediate</option>, <option>exit</option>,
+        <option>exit-force</option>, <option>soft-reboot</option> and <option>soft-reboot-force</option>. In
+        system mode, all options are allowed. In user mode, only <option>none</option>,
+        <option>exit</option>, <option>exit-force</option>, <option>soft-reboot</option> and
+        <option>soft-reboot-force</option> are allowed. Both options default to <option>none</option>.</para>
 
-        <para>If <option>none</option> is set, no action will be triggered. <option>reboot</option> causes a reboot
-        following the normal shutdown procedure (i.e. equivalent to <command>systemctl reboot</command>).
-        <option>reboot-force</option> causes a forced reboot which will terminate all processes forcibly but should
-        cause no dirty file systems on reboot (i.e. equivalent to <command>systemctl reboot -f</command>) and
-        <option>reboot-immediate</option> causes immediate execution of the
-        <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry> system call, which
-        might result in data loss (i.e. equivalent to <command>systemctl reboot -ff</command>). Similarly,
-        <option>poweroff</option>, <option>poweroff-force</option>, <option>poweroff-immediate</option> have the effect
-        of powering down the system with similar semantics. <option>exit</option> causes the manager to exit following
-        the normal shutdown procedure, and <option>exit-force</option> causes it terminate without shutting down
-        services. When <option>exit</option> or <option>exit-force</option> is used by default the exit status of the
-        main process of the unit (if this applies) is returned from the service manager. However, this may be overridden
-        with <varname>FailureActionExitStatus=</varname>/<varname>SuccessActionExitStatus=</varname>, see
-        below.</para></listitem>
+        <para>If <option>none</option> is set, no action will be triggered. <option>reboot</option> causes a
+        reboot following the normal shutdown procedure (i.e. equivalent to <command>systemctl
+        reboot</command>).  <option>reboot-force</option> causes a forced reboot which will terminate all
+        processes forcibly but should cause no dirty file systems on reboot (i.e. equivalent to
+        <command>systemctl reboot -f</command>) and <option>reboot-immediate</option> causes immediate
+        execution of the
+        <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry> system
+        call, which might result in data loss (i.e. equivalent to <command>systemctl reboot
+        -ff</command>). Similarly, <option>poweroff</option>, <option>poweroff-force</option>,
+        <option>poweroff-immediate</option> have the effect of powering down the system with similar
+        semantics. <option>exit</option> causes the manager to exit following the normal shutdown procedure,
+        and <option>exit-force</option> causes it terminate without shutting down services. When
+        <option>exit</option> or <option>exit-force</option> is used by default the exit status of the main
+        process of the unit (if this applies) is returned from the service manager. However, this may be
+        overridden with
+        <varname>FailureActionExitStatus=</varname>/<varname>SuccessActionExitStatus=</varname>, see
+        below. <option>soft-reboot</option> will trigger a userspace reboot
+        operation. <option>soft-reboot-force</option> does that too, but does not go through the shutdown
+        transaction beforehand.</para></listitem>
       </varlistentry>
 
       <varlistentry>

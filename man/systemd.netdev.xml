@@ -1700,9 +1700,10 @@
       <varlistentry>
         <term><varname>AllowedIPs=</varname></term>
         <listitem>
-          <para>Sets a comma-separated list of IP (v4 or v6) addresses with CIDR masks
-          from which this peer is allowed to send incoming traffic and to
-          which outgoing traffic for this peer is directed.</para>
+          <para>Sets a comma-separated list of IP (v4 or v6) addresses with CIDR masks from which this peer
+          is allowed to send incoming traffic and to which outgoing traffic for this peer is directed. This
+          setting can be specified multiple times. If an empty string is assigned, then the all previous
+          assignments are cleared.</para>
 
           <para>The catch-all 0.0.0.0/0 may be specified for matching all IPv4 addresses,
           and ::/0 may be specified for matching all IPv6 addresses.</para>

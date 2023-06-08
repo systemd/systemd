@@ -3,6 +3,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/test-control.sh
+. "$(dirname "$0")"/test-control.sh
+
 clear_unit () {
     local UNIT_NAME="${1:?}"
     systemctl stop "$UNIT_NAME" 2>/dev/null || :
@@ -58,7 +61,7 @@ check_ko () {
     ! check_ok "$@"
 }
 
-test_basic_dropins () {
+testcase_basic_dropins () {
     echo "Testing basic dropins..."
 
     echo "*** test a wants b wants c"
@@ -124,7 +127,7 @@ EOF
     clear_units test15-{a,b,c,c1}.service
 }
 
-test_linked_units () {
+testcase_linked_units () {
     echo "Testing linked units..."
     echo "*** test linked unit (same basename)"
 
@@ -151,7 +154,7 @@ test_linked_units () {
     clear_units test15-{a,b}.service
 }
 
-test_template_alias() {
+testcase_template_alias() {
     echo "Testing instance alias..."
     echo "*** forward"
 
@@ -177,7 +180,7 @@ test_template_alias() {
     clear_units test15-{a,b}@.service
 }
 
-test_hierarchical_service_dropins () {
+testcase_hierarchical_service_dropins () {
     echo "Testing hierarchical service dropins..."
     echo "*** test service.d/ top level drop-in"
     create_services a-b-c
@@ -223,7 +226,7 @@ ExecCondition=echo $dropin
     clear_units a-b-c.service
 }
 
-test_hierarchical_slice_dropins () {
+testcase_hierarchical_slice_dropins () {
     echo "Testing hierarchical slice dropins..."
     echo "*** test slice.d/ top level drop-in"
     # Slice units don't even need a fragment, so we test the defaults here
@@ -282,7 +285,7 @@ MemoryMax=1000000001
     clear_units a-b-c.slice
 }
 
-test_transient_service_dropins () {
+testcase_transient_service_dropins () {
     echo "Testing dropins for a transient service..."
     echo "*** test transient service drop-ins"
 
@@ -317,7 +320,7 @@ test_transient_service_dropins () {
        /etc/systemd/system/a-b-.service.d/drop3.conf
 }
 
-test_transient_slice_dropins () {
+testcase_transient_slice_dropins () {
     echo "Testing dropins for a transient slice..."
     echo "*** test transient slice drop-ins"
 
@@ -367,7 +370,7 @@ test_transient_slice_dropins () {
        /etc/systemd/system/a-b-.slice.d/drop3.conf
 }
 
-test_template_dropins () {
+testcase_template_dropins () {
     echo "Testing template dropins..."
 
     create_services foo bar@ yup@
@@ -516,7 +519,7 @@ EOF
     clear_units foo.service {bar,yup,bar-alias}@{,1,2,3}.service
 }
 
-test_alias_dropins () {
+testcase_alias_dropins () {
     echo "Testing alias dropins..."
 
     echo "*** test a wants b1 alias of b"
@@ -548,7 +551,7 @@ test_alias_dropins () {
     clear_units test15-{a,x,y}.service
 }
 
-test_masked_dropins () {
+testcase_masked_dropins () {
     echo "Testing masked dropins..."
 
     create_services test15-a test15-b
@@ -669,7 +672,7 @@ EOF
     clear_units test15-{a,b}.service
 }
 
-test_invalid_dropins () {
+testcase_invalid_dropins () {
     echo "Testing invalid dropins..."
     # Assertion failed on earlier versions, command exits unsuccessfully on later versions
     systemctl cat nonexistent@.service || true
@@ -682,7 +685,7 @@ test_invalid_dropins () {
     return 0
 }
 
-test_symlink_dropin_directory () {
+testcase_symlink_dropin_directory () {
     # For issue #21920.
     echo "Testing symlink drop-in directory..."
     create_services test15-a
@@ -701,17 +704,6 @@ EOF
     clear_units test15-a.service
 }
 
-test_basic_dropins
-test_linked_units
-test_template_alias
-test_hierarchical_service_dropins
-test_hierarchical_slice_dropins
-test_transient_service_dropins
-test_transient_slice_dropins
-test_template_dropins
-test_alias_dropins
-test_masked_dropins
-test_invalid_dropins
-test_symlink_dropin_directory
+run_testcases
 
 touch /testok

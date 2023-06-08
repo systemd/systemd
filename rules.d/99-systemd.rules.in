@@ -65,10 +65,12 @@ SUBSYSTEM=="udc", ACTION=="add", TAG+="systemd", ENV{SYSTEMD_WANTS}+="usb-gadget
 # Apply sysctl variables to network devices (and only to those) as they appear.
 ACTION=="add", SUBSYSTEM=="net", KERNEL!="lo", RUN+="{{ROOTLIBEXECDIR}}/systemd-sysctl --prefix=/net/ipv4/conf/$name --prefix=/net/ipv4/neigh/$name --prefix=/net/ipv6/conf/$name --prefix=/net/ipv6/neigh/$name"
 
+{% if ENABLE_BACKLIGHT %}
 # Pull in backlight save/restore for all backlight devices and
 # keyboard backlights
 SUBSYSTEM=="backlight", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-backlight@backlight:$name.service"
 SUBSYSTEM=="leds", KERNEL=="*kbd_backlight", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-backlight@leds:$name.service"
+{% endif %}
 
 # Pull in rfkill save/restore for all rfkill devices
 SUBSYSTEM=="rfkill", ENV{SYSTEMD_RFKILL}="1"

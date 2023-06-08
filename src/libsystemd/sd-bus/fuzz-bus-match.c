@@ -7,12 +7,14 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fuzz.h"
+#include "memstream-util.h"
+
+DEFINE_TRIVIAL_DESTRUCTOR(bus_match_donep, struct bus_match_node, bus_match_free);
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_free_ char *out = NULL; /* out should be freed after g */
-        size_t out_size;
-        _cleanup_fclose_ FILE *g = NULL;
+        _cleanup_(memstream_done) MemStream m = {};
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        FILE *g = NULL;
         int r;
 
         if (outside_size_range(size, 0, 65536))
@@ -26,7 +28,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         r = sd_bus_new(&bus);
         assert_se(r >= 0);
 
-        struct bus_match_node root = {
+        _cleanup_(bus_match_donep) struct bus_match_node root = {
                 .type = BUS_MATCH_ROOT,
         };
 
@@ -38,7 +40,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         };
 
         if (getenv_bool("SYSTEMD_FUZZ_OUTPUT") <= 0)
-                assert_se(g = open_memstream_unlocked(&out, &out_size));
+                assert_se(g = memstream_init(&m));
 
         for (size_t offset = 0; offset < size; ) {
                 _cleanup_free_ char *line = NULL;

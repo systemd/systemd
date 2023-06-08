@@ -818,4 +818,70 @@ TEST(FOREACH_ARRAY) {
         assert_se(n == 0);
 }
 
+#define TEST_ROUND_UP_BY_TYPE(type, max_value)                          \
+        ({                                                              \
+                type x, y;                                              \
+                x = 0, y = 1;                                           \
+                assert_se(ROUND_UP(x, y) == 0);                         \
+                x = 0, y = 2;                                           \
+                assert_se(ROUND_UP(x, y) == 0);                         \
+                x = 0, y = 3;                                           \
+                assert_se(ROUND_UP(x, y) == 0);                         \
+                x = 0, y = 4;                                           \
+                assert_se(ROUND_UP(x, y) == 0);                         \
+                x = 1, y = 1;                                           \
+                assert_se(ROUND_UP(x, y) == 1);                         \
+                x = 1, y = 2;                                           \
+                assert_se(ROUND_UP(x, y) == 2);                         \
+                x = 1, y = 3;                                           \
+                assert_se(ROUND_UP(x, y) == 3);                         \
+                x = 1, y = 4;                                           \
+                assert_se(ROUND_UP(x, y) == 4);                         \
+                x = 2, y = 1;                                           \
+                assert_se(ROUND_UP(x, y) == 2);                         \
+                x = 2, y = 2;                                           \
+                assert_se(ROUND_UP(x, y) == 2);                         \
+                x = 2, y = 3;                                           \
+                assert_se(ROUND_UP(x, y) == 3);                         \
+                x = 2, y = 4;                                           \
+                assert_se(ROUND_UP(x, y) == 4);                         \
+                x = 3, y = 1;                                           \
+                assert_se(ROUND_UP(x, y) == 3);                         \
+                x = 3, y = 2;                                           \
+                assert_se(ROUND_UP(x, y) == 4);                         \
+                x = 3, y = 3;                                           \
+                assert_se(ROUND_UP(x, y) == 3);                         \
+                x = 3, y = 4;                                           \
+                assert_se(ROUND_UP(x, y) == 4);                         \
+                x = 4, y = 1;                                           \
+                assert_se(ROUND_UP(x, y) == 4);                         \
+                x = 4, y = 2;                                           \
+                assert_se(ROUND_UP(x, y) == 4);                         \
+                x = 4, y = 3;                                           \
+                assert_se(ROUND_UP(x, y) == 6);                         \
+                x = 4, y = 4;                                           \
+                assert_se(ROUND_UP(x, y) == 4);                         \
+                x = max_value, y = 1;                                   \
+                assert_se(ROUND_UP(x, y) == max_value);                 \
+                x = max_value, y = 2;                                   \
+                assert_se(ROUND_UP(x, y) == max_value);                 \
+                x = max_value, y = 3;                                   \
+                assert_se(ROUND_UP(x, y) == max_value);                 \
+                x = max_value, y = 4;                                   \
+                assert_se(ROUND_UP(x, y) == max_value);                 \
+                x = max_value-1, y = 1;                                 \
+                assert_se(ROUND_UP(x, y) == max_value-1);               \
+                x = max_value-1, y = 2;                                 \
+                assert_se(ROUND_UP(x, y) == max_value-1);               \
+                x = max_value-1, y = 4;                                 \
+                assert_se(ROUND_UP(x, y) == max_value);                 \
+        })
+
+TEST(round_up) {
+        TEST_ROUND_UP_BY_TYPE(uint8_t, UINT8_MAX);
+        TEST_ROUND_UP_BY_TYPE(uint16_t, UINT16_MAX);
+        TEST_ROUND_UP_BY_TYPE(uint32_t, UINT32_MAX);
+        TEST_ROUND_UP_BY_TYPE(uint64_t, UINT64_MAX);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);

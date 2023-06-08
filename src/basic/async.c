@@ -72,7 +72,7 @@ int asynchronous_sync(pid_t *ret_pid) {
                 return r;
         if (r == 0) {
                 /* Child process */
-                (void) sync();
+                sync();
                 _exit(EXIT_SUCCESS);
         }
 

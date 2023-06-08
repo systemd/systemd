@@ -152,6 +152,7 @@ static const char* const mount_state_table[_MOUNT_STATE_MAX] = {
         [MOUNT_REMOUNTING_SIGKILL] = "remounting-sigkill",
         [MOUNT_UNMOUNTING_SIGTERM] = "unmounting-sigterm",
         [MOUNT_UNMOUNTING_SIGKILL] = "unmounting-sigkill",
+        [MOUNT_UNMOUNTING_CATCHUP] = "unmounting-catchup",
         [MOUNT_FAILED]             = "failed",
         [MOUNT_CLEANING]           = "cleaning",
 };

@@ -36,7 +36,7 @@ static int property_get_auto_login(
                 return r;
 
         HASHMAP_FOREACH(h, m->homes_by_name) {
-                _cleanup_(strv_freep) char **seats = NULL;
+                _cleanup_strv_free_ char **seats = NULL;
                 _cleanup_free_ char *home_path = NULL;
 
                 r = home_auto_login(h, &seats);

@@ -15,6 +15,7 @@ at_exit() {
     machinectl status long-running >/dev/null && machinectl kill --signal=KILL long-running
     mountpoint -q /var/lib/machines && timeout 10 sh -c "while ! umount /var/lib/machines; do sleep .5; done"
     [[ -n "${NSPAWN_FRAGMENT:-}" ]] && rm -f "/etc/systemd/nspawn/$NSPAWN_FRAGMENT" "/var/lib/machines/$NSPAWN_FRAGMENT"
+    rm -f /run/systemd/nspawn/*.nspawn
 }
 
 trap at_exit EXIT

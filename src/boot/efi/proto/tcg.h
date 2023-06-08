@@ -54,7 +54,7 @@ typedef struct {
                 uint8_t Digest[20];
         } Digest;
         uint32_t EventSize;
-        uint8_t Event[0];
+        uint8_t Event[];
 } _packed_ TCG_PCR_EVENT;
 
 typedef struct {

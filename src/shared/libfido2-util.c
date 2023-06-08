@@ -820,7 +820,7 @@ int fido2_generate_hmac_hash(
                                                "Token asks for PIN but doesn't advertise 'clientPin' feature.");
 
                 for (;;) {
-                        _cleanup_(strv_free_erasep) char **pin = NULL;
+                        _cleanup_strv_free_erase_ char **pin = NULL;
 
                         r = ask_password_auto("Please enter security token PIN:", askpw_icon_name, NULL, "fido2-pin", "fido2-pin", USEC_INFINITY, 0, &pin);
                         if (r < 0)

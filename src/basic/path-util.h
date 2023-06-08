@@ -77,7 +77,7 @@ static inline bool path_equal_filename(const char *a, const char *b) {
         return path_compare_filename(a, b) == 0;
 }
 
-bool path_equal_or_files_same(const char *a, const char *b, int flags);
+bool path_equal_or_inode_same(const char *a, const char *b, int flags);
 
 char* path_extend_internal(char **x, ...);
 #define path_extend(x, ...) path_extend_internal(x, __VA_ARGS__, POINTER_MAX)

@@ -9,6 +9,8 @@ TEST_DESCRIPTION="Tests for systemd-logind"
 
 test_append_files() {
     image_install -o evemu-device evemu-event
+    instmods uinput
+    generate_module_dependencies
 }
 
 do_test "$@"

@@ -380,6 +380,17 @@ void log_set_max_level(int level) {
         assert(level == LOG_NULL || (level & LOG_PRIMASK) == level);
 
         log_max_level = level;
+
+        /* Also propagate max log level to libc's syslog(), just in case some other component loaded into our
+         * process logs directly via syslog(). You might wonder why we maintain our own log level variable if
+         * libc has the same functionality. This has multiple reasons, first and foremost that we want to
+         * apply this to all our log targets, not just syslog and console. Moreover, we cannot query the
+         * current log mask from glibc without changing it, but that's useful for testing the current log
+         * level before even entering the log functions like we do in our macros. */
+        setlogmask(LOG_UPTO(level));
+
+        /* Ensure that our own LOG_NULL define maps sanely to the log mask */
+        assert_cc(LOG_UPTO(LOG_NULL) == 0);
 }
 
 void log_set_facility(int facility) {

@@ -14,7 +14,9 @@ TEST!="index", GOTO="persistent_v4l_end"
 ATTR{index}!="?*", GOTO="persistent_v4l_end"
 
 IMPORT{builtin}="path_id"
-ENV{ID_PATH}=="?*", KERNEL=="video*|vbi*", SYMLINK+="v4l/by-path/$env{ID_PATH}-video-index$attr{index}"
-ENV{ID_PATH}=="?*", KERNEL=="audio*", SYMLINK+="v4l/by-path/$env{ID_PATH}-audio-index$attr{index}"
+KERNEL=="video*|vbi*", ENV{ID_PATH}=="?*",                   SYMLINK+="v4l/by-path/$env{ID_PATH}-video-index$attr{index}"
+KERNEL=="video*|vbi*", ENV{ID_PATH_WITH_USB_REVISION}=="?*", SYMLINK+="v4l/by-path/$env{ID_PATH_WITH_USB_REVISION}-video-index$attr{index}"
+KERNEL=="audio*",      ENV{ID_PATH}=="?*",                   SYMLINK+="v4l/by-path/$env{ID_PATH}-audio-index$attr{index}"
+KERNEL=="audio*",      ENV{ID_PATH_WITH_USB_REVISION}=="?*", SYMLINK+="v4l/by-path/$env{ID_PATH_WITH_USB_REVISION}-audio-index$attr{index}"
 
 LABEL="persistent_v4l_end"

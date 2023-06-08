@@ -206,6 +206,17 @@ static bool is_inaccessible_available(void) {
         return true;
 }
 
+static void start_parent_slices(Unit *unit) {
+        Unit *slice;
+
+        slice = UNIT_GET_SLICE(unit);
+        if (slice) {
+                start_parent_slices(slice);
+                int r = unit_start(slice, NULL);
+                assert_se(r >= 0 || r == -EALREADY);
+        }
+}
+
 static void _test(const char *file, unsigned line, const char *func,
                   Manager *m, const char *unit_name, int status_expected, int code_expected) {
         Unit *unit;
@@ -213,6 +224,9 @@ static void _test(const char *file, unsigned line, const char *func,
         assert_se(unit_name);
 
         assert_se(manager_load_startable_unit_or_warn(m, unit_name, NULL, &unit) >= 0);
+        /* We need to start the slices as well otherwise the slice cgroups might be pruned
+         * in on_cgroup_empty_event. */
+        start_parent_slices(unit);
         assert_se(unit_start(unit, NULL) >= 0);
         check_main_result(file, line, func, m, unit, status_expected, code_expected);
 }
@@ -1285,7 +1299,7 @@ static int prepare_ns(const char *process_name) {
 
                 /* Copy unit files to make them accessible even when unprivileged. */
                 assert_se(get_testdata_dir("test-execute/", &unit_dir) >= 0);
-                assert_se(copy_directory(unit_dir, PRIVATE_UNIT_DIR, COPY_MERGE_EMPTY) >= 0);
+                assert_se(copy_directory_at(AT_FDCWD, unit_dir, AT_FDCWD, PRIVATE_UNIT_DIR, COPY_MERGE_EMPTY) >= 0);
 
                 /* Prepare credstore like tmpfiles.d/credstore.conf for LoadCredential= tests. */
                 FOREACH_STRING(p, "/run/credstore", "/run/credstore.encrypted") {

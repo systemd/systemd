@@ -29,7 +29,7 @@ jobs:
           template-path: .github/ISSUE_TEMPLATE/${{ matrix.template }}
 
       - name: Set labels based on component field
-        uses: redhat-plumbers-in-action/advanced-issue-labeler@25a1e41826424cdf577c71b58c852df4347f13b8
+        uses: redhat-plumbers-in-action/advanced-issue-labeler@71bcf99aef4b9ea844db9a43755e8ac02c8e661e
         with:
           issue-form: ${{ steps.issue-parser.outputs.jsonString }}
           template: ${{ matrix.template }}

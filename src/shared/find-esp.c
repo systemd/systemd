@@ -31,7 +31,7 @@ typedef enum VerifyESPFlags {
 
 static int verify_esp_blkid(
                 dev_t devid,
-                bool searching,
+                VerifyESPFlags flags,
                 uint32_t *ret_part,
                 uint64_t *ret_pstart,
                 uint64_t *ret_psize,
@@ -44,6 +44,7 @@ static int verify_esp_blkid(
 #if HAVE_BLKID
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_free_ char *node = NULL;
+        bool searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING);
         const char *v;
         int r;
 
@@ -65,9 +66,9 @@ static int verify_esp_blkid(
         r = blkid_do_safeprobe(b);
         if (r == -2)
                 return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" is ambiguous.", node);
-        else if (r == 1)
+        if (r == 1)
                 return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" does not contain a label.", node);
-        else if (r != 0)
+        if (r != 0)
                 return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe file system \"%s\": %m", node);
 
         r = blkid_probe_lookup_value(b, "TYPE", &v, NULL);
@@ -146,12 +147,13 @@ static int verify_esp_blkid(
 
 static int verify_esp_udev(
                 dev_t devid,
-                bool searching,
+                VerifyESPFlags flags,
                 uint32_t *ret_part,
                 uint64_t *ret_pstart,
                 uint64_t *ret_psize,
                 sd_id128_t *ret_uuid) {
 
+        bool searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING);
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         sd_id128_t uuid = SD_ID128_NULL;
         uint64_t pstart = 0, psize = 0;
@@ -240,10 +242,11 @@ static int verify_esp_udev(
 static int verify_fsroot_dir(
                 int dir_fd,
                 const char *path,
-                bool searching,
-                bool unprivileged_mode,
+                VerifyESPFlags flags,
                 dev_t *ret_dev) {
 
+        bool searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING),
+                unprivileged_mode = FLAGS_SET(flags, VERIFY_ESP_UNPRIVILEGED_MODE);
         _cleanup_free_ char *f = NULL;
         STRUCT_NEW_STATX_DEFINE(sxa);
         STRUCT_NEW_STATX_DEFINE(sxb);
@@ -377,7 +380,7 @@ static int verify_esp(
                 relax_checks ||
                 detect_container() > 0;
 
-        r = verify_fsroot_dir(pfd, p, searching, unprivileged_mode, relax_checks ? NULL : &devid);
+        r = verify_fsroot_dir(pfd, p, flags, relax_checks ? NULL : &devid);
         if (r < 0)
                 return r;
 
@@ -392,9 +395,9 @@ static int verify_esp(
          * however blkid can't work if we have no privileges to access block devices directly, which is why
          * we use udev in that case. */
         if (unprivileged_mode)
-                r = verify_esp_udev(devid, searching, ret_part, ret_pstart, ret_psize, ret_uuid);
+                r = verify_esp_udev(devid, flags, ret_part, ret_pstart, ret_psize, ret_uuid);
         else
-                r = verify_esp_blkid(devid, searching, ret_part, ret_pstart, ret_psize, ret_uuid);
+                r = verify_esp_blkid(devid, flags, ret_part, ret_pstart, ret_psize, ret_uuid);
         if (r < 0)
                 return r;
 
@@ -425,7 +428,7 @@ finish:
 int find_esp_and_warn_at(
                 int rfd,
                 const char *path,
-                bool unprivileged_mode,
+                int unprivileged_mode,
                 char **ret_path,
                 uint32_t *ret_part,
                 uint64_t *ret_pstart,
@@ -433,7 +436,7 @@ int find_esp_and_warn_at(
                 sd_id128_t *ret_uuid,
                 dev_t *ret_devid) {
 
-        VerifyESPFlags flags = (unprivileged_mode ? VERIFY_ESP_UNPRIVILEGED_MODE : 0);
+        VerifyESPFlags flags;
         int r;
 
         /* This logs about all errors except:
@@ -443,6 +446,10 @@ int find_esp_and_warn_at(
          */
 
         assert(rfd >= 0 || rfd == AT_FDCWD);
+
+        if (unprivileged_mode < 0)
+                unprivileged_mode = geteuid() != 0;
+        flags = unprivileged_mode > 0 ? VERIFY_ESP_UNPRIVILEGED_MODE : 0;
 
         r = dir_fd_is_root_or_cwd(rfd);
         if (r < 0)
@@ -509,7 +516,7 @@ int find_esp_and_warn_at(
 int find_esp_and_warn(
                 const char *root,
                 const char *path,
-                bool unprivileged_mode,
+                int unprivileged_mode,
                 char **ret_path,
                 uint32_t *ret_part,
                 uint64_t *ret_pstart,
@@ -560,12 +567,13 @@ int find_esp_and_warn(
 
 static int verify_xbootldr_blkid(
                 dev_t devid,
-                bool searching,
+                VerifyESPFlags flags,
                 sd_id128_t *ret_uuid) {
 
         sd_id128_t uuid = SD_ID128_NULL;
 
 #if HAVE_BLKID
+        bool searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING);
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_free_ char *node = NULL;
         const char *type, *v;
@@ -644,9 +652,10 @@ static int verify_xbootldr_blkid(
 
 static int verify_xbootldr_udev(
                 dev_t devid,
-                bool searching,
+                VerifyESPFlags flags,
                 sd_id128_t *ret_uuid) {
 
+        bool searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING);
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         sd_id128_t uuid = SD_ID128_NULL;
         const char *node, *type, *v;
@@ -718,15 +727,16 @@ static int verify_xbootldr_udev(
 static int verify_xbootldr(
                 int rfd,
                 const char *path,
-                bool searching,
-                bool unprivileged_mode,
+                VerifyESPFlags flags,
                 char **ret_path,
                 sd_id128_t *ret_uuid,
                 dev_t *ret_devid) {
 
         _cleanup_free_ char *p = NULL;
         _cleanup_close_ int pfd = -EBADF;
-        bool relax_checks;
+        bool searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING),
+                unprivileged_mode = FLAGS_SET(flags, VERIFY_ESP_UNPRIVILEGED_MODE),
+                relax_checks;
         dev_t devid = 0;
         int r;
 
@@ -743,7 +753,7 @@ static int verify_xbootldr(
                 getenv_bool("SYSTEMD_RELAX_XBOOTLDR_CHECKS") > 0 ||
                 detect_container() > 0;
 
-        r = verify_fsroot_dir(pfd, p, searching, unprivileged_mode, relax_checks ? NULL : &devid);
+        r = verify_fsroot_dir(pfd, p, flags, relax_checks ? NULL : &devid);
         if (r < 0)
                 return r;
 
@@ -751,9 +761,9 @@ static int verify_xbootldr(
                 goto finish;
 
         if (unprivileged_mode)
-                r = verify_xbootldr_udev(devid, searching, ret_uuid);
+                r = verify_xbootldr_udev(devid, flags, ret_uuid);
         else
-                r = verify_xbootldr_blkid(devid, searching, ret_uuid);
+                r = verify_xbootldr_blkid(devid, flags, ret_uuid);
         if (r < 0)
                 return r;
 
@@ -778,19 +788,25 @@ finish:
 int find_xbootldr_and_warn_at(
                 int rfd,
                 const char *path,
-                bool unprivileged_mode,
+                int unprivileged_mode,
                 char **ret_path,
                 sd_id128_t *ret_uuid,
                 dev_t *ret_devid) {
 
+        VerifyESPFlags flags = 0;
         int r;
 
         /* Similar to find_esp_and_warn(), but finds the XBOOTLDR partition. Returns the same errors. */
 
         assert(rfd >= 0 || rfd == AT_FDCWD);
 
+        if (unprivileged_mode < 0)
+                unprivileged_mode = geteuid() != 0;
+        if (unprivileged_mode)
+                flags |= VERIFY_ESP_UNPRIVILEGED_MODE;
+
         if (path)
-                return verify_xbootldr(rfd, path, /* searching= */ false, unprivileged_mode, ret_path, ret_uuid, ret_devid);
+                return verify_xbootldr(rfd, path, flags, ret_path, ret_uuid, ret_devid);
 
         path = getenv("SYSTEMD_XBOOTLDR_PATH");
         if (path) {
@@ -822,7 +838,7 @@ int find_xbootldr_and_warn_at(
                 return 0;
         }
 
-        r = verify_xbootldr(rfd, "/boot", /* searching= */ true, unprivileged_mode, ret_path, ret_uuid, ret_devid);
+        r = verify_xbootldr(rfd, "/boot", flags | VERIFY_ESP_SEARCHING, ret_path, ret_uuid, ret_devid);
         if (r < 0) {
                 if (!IN_SET(r, -ENOENT, -EADDRNOTAVAIL, -ENOTDIR)) /* This one is not it */
                         return r;
@@ -836,7 +852,7 @@ int find_xbootldr_and_warn_at(
 int find_xbootldr_and_warn(
         const char *root,
         const char *path,
-        bool unprivileged_mode,
+        int unprivileged_mode,
         char **ret_path,
         sd_id128_t *ret_uuid,
         dev_t *ret_devid) {

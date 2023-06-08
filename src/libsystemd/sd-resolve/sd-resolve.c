@@ -1109,8 +1109,7 @@ static void resolve_freeaddrinfo(struct addrinfo *ai) {
 
                 free(ai->ai_addr);
                 free(ai->ai_canonname);
-                free(ai);
-                ai = next;
+                free_and_replace(ai, next);
         }
 }
 

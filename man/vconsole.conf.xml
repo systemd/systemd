@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="vconsole.conf" conditional='ENABLE_VCONSOLE'>
@@ -72,7 +75,7 @@
         <term><varname>KEYMAP_TOGGLE=</varname></term>
 
         <listitem><para>Configures the key mapping table for the keyboard.
-        <varname>KEYMAP=</varname> defaults to <literal>us</literal> if not set. The
+        <varname>KEYMAP=</varname> defaults to <literal>&DEFAULT_KEYMAP;</literal> if not set. The
         <varname>KEYMAP_TOGGLE=</varname> can be used to configure a second toggle keymap and is by
         default unset.</para></listitem>
       </varlistentry>

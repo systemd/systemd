@@ -18,7 +18,7 @@ static void test_tokenizer_one(const char *data, ...) {
         void *state = NULL;
         va_list ap;
 
-        _cleanup_free_ char *cdata;
+        _cleanup_free_ char *cdata = NULL;
         assert_se(cdata = cescape(data));
         log_info("/* %s data=\"%s\" */", __func__, cdata);
 

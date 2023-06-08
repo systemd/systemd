@@ -101,9 +101,12 @@ int fd_is_opath(int fd);
 int read_nr_open(void);
 int fd_get_diskseq(int fd, uint64_t *ret);
 
-int dir_fd_is_root(int dir_fd);
+int path_is_root_at(int dir_fd, const char *path);
+static inline int dir_fd_is_root(int dir_fd) {
+        return path_is_root_at(dir_fd, NULL);
+}
 static inline int dir_fd_is_root_or_cwd(int dir_fd) {
-        return dir_fd == AT_FDCWD ? true : dir_fd_is_root(dir_fd);
+        return dir_fd == AT_FDCWD ? true : path_is_root_at(dir_fd, NULL);
 }
 
 /* The maximum length a buffer for a /proc/self/fd/<fd> path needs */

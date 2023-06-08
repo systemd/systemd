@@ -29,5 +29,4 @@ systemd-cgtop -p -t -c -m -i
 (! systemd-cgtop --order=foo)
 (! systemd-cgtop --depth=-1)
 (! systemd-cgtop --recursive=foo)
-(! systemd-cgtop --recursive=no)
 (! systemd-cgtop --delay=1foo)

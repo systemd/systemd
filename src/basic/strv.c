@@ -723,8 +723,7 @@ char** strv_shell_escape(char **l, const char *bad) {
                 if (!v)
                         return NULL;
 
-                free(*s);
-                *s = v;
+                free_and_replace(*s, v);
         }
 
         return l;

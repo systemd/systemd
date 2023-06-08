@@ -28,6 +28,7 @@ typedef enum CopyFlags {
         COPY_ALL_XATTRS    = 1 << 13, /* Preserve all xattrs when copying, not just those in the user namespace */
         COPY_HOLES         = 1 << 14, /* Copy holes */
         COPY_GRACEFUL_WARN = 1 << 15, /* Skip copying file types that aren't supported by the target filesystem */
+        COPY_TRUNCATE      = 1 << 16, /* Truncate to current file offset after copying */
 } CopyFlags;
 
 typedef enum DenyType {
@@ -82,14 +83,9 @@ static inline int copy_tree(const char *from, const char *to, uid_t override_uid
         return copy_tree_at_full(AT_FDCWD, from, AT_FDCWD, to, override_uid, override_gid, copy_flags, denylist, NULL, NULL, NULL);
 }
 
-int copy_directory_fd_full(int dirfd, const char *to, CopyFlags copy_flags, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
-static inline int copy_directory_fd(int dirfd, const char *to, CopyFlags copy_flags) {
-        return copy_directory_fd_full(dirfd, to, copy_flags, NULL, NULL, NULL);
-}
-
-int copy_directory_full(const char *from, const char *to, CopyFlags copy_flags, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
-static inline int copy_directory(const char *from, const char *to, CopyFlags copy_flags) {
-        return copy_directory_full(from, to, copy_flags, NULL, NULL, NULL);
+int copy_directory_at_full(int dir_fdf, const char *from, int dir_fdt, const char *to, CopyFlags copy_flags, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
+static inline int copy_directory_at(int dir_fdf, const char *from, int dir_fdt, const char *to, CopyFlags copy_flags) {
+        return copy_directory_at_full(dir_fdf, from, dir_fdt, to, copy_flags, NULL, NULL, NULL);
 }
 
 int copy_bytes_full(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags, void **ret_remains, size_t *ret_remains_size, copy_progress_bytes_t progress, void *userdata);

@@ -8,7 +8,8 @@ trap "journalctl --rotate --vacuum-size=16M" EXIT
 
 # Rotation/flush test, see https://github.com/systemd/systemd/issues/19895
 journalctl --relinquish-var
-for _ in {0..50}; do
+[[ "$(systemd-detect-virt -v)" == "qemu" ]] && ITERATIONS=10 || ITERATIONS=50
+for ((i = 0; i < ITERATIONS; i++)); do
     dd if=/dev/urandom bs=1M count=1 | base64 | systemd-cat
 done
 journalctl --rotate
@@ -153,8 +154,25 @@ sleep 3
 [[ ! -f "/tmp/i-lose-my-logs" ]]
 systemctl stop forever-print-hola
 
+set +o pipefail
 # https://github.com/systemd/systemd/issues/15528
-journalctl --follow --file=/var/log/journal/*/* | head -n1 || [[ $? -eq 1 ]]
+journalctl --follow --file=/var/log/journal/*/* | head -n1 | grep .
+# https://github.com/systemd/systemd/issues/24565
+journalctl --follow --merge | head -n1 | grep .
+set -o pipefail
+
+# https://github.com/systemd/systemd/issues/26746
+rm -f /tmp/issue-26746-log /tmp/issue-26746-cursor
+ID="$(systemd-id128 new)"
+journalctl -t "$ID" --follow --cursor-file=/tmp/issue-26746-cursor | tee /tmp/issue-26746-log &
+systemd-cat -t "$ID" /bin/sh -c 'echo hogehoge'
+# shellcheck disable=SC2016
+timeout 10 bash -c 'while ! [[ -f /tmp/issue-26746-log && "$(cat /tmp/issue-26746-log)" =~ hogehoge ]]; do sleep .5; done'
+pkill -TERM journalctl
+timeout 10 bash -c 'while ! test -f /tmp/issue-26746-cursor; do sleep .5; done'
+CURSOR_FROM_FILE="$(cat /tmp/issue-26746-cursor)"
+CURSOR_FROM_JOURNAL="$(journalctl -t "$ID" --output=export MESSAGE=hogehoge | sed -n -e '/__CURSOR=/ { s/__CURSOR=//; p }')"
+test "$CURSOR_FROM_FILE" = "$CURSOR_FROM_JOURNAL"
 
 add_logs_filtering_override() {
     local unit="${1:?}"

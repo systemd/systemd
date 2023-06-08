@@ -342,6 +342,9 @@ int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *
                 filename = "credential.secret";
         }
 
+        assert(dirname);
+        assert(filename);
+
         mkdir_parents(dirname, 0755);
         dfd = open_mkdir_at(AT_FDCWD, dirname, O_CLOEXEC, 0755);
         if (dfd < 0)

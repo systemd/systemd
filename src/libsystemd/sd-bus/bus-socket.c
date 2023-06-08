@@ -337,8 +337,7 @@ static int bus_socket_auth_write(sd_bus *b, const char *t) {
         b->auth_iovec[0].iov_base = p;
         b->auth_iovec[0].iov_len += l;
 
-        free(b->auth_buffer);
-        b->auth_buffer = p;
+        free_and_replace(b->auth_buffer, p);
         b->auth_index = 0;
         return 0;
 }
@@ -868,8 +867,7 @@ static int bus_socket_inotify_setup(sd_bus *b) {
                         goto fail;
                 }
 
-                free(absolute);
-                absolute = c;
+                free_and_replace(absolute, c);
 
                 max_follow--;
         }

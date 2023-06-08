@@ -891,7 +891,7 @@ int running_in_chroot(void) {
         if (getpid_cached() == 1)
                 return false;  /* We're PID 1, we can't be in a chroot. */
 
-        r = files_same("/proc/1/root", "/", 0);
+        r = inode_same("/proc/1/root", "/", 0);
         if (r == -ENOENT) {
                 r = proc_mounted();
                 if (r == 0) {

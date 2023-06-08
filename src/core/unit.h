@@ -810,6 +810,7 @@ static inline const UnitVTable* UNIT_VTABLE(const Unit *u) {
 
 Unit* unit_has_dependency(const Unit *u, UnitDependencyAtom atom, Unit *other);
 int unit_get_dependency_array(const Unit *u, UnitDependencyAtom atom, Unit ***ret_array);
+int unit_get_transitive_dependency_set(Unit *u, UnitDependencyAtom atom, Set **ret);
 
 static inline Hashmap* unit_get_dependencies(Unit *u, UnitDependency d) {
         return hashmap_get(u->dependencies, UNIT_DEPENDENCY_TO_PTR(d));
@@ -902,12 +903,7 @@ int unit_kill_common(Unit *u, KillWho who, int signo, int code, int value, pid_t
 
 void unit_notify_cgroup_oom(Unit *u, bool managed_oom);
 
-typedef enum UnitNotifyFlags {
-        UNIT_NOTIFY_RELOAD_FAILURE    = 1 << 0,
-        UNIT_NOTIFY_WILL_AUTO_RESTART = 1 << 1,
-} UnitNotifyFlags;
-
-void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlags flags);
+void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success);
 
 int unit_watch_pid(Unit *u, pid_t pid, bool exclusive);
 void unit_unwatch_pid(Unit *u, pid_t pid);

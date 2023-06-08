@@ -70,4 +70,14 @@
                 </defaults>
         </action>
 
+        <action id="org.freedesktop.systemd1.bypass-dump-ratelimit">
+                <description gettext-domain="systemd">Dump the systemd state without rate limits</description>
+                <message gettext-domain="systemd">Authentication is required to dump the systemd state without rate limits.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
 </policyconfig>

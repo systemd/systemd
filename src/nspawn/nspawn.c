@@ -30,6 +30,7 @@
 #include "btrfs-util.h"
 #include "build.h"
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "bus-util.h"
 #include "cap-list.h"
 #include "capability-util.h"
@@ -2092,13 +2093,7 @@ static int resolved_listening(void) {
         if (r == 0)
                 return 0;
 
-        r = sd_bus_get_property_string(bus,
-                                       "org.freedesktop.resolve1",
-                                       "/org/freedesktop/resolve1",
-                                       "org.freedesktop.resolve1.Manager",
-                                       "DNSStubListener",
-                                       &error,
-                                       &dns_stub_listener_mode);
+        r = bus_get_property_string(bus, bus_resolve_mgr, "DNSStubListener", &error, &dns_stub_listener_mode);
         if (r < 0)
                 return log_debug_errno(r, "Failed to query DNSStubListener property: %s", bus_error_message(&error, r));
 
@@ -3402,10 +3397,10 @@ static int inner_child(
                 if (r < 0)
                         return log_error_errno(r, "personality() failed: %m");
 #endif
-        } else if (arg_architecture >= 0 && arg_architecture != native_architecture())
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Selected architecture '%s' not supported locally, refusing.",
-                                       architecture_to_string(arg_architecture));
+        } else if (!arg_quiet && arg_architecture >= 0 && arg_architecture != native_architecture())
+                log_notice("Selected architecture '%s' not supported natively on the local CPU, assuming "
+                           "invocation with qemu userspace emulator (or equivalent) in effect.",
+                           architecture_to_string(arg_architecture));
 
         r = setrlimit_closest_all((const struct rlimit *const*) arg_rlimit, &which_failed);
         if (r < 0)
@@ -5569,13 +5564,13 @@ static int run(int argc, char *argv[]) {
 
                         {
                                 BLOCK_SIGNALS(SIGINT);
-                                r = btrfs_subvol_snapshot(arg_directory, np,
-                                                          (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
-                                                          BTRFS_SNAPSHOT_FALLBACK_COPY |
-                                                          BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
-                                                          BTRFS_SNAPSHOT_RECURSIVE |
-                                                          BTRFS_SNAPSHOT_QUOTA |
-                                                          BTRFS_SNAPSHOT_SIGINT);
+                                r = btrfs_subvol_snapshot_at(AT_FDCWD, arg_directory, AT_FDCWD, np,
+                                                             (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
+                                                             BTRFS_SNAPSHOT_FALLBACK_COPY |
+                                                             BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
+                                                             BTRFS_SNAPSHOT_RECURSIVE |
+                                                             BTRFS_SNAPSHOT_QUOTA |
+                                                             BTRFS_SNAPSHOT_SIGINT);
                         }
                         if (r == -EINTR) {
                                 log_error_errno(r, "Interrupted while copying file system tree to %s, removed again.", np);
@@ -5610,14 +5605,14 @@ static int run(int argc, char *argv[]) {
 
                                 {
                                         BLOCK_SIGNALS(SIGINT);
-                                        r = btrfs_subvol_snapshot(arg_template, arg_directory,
-                                                                  (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
-                                                                  BTRFS_SNAPSHOT_FALLBACK_COPY |
-                                                                  BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
-                                                                  BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE |
-                                                                  BTRFS_SNAPSHOT_RECURSIVE |
-                                                                  BTRFS_SNAPSHOT_QUOTA |
-                                                                  BTRFS_SNAPSHOT_SIGINT);
+                                        r = btrfs_subvol_snapshot_at(AT_FDCWD, arg_template, AT_FDCWD, arg_directory,
+                                                                     (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
+                                                                     BTRFS_SNAPSHOT_FALLBACK_COPY |
+                                                                     BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
+                                                                     BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE |
+                                                                     BTRFS_SNAPSHOT_RECURSIVE |
+                                                                     BTRFS_SNAPSHOT_QUOTA |
+                                                                     BTRFS_SNAPSHOT_SIGINT);
                                 }
                                 if (r == -EEXIST)
                                         log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,

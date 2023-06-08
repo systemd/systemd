@@ -2229,7 +2229,7 @@ static int property_read_ip_filters(
                 void *userdata) {
 
         SecurityInfo *info = userdata;
-        _cleanup_(strv_freep) char **l = NULL;
+        _cleanup_strv_free_ char **l = NULL;
         int r;
 
         assert(bus);

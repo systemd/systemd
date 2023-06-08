@@ -921,7 +921,7 @@ int halt_now(enum action a) {
         /* The kernel will automatically flush ATA disks and suchlike on reboot(), but the file systems need
          * to be synced explicitly in advance. */
         if (!arg_no_sync && !arg_dry_run)
-                (void) sync();
+                sync();
 
         /* Make sure C-A-D is handled by the kernel from this point on... */
         if (!arg_dry_run)

@@ -19,4 +19,5 @@ session  required   pam_namespace.so
 {% if ENABLE_HOMED %}
 -session optional   pam_systemd_home.so
 {% endif %}
+session  optional   pam_umask.so silent
 session  optional   pam_systemd.so

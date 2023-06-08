@@ -13,6 +13,7 @@
 #include "sd-dhcp-lease.h"
 
 #include "alloc-util.h"
+#include "dhcp-internal.h"
 #include "dhcp-lease-internal.h"
 #include "dhcp-protocol.h"
 #include "dns-domain.h"
@@ -375,31 +376,6 @@ static int lease_parse_be32(const uint8_t *option, size_t len, be32_t *ret) {
         return 0;
 }
 
-static int lease_parse_string(const uint8_t *option, size_t len, char **ret) {
-        int r;
-
-        assert(option);
-        assert(ret);
-
-        if (len <= 0)
-                *ret = mfree(*ret);
-        else {
-                char *string;
-
-                /*
-                 * One trailing NUL byte is OK, we don't mind. See:
-                 * https://github.com/systemd/systemd/issues/1337
-                 */
-                r = make_cstring((const char*) option, len, MAKE_CSTRING_ALLOW_TRAILING_NUL, &string);
-                if (r < 0)
-                        return r;
-
-                free_and_replace(*ret, string);
-        }
-
-        return 0;
-}
-
 static int lease_parse_domain(const uint8_t *option, size_t len, char **ret) {
         _cleanup_free_ char *name = NULL, *normalized = NULL;
         int r;
@@ -407,7 +383,7 @@ static int lease_parse_domain(const uint8_t *option, size_t len, char **ret) {
         assert(option);
         assert(ret);
 
-        r = lease_parse_string(option, len, &name);
+        r = dhcp_option_parse_string(option, len, &name);
         if (r < 0)
                 return r;
         if (!name) {
@@ -451,8 +427,7 @@ static int lease_parse_in_addrs(const uint8_t *option, size_t len, struct in_add
                 if (!addresses)
                         return -ENOMEM;
 
-                free(*ret);
-                *ret = addresses;
+                free_and_replace(*ret, addresses);
                 *n_ret = n_addresses;
         }
 
@@ -742,7 +717,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 break;
 
         case SD_DHCP_OPTION_ROOT_PATH:
-                r = lease_parse_string(option, len, &lease->root_path);
+                r = dhcp_option_parse_string(option, len, &lease->root_path);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse root path, ignoring: %m");
                 break;
@@ -768,7 +743,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
         case SD_DHCP_OPTION_TZDB_TIMEZONE: {
                 _cleanup_free_ char *tz = NULL;
 
-                r = lease_parse_string(option, len, &tz);
+                r = dhcp_option_parse_string(option, len, &tz);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to parse timezone option, ignoring: %m");
                         return 0;
@@ -795,8 +770,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                         if (!p)
                                 return -ENOMEM;
 
-                        free(lease->vendor_specific);
-                        lease->vendor_specific = p;
+                        free_and_replace(lease->vendor_specific, p);
                 }
 
                 lease->vendor_specific_len = len;
@@ -1458,8 +1432,7 @@ int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const void *client_id, size_t
                 if (!p)
                         return -ENOMEM;
 
-                free(lease->client_id);
-                lease->client_id = p;
+                free_and_replace(lease->client_id, p);
                 lease->client_id_len = client_id_len;
         }
 

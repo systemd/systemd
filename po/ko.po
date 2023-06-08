@@ -4,12 +4,12 @@
 # Seong-ho Cho <shcho@gnome.org>, 2015, 2021.
 # Dongsu Park <dongsu@endocode.com>, 2015.
 # simmon <simmon@nplob.com>, 2021.
-# 김인수 <simmon@nplob.com>, 2022.
+# 김인수 <simmon@nplob.com>, 2022, 2023.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-10-20 10:35+0200\n"
-"PO-Revision-Date: 2022-11-04 12:19+0000\n"
+"PO-Revision-Date: 2023-06-03 15:48+0000\n"
 "Last-Translator: 김인수 <simmon@nplob.com>\n"
 "Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
 "master/ko/>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 4.14.1\n"
+"X-Generator: Weblate 4.17\n"
 "X-Poedit-SourceCharset: UTF-8\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
@@ -186,11 +186,11 @@ msgstr "가상 머신 또는 컨테이너의 이미지를 내보내려면 인증
 
 #: src/import/org.freedesktop.import1.policy:42
 msgid "Download a VM or container image"
-msgstr "가상 머신 또는 컨테이너 이미지 다운로드"
+msgstr "가상 머신 또는 컨테이너 이미지 내려받기"
 
 #: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a VM or container image"
-msgstr "가상 머신 또는 컨테이너 이미지를 다운로드하려면 인증이 필요합니다"
+msgstr "가상 머신 또는 컨테이너 이미지를 내려받기하려면 인증이 필요합니다"
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"

@@ -536,9 +536,10 @@ static int get_next_elapse(
 static int get_last_trigger(
                 sd_bus *bus,
                 const char *path,
-                usec_t *last) {
+                dual_timestamp *last) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        dual_timestamp t;
         int r;
 
         assert(bus);
@@ -553,10 +554,23 @@ static int get_last_trigger(
                         "LastTriggerUSec",
                         &error,
                         't',
-                        last);
+                        &t.realtime);
         if (r < 0)
                 return log_error_errno(r, "Failed to get last trigger time: %s", bus_error_message(&error, r));
 
+        r = sd_bus_get_property_trivial(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.systemd1.Timer",
+                        "LastTriggerUSecMonotonic",
+                        &error,
+                        't',
+                        &t.monotonic);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get last trigger time: %s", bus_error_message(&error, r));
+
+        *last = t;
         return 0;
 }
 
@@ -564,7 +578,7 @@ typedef struct TimerInfo {
         const char* machine;
         const char* id;
         usec_t next_elapse;
-        usec_t last_trigger;
+        dual_timestamp last_trigger;
         char **triggered;
 } TimerInfo;
 
@@ -623,8 +637,8 @@ static int output_timers_list(const TimerInfo *timers, size_t n_timers) {
                 r = table_add_many(table,
                                    TABLE_TIMESTAMP, t->next_elapse,
                                    TABLE_TIMESTAMP_LEFT, t->next_elapse,
-                                   TABLE_TIMESTAMP, t->last_trigger,
-                                   TABLE_TIMESTAMP_RELATIVE, t->last_trigger,
+                                   TABLE_TIMESTAMP, t->last_trigger.realtime,
+                                   TABLE_TIMESTAMP_RELATIVE_MONOTONIC, t->last_trigger.monotonic,
                                    TABLE_STRING, unit);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -677,8 +691,8 @@ static int add_timer_info(
                 size_t *n_timers) {
 
         _cleanup_strv_free_ char **triggered = NULL;
-        dual_timestamp next = DUAL_TIMESTAMP_NULL;
-        usec_t m, last = 0;
+        dual_timestamp next, last;
+        usec_t m;
         int r;
 
         assert(bus);

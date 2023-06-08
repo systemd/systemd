@@ -4,6 +4,8 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/test-control.sh
+. "$(dirname "$0")"/test-control.sh
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
@@ -15,7 +17,7 @@ restore_hostname() {
     fi
 }
 
-test_hostname() {
+testcase_hostname() {
     local orig=
 
     if [[ -f /etc/hostname ]]; then
@@ -59,7 +61,7 @@ get_chassis() (
     echo "$CHASSIS"
 )
 
-test_chassis() {
+testcase_chassis() {
     local i
 
     if [[ -f /etc/machine-info ]]; then
@@ -96,7 +98,7 @@ restore_sysfs_dmi() {
     systemctl stop systemd-hostnamed
 }
 
-test_firmware_date() {
+testcase_firmware_date() {
     # No DMI on s390x or ppc
     if [[ ! -d /sys/class/dmi/id ]]; then
         echo "/sys/class/dmi/id not found, skipping firmware date tests."
@@ -131,9 +133,7 @@ EOF
 
 : >/failed
 
-test_hostname
-test_chassis
-test_firmware_date
+run_testcases
 
 touch /testok
 rm /failed

@@ -10,6 +10,10 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "build.h"
+#include "bus-error.h"
+#include "bus-locator.h"
+#include "bus-util.h"
+#include "bus-wait-for-jobs.h"
 #include "chase.h"
 #include "copy.h"
 #include "creds-util.h"
@@ -234,17 +238,72 @@ static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*i
 }
 
 static int should_configure(int dir_fd, const char *filename) {
+        _cleanup_fclose_ FILE *passwd = NULL, *shadow = NULL;
+        int r;
+
         assert(dir_fd >= 0);
         assert(filename);
 
-        if (faccessat(dir_fd, filename, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to access %s: %m", filename);
+        if (streq(filename, "passwd") && !arg_force)
+                /* We may need to do additional checks, so open the file. */
+                r = xfopenat(dir_fd, filename, "re", O_NOFOLLOW, &passwd);
+        else
+                r = RET_NERRNO(faccessat(dir_fd, filename, F_OK, AT_SYMLINK_NOFOLLOW));
 
+        if (r == -ENOENT)
                 return true; /* missing */
+        if (r < 0)
+                return log_error_errno(r, "Failed to access %s: %m", filename);
+        if (arg_force)
+                return true; /* exists, but if --force was given we should still configure the file. */
+
+        if (!passwd)
+                return false;
+
+        /* In case of /etc/passwd, do an additional check for the root password field.
+         * We first check that passwd redirects to shadow, and then we check shadow.
+         */
+        struct passwd *i;
+        while ((r = fgetpwent_sane(passwd, &i)) > 0) {
+                if (!streq(i->pw_name, "root"))
+                        continue;
+
+                if (streq_ptr(i->pw_passwd, PASSWORD_SEE_SHADOW))
+                        break;
+                log_debug("passwd: root account with non-shadow password found, treating root as configured");
+                return false;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read %s: %m", filename);
+        if (r == 0) {
+                log_debug("No root account found in %s, assuming root is not configured.", filename);
+                return true;
         }
 
-        return arg_force; /* exists, but if --force was given we should still configure the file. */
+        r = xfopenat(dir_fd, "shadow", "re", O_NOFOLLOW, &shadow);
+        if (r == -ENOENT) {
+                log_debug("No shadow file found, assuming root is not configured.");
+                return true; /* missing */
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to access shadow: %m");
+
+        struct spwd *j;
+        while ((r = fgetspent_sane(shadow, &j)) > 0) {
+                if (!streq(j->sp_namp, "root"))
+                        continue;
+
+                bool unprovisioned = streq_ptr(j->sp_pwdp, PASSWORD_UNPROVISIONED);
+                log_debug("Root account found, %s.",
+                          unprovisioned ? "with unprovisioned password, treating root as not configured" :
+                                          "treating root as configured");
+                return unprovisioned;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read shadow: %m");
+        assert(r == 0);
+        log_debug("No root account found in shadow, assuming root is not configured.");
+        return true;
 }
 
 static bool locale_is_installed_bool(const char *name) {
@@ -390,7 +449,7 @@ static int process_locale(int rfd) {
                 return log_error_errno(r, "Failed to write /etc/locale.conf: %m");
 
         log_info("/etc/locale.conf written.");
-        return 0;
+        return 1;
 }
 
 static int prompt_keymap(int rfd) {
@@ -478,7 +537,7 @@ static int process_keymap(int rfd) {
                 return log_error_errno(r, "Failed to write /etc/vconsole.conf: %m");
 
         log_info("/etc/vconsole.conf written.");
-        return 0;
+        return 1;
 }
 
 static bool timezone_is_valid_log_error(const char *name) {
@@ -1172,7 +1231,8 @@ static int help(void) {
                "     --keymap=KEYMAP              Set keymap\n"
                "     --timezone=TIMEZONE          Set timezone\n"
                "     --hostname=NAME              Set hostname\n"
-               "     --machine-ID=ID              Set machine ID\n"
+               "     --setup-machine-id           Set a random machine ID\n"
+               "     --machine-ID=ID              Set specified machine ID\n"
                "     --root-password=PASSWORD     Set root password from plaintext password\n"
                "     --root-password-file=FILE    Set root password from file\n"
                "     --root-password-hashed=HASH  Set root password from hashed password\n"
@@ -1190,7 +1250,6 @@ static int help(void) {
                "     --copy-root-password         Copy root password from host\n"
                "     --copy-root-shell            Copy root shell from host\n"
                "     --copy                       Copy locale, keymap, timezone, root password\n"
-               "     --setup-machine-id           Generate a new random machine ID\n"
                "     --force                      Overwrite existing files\n"
                "     --delete-root-password       Delete root password\n"
                "     --welcome=no                 Disable the welcome text\n"
@@ -1214,6 +1273,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_KEYMAP,
                 ARG_TIMEZONE,
                 ARG_HOSTNAME,
+                ARG_SETUP_MACHINE_ID,
                 ARG_MACHINE_ID,
                 ARG_ROOT_PASSWORD,
                 ARG_ROOT_PASSWORD_FILE,
@@ -1233,7 +1293,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_COPY_TIMEZONE,
                 ARG_COPY_ROOT_PASSWORD,
                 ARG_COPY_ROOT_SHELL,
-                ARG_SETUP_MACHINE_ID,
                 ARG_FORCE,
                 ARG_DELETE_ROOT_PASSWORD,
                 ARG_WELCOME,
@@ -1251,6 +1310,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "keymap",                  required_argument, NULL, ARG_KEYMAP                  },
                 { "timezone",                required_argument, NULL, ARG_TIMEZONE                },
                 { "hostname",                required_argument, NULL, ARG_HOSTNAME                },
+                { "setup-machine-id",        no_argument,       NULL, ARG_SETUP_MACHINE_ID        },
                 { "machine-id",              required_argument, NULL, ARG_MACHINE_ID              },
                 { "root-password",           required_argument, NULL, ARG_ROOT_PASSWORD           },
                 { "root-password-file",      required_argument, NULL, ARG_ROOT_PASSWORD_FILE      },
@@ -1270,7 +1330,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "copy-timezone",           no_argument,       NULL, ARG_COPY_TIMEZONE           },
                 { "copy-root-password",      no_argument,       NULL, ARG_COPY_ROOT_PASSWORD      },
                 { "copy-root-shell",         no_argument,       NULL, ARG_COPY_ROOT_SHELL         },
-                { "setup-machine-id",        no_argument,       NULL, ARG_SETUP_MACHINE_ID        },
                 { "force",                   no_argument,       NULL, ARG_FORCE                   },
                 { "delete-root-password",    no_argument,       NULL, ARG_DELETE_ROOT_PASSWORD    },
                 { "welcome",                 required_argument, NULL, ARG_WELCOME                 },
@@ -1392,6 +1451,13 @@ static int parse_argv(int argc, char *argv[]) {
                         hostname_cleanup(arg_hostname);
                         break;
 
+                case ARG_SETUP_MACHINE_ID:
+                        r = sd_id128_randomize(&arg_machine_id);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to generate randomized machine ID: %m");
+
+                        break;
+
                 case ARG_MACHINE_ID:
                         r = sd_id128_from_string(optarg, &arg_machine_id);
                         if (r < 0)
@@ -1460,13 +1526,6 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_copy_root_shell = true;
                         break;
 
-                case ARG_SETUP_MACHINE_ID:
-                        r = sd_id128_randomize(&arg_machine_id);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to generate randomized machine ID: %m");
-
-                        break;
-
                 case ARG_FORCE:
                         arg_force = true;
                         break;
@@ -1496,15 +1555,74 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_delete_root_password && (arg_copy_root_password || arg_root_password || arg_prompt_root_password))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--delete-root-password cannot be combined with other root password options");
+                                       "--delete-root-password cannot be combined with other root password options.");
 
         if (arg_image && arg_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--root= and --image= cannot be used together.");
+
+        if (!sd_id128_is_null(arg_machine_id) && !(arg_image || arg_root) && !arg_force)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--machine-id=/--setup-machine-id only works with --root= or --image=.");
 
         return 1;
 }
 
+static int reload_system_manager(sd_bus **bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(bus);
+
+        if (!*bus) {
+                r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, RUNTIME_SCOPE_SYSTEM, bus);
+                if (r < 0)
+                        return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL);
+        }
+
+        r = bus_call_method(*bus, bus_systemd_mgr, "Reload", &error, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
+        log_info("Requested manager reload to apply locale configuration.");
+        return 0;
+}
+
+static int reload_vconsole(sd_bus **bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+        const char *object;
+        int r;
+
+        assert(bus);
+
+        if (!*bus) {
+                r = bus_connect_transport_systemd(BUS_TRANSPORT_LOCAL, NULL, RUNTIME_SCOPE_SYSTEM, bus);
+                if (r < 0)
+                        return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL);
+        }
+
+        r = bus_wait_for_jobs_new(*bus, &w);
+        if (r < 0)
+                return log_error_errno(r, "Could not watch jobs: %m");
+
+        r = bus_call_method(*bus, bus_systemd_mgr, "RestartUnit", &error, &reply,
+                            "ss", "systemd-vconsole-setup.service", "replace");
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "o", &object);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = bus_wait_for_jobs_one(w, object, false, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to wait for systemd-vconsole-setup.service/restart: %m");
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         _cleanup_close_ int rfd = -EBADF;
@@ -1518,13 +1636,14 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (!arg_root && !arg_image) {
-                bool enabled;
+        bool offline = arg_root || arg_image;
 
+        if (!offline) {
                 /* If we are called without --root=/--image= let's honour the systemd.firstboot kernel
                  * command line option, because we are called to provision the host with basic settings (as
                  * opposed to some other file system tree/image) */
 
+                bool enabled;
                 r = proc_cmdline_get_bool("systemd.firstboot", &enabled);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring: %m");
@@ -1584,10 +1703,14 @@ static int run(int argc, char *argv[]) {
         r = process_locale(rfd);
         if (r < 0)
                 return r;
+        if (r > 0 && !offline)
+                (void) reload_system_manager(&bus);
 
         r = process_keymap(rfd);
         if (r < 0)
                 return r;
+        if (r > 0 && !offline)
+                (void) reload_vconsole(&bus);
 
         r = process_timezone(rfd);
         if (r < 0)

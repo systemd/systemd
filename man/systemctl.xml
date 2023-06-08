@@ -1535,13 +1535,45 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>kexec</command></term>
 
           <listitem>
-            <para>Shut down and reboot the system via <command>kexec</command>. This is equivalent to
-            <command>systemctl start kexec.target --job-mode=replace-irreversibly --no-block</command>. This command is
+            <para>Shut down and reboot the system via <command>kexec</command>. This command will load a
+            kexec kernel if one wasn't loaded yet or fail. A kernel may be loaded earlier by a separate step,
+            this is particularly useful if a custom initrd or additional kernel commandline options are
+            desired. The <option>--force</option> can be used to continue without a kexec kernel, i.e. to
+            perform a normal reboot. The final reboot step is equivalent to
+            <command>systemctl start kexec.target --job-mode=replace-irreversibly --no-block</command>.
+            </para>
+
+            <para>To load a kernel, an enumeration is performed following the
+            <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>,
+            and the default boot entry is loaded. For this step to succeed, the system must be using UEFI
+            and the boot loader entries must be configured appropriately. <command>bootctl list</command>
+            may be used to list boot entries, see
+            <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+            </para>
+
+            <para>This command is asynchronous; it will return after the reboot operation is enqueued,
+            without waiting for it to complete.</para>
+
+            <para>This command honors <option>--force</option> and <option>--when=</option> similarly
+            to <command>halt</command>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>soft-reboot</command></term>
+
+          <listitem>
+            <para>Shut down and reboot userspace. This is equivalent to <command>systemctl start
+            soft-reboot.target --job-mode=replace-irreversibly --no-block</command>. This command is
             asynchronous; it will return after the reboot operation is enqueued, without waiting for it to
             complete.</para>
 
             <para>This command honors <option>--force</option> and <option>--when=</option> in a similar way
             as <command>halt</command>.</para>
+
+            <para>This operation only reboots userspace, leaving the kernel running. See
+            <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            for details.</para>
           </listitem>
         </varlistentry>
 

@@ -3,6 +3,7 @@
 set -e
 
 TEST_DESCRIPTION="Tests for auxiliary utilities"
+NSPAWN_ARGUMENTS="--private-network"
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"

@@ -15,6 +15,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "bus-locator.h"
 #include "bus-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -704,14 +705,7 @@ static int get_virtualization(char **v) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_get_property_string(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "Virtualization",
-                        NULL,
-                        &b);
+        r = bus_get_property_string(bus, bus_systemd_mgr, "Virtualization", NULL, &b);
         if (r < 0)
                 return r;
 

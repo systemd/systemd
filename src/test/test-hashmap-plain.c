@@ -11,7 +11,7 @@
 #include "tests.h"
 
 TEST(hashmap_replace) {
-        _cleanup_(hashmap_freep) Hashmap *m = NULL;
+        _cleanup_hashmap_free_ Hashmap *m = NULL;
         _cleanup_free_ char *val1 = NULL, *val2 = NULL, *val3 = NULL, *val4 = NULL, *val5 = NULL;
         char *r;
 
@@ -43,8 +43,8 @@ TEST(hashmap_replace) {
 }
 
 TEST(hashmap_copy) {
-        _cleanup_(hashmap_freep) Hashmap *m = NULL;
-        _cleanup_(hashmap_free_freep) Hashmap *copy = NULL;
+        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_hashmap_free_free_ Hashmap *copy = NULL;
         char *val1, *val2, *val3, *val4, *r;
 
         val1 = strdup("val1");
@@ -76,8 +76,8 @@ TEST(hashmap_copy) {
 }
 
 TEST(hashmap_get_strv) {
-        _cleanup_(hashmap_freep) Hashmap *m = NULL;
-        _cleanup_(strv_freep) char **strv = NULL;
+        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_strv_free_ char **strv = NULL;
         char *val1, *val2, *val3, *val4;
 
         val1 = strdup("val1");
@@ -109,7 +109,7 @@ TEST(hashmap_get_strv) {
 }
 
 TEST(hashmap_move_one) {
-        _cleanup_(hashmap_free_freep) Hashmap *m = NULL, *n = NULL;
+        _cleanup_hashmap_free_free_ Hashmap *m = NULL, *n = NULL;
         char *val1, *val2, *val3, *val4, *r;
 
         val1 = strdup("val1");
@@ -145,7 +145,7 @@ TEST(hashmap_move_one) {
 }
 
 TEST(hashmap_move) {
-        _cleanup_(hashmap_free_freep) Hashmap *m = NULL, *n = NULL;
+        _cleanup_hashmap_free_free_ Hashmap *m = NULL, *n = NULL;
         char *val1, *val2, *val3, *val4, *r;
 
         val1 = strdup("val1");
@@ -184,7 +184,7 @@ TEST(hashmap_move) {
 }
 
 TEST(hashmap_update) {
-        _cleanup_(hashmap_freep) Hashmap *m = NULL;
+        _cleanup_hashmap_free_ Hashmap *m = NULL;
         _cleanup_free_ char *val1 = NULL, *val2 = NULL;
         char *r;
 
@@ -208,7 +208,7 @@ TEST(hashmap_update) {
 }
 
 TEST(hashmap_put) {
-        _cleanup_(hashmap_freep) Hashmap *m = NULL;
+        _cleanup_hashmap_free_ Hashmap *m = NULL;
         int valid_hashmap_put;
         void *val1 = (void*) "val 1";
         void *val2 = (void*) "val 2";
@@ -417,7 +417,7 @@ TEST(hashmap_ensure_allocated) {
 }
 
 TEST(hashmap_foreach_key) {
-        _cleanup_(hashmap_freep) Hashmap *m = NULL;
+        _cleanup_hashmap_free_ Hashmap *m = NULL;
         bool key_found[] = { false, false, false, false };
         const char *s;
         const char *key;
@@ -449,7 +449,7 @@ TEST(hashmap_foreach_key) {
 }
 
 TEST(hashmap_foreach) {
-        _cleanup_(hashmap_free_freep) Hashmap *m = NULL;
+        _cleanup_hashmap_free_free_ Hashmap *m = NULL;
         bool value_found[] = { false, false, false, false };
         char *val1, *val2, *val3, *val4, *s;
         unsigned count;
@@ -496,8 +496,8 @@ TEST(hashmap_foreach) {
 }
 
 TEST(hashmap_merge) {
-        _cleanup_(hashmap_free_freep) Hashmap *m = NULL;
-        _cleanup_(hashmap_freep) Hashmap *n = NULL;
+        _cleanup_hashmap_free_free_ Hashmap *m = NULL;
+        _cleanup_hashmap_free_ Hashmap *n = NULL;
         char *val1, *val2, *val3, *val4, *r;
 
         val1 = strdup("my val1");
@@ -528,7 +528,7 @@ TEST(hashmap_merge) {
 }
 
 TEST(hashmap_contains) {
-        _cleanup_(hashmap_free_freep) Hashmap *m = NULL;
+        _cleanup_hashmap_free_free_ Hashmap *m = NULL;
         char *val1;
 
         val1 = strdup("my val");
@@ -547,7 +547,7 @@ TEST(hashmap_contains) {
 }
 
 TEST(hashmap_isempty) {
-        _cleanup_(hashmap_free_freep) Hashmap *m = NULL;
+        _cleanup_hashmap_free_free_ Hashmap *m = NULL;
         char *val1;
 
         val1 = strdup("my val");
@@ -563,7 +563,7 @@ TEST(hashmap_isempty) {
 }
 
 TEST(hashmap_size) {
-        _cleanup_(hashmap_free_freep) Hashmap *m = NULL;
+        _cleanup_hashmap_free_free_ Hashmap *m = NULL;
         char *val1, *val2, *val3, *val4;
 
         val1 = strdup("my val");
@@ -591,7 +591,7 @@ TEST(hashmap_size) {
 }
 
 TEST(hashmap_get) {
-        _cleanup_(hashmap_free_freep) Hashmap *m = NULL;
+        _cleanup_hashmap_free_free_ Hashmap *m = NULL;
         char *r;
         char *val;
 

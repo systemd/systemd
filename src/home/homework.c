@@ -511,7 +511,7 @@ int home_sync_and_statfs(int root_fd, struct statfs *ret) {
 }
 
 static int read_identity_file(int root_fd, JsonVariant **ret) {
-        _cleanup_(fclosep) FILE *identity_file = NULL;
+        _cleanup_fclose_ FILE *identity_file = NULL;
         _cleanup_close_ int identity_fd = -EBADF;
         unsigned line, column;
         int r;
@@ -542,7 +542,7 @@ static int read_identity_file(int root_fd, JsonVariant **ret) {
 
 static int write_identity_file(int root_fd, JsonVariant *v, uid_t uid) {
         _cleanup_(json_variant_unrefp) JsonVariant *normalized = NULL;
-        _cleanup_(fclosep) FILE *identity_file = NULL;
+        _cleanup_fclose_ FILE *identity_file = NULL;
         _cleanup_close_ int identity_fd = -EBADF;
         _cleanup_free_ char *fn = NULL;
         int r;
@@ -1088,7 +1088,7 @@ static int user_record_compile_effective_passwords(
                 PasswordCache *cache,
                 char ***ret_effective_passwords) {
 
-        _cleanup_(strv_free_erasep) char **effective = NULL;
+        _cleanup_strv_free_erase_ char **effective = NULL;
         size_t n;
         int r;
 
@@ -1307,7 +1307,7 @@ static int determine_default_storage(UserStorage *ret) {
 }
 
 static int home_create(UserRecord *h, UserRecord **ret_home) {
-        _cleanup_(strv_free_erasep) char **effective_passwords = NULL;
+        _cleanup_strv_free_erase_ char **effective_passwords = NULL;
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         _cleanup_(password_cache_free) PasswordCache cache = {};
@@ -1679,7 +1679,7 @@ static int home_resize(UserRecord *h, bool automatic, UserRecord **ret) {
 
 static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(user_record_unrefp) UserRecord *header_home = NULL, *embedded_home = NULL, *new_home = NULL;
-        _cleanup_(strv_free_erasep) char **effective_passwords = NULL;
+        _cleanup_strv_free_erase_ char **effective_passwords = NULL;
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
@@ -1850,7 +1850,7 @@ static int home_unlock(UserRecord *h) {
 static int run(int argc, char *argv[]) {
         _cleanup_(user_record_unrefp) UserRecord *home = NULL, *new_home = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        _cleanup_(fclosep) FILE *opened_file = NULL;
+        _cleanup_fclose_ FILE *opened_file = NULL;
         unsigned line = 0, column = 0;
         const char *json_path = NULL;
         FILE *json_file;

@@ -4,10 +4,12 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/test-control.sh
+. "$(dirname "$0")"/test-control.sh
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-test_timedatectl() {
+testcase_timedatectl() {
     timedatectl --no-pager --help
     timedatectl --version
 
@@ -36,7 +38,7 @@ restore_timezone() {
     fi
 }
 
-test_timezone() {
+testcase_timezone() {
     local ORIG_TZ=
 
     # Debian/Ubuntu specific file
@@ -87,7 +89,7 @@ check_adjtime_not_exist() {
     fi
 }
 
-test_adjtime() {
+testcase_adjtime() {
     # test setting UTC vs. LOCAL in /etc/adjtime
     if [[ -e /etc/adjtime ]]; then
         mv /etc/adjtime /etc/adjtime.bak
@@ -221,7 +223,7 @@ wait_mon() {
     wait "$MONPID" 2>/dev/null || true
 }
 
-test_ntp() {
+testcase_ntp() {
     # timesyncd has ConditionVirtualization=!container by default; drop/mock that for testing
     if systemd-detect-virt --container --quiet; then
         systemctl disable --quiet --now systemd-timesyncd
@@ -277,10 +279,7 @@ EOF
 
 : >/failed
 
-test_timedatectl
-test_timezone
-test_adjtime
-test_ntp
+run_testcases
 
 touch /testok
 rm /failed

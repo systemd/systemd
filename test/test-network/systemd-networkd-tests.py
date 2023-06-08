@@ -1157,10 +1157,6 @@ class WaitOnlineTests(unittest.TestCase, Utilities):
     def tearDown(self):
         tear_down_common()
 
-    def test_wait_online_all_unmanaged(self):
-        start_networkd()
-        self.wait_online([])
-
     def test_wait_online_any(self):
         copy_network_unit('25-bridge.netdev', '25-bridge.network', '11-dummy.netdev', '11-dummy.network')
         start_networkd()
@@ -1285,12 +1281,14 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         output = check_output('ip -d link show vlan99')
         print(output)
-        self.assertRegex(output, ' mtu 2000 ')
-        self.assertRegex(output, 'REORDER_HDR')
-        self.assertRegex(output, 'LOOSE_BINDING')
-        self.assertRegex(output, 'GVRP')
-        self.assertRegex(output, 'MVRP')
-        self.assertRegex(output, ' id 99 ')
+        self.assertIn(' mtu 2000 ', output)
+        self.assertIn('REORDER_HDR', output)
+        self.assertIn('LOOSE_BINDING', output)
+        self.assertIn('GVRP', output)
+        self.assertIn('MVRP', output)
+        self.assertIn(' id 99 ', output)
+        self.assertIn('ingress-qos-map { 4:100 7:13 }', output)
+        self.assertIn('egress-qos-map { 0:1 1:3 6:6 7:7 10:3 }', output)
 
         output = check_output('ip -4 address show dev test1')
         print(output)
@@ -4674,6 +4672,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                       '--dhcp-alternate-port=67,5555',
                       ipv4_range='192.168.5.110,192.168.5.119')
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_address('veth99', r'inet 192.168.5.11[0-9]*/24', ipv='-4')
 
         print('## ip address show dev veth99 scope global')
         output = check_output('ip address show dev veth99 scope global')

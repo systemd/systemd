@@ -242,6 +242,7 @@ static int systemctl_help(void) {
                "  poweroff                            Shut down and power-off the system\n"
                "  reboot                              Shut down and reboot the system\n"
                "  kexec                               Shut down and reboot the system with kexec\n"
+               "  soft-reboot                         Shut down and reboot userspace\n"
                "  exit [EXIT_CODE]                    Request user instance or container exit\n"
                "  switch-root [ROOT [INIT]]           Change to a different root file system\n"
                "  suspend                             Suspend the system\n"
@@ -285,8 +286,9 @@ static int systemctl_help(void) {
                "     --now               Start or stop unit after enabling or disabling it\n"
                "     --dry-run           Only print what would be done\n"
                "                         Currently supported by verbs: halt, poweroff, reboot,\n"
-               "                             kexec, suspend, hibernate, suspend-then-hibernate,\n"
-               "                             hybrid-sleep, default, rescue, emergency, and exit.\n"
+               "                             kexec, soft-reboot, suspend, hibernate, \n"
+               "                             suspend-then-hibernate, hybrid-sleep, default,\n"
+               "                             rescue, emergency, and exit.\n"
                "  -q --quiet             Suppress output\n"
                "     --no-warn           Suppress several warnings shown by default\n"
                "     --wait              For (re)start, wait until service stopped again\n"
@@ -1180,6 +1182,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "poweroff",              VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
                 { "reboot",                VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
                 { "kexec",                 VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
+                { "soft-reboot",           VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
                 { "suspend",               VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
                 { "hibernate",             VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
                 { "hybrid-sleep",          VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },

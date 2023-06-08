@@ -22,7 +22,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "glyph-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "list.h"
 #include "lock-util.h"
 #include "loop-util.h"

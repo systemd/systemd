@@ -42,6 +42,7 @@ SUBSYSTEM=="cec", GROUP="video"
 
 SUBSYSTEM=="drm", KERNEL=="renderD*", GROUP="render", MODE="{{GROUP_RENDER_MODE}}"
 SUBSYSTEM=="kfd", GROUP="render", MODE="{{GROUP_RENDER_MODE}}"
+SUBSYSTEM=="accel", GROUP="render", MODE="{{GROUP_RENDER_MODE}}"
 
 SUBSYSTEM=="misc", KERNEL=="sgx_enclave", GROUP="sgx", MODE="0660"
 SUBSYSTEM=="misc", KERNEL=="sgx_vepc", GROUP="sgx", MODE="0660"

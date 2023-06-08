@@ -210,7 +210,7 @@ static int acquire_existing_password(
                 bool emphasize_current,
                 AskPasswordFlags flags) {
 
-        _cleanup_(strv_free_erasep) char **password = NULL;
+        _cleanup_strv_free_erase_ char **password = NULL;
         _cleanup_(erase_and_freep) char *envpw = NULL;
         _cleanup_free_ char *question = NULL;
         int r;
@@ -271,7 +271,7 @@ static int acquire_recovery_key(
                 UserRecord *hr,
                 AskPasswordFlags flags) {
 
-        _cleanup_(strv_free_erasep) char **recovery_key = NULL;
+        _cleanup_strv_free_erase_ char **recovery_key = NULL;
         _cleanup_(erase_and_freep) char *envpw = NULL;
         _cleanup_free_ char *question = NULL;
         int r;
@@ -329,7 +329,7 @@ static int acquire_token_pin(
                 UserRecord *hr,
                 AskPasswordFlags flags) {
 
-        _cleanup_(strv_free_erasep) char **pin = NULL;
+        _cleanup_strv_free_erase_ char **pin = NULL;
         _cleanup_(erase_and_freep) char *envpin = NULL;
         _cleanup_free_ char *question = NULL;
         int r;
@@ -699,7 +699,7 @@ static char **mangle_user_list(char **list, char ***ret_allocated) {
 
 static int inspect_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(strv_freep) char **mangled_list = NULL;
+        _cleanup_strv_free_ char **mangled_list = NULL;
         int r, ret = 0;
         char **items;
 
@@ -783,7 +783,7 @@ static int inspect_home(int argc, char *argv[], void *userdata) {
 
 static int authenticate_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(strv_freep) char **mangled_list = NULL;
+        _cleanup_strv_free_ char **mangled_list = NULL;
         int r, ret = 0;
         char **items;
 
@@ -1187,7 +1187,7 @@ static int acquire_new_password(
                 (void) suggest_passwords();
 
         for (;;) {
-                _cleanup_(strv_free_erasep) char **first = NULL, **second = NULL;
+                _cleanup_strv_free_erase_ char **first = NULL, **second = NULL;
                 _cleanup_free_ char *question = NULL;
 
                 if (--i == 0)
@@ -3162,7 +3162,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SSH_AUTHORIZED_KEYS: {
                         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-                        _cleanup_(strv_freep) char **l = NULL, **add = NULL;
+                        _cleanup_strv_free_ char **l = NULL, **add = NULL;
 
                         if (isempty(optarg)) {
                                 r = drop_from_identity("sshAuthorizedKeys");

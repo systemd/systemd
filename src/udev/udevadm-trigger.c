@@ -112,7 +112,8 @@ static int exec_list(
                         if (ret == 0 && !ignore)
                                 ret = r;
                         continue;
-                }
+                } else
+                        log_device_debug(d, "Triggered device with action '%s'.", action_str);
 
                 if (uuid_supported < 0)
                         uuid_supported = true;

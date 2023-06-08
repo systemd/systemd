@@ -46,7 +46,7 @@ static void test_should_fail(const char *p) {
 }
 
 static void test_one(const char *p) {
-        _cleanup_free_ char *with_utc;
+        _cleanup_free_ char *with_utc = NULL;
 
         with_utc = strjoin(p, " UTC");
         test_should_pass(p);
@@ -54,7 +54,7 @@ static void test_one(const char *p) {
 }
 
 static void test_one_noutc(const char *p) {
-        _cleanup_free_ char *with_utc;
+        _cleanup_free_ char *with_utc = NULL;
 
         with_utc = strjoin(p, " UTC");
         test_should_pass(p);

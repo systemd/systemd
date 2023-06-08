@@ -123,12 +123,16 @@ struct timeval* timeval_store(struct timeval *tv, usec_t u);
 #define TIMEVAL_STORE(u) timeval_store(&(struct timeval) {}, (u))
 
 char* format_timestamp_style(char *buf, size_t l, usec_t t, TimestampStyle style) _warn_unused_result_;
-char* format_timestamp_relative_full(char *buf, size_t l, usec_t t, bool implicit_left) _warn_unused_result_;
+char* format_timestamp_relative_full(char *buf, size_t l, usec_t t, clockid_t clock, bool implicit_left) _warn_unused_result_;
 char* format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) _warn_unused_result_;
 
 _warn_unused_result_
-static inline char* format_timestamp_relative(char *buf, size_t l, usec_t t)  {
-        return format_timestamp_relative_full(buf, l, t, false);
+static inline char* format_timestamp_relative(char *buf, size_t l, usec_t t) {
+        return format_timestamp_relative_full(buf, l, t, CLOCK_REALTIME, /* implicit_left = */ false);
+}
+_warn_unused_result_
+static inline char* format_timestamp_relative_monotonic(char *buf, size_t l, usec_t t) {
+        return format_timestamp_relative_full(buf, l, t, CLOCK_MONOTONIC, /* implicit_left = */ false);
 }
 
 _warn_unused_result_
@@ -142,6 +146,8 @@ static inline char* format_timestamp(char *buf, size_t l, usec_t t) {
 #define FORMAT_TIMESTAMP(t) format_timestamp((char[FORMAT_TIMESTAMP_MAX]){}, FORMAT_TIMESTAMP_MAX, t)
 #define FORMAT_TIMESTAMP_RELATIVE(t)                                    \
         format_timestamp_relative((char[FORMAT_TIMESTAMP_RELATIVE_MAX]){}, FORMAT_TIMESTAMP_RELATIVE_MAX, t)
+#define FORMAT_TIMESTAMP_RELATIVE_MONOTONIC(t)                          \
+        format_timestamp_relative_monotonic((char[FORMAT_TIMESTAMP_RELATIVE_MAX]){}, FORMAT_TIMESTAMP_RELATIVE_MAX, t)
 #define FORMAT_TIMESPAN(t, accuracy) format_timespan((char[FORMAT_TIMESPAN_MAX]){}, FORMAT_TIMESPAN_MAX, t, accuracy)
 #define FORMAT_TIMESTAMP_STYLE(t, style) \
         format_timestamp_style((char[FORMAT_TIMESTAMP_MAX]){}, FORMAT_TIMESTAMP_MAX, t, style)

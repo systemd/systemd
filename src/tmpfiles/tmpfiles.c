@@ -41,7 +41,7 @@
 #include "glob-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
-#include "label.h"
+#include "label-util.h"
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
@@ -86,35 +86,35 @@ typedef enum OperationMask {
 
 typedef enum ItemType {
         /* These ones take file names */
-        CREATE_FILE = 'f',
-        TRUNCATE_FILE = 'F', /* deprecated: use f+ */
-        CREATE_DIRECTORY = 'd',
-        TRUNCATE_DIRECTORY = 'D',
-        CREATE_SUBVOLUME = 'v',
+        CREATE_FILE                    = 'f',
+        TRUNCATE_FILE                  = 'F', /* deprecated: use f+ */
+        CREATE_DIRECTORY               = 'd',
+        TRUNCATE_DIRECTORY             = 'D',
+        CREATE_SUBVOLUME               = 'v',
         CREATE_SUBVOLUME_INHERIT_QUOTA = 'q',
-        CREATE_SUBVOLUME_NEW_QUOTA = 'Q',
-        CREATE_FIFO = 'p',
-        CREATE_SYMLINK = 'L',
-        CREATE_CHAR_DEVICE = 'c',
-        CREATE_BLOCK_DEVICE = 'b',
-        COPY_FILES = 'C',
+        CREATE_SUBVOLUME_NEW_QUOTA     = 'Q',
+        CREATE_FIFO                    = 'p',
+        CREATE_SYMLINK                 = 'L',
+        CREATE_CHAR_DEVICE             = 'c',
+        CREATE_BLOCK_DEVICE            = 'b',
+        COPY_FILES                     = 'C',
 
         /* These ones take globs */
-        WRITE_FILE = 'w',
-        EMPTY_DIRECTORY = 'e',
-        SET_XATTR = 't',
-        RECURSIVE_SET_XATTR = 'T',
-        SET_ACL = 'a',
-        RECURSIVE_SET_ACL = 'A',
-        SET_ATTRIBUTE = 'h',
-        RECURSIVE_SET_ATTRIBUTE = 'H',
-        IGNORE_PATH = 'x',
-        IGNORE_DIRECTORY_PATH = 'X',
-        REMOVE_PATH = 'r',
-        RECURSIVE_REMOVE_PATH = 'R',
-        RELABEL_PATH = 'z',
-        RECURSIVE_RELABEL_PATH = 'Z',
-        ADJUST_MODE = 'm', /* legacy, 'z' is identical to this */
+        WRITE_FILE                     = 'w',
+        EMPTY_DIRECTORY                = 'e',
+        SET_XATTR                      = 't',
+        RECURSIVE_SET_XATTR            = 'T',
+        SET_ACL                        = 'a',
+        RECURSIVE_SET_ACL              = 'A',
+        SET_ATTRIBUTE                  = 'h',
+        RECURSIVE_SET_ATTRIBUTE        = 'H',
+        IGNORE_PATH                    = 'x',
+        IGNORE_DIRECTORY_PATH          = 'X',
+        REMOVE_PATH                    = 'r',
+        RECURSIVE_REMOVE_PATH          = 'R',
+        RELABEL_PATH                   = 'z',
+        RECURSIVE_RELABEL_PATH         = 'Z',
+        ADJUST_MODE                    = 'm', /* legacy, 'z' is identical to this */
 } ItemType;
 
 typedef enum AgeBy {
@@ -125,7 +125,7 @@ typedef enum AgeBy {
 
         /* All file timestamp types are checked by default. */
         AGE_BY_DEFAULT_FILE = AGE_BY_ATIME | AGE_BY_BTIME | AGE_BY_CTIME | AGE_BY_MTIME,
-        AGE_BY_DEFAULT_DIR  = AGE_BY_ATIME | AGE_BY_BTIME | AGE_BY_MTIME
+        AGE_BY_DEFAULT_DIR  = AGE_BY_ATIME | AGE_BY_BTIME | AGE_BY_MTIME,
 } AgeBy;
 
 typedef struct Item {
@@ -200,6 +200,7 @@ static bool arg_cat_config = false;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static OperationMask arg_operation = 0;
 static bool arg_boot = false;
+static bool arg_graceful = false;
 static PagerFlags arg_pager_flags = 0;
 
 static char **arg_include_prefixes = NULL;
@@ -799,7 +800,11 @@ static int dir_cleanup(
                                            cutoff_nsec, sub_path, age_by_file, false))
                                 continue;
 
-                        fd = xopenat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME, 0);
+                        fd = xopenat(dirfd(d),
+                                     de->d_name,
+                                     O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME,
+                                     /* xopen_flags = */ 0,
+                                     /* mode = */ 0);
                         if (fd < 0 && fd != -ENOENT)
                                 log_warning_errno(fd, "Opening file \"%s\" failed, ignoring: %m", sub_path);
                         if (fd >= 0 && flock(fd, LOCK_EX|LOCK_NB) < 0 && errno == EAGAIN) {
@@ -1131,7 +1136,8 @@ static int parse_acls_from_arg(Item *item) {
         r = parse_acl(item->argument, &item->acl_access, &item->acl_access_exec,
                       &item->acl_default, !item->append_or_force);
         if (r < 0)
-                log_warning_errno(r, "Failed to parse ACL \"%s\", ignoring: %m", item->argument);
+                log_full_errno(arg_graceful && IN_SET(r, -ENOENT, -ESRCH) ? LOG_DEBUG : LOG_WARNING,
+                               r, "Failed to parse ACL \"%s\", ignoring: %m", item->argument);
 #else
         log_warning("ACLs are not supported, ignoring.");
 #endif
@@ -1534,7 +1540,7 @@ static int fd_set_attribute(
                 return log_error_errno(procfs_fd, "Failed to re-open '%s': %m", path);
 
         unsigned previous, current;
-        r = chattr_full(NULL, procfs_fd, f, item->attribute_mask, &previous, &current, CHATTR_FALLBACK_BITWISE);
+        r = chattr_full(procfs_fd, NULL, f, item->attribute_mask, &previous, &current, CHATTR_FALLBACK_BITWISE);
         if (r == -ENOANO)
                 log_warning("Cannot set file attributes for '%s', maybe due to incompatibility in specified attributes, "
                             "previous=0x%08x, current=0x%08x, expected=0x%08x, ignoring.",
@@ -3322,7 +3328,8 @@ static int parse_line(
         ItemArray *existing;
         OrderedHashmap *h;
         int r, pos;
-        bool append_or_force = false, boot = false, allow_failure = false, try_replace = false, unbase64 = false, from_cred = false;
+        bool append_or_force = false, boot = false, allow_failure = false, try_replace = false,
+                unbase64 = false, from_cred = false, missing_user_or_group = false;
 
         assert(fname);
         assert(line >= 1);
@@ -3355,7 +3362,7 @@ static int parse_line(
         r = extract_many_words(
                         &buffer,
                         NULL,
-                        EXTRACT_UNQUOTE,
+                        EXTRACT_UNQUOTE | EXTRACT_CUNESCAPE,
                         &action,
                         &path,
                         &mode,
@@ -3669,12 +3676,15 @@ static int parse_line(
                         u = user;
 
                 r = find_uid(u, &i.uid, uid_cache);
-                if (r < 0) {
+                if (r == -ESRCH && arg_graceful) {
+                        log_syntax(NULL, LOG_DEBUG, fname, line, r,
+                                   "%s: user '%s' not found, not adjusting ownership.", i.path, u);
+                        missing_user_or_group = true;
+                } else if (r < 0) {
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to resolve user '%s': %m", u);
-                }
-
-                i.uid_set = true;
+                } else
+                        i.uid_set = true;
         }
 
         if (!empty_or_dash(group)) {
@@ -3687,12 +3697,15 @@ static int parse_line(
                         g = group;
 
                 r = find_gid(g, &i.gid, gid_cache);
-                if (r < 0) {
+                if (r == -ESRCH && arg_graceful) {
+                        log_syntax(NULL, LOG_DEBUG, fname, line, r,
+                                   "%s: group '%s' not found, not adjusting ownership.", i.path, g);
+                        missing_user_or_group = true;
+                } else if (r < 0) {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to resolve group '%s'.", g);
-                }
-
-                i.gid_set = true;
+                        return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to resolve group '%s': %m", g);
+                } else
+                        i.gid_set = true;
         }
 
         if (!empty_or_dash(mode)) {
@@ -3717,7 +3730,20 @@ static int parse_line(
                 i.mode = m;
                 i.mode_set = true;
         } else
-                i.mode = IN_SET(i.type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA) ? 0755 : 0644;
+                i.mode = IN_SET(i.type,
+                                CREATE_DIRECTORY,
+                                TRUNCATE_DIRECTORY,
+                                CREATE_SUBVOLUME,
+                                CREATE_SUBVOLUME_INHERIT_QUOTA,
+                                CREATE_SUBVOLUME_NEW_QUOTA) ? 0755 : 0644;
+
+        if (missing_user_or_group && (i.mode & ~0777) != 0) {
+                /* Refuse any special bits for nodes where we couldn't resolve the ownership properly. */
+                mode_t adjusted = i.mode & 0777;
+                log_syntax(NULL, LOG_INFO, fname, line, 0,
+                           "Changing mode 0%o to 0%o because of changed ownership.", i.mode, adjusted);
+                i.mode = adjusted;
+        }
 
         if (!empty_or_dash(age)) {
                 const char *a = age;
@@ -3839,6 +3865,7 @@ static int help(void) {
                "     --clean                Clean up marked directories\n"
                "     --remove               Remove marked files/directories\n"
                "     --boot                 Execute actions only safe at boot\n"
+               "     --graceful             Quitely ignore unknown users or groups\n"
                "     --prefix=PATH          Only apply rules with the specified prefix\n"
                "     --exclude-prefix=PATH  Ignore rules with the specified prefix\n"
                "  -E                        Ignore rules prefixed with /dev, /proc, /run, /sys\n"
@@ -3866,6 +3893,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CLEAN,
                 ARG_REMOVE,
                 ARG_BOOT,
+                ARG_GRACEFUL,
                 ARG_PREFIX,
                 ARG_EXCLUDE_PREFIX,
                 ARG_ROOT,
@@ -3884,6 +3912,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "clean",          no_argument,         NULL, ARG_CLEAN          },
                 { "remove",         no_argument,         NULL, ARG_REMOVE         },
                 { "boot",           no_argument,         NULL, ARG_BOOT           },
+                { "graceful",       no_argument,         NULL, ARG_GRACEFUL       },
                 { "prefix",         required_argument,   NULL, ARG_PREFIX         },
                 { "exclude-prefix", required_argument,   NULL, ARG_EXCLUDE_PREFIX },
                 { "root",           required_argument,   NULL, ARG_ROOT           },
@@ -3931,6 +3960,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_BOOT:
                         arg_boot = true;
+                        break;
+
+                case ARG_GRACEFUL:
+                        arg_graceful = true;
                         break;
 
                 case ARG_PREFIX:
@@ -4022,7 +4055,7 @@ static int read_config_file(
                 bool ignore_enoent,
                 bool *invalid_config) {
 
-        _cleanup_(hashmap_freep) Hashmap *uid_cache = NULL, *gid_cache = NULL;
+        _cleanup_hashmap_free_ Hashmap *uid_cache = NULL, *gid_cache = NULL;
         _cleanup_fclose_ FILE *_f = NULL;
         _cleanup_free_ char *pp = NULL;
         unsigned v = 0;
@@ -4297,7 +4330,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = mac_selinux_init();
+        r = mac_init();
         if (r < 0)
                 return r;
 

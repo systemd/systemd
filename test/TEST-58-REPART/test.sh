@@ -4,6 +4,7 @@ set -e
 
 TEST_DESCRIPTION="test systemd-repart"
 IMAGE_NAME="repart"
+IMAGE_ADDITIONAL_ROOT_SIZE=1000
 TEST_FORCE_NEWIMAGE=1
 
 # shellcheck source=test/test-functions

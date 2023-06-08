@@ -360,7 +360,7 @@
             and the naming of the generated entry file or UKI is slightly altered to include it as
             <filename>$BOOT/loader/entries/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>+<replaceable>TRIES</replaceable>.conf</filename>
             or
-            <filename>$BOOT/EFI/Linux/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>+<replaceable>TRIES</replaceable>.conf</filename>, respectively. This
+            <filename>$BOOT/EFI/Linux/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>+<replaceable>TRIES</replaceable>.efi</filename>, respectively. This
             is useful for boot loaders such as
             <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
             which implement boot attempt counting with a counter embedded in the entry file name.

@@ -11,11 +11,13 @@
 Description=Remount Root and Kernel File Systems
 Documentation=man:systemd-remount-fs.service(8)
 Documentation=https://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
+
 DefaultDependencies=no
-Conflicts=shutdown.target
 After=systemd-fsck-root.service
-Before=local-fs-pre.target local-fs.target shutdown.target
+Before=local-fs-pre.target local-fs.target
 Wants=local-fs-pre.target
+Conflicts=shutdown.target
+Before=shutdown.target
 
 [Service]
 Type=oneshot

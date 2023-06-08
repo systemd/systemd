@@ -583,7 +583,7 @@ TEST(unit_name_to_instance) {
 }
 
 TEST(unit_name_escape) {
-        _cleanup_free_ char *r;
+        _cleanup_free_ char *r = NULL;
 
         r = unit_name_escape("ab+-c.a/bc@foo.service");
         assert_se(r);

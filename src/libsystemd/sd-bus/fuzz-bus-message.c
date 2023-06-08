@@ -7,14 +7,14 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fuzz.h"
+#include "memstream-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_free_ char *out = NULL; /* out should be freed after g */
-        size_t out_size;
-        _cleanup_fclose_ FILE *g = NULL;
+        _cleanup_(memstream_done) MemStream ms = {};
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ void *buffer = NULL;
+        FILE *g = NULL;
         int r;
 
         /* We don't want to fill the logs with messages about parse errors.
@@ -34,7 +34,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         TAKE_PTR(buffer);
 
         if (getenv_bool("SYSTEMD_FUZZ_OUTPUT") <= 0)
-                assert_se(g = open_memstream_unlocked(&out, &out_size));
+                assert_se(g = memstream_init(&ms));
 
         sd_bus_message_dump(m, g ?: stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 

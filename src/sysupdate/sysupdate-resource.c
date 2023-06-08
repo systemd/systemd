@@ -13,6 +13,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "find-esp.h"
 #include "glyph-util.h"
 #include "gpt.h"
 #include "hexdecoct.h"
@@ -72,7 +73,7 @@ static int resource_load_from_directory(
                 Resource *rr,
                 mode_t m) {
 
-        _cleanup_(closedirp) DIR *d = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
         int r;
 
         assert(rr);
@@ -242,7 +243,7 @@ static int download_manifest(
                 size_t *ret_size) {
 
         _cleanup_free_ char *buffer = NULL, *suffixed_url = NULL;
-        _cleanup_(close_pairp) int pfd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pfd[2] = PIPE_EBADF;
         _cleanup_fclose_ FILE *manifest = NULL;
         size_t size = 0;
         pid_t pid;
@@ -520,6 +521,12 @@ int resource_resolve_path(
 
         assert(rr);
 
+        if (IN_SET(rr->path_relative_to, PATH_RELATIVE_TO_ESP, PATH_RELATIVE_TO_XBOOTLDR, PATH_RELATIVE_TO_BOOT) &&
+            !IN_SET(rr->type, RESOURCE_REGULAR_FILE, RESOURCE_DIRECTORY))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Paths relative to %s are only allowed for regular-file or directory resources.",
+                                       path_relative_to_to_string(rr->path_relative_to));
+
         if (rr->path_auto) {
                 struct stat orig_root_stats;
 
@@ -595,12 +602,31 @@ int resource_resolve_path(
 
                 r = get_block_device_harder_fd(fd, &d);
 
-        } else if (RESOURCE_IS_FILESYSTEM(rr->type) && root) {
-                _cleanup_free_ char *resolved = NULL;
+        } else if (RESOURCE_IS_FILESYSTEM(rr->type)) {
+                _cleanup_free_ char *resolved = NULL, *relative_to = NULL;
+                ChaseFlags chase_flags = CHASE_PREFIX_ROOT;
 
-                r = chase(rr->path, root, CHASE_PREFIX_ROOT, &resolved, NULL);
+                if (rr->path_relative_to == PATH_RELATIVE_TO_ROOT) {
+                        relative_to = strdup(empty_to_root(root));
+                        if (!relative_to)
+                                return log_oom();
+                } else { /* boot, esp, or xbootldr */
+                        r = 0;
+                        if (IN_SET(rr->path_relative_to, PATH_RELATIVE_TO_BOOT, PATH_RELATIVE_TO_XBOOTLDR))
+                                r = find_xbootldr_and_warn(root, NULL, /* unprivileged_mode= */ -1, &relative_to, NULL, NULL);
+                        if (r == -ENOKEY || rr->path_relative_to == PATH_RELATIVE_TO_ESP)
+                                r = find_esp_and_warn(root, NULL, -1, &relative_to, NULL, NULL, NULL, NULL, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to resolve $BOOT: %m");
+                        log_debug("Resolved $BOOT to '%s'", relative_to);
+
+                        /* Since this partition is read from EFI, there should be no symlinks */
+                        chase_flags |= CHASE_PROHIBIT_SYMLINKS;
+                }
+
+                r = chase(rr->path, relative_to, chase_flags, &resolved, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to resolve '%s': %m", rr->path);
+                        return log_error_errno(r, "Failed to resolve '%s' (relative to '%s'): %m", rr->path, relative_to);
 
                 free_and_replace(rr->path, resolved);
                 return 0;
@@ -641,3 +667,12 @@ static const char *resource_type_table[_RESOURCE_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(resource_type, ResourceType);
+
+static const char *path_relative_to_table[_PATH_RELATIVE_TO_MAX] = {
+        [PATH_RELATIVE_TO_ROOT]     = "root",
+        [PATH_RELATIVE_TO_ESP]      = "esp",
+        [PATH_RELATIVE_TO_XBOOTLDR] = "xbootldr",
+        [PATH_RELATIVE_TO_BOOT]     = "boot",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(path_relative_to, PathRelativeTo);

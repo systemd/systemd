@@ -20,3 +20,7 @@
 #ifndef PR_MDWE_REFUSE_EXEC_GAIN
 #define PR_MDWE_REFUSE_EXEC_GAIN 1
 #endif
+
+#ifndef PR_SET_MEMORY_MERGE
+#define PR_SET_MEMORY_MERGE 67
+#endif

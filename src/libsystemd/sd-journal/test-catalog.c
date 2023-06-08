@@ -27,7 +27,7 @@ static const char *no_catalog_dirs[] = {
 
 static OrderedHashmap* test_import(const char* contents, ssize_t size, int code) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-catalog.XXXXXX";
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -EBADF;
         OrderedHashmap *h;
 
         if (size < 0)

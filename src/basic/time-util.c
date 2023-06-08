@@ -422,7 +422,7 @@ char *format_timestamp_style(
         return buf;
 }
 
-char* format_timestamp_relative_full(char *buf, size_t l, usec_t t, bool implicit_left) {
+char* format_timestamp_relative_full(char *buf, size_t l, usec_t t, clockid_t clock, bool implicit_left) {
         const char *s;
         usec_t n, d;
 
@@ -431,7 +431,7 @@ char* format_timestamp_relative_full(char *buf, size_t l, usec_t t, bool implici
         if (!timestamp_is_set(t))
                 return NULL;
 
-        n = now(CLOCK_REALTIME);
+        n = now(clock);
         if (n > t) {
                 d = n - t;
                 s = " ago";

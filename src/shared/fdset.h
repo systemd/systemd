@@ -20,7 +20,7 @@ bool fdset_contains(FDSet *s, int fd);
 int fdset_remove(FDSet *s, int fd);
 
 int fdset_new_array(FDSet **ret, const int *fds, size_t n_fds);
-int fdset_new_fill(FDSet **ret);
+int fdset_new_fill(int filter_cloexec, FDSet **ret);
 int fdset_new_listen_fds(FDSet **ret, bool unset);
 
 int fdset_cloexec(FDSet *fds, bool b);

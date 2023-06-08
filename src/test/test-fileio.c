@@ -460,7 +460,7 @@ TEST(write_string_stream) {
 TEST(write_string_file) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-write_string_file-XXXXXX";
         char buf[64] = {};
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -EBADF;
 
         fd = mkostemp_safe(fn);
         assert_se(fd >= 0);
@@ -473,7 +473,7 @@ TEST(write_string_file) {
 
 TEST(write_string_file_no_create) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-write_string_file_no_create-XXXXXX";
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -EBADF;
         char buf[64] = {};
 
         fd = mkostemp_safe(fn);

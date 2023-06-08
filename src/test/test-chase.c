@@ -17,6 +17,19 @@
 
 static const char *arg_test_dir = NULL;
 
+static void test_chase_extract_filename_one(const char *path, const char *root, const char *expected) {
+        _cleanup_free_ char *ret1 = NULL, *ret2 = NULL, *fname = NULL;
+
+        log_debug("/* %s(path=%s, root=%s) */", __func__, path, strnull(root));
+
+        assert_se(chase(path, root, CHASE_EXTRACT_FILENAME, &ret1, NULL) > 0);
+        assert_se(streq(ret1, expected));
+
+        assert_se(chase(path, root, 0, &ret2, NULL) > 0);
+        assert_se(chase_extract_filename(ret2, root, &fname) >= 0);
+        assert_se(streq(fname, expected));
+}
+
 TEST(chase) {
         _cleanup_free_ char *result = NULL, *pwd = NULL;
         _cleanup_close_ int pfd = -EBADF;
@@ -110,6 +123,19 @@ TEST(chase) {
         assert_se(r > 0);
         assert_se(path_equal(result, temp));
         result = mfree(result);
+
+        /* Tests for CHASE_EXTRACT_FILENAME and chase_extract_filename() */
+
+        p = strjoina(temp, "/start");
+        pslash = strjoina(p, "/");
+        test_chase_extract_filename_one(p, NULL, "usr");
+        test_chase_extract_filename_one(pslash, NULL, "usr");
+        test_chase_extract_filename_one(p, temp, "usr");
+        test_chase_extract_filename_one(pslash, temp, "usr");
+
+        p = strjoina(temp, "/slash");
+        test_chase_extract_filename_one(p, NULL, ".");
+        test_chase_extract_filename_one(p, temp, ".");
 
         /* Paths that would "escape" outside of the "root" */
 
@@ -548,7 +574,7 @@ TEST(chaseat) {
 
         assert_se(chaseat(tfd, "i/../p", CHASE_MKDIR_0755|CHASE_NONEXISTENT, NULL, NULL) == -ENOENT);
 
-        /* Test CHASE_FILENAME */
+        /* Test CHASE_EXTRACT_FILENAME */
 
         assert_se(chaseat(tfd, "chase/parent", CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT|CHASE_NOFOLLOW|CHASE_EXTRACT_FILENAME, &result, &fd) >= 0);
         assert_se(faccessat(fd, result, F_OK, AT_SYMLINK_NOFOLLOW) >= 0);
@@ -570,6 +596,10 @@ TEST(chaseat) {
         assert_se(streq(result, "."));
         result = mfree(result);
 
+        assert_se(chaseat(tfd, NULL, CHASE_PARENT|CHASE_AT_RESOLVE_IN_ROOT|CHASE_EXTRACT_FILENAME, &result, NULL) >= 0);
+        assert_se(streq(result, "."));
+        result = mfree(result);
+
         /* Test chase_and_openat() */
 
         fd = chase_and_openat(tfd, "o/p/e/n/f/i/l/e", CHASE_MKDIR_0755, O_CREAT|O_EXCL|O_CLOEXEC, NULL);
@@ -581,6 +611,12 @@ TEST(chaseat) {
         assert_se(fd >= 0);
         assert_se(fd_verify_directory(fd) >= 0);
         fd = safe_close(fd);
+
+        fd = chase_and_openat(tfd, NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME, O_PATH|O_DIRECTORY|O_CLOEXEC, &result);
+        assert_se(fd >= 0);
+        assert_se(streq(result, "."));
+        fd = safe_close(fd);
+        result = mfree(result);
 
         /* Test chase_and_openatdir() */
 
@@ -643,11 +679,6 @@ TEST(chaseat) {
         result = mfree(result);
 }
 
-static int intro(void) {
-        arg_test_dir = saved_argv[1];
-        return EXIT_SUCCESS;
-}
-
 TEST(chaseat_prefix_root) {
         _cleanup_free_ char *cwd = NULL, *ret = NULL, *expected = NULL;
 
@@ -683,6 +714,11 @@ TEST(chaseat_prefix_root) {
         assert_se(chaseat_prefix_root("./hoge/aaa/../././b", "a/b//./c///", &ret) >= 0);
         assert_se(expected = path_join(cwd, "a/b/c/hoge/aaa/../././b"));
         assert_se(streq(ret, expected));
+}
+
+static int intro(void) {
+        arg_test_dir = saved_argv[1];
+        return EXIT_SUCCESS;
 }
 
 DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);

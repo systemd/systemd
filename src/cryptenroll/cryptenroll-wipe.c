@@ -88,7 +88,7 @@ static int find_slots_by_mask(
                 Set *keep_slots,
                 unsigned by_mask) {
 
-        _cleanup_(set_freep) Set *listed_slots = NULL;
+        _cleanup_set_free_ Set *listed_slots = NULL;
         int r;
 
         assert(cd);
@@ -301,7 +301,7 @@ int wipe_slots(struct crypt_device *cd,
                unsigned by_mask,
                int except_slot) {
 
-        _cleanup_(set_freep) Set *wipe_slots = NULL, *wipe_tokens = NULL, *keep_slots = NULL;
+        _cleanup_set_free_ Set *wipe_slots = NULL, *wipe_tokens = NULL, *keep_slots = NULL;
         _cleanup_free_ int *ordered_slots = NULL, *ordered_tokens = NULL;
         size_t n_ordered_slots = 0, n_ordered_tokens = 0;
         int r, slot_max, ret;

@@ -130,6 +130,7 @@ static int property_set(
     for (int i = 0; i < LOG_DEBUG + 1; i++)
       if (strcmp(value, log_level_table[i]) == 0) {
         o->log_level = i;
+        setlogmask(LOG_UPTO(i));
         return 0;
       }
 
@@ -192,6 +193,12 @@ int main(int argc, char **argv) {
     .log_target = LOG_TARGET_JOURNAL,
     .syslog_identifier = "example",
   };
+
+  /* https://man7.org/linux/man-pages/man3/setlogmask.3.html
+   * Programs using syslog() instead of sd_journal can use this API to cut logs
+   * emission at the source.
+   */
+  setlogmask(LOG_UPTO(o.log_level));
 
   /* Acquire a connection to the bus, letting the library work out the details.
    * https://www.freedesktop.org/software/systemd/man/sd_bus_default.html

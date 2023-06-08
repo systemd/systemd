@@ -20,7 +20,7 @@
  */
 
 static int run(int argc, char **argv) {
-        _cleanup_close_ int fd;
+        _cleanup_close_ int fd = -EBADF;
         char **args = strv_skip(argv, 1);
         int r;
 

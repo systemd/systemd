@@ -30,7 +30,8 @@ test_append_files() {
         seq \
         sleep \
         stat \
-        touch
+        touch \
+        true
 
     cp /etc/os-release "$container/usr/lib/os-release"
     cat >"$container/sbin/init" <<EOF

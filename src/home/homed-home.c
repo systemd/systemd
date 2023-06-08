@@ -11,6 +11,7 @@
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "bus-common-errors.h"
+#include "bus-locator.h"
 #include "data-fd-util.h"
 #include "env-util.h"
 #include "errno-list.h"
@@ -2117,15 +2118,7 @@ int home_killall(Home *h) {
         if (asprintf(&unit, "user-" UID_FMT ".slice", h->uid) < 0)
                 return log_oom();
 
-        r = sd_bus_call_method(
-                        h->manager->bus,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "KillUnit",
-                        &error,
-                        NULL,
-                        "ssi", unit, "all", SIGKILL);
+        r = bus_call_method(h->manager->bus, bus_systemd_mgr, "KillUnit", &error, NULL, "ssi", unit, "all", SIGKILL);
         if (r < 0)
                 log_full_errno(sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_UNIT) ? LOG_DEBUG : LOG_WARNING,
                                r, "Failed to kill login processes of user, ignoring: %s", bus_error_message(&error, r));
@@ -2688,8 +2681,6 @@ static int home_dispatch_acquire(Home *h, Operation *o) {
         assert(o);
         assert(o->type == OPERATION_ACQUIRE);
 
-        assert(!h->current_operation);
-
         switch (home_get_state(h)) {
 
         case HOME_UNFIXATED:
@@ -2724,6 +2715,8 @@ static int home_dispatch_acquire(Home *h, Operation *o) {
                  * pending. */
                 return 0;
         }
+
+        assert(!h->current_operation);
 
         r = home_ratelimit(h, &error);
         if (r >= 0)

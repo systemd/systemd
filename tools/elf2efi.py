@@ -27,6 +27,7 @@ import io
 import os
 import pathlib
 import time
+import typing
 from ctypes import (
     c_char,
     c_uint8,
@@ -377,7 +378,7 @@ def convert_elf_reloc_table(
 
 def convert_elf_relocations(
     elf: ELFFile, opt: PeOptionalHeader, sections: list[PeSection]
-) -> PeSection:
+) -> typing.Optional[PeSection]:
     dynamic = elf.get_section_by_name(".dynamic")
     if dynamic is None:
         raise RuntimeError("ELF .dynamic section is missing.")
@@ -393,6 +394,9 @@ def convert_elf_relocations(
         convert_elf_reloc_table(
             elf, reloc_table, opt.ImageBase, sections, pe_reloc_blocks
         )
+
+    if len(pe_reloc_blocks) == 0:
+        return None
 
     data = bytearray()
     for rva in sorted(pe_reloc_blocks):
@@ -508,10 +512,11 @@ def elf2efi(args: argparse.Namespace):
     opt.SizeOfImage = align_to(
         sections[-1].VirtualAddress + sections[-1].VirtualSize, SECTION_ALIGNMENT
     )
+
     opt.SizeOfHeaders = align_to(
         PE_OFFSET
         + coff.SizeOfOptionalHeader
-        + sizeof(PeSection) * coff.NumberOfSections,
+        + sizeof(PeSection) * max(coff.NumberOfSections, args.minimum_sections),
         FILE_ALIGNMENT,
     )
     # DYNAMIC_BASE|NX_COMPAT|HIGH_ENTROPY_VA or DYNAMIC_BASE|NX_COMPAT
@@ -524,9 +529,10 @@ def elf2efi(args: argparse.Namespace):
     opt.SizeOfHeapCommit = 0x001000
 
     opt.NumberOfRvaAndSizes = N_DATA_DIRECTORY_ENTRIES
-    opt.BaseRelocationTable = PeDataDirectory(
-        pe_reloc_s.VirtualAddress, pe_reloc_s.VirtualSize
-    )
+    if pe_reloc_s:
+        opt.BaseRelocationTable = PeDataDirectory(
+            pe_reloc_s.VirtualAddress, pe_reloc_s.VirtualSize
+        )
 
     write_pe(args.PE, coff, opt, sections)
 
@@ -572,6 +578,12 @@ def main():
         "PE",
         type=argparse.FileType("wb"),
         help="Output PE/EFI file",
+    )
+    parser.add_argument(
+        "--minimum-sections",
+        type=int,
+        default=0,
+        help="Minimum number of sections to leave space for",
     )
 
     elf2efi(parser.parse_args())

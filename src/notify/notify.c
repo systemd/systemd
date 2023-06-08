@@ -132,7 +132,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        _cleanup_(fdset_freep) FDSet *passed = NULL;
+        _cleanup_fdset_free_ FDSet *passed = NULL;
         bool do_exec = false;
         int c, r, n_env;
 
@@ -221,7 +221,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         if (!passed) {
                                 /* Take possession of all passed fds */
-                                r = fdset_new_fill(&passed);
+                                r = fdset_new_fill(/* filter_cloexec= */ 0, &passed);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to take possession of passed file descriptors: %m");
 

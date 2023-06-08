@@ -1357,7 +1357,7 @@ static int manager_enumerate_devices(Manager *m) {
 }
 
 static int manager_load_key_pair(Manager *m) {
-        _cleanup_(fclosep) FILE *f = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         struct stat st;
         int r;
 

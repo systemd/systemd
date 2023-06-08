@@ -501,7 +501,7 @@ option('analyze', type: 'boolean', value: true,
        description : 'install systemd-analyze')
 
 option('bpf-compiler', type : 'combo', choices : ['clang', 'gcc'],
-    description: 'compiler used to build BPF programs, note: gcc is experimental')
+    description: 'compiler used to build BPF programs')
 option('bpf-framework', type : 'combo', choices : ['auto', 'true', 'false'],
     description: 'build BPF programs from source code in restricted C')
 

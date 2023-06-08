@@ -21,6 +21,9 @@ if systemd-detect-virt -cq; then
     exit 0
 fi
 
+# To make all coredump entries stored in system.journal.
+journalctl --rotate
+
 # Check that we're the ones to receive coredumps
 sysctl kernel.core_pattern | grep systemd-coredump
 
@@ -39,7 +42,17 @@ sig="${2:?}"
 ulimit -c unlimited
 "$bin" infinity &
 pid=$!
-sleep 1
+# Sync with the "fake" binary, so we kill it once it's fully forked off,
+# otherwise we might kill it during fork and kernel would then report
+# "wrong" binary name (i.e. $MAKE_DUMP_SCRIPT instead of $CORE_TEST_BIN).
+# In this case, wait until the "fake" binary (sleep in this case) enters
+# the "interruptible sleep" state, at which point it should be ready
+# to be sacrificed.
+for _ in {0..9}; do
+    read -ra self_stat <"/proc/$pid/stat"
+    [[ "${self_stat[2]}" == S ]] && break
+    sleep .5
+done
 kill -s "$sig" "$pid"
 # This should always fail
 ! wait "$pid"

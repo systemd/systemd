@@ -43,7 +43,7 @@ static const BaseFilesystem table[] = {
         { "run",   0555, NULL,                         NULL, true },
         /* We don't add /tmp/ here for now (even though it's necessary for regular operation), because we
          * want to support both cases where /tmp/ is a mount of its own (in which case we probably should set
-         * the mode to 1555, to indicate that noone should write to it, not even root) and when it's part of
+         * the mode to 1555, to indicate that no one should write to it, not even root) and when it's part of
          * the rootfs (in which case we should set mode 1777), and we simply don't know what's right. */
 
         /* Various architecture ABIs define the path to the dynamic loader via the /lib64/ subdirectory of

@@ -6,14 +6,13 @@
 #include "install.h"
 #include "load-fragment.h"
 #include "manager-dump.h"
+#include "memstream-util.h"
 #include "string-util.h"
 #include "unit-serialize.h"
 #include "utf8.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_free_ char *out = NULL; /* out should be freed after g */
-        size_t out_size;
-        _cleanup_fclose_ FILE *f = NULL, *g = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         UnitType t;
         _cleanup_(manager_freep) Manager *m = NULL;
@@ -79,9 +78,10 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                         u,
                         NULL);
 
-        g = open_memstream_unlocked(&out, &out_size);
-        assert_se(g);
+        _cleanup_(memstream_done) MemStream ms = {};
+        FILE *g;
 
+        assert_se(g = memstream_init(&ms));
         unit_dump(u, g, "");
         manager_dump(m, g, /* patterns= */ NULL, ">>>");
 

@@ -1093,7 +1093,7 @@ static int component_name_valid(const char *c) {
 static int verb_components(int argc, char **argv, void *userdata) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-        _cleanup_(set_freep) Set *names = NULL;
+        _cleanup_set_free_ Set *names = NULL;
         _cleanup_free_ char **z = NULL; /* We use simple free() rather than strv_free() here, since set_free() will free the strings for us */
         char **l = CONF_PATHS_STRV("");
         bool has_default_component = false;

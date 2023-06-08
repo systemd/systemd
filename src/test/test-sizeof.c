@@ -55,8 +55,10 @@ int main(void) {
         info(unsigned);
         info(unsigned long);
         info(unsigned long long);
+#ifdef __GLIBC__
         info(__syscall_ulong_t);
         info(__syscall_slong_t);
+#endif
         info(intmax_t);
         info(uintmax_t);
 
@@ -76,13 +78,17 @@ int main(void) {
         info(ssize_t);
         info(time_t);
         info(usec_t);
+#ifdef __GLIBC__
         info(__time_t);
+#endif
         info(pid_t);
         info(uid_t);
         info(gid_t);
         info(socklen_t);
 
+#ifdef __GLIBC__
         info(__cpu_mask);
+#endif
 
         info(enum Enum);
         info(enum BigEnum);

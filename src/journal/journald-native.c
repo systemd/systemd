@@ -66,20 +66,16 @@ static void server_process_entry_meta(
                 char *t;
 
                 t = memdup_suffix0(p + 18, l - 18);
-                if (t) {
-                        free(*identifier);
-                        *identifier = t;
-                }
+                if (t)
+                        free_and_replace(*identifier, t);
 
         } else if (l >= 8 &&
                    startswith(p, "MESSAGE=")) {
                 char *t;
 
                 t = memdup_suffix0(p + 8, l - 8);
-                if (t) {
-                        free(*message);
-                        *message = t;
-                }
+                if (t)
+                        free_and_replace(*message, t);
 
         } else if (l > STRLEN("OBJECT_PID=") &&
                    l < STRLEN("OBJECT_PID=")  + DECIMAL_STR_MAX(pid_t) &&

@@ -647,7 +647,7 @@ static void display(Hashmap *a) {
 
                 printf("%s%s%-*s%s %s%7s%s %s%*s%s %s%8s%s %s%8s%s %s%8s%s%s\n",
                        ansi_underline(),
-                       arg_order == ORDER_PATH ? on : "", path_columns, "Control Group",
+                       arg_order == ORDER_PATH ? on : "", path_columns, "CGroup",
                        arg_order == ORDER_PATH ? off : "",
                        arg_order == ORDER_TASKS ? on : "",
                        arg_count == COUNT_PIDS ? "Tasks" : arg_count == COUNT_USERSPACE_PROCESSES ? "Procs" : "Proc+",

@@ -245,7 +245,7 @@ int copy_bytes_full(
                 ssize_t n;
 
                 if (max_bytes <= 0)
-                        return 1; /* return > 0 if we hit the max_bytes limit */
+                        break;
 
                 r = look_for_signals(copy_flags);
                 if (r < 0)
@@ -468,7 +468,16 @@ int copy_bytes_full(
                 copied_something = true;
         }
 
-        return 0; /* return 0 if we hit EOF earlier than the size limit */
+        if (copy_flags & COPY_TRUNCATE) {
+                off_t off = lseek(fdt, 0, SEEK_CUR);
+                if (off < 0)
+                        return -errno;
+
+                if (ftruncate(fdt, off) < 0)
+                        return -errno;
+        }
+
+        return max_bytes <= 0; /* return 0 if we hit EOF earlier than the size limit */
 }
 
 static int fd_copy_symlink(
@@ -1208,61 +1217,22 @@ int copy_tree_at_full(
         return 0;
 }
 
-static int sync_dir_by_flags(const char *path, CopyFlags copy_flags) {
+static int sync_dir_by_flags(int dir_fd, const char *path, CopyFlags copy_flags) {
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(path);
 
         if (copy_flags & COPY_SYNCFS)
-                return syncfs_path(AT_FDCWD, path);
+                return syncfs_path(dir_fd, path);
         if (copy_flags & COPY_FSYNC_FULL)
-                return fsync_parent_at(AT_FDCWD, path);
+                return fsync_parent_at(dir_fd, path);
 
         return 0;
 }
 
-int copy_directory_fd_full(
-                int dirfd,
-                const char *to,
-                CopyFlags copy_flags,
-                copy_progress_path_t progress_path,
-                copy_progress_bytes_t progress_bytes,
-                void *userdata) {
-
-        struct stat st;
-        int r;
-
-        assert(dirfd >= 0);
-        assert(to);
-
-        if (fstat(dirfd, &st) < 0)
-                return -errno;
-
-        r = stat_verify_directory(&st);
-        if (r < 0)
-                return r;
-
-        r = fd_copy_directory(
-                        dirfd, NULL,
-                        &st,
-                        AT_FDCWD, to,
-                        st.st_dev,
-                        COPY_DEPTH_MAX,
-                        UID_INVALID, GID_INVALID,
-                        copy_flags,
-                        NULL, NULL, NULL,
-                        progress_path,
-                        progress_bytes,
-                        userdata);
-        if (r < 0)
-                return r;
-
-        r = sync_dir_by_flags(to, copy_flags);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-int copy_directory_full(
+int copy_directory_at_full(
+                int dir_fdf,
                 const char *from,
+                int dir_fdt,
                 const char *to,
                 CopyFlags copy_flags,
                 copy_progress_path_t progress_path,
@@ -1272,10 +1242,11 @@ int copy_directory_full(
         struct stat st;
         int r;
 
-        assert(from);
+        assert(dir_fdf >= 0 || dir_fdf == AT_FDCWD);
+        assert(dir_fdt >= 0 || dir_fdt == AT_FDCWD);
         assert(to);
 
-        if (lstat(from, &st) < 0)
+        if (fstatat(dir_fdf, strempty(from), &st, AT_SYMLINK_NOFOLLOW|(isempty(from) ? AT_EMPTY_PATH : 0)) < 0)
                 return -errno;
 
         r = stat_verify_directory(&st);
@@ -1283,9 +1254,9 @@ int copy_directory_full(
                 return r;
 
         r = fd_copy_directory(
-                        AT_FDCWD, from,
+                        dir_fdf, from,
                         &st,
-                        AT_FDCWD, to,
+                        dir_fdt, to,
                         st.st_dev,
                         COPY_DEPTH_MAX,
                         UID_INVALID, GID_INVALID,
@@ -1297,7 +1268,7 @@ int copy_directory_full(
         if (r < 0)
                 return r;
 
-        r = sync_dir_by_flags(to, copy_flags);
+        r = sync_dir_by_flags(dir_fdt, to, copy_flags);
         if (r < 0)
                 return r;
 

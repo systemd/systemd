@@ -18,7 +18,7 @@ if ! get_bool "${TEST_PREFER_NSPAWN:=}"; then
     TEST_NO_NSPAWN=1
 fi
 
-command -v dfuzzer >/dev/null || exit 0
+test_require_bin dfuzzer
 
 if ! get_bool "$IS_BUILT_WITH_ASAN"; then
     echo "systemd is built without ASan, skipping..."

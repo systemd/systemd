@@ -173,24 +173,24 @@ int pretty_boot_time(sd_bus *bus, char **ret) {
         if (!text)
                 return log_oom();
 
-        if (t->firmware_time > 0 && !strextend(&text, FORMAT_TIMESPAN(t->firmware_time - t->loader_time, USEC_PER_MSEC), " (firmware) + "))
+        if (timestamp_is_set(t->firmware_time) && !strextend(&text, FORMAT_TIMESPAN(t->firmware_time - t->loader_time, USEC_PER_MSEC), " (firmware) + "))
                 return log_oom();
-        if (t->loader_time > 0 && !strextend(&text, FORMAT_TIMESPAN(t->loader_time, USEC_PER_MSEC), " (loader) + "))
+        if (timestamp_is_set(t->loader_time) && !strextend(&text, FORMAT_TIMESPAN(t->loader_time, USEC_PER_MSEC), " (loader) + "))
                 return log_oom();
-        if (t->kernel_done_time > 0 && !strextend(&text, FORMAT_TIMESPAN(t->kernel_done_time, USEC_PER_MSEC), " (kernel) + "))
+        if (timestamp_is_set(t->kernel_done_time) && !strextend(&text, FORMAT_TIMESPAN(t->kernel_done_time, USEC_PER_MSEC), " (kernel) + "))
                 return log_oom();
-        if (t->initrd_time > 0 && !strextend(&text, FORMAT_TIMESPAN(t->userspace_time - t->initrd_time, USEC_PER_MSEC), " (initrd) + "))
+        if (timestamp_is_set(t->initrd_time) && !strextend(&text, FORMAT_TIMESPAN(t->userspace_time - t->initrd_time, USEC_PER_MSEC), " (initrd) + "))
                 return log_oom();
 
         if (!strextend(&text, FORMAT_TIMESPAN(t->finish_time - t->userspace_time, USEC_PER_MSEC), " (userspace) "))
                 return log_oom();
 
-        if (t->kernel_done_time > 0)
+        if (timestamp_is_set(t->kernel_done_time))
                 if (!strextend(&text, "= ", FORMAT_TIMESPAN(t->firmware_time + t->finish_time, USEC_PER_MSEC),  " "))
                         return log_oom();
 
         if (unit_id && timestamp_is_set(activated_time)) {
-                usec_t base = t->userspace_time > 0 ? t->userspace_time : t->reverse_offset;
+                usec_t base = timestamp_is_set(t->userspace_time) ? t->userspace_time : t->reverse_offset;
 
                 if (!strextend(&text, "\n", unit_id, " reached after ", FORMAT_TIMESPAN(activated_time - base, USEC_PER_MSEC), " in userspace."))
                         return log_oom();

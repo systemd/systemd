@@ -234,7 +234,7 @@ static int parse_one_option(const char *option) {
                         return log_oom();
 
         } else if ((val = startswith(option, "header="))) {
-                if (!STR_IN_SET(arg_type, ANY_LUKS, CRYPT_LUKS1, CRYPT_LUKS2, CRYPT_TCRYPT))
+                if (!arg_type || !STR_IN_SET(arg_type, ANY_LUKS, CRYPT_LUKS1, CRYPT_LUKS2, CRYPT_TCRYPT))
                         arg_type = ANY_LUKS;
 
                 if (!path_is_absolute(val))
@@ -832,11 +832,7 @@ static int measure_volume_key(
         }
 
 #if HAVE_TPM2
-        r = dlopen_tpm2();
-        if (r < 0)
-                return log_error_errno(r, "Failed to load TPM2 libraries: %m");
-
-        _cleanup_tpm2_context_ Tpm2Context *c = NULL;
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         r = tpm2_context_new(arg_tpm2_device, &c);
         if (r < 0)
                 return r;
@@ -990,7 +986,7 @@ static int attach_tcrypt(
 
         if (arg_tcrypt_veracrypt)
                 params.flags |= CRYPT_TCRYPT_VERA_MODES;
-        
+
         if (arg_tcrypt_veracrypt && arg_tcrypt_veracrypt_pim != 0)
                 params.veracrypt_pim = arg_tcrypt_veracrypt_pim;
 
@@ -2328,13 +2324,13 @@ static int run(int argc, char *argv[]) {
                         return 0;
                 }
                 if (r < 0)
-                        return log_error_errno(r, "crypt_init_by_name() failed: %m");
+                        return log_error_errno(r, "crypt_init_by_name() for volume '%s' failed: %m", volume);
 
                 cryptsetup_enable_logging(cd);
 
                 r = crypt_deactivate(cd, volume);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to deactivate: %m");
+                        return log_error_errno(r, "Failed to deactivate '%s': %m", volume);
 
         } else
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb %s.", verb);

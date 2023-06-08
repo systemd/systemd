@@ -350,3 +350,25 @@ int conf_files_list_with_replacement(
 
         return 0;
 }
+
+int conf_files_list_dropins(
+                char ***ret,
+                const char *dropin_dirname,
+                const char *root,
+                const char * const *dirs) {
+
+        _cleanup_strv_free_ char **dropin_dirs = NULL;
+        const char *suffix;
+        int r;
+
+        assert(ret);
+        assert(dropin_dirname);
+        assert(dirs);
+
+        suffix = strjoina("/", dropin_dirname);
+        r = strv_extend_strv_concat(&dropin_dirs, (char**) dirs, suffix);
+        if (r < 0)
+                return r;
+
+        return conf_files_list_strv(ret, ".conf", root, 0, (const char* const*) dropin_dirs);
+}

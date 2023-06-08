@@ -13,6 +13,7 @@ Documentation=man:systemd-debug-generator(8)
 DefaultDependencies=no
 IgnoreOnIsolate=yes
 ConditionPathExists={{DEBUGTTY}}
+After=systemd-vconsole-setup.service
 
 [Service]
 Environment=TERM=linux

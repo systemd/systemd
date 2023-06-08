@@ -181,8 +181,6 @@ struct Service {
         bool main_pid_alien:1;
         bool bus_name_good:1;
         bool forbid_restart:1;
-        /* Keep restart intention between UNIT_FAILED and UNIT_ACTIVATING */
-        bool will_auto_restart:1;
         bool start_timeout_defined:1;
         bool exec_fd_hot:1;
 

@@ -208,6 +208,7 @@ catalogstatedir = systemdstatedir / 'catalog'
 randomseeddir = localstatedir / 'lib/systemd'
 profiledir = rootlibexecdir / 'portable' / 'profile'
 ntpservicelistdir = rootprefixdir / 'lib/systemd/ntp-units.d'
+credstoredir = prefixdir / 'lib/credstore'
 
 docdir = get_option('docdir')
 if docdir == ''
@@ -375,6 +376,7 @@ possible_common_cc_flags = [
         '-Werror=return-type',
         '-Werror=shift-count-overflow',
         '-Werror=shift-overflow=2',
+        '-Werror=strict-flex-arrays',
         '-Werror=undef',
         '-Wfloat-equal',
         # gperf prevents us from enabling this because it does not emit fallthrough
@@ -709,6 +711,7 @@ find = find_program('find')
 meson_make_symlink = project_source_root + '/tools/meson-make-symlink.sh'
 
 mkdir_p = 'mkdir -p $DESTDIR/@0@'
+mkdir_p_mode = 'mkdir -p $DESTDIR/@0@ -m @1@'
 
 # If -Dxxx-path option is found, use that. Otherwise, check in $PATH,
 # /usr/sbin, /sbin, and fall back to the default from middle column.
@@ -1132,10 +1135,10 @@ else
                         clang_supports_bpf = run_command(clang, '-target', 'bpf', '--print-supported-cpus', check : false).returncode() == 0
                 endif
         elif bpf_compiler == 'gcc'
-                warning('GCC BPF Compiler support is experimental and not recommended.')
                 bpf_gcc = find_program('bpf-gcc',
+                                       'bpf-none-gcc',
                                        required : true,
-                                       version : '>= 12.1.0')
+                                       version : '>= 13.1.0')
                 bpf_gcc_found = bpf_gcc.found()
         endif
 
@@ -1524,7 +1527,7 @@ conf.set10('HAVE_LIBFIDO2', have)
 
 want_tpm2 = get_option('tpm2')
 if want_tpm2 != 'false' and not skip_deps
-        tpm2 = dependency('tss2-esys tss2-rc tss2-mu',
+        tpm2 = dependency('tss2-esys tss2-rc tss2-mu tss2-tcti-device',
                           required : want_tpm2 == 'true')
         have = tpm2.found()
         have_esys3 = tpm2.version().version_compare('>= 3.0.0')
@@ -3844,6 +3847,16 @@ public_programs += executable(
         install : true,
         install_dir : rootbindir)
 
+# Protecting files from the distro in /usr doesn't make sense since they can be trivially accessed otherwise,
+# so don't restrict the access mode in /usr. That doesn't apply to /etc, so we do restrict the access mode
+# there.
+meson.add_install_script('sh', '-c', mkdir_p.format(credstoredir))
+if install_sysconfdir
+        # Keep in sync with tmpfiles.d/credstore.conf
+        meson.add_install_script('sh', '-c', mkdir_p_mode.format(sysconfdir / 'credstore', '0700'))
+        meson.add_install_script('sh', '-c', mkdir_p_mode.format(sysconfdir / 'credstore.encrypted', '0700'))
+endif
+
 executable(
         'systemd-volatile-root',
         'src/volatile-root/volatile-root.c',
@@ -4109,7 +4122,7 @@ if conf.get('ENABLE_HWDB') == 1
         if want_tests != 'false'
                 test('hwdb-test',
                      hwdb_test_sh,
-                     suite : 'dist-check',
+                     suite : 'dist',
                      args : [systemd_hwdb.full_path()],
                      timeout : 90)
         endif
@@ -4159,7 +4172,7 @@ public_programs += udevadm
 if want_tests != 'false'
         test('udev-rules-check',
              udevadm,
-             suite : 'dist-check',
+             suite : 'dist',
              args : ['verify', '--resolve-names=never', all_rules])
 endif
 
@@ -4607,7 +4620,7 @@ foreach fuzzer : fuzzers
                         fuzz_in = tuple[1]
                         test('@0@_@1@'.format(name, fuzz_in),
                              exe,
-                             suite : 'fuzzers',
+                             suite : 'fuzz',
                              args : [fuzz_dir != '' ? project_source_root / fuzz_dir / name / fuzz_in
                                                     : fuzz_generated_in_dir / '@0@_@1@'.format(name, fuzz_in)])
                 endforeach
@@ -4669,7 +4682,7 @@ jekyll = find_program('jekyll', required : false)
 if get_option('mode') == 'developer' and want_tests != 'false' and jekyll.found()
         test('github-pages',
              jekyll,
-             suite : 'dist-check',
+             suite : 'dist',
              args : ['build',
                      '--source', project_source_root / 'docs',
                      '--destination', project_build_root / '_site'])
@@ -4685,13 +4698,13 @@ foreach exec : public_programs
         if want_tests != 'false'
                 test('check-help-' + name,
                      check_help,
-                     suite : 'dist-check',
+                     suite : 'dist',
                      args : exec.full_path(),
                      depends: exec)
 
                 test('check-version-' + name,
                      check_version,
-                     suite : 'dist-check',
+                     suite : 'dist',
                      args : [exec.full_path(),
                              meson.project_version()],
                      depends: exec)

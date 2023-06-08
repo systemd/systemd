@@ -81,6 +81,7 @@
     <filename>slices.target</filename>,
     <filename>smartcard.target</filename>,
     <filename>sockets.target</filename>,
+    <filename>soft-reboot.target</filename>,
     <filename>sound.target</filename>,
     <filename>suspend.target</filename>,
     <filename>swap.target</filename>,
@@ -442,15 +443,18 @@
         <varlistentry>
           <term><filename>kexec.target</filename></term>
           <listitem>
-            <para>A special target unit for shutting down and rebooting
-            the system via kexec.</para>
+            <para>A special target unit for shutting down and rebooting the system via kexec.</para>
 
-            <para>Applications wanting to reboot the system should not start this unit
-            directly, but should instead execute <command>systemctl kexec</command>
-            (possibly with the <option>--no-block</option> option) or call
-            <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-            <command>org.freedesktop.systemd1.Manager.KExec</command> D-Bus method
+            <para>Applications wanting to reboot the system should not start this unit directly, but should
+            instead execute <command>systemctl kexec</command> (possibly with the
+            <option>--no-block</option> option) or call
+            <citerefentry><refentrytitle>systemd-logind</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+            <function>org.freedesktop.login1.Manager.RebootWithFlags()</function> D-Bus method
             directly.</para>
+
+            <para>See
+            <citerefentry><refentrytitle>systemd-kexec.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            for further details of the operation this target pulls in.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -559,18 +563,20 @@
         <varlistentry>
           <term><filename>reboot.target</filename></term>
           <listitem>
-            <para>A special target unit for shutting down and rebooting
-            the system.</para>
+            <para>A special target unit for shutting down and rebooting the system.</para>
 
-            <para>Applications wanting to reboot the system should not start this unit
-            directly, but should instead execute <command>systemctl reboot</command>
-            (possibly with the <option>--no-block</option> option) or call
+            <para>Applications wanting to reboot the system should not start this unit directly, but should
+            instead execute <command>systemctl reboot</command> (possibly with the
+            <option>--no-block</option> option) or call
             <citerefentry><refentrytitle>systemd-logind</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
-            <command>org.freedesktop.login1.Manager.Reboot</command> D-Bus method
-            directly.</para>
+            <function>org.freedesktop.login1.Manager.Reboot()</function> D-Bus method directly.</para>
 
-            <para><filename>runlevel6.target</filename> is an alias for
-            this target unit, for compatibility with SysV.</para>
+            <para>See
+            <citerefentry><refentrytitle>systemd-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            for further details of the operation this target pulls in.</para>
+
+            <para><filename>runlevel6.target</filename> is an alias for this target unit, for compatibility
+            with SysV.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -701,6 +707,24 @@
             configured via a <varname>WantedBy=sockets.target</varname>
             in the socket unit's [Install]
             section.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>soft-reboot.target</filename></term>
+          <listitem>
+            <para>A special target unit for shutting down and rebooting the userspace of the system (leaving
+            the kernel running).</para>
+
+            <para>Applications wanting to reboot the system should not start this unit directly, but should
+            instead execute <command>systemctl soft-reboot</command> (possibly with the
+            <option>--no-block</option> option) or call
+            <citerefentry><refentrytitle>systemd-logind</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+            <function>org.freedesktop.login1.Manager.RebootWithFlags()</function> D-Bus method
+            directly.</para>
+
+            <para>See
+            <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            for further details of the operation this target pulls in.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

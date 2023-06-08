@@ -6,6 +6,13 @@ SECTIONS {
         .text ALIGN(CONSTANT(MAXPAGESIZE)) : {
                 *(.text .text.*)
         }
+
+        /* When linking a minimal addon stub, the linker can merge .text and .dynsym, creating a RWE
+         * segment, and then rejects it. Ensure there's a gap so that we end up with two separate segments.
+         * The alignments for the next sections are only applied if the section exists, so they are not
+         * enough, and we need to have this unconditional one. */
+        . = ALIGN(CONSTANT(MAXPAGESIZE));
+
         .rodata ALIGN(CONSTANT(MAXPAGESIZE)) : {
                 *(.rodata .rodata.*)
                 *(.srodata .srodata.*)

@@ -67,7 +67,7 @@ static int add_public(JsonVariant **v) {
 
 static int add_secret(JsonVariant **v, const char *password) {
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL, *l = NULL;
-        _cleanup_(strv_free_erasep) char **passwords = NULL;
+        _cleanup_strv_free_erase_ char **passwords = NULL;
         int r;
 
         assert(v);

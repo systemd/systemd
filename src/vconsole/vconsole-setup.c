@@ -51,11 +51,11 @@ typedef struct Context {
 } Context;
 
 static const char * const vc_meta_names[_VC_META_MAX] = {
-        [VC_KEYMAP]               = "vconsole.keymap",
-        [VC_KEYMAP_TOGGLE]        = "vconsole.keymap_toggle",
-        [VC_FONT]                 = "vconsole.font",
-        [VC_FONT_MAP]             = "vconsole.font_map",
-        [VC_FONT_UNIMAP]          = "vconsole.font_unimap",
+        [VC_KEYMAP]        = "vconsole.keymap",
+        [VC_KEYMAP_TOGGLE] = "vconsole.keymap_toggle",
+        [VC_FONT]          = "vconsole.font",
+        [VC_FONT_MAP]      = "vconsole.font_map",
+        [VC_FONT_UNIMAP]   = "vconsole.font_unimap",
 };
 
 /* compatibility with obsolete multiple-dot scheme */
@@ -380,17 +380,12 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
         struct unimapdesc unimapd;
         _cleanup_free_ struct unipair* unipairs = NULL;
         _cleanup_free_ void *fontbuf = NULL;
-        unsigned i;
-        int log_level;
+        int log_level = LOG_WARNING;
         int r;
 
         unipairs = new(struct unipair, USHRT_MAX);
-        if (!unipairs) {
-                log_oom();
-                return;
-        }
-
-        log_level = LOG_WARNING;
+        if (!unipairs)
+                return (void) log_oom();
 
         /* get metadata of the current font (width, height, count) */
         r = ioctl(src_fd, KDFONTOP, &cfo);
@@ -440,7 +435,7 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
         if (cfo.op != KD_FONT_OP_SET)
                 log_full(log_level, "Fonts will not be copied to remaining consoles");
 
-        for (i = 1; i <= 63; i++) {
+        for (unsigned i = 1; i <= 63; i++) {
                 char ttyname[sizeof("/dev/tty63")];
                 _cleanup_close_ int fd_d = -EBADF;
 
@@ -484,10 +479,8 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
                         continue;
                 }
 
-                /*
-                 * copy unicode translation table unimapd is a ushort count and a pointer
-                 * to an array of struct unipair { ushort, ushort }
-                 */
+                /* Copy unicode translation table unimapd is a ushort count and a pointer
+                 * to an array of struct unipair { ushort, ushort }. */
                 r = ioctl(fd_d, PIO_UNIMAPCLR, &adv);
                 if (r < 0) {
                         log_warning_errno(errno, "PIO_UNIMAPCLR failed, unimaps might be incorrect for tty%u: %m", i);
@@ -505,15 +498,13 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
 }
 
 static int find_source_vc(char **ret_path, unsigned *ret_idx) {
-        _cleanup_free_ char *path = NULL;
         int r, err = 0;
-        unsigned i;
 
-        path = new(char, sizeof("/dev/tty63"));
+        _cleanup_free_ char *path = new(char, sizeof("/dev/tty63"));
         if (!path)
                 return log_oom();
 
-        for (i = 1; i <= 63; i++) {
+        for (unsigned i = 1; i <= 63; i++) {
                 _cleanup_close_ int fd = -EBADF;
 
                 r = verify_vc_allocation(i);

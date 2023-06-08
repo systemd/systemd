@@ -394,6 +394,31 @@ int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_callback_t c
         return message_type;
 }
 
+int dhcp_option_parse_string(const uint8_t *option, size_t len, char **ret) {
+        int r;
+
+        assert(option);
+        assert(ret);
+
+        if (len <= 0)
+                *ret = mfree(*ret);
+        else {
+                char *string;
+
+                /*
+                 * One trailing NUL byte is OK, we don't mind. See:
+                 * https://github.com/systemd/systemd/issues/1337
+                 */
+                r = make_cstring((const char *) option, len, MAKE_CSTRING_ALLOW_TRAILING_NUL, &string);
+                if (r < 0)
+                        return r;
+
+                free_and_replace(*ret, string);
+        }
+
+        return 0;
+}
+
 static sd_dhcp_option* dhcp_option_free(sd_dhcp_option *i) {
         if (!i)
                 return NULL;

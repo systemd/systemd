@@ -204,7 +204,7 @@ madvise	219
 mbind	268
 membarrier	356
 memfd_create	350
-memfd_secret
+memfd_secret	447
 memory_ordering
 migrate_pages	287
 mincore	218
@@ -427,6 +427,7 @@ renameat2	347
 request_key	279
 restart_syscall	7
 riscv_flush_icache
+riscv_hwprobe
 rmdir	40
 rseq	383
 rt_sigaction	174

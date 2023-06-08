@@ -30,6 +30,7 @@ size=2048, type=2c7357ed-ebd2-46d9-aec1-23d437ec2bf5, name=_empty
 EOF
 
 rm -rf /var/tmp/72-dirs
+mkdir -p /var/tmp/72-dirs
 
 rm -rf /var/tmp/72-defs
 mkdir -p /var/tmp/72-defs
@@ -74,6 +75,30 @@ MatchPattern=dir-@v
 InstancesMax=3
 EOF
 
+cat >/var/tmp/72-defs/04-fourth.conf <<"EOF"
+[Source]
+Type=regular-file
+Path=/var/tmp/72-source
+MatchPattern=uki-@v.efi
+
+[Target]
+Type=regular-file
+Path=/EFI/Linux
+PathRelativeTo=boot
+MatchPattern=uki_@v+@l-@d.efi \
+             uki_@v+@l.efi \
+             uki_@v.efi
+Mode=0444
+TriesLeft=3
+TriesDone=0
+InstancesMax=2
+EOF
+
+rm -rf /var/tmp/72-esp /var/tmp/72-xbootldr
+mkdir -p /var/tmp/72-esp/EFI/Linux /var/tmp/72-xbootldr/EFI/Linux
+export SYSTEMD_ESP_PATH=/var/tmp/72-esp
+export SYSTEMD_XBOOTLDR_PATH=/var/tmp/72-xbootldr
+
 rm -rf /var/tmp/72-source
 mkdir -p /var/tmp/72-source
 
@@ -83,13 +108,16 @@ new_version() {
     dd if=/dev/urandom of="/var/tmp/72-source/part2-$1.raw" bs=1024 count=1024
     gzip -k -f "/var/tmp/72-source/part2-$1.raw"
 
+    # Create a random "UKI" payload
+    echo $RANDOM >"/var/tmp/72-source/uki-$1.efi"
+
+    # Create tarball of a directory
     mkdir -p "/var/tmp/72-source/dir-$1"
     echo $RANDOM >"/var/tmp/72-source/dir-$1/foo.txt"
     echo $RANDOM >"/var/tmp/72-source/dir-$1/bar.txt"
-
     tar --numeric-owner -C "/var/tmp/72-source/dir-$1/" -czf "/var/tmp/72-source/dir-$1.tar.gz" .
 
-    ( cd /var/tmp/72-source/ && sha256sum part* dir-*.tar.gz >SHA256SUMS )
+    ( cd /var/tmp/72-source/ && sha256sum uki* part* dir-*.tar.gz >SHA256SUMS )
 }
 
 update_now() {
@@ -103,8 +131,16 @@ update_now() {
 
 verify_version() {
     # Expects: version ID + sector offset of both partitions to compare
+
+    # Check the partitions
     dd if=/var/tmp/72-joined.raw bs=1024 skip="$2" count=1024 | cmp "/var/tmp/72-source/part1-$1.raw"
     dd if=/var/tmp/72-joined.raw bs=1024 skip="$3" count=1024 | cmp "/var/tmp/72-source/part2-$1.raw"
+
+    # Check the UKI
+    cmp "/var/tmp/72-source/uki-$1.efi" "/var/tmp/72-xbootldr/EFI/Linux/uki_$1+3-0.efi"
+    test -z "$(ls -A /var/tmp/72-esp/EFI/Linux)"
+
+    # Check the directories
     cmp "/var/tmp/72-source/dir-$1/foo.txt" /var/tmp/72-dirs/current/foo.txt
     cmp "/var/tmp/72-source/dir-$1/bar.txt" /var/tmp/72-dirs/current/bar.txt
 }
@@ -123,6 +159,7 @@ verify_version v2 2048 4096
 new_version v3
 update_now
 verify_version v3 1024 3072
+test ! -f "/var/tmp/72-xbootldr/EFI/Linux/uki_v1+3-0.efi"
 
 # Create fourth version, and update through a file:// URL. This should be
 # almost as good as testing HTTP, but is simpler for us to set up. file:// is
@@ -163,7 +200,7 @@ update_now
 verify_version v4 2048 4096
 
 rm  /var/tmp/72-joined.raw
-rm -r /var/tmp/72-dirs /var/tmp/72-defs /var/tmp/72-source
+rm -r /var/tmp/72-{dirs,defs,source,xbootldr,esp}
 
 echo OK >/testok
 

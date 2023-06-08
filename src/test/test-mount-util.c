@@ -8,6 +8,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "libmount-util.h"
 #include "missing_magic.h"
 #include "missing_mount.h"
 #include "mkdir.h"
@@ -406,7 +407,7 @@ TEST(make_mount_switch_root) {
         assert_se(touch(s) >= 0);
 
         for (int force_ms_move = 0; force_ms_move < 2; force_ms_move++) {
-                r = safe_fork("(switch-root",
+                r = safe_fork("(switch-root)",
                               FORK_RESET_SIGNALS |
                               FORK_CLOSE_ALL_FDS |
                               FORK_DEATHSIG |
@@ -428,6 +429,142 @@ TEST(make_mount_switch_root) {
 
                         _exit(EXIT_SUCCESS);
                 }
+        }
+}
+
+TEST(umount_recursive) {
+        static const struct {
+                const char *prefix;
+                const char * const keep[3];
+        } test_table[] = {
+                {
+                        .prefix = NULL,
+                        .keep = {},
+                },
+                {
+                        .prefix = "/run",
+                        .keep = {},
+                },
+                {
+                        .prefix = NULL,
+                        .keep = { "/dev/shm", NULL },
+                },
+                {
+                        .prefix = "/dev",
+                        .keep = { "/dev/pts", "/dev/shm", NULL },
+                },
+        };
+
+        int r;
+
+        FOREACH_ARRAY(t, test_table, ELEMENTSOF(test_table)) {
+
+                r = safe_fork("(umount-rec)",
+                              FORK_RESET_SIGNALS |
+                              FORK_CLOSE_ALL_FDS |
+                              FORK_DEATHSIG |
+                              FORK_WAIT |
+                              FORK_REOPEN_LOG |
+                              FORK_LOG |
+                              FORK_NEW_MOUNTNS |
+                              FORK_MOUNTNS_SLAVE,
+                              NULL);
+
+                if (r < 0 && ERRNO_IS_PRIVILEGE(r)) {
+                        log_notice("Skipping umount_recursive() test, lacking privileges");
+                        return;
+                }
+
+                assert_se(r >= 0);
+                if (r == 0) { /* child */
+                        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+                        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+                        _cleanup_free_ char *k = NULL;
+
+                        /* Open /p/s/m file before we unmount everything (which might include /proc/) */
+                        f = fopen("/proc/self/mountinfo", "re");
+                        if (!f) {
+                                log_error_errno(errno, "Faile to open /proc/self/mountinfo: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        assert_se(k = strv_join((char**) t->keep, " "));
+                        log_info("detaching just %s (keep: %s)", strna(t->prefix), strna(empty_to_null(k)));
+
+                        assert_se(umount_recursive_full(t->prefix, MNT_DETACH, (char**) t->keep) >= 0);
+
+                        r = libmount_parse("/proc/self/mountinfo", f, &table, &iter);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        for (;;) {
+                                struct libmnt_fs *fs;
+
+                                r = mnt_table_next_fs(table, iter, &fs);
+                                if (r == 1)
+                                        break;
+                                if (r < 0) {
+                                        log_error_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
+                                        _exit(EXIT_FAILURE);
+                                }
+
+                                log_debug("left after complete umount: %s", mnt_fs_get_target(fs));
+                        }
+
+                        _exit(EXIT_SUCCESS);
+                }
+        }
+}
+
+TEST(fd_make_mount_point) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0) {
+                (void) log_tests_skipped("not running privileged");
+                return;
+        }
+
+        assert_se(mkdtemp_malloc(NULL, &t) >= 0);
+
+        assert_se(asprintf(&s, "%s/somerandomname%" PRIu64, t, random_u64()) >= 0);
+        assert_se(s);
+        assert_se(mkdir(s, 0700) >= 0);
+
+        r = safe_fork("(make_mount-point)",
+                      FORK_RESET_SIGNALS |
+                      FORK_CLOSE_ALL_FDS |
+                      FORK_DEATHSIG |
+                      FORK_WAIT |
+                      FORK_REOPEN_LOG |
+                      FORK_LOG |
+                      FORK_NEW_MOUNTNS |
+                      FORK_MOUNTNS_SLAVE,
+                      NULL);
+        assert_se(r >= 0);
+
+        if (r == 0) {
+                _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
+
+                fd = open(s, O_PATH|O_CLOEXEC);
+                assert_se(fd >= 0);
+
+                assert_se(fd_is_mount_point(fd, NULL, AT_SYMLINK_FOLLOW) == 0);
+
+                assert_se(fd_make_mount_point(fd) > 0);
+
+                /* Reopen the inode so that we end up on the new mount */
+                fd2 = open(s, O_PATH|O_CLOEXEC);
+
+                assert_se(fd_is_mount_point(fd2, NULL, AT_SYMLINK_FOLLOW) > 0);
+
+                assert_se(fd_make_mount_point(fd2) == 0);
+
+                _exit(EXIT_SUCCESS);
         }
 }
 

@@ -443,6 +443,27 @@ search foobar.com barbar.com
   </refsect1>
 
   <refsect1>
+    <title>IP Ports</title>
+
+    <para>The <command>systemd-resolved</command> service listens on the following IP ports:</para>
+
+    <itemizedlist>
+      <listitem><para>Port 53 on IPv4 addresses 127.0.0.53 and 127.0.0.54 (both are on the local loopback
+      interface <literal>lo</literal>). This is the local DNS stub, as discussed above. Both UDP and TCP are
+      covered.</para></listitem>
+
+      <listitem><para>Port 5353 on all local addresses, both IPv4 and IPv6 (0.0.0.0 and ::0), for
+      MulticastDNS on UDP. Note that even though the socket is bound to all local interfaces via the selected
+      "wildcard" IP addresses, the incoming datagrams are filtered by the network interface they are coming
+      in on, and separate MulticastDNS link-local scopes are maintained for each, taking into consideration
+      whether MulticastDNS is enabled for the interface or not.</para></listitem>
+
+      <listitem><para>Port 5355 on all local addresses, both IPv4 and IP6 (0.0.0.0 and ::0), for LLMNR, on
+      both TCP and UDP. As with MulticastDNS filtering by incoming network interface is applied.</para></listitem>
+    </itemizedlist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,

@@ -21,7 +21,7 @@ TEST(parse_sleep_config) {
 
         assert_se(parse_sleep_config(&sleep_config) == 0);
 
-        _cleanup_free_ char *sum, *sus, *him, *his, *hym, *hys;
+        _cleanup_free_ char *sum = NULL, *sus = NULL, *him = NULL, *his = NULL, *hym = NULL, *hys = NULL;
 
         sum = strv_join(sleep_config->modes[SLEEP_SUSPEND], ", ");
         sus = strv_join(sleep_config->states[SLEEP_SUSPEND], ", ");
