@@ -1648,6 +1648,9 @@ void bus_unit_send_change_signal(Unit *u) {
         if (u->in_dbus_queue) {
                 LIST_REMOVE(dbus_queue, u->manager->dbus_unit_queue, u);
                 u->in_dbus_queue = false;
+
+                /* The unit might be good to be GC once its pending signals have been sent */
+                unit_add_to_gc_queue(u);
         }
 
         if (!u->id)
