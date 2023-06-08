@@ -315,7 +315,7 @@ static DnsCacheItem* dns_cache_get(DnsCache *c, DnsResourceRecord *rr) {
         return NULL;
 }
 
-static usec_t calculate_until(
+static usec_t calculate_until_valid(
                 DnsResourceRecord *rr,
                 uint32_t min_ttl,
                 uint32_t nsec_ttl,
@@ -352,6 +352,14 @@ static usec_t calculate_until(
         }
 
         return timestamp + u;
+}
+
+static usec_t calculate_until(
+                usec_t until_valid,
+                usec_t timestamp,
+                usec_t stale_retention_usec) {
+
+        return stale_retention_usec > 0 ? usec_add(timestamp, stale_retention_usec) : until_valid;
 }
 
 static void dns_cache_item_update_positive(
@@ -391,8 +399,8 @@ static void dns_cache_item_update_positive(
 
         DNS_PACKET_REPLACE(i->full_packet, dns_packet_ref(full_packet));
 
-        i->until_valid = calculate_until(rr, min_ttl, UINT32_MAX, timestamp, false);
-        i->until = stale_retention_usec > 0 ? usec_add(timestamp, stale_retention_usec) : i->until_valid;
+        i->until_valid = calculate_until_valid(rr, min_ttl, UINT32_MAX, timestamp, false);
+        i->until = calculate_until(i->until_valid, timestamp, stale_retention_usec);
         i->query_flags = query_flags & CACHEABLE_QUERY_FLAGS;
         i->shared_owner = shared_owner;
         i->dnssec_result = dnssec_result;
@@ -487,15 +495,15 @@ static int dns_cache_put_positive(
 
         /* When StaleRetentionSec is greater than zero, the 'until' property is set to a duration of StaleRetentionSec value from the time of cache entry creation or update.
          * If StaleRetentionSec is zero, both the 'until' and 'until_valid' are set to the TTL duration, leading to the eviction of the record once the TTL expires.*/
-        usec_t ttl_expiry = calculate_until(rr, min_ttl, UINT32_MAX, timestamp, false);
+        usec_t until_valid = calculate_until_valid(rr, min_ttl, UINT32_MAX, timestamp, false);
         *i = (DnsCacheItem) {
                 .type = DNS_CACHE_POSITIVE,
                 .key = dns_resource_key_ref(rr->key),
                 .rr = dns_resource_record_ref(rr),
                 .answer = dns_answer_ref(answer),
                 .full_packet = dns_packet_ref(full_packet),
-                .until = stale_retention_usec > 0 ? usec_add(timestamp, stale_retention_usec) : ttl_expiry,
-                .until_valid = ttl_expiry,
+                .until = calculate_until(until_valid, timestamp, stale_retention_usec),
+                .until_valid = until_valid,
                 .query_flags = query_flags & CACHEABLE_QUERY_FLAGS,
                 .shared_owner = shared_owner,
                 .dnssec_result = dnssec_result,
@@ -595,7 +603,7 @@ static int dns_cache_put_negative(
          * of some other RR. Let's better take the lowest option here than a needlessly high one */
         i->until =
                 i->type == DNS_CACHE_RCODE ? timestamp + CACHE_TTL_STRANGE_RCODE_USEC :
-                calculate_until(soa, dns_answer_min_ttl(answer), nsec_ttl, timestamp, true);
+                calculate_until_valid(soa, dns_answer_min_ttl(answer), nsec_ttl, timestamp, true);
 
         if (i->type == DNS_CACHE_NXDOMAIN) {
                 /* NXDOMAIN entries should apply equally to all types, so we use ANY as
