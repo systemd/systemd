@@ -2421,7 +2421,9 @@ static void config_free(Config *config) {
                 config_entry_free(config->entries[i]);
         free(config->entries);
         free(config->entry_default_config);
+        free(config->entry_default_efivar);
         free(config->entry_oneshot);
+        free(config->entry_saved);
 }
 
 static void config_write_entries_to_variable(Config *config) {
