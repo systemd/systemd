@@ -34,9 +34,18 @@ int parse_integrity_options(
                 else if (streq(word, "allow-discards")) {
                         if (ret_activate_flags)
                                 *ret_activate_flags |= CRYPT_ACTIVATE_ALLOW_DISCARDS;
-                } else if (streq(word, "no-journal")) {
-                        if (ret_activate_flags)
-                                *ret_activate_flags |= CRYPT_ACTIVATE_NO_JOURNAL;
+                } else if ((val = startswith(word, "mode="))) {
+                        if (streq(val, "journal")) {
+                                /* Default mode, no action */
+                        } else if (streq(val, "bitmap")) {
+                                if (ret_activate_flags)
+                                        *ret_activate_flags |= CRYPT_ACTIVATE_NO_JOURNAL_BITMAP;
+                        } else if (streq(val, "direct")) {
+                                if (ret_activate_flags)
+                                        *ret_activate_flags |= CRYPT_ACTIVATE_NO_JOURNAL;
+                        } else {
+                                log_warning("Encountered unknown mode option '%s', ignoring.", val);
+                        }
                 } else if ((val = startswith(word, "journal-watermark="))) {
                         r = parse_percent(val);
                         if (r < 0)
