@@ -3319,6 +3319,8 @@ static int on_cgroup_oom_event(sd_event_source *s, void *userdata) {
         }
 
         (void) unit_check_oom(u);
+        unit_add_to_gc_queue(u);
+
         return 0;
 }
 

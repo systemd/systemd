@@ -441,7 +441,10 @@ bool unit_may_gc(Unit *u) {
         if (u->perpetual)
                 return false;
 
-        if (u->in_cgroup_empty_queue)
+        /* if we saw a cgroup empty event for this unit, stay around until we processed it so that we remove
+         * the empty cgroup if possible. Similar, process any pending OOM events if they are already queued
+         * before we release the unit. */
+        if (u->in_cgroup_empty_queue || u->in_cgroup_oom_queue)
                 return false;
 
         if (sd_bus_track_count(u->bus_track) > 0)
