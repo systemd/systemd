@@ -43,6 +43,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
+#include "uid-alloc-range.h"
 
 #define JOURNAL_FILES_RECHECK_USEC (2 * USEC_PER_SEC)
 
@@ -1322,24 +1323,31 @@ static bool file_has_type_prefix(const char *prefix, const char *filename) {
 static bool file_type_wanted(int flags, const char *filename) {
         assert(filename);
 
-        if (!endswith(filename, ".journal") && !endswith(filename, ".journal~"))
+        if (!ENDSWITH_SET(filename, ".journal", ".journal~"))
                 return false;
 
         /* no flags set → every type is OK */
         if (!(flags & (SD_JOURNAL_SYSTEM | SD_JOURNAL_CURRENT_USER)))
                 return true;
 
-        if (flags & SD_JOURNAL_SYSTEM && file_has_type_prefix("system", filename))
-                return true;
-
-        if (flags & SD_JOURNAL_CURRENT_USER) {
+        if (FLAGS_SET(flags, SD_JOURNAL_CURRENT_USER)) {
                 char prefix[5 + DECIMAL_STR_MAX(uid_t) + 1];
 
-                xsprintf(prefix, "user-"UID_FMT, getuid());
+                xsprintf(prefix, "user-" UID_FMT, getuid());
 
                 if (file_has_type_prefix(prefix, filename))
                         return true;
+
+                /* If SD_JOURNAL_CURRENT_USER is specified and we are invoked under a system UID, then
+                 * automatically enable SD_JOURNAL_SYSTEM too, because journald will actually put system user
+                 * data into the system journal. */
+
+                if (uid_for_system_journal(getuid()))
+                        flags |= SD_JOURNAL_SYSTEM;
         }
+
+        if (FLAGS_SET(flags, SD_JOURNAL_SYSTEM) && file_has_type_prefix("system", filename))
+                return true;
 
         return false;
 }
