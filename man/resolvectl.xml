@@ -400,6 +400,14 @@
         query response are shown. Otherwise, this output is suppressed.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--stale-data=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
+        (the default), lookups are answered with stale data (expired resource records) if
+        possible. If false, the stale data is not considered for the lookup request.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="json" />
 
       <varlistentry>

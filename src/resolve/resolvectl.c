@@ -3063,6 +3063,7 @@ static int native_help(void) {
                "     --validate=BOOL           Allow DNSSEC validation (default: yes)\n"
                "     --synthesize=BOOL         Allow synthetic response (default: yes)\n"
                "     --cache=BOOL              Allow response from cache (default: yes)\n"
+               "     --stale-data=BOOL         Allow response from cache with stale data (default: yes)\n"
                "     --zone=BOOL               Allow response from locally registered mDNS/LLMNR\n"
                "                               records (default: yes)\n"
                "     --trust-anchor=BOOL       Allow response from local trust anchor (default:\n"
@@ -3422,6 +3423,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                 ARG_SEARCH,
                 ARG_NO_PAGER,
                 ARG_JSON,
+                ARG_STALE_DATA
         };
 
         static const struct option options[] = {
@@ -3445,6 +3447,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                 { "search",                required_argument, NULL, ARG_SEARCH                },
                 { "no-pager",              no_argument,       NULL, ARG_NO_PAGER              },
                 { "json",                  required_argument, NULL, ARG_JSON                  },
+                { "stale-data",            required_argument, NULL, ARG_STALE_DATA            },
                 {}
         };
 
@@ -3580,6 +3583,13 @@ static int native_parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_CACHE, r == 0);
+                        break;
+
+                case ARG_STALE_DATA:
+                        r = parse_boolean_argument("--stale-data=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+                        SET_FLAG(arg_flags, SD_RESOLVED_NO_STALE, r == 0);
                         break;
 
                 case ARG_ZONE:

@@ -32,3 +32,4 @@
 #DNSStubListenerExtra=
 #ReadEtcHosts=yes
 #ResolveUnicastSingleLabel=no
+#StaleRetentionSec=0

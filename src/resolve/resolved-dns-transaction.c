@@ -823,7 +823,8 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
                       t->answer_dnssec_result,
                       t->answer_nsec_ttl,
                       t->received->family,
-                      &t->received->sender);
+                      &t->received->sender,
+                      t->scope->manager->stale_retention_usec);
 }
 
 static bool dns_transaction_dnssec_is_live(DnsTransaction *t) {
@@ -1697,10 +1698,18 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 /* Let's then prune all outdated entries */
                 dns_cache_prune(&t->scope->cache);
 
+                /* For the initial attempt or when no stale data is requested, disable serve stale
+                 * and answer the question from the cache (honors ttl property).
+                 * On the second attempt, if StaleRetentionSec is greater than zero,
+                 * try to answer the question using stale date (honors until property) */
+                uint64_t query_flags = t->query_flags;
+                if (t->n_attempts == 1 || t->scope->manager->stale_retention_usec == 0)
+                        query_flags |= SD_RESOLVED_NO_STALE;
+
                 r = dns_cache_lookup(
                                 &t->scope->cache,
                                 dns_transaction_key(t),
-                                t->query_flags,
+                                query_flags,
                                 &t->answer_rcode,
                                 &t->answer,
                                 &t->received,
@@ -1716,6 +1725,13 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                                  * packet. */
                                 dns_transaction_reset_answer(t);
                         else {
+                                if (t->n_attempts > 1 && !FLAGS_SET(query_flags, SD_RESOLVED_NO_STALE)) {
+                                        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
+                                        log_debug("Serve Stale response rcode=%s for %s",
+                                                FORMAT_DNS_RCODE(t->answer_rcode),
+                                                dns_resource_key_to_string(dns_transaction_key(t), key_str, sizeof key_str));
+                                }
+
                                 t->answer_source = DNS_TRANSACTION_CACHE;
                                 if (t->answer_rcode == DNS_RCODE_SUCCESS)
                                         dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);

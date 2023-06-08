@@ -726,7 +726,8 @@ DnsServer* link_set_dns_server(Link *l, DnsServer *s) {
         dns_server_unref(l->current_dns_server);
         l->current_dns_server = dns_server_ref(s);
 
-        if (l->unicast_scope)
+        /* Skip flushing the cache if server stale feature is enabled. */
+        if (l->unicast_scope && l->manager->stale_retention_usec == 0)
                 dns_cache_flush(&l->unicast_scope->cache);
 
         return s;

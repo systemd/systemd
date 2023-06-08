@@ -36,6 +36,11 @@ test_append_files() {
 
     # Install DNS-related utilities (usually found in the bind-utils package)
     image_install delv dig host nslookup
+
+    if command -v nft >/dev/null; then
+        # Install nftables
+        image_install nft
+    fi
 }
 
 do_test "$@"
