@@ -410,6 +410,11 @@
         project='freebsd'><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry> to work
         unmodified with systemd socket activation.</para>
 
+        <para>Note that depending on this setting the services activated by units of this type are either
+        regular services (in case of <varname>Accept=</varname><option>no</option>) or instances of templated
+        services (in case of <varname>Accept=</varname><option>yes</option>). See the Description section
+        above for a more detailed discussion of the naming rules of triggered services.</para>
+
         <para>For IPv4 and IPv6 connections, the <varname>REMOTE_ADDR</varname> environment variable will
         contain the remote IP address, and <varname>REMOTE_PORT</varname> will contain the remote port. This
         is the same as the format used by CGI. For <constant>SOCK_RAW</constant>, the port is the IP
