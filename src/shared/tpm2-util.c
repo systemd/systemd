@@ -2973,7 +2973,7 @@ int tpm2_seal(const char *device,
 
         TPM2B_SENSITIVE_CREATE hmac_sensitive = {
                 .size = sizeof(hmac_sensitive.sensitive),
-                .sensitive.data.size = 32,
+                .sensitive.data.size = hmac_template.publicArea.unique.keyedHash.size,
         };
 
         CLEANUP_ERASE(hmac_sensitive);
