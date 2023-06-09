@@ -91,7 +91,7 @@
       project='man-pages'><refentrytitle>timerfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
       supporting the <constant>CLOCK_MONOTONIC</constant>,
       <constant>CLOCK_REALTIME</constant>,
-      <constant>CLOCK_BOOTIME</constant> clocks, as well as the
+      <constant>CLOCK_BOOTTIME</constant> clocks, as well as the
       <constant>CLOCK_REALTIME_ALARM</constant> and
       <constant>CLOCK_BOOTTIME_ALARM</constant> clocks that can resume
       the system from suspend. When creating timer events a required
