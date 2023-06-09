@@ -827,6 +827,13 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPEliteDragonflyG2*:pvr*
 evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pnHPEliteDragonflyG2*:pvr*
  KEYBOARD_KEY_08=unknown                                # rfkill is also reported by HP Wireless hotkeys
 
+# HP Elite Dragonfly G3
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pnHPEliteDragonfly13.5inchG3NotebookPC:pvr*
+ KEYBOARD_KEY_c9=up
+ KEYBOARD_KEY_d1=down
+ KEYBOARD_KEY_c8=pageup
+ KEYBOARD_KEY_d0=pagedown
+
 ##########################################################
 # Huawei
 ##########################################################
