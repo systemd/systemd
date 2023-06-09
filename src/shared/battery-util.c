@@ -267,13 +267,11 @@ int battery_is_discharging_and_low(void) {
         }
 
         /* If we found a battery whose state we couldn't read, don't assume we are in low battery state */
-        if (unsure)
+        if (unsure) {
+                log_debug("Found battery with unreadable state, assuming not in low battery state.");
                 return false;
+        }
 
-        /* Found no charged battery, but did find low batteries */
-        if (found_low)
-                return true;
-
-        /* Found neither charged nor low batteries? let's return that we aren't on low battery state */
-        return false;
+        /* If found neither charged nor low batteries, assume that we aren't in low battery state */
+        return found_low;
 }
