@@ -10,6 +10,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bus-get-properties.h"
+#include "bus-util.h"
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cpu-set-util.h"
@@ -939,24 +940,12 @@ static int property_get_import_credential(
                 sd_bus_error *error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
-        const char *s;
-        int r;
 
         assert(bus);
         assert(property);
         assert(reply);
 
-        r = sd_bus_message_open_container(reply, 'a', "s");
-        if (r < 0)
-                return r;
-
-        SET_FOREACH(s, c->import_credentials) {
-                r = sd_bus_message_append(reply, "s", s);
-                if (r < 0)
-                        return r;
-        }
-
-        return sd_bus_message_close_container(reply);
+        return bus_message_append_string_set(reply, c->import_credentials);
 }
 
 static int property_get_root_hash(
