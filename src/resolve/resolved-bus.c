@@ -1687,22 +1687,10 @@ static int bus_property_get_ntas(
                 sd_bus_error *error) {
 
         Manager *m = ASSERT_PTR(userdata);
-        const char *domain;
-        int r;
 
         assert(reply);
 
-        r = sd_bus_message_open_container(reply, 'a', "s");
-        if (r < 0)
-                return r;
-
-        SET_FOREACH(domain, m->trust_anchor.negative_by_name) {
-                r = sd_bus_message_append(reply, "s", domain);
-                if (r < 0)
-                        return r;
-        }
-
-        return sd_bus_message_close_container(reply);
+        return bus_message_append_string_set(reply, m->trust_anchor.negative_by_name);
 }
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_dns_stub_listener_mode, dns_stub_listener_mode, DnsStubListenerMode);
