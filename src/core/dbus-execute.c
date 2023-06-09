@@ -10,6 +10,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bus-get-properties.h"
+#include "bus-util.h"
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cpu-set-util.h"
@@ -929,36 +930,6 @@ static int property_get_load_credential(
         return sd_bus_message_close_container(reply);
 }
 
-static int property_get_import_credential(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        ExecContext *c = ASSERT_PTR(userdata);
-        const char *s;
-        int r;
-
-        assert(bus);
-        assert(property);
-        assert(reply);
-
-        r = sd_bus_message_open_container(reply, 'a', "s");
-        if (r < 0)
-                return r;
-
-        SET_FOREACH(s, c->import_credentials) {
-                r = sd_bus_message_append(reply, "s", s);
-                if (r < 0)
-                        return r;
-        }
-
-        return sd_bus_message_close_container(reply);
-}
-
 static int property_get_root_hash(
                 sd_bus *bus,
                 const char *path,
@@ -1312,7 +1283,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("SetCredentialEncrypted", "a(say)", property_get_set_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LoadCredential", "a(ss)", property_get_load_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LoadCredentialEncrypted", "a(ss)", property_get_load_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ImportCredential", "as", property_get_import_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ImportCredential", "as", bus_property_get_string_set, offsetof(ExecContext, import_credentials), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SupplementaryGroups", "as", NULL, offsetof(ExecContext, supplementary_groups), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PAMName", "s", NULL, offsetof(ExecContext, pam_name), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ReadWritePaths", "as", NULL, offsetof(ExecContext, read_write_paths), SD_BUS_VTABLE_PROPERTY_CONST),
