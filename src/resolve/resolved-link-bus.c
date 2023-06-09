@@ -217,22 +217,10 @@ static int property_get_ntas(
                 sd_bus_error *error) {
 
         Link *l = ASSERT_PTR(userdata);
-        const char *name;
-        int r;
 
         assert(reply);
 
-        r = sd_bus_message_open_container(reply, 'a', "s");
-        if (r < 0)
-                return r;
-
-        SET_FOREACH(name, l->dnssec_negative_trust_anchors) {
-                r = sd_bus_message_append(reply, "s", name);
-                if (r < 0)
-                        return r;
-        }
-
-        return sd_bus_message_close_container(reply);
+        return bus_message_append_string_set(reply, l->dnssec_negative_trust_anchors);
 }
 
 static int verify_unmanaged_link(Link *l, sd_bus_error *error) {
