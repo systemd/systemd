@@ -207,22 +207,6 @@ static int property_get_scopes_mask(
         return sd_bus_message_append(reply, "t", mask);
 }
 
-static int property_get_ntas(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Link *l = ASSERT_PTR(userdata);
-
-        assert(reply);
-
-        return bus_message_append_string_set(reply, l->dnssec_negative_trust_anchors);
-}
-
 static int verify_unmanaged_link(Link *l, sd_bus_error *error) {
         assert(l);
 
@@ -858,7 +842,7 @@ static const sd_bus_vtable link_vtable[] = {
         SD_BUS_PROPERTY("MulticastDNS", "s", property_get_mdns_support, 0, 0),
         SD_BUS_PROPERTY("DNSOverTLS", "s", property_get_dns_over_tls_mode, 0, 0),
         SD_BUS_PROPERTY("DNSSEC", "s", property_get_dnssec_mode, 0, 0),
-        SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", property_get_ntas, 0, 0),
+        SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", bus_property_get_string_set, offsetof(Link, dnssec_negative_trust_anchors), 0),
         SD_BUS_PROPERTY("DNSSECSupported", "b", property_get_dnssec_supported, 0, 0),
 
         SD_BUS_METHOD_WITH_ARGS("SetDNS",
