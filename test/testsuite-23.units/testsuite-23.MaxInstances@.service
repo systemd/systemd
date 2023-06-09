@@ -1,0 +1,6 @@
+[Unit]
+MaxInstances=2
+
+[Service]
+ExecStart=true
+RemainAfterExit=yes

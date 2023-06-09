@@ -1802,6 +1802,15 @@
           into.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+            <term><varname>MaxInstances=</varname></term>
+
+            <listitem><para>The maximum number of instances of a template unit that may run simultaneously. If reached,
+            further attempts to start another instance of the same template will fail. Defaults to
+            <constant>unlimited</constant>.
+            </para></listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
   </refsect1>

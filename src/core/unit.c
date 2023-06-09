@@ -1898,6 +1898,102 @@ static bool unit_verify_deps(Unit *u) {
         return true;
 }
 
+static bool unit_can_instantiate(Unit *u, char **ret) {
+        _cleanup_free_ char *t = NULL;
+        unsigned n;
+        int r;
+
+        assert(u);
+        assert(u->manager);
+
+        if (!u->instance)
+                return true;
+
+        if (u->n_max_instances == 0)
+                return true;
+
+        if (!u->manager->instance_counts)
+                return true;
+
+        r = unit_name_template(u->id, &t);
+        if (r < 0)
+                return r;
+
+        n = PTR_TO_UINT(hashmap_get(u->manager->instance_counts, t));
+
+        if (ret)
+                *ret = TAKE_PTR(t);
+        return n < u->n_max_instances;
+}
+
+static int unit_increment_instance_count(Unit *u) {
+        _cleanup_free_ char *t = NULL;
+        unsigned n;
+        int r;
+
+        assert(u);
+        assert(u->manager);
+
+        if (!u->instance)
+                return 0;
+
+        if (u->n_max_instances == 0)
+                return 0;
+
+        r = hashmap_ensure_allocated(&u->manager->instance_counts, &string_hash_ops);
+        if (r < 0)
+                return r;
+
+        r = unit_name_template(u->id, &t);
+        if (r < 0)
+                return r;
+
+        n = PTR_TO_UINT(hashmap_get(u->manager->instance_counts, t));
+        n++;
+
+        if (n == 1)
+                r = hashmap_put(u->manager->instance_counts, t, UINT_TO_PTR(n));
+        else
+                r = hashmap_update(u->manager->instance_counts, t, UINT_TO_PTR(n));
+        if (r < 0)
+                return r;
+
+        if (n == 1)
+                TAKE_PTR(t);
+
+        return 1;
+}
+
+static int unit_decrement_instance_count(Unit *u) {
+        _cleanup_free_ char *t = NULL;
+        unsigned n;
+        int r;
+
+        assert(u);
+        assert(u->manager);
+
+        if (!u->instance)
+                return 0;
+
+        if (u->n_max_instances == 0)
+                return 0;
+
+        r = unit_name_template(u->id, &t);
+        if (r < 0)
+                return r;
+
+        assert(u->manager->instance_counts);
+        n = PTR_TO_UINT(hashmap_get(u->manager->instance_counts, t));
+        assert(n > 0);
+
+        if (n > 1)
+                return hashmap_update(u->manager->instance_counts, t, UINT_TO_PTR(n - 1));
+
+        hashmap_remove(u->manager->instance_counts, t);
+
+        return 1;
+}
+
 /* Errors that aren't really errors:
  *         -EALREADY:   Unit is already started.
  *         -ECOMM:      Condition failed
@@ -1912,10 +2008,12 @@ static bool unit_verify_deps(Unit *u) {
  *         -ENOLINK:    The necessary dependencies are not fulfilled.
  *         -ESTALE:     This unit has been started before and can't be started a second time
  *         -ENOENT:     This is a triggering unit and unit to trigger is not loaded
+ *         -E2BIG:      The allowed number of instances of this template unit is already running
  */
 int unit_start(Unit *u, ActivationDetails *details) {
         UnitActiveState state;
         Unit *following;
+        _cleanup_free_ char *template = NULL;
         int r;
 
         assert(u);
@@ -1966,6 +2064,9 @@ int unit_start(Unit *u, ActivationDetails *details) {
         if (!unit_verify_deps(u))
                 return -ENOLINK;
 
+        if (!unit_can_instantiate(u, &template))
+                return log_unit_info_errno(u, SYNTHETIC_ERRNO(E2BIG), "Allowed number of instances of %s is already running.", template);
+
         /* Forward to the main object, if we aren't it. */
         following = unit_following(u);
         if (following) {
@@ -1993,6 +2094,10 @@ int unit_start(Unit *u, ActivationDetails *details) {
 
         if (!u->activation_details) /* Older details object wins */
                 u->activation_details = activation_details_ref(details);
+
+        r = unit_increment_instance_count(u);
+        if (r < 0)
+                return r;
 
         return UNIT_VTABLE(u)->start(u);
 }
@@ -2028,6 +2133,7 @@ bool unit_can_isolate(Unit *u) {
 int unit_stop(Unit *u) {
         UnitActiveState state;
         Unit *following;
+        int r;
 
         assert(u);
 
@@ -2046,6 +2152,10 @@ int unit_stop(Unit *u) {
 
         unit_add_to_dbus_queue(u);
         unit_cgroup_freezer_action(u, FREEZER_THAW);
+
+        r = unit_decrement_instance_count(u);
+        if (r < 0)
+                return r;
 
         return UNIT_VTABLE(u)->stop(u);
 }
