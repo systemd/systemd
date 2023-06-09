@@ -62,7 +62,7 @@ static bool event_source_is_offline(sd_event_source *s) {
 static const char* const event_source_type_table[_SOURCE_EVENT_SOURCE_TYPE_MAX] = {
         [SOURCE_IO]                  = "io",
         [SOURCE_TIME_REALTIME]       = "realtime",
-        [SOURCE_TIME_BOOTTIME]       = "bootime",
+        [SOURCE_TIME_BOOTTIME]       = "boottime",
         [SOURCE_TIME_MONOTONIC]      = "monotonic",
         [SOURCE_TIME_REALTIME_ALARM] = "realtime-alarm",
         [SOURCE_TIME_BOOTTIME_ALARM] = "boottime-alarm",

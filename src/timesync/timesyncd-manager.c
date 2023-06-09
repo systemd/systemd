@@ -622,7 +622,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                            "MESSAGE_ID=" SD_MESSAGE_TIME_SYNC_STR,
                            "MONOTONIC_USEC=" USEC_FMT, dts.monotonic,
                            "REALTIME_USEC=" USEC_FMT, dts.realtime,
-                           "BOOTIME_USEC=" USEC_FMT, dts.boottime);
+                           "BOOTTIME_USEC=" USEC_FMT, dts.boottime);
         }
 
         r = manager_arm_timer(m, m->poll_interval_usec);
