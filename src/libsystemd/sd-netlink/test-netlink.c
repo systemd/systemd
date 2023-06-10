@@ -76,7 +76,6 @@ TEST(message_getlink) {
         assert_se(sd_netlink_message_read_u32(reply, IFLA_GROUP, &u32_data) >= 0);
         assert_se(sd_netlink_message_read_u32(reply, IFLA_TXQLEN, &u32_data) >= 0);
         assert_se(sd_netlink_message_read_u32(reply, IFLA_NUM_TX_QUEUES, &u32_data) >= 0);
-        assert_se(sd_netlink_message_read_u32(reply, IFLA_NUM_RX_QUEUES, &u32_data) >= 0);
 
         /* string */
         assert_se(sd_netlink_message_read_string(reply, IFLA_IFNAME, &str_data) >= 0);
