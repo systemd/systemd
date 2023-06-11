@@ -2214,8 +2214,6 @@ subdir('src/udev')
 subdir('src/libudev')
 subdir('src/cryptsetup/cryptsetup-tokens')
 
-alias_target('devel', libsystemd_pc, libudev_pc)
-
 libsystemd = shared_library(
         'systemd',
         version : libsystemd_version,
@@ -2409,6 +2407,8 @@ subdir('src/fuzz')
 subdir('rules.d')
 subdir('test')
 subdir('src/ukify/test')  # needs to be last for test_env variable
+
+alias_target('devel', libsystemd_pc, libudev_pc, systemd_pc, udev_pc)
 
 ############################################################
 

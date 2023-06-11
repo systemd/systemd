@@ -144,7 +144,6 @@ systemd_sources = files(
 
 in_files = [['system.conf',                     pkgsysconfdir],
             ['user.conf',                       pkgsysconfdir],
-            ['systemd.pc',                      pkgconfigdatadir],
             ['org.freedesktop.systemd1.policy', polkitpolicydir]]
 
 foreach item : in_files
@@ -159,6 +158,15 @@ foreach item : in_files
                 install : (dir == pkgsysconfdir) ? install_sysconfdir_samples : (dir != 'no'),
                 install_dir : dir)
 endforeach
+
+systemd_pc = custom_target(
+        'systemd.pc',
+        input : 'systemd.pc.in',
+        output : 'systemd.pc',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+        install : pkgconfigdatadir != 'no',
+        install_tag : 'devel',
+        install_dir : pkgconfigdatadir)
 
 install_data('org.freedesktop.systemd1.conf',
              install_dir : dbuspolicydir)
