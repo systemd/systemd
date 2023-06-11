@@ -260,6 +260,7 @@ echo -n b >/run/credstore/test.creds.second
 mkdir -p /etc/credstore
 echo -n c >/etc/credstore/test.creds.third
 systemd-run -p "ImportCredential=test.creds.*" \
+            --unit=test-54-ImportCredential.service \
             -p DynamicUser=1 \
             --wait \
             --pipe \
