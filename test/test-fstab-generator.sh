@@ -51,11 +51,6 @@ for f in "$src"/test-*.input; do
             touch "$i"
         done
 
-        # For split-usr system
-        for i in "$out"/systemd-*.service; do
-            sed -i -e 's:ExecStart=/lib/systemd/:ExecStart=/usr/lib/systemd/:' "$i"
-        done
-
         if [[ "${f##*/}" =~ \.fstab\.input ]]; then
             for i in "$out"/*.{automount,mount,swap}; do
                 sed -i -e 's:SourcePath=.*$:SourcePath=/etc/fstab:' "$i"

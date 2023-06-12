@@ -11,19 +11,19 @@
 # considered deprecated (though there is no plan to remove them). New names
 # shall have underscores.
 
-prefix=/usr
-root_prefix={{ROOTPREFIX_NOSLASH}}
-rootprefix=${root_prefix}
+prefix={{PREFIX_NOSLASH}}
+root_prefix=${prefix}
+rootprefix=${prefix}
 sysconf_dir={{SYSCONF_DIR}}
 sysconfdir=${sysconf_dir}
 
-systemd_util_dir=${root_prefix}/lib/systemd
+systemd_util_dir=${prefix}/lib/systemd
 systemdutildir=${systemd_util_dir}
 
-systemd_system_unit_dir=${rootprefix}/lib/systemd/system
+systemd_system_unit_dir=${prefix}/lib/systemd/system
 systemdsystemunitdir=${systemd_system_unit_dir}
 
-systemd_system_preset_dir=${rootprefix}/lib/systemd/system-preset
+systemd_system_preset_dir=${prefix}/lib/systemd/system-preset
 systemdsystempresetdir=${systemd_system_preset_dir}
 
 systemd_user_unit_dir=${prefix}/lib/systemd/user
@@ -44,7 +44,7 @@ systemdsystemunitpath=${systemd_system_unit_path}
 systemd_user_unit_path=${systemd_user_conf_dir}:/etc/systemd/user:/run/systemd/user:/usr/local/lib/systemd/user:/usr/local/share/systemd/user:${systemd_user_unit_dir}:/usr/lib/systemd/user:/usr/share/systemd/user
 systemduserunitpath=${systemd_user_unit_path}
 
-systemd_system_generator_dir=${root_prefix}/lib/systemd/system-generators
+systemd_system_generator_dir=${prefix}/lib/systemd/system-generators
 systemdsystemgeneratordir=${systemd_system_generator_dir}
 
 systemd_user_generator_dir=${prefix}/lib/systemd/user-generators
@@ -56,10 +56,10 @@ systemdsystemgeneratorpath=${systemd_system_generator_path}
 systemd_user_generator_path=/run/systemd/user-generators:/etc/systemd/user-generators:/usr/local/lib/systemd/user-generators:${systemd_user_generator_dir}
 systemdusergeneratorpath=${systemd_user_generator_path}
 
-systemd_sleep_dir=${root_prefix}/lib/systemd/system-sleep
+systemd_sleep_dir=${prefix}/lib/systemd/system-sleep
 systemdsleepdir=${systemd_sleep_dir}
 
-systemd_shutdown_dir=${root_prefix}/lib/systemd/system-shutdown
+systemd_shutdown_dir=${prefix}/lib/systemd/system-shutdown
 systemdshutdowndir=${systemd_shutdown_dir}
 
 tmpfiles_dir=${prefix}/lib/tmpfiles.d
@@ -67,16 +67,16 @@ tmpfilesdir=${tmpfiles_dir}
 
 user_tmpfiles_dir=${prefix}/share/user-tmpfiles.d
 
-sysusers_dir=${rootprefix}/lib/sysusers.d
+sysusers_dir=${prefix}/lib/sysusers.d
 sysusersdir=${sysusers_dir}
 
-sysctl_dir=${rootprefix}/lib/sysctl.d
+sysctl_dir=${prefix}/lib/sysctl.d
 sysctldir=${sysctl_dir}
 
-binfmt_dir=${rootprefix}/lib/binfmt.d
+binfmt_dir=${prefix}/lib/binfmt.d
 binfmtdir=${binfmt_dir}
 
-modules_load_dir=${rootprefix}/lib/modules-load.d
+modules_load_dir=${prefix}/lib/modules-load.d
 modulesloaddir=${modules_load_dir}
 
 catalog_dir=${prefix}/lib/systemd/catalog

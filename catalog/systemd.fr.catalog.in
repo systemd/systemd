@@ -337,8 +337,6 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 
 Les étiquettes suivantes sont possibles :
-- "split-usr" — /usr est un système de fichiers séparé et nétait pas
-  monté quand systemd a été démarré
 - "cgroups-missing" — le noyau a été compilé sans le support des groupes
   de contrôle (cgroups) ou l'accès aux fichiers d'interface est restreint
 - "var-run-bad" — /var/run n'est pas un lien symbolique vers /run
