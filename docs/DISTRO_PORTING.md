@@ -14,7 +14,6 @@ distribution:
 
 1. Find the right configure parameters for:
 
-   * `-Drootprefix=`
    * `-Dsysvinit-path=`
    * `-Dsysvrcnd-path=`
    * `-Drc-local=`
