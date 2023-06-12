@@ -466,7 +466,7 @@ static int pid_notify_with_fds_internal(
         struct cmsghdr *cmsg = NULL;
         const char *e;
         bool send_ucred;
-        int r;
+        int type, r;
 
         if (!state)
                 return -EINVAL;
@@ -491,30 +491,33 @@ static int pid_notify_with_fds_internal(
         if (address.sockaddr.vm.svm_family == AF_VSOCK && address.sockaddr.vm.svm_cid == VMADDR_CID_ANY)
                 return -EINVAL;
 
+        type = address.type == 0 ? SOCK_DGRAM : address.type;
+
         /* At the time of writing QEMU does not yet support AF_VSOCK + SOCK_DGRAM and returns
          * ENODEV. Fallback to SOCK_SEQPACKET in that case. */
-        fd = socket(address.sockaddr.sa.sa_family, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+        fd = socket(address.sockaddr.sa.sa_family, type|SOCK_CLOEXEC, 0);
         if (fd < 0) {
-                if (!(ERRNO_IS_NOT_SUPPORTED(errno) || errno == ENODEV) || address.sockaddr.sa.sa_family != AF_VSOCK)
-                        return log_debug_errno(errno, "Failed to open datagram notify socket to '%s': %m", e);
+                if (!(ERRNO_IS_NOT_SUPPORTED(errno) || errno == ENODEV) || address.sockaddr.sa.sa_family != AF_VSOCK || address.type > 0)
+                        return log_debug_errno(errno, "Failed to open %s notify socket to '%s': %m", socket_address_type_to_string(type), e);
 
-                fd = socket(address.sockaddr.sa.sa_family, SOCK_SEQPACKET|SOCK_CLOEXEC, 0);
+                type = SOCK_SEQPACKET;
+                fd = socket(address.sockaddr.sa.sa_family, type|SOCK_CLOEXEC, 0);
                 if (fd < 0)
-                        return log_debug_errno(errno, "Failed to open sequential packet socket to '%s': %m", e);
+                        return log_debug_errno(errno, "Failed to open %s socket to '%s': %m", socket_address_type_to_string(type), e);
+        }
 
+        if (address.sockaddr.sa.sa_family == AF_VSOCK) {
                 r = vsock_bind_privileged_port(fd);
                 if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
                         return log_debug_errno(r, "Failed to bind socket to privileged port: %m");
+        }
 
+        if (IN_SET(type, SOCK_STREAM, SOCK_SEQPACKET)) {
                 if (connect(fd, &address.sockaddr.sa, address.size) < 0)
                         return log_debug_errno(errno, "Failed to connect socket to '%s': %m", e);
 
                 msghdr.msg_name = NULL;
                 msghdr.msg_namelen = 0;
-        } else if (address.sockaddr.sa.sa_family == AF_VSOCK) {
-                r = vsock_bind_privileged_port(fd);
-                if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
-                        return log_debug_errno(r, "Failed to bind socket to privileged port: %m");
         }
 
         (void) fd_inc_sndbuf(fd, SNDBUF_SIZE);
