@@ -20,5 +20,5 @@ Before=shutdown.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart={{ROOTLIBEXECDIR}}/systemd-growfs %f
+ExecStart={{LIBEXECDIR}}/systemd-growfs %f
 TimeoutSec=infinity
