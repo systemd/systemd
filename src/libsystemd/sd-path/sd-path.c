@@ -534,9 +534,6 @@ static int get_search(uint64_t type, char ***list) {
                                                true,
                                                ARRAY_SBIN_BIN("/usr/local/"),
                                                ARRAY_SBIN_BIN("/usr/"),
-#if HAVE_SPLIT_USR
-                                               ARRAY_SBIN_BIN("/"),
-#endif
                                                NULL);
 
         case SD_PATH_SEARCH_LIBRARY_PRIVATE:
@@ -547,9 +544,6 @@ static int get_search(uint64_t type, char ***list) {
                                                false,
                                                "/usr/local/lib",
                                                "/usr/lib",
-#if HAVE_SPLIT_USR
-                                               "/lib",
-#endif
                                                NULL);
 
         case SD_PATH_SEARCH_LIBRARY_ARCH:
@@ -559,9 +553,6 @@ static int get_search(uint64_t type, char ***list) {
                                                "LD_LIBRARY_PATH",
                                                true,
                                                LIBDIR,
-#if HAVE_SPLIT_USR
-                                               ROOTLIBDIR,
-#endif
                                                NULL);
 
         case SD_PATH_SEARCH_SHARED:
