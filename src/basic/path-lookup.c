@@ -530,10 +530,6 @@ int lookup_paths_init(
         assert(scope >= 0);
         assert(scope < _RUNTIME_SCOPE_MAX);
 
-#if HAVE_SPLIT_USR
-        flags |= LOOKUP_PATHS_SPLIT_USR;
-#endif
-
         if (!empty_or_root(root_dir)) {
                 if (scope == RUNTIME_SCOPE_USER)
                         return -EINVAL;
@@ -625,6 +621,7 @@ int lookup_paths_init(
                                         "/usr/local/lib/systemd/system",
                                         SYSTEM_DATA_UNIT_DIR,
                                         "/usr/lib/systemd/system",
+                                        /* To be used ONLY for images which might be legacy split-usr */
                                         STRV_IFNOTNULL(flags & LOOKUP_PATHS_SPLIT_USR ? "/lib/systemd/system" : NULL),
                                         STRV_IFNOTNULL(generator_late));
                         break;
