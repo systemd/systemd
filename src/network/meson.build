@@ -191,7 +191,6 @@ executables += [
                 'include_directories' : libsystemd_network_includes,
                 'link_with' : [libsystemd_network,
                                networkd_link_with],
-                'install_dir' : rootbindir,
         },
         libexec_template + {
                 'name' : 'systemd-network-generator',

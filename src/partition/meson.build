@@ -20,7 +20,6 @@ executables += [
                                   libfdisk,
                                   libopenssl,
                                   threads],
-                'install_dir' : rootbindir,
         },
         executable_template + {
                 'name' : 'systemd-repart.standalone',
@@ -39,6 +38,5 @@ executables += [
                                   threads],
                 'build_by_default' : have_standalone_binaries,
                 'install' : have_standalone_binaries,
-                'install_dir' : rootbindir,
         },
 ]
