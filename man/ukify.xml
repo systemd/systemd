@@ -35,60 +35,83 @@
     <para>Note: this command is experimental for now. While it is intended to become a regular component of
     systemd, it might still change in behaviour and interface.</para>
 
-    <para><command>ukify</command> is a tool that combines components (usually a kernel, an initrd, and a
-    UEFI boot stub) to create a
+    <para><command>ukify</command> is a tool whose primary purpose is to combine components (usually a
+    kernel, an initrd, and a UEFI boot stub) to create a
     <ulink url="https://uapi-group.org/specifications/specs/unified_kernel_image/">Unified Kernel Image (UKI)</ulink>
     — a PE binary that can be executed by the firmware to start the embedded linux kernel.
     See <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for details about the stub.</para>
+  </refsect1>
 
-    <para>The two primary options that should be specified for the <command>build</command> verb are
-    <varname>Linux=</varname>/<option>--linux=</option>, and
-    <varname>Initrd=</varname>/<option>--initrd=</option>. <varname>Initrd=</varname> accepts multiple
-    whitespace-separated paths and <option>--initrd=</option> can be specified multiple times.</para>
+  <refsect1>
+    <title>Commands</title>
 
-    <para>Additional sections will be inserted into the UKI, either automatically or only if a specific
-    option is provided. See the discussions of
-    <varname>Cmdline=</varname>/<option>--cmdline=</option>,
-    <varname>OSRelease=</varname>/<option>--os-release=</option>,
-    <varname>DeviceTree=</varname>/<option>--devicetree=</option>,
-    <varname>Splash=</varname>/<option>--splash=</option>,
-    <varname>PCRPKey=</varname>/<option>--pcrpkey=</option>,
-    <varname>Uname=</varname>/<option>--uname=</option>,
-    <varname>SBAT=</varname>/<option>--sbat=</option>,
-    and <option>--section=</option>
-    below.</para>
+    <para>The following commands are understood:</para>
 
-    <para><command>ukify</command> can also be used to assemble a PE binary that is not executable but
-    contains auxiliary data, for example additional kernel command line entries.</para>
+    <refsect2>
+      <title><command>build</command></title>
 
-    <para>If PCR signing keys are provided via the
-    <varname>PCRPrivateKey=</varname>/<option>--pcr-private-key=</option> and
-    <varname>PCRPublicKey=</varname>/<option>--pcr-public-key=</option> options, PCR values that will be seen
-    after booting with the given kernel, initrd, and other sections, will be calculated, signed, and embedded
-    in the UKI.
-    <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry> is
-    used to perform this calculation and signing.</para>
+      <para>This command creates a Unified Kernel Image. The two primary options that should be specified for
+      the <command>build</command> verb are <varname>Linux=</varname>/<option>--linux=</option>, and
+      <varname>Initrd=</varname>/<option>--initrd=</option>. <varname>Initrd=</varname> accepts multiple
+      whitespace-separated paths and <option>--initrd=</option> can be specified multiple times.</para>
 
-    <para>The calculation of PCR values is done for specific boot phase paths. Those can be specified with
-    the <varname>Phases=</varname>/<option>--phases=</option> option. If not specified, the default provided
-    by <command>systemd-measure</command> is used. It is also possible to specify the
-    <varname>PCRPrivateKey=</varname>/<option>--pcr-private-key=</option>,
-    <varname>PCRPublicKey=</varname>/<option>--pcr-public-key=</option>, and
-    <varname>Phases=</varname>/<option>--phases=</option> arguments more than once. Signatures will then be
-    performed with each of the specified keys. On the command line, when both <option>--phases=</option> and
-    <option>--pcr-private-key=</option> are used, they must be specified the same number of times, and then
-    the n-th boot phase path set will be signed by the n-th key. This can be used to build different trust
-    policies for different phases of the boot. In the config file, <varname>PCRPrivateKey=</varname>,
-    <varname>PCRPublicKey=</varname>, and <varname>Phases=</varname> are grouped into separate sections,
-    describing separate boot phases.</para>
+      <para>Additional sections will be inserted into the UKI, either automatically or only if a specific
+      option is provided. See the discussions of
+      <varname>Cmdline=</varname>/<option>--cmdline=</option>,
+      <varname>OSRelease=</varname>/<option>--os-release=</option>,
+      <varname>DeviceTree=</varname>/<option>--devicetree=</option>,
+      <varname>Splash=</varname>/<option>--splash=</option>,
+      <varname>PCRPKey=</varname>/<option>--pcrpkey=</option>,
+      <varname>Uname=</varname>/<option>--uname=</option>,
+      <varname>SBAT=</varname>/<option>--sbat=</option>,
+      and <option>--section=</option>
+      below.</para>
 
-    <para>If a SecureBoot signing key is provided via the
-    <varname>SecureBootPrivateKey=</varname>/<option>--secureboot-private-key=</option> option, the resulting
-    PE binary will be signed as a whole, allowing the resulting UKI to be trusted by SecureBoot. Also see the
-    discussion of automatic enrollment in
-    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
-    </para>
+      <para><command>ukify</command> can also be used to assemble a PE binary that is not executable but
+      contains auxiliary data, for example additional kernel command line entries.</para>
+
+      <para>If PCR signing keys are provided via the
+      <varname>PCRPrivateKey=</varname>/<option>--pcr-private-key=</option> and
+      <varname>PCRPublicKey=</varname>/<option>--pcr-public-key=</option> options, PCR values that will be seen
+      after booting with the given kernel, initrd, and other sections, will be calculated, signed, and embedded
+      in the UKI.
+      <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry> is
+      used to perform this calculation and signing.</para>
+
+      <para>The calculation of PCR values is done for specific boot phase paths. Those can be specified with
+      the <varname>Phases=</varname>/<option>--phases=</option> option. If not specified, the default provided
+      by <command>systemd-measure</command> is used. It is also possible to specify the
+      <varname>PCRPrivateKey=</varname>/<option>--pcr-private-key=</option>,
+      <varname>PCRPublicKey=</varname>/<option>--pcr-public-key=</option>, and
+      <varname>Phases=</varname>/<option>--phases=</option> arguments more than once. Signatures will then be
+      performed with each of the specified keys. On the command line, when both <option>--phases=</option> and
+      <option>--pcr-private-key=</option> are used, they must be specified the same number of times, and then
+      the n-th boot phase path set will be signed by the n-th key. This can be used to build different trust
+      policies for different phases of the boot. In the config file, <varname>PCRPrivateKey=</varname>,
+      <varname>PCRPublicKey=</varname>, and <varname>Phases=</varname> are grouped into separate sections,
+      describing separate boot phases.</para>
+
+      <para>If a SecureBoot signing key is provided via the
+      <varname>SecureBootPrivateKey=</varname>/<option>--secureboot-private-key=</option> option, the resulting
+      PE binary will be signed as a whole, allowing the resulting UKI to be trusted by SecureBoot. Also see the
+      discussion of automatic enrollment in
+      <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+      </para>
+    </refsect2>
+
+    <refsect2>
+      <title><command>genkey</command></title>
+
+      <para>This command creates the keys for PCR signing and the key and certificate used for SecureBoot
+      signing. The same configuration options that determine what keys and in which paths will be needed for
+      signing when <command>build</command> is used, here determine which keys will be created. See the
+      discussion of <varname>PCRPrivateKey=</varname>/<option>--pcr-private-key=</option>,
+      <varname>PCRPublicKey=</varname>/<option>--pcr-public-key=</option>, and
+      <varname>SecureBootPrivateKey=</varname>/<option>--secureboot-private-key=</option> below.</para>
+
+      <para>The output files must not exist.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>
