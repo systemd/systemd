@@ -2586,34 +2586,6 @@ static int verb_log_level(int argc, char *argv[], void *userdata) {
         return verb_log_control_common(bus, "org.freedesktop.resolve1", argv[0], argc == 2 ? argv[1] : NULL);
 }
 
-static int monitor_rkey_from_json(JsonVariant *v, DnsResourceKey **ret_key) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        uint16_t type = 0, class = 0;
-        const char *name = NULL;
-        int r;
-
-        JsonDispatch dispatch_table[] = {
-                { "class", JSON_VARIANT_INTEGER, json_dispatch_uint16,       PTR_TO_SIZE(&class), JSON_MANDATORY },
-                { "type",  JSON_VARIANT_INTEGER, json_dispatch_uint16,       PTR_TO_SIZE(&type),  JSON_MANDATORY },
-                { "name",  JSON_VARIANT_STRING,  json_dispatch_const_string, PTR_TO_SIZE(&name),  JSON_MANDATORY },
-                {}
-        };
-
-        assert(v);
-        assert(ret_key);
-
-        r = json_dispatch(v, dispatch_table, NULL, 0, NULL);
-        if (r < 0)
-                return r;
-
-        key = dns_resource_key_new(class, type, name);
-        if (!key)
-                return -ENOMEM;
-
-        *ret_key = TAKE_PTR(key);
-        return 0;
-}
-
 static int print_question(char prefix, const char *color, JsonVariant *question) {
         JsonVariant *q = NULL;
         int r;
@@ -2624,7 +2596,7 @@ static int print_question(char prefix, const char *color, JsonVariant *question)
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
                 char buf[DNS_RESOURCE_KEY_STRING_MAX];
 
-                r = monitor_rkey_from_json(q, &key);
+                r = dns_resource_key_from_json(q, &key);
                 if (r < 0) {
                         log_warning_errno(r, "Received monitor message with invalid question key, ignoring: %m");
                         continue;
