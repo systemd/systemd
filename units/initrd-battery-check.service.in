@@ -17,5 +17,5 @@ Before=local-fs-pre.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart={{ROOTLIBEXECDIR}}/systemd-battery-check
+ExecStart={{LIBEXECDIR}}/systemd-battery-check
 FailureAction=poweroff-force

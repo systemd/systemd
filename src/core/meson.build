@@ -132,7 +132,7 @@ libcore = shared_library(
                         threads,
                         userspace],
         install : true,
-        install_dir : rootpkglibdir)
+        install_dir : pkglibdir)
 
 core_includes = [includes, include_directories('.')]
 
@@ -211,8 +211,8 @@ if install_sysconfdir
 endif
 
 meson.add_install_script(meson_make_symlink,
-                         rootlibexecdir / 'systemd',
-                         rootsbindir / 'init')
+                         libexecdir / 'systemd',
+                         sbindir / 'init')
 
 ############################################################
 

@@ -5,6 +5,5 @@ executables += [
                 'name' : 'systemd-notify',
                 'public' : true,
                 'sources' : files('notify.c'),
-                'install_dir' : rootbindir,
         },
 ]
