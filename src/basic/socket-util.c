@@ -1519,36 +1519,43 @@ int socket_address_parse_unix(SocketAddress *ret_address, const char *s) {
 
 int socket_address_parse_vsock(SocketAddress *ret_address, const char *s) {
         /* AF_VSOCK socket in vsock:cid:port notation */
-        _cleanup_free_ char *n = NULL;
-        char *e, *cid_start;
-        unsigned port, cid;
+        _cleanup_free_ char *scid = NULL, *sport = NULL, *stype = NULL;
+        unsigned cid, port;
+        int type = 0;
         int r;
 
         assert(ret_address);
         assert(s);
 
-        cid_start = startswith(s, "vsock:");
-        if (!cid_start)
+        s = startswith(s, "vsock:");
+        if (!s)
                 return -EPROTO;
 
-        e = strchr(cid_start, ':');
-        if (!e)
-                return -EINVAL;
-
-        r = safe_atou(e+1, &port);
+        r = extract_many_words(&s, ":",
+                               EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_KEEP_QUOTE|EXTRACT_RETAIN_ESCAPE,
+                               &scid, &sport, &stype, NULL);
         if (r < 0)
                 return r;
 
-        n = strndup(cid_start, e - cid_start);
-        if (!n)
-                return -ENOMEM;
+        if (r < 2)
+                return -EINVAL;
 
-        if (isempty(n))
+        if (isempty(scid))
                 cid = VMADDR_CID_ANY;
         else {
-                r = safe_atou(n, &cid);
+                r = safe_atou(scid, &cid);
                 if (r < 0)
                         return r;
+        }
+
+        r = safe_atou(sport, &port);
+        if (r < 0)
+                return r;
+
+        if (stype) {
+                type = socket_address_type_from_string(stype);
+                if (type < 0)
+                        return -EINVAL;
         }
 
         *ret_address = (SocketAddress) {
@@ -1557,6 +1564,7 @@ int socket_address_parse_vsock(SocketAddress *ret_address, const char *s) {
                         .svm_family = AF_VSOCK,
                         .svm_port = port,
                 },
+                .type = type,
                 .size = sizeof(struct sockaddr_vm),
         };
 
