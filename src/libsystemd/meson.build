@@ -161,7 +161,7 @@ libraries += [[
                 'link_depends' : libsystemd_sym,
                 'install' : true,
                 'install_tag' : 'libsystemd',
-                'install_dir' : rootlibdir,
+                'install_dir' : libdir,
         },
         {
                 'sources' : libsystemd_sources +
@@ -173,7 +173,7 @@ libraries += [[
                 'build_by_default' : static_libsystemd != 'false',
                 'install' : static_libsystemd != 'false',
                 'install_tag' : 'libsystemd',
-                'install_dir' : rootlibdir,
+                'install_dir' : libdir,
                 'pic' : static_libsystemd_pic,
                 'dependencies' : [libblkid,
                                   libcap,

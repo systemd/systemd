@@ -14,7 +14,7 @@ Documentation=man:org.freedesktop.portable1(5)
 RequiresMountsFor=/var/lib/portables
 
 [Service]
-ExecStart={{ROOTLIBEXECDIR}}/systemd-portabled
+ExecStart={{LIBEXECDIR}}/systemd-portabled
 BusName=org.freedesktop.portable1
 CapabilityBoundingSet=CAP_KILL CAP_SYS_PTRACE CAP_SYS_ADMIN CAP_SETGID CAP_SYS_CHROOT CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER CAP_FSETID CAP_MKNOD
 MemoryDenyWriteExecute=yes

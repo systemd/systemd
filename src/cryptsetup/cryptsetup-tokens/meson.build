@@ -43,7 +43,7 @@ template = {
         'link_with' : [lib_cryptsetup_token_common,
                        libshared],
         'link_depends' : cryptsetup_token_sym,
-        'install_rpath' : rootpkglibdir,
+        'install_rpath' : pkglibdir,
         'install' : true,
         'install_dir' : libcryptsetup_plugins_dir,
 }

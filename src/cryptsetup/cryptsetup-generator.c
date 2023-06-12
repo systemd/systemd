@@ -533,13 +533,13 @@ static int create_disk(
                 }
 
                 fprintf(f,
-                        "ExecStartPost=" ROOTLIBEXECDIR "/systemd-makefs '%s' '/dev/mapper/%s'\n",
+                        "ExecStartPost=" LIBEXECDIR "/systemd-makefs '%s' '/dev/mapper/%s'\n",
                         tmp_fstype_escaped ?: "ext4", name_escaped);
         }
 
         if (swap)
                 fprintf(f,
-                        "ExecStartPost=" ROOTLIBEXECDIR "/systemd-makefs swap '/dev/mapper/%s'\n",
+                        "ExecStartPost=" LIBEXECDIR "/systemd-makefs swap '/dev/mapper/%s'\n",
                         name_escaped);
 
         r = fflush_and_check(f);

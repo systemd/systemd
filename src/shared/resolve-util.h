@@ -96,4 +96,4 @@ DnsCacheMode dns_cache_mode_from_string(const char *s) _pure_;
 #define PRIVATE_STUB_RESOLV_CONF "/run/systemd/resolve/stub-resolv.conf"
 
 /* A static resolv.conf file containing no domains, but only our own DNS server address */
-#define PRIVATE_STATIC_RESOLV_CONF ROOTLIBEXECDIR "/resolv.conf"
+#define PRIVATE_STATIC_RESOLV_CONF LIBEXECDIR "/resolv.conf"

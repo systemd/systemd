@@ -3,5 +3,5 @@
 systemd_sysext_sources = files('sysext.c')
 
 meson.add_install_script(meson_make_symlink,
-                         rootbindir / 'systemd-sysext',
-                         rootbindir / 'systemd-confext')
+                         bindir / 'systemd-sysext',
+                         bindir / 'systemd-confext')

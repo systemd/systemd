@@ -59,7 +59,7 @@ libraries += [[
                 'link_depends' : libudev_sym,
                 'install' : true,
                 'install_tag' : 'libudev',
-                'install_dir' : rootlibdir,
+                'install_dir' : libdir,
         },
         {
                 'sources' : basic_sources +
@@ -71,7 +71,7 @@ libraries += [[
                 'build_by_default' : static_libudev != 'false',
                 'install' : static_libudev != 'false',
                 'install_tag' : 'libudev',
-                'install_dir' : rootlibdir,
+                'install_dir' : libdir,
                 'link_depends' : libudev_sym,
                 'dependencies' : [libmount,
                                   libshared_deps,
