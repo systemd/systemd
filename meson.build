@@ -10,7 +10,7 @@ project('systemd', 'c',
                 'localstatedir=/var',
                 'warning_level=2',
         ],
-        meson_version : '>= 0.53.2',
+        meson_version : '>= 0.56.0',
        )
 
 libsystemd_version = '0.36.0'
@@ -330,7 +330,7 @@ slow_tests = want_tests != 'false' and get_option('slow-tests')
 fuzz_tests = want_tests != 'false' and get_option('fuzz-tests')
 install_tests = get_option('install-tests')
 
-if add_languages('cpp', required : fuzzer_build)
+if add_languages('cpp', native : false, required : fuzzer_build)
         #  Used only for tests
         cxx = meson.get_compiler('cpp')
         cxx_cmd = ' '.join(cxx.cmd_array())
@@ -527,7 +527,7 @@ has_wstringop_truncation = cc.has_argument('-Wstringop-truncation')
 #####################################################################
 # compilation result tests
 
-conf.set('_GNU_SOURCE', true)
+conf.set('_GNU_SOURCE', 1)
 conf.set('__SANE_USERSPACE_TYPES__', true)
 conf.set10('HAVE_WSTRINGOP_TRUNCATION', has_wstringop_truncation)
 
@@ -735,7 +735,7 @@ foreach prog : progs
                                    '/usr/sbin/' + prog[0],
                                    '/sbin/' + prog[0],
                                    required: false)
-                path = exe.found() ? exe.path() : prog[1]
+                path = exe.found() ? exe.full_path() : prog[1]
         endif
         name = prog.length() > 2 ? prog[2] : prog[0].to_upper()
         conf.set_quoted(name, path)
@@ -1123,7 +1123,7 @@ else
                         r = find_program('clang', required : bpf_framework_required, version : '>= 10.0.0')
                         clang_found = r.found()
                         if clang_found
-                                clang = r.path()
+                                clang = r.full_path()
                         endif
                 else
                         clang_found = true
@@ -4452,8 +4452,8 @@ foreach test : tests
                 versiondep,
         ]
 
-        # FIXME: Use fs.stem() with meson >= 0.54.0
-        name = '@0@'.format(sources[0]).split('/')[-1]
+        # FIXME: Drop .format with meson >= 0.59.0
+        name = fs.stem('@0@'.format(sources[0]))
         if not name.endswith('.cc')
                 deps += [userspace]
         endif
@@ -4592,8 +4592,8 @@ foreach fuzzer : fuzzers
         endif
         sources += fuzz_generated_directives
 
-        # FIXME: Use fs.stem() with meson >= 0.54.0
-        name = '@0@'.format(sources[0]).split('/')[-1].split('.')[0]
+        # FIXME: Drop .format with meson >= 0.59.0
+        name = fs.stem('@0@'.format(sources[0]))
 
         exe = executable(
                 name,
