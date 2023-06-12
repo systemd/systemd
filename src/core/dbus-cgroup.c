@@ -7,6 +7,7 @@
 #include "bpf-firewall.h"
 #include "bpf-foreign.h"
 #include "bus-get-properties.h"
+#include "bus-util.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
 #include "core-varlink.h"
@@ -400,9 +401,9 @@ static int property_get_restrict_network_interfaces(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-        int r;
+
         CGroupContext *c = ASSERT_PTR(userdata);
-        char *iface;
+        int r;
 
         assert(bus);
         assert(reply);
@@ -415,17 +416,7 @@ static int property_get_restrict_network_interfaces(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_open_container(reply, 'a', "s");
-        if (r < 0)
-                return r;
-
-        SET_FOREACH(iface, c->restrict_network_interfaces) {
-                r = sd_bus_message_append(reply, "s", iface);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_bus_message_close_container(reply);
+        r = bus_message_append_string_set(reply, c->restrict_network_interfaces);
         if (r < 0)
                 return r;
 
