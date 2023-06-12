@@ -1853,6 +1853,34 @@ int dns_resource_key_to_json(DnsResourceKey *key, JsonVariant **ret) {
                                           JSON_BUILD_PAIR("name", JSON_BUILD_STRING(dns_resource_key_name(key)))));
 }
 
+int dns_resource_key_from_json(JsonVariant *v, DnsResourceKey **ret) {
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        uint16_t type = 0, class = 0;
+        const char *name = NULL;
+        int r;
+
+        JsonDispatch dispatch_table[] = {
+                { "class", JSON_VARIANT_INTEGER, json_dispatch_uint16,       PTR_TO_SIZE(&class), JSON_MANDATORY },
+                { "type",  JSON_VARIANT_INTEGER, json_dispatch_uint16,       PTR_TO_SIZE(&type),  JSON_MANDATORY },
+                { "name",  JSON_VARIANT_STRING,  json_dispatch_const_string, PTR_TO_SIZE(&name),  JSON_MANDATORY },
+                {}
+        };
+
+        assert(v);
+        assert(ret);
+
+        r = json_dispatch(v, dispatch_table, NULL, 0, NULL);
+        if (r < 0)
+                return r;
+
+        key = dns_resource_key_new(class, type, name);
+        if (!key)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(key);
+        return 0;
+}
+
 static int type_bitmap_to_json(Bitmap *b, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *l = NULL;
         unsigned t;

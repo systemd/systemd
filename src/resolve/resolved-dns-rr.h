@@ -368,6 +368,7 @@ int dns_txt_item_new_empty(DnsTxtItem **ret);
 int dns_resource_record_new_from_raw(DnsResourceRecord **ret, const void *data, size_t size);
 
 int dns_resource_key_to_json(DnsResourceKey *key, JsonVariant **ret);
+int dns_resource_key_from_json(JsonVariant *v, DnsResourceKey **ret);
 int dns_resource_record_to_json(DnsResourceRecord *rr, JsonVariant **ret);
 
 void dns_resource_record_hash_func(const DnsResourceRecord *i, struct siphash *state);
