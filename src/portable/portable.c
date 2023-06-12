@@ -255,6 +255,7 @@ static int extract_now(
                         _cleanup_(portable_metadata_unrefp) PortableMetadata *m = NULL;
                         _cleanup_(mac_selinux_freep) char *con = NULL;
                         _cleanup_close_ int fd = -EBADF;
+                        struct stat st;
 
                         if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
                                 continue;
@@ -272,6 +273,17 @@ static int extract_now(
                         fd = openat(dirfd(d), de->d_name, O_CLOEXEC|O_RDONLY);
                         if (fd < 0) {
                                 log_debug_errno(errno, "Failed to open unit file '%s', ignoring: %m", de->d_name);
+                                continue;
+                        }
+
+                        /* Reject empty files, just in case */
+                        if (fstat(fd, &st) < 0) {
+                                log_debug_errno(errno, "Failed to stat unit file '%s', ignoring: %m", de->d_name);
+                                continue;
+                        }
+
+                        if (st.st_size <= 0) {
+                                log_debug("Unit file '%s' is empty, ignoring.", de->d_name);
                                 continue;
                         }
 
