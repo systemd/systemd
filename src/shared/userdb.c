@@ -1448,7 +1448,7 @@ int userdb_block_nss_systemd(int b) {
 
         /* Note that we might be called from libnss_systemd.so.2 itself, but that should be fine, really. */
 
-        dl = dlopen(ROOTLIBDIR "/libnss_systemd.so.2", RTLD_LAZY|RTLD_NODELETE);
+        dl = dlopen(LIBDIR "/libnss_systemd.so.2", RTLD_LAZY|RTLD_NODELETE);
         if (!dl) {
                 /* If the file isn't installed, don't complain loudly */
                 log_debug("Failed to dlopen(libnss_systemd.so.2), ignoring: %s", dlerror());

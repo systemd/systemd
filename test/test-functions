@@ -91,7 +91,7 @@ else
 fi
 
 if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
-    echo "WARNING! Cannot determine rootlibdir from pkg-config, assuming /usr/lib/systemd" >&2
+    echo "WARNING! Cannot determine libdir from pkg-config, assuming /usr/lib/systemd" >&2
     ROOTLIBDIR=/usr/lib/systemd
 fi
 
@@ -2190,14 +2190,6 @@ install_keymaps() {
     )
 
     dinfo "Install console keymaps"
-
-    if command -v meson >/dev/null \
-            && [[ "$(meson configure "${BUILD_DIR:?}" | grep 'split-usr' | awk '{ print $2 }')" == "true" ]] \
-            || [[ ! -L /lib ]]; then
-        prefix+=(
-            "/lib"
-        )
-    fi
 
     if (( $# == 0 )); then
         for p in "${prefix[@]}"; do

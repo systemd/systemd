@@ -25,6 +25,6 @@ Type=oneshot
 SuccessExitStatus=SIGTERM
 RemainAfterExit=yes
 
-ExecStart={{ROOTLIBEXECDIR}}/systemd-vconsole-setup
+ExecStart={{LIBEXECDIR}}/systemd-vconsole-setup
 
 ImportCredential=vconsole.*
