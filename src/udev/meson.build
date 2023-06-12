@@ -90,7 +90,7 @@ link_config_gperf_c = custom_target(
 
 if get_option('link-udev-shared')
         udev_link_with = [libshared]
-        udev_rpath = rootpkglibdir
+        udev_rpath = pkglibdir
 else
         udev_link_with = [libshared_static,
                           libsystemd_static]
@@ -142,7 +142,6 @@ executables += [
                                   threads,
                                   versiondep],
                 'install_rpath' : udev_rpath,
-                'install_dir' : rootbindir,
         },
         udev_plugin_template + {
                 'name' : 'ata_id',
@@ -221,8 +220,8 @@ simple_fuzzers += files(
 )
 
 meson.add_install_script(meson_make_symlink,
-                         rootbindir / 'udevadm',
-                         rootlibexecdir / 'systemd-udevd')
+                         bindir / 'udevadm',
+                         libexecdir / 'systemd-udevd')
 
 if install_sysconfdir_samples
         install_data('udev.conf',
