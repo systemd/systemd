@@ -22,7 +22,7 @@ IgnoreOnIsolate=yes
 
 [Service]
 DeviceAllow=char-* rw
-ExecStart={{ROOTLIBEXECDIR}}/systemd-journald
+ExecStart={{LIBEXECDIR}}/systemd-journald
 FileDescriptorStoreMax=4224
 IPAddressDeny=any
 LockPersonality=yes
