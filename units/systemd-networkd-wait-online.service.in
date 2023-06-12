@@ -19,7 +19,7 @@ Before=network-online.target shutdown.target
 
 [Service]
 Type=oneshot
-ExecStart={{ROOTLIBEXECDIR}}/systemd-networkd-wait-online
+ExecStart={{LIBEXECDIR}}/systemd-networkd-wait-online
 RemainAfterExit=yes
 
 [Install]

@@ -392,8 +392,6 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 
 The following "tags" are possible:
-- "split-usr" — /usr is a separate file system and was not mounted when systemd
-  was booted
 - "cgroups-missing" — the kernel was compiled without cgroup support or access
   to expected interface files is restricted
 - "var-run-bad" — /var/run is not a symlink to /run

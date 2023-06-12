@@ -33,7 +33,6 @@ executables += [
                 'sources' : files('portablectl.c'),
                 'link_with' : portabled_link_with,
                 'dependencies' : threads,
-                'install_dir' : rootbindir,
         },
 ]
 

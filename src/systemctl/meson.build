@@ -60,7 +60,6 @@ executables += [
                                   libxz,
                                   libzstd,
                                   threads],
-                'install_dir' : rootbindir,
         },
         fuzz_template + {
                 'sources' : [
@@ -75,6 +74,6 @@ executables += [
 foreach alias : (['halt', 'poweroff', 'reboot', 'shutdown'] +
                  (conf.get('HAVE_SYSV_COMPAT') == 1 ? ['runlevel', 'telinit'] : []))
         meson.add_install_script(meson_make_symlink,
-                                 rootbindir / 'systemctl',
-                                 rootsbindir / alias)
+                                 bindir / 'systemctl',
+                                 sbindir / alias)
 endforeach

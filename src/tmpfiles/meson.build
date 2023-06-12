@@ -12,7 +12,6 @@ executables += [
                 'conditions' : ['ENABLE_TMPFILES'],
                 'sources' : systemd_tmpfiles_sources,
                 'dependencies' : libacl,
-                'install_dir' : rootbindir,
         },
         executable_template + {
                 'name' : 'systemd-tmpfiles.standalone',
@@ -27,7 +26,6 @@ executables += [
                 'dependencies' : libacl,
                 'build_by_default' : have_standalone_binaries,
                 'install' : have_standalone_binaries,
-                'install_dir' : rootbindir,
         },
         test_template + {
                 'sources' : files(
