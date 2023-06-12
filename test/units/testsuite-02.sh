@@ -8,8 +8,13 @@ MAX_QUEUE_SIZE=${NPROC:-2}
 TESTS_GLOB=${TESTS_GLOB:-test-*}
 mapfile -t TEST_LIST < <(find /usr/lib/systemd/tests/unit-tests/ -maxdepth 1 -type f -name "${TESTS_GLOB}")
 
-# reset state
+# Reset state
 rm -fv /failed-tests /skipped-tests /skipped
+
+if ! systemd-detect-virt -q --container; then
+    # Make sure ping works for unprivileged users (for test-bpf-firewall)
+    sysctl net.ipv4.ping_group_range="0 2147483647"
+fi
 
 # Check & report test results
 # Arguments:
