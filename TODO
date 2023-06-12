@@ -129,6 +129,15 @@ Deprecations and removals:
 
 Features:
 
+* in sd-stub: optionally add support for a new PE section .keyring or so that
+  contains additional certificates to include in the Mok keyring, extending
+  what shim might have placed there. why? let's say I use "ukify" to build +
+  sign my own fedora-based UKIs, and only enroll my personal lennart key via
+  shim.  Then, I want to include the fedora keyring in it, so that kmods work.
+  But I might not want to enroll the fedora key in shim, because this would
+  also mean that the key would be in effect whenever I boot an archlinux UKI
+  built the same way, signed with the same lennart key.
+
 * resolved: take possession of some IPv6 ULA address (let's say
   fd00:5353:5353:5353:5353:5353:5353:5353), and listen on port 53 on it for the
   local stubs, so that we can make the stub available via ipv6 too.
