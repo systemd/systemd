@@ -75,20 +75,17 @@ endif
 
 #####################################################################
 
-fs = import('fs')
-if get_option('split-usr') == 'auto'
-        split_usr = not fs.is_symlink('/bin')
-else
-        split_usr = get_option('split-usr') == 'true'
+if get_option('split-usr') != 'auto'
+        warning('split-usr is deprecated and will be removed in a future release')
 endif
-if split_usr
-        warning('\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n'
-                + '                    split-usr mode is going to be removed\n' +
-                '\n\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+if get_option('rootlibdir') != ''
+        warning('rootlibdir is deprecated and will be removed in a future release')
 endif
-conf.set10('HAVE_SPLIT_USR', split_usr,
-           description : '/usr/bin and /bin directories are separate')
+if get_option('rootprefix') != ''
+        warning('rootprefix is deprecated and will be removed in a future release')
+endif
 
+fs = import('fs')
 if get_option('split-bin') == 'auto'
         split_bin = not fs.is_symlink('/usr/sbin')
 else
@@ -96,15 +93,6 @@ else
 endif
 conf.set10('HAVE_SPLIT_BIN', split_bin,
            description : 'bin and sbin directories are separate')
-
-rootprefixdir = get_option('rootprefix')
-# Unusual rootprefixdir values are used by some distros
-# (see https://github.com/systemd/systemd/pull/7461).
-rootprefix_default = split_usr ? '/' : '/usr'
-if rootprefixdir == ''
-        rootprefixdir = rootprefix_default
-endif
-rootprefixdir_noslash = rootprefixdir == '/' ? '' : rootprefixdir
 
 have_standalone_binaries = get_option('standalone-binaries')
 
@@ -129,32 +117,18 @@ prefixdir = get_option('prefix')
 if not prefixdir.startswith('/')
         error('Prefix is not absolute: "@0@"'.format(prefixdir))
 endif
-if prefixdir != rootprefixdir and rootprefixdir != '/' and not prefixdir.strip('/').startswith(rootprefixdir.strip('/') + '/')
-        error('Prefix is not below root prefix (now rootprefix=@0@ prefix=@1@)'.format(
-                rootprefixdir, prefixdir))
-endif
 
+prefixdir_noslash = prefixdir == '/usr/' ? '/usr' : prefixdir
 bindir = prefixdir / get_option('bindir')
+sbindir = prefixdir / (split_bin ? 'sbin' : 'bin')
 libdir = prefixdir / get_option('libdir')
 sysconfdir = prefixdir / get_option('sysconfdir')
 includedir = prefixdir / get_option('includedir')
 datadir = prefixdir / get_option('datadir')
 localstatedir = '/' / get_option('localstatedir')
 
-rootbindir = rootprefixdir / 'bin'
-rootsbindir = rootprefixdir / (split_bin ? 'sbin' : 'bin')
-rootlibexecdir = rootprefixdir / 'lib/systemd'
-
-rootlibdir = get_option('rootlibdir')
-if rootlibdir == ''
-        # This will be a relative path if libdir is in prefix.
-        rootlibdir = get_option('libdir')
-endif
-if not rootlibdir.startswith('/')
-        # If we have a relative path, add rootprefixdir to the front.
-        rootlibdir = rootprefixdir / rootlibdir
-endif
-rootpkglibdir = rootlibdir / 'systemd'
+libexecdir = prefixdir / 'lib/systemd'
+pkglibdir = libdir / 'systemd'
 
 install_sysconfdir = get_option('install-sysconfdir') != 'false'
 install_sysconfdir_samples = get_option('install-sysconfdir') == 'true'
@@ -169,7 +143,7 @@ rpmmacrosdir = get_option('rpmmacrosdir')
 if rpmmacrosdir != 'no'
         rpmmacrosdir = prefixdir / rpmmacrosdir
 endif
-modprobedir = rootprefixdir / 'lib/modprobe.d'
+modprobedir = prefixdir / 'lib/modprobe.d'
 
 # Our own paths
 pkgdatadir = datadir / 'systemd'
@@ -183,16 +157,16 @@ sysusersdir = prefixdir / 'lib/sysusers.d'
 sysctldir = prefixdir / 'lib/sysctl.d'
 binfmtdir = prefixdir / 'lib/binfmt.d'
 modulesloaddir = prefixdir / 'lib/modules-load.d'
-networkdir = rootprefixdir / 'lib/systemd/network'
-systemgeneratordir = rootlibexecdir / 'system-generators'
+networkdir = prefixdir / 'lib/systemd/network'
+systemgeneratordir = libexecdir / 'system-generators'
 usergeneratordir = prefixdir / 'lib/systemd/user-generators'
 systemenvgeneratordir = prefixdir / 'lib/systemd/system-environment-generators'
 userenvgeneratordir = prefixdir / 'lib/systemd/user-environment-generators'
-systemshutdowndir = rootlibexecdir / 'system-shutdown'
-systemsleepdir = rootlibexecdir / 'system-sleep'
-systemunitdir = rootprefixdir / 'lib/systemd/system'
-systempresetdir = rootprefixdir / 'lib/systemd/system-preset'
-udevlibexecdir = rootprefixdir / 'lib/udev'
+systemshutdowndir = libexecdir / 'system-shutdown'
+systemsleepdir = libexecdir / 'system-sleep'
+systemunitdir = prefixdir / 'lib/systemd/system'
+systempresetdir = prefixdir / 'lib/systemd/system-preset'
+udevlibexecdir = prefixdir / 'lib/udev'
 udevrulesdir = udevlibexecdir / 'rules.d'
 udevhwdbdir = udevlibexecdir / 'hwdb.d'
 catalogdir = prefixdir / 'lib/systemd/catalog'
@@ -206,8 +180,8 @@ testdata_dir = testsdir / 'testdata'
 systemdstatedir = localstatedir / 'lib/systemd'
 catalogstatedir = systemdstatedir / 'catalog'
 randomseeddir = localstatedir / 'lib/systemd'
-profiledir = rootlibexecdir / 'portable' / 'profile'
-ntpservicelistdir = rootprefixdir / 'lib/systemd/ntp-units.d'
+profiledir = libexecdir / 'portable' / 'profile'
+ntpservicelistdir = prefixdir / 'lib/systemd/ntp-units.d'
 credstoredir = prefixdir / 'lib/credstore'
 
 docdir = get_option('docdir')
@@ -217,7 +191,7 @@ endif
 
 pamlibdir = get_option('pamlibdir')
 if pamlibdir == ''
-        pamlibdir = rootlibdir / 'security'
+        pamlibdir = libdir / 'security'
 endif
 
 pamconfdir = get_option('pamconfdir')
@@ -227,7 +201,7 @@ endif
 
 libcryptsetup_plugins_dir = get_option('libcryptsetup-plugins-dir')
 if libcryptsetup_plugins_dir == ''
-        libcryptsetup_plugins_dir = rootlibdir / 'cryptsetup'
+        libcryptsetup_plugins_dir = libdir / 'cryptsetup'
 endif
 
 memory_accounting_default = get_option('memory-accounting-default')
@@ -236,6 +210,7 @@ if status_unit_format_default == 'auto'
         status_unit_format_default = conf.get('BUILD_MODE_DEVELOPER') == 1 ? 'name' : 'description'
 endif
 
+conf.set_quoted('BINDIR',                                     bindir)
 conf.set_quoted('BINFMT_DIR',                                 binfmtdir)
 conf.set_quoted('BOOTLIBDIR',                                 bootlibdir)
 conf.set_quoted('CATALOG_DATABASE',                           catalogstatedir / 'database')
@@ -245,43 +220,40 @@ conf.set_quoted('DOCUMENT_ROOT',                              pkgdatadir / 'gate
 conf.set_quoted('ENVIRONMENT_DIR',                            environmentdir)
 conf.set_quoted('INCLUDE_DIR',                                includedir)
 conf.set_quoted('LIBDIR',                                     libdir)
+conf.set_quoted('LIBEXECDIR',                                 libexecdir)
 conf.set_quoted('MODPROBE_DIR',                               modprobedir)
 conf.set_quoted('MODULESLOAD_DIR',                            modulesloaddir)
 conf.set_quoted('PKGSYSCONFDIR',                              pkgsysconfdir)
 conf.set_quoted('POLKIT_AGENT_BINARY_PATH',                   bindir / 'pkttyagent')
 conf.set_quoted('PREFIX',                                     prefixdir)
+conf.set_quoted('PREFIX_NOSLASH',                             prefixdir_noslash)
 conf.set_quoted('RANDOM_SEED',                                randomseeddir / 'random-seed')
 conf.set_quoted('RANDOM_SEED_DIR',                            randomseeddir)
 conf.set_quoted('RC_LOCAL_PATH',                              get_option('rc-local'))
-conf.set_quoted('ROOTBINDIR',                                 rootbindir)
-conf.set_quoted('ROOTLIBDIR',                                 rootlibdir)
-conf.set_quoted('ROOTLIBEXECDIR',                             rootlibexecdir)
-conf.set_quoted('ROOTPREFIX',                                 rootprefixdir)
-conf.set_quoted('ROOTPREFIX_NOSLASH',                         rootprefixdir_noslash)
 conf.set_quoted('SYSCONF_DIR',                                sysconfdir)
 conf.set_quoted('SYSCTL_DIR',                                 sysctldir)
-conf.set_quoted('SYSTEMCTL_BINARY_PATH',                      rootbindir / 'systemctl')
-conf.set_quoted('SYSTEMD_BINARY_PATH',                        rootlibexecdir / 'systemd')
+conf.set_quoted('SYSTEMCTL_BINARY_PATH',                      bindir / 'systemctl')
+conf.set_quoted('SYSTEMD_BINARY_PATH',                        libexecdir / 'systemd')
 conf.set_quoted('SYSTEMD_CATALOG_DIR',                        catalogdir)
-conf.set_quoted('SYSTEMD_CGROUPS_AGENT_PATH',                 rootlibexecdir / 'systemd-cgroups-agent')
-conf.set_quoted('SYSTEMD_CRYPTSETUP_PATH',                    rootlibexecdir / 'systemd-cryptsetup')
-conf.set_quoted('SYSTEMD_EXPORT_PATH',                        rootlibexecdir / 'systemd-export')
-conf.set_quoted('SYSTEMD_FSCK_PATH',                          rootlibexecdir / 'systemd-fsck')
-conf.set_quoted('SYSTEMD_GROWFS_PATH',                        rootlibexecdir / 'systemd-growfs')
-conf.set_quoted('SYSTEMD_HOMEWORK_PATH',                      rootlibexecdir / 'systemd-homework')
-conf.set_quoted('SYSTEMD_IMPORT_FS_PATH',                     rootlibexecdir / 'systemd-import-fs')
-conf.set_quoted('SYSTEMD_IMPORT_PATH',                        rootlibexecdir / 'systemd-import')
-conf.set_quoted('SYSTEMD_INTEGRITYSETUP_PATH',                rootlibexecdir / 'systemd-integritysetup')
+conf.set_quoted('SYSTEMD_CGROUPS_AGENT_PATH',                 libexecdir / 'systemd-cgroups-agent')
+conf.set_quoted('SYSTEMD_CRYPTSETUP_PATH',                    libexecdir / 'systemd-cryptsetup')
+conf.set_quoted('SYSTEMD_EXPORT_PATH',                        libexecdir / 'systemd-export')
+conf.set_quoted('SYSTEMD_FSCK_PATH',                          libexecdir / 'systemd-fsck')
+conf.set_quoted('SYSTEMD_GROWFS_PATH',                        libexecdir / 'systemd-growfs')
+conf.set_quoted('SYSTEMD_HOMEWORK_PATH',                      libexecdir / 'systemd-homework')
+conf.set_quoted('SYSTEMD_IMPORT_FS_PATH',                     libexecdir / 'systemd-import-fs')
+conf.set_quoted('SYSTEMD_IMPORT_PATH',                        libexecdir / 'systemd-import')
+conf.set_quoted('SYSTEMD_INTEGRITYSETUP_PATH',                libexecdir / 'systemd-integritysetup')
 conf.set_quoted('SYSTEMD_KBD_MODEL_MAP',                      pkgdatadir / 'kbd-model-map')
 conf.set_quoted('SYSTEMD_LANGUAGE_FALLBACK_MAP',              pkgdatadir / 'language-fallback-map')
-conf.set_quoted('SYSTEMD_MAKEFS_PATH',                        rootlibexecdir / 'systemd-makefs')
-conf.set_quoted('SYSTEMD_PULL_PATH',                          rootlibexecdir / 'systemd-pull')
-conf.set_quoted('SYSTEMD_SHUTDOWN_BINARY_PATH',               rootlibexecdir / 'systemd-shutdown')
+conf.set_quoted('SYSTEMD_MAKEFS_PATH',                        libexecdir / 'systemd-makefs')
+conf.set_quoted('SYSTEMD_PULL_PATH',                          libexecdir / 'systemd-pull')
+conf.set_quoted('SYSTEMD_SHUTDOWN_BINARY_PATH',               libexecdir / 'systemd-shutdown')
 conf.set_quoted('SYSTEMD_TEST_DATA',                          testdata_dir)
-conf.set_quoted('SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH', rootbindir / 'systemd-tty-ask-password-agent')
-conf.set_quoted('SYSTEMD_UPDATE_HELPER_PATH',                 rootlibexecdir / 'systemd-update-helper')
-conf.set_quoted('SYSTEMD_USERWORK_PATH',                      rootlibexecdir / 'systemd-userwork')
-conf.set_quoted('SYSTEMD_VERITYSETUP_PATH',                   rootlibexecdir / 'systemd-veritysetup')
+conf.set_quoted('SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH', bindir / 'systemd-tty-ask-password-agent')
+conf.set_quoted('SYSTEMD_UPDATE_HELPER_PATH',                 libexecdir / 'systemd-update-helper')
+conf.set_quoted('SYSTEMD_USERWORK_PATH',                      libexecdir / 'systemd-userwork')
+conf.set_quoted('SYSTEMD_VERITYSETUP_PATH',                   libexecdir / 'systemd-veritysetup')
 conf.set_quoted('SYSTEM_CONFIG_UNIT_DIR',                     pkgsysconfdir / 'system')
 conf.set_quoted('SYSTEM_DATA_UNIT_DIR',                       systemunitdir)
 conf.set_quoted('SYSTEM_ENV_GENERATOR_DIR',                   systemenvgeneratordir)
@@ -303,7 +275,7 @@ conf.set_quoted('USER_ENV_GENERATOR_DIR',                     userenvgeneratordi
 conf.set_quoted('USER_GENERATOR_DIR',                         usergeneratordir)
 conf.set_quoted('USER_KEYRING_PATH',                          pkgsysconfdir / 'import-pubring.gpg')
 conf.set_quoted('USER_PRESET_DIR',                            userpresetdir)
-conf.set_quoted('VENDOR_KEYRING_PATH',                        rootlibexecdir / 'import-pubring.gpg')
+conf.set_quoted('VENDOR_KEYRING_PATH',                        libexecdir / 'import-pubring.gpg')
 
 conf.set('ANSI_OK_COLOR',                                     'ANSI_' + get_option('ok-color').underscorify().to_upper())
 conf.set10('ENABLE_URLIFY',                                   get_option('urlify'))
@@ -2228,7 +2200,7 @@ libsystemd = shared_library(
         link_depends : libsystemd_sym,
         install : true,
         install_tag: 'libsystemd',
-        install_dir : rootlibdir)
+        install_dir : libdir)
 
 alias_target('libsystemd', libsystemd)
 
@@ -2243,7 +2215,7 @@ install_libsystemd_static = static_library(
         build_by_default : static_libsystemd != 'false',
         install : static_libsystemd != 'false',
         install_tag: 'libsystemd',
-        install_dir : rootlibdir,
+        install_dir : libdir,
         pic : static_libsystemd_pic,
         dependencies : [libblkid,
                         libcap,
@@ -2273,7 +2245,7 @@ libudev = shared_library(
         link_depends : libudev_sym,
         install : true,
         install_tag: 'libudev',
-        install_dir : rootlibdir)
+        install_dir : libdir)
 
 alias_target('libudev', libudev)
 
@@ -2288,7 +2260,7 @@ install_libudev_static = static_library(
         build_by_default : static_libudev != 'false',
         install : static_libudev != 'false',
         install_tag: 'libudev',
-        install_dir : rootlibdir,
+        install_dir : libdir,
         link_depends : libudev_sym,
         dependencies : [libmount,
                         libshared_deps,
@@ -2323,7 +2295,7 @@ endif
 executable_template = {
         'include_directories' : includes,
         'link_with' : libshared,
-        'install_rpath' : rootpkglibdir,
+        'install_rpath' : pkglibdir,
         'install' : true,
 }
 
@@ -2332,7 +2304,7 @@ generator_template = executable_template + {
 }
 
 libexec_template = executable_template + {
-        'install_dir' : rootlibexecdir,
+        'install_dir' : libexecdir,
 }
 
 test_template = executable_template + {
@@ -2363,7 +2335,7 @@ nss_template = {
                           threads],
         'install' : true,
         'install_tag' : 'nss',
-        'install_dir' : rootlibdir,
+        'install_dir' : libdir,
 }
 
 pam_template = {
@@ -2680,7 +2652,7 @@ foreach dict : modules
         if is_nss
                 # We cannot use shared_module because it does not support version suffix.
                 # Unfortunately shared_library insists on creating the symlink…
-                meson.add_install_script('sh', '-c', 'rm $DESTDIR@0@/lib@1@.so'.format(rootlibdir, name),
+                meson.add_install_script('sh', '-c', 'rm $DESTDIR@0@/lib@1@.so'.format(libdir, name),
                                          install_tag : 'nss')
         endif
 
@@ -2703,7 +2675,7 @@ ukify = custom_target(
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : want_ukify,
         install_mode : 'rwxr-xr-x',
-        install_dir : rootlibexecdir)
+        install_dir : libexecdir)
 if want_ukify
         public_programs += ukify
 endif
@@ -2921,14 +2893,11 @@ alt_time_epoch = run_command('date', '-Is', '-u', '-d', '@@0@'.format(time_epoch
                              check : true).stdout().strip()
 
 summary({
-        'split /usr' :                      split_usr,
         'split bin-sbin' :                  split_bin,
         'prefix directory' :                prefixdir,
-        'rootprefix directory' :            rootprefixdir,
         'sysconf directory' :               sysconfdir,
         'include directory' :               includedir,
         'lib directory' :                   libdir,
-        'rootlib directory' :               rootlibdir,
         'SysV init scripts' :               sysvinit_path,
         'SysV rc?.d directories' :          sysvrcnd_path,
         'PAM modules directory' :           pamlibdir,
@@ -3154,10 +3123,3 @@ summary({
         'enabled' :  ', '.join(found),
         'disabled' : ', '.join(missing)},
         section : 'Features')
-
-if rootprefixdir != rootprefix_default
-        warning('\n' +
-                'Note that the installation prefix was changed to "@0@".\n'.format(rootprefixdir) +
-                'systemd used fixed names for unit file directories and other paths, so anything\n' +
-                'except the default ("@0@") is strongly discouraged.'.format(rootprefix_default))
-endif

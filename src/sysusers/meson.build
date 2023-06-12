@@ -6,7 +6,6 @@ executables += [
                 'public' : true,
                 'conditions' : ['ENABLE_SYSUSERS'],
                 'sources' : files('sysusers.c'),
-                'install_dir' : rootbindir,
         },
         executable_template + {
                 'name' : 'systemd-sysusers.standalone',
@@ -20,6 +19,5 @@ executables += [
                                libsystemd_static],
                 'build_by_default' : have_standalone_binaries,
                 'install' : have_standalone_binaries,
-                'install_dir' : rootbindir,
         },
 ]

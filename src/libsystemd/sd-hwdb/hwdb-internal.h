@@ -86,5 +86,4 @@ struct trie_value_entry2_f {
         "/etc/systemd/hwdb/hwdb.bin\0"          \
         "/etc/udev/hwdb.bin\0"                  \
         "/usr/lib/systemd/hwdb/hwdb.bin\0"      \
-        _CONF_PATHS_SPLIT_USR_NULSTR("systemd/hwdb/hwdb.bin") \
         UDEVLIBEXECDIR "/hwdb.bin\0"
