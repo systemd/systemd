@@ -90,7 +90,7 @@ assert(rpm.execute("journalctl", "--update-catalog"))
 if posix.access("/run/systemd/system") then
     pid = posix.fork()
     if pid == 0 then
-        assert(posix.exec("{{ROOTLIBEXECDIR}}/systemd-binfmt"))
+        assert(posix.exec("{{LIBEXECDIR}}/systemd-binfmt"))
     elseif pid > 0 then
         posix.wait(pid)
     end
@@ -115,7 +115,7 @@ end
 if posix.access("/run/systemd/system") then
     pid = posix.fork()
     if pid == 0 then
-        assert(posix.exec("{{ROOTLIBEXECDIR}}/systemd-sysctl"))
+        assert(posix.exec("{{LIBEXECDIR}}/systemd-sysctl"))
     elseif pid > 0 then
         posix.wait(pid)
     end

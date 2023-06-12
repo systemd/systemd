@@ -231,9 +231,8 @@ static int extract_now(
         }
 
         /* Then, send unit file data to the parent (or/and add it to the hashmap). For that we use our usual unit
-         * discovery logic. Note that we force looking inside of /lib/systemd/system/ for units too, as we mightbe
-         * compiled for a split-usr system but the image might be a legacy-usr one. */
-        r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, LOOKUP_PATHS_SPLIT_USR, where);
+         * discovery logic. */
+        r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, where);
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire lookup paths: %m");
 
@@ -1493,7 +1492,7 @@ int portable_attach(
                                 strempty(extensions_joined));
         }
 
-        r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, LOOKUP_PATHS_SPLIT_USR, NULL);
+        r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, NULL);
         if (r < 0)
                 return r;
 
@@ -1693,7 +1692,7 @@ int portable_detach(
 
         assert(name_or_path);
 
-        r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, LOOKUP_PATHS_SPLIT_USR, NULL);
+        r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, NULL);
         if (r < 0)
                 return r;
 
@@ -1880,7 +1879,7 @@ static int portable_get_state_internal(
         assert(name_or_path);
         assert(ret);
 
-        r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, LOOKUP_PATHS_SPLIT_USR, NULL);
+        r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, NULL);
         if (r < 0)
                 return r;
 

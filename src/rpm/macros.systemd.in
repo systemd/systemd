@@ -5,7 +5,7 @@
 
 # RPM macros for packages installing systemd unit files
 
-%_systemd_util_dir {{ROOTLIBEXECDIR}}
+%_systemd_util_dir {{LIBEXECDIR}}
 %_unitdir {{SYSTEM_DATA_UNIT_DIR}}
 %_userunitdir {{USER_DATA_UNIT_DIR}}
 %_presetdir {{SYSTEM_PRESET_DIR}}
@@ -167,10 +167,10 @@ SYSTEMD_INLINE_EOF\
 
 %sysctl_apply() \
 %{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# sysctl_apply}} \
-[ -x {{ROOTLIBEXECDIR}}/systemd-sysctl ] && {{ROOTLIBEXECDIR}}/systemd-sysctl %{?*} || : \
+[ -x {{LIBEXECDIR}}/systemd-sysctl ] && {{LIBEXECDIR}}/systemd-sysctl %{?*} || : \
 %{nil}
 
 %binfmt_apply() \
 %{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# binfmt_apply}} \
-[ -x {{ROOTLIBEXECDIR}}/systemd-binfmt ] && {{ROOTLIBEXECDIR}}/systemd-binfmt %{?*} || : \
+[ -x {{LIBEXECDIR}}/systemd-binfmt ] && {{LIBEXECDIR}}/systemd-binfmt %{?*} || : \
 %{nil}

@@ -36,7 +36,6 @@ executables += [
                                   libxz,
                                   libzstd,
                                   threads],
-                'install_dir' : rootbindir,
         },
         test_template + {
                 'sources' : files('test-machine-tables.c'),
