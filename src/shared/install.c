@@ -261,11 +261,6 @@ static int path_is_vendor_or_generator(const LookupPaths *lp, const char *path) 
         if (path_startswith(rpath, "/usr"))
                 return true;
 
-#if HAVE_SPLIT_USR
-        if (path_startswith(rpath, "/lib"))
-                return true;
-#endif
-
         if (path_is_generator(lp, rpath))
                 return true;
 
