@@ -14,6 +14,9 @@ KERNEL_APPEND="
 
 frobnicate!
 
+systemd.setenv=TEST_CMDLINE_NEWLINE=foo
+systemd.setenv=TEST_CMDLINE_NEWLINE=bar
+
 $KERNEL_APPEND
 "
 

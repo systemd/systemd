@@ -3,6 +3,12 @@
 set -eux
 set -o pipefail
 
+if ! systemd-detect-virt -qc && [[ "${TEST_CMDLINE_NEWLINE:-}" != bar ]]; then
+    cat /proc/cmdline
+    echo >&2 "Expected TEST_CMDLINE_NEWLINE=bar from the kernel command line"
+    exit 1
+fi
+
 NPROC=$(nproc)
 MAX_QUEUE_SIZE=${NPROC:-2}
 TESTS_GLOB=${TESTS_GLOB:-test-*}
