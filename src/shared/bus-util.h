@@ -12,6 +12,7 @@
 #include "errno-util.h"
 #include "macro.h"
 #include "runtime-scope.h"
+#include "set.h"
 #include "string-util.h"
 #include "time-util.h"
 
@@ -68,3 +69,7 @@ int bus_reply_pair_array(sd_bus_message *m, char **l);
 int bus_register_malloc_status(sd_bus *bus, const char *destination);
 
 extern const struct hash_ops bus_message_hash_ops;
+
+int bus_message_append_string_set(sd_bus_message *m, Set *s);
+
+int bus_property_get_string_set(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
