@@ -64,14 +64,12 @@ executables += [
                                   libxz,
                                   libzstd,
                                   threads],
-                'install_dir' : rootbindir,
         },
         executable_template + {
                 'name' : 'systemd-inhibit',
                 'public' : true,
                 'conditions' : ['ENABLE_LOGIND'],
                 'sources' : files('inhibit.c'),
-                'install_dir' : rootbindir,
         },
         libexec_template + {
                 'name' : 'systemd-user-runtime-dir',

@@ -61,7 +61,7 @@ journalctl --update-catalog || :
 if test -d "/run/systemd/system"; then
   # systemd-binfmt might fail if binfmt_misc kernel module is not loaded
   # during install
-  {{ROOTLIBEXECDIR}}/systemd-binfmt || :
+  {{LIBEXECDIR}}/systemd-binfmt || :
 fi
 
 %transfiletriggerin -P 1000600 -- {{TMPFILES_DIR}}
@@ -83,5 +83,5 @@ fi
 # This script will automatically apply sysctl rules if files have been
 # installed or updated in {{SYSCTL_DIR}}.
 if test -d "/run/systemd/system"; then
-  {{ROOTLIBEXECDIR}}/systemd-sysctl || :
+  {{LIBEXECDIR}}/systemd-sysctl || :
 fi

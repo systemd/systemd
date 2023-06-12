@@ -137,7 +137,7 @@ int enable_sysv_units(const char *verb, char **args) {
         while (args[f]) {
 
                 const char *argv[] = {
-                        ROOTLIBEXECDIR "/systemd-sysv-install",
+                        LIBEXECDIR "/systemd-sysv-install",
                         NULL, /* --root= */
                         NULL, /* verb */
                         NULL, /* service */
