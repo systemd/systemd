@@ -212,6 +212,13 @@
         output.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><command>show-cache</command></term>
+
+        <listitem><para>Show current cache content, per scope. Use <option>--json=</option> to enable JSON
+        output.</para></listitem>
+      </varlistentry>
+
       <xi:include href="systemctl.xml" xpointer="log-level" />
     </variablelist>
   </refsect1>

@@ -110,3 +110,5 @@ int dns_scope_add_dnssd_services(DnsScope *scope);
 int dns_scope_remove_dnssd_services(DnsScope *scope);
 
 bool dns_scope_is_default_route(DnsScope *scope);
+
+int dns_scope_dump_cache_to_json(DnsScope *scope, JsonVariant **ret);
