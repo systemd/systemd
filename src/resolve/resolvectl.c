@@ -2779,6 +2779,157 @@ static int verb_monitor(int argc, char *argv[], void *userdata) {
         return c;
 }
 
+static int dump_cache_item(JsonVariant *item) {
+
+        struct item_info {
+                JsonVariant *key;
+                JsonVariant *rrs;
+                const char *type;
+                uint64_t until;
+        } item_info = {};
+
+        static const JsonDispatch dispatch_table[] = {
+                { "key",   JSON_VARIANT_OBJECT,   json_dispatch_variant_noref, offsetof(struct item_info, key),   JSON_MANDATORY },
+                { "rrs",   JSON_VARIANT_ARRAY,    json_dispatch_variant_noref, offsetof(struct item_info, rrs),   0              },
+                { "type",  JSON_VARIANT_STRING,   json_dispatch_const_string,  offsetof(struct item_info, type),  0              },
+                { "until", JSON_VARIANT_UNSIGNED, json_dispatch_uint64,        offsetof(struct item_info, until), 0              },
+                {},
+        };
+
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *k = NULL;
+        int r, c = 0;
+
+        r = json_dispatch(item, dispatch_table, NULL, JSON_LOG, &item_info);
+        if (r < 0)
+                return r;
+
+        r = dns_resource_key_from_json(item_info.key, &k);
+        if (r < 0)
+                return log_error_errno(r, "Failed to turn JSON data to resource key: %m");
+
+        if (item_info.type)
+                printf("%s %s%s%s\n", DNS_RESOURCE_KEY_TO_STRING(k), ansi_highlight_red(), item_info.type, ansi_normal());
+        else {
+                JsonVariant *i;
+
+                JSON_VARIANT_ARRAY_FOREACH(i, item_info.rrs) {
+                        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                        _cleanup_free_ void *data = NULL;
+                        JsonVariant *raw;
+                        size_t size;
+
+                        raw = json_variant_by_key(i, "raw");
+                        if (!raw)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "raw field missing from RR JSON data.");
+
+                        r = json_variant_unbase64(raw, &data, &size);
+                        if (r < 0)
+                                return log_error_errno(r, "Unable to decode raw RR JSON data: %m");
+
+                        r = dns_resource_record_new_from_raw(&rr, data, size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse DNS data: %m");
+
+                        printf("%s\n", dns_resource_record_to_string(rr));
+                        c++;
+                }
+        }
+
+        return c;
+}
+
+static int dump_cache_scope(JsonVariant *scope) {
+
+        struct scope_info {
+                const char *protocol;
+                int family;
+                int ifindex;
+                const char *ifname;
+                JsonVariant *cache;
+        } scope_info = {
+                .family = AF_UNSPEC,
+        };
+        JsonVariant *i;
+        int r, c = 0;
+
+        static const JsonDispatch dispatch_table[] = {
+                { "protocol", JSON_VARIANT_STRING,  json_dispatch_const_string,  offsetof(struct scope_info, protocol), JSON_MANDATORY },
+                { "family",   JSON_VARIANT_INTEGER, json_dispatch_int,           offsetof(struct scope_info, family),   0              },
+                { "ifindex",  JSON_VARIANT_INTEGER, json_dispatch_int,           offsetof(struct scope_info, ifindex),  0              },
+                { "ifname",   JSON_VARIANT_STRING,  json_dispatch_const_string,  offsetof(struct scope_info, ifname),   0              },
+                { "cache",    JSON_VARIANT_ARRAY,   json_dispatch_variant_noref, offsetof(struct scope_info, cache),    JSON_MANDATORY },
+                {},
+        };
+
+        r = json_dispatch(scope, dispatch_table, NULL, JSON_LOG, &scope_info);
+        if (r < 0)
+                return r;
+
+        printf("%sScope protocol=%s", ansi_underline(), scope_info.protocol);
+
+        if (scope_info.family != AF_UNSPEC)
+                printf(" family=%s", af_to_name(scope_info.family));
+
+        if (scope_info.ifindex > 0)
+                printf(" ifindex=%i", scope_info.ifindex);
+        if (scope_info.ifname)
+                printf(" ifname=%s", scope_info.ifname);
+
+        printf("%s\n", ansi_normal());
+
+        JSON_VARIANT_ARRAY_FOREACH(i, scope_info.cache) {
+                r = dump_cache_item(i);
+                if (r < 0)
+                        return r;
+
+                c += r;
+        }
+
+        if (c == 0)
+                printf("%sNo entries.%s\n\n", ansi_grey(), ansi_normal());
+        else
+                printf("\n");
+
+        return 0;
+}
+
+static int verb_show_cache(int argc, char *argv[], void *userdata) {
+        _cleanup_(json_variant_unrefp) JsonVariant *d = NULL, *reply = NULL;
+        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        int r;
+
+        r = varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve.Monitor");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
+
+        r = varlink_call(vl, "io.systemd.Resolve.Monitor.DumpCache", NULL, &reply, NULL, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue DumpCache() varlink call: %m");
+
+        d = json_variant_by_key(reply, "dump");
+        if (!d)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "DumpCache() response is missing 'dump' key.");
+
+        if (!json_variant_is_array(d))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "DumpCache() response 'dump' field not an array");
+
+        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+                JsonVariant *i;
+
+                JSON_VARIANT_ARRAY_FOREACH(i, d) {
+                        r = dump_cache_scope(i);
+                        if (r < 0)
+                                return r;
+                }
+
+                return 0;
+        }
+
+        return json_variant_dump(d, arg_json_format_flags, NULL, NULL);
+}
+
 static void help_protocol_types(void) {
         if (arg_legend)
                 puts("Known protocol types:");
@@ -2885,6 +3036,7 @@ static int native_help(void) {
                "  flush-caches                 Flush all local DNS caches\n"
                "  reset-server-features        Forget learnt DNS server feature levels\n"
                "  monitor                      Monitor DNS queries\n"
+               "  show-cache                   Show cache contents\n"
                "  dns [LINK [SERVER...]]       Get/set per-interface DNS server address\n"
                "  domain [LINK [DOMAIN...]]    Get/set per-interface search domain\n"
                "  default-route [LINK [BOOL]]  Get/set per-interface default route flag\n"
@@ -3531,6 +3683,7 @@ static int native_main(int argc, char *argv[], sd_bus *bus) {
                 { "revert",                VERB_ANY, 2,        0,            verb_revert_link      },
                 { "log-level",             VERB_ANY, 2,        0,            verb_log_level        },
                 { "monitor",               VERB_ANY, 1,        0,            verb_monitor          },
+                { "show-cache",            VERB_ANY, 1,        0,            verb_show_cache       },
                 {}
         };
 
