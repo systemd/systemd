@@ -259,13 +259,14 @@ REQUIREMENTS:
         make use of DynamicUser= now, hence enabling nss-systemd is not
         optional.
 
-        Note that the build prefix for systemd must be /usr. (Moreover, packages
+        Note that the build prefix for systemd must be /usr/. (Moreover, packages
         systemd relies on — such as D-Bus — really should use the same prefix,
-        otherwise you are on your own.) -Dsplit-usr=false (which is the default
-        and does not need to be specified) is the recommended setting.
-        -Dsplit-usr=true can be used to give a semblance of support for systems
-        with programs installed split between / and /usr. Moving everything
-        under /usr is strongly encouraged.
+        otherwise you are on your own.) Split-usr and unmerged-usr systems are no
+        longer supported, and moving everything under /usr/ is required. Systems
+        with a separate /usr/ partition must mount it before transitioning into it
+        (i.e.: from the initrd). For more information see:
+        https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken
+        https://www.freedesktop.org/wiki/Software/systemd/TheCaseForTheUsrMerge
 
         Additional packages are necessary to run some tests:
         - nc                 (used by test/TEST-12-ISSUE-3171)
@@ -404,28 +405,6 @@ SYSV INIT.D SCRIPTS:
         needs to look like, and provide an implementation at the marked places.
 
 WARNINGS and TAINT FLAGS:
-        systemd will warn during early boot if /usr is not already mounted at
-        this point (that means: either located on the same file system as / or
-        already mounted in the initrd). While in systemd itself very little
-        will break if /usr is on a separate late-mounted partition, many of its
-        dependencies very likely will break sooner or later in one form or
-        another. For example, udev rules tend to refer to binaries in /usr,
-        binaries that link to libraries in /usr, or binaries that refer to data
-        files in /usr. Since these breakages are not always directly visible,
-        systemd will warn about this. Such setups are not really supported by
-        the basic set of Linux OS components. Taint flag 'split-usr' will be
-        set when this condition is detected.
-
-        For more information on this issue consult
-        https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken
-
-        systemd will warn if the filesystem is not usr-merged (i.e.: /bin, /sbin
-        and /lib* are not symlinks to their counterparts under /usr). Taint flag
-        'unmerged-usr' will be set when this condition is detected.
-
-        For more information on this issue consult
-        https://www.freedesktop.org/wiki/Software/systemd/TheCaseForTheUsrMerge
-
         systemd requires that the /run mount point exists. systemd also
         requires that /var/run is a symlink to /run. Taint flag 'var-run-bad'
         will be set when this condition is detected.
