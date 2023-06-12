@@ -9,14 +9,14 @@ option('shared-lib-tag', type : 'string',
 option('mode', type : 'combo', choices : ['developer', 'release'],
        description : 'autoenable features suitable for systemd development/release builds')
 
-option('split-usr', type : 'combo', choices : ['auto', 'true', 'false'],
-       description : '''/bin, /sbin aren't symlinks into /usr''')
+option('split-usr', type : 'combo', choices : ['auto', 'true', 'false'], deprecated: true,
+       description : '''This option is deprecated and will be removed in a future release''')
 option('split-bin', type : 'combo', choices : ['auto', 'true', 'false'],
        description : '''sbin is not a symlink to bin''')
-option('rootlibdir', type : 'string',
-       description : '''[/usr]/lib/x86_64-linux-gnu or such''')
-option('rootprefix', type : 'string',
-       description : '''override the root prefix [default '/' if split-usr and '/usr' otherwise]''')
+option('rootlibdir', type : 'string', deprecated: true,
+       description : '''This option is deprecated and will be removed in a future release''')
+option('rootprefix', type : 'string', deprecated: true,
+       description : '''This option is deprecated and will be removed in a future release''')
 option('link-udev-shared', type : 'boolean',
        description : 'link systemd-udevd and its helpers to libsystemd-shared.so')
 option('link-systemctl-shared', type: 'boolean',
@@ -69,7 +69,7 @@ option('loadkeys-path', type : 'string', description : 'path to loadkeys')
 option('setfont-path', type : 'string', description : 'path to setfont')
 option('nologin-path', type : 'string', description : 'path to nologin')
 
-option('debug-shell', type : 'string', value : '/bin/sh',
+option('debug-shell', type : 'string', value : '/usr/bin/sh',
        description : 'path to debug shell binary')
 option('debug-tty', type : 'string', value : '/dev/tty9',
        description : 'specify the tty device for debug shell')
@@ -228,7 +228,7 @@ option('time-epoch', type : 'integer', value : 0,
        description : 'time epoch for time clients')
 option('clock-valid-range-usec-max', type : 'integer', value : 473364000000000, # 15 years
        description : 'maximum value in microseconds for the difference between RTC and epoch, exceeding which is considered an RTC error ["0" disables]')
-option('default-user-shell', type : 'string', value : '/bin/bash',
+option('default-user-shell', type : 'string', value : '/usr/bin/bash',
        description : 'default interactive shell')
 
 option('system-alloc-uid-min', type : 'integer', value : 0,

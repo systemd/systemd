@@ -454,7 +454,7 @@ done
 
 (( $+functions[_systemctl_unit_properties] )) ||
     _systemctl_unit_properties() {
-		local -a _sys_all_properties=( ${(f)"$({{ROOTLIBEXECDIR}}/systemd --no-pager --dump-bus-properties 2>/dev/null)"} )
+		local -a _sys_all_properties=( ${(f)"$({{LIBEXECDIR}}/systemd --no-pager --dump-bus-properties 2>/dev/null)"} )
         _wanted systemd-unit-properties expl 'unit property' \
 			_values -s , "${_sys_all_properties[@]}"
     }
