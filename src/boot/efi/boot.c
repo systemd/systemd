@@ -2647,13 +2647,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
          * By default, Shim uninstalls its protocol when calling StartImage(). */
         shim_retain_protocol();
 
-        err = BS->OpenProtocol(
-                        image,
-                        MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL),
-                        (void **) &loaded_image,
-                        image,
-                        NULL,
-                        EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+        err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
 
@@ -2669,10 +2663,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         config_load_all_entries(&config, loaded_image, loaded_image_path, root_dir);
 
-        if (config.entry_count == 0) {
-                log_error("No loader found. Configuration files in \\loader\\entries\\*.conf are needed.");
-                goto out;
-        }
+        if (config.entry_count == 0)
+                return log_error_status(
+                                EFI_NOT_FOUND,
+                                "No loader found. Configuration files in \\loader\\entries\\*.conf are needed.");
 
         /* select entry or show menu when key is pressed or timeout is set */
         if (config.force_menu || config.timeout_sec > 0)
@@ -2699,7 +2693,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 if (menu) {
                         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeMenuUSec", 0);
                         if (!menu_run(&config, &entry, loaded_image_path))
-                                break;
+                                return EFI_SUCCESS;
                 }
 
                 /* if auto enrollment is activated, we try to load keys for the given entry. */
@@ -2725,15 +2719,11 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
                 err = image_start(image, entry);
                 if (err != EFI_SUCCESS)
-                        goto out;
+                        return err;
 
                 menu = true;
                 config.timeout_sec = 0;
         }
-        err = EFI_SUCCESS;
-out:
-        BS->CloseProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), image, NULL);
-        return err;
 }
 
 DEFINE_EFI_MAIN_FUNCTION(run, "systemd-boot", /*wait_for_debugger=*/false);

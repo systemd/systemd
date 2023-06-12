@@ -379,13 +379,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         uint64_t loader_features = 0;
         EFI_STATUS err;
 
-        err = BS->OpenProtocol(
-                        image,
-                        MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL),
-                        (void **) &loaded_image,
-                        image,
-                        NULL,
-                        EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+        err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
 
