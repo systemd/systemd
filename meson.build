@@ -527,7 +527,7 @@ has_wstringop_truncation = cc.has_argument('-Wstringop-truncation')
 #####################################################################
 # compilation result tests
 
-conf.set('_GNU_SOURCE', true)
+conf.set('_GNU_SOURCE', 1)
 conf.set('__SANE_USERSPACE_TYPES__', true)
 conf.set10('HAVE_WSTRINGOP_TRUNCATION', has_wstringop_truncation)
 
