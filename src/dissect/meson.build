@@ -14,4 +14,4 @@ executables += [
 
 meson.add_install_script(meson_make_symlink,
                          bindir / 'systemd-dissect',
-                         rootsbindir / 'mount.ddi')
+                         sbindir / 'mount.ddi')

@@ -9,7 +9,7 @@
 
 prefix={{PREFIX}}
 exec_prefix={{PREFIX}}
-libdir={{ROOTLIBDIR}}
+libdir={{LIBDIR}}
 includedir={{INCLUDE_DIR}}
 
 Name: libudev

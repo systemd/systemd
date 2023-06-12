@@ -219,7 +219,7 @@ static int process_resume(void) {
                 "\n"
                 "[Service]\n"
                 "Type=oneshot\n"
-                "ExecStart=" ROOTLIBEXECDIR "/systemd-hibernate-resume %2$s %3$" PRIu64,
+                "ExecStart=" LIBEXECDIR "/systemd-hibernate-resume %2$s %3$" PRIu64,
                 device_unit,
                 arg_resume_device,
                 arg_resume_offset);

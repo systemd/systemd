@@ -669,7 +669,7 @@ int xdg_autostart_service_generate_unit(
 
                 /* Just assume the values are reasonably sane */
                 fprintf(f,
-                        "ExecCondition=" ROOTLIBEXECDIR "/systemd-xdg-autostart-condition \"%s\" \"%s\"\n",
+                        "ExecCondition=" LIBEXECDIR "/systemd-xdg-autostart-condition \"%s\" \"%s\"\n",
                         e_only_show_in,
                         e_not_show_in);
         }
