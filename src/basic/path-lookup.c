@@ -530,10 +530,6 @@ int lookup_paths_init(
         assert(scope >= 0);
         assert(scope < _RUNTIME_SCOPE_MAX);
 
-#if HAVE_SPLIT_USR
-        flags |= LOOKUP_PATHS_SPLIT_USR;
-#endif
-
         if (!empty_or_root(root_dir)) {
                 if (scope == RUNTIME_SCOPE_USER)
                         return -EINVAL;

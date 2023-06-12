@@ -2140,14 +2140,6 @@ install_keymaps() {
 
     dinfo "Install console keymaps"
 
-    if command -v meson >/dev/null \
-            && [[ "$(meson configure "${BUILD_DIR:?}" | grep 'split-usr' | awk '{ print $2 }')" == "true" ]] \
-            || [[ ! -L /lib ]]; then
-        prefix+=(
-            "/lib"
-        )
-    fi
-
     if (( $# == 0 )); then
         for p in "${prefix[@]}"; do
             # The first three paths may be deprecated.

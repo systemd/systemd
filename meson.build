@@ -76,19 +76,6 @@ endif
 #####################################################################
 
 fs = import('fs')
-if get_option('split-usr') == 'auto'
-        split_usr = not fs.is_symlink('/bin')
-else
-        split_usr = get_option('split-usr') == 'true'
-endif
-if split_usr
-        warning('\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n'
-                + '                    split-usr mode is going to be removed\n' +
-                '\n\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-endif
-conf.set10('HAVE_SPLIT_USR', split_usr,
-           description : '/usr/bin and /bin directories are separate')
-
 if get_option('split-bin') == 'auto'
         split_bin = not fs.is_symlink('/usr/sbin')
 else
@@ -98,12 +85,6 @@ conf.set10('HAVE_SPLIT_BIN', split_bin,
            description : 'bin and sbin directories are separate')
 
 rootprefixdir = get_option('rootprefix')
-# Unusual rootprefixdir values are used by some distros
-# (see https://github.com/systemd/systemd/pull/7461).
-rootprefix_default = split_usr ? '/' : '/usr'
-if rootprefixdir == ''
-        rootprefixdir = rootprefix_default
-endif
 rootprefixdir_noslash = rootprefixdir == '/' ? '' : rootprefixdir
 
 have_standalone_binaries = get_option('standalone-binaries')
@@ -4839,7 +4820,6 @@ alt_time_epoch = run_command('date', '-Is', '-u', '-d', '@@0@'.format(time_epoch
                              check : true).stdout().strip()
 
 summary({
-        'split /usr' :                      split_usr,
         'split bin-sbin' :                  split_bin,
         'prefix directory' :                prefixdir,
         'rootprefix directory' :            rootprefixdir,
@@ -5072,10 +5052,3 @@ summary({
         'enabled' :  ', '.join(found),
         'disabled' : ', '.join(missing)},
         section : 'Features')
-
-if rootprefixdir != rootprefix_default
-        warning('\n' +
-                'Note that the installation prefix was changed to "@0@".\n'.format(rootprefixdir) +
-                'systemd used fixed names for unit file directories and other paths, so anything\n' +
-                'except the default ("@0@") is strongly discouraged.'.format(rootprefix_default))
-endif
