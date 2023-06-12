@@ -16,6 +16,7 @@
 #include "ordered-set.h"
 #include "set.h"
 #include "time-util.h"
+#include "varlink.h"
 
 struct Manager {
         sd_netlink *rtnl;
@@ -63,8 +64,8 @@ struct Manager {
         bool has_product_uuid;
         bool product_uuid_requested;
 
-        char* dynamic_hostname;
-        char* dynamic_timezone;
+        char *dynamic_hostname;
+        char *dynamic_timezone;
 
         Set *rules;
 
@@ -101,10 +102,12 @@ struct Manager {
         OrderedSet *request_queue;
 
         Hashmap *tuntap_fds_by_name;
+
+        VarlinkServer *varlink_server;
 };
 
 int manager_new(Manager **ret, bool test_mode);
-Manager* manager_free(Manager *m);
+Manager *manager_free(Manager *m);
 
 int manager_setup(Manager *m);
 int manager_start(Manager *m);
