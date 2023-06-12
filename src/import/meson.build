@@ -118,6 +118,6 @@ if conf.get('ENABLE_IMPORTD') == 1
                      install_dir : polkitpolicydir)
 
         install_data('import-pubring.gpg',
-                     install_dir : rootlibexecdir)
+                     install_dir : libexecdir)
         # TODO: shouldn't this be in pkgdatadir?
 endif

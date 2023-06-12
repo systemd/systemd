@@ -78,7 +78,6 @@ executables += [
                                   libxz,
                                   libzstd,
                                   threads],
-                'install_dir' : rootbindir,
         },
         journal_test_template + {
                 'sources' : files('test-journal-config.c'),

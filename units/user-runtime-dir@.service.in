@@ -15,8 +15,8 @@ StopWhenUnneeded=yes
 IgnoreOnIsolate=yes
 
 [Service]
-ExecStart={{ROOTLIBEXECDIR}}/systemd-user-runtime-dir start %i
-ExecStop={{ROOTLIBEXECDIR}}/systemd-user-runtime-dir stop %i
+ExecStart={{LIBEXECDIR}}/systemd-user-runtime-dir start %i
+ExecStop={{LIBEXECDIR}}/systemd-user-runtime-dir stop %i
 Type=oneshot
 RemainAfterExit=yes
 Slice=user-%i.slice
