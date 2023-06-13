@@ -1205,7 +1205,7 @@ static int manager_dns_stub_fd(
                 return -errno;
 
         if (type == SOCK_STREAM &&
-            listen(fd, SOMAXCONN) < 0)
+            listen(fd, SOMAXCONN_DELUXE) < 0)
                 return -errno;
 
         r = sd_event_add_io(m->event, event_source, fd, EPOLLIN,
@@ -1295,7 +1295,7 @@ static int manager_dns_stub_fd_extra(Manager *m, DnsStubListenerExtra *l, int ty
                 goto fail;
 
         if (type == SOCK_STREAM &&
-            listen(fd, SOMAXCONN) < 0) {
+            listen(fd, SOMAXCONN_DELUXE) < 0) {
                 r = -errno;
                 goto fail;
         }
