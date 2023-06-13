@@ -3,7 +3,8 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.link">
+<refentry id="systemd.link"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>systemd.link</title>
     <productname>systemd</productname>
@@ -709,49 +710,7 @@
                 <entry>Speed (Mbps)</entry>
                 <entry>Duplex Mode</entry>
               </row></thead>
-              <tbody>
-                <row><entry><option>10baset-half</option></entry>
-                <entry>10</entry><entry>half</entry></row>
-
-                <row><entry><option>10baset-full</option></entry>
-                <entry>10</entry><entry>full</entry></row>
-
-                <row><entry><option>100baset-half</option></entry>
-                <entry>100</entry><entry>half</entry></row>
-
-                <row><entry><option>100baset-full</option></entry>
-                <entry>100</entry><entry>full</entry></row>
-
-                <row><entry><option>1000baset-half</option></entry>
-                <entry>1000</entry><entry>half</entry></row>
-
-                <row><entry><option>1000baset-full</option></entry>
-                <entry>1000</entry><entry>full</entry></row>
-
-                <row><entry><option>10000baset-full</option></entry>
-                <entry>10000</entry><entry>full</entry></row>
-
-                <row><entry><option>2500basex-full</option></entry>
-                <entry>2500</entry><entry>full</entry></row>
-
-                <row><entry><option>1000basekx-full</option></entry>
-                <entry>1000</entry><entry>full</entry></row>
-
-                <row><entry><option>10000basekx4-full</option></entry>
-                <entry>10000</entry><entry>full</entry></row>
-
-                <row><entry><option>10000basekr-full</option></entry>
-                <entry>10000</entry><entry>full</entry></row>
-
-                <row><entry><option>10000baser-fec</option></entry>
-                <entry>10000</entry><entry>full</entry></row>
-
-                <row><entry><option>20000basemld2-full</option></entry>
-                <entry>20000</entry><entry>full</entry></row>
-
-                <row><entry><option>20000basekr2-full</option></entry>
-                <entry>20000</entry><entry>full</entry></row>
-              </tbody>
+              <xi:include href="ethtool-link-mode.xml" />
             </tgroup>
           </table>
 
