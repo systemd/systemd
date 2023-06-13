@@ -972,7 +972,7 @@ int bus_init_private(Manager *m) {
         if (r < 0)
                 return log_error_errno(errno, "Failed to bind private socket: %m");
 
-        r = listen(fd, SOMAXCONN);
+        r = listen(fd, SOMAXCONN_DELUXE);
         if (r < 0)
                 return log_error_errno(errno, "Failed to make private socket listening: %m");
 
