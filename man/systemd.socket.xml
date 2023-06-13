@@ -341,12 +341,13 @@
 
       <varlistentry>
         <term><varname>Backlog=</varname></term>
-        <listitem><para>Takes an unsigned integer argument. Specifies
-        the number of connections to queue that have not been accepted
-        yet. This setting matters only for stream and sequential
-        packet sockets. See
-        <citerefentry><refentrytitle>listen</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        for details. Defaults to SOMAXCONN (128).</para></listitem>
+        <listitem><para>Takes an unsigned 32bit integer argument. Specifies the number of connections to
+        queue that have not been accepted yet. This setting matters only for stream and sequential packet
+        sockets. See
+        <citerefentry><refentrytitle>listen</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        details. Note that this value is silently capped by the <literal>net.core.somaxconn</literal> sysctl,
+        which typically defaults to 4096. By default this is set to 4294967295, so that the sysctl takes full
+        effect.</para></listitem>
       </varlistentry>
 
       <varlistentry>
