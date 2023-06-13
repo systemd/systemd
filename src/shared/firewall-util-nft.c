@@ -14,6 +14,8 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "escape.h"
+#include "extract-word.h"
 #include "firewall-util.h"
 #include "firewall-util-private.h"
 #include "in-addr-util.h"
@@ -21,6 +23,7 @@
 #include "netlink-internal.h"
 #include "netlink-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "time-util.h"
 
 #define NFT_SYSTEMD_DNAT_MAP_NAME "map_port_ipport"
@@ -598,7 +601,8 @@ static int nft_new_map(
 static int nft_add_element(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
-                int family,
+                int nfproto,
+                const char *table_name,
                 const char *set_name,
                 const void *key,
                 uint32_t klen,
@@ -610,10 +614,12 @@ static int nft_add_element(
 
         assert(nfnl);
         assert(ret);
-        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(IN_SET(nfproto, NFPROTO_ARP, NFPROTO_BRIDGE, NFPROTO_INET, NFPROTO_IPV4, NFPROTO_IPV6, NFPROTO_NETDEV));
+        assert(table_name);
         assert(set_name);
         assert(key);
-        assert(data);
+        assert(data || dlen == 0);
+
 
         /*
          * Ideally there would be an API that provides:
@@ -628,7 +634,7 @@ static int nft_add_element(
          * This replicated here and each element gets added to the set
          * one-by-one.
          */
-        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add = */ true, family, NFT_SYSTEMD_TABLE_NAME, set_name);
+        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add = */ true, nfproto, table_name, set_name);
         if (r < 0)
                 return r;
 
@@ -653,7 +659,8 @@ static int nft_add_element(
 static int nft_del_element(
                 sd_netlink *nfnl,
                 sd_netlink_message **ret,
-                int family,
+                int nfproto,
+                const char *table_name,
                 const char *set_name,
                 const void *key,
                 uint32_t klen,
@@ -665,12 +672,13 @@ static int nft_del_element(
 
         assert(nfnl);
         assert(ret);
-        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(IN_SET(nfproto, NFPROTO_ARP, NFPROTO_BRIDGE, NFPROTO_INET, NFPROTO_IPV4, NFPROTO_IPV6, NFPROTO_NETDEV));
+        assert(table_name);
         assert(set_name);
         assert(key);
-        assert(data);
+        assert(data || dlen == 0);
 
-        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add = */ false, family, NFT_SYSTEMD_TABLE_NAME, set_name);
+        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add = */ false, nfproto, table_name, set_name);
         if (r < 0)
                return r;
 
@@ -791,7 +799,7 @@ static int fw_nftables_init_family(sd_netlink *nfnl, int family) {
         return 0;
 }
 
-int fw_nftables_init(FirewallContext *ctx) {
+int fw_nftables_init(FirewallContext *ctx, bool init_tables) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *nfnl = NULL;
         int r;
 
@@ -802,14 +810,16 @@ int fw_nftables_init(FirewallContext *ctx) {
         if (r < 0)
                 return r;
 
-        r = fw_nftables_init_family(nfnl, AF_INET);
-        if (r < 0)
-                return r;
-
-        if (socket_ipv6_is_supported()) {
-                r = fw_nftables_init_family(nfnl, AF_INET6);
+        if (init_tables) {
+                r = fw_nftables_init_family(nfnl, AF_INET);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to init ipv6 NAT: %m");
+                        return r;
+
+                if (socket_ipv6_is_supported()) {
+                        r = fw_nftables_init_family(nfnl, AF_INET6);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to init ipv6 NAT: %m");
+                }
         }
 
         ctx->nfnl = TAKE_PTR(nfnl);
@@ -891,10 +901,13 @@ static int nft_message_append_setelem_ip6range(
         return sd_netlink_message_close_container(m); /* NFTA_SET_ELEM_LIST_ELEMENTS */
 }
 
-static int fw_nftables_add_masquerade_internal(
+static int nft_set_element_op_in_addr(
                 sd_netlink *nfnl,
                 bool add,
+                int nfproto,
                 int af,
+                const char *table,
+                const char *set,
                 const union in_addr_union *source,
                 unsigned int source_prefixlen) {
 
@@ -903,6 +916,9 @@ static int fw_nftables_add_masquerade_internal(
 
         assert(nfnl);
         assert(IN_SET(af, AF_INET, AF_INET6));
+        assert(IN_SET(nfproto, NFPROTO_ARP, NFPROTO_BRIDGE, NFPROTO_INET, NFPROTO_IPV4, NFPROTO_IPV6, NFPROTO_NETDEV));
+        assert(table);
+        assert(set);
 
         if (!source || source_prefixlen == 0)
                 return -EINVAL;
@@ -910,7 +926,7 @@ static int fw_nftables_add_masquerade_internal(
         if (af == AF_INET6 && source_prefixlen < 8)
                 return -EINVAL;
 
-        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, add, af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME);
+        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, add, nfproto, table, set);
         if (r < 0)
                 return r;
 
@@ -922,6 +938,49 @@ static int fw_nftables_add_masquerade_internal(
                 return r;
 
         return sd_nfnl_call_batch(nfnl, &m, 1, NFNL_DEFAULT_TIMEOUT_USECS, NULL);
+}
+
+int nft_set_element_op_in_addr_open(
+                FirewallContext **ctx,
+                bool add,
+                const NFTSetContext *nft_set_context,
+                int af,
+                const union in_addr_union *address,
+                unsigned int prefixlen) {
+        const char *table, *set;
+        int r, nfproto;
+
+        assert(ctx);
+
+        if (!*ctx) {
+                r = fw_ctx_new(ctx, /* init_tables = */ false);
+                if (r < 0)
+                        return r;
+        }
+
+        assert((*ctx)->nfnl);
+        assert(nft_set_context);
+        assert(address);
+        nfproto = nft_set_context->nfproto;
+        table = nft_set_context->table;
+        assert(table);
+        set = nft_set_context->set;
+        assert(set);
+
+        r = nft_set_element_op_in_addr((*ctx)->nfnl, add, nfproto, af, table, set, address, prefixlen);
+
+        if (r < 0)
+                log_debug_errno(r, "Failed to %s NFT set: family %s, table %s, set %s, IP address %s: %m",
+                                add ? "add" : "delete",
+                                nfproto_to_string(nfproto), table, set,
+                                IN_ADDR_PREFIX_TO_STRING(af, address, prefixlen));
+        else
+                log_debug("%s NFT set: family %s, table %s, set %s, IP address %s",
+                          add ? "Added" : "Deleted",
+                          nfproto_to_string(nfproto), table, set,
+                          IN_ADDR_PREFIX_TO_STRING(af, address, prefixlen));
+
+        return r;
 }
 
 int fw_nftables_add_masquerade(
@@ -940,7 +999,8 @@ int fw_nftables_add_masquerade(
         if (!socket_ipv6_is_supported() && af == AF_INET6)
                 return -EOPNOTSUPP;
 
-        r = fw_nftables_add_masquerade_internal(ctx->nfnl, add, af, source, source_prefixlen);
+        r = nft_set_element_op_in_addr(ctx->nfnl, add, af, af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME,
+                                       source, source_prefixlen);
         if (r != -ENOENT)
                 return r;
 
@@ -965,7 +1025,8 @@ int fw_nftables_add_masquerade(
         if (r < 0)
                 return r;
 
-        return fw_nftables_add_masquerade_internal(ctx->nfnl, add, af, source, source_prefixlen);
+        return nft_set_element_op_in_addr(ctx->nfnl, add, af, af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_MASQ_SET_NAME,
+                                          source, source_prefixlen);
 }
 
 static int fw_nftables_add_local_dnat_internal(
@@ -1023,7 +1084,8 @@ static int fw_nftables_add_local_dnat_internal(
                 else
                         memcpy(data, &previous_remote->in6, sizeof(previous_remote->in6));
 
-                r = nft_del_element(nfnl, &messages[msgcnt++], af, NFT_SYSTEMD_DNAT_MAP_NAME, key, sizeof(key), data, dlen);
+                r = nft_del_element(nfnl, &messages[msgcnt++], af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_DNAT_MAP_NAME,
+                                    key, sizeof(key), data, dlen);
                 if (r < 0)
                         return r;
         }
@@ -1034,9 +1096,11 @@ static int fw_nftables_add_local_dnat_internal(
                 memcpy(data, &remote->in6, sizeof(remote->in6));
 
         if (add)
-                r = nft_add_element(nfnl, &messages[msgcnt++], af, NFT_SYSTEMD_DNAT_MAP_NAME, key, sizeof(key), data, dlen);
+                r = nft_add_element(nfnl, &messages[msgcnt++], af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_DNAT_MAP_NAME,
+                                    key, sizeof(key), data, dlen);
         else
-                r = nft_del_element(nfnl, &messages[msgcnt++], af, NFT_SYSTEMD_DNAT_MAP_NAME, key, sizeof(key), data, dlen);
+                r = nft_del_element(nfnl, &messages[msgcnt++], af, NFT_SYSTEMD_TABLE_NAME, NFT_SYSTEMD_DNAT_MAP_NAME,
+                                    key, sizeof(key), data, dlen);
         if (r < 0)
                 return r;
 
@@ -1086,4 +1150,144 @@ int fw_nftables_add_local_dnat(
 
         /* table created anew; previous address already gone */
         return fw_nftables_add_local_dnat_internal(ctx->nfnl, add, af, protocol, local_port, remote, remote_port, NULL);
+}
+
+static const char *const nfproto_table[] = {
+        [NFPROTO_ARP]    = "arp",
+        [NFPROTO_BRIDGE] = "bridge",
+        [NFPROTO_INET]   = "inet",
+        [NFPROTO_IPV4]   = "ip",
+        [NFPROTO_IPV6]   = "ip6",
+        [NFPROTO_NETDEV] = "netdev",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(nfproto, int);
+
+NFTSetContext* nft_set_context_free_many(NFTSetContext *s, size_t *n) {
+        assert(n);
+        assert(s || *n == 0);
+
+        for (size_t i = 0; i < *n; i++) {
+                free(s[i].table);
+                free(s[i].set);
+        }
+
+        free(s);
+        *n = 0;
+        return NULL;
+}
+
+int nft_set_context_add(NFTSetContext **s, size_t *n, int nfproto, const char *table, const char *set) {
+        _cleanup_free_ char *table_dup = NULL, *set_dup = NULL;
+        assert(s);
+        assert(n);
+        assert(IN_SET(nfproto, NFPROTO_ARP, NFPROTO_BRIDGE, NFPROTO_INET, NFPROTO_IPV4, NFPROTO_IPV6, NFPROTO_NETDEV));
+        assert(table);
+        assert(set);
+
+        table_dup = strdup(table);
+        if (!table_dup)
+                return -ENOMEM;
+
+        set_dup = strdup(set);
+        if (!set_dup)
+                return -ENOMEM;
+
+        NFTSetContext *c;
+        c = reallocarray(*s, *n + 1, sizeof(NFTSetContext));
+        if (!c)
+                return -ENOMEM;
+
+        *s = c;
+
+        c[(*n) ++] = (NFTSetContext) {
+                .nfproto = nfproto,
+                .table = TAKE_PTR(table_dup),
+                .set = TAKE_PTR(set_dup),
+        };
+
+        return 0;
+}
+
+int config_parse_nft_set_context(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                NFTSetContext **nft_set_context,
+                size_t *n) {
+        _cleanup_free_ char *family_str = NULL, *table = NULL, *set = NULL;
+        int nfproto, r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(nft_set_context);
+
+        if (isempty(rvalue)) {
+                *nft_set_context = nft_set_context_free_many(*nft_set_context, n);
+
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
+                r = extract_many_words(&p, ":" WHITESPACE, EXTRACT_CUNESCAPE, &family_str, &table, &set, NULL);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r == 0)
+                        return 0;
+                if (r != 3) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(rvalue);
+                        return log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse IPvxNFT set %s, ignoring", strna(esc));
+                }
+
+                assert(family_str);
+                assert(table);
+                assert(set);
+
+                nfproto = nfproto_from_string(family_str);
+                if (nfproto < 0) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(family_str);
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown NFT protocol family %s, ignoring", strna(esc));
+
+                }
+                family_str = mfree(family_str);
+
+                if (!nft_identifier_good(table)) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(table);
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid table name %s, ignoring", strna(esc));
+                }
+
+                if (!nft_identifier_good(set)) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(set);
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid set name %s, ignoring", strna(esc));
+                }
+
+                NFTSetContext *c;
+                c = reallocarray(*nft_set_context, *n + 1, sizeof(NFTSetContext));
+                if (!c)
+                        return -ENOMEM;
+
+                *nft_set_context = c;
+
+                c[(*n) ++] = (NFTSetContext) {
+                        .nfproto = nfproto,
+                        .table = TAKE_PTR(table),
+                        .set = TAKE_PTR(set),
+                };
+        }
+
+        return 0;
 }
