@@ -19,4 +19,4 @@ AssertPathExists=/etc/initrd-release
 
 [Service]
 Type=oneshot
-ExecStart={{ROOTLIBEXECDIR}}/systemd-hibernate-resume %f
+ExecStart={{LIBEXECDIR}}/systemd-hibernate-resume %f

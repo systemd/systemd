@@ -15,7 +15,7 @@ After=network-online.target
 
 [Service]
 DynamicUser=yes
-ExecStart={{ROOTLIBEXECDIR}}/systemd-journal-upload --save-state
+ExecStart={{LIBEXECDIR}}/systemd-journal-upload --save-state
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 PrivateDevices=yes
