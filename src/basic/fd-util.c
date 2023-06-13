@@ -900,9 +900,9 @@ int path_is_root_at(int dir_fd, const char *path) {
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
         if (!isempty(path)) {
-                fd = openat(dir_fd, path, O_PATH|O_CLOEXEC);
+                fd = openat(dir_fd, path, O_PATH|O_DIRECTORY|O_CLOEXEC);
                 if (fd < 0)
-                        return -errno;
+                        return errno == ENOTDIR ? false : -errno;
 
                 dir_fd = fd;
         }
