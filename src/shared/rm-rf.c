@@ -430,9 +430,7 @@ int rm_rf_at(int dir_fd, const char *path, RemoveFlags flags) {
         int fd, r, q = 0;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-
-        if (FLAGS_SET(flags, REMOVE_ROOT))
-                assert(path && !dot_or_dot_dot(path)); /* unlinkat() does not support AT_EMPTY_PATH or "." so a path must be provided here. */
+        assert(path);
 
         /* For now, don't support dropping subvols when also only dropping directories, since we can't do
          * this race-freely. */
