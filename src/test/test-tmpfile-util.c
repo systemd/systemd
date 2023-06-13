@@ -278,9 +278,9 @@ TEST(link_tmpfile) {
         assert_se(write(fd, "foobar\n", 7) == 7);
 
         assert_se(touch(d) >= 0);
-        assert_se(link_tmpfile(fd, tmp, d, /* replace= */ false) == -EEXIST);
+        assert_se(link_tmpfile(fd, tmp, d, /* flags= */ 0) == -EEXIST);
         assert_se(unlink(d) >= 0);
-        assert_se(link_tmpfile(fd, tmp, d, /* replace= */ false) >= 0);
+        assert_se(link_tmpfile(fd, tmp, d, /* flags= */ 0) >= 0);
 
         assert_se(read_one_line_file(d, &line) >= 0);
         assert_se(streq(line, "foobar"));
@@ -293,8 +293,8 @@ TEST(link_tmpfile) {
 
         assert_se(write(fd, "waumiau\n", 8) == 8);
 
-        assert_se(link_tmpfile(fd, tmp, d, /* replace= */ false) == -EEXIST);
-        assert_se(link_tmpfile(fd, tmp, d, /* replace= */ true) >= 0);
+        assert_se(link_tmpfile(fd, tmp, d, /* flags= */ 0) == -EEXIST);
+        assert_se(link_tmpfile(fd, tmp, d, LINK_TMPFILE_REPLACE) >= 0);
 
         line = mfree(line);
         assert_se(read_one_line_file(d, &line) >= 0);

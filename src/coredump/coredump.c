@@ -273,7 +273,7 @@ static int fix_permissions(
         if (r < 0)
                 return log_error_errno(r, "Failed to sync coredump %s: %m", coredump_tmpfile_name(filename));
 
-        r = link_tmpfile(fd, filename, target, /* replace= */ false);
+        r = link_tmpfile(fd, filename, target, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to move coredump %s into place: %m", target);
 
