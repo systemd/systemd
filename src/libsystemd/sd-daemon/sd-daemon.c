@@ -466,7 +466,8 @@ static int pid_notify_with_fds_internal(
         struct cmsghdr *cmsg = NULL;
         const char *e;
         bool send_ucred;
-        int r;
+        ssize_t n;
+        int type, r;
 
         if (!state)
                 return -EINVAL;
@@ -491,30 +492,37 @@ static int pid_notify_with_fds_internal(
         if (address.sockaddr.vm.svm_family == AF_VSOCK && address.sockaddr.vm.svm_cid == VMADDR_CID_ANY)
                 return -EINVAL;
 
+        type = address.type == 0 ? SOCK_DGRAM : address.type;
+
         /* At the time of writing QEMU does not yet support AF_VSOCK + SOCK_DGRAM and returns
          * ENODEV. Fallback to SOCK_SEQPACKET in that case. */
-        fd = socket(address.sockaddr.sa.sa_family, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+        fd = socket(address.sockaddr.sa.sa_family, type|SOCK_CLOEXEC, 0);
         if (fd < 0) {
-                if (!(ERRNO_IS_NOT_SUPPORTED(errno) || errno == ENODEV) || address.sockaddr.sa.sa_family != AF_VSOCK)
-                        return log_debug_errno(errno, "Failed to open datagram notify socket to '%s': %m", e);
+                if (!(ERRNO_IS_NOT_SUPPORTED(errno) || errno == ENODEV) || address.sockaddr.sa.sa_family != AF_VSOCK || address.type > 0)
+                        return log_debug_errno(errno, "Failed to open %s notify socket to '%s': %m", socket_address_type_to_string(type), e);
 
-                fd = socket(address.sockaddr.sa.sa_family, SOCK_SEQPACKET|SOCK_CLOEXEC, 0);
+                type = SOCK_SEQPACKET;
+                fd = socket(address.sockaddr.sa.sa_family, type|SOCK_CLOEXEC, 0);
+                if (fd < 0 && ERRNO_IS_NOT_SUPPORTED(errno)) {
+                        type = SOCK_STREAM;
+                        fd = socket(address.sockaddr.sa.sa_family, type|SOCK_CLOEXEC, 0);
+                }
                 if (fd < 0)
-                        return log_debug_errno(errno, "Failed to open sequential packet socket to '%s': %m", e);
+                        return log_debug_errno(errno, "Failed to open %s socket to '%s': %m", socket_address_type_to_string(type), e);
+        }
 
+        if (address.sockaddr.sa.sa_family == AF_VSOCK) {
                 r = vsock_bind_privileged_port(fd);
                 if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
                         return log_debug_errno(r, "Failed to bind socket to privileged port: %m");
+        }
 
+        if (IN_SET(type, SOCK_STREAM, SOCK_SEQPACKET)) {
                 if (connect(fd, &address.sockaddr.sa, address.size) < 0)
                         return log_debug_errno(errno, "Failed to connect socket to '%s': %m", e);
 
                 msghdr.msg_name = NULL;
                 msghdr.msg_namelen = 0;
-        } else if (address.sockaddr.sa.sa_family == AF_VSOCK) {
-                r = vsock_bind_privileged_port(fd);
-                if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
-                        return log_debug_errno(r, "Failed to bind socket to privileged port: %m");
         }
 
         (void) fd_inc_sndbuf(fd, SNDBUF_SIZE);
@@ -560,21 +568,32 @@ static int pid_notify_with_fds_internal(
                 }
         }
 
-        /* First try with fake ucred data, as requested */
-        if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) >= 0)
-                return 1;
+        do {
+                /* First try with fake ucred data, as requested */
+                n = sendmsg(fd, &msghdr, MSG_NOSIGNAL);
+                if (n < 0) {
+                        if (!send_ucred)
+                                return log_debug_errno(errno, "Failed to send notify message to '%s': %m", e);
 
-        /* If that failed, try with our own ucred instead */
-        if (send_ucred) {
-                msghdr.msg_controllen -= CMSG_SPACE(sizeof(struct ucred));
-                if (msghdr.msg_controllen == 0)
+                        /* If that failed, try with our own ucred instead */
+                        msghdr.msg_controllen -= CMSG_SPACE(sizeof(struct ucred));
+                        if (msghdr.msg_controllen == 0)
+                                msghdr.msg_control = NULL;
+
+                        n = 0;
+                        send_ucred = false;
+                } else {
+                        /* Unless we're using SOCK_STREAM, we expect to write all the contents immediately. */
+                        if (type != SOCK_STREAM && (size_t) n < IOVEC_TOTAL_SIZE(msghdr.msg_iov, msghdr.msg_iovlen))
+                                return -EIO;
+
+                        /* Make sure we only send fds and ucred once, even if we're using SOCK_STREAM. */
                         msghdr.msg_control = NULL;
+                        msghdr.msg_controllen = 0;
+                }
+        } while (!IOVEC_INCREMENT(msghdr.msg_iov, msghdr.msg_iovlen, n));
 
-                if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) >= 0)
-                        return 1;
-        }
-
-        return log_debug_errno(errno, "Failed to send notify message to '%s': %m", e);
+        return 1;
 }
 
 _public_ int sd_pid_notify_with_fds(
