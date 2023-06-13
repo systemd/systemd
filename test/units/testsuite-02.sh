@@ -9,13 +9,26 @@ if ! systemd-detect-virt -qc && [[ "${TEST_CMDLINE_NEWLINE:-}" != bar ]]; then
     exit 1
 fi
 
+# If we're running with TEST_PREFER_NSPAWN=1 limit the set of tests we run
+# in QEMU to only those that can't run in a container to avoid running
+# the same tests again in a, most likely, very slow environment
+if ! systemd-detect-virt -qc && [[ "${TEST_PREFER_NSPAWN:-0}" -ne 0 ]]; then
+    TESTS_GLOB="test-loop-block"
+else
+    TESTS_GLOB=${TESTS_GLOB:-test-*}
+fi
+
 NPROC=$(nproc)
 MAX_QUEUE_SIZE=${NPROC:-2}
-TESTS_GLOB=${TESTS_GLOB:-test-*}
 mapfile -t TEST_LIST < <(find /usr/lib/systemd/tests/unit-tests/ -maxdepth 1 -type f -name "${TESTS_GLOB}")
 
-# reset state
+# Reset state
 rm -fv /failed-tests /skipped-tests /skipped
+
+if ! systemd-detect-virt -qc; then
+    # Make sure ping works for unprivileged users (for test-bpf-firewall)
+    sysctl net.ipv4.ping_group_range="0 2147483647"
+fi
 
 # Check & report test results
 # Arguments:
