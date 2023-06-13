@@ -255,6 +255,7 @@ static int extract_now(
                         _cleanup_(portable_metadata_unrefp) PortableMetadata *m = NULL;
                         _cleanup_(mac_selinux_freep) char *con = NULL;
                         _cleanup_close_ int fd = -EBADF;
+                        struct stat st;
 
                         if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
                                 continue;
@@ -272,6 +273,17 @@ static int extract_now(
                         fd = openat(dirfd(d), de->d_name, O_CLOEXEC|O_RDONLY);
                         if (fd < 0) {
                                 log_debug_errno(errno, "Failed to open unit file '%s', ignoring: %m", de->d_name);
+                                continue;
+                        }
+
+                        /* Reject empty files, just in case */
+                        if (fstat(fd, &st) < 0) {
+                                log_debug_errno(errno, "Failed to stat unit file '%s', ignoring: %m", de->d_name);
+                                continue;
+                        }
+
+                        if (st.st_size <= 0) {
+                                log_debug("Unit file '%s' is empty, ignoring.", de->d_name);
                                 continue;
                         }
 
@@ -1130,7 +1142,7 @@ static int install_chroot_dropin(
                         }
         }
 
-        r = write_string_file(dropin, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        r = write_string_file(dropin, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_SYNC);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write '%s': %m", dropin);
 
@@ -1177,7 +1189,7 @@ static int install_profile_dropin(
 
         if (flags & PORTABLE_PREFER_COPY) {
 
-                r = copy_file_atomic(from, dropin, 0644, COPY_REFLINK);
+                r = copy_file_atomic(from, dropin, 0644, COPY_REFLINK|COPY_FSYNC);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to copy %s %s %s: %m", from, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), dropin);
 
