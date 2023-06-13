@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2022-10-20 10:35+0200\n"
-"PO-Revision-Date: 2023-06-03 15:48+0000\n"
+"PO-Revision-Date: 2023-06-13 20:18+0000\n"
 "Last-Translator: 김인수 <simmon@nplob.com>\n"
 "Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
 "master/ko/>\n"
@@ -109,7 +109,7 @@ msgstr "사용자 홈 영역을 조정하려면 인증이 필요합니다."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Change password of a home area"
-msgstr "홈 영역 암호 변경"
+msgstr "홈 영역 비밀번호 변경"
 
 #: src/home/org.freedesktop.home1.policy:64
 msgid ""
