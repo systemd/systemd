@@ -3157,35 +3157,28 @@ static int context_wipe_and_discard(Context *context) {
 
 typedef struct DecryptedPartitionTarget {
         int fd;
+        char *dm_name;
         char *volume;
         struct crypt_device *device;
 } DecryptedPartitionTarget;
 
 static DecryptedPartitionTarget* decrypted_partition_target_free(DecryptedPartitionTarget *t) {
 #ifdef HAVE_LIBCRYPTSETUP
-        _cleanup_free_ char *name = NULL;
         int r;
 
         if (!t)
                 return NULL;
 
-        r = path_extract_filename(t->volume, &name);
-        if (r < 0) {
-                assert(r == -ENOMEM);
-                log_oom();
-        }
-
         safe_close(t->fd);
 
-        if (name) {
-                /* udev or so might access out block device in the background while we are done. Let's hence
-                 * force detach the volume. We sync'ed before, hence this should be safe. */
-                r = sym_crypt_deactivate_by_name(t->device, name, CRYPT_DEACTIVATE_FORCE);
-                if (r < 0)
-                        log_error_errno(r, "Failed to deactivate LUKS device: %m");
-        }
+        /* udev or so might access out block device in the background while we are done. Let's hence
+         * force detach the volume. We sync'ed before, hence this should be safe. */
+        r = sym_crypt_deactivate_by_name(t->device, t->dm_name, CRYPT_DEACTIVATE_FORCE);
+        if (r < 0)
+                log_warning_errno(r, "Failed to deactivate LUKS device, ignoring: %m");
 
         sym_crypt_free(t->device);
+        free(t->dm_name);
         free(t->volume);
         free(t);
 #endif
@@ -3662,6 +3655,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
                 *t = (DecryptedPartitionTarget) {
                         .fd = TAKE_FD(dev_fd),
+                        .dm_name = TAKE_PTR(dm_name),
                         .volume = TAKE_PTR(vol),
                         .device = TAKE_PTR(cd),
                 };
