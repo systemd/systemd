@@ -1522,13 +1522,20 @@ int socket_address_parse_vsock(SocketAddress *ret_address, const char *s) {
         _cleanup_free_ char *n = NULL;
         char *e, *cid_start;
         unsigned port, cid;
-        int r;
+        int type, r;
 
         assert(ret_address);
         assert(s);
 
-        cid_start = startswith(s, "vsock:");
-        if (!cid_start)
+        if ((cid_start = startswith(s, "vsock:")))
+                type = 0;
+        else if ((cid_start = startswith(s, "vsock-dgram:")))
+                type = SOCK_DGRAM;
+        else if ((cid_start = startswith(s, "vsock-seqpacket:")))
+                type = SOCK_SEQPACKET;
+        else if ((cid_start = startswith(s, "vsock-stream:")))
+                type = SOCK_STREAM;
+        else
                 return -EPROTO;
 
         e = strchr(cid_start, ':');
@@ -1557,6 +1564,7 @@ int socket_address_parse_vsock(SocketAddress *ret_address, const char *s) {
                         .svm_family = AF_VSOCK,
                         .svm_port = port,
                 },
+                .type = type,
                 .size = sizeof(struct sockaddr_vm),
         };
 
