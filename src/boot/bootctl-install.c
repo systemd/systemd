@@ -454,7 +454,7 @@ static int install_loader_config(const char *esp_path) {
                 fprintf(f, "default %s-*\n", arg_entry_token);
         }
 
-        r = flink_tmpfile(f, t, p, /* replace= */ false);
+        r = flink_tmpfile(f, t, p, LINK_TMPFILE_SYNC);
         if (r == -EEXIST)
                 return 0; /* Silently skip creation if the file exists now (recheck) */
         if (r < 0)
@@ -483,7 +483,7 @@ static int install_loader_specification(const char *root) {
 
         fprintf(f, "type1\n");
 
-        r = flink_tmpfile(f, t, p, /* replace= */ false);
+        r = flink_tmpfile(f, t, p, LINK_TMPFILE_SYNC);
         if (r == -EEXIST)
                 return 0; /* Silently skip creation if the file exists now (recheck) */
         if (r < 0)

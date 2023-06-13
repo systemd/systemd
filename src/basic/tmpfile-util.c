@@ -17,6 +17,7 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "sync-util.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
 
@@ -349,7 +350,7 @@ static int link_fd(int fd, int newdirfd, const char *newpath) {
         return RET_NERRNO(linkat(fd, "", newdirfd, newpath, AT_EMPTY_PATH));
 }
 
-int link_tmpfile_at(int fd, int dir_fd, const char *path, const char *target, bool replace) {
+int link_tmpfile_at(int fd, int dir_fd, const char *path, const char *target, LinkTmpfileFlags flags) {
         _cleanup_free_ char *tmp = NULL;
         int r;
 
@@ -361,40 +362,52 @@ int link_tmpfile_at(int fd, int dir_fd, const char *path, const char *target, bo
          * an fd created with O_TMPFILE is assumed, and linkat() is used. Otherwise it is assumed O_TMPFILE
          * is not supported on the directory, and renameat2() is used instead. */
 
-        if (path) {
-                if (replace)
-                        return RET_NERRNO(renameat(dir_fd, path, dir_fd, target));
+        if (FLAGS_SET(flags, LINK_TMPFILE_SYNC) && fsync(fd) < 0)
+                return -errno;
 
-                return rename_noreplace(dir_fd, path, dir_fd, target);
+        if (path) {
+                if (FLAGS_SET(flags, LINK_TMPFILE_REPLACE))
+                        r = RET_NERRNO(renameat(dir_fd, path, dir_fd, target));
+                else
+                        r = rename_noreplace(dir_fd, path, dir_fd, target);
+                if (r < 0)
+                        return r;
+        } else {
+
+                r = link_fd(fd, dir_fd, target);
+                if (r != -EEXIST || !FLAGS_SET(flags, LINK_TMPFILE_REPLACE))
+                        return r;
+
+                /* So the target already exists and we were asked to replace it. That sucks a bit, since the kernel's
+                 * linkat() logic does not allow that. We work-around this by linking the file to a random name
+                 * first, and then renaming that to the final name. This reintroduces the race O_TMPFILE kinda is
+                 * trying to fix, but at least the vulnerability window (i.e. where the file is linked into the file
+                 * system under a temporary name) is very short. */
+
+                r = tempfn_random(target, NULL, &tmp);
+                if (r < 0)
+                        return r;
+
+                if (link_fd(fd, dir_fd, tmp) < 0)
+                        return -EEXIST; /* propagate original error */
+
+                r = RET_NERRNO(renameat(dir_fd, tmp, dir_fd, target));
+                if (r < 0) {
+                        (void) unlinkat(dir_fd, tmp, 0);
+                        return r;
+                }
         }
 
-        r = link_fd(fd, dir_fd, target);
-        if (r != -EEXIST || !replace)
-                return r;
-
-        /* So the target already exists and we were asked to replace it. That sucks a bit, since the kernel's
-         * linkat() logic does not allow that. We work-around this by linking the file to a random name
-         * first, and then renaming that to the final name. This reintroduces the race O_TMPFILE kinda is
-         * trying to fix, but at least the vulnerability window (i.e. where the file is linked into the file
-         * system under a temporary name) is very short. */
-
-        r = tempfn_random(target, NULL, &tmp);
-        if (r < 0)
-                return r;
-
-        if (link_fd(fd, dir_fd, tmp) < 0)
-                return -EEXIST; /* propagate original error */
-
-        r = RET_NERRNO(renameat(dir_fd, tmp, dir_fd, target));
-        if (r < 0) {
-                (void) unlinkat(dir_fd, tmp, 0);
-                return r;
+        if (FLAGS_SET(flags, LINK_TMPFILE_SYNC)) {
+                r = fsync_full(fd);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
 }
 
-int flink_tmpfile(FILE *f, const char *path, const char *target, bool replace) {
+int flink_tmpfile(FILE *f, const char *path, const char *target, LinkTmpfileFlags flags) {
         int fd, r;
 
         assert(f);
@@ -404,11 +417,11 @@ int flink_tmpfile(FILE *f, const char *path, const char *target, bool replace) {
         if (fd < 0) /* Not all FILE* objects encapsulate fds */
                 return -EBADF;
 
-        r = fflush_sync_and_check(f);
+        r = fflush_and_check(f);
         if (r < 0)
                 return r;
 
-        return link_tmpfile(fd, path, target, replace);
+        return link_tmpfile(fd, path, target, flags);
 }
 
 int mkdtemp_malloc(const char *template, char **ret) {

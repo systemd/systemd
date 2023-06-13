@@ -408,7 +408,7 @@ static int trie_store(struct trie *trie, const char *filename, bool compat) {
                 return -errno;
         fwrite(&h, sizeof(struct trie_header_f), 1, f);
 
-        r = flink_tmpfile(f, filename_tmp, filename, /* replace= */ true);
+        r = flink_tmpfile(f, filename_tmp, filename, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
         if (r < 0)
                 return r;
 
