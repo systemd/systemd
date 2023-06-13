@@ -13,7 +13,6 @@ Documentation=man:systemd-journal-gatewayd(8)
 Requires=systemd-journal-gatewayd.socket
 
 [Service]
-DynamicUser=yes
 ExecStart={{ROOTLIBEXECDIR}}/systemd-journal-gatewayd
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
