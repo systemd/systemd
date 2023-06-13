@@ -354,3 +354,10 @@ int connect_unix_path(int fd, int dir_fd, const char *path);
  * protocol mismatch. */
 int socket_address_parse_unix(SocketAddress *ret_address, const char *s);
 int socket_address_parse_vsock(SocketAddress *ret_address, const char *s);
+
+/* libc's SOMAXCONN is defined to 128 or 4096 (at least on glibc). But actually, the value can be much
+ * larger. In our codebase we want to set it to the max usually, since noawadays socket memory is properly
+ * tracked by memcg, and hence we don't need to enforce extra limits here. Moreover, the kernel caps it to
+ * /proc/sys/net/core/somaxconn anyway, thus by setting this to unbounded we just make that sysctl file
+ * authoritative. */
+#define SOMAXCONN_DELUXE INT_MAX
