@@ -268,13 +268,13 @@ static void sigchld_hdl(int sig) {
                 r = waitid(P_ALL, 0, &si, WEXITED | WNOHANG);
                 if (r < 0) {
                         if (errno != ECHILD)
-                                log_error_errno(errno, "Failed to reap children: %m");
+                                log_debug_errno(errno, "Failed to reap children: %m");
                         return;
                 }
                 if (si.si_pid == 0)
                         return;
 
-                log_info("Child %d died with code %d", si.si_pid, si.si_status);
+                log_debug("Child %d died with code %d", si.si_pid, si.si_status);
         }
 }
 
