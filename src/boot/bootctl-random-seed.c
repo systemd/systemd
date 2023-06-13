@@ -9,6 +9,7 @@
 #include "fd-util.h"
 #include "find-esp.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "io-util.h"
 #include "mkdir.h"
 #include "path-util.h"
@@ -16,6 +17,39 @@
 #include "sha256.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
+
+static int random_seed_verify_permissions(int fd, mode_t expected_type) {
+        _cleanup_free_ char *full_path = NULL;
+        struct stat st;
+        int r;
+
+        assert(fd >= 0);
+
+        r = fd_get_path(fd, &full_path);
+        if (r < 0)
+                return log_error_errno(r, "Unable to determine full path of random seed fd: %m");
+
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "Unable to stat %s: %m", full_path);
+
+        if (((st.st_mode ^ expected_type) & S_IFMT) != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADF),
+                                       "Unexpected inode type when validating random seed access mode on %s: %m", full_path);
+
+        if ((st.st_mode & 0007) == 0) /* All world bits are off? Then all is good */
+                return 0;
+
+        if (S_ISREG(expected_type))
+                log_warning("%s Random seed file '%s' is world accessible, which is a security hole! %s",
+                            special_glyph(SPECIAL_GLYPH_WARNING_SIGN), full_path, special_glyph(SPECIAL_GLYPH_WARNING_SIGN));
+        else {
+                assert(S_ISDIR(expected_type));
+                log_warning("%s Mount point '%s' which backs the random seed file is world accessible, which is a security hole! %s",
+                            special_glyph(SPECIAL_GLYPH_WARNING_SIGN), full_path, special_glyph(SPECIAL_GLYPH_WARNING_SIGN));
+        }
+
+        return 1;
+}
 
 static int set_system_token(void) {
         uint8_t buffer[RANDOM_EFI_SEED_SIZE];
@@ -90,7 +124,7 @@ int install_random_seed(const char *esp) {
         _cleanup_free_ char *tmp = NULL;
         uint8_t buffer[RANDOM_EFI_SEED_SIZE];
         struct sha256_ctx hash_state;
-        bool refreshed;
+        bool refreshed, warned = false;
         int r;
 
         assert(esp);
@@ -100,6 +134,8 @@ int install_random_seed(const char *esp) {
         esp_fd = open(esp, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
         if (esp_fd < 0)
                 return log_error_errno(errno, "Failed to open ESP directory '%s': %m", esp);
+
+        (void) random_seed_verify_permissions(esp_fd, S_IFDIR);
 
         loader_dir_fd = open_mkdir_at(esp_fd, "loader", O_DIRECTORY|O_RDONLY|O_CLOEXEC|O_NOFOLLOW, 0775);
         if (loader_dir_fd < 0)
@@ -122,6 +158,8 @@ int install_random_seed(const char *esp) {
         } else {
                 ssize_t n;
 
+                warned = random_seed_verify_permissions(fd, S_IFREG) > 0;
+
                 /* Hash the old seed in so that we never regress in entropy. */
 
                 n = read(fd, buffer, sizeof(buffer));
@@ -142,6 +180,9 @@ int install_random_seed(const char *esp) {
         fd = openat(loader_dir_fd, tmp, O_CREAT|O_EXCL|O_NOFOLLOW|O_NOCTTY|O_WRONLY|O_CLOEXEC, 0600);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open random seed file for writing: %m");
+
+        if (!warned) /* only warn once per seed file */
+                (void) random_seed_verify_permissions(fd, S_IFREG);
 
         r = loop_write(fd, buffer, sizeof(buffer), /* do_poll= */ false);
         if (r < 0) {

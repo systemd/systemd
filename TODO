@@ -390,8 +390,6 @@ Features:
   Usecase: provide a minimal ESP with sd-boot and a couple of these sd-fetch
   binaries in place of UKIs, and download them on-the-fly.
 
-* bootctl: warn if ESP is mounted world-readable (and in particular the seed).
-
 * maybe: systemd-loop-generator that sets up loopback devices if requested via kernel
   cmdline. usecase: include encrypted/verity root fs in UKI.
 
