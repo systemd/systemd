@@ -78,7 +78,7 @@ int btrfs_is_subvol_at(int dir_fd, const char *path) {
 
         /* On btrfs subvolumes always have the inode 256 */
 
-        if (fstatat(dir_fd, strempty(path), &st, (isempty(path) ? AT_EMPTY_PATH : 0)) < 0)
+        if (fstatat(dir_fd, strempty(path), &st, isempty(path) ? AT_EMPTY_PATH : 0) < 0)
                 return -errno;
 
         if (!btrfs_might_be_subvol(&st))
