@@ -2226,6 +2226,10 @@ static bool service_good(Service *s) {
         if (main_pid_ok == 0) /* It's dead */
                 return false;
 
+        /* Make decisions based on cgroup state only when exit type is cgroup. */
+        if (s->exit_type == SERVICE_EXIT_MAIN)
+                return false;
+
         /* OK, we don't know anything about the main PID, maybe
          * because there is none. Let's check the control group
          * instead. */
