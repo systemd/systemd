@@ -3,6 +3,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 # Don't start services every few ms if condition fails
 # Issue: https://github.com/systemd/systemd/issues/2467
 
@@ -13,5 +16,5 @@ nc -w20 -U /run/test.ctl || :
 # TriggerLimitIntervalSec= by default is set to 2s. A "sleep 10" should give
 # systemd enough time even on slower machines, to reach the trigger limit.
 # shellcheck disable=SC2016
-timeout 10 bash -c 'while ! [[ "$(systemctl show issue2467.socket -P ActiveState)" == failed ]]; do sleep .5; done'
+wait_until -t 10 [[ "$(systemctl show issue2467.socket -P ActiveState)" == failed ]]
 [[ "$(systemctl show issue2467.socket -P Result)" == trigger-limit-hit ]]
