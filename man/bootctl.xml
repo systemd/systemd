@@ -228,13 +228,14 @@
       <varlistentry>
         <term><option>random-seed</option></term>
 
-        <listitem><para>Generates a random seed and stores it in the EFI System Partition, for use by the
-        <command>systemd-boot</command> boot loader. Also, generates a random 'system token' and stores it
-        persistently as an EFI variable, if one has not been set before. If the boot loader finds the random
-        seed in the ESP and the system token in the EFI variable it will derive a random seed to pass to the
-        OS and a new seed to store in the ESP from the combination of both. The random seed passed to the OS
-        is credited to the kernel's entropy pool by the system manager during early boot, and permits
-        userspace to boot up with an entropy pool fully initialized very early on. Also see
+        <listitem><para>Generates a random seed and stores it in the EFI System Partition (ESP), for use by
+        the <command>systemd-boot</command> boot loader. If a random seed already exists in the ESP it is
+        refreshed. Also generates a random 'system token' and stores it persistently as an EFI variable, if
+        one has not been set before. If the boot loader finds the random seed in the ESP and the system token
+        in the EFI variable it will derive a random seed to pass to the OS and a new seed to store in the ESP
+        from the combination of both. The random seed passed to the OS is credited to the kernel's entropy
+        pool by the system manager during early boot, and permits userspace to boot up with an entropy pool
+        fully initialized very early on. Also see
         <citerefentry><refentrytitle>systemd-boot-random-seed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
         <para>See <ulink url="https://systemd.io/RANDOM_SEEDS">Random Seeds</ulink> for further
