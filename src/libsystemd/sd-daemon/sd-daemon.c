@@ -466,6 +466,7 @@ static int pid_notify_with_fds_internal(
         struct cmsghdr *cmsg = NULL;
         const char *e;
         bool send_ucred;
+        ssize_t n;
         int type, r;
 
         if (!state)
@@ -502,6 +503,10 @@ static int pid_notify_with_fds_internal(
 
                 type = SOCK_SEQPACKET;
                 fd = socket(address.sockaddr.sa.sa_family, type|SOCK_CLOEXEC, 0);
+                if (fd < 0 && ERRNO_IS_NOT_SUPPORTED(errno)) {
+                        type = SOCK_STREAM;
+                        fd = socket(address.sockaddr.sa.sa_family, type|SOCK_CLOEXEC, 0);
+                }
                 if (fd < 0)
                         return log_debug_errno(errno, "Failed to open %s socket to '%s': %m", socket_address_type_to_string(type), e);
         }
@@ -563,21 +568,32 @@ static int pid_notify_with_fds_internal(
                 }
         }
 
-        /* First try with fake ucred data, as requested */
-        if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) >= 0)
-                return 1;
+        do {
+                /* First try with fake ucred data, as requested */
+                n = sendmsg(fd, &msghdr, MSG_NOSIGNAL);
+                if (n < 0) {
+                        if (!send_ucred)
+                                return log_debug_errno(errno, "Failed to send notify message to '%s': %m", e);
 
-        /* If that failed, try with our own ucred instead */
-        if (send_ucred) {
-                msghdr.msg_controllen -= CMSG_SPACE(sizeof(struct ucred));
-                if (msghdr.msg_controllen == 0)
+                        /* If that failed, try with our own ucred instead */
+                        msghdr.msg_controllen -= CMSG_SPACE(sizeof(struct ucred));
+                        if (msghdr.msg_controllen == 0)
+                                msghdr.msg_control = NULL;
+
+                        n = 0;
+                        send_ucred = false;
+                } else {
+                        /* Unless we're using SOCK_STREAM, we expect to write all the contents immediately. */
+                        if (type != SOCK_STREAM && (size_t) n < IOVEC_TOTAL_SIZE(msghdr.msg_iov, msghdr.msg_iovlen))
+                                return -EIO;
+
+                        /* Make sure we only send fds and ucred once, even if we're using SOCK_STREAM. */
                         msghdr.msg_control = NULL;
+                        msghdr.msg_controllen = 0;
+                }
+        } while (!IOVEC_INCREMENT(msghdr.msg_iov, msghdr.msg_iovlen, n));
 
-                if (sendmsg(fd, &msghdr, MSG_NOSIGNAL) >= 0)
-                        return 1;
-        }
-
-        return log_debug_errno(errno, "Failed to send notify message to '%s': %m", e);
+        return 1;
 }
 
 _public_ int sd_pid_notify_with_fds(
