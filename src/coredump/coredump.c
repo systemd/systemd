@@ -269,11 +269,7 @@ static int fix_permissions(
         (void) fix_acl(fd, uid, allow_user);
         (void) fix_xattr(fd, context);
 
-        r = fsync_full(fd);
-        if (r < 0)
-                return log_error_errno(r, "Failed to sync coredump %s: %m", coredump_tmpfile_name(filename));
-
-        r = link_tmpfile(fd, filename, target, /* flags= */ 0);
+        r = link_tmpfile(fd, filename, target, LINK_TMPFILE_SYNC);
         if (r < 0)
                 return log_error_errno(r, "Failed to move coredump %s into place: %m", target);
 
