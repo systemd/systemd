@@ -330,6 +330,14 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>SecureBootCertificateValidity=<replaceable>DAYS</replaceable></varname></term>
+          <term><option>--secureboot-certificate-validity=<replaceable>DAYS</replaceable></option></term>
+
+          <listitem><para>Period of validity (in days) for a certificate created by
+          <command>genkey</command>. Defaults to 3650, i.e. 10 years.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>SigningEngine=<replaceable>ENGINE</replaceable></varname></term>
           <term><option>--signing-engine=<replaceable>ENGINE</replaceable></option></term>
 
