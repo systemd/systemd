@@ -2919,7 +2919,7 @@ executable(
 
 public_programs += executable(
         'systemd-socket-activate',
-        'src/activate/activate.c',
+        'src/socket-activate/socket-activate.c',
         include_directories : includes,
         link_with : [libshared],
         dependencies : [threads,
