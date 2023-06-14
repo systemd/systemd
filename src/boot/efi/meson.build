@@ -349,8 +349,7 @@ foreach archspec : efi_archspecs
 endforeach
 
 foreach efi_elf_binary : efi_elf_binaries
-        # FIXME: Use build_tgt.name() with meson >= 0.54.0
-        name = fs.name(efi_elf_binary.full_path()).split('.')[0]
+        name = efi_elf_binary.name()
         name += name.startswith('systemd-boot') ? '.efi' : '.efi.stub'
         # For the addon, given it's empty, we need to explicitly reserve space in the header to account for
         # the sections that ukify will add.

@@ -83,8 +83,8 @@ foreach p : out.stdout().split()
         if p.contains('\\')
                 continue
         endif
-        fuzzer = p.split('/')[-2]
-        fuzz_in = p.split('/')[-1]
+        fuzzer = fs.name(fs.parent(p))
+        fuzz_in = fs.name(p)
         if fuzzer not in fuzz_regression_tests
                 fuzz_regression_tests += {fuzzer: []}
         endif
