@@ -192,7 +192,7 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
 
       <varlistentry>
         <term><varname>COREDUMP_TIMESTAMP=</varname></term>
-        <listitem><para>The time of the crash as reported by the kernel (in µs since the epoch).</para>
+        <listitem><para>The time of the crash as reported by the kernel (in μs since the epoch).</para>
         </listitem>
       </varlistentry>
 

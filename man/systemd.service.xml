@@ -236,7 +236,7 @@
             <literal>MONOTONIC_USEC=</literal> set to the current monotonic time
             (i.e. <constant>CLOCK_MONOTONIC</constant> in
             <citerefentry><refentrytitle>clock_gettime</refentrytitle><manvolnum>2</manvolnum></citerefentry>)
-            in µs, formatted as decimal string. Once reloading is complete another notification message must
+            in μs, formatted as decimal string. Once reloading is complete another notification message must
             be sent, containing <literal>READY=1</literal>. Using this service type and implementing this
             reload protocol is an efficient alternative to providing an <varname>ExecReload=</varname>
             command for reloading of the service's configuration.</para></listitem>
