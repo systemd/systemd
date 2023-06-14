@@ -3532,13 +3532,7 @@ int tpm2_unseal(const char *device,
                 void **ret_secret,
                 size_t *ret_secret_size) {
 
-        _cleanup_(Esys_Freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;
-        _cleanup_(erase_and_freep) char *secret = NULL;
-        TPM2B_PRIVATE private = {};
-        TPM2B_PUBLIC public = {};
-        size_t offset = 0;
         TSS2_RC rc;
-        usec_t start;
         int r;
 
         assert(blob);
@@ -3563,10 +3557,12 @@ int tpm2_unseal(const char *device,
          * decrypted if the seed and the PCR policy were right ("unsealing"). We then download the result,
          * and use it to unlock the LUKS2 volume. */
 
-        start = now(CLOCK_MONOTONIC);
+        usec_t start = now(CLOCK_MONOTONIC);
 
         log_debug("Unmarshalling private part of HMAC key.");
 
+        TPM2B_PRIVATE private = {};
+        size_t offset = 0;
         rc = sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal(blob, blob_size, &offset, &private);
         if (rc != TSS2_RC_SUCCESS)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
@@ -3574,6 +3570,7 @@ int tpm2_unseal(const char *device,
 
         log_debug("Unmarshalling public part of HMAC key.");
 
+        TPM2B_PUBLIC public = {};
         rc = sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal(blob, blob_size, &offset, &public);
         if (rc != TSS2_RC_SUCCESS)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
@@ -3649,6 +3646,7 @@ int tpm2_unseal(const char *device,
         if (r < 0)
                 return r;
 
+        _cleanup_(Esys_Freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;
         for (unsigned i = RETRY_UNSEAL_MAX;; i--) {
                 _cleanup_(tpm2_handle_freep) Tpm2Handle *policy_session = NULL;
                 _cleanup_(Esys_Freep) TPM2B_DIGEST *policy_digest = NULL;
@@ -3700,6 +3698,7 @@ int tpm2_unseal(const char *device,
                 log_debug("A PCR value changed during the TPM2 policy session, restarting HMAC key unsealing (%u tries left).", i);
         }
 
+        _cleanup_(erase_and_freep) char *secret = NULL;
         secret = memdup(unsealed->buffer, unsealed->size);
         explicit_bzero_safe(unsealed->buffer, unsealed->size);
         if (!secret)
