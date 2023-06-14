@@ -186,7 +186,7 @@ def call_ukify(opts):
     # Create "empty" namespace. We want to override just a few settings, so it
     # doesn't make sense to configure everything. We pretend to parse an empty
     # argument set to prepopulate the namespace with the defaults.
-    opts2 = ukify['create_parser']().parse_args(())
+    opts2 = ukify['create_parser']().parse_args(['build'])
 
     opts2.config = config_file_location()
     opts2.uname = opts.kernel_version
