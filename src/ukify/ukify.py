@@ -759,8 +759,8 @@ def temporary_umask(mask: int):
 
 def generate_key_cert_pair(
         common_name: str,
+        valid_days: int,
         keylength: int = 2048,
-        valid_days: int = 365 * 10,  # TODO: can we drop the expiration date?
 ) -> tuple[bytes]:
 
     from cryptography import x509
@@ -835,7 +835,10 @@ def generate_keys(opts):
     if opts.sb_key or opts.sb_cert:
         fqdn = socket.getfqdn()
         cn = f'SecureBoot signing key on host {fqdn}'
-        key_pem, cert_pem = generate_key_cert_pair(common_name=cn)
+        key_pem, cert_pem = generate_key_cert_pair(
+            common_name=cn,
+            valid_days=opts.sb_cert_validity,
+        )
         print(f'Writing SecureBoot private key to {opts.sb_key}')
         with temporary_umask(0o077):
             opts.sb_key.write_bytes(key_pem)
@@ -1152,6 +1155,14 @@ uki.addon,1,UKI Addon,uki.addon,1,https://www.freedesktop.org/software/systemd/m
         dest = 'sb_cert_name',
         help = 'required by --signtool=pesign. pesign needs a certificate nickname of nss certificate database entry to use for PE signing',
         config_key = 'UKI/SecureBootCertificateName',
+    ),
+    ConfigItem(
+        '--secureboot-certificate-validity',
+        metavar = 'DAYS',
+        dest = 'sb_cert_validity',
+        default = 365 * 10,
+        help = "period of validity (in days) for a certificate created by 'genkey'",
+        config_key = 'UKI/SecureBootCertificateValidity',
     ),
 
     ConfigItem(
