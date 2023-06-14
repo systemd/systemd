@@ -32,15 +32,15 @@ static int advance_tstamp(int fd, const struct stat *st) {
          * different timestamp accuracy: traditional fat has 2s granularity, and even ext2 and friends expose
          * different granularity depending on selected inode size during formatting! Hence, to ensure the
          * timestamp definitely is increased, here's what we'll do: we'll first try to increase the timestamp
-         * by 1µs, write that and read it back. If it was updated, great. But if it was not, we'll instead
-         * increase the timestamp by 10µs, and do the same, then 100µs, then 1ms, and so on, until it works,
+         * by 1μs, write that and read it back. If it was updated, great. But if it was not, we'll instead
+         * increase the timestamp by 10μs, and do the same, then 100μs, then 1ms, and so on, until it works,
          * or we reach 10s. If it still didn't work then, the fs is just broken and we give up. */
 
         usec_t target = MAX3(now(CLOCK_REALTIME),
                              TIME_EPOCH * USEC_PER_SEC,
                              timespec_load(&st->st_mtim));
 
-        for (usec_t a = 1; a <= 10 * USEC_PER_SEC; a *= 10) { /* 1µs, 10µs, 100µs, 1ms, … 10s */
+        for (usec_t a = 1; a <= 10 * USEC_PER_SEC; a *= 10) { /* 1μs, 10μs, 100μs, 1ms, … 10s */
                 struct timespec ts[2];
                 struct stat new_st;
 
