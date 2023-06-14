@@ -130,7 +130,7 @@ endif
 
 udev_prog_paths = {}
 foreach prog : udev_progs
-        name = prog[0].split('/')[0]
+        name = fs.stem(prog[0])
 
         exe = executable(
                 name,
