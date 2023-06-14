@@ -128,7 +128,7 @@ Subject: Zmiana czasu
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-Zegar systemowy został zmieniony na @REALTIME@ μs po 1 stycznia 1970.
+Zegar systemowy został zmieniony na @REALTIME@ µs po 1 stycznia 1970.
 
 -- 45f82f4aef7a4bbf942ce861d1f20990
 Subject: Zmiana strefy czasowej na @TIMEZONE@
@@ -147,11 +147,11 @@ uruchamiania systemu zostały uruchomione. Proszę zauważyć, że nie oznacza
 to, że komputer jest bezczynny, jako że usługi mogą wciąż kończyć proces
 uruchamiania.
 
-Uruchamianie jądra zajęło @KERNEL_USEC@ μs.
+Uruchamianie jądra zajęło @KERNEL_USEC@ µs.
 
-Uruchamianie początkowego dysku RAM zajęło @INITRD_USEC@ μs.
+Uruchamianie początkowego dysku RAM zajęło @INITRD_USEC@ µs.
 
-Uruchamianie przestrzeni użytkownika zajęło @USERSPACE_USEC@ μs.
+Uruchamianie przestrzeni użytkownika zajęło @USERSPACE_USEC@ µs.
 
 -- eed00a68ffd84e31882105fd973abdd1
 Subject: Ukończono uruchamianie menedżera użytkownika
@@ -163,7 +163,7 @@ Wszystkie usługi zakolejkowane do włączenia zostały uruchomione.
 Proszę zauważyć, że inne usługi mogą być nadal uruchamiane
 lub zostać uruchomione później.
 
-Uruchamianie menedżera zajęło @USERSPACE_USEC@ μs.
+Uruchamianie menedżera zajęło @USERSPACE_USEC@ µs.
 
 -- 6bbd95ee977941e497c48be27c254128
 Subject: Przejście do stanu uśpienia @SLEEP@
