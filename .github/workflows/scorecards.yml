@@ -25,10 +25,7 @@ jobs:
     if: github.repository == 'systemd/systemd'
     runs-on: ubuntu-latest
     permissions:
-      # Needed to upload the results to code-scanning dashboard.
-      security-events: write
-      # Used to receive a badge.
-      id-token: write
+      id-token: write # Used to receive a badge.
 
     steps:
       - name: Checkout code
@@ -41,30 +38,4 @@ jobs:
         with:
           results_file: results.sarif
           results_format: sarif
-          # (Optional) Read-only PAT token. Uncomment the `repo_token` line below if:
-          # - you want to enable the Branch-Protection check on a *public* repository, or
-          # - you are installing Scorecards on a *private* repository
-          # To create the PAT, follow the steps in https://github.com/ossf/scorecard-action#authentication-with-pat.
-          # repo_token: ${{ secrets.SCORECARD_READ_TOKEN }}
-
-          # Publish the results for public repositories to enable scorecard badges. For more details, see
-          # https://github.com/ossf/scorecard-action#publishing-results.
-          # For private repositories, `publish_results` will automatically be set to `false`, regardless
-          # of the value entered here.
           publish_results: ${{ github.event_name != 'pull_request' }}
-
-      # Upload the results as artifacts (optional). Commenting out will disable uploads of run results in SARIF
-      # format to the repository Actions tab.
-      - name: Upload artifact
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
-        with:
-          name: SARIF file
-          path: results.sarif
-          retention-days: 5
-
-      # Upload the results to GitHub's code scanning dashboard.
-      - name: Upload to code-scanning
-        if: github.event_name != 'pull_request'
-        uses: github/codeql-action/upload-sarif@0225834cc549ee0ca93cb085b92954821a145866 # v2.20.0
-        with:
-          sarif_file: results.sarif
