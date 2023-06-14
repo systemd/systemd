@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#ifndef __cplusplus
+
 extern void __gcov_dump(void);
 extern void __gcov_reset(void);
 
@@ -56,3 +58,5 @@ static inline int _coverage_execvpe(
         return r;
 }
 #define execvpe(f,a,e) _coverage_execvpe(f, a, e)
+
+#endif
