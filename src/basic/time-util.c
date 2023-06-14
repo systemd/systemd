@@ -1046,7 +1046,8 @@ static const char* extract_multiplier(const char *p, usec_t *ret) {
                 { "y",       USEC_PER_YEAR   },
                 { "usec",    1ULL            },
                 { "us",      1ULL            },
-                { "µs",      1ULL            },
+                { "μs",      1ULL            }, /* U+03bc (aka GREEK SMALL LETTER MU) */
+                { "µs",      1ULL            }, /* U+b5 (aka MICRO SIGN) */
         };
 
         assert(p);
@@ -1224,7 +1225,8 @@ static const char* extract_nsec_multiplier(const char *p, nsec_t *ret) {
                 { "y",       NSEC_PER_YEAR   },
                 { "usec",    NSEC_PER_USEC   },
                 { "us",      NSEC_PER_USEC   },
-                { "µs",      NSEC_PER_USEC   },
+                { "μs",      NSEC_PER_USEC   }, /* U+03bc (aka GREEK LETTER MU) */
+                { "µs",      NSEC_PER_USEC   }, /* U+b5 (aka MICRO SIGN) */
                 { "nsec",    1ULL            },
                 { "ns",      1ULL            },
                 { "",        1ULL            }, /* default is nsec */
@@ -1701,9 +1703,9 @@ TimestampStyle timestamp_style_from_string(const char *s) {
         t = (TimestampStyle) string_table_lookup(timestamp_style_table, ELEMENTSOF(timestamp_style_table), s);
         if (t >= 0)
                 return t;
-        if (streq_ptr(s, "µs"))
+        if (STRPTR_IN_SET(s, "µs", "μs")) /* acccept both µ symbols in unicode, i.e. micro symbol + greek small letter mu. */
                 return TIMESTAMP_US;
-        if (streq_ptr(s, "µs+utc"))
+        if (STRPTR_IN_SET(s, "µs+utc", "μs+utc"))
                 return TIMESTAMP_US_UTC;
         return t;
 }
