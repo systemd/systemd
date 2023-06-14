@@ -3519,7 +3519,7 @@ SocketTimestamping socket_timestamping_from_string_harder(const char *p) {
          * too. */
         if (streq(p, "nsec"))
                 return SOCKET_TIMESTAMPING_NS;
-        if (STR_IN_SET(p, "usec", "µs"))
+        if (STR_IN_SET(p, "usec", "µs", "μs")) /* Accept both small greek letter mu + micro sign unicode codepoints */
                 return SOCKET_TIMESTAMPING_US;
 
         r = parse_boolean(p);

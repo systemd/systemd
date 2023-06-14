@@ -35,7 +35,9 @@ TEST(parse_sec) {
         assert_se(u == 700 * USEC_PER_MSEC);
         assert_se(parse_sec("23us", &u) >= 0);
         assert_se(u == 23);
-        assert_se(parse_sec("23µs", &u) >= 0);
+        assert_se(parse_sec("23μs", &u) >= 0); /* greek small letter mu */
+        assert_se(u == 23);
+        assert_se(parse_sec("23µs", &u) >= 0); /* micro symbol */
         assert_se(u == 23);
         assert_se(parse_sec("infinity", &u) >= 0);
         assert_se(u == USEC_INFINITY);
