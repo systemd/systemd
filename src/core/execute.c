@@ -4584,7 +4584,7 @@ static bool exec_context_need_unprivileged_private_users(const ExecContext *cont
                context->network_namespace_path ||
                context->private_ipc ||
                context->ipc_namespace_path ||
-               context->private_mounts ||
+               context->private_mounts > 0 ||
                context->mount_apivfs ||
                context->n_bind_mounts > 0 ||
                context->n_temporary_filesystems > 0 ||
