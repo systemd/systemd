@@ -35,6 +35,7 @@ static void *libtss2_rc_dl = NULL;
 static void *libtss2_mu_dl = NULL;
 
 static TSS2_RC (*sym_Esys_Create)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_PUBLIC *inPublic, const TPM2B_DATA *outsideInfo, const TPML_PCR_SELECTION *creationPCR, TPM2B_PRIVATE **outPrivate, TPM2B_PUBLIC **outPublic, TPM2B_CREATION_DATA **creationData, TPM2B_DIGEST **creationHash, TPMT_TK_CREATION **creationTicket) = NULL;
+static TSS2_RC (*sym_Esys_CreateLoaded)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_TEMPLATE *inPublic, ESYS_TR *objectHandle, TPM2B_PRIVATE **outPrivate, TPM2B_PUBLIC **outPublic) = NULL;
 static TSS2_RC (*sym_Esys_CreatePrimary)(ESYS_CONTEXT *esysContext, ESYS_TR primaryHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE_CREATE *inSensitive, const TPM2B_PUBLIC *inPublic, const TPM2B_DATA *outsideInfo, const TPML_PCR_SELECTION *creationPCR, ESYS_TR *objectHandle, TPM2B_PUBLIC **outPublic, TPM2B_CREATION_DATA **creationData, TPM2B_DIGEST **creationHash, TPMT_TK_CREATION **creationTicket) = NULL;
 static TSS2_RC (*sym_Esys_EvictControl)(ESYS_CONTEXT *esysContext, ESYS_TR auth, ESYS_TR objectHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPMI_DH_PERSISTENT persistentHandle, ESYS_TR *newObjectHandle) = NULL;
 static void (*sym_Esys_Finalize)(ESYS_CONTEXT **context) = NULL;
@@ -83,6 +84,7 @@ int dlopen_tpm2(void) {
         r = dlopen_many_sym_or_warn(
                         &libtss2_esys_dl, "libtss2-esys.so.0", LOG_DEBUG,
                         DLSYM_ARG(Esys_Create),
+                        DLSYM_ARG(Esys_CreateLoaded),
                         DLSYM_ARG(Esys_CreatePrimary),
                         DLSYM_ARG(Esys_EvictControl),
                         DLSYM_ARG(Esys_Finalize),
@@ -1001,7 +1003,7 @@ static int tpm2_get_legacy_template(TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_templa
  * (see TPM2_SRK_HANDLE and tpm2_get_srk() below).
  *
  * The alg must be TPM2_ALG_RSA or TPM2_ALG_ECC. Returns error if the requested template is not supported on
- * this TPM. */
+ * this TPM. Also see tpm2_get_best_srk_template() below. */
 static int tpm2_get_srk_template(Tpm2Context *c, TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_template) {
         /* The attributes are the same between ECC and RSA templates. This has the changes specified in the
          * Provisioning Guidance document, specifically:
@@ -1087,6 +1089,16 @@ static int tpm2_get_srk_template(Tpm2Context *c, TPMI_ALG_PUBLIC alg, TPMT_PUBLI
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported SRK alg: 0x%x.", alg);
 }
 
+/* Get the best supported SRK template. ECC is preferred, then RSA. */
+static int tpm2_get_best_srk_template(Tpm2Context *c, TPMT_PUBLIC *ret_template) {
+        if (tpm2_get_srk_template(c, TPM2_ALG_ECC, ret_template) >= 0 ||
+            tpm2_get_srk_template(c, TPM2_ALG_RSA, ret_template) >= 0)
+                return 0;
+
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "TPM does not support either SRK template L-1 (RSA) or L-2 (ECC).");
+}
+
 /* The SRK handle is defined in the Provisioning Guidance document (see above) in the table "Reserved Handles
  * for TPM Provisioning Fundamental Elements". The SRK is useful because it is "shared", meaning it has no
  * authValue nor authPolicy set, and thus may be used by anyone on the system to generate derived keys or
@@ -1095,10 +1107,8 @@ static int tpm2_get_srk_template(Tpm2Context *c, TPMI_ALG_PUBLIC alg, TPMT_PUBLI
  * the Provisioning Guidance document for more details. */
 #define TPM2_SRK_HANDLE UINT32_C(0x81000001)
 
-/*
- * Retrieves the SRK handle if present. Returns 0 if SRK not present, 1 if present
- * and < 0 on error
- */
+/* Get the SRK. Returns 1 if SRK is found, 0 if there is no SRK, or < 0 on error. Also see
+ * tpm2_get_or_create_srk() below. */
 static int tpm2_get_srk(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
@@ -1137,6 +1147,62 @@ static int tpm2_get_srk(
                 *ret_handle = TAKE_PTR(handle);
 
         return 1;
+}
+
+static int tpm2_create_loaded(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handle *session, const TPMT_PUBLIC *template, const TPMS_SENSITIVE_CREATE *sensitive, TPM2B_PUBLIC **ret_public, TPM2B_PRIVATE **ret_private, Tpm2Handle **ret_handle);
+
+/* Get the SRK, creating one if needed. Returns 0 on success, or < 0 on error. */
+static int tpm2_get_or_create_srk(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_NAME **ret_name,
+                TPM2B_NAME **ret_qname,
+                Tpm2Handle **ret_handle) {
+
+        int r;
+
+        r = tpm2_get_srk(c, session, ret_public, ret_name, ret_qname, ret_handle);
+        if (r < 0)
+                return r;
+        if (r == 1)
+                return 0;
+
+        /* No SRK, create and persist one */
+        TPMT_PUBLIC template;
+        r = tpm2_get_best_srk_template(c, &template);
+        if (r < 0)
+                return log_error_errno(r, "Could not get best SRK template: %m");
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *transient_handle = NULL;
+        r = tpm2_create_loaded(
+                        c,
+                        /* parent= */ NULL,
+                        session,
+                        &template,
+                        /* sensitive= */ NULL,
+                        /* ret_public= */ NULL,
+                        /* ret_private= */ NULL,
+                        &transient_handle);
+        if (r < 0)
+                return r;
+
+        /* Try to persist the transient SRK we created. No locking needed; if multiple threads are trying to
+         * persist SRKs concurrently, only one will succeed (r == 1) while the rest will fail (r == 0). In
+         * either case, all threads will get the persistent SRK below. */
+        r = tpm2_persist_handle(c, transient_handle, session, TPM2_SRK_HANDLE, /* ret_persistent_handle= */ NULL);
+        if (r < 0)
+                return r;
+
+        /* The SRK should exist now. */
+        r = tpm2_get_srk(c, session, ret_public, ret_name, ret_qname, ret_handle);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                /* This should never happen. */
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "SRK we just persisted couldn't be found.");
+
+        return 0;
 }
 
 static int tpm2_make_primary(
@@ -1789,6 +1855,131 @@ static int tpm2_load_external(
                                        "Failed to load public key into TPM: %s", sym_Tss2_RC_Decode(rc));
 
         *ret_handle = TAKE_PTR(handle);
+
+        return 0;
+}
+
+/* This calls TPM2_CreateLoaded() directly, without checking if the TPM supports it. Callers should instead
+ * use tpm2_create_loaded(). */
+static int _tpm2_create_loaded(
+                Tpm2Context *c,
+                const Tpm2Handle *parent,
+                const Tpm2Handle *session,
+                const TPMT_PUBLIC *template,
+                const TPMS_SENSITIVE_CREATE *sensitive,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_PRIVATE **ret_private,
+                Tpm2Handle **ret_handle) {
+
+        usec_t ts;
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(template);
+
+        log_debug("Creating loaded object on TPM.");
+
+        ts = now(CLOCK_MONOTONIC);
+
+        /* Copy the input template and zero the unique area. */
+        TPMT_PUBLIC template_copy = *template;
+        zero(template_copy.unique);
+
+        TPM2B_TEMPLATE tpm2b_template;
+        size_t size = 0;
+        rc = sym_Tss2_MU_TPMT_PUBLIC_Marshal(
+                        &template_copy,
+                        tpm2b_template.buffer,
+                        sizeof(tpm2b_template.buffer),
+                        &size);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal public key template: %s", sym_Tss2_RC_Decode(rc));
+        assert(size <= UINT16_MAX);
+        tpm2b_template.size = size;
+
+        TPM2B_SENSITIVE_CREATE tpm2b_sensitive;
+        if (sensitive)
+                tpm2b_sensitive = (TPM2B_SENSITIVE_CREATE) {
+                        .size = sizeof(*sensitive),
+                        .sensitive = *sensitive,
+                };
+        else
+                tpm2b_sensitive = (TPM2B_SENSITIVE_CREATE) {};
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        r = tpm2_handle_new(c, &handle);
+        if (r < 0)
+                return r;
+
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+        _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
+        rc = sym_Esys_CreateLoaded(
+                        c->esys_context,
+                        parent ? parent->esys_handle : ESYS_TR_RH_OWNER,
+                        session ? session->esys_handle : ESYS_TR_PASSWORD,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        &tpm2b_sensitive,
+                        &tpm2b_template,
+                        &handle->esys_handle,
+                        &private,
+                        &public);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to generate loaded object in TPM: %s",
+                                       sym_Tss2_RC_Decode(rc));
+
+        log_debug("Successfully created loaded object on TPM in %s.",
+                  FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - ts, USEC_PER_MSEC));
+
+        if (ret_public)
+                *ret_public = TAKE_PTR(public);
+        if (ret_private)
+                *ret_private = TAKE_PTR(private);
+        if (ret_handle)
+                *ret_handle = TAKE_PTR(handle);
+
+        return 0;
+}
+
+/* This calls TPM2_CreateLoaded() if the TPM supports it, otherwise it calls TPM2_Create() and TPM2_Load()
+ * separately. */
+static int tpm2_create_loaded(
+                Tpm2Context *c,
+                const Tpm2Handle *parent,
+                const Tpm2Handle *session,
+                const TPMT_PUBLIC *template,
+                const TPMS_SENSITIVE_CREATE *sensitive,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_PRIVATE **ret_private,
+                Tpm2Handle **ret_handle) {
+
+        int r;
+
+        if (tpm2_supports_command(c, TPM2_CC_CreateLoaded))
+                return _tpm2_create_loaded(c, parent, session, template, sensitive, ret_public, ret_private, ret_handle);
+
+        /* Unfortunately, this TPM doesn't support CreateLoaded (added at spec revision 130) so we need to
+         * create and load manually. */
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+        _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
+        r = tpm2_create(c, parent, session, template, sensitive, &public, &private);
+        if (r < 0)
+                return r;
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        r = tpm2_load(c, parent, session, public, private, &handle);
+        if (r < 0)
+                return r;
+
+        if (ret_public)
+                *ret_public = TAKE_PTR(public);
+        if (ret_private)
+                *ret_private = TAKE_PTR(private);
+        if (ret_handle)
+                *ret_handle = TAKE_PTR(handle);
 
         return 0;
 }
@@ -3202,11 +3393,41 @@ int tpm2_seal(const char *device,
         if (r < 0)
                 return log_error_errno(r, "Failed to generate secret key: %m");
 
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *primary_public = NULL;
         _cleanup_(tpm2_handle_freep) Tpm2Handle *primary_handle = NULL;
-        TPMI_ALG_PUBLIC primary_alg;
-        r = tpm2_make_primary(c, /* alg = */0, !!ret_srk_buf, &primary_alg, &primary_handle);
-        if (r < 0)
-                return r;
+        if (ret_srk_buf) {
+                r = tpm2_get_or_create_srk(c, NULL, &primary_public, NULL, NULL, &primary_handle);
+                if (r < 0)
+                        return r;
+        } else {
+                /* TODO: force all callers to provide ret_srk_buf, so we can stop sealing with the legacy templates. */
+                TPMT_PUBLIC template;
+                r = tpm2_get_legacy_template(TPM2_ALG_ECC, &template);
+                if (r < 0)
+                        return log_error_errno(r, "Could not get legacy ECC template: %m");
+
+                if (!tpm2_supports_tpmt_public(c, &template)) {
+                        r = tpm2_get_legacy_template(TPM2_ALG_RSA, &template);
+                        if (r < 0)
+                                return log_error_errno(r, "Could not get legacy RSA template: %m");
+
+                        if (!tpm2_supports_tpmt_public(c, &template))
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "TPM does not support either ECC or RSA legacy template.");
+                }
+
+                r = tpm2_create_loaded(
+                                c,
+                                /* parent= */ NULL,
+                                /* session= */ NULL,
+                                &template,
+                                /* sensitive= */ NULL,
+                                &primary_public,
+                                /* ret_private= */ NULL,
+                                &primary_handle);
+                if (r < 0)
+                        return r;
+        }
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
         r = tpm2_make_encryption_session(c, primary_handle, &TPM2_HANDLE_NONE, &encryption_session);
@@ -3286,7 +3507,7 @@ int tpm2_seal(const char *device,
         *ret_pcr_hash = TAKE_PTR(hash);
         *ret_pcr_hash_size = policy_digest.size;
         *ret_pcr_bank = pcr_bank;
-        *ret_primary_alg = primary_alg;
+        *ret_primary_alg = primary_public->publicArea.type;
 
         return 0;
 }
