@@ -4696,7 +4696,7 @@ check_help = find_program('tools/check-help.sh')
 check_version = find_program('tools/check-version.sh')
 
 foreach exec : public_programs
-        name = exec.full_path().split('/')[-1]
+        name = fs.name(exec.full_path())
         if want_tests != 'false'
                 test('check-help-' + name,
                      check_help,
