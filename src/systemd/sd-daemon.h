@@ -298,7 +298,7 @@ int sd_pid_notifyf_with_fds(pid_t pid, int unset_environment, const int *fds, si
 /*
   Returns > 0 if synchronization with systemd succeeded.  Returns < 0
   on error. Returns 0 if $NOTIFY_SOCKET was not set. Note that the
-  timeout parameter of this function call takes the timeout in µs, and
+  timeout parameter of this function call takes the timeout in μs, and
   will be passed to ppoll(2), hence the behaviour will be similar to
   ppoll(2). This function can be called after sending a status message
   to systemd, if one needs to synchronize against reception of the
@@ -330,7 +330,7 @@ int sd_booted(void);
   Returns > 0 if the service manager expects watchdog keep-alive
   events to be sent regularly via sd_notify(0, "WATCHDOG=1"). Returns
   0 if it does not expect this. If the usec argument is non-NULL
-  returns the watchdog timeout in µs after which the service manager
+  returns the watchdog timeout in μs after which the service manager
   will act on a process that has not sent a watchdog keep alive
   message. This function is useful to implement services that
   recognize automatically if they are being run under supervision of

@@ -309,7 +309,7 @@ int efi_loader_get_config_timeout_one_shot(usec_t *ret) {
                 return -ERANGE;
 
         cache_stat = new_stat;
-        *ret = cache = sec * USEC_PER_SEC; /* return in µs */
+        *ret = cache = sec * USEC_PER_SEC; /* return in μs */
         return 0;
 }
 

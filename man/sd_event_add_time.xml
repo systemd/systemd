@@ -113,14 +113,14 @@
     <constant>CLOCK_REALTIME_ALARM</constant>, or <constant>CLOCK_BOOTTIME_ALARM</constant>. See
     <citerefentry><refentrytitle>timerfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry> for details
     regarding the various types of clocks. The <parameter>usec</parameter> parameter specifies the earliest time, in
-    microseconds (µs), relative to the clock's epoch, when the timer shall be triggered. If a time already in the past
+    microseconds (μs), relative to the clock's epoch, when the timer shall be triggered. If a time already in the past
     is specified (including <constant>0</constant>), this timer source "fires" immediately and is ready to be
     dispatched. If the parameter is specified as <constant>UINT64_MAX</constant> the timer event will never elapse,
     which may be used as an alternative to explicitly disabling a timer event source with
     <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>. The
-    <parameter>accuracy</parameter> parameter specifies an additional accuracy value in µs specifying how much the
-    timer event may be delayed. Use <constant>0</constant> to select the default accuracy (250ms). Use 1µs for maximum
-    accuracy. Consider specifying 60000000µs (1min) or larger for long-running events that may be delayed
+    <parameter>accuracy</parameter> parameter specifies an additional accuracy value in μs specifying how much the
+    timer event may be delayed. Use <constant>0</constant> to select the default accuracy (250ms). Use 1μs for maximum
+    accuracy. Consider specifying 60000000μs (1min) or larger for long-running events that may be delayed
     substantially. Picking higher accuracy values allows the system to coalesce timer events more aggressively,
     improving power efficiency.</para>
 
@@ -203,14 +203,14 @@
     <para><function>sd_event_source_get_time()</function> retrieves the configured time value of an event
     source created previously with <function>sd_event_add_time()</function> or
     <function>sd_event_add_time_relative()</function>. It takes the event source object and a pointer to a
-    variable to store the time in, relative to the selected clock's epoch, in µs. The returned value is
+    variable to store the time in, relative to the selected clock's epoch, in μs. The returned value is
     relative to the epoch, even if the event source was created with a relative time via
     <function>sd_event_add_time_relative()</function>.</para>
 
     <para><function>sd_event_source_set_time()</function> changes the time of an event source created
     previously with <function>sd_event_add_time()</function> or
     <function>sd_event_add_time_relative()</function>. It takes the event source object and a time relative
-    to the selected clock's epoch, in µs.</para>
+    to the selected clock's epoch, in μs.</para>
 
     <para><function>sd_event_source_set_time_relative()</function> is similar to
     <function>sd_event_source_set_time()</function>, but takes a time relative to the current time of the
@@ -220,12 +220,12 @@
     retrieves the configured accuracy value of an event source
     created previously with <function>sd_event_add_time()</function>. It
     takes the event source object and a pointer to a variable to store
-    the accuracy in. The accuracy is specified in µs.</para>
+    the accuracy in. The accuracy is specified in μs.</para>
 
     <para><function>sd_event_source_set_time_accuracy()</function>
     changes the configured accuracy of a timer event source created
     previously with <function>sd_event_add_time()</function>. It takes
-    the event source object and accuracy, in µs.</para>
+    the event source object and accuracy, in μs.</para>
 
     <para><function>sd_event_source_get_time_clock()</function>
     retrieves the configured clock of an event source created

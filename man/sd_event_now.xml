@@ -53,7 +53,7 @@
     <citerefentry project='man-pages'><refentrytitle>clock_gettime</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     for more information on the various clocks. The retrieved
     timestamp is stored in the <parameter>usec</parameter> parameter,
-    in µs since the clock's epoch. If this function is invoked before
+    in μs since the clock's epoch. If this function is invoked before
     the first event loop iteration, the current time is returned, as
     reported by <function>clock_gettime()</function>. To distinguish
     this case from a regular invocation the return value will be

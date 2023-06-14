@@ -149,7 +149,7 @@ int journal_remote_get_writer(RemoteServer *s, const char *host, Writer **writer
  **********************************************************************
  **********************************************************************/
 
-/* This should go away as soon as µhttpd allows state to be passed around. */
+/* This should go away as soon as μhttpd allows state to be passed around. */
 RemoteServer *journal_remote_server_global;
 
 static int dispatch_raw_source_event(sd_event_source *event,

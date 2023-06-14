@@ -715,7 +715,7 @@
       <varlistentry>
         <term><varname>Timestamping=</varname></term>
         <listitem><para>Takes one of <literal>off</literal>, <literal>us</literal> (alias:
-        <literal>usec</literal>, <literal>µs</literal>) or <literal>ns</literal> (alias:
+        <literal>usec</literal>, <literal>μs</literal>) or <literal>ns</literal> (alias:
         <literal>nsec</literal>). This controls the <constant>SO_TIMESTAMP</constant> or
         <constant>SO_TIMESTAMPNS</constant> socket options, and enables whether ingress network traffic shall
         carry timestamping metadata. Defaults to <option>off</option>.</para></listitem>

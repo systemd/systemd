@@ -165,7 +165,7 @@ int procfs_cpu_get_usage(nsec_t *ret) {
                 (uint64_t) irq_ticks + (uint64_t) softirq_ticks +
                 (uint64_t) guest_ticks + (uint64_t) guest_nice_ticks;
 
-        /* Let's reduce this fraction before we apply it to avoid overflows when converting this to µsec */
+        /* Let's reduce this fraction before we apply it to avoid overflows when converting this to μsec */
         gcd = calc_gcd64(NSEC_PER_SEC, ticks_per_second);
 
         a = (uint64_t) NSEC_PER_SEC / gcd;

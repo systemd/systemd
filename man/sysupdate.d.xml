@@ -375,7 +375,7 @@
           <row>
             <entry><literal>@t</literal></entry>
             <entry>File modification time</entry>
-            <entry>Formatted decimal integer, µs since UNIX epoch Jan 1st 1970</entry>
+            <entry>Formatted decimal integer, μs since UNIX epoch Jan 1st 1970</entry>
             <entry>Only relevant if target resource type chosen as <constant>regular-file</constant></entry>
           </row>
 

@@ -65,7 +65,7 @@
 
     <para>If the <parameter>usec</parameter> parameter is non-<constant>NULL</constant>,
     <function>sd_watchdog_enabled()</function> will write the timeout
-    in µs for the watchdog logic to it.</para>
+    in μs for the watchdog logic to it.</para>
 
     <para>To enable service supervision with the watchdog logic, use
     <varname>WatchdogSec=</varname> in service files. See
@@ -122,7 +122,7 @@
 
         <listitem><para>Set by the system manager for supervised
         process for which watchdog support is enabled, and contains
-        the watchdog timeout in µs. See above for
+        the watchdog timeout in μs. See above for
         details.</para></listitem>
       </varlistentry>
     </variablelist>

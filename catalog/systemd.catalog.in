@@ -563,4 +563,4 @@ resources back to the OS kernel, making them available for other components of
 the OS.
 
 @TRIMMED_BYTES@ of memory were returned to the OS, which took @TRIMMED_USEC@
-micro-seconds (µs).
+micro-seconds (μs).
