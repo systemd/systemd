@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mount.h>
 #include <unistd.h>
 
 #include "dirent-util.h"
@@ -8,6 +9,7 @@
 #include "fs-util.h"
 #include "id128-util.h"
 #include "mkfs-util.h"
+#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -273,6 +275,7 @@ int make_filesystem(
         _cleanup_(unlink_and_freep) char *protofile = NULL;
         char vol_id[CONST_MAX(SD_ID128_UUID_STRING_MAX, 8U + 1U)] = {};
         int stdio_fds[3] = { -EBADF, STDERR_FILENO, STDERR_FILENO};
+        struct stat st;
         int r;
 
         assert(node);
@@ -508,18 +511,27 @@ int make_filesystem(
                 log_debug("Executing mkfs command: %s", strna(j));
         }
 
+        if (stat(node, &st) < 0)
+                return log_error_errno(errno, "Failed to stat %s: %m", node);
+
         r = safe_fork_full(
                         "(mkfs)",
                         stdio_fds,
                         /*except_fds=*/ NULL,
                         /*n_except_fds=*/ 0,
                         FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|
-                        FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO,
+                        FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO|(S_ISBLK(st.st_mode) ? FORK_NEW_MOUNTNS : 0),
                         /*ret_pid=*/ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
                 /* Child */
+
+                /* mkfs.btrfs refuses to operate on block devices with mounted partitions, even if operating
+                 * on unformatted free space, so let's trick it and other mkfs tools into thinking no
+                 * partitions are mounted. */
+                if (S_ISBLK(st.st_mode) && mount_nofollow_verbose(LOG_ERR, "/dev/null", "/proc/self/mounts", NULL, MS_BIND|MS_REC, NULL) < 0)
+                        _exit(EXIT_FAILURE);
 
                 execvp(mkfs, argv);
 
