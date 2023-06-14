@@ -8,7 +8,6 @@ fi
 
 declare -i _CHILD_PID=0
 _PASSED_TESTS=()
-_FAILED_TESTS=()
 
 # Like trap, but passes the signal name as the first argument
 _trap_with_sig() {
@@ -57,7 +56,7 @@ _wait_harder() {
 _show_summary() {(
     set +x
 
-    if [[ ${#_PASSED_TESTS[@]} -eq 0 && ${#_FAILED_TESTS[@]} -eq 0 ]]; then
+    if [[ ${#_PASSED_TESTS[@]} -eq 0 ]]; then
         echo >&2 "No tests were executed, this is most likely an error"
         exit 1
     fi
@@ -67,16 +66,6 @@ _show_summary() {(
     for t in "${_PASSED_TESTS[@]}"; do
         echo "$t"
     done
-
-    if [[ "${#_FAILED_TESTS[@]}" -ne 0 ]]; then
-        printf "FAILED TESTS: %3d:\n" "${#_FAILED_TESTS[@]}"
-        echo   "------------------"
-        for t in "${_FAILED_TESTS[@]}"; do
-            echo "$t"
-        done
-    fi
-
-    [[ "${#_FAILED_TESTS[@]}" -eq 0 ]]
 )}
 
 # Like run_subtests, but propagate specified signals to the subtest script
@@ -100,7 +89,7 @@ run_subtests_with_signals() {
         : "--- $subtest BEGIN ---"
         "./$subtest" &
         _CHILD_PID=$!
-        _wait_harder "$_CHILD_PID" && _PASSED_TESTS+=("$subtest") || _FAILED_TESTS+=("$subtest")
+        _wait_harder "$_CHILD_PID" && _PASSED_TESTS+=("$subtest") || return 1
         : "--- $subtest END ---"
     done
 
@@ -124,7 +113,7 @@ run_subtests() {
         fi
 
         : "--- $subtest BEGIN ---"
-        "./$subtest" && _PASSED_TESTS+=("$subtest") || _FAILED_TESTS+=("$subtest")
+        "./$subtest" && _PASSED_TESTS+=("$subtest") || return 1
         : "--- $subtest END ---"
     done
 
