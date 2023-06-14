@@ -436,7 +436,7 @@ static int setup_microhttpd_server(RemoteServer *s,
                                      MHD_OPTION_ARRAY, opts,
                                      MHD_OPTION_END);
         if (!d->daemon) {
-                log_error("Failed to start µhttp daemon");
+                log_error("Failed to start μhttp daemon");
                 r = -EINVAL;
                 goto error;
         }
@@ -446,14 +446,14 @@ static int setup_microhttpd_server(RemoteServer *s,
 
         info = MHD_get_daemon_info(d->daemon, MHD_DAEMON_INFO_EPOLL_FD_LINUX_ONLY);
         if (!info) {
-                log_error("µhttp returned NULL daemon info");
+                log_error("μhttp returned NULL daemon info");
                 r = -EOPNOTSUPP;
                 goto error;
         }
 
         epoll_fd = info->listen_fd;
         if (epoll_fd < 0) {
-                log_error("µhttp epoll fd is invalid");
+                log_error("μhttp epoll fd is invalid");
                 r = -EUCLEAN;
                 goto error;
         }

@@ -649,7 +649,7 @@ static int prepend_component(const char **p, bool usec, unsigned nesting, Calend
                 if (repeat == 0)
                         return -ERANGE;
         } else {
-                /* If no repeat value is specified for the µs component, then let's explicitly refuse ranges
+                /* If no repeat value is specified for the μs component, then let's explicitly refuse ranges
                  * below 1s because our default repeat granularity is beyond that. */
 
                 /* Overflow check */
