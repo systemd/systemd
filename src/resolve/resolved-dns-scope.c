@@ -1643,3 +1643,23 @@ bool dns_scope_is_default_route(DnsScope *scope) {
          * volunteer as default route. */
         return !dns_scope_has_route_only_domains(scope);
 }
+
+int dns_scope_dump_cache_to_json(DnsScope *scope, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *cache = NULL;
+        int r;
+
+        assert(scope);
+        assert(ret);
+
+        r = dns_cache_dump_to_json(&scope->cache, &cache);
+        if (r < 0)
+                return r;
+
+        return json_build(ret,
+                          JSON_BUILD_OBJECT(
+                                          JSON_BUILD_PAIR_STRING("protocol", dns_protocol_to_string(scope->protocol)),
+                                          JSON_BUILD_PAIR_CONDITION(scope->family != AF_UNSPEC, "family", JSON_BUILD_INTEGER(scope->family)),
+                                          JSON_BUILD_PAIR_CONDITION(scope->link, "ifindex", JSON_BUILD_INTEGER(scope->link ? scope->link->ifindex : 0)),
+                                          JSON_BUILD_PAIR_CONDITION(scope->link, "ifname", JSON_BUILD_STRING(scope->link ? scope->link->ifname : NULL)),
+                                          JSON_BUILD_PAIR_VARIANT("cache", cache)));
+}
