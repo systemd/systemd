@@ -2894,7 +2894,7 @@ static int dump_cache_scope(JsonVariant *scope) {
 }
 
 static int verb_show_cache(int argc, char *argv[], void *userdata) {
-        _cleanup_(json_variant_unrefp) JsonVariant *d = NULL, *reply = NULL;
+        JsonVariant *reply = NULL, *d = NULL;
         _cleanup_(varlink_unrefp) Varlink *vl = NULL;
         int r;
 
