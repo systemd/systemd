@@ -1362,7 +1362,7 @@ DeviceAllow=/dev/loop-control
         <varname>DefaultMemoryPressureThresholdSec=</varname> setting in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         (which in turn defaults to 200ms). The specified value expects a time unit such as
-        <literal>ms</literal> or <literal>µs</literal>, see
+        <literal>ms</literal> or <literal>μs</literal>, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
         details on the permitted syntax.</para></listitem>
       </varlistentry>

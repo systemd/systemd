@@ -22,7 +22,7 @@
         "e  \\\n"                               \
         "f  \n"                                 \
         "g=g\\ \n"                              \
-        "h= ąęół\\ śćńźżµ \n"                   \
+        "h= ąęół\\ śćńźżμ \n"                   \
         "i=i\\"
 
 #define env_file_2                              \
@@ -68,7 +68,7 @@ TEST(load_env_file_1) {
         assert_se(streq(data[1], "b=bc"));
         assert_se(streq(data[2], "d=de  f"));
         assert_se(streq(data[3], "g=g "));
-        assert_se(streq(data[4], "h=ąęół śćńźżµ"));
+        assert_se(streq(data[4], "h=ąęół śćńźżμ"));
         assert_se(streq(data[5], "i=i"));
         assert_se(data[6] == NULL);
 }
