@@ -503,6 +503,7 @@ grep -qF "myservice.untrusted.test:1234" "$RUN_OUT"
 grep -qF "10.0.0.123" "$RUN_OUT"
 grep -qF "fd00:dead:beef:cafe::123" "$RUN_OUT"
 
+
 # Issue: https://github.com/systemd/systemd/issues/19472
 # 1) Query for a non-existing RR should return NOERROR + NSEC (?), not NXDOMAIN
 # FIXME: re-enable once the issue is resolved
@@ -514,6 +515,68 @@ grep -qF "fd00:dead:beef:cafe::123" "$RUN_OUT"
 #grep -qF "status: NXDOMAIN" "$RUN_OUT"
 
 systemctl stop resmontest.service
+
+### Test without serve stale feature ###
+
+NFT_FILTER_NAME=dns_port_filter
+
+drop_dns_outbound_traffic() {
+    nft add table inet $NFT_FILTER_NAME
+    nft add chain inet $NFT_FILTER_NAME output { type filter hook output priority 0 \; }
+    nft add rule inet $NFT_FILTER_NAME output ip daddr 10.0.0.1 udp dport 53 drop
+    nft add rule inet $NFT_FILTER_NAME output ip daddr 10.0.0.1 tcp dport 53 drop
+    nft add rule inet $NFT_FILTER_NAME output ip6 daddr fd00:dead:beef:cafe::1 udp dport 53 drop
+    nft add rule inet $NFT_FILTER_NAME output ip6 daddr fd00:dead:beef:cafe::1 tcp dport 53 drop
+}
+
+run dig stale1.unsigned.test -t A
+grep -qE "NOERROR" "$RUN_OUT"
+sleep 2
+drop_dns_outbound_traffic
+set +e
+run dig stale1.unsigned.test -t A
+set -eux
+grep -qE "no servers could be reached" "$RUN_OUT"
+nft flush ruleset
+
+### Test TIMEOUT with serve stale feature ###
+
+mkdir -p /run/systemd/resolved.conf.d
+{
+    echo "[Resolve]"
+    echo "StaleRetentionSec=1d"
+} >/run/systemd/resolved.conf.d/test.conf
+ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+systemctl restart systemd-resolved.service
+systemctl service-log-level systemd-resolved.service debug
+
+run dig stale1.unsigned.test -t A
+grep -qE "NOERROR" "$RUN_OUT"
+sleep 2
+drop_dns_outbound_traffic
+run dig stale1.unsigned.test -t A
+grep -qE "NOERROR" "$RUN_OUT"
+grep -qE "10.0.0.112" "$RUN_OUT"
+
+nft flush ruleset
+
+### Test NXDOMAIN with serve stale feature ###
+# NXDOMAIN response should replace the cache with NXDOMAIN response
+run dig stale1.unsigned.test -t A
+grep -qE "NOERROR" "$RUN_OUT"
+# Delete stale1 record from zone
+knotc zone-begin unsigned.test
+knotc zone-unset unsigned.test stale1 A
+knotc zone-commit unsigned.test
+knotc reload
+sleep 2
+run dig stale1.unsigned.test -t A
+grep -qE "NXDOMAIN" "$RUN_OUT"
+drop_dns_outbound_traffic
+run dig stale1.unsigned.test -t A
+grep -qE "NXDOMAIN" "$RUN_OUT"
+
+nft flush ruleset
 
 touch /testok
 rm /failed

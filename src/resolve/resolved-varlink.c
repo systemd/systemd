@@ -142,6 +142,7 @@ static bool validate_and_mangle_flags(
                        SD_RESOLVED_NO_ZONE|
                        SD_RESOLVED_NO_TRUST_ANCHOR|
                        SD_RESOLVED_NO_NETWORK|
+                       SD_RESOLVED_NO_STALE|
                        ok))
                 return false;
 
