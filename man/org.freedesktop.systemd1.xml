@@ -37,7 +37,7 @@
     unit and job objects or directly convert a unit name or job identifier to a bus path of the corresponding
     D-Bus object.</para>
 
-    <para>Properties exposing time values are usually encoded in microseconds (µs) on the bus, even if
+    <para>Properties exposing time values are usually encoded in microseconds (μs) on the bus, even if
     their corresponding settings in the unit files are in seconds.</para>
 
     <para>PID 1 uses <ulink url="https://www.freedesktop.org/software/polkit/docs/latest/">polkit</ulink> to

@@ -45,13 +45,13 @@ static int netlink_new(sd_netlink **ret) {
                  * while the socket sticks around we might get confused by replies from earlier runs coming
                  * in late — which is pretty likely if we'd start our sequence numbers always from 1. Hence,
                  * let's start with a value based on the system clock. This should make collisions much less
-                 * likely (though still theoretically possible). We use a 32 bit µs counter starting at boot
+                 * likely (though still theoretically possible). We use a 32 bit μs counter starting at boot
                  * for this (and explicitly exclude the zero, see above). This counter will wrap around after
                  * a bit more than 1h, but that's hopefully OK as the kernel shouldn't take that long to
                  * reply to our requests.
                  *
                  * We only pick the initial start value this way. For each message we simply increase the
-                 * sequence number by 1. This means we could enqueue 1 netlink message per µs without risking
+                 * sequence number by 1. This means we could enqueue 1 netlink message per μs without risking
                  * collisions, which should be OK.
                  *
                  * Note this means the serials will be in the range 1…UINT32_MAX here.

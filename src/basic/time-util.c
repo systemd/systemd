@@ -327,7 +327,7 @@ char *format_timestamp_style(
                 if (l < (size_t) (1 + 1 + 1))
                         return NULL; /* not enough space for even the shortest of forms */
 
-                return snprintf_ok(buf, l, "@" USEC_FMT, t / USEC_PER_SEC);  /* round down µs → s */
+                return snprintf_ok(buf, l, "@" USEC_FMT, t / USEC_PER_SEC);  /* round down μs → s */
         }
 
         utc = IN_SET(style, TIMESTAMP_UTC, TIMESTAMP_US_UTC, TIMESTAMP_DATE);
