@@ -204,6 +204,44 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
 
         assert(c);
 
+        /* Cache the algorithms. The spec indicates supported algorithms can only be modified during runtime
+         * by the SetAlgorithmSet() command. Unfortunately, the spec doesn't require a TPM reinitialization
+         * after changing the algorithm set (unless the PCR algorithms are changed). However, the spec also
+         * indicates the TPM behavior after SetAlgorithmSet() is "vendor-dependent", giving the example of
+         * flushing sessions and objects, erasing policies, etc. So, if the algorithm set is programatically
+         * changed while we are performing some operation, it's reasonable to assume it will break us even if
+         * we don't cache the algorithms, thus they should be "safe" to cache. */
+        TPM2_ALG_ID current_alg = TPM2_ALG_FIRST;
+        for (;;) {
+                r = tpm2_get_capability(
+                                c,
+                                TPM2_CAP_ALGS,
+                                (uint32_t) current_alg, /* The spec states to cast TPM2_ALG_ID to uint32_t. */
+                                TPM2_MAX_CAP_ALGS,
+                                &capability);
+                if (r < 0)
+                        return r;
+
+                TPML_ALG_PROPERTY algorithms = capability.algorithms;
+
+                /* We should never get 0; the TPM must support some algorithms, and it must not set 'more' if
+                 * there are no more. */
+                assert(algorithms.count > 0);
+
+                if (!GREEDY_REALLOC_APPEND(
+                                c->capability_algorithms,
+                                c->n_capability_algorithms,
+                                algorithms.algProperties,
+                                algorithms.count))
+                        return log_oom();
+
+                if (r == 0)
+                        break;
+
+                /* Set current_alg to alg id after last alg id the TPM provided */
+                current_alg = algorithms.algProperties[algorithms.count - 1].alg + 1;
+        }
+
         /* Cache the command capabilities. The spec isn't actually clear if commands can be added/removed
          * while running, but that would be crazy, so let's hope it is not possbile. */
         TPM2_CC current_cc = TPM2_CC_FIRST;
@@ -260,35 +298,26 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
         return 0;
 }
 
-/* Get the TPMA_ALGORITHM for a TPM2_ALG_ID.
- *
- * Returns 1 if the TPM supports the algorithm and the TPMA_ALGORITHM is provided, or 0 if the TPM does not
- * support the algorithm, or < 0 for any errors. */
-static int tpm2_get_capability_alg(Tpm2Context *c, TPM2_ALG_ID alg, TPMA_ALGORITHM *ret) {
-        TPMU_CAPABILITIES capability;
-        int r;
-
+/* Get the TPMA_ALGORITHM for a TPM2_ALG_ID. Returns true if the TPM supports the algorithm and the
+ * TPMA_ALGORITHM is provided, otherwise false. */
+static bool tpm2_get_capability_alg(Tpm2Context *c, TPM2_ALG_ID alg, TPMA_ALGORITHM *ret) {
         assert(c);
 
-        /* The spec explicitly states the TPM2_ALG_ID should be cast to uint32_t. */
-        r = tpm2_get_capability(c, TPM2_CAP_ALGS, (uint32_t) alg, 1, &capability);
-        if (r < 0)
-                return r;
+        FOREACH_ARRAY(alg_prop, c->capability_algorithms, c->n_capability_algorithms)
+                if (alg_prop->alg == alg) {
+                        if (ret)
+                                *ret = alg_prop->algProperties;
+                        return true;
+                }
 
-        TPML_ALG_PROPERTY algorithms = capability.algorithms;
-        if (algorithms.count == 0 || algorithms.algProperties[0].alg != alg) {
-                log_debug("TPM does not support alg 0x%02" PRIx16 ".", alg);
-                return 0;
-        }
-
+        log_debug("TPM does not support alg 0x%02" PRIx16 ".", alg);
         if (ret)
-                *ret = algorithms.algProperties[0].algProperties;
+                *ret = 0;
 
-        return 1;
+        return false;
 }
 
-/* Returns 1 if the TPM supports the alg, 0 if the TPM does not support the alg, or < 0 for any error. */
-int tpm2_supports_alg(Tpm2Context *c, TPM2_ALG_ID alg) {
+bool tpm2_supports_alg(Tpm2Context *c, TPM2_ALG_ID alg) {
         return tpm2_get_capability_alg(c, alg, NULL);
 }
 
@@ -478,6 +507,7 @@ static Tpm2Context *tpm2_context_free(Tpm2Context *c) {
         c->tcti_context = mfree(c->tcti_context);
         c->tcti_dl = safe_dlclose(c->tcti_dl);
 
+        c->capability_algorithms = mfree(c->capability_algorithms);
         c->capability_commands = mfree(c->capability_commands);
 
         return mfree(c);
@@ -603,16 +633,10 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
                 return r;
 
         /* We require AES and CFB support for session encryption. */
-        r = tpm2_supports_alg(context, TPM2_ALG_AES);
-        if (r < 0)
-                return r;
-        if (r == 0)
+        if (!tpm2_supports_alg(context, TPM2_ALG_AES))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM does not support AES.");
 
-        r = tpm2_supports_alg(context, TPM2_ALG_CFB);
-        if (r < 0)
-                return r;
-        if (r == 0)
+        if (!tpm2_supports_alg(context, TPM2_ALG_CFB))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM does not support CFB.");
 
         if (!tpm2_supports_tpmt_sym_def(context, &SESSION_TEMPLATE_SYM_AES_128_CFB))

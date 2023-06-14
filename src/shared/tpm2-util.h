@@ -62,6 +62,8 @@ typedef struct {
         ESYS_CONTEXT *esys_context;
 
         /* Some selected cached capabilities of the TPM */
+        TPMS_ALG_PROPERTY *capability_algorithms;
+        size_t n_capability_algorithms;
         TPMA_CC *capability_commands;
         size_t n_capability_commands;
         TPML_PCR_SELECTION capability_pcrs;
@@ -86,7 +88,7 @@ int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle);
 Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Handle*, tpm2_handle_free);
 
-int tpm2_supports_alg(Tpm2Context *c, TPM2_ALG_ID alg);
+bool tpm2_supports_alg(Tpm2Context *c, TPM2_ALG_ID alg);
 bool tpm2_supports_command(Tpm2Context *c, TPM2_CC command);
 
 bool tpm2_test_parms(Tpm2Context *c, TPMI_ALG_PUBLIC alg, const TPMU_PUBLIC_PARMS *parms);
