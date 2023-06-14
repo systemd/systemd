@@ -1,8 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-extern void __gcov_dump(void);
-extern void __gcov_reset(void);
+/* Use the coverage-related tweaks below only for C stuff as they're not really
+ * C++ compatible, and the only thing that is built with a C++ compiler is
+ * the lone test-bus-vtable-cc unit test.
+ */
+#ifndef __cplusplus
+
+void __gcov_dump(void);
+void __gcov_reset(void);
 
 /* When built with --coverage (gcov) we need to explicitly call __gcov_dump()
  * in places where we use _exit(), since _exit() skips at-exit hooks resulting
@@ -12,7 +18,7 @@ extern void __gcov_reset(void);
  * explicitly on the compiler command line via the -include directive (only
  * when built with -Db_coverage=true)
  */
-extern void _exit(int);
+void _exit(int);
 
 static inline _Noreturn void _coverage__exit(int status) {
         __gcov_dump();
@@ -28,8 +34,8 @@ static inline _Noreturn void _coverage__exit(int status) {
  * [0] https://gcc.gnu.org/git/?p=gcc.git;a=blob;f=libgcc/libgcov-interface.c;h=b2ee930864183b78c8826255183ca86e15e21ded;hb=HEAD
  */
 
-extern int execveat(int, const char *, char * const [], char * const [], int);
-extern int execvpe(const char *, char * const [], char * const []);
+int execveat(int, const char *, char * const [], char * const [], int);
+int execvpe(const char *, char * const [], char * const []);
 
 static inline int _coverage_execveat(
                         int dirfd,
@@ -56,3 +62,5 @@ static inline int _coverage_execvpe(
         return r;
 }
 #define execvpe(f,a,e) _coverage_execvpe(f, a, e)
+
+#endif
