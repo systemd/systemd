@@ -536,7 +536,7 @@ static int append_extensions(
 
                 *((*p)++) = (MountEntry) {
                         .path_malloc = TAKE_PTR(mount_point),
-                        .source_const = TAKE_PTR(source),
+                        .source_malloc = TAKE_PTR(source),
                         .mode = EXTENSION_DIRECTORIES,
                         .ignore = ignore_enoent,
                         .has_prefix = true,
