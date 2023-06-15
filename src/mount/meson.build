@@ -9,5 +9,6 @@ executables += [
         },
 ]
 
-meson.add_install_script(meson_make_symlink,
-                         'systemd-mount', bindir / 'systemd-umount')
+install_symlink('systemd-umount',
+                pointing_to : 'systemd-mount',
+                install_dir : bindir)

@@ -12,6 +12,6 @@ executables += [
         },
 ]
 
-meson.add_install_script(meson_make_symlink,
-                         bindir / 'systemd-dissect',
-                         sbindir / 'mount.ddi')
+install_symlink('mount.ddi',
+                pointing_to : sbin_to_bin + 'systemd-dissect',
+                install_dir : sbindir)
