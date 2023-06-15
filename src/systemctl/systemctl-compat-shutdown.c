@@ -18,6 +18,11 @@ static int shutdown_help(void) {
         if (r < 0)
                 return log_oom();
 
+        /* Note: if you are tempted to add new command line switches here, please do not. Let this
+         * compatibility command rest in peace. Its interface is not even owned by us as much as it is by
+         * sysvinit. If you add something new, add it to "systemctl halt", "systemctl reboot", "systemctl
+         * poweroff" instead. */
+
         printf("%s [OPTIONS...] [TIME] [WALL...]\n"
                "\n%sShut down the system.%s\n"
                "\nOptions:\n"
@@ -30,10 +35,12 @@ static int shutdown_help(void) {
                "     --no-wall   Don't send wall message before halt/power-off/reboot\n"
                "  -c             Cancel a pending shutdown\n"
                "     --show      Show pending shutdown\n"
+               "\n%sThis is a compatibility interface, please use the more powerful 'systemctl reboot',\n"
+               "'systemctl poweroff', 'systemctl reboot' commands instead.%s\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
+               ansi_highlight(), ansi_normal(),
+               ansi_highlight_red(), ansi_normal(),
                link);
 
         return 0;
