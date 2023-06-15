@@ -96,9 +96,6 @@ static int attach_extensions_to_message(sd_bus_message *m, char **extensions) {
 
         assert(m);
 
-        if (strv_isempty(extensions))
-                return 0;
-
         r = sd_bus_message_open_container(m, 'a', "s");
         if (r < 0)
                 return bus_log_create_error(r);
@@ -258,15 +255,12 @@ static int get_image_metadata(sd_bus *bus, const char *image, char **matches, sd
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         uint64_t flags = arg_force ? PORTABLE_FORCE_SYSEXT : 0;
-        const char *method;
         int r;
 
         assert(bus);
         assert(reply);
 
-        method = strv_isempty(arg_extension_images) ? "GetImageMetadata" : "GetImageMetadataWithExtensions";
-
-        r = bus_message_new_method_call(bus, &m, bus_portable_mgr, method);
+        r = bus_message_new_method_call(bus, &m, bus_portable_mgr, "GetImageMetadataWithExtensions");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -282,11 +276,9 @@ static int get_image_metadata(sd_bus *bus, const char *image, char **matches, sd
         if (r < 0)
                 return bus_log_create_error(r);
 
-        if (!strv_isempty(arg_extension_images)) {
-                r = sd_bus_message_append(m, "t", flags);
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
+        r = sd_bus_message_append(m, "t", flags);
+        if (r < 0)
+                return bus_log_create_error(r);
 
         r = sd_bus_call(bus, m, 0, &error, reply);
         if (r < 0)
@@ -359,97 +351,95 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                        strna(pretty_os));
         }
 
-        if (!strv_isempty(arg_extension_images)) {
-                /* If we specified any extensions, we'll first get back exactly the paths (and
-                 * extension-release content) for each one of the arguments. */
+        /* If we specified any extensions, we'll first get back exactly the paths (and
+         * extension-release content) for each one of the arguments. */
 
-                r = sd_bus_message_enter_container(reply, 'a', "{say}");
+        r = sd_bus_message_enter_container(reply, 'a', "{say}");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        for (size_t i = 0; i < strv_length(arg_extension_images); ++i) {
+                const char *name;
+
+                r = sd_bus_message_enter_container(reply, 'e', "say");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                r = sd_bus_message_read(reply, "s", &name);
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                for (size_t i = 0; i < strv_length(arg_extension_images); ++i) {
-                        const char *name;
+                r = sd_bus_message_read_array(reply, 'y', &data, &sz);
+                if (r < 0)
+                        return bus_log_parse_error(r);
 
-                        r = sd_bus_message_enter_container(reply, 'e', "say");
+                if (arg_cat) {
+                        if (nl)
+                                fputc('\n', stdout);
+
+                        printf("%s-- Extension Release: %s --%s\n", ansi_highlight(), name, ansi_normal());
+                        fwrite(data, sz, 1, stdout);
+                        fflush(stdout);
+                        nl = true;
+                } else {
+                        _cleanup_free_ char *pretty_portable = NULL, *pretty_os = NULL, *sysext_level = NULL,
+                                *sysext_id = NULL, *sysext_version_id = NULL, *sysext_scope = NULL, *portable_prefixes = NULL,
+                                *id = NULL, *version_id = NULL, *image_id = NULL, *image_version = NULL, *build_id = NULL;
+                        _cleanup_fclose_ FILE *f = NULL;
+
+                        f = fmemopen_unlocked((void*) data, sz, "r");
+                        if (!f)
+                                return log_error_errno(errno, "Failed to open extension-release buffer: %m");
+
+                        r = parse_env_file(f, name,
+                                                "SYSEXT_ID", &sysext_id,
+                                                "SYSEXT_VERSION_ID", &sysext_version_id,
+                                                "SYSEXT_BUILD_ID", &build_id,
+                                                "SYSEXT_IMAGE_ID", &image_id,
+                                                "SYSEXT_IMAGE_VERSION", &image_version,
+                                                "SYSEXT_PRETTY_NAME", &pretty_os,
+                                                "SYSEXT_SCOPE", &sysext_scope,
+                                                "SYSEXT_LEVEL", &sysext_level,
+                                                "ID", &id,
+                                                "VERSION_ID", &version_id,
+                                                "PORTABLE_PRETTY_NAME", &pretty_portable,
+                                                "PORTABLE_PREFIXES", &portable_prefixes);
                         if (r < 0)
-                                return bus_log_parse_error(r);
-                        if (r == 0)
-                                break;
+                                return log_error_errno(r, "Failed to parse extension release from '%s': %m", name);
 
-                        r = sd_bus_message_read(reply, "s", &name);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        r = sd_bus_message_read_array(reply, 'y', &data, &sz);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        if (arg_cat) {
-                                if (nl)
-                                        fputc('\n', stdout);
-
-                                printf("%s-- Extension Release: %s --%s\n", ansi_highlight(), name, ansi_normal());
-                                fwrite(data, sz, 1, stdout);
-                                fflush(stdout);
-                                nl = true;
-                        } else {
-                                _cleanup_free_ char *pretty_portable = NULL, *pretty_os = NULL, *sysext_level = NULL,
-                                        *sysext_id = NULL, *sysext_version_id = NULL, *sysext_scope = NULL, *portable_prefixes = NULL,
-                                        *id = NULL, *version_id = NULL, *image_id = NULL, *image_version = NULL, *build_id = NULL;
-                                _cleanup_fclose_ FILE *f = NULL;
-
-                                f = fmemopen_unlocked((void*) data, sz, "r");
-                                if (!f)
-                                        return log_error_errno(errno, "Failed to open extension-release buffer: %m");
-
-                                r = parse_env_file(f, name,
-                                                   "SYSEXT_ID", &sysext_id,
-                                                   "SYSEXT_VERSION_ID", &sysext_version_id,
-                                                   "SYSEXT_BUILD_ID", &build_id,
-                                                   "SYSEXT_IMAGE_ID", &image_id,
-                                                   "SYSEXT_IMAGE_VERSION", &image_version,
-                                                   "SYSEXT_PRETTY_NAME", &pretty_os,
-                                                   "SYSEXT_SCOPE", &sysext_scope,
-                                                   "SYSEXT_LEVEL", &sysext_level,
-                                                   "ID", &id,
-                                                   "VERSION_ID", &version_id,
-                                                   "PORTABLE_PRETTY_NAME", &pretty_portable,
-                                                   "PORTABLE_PREFIXES", &portable_prefixes);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse extension release from '%s': %m", name);
-
-                                printf("Extension:\n\t%s\n"
-                                       "\tExtension Scope:\n\t\t%s\n"
-                                       "\tExtension Compatibility Level:\n\t\t%s\n"
-                                       "\tExtension Compatibility OS:\n\t\t%s\n"
-                                       "\tExtension Compatibility OS Version:\n\t\t%s\n"
-                                       "\tPortable Service:\n\t\t%s\n"
-                                       "\tPortable Prefixes:\n\t\t%s\n"
-                                       "\tExtension Image:\n\t\t%s%s%s %s%s%s\n",
-                                       name,
-                                       strna(sysext_scope),
-                                       strna(sysext_level),
-                                       strna(id),
-                                       strna(version_id),
-                                       strna(pretty_portable),
-                                       strna(portable_prefixes),
-                                       strempty(pretty_os),
-                                       pretty_os ? " (" : "ID: ",
-                                       strna(sysext_id ?: image_id),
-                                       pretty_os ? "" : "Version: ",
-                                       strna(sysext_version_id ?: image_version ?: build_id),
-                                       pretty_os ? ")" : "");
-                        }
-
-                        r = sd_bus_message_exit_container(reply);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
+                        printf("Extension:\n\t%s\n"
+                                "\tExtension Scope:\n\t\t%s\n"
+                                "\tExtension Compatibility Level:\n\t\t%s\n"
+                                "\tExtension Compatibility OS:\n\t\t%s\n"
+                                "\tExtension Compatibility OS Version:\n\t\t%s\n"
+                                "\tPortable Service:\n\t\t%s\n"
+                                "\tPortable Prefixes:\n\t\t%s\n"
+                                "\tExtension Image:\n\t\t%s%s%s %s%s%s\n",
+                                name,
+                                strna(sysext_scope),
+                                strna(sysext_level),
+                                strna(id),
+                                strna(version_id),
+                                strna(pretty_portable),
+                                strna(portable_prefixes),
+                                strempty(pretty_os),
+                                pretty_os ? " (" : "ID: ",
+                                strna(sysext_id ?: image_id),
+                                pretty_os ? "" : "Version: ",
+                                strna(sysext_version_id ?: image_version ?: build_id),
+                                pretty_os ? ")" : "");
                 }
 
                 r = sd_bus_message_exit_container(reply);
                 if (r < 0)
                         return bus_log_parse_error(r);
         }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         r = sd_bus_message_enter_container(reply, 'a', "{say}");
         if (r < 0)
@@ -786,11 +776,9 @@ static int maybe_stop_disable(sd_bus *bus, char *image, char *argv[]) {
                 return bus_log_parse_error(r);
 
         /* If we specified any extensions, we'll first an array of extension-release metadata. */
-        if (!strv_isempty(arg_extension_images)) {
-                r = sd_bus_message_skip(reply, "a{say}");
-                if (r < 0)
-                        return bus_log_parse_error(r);
-        }
+        r = sd_bus_message_skip(reply, "a{say}");
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         r = sd_bus_message_enter_container(reply, 'a', "{say}");
         if (r < 0)
@@ -834,6 +822,7 @@ static int maybe_stop_disable(sd_bus *bus, char *image, char *argv[]) {
 }
 
 static int attach_reattach_image(int argc, char *argv[], const char *method) {
+         uint64_t flags = (arg_runtime ? PORTABLE_RUNTIME : 0) | (arg_force ? PORTABLE_FORCE_ATTACH | PORTABLE_FORCE_SYSEXT : 0);
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -842,7 +831,7 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
         int r;
 
         assert(method);
-        assert(STR_IN_SET(method, "AttachImage", "ReattachImage", "AttachImageWithExtensions", "ReattachImageWithExtensions"));
+        assert(STR_IN_SET(method, "AttachImageWithExtensions", "ReattachImageWithExtensions"));
 
         r = determine_image(argv[1], false, &image);
         if (r < 0)
@@ -878,12 +867,7 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        if (STR_IN_SET(method, "AttachImageWithExtensions", "ReattachImageWithExtensions")) {
-                uint64_t flags = (arg_runtime ? PORTABLE_RUNTIME : 0) | (arg_force ? PORTABLE_FORCE_ATTACH | PORTABLE_FORCE_SYSEXT : 0);
-
-                r = sd_bus_message_append(m, "st", arg_copy_mode, flags);
-        } else
-                r = sd_bus_message_append(m, "bs", arg_runtime, arg_copy_mode);
+        r = sd_bus_message_append(m, "st", arg_copy_mode, flags);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -895,7 +879,7 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
 
         print_changes(reply);
 
-        if (STR_IN_SET(method, "AttachImage", "AttachImageWithExtensions"))
+        if (streq(method, "AttachImageWithExtensions"))
                 (void) maybe_enable_start(bus, reply);
         else {
                 /* ReattachImage returns 2 lists - removed units first, and changed/added second */
@@ -907,19 +891,19 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
 }
 
 static int attach_image(int argc, char *argv[], void *userdata) {
-        return attach_reattach_image(argc, argv, strv_isempty(arg_extension_images) ? "AttachImage" : "AttachImageWithExtensions");
+        return attach_reattach_image(argc, argv, "AttachImageWithExtensions");
 }
 
 static int reattach_image(int argc, char *argv[], void *userdata) {
-        return attach_reattach_image(argc, argv, strv_isempty(arg_extension_images) ? "ReattachImage" : "ReattachImageWithExtensions");
+        return attach_reattach_image(argc, argv, "ReattachImageWithExtensions");
 }
 
 static int detach_image(int argc, char *argv[], void *userdata) {
+        uint64_t flags = (arg_runtime ? PORTABLE_RUNTIME : 0) | (arg_force ? PORTABLE_FORCE_ATTACH | PORTABLE_FORCE_SYSEXT : 0);
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *image = NULL;
-        const char *method;
         int r;
 
         r = determine_image(argv[1], true, &image);
@@ -934,9 +918,7 @@ static int detach_image(int argc, char *argv[], void *userdata) {
 
         (void) maybe_stop_disable(bus, image, argv);
 
-        method = strv_isempty(arg_extension_images) ? "DetachImage" : "DetachImageWithExtensions";
-
-        r = bus_message_new_method_call(bus, &m, bus_portable_mgr, method);
+        r = bus_message_new_method_call(bus, &m, bus_portable_mgr, "DetachImageWithExtensions");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -948,19 +930,13 @@ static int detach_image(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (strv_isempty(arg_extension_images))
-                r = sd_bus_message_append(m, "b", arg_runtime);
-        else {
-                uint64_t flags = (arg_runtime ? PORTABLE_RUNTIME : 0) | (arg_force ? PORTABLE_FORCE_ATTACH | PORTABLE_FORCE_SYSEXT : 0);
-
-                r = sd_bus_message_append(m, "t", flags);
-        }
+        r = sd_bus_message_append(m, "t", flags);
         if (r < 0)
                 return bus_log_create_error(r);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0)
-                return log_error_errno(r, "%s failed: %s", method, bus_error_message(&error, r));
+                return log_error_errno(r, "DetachImageWithExtensions failed: %s", bus_error_message(&error, r));
 
         (void) maybe_reload(&bus);
 
@@ -1135,7 +1111,7 @@ static int is_image_attached(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *image = NULL;
-        const char *state, *method;
+        const char *state;
         int r;
 
         r = determine_image(argv[1], true, &image);
@@ -1146,9 +1122,7 @@ static int is_image_attached(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        method = strv_isempty(arg_extension_images) ? "GetImageState" : "GetImageStateWithExtensions";
-
-        r = bus_message_new_method_call(bus, &m, bus_portable_mgr, method);
+        r = bus_message_new_method_call(bus, &m, bus_portable_mgr, "GetImageStateWithExtensions");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1160,15 +1134,13 @@ static int is_image_attached(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (!strv_isempty(arg_extension_images)) {
-                r = sd_bus_message_append(m, "t", 0);
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
+        r = sd_bus_message_append(m, "t", 0);
+        if (r < 0)
+                return bus_log_create_error(r);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0)
-                return log_error_errno(r, "%s failed: %s", method, bus_error_message(&error, r));
+                return log_error_errno(r, "GetImageStateWithExtensions failed: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_read(reply, "s", &state);
         if (r < 0)
