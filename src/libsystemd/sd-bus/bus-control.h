@@ -3,7 +3,17 @@
 
 #include "sd-bus.h"
 
-int bus_add_match_internal(sd_bus *bus, const char *match, uint64_t *ret_counter);
-int bus_add_match_internal_async(sd_bus *bus, sd_bus_slot **ret, const char *match, sd_bus_message_handler_t callback, void *userdata);
+int bus_add_match_full(
+                sd_bus *bus,
+                sd_bus_slot **slot,
+                bool asynchronous,
+                const char *match,
+                sd_bus_message_handler_t callback,
+                sd_bus_message_handler_t install_callback,
+                void *userdata,
+                uint64_t timeout_usec);
+
+int bus_add_match_internal(sd_bus *bus, const char *match, uint64_t *ret_counter, uint64_t timeout_usec);
+int bus_add_match_internal_async(sd_bus *bus, sd_bus_slot **ret, const char *match, sd_bus_message_handler_t callback, void *userdata, uint64_t timeout_usec);
 
 int bus_remove_match_internal(sd_bus *bus, const char *match);
