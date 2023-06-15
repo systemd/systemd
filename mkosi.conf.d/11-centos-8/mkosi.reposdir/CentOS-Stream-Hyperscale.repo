@@ -1,0 +1,7 @@
+[centos-hyperscale]
+name=CentOS Stream $releasever - Hyperscale
+mirrorlist=http://mirrorlist.centos.org/?release=$stream&arch=$basearch&repo=hyperscale-packages-main
+#baseurl=http://mirror.centos.org/$contentdir/$stream/hyperscale/$basearch/packages-main/
+gpgcheck=1
+enabled=1
+gpgkey=https://git.centos.org/rpms/centos-release-hyperscale/raw/c8s-sig-hyperscale/f/SOURCES/RPM-GPG-KEY-CentOS-SIG-HyperScale
