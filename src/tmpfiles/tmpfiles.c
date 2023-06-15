@@ -3865,7 +3865,7 @@ static int help(void) {
                "     --clean                Clean up marked directories\n"
                "     --remove               Remove marked files/directories\n"
                "     --boot                 Execute actions only safe at boot\n"
-               "     --graceful             Quitely ignore unknown users or groups\n"
+               "     --graceful             Quietly ignore unknown users or groups\n"
                "     --prefix=PATH          Only apply rules with the specified prefix\n"
                "     --exclude-prefix=PATH  Ignore rules with the specified prefix\n"
                "  -E                        Ignore rules prefixed with /dev, /proc, /run, /sys\n"

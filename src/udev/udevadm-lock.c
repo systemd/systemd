@@ -316,7 +316,7 @@ int lock_main(int argc, char *argv[], void *userdata) {
         if (!fds)
                 return log_oom();
 
-        if (IN_SET(arg_timeout_usec, 0, USEC_INFINITY))
+        if (!timestamp_is_set(arg_timeout_usec))
                 deadline = arg_timeout_usec;
         else
                 deadline = usec_add(now(CLOCK_MONOTONIC), arg_timeout_usec);
