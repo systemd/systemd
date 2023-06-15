@@ -482,7 +482,7 @@ DHCP={dhcp_mode}
     def test_coldplug_dhcp_yes_ip4_no_ra(self):
         # with disabling RA explicitly things should be fast
         self.do_test(coldplug=True, ipv6=False,
-                     extra_opts='IPv6AcceptRA=False')
+                     extra_opts='IPv6AcceptRA=no')
 
     def test_coldplug_dhcp_ip4_only(self):
         # we have a 12s timeout on RA, so we need to wait longer
@@ -492,7 +492,7 @@ DHCP={dhcp_mode}
     def test_coldplug_dhcp_ip4_only_no_ra(self):
         # with disabling RA explicitly things should be fast
         self.do_test(coldplug=True, ipv6=False, dhcp_mode='ipv4',
-                     extra_opts='IPv6AcceptRA=False')
+                     extra_opts='IPv6AcceptRA=no')
 
     def test_coldplug_dhcp_ip6(self):
         self.do_test(coldplug=True, ipv6=True)
@@ -522,7 +522,7 @@ Domains= ~company
 
         try:
             self.do_test(coldplug=True, ipv6=False,
-                         extra_opts='IPv6AcceptRouterAdvertisements=False')
+                         extra_opts='IPv6AcceptRA=no')
         except subprocess.CalledProcessError as e:
             # networkd often fails to start in LXC: https://github.com/systemd/systemd/issues/11848
             if IS_CONTAINER and e.cmd == ['systemctl', 'start', 'systemd-networkd']:
@@ -555,7 +555,7 @@ Domains= ~company ~.
 
         try:
             self.do_test(coldplug=True, ipv6=False,
-                         extra_opts='IPv6AcceptRouterAdvertisements=False')
+                         extra_opts='IPv6AcceptRA=no')
         except subprocess.CalledProcessError as e:
             # networkd often fails to start in LXC: https://github.com/systemd/systemd/issues/11848
             if IS_CONTAINER and e.cmd == ['systemctl', 'start', 'systemd-networkd']:
@@ -651,7 +651,7 @@ class DnsmasqClientTest(ClientTestBase, unittest.TestCase):
 Name={}
 [Network]
 DHCP=ipv4
-IPv6AcceptRA=False
+IPv6AcceptRA=no
 DNSSECNegativeTrustAnchors=search.example.com
 '''.format(self.iface))
 
@@ -676,7 +676,7 @@ DNSSECNegativeTrustAnchors=search.example.com
 [Match]
 Name=testvpnclient
 [Network]
-IPv6AcceptRA=False
+IPv6AcceptRA=no
 Address=10.241.3.2/24
 DNS=10.241.3.1
 Domains=~company ~lab
@@ -803,7 +803,7 @@ DNSSECNegativeTrustAnchors=company lab
         self.addCleanup(subprocess.call, ['systemctl', 'stop', 'systemd-hostnamed.service'])
 
         self.create_iface(dnsmasq_opts=['--dhcp-host={},192.168.5.210,testgreen'.format(self.iface_mac)])
-        self.do_test(coldplug=None, extra_opts='IPv6AcceptRA=False', dhcp_mode='ipv4')
+        self.do_test(coldplug=None, extra_opts='IPv6AcceptRA=no', dhcp_mode='ipv4')
 
         try:
             # should have received the fixed IP above
@@ -847,7 +847,7 @@ DNSSECNegativeTrustAnchors=company lab
         self.addCleanup(subprocess.call, ['systemctl', 'stop', 'systemd-hostnamed.service'])
 
         self.create_iface(dnsmasq_opts=['--dhcp-host={},192.168.5.210,testgreen'.format(self.iface_mac)])
-        self.do_test(coldplug=None, extra_opts='IPv6AcceptRA=False', dhcp_mode='ipv4')
+        self.do_test(coldplug=None, extra_opts='IPv6AcceptRA=no', dhcp_mode='ipv4')
 
         try:
             # should have received the fixed IP above
