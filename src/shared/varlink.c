@@ -686,10 +686,7 @@ static int varlink_read(Varlink *v) {
         rs = MALLOC_SIZEOF_SAFE(v->input_buffer) - (v->input_buffer_index + v->input_buffer_size);
 
         if (v->allow_fd_passing_input) {
-                iov = (struct iovec) {
-                        .iov_base = p,
-                        .iov_len = rs,
-                };
+                iov = IOVEC_MAKE(p, rs);
                 mh = (struct msghdr) {
                         .msg_iov = &iov,
                         .msg_iovlen = 1,
