@@ -14,7 +14,7 @@ System and Service Manager
 [![Weblate](https://translate.fedoraproject.org/widgets/systemd/-/master/svg-badge.svg)](https://translate.fedoraproject.org/engage/systemd/)</br>
 [![Coverage Status](https://coveralls.io/repos/github/systemd/systemd/badge.svg?branch=main)](https://coveralls.io/github/systemd/systemd?branch=main)</br>
 [![Packaging status](https://repology.org/badge/tiny-repos/systemd.svg)](https://repology.org/project/systemd/versions)</br>
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/systemd/systemd/badge)](https://api.securityscorecards.dev/projects/github.com/systemd/systemd)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/systemd/systemd/badge)](https://securityscorecards.dev/viewer/?platform=github.com&org=systemd&repo=systemd)
 
 ## Details
 
