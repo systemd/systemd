@@ -694,13 +694,13 @@ DNSSECNegativeTrustAnchors=company lab
         try:
             # test vpnclient specific domains; these should *not* be answered by
             # the general DNS
-            out = subprocess.check_output(['resolvectl', 'query', 'math.lab'])
+            out = subprocess.check_output(['resolvectl', 'query', '-4', 'math.lab'])
             self.assertIn(b'math.lab: 10.241.3.3', out)
-            out = subprocess.check_output(['resolvectl', 'query', 'kettle.cantina.company'])
+            out = subprocess.check_output(['resolvectl', 'query', '-4', 'kettle.cantina.company'])
             self.assertIn(b'kettle.cantina.company: 10.241.4.4', out)
 
             # test general domains
-            out = subprocess.check_output(['resolvectl', 'query', 'search.example.com'])
+            out = subprocess.check_output(['resolvectl', 'query', '-4', 'search.example.com'])
             self.assertIn(b'search.example.com: 192.168.42.1', out)
 
             with open(self.dnsmasq_log) as f:
