@@ -26,6 +26,11 @@ static int halt_help(void) {
         if (r < 0)
                 return log_oom();
 
+        /* Note: if you are tempted to add new command line switches here, please do not. Let this
+         * compatibility command rest in peace. Its interface is not even owned by us as much as it is by
+         * sysvinit. If you add something new, add it to "systemctl halt", "systemctl reboot", "systemctl
+         * poweroff" instead. */
+
         printf("%s [OPTIONS...]%s\n"
                "\n%s%s the system.%s\n"
                "\nOptions:\n"
@@ -37,14 +42,16 @@ static int halt_help(void) {
                "  -w --wtmp-only Don't halt/power-off/reboot, just write wtmp record\n"
                "  -d --no-wtmp   Don't write wtmp record\n"
                "     --no-wall   Don't send wall message before halt/power-off/reboot\n"
+               "\n%sThis is a compatibility interface, please use the more powerful 'systemctl %s' command instead.%s\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                arg_action == ACTION_REBOOT ? " [ARG]" : "",
-               ansi_highlight(),
-               arg_action == ACTION_REBOOT           ? "Reboot" :
-                       arg_action == ACTION_POWEROFF ? "Power off" :
-                                                       "Halt",
-               ansi_normal(),
+               ansi_highlight(), arg_action == ACTION_REBOOT   ? "Reboot" :
+                                 arg_action == ACTION_POWEROFF ? "Power off" :
+                                                                 "Halt", ansi_normal(),
+               ansi_highlight_red(), arg_action == ACTION_REBOOT   ? "reboot" :
+                                     arg_action == ACTION_POWEROFF ? "poweroff" :
+                                                                     "halt", ansi_normal(),
                link);
 
         return 0;
