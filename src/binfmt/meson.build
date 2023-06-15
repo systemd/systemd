@@ -12,9 +12,7 @@ executables += [
         },
 ]
 
-meson.add_install_script('sh', '-c',
-                         mkdir_p.format(binfmtdir))
+install_emptydir(binfmtdir)
 if install_sysconfdir
-        meson.add_install_script('sh', '-c',
-                                 mkdir_p.format(sysconfdir / 'binfmt.d'))
+        install_emptydir(sysconfdir / 'binfmt.d')
 endif
