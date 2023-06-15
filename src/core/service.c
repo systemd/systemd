@@ -4607,6 +4607,11 @@ static int service_get_timeout(Unit *u, usec_t *timeout) {
         return 1;
 }
 
+static usec_t service_get_timeout_start_usec(Unit *u) {
+        Service *s = SERVICE(ASSERT_PTR(u));
+        return s->timeout_start_usec;
+}
+
 static bool pick_up_pid_from_bus_name(Service *s) {
         assert(s);
 
@@ -5145,6 +5150,7 @@ const UnitVTable service_vtable = {
         .bus_commit_properties = bus_service_commit_properties,
 
         .get_timeout = service_get_timeout,
+        .get_timeout_start_usec = service_get_timeout_start_usec,
         .needs_console = service_needs_console,
         .exit_status = service_exit_status,
         .status_text = service_status_text,

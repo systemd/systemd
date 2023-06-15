@@ -715,6 +715,9 @@ typedef struct UnitVTable {
         /* Returns the next timeout of a unit */
         int (*get_timeout)(Unit *u, usec_t *timeout);
 
+        /* Returns the start timeout of a unit */
+        usec_t (*get_timeout_start_usec)(Unit *u);
+
         /* Returns the main PID if there is any defined, or 0. */
         pid_t (*main_pid)(Unit *u);
 
