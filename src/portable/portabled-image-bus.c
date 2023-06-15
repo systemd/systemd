@@ -934,7 +934,7 @@ const sd_bus_vtable image_vtable[] = {
                                               "a(sss)", changes_updated),
                                 bus_image_method_reattach,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD_WITH_ARGS("ReattacheWithExtensions",
+        SD_BUS_METHOD_WITH_ARGS("ReattachWithExtensions",
                                 SD_BUS_ARGS("as", extensions,
                                             "as", matches,
                                             "s", profile,
@@ -959,6 +959,17 @@ const sd_bus_vtable image_vtable[] = {
                                 SD_BUS_NO_RESULT,
                                 bus_image_method_set_limit,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        /* Deprecated silly typo */
+        SD_BUS_METHOD_WITH_ARGS("ReattacheWithExtensions",
+                                SD_BUS_ARGS("as", extensions,
+                                            "as", matches,
+                                            "s", profile,
+                                            "s", copy_mode,
+                                            "t", flags),
+                                SD_BUS_RESULT("a(sss)", changes_removed,
+                                              "a(sss)", changes_updated),
+                                bus_image_method_reattach,
+                                SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_VTABLE_END
 };
 

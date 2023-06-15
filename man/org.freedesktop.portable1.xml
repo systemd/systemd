@@ -380,13 +380,13 @@ node /org/freedesktop/portable1 {
                in  s copy_mode,
                out a(sss) changes_removed,
                out a(sss) changes_updated);
-      ReattacheWithExtensions(in  as extensions,
-                              in  as matches,
-                              in  s profile,
-                              in  s copy_mode,
-                              in  t flags,
-                              out a(sss) changes_removed,
-                              out a(sss) changes_updated);
+      ReattachWithExtensions(in  as extensions,
+                             in  as matches,
+                             in  s profile,
+                             in  s copy_mode,
+                             in  t flags,
+                             out a(sss) changes_removed,
+                             out a(sss) changes_updated);
       Remove();
       MarkReadOnly(in  b read_only);
       SetLimit(in  t limit);
@@ -438,7 +438,7 @@ node /org/freedesktop/portable1 {
 
     <!--method Reattach is not documented!-->
 
-    <!--method ReattacheWithExtensions is not documented!-->
+    <!--method ReattachWithExtensions is not documented!-->
 
     <!--method Remove is not documented!-->
 
@@ -472,7 +472,7 @@ node /org/freedesktop/portable1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="Reattach()"/>
 
-    <variablelist class="dbus-method" generated="True" extra-ref="ReattacheWithExtensions()"/>
+    <variablelist class="dbus-method" generated="True" extra-ref="ReattachWithExtensions()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Remove()"/>
 
@@ -530,7 +530,7 @@ node /org/freedesktop/portable1 {
 
         <listitem><para>Reattach()</para></listitem>
 
-        <listitem><para>ReattacheWithExtensions()</para></listitem>
+        <listitem><para>ReattachWithExtensions()</para></listitem>
 
         <listitem><para>Remove()</para></listitem>
 
