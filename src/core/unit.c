@@ -3619,15 +3619,25 @@ static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bu
 }
 
 int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m1 = NULL, *m2 = NULL;
+        Service *s = SERVICE(u);
         const char *match;
+        usec_t timeout_usec = 0;
         int r;
 
         assert(u);
         assert(bus);
         assert(name);
+        assert(s);
 
         if (u->match_bus_slot || u->get_name_owner_slot)
                 return -EBUSY;
+
+        /* NameOwnerChanged and GetNameOwner is used to detect when a service finished starting up. The dbus
+         * call timeout shouldn't be earlier than that. If we couldn't get the start timeout, use the default
+         * value defined above. */
+        if (UNIT_VTABLE(u)->get_timeout_start_usec)
+                timeout_usec = UNIT_VTABLE(u)->get_timeout_start_usec(u);
 
         match = strjoina("type='signal',"
                          "sender='org.freedesktop.DBus',"
@@ -3636,20 +3646,52 @@ int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
                          "member='NameOwnerChanged',"
                          "arg0='", name, "'");
 
-        r = sd_bus_add_match_async(bus, &u->match_bus_slot, match, signal_name_owner_changed, NULL, u);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_call_method_async(
+        r = sd_bus_message_new_method_call(
                         bus,
-                        &u->get_name_owner_slot,
+                        &m1,
                         "org.freedesktop.DBus",
                         "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
-                        "GetNameOwner",
+                        "AddMatch");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m1, "s", match);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call_async(
+                        bus,
+                        &u->match_bus_slot,
+                        m1,
+                        signal_name_owner_changed,
+                        u,
+                        timeout_usec);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_new_method_call(
+                        bus,
+                        &m2,
+                        "org.freedesktop.DBus",
+                        "/org/freedesktop/DBus",
+                        "org.freedesktop.DBus",
+                        "GetNameOwner");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m2, "s", name);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call_async(
+                        bus,
+                        &u->get_name_owner_slot,
+                        m2,
                         get_name_owner_handler,
                         u,
-                        "s", name);
+                        timeout_usec);
+
         if (r < 0) {
                 u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
                 return r;
