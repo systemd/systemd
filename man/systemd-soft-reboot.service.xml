@@ -76,7 +76,7 @@
     <title>Resource Pass-Through</title>
 
     <para>Various runtime OS resources can passed from a system runtime to the next, through the userspace
-    reboot operation. Specificially:</para>
+    reboot operation. Specifically:</para>
 
     <itemizedlist>
       <listitem><para>File descriptors placed in the file descriptor store of services that remain active

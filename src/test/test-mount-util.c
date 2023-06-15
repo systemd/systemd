@@ -485,7 +485,7 @@ TEST(umount_recursive) {
                         /* Open /p/s/m file before we unmount everything (which might include /proc/) */
                         f = fopen("/proc/self/mountinfo", "re");
                         if (!f) {
-                                log_error_errno(errno, "Faile to open /proc/self/mountinfo: %m");
+                                log_error_errno(errno, "Failed to open /proc/self/mountinfo: %m");
                                 _exit(EXIT_FAILURE);
                         }
 

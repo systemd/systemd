@@ -489,7 +489,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                 }
         } else {
                 /* The requested devlink does not exist, or the target device does not exist and the devlink
-                 * points to a non-existing device. Let's search the deivce that has the highest priority,
+                 * points to a non-existing device. Let's search the device that has the highest priority,
                  * and update the devlink. */
                 ;
         }

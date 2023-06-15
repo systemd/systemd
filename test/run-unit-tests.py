@@ -53,7 +53,7 @@ for test in tests:
         print(f'{YELLOW}SKIP: {name}{RESET_ALL}')
         total.skip += 1
     elif ex.returncode == 127:
-        print(f'{YELLOW}SKIP: {name} (no interpeter) {RESET_ALL}')
+        print(f'{YELLOW}SKIP: {name} (no interpreter) {RESET_ALL}')
         total.skip += 1
     else:
         print(f'{RED}FAIL: {name}{RESET_ALL}')

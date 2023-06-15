@@ -107,7 +107,7 @@ else
     # This is the first boot
     systemd-notify --status="First Boot"
 
-    # Let's upload an fd to the fdstore, so that we can verify fdstore passing works correcly
+    # Let's upload an fd to the fdstore, so that we can verify fdstore passing works correctly
     T="/dev/shm/fdstore.$RANDOM"
     echo "wuffwuff" >"$T"
     systemd-notify --fd=3 --pid=parent 3<"$T"

@@ -161,7 +161,7 @@ Features:
   to the kernel which will then upload it to the CPU. This should be distinct
   from .initrd to guarantee right ordering. also, and maybe more importantly
   support .microcode in PE add-ons, so that a microcode update can be shipped
-  indepdendently of any kernel.
+  independently of any kernel.
 
 * add clean mechanism concept for passing env/creds from initrd to host on
   switch root, so that cloud-init and similar have a clean, sane method to pass
@@ -187,7 +187,7 @@ Features:
 
 * open up creds for uses in generators, and document clearly that encrypted
   creds are only supported if strictly tpm bound, but not when using the host
-  secret (as that is only avilable if /var/ is around.
+  secret (as that is only available if /var/ is around.
 
 * logind: when logging in, always take an fd to the home dir, to keep the dir
   busy, so that autofs release can never happen. (this is generally a good

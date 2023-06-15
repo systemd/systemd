@@ -847,7 +847,7 @@ TEST(leave_ratelimit) {
 
         assert_se(sd_event_default(&e) >= 0);
 
-        /* Create an event source that will continously fire by creating a pipe whose write side is closed,
+        /* Create an event source that will continuously fire by creating a pipe whose write side is closed,
          * and which hence will only see EOF and constant EPOLLHUP */
         assert_se(pipe2(pfd, O_CLOEXEC) >= 0);
         assert_se(sd_event_add_io(e, &s, pfd[0], EPOLLIN, hup_callback, &c) >= 0);
@@ -855,7 +855,7 @@ TEST(leave_ratelimit) {
         assert_se(sd_event_source_set_ratelimit(s, 5*USEC_PER_MINUTE, 5) >= 0);
 
         pfd[0] = -EBADF;
-        pfd[1] = safe_close(pfd[1]); /* Trigger continous EOF */
+        pfd[1] = safe_close(pfd[1]); /* Trigger continuous EOF */
 
         for (;;) {
                 r = sd_event_prepare(e);

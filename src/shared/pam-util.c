@@ -51,7 +51,7 @@ int pam_syslog_pam_error(pam_handle_t *handle, int level, int error, const char 
         return error;
 }
 
-/* A small structure we store inside the PAM session object, that allows us to resue bus connections but pins
+/* A small structure we store inside the PAM session object, that allows us to reuse bus connections but pins
  * it to the process thoroughly. */
 struct PamBusData {
         sd_bus *bus;

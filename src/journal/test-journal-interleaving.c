@@ -240,7 +240,7 @@ static void test_skip_one(void (*setup)(void)) {
         test_check_numbers_down(j, 9);
         sd_journal_close(j);
 
-        /* Seek to tail, skip to head in a more complext way, then iterate down. */
+        /* Seek to tail, skip to head in a more complex way, then iterate down. */
         assert_ret(sd_journal_open_directory(&j, t, 0));
         assert_ret(sd_journal_seek_tail(j));
         assert_ret(sd_journal_next(j));    /* no-op */
