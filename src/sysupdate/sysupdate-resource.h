@@ -67,7 +67,7 @@ static inline bool RESOURCE_IS_URL(ResourceType t) {
 }
 
 typedef enum PathRelativeTo {
-        /* Please make sure to folow the naming of the corresponding PartitionDesignator enum values,
+        /* Please make sure to follow the naming of the corresponding PartitionDesignator enum values,
          * where this makes sense, like for the following three. */
         PATH_RELATIVE_TO_ROOT,
         PATH_RELATIVE_TO_ESP,

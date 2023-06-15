@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "Failed to make subvolume: %m");
 
-        r = write_string_file("/xxxtest/afile", "ljsadhfljasdkfhlkjdsfha", WRITE_STRING_FILE_CREATE);
+        r = write_string_file("/xxxtest/file", "ljsadhfljasdkfhlkjdsfha", WRITE_STRING_FILE_CREATE);
         if (r < 0)
                 log_error_errno(r, "Failed to write file: %m");
 

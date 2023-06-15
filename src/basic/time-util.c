@@ -1703,7 +1703,7 @@ TimestampStyle timestamp_style_from_string(const char *s) {
         t = (TimestampStyle) string_table_lookup(timestamp_style_table, ELEMENTSOF(timestamp_style_table), s);
         if (t >= 0)
                 return t;
-        if (STRPTR_IN_SET(s, "µs", "μs")) /* acccept both µ symbols in unicode, i.e. micro symbol + greek small letter mu. */
+        if (STRPTR_IN_SET(s, "µs", "μs")) /* accept both µ symbols in unicode, i.e. micro symbol + Greek small letter mu. */
                 return TIMESTAMP_US;
         if (STRPTR_IN_SET(s, "µs+utc", "μs+utc"))
                 return TIMESTAMP_US_UTC;
