@@ -85,10 +85,7 @@ static int try_audit_request(int fd) {
                 .hdr.nlmsg_type = AUDIT_GET_FEATURE,
                 .hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_ACK,
         };
-        iov = (struct iovec) {
-                .iov_base = &msg,
-                .iov_len = msg.hdr.nlmsg_len,
-        };
+        iov = IOVEC_MAKE(&msg, msg.hdr.nlmsg_len);
         mh = (struct msghdr) {
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
