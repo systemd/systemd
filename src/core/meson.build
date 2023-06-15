@@ -173,15 +173,20 @@ install_data('org.freedesktop.systemd1.conf',
 install_data('org.freedesktop.systemd1.service',
              install_dir : dbussystemservicedir)
 
-meson.add_install_script('sh', '-c', mkdir_p.format(systemshutdowndir))
-meson.add_install_script('sh', '-c', mkdir_p.format(systemsleepdir))
-meson.add_install_script('sh', '-c', mkdir_p.format(systemgeneratordir))
-meson.add_install_script('sh', '-c', mkdir_p.format(usergeneratordir))
+install_emptydir(systemshutdowndir)
+install_emptydir(systemsleepdir)
+install_emptydir(systemgeneratordir)
+install_emptydir(usergeneratordir)
 
 if install_sysconfdir
-        meson.add_install_script('sh', '-c', mkdir_p.format(pkgsysconfdir / 'system'))
-        meson.add_install_script('sh', '-c', mkdir_p.format(pkgsysconfdir / 'user'))
-        meson.add_install_script('sh', '-c', mkdir_p.format(sysconfdir / 'xdg/systemd'))
+        install_emptydir(pkgsysconfdir / 'system')
+        install_emptydir(pkgsysconfdir / 'user')
+        install_emptydir(sysconfdir / 'xdg/systemd')
+
+        assert(sysconfdir / 'systemd' == pkgsysconfdir)
+        install_symlink('user',
+                        pointing_to : '../../systemd/user',
+                        install_dir : sysconfdir / 'xdg/systemd')
 endif
 
 ############################################################

@@ -10,7 +10,7 @@ project('systemd', 'c',
                 'localstatedir=/var',
                 'warning_level=2',
         ],
-        meson_version : '>= 0.60.0',
+        meson_version : '>= 0.61.0',
        )
 
 libsystemd_version = '0.36.0'
@@ -121,6 +121,7 @@ endif
 prefixdir_noslash = prefixdir == '/usr/' ? '/usr' : prefixdir
 bindir = prefixdir / get_option('bindir')
 sbindir = prefixdir / (split_bin ? 'sbin' : 'bin')
+sbin_to_bin = split_bin ? '../bin/' : ''
 libdir = prefixdir / get_option('libdir')
 sysconfdir = prefixdir / get_option('sysconfdir')
 includedir = prefixdir / get_option('includedir')
@@ -680,10 +681,8 @@ env = find_program('env')
 rsync = find_program('rsync', required : false)
 diff = find_program('diff')
 find = find_program('find')
-meson_make_symlink = project_source_root + '/tools/meson-make-symlink.sh'
 
-mkdir_p = 'mkdir -p $DESTDIR/@0@'
-mkdir_p_mode = 'mkdir -p $DESTDIR/@0@ -m @1@'
+ln_s = ln.full_path() + ' -frsT -- "${DESTDIR:-}@0@" "${DESTDIR:-}@1@"'
 
 # If -Dxxx-path option is found, use that. Otherwise, check in $PATH,
 # /usr/sbin, /sbin, and fall back to the default from middle column.
@@ -2370,9 +2369,10 @@ exe = executable(
 dbus_programs += exe
 public_programs += exe
 
-meson.add_install_script(meson_make_symlink,
-                         libexecdir / 'systemd',
-                         sbindir / 'init')
+assert(fs.parent(sbindir) / 'lib/systemd' == libexecdir)
+install_symlink('init',
+                pointing_to : '../lib/systemd/systemd',
+                install_dir : sbindir)
 
 exe = executable(
         'systemd-analyze',
@@ -2487,9 +2487,10 @@ exe = executable(
         install : true,
         install_dir : systemgeneratordir)
 
-meson.add_install_script(meson_make_symlink,
-                         systemgeneratordir / 'systemd-fstab-generator',
-                         libexecdir / 'systemd-sysroot-fstab-check')
+assert(libexecdir / fs.name(systemgeneratordir) == systemgeneratordir)
+install_symlink('systemd-sysroot-fstab-check',
+                pointing_to : fs.name(systemgeneratordir) / 'systemd-fstab-generator',
+                install_dir : libexecdir)
 
 if want_tests != 'false'
         test('test-fstab-generator',
@@ -2510,9 +2511,11 @@ if conf.get('ENABLE_ENVIRONMENT_D') == 1
                 install : true,
                 install_dir : userenvgeneratordir)
 
-        meson.add_install_script(meson_make_symlink,
-                                 sysconfdir / 'environment',
-                                 environmentdir / '99-environment.conf')
+        # install_symlink() does not support broken symlink, and /etc/environment is not managed by us, thus may not exist.
+        # Hence, we need to create custom install script here.
+        install_emptydir(environmentdir)
+        meson.add_install_script(sh, '-c',
+                                 ln_s.format(sysconfdir / 'environment', environmentdir / '99-environment.conf'))
 endif
 
 if conf.get('ENABLE_HIBERNATE') == 1
@@ -2559,9 +2562,9 @@ if conf.get('HAVE_BLKID') == 1
                 install_rpath : pkglibdir,
                 install : true)
 
-        meson.add_install_script(meson_make_symlink,
-                                 bindir / 'systemd-dissect',
-                                 sbindir / 'mount.ddi')
+        install_symlink('mount.ddi',
+                        pointing_to : sbin_to_bin + 'systemd-dissect',
+                        install_dir : sbindir)
 endif
 
 if conf.get('ENABLE_RESOLVE') == 1
@@ -2594,13 +2597,13 @@ if conf.get('ENABLE_RESOLVE') == 1
                 install_rpath : pkglibdir,
                 install : true)
 
-        meson.add_install_script(meson_make_symlink,
-                                 bindir / 'resolvectl',
-                                 sbindir / 'resolvconf')
+        install_symlink('resolvconf',
+                        pointing_to : sbin_to_bin + 'resolvectl',
+                        install_dir : sbindir)
 
-        meson.add_install_script(meson_make_symlink,
-                                 bindir / 'resolvectl',
-                                 bindir / 'systemd-resolve')
+        install_symlink('systemd-resolve',
+                        pointing_to : 'resolvectl',
+                        install_dir : bindir)
 endif
 
 if conf.get('ENABLE_LOGIND') == 1
@@ -2976,14 +2979,15 @@ endif
 
 foreach alias : (['halt', 'poweroff', 'reboot', 'shutdown'] +
                  (conf.get('HAVE_SYSV_COMPAT') == 1 ? ['runlevel', 'telinit'] : []))
-        meson.add_install_script(meson_make_symlink,
-                                 bindir / 'systemctl',
-                                 sbindir / alias)
+        install_symlink(alias,
+                        pointing_to : sbin_to_bin + 'systemctl',
+                        install_dir : sbindir)
 endforeach
 
-meson.add_install_script(meson_make_symlink,
-                         bindir / 'udevadm',
-                         libexecdir / 'systemd-udevd')
+assert(fs.parent(fs.parent(libexecdir)) / 'bin' == bindir)
+install_symlink('systemd-udevd',
+                pointing_to : '../../bin/udevadm',
+                install_dir : libexecdir)
 
 if conf.get('ENABLE_BACKLIGHT') == 1
         executable(
@@ -3498,11 +3502,9 @@ if conf.get('ENABLE_BINFMT') == 1
                 install : true,
                 install_dir : libexecdir)
 
-        meson.add_install_script('sh', '-c',
-                                 mkdir_p.format(binfmtdir))
+        install_emptydir(binfmtdir)
         if install_sysconfdir
-                meson.add_install_script('sh', '-c',
-                                         mkdir_p.format(sysconfdir / 'binfmt.d'))
+                install_emptydir(sysconfdir / 'binfmt.d')
         endif
 endif
 
@@ -3709,11 +3711,13 @@ public_programs += executable(
 # Protecting files from the distro in /usr doesn't make sense since they can be trivially accessed otherwise,
 # so don't restrict the access mode in /usr. That doesn't apply to /etc, so we do restrict the access mode
 # there.
-meson.add_install_script('sh', '-c', mkdir_p.format(credstoredir))
+install_emptydir(credstoredir)
 if install_sysconfdir
         # Keep in sync with tmpfiles.d/credstore.conf
-        meson.add_install_script('sh', '-c', mkdir_p_mode.format(sysconfdir / 'credstore', '0700'))
-        meson.add_install_script('sh', '-c', mkdir_p_mode.format(sysconfdir / 'credstore.encrypted', '0700'))
+        install_emptydir(sysconfdir / 'credstore',
+                         install_mode : 'rwx------')
+        install_emptydir(sysconfdir / 'credstore.encrypted',
+                         install_mode : 'rwx------')
 endif
 
 executable(
@@ -3836,8 +3840,9 @@ public_programs += executable(
         install_rpath : pkglibdir,
         install : true)
 
-meson.add_install_script(meson_make_symlink,
-                         'systemd-mount', bindir / 'systemd-umount')
+install_symlink('systemd-umount',
+                pointing_to : 'systemd-mount',
+                install_dir : bindir)
 
 public_programs += executable(
         'systemd-run',
@@ -4135,11 +4140,9 @@ if conf.get('HAVE_KMOD') == 1
                 install : true,
                 install_dir : libexecdir)
 
-        meson.add_install_script('sh', '-c',
-                                 mkdir_p.format(modulesloaddir))
+        install_emptydir(modulesloaddir)
         if install_sysconfdir
-                meson.add_install_script('sh', '-c',
-                                         mkdir_p.format(sysconfdir / 'modules-load.d'))
+                install_emptydir(sysconfdir / 'modules-load.d')
         endif
 endif
 
@@ -4515,8 +4518,7 @@ install_data('LICENSE.GPL2',
 install_subdir('LICENSES',
                install_dir : docdir)
 
-meson.add_install_script('sh', '-c', mkdir_p.format(systemdstatedir))
-meson.add_install_script('sh', '-c', 'touch $DESTDIR@0@'.format(prefixdir))
+install_emptydir(systemdstatedir)
 
 ############################################################
 

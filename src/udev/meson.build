@@ -164,8 +164,7 @@ udev_pc = custom_target(
         install_dir : pkgconfigdatadir)
 
 if install_sysconfdir
-        meson.add_install_script('sh', '-c',
-                                 mkdir_p.format(sysconfdir / 'udev/rules.d'))
+        install_emptydir(sysconfdir / 'udev/rules.d')
 endif
 
 simple_fuzzers += files(
