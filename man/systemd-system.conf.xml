@@ -451,7 +451,7 @@
         the unified hierarchy for resource control), otherwise it defaults to no.
         <varname>DefaultMemoryAccounting=</varname> defaults to &MEMORY_ACCOUNTING_DEFAULT;.
         <varname>DefaultTasksAccounting=</varname> defaults to yes.
-        The other three settings default to no.</para>
+        The other two settings default to no.</para>
         </listitem>
       </varlistentry>
 
