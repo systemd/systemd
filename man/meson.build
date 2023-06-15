@@ -84,9 +84,9 @@ foreach tuple : manpages
                                         output : htmlalias,
                                         command : [ln, '-fs', html, '@OUTPUT@'])
                                 if want_html
-                                        dst = docdir / 'html' / htmlalias
-                                        cmd = 'ln -fs @0@ $DESTDIR@1@'.format(html, dst)
-                                        meson.add_install_script('sh', '-c', cmd)
+                                        install_symlink(htmlalias,
+                                                        pointing_to : html,
+                                                        install_dir : docdir / 'html')
                                         p2 += link
                                 endif
                                 html_pages += link
@@ -157,9 +157,9 @@ foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directiv
                         output : htmlalias,
                         command : [ln, '-fs', html, '@OUTPUT@'])
                 if want_html
-                        dst = docdir / 'html' / htmlalias
-                        cmd = 'ln -fs @0@ $DESTDIR@1@'.format(html, dst)
-                        meson.add_install_script('sh', '-c', cmd)
+                        install_symlink(htmlalias,
+                                        pointing_to : html,
+                                        install_dir : docdir / 'html')
                         p2 += link
                 endif
                 html_pages += link
