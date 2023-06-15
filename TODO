@@ -129,6 +129,21 @@ Deprecations and removals:
 
 Features:
 
+* also include packaging metadata (á la
+  https://systemd.io/ELF_PACKAGE_METADATA/) in our UEFI PE binaries, using the
+  same JSON format.
+
+* make "bootctl install" + "bootctl update" useful for installing shim too. For
+  that introduce new dir /usr/lib/systemd/efi/extra/ which we copy mostly 1:1
+  into the ESP at install time. Then make the logic smart enough so that we
+  don't overwrite bootx64.efi with our own if the extra tree already contains
+  one. Also, follow symlinks when copying, so that shim rpm can symlink their
+  stuff into our dir (which is safe since the target ESP is generally VFAT and
+  thus does not have symlinks anyway). Later, teach the update logic to look at
+  the ELF package metadata (which we also should include in all PE files, see
+  above) for version info in all *.EFI files, and use it to only update if
+  newer.
+
 * in sd-stub: optionally add support for a new PE section .keyring or so that
   contains additional certificates to include in the Mok keyring, extending
   what shim might have placed there. why? let's say I use "ukify" to build +
