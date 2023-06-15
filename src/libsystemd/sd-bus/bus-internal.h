@@ -389,6 +389,16 @@ int bus_attach_inotify_event(sd_bus *b);
 void bus_close_inotify_fd(sd_bus *b);
 void bus_close_io_fds(sd_bus *b);
 
+int bus_add_match_full(
+                sd_bus *bus,
+                sd_bus_slot **slot,
+                bool asynchronous,
+                const char *match,
+                sd_bus_message_handler_t callback,
+                sd_bus_message_handler_t install_callback,
+                void *userdata,
+                uint64_t timeout_usec);
+
 #define OBJECT_PATH_FOREACH_PREFIX(prefix, path)                        \
         for (char *_slash = ({ strcpy((prefix), (path)); streq((prefix), "/") ? NULL : strrchr((prefix), '/'); }) ; \
              _slash && ((_slash[(_slash) == (prefix)] = 0), true);       \
