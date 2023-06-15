@@ -92,7 +92,7 @@ if test -f /sys/fs/cgroup/cgroup.max.depth; then
                 test -w "/sys/fs/cgroup/system.slice/$unit/zzz/cgroup.max.depth"
 fi
 
-# Check that the invoked process itsel is also in the subgroup
+# Check that the invoked process itself is also in the subgroup
 unit="test-subgroup-$RANDOM.service"
 systemd-run --wait \
             --unit="$unit" \

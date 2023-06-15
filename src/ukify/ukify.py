@@ -842,7 +842,7 @@ def generate_keys(opts):
         print(f'Writing SecureBoot private key to {opts.sb_key}')
         with temporary_umask(0o077):
             opts.sb_key.write_bytes(key_pem)
-        print(f'Writing SecureBoot certicate to {opts.sb_cert}')
+        print(f'Writing SecureBoot certificate to {opts.sb_cert}')
         opts.sb_cert.write_bytes(cert_pem)
 
     for priv_key, pub_key, _ in key_path_groups(opts):
