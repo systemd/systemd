@@ -414,6 +414,15 @@ static int context_load_machine_info(Context *c) {
         if (!sd_id128_is_null(c->machine_id) && c->layout >= 0)
                 return 0;
 
+        /* For testing. To make not read host's /etc/machine-info. */
+        r = getenv_bool("KERNEL_INSTALL_READ_MACHINE_INFO");
+        if (r < 0 && r != -ENXIO)
+                log_warning_errno(r, "Failed to read $KERNEL_INSTALL_READ_MACHINE_INFO, assuming yes: %m");
+        if (r == 0) {
+                log_debug("Skipping to read /etc/machine-info.");
+                return 0;
+        }
+
         r = chaseat(c->rfd, path, CHASE_AT_RESOLVE_IN_ROOT, NULL, &fd);
         if (r == -ENOENT)
                 return 0;
