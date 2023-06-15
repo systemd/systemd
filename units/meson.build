@@ -633,8 +633,6 @@ units = [
         },
 ]
 
-add_wants = []
-
 foreach unit : units
         source = unit.get('file')
 
@@ -671,12 +669,19 @@ foreach unit : units
 
         if install
                 foreach target : unit.get('symlinks', [])
-                        add_wants += [systemunitdir, target, name]
+                        if target.endswith('/')
+                                assert(target.replace('/', '') + '/' == target)
+                                install_symlink(name,
+                                                pointing_to : '..' / name,
+                                                install_dir : systemunitdir / target)
+                        else
+                                install_symlink(target,
+                                                pointing_to : name,
+                                                install_dir : systemunitdir)
+                        endif
                 endforeach
         endif
 endforeach
-
-meson.add_install_script('meson-add-wants.sh', add_wants)
 
 install_data('user-.slice.d/10-defaults.conf',
              install_dir : systemunitdir + '/user-.slice.d')
@@ -688,19 +693,21 @@ install_data('user@0.service.d/10-login-barrier.conf',
 
 ############################################################
 
-if install_sysconfdir
-        meson.add_install_script(meson_make_symlink,
-                                 pkgsysconfdir / 'user',
-                                 sysconfdir / 'xdg/systemd/user')
+if fs.parent(dbussystemservicedir) == fs.parent(dbussessionservicedir)
+        install_symlink('org.freedesktop.systemd1.service',
+                        pointing_to : '..' / fs.name(dbussystemservicedir) / 'org.freedesktop.systemd1.service',
+                        install_dir : dbussessionservicedir)
+else
+        # The dbussystemservicedir and dbussessionservicedir do not share the same parent directory.
+        # Let's use the custom install script to create releative symlink.
+        install_emptydir(dbussessionservicedir)
+        meson.add_install_script(sh, '-c',
+                                 ln_s.format(dbussystemservicedir / 'org.freedesktop.systemd1.service',
+                                             dbussessionservicedir / 'org.freedesktop.systemd1.service'))
 endif
-meson.add_install_script(meson_make_symlink,
-                         dbussystemservicedir / 'org.freedesktop.systemd1.service',
-                         dbussessionservicedir / 'org.freedesktop.systemd1.service')
 if conf.get('HAVE_SYSV_COMPAT') == 1
         foreach i : [1, 2, 3, 4, 5]
-                meson.add_install_script(
-                        'sh', '-c',
-                        mkdir_p.format(systemunitdir / 'runlevel@0@.target.wants'.format(i)))
+                install_emptydir(systemunitdir / 'runlevel@0@.target.wants'.format(i))
         endforeach
 endif
 
