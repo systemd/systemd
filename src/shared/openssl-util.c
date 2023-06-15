@@ -273,6 +273,73 @@ int rsa_encrypt_bytes(
         return 0;
 }
 
+/* Encrypt the key data using RSA-OAEP with the provided label and specified digest algorithm. Returns 0 on
+ * success, -EOPNOTSUPP if the digest algorithm is not supported, or < 0 for any other error. */
+int rsa_oaep_encrypt_bytes(
+                const EVP_PKEY *pkey,
+                const char *digest_alg,
+                const char *label,
+                const void *decrypted_key,
+                size_t decrypted_key_size,
+                void **ret_encrypt_key,
+                size_t *ret_encrypt_key_size) {
+
+        assert(pkey);
+        assert(digest_alg);
+        assert(label);
+        assert(decrypted_key);
+        assert(decrypted_key_size > 0);
+        assert(ret_encrypt_key);
+        assert(ret_encrypt_key_size);
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        _cleanup_(EVP_MD_freep) EVP_MD *md = EVP_MD_fetch(NULL, digest_alg, NULL);
+#else
+        const EVP_MD *md = EVP_get_digestbyname(digest_alg);
+#endif
+        if (!md)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Digest algorithm '%s' not supported.", digest_alg);
+
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new((EVP_PKEY*) pkey, NULL);
+        if (!ctx)
+                return log_openssl_errors("Failed to create new EVP_PKEY_CTX");
+
+        if (EVP_PKEY_encrypt_init(ctx) <= 0)
+                return log_openssl_errors("Failed to initialize EVP_PKEY_CTX");
+
+        if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) <= 0)
+                return log_openssl_errors("Failed to configure RSA-OAEP padding");
+
+        if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, md) <= 0)
+                return log_openssl_errors("Failed to configure RSA-OAEP MD");
+
+        _cleanup_free_ char *duplabel = strdup(label);
+        if (!duplabel)
+                return log_oom_debug();
+
+        if (EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, duplabel, strlen(duplabel) + 1) <= 0)
+                return log_openssl_errors("Failed to configure RSA-OAEP label");
+        /* ctx owns this now, don't free */
+        TAKE_PTR(duplabel);
+
+        size_t size = 0;
+        if (EVP_PKEY_encrypt(ctx, NULL, &size, decrypted_key, decrypted_key_size) <= 0)
+                return log_openssl_errors("Failed to determine RSA-OAEP encrypted key size");
+
+        _cleanup_free_ void *buf = malloc(size);
+        if (!buf)
+                return log_oom_debug();
+
+        if (EVP_PKEY_encrypt(ctx, buf, &size, decrypted_key, decrypted_key_size) <= 0)
+                return log_openssl_errors("Failed to RSA-OAEP encrypt");
+
+        *ret_encrypt_key = TAKE_PTR(buf);
+        *ret_encrypt_key_size = size;
+
+        return 0;
+}
+
 int rsa_pkey_to_suitable_key_size(
                 EVP_PKEY *pkey,
                 size_t *ret_suitable_key_size) {
