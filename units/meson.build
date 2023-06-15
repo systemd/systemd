@@ -43,6 +43,7 @@ units = [
         ['initrd-udevadm-cleanup-db.service',   'ENABLE_INITRD'],
         ['initrd-usr-fs.target',                'ENABLE_INITRD'],
         ['initrd.target',                       'ENABLE_INITRD'],
+        ['installer.target',                    ''],
         ['kexec.target',                        ''],
         ['ldconfig.service',                    'ENABLE_LDCONFIG',
          'sysinit.target.wants/'],
