@@ -96,8 +96,7 @@
               <varlistentry>
                 <term>degraded-carrier</term>
                 <listitem>
-                  <para>for bond or bridge master, one of the bonding or bridge slave network interfaces is
-                  in off, no-carrier, or dormant state</para>
+                  <para>one of the bonding or bridge slave network interfaces is in off, no-carrier, or dormant state, and the master interface has no address.</para>
                 </listitem>
               </varlistentry>
               <varlistentry>
@@ -110,7 +109,9 @@
               <varlistentry>
                 <term>degraded</term>
                 <listitem>
-                  <para>the link has carrier and addresses valid on the local link configured</para>
+                  <para>the link has carrier and addresses valid on the local link configured. For bond or
+                  bridge master this means that not all slave network interfaces have carrier but at least
+                  one does.</para>
                 </listitem>
               </varlistentry>
               <varlistentry>
@@ -122,7 +123,8 @@
               <varlistentry>
                 <term>routable</term>
                 <listitem>
-                  <para>the link has carrier and routable address configured</para>
+                  <para>the link has carrier and routable address configured. For bond or bridge master it is
+                  not necessary for all slave network interfaces to have carrier, but at least one must.</para>
                 </listitem>
               </varlistentry>
             </variablelist>
