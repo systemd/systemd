@@ -57,6 +57,7 @@ static int add_cryptsetup(
                 bool rw,
                 bool require,
                 bool measure,
+                bool try_empty,
                 char **ret_device) {
 
 #if HAVE_LIBCRYPTSETUP
@@ -97,6 +98,17 @@ static int add_cryptsetup(
         if (!rw) {
                 options = strdup("read-only");
                 if (!options)
+                        return log_oom();
+        }
+
+        if (try_empty) {
+                /* When unlocking disk partitions, we'll try an empty password. This allows systemd-repart to
+                 * create partitions with no password set, and then the first-boot experience can let the
+                 * user choose what method they will use for decryption (tpm/password/pkcs11/fido/etc). The
+                 * first-boot experience can then also enroll a recovery key and present it to the user in a
+                 * way they can save */
+
+                if (!strextend_with_separator(&options, ",", "try-empty-password=yes"))
                         return log_oom();
         }
 
@@ -191,7 +203,7 @@ static int add_mount(
         log_debug("Adding %s: %s fstype=%s", where, what, fstype ?: "(any)");
 
         if (streq_ptr(fstype, "crypto_LUKS")) {
-                r = add_cryptsetup(id, what, rw, /* require= */ true, measure, &crypto_what);
+                r = add_cryptsetup(id, what, rw, /* require= */ true, measure, /* try_empty= */ true, &crypto_what);
                 if (r < 0)
                         return r;
 
@@ -368,7 +380,8 @@ static int add_partition_swap(DissectedPartition *p) {
         }
 
         if (streq_ptr(p->fstype, "crypto_LUKS")) {
-                r = add_cryptsetup("swap", p->node, /* rw= */ true, /* require= */ true, /* measure= */ false, &crypto_what);
+                r = add_cryptsetup("swap", p->node, /* rw= */ true, /* require= */ true, /* measure= */ false,
+                                   /* try_empty= */ false, &crypto_what);
                 if (r < 0)
                         return r;
                 what = crypto_what;
@@ -700,7 +713,8 @@ static int add_root_cryptsetup(void) {
         /* If a device /dev/gpt-auto-root-luks appears, then make it pull in systemd-cryptsetup-root.service, which
          * sets it up, and causes /dev/gpt-auto-root to appear which is all we are looking for. */
 
-        return add_cryptsetup("root", "/dev/gpt-auto-root-luks", /* rw= */ true, /* require= */ false, /* measure= */ true, NULL);
+        return add_cryptsetup("root", "/dev/gpt-auto-root-luks", /* rw= */ true, /* require= */ false, /* measure= */ true,
+                              /* try_empty */ true, NULL);
 #else
         return 0;
 #endif
