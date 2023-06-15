@@ -29,6 +29,7 @@
 #include "devnum-util.h"
 #include "dirent-util.h"
 #include "efivars.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fdisk-util.h"
@@ -5220,6 +5221,19 @@ static int context_can_factory_reset(Context *context) {
         return false;
 }
 
+static int context_check_is_removable(Context *context) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        int r;
+
+        assert(context);
+
+        r = sd_device_new_from_devname(&dev, context->node);
+        if (r < 0)
+                return r;
+
+        return device_is_removable(dev);
+}
+
 static int resolve_copy_blocks_auto_candidate(
                 dev_t partition_devno,
                 GptPartitionType partition_type,
@@ -6921,11 +6935,21 @@ static int run(int argc, char *argv[]) {
 
         strv_uniq(arg_definitions);
 
-        r = context_read_definitions(context);
+        r = find_root(context);
         if (r < 0)
                 return r;
 
-        r = find_root(context);
+        if (getenv_bool("SYSTEMD_INSTALLER_DISABLE_IF_REMOVABLE") > 0) {
+                r = context_check_is_removable(context);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_info("installer-generator: ignoring definitions because block device is not removable");
+                        arg_definitions = strv_free(arg_definitions);
+                }
+        }
+
+        r = context_read_definitions(context);
         if (r < 0)
                 return r;
 
