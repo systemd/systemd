@@ -1000,8 +1000,10 @@ EOF
 #!/usr/bin/env bash
 set -eux
 
+export PATH="/sbin:/bin:/usr/sbin:/usr/bin"
 export ${default_environment[@]}
 [[ -n "\$ASAN_OPTIONS" && -n "\$UBSAN_OPTIONS" ]]
+
 exec "$ROOTLIBDIR/systemd" "\$@"
 EOF
     chmod 0755 "$asan_wrapper"
