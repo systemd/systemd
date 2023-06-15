@@ -220,9 +220,10 @@ simple_fuzzers += files(
         'fuzz-udev-rule-parse-value.c',
 )
 
-meson.add_install_script(meson_make_symlink,
-                         bindir / 'udevadm',
-                         libexecdir / 'systemd-udevd')
+assert(fs.parent(fs.parent(libexecdir)) / 'bin' == bindir)
+install_symlink('systemd-udevd',
+                pointing_to : '../../bin/udevadm',
+                install_dir : libexecdir)
 
 if install_sysconfdir_samples
         install_data('udev.conf',
@@ -241,6 +242,5 @@ udev_pc = custom_target(
         install_dir : pkgconfigdatadir)
 
 if install_sysconfdir
-        meson.add_install_script('sh', '-c',
-                                 mkdir_p.format(sysconfdir / 'udev/rules.d'))
+        install_emptydir(sysconfdir / 'udev/rules.d')
 endif
