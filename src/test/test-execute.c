@@ -448,9 +448,9 @@ static void test_exec_privatedevices(Manager *m) {
         }
 
         test(m, "exec-privatedevices-yes-capability-mknod.service", can_unshare || MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
-        test(m, "exec-privatedevices-no-capability-mknod.service", 0, CLD_EXITED);
+        test(m, "exec-privatedevices-no-capability-mknod.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
         test(m, "exec-privatedevices-yes-capability-sys-rawio.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
-        test(m, "exec-privatedevices-no-capability-sys-rawio.service", 0, CLD_EXITED);
+        test(m, "exec-privatedevices-no-capability-sys-rawio.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
 }
 
 static void test_exec_protecthome(Manager *m) {
@@ -480,7 +480,7 @@ static void test_exec_protectkernelmodules(Manager *m) {
                 return;
         }
 
-        test(m, "exec-protectkernelmodules-no-capabilities.service", 0, CLD_EXITED);
+        test(m, "exec-protectkernelmodules-no-capabilities.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
         test(m, "exec-protectkernelmodules-yes-capabilities.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-protectkernelmodules-yes-mount-propagation.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 }
@@ -1118,12 +1118,12 @@ static void test_exec_unsetenvironment(Manager *m) {
 }
 
 static void test_exec_specifier(Manager *m) {
-        test(m, "exec-specifier.service", can_unshare || MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-specifier.service", 0, CLD_EXITED);
         if (MANAGER_IS_SYSTEM(m))
                 test(m, "exec-specifier-system.service", 0, CLD_EXITED);
         else
                 test(m, "exec-specifier-user.service", 0, CLD_EXITED);
-        test(m, "exec-specifier@foo-bar.service", can_unshare || MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
+        test(m, "exec-specifier@foo-bar.service", 0, CLD_EXITED);
         test(m, "exec-specifier-interpolation.service", 0, CLD_EXITED);
 }
 
