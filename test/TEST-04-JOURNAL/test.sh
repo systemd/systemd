@@ -14,6 +14,10 @@ test_append_files() {
     cp -av "${TEST_BASE_DIR:?}/test-journals/"* "$workspace/test-journals/"
 
     inst_binary unzstd
+
+    (
+        command -v logger >/dev/null 2>&1 && inst_binary logger
+    )
 }
 
 do_test "$@"
