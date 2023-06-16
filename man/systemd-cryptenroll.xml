@@ -257,6 +257,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--empty</option></term>
+
+        <listitem><para>Enroll an empty key. This has the effect of disabling encryption on the volume
+        without decrypting it. Unlike an empty <option>--password</option>, a key enrolled via this
+        option can automatically unlock the volume with no performance penalty.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--unlock-key-file=</option><replaceable>PATH</replaceable></term>
 
         <listitem><para>Use a file instead of a password/passphrase read from stdin to unlock the volume.
@@ -463,7 +471,8 @@
 
         <listitem><para>Wipes one or more LUKS2 key slots. Takes a comma separated list of numeric slot
         indexes, or the special strings <literal>all</literal> (for wiping all key slots),
-        <literal>empty</literal> (for wiping all key slots that are unlocked by an empty passphrase),
+        <literal>empty</literal> (for wiping all key slots that are unlocked by an empty passphrase; not
+        just those enrolled via <option>--empty</option>),
         <literal>password</literal> (for wiping all key slots that are unlocked by a traditional passphrase),
         <literal>recovery</literal> (for wiping all key slots that are unlocked by a recovery key),
         <literal>pkcs11</literal> (for wiping all key slots that are unlocked by a PKCS#11 token),
