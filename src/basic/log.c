@@ -106,7 +106,8 @@ bool _log_message_dummy = false; /* Always false */
         } while (false)
 
 static void log_close_console(void) {
-        console_fd = safe_close_above_stdio(console_fd);
+        /* See comment in log_close_journal() */
+        (void) safe_close_above_stdio(TAKE_FD(console_fd));
 }
 
 static int log_open_console(void) {
@@ -130,7 +131,8 @@ static int log_open_console(void) {
 }
 
 static void log_close_kmsg(void) {
-        kmsg_fd = safe_close(kmsg_fd);
+        /* See comment in log_close_journal() */
+        (void) safe_close(TAKE_FD(kmsg_fd));
 }
 
 static int log_open_kmsg(void) {
@@ -147,7 +149,8 @@ static int log_open_kmsg(void) {
 }
 
 static void log_close_syslog(void) {
-        syslog_fd = safe_close(syslog_fd);
+        /* See comment in log_close_journal() */
+        (void) safe_close(TAKE_FD(syslog_fd));
 }
 
 static int create_log_socket(int type) {
@@ -212,7 +215,11 @@ fail:
 }
 
 static void log_close_journal(void) {
-        journal_fd = safe_close(journal_fd);
+        /* If the journal FD is bad, safe_close will fail, and will try to log, which will fail, so we'll
+         * try to close the journal FD, which is bad, so safe_close will fail... Whether we can close it
+         * or not, invalidate it immediately so that we don't get in a recursive loop until we run out of
+         * stack. */
+        (void) safe_close(TAKE_FD(journal_fd));
 }
 
 static int log_open_journal(void) {
