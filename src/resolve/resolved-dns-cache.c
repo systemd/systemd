@@ -602,7 +602,7 @@ static int dns_cache_put_negative(
         /* Determine how long to cache this entry. In case we have some RRs in the answer use the lowest TTL
          * of any of them. Typically that's the SOA's TTL, which is OK, but could possibly be lower because
          * of some other RR. Let's better take the lowest option here than a needlessly high one */
-        i->until =
+        i->until = i->until_valid =
                 i->type == DNS_CACHE_RCODE ? timestamp + CACHE_TTL_STRANGE_RCODE_USEC :
                 calculate_until_valid(soa, dns_answer_min_ttl(answer), nsec_ttl, timestamp, true);
 
