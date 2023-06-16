@@ -13,7 +13,11 @@ test_append_files() {
     mkdir -p "$workspace/test-journals/"
     cp -av "${TEST_BASE_DIR:?}/test-journals/"* "$workspace/test-journals/"
 
-    inst_binary unzstd
+    image_install curl unzstd
+    image_install -o openssl
+    # Necessary for RH-based systems, otherwise MHD fails with:
+    #   microhttpd: Failed to initialise TLS session.
+    image_install -o /etc/crypto-policies/back-ends/gnutls.config
 }
 
 do_test "$@"
