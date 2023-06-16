@@ -57,6 +57,7 @@ typedef struct {
         char16_t *devicetree;
         char16_t *options;
         char16_t **initrd;
+        char16_t **addons; /* systemd-addons for this entry */
         char16_t key;
         EFI_STATUS (*call)(void);
         int tries_done;
@@ -577,6 +578,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                         printf("        loader: %ls\n", entry->loader);
                 STRV_FOREACH(initrd, entry->initrd)
                         printf("        initrd: %ls\n", *initrd);
+                STRV_FOREACH(addon, entry->addons)
+                        printf("         addon: %ls\n", *addon);
                 if (entry->devicetree)
                         printf("    devicetree: %ls\n", entry->devicetree);
                 if (entry->options)
@@ -1093,6 +1096,7 @@ static void config_entry_free(ConfigEntry *entry) {
         free(entry->devicetree);
         free(entry->options);
         strv_free(entry->initrd);
+        strv_free(entry->addons);
         free(entry->path);
         free(entry->current_name);
         free(entry->next_name);
@@ -1406,7 +1410,7 @@ static void config_entry_add_type1(
 
         _cleanup_(config_entry_freep) ConfigEntry *entry = NULL;
         char *line;
-        size_t pos = 0, n_initrd = 0;
+        size_t pos = 0, n_initrd = 0, n_addons = 0;
         char *key, *value;
         EFI_STATUS err;
 
@@ -1491,6 +1495,16 @@ static void config_entry_add_type1(
                                 (n_initrd + 2) * sizeof(uint16_t *));
                         entry->initrd[n_initrd++] = xstr8_to_path(value);
                         entry->initrd[n_initrd] = NULL;
+                        continue;
+                }
+
+                if (streq8(key, "add-on")) {
+                        entry->addons = xrealloc(
+                                entry->addons,
+                                n_addons == 0 ? 0 : (n_addons + 1) * sizeof(uint16_t *),
+                                (n_addons + 2) * sizeof(uint16_t *));
+                        entry->addons[n_addons++] = xstr8_to_path(value);
+                        entry->addons[n_addons] = NULL;
                         continue;
                 }
 
