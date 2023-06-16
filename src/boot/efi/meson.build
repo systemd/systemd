@@ -252,6 +252,7 @@ endif
 libefi_sources = files(
         'console.c',
         'device-path-util.c',
+        'addon-util.c',
         'devicetree.c',
         'drivers.c',
         'efi-string.c',
