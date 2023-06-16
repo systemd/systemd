@@ -1005,10 +1005,10 @@ static int parse_argv(int argc, char *argv[]) {
 static int run(int argc, char *argv[]) {
         _cleanup_(MHD_stop_daemonp) struct MHD_Daemon *d = NULL;
         struct MHD_OptionItem opts[] = {
-                { MHD_OPTION_NOTIFY_COMPLETED,
-                  (intptr_t) request_meta_free, NULL },
                 { MHD_OPTION_EXTERNAL_LOGGER,
                   (intptr_t) microhttpd_logger, NULL },
+                { MHD_OPTION_NOTIFY_COMPLETED,
+                  (intptr_t) request_meta_free, NULL },
                 { MHD_OPTION_END, 0, NULL },
                 { MHD_OPTION_END, 0, NULL },
                 { MHD_OPTION_END, 0, NULL },
