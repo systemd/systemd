@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "addon-util.h"
 #include "bcd.h"
 #include "bootspec-fundamental.h"
 #include "console.h"
@@ -63,6 +64,7 @@ typedef struct {
         char16_t *options;
         bool options_implied; /* If true, these options are implied if we invoke the PE binary without any parameters (as in: UKI). If false we must specify these options explicitly. */
         char16_t **initrd;
+        char16_t **addons; /* systemd-addons for this entry */
         char16_t key;
         EFI_STATUS (*call)(void);
         int tries_done;
@@ -599,6 +601,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                         printf("        loader: %ls\n", entry->loader);
                 STRV_FOREACH(initrd, entry->initrd)
                         printf("        initrd: %ls\n", *initrd);
+                STRV_FOREACH(addon, entry->addons)
+                        printf("         addon: %ls\n", *addon);
                 if (entry->devicetree)
                         printf("    devicetree: %ls\n", entry->devicetree);
                 if (entry->options)
@@ -1181,6 +1185,7 @@ static BootEntry* boot_entry_free(BootEntry *entry) {
         free(entry->devicetree);
         free(entry->options);
         strv_free(entry->initrd);
+        strv_free(entry->addons);
         free(entry->path);
         free(entry->current_name);
         free(entry->next_name);
@@ -1417,7 +1422,7 @@ static void boot_entry_add_type1(
 
         _cleanup_(boot_entry_freep) BootEntry *entry = NULL;
         char *line;
-        size_t pos = 0, n_initrd = 0;
+        size_t pos = 0, n_initrd = 0, n_addons = 0;
         char *key, *value;
         EFI_STATUS err;
 
@@ -1486,7 +1491,14 @@ static void boot_entry_add_type1(
                                 (n_initrd + 2) * sizeof(uint16_t *));
                         entry->initrd[n_initrd++] = xstr8_to_path(value);
                         entry->initrd[n_initrd] = NULL;
-
+                } else if (streq8(key, "add-on")) {
+                        entry->addons = xrealloc(
+                                entry->addons,
+                                n_addons == 0 ? 0 : (n_addons + 1) * sizeof(uint16_t *),
+                                (n_addons + 2) * sizeof(uint16_t *));
+                        entry->addons[n_addons++] = xstr8_to_path(value);
+                        entry->addons[n_addons] = NULL;
+                        continue;
                 } else if (streq8(key, "options")) {
                         _cleanup_free_ char16_t *new = NULL;
 
@@ -2317,6 +2329,13 @@ static EFI_STATUS initrd_prepare(
         return EFI_SUCCESS;
 }
 
+static void cleanup_loaded_image(EFI_LOADED_IMAGE_PROTOCOL **loaded_image) {
+        assert(loaded_image);
+
+        (void) addons_unload_proto((EFI_HANDLE *)*loaded_image);
+        *loaded_image = NULL;
+}
+
 static EFI_STATUS image_start(
                 EFI_HANDLE parent_image,
                 const BootEntry *entry) {
@@ -2366,7 +2385,7 @@ static EFI_STATUS image_start(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error registering initrd: %m");
 
-        EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
+        _cleanup_(cleanup_loaded_image) EFI_LOADED_IMAGE_PROTOCOL *loaded_image = NULL;
         err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting LoadedImageProtocol handle: %m");
@@ -2390,6 +2409,12 @@ static EFI_STATUS image_start(
 
                 /* Try to log any options to the TPM, especially to catch manually edited options */
                 (void) tpm_log_load_options(options, NULL);
+        }
+
+        if (entry->addons) {
+                err = addons_install_proto(loaded_image, entry->addons);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error installing addons protocol: %m");
         }
 
         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeExecUSec", 0);
