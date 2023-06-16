@@ -605,6 +605,7 @@ static int dns_cache_put_negative(
         i->until =
                 i->type == DNS_CACHE_RCODE ? timestamp + CACHE_TTL_STRANGE_RCODE_USEC :
                 calculate_until_valid(soa, dns_answer_min_ttl(answer), nsec_ttl, timestamp, true);
+        i->until_valid = i->until;
 
         if (i->type == DNS_CACHE_NXDOMAIN) {
                 /* NXDOMAIN entries should apply equally to all types, so we use ANY as
