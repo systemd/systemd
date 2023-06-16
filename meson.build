@@ -10,7 +10,7 @@ project('systemd', 'c',
                 'localstatedir=/var',
                 'warning_level=2',
         ],
-        meson_version : '>= 0.56.0',
+        meson_version : '>= 0.60.0',
        )
 
 libsystemd_version = '0.36.0'
@@ -18,7 +18,7 @@ libudev_version = '1.7.6'
 
 conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://systemd.io/')
-conf.set('PROJECT_VERSION',    meson.project_version(),
+conf.set('PROJECT_VERSION', meson.project_version(),
          description : 'Numerical project version (used where a simple number is expected)')
 
 # This is to be used instead of meson.source_root(), as the latter will return
@@ -4454,16 +4454,13 @@ foreach test : tests
                 versiondep,
         ]
 
-        # FIXME: Drop .format with meson >= 0.59.0
-        name = fs.stem('@0@'.format(sources[0]))
+        name = fs.stem(sources[0])
         if not name.endswith('.cc')
                 deps += [userspace]
         endif
         name = name.split('.')[0]
 
-        suite = fs.name(fs.parent('@0@'.format(sources[0])))
-        # FIXME: Use str.replace() with meson >= 0.58.0
-        suite = suite.split('sd-')[-1]
+        suite = fs.name(fs.parent(sources[0])).replace('sd-', '')
 
         if condition != '' and conf.get(condition) == 0
                 message('Not compiling @0@ because @1@ is not true'.format(name, condition))
@@ -4594,8 +4591,7 @@ foreach fuzzer : fuzzers
         endif
         sources += fuzz_generated_directives
 
-        # FIXME: Drop .format with meson >= 0.59.0
-        name = fs.stem('@0@'.format(sources[0]))
+        name = fs.stem(sources[0])
 
         exe = executable(
                 name,

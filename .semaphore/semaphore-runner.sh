@@ -6,7 +6,7 @@ set -o pipefail
 
 # default to Debian testing
 DISTRO="${DISTRO:-debian}"
-RELEASE="${RELEASE:-bullseye}"
+RELEASE="${RELEASE:-bookworm}"
 BRANCH="${BRANCH:-upstream-ci}"
 ARCH="${ARCH:-amd64}"
 CONTAINER="${RELEASE}-${ARCH}"
