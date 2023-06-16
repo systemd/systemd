@@ -89,12 +89,15 @@ while [[ $(date -u +%s) -le $timeout ]]; do
     if ! systemctl status testsuite-55-testbloat.service; then
         break
     fi
+    oomctl
     sleep 2
 done
 
 # testbloat should be killed and testchill should be fine
 if systemctl status testsuite-55-testbloat.service; then exit 42; fi
 if ! systemctl status testsuite-55-testchill.service; then exit 24; fi
+
+sleep 120 # wait for systemd-oomd kill cool down and elevated memory pressure to come down
 
 # Make sure we also work correctly on user units.
 
@@ -126,6 +129,7 @@ while [[ $(date -u +%s) -le $timeout ]]; do
     if ! systemctl --machine "testuser@.host" --user status testsuite-55-testbloat.service; then
         break
     fi
+    oomctl
     sleep 2
 done
 
@@ -153,6 +157,7 @@ EOF
         if ! systemctl status testsuite-55-testmunch.service; then
             break
         fi
+        oomctl
         sleep 2
     done
 
