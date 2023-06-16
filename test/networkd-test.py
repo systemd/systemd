@@ -640,7 +640,7 @@ class DnsmasqClientTest(ClientTestBase, unittest.TestCase):
         conf = '/run/systemd/resolved.conf.d/test-enable-dnssec.conf'
         os.makedirs(os.path.dirname(conf), exist_ok=True)
         with open(conf, 'w') as f:
-            f.write('[Resolve]\nDNSSEC=allow-downgrade\nLLMNR=no\nMulticastDNS=no\nDNSOverTLS=no\n')
+            f.write('[Resolve]\nDNSSEC=allow-downgrade\nLLMNR=no\nMulticastDNS=no\nDNSOverTLS=no\nDNS=\n')
         self.addCleanup(os.remove, conf)
 
         # create interface for generic connections; this will map all DNS names
@@ -733,7 +733,7 @@ DNSSECNegativeTrustAnchors=company lab
         conf = '/run/systemd/resolved.conf.d/test-enable-dnssec.conf'
         os.makedirs(os.path.dirname(conf), exist_ok=True)
         with open(conf, 'w') as f:
-            f.write('[Resolve]\nDNSSEC=allow-downgrade\nLLMNR=no\nMulticastDNS=no\nDNSOverTLS=no\n')
+            f.write('[Resolve]\nDNSSEC=allow-downgrade\nLLMNR=no\nMulticastDNS=no\nDNSOverTLS=no\nDNS=\n')
         self.addCleanup(os.remove, conf)
 
         # Add example.com to NTA list for this test
