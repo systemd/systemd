@@ -9,6 +9,7 @@ typedef enum EnrollType {
         ENROLL_PKCS11,
         ENROLL_FIDO2,
         ENROLL_TPM2,
+        ENROLL_EMPTY,
         _ENROLL_TYPE_MAX,
         _ENROLL_TYPE_INVALID = -EINVAL,
 } EnrollType;

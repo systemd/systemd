@@ -287,6 +287,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--empty</option></term>
+
+        <listitem><para>Enroll an empty key. This allows the volume to be unlocked without a key,
+        which effectively disables the confidentiality protections of encryption. The encryption is not
+        removed, however, so confidentiality protections can be reenabled by removing the empty
+        key enrollment (i.e. via <option>--wipe-key=empty</option>). Unlike a blank <option>--password</option>,
+        a key enrolled via this option will automatically unlock the volume with no user input and no
+        performance penalty.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--unlock-key-file=</option><replaceable>PATH</replaceable></term>
 
         <listitem><para>Use a file instead of a password/passphrase read from stdin to unlock the volume.
@@ -590,7 +603,8 @@
 
         <listitem><para>Wipes one or more LUKS2 key slots. Takes a comma separated list of numeric slot
         indexes, or the special strings <literal>all</literal> (for wiping all key slots),
-        <literal>empty</literal> (for wiping all key slots that are unlocked by an empty passphrase),
+        <literal>empty</literal> (for wiping all key slots that are unlocked by an empty passphrase; not
+        just those enrolled via <option>--empty</option>),
         <literal>password</literal> (for wiping all key slots that are unlocked by a traditional passphrase),
         <literal>recovery</literal> (for wiping all key slots that are unlocked by a recovery key),
         <literal>pkcs11</literal> (for wiping all key slots that are unlocked by a PKCS#11 token),
