@@ -22,18 +22,18 @@ if [[ -e /skipped ]]; then
     exit 0
 fi
 
-rm -rf /etc/systemd/system/testsuite-55-testbloat.service.d
+rm -rf /run/systemd/system/testsuite-55-testbloat.service.d
 
 # Configure oomd explicitly to avoid conflicts with distro dropins
-mkdir -p /etc/systemd/oomd.conf.d/
-echo -e "[OOM]\nDefaultMemoryPressureDurationSec=2s" >/etc/systemd/oomd.conf.d/99-oomd-test.conf
-mkdir -p /etc/systemd/system/-.slice.d/
-echo -e "[Slice]\nManagedOOMSwap=auto" >/etc/systemd/system/-.slice.d/99-oomd-test.conf
-mkdir -p /etc/systemd/system/user@.service.d/
-echo -e "[Service]\nManagedOOMMemoryPressure=auto\nManagedOOMMemoryPressureLimit=0%" >/etc/systemd/system/user@.service.d/99-oomd-test.conf
+mkdir -p /run/systemd/oomd.conf.d/
+echo -e "[OOM]\nDefaultMemoryPressureDurationSec=2s" >/run/systemd/oomd.conf.d/99-oomd-test.conf
+mkdir -p /run/systemd/system/-.slice.d/
+echo -e "[Slice]\nManagedOOMSwap=auto" >/run/systemd/system/-.slice.d/99-oomd-test.conf
+mkdir -p /run/systemd/system/user@.service.d/
+echo -e "[Service]\nManagedOOMMemoryPressure=auto\nManagedOOMMemoryPressureLimit=0%" >/run/systemd/system/user@.service.d/99-oomd-test.conf
 
-mkdir -p /etc/systemd/system/systemd-oomd.service.d/
-echo -e "[Service]\nEnvironment=SYSTEMD_LOG_LEVEL=debug" >/etc/systemd/system/systemd-oomd.service.d/debug.conf
+mkdir -p /run/systemd/system/systemd-oomd.service.d/
+echo -e "[Service]\nEnvironment=SYSTEMD_LOG_LEVEL=debug" >/run/systemd/system/systemd-oomd.service.d/debug.conf
 
 systemctl daemon-reload
 
@@ -122,9 +122,9 @@ if ! systemctl --machine "testuser@.host" --user status testsuite-55-testchill.s
 if setfattr -n user.xattr_test -v 1 /sys/fs/cgroup/; then
     sleep 120 # wait for systemd-oomd kill cool down and elevated memory pressure to come down
 
-    mkdir -p /etc/systemd/system/testsuite-55-testbloat.service.d/
-    echo "[Service]" >/etc/systemd/system/testsuite-55-testbloat.service.d/override.conf
-    echo "ManagedOOMPreference=avoid" >>/etc/systemd/system/testsuite-55-testbloat.service.d/override.conf
+    mkdir -p /run/systemd/system/testsuite-55-testbloat.service.d/
+    echo "[Service]" >/run/systemd/system/testsuite-55-testbloat.service.d/override.conf
+    echo "ManagedOOMPreference=avoid" >>/run/systemd/system/testsuite-55-testbloat.service.d/override.conf
 
     systemctl daemon-reload
     systemctl start testsuite-55-testchill.service
