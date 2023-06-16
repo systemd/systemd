@@ -1256,8 +1256,8 @@ static void run_tests(RuntimeScope scope, char **patterns) {
         assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
         /* Uncomment below if you want to make debugging logs stored to journal. */
-        //manager_override_log_target(m, LOG_TARGET_AUTO);
-        //manager_override_log_level(m, LOG_DEBUG);
+        manager_override_log_target(m, LOG_TARGET_AUTO);
+        manager_override_log_level(m, LOG_DEBUG);
 
         for (const test_entry *test = tests; test->f; test++)
                 if (strv_fnmatch_or_empty(patterns, test->name, FNM_NOESCAPE))
