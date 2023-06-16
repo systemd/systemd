@@ -2302,6 +2302,22 @@ install_libudev_static = static_library(
         pic : static_libudev_pic)
 
 if conf.get('HAVE_LIBCRYPTSETUP_PLUGINS') == 1
+        shared_library(
+                'cryptsetup-token-systemd-empty',
+                cryptsetup_token_systemd_empty_sources,
+                include_directories : includes,
+                link_args : ['-shared',
+                             '-Wl,--version-script=' + cryptsetup_token_sym_path],
+                link_with : [lib_cryptsetup_token_common,
+                             libshared],
+                dependencies : [libcryptsetup,
+                                userspace,
+                                versiondep],
+                link_depends : cryptsetup_token_sym,
+                install_rpath : rootpkglibdir,
+                install : true,
+                install_dir : libcryptsetup_plugins_dir)
+
         if conf.get('HAVE_TPM2') == 1
                 shared_library(
                         'cryptsetup-token-systemd-tpm2',
