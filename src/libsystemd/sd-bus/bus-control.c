@@ -876,9 +876,10 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
 int bus_add_match_internal(
                 sd_bus *bus,
                 const char *match,
+                uint64_t timeout_usec,
                 uint64_t *ret_counter) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         const char *e;
         int r;
 
@@ -889,16 +890,26 @@ int bus_add_match_internal(
 
         e = append_eavesdrop(bus, match);
 
-        r = sd_bus_call_method(
+        r = sd_bus_message_new_method_call(
                         bus,
+                        &m,
                         "org.freedesktop.DBus",
                         "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
-                        "AddMatch",
+                        "AddMatch");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "s", e);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_call(
+                        bus,
+                        m,
+                        timeout_usec,
                         NULL,
-                        &reply,
-                        "s",
-                        e);
+                        &reply);
         if (r < 0)
                 return r;
 
@@ -914,9 +925,12 @@ int bus_add_match_internal_async(
                 sd_bus_slot **ret_slot,
                 const char *match,
                 sd_bus_message_handler_t callback,
-                void *userdata) {
+                void *userdata,
+                uint64_t timeout_usec) {
 
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         const char *e;
+        int r;
 
         assert(bus);
 
@@ -925,17 +939,27 @@ int bus_add_match_internal_async(
 
         e = append_eavesdrop(bus, match);
 
-        return sd_bus_call_method_async(
+        r = sd_bus_message_new_method_call(
                         bus,
-                        ret_slot,
+                        &m,
                         "org.freedesktop.DBus",
                         "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
-                        "AddMatch",
+                        "AddMatch");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "s", e);
+        if (r < 0)
+                return r;
+
+        return sd_bus_call_async(
+                        bus,
+                        ret_slot,
+                        m,
                         callback,
                         userdata,
-                        "s",
-                        e);
+                        timeout_usec);
 }
 
 int bus_remove_match_internal(
