@@ -9,3 +9,4 @@ IOAccounting=true
 TasksAccounting=true
 ManagedOOMMemoryPressure=kill
 ManagedOOMMemoryPressureLimit=20%
+MemorySwapMax=0
