@@ -443,6 +443,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char **argv) {
         _cleanup_close_ int epoll_fd = -EBADF;
+        _cleanup_strv_free_ char **exec_argv = NULL;
         int r, n;
 
         log_show_color(true);
@@ -452,6 +453,12 @@ static int run(int argc, char **argv) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        exec_argv = strv_copy(arg_args);
+        if (!exec_argv)
+                return log_oom();
+
+        assert(strv_length(exec_argv) > 0);
 
         r = install_chld_handler();
         if (r < 0)
@@ -475,14 +482,14 @@ static int run(int argc, char **argv) {
 
                 log_info("Communication attempt on fd %i.", event.data.fd);
                 if (arg_accept) {
-                        r = do_accept(argv[optind], argv + optind, event.data.fd);
+                        r = do_accept(exec_argv[0], exec_argv, event.data.fd);
                         if (r < 0)
                                 return r;
                 } else
                         break;
         }
 
-        return exec_process(argv[optind], argv + optind, SD_LISTEN_FDS_START, (size_t) n);
+        return exec_process(exec_argv[0], exec_argv, SD_LISTEN_FDS_START, (size_t) n);
 }
 
 DEFINE_MAIN_FUNCTION(run);
