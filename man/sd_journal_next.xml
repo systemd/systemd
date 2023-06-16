@@ -88,7 +88,7 @@
     is the head of the journal, e.g. when this is called following
     <function>sd_journal_seek_head()</function>, then this is equivalent to
     <function>sd_journal_next()</function>, and the argument <varname>advanced</varname> will be ignored.
-    Similary, if the current location is the tail of the journal, e.g. when this is called following
+    Similarly, if the current location is the tail of the journal, e.g. when this is called following
     <function>sd_journal_seek_tail()</function>, then this is equivalent to
     <function>sd_journal_previous()</function>, and <varname>advanced</varname> will be ignored. Otherwise,
     this is equivalent to <function>sd_journal_next()</function> when <varname>advanced</varname> is
