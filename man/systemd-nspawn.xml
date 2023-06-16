@@ -1545,8 +1545,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         with a focus on implementing stateless operating system images.</para></listitem>
       </varlistentry>
     </variablelist>
+  </refsect2>
 
-    </refsect2><refsect2>
+  <refsect2>
     <title>Input/Output Options</title>
 
     <variablelist>
@@ -1592,57 +1593,57 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
       </varlistentry>
     </variablelist>
 
-    </refsect2><refsect2>
-    <title>Credentials</title>
+    </refsect2>
+    <refsect2>
+      <title>Credentials</title>
 
-    <variablelist>
-      <varlistentry>
-        <term><option>--load-credential=</option><replaceable>ID</replaceable>:<replaceable>PATH</replaceable></term>
-        <term><option>--set-credential=</option><replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></term>
+      <variablelist>
+        <varlistentry>
+          <term><option>--load-credential=</option><replaceable>ID</replaceable>:<replaceable>PATH</replaceable></term>
+          <term><option>--set-credential=</option><replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></term>
 
-        <listitem><para>Pass a credential to the container. These two options correspond to the
-        <varname>LoadCredential=</varname> and <varname>SetCredential=</varname> settings in unit files. See
-        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-        details about these concepts, as well as the syntax of the option's arguments.</para>
+          <listitem><para>Pass a credential to the container. These two options correspond to the
+          <varname>LoadCredential=</varname> and <varname>SetCredential=</varname> settings in unit files. See
+          <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+          details about these concepts, as well as the syntax of the option's arguments.</para>
 
-        <para>Note: when <command>systemd-nspawn</command> runs as systemd system service it can propagate
-        the credentials it received via <varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
-        to the container payload. A systemd service manager running as PID 1 in the container can further
-        propagate them to the services it itself starts. It is thus possible to easily propagate credentials
-        from a parent service manager to a container manager service and from there into its payload. This
-        can even be done recursively.</para>
+          <para>Note: when <command>systemd-nspawn</command> runs as systemd system service it can propagate
+          the credentials it received via <varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
+          to the container payload. A systemd service manager running as PID 1 in the container can further
+          propagate them to the services it itself starts. It is thus possible to easily propagate credentials
+          from a parent service manager to a container manager service and from there into its payload. This
+          can even be done recursively.</para>
 
-        <para>In order to embed binary data into the credential data for <option>--set-credential=</option>
-        use C-style escaping (i.e. <literal>\n</literal> to embed a newline, or <literal>\x00</literal> to
-        embed a <constant>NUL</constant> byte. Note that the invoking shell might already apply unescaping
-        once, hence this might require double escaping!).</para>
+          <para>In order to embed binary data into the credential data for <option>--set-credential=</option>,
+          use C-style escaping (i.e. <literal>\n</literal> to embed a newline, or <literal>\x00</literal> to
+          embed a <constant>NUL</constant> byte). Note that the invoking shell might already apply unescaping
+          once, hence this might require double escaping!.</para>
 
-        <para>The
-        <citerefentry><refentrytitle>systemd-sysusers.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        and
-        <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        services read credentials configured this way for the purpose of configuring the container's root
-        user's password and shell, as well as system locale, keymap and timezone during the first boot
-        process of the container. This is particularly useful in combination with
-        <option>--volatile=yes</option> where every single boot appears as first boot, since configuration
-        applied to <filename>/etc/</filename> is lost on container reboot cycles. See the respective man
-        pages for details. Example:</para>
+          <para>The
+          <citerefentry><refentrytitle>systemd-sysusers.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          and
+          <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          services read credentials configured this way for the purpose of configuring the container's root
+          user's password and shell, as well as system locale, keymap and timezone during the first boot
+          process of the container. This is particularly useful in combination with
+          <option>--volatile=yes</option> where every single boot appears as first boot, since configuration
+          applied to <filename>/etc/</filename> is lost on container reboot cycles. See the respective man
+          pages for details. Example:</para>
 
-        <programlisting># systemd-nspawn -i image.raw \
-        --volatile=yes \
-        --set-credential=firstboot.locale:de_DE.UTF-8 \
-        --set-credential=passwd.hashed-password.root:'$y$j9T$yAuRJu1o5HioZAGDYPU5d.$F64ni6J2y2nNQve90M/p0ZP0ECP/qqzipNyaY9fjGpC' \
-        -b</programlisting>
+          <programlisting># systemd-nspawn -i image.raw \
+          --volatile=yes \
+          --set-credential=firstboot.locale:de_DE.UTF-8 \
+          --set-credential=passwd.hashed-password.root:'$y$j9T$yAuRJu1o5HioZAGDYPU5d.$F64ni6J2y2nNQve90M/p0ZP0ECP/qqzipNyaY9fjGpC' \
+          -b</programlisting>
 
-        <para>The above command line will invoke the specified image file <filename>image.raw</filename> in
-        volatile mode, i.e. with empty <filename>/etc/</filename> and <filename>/var/</filename>.  The
-        container payload will recognize this as a first boot, and will invoke
-        <filename>systemd-firstboot.service</filename>, which then reads the two passed credentials to
-        configure the system's initial locale and root password.</para>
-        </listitem>
+          <para>The above command line will invoke the specified image file <filename>image.raw</filename> in
+          volatile mode, i.e. with empty <filename>/etc/</filename> and <filename>/var/</filename>.  The
+          container payload will recognize this as a first boot, and will invoke
+          <filename>systemd-firstboot.service</filename>, which then reads the two passed credentials to
+          configure the system's initial locale and root password.</para>
+          </listitem>
         </varlistentry>
-
-    </variablelist>
+      </variablelist>
 
     </refsect2><refsect2>
     <title>Other</title>
