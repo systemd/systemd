@@ -5576,16 +5576,30 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         if (IN_SET(p->encrypt, ENCRYPT_KEY_FILE, ENCRYPT_KEY_FILE_TPM2)) {
                 /* Use partition-specific key if available, otherwise fall back to global key */
                 struct iovec *iovec_key = arg_key.iov_base ? &arg_key : &p->key;
+                int keyslot;
 
-                r = sym_crypt_keyslot_add_by_volume_key(
+                if (iovec_key->iov_len == 0) {
+                        /* No need for robust protection against brute-force... */
+                        r = cryptsetup_set_minimal_pbkdf(cd);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set minimal PBKDF: %m");
+                }
+
+                keyslot = sym_crypt_keyslot_add_by_volume_key(
                                 cd,
                                 CRYPT_ANY_SLOT,
                                 NULL,
                                 /* volume_key_size= */ volume_key_size,
                                 strempty(iovec_key->iov_base),
                                 iovec_key->iov_len);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add LUKS2 key: %m");
+                if (keyslot < 0)
+                        return log_error_errno(keyslot, "Failed to add LUKS2 key: %m");
+
+                if (iovec_key->iov_len == 0) {
+                        r = cryptsetup_add_token_empty(cd, keyslot);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add empty JSON token to LUKS2 header: %m");
+                }
 
                 passphrase = strempty(iovec_key->iov_base);
                 passphrase_size = iovec_key->iov_len;
