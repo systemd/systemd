@@ -1960,14 +1960,6 @@ conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', slow_tests)
 
 ############################################################
 
-tests = []
-simple_tests = []
-fuzzers = []
-simple_fuzzers = []
-catalogs = []
-
-############################################################
-
 pymod = import('python')
 python = pymod.find_installation('python3', required : true, modules : ['jinja2'])
 python_39 = python.language_version().version_compare('>=3.9')
@@ -2177,6 +2169,14 @@ man_page_depends = []
 
 ############################################################
 
+tests = []
+simple_tests = []
+fuzzers = []
+simple_fuzzers = []
+catalogs = []
+libraries = []
+libraries = []
+
 # binaries that have --help and are intended for use by humans,
 # usually, but not always, installed in /bin.
 public_programs = []
@@ -2216,149 +2216,46 @@ subdir('src/udev')
 subdir('src/libudev')
 subdir('src/cryptsetup/cryptsetup-tokens')
 
-libsystemd = shared_library(
-        'systemd',
-        version : libsystemd_version,
-        include_directories : libsystemd_includes,
-        link_args : ['-shared',
-                     '-Wl,--version-script=' + libsystemd_sym_path],
-        link_with : [libbasic,
-                     libbasic_gcrypt,
-                     libbasic_compress],
-        link_whole : [libsystemd_static],
-        dependencies : [librt,
-                        threads,
-                        userspace],
-        link_depends : libsystemd_sym,
-        install : true,
-        install_tag: 'libsystemd',
-        install_dir : rootlibdir)
+foreach tuple : libraries
+        name = tuple[0].get('name')
 
-alias_target('libsystemd', libsystemd)
-
-install_libsystemd_static = static_library(
-        'systemd',
-        libsystemd_sources,
-        basic_sources,
-        basic_gcrypt_sources,
-        basic_compress_sources,
-        fundamental_sources,
-        include_directories : libsystemd_includes,
-        build_by_default : static_libsystemd != 'false',
-        install : static_libsystemd != 'false',
-        install_tag: 'libsystemd',
-        install_dir : rootlibdir,
-        pic : static_libsystemd_pic,
-        dependencies : [libblkid,
-                        libcap,
-                        libdl,
-                        libgcrypt,
-                        liblz4,
-                        libmount,
-                        libopenssl,
-                        librt,
-                        libxz,
-                        libzstd,
-                        threads,
-                        userspace,
-                        versiondep],
-        c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
-
-libudev = shared_library(
-        'udev',
-        version : libudev_version,
-        include_directories : includes,
-        link_args : ['-shared',
-                     '-Wl,--version-script=' + libudev_sym_path],
-        link_with : [libsystemd_static, libshared_static],
-        link_whole : libudev_basic,
-        dependencies : [threads,
-                        userspace],
-        link_depends : libudev_sym,
-        install : true,
-        install_tag: 'libudev',
-        install_dir : rootlibdir)
-
-alias_target('libudev', libudev)
-
-install_libudev_static = static_library(
-        'udev',
-        basic_sources,
-        fundamental_sources,
-        shared_sources,
-        libsystemd_sources,
-        libudev_sources,
-        include_directories : includes,
-        build_by_default : static_libudev != 'false',
-        install : static_libudev != 'false',
-        install_tag: 'libudev',
-        install_dir : rootlibdir,
-        link_depends : libudev_sym,
-        dependencies : [libmount,
-                        libshared_deps,
-                        userspace,
-                        versiondep],
-        c_args : static_libudev_pic ? [] : ['-fno-PIC'],
-        pic : static_libudev_pic)
-
-if conf.get('HAVE_LIBCRYPTSETUP_PLUGINS') == 1
-        if conf.get('HAVE_TPM2') == 1
-                shared_library(
-                        'cryptsetup-token-systemd-tpm2',
-                        cryptsetup_token_systemd_tpm2_sources,
-                        include_directories : includes,
-                        link_args : ['-shared',
-                                     '-Wl,--version-script=' + cryptsetup_token_sym_path],
-                        link_with : [lib_cryptsetup_token_common,
-                                     libshared],
-                        dependencies : [libcryptsetup,
-                                        tpm2,
-                                        userspace,
-                                        versiondep],
-                        link_depends : cryptsetup_token_sym,
-                        install_rpath : rootpkglibdir,
-                        install : true,
-                        install_dir : libcryptsetup_plugins_dir)
+        build = true
+        foreach cond : tuple[0].get('conditions', [])
+                if conf.get(cond) != 1
+                        build = false
+                        break
+                endif
+        endforeach
+        if not build
+                continue
         endif
 
-        if conf.get('HAVE_LIBFIDO2') == 1
-                shared_library(
-                        'cryptsetup-token-systemd-fido2',
-                        cryptsetup_token_systemd_fido2_sources,
-                        include_directories : includes,
-                        link_args : ['-shared',
-                                     '-Wl,--version-script=' + cryptsetup_token_sym_path],
-                        link_with : [lib_cryptsetup_token_common,
-                                     libshared],
-                        dependencies : [libcryptsetup,
-                                        libfido2,
-                                        userspace,
-                                        versiondep],
-                        link_depends : cryptsetup_token_sym,
-                        install_rpath : rootpkglibdir,
-                        install : true,
-                        install_dir : libcryptsetup_plugins_dir)
+        lib = shared_library(
+                name,
+                kwargs : tuple[1],
+        )
+
+        if name == 'systemd'
+                libsystemd = lib
+                alias_target('libsystemd', libsystemd)
+        elif name == 'udev'
+                libudev = lib
+                alias_target('libudev', libudev)
         endif
 
-        if conf.get('HAVE_P11KIT') == 1
-                shared_library(
-                        'cryptsetup-token-systemd-pkcs11',
-                        cryptsetup_token_systemd_pkcs11_sources,
-                        include_directories : includes,
-                        link_args : ['-shared',
-                                     '-Wl,--version-script=' + cryptsetup_token_sym_path],
-                        link_with : [lib_cryptsetup_token_common,
-                                     libshared],
-                        dependencies : [libcryptsetup,
-                                        libp11kit,
-                                        userspace,
-                                        versiondep],
-                        link_depends : cryptsetup_token_sym,
-                        install_rpath : rootpkglibdir,
-                        install : true,
-                        install_dir : libcryptsetup_plugins_dir)
+        if tuple.length() > 2
+                lib = static_library(
+                        name,
+                        kwargs : tuple[2]
+                )
+
+                if name == 'systemd'
+                        install_libsystemd_static = lib
+                elif name == 'udev'
+                        install_libudev_static = lib
+                endif
         endif
-endif
+endforeach
 
 ############################################################
 
