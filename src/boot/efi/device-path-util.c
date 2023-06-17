@@ -3,6 +3,25 @@
 #include "device-path-util.h"
 #include "util.h"
 
+EFI_STATUS make_multiple_file_device_path(EFI_HANDLE device, const char16_t **files, EFI_DEVICE_PATH
+                                          **ret_dp)
+{
+        EFI_STATUS err;
+        EFI_DEVICE_PATH *dp;
+
+        assert(files);
+        assert(ret_dp);
+
+        STRV_FOREACH(file, files) {
+                assert(file);
+                err = make_file_device_path(device, *file, ret_dp);
+                if (err != EFI_SUCCESS)
+                        return err;
+        }
+
+        return EFI_SUCCESS;
+}
+
 EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DEVICE_PATH **ret_dp) {
         EFI_STATUS err;
         EFI_DEVICE_PATH *dp;
