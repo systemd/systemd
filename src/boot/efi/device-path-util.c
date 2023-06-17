@@ -3,6 +3,68 @@
 #include "device-path-util.h"
 #include "util.h"
 
+EFI_STATUS make_multiple_file_device_path(
+                EFI_HANDLE device, const char16_t **files, EFI_DEVICE_PATH ***ret_dp) {
+        EFI_STATUS err;
+        EFI_DEVICE_PATH *cur_dp = NULL, **iterator_dp = NULL;
+        EFI_DEVICE_PATH *original_device_path = NULL;
+        size_t n_files = strv_length((const void**)files);
+
+        assert(files);
+        assert(ret_dp);
+
+        if (n_files == 0) {
+                *ret_dp = NULL;
+                return EFI_SUCCESS;
+        };
+
+        err = BS->HandleProtocol(device, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL),
+                                 (void **) &original_device_path);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        EFI_DEVICE_PATH *end_node = original_device_path;
+        while (!device_path_is_end(end_node))
+                end_node = device_path_next_node(end_node);
+
+        size_t o_dp_size = (uint8_t *) end_node - (uint8_t *) original_device_path;
+
+
+        *ret_dp = xnew(EFI_DEVICE_PATH*, n_files);
+
+        iterator_dp = ret_dp[0];
+
+        STRV_FOREACH(file, files) {
+                size_t file_size = strsize16(*file);
+
+                /* 1st element: FILEPATH_DEVICE_PATH + path name payload */
+                /* 2nd element: DEVICE_PATH_END_NODE */
+                *iterator_dp = xnew(EFI_DEVICE_PATH, o_dp_size +
+                                    sizeof(FILEPATH_DEVICE_PATH)
+                                    + file_size
+                                    + sizeof(EFI_DEVICE_PATH));
+                cur_dp = *iterator_dp;
+
+                /* Prepend the original device path */
+                cur_dp = mempcpy(cur_dp, original_device_path, o_dp_size);
+
+                FILEPATH_DEVICE_PATH *file_dp = (FILEPATH_DEVICE_PATH *) cur_dp;
+                file_dp->Header = (EFI_DEVICE_PATH) {
+                        .Type = MEDIA_DEVICE_PATH,
+                        .SubType = MEDIA_FILEPATH_DP,
+                        .Length = sizeof(FILEPATH_DEVICE_PATH) + file_size,
+                };
+                memcpy(file_dp->PathName, *file, file_size);
+
+                cur_dp = device_path_next_node(cur_dp);
+                *cur_dp = DEVICE_PATH_END_NODE;
+
+                iterator_dp++;
+        }
+
+        return EFI_SUCCESS;
+}
+
 EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DEVICE_PATH **ret_dp) {
         EFI_STATUS err;
         EFI_DEVICE_PATH *dp;
