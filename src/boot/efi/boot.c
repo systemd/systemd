@@ -3,6 +3,7 @@
 #include "bcd.h"
 #include "bootspec-fundamental.h"
 #include "console.h"
+#include "addon-util.h"
 #include "device-path-util.h"
 #include "devicetree.h"
 #include "drivers.h"
@@ -2345,6 +2346,7 @@ static EFI_STATUS image_start(
                 const ConfigEntry *entry) {
 
         _cleanup_(devicetree_cleanup) struct devicetree_state dtstate = {};
+        _cleanup_(unload_addons) EFI_HANDLE addon_state = NULL;
         _cleanup_(unload_imagep) EFI_HANDLE image = NULL;
         _cleanup_free_ EFI_DEVICE_PATH *path = NULL;
         EFI_STATUS err;
@@ -2398,6 +2400,12 @@ static EFI_STATUS image_start(
 
                 /* Try to log any options to the TPM, especially to catch manually edited options */
                 (void) tpm_log_load_options(options, NULL);
+        }
+
+        if (entry->addons) {
+                err = addons_install(entry->device, (const char16_t**)entry->addons, &addon_state);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error installing addons: %m");
         }
 
         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeExecUSec", 0);
