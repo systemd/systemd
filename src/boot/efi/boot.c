@@ -3,6 +3,7 @@
 #include "bcd.h"
 #include "bootspec-fundamental.h"
 #include "console.h"
+#include "addon-util.h"
 #include "device-path-util.h"
 #include "devicetree.h"
 #include "drivers.h"
@@ -2398,6 +2399,12 @@ static EFI_STATUS image_start(
 
                 /* Try to log any options to the TPM, especially to catch manually edited options */
                 (void) tpm_log_load_options(options, NULL);
+        }
+
+        if (entry->addons) {
+                err = addons_install(loaded_image, (const char16_t**)entry->addons);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error installing addons: %m");
         }
 
         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeExecUSec", 0);
