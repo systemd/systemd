@@ -90,7 +90,7 @@ link_config_gperf_c = custom_target(
 
 if get_option('link-udev-shared')
         udev_link_with = [libshared]
-        udev_rpath = rootpkglibdir
+        udev_rpath = pkglibdir
 else
         udev_link_with = [libshared_static,
                           libsystemd_static]
@@ -164,8 +164,7 @@ udev_pc = custom_target(
         install_dir : pkgconfigdatadir)
 
 if install_sysconfdir
-        meson.add_install_script('sh', '-c',
-                                 mkdir_p.format(sysconfdir / 'udev/rules.d'))
+        install_emptydir(sysconfdir / 'udev/rules.d')
 endif
 
 simple_fuzzers += files(

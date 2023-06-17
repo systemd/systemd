@@ -43,6 +43,45 @@ libudev_pc = custom_target(
         install_tag : 'devel',
         install_dir : pkgconfiglibdir)
 
+libraries += [[
+        {
+                'name' : 'udev',
+        },
+        {
+                'version' : libudev_version,
+                'include_directories' : includes,
+                'link_args' : ['-shared',
+                               '-Wl,--version-script=' + libudev_sym_path],
+                'link_with' : [libsystemd_static, libshared_static],
+                'link_whole' : libudev_basic,
+                'dependencies' : [threads,
+                                  userspace],
+                'link_depends' : libudev_sym,
+                'install' : true,
+                'install_tag' : 'libudev',
+                'install_dir' : libdir,
+        },
+        {
+                'sources' : basic_sources +
+                            fundamental_sources +
+                            shared_sources +
+                            libsystemd_sources +
+                            libudev_sources,
+                'include_directories' : includes,
+                'build_by_default' : static_libudev != 'false',
+                'install' : static_libudev != 'false',
+                'install_tag' : 'libudev',
+                'install_dir' : libdir,
+                'link_depends' : libudev_sym,
+                'dependencies' : [libmount,
+                                  libshared_deps,
+                                  userspace,
+                                  versiondep],
+                'c_args' : static_libudev_pic ? [] : ['-fno-PIC'],
+                'pic' : static_libudev_pic,
+        },
+]]
+
 ############################################################
 
 tests += [
