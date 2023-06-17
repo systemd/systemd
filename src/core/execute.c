@@ -5804,9 +5804,9 @@ static int clone_cb(void *arg) {
                         a->executor_fd,
                         a->executor_path,
                         STRV_MAKE(a->executor_path,
-                                  "--deserialize", a->serialization_fd_number,
+                                  "--deserialize", a->serialization_fd_number/*,
                                   "--log-level", a->log_level,
-                                  "--log-target", a->log_target),
+                                  "--log-target", a->log_target*/),
                         environ);
 }
 
