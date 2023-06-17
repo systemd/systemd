@@ -8,6 +8,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
@@ -1621,6 +1622,47 @@ int get_process_threads(pid_t pid) {
                 return -EINVAL;
 
         return n;
+}
+
+int clone_vm_vfork(int (*callback)(void *), int flags, void *userdata) {
+        static size_t stack_size = 0;
+        char *stack;
+        int r;
+
+        assert(callback);
+        assert(!FLAGS_SET(flags, CLONE_PARENT_SETTID));
+        assert(!FLAGS_SET(flags, CLONE_CHILD_SETTID));
+        assert(!FLAGS_SET(flags, CLONE_SETTLS));
+
+        if (stack_size == 0) {
+                struct rlimit rl;
+
+                if (getrlimit(RLIMIT_STACK, &rl) < 0)
+                        return log_debug_errno(errno, "Failed to get RLIMIT_STACK: %m");
+
+                stack_size = ROUND_UP(rl.rlim_cur, page_size());
+        }
+
+        stack = mmap(NULL,
+                     stack_size,
+                     PROT_READ | PROT_WRITE,
+                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK,
+                     /* fd= */ -1,
+                     /* offset= */ 0);
+        if (stack == MAP_FAILED)
+                return log_debug_errno(errno, "Failed to allocate stack: %m");
+
+        r = RET_NERRNO(clone(callback, stack + stack_size, CLONE_VFORK|CLONE_VM|flags, userdata));
+        if (r < 0)
+                log_debug_errno(r, "Failed to clone(): %m");
+
+        if (munmap(stack, stack_size) < 0) {
+                log_debug_errno(errno, "Failed to unmap stack: %m");
+                if (r >= 0) /* If clone() fails propagate the original error */
+                        return -errno;
+        }
+
+        return r;
 }
 
 static const char *const sigchld_code_table[] = {
