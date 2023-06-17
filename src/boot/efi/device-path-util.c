@@ -3,7 +3,34 @@
 #include "device-path-util.h"
 #include "util.h"
 
-EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DEVICE_PATH **ret_dp) {
+EFI_STATUS make_multiple_file_device_path(EFI_HANDLE device, const char16_t **files, EFI_DEVICE_PATH
+                                          **ret_dp)
+{
+        EFI_STATUS err;
+
+        assert(files);
+        assert(ret_dp);
+
+        STRV_FOREACH(file, files) {
+                assert(file);
+                err = make_file_device_path_with_end(device, *file,
+                                                     /* Is this the last file? */
+                                                     !*(file + sizeof(char16_t*)) ? &DEVICE_PATH_END_NODE :
+                                                     &DEVICE_PATH_END_INSTANCE,
+                                                     ret_dp);
+                if (err != EFI_SUCCESS)
+                        return err;
+        }
+
+        return EFI_SUCCESS;
+}
+
+EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DEVICE_PATH **ret_dp)
+{
+        return make_file_device_path_with_end(device, file, &DEVICE_PATH_END_NODE, ret_dp);
+}
+
+EFI_STATUS make_file_device_path_with_end(EFI_HANDLE device, const char16_t *file, EFI_DEVICE_PATH *end, EFI_DEVICE_PATH **ret_dp) {
         EFI_STATUS err;
         EFI_DEVICE_PATH *dp;
 
@@ -34,7 +61,7 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
         memcpy(file_dp->PathName, file, file_size);
 
         dp = device_path_next_node(dp);
-        *dp = DEVICE_PATH_END_NODE;
+        *dp = *end;
         return EFI_SUCCESS;
 }
 
