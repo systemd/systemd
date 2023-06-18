@@ -38,6 +38,37 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
         return EFI_SUCCESS;
 }
 
+static char16_t *device_path_to_str_internal(const EFI_DEVICE_PATH *dp) {
+        _cleanup_free_ char16_t *str = NULL;
+        size_t size = 0;
+
+        for (const EFI_DEVICE_PATH *node = dp; !device_path_is_end(node);
+                node = device_path_next_node(node)) {
+
+                if (node->Type != MEDIA_DEVICE_PATH || node->SubType != MEDIA_FILEPATH_DP)
+                        return NULL;
+
+                size_t path_size = node->Length;
+                if (path_size <= offsetof(FILEPATH_DEVICE_PATH, PathName) || path_size % sizeof(char16_t))
+                        return NULL;
+                path_size -= offsetof(FILEPATH_DEVICE_PATH, PathName);
+
+                _cleanup_free_ char16_t *old = str;
+                str = xmalloc(size + path_size);
+                if (old) {
+                        memcpy(str, old, size);
+                        str[size / sizeof(char16_t) - 1] = '\\';
+                }
+
+                memcpy(str + (size / sizeof(char16_t)),
+                        ((uint8_t *) node) + offsetof(FILEPATH_DEVICE_PATH, PathName),
+                        path_size);
+                size += path_size;
+        }
+
+        return TAKE_PTR(str);
+}
+
 EFI_STATUS device_path_to_str(const EFI_DEVICE_PATH *dp, char16_t **ret) {
         EFI_DEVICE_PATH_TO_TEXT_PROTOCOL *dp_to_text;
         EFI_STATUS err;
@@ -50,31 +81,9 @@ EFI_STATUS device_path_to_str(const EFI_DEVICE_PATH *dp, char16_t **ret) {
         if (err != EFI_SUCCESS) {
                 /* If the device path to text protocol is not available we can still do a best-effort attempt
                  * to convert it ourselves if we are given filepath-only device path. */
-
-                size_t size = 0;
-                for (const EFI_DEVICE_PATH *node = dp; !device_path_is_end(node);
-                     node = device_path_next_node(node)) {
-
-                        if (node->Type != MEDIA_DEVICE_PATH || node->SubType != MEDIA_FILEPATH_DP)
-                                return err;
-
-                        size_t path_size = node->Length;
-                        if (path_size <= offsetof(FILEPATH_DEVICE_PATH, PathName) || path_size % sizeof(char16_t))
-                                return EFI_INVALID_PARAMETER;
-                        path_size -= offsetof(FILEPATH_DEVICE_PATH, PathName);
-
-                        _cleanup_free_ char16_t *old = str;
-                        str = xmalloc(size + path_size);
-                        if (old) {
-                                memcpy(str, old, size);
-                                str[size / sizeof(char16_t) - 1] = '\\';
-                        }
-
-                        memcpy(str + (size / sizeof(char16_t)),
-                               ((uint8_t *) node) + offsetof(FILEPATH_DEVICE_PATH, PathName),
-                               path_size);
-                        size += path_size;
-                }
+                str = device_path_to_str_internal(dp);
+                if (!str)
+                        return err;
 
                 *ret = TAKE_PTR(str);
                 return EFI_SUCCESS;
