@@ -61,6 +61,7 @@ static void boot_entry_free(BootEntry *entry) {
         free(entry->kernel);
         free(entry->efi);
         strv_free(entry->initrd);
+        strv_free(entry->addons);
         free(entry->device_tree);
         strv_free(entry->device_tree_overlay);
 }
@@ -377,6 +378,8 @@ static int boot_entry_load_type1(
                         r = parse_path_one(tmp.path, line, field, &tmp.efi, p);
                 else if (streq(field, "initrd"))
                         r = parse_path_strv(tmp.path, line, field, &tmp.initrd, p);
+                else if (streq(field, "addon"))
+                        r = parse_path_strv(tmp.path, line, field, &tmp.addons, p);
                 else if (streq(field, "devicetree"))
                         r = parse_path_one(tmp.path, line, field, &tmp.device_tree, p);
                 else if (streq(field, "devicetree-overlay"))
@@ -1683,6 +1686,31 @@ int show_boot_entry(
         if (r < 0)
                 return r;
 
+        STRV_FOREACH(s, e->addons)
+                boot_entry_file_list(s == e->addons ? "addons" : NULL,
+                                     e->root,
+                                     *s,
+                                     &status);
+
+        if (!strv_isempty(e->options)) {
+                _cleanup_free_ char *t = NULL, *t2 = NULL;
+                _cleanup_strv_free_ char **ts = NULL;
+
+                t = strv_join(e->options, " ");
+                if (!t)
+                        return log_oom();
+
+                ts = strv_split_newlines(t);
+                if (!ts)
+                        return log_oom();
+
+                t2 = strv_join(ts, "\n              ");
+                if (!t2)
+                        return log_oom();
+
+                printf("      options: %s\n", t2);
+        }
+
         if (e->device_tree)
                 boot_entry_file_list("devicetree", e->root, e->device_tree, &status);
 
@@ -1771,7 +1799,45 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                 for (size_t i = 0; i < config->n_entries; i++) {
                         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
-                        r = boot_entry_to_json(config, i, &v);
+                        if (!strv_isempty(e->options)) {
+                                opts = strv_join(e->options, " ");
+                                if (!opts)
+                                        return log_oom();
+                        }
+
+                        r = json_variant_merge_objectb(
+                                        &v, JSON_BUILD_OBJECT(
+                                                       JSON_BUILD_PAIR("type", JSON_BUILD_STRING(boot_entry_type_json_to_string(e->type))),
+                                                       JSON_BUILD_PAIR_CONDITION(e->id, "id", JSON_BUILD_STRING(e->id)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->path, "path", JSON_BUILD_STRING(e->path)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->root, "root", JSON_BUILD_STRING(e->root)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->title, "title", JSON_BUILD_STRING(e->title)),
+                                                       JSON_BUILD_PAIR_CONDITION(boot_entry_title(e), "showTitle", JSON_BUILD_STRING(boot_entry_title(e))),
+                                                       JSON_BUILD_PAIR_CONDITION(e->sort_key, "sortKey", JSON_BUILD_STRING(e->sort_key)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->version, "version", JSON_BUILD_STRING(e->version)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->machine_id, "machineId", JSON_BUILD_STRING(e->machine_id)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->architecture, "architecture", JSON_BUILD_STRING(e->architecture)),
+                                                       JSON_BUILD_PAIR_CONDITION(opts, "options", JSON_BUILD_STRING(opts)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->kernel, "linux", JSON_BUILD_STRING(e->kernel)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->efi, "efi", JSON_BUILD_STRING(e->efi)),
+                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->initrd), "initrd", JSON_BUILD_STRV(e->initrd)),
+                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->addons), "addons", JSON_BUILD_STRV(e->addons)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->device_tree, "devicetree", JSON_BUILD_STRING(e->device_tree)),
+                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", JSON_BUILD_STRV(e->device_tree_overlay))));
+                        if (r < 0)
+                                return log_oom();
+
+                        /* Sanitizers (only memory sanitizer?) do not like function call with too many
+                         * arguments and trigger false positive warnings. Let's not add too many json objects
+                         * at once. */
+                        r = json_variant_merge_objectb(
+                                        &v, JSON_BUILD_OBJECT(
+                                                       JSON_BUILD_PAIR("isReported", JSON_BUILD_BOOLEAN(e->reported_by_loader)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->tries_left != UINT_MAX, "triesLeft", JSON_BUILD_UNSIGNED(e->tries_left)),
+                                                       JSON_BUILD_PAIR_CONDITION(e->tries_done != UINT_MAX, "triesDone", JSON_BUILD_UNSIGNED(e->tries_done)),
+                                                       JSON_BUILD_PAIR_CONDITION(config->default_entry >= 0, "isDefault", JSON_BUILD_BOOLEAN(i == (size_t) config->default_entry)),
+                                                       JSON_BUILD_PAIR_CONDITION(config->selected_entry >= 0, "isSelected", JSON_BUILD_BOOLEAN(i == (size_t) config->selected_entry))));
+
                         if (r < 0)
                                 return log_oom();
 

@@ -640,6 +640,11 @@ static int count_known_files(const BootConfig *config, const char* root, Hashmap
                         if (r < 0)
                                 return r;
                 }
+                STRV_FOREACH(s, e->addons) {
+                        r = ref_file(known_files, *s, +1);
+                        if (r < 0)
+                                return r;
+                }
                 r = ref_file(known_files, e->device_tree, +1);
                 if (r < 0)
                         return r;
