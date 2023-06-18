@@ -108,6 +108,8 @@ bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack);
 bool parse_number8(const char *s, uint64_t *ret_u, const char **ret_tail);
 bool parse_number16(const char16_t *s, uint64_t *ret_u, const char16_t **ret_tail);
 
+char16_t *hexdump(const void *data, size_t size);
+
 #ifdef __clang__
 #  define _gnu_printf_(a, b) _printf_(a, b)
 #else
