@@ -31,6 +31,7 @@
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "sigbus.h"
+#include "signal-util.h"
 #include "tmpfile-util.h"
 
 #define JOURNAL_WAIT_TIMEOUT (10*USEC_PER_SEC)
@@ -1004,6 +1005,10 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(MHD_stop_daemonp) struct MHD_Daemon *d = NULL;
+        static const struct sigaction sigterm = {
+                .sa_handler = nop_signal_handler,
+                .sa_flags = SA_RESTART,
+        };
         struct MHD_OptionItem opts[] = {
                 { MHD_OPTION_EXTERNAL_LOGGER,
                   (intptr_t) microhttpd_logger, NULL },
@@ -1040,6 +1045,7 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         sigbus_install();
+        assert_se(sigaction(SIGTERM, &sigterm, NULL) >= 0);
 
         r = setup_gnutls_logger(NULL);
         if (r < 0)
