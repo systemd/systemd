@@ -1316,12 +1316,14 @@ install_systemd() {
     if get_bool "$IS_BUILT_WITH_COVERAGE"; then
         mkdir -p "$initdir/etc/systemd/system/service.d/"
         echo -ne "[Service]\nProtectSystem=no\nProtectHome=no\n" >"$initdir/etc/systemd/system/service.d/99-gcov-override.conf"
-        # Similarly, set ReadWritePaths= to the $BUILD_DIR in the test image
-        # to make the coverage work with units using DynamicUser=yes. Do this
-        # only for services with test- prefix, as setting this system-wide
-        # has many undesirable side-effects, as it creates its own namespace.
-        mkdir -p "$initdir/etc/systemd/system/test-.service.d/"
-        echo -ne "[Service]\nReadWritePaths=${BUILD_DIR:?}\n" >"$initdir/etc/systemd/system/test-.service.d/99-gcov-rwpaths-override.conf"
+        # Similarly, set ReadWritePaths= to the $BUILD_DIR in the test image to make the coverage work with
+        # units using DynamicUser=yes. Do this only for services with test- prefix and a couple of
+        # known-to-use DynamicUser=yes services, as setting this system-wide has many undesirable
+        # side-effects, as it creates its own namespace.
+        for service in test- systemd-journal-{gatewayd,upload}; do
+            mkdir -p "$initdir/etc/systemd/system/$service.service.d/"
+            echo -ne "[Service]\nReadWritePaths=${BUILD_DIR:?}\n" >"$initdir/etc/systemd/system/$service.service.d/99-gcov-rwpaths-override.conf"
+        done
         # Ditto, but for the user daemon
         mkdir -p "$initdir/etc/systemd/user/test-.service.d/"
         echo -ne "[Service]\nReadWritePaths=${BUILD_DIR:?}\n" >"$initdir/etc/systemd/user/test-.service.d/99-gcov-rwpaths-override.conf"
