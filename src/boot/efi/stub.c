@@ -289,7 +289,6 @@ static EFI_STATUS load_addons_from_efi(
                  * marker */
                 const EFI_DEVICE_PATH *addon_dpath = *addon_paths;
                 err = device_path_to_str(addon_dpath, &spath);
-                log_internal(err, "[addon loading] considering spath: %ls (%p), state: %m", spath, spath);
                 if (err != EFI_SUCCESS)
                         return err;
 
@@ -360,12 +359,10 @@ static EFI_STATUS cmdline_append_and_measure_addons(
         if (n_items == 0)
                 return EFI_SUCCESS; /* Empty directory */
 
-        log_internal(EFI_SUCCESS, "Loaded '%lu' addons", n_items);
         /* Now, sort the files we found, to make this uniform and stable (and to ensure the TPM measurements
          * are not dependent on read order) */
         sort_pointer_array((void**) addons, n_items, (compare_pointer_func_t) cmp_addon_entry);
 
-        log_internal(EFI_SUCCESS, "Sorted '%lu' addons", n_items);
         for (size_t i = 0; i < n_items; i++) {
                 size_t addrs[_UNIFIED_SECTION_MAX] = {}, szs[_UNIFIED_SECTION_MAX] = {};
                 _cleanup_(unload_imagep) EFI_HANDLE addon = NULL;
