@@ -325,6 +325,10 @@ tests += [
                 'type' : 'manual',
         },
         {
+                'sources' : files('test-nft-set.c'),
+                'type' : 'manual',
+        },
+        {
                 'sources' : files('test-nscd-flush.c'),
                 'condition' : 'ENABLE_NSCD',
                 'type' : 'manual',
