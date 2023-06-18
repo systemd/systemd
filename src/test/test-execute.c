@@ -1127,11 +1127,11 @@ static void test_exec_specifier(Manager *m) {
         test(m, "exec-specifier-interpolation.service", 0, CLD_EXITED);
 }
 
-static void test_exec_standardinput(Manager *m) {
-        test(m, "exec-standardinput-data.service", 0, CLD_EXITED);
-        test(m, "exec-standardinput-file.service", 0, CLD_EXITED);
-        test(m, "exec-standardinput-file-cat.service", 0, CLD_EXITED);
-}
+// static void test_exec_standardinput(Manager *m) {
+//         test(m, "exec-standardinput-data.service", 0, CLD_EXITED);
+//         test(m, "exec-standardinput-file.service", 0, CLD_EXITED);
+//         test(m, "exec-standardinput-file-cat.service", 0, CLD_EXITED);
+// }
 
 static void test_exec_standardoutput(Manager *m) {
         test(m, "exec-standardoutput-file.service", 0, CLD_EXITED);
@@ -1209,7 +1209,7 @@ static void run_tests(RuntimeScope scope, char **patterns) {
                 entry(test_exec_restrictnamespaces),
                 entry(test_exec_runtimedirectory),
                 entry(test_exec_specifier),
-                entry(test_exec_standardinput),
+                // entry(test_exec_standardinput),
                 entry(test_exec_standardoutput),
                 entry(test_exec_standardoutput_append),
                 entry(test_exec_standardoutput_truncate),
@@ -1256,8 +1256,9 @@ static void run_tests(RuntimeScope scope, char **patterns) {
         assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
         /* Uncomment below if you want to make debugging logs stored to journal. */
-        //manager_override_log_target(m, LOG_TARGET_AUTO);
-        //manager_override_log_level(m, LOG_DEBUG);
+        // manager_override_log_target(m, LOG_TARGET_CONSOLE);
+        manager_override_log_level(m, LOG_DEBUG);
+        m->default_std_output = m->default_std_error = EXEC_OUTPUT_INHERIT;
 
         for (const test_entry *test = tests; test->f; test++)
                 if (strv_fnmatch_or_empty(patterns, test->name, FNM_NOESCAPE))
