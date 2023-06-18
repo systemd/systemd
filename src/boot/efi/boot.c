@@ -2571,6 +2571,7 @@ static void export_variables(
                 EFI_LOADER_FEATURE_SECUREBOOT_ENROLL |
                 EFI_LOADER_FEATURE_RETAIN_SHIM |
                 EFI_LOADER_FEATURE_MENU_DISABLE |
+                EFI_LOADER_FEATURE_OFFER_ADDONS |
                 0;
 
         _cleanup_free_ char16_t *infostr = NULL, *typestr = NULL;
