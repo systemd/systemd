@@ -241,27 +241,19 @@ const EFI_DEVICE_PATH **split_multiple_file_device_path(const EFI_DEVICE_PATH *d
         n_dps += 1;
         total_dp_size += sizeof(EFI_DEVICE_PATH);
 
-        log_internal(EFI_SUCCESS, "total dp size: %lu, n_dps: %lu, n_instances: %lu", total_dp_size, n_dps,
-                     n_instances);
-
         /* We perform the copy mentioned in (2) */
         ret_dp = xmalloc(total_dp_size);
         mempcpy(ret_dp, dp, total_dp_size);
 
-        log_internal(EFI_SUCCESS, "copied dp (%p) into ret_dp (%p)", dp, ret_dp);
-
         /* We arrange the array mentioned in (3) */
-        log_internal(EFI_SUCCESS, "allocating %lu instances", n_instances);
         instances = xmalloc(sizeof(EFI_DEVICE_PATH*) * (n_instances + 1));
         end = ret_dp;
         for (size_t instance_index = 0 ;; instance_index++) {
                 assert(instance_index < n_instances);
 
                 instances[instance_index] = end;
-                log_internal(EFI_SUCCESS, "wrote %lu-instance, now at %p", instance_index, end);
 
                 while (!device_path_is_end_instance(end)) {
-                        log_internal(EFI_SUCCESS, "chasing %p -> %p, type: %hu, subtype: %hu", end, device_path_next_node(end), end->Type, end->SubType);
                         end = device_path_next_node(end);
                         if (device_path_is_end(end))
                                 break;
@@ -275,14 +267,11 @@ const EFI_DEVICE_PATH **split_multiple_file_device_path(const EFI_DEVICE_PATH *d
 
         instances[n_instances] = NULL;
 
-        log_internal(EFI_SUCCESS, "allocated %lu instances", n_instances);
-
         /* We replace all END_INSTANCE by END_NODE as mentioned in (4) */
         next = ret_dp;
         while (!device_path_is_end(next)) {
                 if (device_path_is_end_instance(next)) {
                         *next = DEVICE_PATH_END_NODE;
-                        log_internal(EFI_SUCCESS, "wrote END NODE instead of END INSTANCE");
                 }
                 next = device_path_next_node(next);
         }
