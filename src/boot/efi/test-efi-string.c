@@ -484,6 +484,26 @@ TEST(parse_number16) {
         assert_se(streq16(tail, u"rest"));
 }
 
+TEST(test_hexdump) {
+        char16_t *hex;
+
+        hex = hexdump(NULL, 0);
+        assert(streq16(hex, u""));
+        free(hex);
+
+        hex = hexdump("1", 2);
+        assert(streq16(hex, u"3100"));
+        free(hex);
+
+        hex = hexdump("abc", 4);
+        assert(streq16(hex, u"61626300"));
+        free(hex);
+
+        hex = hexdump((uint8_t[]){ 0x0, 0x42, 0xFF, 0xF1, 0x1F }, 5);
+        assert(streq16(hex, u"0042fff11f"));
+        free(hex);
+}
+
 _printf_(1, 2) static void test_printf_one(const char *format, ...) {
         va_list ap, ap_efi;
         va_start(ap, format);

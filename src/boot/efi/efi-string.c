@@ -391,6 +391,23 @@ bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack) {
 DEFINE_PARSE_NUMBER(char, parse_number8);
 DEFINE_PARSE_NUMBER(char16_t, parse_number16);
 
+char16_t *hexdump(const void *data, size_t size) {
+        static const char hex[16] = "0123456789abcdef";
+        const uint8_t *d = data;
+
+        assert(data || size == 0);
+
+        char16_t *buf = xnew(char16_t, size * 2 + 1);
+
+        for (size_t i = 0; i < size; i++) {
+                buf[i * 2] = hex[d[i] >> 4];
+                buf[i * 2 + 1] = hex[d[i] & 0x0F];
+        }
+
+        buf[size * 2] = 0;
+        return buf;
+}
+
 static const char * const warn_table[] = {
         [EFI_SUCCESS]               = "Success",
         [EFI_WARN_UNKNOWN_GLYPH]    = "Unknown glyph",
