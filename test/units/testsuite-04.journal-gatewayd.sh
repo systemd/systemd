@@ -57,7 +57,13 @@ curl -Lfs --header "Accept: text/event-stream" http://localhost:19531/entries | 
 # Same thing as journalctl --output=export
 mkdir /tmp/remote-journal
 curl -Lfs --header "Accept: application/vnd.fdo.journal" http://localhost:19531/entries | \
-    /usr/lib/systemd/systemd-journal-remote -o /tmp/remote-journal/system.journal --split-mode=none -
+    /usr/lib/systemd/systemd-journal-remote --output=/tmp/remote-journal/system.journal --split-mode=none -
+journalctl --directory=/tmp/remote-journal -t "$TEST_TAG" --grep "$TEST_MESSAGE"
+rm -rf /tmp/remote-journal/*
+# Let's do the same thing again, but let systemd-journal-remote spawn curl itself
+/usr/lib/systemd/systemd-journal-remote --url=http://localhost:19531/entries \
+                                        --output=/tmp/remote-journal/system.journal \
+                                        --split-mode=none
 journalctl --directory=/tmp/remote-journal -t "$TEST_TAG" --grep "$TEST_MESSAGE"
 rm -rf /tmp/remote-journal
 
