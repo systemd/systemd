@@ -4448,11 +4448,11 @@ foreach test : tests
                 versiondep,
         ]
 
-        name = fs.stem(sources[0])
+        name = fs.name(sources[0])
         if not name.endswith('.cc')
                 deps += [userspace]
         endif
-        name = name.split('.')[0]
+        name = fs.stem(name)
 
         suite = fs.name(fs.parent(sources[0])).replace('sd-', '')
 
