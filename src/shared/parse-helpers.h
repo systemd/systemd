@@ -23,3 +23,15 @@ int parse_socket_bind_item(
         int *ip_protocol,
         uint16_t *nr_ports,
         uint16_t *port_min);
+
+int config_parse_path_or_ignore(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata);

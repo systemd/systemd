@@ -16,6 +16,7 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "parse-argument.h"
+#include "parse-helpers.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rlimit-util.h"
@@ -736,7 +737,7 @@ static int parse_config(void) {
                 { "Remote",  "SplitMode",              config_parse_write_split_mode, 0, &arg_split_mode  },
                 { "Remote",  "ServerKeyFile",          config_parse_path,             0, &arg_key         },
                 { "Remote",  "ServerCertificateFile",  config_parse_path,             0, &arg_cert        },
-                { "Remote",  "TrustedCertificateFile", config_parse_path,             0, &arg_trust       },
+                { "Remote",  "TrustedCertificateFile", config_parse_path_or_ignore,   0, &arg_trust       },
                 { "Remote",  "MaxUse",                 config_parse_iec_uint64,       0, &arg_max_use     },
                 { "Remote",  "MaxFileSize",            config_parse_iec_uint64,       0, &arg_max_size    },
                 { "Remote",  "MaxFiles",               config_parse_uint64,           0, &arg_n_max_files },
@@ -910,17 +911,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_TRUST:
 #if HAVE_GNUTLS
-                        if (arg_trust || arg_trust_all)
+                        if (arg_trust)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Confusing trusted CA configuration");
+                                                       "Cannot use --trust more than once");
 
-                        if (streq(optarg, "all"))
-                                arg_trust_all = true;
-                        else {
-                                arg_trust = strdup(optarg);
-                                if (!arg_trust)
-                                        return log_oom();
-                        }
+                        arg_trust = strdup(optarg);
+                        if (!arg_trust)
+                                return log_oom();
 #else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Option --trust is not available.");
@@ -1024,6 +1021,11 @@ static int parse_argv(int argc, char *argv[]) {
             && arg_output && is_dir(arg_output, true) <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "For SplitMode=host, output must be a directory.");
+
+        if (STRPTR_IN_SET(arg_trust, "-", "all")) {
+                arg_trust_all = true;
+                arg_trust = mfree(arg_trust);
+        }
 
         log_debug("Full config: SplitMode=%s Key=%s Cert=%s Trust=%s",
                   journal_write_split_mode_to_string(arg_split_mode),
