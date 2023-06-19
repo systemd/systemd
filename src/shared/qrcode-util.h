@@ -3,12 +3,19 @@
 #pragma once
 #include <stdio.h>
 #include <errno.h>
+#include <limits.h>
 
 #if HAVE_QRENCODE
 int dlopen_qrencode(void);
 
-int print_qrcode(FILE *out, const char *header, const char *string);
+int print_qrcode_full(FILE *out, const char *header, const char *string, unsigned row, unsigned column, unsigned tty_width, unsigned tty_height);
+static inline int print_qrcode(FILE *out, const char *header, const char *string) {
+        return print_qrcode_full(out, header, string, UINT_MAX, UINT_MAX, UINT_MAX, UINT_MAX);
+}
 #else
+static inline int print_qrcode_full(FILE *out, const char *header, const char *string, unsigned row, unsigned column, unsigned tty_width, unsigned tty_height) {
+        return -EOPNOTSUPP;
+}
 static inline int print_qrcode(FILE *out, const char *header, const char *string) {
         return -EOPNOTSUPP;
 }
