@@ -20,6 +20,9 @@ struct MHDDaemonWrapper {
         sd_event_source *io_event;
         sd_event_source *timer_event;
 };
+
+void MHDDaemonWrapper_free(MHDDaemonWrapper *d);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(MHDDaemonWrapper*, MHDDaemonWrapper_free, NULL);
 #endif
 
 struct RemoteServer {

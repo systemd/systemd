@@ -385,9 +385,9 @@ static int setup_microhttpd_server(RemoteServer *s,
                 MHD_USE_EPOLL |
                 MHD_USE_ITC;
 
+        _cleanup_(MHDDaemonWrapper_freep) MHDDaemonWrapper *d = NULL;
         const union MHD_DaemonInfo *info;
         int r, epoll_fd;
-        MHDDaemonWrapper *d;
 
         assert(fd >= 0);
 
@@ -435,75 +435,49 @@ static int setup_microhttpd_server(RemoteServer *s,
                                      request_handler, NULL,
                                      MHD_OPTION_ARRAY, opts,
                                      MHD_OPTION_END);
-        if (!d->daemon) {
-                log_error("Failed to start μhttp daemon");
-                r = -EINVAL;
-                goto error;
-        }
+        if (!d->daemon)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to start μhttp daemon");
 
         log_debug("Started MHD %s daemon on fd:%d (wrapper @ %p)",
                   key ? "HTTPS" : "HTTP", fd, d);
 
         info = MHD_get_daemon_info(d->daemon, MHD_DAEMON_INFO_EPOLL_FD_LINUX_ONLY);
-        if (!info) {
-                log_error("μhttp returned NULL daemon info");
-                r = -EOPNOTSUPP;
-                goto error;
-        }
+        if (!info)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "μhttp returned NULL daemon info");
 
         epoll_fd = info->listen_fd;
-        if (epoll_fd < 0) {
-                log_error("μhttp epoll fd is invalid");
-                r = -EUCLEAN;
-                goto error;
-        }
+        if (epoll_fd < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN), "μhttp epoll fd is invalid");
 
         r = sd_event_add_io(s->events, &d->io_event,
                             epoll_fd, EPOLLIN,
                             dispatch_http_event, d);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add event callback: %m");
-                goto error;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add event callback: %m");
 
         r = sd_event_source_set_description(d->io_event, "io_event");
-        if (r < 0) {
-                log_error_errno(r, "Failed to set source name: %m");
-                goto error;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set source name: %m");
 
         r = sd_event_add_time(s->events, &d->timer_event,
                               CLOCK_MONOTONIC, UINT64_MAX, 0,
                               null_timer_event_handler, d);
-        if (r < 0) {
-                log_error_errno(r, "Failed to add timer_event: %m");
-                goto error;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add timer_event: %m");
 
         r = sd_event_source_set_description(d->timer_event, "timer_event");
-        if (r < 0) {
-                log_error_errno(r, "Failed to set source name: %m");
-                goto error;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set source name: %m");
 
         r = hashmap_ensure_put(&s->daemons, &uint64_hash_ops, &d->fd, d);
-        if (r == -ENOMEM) {
-                log_oom();
-                goto error;
-        }
-        if (r < 0) {
-                log_error_errno(r, "Failed to add daemon to hashmap: %m");
-                goto error;
-        }
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                return log_error_errno(r, "Failed to add daemon to hashmap: %m");
 
+        TAKE_PTR(d);
         s->active++;
         return 0;
-
-error:
-        MHD_stop_daemon(d->daemon);
-        free(d->daemon);
-        free(d);
-        return r;
 }
 
 static int setup_microhttpd_socket(RemoteServer *s,
