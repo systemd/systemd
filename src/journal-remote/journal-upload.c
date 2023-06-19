@@ -624,7 +624,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'u':
                         if (arg_url)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot use more than one --url");
+                                                       "Cannot use more than one --url=");
 
                         arg_url = optarg;
                         break;
@@ -632,7 +632,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_KEY:
                         if (arg_key)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot use more than one --key");
+                                                       "Cannot use more than one --key=");
 
                         arg_key = optarg;
                         break;
@@ -640,7 +640,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_CERT:
                         if (arg_cert)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot use more than one --cert");
+                                                       "Cannot use more than one --cert=");
 
                         arg_cert = optarg;
                         break;
@@ -648,7 +648,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_TRUST:
                         if (arg_trust)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot use more than one --trust");
+                                                       "Cannot use more than one --trust=");
 
                         arg_trust = optarg;
                         break;
@@ -668,7 +668,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'M':
                         if (arg_machine)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot use more than one --machine/-M");
+                                                       "Cannot use more than one --machine=/-M");
 
                         arg_machine = optarg;
                         break;
@@ -676,7 +676,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'D':
                         if (arg_directory)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot use more than one --directory/-D");
+                                                       "Cannot use more than one --directory=/-D");
 
                         arg_directory = optarg;
                         break;
@@ -690,7 +690,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_CURSOR:
                         if (arg_cursor)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot use more than one --cursor/--after-cursor");
+                                                       "Cannot use more than one --cursor=/--after-cursor=");
 
                         arg_cursor = optarg;
                         break;
@@ -698,7 +698,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_AFTER_CURSOR:
                         if (arg_cursor)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot use more than one --cursor/--after-cursor");
+                                                       "Cannot use more than one --cursor=/--after-cursor=");
 
                         arg_cursor = optarg;
                         arg_after_cursor = true;
@@ -731,11 +731,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (!arg_url)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Required --url/-u option missing.");
+                                       "Required --url=/-u option missing.");
 
         if (!!arg_key != !!arg_cert)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Options --key and --cert must be used together.");
+                                       "Options --key= and --cert= must be used together.");
 
         if (optind < argc && (arg_directory || arg_file || arg_machine || arg_journal_type))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
