@@ -3,6 +3,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 # Simple test for that daemon-reexec works in container.
 # See: https://github.com/systemd/systemd/pull/23883
 systemctl daemon-reexec
@@ -109,5 +112,17 @@ END_SEC=$(date -u '+%s')
 ELAPSED=$((END_SEC-START_SEC))
 [[ "$ELAPSED" -ge 3 ]] && [[ "$ELAPSED" -le 5 ]] || exit 1
 [[ "$RESULT" -ne 0 ]] || exit 1
+
+systemctl start succeeds-on-restart-restartquick.target
+assert_rc 0 systemctl --quiet is-active succeeds-on-restart-restartquick.target
+
+systemctl start fails-on-restart-restartquick.target || :
+assert_rc 3 systemctl --quiet is-active fails-on-restart-restartquick.target
+
+systemctl start succeeds-on-restart.target || :
+assert_rc 3 systemctl --quiet is-active succeeds-on-restart.target
+
+systemctl start fails-on-restart.target || :
+assert_rc 3 systemctl --quiet is-active fails-on-restart.target
 
 touch /testok

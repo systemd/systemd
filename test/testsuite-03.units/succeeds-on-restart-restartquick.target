@@ -1,0 +1,2 @@
+[Unit]
+Requires=succeeds-on-restart-restartquick.service
