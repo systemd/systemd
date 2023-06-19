@@ -841,7 +841,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_URL:
                         if (arg_url)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot currently set more than one --url");
+                                                       "Cannot currently set more than one --url=");
 
                         arg_url = optarg;
                         break;
@@ -849,7 +849,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_GETTER:
                         if (arg_getter)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot currently use --getter more than once");
+                                                       "Cannot currently use --getter= more than once");
 
                         arg_getter = optarg;
                         break;
@@ -857,7 +857,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_LISTEN_RAW:
                         if (arg_listen_raw)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot currently use --listen-raw more than once");
+                                                       "Cannot currently use --listen-raw= more than once");
 
                         arg_listen_raw = optarg;
                         break;
@@ -865,7 +865,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_LISTEN_HTTP:
                         if (arg_listen_http || http_socket >= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot currently use --listen-http more than once");
+                                                       "Cannot currently use --listen-http= more than once");
 
                         r = negative_fd(optarg);
                         if (r >= 0)
@@ -877,7 +877,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_LISTEN_HTTPS:
                         if (arg_listen_https || https_socket >= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot currently use --listen-https more than once");
+                                                       "Cannot currently use --listen-https= more than once");
 
                         r = negative_fd(optarg);
                         if (r >= 0)
@@ -913,21 +913,21 @@ static int parse_argv(int argc, char *argv[]) {
 #if HAVE_GNUTLS
                         if (arg_trust)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot use --trust more than once");
+                                                       "Cannot use --trust more= than once");
 
                         arg_trust = strdup(optarg);
                         if (!arg_trust)
                                 return log_oom();
 #else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Option --trust is not available.");
+                                               "Option --trust= is not available.");
 #endif
                         break;
 
                 case 'o':
                         if (arg_output)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot use --output/-o more than once");
+                                                       "Cannot use --output=/-o more than once");
 
                         r = parse_path_argument(optarg, /* suppress_root = */ false, &arg_output);
                         if (r < 0)
@@ -971,7 +971,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 #else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Option --gnutls-log is not available.");
+                                               "Option --gnutls-log= is not available.");
 #endif
 
                 case '?':
@@ -991,12 +991,12 @@ static int parse_argv(int argc, char *argv[]) {
                 || sd_listen_fds(false) > 0;
         if (type_a && type_b)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Cannot use file input or --getter with "
-                                       "--arg-listen-... or socket activation.");
+                                       "Cannot use file input or --getter= with "
+                                       "--listen-...= or socket activation.");
         if (type_a) {
                 if (!arg_output)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Option --output must be specified with file input or --getter.");
+                                               "Option --output= must be specified with file input or --getter=.");
 
                 if (!IN_SET(arg_split_mode, JOURNAL_WRITE_SPLIT_NONE, _JOURNAL_WRITE_SPLIT_INVALID))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1072,7 +1072,7 @@ static int load_certificates(char **key, char **cert, char **trust) {
 
         if ((arg_listen_raw || arg_listen_http) && *trust)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Option --trust makes all non-HTTPS connections untrusted.");
+                                       "Option --trust= makes all non-HTTPS connections untrusted.");
 
         return 0;
 }
