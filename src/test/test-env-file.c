@@ -31,9 +31,10 @@
 #define env_file_3 \
         "#SPAMD_ARGS=\"-d --socketpath=/var/lib/bulwark/spamd \\\n" \
         "#--nouser-config                                     \\\n" \
-        "normal=line                                          \\\n" \
+        "normal1=line\\\n"                                           \
+        "111\n"                                                     \
         ";normal=ignored                                      \\\n" \
-        "normal_ignored                                       \\\n" \
+        "normal2=line222\n"                                          \
         "normal ignored                                       \\\n"
 
 #define env_file_4                              \
@@ -89,7 +90,9 @@ TEST(load_env_file_3) {
 
         _cleanup_strv_free_ char **data = NULL;
         assert_se(load_env_file(NULL, name, &data) == 0);
-        assert_se(data == NULL);
+        assert_se(streq(data[0], "normal1=line111"));
+        assert_se(streq(data[1], "normal2=line222"));
+        assert_se(data[2] == NULL);
 }
 
 TEST(load_env_file_4) {
