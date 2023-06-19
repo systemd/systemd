@@ -244,6 +244,10 @@ static int parse_env_file_internal(
 
                 case COMMENT_ESCAPE:
                         state = COMMENT;
+                        if (strchr(NEWLINE, c)) {
+                                state = PRE_KEY;
+                                line++;
+                        }
                         break;
                 }
         }
