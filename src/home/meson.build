@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+if conf.get('ENABLE_HOMED') != 1
+        subdir_done()
+endif
+
 home_includes = [includes, include_directories('.')]
 
 systemd_homework_sources = files(
@@ -56,23 +60,93 @@ homectl_sources = files(
         'user-record-util.c',
 )
 
-pam_systemd_home_sym = 'src/home/pam_systemd_home.sym'
-pam_systemd_home_c = files(
+pam_systemd_home_sources = files(
         'home-util.c',
         'pam_systemd_home.c',
         'user-record-util.c',
 )
 
-if conf.get('ENABLE_HOMED') == 1
-        install_data('org.freedesktop.home1.conf',
-                     install_dir : dbuspolicydir)
-        install_data('org.freedesktop.home1.service',
-                     install_dir : dbussystemservicedir)
-        install_data('org.freedesktop.home1.policy',
-                     install_dir : polkitpolicydir)
+executables += [
+        [
+                {
+                        'name' : 'systemd-homework',
+                },
+                daemon_template + {
+                        'sources' : systemd_homework_sources,
+                        'link_with' : [libshared,
+                                       libshared_fdisk],
+                        'dependencies' : [libblkid,
+                                          libcrypt,
+                                          libfdisk,
+                                          libopenssl,
+                                          libp11kit,
+                                          threads,
+                                          userspace,
+                                          versiondep],
+                },
+        ],
+        [
+                {
+                        'name' : 'systemd-homed',
+                        'dbus' : true,
+                },
+                daemon_template + {
+                        'sources' : systemd_homed_sources,
+                        'include_directories' : [includes,
+                                                 include_directories('.')],
+                        'dependencies' : [libcrypt,
+                                          libm,
+                                          libopenssl,
+                                          threads,
+                                          userspace,
+                                          versiondep],
+                },
+        ],
+        [
+                {
+                        'name' : 'homectl',
+                        'public' : true,
+                },
+                executable_template + {
+                        'sources' : homectl_sources,
+                        'dependencies' : [libcrypt,
+                                          libdl,
+                                          libopenssl,
+                                          libp11kit,
+                                          threads,
+                                          userspace,
+                                          versiondep],
+                },
+        ],
+]
 
-        if install_sysconfdir_samples
-                install_data('homed.conf',
-                             install_dir : pkgsysconfdir)
-        endif
+modules += [
+        [
+                {
+                        'name' : 'pam_systemd_home',
+                        'conditions' : ['HAVE_PAM'],
+                },
+                pam_template + {
+                        'sources' : pam_systemd_home_sources,
+                        'dependencies' : [libcrypt,
+                                          libpam_misc,
+                                          libpam,
+                                          threads,
+                                          userspace,
+                                          versiondep],
+                        'link_depends' : files('pam_systemd_home.sym'),
+                },
+        ],
+]
+
+install_data('org.freedesktop.home1.conf',
+             install_dir : dbuspolicydir)
+install_data('org.freedesktop.home1.service',
+             install_dir : dbussystemservicedir)
+install_data('org.freedesktop.home1.policy',
+             install_dir : polkitpolicydir)
+
+if install_sysconfdir_samples
+        install_data('homed.conf',
+                     install_dir : pkgsysconfdir)
 endif
