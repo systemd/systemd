@@ -112,6 +112,7 @@ testcase_firmware_date() {
     cat >/run/systemd/system/systemd-hostnamed.service.d/override.conf <<EOF
 [Service]
 Environment="SYSTEMD_DEVICE_VERIFY_SYSFS=0"
+Environment="SYSTEMD_HOSTNAME_FORCE_DMI=1"
 EOF
     systemctl daemon-reload
 
