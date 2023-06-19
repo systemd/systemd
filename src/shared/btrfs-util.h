@@ -36,6 +36,7 @@ typedef enum BtrfsSnapshotFlags {
         BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE = 1 << 5, /* When we can't create a subvolume, use the FS_IMMUTABLE attribute for indicating read-only */
         BTRFS_SNAPSHOT_SIGINT             = 1 << 6, /* Check for SIGINT regularly, and return EINTR if seen */
         BTRFS_SNAPSHOT_SIGTERM            = 1 << 7, /* Ditto, but for SIGTERM */
+        BTRFS_SNAPSHOT_LOCK_BSD           = 1 << 8, /* Return a BSD exclusively locked file descriptor referring to snapshot subvolume/directory. */
 } BtrfsSnapshotFlags;
 
 typedef enum BtrfsRemoveFlags {

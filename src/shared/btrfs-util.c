@@ -1363,9 +1363,20 @@ static int subvol_snapshot_children(
         if (ioctl(new_fd, BTRFS_IOC_SNAP_CREATE_V2, &vol_args) < 0)
                 return -errno;
 
+        if (FLAGS_SET(flags, BTRFS_SNAPSHOT_LOCK_BSD)) {
+                subvolume_fd = xopenat_lock(new_fd, subvolume,
+                                            O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW,
+                                            /* xopen_flags = */ 0,
+                                            /* mode = */ 0,
+                                            LOCK_BSD,
+                                            LOCK_EX);
+                if (subvolume_fd < 0)
+                        return subvolume_fd;
+        }
+
         if (!(flags & BTRFS_SNAPSHOT_RECURSIVE) &&
             !(flags & BTRFS_SNAPSHOT_QUOTA))
-                return 0;
+                return flags & BTRFS_SNAPSHOT_LOCK_BSD ? TAKE_FD(subvolume_fd) : 0;
 
         if (old_subvol_id == 0) {
                 r = btrfs_subvol_get_id_fd(old_fd, &old_subvol_id);
@@ -1385,7 +1396,7 @@ static int subvol_snapshot_children(
                 if (flags & BTRFS_SNAPSHOT_QUOTA)
                         (void) copy_subtree_quota_limits(new_fd, old_subvol_id, new_subvol_id);
 
-                return 0;
+                return flags & BTRFS_SNAPSHOT_LOCK_BSD ? TAKE_FD(subvolume_fd) : 0;
         }
 
         args.key.min_offset = args.key.max_offset = old_subvol_id;
@@ -1480,7 +1491,8 @@ static int subvol_snapshot_children(
                                 return k;
                         }
 
-                        r = subvol_snapshot_children(old_child_fd, new_child_fd, p, sh->objectid, flags & ~BTRFS_SNAPSHOT_FALLBACK_COPY);
+                        r = subvol_snapshot_children(old_child_fd, new_child_fd, p, sh->objectid,
+                                                     flags & ~(BTRFS_SNAPSHOT_FALLBACK_COPY|BTRFS_SNAPSHOT_LOCK_BSD));
 
                         /* Restore the readonly flag */
                         if (flags & BTRFS_SNAPSHOT_READ_ONLY) {
@@ -1503,7 +1515,7 @@ static int subvol_snapshot_children(
         if (flags & BTRFS_SNAPSHOT_QUOTA)
                 (void) copy_subtree_quota_limits(new_fd, old_subvol_id, new_subvol_id);
 
-        return 0;
+        return flags & BTRFS_SNAPSHOT_LOCK_BSD ? TAKE_FD(subvolume_fd) : 0;
 }
 
 int btrfs_subvol_snapshot_at_full(
@@ -1517,7 +1529,7 @@ int btrfs_subvol_snapshot_at_full(
                 void *userdata) {
 
         _cleanup_free_ char *subvolume = NULL;
-        _cleanup_close_ int old_fd = -EBADF, new_fd = -EBADF;
+        _cleanup_close_ int old_fd = -EBADF, new_fd = -EBADF, subvolume_fd = -EBADF;
         int r;
 
         assert(dir_fdf >= 0 || dir_fdf == AT_FDCWD);
@@ -1556,6 +1568,17 @@ int btrfs_subvol_snapshot_at_full(
                 } else if (r < 0)
                         return r;
 
+                if (FLAGS_SET(flags, BTRFS_SNAPSHOT_LOCK_BSD)) {
+                        subvolume_fd = xopenat_lock(new_fd, subvolume,
+                                                    O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW,
+                                                    /* xopen_flags = */ 0,
+                                                    /* mode = */ 0,
+                                                    LOCK_BSD,
+                                                    LOCK_EX);
+                        if (subvolume_fd < 0)
+                                return subvolume_fd;
+                }
+
                 r = copy_directory_at_full(
                                 dir_fdf, from,
                                 new_fd, subvolume,
@@ -1587,7 +1610,7 @@ int btrfs_subvol_snapshot_at_full(
                         }
                 }
 
-                return 0;
+                return flags & BTRFS_SNAPSHOT_LOCK_BSD ? TAKE_FD(subvolume_fd) : 0;
 
         fallback_fail:
                 (void) rm_rf_at(new_fd, subvolume, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);

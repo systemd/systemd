@@ -222,6 +222,7 @@ RootImage=
 RootHash=
 RootHashSignature=
 RootVerity=
+RootEphemeral=
 ExtensionDirectories=
 ExtensionImages=
 RuntimeMaxSec=

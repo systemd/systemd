@@ -510,7 +510,9 @@ static DIR* xopendirat_nomod(int dirfd, const char *path) {
         if (dir)
                 return dir;
 
-        log_debug_errno(errno, "Cannot open %sdirectory \"%s\": %m", dirfd == AT_FDCWD ? "" : "sub", path);
+        if (!IN_SET(errno, ENOENT, ELOOP))
+                log_debug_errno(errno, "Cannot open %sdirectory \"%s\": %m", dirfd == AT_FDCWD ? "" : "sub", path);
+
         if (errno != EPERM)
                 return NULL;
 
@@ -720,7 +722,7 @@ static int dir_cleanup(
                                 }
 
                                 if (flock(dirfd(sub_dir), LOCK_EX|LOCK_NB) < 0) {
-                                        log_debug_errno(errno, "Couldn't acquire shared BSD lock on directory \"%s\", skipping: %m", p);
+                                        log_debug_errno(errno, "Couldn't acquire shared BSD lock on directory \"%s\", skipping: %m", sub_path);
                                         continue;
                                 }
 
@@ -805,10 +807,10 @@ static int dir_cleanup(
                                      O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME,
                                      /* xopen_flags = */ 0,
                                      /* mode = */ 0);
-                        if (fd < 0 && fd != -ENOENT)
+                        if (fd < 0 && !IN_SET(fd, -ENOENT, -ELOOP))
                                 log_warning_errno(fd, "Opening file \"%s\" failed, ignoring: %m", sub_path);
                         if (fd >= 0 && flock(fd, LOCK_EX|LOCK_NB) < 0 && errno == EAGAIN) {
-                                log_debug_errno(errno, "Couldn't acquire shared BSD lock on file \"%s\", skipping: %m", p);
+                                log_debug_errno(errno, "Couldn't acquire shared BSD lock on file \"%s\", skipping: %m", sub_path);
                                 continue;
                         }
 
