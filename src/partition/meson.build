@@ -1,3 +1,52 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-systemd_repart_sources = files('repart.c')
+executables += [
+        daemon_template + {
+                'name' : 'systemd-growfs',
+                'sources' : files('growfs.c'),
+                'dependencies' : [userspace,
+                                  versiondep],
+        },
+        daemon_template + {
+                'name' : 'systemd-makefs',
+                'sources' : files('makefs.c'),
+                'dependencies' : [userspace,
+                                  versiondep],
+        },
+        executable_template + {
+                'name' : 'systemd-repart',
+                'public' : true,
+                'conditions' : ['ENABLE_REPART'],
+                'sources' : files('repart.c'),
+                'link_with' : [libshared,
+                               libshared_fdisk],
+                'dependencies' : [libblkid,
+                                  libfdisk,
+                                  libopenssl,
+                                  threads,
+                                  userspace,
+                                  versiondep],
+                'install_dir' : rootbindir,
+        },
+        executable_template + {
+                'name' : 'systemd-repart.standalone',
+                'public' : have_standalone_binaries,
+                'conditions' : ['ENABLE_REPART'],
+                'sources' : files('repart.c'),
+                'c_args' : '-DSTANDALONE',
+                'link_with' : [libshared_static,
+                               libbasic,
+                               libbasic_gcrypt,
+                               libsystemd_static,
+                               libshared_fdisk],
+                'dependencies' : [libblkid,
+                                  libfdisk,
+                                  libopenssl,
+                                  threads,
+                                  userspace,
+                                  versiondep],
+                'build_by_default' : have_standalone_binaries,
+                'install' : have_standalone_binaries,
+                'install_dir' : rootbindir,
+        },
+]

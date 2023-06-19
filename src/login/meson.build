@@ -44,10 +44,56 @@ loginctl_sources = files(
         'sysfs-show.c',
 )
 
-user_runtime_dir_sources = files('user-runtime-dir.c')
+executables += [
+        daemon_template + {
+                'name' : 'systemd-logind',
+                'dbus' : true,
+                'conditions' : ['ENABLE_LOGIND'],
+                'sources' : systemd_logind_sources,
+                'link_with' : [liblogind_core,
+                               libshared],
+                'dependencies' : [libacl,
+                                  threads,
+                                  userspace,
+                                  versiondep],
+        },
+        executable_template + {
+                'name' : 'loginctl',
+                'public' : true,
+                'conditions' : ['ENABLE_LOGIND'],
+                'sources' : loginctl_sources,
+                'dependencies' : [liblz4,
+                                  libxz,
+                                  libzstd,
+                                  threads,
+                                  userspace,
+                                  versiondep],
+                'install_dir' : rootbindir,
+        },
+        executable_template + {
+                'name' : 'systemd-inhibit',
+                'public' : true,
+                'conditions' : ['ENABLE_LOGIND'],
+                'sources' : files('inhibit.c'),
+                'dependencies' : [userspace,
+                                  versiondep],
+                'install_dir' : rootbindir,
+        },
+        daemon_template + {
+                'name' : 'systemd-user-runtime-dir',
+                'conditions' : ['ENABLE_LOGIND'],
+                'sources' : files('user-runtime-dir.c'),
+        },
+]
 
-pam_systemd_sym = 'src/login/pam_systemd.sym'
-pam_systemd_c = files('pam_systemd.c')
+modules += [
+        pam_template + {
+                'name' : 'pam_systemd',
+                'conditions' : ['ENABLE_LOGIND', 'HAVE_PAM'],
+                'sources' : files('pam_systemd.c'),
+                'link_depends' : files('pam_systemd.sym'),
+        },
+]
 
 enable_logind = conf.get('ENABLE_LOGIND') == 1
 

@@ -5,6 +5,18 @@ systemd_xdg_autostart_generator_sources = files(
         'xdg-autostart-service.c',
 )
 
+executables += [
+        executable_template + {
+                'name' : 'systemd-xdg-autostart-generator',
+                'sources' : systemd_xdg_autostart_generator_sources,
+                'install_dir' : usergeneratordir,
+        },
+        daemon_template + {
+                'name' : 'systemd-xdg-autostart-condition',
+                'sources' : files('xdg-autostart-condition.c'),
+        },
+]
+
 tests += [
         {
                 'sources' : files(
