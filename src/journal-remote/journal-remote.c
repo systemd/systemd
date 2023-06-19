@@ -30,6 +30,20 @@
 
 #define filename_escape(s) xescape((s), "/ ")
 
+#if HAVE_MICROHTTPD
+MHDDaemonWrapper *MHDDaemonWrapper_free(MHDDaemonWrapper *d) {
+        if (!d)
+                return NULL;
+
+        if (d->daemon)
+                MHD_stop_daemon(d->daemon);
+        sd_event_source_unref(d->io_event);
+        sd_event_source_unref(d->timer_event);
+
+        return mfree(d);
+}
+#endif
+
 static int open_output(RemoteServer *s, Writer *w, const char* host) {
         _cleanup_free_ char *_filename = NULL;
         const char *filename;
@@ -337,15 +351,6 @@ int journal_remote_server_init(
 
         return 0;
 }
-
-#if HAVE_MICROHTTPD
-static void MHDDaemonWrapper_free(MHDDaemonWrapper *d) {
-        MHD_stop_daemon(d->daemon);
-        sd_event_source_unref(d->io_event);
-        sd_event_source_unref(d->timer_event);
-        free(d);
-}
-#endif
 
 void journal_remote_server_destroy(RemoteServer *s) {
         size_t i;
