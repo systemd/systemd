@@ -5,7 +5,44 @@ systemd_coredump_sources = files(
         'coredump-vacuum.c',
 )
 
-coredumpctl_sources = files('coredumpctl.c')
+executables += [
+        [
+                {
+                        'name' : 'systemd-coredump',
+                        'conditions' : ['ENABLE_COREDUMP'],
+                },
+                daemon_template + {
+                        'sources' : systemd_coredump_sources,
+                        'link_with' : [libshared,
+                                       libbasic_compress],
+                        'dependencies' : [libacl,
+                                          liblz4,
+                                          libxz,
+                                          libzstd,
+                                          threads,
+                                          userspace,
+                                          versiondep],
+                },
+        ],
+        [
+                {
+                        'name' : 'coredumpctl',
+                        'public' : true,
+                        'conditions' : ['ENABLE_COREDUMP'],
+                },
+                executable_template + {
+                        'sources' : files('coredumpctl.c'),
+                        'link_with' : [libshared,
+                                       libbasic_compress],
+                        'dependencies' : [liblz4,
+                                          libxz,
+                                          libzstd,
+                                          threads,
+                                          userspace,
+                                          versiondep],
+                },
+        ],
+]
 
 if conf.get('ENABLE_COREDUMP') == 1 and install_sysconfdir_samples
         install_data('coredump.conf',

@@ -150,6 +150,66 @@ libnetworkd_core = static_library(
         link_with : networkd_link_with,
         build_by_default : false)
 
+executables += [
+        [
+                {
+                        'name' : 'systemd-networkd',
+                        'dbus' : true,
+                        'conditions' : ['ENABLE_NETWORKD'],
+                },
+                daemon_template + {
+                        'sources' : systemd_networkd_sources,
+                        'include_directories' : network_includes,
+                        'link_with' : [libnetworkd_core,
+                                       libsystemd_network,
+                                       networkd_link_with],
+                        'dependencies' : [threads,
+                                          userspace,
+                                          versiondep],
+                },
+        ],
+        [
+                {
+                        'name' : 'systemd-networkd-wait-online',
+                        'public' : true,
+                        'conditions' : ['ENABLE_NETWORKD'],
+                },
+                daemon_template + {
+                        'sources' : systemd_networkd_wait_online_sources,
+                        'link_with' : [networkd_link_with],
+                        'dependencies' : [userspace,
+                                          versiondep],
+                },
+        ],
+        [
+                {
+                        'name' : 'networkctl',
+                        'public' : true,
+                        'conditions' : ['ENABLE_NETWORKD'],
+                },
+                executable_template + {
+                        'sources' : networkctl_sources,
+                        'include_directories' : libsystemd_network_includes,
+                        'link_with' : [libsystemd_network,
+                                       networkd_link_with],
+                        'dependencies' : [userspace,
+                                          versiondep],
+                        'install_dir' : rootbindir,
+                },
+        ],
+        [
+                {
+                        'name' : 'systemd-network-generator',
+                },
+                daemon_template + {
+                        'sources' : network_generator_sources,
+                        'link_with' : [networkd_link_with],
+                        'dependencies' : [userspace,
+                                          versiondep],
+                },
+        ],
+]
+
 if conf.get('ENABLE_NETWORKD') == 1
         install_data('org.freedesktop.network1.conf',
                      install_dir : dbuspolicydir)
