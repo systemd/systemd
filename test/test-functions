@@ -2737,7 +2737,7 @@ inst_binary() {
     #     nsswitch.conf uses [SUCCESS=merge] (like on Arch Linux)
     # delv, dig - pull in nss_resolve if `resolve` is in nsswitch.conf
     # tar - called by machinectl in TEST-25
-    bin_rx='/(agetty|chown|delv|dig|getfacl|getent|id|login|ls|mkfs\.[a-z0-9]+|mksquashfs|mkswap|setfacl|setpriv|stat|su|tar|useradd|userdel)$'
+    bin_rx='/(agetty|chown|curl|delv|dig|getfacl|getent|id|login|ls|mkfs\.[a-z0-9]+|mksquashfs|mkswap|setfacl|setpriv|stat|su|tar|useradd|userdel)$'
     if get_bool "$IS_BUILT_WITH_ASAN" && [[ "$bin" =~ $bin_rx ]]; then
         wrap_binary=1
     fi
