@@ -1705,7 +1705,7 @@ static int start_machine(int argc, char *argv[], void *userdata) {
 
         r = bus_wait_for_jobs_new(bus, &w);
         if (r < 0)
-                return log_oom();
+                return log_error_errno(r, "Could not watch jobs: %m");
 
         for (int i = 1; i < argc; i++) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
