@@ -8,6 +8,7 @@ rules = [
         [files('60-autosuspend.rules',
                '60-block.rules',
                '60-cdrom_id.rules',
+               '60-dmi-id.rules',
                '60-drm.rules',
                '60-evdev.rules',
                '60-fido-id.rules',
