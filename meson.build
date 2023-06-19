@@ -4248,9 +4248,6 @@ executable(
         install_rpath : rootpkglibdir,
         install : have_standalone_binaries,
         install_dir : rootlibexecdir)
-if have_standalone_binaries
-        public_programs += exe
-endif
 
 executable(
         'systemd-update-done',
