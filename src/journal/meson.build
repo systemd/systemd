@@ -95,6 +95,14 @@ executables += [
                         threads,
                 ],
         },
+        executable_template + {
+                'name' : 'systemd-bsod',
+                'conditions' : ['HAVE_QRENCODE'],
+                'public' : true,
+                'sources' : files('bsod.c'),
+                'link_with' : libshared,
+                'dependencies' : libqrencode,
+        },
         journal_test_template + {
                 'sources' : files('test-journal-append.c'),
                 'type' : 'manual',
