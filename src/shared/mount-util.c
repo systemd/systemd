@@ -459,7 +459,7 @@ static int mount_switch_root_pivot(int fd_newroot, const char *path) {
 
         /* Change into the new rootfs. */
         if (fchdir(fd_newroot) < 0)
-                return log_debug_errno(errno, "Failed to change into new rootfs '%s': %m", path);
+                return log_debug_errno(errno, "Failed to chdir into new rootfs '%s': %m", path);
 
         /* Let the kernel tuck the new root under the old one. */
         if (pivot_root(".", ".") < 0)
@@ -479,13 +479,13 @@ static int mount_switch_root_move(int fd_newroot, const char *path) {
 
         /* Change into the new rootfs. */
         if (fchdir(fd_newroot) < 0)
-                return log_debug_errno(errno, "Failed to change into new rootfs '%s': %m", path);
+                return log_debug_errno(errno, "Failed to chdir into new rootfs '%s': %m", path);
 
         /* Move the new root fs */
         if (mount(".", "/", NULL, MS_MOVE, NULL) < 0)
                 return log_debug_errno(errno, "Failed to move new rootfs '%s': %m", path);
 
-        /* Also change chroot dir */
+        /* Also change root dir */
         if (chroot(".") < 0)
                 return log_debug_errno(errno, "Failed to chroot to new rootfs '%s': %m", path);
 
