@@ -43,7 +43,26 @@ enum loader_type {
         LOADER_SECURE_BOOT_KEYS,
 };
 
+typedef struct ConfigEntry ConfigEntry;  /* Forward declaration */
+typedef struct Config Config;            /* Forward declaration */
+typedef struct Menu Menu;            /* Forward declaration */
+
+typedef enum {
+    CONFIG_ENTRY,
+    MENU
+} EntryType;
+
+typedef union {
+    ConfigEntry *config_entry;
+    Menu *menu;
+} EntryData;
+
 typedef struct {
+    EntryType entry_type;
+    EntryData entry_data;
+} Entry;
+
+struct ConfigEntry {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry) */
         char16_t *title_show; /* The string to actually display (this is made unique before showing) */
         char16_t *title;      /* The raw (human readable) title string of the entry (not necessarily unique) */
@@ -63,11 +82,20 @@ typedef struct {
         char16_t *path;
         char16_t *current_name;
         char16_t *next_name;
-} ConfigEntry;
+};
 
-typedef struct {
-        ConfigEntry **entries;
+struct Menu {
+        char16_t *title_show; /* The string to actually display (this is made unique before showing) */
+        char16_t *title;      /* The raw (human readable) title string of the entry (not necessarily unique) */
+        char16_t *menu_path;  /* The path to the menu directory, which is also an id */
+        Entry **entries;
         size_t entry_count;
+        size_t entry_selected;
+        bool has_parent;
+};
+
+struct Config {
+        Menu *main_menu;
         size_t idx_default;
         size_t idx_default_efivar;
         uint32_t timeout_sec; /* Actual timeout used (efi_main() override > efivar > config). */
@@ -88,7 +116,7 @@ typedef struct {
         bool beep;
         int64_t console_mode;
         int64_t console_mode_efivar;
-} Config;
+};
 
 /* These values have been chosen so that the transitions the user sees could
  * employ unsigned over-/underflow like this:
@@ -125,6 +153,14 @@ static void cursor_right(size_t *cursor, size_t *first, size_t x_max, size_t len
                 (*cursor)++;
         else if ((*first) + (*cursor) < len)
                 (*first)++;
+}
+
+static void delete_chars(char16_t *line, size_t from, size_t to, size_t *len, size_t *clear) {
+    for (size_t i = from; i + to < *len; i++)
+        line[i] = line[i + to];
+    *len -= to;
+    line[*len] = '\0';
+    *clear = to;
 }
 
 static bool line_edit(char16_t **line_in, size_t x_max, size_t y_pos) {
@@ -239,17 +275,12 @@ static bool line_edit(char16_t **line_in, size_t x_max, size_t y_pos) {
                 case KEYPRESS(EFI_ALT_PRESSED, 0, 'd'):
                         /* kill-word */
                         clear = 0;
-
                         size_t k;
                         for (k = first + cursor; k < len && line[k] == ' '; k++)
                                 clear++;
                         for (; k < len && line[k] != ' '; k++)
                                 clear++;
-
-                        for (size_t i = first + cursor; i + clear < len; i++)
-                                line[i] = line[i + clear];
-                        len -= clear;
-                        line[len] = '\0';
+                        delete_chars(line, first + cursor, clear, &len, &clear);
                         continue;
 
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'w'):
@@ -257,7 +288,7 @@ static bool line_edit(char16_t **line_in, size_t x_max, size_t y_pos) {
                 case KEYPRESS(EFI_ALT_PRESSED, 0, '\b'):
                         /* backward-kill-word */
                         clear = 0;
-                        if ((first + cursor) > 0 && line[first + cursor-1] == ' ') {
+                        if ((first + cursor) > 0 && line[first + cursor - 1] == ' ') {
                                 cursor_left(&cursor, &first);
                                 clear++;
                                 while ((first + cursor) > 0 && line[first + cursor] == ' ') {
@@ -265,15 +296,11 @@ static bool line_edit(char16_t **line_in, size_t x_max, size_t y_pos) {
                                         clear++;
                                 }
                         }
-                        while ((first + cursor) > 0 && line[first + cursor-1] != ' ') {
+                        while ((first + cursor) > 0 && line[first + cursor - 1] != ' ') {
                                 cursor_left(&cursor, &first);
                                 clear++;
                         }
-
-                        for (size_t i = first + cursor; i + clear < len; i++)
-                                line[i] = line[i + clear];
-                        len -= clear;
-                        line[len] = '\0';
+                        delete_chars(line, first + cursor, clear, &len, &clear);
                         continue;
 
                 case KEYPRESS(0, SCAN_DELETE, 0):
@@ -354,8 +381,20 @@ static bool line_edit(char16_t **line_in, size_t x_max, size_t y_pos) {
         }
 }
 
-static size_t entry_lookup_key(Config *config, size_t start, char16_t key) {
-        assert(config);
+static size_t find_key_from_config(Menu *menu, size_t start, size_t end, char16_t key) {
+        assert(menu);
+
+        for (size_t i = start; i < end; i++) {
+                if (menu->entries[i]->entry_type != CONFIG_ENTRY)
+                        continue;
+                if (menu->entries[i]->entry_data.config_entry->key == key)
+                        return i;
+        }
+        return IDX_INVALID;
+}
+
+static size_t entry_lookup_key(Menu *menu, size_t start, char16_t key) {
+        assert(menu);
 
         if (key == 0)
                 return IDX_INVALID;
@@ -363,21 +402,18 @@ static size_t entry_lookup_key(Config *config, size_t start, char16_t key) {
         /* select entry by number key */
         if (key >= '1' && key <= '9') {
                 size_t i = key - '0';
-                if (i > config->entry_count)
-                        i = config->entry_count;
-                return i-1;
+                if (i > menu->entry_count)
+                        i = menu->entry_count;
+                return i - 1;
         }
 
         /* find matching key in config entries */
-        for (size_t i = start; i < config->entry_count; i++)
-                if (config->entries[i]->key == key)
-                        return i;
+        size_t i = find_key_from_config(menu, start, menu->entry_count, key);
+        if (i != IDX_INVALID)
+                return i;
 
-        for (size_t i = 0; i < start; i++)
-                if (config->entries[i]->key == key)
-                        return i;
-
-        return IDX_INVALID;
+        /* find key from the start */
+        return find_key_from_config(menu, 0, start, key);
 }
 
 static char16_t *update_timeout_efivar(uint32_t *t, bool inc) {
@@ -430,6 +466,75 @@ static bool ps_continue(void) {
         uint64_t key;
         return console_key_read(&key, UINT64_MAX) == EFI_SUCCESS &&
                         !IN_SET(key, KEYPRESS(0, SCAN_ESC, 0), KEYPRESS(0, 0, 'q'), KEYPRESS(0, 0, 'Q'));
+}
+
+static void print_menu_status(Menu *menu){
+        if (menu->title)
+                printf("    menu title: %ls\n", menu->title);
+        if (menu->title_show && !streq16(menu->title, menu->title_show))
+                printf("    title show: %ls\n", menu->title_show);
+        if (menu->menu_path)
+                printf("     menu path: %ls\n", menu->menu_path);
+        if (menu->has_parent && menu->entries[0]->entry_data.menu->title_show)
+                printf("   menu parent: %ls\n", menu->entries[0]->entry_data.menu->title_show);
+        if (!ps_continue())
+                return;
+        
+        size_t start_index = menu->has_parent ? 1 : 0;
+        for (size_t i = start_index; i < menu->entry_count; i++) {
+                if (menu->entries[i]->entry_type == MENU){
+                        printf("         entry: %zu/%zu\n", i + 1 - (menu->has_parent? 1 : 0), menu->entry_count - (menu->has_parent? 1 : 0));
+                        print_menu_status(menu->entries[i]->entry_data.menu);
+                }
+                if (menu->entries[i]->entry_type == CONFIG_ENTRY) {
+                        ConfigEntry *entry = menu->entries[i]->entry_data.config_entry;
+                        EFI_DEVICE_PATH *dp = NULL;
+                        _cleanup_free_ char16_t *dp_str = NULL;
+
+                        if (entry->device &&
+                            BS->HandleProtocol(
+                                            entry->device,
+                                            MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL),
+                                            (void **) &dp) == EFI_SUCCESS)
+                                (void) device_path_to_str(dp, &dp_str);
+
+                        printf("         entry: %zu/%zu\n", i + 1 - (menu->has_parent? 1 : 0), menu->entry_count - (menu->has_parent? 1 : 0));
+                        printf("            id: %ls\n", entry->id);
+                        if (entry->title)
+                                printf("         title: %ls\n", entry->title);
+                        if (entry->title_show && !streq16(entry->title, entry->title_show))
+                                printf("    title show: %ls\n", entry->title_show);
+                        if (entry->sort_key)
+                                printf("      sort key: %ls\n", entry->sort_key);
+                        if (entry->version)
+                                printf("       version: %ls\n", entry->version);
+                        if (entry->machine_id)
+                                printf("    machine-id: %ls\n", entry->machine_id);
+                        if (dp_str)
+                                printf("        device: %ls\n", dp_str);
+                        if (entry->loader)
+                                printf("        loader: %ls\n", entry->loader);
+                        STRV_FOREACH(initrd, entry->initrd)
+                                printf("        initrd: %ls\n", *initrd);
+                        if (entry->devicetree)
+                                printf("    devicetree: %ls\n", entry->devicetree);
+                        if (entry->options)
+                                printf("       options: %ls\n", entry->options);
+                        printf(" internal call: %ls\n", yes_no(!!entry->call));
+
+                        printf("counting boots: %ls\n", yes_no(entry->tries_left >= 0));
+                        if (entry->tries_left >= 0) {
+                                printf("         tries: %i left, %i done\n",
+                                       entry->tries_left,
+                                       entry->tries_done);
+                                printf("  current path: %ls\\%ls\n", entry->path, entry->current_name);
+                                printf("     next path: %ls\\%ls\n", entry->path, entry->next_name);
+                        }
+
+                        if (!ps_continue())
+                                return;
+                }
+        }
 }
 
 static void print_status(Config *config, char16_t *loaded_image_path) {
@@ -547,51 +652,11 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
 
         if (!ps_continue())
                 return;
+        
+        print_menu_status(config->main_menu);
 
-        for (size_t i = 0; i < config->entry_count; i++) {
-                ConfigEntry *entry = config->entries[i];
-                EFI_DEVICE_PATH *dp = NULL;
-                _cleanup_free_ char16_t *dp_str = NULL;
-
-                if (entry->device &&
-                    BS->HandleProtocol(entry->device, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &dp) ==
-                                    EFI_SUCCESS)
-                        (void) device_path_to_str(dp, &dp_str);
-
-                printf("  config entry: %zu/%zu\n", i + 1, config->entry_count);
-                printf("            id: %ls\n", entry->id);
-                if (entry->title)
-                        printf("         title: %ls\n", entry->title);
-                if (entry->title_show && !streq16(entry->title, entry->title_show))
-                        printf("    title show: %ls\n", entry->title_show);
-                if (entry->sort_key)
-                        printf("      sort key: %ls\n", entry->sort_key);
-                if (entry->version)
-                        printf("       version: %ls\n", entry->version);
-                if (entry->machine_id)
-                        printf("    machine-id: %ls\n", entry->machine_id);
-                if (dp_str)
-                        printf("        device: %ls\n", dp_str);
-                if (entry->loader)
-                        printf("        loader: %ls\n", entry->loader);
-                STRV_FOREACH(initrd, entry->initrd)
-                        printf("        initrd: %ls\n", *initrd);
-                if (entry->devicetree)
-                        printf("    devicetree: %ls\n", entry->devicetree);
-                if (entry->options)
-                        printf("       options: %ls\n", entry->options);
-                printf(" internal call: %ls\n", yes_no(!!entry->call));
-
-                printf("counting boots: %ls\n", yes_no(entry->tries_left >= 0));
-                if (entry->tries_left >= 0) {
-                        printf("         tries: %i left, %i done\n", entry->tries_left, entry->tries_done);
-                        printf("  current path: %ls\\%ls\n", entry->path, entry->current_name);
-                        printf("     next path: %ls\\%ls\n", entry->path, entry->next_name);
-                }
-
-                if (!ps_continue())
-                        return;
-        }
+        if (!ps_continue())
+                return;
 }
 
 static EFI_STATUS reboot_into_firmware(void) {
@@ -612,105 +677,222 @@ static EFI_STATUS reboot_into_firmware(void) {
         assert_not_reached();
 }
 
-static bool menu_run(
-                Config *config,
-                ConfigEntry **chosen_entry,
-                char16_t *loaded_image_path) {
+static char16_t *create_padded_line(const char16_t *title_show, size_t line_width) {
+        assert(title_show);
 
-        assert(config);
-        assert(chosen_entry);
+    size_t j, padding = (line_width - MIN(strlen16(title_show), line_width)) / 2;
+    char16_t *line = xnew(char16_t, line_width + 1);
+    for (j = 0; j < padding; j++)
+        line[j] = ' ';
+    for (size_t k = 0; title_show[k] != '\0' && j < line_width; j++, k++)
+        line[j] = title_show[k];
+    for (; j < line_width; j++)
+        line[j] = ' ';
+    line[line_width] = '\0';
+    return line;
+}
 
-        EFI_STATUS err;
-        size_t visible_max = 0;
-        size_t idx_highlight = config->idx_default, idx_highlight_prev = 0;
-        size_t idx, idx_first = 0, idx_last = 0;
-        bool new_mode = true, clear = true;
-        bool refresh = true, highlight = false;
-        size_t x_start = 0, y_start = 0, y_status = 0, x_max, y_max;
-        _cleanup_(strv_freep) char16_t **lines = NULL;
-        _cleanup_free_ char16_t *clearline = NULL, *separator = NULL, *status = NULL;
-        uint32_t timeout_efivar_saved = config->timeout_sec_efivar;
-        uint32_t timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
-        bool exit = false, run = true, firmware_setup = false;
-        int64_t console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
-        size_t default_efivar_saved = config->idx_default_efivar;
+static size_t find_line_width(Menu *current_menu, size_t entry_padding, size_t x_max) {
+        assert(current_menu);
 
-        graphics_mode(false);
-        ST->ConIn->Reset(ST->ConIn, false);
-        ST->ConOut->EnableCursor(ST->ConOut, false);
+    size_t line_width = 0;
+    if (current_menu->has_parent)
+        line_width = MAX(line_width, strlen16(u".."));
+    for (size_t i = 0; i < current_menu->entry_count; i++) {
+        if (current_menu->entries[i]->entry_type == CONFIG_ENTRY)
+                        line_width = MAX(
+                                        line_width,
+                                        strlen16(current_menu->entries[i]->entry_data.config_entry->title_show));
+        if (current_menu->entries[i]->entry_type == MENU)
+                        line_width = MAX(
+                                        line_width,
+                                        strlen16(current_menu->entries[i]->entry_data.menu->title_show));
+    }
+    line_width = MAX(line_width, strlen16(current_menu->title_show));
+    line_width = MAX(line_width, strlen16(current_menu->menu_path));
+    return MIN(line_width + 2 * entry_padding, x_max);
+}
 
-        /* draw a single character to make ClearScreen work on some firmware */
-        ST->ConOut->OutputString(ST->ConOut, (char16_t *) u" ");
+static void init_menu_lines(Menu *current_menu, size_t line_width, char16_t ***lines) {
+        assert(current_menu);
+        assert(lines);
 
-        err = console_set_mode(config->console_mode_efivar != CONSOLE_MODE_KEEP ?
-                               config->console_mode_efivar : config->console_mode);
-        if (err != EFI_SUCCESS) {
-                clear_screen(COLOR_NORMAL);
-                log_error_status(err, "Error switching console mode: %m");
+    *lines = xnew(char16_t *, current_menu->entry_count + 1);
+    size_t line_index = 0;
+
+    if (current_menu->has_parent) {
+        (*lines)[line_index++] = create_padded_line(u"..", line_width);
+    }
+
+    while(line_index < current_menu->entry_count) {
+        if (current_menu->entries[line_index]->entry_type == CONFIG_ENTRY) {
+                        (*lines)[line_index] = create_padded_line(
+                                        current_menu->entries[line_index]->entry_data.config_entry->title_show,
+                                        line_width);
         }
+        if (current_menu->entries[line_index]->entry_type == MENU) {
+                        (*lines)[line_index] = create_padded_line(
+                                        current_menu->entries[line_index]->entry_data.menu->title_show,
+                                        line_width);
+        }
+        line_index++;
+    }
+    (*lines)[current_menu->entry_count] = NULL;
+}
 
-        size_t line_width = 0, entry_padding = 3;
-        while (!exit) {
-                uint64_t key;
+static char16_t* find_last_substring(char16_t* str, char16_t* delimiter) {
+    char16_t* last_occurrence = NULL;
+    char16_t* p = str;
+    char16_t* q;
+    char16_t* r;
+    
+    while (*p != '\0') {
+        if (*p == *delimiter) {
+            q = p;
+            r = delimiter;
+            while (*r != '\0' && *q == *r) {
+                r++;
+                q++;
+            }
+            if (*r == '\0') {
+                last_occurrence = p;
+            }
+        }
+        p++;
+    }
 
-                if (new_mode) {
+    return last_occurrence ? last_occurrence + strlen16(delimiter) : str;
+}
+
+static size_t efi_wcslen(const wchar_t *s) {
+    const wchar_t* p = s;
+    while (*p) ++p;
+    return p - s;
+}
+
+static wchar_t* efi_wcschr(const wchar_t *s, wchar_t c) {
+    while (*s) {
+        if (*s == c) return (wchar_t*)s;
+        ++s;
+    }
+    return NULL;
+}
+
+static char16_t* trim_menu_path(char16_t* menu_path, size_t line_width) {
+    while (menu_path && efi_wcslen(menu_path) > line_width) {
+        menu_path = efi_wcschr(menu_path + 1, L'\\');
+    }
+    return menu_path;
+}
+
+static void print_menu_header(Menu *current_menu, Config *config, size_t x_start, size_t y_start, size_t menu_start, size_t line_width, size_t x_max, size_t entry_padding, char16_t *separator, char16_t *clearline) {
+    assert(current_menu);
+    assert(separator);
+    assert(clearline);
+    assert(config);
+
+    size_t len = MIN(line_width + 2 * entry_padding, x_max);
+    size_t x = (x_max - len) / 2;
+
+    _cleanup_free_ char16_t* padded_title = create_padded_line(current_menu->title_show, line_width);
+    _cleanup_free_ char16_t* menu_path_full = xasprintf("%ls\\...", find_last_substring(current_menu->menu_path, config->main_menu->menu_path));
+
+    char16_t* menu_path = menu_path_full;
+    if (efi_wcslen(menu_path_full) > line_width) {
+        menu_path = trim_menu_path(menu_path_full, line_width);
+        menu_path = xasprintf("..%ls", menu_path);
+        if (efi_wcslen(menu_path) > line_width) {
+            menu_path = trim_menu_path(menu_path, line_width);
+        }
+    }
+
+    _cleanup_free_ char16_t* padded_menu_path = create_padded_line(menu_path, line_width);
+
+    print_at(x_start, y_start - menu_start, COLOR_NORMAL, padded_title);
+    print_at(x_start, y_start - menu_start + 1, COLOR_NORMAL, padded_menu_path);
+    print_at(x, y_start - menu_start + 2, COLOR_NORMAL, separator + x_max - len);
+    print_at(0, y_start - menu_start + 3, COLOR_NORMAL, clearline);
+}
+
+static bool menu_run(Config *config, ConfigEntry **chosen_entry, char16_t *loaded_image_path) {
+
+    assert(config);
+    assert(chosen_entry);
+
+    EFI_STATUS err;
+    size_t visible_max = 0;
+    size_t idx_highlight = config->idx_default, idx_highlight_prev = 0;
+    size_t idx, idx_first = 0, idx_last = 0;
+    bool new_mode = true, clear = true;
+    bool refresh = true, highlight = false;
+    size_t x_start = 0, y_start = 0, y_status = 0, x_max, y_max, menu_start = 4;
+    _cleanup_(strv_freep) char16_t **lines = NULL;
+    _cleanup_free_ char16_t *clearline = NULL, *separator = NULL, *status = NULL;
+    uint32_t timeout_efivar_saved = config->timeout_sec_efivar;
+    uint32_t timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
+    bool exit = false, run = true, firmware_setup = false;
+    int64_t console_mode_initial = ST->ConOut->Mode->Mode,
+            console_mode_efivar_saved = config->console_mode_efivar;
+    size_t default_efivar_saved = config->idx_default_efivar;
+    Menu *current_menu = config->main_menu;
+
+    graphics_mode(false);
+    ST->ConIn->Reset(ST->ConIn, false);
+    ST->ConOut->EnableCursor(ST->ConOut, false);
+
+    /* draw a single character to make ClearScreen work on some firmware */
+    ST->ConOut->OutputString(ST->ConOut, (char16_t *) u" ");
+
+    err = console_set_mode(
+                    config->console_mode_efivar != CONSOLE_MODE_KEEP ? config->console_mode_efivar :
+                                                                       config->console_mode);
+    if (err != EFI_SUCCESS) {
+        clear_screen(COLOR_NORMAL);
+        log_error_status(err, "Error switching console mode: %m");
+    }
+
+    size_t line_width = 0, entry_padding = 3;
+    while (!exit) {
+        uint64_t key;
+
+        if (new_mode) {
                         console_query_mode(&x_max, &y_max);
 
                         /* account for padding+status */
-                        visible_max = y_max - 2;
+                        visible_max = y_max - 2 - menu_start;
 
                         /* Drawing entries starts at idx_first until idx_last. We want to make
                         * sure that idx_highlight is centered, but not if we are close to the
                         * beginning/end of the entry list. Otherwise we would have a half-empty
                         * screen. */
-                        if (config->entry_count <= visible_max || idx_highlight <= visible_max / 2)
+                        if (current_menu->entry_count <= visible_max || idx_highlight <= visible_max / 2)
                                 idx_first = 0;
-                        else if (idx_highlight >= config->entry_count - (visible_max / 2))
-                                idx_first = config->entry_count - visible_max;
+                        else if (idx_highlight >= current_menu->entry_count - (visible_max / 2))
+                                idx_first = current_menu->entry_count - visible_max;
                         else
                                 idx_first = idx_highlight - (visible_max / 2);
                         idx_last = idx_first + visible_max - 1;
 
                         /* length of the longest entry */
-                        line_width = 0;
-                        for (size_t i = 0; i < config->entry_count; i++)
-                                line_width = MAX(line_width, strlen16(config->entries[i]->title_show));
-                        line_width = MIN(line_width + 2 * entry_padding, x_max);
+                        line_width = find_line_width(current_menu, entry_padding, x_max);
 
                         /* offsets to center the entries on the screen */
                         x_start = (x_max - (line_width)) / 2;
-                        if (config->entry_count < visible_max)
-                                y_start = ((visible_max - config->entry_count) / 2) + 1;
+                        if (current_menu->entry_count < visible_max)
+                                y_start = ((visible_max - current_menu->entry_count) / 2) + 1 + menu_start;
                         else
-                                y_start = 0;
+                                y_start = 0 + menu_start;
 
                         /* Put status line after the entry list, but give it some breathing room. */
-                        y_status = MIN(y_start + MIN(visible_max, config->entry_count) + 1, y_max - 1);
+                        y_status = MIN(y_start + MIN(visible_max, current_menu->entry_count + 1), y_max - 1);
 
                         lines = strv_free(lines);
                         clearline = mfree(clearline);
                         separator = mfree(separator);
 
                         /* menu entries title lines */
-                        lines = xnew(char16_t *, config->entry_count + 1);
-
-                        for (size_t i = 0; i < config->entry_count; i++) {
-                                size_t j, padding;
-
-                                lines[i] = xnew(char16_t, line_width + 1);
-                                padding = (line_width - MIN(strlen16(config->entries[i]->title_show), line_width)) / 2;
-
-                                for (j = 0; j < padding; j++)
-                                        lines[i][j] = ' ';
-
-                                for (size_t k = 0; config->entries[i]->title_show[k] != '\0' && j < line_width; j++, k++)
-                                        lines[i][j] = config->entries[i]->title_show[k];
-
-                                for (; j < line_width; j++)
-                                        lines[i][j] = ' ';
-                                lines[i][line_width] = '\0';
-                        }
-                        lines[config->entry_count] = NULL;
+                        lines = xnew(char16_t *, current_menu->entry_count + 1);
+                        init_menu_lines(current_menu, line_width, &lines);
 
                         clearline = xnew(char16_t, x_max + 1);
                         separator = xnew(char16_t, x_max + 1);
@@ -723,16 +905,19 @@ static bool menu_run(
 
                         new_mode = false;
                         clear = true;
-                }
+        }
 
-                if (clear) {
+        if (clear) {
                         clear_screen(COLOR_NORMAL);
                         clear = false;
                         refresh = true;
                 }
 
                 if (refresh) {
-                        for (size_t i = idx_first; i <= idx_last && i < config->entry_count; i++) {
+                        // Print the title and the menu_path
+                        print_menu_header(current_menu, config, x_start, y_start, menu_start, line_width, x_max, entry_padding, separator, clearline);
+
+                        for (size_t i = idx_first; i <= idx_last && i < (current_menu->entry_count); i++) {
                                 print_at(x_start, y_start + i - idx_first,
                                          i == idx_highlight ? COLOR_HIGHLIGHT : COLOR_ENTRY,
                                          lines[i]);
@@ -772,16 +957,16 @@ static bool menu_run(
                         size_t len = strnlen16(status, x_max - 1);
                         size_t x = (x_max - len) / 2;
                         status[len] = '\0';
-                        print_at(0, y_status, COLOR_NORMAL, clearline + x_max - x);
+                        print_at(0, y_status +1, COLOR_NORMAL, clearline + x_max - x);
                         ST->ConOut->OutputString(ST->ConOut, status);
                         ST->ConOut->OutputString(ST->ConOut, clearline + 1 + x + len);
 
                         len = MIN(MAX(len, line_width) + 2 * entry_padding, x_max);
                         x = (x_max - len) / 2;
-                        print_at(x, y_status - 1, COLOR_NORMAL, separator + x_max - len);
+                        print_at(x, y_status, COLOR_NORMAL, separator + x_max - len);
                 } else {
-                        print_at(0, y_status - 1, COLOR_NORMAL, clearline);
-                        print_at(0, y_status, COLOR_NORMAL, clearline + 1); /* See comment above. */
+                        print_at(0, y_status, COLOR_NORMAL, clearline);
+                        print_at(0, y_status + 1, COLOR_NORMAL, clearline + 1); /* See comment above. */
                 }
 
                 /* Beep several times so that the selected entry can be distinguished. */
@@ -834,7 +1019,7 @@ static bool menu_run(
                 case KEYPRESS(0, SCAN_DOWN, 0):
                 case KEYPRESS(0, 0, 'j'):
                 case KEYPRESS(0, 0, 'J'):
-                        if (idx_highlight < config->entry_count-1)
+                        if (idx_highlight < current_menu->entry_count -1)
                                 idx_highlight++;
                         break;
 
@@ -848,9 +1033,9 @@ static bool menu_run(
 
                 case KEYPRESS(0, SCAN_END, 0):
                 case KEYPRESS(EFI_ALT_PRESSED, 0, '>'):
-                        if (idx_highlight < config->entry_count-1) {
+                        if (idx_highlight < current_menu->entry_count -1) {
                                 refresh = true;
-                                idx_highlight = config->entry_count-1;
+                                idx_highlight = current_menu->entry_count -1;
                         }
                         break;
 
@@ -863,8 +1048,8 @@ static bool menu_run(
 
                 case KEYPRESS(0, SCAN_PAGE_DOWN, 0):
                         idx_highlight += visible_max;
-                        if (idx_highlight > config->entry_count-1)
-                                idx_highlight = config->entry_count-1;
+                        if (idx_highlight > current_menu->entry_count -1)
+                                idx_highlight = current_menu->entry_count -1;
                         break;
 
                 case KEYPRESS(0, 0, '\n'):
@@ -872,6 +1057,13 @@ static bool menu_run(
                 case KEYPRESS(0, SCAN_F3, 0): /* EZpad Mini 4s firmware sends malformed events */
                 case KEYPRESS(0, SCAN_F3, '\r'): /* Teclast X98+ II firmware sends malformed events */
                 case KEYPRESS(0, SCAN_RIGHT, 0):
+                        if (current_menu->entries[idx_highlight]->entry_type == MENU) {
+                                current_menu->entry_selected = idx_highlight;
+                                current_menu = current_menu->entries[idx_highlight]->entry_data.menu;
+                                idx_highlight = current_menu->entry_selected;
+                                new_mode = true;
+                                break;
+                        }
                         exit = true;
                         break;
 
@@ -890,9 +1082,19 @@ static bool menu_run(
 
                 case KEYPRESS(0, 0, 'd'):
                 case KEYPRESS(0, 0, 'D'):
+                        if (current_menu->has_parent == true) {
+                                status = xstrdup16(u"Default boot entry can only be set on the main menu.");
+                                break;
+                        }
+
+                        if (current_menu->entries[idx_highlight]->entry_type == MENU){
+                                status = xstrdup16(u"Default boot entry can not be set to a menu.");
+                                break;
+                        }
+
                         if (config->idx_default_efivar != idx_highlight) {
                                 free(config->entry_default_efivar);
-                                config->entry_default_efivar = xstrdup16(config->entries[idx_highlight]->id);
+                                config->entry_default_efivar = xstrdup16(current_menu->entries[idx_highlight]->entry_data.config_entry->id);
                                 config->idx_default_efivar = idx_highlight;
                                 status = xstrdup16(u"Default boot entry selected.");
                         } else {
@@ -916,17 +1118,22 @@ static bool menu_run(
 
                 case KEYPRESS(0, 0, 'e'):
                 case KEYPRESS(0, 0, 'E'):
+                        if (current_menu->entries[idx_highlight]->entry_type == MENU) {
+                                status = xstrdup16(u"Menu entries cannot be edited.");
+                                break;
+                        }
+
                         /* only the options of configured entries can be edited */
-                        if (!config->editor || !IN_SET(config->entries[idx_highlight]->type,
+                        if (!config->editor || !IN_SET(current_menu->entries[idx_highlight]->entry_data.config_entry->type,
                             LOADER_EFI, LOADER_LINUX, LOADER_UNIFIED_LINUX))
                                 break;
 
                         /* Unified kernels that are signed as a whole will not accept command line options
                          * when secure boot is enabled unless there is none embedded in the image. Do not try
                          * to pretend we can edit it to only have it be ignored. */
-                        if (config->entries[idx_highlight]->type == LOADER_UNIFIED_LINUX &&
+                        if (current_menu->entries[idx_highlight]->entry_data.config_entry->type == LOADER_UNIFIED_LINUX &&
                             secure_boot_enabled() &&
-                            config->entries[idx_highlight]->options)
+                            current_menu->entries[idx_highlight]->entry_data.config_entry->options)
                                 break;
 
                         /* The edit line may end up on the last line of the screen. And even though we're
@@ -935,7 +1142,7 @@ static bool menu_run(
                          * Since we cannot paint the last character of the edit line, we simply start
                          * at x-offset 1 for symmetry. */
                         print_at(1, y_status, COLOR_EDIT, clearline + 2);
-                        exit = line_edit(&config->entries[idx_highlight]->options, x_max - 2, y_status);
+                        exit = line_edit(&current_menu->entries[idx_highlight]->entry_data.config_entry->options, x_max - 2, y_status);
                         print_at(1, y_status, COLOR_NORMAL, clearline + 2);
                         break;
 
@@ -994,7 +1201,6 @@ static bool menu_run(
                 case KEYPRESS(0, SCAN_F2, 0):     /* Most vendors. */
                 case KEYPRESS(0, SCAN_F10, 0):    /* HP and Lenovo. */
                 case KEYPRESS(0, SCAN_DELETE, 0): /* Same as F2. */
-                case KEYPRESS(0, SCAN_ESC, 0):    /* HP. */
                         if (FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
                                 firmware_setup = true;
                                 /* Let's make sure the user really wants to do this. */
@@ -1003,9 +1209,24 @@ static bool menu_run(
                                 status = xstrdup16(u"Reboot into firmware interface not supported.");
                         break;
 
+                case KEYPRESS(0, SCAN_ESC, 0): /* HP. */
+                        if (current_menu->has_parent == true) {
+                                // Leave the current submenu
+                                current_menu->entry_selected = idx_highlight;
+                                current_menu = current_menu->entries[0]->entry_data.menu;
+                                idx_highlight = current_menu->entry_selected;
+                                new_mode = true;
+                        } else if (FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
+                                firmware_setup = true;
+                                /* Let's make sure the user really wants to do this. */
+                                status = xstrdup16(u"Press Enter to reboot into firmware interface.");
+                        } else {
+                                status = xstrdup16(u"Reboot into firmware interface not supported.");
+                        }
+                        break;
                 default:
                         /* jump with a hotkey directly to a matching entry */
-                        idx = entry_lookup_key(config, idx_highlight+1, KEYCHAR(key));
+                        idx = entry_lookup_key(current_menu, idx_highlight+1, KEYCHAR(key));
                         if (idx == IDX_INVALID)
                                 break;
                         idx_highlight = idx;
@@ -1024,9 +1245,17 @@ static bool menu_run(
 
                 if (!refresh && idx_highlight != idx_highlight_prev)
                         highlight = true;
-        }
+    }
 
-        *chosen_entry = config->entries[idx_highlight];
+        /* for paranoia only */
+        if (idx_highlight > current_menu->entry_count || current_menu->entries[idx_highlight]->entry_type == MENU)
+                for (size_t i = 0; i < current_menu->entry_count; i++)
+                        if (current_menu->entries[i]->entry_type == CONFIG_ENTRY){
+                                idx_highlight = i;
+                                break;
+                        }
+        
+        *chosen_entry = current_menu->entries[idx_highlight]->entry_data.config_entry;
 
         /* Update EFI vars after we left the menu to reduce NVRAM writes. */
 
@@ -1062,22 +1291,6 @@ static bool menu_run(
         return run;
 }
 
-static void config_add_entry(Config *config, ConfigEntry *entry) {
-        assert(config);
-        assert(entry);
-
-        /* This is just for paranoia. */
-        assert(config->entry_count < IDX_MAX);
-
-        if ((config->entry_count & 15) == 0) {
-                config->entries = xrealloc(
-                                config->entries,
-                                sizeof(void *) * config->entry_count,
-                                sizeof(void *) * (config->entry_count + 16));
-        }
-        config->entries[config->entry_count++] = entry;
-}
-
 static void config_entry_free(ConfigEntry *entry) {
         if (!entry)
                 return;
@@ -1098,8 +1311,84 @@ static void config_entry_free(ConfigEntry *entry) {
         free(entry);
 }
 
+static void menu_free(Menu *menu) {
+        if (!menu)
+                return;
+
+        free(menu->title_show);
+        free(menu->title);
+        for (size_t i = 0; i < menu->entry_count; i++)
+                if (menu->entries[i]->entry_type == MENU)
+                        menu_free(menu->entries[i]->entry_data.menu);
+                else if (menu->entries[i]->entry_type == CONFIG_ENTRY)
+                        config_entry_free(menu->entries[i]->entry_data.config_entry);
+}
+
+static void entry_free(Entry *entry) {
+        if (!entry)
+                return;
+
+        if (entry->entry_type == CONFIG_ENTRY) {
+                config_entry_free(entry->entry_data.config_entry);
+        } else if (entry->entry_type == MENU) {
+                menu_free(entry->entry_data.menu);
+        }
+
+        // Finally, free the entry itself
+        free(entry);
+}
+
 static inline void config_entry_freep(ConfigEntry **entry) {
         config_entry_free(*entry);
+}
+
+static inline void menu_freep(Menu **menu) {
+        menu_free(*menu);
+}
+
+static inline void entry_freep(Entry **entry) {
+        entry_free(*entry);
+}
+
+static void menu_add_entry_generic(Menu *menu, EntryType entry_type, void *data) {
+    assert(menu);
+    assert(data);
+
+    /* This is just for paranoia. */
+    assert(menu->entry_count < IDX_MAX);
+
+    if ((menu->entry_count & 15) == 0) {
+        menu->entries = xrealloc(
+            menu->entries,
+            sizeof(void *) * menu->entry_count,
+            sizeof(void *) * (menu->entry_count + 16));
+    }
+
+    _cleanup_(entry_freep) Entry *entry = NULL;
+    entry = xnew(Entry, 1);
+
+    if (entry_type == CONFIG_ENTRY) {
+        *entry = (Entry){
+            .entry_type = CONFIG_ENTRY,
+            .entry_data.config_entry = (ConfigEntry *)data,
+        };
+    } else if (entry_type == MENU) {
+        *entry = (Entry){
+            .entry_type = MENU,
+            .entry_data.menu = (Menu *)data,
+        };
+    }
+
+    menu->entries[menu->entry_count++] = entry;
+    TAKE_PTR(entry);
+}
+
+static void menu_add_entry(Menu *menu, ConfigEntry *config_entry) {
+    menu_add_entry_generic(menu, CONFIG_ENTRY, config_entry);
+}
+
+static void menu_add_menu(Menu *menu, Menu *submenu) {
+    menu_add_entry_generic(menu, MENU, submenu);
 }
 
 static char *line_get_key_value(
@@ -1395,7 +1684,7 @@ static void config_entry_bump_counters(ConfigEntry *entry, EFI_FILE *root_dir) {
 }
 
 static void config_entry_add_type1(
-                Config *config,
+                Menu *menu,
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir,
                 const char16_t *path,
@@ -1409,7 +1698,7 @@ static void config_entry_add_type1(
         char *key, *value;
         EFI_STATUS err;
 
-        assert(config);
+        assert(menu);
         assert(device);
         assert(root_dir);
         assert(path);
@@ -1417,7 +1706,7 @@ static void config_entry_add_type1(
         assert(content);
 
         entry = xnew(ConfigEntry, 1);
-        *entry = (ConfigEntry) {
+        *entry = (ConfigEntry){
                 .tries_done = -1,
                 .tries_left = -1,
         };
@@ -1518,10 +1807,10 @@ static void config_entry_add_type1(
                 return;
 
         entry->device = device;
-        entry->id = xstrdup16(file);
+        entry->id = xasprintf("%ls\\%ls", path, file);
         strtolower16(entry->id);
 
-        config_add_entry(config, entry);
+        menu_add_entry(menu, entry);
 
         config_entry_parse_tries(entry, path, file, u".conf");
         TAKE_PTR(entry);
@@ -1574,6 +1863,18 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .timeout_sec_config = TIMEOUT_UNSET,
                 .timeout_sec_efivar = TIMEOUT_UNSET,
         };
+        
+        _cleanup_(menu_freep) Menu *main_menu = NULL;
+                        main_menu = xnew(Menu, 1);
+                        *main_menu = (Menu){
+                                .title = xstrdup16(u"Main Menu"),
+                                .title_show = xstrdup16(u"Main Menu"),
+                                .menu_path = xstrdup16(u"\\loader\\entries"),
+                                .entry_count = 0,
+                                .entry_selected = 0,
+                                .has_parent = false };
+        config->main_menu = main_menu;
+        TAKE_PTR(main_menu);
 
         err = file_read(root_dir, u"\\loader\\loader.conf", 0, 0, &content, NULL);
         if (err == EFI_SUCCESS)
@@ -1616,8 +1917,8 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 (void) efivar_get(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", &config->entry_saved);
 }
 
-static void config_load_entries(
-                Config *config,
+static void menu_load_entries(
+                Menu *menu,
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir,
                 const char16_t *loaded_image_path) {
@@ -1627,13 +1928,11 @@ static void config_load_entries(
         size_t f_size = 0;
         EFI_STATUS err;
 
-        assert(config);
+        assert(menu);
         assert(device);
         assert(root_dir);
 
-        /* Adds Boot Loader Type #1 entries (i.e. /loader/entries/….conf) */
-
-        err = open_directory(root_dir, u"\\loader\\entries", &entries_dir);
+        err = open_directory(root_dir, menu->menu_path, &entries_dir);
         if (err != EFI_SUCCESS)
                 return;
 
@@ -1646,17 +1945,52 @@ static void config_load_entries(
 
                 if (f->FileName[0] == '.')
                         continue;
-                if (FLAGS_SET(f->Attribute, EFI_FILE_DIRECTORY))
-                        continue;
 
-                if (!endswith_no_case(f->FileName, u".conf"))
-                        continue;
                 if (startswith(f->FileName, u"auto-"))
                         continue;
 
-                err = file_read(entries_dir, f->FileName, 0, 0, &content, NULL);
-                if (err == EFI_SUCCESS)
-                        config_entry_add_type1(config, device, root_dir, u"\\loader\\entries", f->FileName, content, loaded_image_path);
+                if (FLAGS_SET(f->Attribute, EFI_FILE_DIRECTORY)) {
+                        _cleanup_(menu_freep) Menu *submenu = NULL;
+                        submenu = xnew(Menu, 1);
+                        *submenu = (Menu){
+                                .title = xstrdup16(f->FileName),
+                                .menu_path = xasprintf("%ls\\%ls", menu->menu_path, f->FileName),
+                                .entry_count = 0,
+                                .entry_selected = 0,
+                                .has_parent = true };
+                        menu_add_menu(menu, submenu);
+                        menu_add_menu(submenu, menu);
+                        menu_load_entries(submenu, device, root_dir, loaded_image_path);
+                        TAKE_PTR(submenu);
+                        continue;
+                } 
+                else {
+                        err = file_read(entries_dir, f->FileName, 0, 0, &content, NULL);
+
+                        if (err == EFI_SUCCESS) {
+                                if (endswith_no_case(f->FileName, u".menu")) {
+                                        char *line;
+                                        size_t pos = 0;
+                                        char *key, *value;
+                                        while ((line = line_get_key_value(content, " \t", &pos, &key, &value))) {
+                                                if (streq8(key, "title")) {
+                                                        free(menu->title);
+                                                        menu->title = xstr8_to_16(value);
+                                                }
+                                        }
+                                        continue;
+                                }
+                                if (endswith_no_case(f->FileName, u".conf"))
+                                        config_entry_add_type1(
+                                                        menu,
+                                                        device,
+                                                        root_dir,
+                                                        menu->menu_path,
+                                                        f->FileName,
+                                                        content,
+                                                        loaded_image_path);
+                        }
+                }
         }
 }
 
@@ -1714,17 +2048,58 @@ static int config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
         return CMP(a->tries_done, b->tries_done);
 }
 
-static size_t config_entry_find(Config *config, const char16_t *pattern) {
-        assert(config);
+static int menu_compare(const Menu *a, const Menu *b) {
+        assert(a);
+        assert(b);
+
+        int r;
+
+        assert(a);
+        assert(b);
+
+        /* Order by title. */
+        r = -strverscmp_improved(a->title, b->title);
+        if (r != 0)
+                return r;
+
+        /* If the titles are identical, then order by menu path. */
+        r = -strverscmp_improved(a->menu_path, b->menu_path);
+        if (r != 0)
+                return r;
+
+        /* If the menu paths are identical, then return the one with the higher address. */
+        return CMP(a, b);
+}
+
+/* Compare entries in a menu */
+static int compare_entries(const Entry* a, const Entry* b) {
+    assert(a);
+    assert(b);
+
+    // Check the entry types and call the appropriate comparison function.
+    if (a->entry_type == CONFIG_ENTRY && b->entry_type == CONFIG_ENTRY)
+        return config_entry_compare(a->entry_data.config_entry, b->entry_data.config_entry);
+    else if (a->entry_type == MENU && b->entry_type == MENU)
+        return menu_compare(a->entry_data.menu, b->entry_data.menu);
+
+    // If the entry types don't match, decide on the order here.
+    return (a->entry_type == CONFIG_ENTRY) ? -1 : 1;
+}
+
+static size_t menu_entry_find(Menu *menu, const char16_t *pattern) {
+        assert(menu);
 
         /* We expect pattern and entry IDs to be already case folded. */
 
         if (!pattern)
                 return IDX_INVALID;
 
-        for (size_t i = 0; i < config->entry_count; i++)
-                if (efi_fnmatch(pattern, config->entries[i]->id))
+        for (size_t i = 0; i < menu->entry_count; i++){
+                if (menu->entries[i]->entry_type != CONFIG_ENTRY)
+                        continue;
+                if (efi_fnmatch(pattern, menu->entries[i]->entry_data.config_entry->id))
                         return i;
+        }
 
         return IDX_INVALID;
 }
@@ -1734,13 +2109,13 @@ static void config_default_entry_select(Config *config) {
 
         assert(config);
 
-        i = config_entry_find(config, config->entry_oneshot);
+        i = menu_entry_find(config->main_menu, config->entry_oneshot);
         if (i != IDX_INVALID) {
                 config->idx_default = i;
                 return;
         }
 
-        i = config_entry_find(config, config->use_saved_entry_efivar ? config->entry_saved : config->entry_default_efivar);
+        i = menu_entry_find(config->main_menu, config->use_saved_entry_efivar ? config->entry_saved : config->entry_default_efivar);
         if (i != IDX_INVALID) {
                 config->idx_default = i;
                 config->idx_default_efivar = i;
@@ -1749,17 +2124,17 @@ static void config_default_entry_select(Config *config) {
 
         if (config->use_saved_entry)
                 /* No need to do the same thing twice. */
-                i = config->use_saved_entry_efivar ? IDX_INVALID : config_entry_find(config, config->entry_saved);
+                i = config->use_saved_entry_efivar ? IDX_INVALID : menu_entry_find(config->main_menu, config->entry_saved);
         else
-                i = config_entry_find(config, config->entry_default_config);
+                i = menu_entry_find(config->main_menu, config->entry_default_config);
         if (i != IDX_INVALID) {
                 config->idx_default = i;
                 return;
         }
 
         /* select the first suitable entry */
-        for (i = 0; i < config->entry_count; i++) {
-                if (config->entries[i]->type == LOADER_AUTO || config->entries[i]->call)
+        for (i = 0; i < config->main_menu->entry_count; i++) {
+                if (config->main_menu->entries[i]->entry_type != CONFIG_ENTRY || config->main_menu->entries[i]->entry_data.config_entry->type == LOADER_AUTO || config->main_menu->entries[i]->entry_data.config_entry->call)
                         continue;
                 config->idx_default = i;
                 return;
@@ -1771,80 +2146,130 @@ static void config_default_entry_select(Config *config) {
                 config->timeout_sec = 10;
 }
 
-static bool entries_unique(ConfigEntry **entries, bool *unique, size_t entry_count) {
+static bool entries_unique(Entry **entries, bool *entry_unique, size_t entry_count) {
         bool is_unique = true;
 
         assert(entries);
-        assert(unique);
+        assert(entry_unique);
 
         for (size_t i = 0; i < entry_count; i++)
                 for (size_t k = i + 1; k < entry_count; k++) {
-                        if (!streq16(entries[i]->title_show, entries[k]->title_show))
+                        char16_t *title_i, *title_k;
+                        if (entries[i]->entry_type == CONFIG_ENTRY)
+                                title_i = entries[i]->entry_data.config_entry->title_show;
+                        else if (entries[i]->entry_type == MENU)
+                                title_i = entries[i]->entry_data.menu->title_show;
+                        
+                        if (entries[k]->entry_type == CONFIG_ENTRY)
+                                title_k = entries[k]->entry_data.config_entry->title_show;
+                        else if (entries[k]->entry_type == MENU)
+                                title_k = entries[k]->entry_data.menu->title_show;
+                        
+                        if (!streq16(title_i, title_k))
                                 continue;
 
-                        is_unique = unique[i] = unique[k] = false;
+                        is_unique = entry_unique[i] = entry_unique[k] = false;
                 }
 
         return is_unique;
 }
 
 /* generate a unique title, avoiding non-distinguishable menu entries */
-static void config_title_generate(Config *config) {
-        assert(config);
+static void entry_title_generate(Menu *menu) {
+        assert(menu);
 
-        bool unique[config->entry_count];
+        if (menu->entry_count == 0)
+                return;
+        bool entry_unique[menu->entry_count];
+
+        size_t start_index = menu->has_parent ? 1 : 0;
+        entry_unique[0] = menu->has_parent;
 
         /* set title */
-        for (size_t i = 0; i < config->entry_count; i++) {
-                assert(!config->entries[i]->title_show);
-                unique[i] = true;
-                config->entries[i]->title_show = xstrdup16(config->entries[i]->title ?: config->entries[i]->id);
+        for (size_t i = start_index; i < menu->entry_count; i++) {
+                if (menu->entries[i]->entry_type == MENU){
+                        assert(!menu->entries[i]->entry_data.menu->title_show);
+                        entry_unique[i] = true;
+                        menu->entries[i]->entry_data.menu->title_show = xstrdup16(menu->entries[i]->entry_data.menu->title ?: menu->entries[i]->entry_data.menu->menu_path);
+                }
+                if (menu->entries[i]->entry_type == CONFIG_ENTRY){
+                        assert(!menu->entries[i]->entry_data.config_entry->title_show);
+                        entry_unique[i] = true;
+                        menu->entries[i]->entry_data.config_entry->title_show = xstrdup16(menu->entries[i]->entry_data.config_entry->title ?: menu->entries[i]->entry_data.config_entry->id);
+                }
         }
 
-        if (entries_unique(config->entries, unique, config->entry_count))
+        if (entries_unique(menu->entries, entry_unique, menu->entry_count)){
+                for (size_t i = start_index; i < menu->entry_count; i++) {
+                        if (menu->entries[i]->entry_type == MENU)
+                                entry_title_generate(menu->entries[i]->entry_data.menu);
+                }
                 return;
-
-        /* add version to non-unique titles */
-        for (size_t i = 0; i < config->entry_count; i++) {
-                if (unique[i])
-                        continue;
-
-                unique[i] = true;
-
-                if (!config->entries[i]->version)
-                        continue;
-
-                _cleanup_free_ char16_t *t = config->entries[i]->title_show;
-                config->entries[i]->title_show = xasprintf("%ls (%ls)", t, config->entries[i]->version);
         }
 
-        if (entries_unique(config->entries, unique, config->entry_count))
-                return;
-
-        /* add machine-id to non-unique titles */
-        for (size_t i = 0; i < config->entry_count; i++) {
-                if (unique[i])
+        /* add version to non-unique ConfigEntries and menu_path to Menus */
+        for (size_t i = 0; i < menu->entry_count; i++) {
+                if (entry_unique[i])
                         continue;
 
-                unique[i] = true;
+                entry_unique[i] = true;
 
-                if (!config->entries[i]->machine_id)
-                        continue;
-
-                _cleanup_free_ char16_t *t = config->entries[i]->title_show;
-                config->entries[i]->title_show = xasprintf("%ls (%.8ls)", t, config->entries[i]->machine_id);
+                if (menu->entries[i]->entry_type == MENU){
+                        _cleanup_free_ char16_t *t = menu->entries[i]->entry_data.menu->title_show;
+                        menu->entries[i]->entry_data.menu->title_show = xasprintf("%ls (%ls)", t, menu->entries[i]->entry_data.menu->menu_path);
+                }
+                
+                if (menu->entries[i]->entry_type == CONFIG_ENTRY){
+                        if (!menu->entries[i]->entry_data.config_entry->version)
+                                continue;
+                        _cleanup_free_ char16_t *t = menu->entries[i]->entry_data.config_entry->title_show;
+                        menu->entries[i]->entry_data.config_entry->title_show = xasprintf("%ls (%ls)", t, menu->entries[i]->entry_data.config_entry->version);
+                }
         }
 
-        if (entries_unique(config->entries, unique, config->entry_count))
+        if (entries_unique(menu->entries, entry_unique, menu->entry_count)){
+                for (size_t i = start_index; i < menu->entry_count; i++) {
+                        if (menu->entries[i]->entry_type == MENU)
+                                entry_title_generate(menu->entries[i]->entry_data.menu);
+                }
                 return;
+        }
+                
 
-        /* add file name to non-unique titles */
-        for (size_t i = 0; i < config->entry_count; i++) {
-                if (unique[i])
+        /* add machine-id to non-unique titles, at this point only entries can be non-unique */
+        for (size_t i = 0; i < menu->entry_count; i++) {
+                if (entry_unique[i])
                         continue;
 
-                _cleanup_free_ char16_t *t = config->entries[i]->title_show;
-                config->entries[i]->title_show = xasprintf("%ls (%ls)", t, config->entries[i]->id);
+                entry_unique[i] = true;
+
+                if (!menu->entries[i]->entry_data.config_entry->machine_id)
+                        continue;
+
+                _cleanup_free_ char16_t *t = menu->entries[i]->entry_data.config_entry->title_show;
+                menu->entries[i]->entry_data.config_entry->title_show = xasprintf("%ls (%.8ls)", t, menu->entries[i]->entry_data.config_entry->machine_id);
+        }
+
+        if (entries_unique(menu->entries, entry_unique, menu->entry_count)){
+                for (size_t i = start_index; i < menu->entry_count; i++) {
+                        if (menu->entries[i]->entry_type == MENU)
+                                entry_title_generate(menu->entries[i]->entry_data.menu);
+                }
+                return;
+        }
+
+        /* add file name to non-unique entry titles */
+        for (size_t i = 0; i < menu->entry_count; i++) {
+                if (entry_unique[i])
+                        continue;
+
+                _cleanup_free_ char16_t *t = menu->entries[i]->entry_data.config_entry->title_show;
+                menu->entries[i]->entry_data.config_entry->title_show = xasprintf("%ls (%ls)", t, menu->entries[i]->entry_data.config_entry->id);
+        }
+
+        for (size_t i = start_index; i < menu->entry_count; i++) {
+                if (menu->entries[i]->entry_type == MENU)
+                        entry_title_generate(menu->entries[i]->entry_data.menu);
         }
 }
 
@@ -1922,7 +2347,7 @@ static ConfigEntry *config_entry_add_loader_auto(
                 .tries_left = -1,
         };
 
-        config_add_entry(config, entry);
+        menu_add_entry(config->main_menu, entry);
         return entry;
 }
 
@@ -2006,7 +2431,11 @@ static EFI_STATUS boot_windows_bitlocker(void) {
 
         /* There can be gaps in Boot#### entries. Instead of iterating over the full
          * EFI var list or uint16_t namespace, just look for "Windows Boot Manager" in BootOrder. */
-        err = efivar_get_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"BootOrder", (char **) &boot_order, &boot_order_size);
+        err = efivar_get_raw(
+                        MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE),
+                        u"BootOrder",
+                        (char **) &boot_order,
+                        &boot_order_size);
         if (err != EFI_SUCCESS || boot_order_size % sizeof(uint16_t) != 0)
                 return err;
 
@@ -2027,11 +2456,11 @@ static EFI_STATUS boot_windows_bitlocker(void) {
 
                 if (streq16((char16_t *) (buf + offset), u"Windows Boot Manager")) {
                         err = efivar_set_raw(
-                                MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE),
-                                u"BootNext",
-                                boot_order + i,
-                                sizeof(boot_order[i]),
-                                EFI_VARIABLE_NON_VOLATILE);
+                                        MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE),
+                                        u"BootNext",
+                                        boot_order + i,
+                                        sizeof(boot_order[i]),
+                                        EFI_VARIABLE_NON_VOLATILE);
                         if (err != EFI_SUCCESS)
                                 return err;
                         RT->ResetSystem(EfiResetWarm, EFI_SUCCESS, 0, NULL);
@@ -2213,7 +2642,7 @@ static void config_entry_add_unified(
                 };
 
                 strtolower16(entry->id);
-                config_add_entry(config, entry);
+                menu_add_entry(config->main_menu, entry);
                 config_entry_parse_tries(entry, u"\\EFI\\Linux", f->FileName, u".efi");
 
                 if (szs[SECTION_CMDLINE] == 0)
@@ -2247,7 +2676,7 @@ static void config_load_xbootldr(
                 return;
 
         config_entry_add_unified(config, new_device, root_dir);
-        config_load_entries(config, new_device, root_dir, NULL);
+        menu_load_entries(config->main_menu, new_device, root_dir, NULL);
 }
 
 static EFI_STATUS initrd_prepare(
@@ -2417,31 +2846,62 @@ static EFI_STATUS image_start(
 
 static void config_free(Config *config) {
         assert(config);
-        for (size_t i = 0; i < config->entry_count; i++)
-                config_entry_free(config->entries[i]);
-        free(config->entries);
+        menu_free(config->main_menu);
         free(config->entry_default_config);
         free(config->entry_default_efivar);
         free(config->entry_oneshot);
         free(config->entry_saved);
 }
 
-static void config_write_entries_to_variable(Config *config) {
-        _cleanup_free_ char *buffer = NULL;
-        size_t sz = 0;
-        char *p;
+static void menu_get_entries(Menu *menu, char **current_position, size_t *remaining_sz) {
+        assert(menu);
+        assert(current_position);
+        assert(remaining_sz);
 
-        assert(config);
+        size_t start_index = menu->has_parent ? 1 : 0;
 
-        for (size_t i = 0; i < config->entry_count; i++)
-                sz += strsize16(config->entries[i]->id);
+        for (size_t i = start_index; i < menu->entry_count; i++) {
+                if (menu->entries[i]->entry_type == MENU)
+                        menu_get_entries(menu->entries[i]->entry_data.menu, current_position, remaining_sz);
+                if (menu->entries[i]->entry_type == CONFIG_ENTRY){
+                        size_t len = strsize16(menu->entries[i]->entry_data.config_entry->id);
+                        assert(len <= *remaining_sz); // Make sure we have enough space
+                        *current_position = mempcpy(*current_position, menu->entries[i]->entry_data.config_entry->id, len);
+                        *remaining_sz -= len;
+                }
+        }
+}
 
-        p = buffer = xmalloc(sz);
+static size_t menu_total_size(Menu *menu) {
+        assert(menu);
 
-        for (size_t i = 0; i < config->entry_count; i++)
-                p = mempcpy(p, config->entries[i]->id, strsize16(config->entries[i]->id));
+        size_t total_size = 0;
+        size_t start_index = menu->has_parent ? 1 : 0;
 
-        assert(p == buffer + sz);
+        for (size_t i = start_index; i < menu->entry_count; i++) {
+                if (menu->entries[i]->entry_type == CONFIG_ENTRY)
+                        total_size += strsize16(menu->entries[i]->entry_data.config_entry->id);
+
+                if (menu->entries[i]->entry_type == MENU)
+                        total_size += menu_total_size(menu->entries[i]->entry_data.menu);
+        }
+
+        return total_size;
+}
+
+static void menu_write_entries_to_variable(Menu *menu) {
+        assert(menu);
+
+        // First pass: calculate the total size needed
+        size_t sz = menu_total_size(menu);
+
+        // Allocate the buffer
+        _cleanup_free_ char *buffer = xmalloc(sz);
+        char *current_position = buffer;
+        size_t remaining_sz = sz;
+
+        // Second pass: fill the buffer
+        menu_get_entries(menu, &current_position, &remaining_sz);
 
         /* Store the full list of discovered entries. */
         (void) efivar_set_raw(MAKE_GUID_PTR(LOADER), u"LoaderEntries", buffer, sz, 0);
@@ -2508,7 +2968,7 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
                         .tries_done = -1,
                         .tries_left = -1,
                 };
-                config_add_entry(config, entry);
+                menu_add_entry(config->main_menu, entry);
 
                 if (IN_SET(config->secure_boot_enroll, ENROLL_IF_SAFE, ENROLL_FORCE) &&
                     strcaseeq16(dirent->FileName, u"auto"))
@@ -2563,6 +3023,72 @@ static void export_variables(
                 efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderDevicePartUUID", uuid, 0);
 }
 
+/* Custom pointer swap function */
+static void ptr_swap(Entry** a, Entry** b) {
+        assert(a);
+        assert(b);
+
+    Entry* temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+/* Partition function using the Hoare partition scheme */
+static size_t partition(Entry** array, size_t low, size_t high, int (*cmp)(const Entry*, const Entry*)) {
+        assert(array);
+        assert(cmp);
+
+    void* pivot = array[low];
+    size_t i = low - 1;
+    size_t j = high + 1;
+
+    while (1) {
+        do {
+            i++;
+        } while (cmp(array[i], pivot) < 0);
+
+        do {
+            j--;
+        } while (cmp(array[j], pivot) > 0);
+
+        if (i >= j) {
+            return j;
+        }
+
+        ptr_swap(&array[i], &array[j]);
+    }
+}
+
+/* EFI quicksort implementation */
+static void efi_qsort(Entry** array, size_t low, size_t high, int (*cmp)(const Entry*, const Entry*)) {
+        assert(array);
+        assert(cmp);
+
+    if (low < high) {
+        size_t pivot_idx = partition(array, low, high, cmp);
+        if(pivot_idx > 0) { // To prevent underflow
+            efi_qsort(array, low, pivot_idx, cmp);
+        }
+        efi_qsort(array, pivot_idx + 1, high, cmp);
+    }
+}
+
+/* Sorting function */
+static void menu_sort_entries(Menu *menu) {
+    assert(menu);
+
+    if (menu->entry_count <= 1)
+        return;
+
+    size_t start_index = menu->has_parent ? 1 : 0;
+
+    efi_qsort(menu->entries, start_index, menu->entry_count - 1, compare_entries);
+    for (size_t i = start_index; i < menu->entry_count; i++) {
+        if (menu->entries[i]->entry_type == MENU)
+                menu_sort_entries(menu->entries[i]->entry_data.menu);
+    }
+}
+
 static void config_load_all_entries(
                 Config *config,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
@@ -2579,13 +3105,13 @@ static void config_load_all_entries(
         config_entry_add_unified(config, loaded_image->DeviceHandle, root_dir);
 
         /* scan /loader/entries/\*.conf files */
-        config_load_entries(config, loaded_image->DeviceHandle, root_dir, loaded_image_path);
+        menu_load_entries(config->main_menu, loaded_image->DeviceHandle, root_dir, loaded_image_path);
 
         /* Similar, but on any XBOOTLDR partition */
         config_load_xbootldr(config, loaded_image->DeviceHandle);
 
-        /* sort entries after version number */
-        sort_pointer_array((void **) config->entries, config->entry_count, (compare_pointer_func_t) config_entry_compare);
+        /* sort entries in all (sub-)menus */
+        menu_sort_entries(config->main_menu);
 
         /* if we find some well-known loaders, add them to the end of the list */
         config_entry_add_osx(config);
@@ -2604,7 +3130,7 @@ static void config_load_all_entries(
                         .tries_done = -1,
                         .tries_left = -1,
                 };
-                config_add_entry(config, entry);
+                menu_add_entry(config->main_menu, entry);
         }
 
         /* find if secure boot signing keys exist and autoload them if necessary
@@ -2614,12 +3140,12 @@ static void config_load_all_entries(
         if (config->secure_boot_enroll != ENROLL_OFF)
                 secure_boot_discover_keys(config, root_dir);
 
-        if (config->entry_count == 0)
+        if (config->main_menu->entry_count == 0)
                 return;
+        
+        menu_write_entries_to_variable(config->main_menu);
 
-        config_write_entries_to_variable(config);
-
-        config_title_generate(config);
+        entry_title_generate(config->main_menu);
 
         /* select entry by configured pattern or EFI LoaderDefaultEntry= variable */
         config_default_entry_select(config);
@@ -2642,7 +3168,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         bool menu = false;
 
         init_usec = time_usec();
-
+        
         /* Ask Shim to leave its protocol around, so that the stub can use it to validate PEs.
          * By default, Shim uninstalls its protocol when calling StartImage(). */
         shim_retain_protocol();
@@ -2663,11 +3189,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         config_load_all_entries(&config, loaded_image, loaded_image_path, root_dir);
 
-        if (config.entry_count == 0)
+        if (config.main_menu->entry_count == 0) {
                 return log_error_status(
                                 EFI_NOT_FOUND,
                                 "No loader found. Configuration files in \\loader\\entries\\*.conf are needed.");
-
         /* select entry or show menu when key is pressed or timeout is set */
         if (config.force_menu || config.timeout_sec > 0)
                 menu = true;
@@ -2678,7 +3203,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 err = console_key_read(&key, 100 * 1000);
                 if (err == EFI_SUCCESS) {
                         /* find matching key in config entries */
-                        size_t idx = entry_lookup_key(&config, config.idx_default, KEYCHAR(key));
+                        size_t idx = entry_lookup_key(config.main_menu, config.idx_default, KEYCHAR(key));
                         if (idx != IDX_INVALID)
                                 config.idx_default = idx;
                         else
@@ -2689,7 +3214,15 @@ static EFI_STATUS run(EFI_HANDLE image) {
         for (;;) {
                 ConfigEntry *entry;
 
-                entry = config.entries[config.idx_default];
+                if (config.main_menu->entries[config.idx_default]->entry_type == CONFIG_ENTRY)
+                        entry = config.main_menu->entries[config.idx_default]->entry_data.config_entry;
+                else
+                        for (size_t i = 0; i < config.main_menu->entry_count;){
+                                if (config.main_menu->entries[i]->entry_type == CONFIG_ENTRY){
+                                        entry = config.main_menu->entries[i]->entry_data.config_entry;
+                                        break;
+                                }
+                        }
                 if (menu) {
                         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeMenuUSec", 0);
                         if (!menu_run(&config, &entry, loaded_image_path))
