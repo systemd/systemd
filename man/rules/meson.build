@@ -902,6 +902,7 @@ manpages = [
   ''],
  ['systemd-boot-random-seed.service', '8', [], 'ENABLE_BOOTLOADER'],
  ['systemd-boot', '7', ['sd-boot'], 'ENABLE_BOOTLOADER'],
+ ['systemd-bsod', '8', [], 'HAVE_QRENCODE'],
  ['systemd-cat', '1', [], ''],
  ['systemd-cgls', '1', [], ''],
  ['systemd-cgtop', '1', [], ''],
