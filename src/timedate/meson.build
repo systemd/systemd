@@ -1,5 +1,35 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+if conf.get('ENABLE_TIMEDATED') != 1
+        subdir_done()
+endif
+
+executables += [
+        [
+                {
+                        'name' : 'systemd-timedated',
+                        'dbus' : true,
+                        'conditions' : ['ENABLE_TIMEDATED'],
+                },
+                daemon_template + {
+                        'sources' : files('timedated.c'),
+                },
+        ],
+        [
+                {
+                        'name' : 'timedatectl',
+                        'public' : true,
+                        'conditions' : ['ENABLE_TIMEDATECTL'],
+                },
+                executable_template + {
+                        'sources' : files('timedatectl.c'),
+                        'dependencies' : [libm,
+                                          userspace,
+                                          versiondep],
+                },
+        ],
+]
+
 if conf.get('ENABLE_TIMEDATED') == 1
         install_data('org.freedesktop.timedate1.conf',
                      install_dir : dbuspolicydir)

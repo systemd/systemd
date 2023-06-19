@@ -35,7 +35,21 @@ libnspawn_core = static_library(
                         userspace],
         build_by_default : false)
 
-systemd_nspawn_sources = files('nspawn.c')
+executables += [[
+        {
+                'name' : 'systemd-nspawn',
+                'public' : true,
+        },
+        executable_template + {
+                'sources' : files('nspawn.c'),
+                'link_with' : [libnspawn_core,
+                               libshared],
+                'dependencies' : [libblkid,
+                                  libseccomp,
+                                  userspace,
+                                  versiondep],
+        },
+]]
 
 ############################################################
 
