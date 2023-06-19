@@ -3302,7 +3302,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
 
         <para>When multiple credentials of the same name are found, credentials found by
         <varname>LoadCredential=</varname> and <varname>LoadCredentialEncrypted=</varname> take priority over
-        credentials found by <varname>ImportCredential=</varname></para></listitem>.
+        credentials found by <varname>ImportCredential=</varname>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
