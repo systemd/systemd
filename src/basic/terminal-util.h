@@ -65,6 +65,9 @@
 #define ANSI_HIGHLIGHT_GREY_FALLBACK   "\x1B[0;1;90m"
 #define ANSI_HIGHLIGHT_YELLOW_FALLBACK "\x1B[0;1;33m"
 
+/*Background colors */
+#define ANSI_BACKGROUND_BLUE "\x1B[44m"
+
 /* Reset/clear ANSI styles */
 #define ANSI_NORMAL "\x1B[0m"
 
@@ -79,6 +82,7 @@
 
 int reset_terminal_fd(int fd, bool switch_to_text);
 int reset_terminal(const char *name);
+int set_terminal_cursor_position(int fd, unsigned int row, unsigned int column);
 
 int open_terminal(const char *name, int mode);
 
