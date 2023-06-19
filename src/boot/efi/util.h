@@ -52,6 +52,10 @@ static inline void *xrealloc(void *p, size_t old_size, size_t new_size) {
         return t;
 }
 
+#define xrealloc_extra_k_items(type, p, current_size, k) xrealloc(p, \
+                current_size == 0 ? 0 : (current_size + 1) * sizeof((type *)), \
+                (current_size + k + 1) * sizeof((type *)))
+#define xrealloc_extra_item(type, p, current_size) xrealloc_extra_k_items(type, p, current_size, 1)
 #define xnew(type, n) ((type *) xmalloc_multiply(sizeof(type), (n)))
 
 typedef struct {
