@@ -185,6 +185,10 @@ static int get_dmi_data(const char *database_key, const char *regular_key, char 
         const char *s = NULL;
         int r;
 
+        if (detect_container() > 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "Running in a container, suppressing DMI hardware data.");
+
         r = sd_device_new_from_syspath(&device, "/sys/class/dmi/id");
         if (r < 0)
                 return log_debug_errno(r, "Failed to open /sys/class/dmi/id device, ignoring: %m");
@@ -222,6 +226,10 @@ static int get_hardware_firmware_data(const char *sysattr, char **ret) {
         int r;
 
         assert(sysattr);
+
+        if (detect_container() > 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "Running in a container, suppressing DMI hardware data.");
 
         r = sd_device_new_from_syspath(&device, "/sys/class/dmi/id");
         if (r < 0)
