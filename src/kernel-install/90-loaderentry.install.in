@@ -121,7 +121,7 @@ for initrd in "${KERNEL_INSTALL_STAGING_AREA}/microcode*" "${@}" "${KERNEL_INSTA
             "${KERNEL_INSTALL_STAGING_AREA}/initrd*" | "${KERNEL_INSTALL_STAGING_AREA}/microcode*")
             continue ;;
         esac
-        echo "Error: initrd '$initrd' not a file." >&2
+        echo "Error: '$initrd' is not a file." >&2
         exit 1
     }
 
