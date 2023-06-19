@@ -130,8 +130,7 @@ int bus_test_polkit(
                 return 1;
 
 #if ENABLE_POLKIT
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *request = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *request = NULL, *reply = NULL;
         int authorized = false, challenge = false;
 
         r = bus_message_new_polkit_auth_call(call, action, details, /* interactive = */ false, &request);
