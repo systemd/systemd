@@ -20,6 +20,7 @@
 #include "macro.h"
 #include "managed-journal-file.h"
 #include "parse-util.h"
+#include "parse-helpers.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
