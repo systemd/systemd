@@ -80,6 +80,14 @@ executables += [
                         threads,
                 ],
         },
+        executable_template + {
+                'name' : 'systemd-bsod',
+                'conditions' : ['HAVE_QRENCODE'],
+                'public' : true,
+                'sources' : files('bsod.c'),
+                'link_with' : libshared,
+                'dependencies' : libqrencode,
+        },
 ]
 
 if install_sysconfdir_samples
