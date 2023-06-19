@@ -129,6 +129,12 @@ Deprecations and removals:
 
 Features:
 
+* add another PE section ".fname" or so that encodes the intended filename for
+  PE file, and validate that when loading add-ons and similar before using
+  it. This is particularly relevant when we load multiple add-ons and want to
+  sort them to apply them in a define order. The order should not be under
+  control of the attacker.
+
 * also include packaging metadata (á la
   https://systemd.io/ELF_PACKAGE_METADATA/) in our UEFI PE binaries, using the
   same JSON format.
