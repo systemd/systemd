@@ -160,7 +160,7 @@
       revoked with a SBAT policy update, without requiring blocklisting via DBX/MOKX. The
       <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool will
       add a SBAT policy by default if none is passed when building addons. For more information on SBAT see
-      <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim's documentation.</ulink>
+      <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim's documentation</ulink>.
       Addons are supposed to be used to pass additional kernel command line parameters, regardless of the
       kernel image being booted, for example to allow platform vendors to ship platform-specific
       configuration. The loaded command line addon files are sorted, loaded, measured into TPM PCR 12 (if a
@@ -179,7 +179,7 @@
       <command>cpio</command> archive and placed in the <filename>/.extra/global_credentials/</filename>
       directory of the initrd file hierarchy. This is supposed to be used to pass additional credentials to
       the initrd, regardless of the kernel being booted. The generated <command>cpio</command> archive is
-      measured into TPM PCR 12 (if a TPM is present)</para></listitem>
+      measured into TPM PCR 12 (if a TPM is present).</para></listitem>
 
       <listitem><para>Additionally, files <filename>/loader/addons/*.addon.efi</filename> are loaded and
       verified as PE binaries, and a <literal>.cmdline</literal> section is parsed from them. This is
