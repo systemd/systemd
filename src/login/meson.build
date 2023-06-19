@@ -44,10 +44,76 @@ loginctl_sources = files(
         'sysfs-show.c',
 )
 
-user_runtime_dir_sources = files('user-runtime-dir.c')
+executables += [
+        [
+                {
+                        'name' : 'systemd-logind',
+                        'dbus' : true,
+                        'conditions' : ['ENABLE_LOGIND'],
+                },
+                daemon_template + {
+                        'sources' : systemd_logind_sources,
+                        'link_with' : [liblogind_core,
+                                       libshared],
+                        'dependencies' : [libacl,
+                                          threads,
+                                          userspace,
+                                          versiondep],
+                },
+        ],
+        [
+                {
+                        'name' : 'loginctl',
+                        'public' : true,
+                        'conditions' : ['ENABLE_LOGIND'],
+                },
+                executable_template + {
+                        'sources' : loginctl_sources,
+                        'dependencies' : [liblz4,
+                                          libxz,
+                                          libzstd,
+                                          threads,
+                                          userspace,
+                                          versiondep],
+                        'install_dir' : rootbindir,
+                },
+        ],
+        [
+                {
+                        'name' : 'systemd-inhibit',
+                        'public' : true,
+                        'conditions' : ['ENABLE_LOGIND'],
+                },
+                executable_template + {
+                        'sources' : files('inhibit.c'),
+                        'dependencies' : [userspace,
+                                          versiondep],
+                        'install_dir' : rootbindir,
+                },
+        ],
+        [
+                {
+                        'name' : 'systemd-user-runtime-dir',
+                        'conditions' : ['ENABLE_LOGIND'],
+                },
+                daemon_template + {
+                        'sources' : files('user-runtime-dir.c'),
+                },
+        ],
+]
 
-pam_systemd_sym = 'src/login/pam_systemd.sym'
-pam_systemd_c = files('pam_systemd.c')
+modules += [
+        [
+                {
+                        'name' : 'pam_systemd',
+                        'conditions' : ['ENABLE_LOGIND', 'HAVE_PAM'],
+                },
+                pam_template + {
+                        'sources' : files('pam_systemd.c'),
+                        'link_depends' : files('pam_systemd.sym'),
+                },
+        ],
+]
 
 enable_logind = conf.get('ENABLE_LOGIND') == 1
 

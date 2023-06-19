@@ -111,7 +111,6 @@ libsystemd_sources = files(
         'sd-resolve/sd-resolve.c',
 ) + sd_journal_sources + id128_sources + sd_daemon_sources + sd_event_sources + sd_login_sources
 
-
 libsystemd_c_args = ['-fvisibility=default']
 
 libsystemd_static = static_library(
@@ -142,6 +141,56 @@ libsystemd_pc = custom_target(
         install : pkgconfiglibdir != 'no',
         install_tag : 'devel',
         install_dir : pkgconfiglibdir)
+
+libraries += [[
+        {
+                'name' : 'systemd',
+        },
+        {
+                'version' : libsystemd_version,
+                'include_directories' : libsystemd_includes,
+                'link_args' : ['-shared',
+                               '-Wl,--version-script=' + libsystemd_sym_path],
+                'link_with' : [libbasic,
+                               libbasic_gcrypt,
+                               libbasic_compress],
+                'link_whole' : [libsystemd_static],
+                'dependencies' : [librt,
+                                  threads,
+                                  userspace],
+                'link_depends' : libsystemd_sym,
+                'install' : true,
+                'install_tag' : 'libsystemd',
+                'install_dir' : rootlibdir,
+        },
+        {
+                'sources' : libsystemd_sources +
+                            basic_sources +
+                            basic_gcrypt_sources +
+                            basic_compress_sources +
+                            fundamental_sources,
+                'include_directories' : libsystemd_includes,
+                'build_by_default' : static_libsystemd != 'false',
+                'install' : static_libsystemd != 'false',
+                'install_tag' : 'libsystemd',
+                'install_dir' : rootlibdir,
+                'pic' : static_libsystemd_pic,
+                'dependencies' : [libblkid,
+                                  libcap,
+                                  libdl,
+                                  libgcrypt,
+                                  liblz4,
+                                  libmount,
+                                  libopenssl,
+                                  librt,
+                                  libxz,
+                                  libzstd,
+                                  threads,
+                                  userspace,
+                                  versiondep],
+                'c_args' : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']),
+        },
+]]
 
 ############################################################
 
