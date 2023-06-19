@@ -112,7 +112,7 @@
             <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/linux</filename>.
             If <replaceable>INITRD-FILE</replaceable>s are provided, it also copies them to
             <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL_VERSION</replaceable>/<replaceable>INITRD-FILE</replaceable></filename>.
-            It also creates a boot loader entry according to the <ulink
+            This can also be used to prepend microcode before the actual initrd. It also creates a boot loader entry according to the <ulink
             url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> (Type #1) in
             <filename>$BOOT/loader/entries/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.conf</filename>.
             The title of the entry is the <replaceable>PRETTY_NAME</replaceable> parameter specified in
@@ -351,7 +351,9 @@
 
       <para><varname>$KERNEL_INSTALL_STAGING_AREA</varname> is set for plugins to a path to a directory.
       Plugins may drop files in that directory, and they will be installed as part of the loader entry, based
-      on the file name and extension.</para>
+      on the file name and extension: Files named <filename>initrd*</filename> will be installed as <replaceable>INITRD-FILE</replaceable>s, 
+      and files named <filename>microcode*</filename> will be prepended before <replaceable>INITRD-FILE</replaceable>s.</para>
+      
     </refsect2>
 
     <refsect2>
