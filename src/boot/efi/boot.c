@@ -740,7 +740,7 @@ static void init_menu_lines(Menu *current_menu, size_t line_width, char16_t ***l
     (*lines)[current_menu->entry_count] = NULL;
 }
 
-char16_t* find_last_substring(char16_t* str, char16_t* delimiter) {
+static char16_t* find_last_substring(char16_t* str, char16_t* delimiter) {
     char16_t* last_occurrence = NULL;
     char16_t* p = str;
     char16_t* q;
@@ -764,13 +764,13 @@ char16_t* find_last_substring(char16_t* str, char16_t* delimiter) {
     return last_occurrence ? last_occurrence + strlen16(delimiter) : str;
 }
 
-size_t efi_wcslen(const wchar_t *s) {
+static size_t efi_wcslen(const wchar_t *s) {
     const wchar_t* p = s;
     while (*p) ++p;
     return p - s;
 }
 
-wchar_t* efi_wcschr(const wchar_t *s, wchar_t c) {
+static wchar_t* efi_wcschr(const wchar_t *s, wchar_t c) {
     while (*s) {
         if (*s == c) return (wchar_t*)s;
         ++s;
@@ -778,14 +778,14 @@ wchar_t* efi_wcschr(const wchar_t *s, wchar_t c) {
     return NULL;
 }
 
-char16_t* trim_menu_path(char16_t* menu_path, size_t line_width) {
+static char16_t* trim_menu_path(char16_t* menu_path, size_t line_width) {
     while (menu_path && efi_wcslen(menu_path) > line_width) {
         menu_path = efi_wcschr(menu_path + 1, L'\\');
     }
     return menu_path;
 }
 
-void print_menu_header(Menu *current_menu, Config *config, size_t x_start, size_t y_start, size_t menu_start, size_t line_width, size_t x_max, size_t entry_padding, char16_t *separator, char16_t *clearline) {
+static void print_menu_header(Menu *current_menu, Config *config, size_t x_start, size_t y_start, size_t menu_start, size_t line_width, size_t x_max, size_t entry_padding, char16_t *separator, char16_t *clearline) {
     assert(current_menu);
     assert(separator);
     assert(clearline);
@@ -2072,7 +2072,7 @@ static int menu_compare(const Menu *a, const Menu *b) {
 }
 
 /* Compare entries in a menu */
-int compare_entries(const Entry* a, const Entry* b) {
+static int compare_entries(const Entry* a, const Entry* b) {
     assert(a);
     assert(b);
 
@@ -3024,7 +3024,7 @@ static void export_variables(
 }
 
 /* Custom pointer swap function */
-void ptr_swap(Entry** a, Entry** b) {
+static void ptr_swap(Entry** a, Entry** b) {
         assert(a);
         assert(b);
 
@@ -3034,7 +3034,7 @@ void ptr_swap(Entry** a, Entry** b) {
 }
 
 /* Partition function using the Hoare partition scheme */
-size_t partition(Entry** array, size_t low, size_t high, int (*cmp)(const Entry*, const Entry*)) {
+static size_t partition(Entry** array, size_t low, size_t high, int (*cmp)(const Entry*, const Entry*)) {
         assert(array);
         assert(cmp);
 
@@ -3060,7 +3060,7 @@ size_t partition(Entry** array, size_t low, size_t high, int (*cmp)(const Entry*
 }
 
 /* EFI quicksort implementation */
-void efi_qsort(Entry** array, size_t low, size_t high, int (*cmp)(const Entry*, const Entry*)) {
+static void efi_qsort(Entry** array, size_t low, size_t high, int (*cmp)(const Entry*, const Entry*)) {
         assert(array);
         assert(cmp);
 
@@ -3074,7 +3074,7 @@ void efi_qsort(Entry** array, size_t low, size_t high, int (*cmp)(const Entry*, 
 }
 
 /* Sorting function */
-void menu_sort_entries(Menu *menu) {
+static void menu_sort_entries(Menu *menu) {
     assert(menu);
 
     if (menu->entry_count <= 1)
