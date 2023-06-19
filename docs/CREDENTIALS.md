@@ -78,7 +78,7 @@ Within unit files, there are four settings to configure service credentials.
 2. `SetCredential=` may be used to set a credential to a literal string encoded
    in the unit file. Because unit files are world-readable (both on disk and
    via D-Bus), this should only be used for credentials that aren't sensitive,
-   i.e. public keys/certificates – but not private keys.
+   e.g. public keys or certificates, but not private keys.
 
 3. `LoadCredentialEncrypted=` is similar to `LoadCredential=` but will load an
    encrypted credential, and decrypt it before passing it to the service. For
