@@ -126,7 +126,7 @@ int bus_test_polkit(
         r = sd_bus_query_sender_privilege(call, capability);
         if (r < 0)
                 return r;
-        else if (r > 0)
+        if (r > 0)
                 return 1;
 
 #if ENABLE_POLKIT
@@ -349,7 +349,7 @@ int bus_verify_polkit_async(
         r = sd_bus_query_sender_privilege(call, capability);
         if (r < 0)
                 return r;
-        else if (r > 0)
+        if (r > 0)
                 return 1;
 
 #if ENABLE_POLKIT
