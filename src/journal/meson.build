@@ -31,13 +31,65 @@ libjournal_core = static_library(
 
 journal_includes = [includes, include_directories('.')]
 
-systemd_journald_sources = files(
-        'journald.c',
-)
+if get_option('link-journalctl-shared')
+        journalctl_link_with = [libshared]
+else
+        journalctl_link_with = [libsystemd_static,
+                                libshared_static,
+                                libbasic_gcrypt]
+endif
 
-systemd_cat_sources = files('cat.c')
-
-journalctl_sources = files('journalctl.c')
+executables += [
+        [
+                {
+                        'name' : 'systemd-journald',
+                },
+                daemon_template + {
+                        'sources' : files('journald.c'),
+                        'link_with' : [libjournal_core,
+                                       libshared],
+                        'dependencies' : [liblz4,
+                                          libselinux,
+                                          libxz,
+                                          libzstd,
+                                          threads,
+                                          userspace,
+                                          versiondep],
+                },
+        ],
+        [
+                {
+                        'name' : 'systemd-cat',
+                        'public' : true,
+                },
+                executable_template + {
+                        'sources' : files('cat.c'),
+                        'link_with' : [libjournal_core,
+                                       libshared],
+                        'dependencies' : [threads,
+                                          userspace,
+                                          versiondep],
+                },
+        ],
+        [
+                {
+                        'name' : 'journalctl',
+                        'public' : true,
+                },
+                executable_template + {
+                        'sources' : files('journalctl.c'),
+                        'link_with' : journalctl_link_with,
+                        'dependencies' : [libdl,
+                                          liblz4,
+                                          libxz,
+                                          libzstd,
+                                          threads,
+                                          userspace,
+                                          versiondep],
+                        'install_dir' : rootbindir,
+                },
+        ],
+]
 
 if install_sysconfdir_samples
         install_data('journald.conf',
