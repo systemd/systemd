@@ -464,6 +464,10 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultBlockIOAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b DefaultIOAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b DefaultIPAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultMemoryAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultTasksAccounting = ...;
@@ -719,6 +723,10 @@ node /org/freedesktop/systemd1 {
     <!--property DefaultCPUAccounting is not documented!-->
 
     <!--property DefaultBlockIOAccounting is not documented!-->
+
+    <!--property DefaultIOAccounting is not documented!-->
+
+    <!--property DefaultIPAccounting is not documented!-->
 
     <!--property DefaultMemoryAccounting is not documented!-->
 
@@ -1153,6 +1161,10 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultCPUAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultBlockIOAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultIOAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultIPAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryAccounting"/>
 
