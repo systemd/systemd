@@ -1485,17 +1485,19 @@ static void boot_entry_add_type1(
                         entry->devicetree = xstr8_to_path(value);
 
                 } else if (streq8(key, "initrd")) {
-                        entry->initrd = xrealloc(
+                        entry->initrd = xrealloc_extra_item(
+                                uint16_t,
                                 entry->initrd,
-                                n_initrd == 0 ? 0 : (n_initrd + 1) * sizeof(uint16_t *),
-                                (n_initrd + 2) * sizeof(uint16_t *));
+                                n_initrd
+                        );
                         entry->initrd[n_initrd++] = xstr8_to_path(value);
                         entry->initrd[n_initrd] = NULL;
                 } else if (streq8(key, "add-on")) {
-                        entry->addons = xrealloc(
+                        entry->addons = xrealloc_extra_item(
+                                uint16_t,
                                 entry->addons,
-                                n_addons == 0 ? 0 : (n_addons + 1) * sizeof(uint16_t *),
-                                (n_addons + 2) * sizeof(uint16_t *));
+                                n_addons
+                        );
                         entry->addons[n_addons++] = xstr8_to_path(value);
                         entry->addons[n_addons] = NULL;
                         continue;
