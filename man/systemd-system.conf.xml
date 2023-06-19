@@ -446,7 +446,7 @@
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details on the per-unit settings.</para>
 
-        <para><varname>DefaultCPUAccounting=</varname> defaults to yes.
+        <para><varname>DefaultCPUAccounting=</varname> defaults to yes when running on kernel ≥4.15, and no on older versions.
         <varname>DefaultMemoryAccounting=</varname> defaults to &MEMORY_ACCOUNTING_DEFAULT;.
         <varname>DefaultTasksAccounting=</varname> defaults to yes.
         The other settings default to no.</para>
