@@ -955,6 +955,11 @@ Manager* manager_free(Manager *m) {
 
         sd_event_source_unref(m->event_save_time);
 
+        sd_event_source_unref(m->deferred_link_ntp_server_event_source);
+        sd_event_source_unref(m->deferred_system_ntp_server_event_source);
+        sd_event_source_unref(m->deferred_runtime_ntp_server_event_source);
+        sd_event_source_unref(m->deferred_fallback_ntp_server_event_source);
+
         sd_resolve_unref(m->resolve);
         sd_event_unref(m->event);
 
@@ -1220,4 +1225,174 @@ static int manager_save_time_and_rearm(Manager *m, usec_t t) {
         }
 
         return 0;
+}
+
+static int on_deferred_link_ntp_server(sd_event_source *s, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        m->deferred_link_ntp_server_event_source = sd_event_source_disable_unref(m->deferred_link_ntp_server_event_source);
+
+        r = sd_bus_emit_properties_changed(
+                m->bus,
+                "/org/freedesktop/timesync1",
+                "org.freedesktop.timesync1.Manager",
+                "LinkNTPServers",
+                NULL);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send ntp server property change event, ignoring: %m");
+
+        return 0;
+}
+
+int bus_manager_emit_link_ntp_server_changed(Manager *m) {
+        int r;
+        assert(m);
+        log_warning_errno(0, "====== register ntp server property change event");
+        if (m->deferred_link_ntp_server_event_source)
+                return 0;
+
+        if (!m->event)
+                return 0;
+
+        //if (IN_SET(sd_event_get_state(m->event), SD_EVENT_FINISHED, SD_EVENT_EXITING))
+        //        return 0;
+
+        r = sd_event_add_defer(m->event, &m->deferred_link_ntp_server_event_source, on_deferred_link_ntp_server, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate link ntp server source: %m");
+
+        r = sd_event_source_set_priority(m->deferred_link_ntp_server_event_source, SD_EVENT_PRIORITY_IDLE-8);
+        if (r < 0)
+                log_warning_errno(r, "Failed to tweak priority of event source, ignoring: %m");
+
+        (void) sd_event_source_set_description(m->deferred_link_ntp_server_event_source, "deferred-link-ntp-server");
+        log_warning_errno(0, "====== register ntp server property change event end");
+        return 1;
+}
+
+static int on_deferred_fallback_ntp_server(sd_event_source *s, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        m->deferred_fallback_ntp_server_event_source = sd_event_source_disable_unref(m->deferred_fallback_ntp_server_event_source);
+
+        r = sd_bus_emit_properties_changed(
+                m->bus,
+                "/org/freedesktop/timesync1",
+                "org.freedesktop.timesync1.Manager",
+                "FallbackNTPServers", NULL);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send ntp server property change event, ignoring: %m");
+
+        return 0;
+}
+
+int bus_manager_emit_fallback_ntp_server_changed(Manager *m) {
+        int r;
+        assert(m);
+
+        if (m->deferred_fallback_ntp_server_event_source)
+                return 0;
+
+        if (!m->event)
+                return 0;
+
+        //if (IN_SET(sd_event_get_state(m->event), SD_EVENT_FINISHED, SD_EVENT_EXITING))
+        //        return 0;
+
+        r = sd_event_add_defer(m->event, &m->deferred_fallback_ntp_server_event_source, on_deferred_fallback_ntp_server, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate fallback ntp server event source: %m");
+
+        r = sd_event_source_set_priority(m->deferred_fallback_ntp_server_event_source, SD_EVENT_PRIORITY_IDLE-8);
+        if (r < 0)
+                log_warning_errno(r, "Failed to tweak priority of event source, ignoring: %m");
+
+        (void) sd_event_source_set_description(m->deferred_fallback_ntp_server_event_source, "deferred-fallback-ntp-server");
+        return 1;
+}
+
+static int on_deferred_runtime_ntp_server(sd_event_source *s, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        m->deferred_runtime_ntp_server_event_source = sd_event_source_disable_unref(m->deferred_runtime_ntp_server_event_source);
+
+        r = sd_bus_emit_properties_changed(
+                m->bus,
+                "/org/freedesktop/timesync1",
+                "org.freedesktop.timesync1.Manager",
+                "RuntimeNTPServers", NULL);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send ntp server property change event, ignoring: %m");
+
+        return 0;
+}
+
+int bus_manager_emit_runtime_ntp_server_changed(Manager *m) {
+        int r;
+        assert(m);
+
+        if (m->deferred_runtime_ntp_server_event_source)
+                return 0;
+
+        if (!m->event)
+                return 0;
+
+        if (IN_SET(sd_event_get_state(m->event), SD_EVENT_FINISHED, SD_EVENT_EXITING))
+                return 0;
+
+        r = sd_event_add_defer(m->event, &m->deferred_runtime_ntp_server_event_source, on_deferred_runtime_ntp_server, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate runtime ntp server event source: %m");
+
+        r = sd_event_source_set_priority(m->deferred_runtime_ntp_server_event_source, SD_EVENT_PRIORITY_IDLE-8);
+        if (r < 0)
+                log_warning_errno(r, "Failed to tweak priority of event source, ignoring: %m");
+
+        (void) sd_event_source_set_description(m->deferred_runtime_ntp_server_event_source, "deferred-runtime-ntp-server");
+        return 1;
+}
+
+static int on_deferred_system_ntp_server(sd_event_source *s, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        m->deferred_system_ntp_server_event_source = sd_event_source_disable_unref(m->deferred_system_ntp_server_event_source);
+
+        r = sd_bus_emit_properties_changed(
+                m->bus,
+                "/org/freedesktop/timesync1",
+                "org.freedesktop.timesync1.Manager",
+                "SystemNTPServers", NULL);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send ntp server property change event, ignoring: %m");
+
+        return 0;
+}
+
+int bus_manager_emit_system_ntp_server_changed(Manager *m) {
+        int r;
+        assert(m);
+
+        if (m->deferred_system_ntp_server_event_source)
+                return 0;
+
+        if (!m->event)
+                return 0;
+
+        if (IN_SET(sd_event_get_state(m->event), SD_EVENT_FINISHED, SD_EVENT_EXITING))
+                return 0;
+
+        r = sd_event_add_defer(m->event, &m->deferred_system_ntp_server_event_source, on_deferred_system_ntp_server, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate system ntp server event source: %m");
+
+        r = sd_event_source_set_priority(m->deferred_system_ntp_server_event_source, SD_EVENT_PRIORITY_IDLE-8);
+        if (r < 0)
+                log_warning_errno(r, "Failed to tweak priority of event source, ignoring: %m");
+
+        (void) sd_event_source_set_description(m->deferred_system_ntp_server_event_source, "deferred-system-ntp-server");
+        return 1;
 }

@@ -208,6 +208,22 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        r = bus_manager_emit_link_ntp_server_changed(m);
+        if (r < 0)
+                return r;
+
+        r = bus_manager_emit_system_ntp_server_changed(m);
+        if (r < 0)
+                return r;
+
+        r = bus_manager_emit_fallback_ntp_server_changed(m);
+        if (r < 0)
+                return r;
+
+        r = bus_manager_emit_runtime_ntp_server_changed(m);
+        if (r < 0)
+                return r;
+
         if (network_is_online()) {
                 r = manager_connect(m);
                 if (r < 0)
