@@ -142,7 +142,7 @@ shared_sources = files(
         'selinux-util.c',
         'serialize.c',
         'service-util.c',
-        'sleep-config.c',
+        'sleep-util.c',
         'smack-util.c',
         'socket-label.c',
         'socket-netlink.c',

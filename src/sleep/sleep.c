@@ -34,7 +34,7 @@
 #include "main-func.h"
 #include "parse-util.h"
 #include "pretty-print.h"
-#include "sleep-config.h"
+#include "sleep-util.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-util.h"

@@ -12,7 +12,7 @@
 #include "fd-util.h"
 #include "log.h"
 #include "memory-util.h"
-#include "sleep-config.h"
+#include "sleep-util.h"
 #include "strv.h"
 #include "tests.h"
 
