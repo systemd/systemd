@@ -3196,7 +3196,7 @@ int dissected_image_load_verity_sig_partition(
                 return -EINVAL;
 
         if (p->size > 4*1024*1024) /* Signature data cannot possible be larger than 4M, refuse that */
-                return -EFBIG;
+                return log_debug_errno(SYNTHETIC_ERRNO(EFBIG), "Verity signature partition is larger than 4M, refusing.");
 
         buf = new(char, p->size+1);
         if (!buf)
