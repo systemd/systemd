@@ -538,6 +538,10 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
                 if (!program_header || program_header->p_type != PT_LOAD)
                         continue;
 
+                /* This PT_LOAD segment doesn't contain the start address, so it can't be the module we are looking for. */
+                if (start < program_header->p_vaddr || start >= program_header->p_vaddr + program_header->p_memsz)
+                        continue;
+
                 /* Now get a usable Elf reference, and parse the notes from it. */
                 data = sym_elf_getdata_rawchunk(elf,
                                                 program_header->p_offset,
