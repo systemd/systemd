@@ -43,6 +43,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+from hashlib import sha256
 from typing import (Any,
                     Callable,
                     IO,
@@ -250,6 +251,19 @@ class Section:
     content: pathlib.Path
     tmpfile: Optional[IO] = None
     measure: bool = False
+    sections_to_show = {
+        '.linux'    : 'binary',
+        '.initrd'   : 'binary',
+        '.splash'   : 'binary',
+        '.dt'       : 'binary',
+        '.cmdline'  : 'text',
+        '.osrel'    : 'text',
+        '.uname'    : 'text',
+        '.pcrpkey'  : 'text',
+        '.pcrsig'   : 'text',
+        '.sbat'     : 'text'
+    }
+    custom_out_file = {}
 
     @classmethod
     def create(cls, name, contents, **kwargs):
@@ -277,6 +291,27 @@ class Section:
             contents = pathlib.Path(contents[1:])
 
         return cls.create(name, contents)
+
+    @classmethod
+    def parse_text_arg(cls, s):
+        try:
+            name, ttype = s.split(':')
+        except ValueError as e:
+            raise ValueError(f'Cannot parse section spec (name or type missing): {s!r}') from e
+
+        if '@' in ttype:
+            try:
+                ttype, path = ttype.split('@')
+            except ValueError as e:
+                raise ValueError(f'Cannot parse section spec (type or path missing): {ttype!r}') from e
+            outfile = pathlib.Path(path)
+            Section.custom_out_file[name] = outfile
+
+        if ttype not in ('binary', 'text'):
+            raise ValueError(f'Cannot parse section spec (type can only be binary or text): {ttype!r}')
+
+        Section.sections_to_show[name] = ttype
+        return Section.sections_to_show
 
     def size(self):
         return self.content.stat().st_size
@@ -858,6 +893,55 @@ def generate_keys(opts):
             pub_key.write_bytes(pub_key_pem)
 
 
+def pe_read_single_section(section, opts, name, text):
+    data = section.get_data(ignore_padding=True)
+    size = section.Misc_VirtualSize
+    h = sha256(data).hexdigest()
+    data_printed = None
+
+    tmp = {
+        'size' : size,
+        'sha256' : h,
+    }
+
+    if text:
+        try:
+            data_printed = data.decode()
+        except UnicodeDecodeError:
+            print(f"Warning! {name} cannot be read. Not a valid UTF8-encoded text")
+            data_printed = None
+        finally:
+            tmp['text'] = data_printed
+
+    if opts.json:
+        out_str = json.dumps(tmp)
+    else:
+        out_str = f"{name}:\nsize: {size} bytes\nsha256: {h}\n"
+        if text:
+            out_str += f"text:\n{data_printed}\n"
+        print(out_str)
+
+    if name in Section.custom_out_file:
+        Section.custom_out_file[name].write_text(out_str)
+
+    return tmp
+
+
+def pe_read_sections(opts):
+    pe = pefile.PE(opts.file, fast_load=True)
+    json_obj = {}
+    for section in pe.sections:
+        name = section.Name.rstrip(b"\x00").decode()
+        text_format = False
+        if name in Section.sections_to_show:
+            text_format = Section.sections_to_show[name] == 'text'
+        if opts.print_all or name in Section.sections_to_show:
+            json_obj[name] = pe_read_single_section(section, opts, name, text_format)
+
+    if opts.json:
+        json.dump(json_obj, sys.stdout)
+
+
 @dataclasses.dataclass(frozen=True)
 class ConfigItem:
     @staticmethod
@@ -990,7 +1074,7 @@ class ConfigItem:
         return (section_name, key, value)
 
 
-VERBS = ('build', 'genkey')
+VERBS = ('build', 'genkey', 'inspect')
 
 CONFIG_ITEMS = [
     ConfigItem(
@@ -1223,6 +1307,35 @@ uki.addon,1,UKI Addon,uki.addon,1,https://www.freedesktop.org/software/systemd/m
         action = argparse.BooleanOptionalAction,
         help = 'print systemd-measure output for the UKI',
     ),
+
+    ConfigItem(
+        '--file',
+        type = pathlib.Path,
+        help = 'PE binary to inspect',
+        config_key = 'UKI/PEPath',
+    ),
+
+    ConfigItem(
+        '--read-section',
+        metavar = 'NAME:TYPE@PATH',
+        type = Section.parse_text_arg,
+        action = 'append',
+        default = [],
+        help = 'additional section as name and content type (binary or text). Example: .linux:binary',
+    ),
+
+    ConfigItem(
+        '--json',
+        help = 'print in JSON format',
+        action = 'store_true',
+    ),
+
+    ConfigItem(
+        '--print-all',
+        help = 'print all sections found',
+        action = 'store_true',
+    ),
+
 ]
 
 CONFIGFILE_ITEMS = { item.config_key:item
@@ -1420,6 +1533,8 @@ def main():
     elif opts.verb == 'genkey':
         check_cert_and_keys_nonexistent(opts)
         generate_keys(opts)
+    elif opts.verb == 'inspect':
+        pe_read_sections(opts)
     else:
         assert False
 
