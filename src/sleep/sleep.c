@@ -58,9 +58,9 @@ static int write_hibernate_location_info(const HibernateLocation *hibernate_loca
         r = write_string_file("/sys/power/resume", resume_str, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write partition device to /sys/power/resume for '%s': '%s': %m",
-                                       hibernate_location->swap->device, resume_str);
+                                       hibernate_location->swap->path, resume_str);
 
-        log_debug("Wrote resume= value for %s to /sys/power/resume: %s", hibernate_location->swap->device, resume_str);
+        log_debug("Wrote resume= value for %s to /sys/power/resume: %s", hibernate_location->swap->path, resume_str);
 
         /* if it's a swap partition, we're done */
         if (hibernate_location->swap->type == SWAP_BLOCK)
@@ -72,7 +72,7 @@ static int write_hibernate_location_info(const HibernateLocation *hibernate_loca
         if (hibernate_location->offset > 0 && access("/sys/power/resume_offset", W_OK) < 0) {
                 if (errno == ENOENT) {
                         log_debug("Kernel too old, can't configure resume_offset for %s, ignoring: %" PRIu64,
-                                  hibernate_location->swap->device, hibernate_location->offset);
+                                  hibernate_location->swap->path, hibernate_location->offset);
                         return 0;
                 }
 
@@ -83,9 +83,9 @@ static int write_hibernate_location_info(const HibernateLocation *hibernate_loca
         r = write_string_file("/sys/power/resume_offset", offset_str, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write swap file offset to /sys/power/resume_offset for '%s': '%s': %m",
-                                       hibernate_location->swap->device, offset_str);
+                                       hibernate_location->swap->path, offset_str);
 
-        log_debug("Wrote resume_offset= value for %s to /sys/power/resume_offset: %s", hibernate_location->swap->device, offset_str);
+        log_debug("Wrote resume_offset= value for %s to /sys/power/resume_offset: %s", hibernate_location->swap->path, offset_str);
 
         return 0;
 }

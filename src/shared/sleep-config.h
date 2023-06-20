@@ -37,7 +37,7 @@ typedef enum SwapType {
 
 /* entry in /proc/swaps */
 typedef struct SwapEntry {
-        char *device;
+        char *path;
         SwapType type;
         uint64_t size;
         uint64_t used;
