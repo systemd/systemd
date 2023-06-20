@@ -87,7 +87,6 @@ EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const char16_t *name, ui
 EFI_STATUS efivar_get(const EFI_GUID *vendor, const char16_t *name, char16_t **ret) {
         _cleanup_free_ char16_t *buf = NULL;
         EFI_STATUS err;
-        char16_t *val;
         size_t size;
 
         assert(vendor);
@@ -110,13 +109,7 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const char16_t *name, char16_t **r
                 return EFI_SUCCESS;
         }
 
-        /* Make sure a terminating NUL is available at the end */
-        val = xmalloc(size + sizeof(char16_t));
-
-        memcpy(val, buf, size);
-        val[size / sizeof(char16_t) - 1] = 0; /* NUL terminate */
-
-        *ret = val;
+        *ret = xstrndup16(buf, size / sizeof(char16_t));
         return EFI_SUCCESS;
 }
 
