@@ -63,12 +63,10 @@ static int write_hibernate_location_info(const HibernateLocation *hibernate_loca
         log_debug("Wrote resume= value for %s to /sys/power/resume: %s", hibernate_location->swap->device, resume_str);
 
         /* if it's a swap partition, we're done */
-        if (streq(hibernate_location->swap->type, "partition"))
-                return r;
+        if (hibernate_location->swap->type == SWAP_BLOCK)
+                return 0;
 
-        if (!streq(hibernate_location->swap->type, "file"))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid hibernate type: %s", hibernate_location->swap->type);
+        assert(hibernate_location->swap->type == SWAP_FILE);
 
         /* Only available in 4.17+ */
         if (hibernate_location->offset > 0 && access("/sys/power/resume_offset", W_OK) < 0) {
