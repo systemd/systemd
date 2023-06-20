@@ -661,6 +661,14 @@ d /tmp/foo/bar - - - bmA:1h -</programlisting></para>
       Applications may use this to temporarily exclude certain directory subtrees from the aging algorithm:
       the applications can take a BSD file lock themselves, and as long as they keep it aging of the
       directory/file and everything below it is disabled.</para>
+
+      <para>This behavior can be used to ensure guaranteed cleanup of files or directories whose lifetime
+      should be aligned with the process that created them by having that process create them in a location
+      monitored by <command>systemd-tmpfiles</command> with an age of <literal>0</literal>, and having the
+      process immediately lock the directory or file before using it. Because the BSD lock is process
+      specific, the file is guaranteed to be unlocked as soon as the process exits, meaning that even if the
+      process crashes, those files and directories will be unlocked and cleaned up by
+      <command>systemd-tmpfiles</command>.</para>
     </refsect2>
 
     <refsect2>
