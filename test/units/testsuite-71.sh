@@ -112,15 +112,16 @@ testcase_firmware_date() {
     cat >/run/systemd/system/systemd-hostnamed.service.d/override.conf <<EOF
 [Service]
 Environment="SYSTEMD_DEVICE_VERIFY_SYSFS=0"
+Environment="SYSTEMD_HOSTNAME_FORCE_DMI=1"
 EOF
     systemctl daemon-reload
 
     mount -t tmpfs none /sys/class/dmi/id
     echo '1' >/sys/class/dmi/id/uevent
 
-    echo '01/01/2000' >/sys/class/dmi/id/bios_date
+    echo '09/08/2000' >/sys/class/dmi/id/bios_date
     systemctl stop systemd-hostnamed
-    assert_in '2000-01-01' "$(hostnamectl)"
+    assert_in '2000-09-08' "$(hostnamectl)"
 
     echo '2022' >/sys/class/dmi/id/bios_date
     systemctl stop systemd-hostnamed
