@@ -518,45 +518,6 @@ static int perform_upload(Uploader *u) {
         return update_cursor_state(u);
 }
 
-static int config_parse_path_or_ignore(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        _cleanup_free_ char *n = NULL;
-        bool fatal = ltype;
-        char **s = ASSERT_PTR(data);
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        if (isempty(rvalue))
-                goto finalize;
-
-        n = strdup(rvalue);
-        if (!n)
-                return log_oom();
-
-        if (streq(n, "-"))
-                goto finalize;
-
-        r = path_simplify_and_warn(n, PATH_CHECK_ABSOLUTE | (fatal ? PATH_CHECK_FATAL : 0), unit, filename, line, lvalue);
-        if (r < 0)
-                return fatal ? -ENOEXEC : 0;
-
-finalize:
-        return free_and_replace(*s, n);
-}
-
 static int parse_config(void) {
         const ConfigTableItem items[] = {
                 { "Upload",  "URL",                    config_parse_string,         CONFIG_PARSE_STRING_SAFE, &arg_url                  },
@@ -663,7 +624,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'u':
                         if (arg_url)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot use more than one --url");
+                                                       "Cannot use more than one --url=");
 
                         arg_url = optarg;
                         break;
@@ -671,7 +632,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_KEY:
                         if (arg_key)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot use more than one --key");
+                                                       "Cannot use more than one --key=");
 
                         arg_key = optarg;
                         break;
@@ -679,7 +640,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_CERT:
                         if (arg_cert)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot use more than one --cert");
+                                                       "Cannot use more than one --cert=");
 
                         arg_cert = optarg;
                         break;
@@ -687,7 +648,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_TRUST:
                         if (arg_trust)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot use more than one --trust");
+                                                       "Cannot use more than one --trust=");
 
                         arg_trust = optarg;
                         break;
@@ -707,7 +668,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'M':
                         if (arg_machine)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot use more than one --machine/-M");
+                                                       "Cannot use more than one --machine=/-M");
 
                         arg_machine = optarg;
                         break;
@@ -715,7 +676,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'D':
                         if (arg_directory)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot use more than one --directory/-D");
+                                                       "Cannot use more than one --directory=/-D");
 
                         arg_directory = optarg;
                         break;
@@ -729,7 +690,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_CURSOR:
                         if (arg_cursor)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot use more than one --cursor/--after-cursor");
+                                                       "Cannot use more than one --cursor=/--after-cursor=");
 
                         arg_cursor = optarg;
                         break;
@@ -737,7 +698,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_AFTER_CURSOR:
                         if (arg_cursor)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "cannot use more than one --cursor/--after-cursor");
+                                                       "Cannot use more than one --cursor=/--after-cursor=");
 
                         arg_cursor = optarg;
                         arg_after_cursor = true;
@@ -770,11 +731,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (!arg_url)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Required --url/-u option missing.");
+                                       "Required --url=/-u option missing.");
 
         if (!!arg_key != !!arg_cert)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Options --key and --cert must be used together.");
+                                       "Options --key= and --cert= must be used together.");
 
         if (optind < argc && (arg_directory || arg_file || arg_machine || arg_journal_type))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
