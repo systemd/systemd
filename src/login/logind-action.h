@@ -24,7 +24,7 @@ typedef struct HandleActionData HandleActionData;
 
 #include "logind-inhibit.h"
 #include "logind.h"
-#include "sleep-config.h"
+#include "sleep-util.h"
 
 static inline bool handle_action_valid(HandleAction a) {
         return a >= 0 && a < _HANDLE_ACTION_MAX;
