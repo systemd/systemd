@@ -8,6 +8,15 @@
 LogLevel max_log_level = LOG_WARNING;
 static unsigned log_count = 0;
 
+static const int32_t log_colors[] = {
+        [LOG_FATAL]   = EFI_TEXT_ATTR(EFI_LIGHTRED, EFI_BLACK),
+        [LOG_ERROR]   = EFI_TEXT_ATTR(EFI_LIGHTRED, EFI_BLACK),
+        [LOG_WARNING] = EFI_TEXT_ATTR(EFI_YELLOW, EFI_BLACK),
+        [LOG_INFO]    = EFI_TEXT_ATTR(EFI_LIGHTGRAY, EFI_BLACK),
+        [LOG_DEBUG]   = EFI_TEXT_ATTR(EFI_BROWN, EFI_BLACK),
+        [LOG_TRACE]   = EFI_TEXT_ATTR(EFI_BROWN, EFI_BLACK),
+};
+
 void freeze(void) {
         for (;;)
                 BS->Stall(60 * 1000 * 1000);
@@ -16,7 +25,7 @@ void freeze(void) {
 _noreturn_ static void panic(const char16_t *message) {
         if (ST->ConOut->Mode->CursorColumn > 0)
                 ST->ConOut->OutputString(ST->ConOut, (char16_t *) u"\r\n");
-        ST->ConOut->SetAttribute(ST->ConOut, EFI_TEXT_ATTR(EFI_LIGHTRED, EFI_BLACK));
+        ST->ConOut->SetAttribute(ST->ConOut, log_colors[LOG_FATAL]);
         ST->ConOut->OutputString(ST->ConOut, (char16_t *) message);
         freeze();
 }
@@ -29,7 +38,7 @@ void efi_assert(const char *expr, const char *file, unsigned line, const char *f
                 panic(u"systemd-boot: Nested assertion failure, halting.");
 
         asserting = true;
-        log_error("systemd-boot: Assertion '%s' failed at %s:%u@%s, halting.", expr, file, line, function);
+        log_fatal("systemd-boot: Assertion '%s' failed at %s:%u@%s, halting.", expr, file, line, function);
         freeze();
 }
 
@@ -40,7 +49,7 @@ EFI_STATUS log_internal(LogLevel level, EFI_STATUS status, const char *format, .
 
         if (ST->ConOut->Mode->CursorColumn > 0)
                 ST->ConOut->OutputString(ST->ConOut, (char16_t *) u"\r\n");
-        ST->ConOut->SetAttribute(ST->ConOut, EFI_TEXT_ATTR(EFI_LIGHTRED, EFI_BLACK));
+        ST->ConOut->SetAttribute(ST->ConOut, log_colors[level]);
 
         va_list ap;
         va_start(ap, format);
