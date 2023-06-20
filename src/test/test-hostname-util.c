@@ -102,15 +102,35 @@ TEST(hostname_malloc) {
 }
 
 TEST(default_hostname) {
+        char *hostname;
+
         if (!hostname_is_valid(FALLBACK_HOSTNAME, 0)) {
                 log_error("Configured fallback hostname \"%s\" is not valid.", FALLBACK_HOSTNAME);
                 exit(EXIT_FAILURE);
         }
 
-        _cleanup_free_ char *n = get_default_hostname();
-        assert_se(n);
-        log_info("get_default_hostname: \"%s\"", n);
-        assert_se(hostname_is_valid(n, 0));
+        /* SYSTEMD_DEFAULT_HOSTNAME environment variable takes precedence over everything else */
+        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=hostname=foo") == 0);
+        assert_se(putenv((char*) "SYSTEMD_DEFAULT_HOSTNAME=bar") == 0);
+        hostname = get_default_hostname();
+        assert_se(hostname);
+        assert_se(streq(hostname, "bar"));
+        hostname = mfree(hostname);
+
+        /* Kernel commandline comes next */
+        assert_se(putenv((char*) "SYSTEMD_DEFAULT_HOSTNAME=") == 0);
+        hostname = get_default_hostname();
+        assert_se(hostname);
+        assert_se(streq(hostname, "foo"));
+        hostname = mfree(hostname);
+
+        /* Whatever comes next should at least be valid */
+        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=") == 0);
+        hostname = get_default_hostname();
+        assert_se(hostname);
+        log_info("get_default_hostname: \"%s\"", hostname);
+        assert_se(hostname_is_valid(hostname, 0));
+        hostname = mfree(hostname);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
