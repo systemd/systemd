@@ -62,4 +62,5 @@ _gnu_printf_(3, 4) EFI_STATUS log_internal(LogLevel level, EFI_STATUS status, co
 
 #ifdef EFI_DEBUG
 void log_hexdump(const char16_t *prefix, const void *data, size_t size);
+void log_device_path(const char16_t *prefix, const EFI_DEVICE_PATH *dp);
 #endif
