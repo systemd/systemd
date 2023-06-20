@@ -196,3 +196,42 @@ int parse_socket_bind_item(
         *port_min = mn;
         return 0;
 }
+
+int config_parse_path_or_ignore(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *n = NULL;
+        bool fatal = ltype;
+        char **s = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue))
+                goto finalize;
+
+        n = strdup(rvalue);
+        if (!n)
+                return log_oom();
+
+        if (streq(n, "-"))
+                goto finalize;
+
+        r = path_simplify_and_warn(n, PATH_CHECK_ABSOLUTE | (fatal ? PATH_CHECK_FATAL : 0), unit, filename, line, lvalue);
+        if (r < 0)
+                return fatal ? -ENOEXEC : 0;
+
+finalize:
+        return free_and_replace(*s, n);
+}
