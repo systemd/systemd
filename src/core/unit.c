@@ -5012,7 +5012,7 @@ int unit_setup_exec_runtime(Unit *u) {
                         return r;
         }
 
-        r = exec_runtime_make(esr, dcreds, rt);
+        r = exec_runtime_make(u, ec, esr, dcreds, rt);
         if (r < 0)
                 return r;
 
