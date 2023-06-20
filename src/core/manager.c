@@ -2147,8 +2147,7 @@ int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error 
                         tr,
                         unit,
                         tr->anchor_job,
-                        mode == JOB_IGNORE_DEPENDENCIES ? TRANSACTION_IGNORE_ORDER : 0,
-                        e);
+                        mode == JOB_IGNORE_DEPENDENCIES ? TRANSACTION_IGNORE_ORDER : 0);
 
         r = transaction_activate(tr, m, mode, NULL, e);
         if (r < 0)

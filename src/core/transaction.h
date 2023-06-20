@@ -30,8 +30,7 @@ typedef enum TransactionAddFlags {
 void transaction_add_propagate_reload_jobs(
                 Transaction *tr,
                 Unit *unit, Job *by,
-                TransactionAddFlags flags,
-                sd_bus_error *e);
+                TransactionAddFlags flags);
 
 int transaction_add_job_and_dependencies(
                 Transaction *tr,

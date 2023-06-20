@@ -878,8 +878,7 @@ void transaction_add_propagate_reload_jobs(
                 Transaction *tr,
                 Unit *unit,
                 Job *by,
-                TransactionAddFlags flags,
-                sd_bus_error *e) {
+                TransactionAddFlags flags) {
 
         JobType nt;
         Unit *dep;
@@ -889,17 +888,17 @@ void transaction_add_propagate_reload_jobs(
         assert(unit);
 
         UNIT_FOREACH_DEPENDENCY(dep, unit, UNIT_ATOM_PROPAGATES_RELOAD_TO) {
+                _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
+
                 nt = job_type_collapse(JOB_TRY_RELOAD, dep);
                 if (nt == JOB_NOP)
                         continue;
 
-                r = transaction_add_job_and_dependencies(tr, nt, dep, by, flags, e);
-                if (r < 0) {
+                r = transaction_add_job_and_dependencies(tr, nt, dep, by, flags, &e);
+                if (r < 0)
                         log_unit_warning(dep,
                                          "Cannot add dependency reload job, ignoring: %s",
-                                         bus_error_message(e, r));
-                        sd_bus_error_free(e);
-                }
+                                         bus_error_message(&e, r));
         }
 }
 
@@ -1099,7 +1098,7 @@ int transaction_add_job_and_dependencies(
                 }
 
                 if (type == JOB_RELOAD)
-                        transaction_add_propagate_reload_jobs(tr, ret->unit, ret, flags & TRANSACTION_IGNORE_ORDER, e);
+                        transaction_add_propagate_reload_jobs(tr, ret->unit, ret, flags & TRANSACTION_IGNORE_ORDER);
 
                 /* JOB_VERIFY_ACTIVE requires no dependency handling */
         }
