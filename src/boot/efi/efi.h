@@ -127,6 +127,8 @@ typedef struct {
         GUID_DEF(0x8be4df61, 0x93ca, 0x11d2, 0xaa, 0x0d, 0x00, 0xe0, 0x98, 0x03, 0x2b, 0x8c)
 #define EFI_IMAGE_SECURITY_DATABASE_GUID \
         GUID_DEF(0xd719b2cb, 0x3d3a, 0x4596, 0xa3, 0xbc, 0xda, 0xd0, 0x0e, 0x67, 0x65, 0x6f)
+#define UEFI_SHELL_GUID \
+        GUID_DEF(0x7c04a583, 0x9e3e, 0x4f1c, 0xad, 0x65, 0xe0, 0x52, 0x68, 0xd0, 0xb4, 0xd1)
 
 #define EVT_TIMER                         0x80000000U
 #define EVT_RUNTIME                       0x40000000U
@@ -441,6 +443,7 @@ typedef struct {
         } *ConfigurationTable;
 } EFI_SYSTEM_TABLE;
 
+extern EFI_HANDLE IMG;
 extern EFI_SYSTEM_TABLE *ST;
 extern EFI_BOOT_SERVICES *BS;
 extern EFI_RUNTIME_SERVICES *RT;

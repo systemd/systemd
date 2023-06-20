@@ -4,9 +4,11 @@
 #include "efi.h"
 
 #define EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID \
-        GUID_DEF(0x0964e5b22, 0x6459, 0x11d2, 0x8e, 0x39, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b)
+        GUID_DEF(0x964e5b22, 0x6459, 0x11d2, 0x8e, 0x39, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b)
+#define EFI_FIRMWARE_VOLUME2_PROTOCOL_GUID \
+        GUID_DEF(0x220e73b6, 0x6bdb, 0x4413, 0x84, 0x05, 0xb9, 0x74, 0xb1, 0x08, 0x61, 0x9a)
 #define EFI_FILE_INFO_ID \
-        GUID_DEF(0x009576e92, 0x6d3f, 0x11d2, 0x8e, 0x39, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b)
+        GUID_DEF(0x09576e92, 0x6d3f, 0x11d2, 0x8e, 0x39, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b)
 
 #define EFI_FILE_MODE_READ   0x0000000000000001U
 #define EFI_FILE_MODE_WRITE  0x0000000000000002U
@@ -74,4 +76,25 @@ struct EFI_FILE_PROTOCOL {
         void *ReadEx;
         void *WriteEx;
         void *FlushEx;
+};
+
+typedef struct EFI_FIRMWARE_VOLUME2_PROTOCOL EFI_FIRMWARE_VOLUME2_PROTOCOL;
+struct EFI_FIRMWARE_VOLUME2_PROTOCOL{
+        void *GetVolumeAttributes;
+        void *SetVolumeAttributes;
+        EFI_STATUS (EFIAPI *ReadFile)(
+                const EFI_FIRMWARE_VOLUME2_PROTOCOL *This,
+                const EFI_GUID *NameGuid,
+                void **Buffer,
+                size_t *BufferSize,
+                uint8_t *FoundType,
+                uint32_t *FileAttributes,
+                uint32_t *AuthenticationStatus);
+        void *ReadSection;
+        void *WriteFile;
+        void *GetNextFile;
+        uint32_t KeySize;
+        EFI_HANDLE ParentHandle;
+        void *GetInfo;
+        void *SetInfo;
 };
