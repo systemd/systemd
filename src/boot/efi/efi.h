@@ -441,6 +441,7 @@ typedef struct {
         } *ConfigurationTable;
 } EFI_SYSTEM_TABLE;
 
+extern EFI_HANDLE IMG;
 extern EFI_SYSTEM_TABLE *ST;
 extern EFI_BOOT_SERVICES *BS;
 extern EFI_RUNTIME_SERVICES *RT;
