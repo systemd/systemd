@@ -274,11 +274,22 @@ static int print_status_info(StatusInfo *i) {
         }
 
         if (timestamp_is_set(i->firmware_date)) {
+                usec_t n = now(CLOCK_REALTIME);
+
                 r = table_add_many(table,
                                    TABLE_FIELD, "Firmware Date",
                                    TABLE_TIMESTAMP_DATE, i->firmware_date);
                 if (r < 0)
                         return table_log_add_error(r);
+
+                if (i->firmware_date < n) {
+                        r = table_add_many(table,
+                                           TABLE_FIELD, "Firmware Age",
+                                           TABLE_TIMESPAN_DAY, n - i->firmware_date,
+                                           TABLE_SET_COLOR, n - i->firmware_date > USEC_PER_YEAR*2 ? ANSI_HIGHLIGHT_YELLOW : NULL);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
         }
 
         r = table_print(table, NULL);
