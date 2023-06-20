@@ -307,20 +307,20 @@ static int get_firmware_date(usec_t *ret) {
                 return -EINVAL;
 
          unsigned m, d, y;
-         r = safe_atou(month, &m);
+         r = safe_atou_full(month, 10 | SAFE_ATO_REFUSE_PLUS_MINUS | SAFE_ATO_REFUSE_LEADING_WHITESPACE, &m);
          if (r < 0)
                 return r;
          if (m < 1 || m > 12)
                 return -EINVAL;
          m -= 1;
 
-         r = safe_atou(day, &d);
+         r = safe_atou_full(day, 10 | SAFE_ATO_REFUSE_PLUS_MINUS | SAFE_ATO_REFUSE_LEADING_WHITESPACE, &d);
          if (r < 0)
                 return r;
          if (d < 1 || d > 31)
                 return -EINVAL;
 
-         r = safe_atou(year, &y);
+         r = safe_atou_full(year, 10 | SAFE_ATO_REFUSE_PLUS_MINUS | SAFE_ATO_REFUSE_LEADING_WHITESPACE, &y);
          if (r < 0)
                 return r;
          if (y < 1970 || y > (unsigned) INT_MAX)
