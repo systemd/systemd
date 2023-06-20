@@ -490,6 +490,8 @@ const char* inode_type_to_string(mode_t m) {
                 return "reg";
         case S_IFDIR:
                 return "dir";
+        case S_IFLNK:
+                return "lnk";
         case S_IFCHR:
                 return "chr";
         case S_IFBLK:
