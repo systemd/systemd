@@ -610,7 +610,7 @@ HibernateLocation* hibernate_location_free(HibernateLocation *hl) {
         return mfree(hl);
 }
 
-static int swap_device_to_device_id(const SwapEntry *swap, dev_t *ret_dev) {
+static int swap_device_to_devnum(const SwapEntry *swap, dev_t *ret_dev) {
         _cleanup_close_ int fd = -EBADF;
         struct stat sb;
         int r;
@@ -841,11 +841,11 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
                         }
                 }
 
-                dev_t swap_device;
-                r = swap_device_to_device_id(swap, &swap_device);
+                dev_t swap_devno;
+                r = swap_device_to_devnum(swap, &swap_devno);
                 if (r < 0)
                         return log_debug_errno(r, "%s: failed to query device number: %m", swap->device);
-                if (swap_device == 0)
+                if (swap_devno == 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENODEV), "%s: not backed by block device.", swap->device);
 
                 hibernate_location = hibernate_location_free(hibernate_location);
@@ -854,7 +854,7 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
                         return -ENOMEM;
 
                 *hibernate_location = (HibernateLocation) {
-                        .devno = swap_device,
+                        .devno = swap_devno,
                         .offset = swap_offset,
                         .swap = TAKE_PTR(swap),
                 };
