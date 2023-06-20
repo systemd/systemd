@@ -510,11 +510,11 @@ int check_wakeup_type(void) {
         return false;
 }
 
-int can_sleep_state(char **types) {
+int can_sleep_state(char **requested_types) {
         _cleanup_free_ char *text = NULL;
         int r;
 
-        if (strv_isempty(types))
+        if (strv_isempty(requested_types))
                 return true;
 
         /* If /sys is read-only we cannot sleep */
@@ -530,13 +530,13 @@ int can_sleep_state(char **types) {
         }
 
         const char *found;
-        r = string_contains_word_strv(text, NULL, types, &found);
+        r = string_contains_word_strv(text, NULL, requested_types, &found);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse /sys/power/state: %m");
         if (r > 0)
                 log_debug("Sleep mode \"%s\" is supported by the kernel.", found);
         else if (DEBUG_LOGGING) {
-                _cleanup_free_ char *t = strv_join(types, "/");
+                _cleanup_free_ char *t = strv_join(requested_types, "/");
                 log_debug("Sleep mode %s not supported by the kernel, sorry.", strnull(t));
         }
         return r;
