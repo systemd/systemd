@@ -46,7 +46,6 @@
 
 #define DISCHARGE_RATE_FILEPATH "/var/lib/systemd/sleep/battery_discharge_percentage_rate_per_hour"
 #define BATTERY_DISCHARGE_RATE_HASH_KEY SD_ID128_MAKE(5f,9a,20,18,38,76,46,07,8d,36,58,0b,bb,c4,e0,63)
-#define SYS_ENTRY_RAW_FILE_TYPE1 "/sys/firmware/dmi/entries/1-0/raw"
 
 static void *CAPACITY_TO_PTR(int capacity) {
         assert(capacity >= 0);
@@ -478,25 +477,25 @@ int battery_trip_point_alarm_exists(void) {
 
 /* Return true if wakeup type is APM timer */
 int check_wakeup_type(void) {
-        _cleanup_free_ char *s = NULL;
+        static const char dmi_object_path[] = "/sys/firmware/dmi/entries/1-0/raw";
         uint8_t wakeup_type_byte, tablesize;
-        size_t readsize;
+        _cleanup_free_ char *buf = NULL;
+        size_t bufsize;
         int r;
 
         /* implementation via dmi/entries */
-        r = read_full_virtual_file(SYS_ENTRY_RAW_FILE_TYPE1, &s, &readsize);
+        r = read_full_virtual_file(dmi_object_path, &buf, &bufsize);
         if (r < 0)
-                return log_debug_errno(r, "Unable to read %s: %m", SYS_ENTRY_RAW_FILE_TYPE1);
-
-        if (readsize < 25)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Only read %zu bytes from %s (expected 25)", readsize, SYS_ENTRY_RAW_FILE_TYPE1);
+                return log_debug_errno(r, "Unable to read %s: %m", dmi_object_path);
+        if (bufsize < 25)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Only read %zu bytes from %s (expected 25)", bufsize, dmi_object_path);
 
         /* index 1 stores the size of table */
-        tablesize = (uint8_t) s[1];
+        tablesize = (uint8_t) buf[1];
         if (tablesize < 25)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Table size lesser than the index[0x18] where waketype byte is available.");
 
-        wakeup_type_byte = (uint8_t) s[24];
+        wakeup_type_byte = (uint8_t) buf[24];
         /* 0 is Reserved and 8 is AC Power Restored. As per table 12 in
          * https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.4.0.pdf */
         if (wakeup_type_byte >= 128)
