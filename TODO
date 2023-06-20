@@ -127,6 +127,8 @@ Deprecations and removals:
 * Once baseline is 4.13, remove support for INTERFACE_OLD= checks in "udevadm
   trigger"'s waiting logic, since we can then rely on uuid-tagged uevents
 
+* remove remaining tpm1.2 support from sd-stub
+
 Features:
 
 * add another PE section ".fname" or so that encodes the intended filename for
