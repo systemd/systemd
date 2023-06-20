@@ -275,3 +275,5 @@ char *startswith_strv(const char *string, char **strv);
 
 #define STARTSWITH_SET(p, ...)                                  \
         startswith_strv(p, STRV_MAKE(__VA_ARGS__))
+
+bool version_is_valid(const char *s);

@@ -1124,13 +1124,13 @@ int path_extract_directory(const char *path, char **ret) {
         return 0;
 }
 
-bool filename_is_valid(const char *p) {
+bool filename_part_is_valid(const char *p) {
         const char *e;
 
-        if (isempty(p))
-                return false;
+        /* Checks f the specified string is OK to be *part* of a filename. This is different from
+         * filename_is_valid() as "." and ".." and "" are OK by this call, but not by filename_is_valid(). */
 
-        if (dot_or_dot_dot(p)) /* Yes, in this context we consider "." and ".." invalid */
+        if (!p)
                 return false;
 
         e = strchrnul(p, '/');
@@ -1141,6 +1141,17 @@ bool filename_is_valid(const char *p) {
                 return false;
 
         return true;
+}
+
+bool filename_is_valid(const char *p) {
+
+        if (isempty(p))
+                return false;
+
+        if (dot_or_dot_dot(p)) /* Yes, in this context we consider "." and ".." invalid */
+                return false;
+
+        return filename_part_is_valid(p);
 }
 
 bool path_is_valid_full(const char *p, bool accept_dot_dot) {
