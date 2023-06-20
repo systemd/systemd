@@ -43,6 +43,8 @@ import socket
 import subprocess
 import sys
 import tempfile
+import textwrap
+from hashlib import sha256
 from typing import (Any,
                     Callable,
                     IO,
@@ -89,7 +91,7 @@ def guess_efi_arch():
             if int(size) == 32:
                 efi_arch = fallback[0]
 
-    print(f'Host arch {arch!r}, EFI arch {efi_arch!r}')
+    # print(f'Host arch {arch!r}, EFI arch {efi_arch!r}')
     return efi_arch
 
 
@@ -243,13 +245,26 @@ class Uname:
                 print(str(e))
         return None
 
+DEFAULT_SECTIONS_TO_SHOW = {
+        '.linux'    : 'binary',
+        '.initrd'   : 'binary',
+        '.splash'   : 'binary',
+        '.dt'       : 'binary',
+        '.cmdline'  : 'text',
+        '.osrel'    : 'text',
+        '.uname'    : 'text',
+        '.pcrpkey'  : 'text',
+        '.pcrsig'   : 'text',
+        '.sbat'     : 'text',
+}
 
 @dataclasses.dataclass
 class Section:
     name: str
-    content: pathlib.Path
+    content: Optional[pathlib.Path]
     tmpfile: Optional[IO] = None
     measure: bool = False
+    output_mode: Optional[str] = None
 
     @classmethod
     def create(cls, name, contents, **kwargs):
@@ -265,7 +280,7 @@ class Section:
         return cls(name, contents, tmpfile=tmp, **kwargs)
 
     @classmethod
-    def parse_arg(cls, s):
+    def parse_input(cls, s):
         try:
             name, contents, *rest = s.split(':')
         except ValueError as e:
@@ -276,7 +291,19 @@ class Section:
         if contents.startswith('@'):
             contents = pathlib.Path(contents[1:])
 
-        return cls.create(name, contents)
+        sec = cls.create(name, contents)
+        sec.check_name()
+        return sec
+
+    @classmethod
+    def parse_output(cls, s):
+        if not (m := re.match(r'([a-zA-Z0-9_.]+):(text|binary)(?:@(.+))?', s)):
+            raise ValueError(f'Cannot parse section spec: {s!r}')
+
+        name, ttype, out = m.groups()
+        out = pathlib.Path(out) if out else None
+
+        return cls.create(name, out, output_mode=ttype)
 
     def size(self):
         return self.content.stat().st_size
@@ -551,6 +578,7 @@ def pe_add_sections(uki: UKI, output: str):
         if offset + new_section.sizeof() > pe.OPTIONAL_HEADER.SizeOfHeaders:
             raise PEError(f'Not enough header space to add section {section.name}.')
 
+        assert section.content
         data = section.content.read_bytes()
 
         new_section.set_file_offset(offset)
@@ -915,6 +943,59 @@ def generate_keys(opts):
             pub_key.write_bytes(pub_key_pem)
 
 
+def inspect_section(opts, section):
+    name = section.Name.rstrip(b"\x00").decode()
+
+    # find the config for this section in opts and whether to show it
+    config = opts.sections_by_name.get(name, None)
+    show = (config or
+            opts.all or
+            (name in DEFAULT_SECTIONS_TO_SHOW and not opts.sections))
+    if not show:
+        return name, None
+
+    ttype = config.output_mode if config else DEFAULT_SECTIONS_TO_SHOW.get(name, 'binary')
+
+    data = section.get_data(ignore_padding=True)
+    size = section.Misc_VirtualSize
+    digest = sha256(data).hexdigest()
+
+    struct = {
+        'size' : size,
+        'sha256' : digest,
+    }
+
+    if ttype == 'text':
+        try:
+            struct['text'] = data.decode()
+        except UnicodeDecodeError as e:
+            print(f"Section {name!r} is not valid text: {e}")
+            struct['text'] = '(not valid UTF-8)'
+
+    if config and config.content:
+        assert isinstance(config.content, pathlib.Path)
+        config.content.write_bytes(data)
+
+    if opts.json == 'off':
+        print(f"{name}:\n  size: {size} bytes\n  sha256: {digest}")
+        if ttype == 'text':
+            text = textwrap.indent(struct['text'].rstrip(), ' ' * 4)
+            print(f"  text:\n{text}")
+
+    return name, struct
+
+
+def inspect_sections(opts):
+    indent = 4 if opts.json == 'pretty' else None
+
+    for file in opts.files:
+        pe = pefile.PE(file, fast_load=True)
+        gen = (inspect_section(opts, section) for section in pe.sections)
+        descs = {key:val for (key, val) in gen if val}
+        if opts.json != 'off':
+            json.dump(descs, sys.stdout, indent=indent)
+
+
 @dataclasses.dataclass(frozen=True)
 class ConfigItem:
     @staticmethod
@@ -985,6 +1066,7 @@ class ConfigItem:
     default: Any = None
     version: Optional[str] = None
     choices: Optional[tuple[str, ...]] = None
+    const: Optional[Any] = None
     help: Optional[str] = None
 
     # metadata for config file parsing
@@ -1047,7 +1129,7 @@ class ConfigItem:
         return (section_name, key, value)
 
 
-VERBS = ('build', 'genkey')
+VERBS = ('build', 'genkey', 'inspect')
 
 CONFIG_ITEMS = [
     ConfigItem(
@@ -1162,10 +1244,9 @@ CONFIG_ITEMS = [
         '--section',
         dest = 'sections',
         metavar = 'NAME:TEXT|@PATH',
-        type = Section.parse_arg,
         action = 'append',
         default = [],
-        help = 'additional section as name and contents [NAME section]',
+        help = 'section as name and contents [NAME section] or section to print',
     ),
 
     ConfigItem(
@@ -1279,6 +1360,26 @@ CONFIG_ITEMS = [
         action = argparse.BooleanOptionalAction,
         help = 'print systemd-measure output for the UKI',
     ),
+
+    ConfigItem(
+        '--json',
+        choices = ('pretty', 'short', 'off'),
+        default = 'off',
+        help = 'generate JSON output',
+    ),
+    ConfigItem(
+        '-j',
+        dest='json',
+        action='store_const',
+        const='pretty',
+        help='equivalent to --json=pretty',
+    ),
+
+    ConfigItem(
+        '--all',
+        help = 'print all sections',
+        action = 'store_true',
+    ),
 ]
 
 CONFIGFILE_ITEMS = { item.config_key:item
@@ -1383,7 +1484,15 @@ def finalize_options(opts):
     # Figure out which syntax is being used, one of:
     # ukify verb --arg --arg --arg
     # ukify linux initrd…
-    if len(opts.positional) == 1 and opts.positional[0] in VERBS:
+    if opts.positional[0] == 'inspect':
+        opts.verb = opts.positional[0]
+        opts.files = opts.positional[1:]
+        if not opts.files:
+            raise ValueError('file(s) to inspect must be specified')
+        if len(opts.files) > 1 and opts.json != 'off':
+            # We could allow this in the future, but we need to figure out the right structure
+            raise ValueError('JSON output is not allowed with multiple files')
+    elif len(opts.positional) == 1 and opts.positional[0] in VERBS:
         opts.verb = opts.positional[0]
     elif opts.linux or opts.initrd:
         raise ValueError('--linux/--initrd options cannot be used with positional arguments')
@@ -1452,8 +1561,11 @@ def finalize_options(opts):
         suffix = '.efi' if opts.sb_key or opts.sb_cert_name else '.unsigned.efi'
         opts.output = opts.linux.name + suffix
 
-    for section in opts.sections:
-        section.check_name()
+    # Now that we know if we're inputting or outputting, really parse section config
+    f = Section.parse_output if opts.verb == 'inspect' else Section.parse_input
+    opts.sections = [f(s) for s in opts.sections]
+    # A convenience dictionary to make it easy to look up sections
+    opts.sections_by_name = {s.name:s for s in opts.sections}
 
     if opts.summary:
         # TODO: replace pprint() with some fancy formatting.
@@ -1476,6 +1588,8 @@ def main():
     elif opts.verb == 'genkey':
         check_cert_and_keys_nonexistent(opts)
         generate_keys(opts)
+    elif opts.verb == 'inspect':
+        inspect_sections(opts)
     else:
         assert False
 
