@@ -11,17 +11,35 @@
 #include "env-file.h"
 #include "hostname-util.h"
 #include "os-util.h"
+#include "proc-cmdline.h"
 #include "string-util.h"
 #include "strv.h"
 
 char* get_default_hostname(void) {
         int r;
 
+        /* There are multiple default hostname sources.
+         * Use the SYSTEMD_DEFAULT_HOSTNAME environment variable as highest priority default.
+         */
         const char *e = secure_getenv("SYSTEMD_DEFAULT_HOSTNAME");
         if (e) {
                 if (hostname_is_valid(e, 0))
                         return strdup(e);
                 log_debug("Invalid hostname in $SYSTEMD_DEFAULT_HOSTNAME, ignoring: %s", e);
+        }
+
+        /* The hostname= kernel commandline parameter is read by the kernel and set as the initial hostname.
+         * Use it as the second highest priority default.
+         * (Not to be confused with systemd.hostname=, which is considered a static hostname).
+         */
+        _cleanup_free_ char *h = NULL;
+        r = proc_cmdline_get_key("hostname", 0, &h);
+        if (r < 0)
+                log_warning_errno(r, "Failed to retrieve default hostname from kernel command line, ignoring: %m");
+        else if (r > 0) {
+                if (hostname_is_valid(h, 0))
+                        return TAKE_PTR(h);
+                log_warning("Default hostname specified on kernel command line is invalid, ignoring: %s", h);
         }
 
         _cleanup_free_ char *f = NULL;
