@@ -691,6 +691,7 @@ install_verity_minimal() {
             grep
             mount
             sleep
+            touch
         )
         oldinitdir="$initdir"
         rm -rfv "$TESTDIR/minimal"
