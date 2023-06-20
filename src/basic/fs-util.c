@@ -1177,7 +1177,7 @@ int xopenat_lock(
 
         /* POSIX/UNPOSIX locks don't work on directories (errno is set to -EBADF so let's return early with
          * the same error here). */
-        if (FLAGS_SET(open_flags, O_DIRECTORY) && locktype != LOCK_BSD)
+        if (FLAGS_SET(open_flags, O_DIRECTORY) && !IN_SET(locktype, LOCK_BSD, LOCK_NONE))
                 return -EBADF;
 
         for (;;) {

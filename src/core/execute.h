@@ -129,6 +129,14 @@ struct ExecSharedRuntime {
 struct ExecRuntime {
         ExecSharedRuntime *shared;
         DynamicCreds *dynamic_creds;
+
+        /* The path to the ephemeral snapshot of the root directory or root image if one was requested. */
+        char *ephemeral_copy;
+
+        /* An AF_UNIX socket pair that receives the locked file descriptor referring to the ephemeral copy of
+         * the root directory or root image. The lock prevents tmpfiles from removing the ephemeral snapshot
+         * until we're done using it. */
+        int ephemeral_storage_socket[2];
 };
 
 typedef enum ExecDirectoryType {
@@ -195,6 +203,7 @@ struct ExecContext {
         void *root_hash, *root_hash_sig;
         size_t root_hash_size, root_hash_sig_size;
         LIST_HEAD(MountOptions, root_image_options);
+        bool root_ephemeral;
         bool working_directory_missing_ok:1;
         bool working_directory_home:1;
 
@@ -506,7 +515,7 @@ int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char 
 int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds);
 void exec_shared_runtime_vacuum(Manager *m);
 
-int exec_runtime_make(ExecSharedRuntime *shared, DynamicCreds *creds, ExecRuntime **ret);
+int exec_runtime_make(const Unit *unit, const ExecContext *context, ExecSharedRuntime *shared, DynamicCreds *creds, ExecRuntime **ret);
 ExecRuntime* exec_runtime_free(ExecRuntime *rt);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ExecRuntime*, exec_runtime_free);
 ExecRuntime* exec_runtime_destroy(ExecRuntime *rt);
