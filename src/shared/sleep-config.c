@@ -641,7 +641,6 @@ static int swap_device_to_device_id(const SwapEntry *swap, dev_t *ret_dev) {
 static int calculate_swap_file_offset(const SwapEntry *swap, uint64_t *ret_offset) {
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ struct fiemap *fiemap = NULL;
-        struct stat sb;
         int r;
 
         assert(swap);
@@ -652,8 +651,9 @@ static int calculate_swap_file_offset(const SwapEntry *swap, uint64_t *ret_offse
         if (fd < 0)
                 return log_debug_errno(errno, "Failed to open swap file %s to determine on-disk offset: %m", swap->device);
 
-        if (fstat(fd, &sb) < 0)
-                return log_debug_errno(errno, "Failed to stat %s: %m", swap->device);
+        r = fd_verify_regular(fd);
+        if (r < 0)
+                return log_debug_errno(r, "Selected swap file is not a regular file.");
 
         r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
         if (r < 0)
