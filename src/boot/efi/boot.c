@@ -2326,10 +2326,7 @@ static EFI_STATUS initrd_prepare(
         return EFI_SUCCESS;
 }
 
-static EFI_STATUS image_start(
-                EFI_HANDLE parent_image,
-                const ConfigEntry *entry) {
-
+static EFI_STATUS image_start(const ConfigEntry *entry) {
         _cleanup_(devicetree_cleanup) struct devicetree_state dtstate = {};
         _cleanup_(unload_imagep) EFI_HANDLE image = NULL;
         _cleanup_free_ EFI_DEVICE_PATH *path = NULL;
@@ -2357,7 +2354,7 @@ static EFI_STATUS image_start(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error preparing initrd: %m");
 
-        err = shim_load_image(parent_image, path, &image);
+        err = shim_load_image(path, &image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error loading %ls: %m", entry->loader);
 
@@ -2632,7 +2629,7 @@ static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI
                 return open_volume(loaded_image->DeviceHandle, ret_dir);
 }
 
-static EFI_STATUS run(EFI_HANDLE image) {
+static EFI_STATUS run(void) {
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
         _cleanup_(config_free) Config config = {};
@@ -2647,7 +2644,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
          * By default, Shim uninstalls its protocol when calling StartImage(). */
         shim_retain_protocol();
 
-        err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
+        err = BS->HandleProtocol(IMG, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
 
@@ -2659,7 +2656,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Unable to open root directory: %m");
 
-        (void) load_drivers(image, loaded_image, root_dir);
+        (void) load_drivers(loaded_image, root_dir);
 
         config_load_all_entries(&config, loaded_image, loaded_image_path, root_dir);
 
@@ -2717,7 +2714,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 /* Optionally, read a random seed off the ESP and pass it to the OS */
                 (void) process_random_seed(root_dir);
 
-                err = image_start(image, entry);
+                err = image_start(entry);
                 if (err != EFI_SUCCESS)
                         return err;
 
