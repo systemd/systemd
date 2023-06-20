@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "device-path-util.h"
 #include "log.h"
 #include "proto/rng.h"
 #include "proto/simple-text-io.h"
@@ -69,6 +70,12 @@ void log_hexdump(const char16_t *prefix, const void *data, size_t size) {
 
         _cleanup_free_ char16_t *hex = hexdump(data, size);
         log_debug("%ls[%zu]: %ls", prefix, size, hex);
+}
+
+void log_device_path(const char16_t *prefix, const EFI_DEVICE_PATH *dp) {
+        _cleanup_free_ char16_t *str = NULL;
+        (void) device_path_to_str(dp, &str);
+        log_debug("%ls: %ls", prefix, str);
 }
 #endif
 
