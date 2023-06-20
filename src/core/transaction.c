@@ -1138,6 +1138,7 @@ int transaction_add_isolate_jobs(Transaction *tr, Manager *m) {
         assert(m);
 
         HASHMAP_FOREACH_KEY(u, k, m->units) {
+                _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
                 Unit *o;
 
                 /* Ignore aliases */
@@ -1161,9 +1162,9 @@ int transaction_add_isolate_jobs(Transaction *tr, Manager *m) {
                 if (keep)
                         continue;
 
-                r = transaction_add_job_and_dependencies(tr, JOB_STOP, u, tr->anchor_job, TRANSACTION_MATTERS, NULL);
+                r = transaction_add_job_and_dependencies(tr, JOB_STOP, u, tr->anchor_job, TRANSACTION_MATTERS, &e);
                 if (r < 0)
-                        log_unit_warning_errno(u, r, "Cannot add isolate job, ignoring: %m");
+                        log_unit_warning_errno(u, r, "Cannot add isolate job, ignoring: %s", bus_error_message(&e, r));
         }
 
         return 0;
@@ -1177,6 +1178,7 @@ int transaction_add_triggering_jobs(Transaction *tr, Unit *u) {
         assert(u);
 
         UNIT_FOREACH_DEPENDENCY(trigger, u, UNIT_ATOM_TRIGGERED_BY) {
+                _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
 
                 /* No need to stop inactive jobs */
                 if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(trigger)) && !trigger->job)
@@ -1186,9 +1188,9 @@ int transaction_add_triggering_jobs(Transaction *tr, Unit *u) {
                 if (hashmap_contains(tr->jobs, trigger))
                         continue;
 
-                r = transaction_add_job_and_dependencies(tr, JOB_STOP, trigger, tr->anchor_job, TRANSACTION_MATTERS, NULL);
+                r = transaction_add_job_and_dependencies(tr, JOB_STOP, trigger, tr->anchor_job, TRANSACTION_MATTERS, &e);
                 if (r < 0)
-                        log_unit_warning_errno(u, r, "Cannot add triggered by job, ignoring: %m");
+                        log_unit_warning_errno(u, r, "Cannot add triggered by job, ignoring: %s", bus_error_message(&e, r));
         }
 
         return 0;
