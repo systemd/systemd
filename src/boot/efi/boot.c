@@ -43,7 +43,8 @@ enum loader_type {
         LOADER_SECURE_BOOT_KEYS,
 };
 
-typedef struct {
+typedef struct ConfigEntry ConfigEntry;
+struct ConfigEntry {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry) */
         char16_t *title_show; /* The string to actually display (this is made unique before showing) */
         char16_t *title;      /* The raw (human readable) title string of the entry (not necessarily unique) */
@@ -57,13 +58,13 @@ typedef struct {
         char16_t *options;
         char16_t **initrd;
         char16_t key;
-        EFI_STATUS (*call)(void);
+        EFI_STATUS (*call)(const ConfigEntry *entry);
         int tries_done;
         int tries_left;
         char16_t *path;
         char16_t *current_name;
         char16_t *next_name;
-} ConfigEntry;
+};
 
 typedef struct {
         ConfigEntry **entries;
@@ -594,7 +595,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         }
 }
 
-static EFI_STATUS reboot_into_firmware(void) {
+static EFI_STATUS reboot_into_firmware(const ConfigEntry *entry) {
         uint64_t osind = 0;
         EFI_STATUS err;
 
@@ -819,7 +820,7 @@ static bool menu_run(
                 if (firmware_setup) {
                         firmware_setup = false;
                         if (IN_SET(key, KEYPRESS(0, 0, '\r'), KEYPRESS(0, 0, '\n')))
-                                reboot_into_firmware();
+                                reboot_into_firmware(NULL);
                         continue;
                 }
 
@@ -1871,6 +1872,115 @@ static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
         return memcmp(content, magic, sizeof(magic)) == 0;
 }
 
+static EFI_STATUS launch_internal_uefi_shell(const ConfigEntry *entry) {
+        EFI_STATUS err;
+
+        VENDOR_DEVICE_PATH *dp;
+        err = BS->HandleProtocol(entry->device, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &dp);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        if (dp->Header.Type != MEDIA_DEVICE_PATH || dp->Header.SubType != MEDIA_PIWG_FW_VOL_DP)
+                return EFI_INVALID_PARAMETER;
+
+        static struct {
+                VENDOR_DEVICE_PATH fv;
+                VENDOR_DEVICE_PATH ff;
+                EFI_DEVICE_PATH end;
+        } _packed_ internal_uefi_shell_dp = {
+                .fv = {
+                        .Header = {
+                                .Type = MEDIA_FILEPATH_DP,
+                                .SubType = MEDIA_PIWG_FW_VOL_DP,
+                                .Length = sizeof(internal_uefi_shell_dp.fv),
+                        },
+                },
+                .ff = {
+                        .Header = {
+                                .Type = MEDIA_FILEPATH_DP,
+                                .SubType = MEDIA_PIWG_FW_FILE_DP,
+                                .Length = sizeof(internal_uefi_shell_dp.ff),
+                        },
+                        .Guid = UEFI_SHELL_GUID,
+                },
+                .end = DEVICE_PATH_END_NODE,
+        };
+
+        internal_uefi_shell_dp.fv.Guid = dp->Guid;
+
+        _cleanup_(unload_imagep) EFI_HANDLE shell;
+        err = BS->LoadImage(false, IMG, (EFI_DEVICE_PATH *) &internal_uefi_shell_dp, NULL, 0, &shell);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Error loading internal UEFI shell: %m");
+
+        err = BS->StartImage(shell, NULL, NULL);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Error starting internal UEFI shell: %m");
+
+        return EFI_SUCCESS;
+}
+
+static void config_entry_add_loader_uefi_internal(Config *config) {
+        EFI_STATUS err;
+
+        /* Finds the internal UEFI shell of EDK2 firmware images by locating it on the firmware volume.
+         * As the firmware volume GUID differs by architecture we simply iterate over all volumes
+         * and check if it contains the UEFI shell file.
+         *
+         * On x86 the full device path for the internal UEFI shell is:
+         * Fv(7CB8BDC9-F8EB-4F34-AAEA-3EE4AF6516A1)/FvFile(7C04A583-9E3E-4F1C-AD65-E05268D0B4D1)
+         *
+         * Once located, it is merely a matter to create the device path and pass it to LoadImage().
+         */
+
+        assert(config);
+
+        if (!config->auto_entries || !config->auto_firmware)
+                return;
+
+        EFI_HANDLE *handles;
+        size_t n_handles;
+        err = BS->LocateHandleBuffer(
+                        ByProtocol, MAKE_GUID_PTR(EFI_FIRMWARE_VOLUME2_PROTOCOL), NULL, &n_handles, &handles);
+        if (err != EFI_SUCCESS)
+                return;
+
+        for (size_t i = 0; i < n_handles; i++) {
+                EFI_FIRMWARE_VOLUME2_PROTOCOL *fv;
+                err = BS->HandleProtocol(
+                                handles[i], MAKE_GUID_PTR(EFI_FIRMWARE_VOLUME2_PROTOCOL), (void **) &fv);
+                if (err != EFI_SUCCESS)
+                        continue;
+
+                err = fv->ReadFile(
+                                fv,
+                                MAKE_GUID_PTR(UEFI_SHELL),
+                                NULL,
+                                &(size_t){ 0 },
+                                &(uint8_t){ 0x09 }, // EFI_FV_FILETYPE_APPLICATION
+                                &(uint32_t){ 0 },
+                                &(uint32_t){ 0 });
+                if (err != EFI_SUCCESS)
+                        continue;
+
+                ConfigEntry *entry = xnew(ConfigEntry, 1);
+                *entry = (ConfigEntry){
+                        .id = xstrdup16(u"auto-efi-shell-internal"),
+                        .type = LOADER_AUTO,
+                        .title = xstrdup16(u"UEFI Shell"),
+                        .version = xstrdup16(u"Internal"),
+                        .device = handles[i],
+                        .call = launch_internal_uefi_shell,
+                        .key = 's',
+                        .tries_done = -1,
+                        .tries_left = -1,
+                };
+
+                config_add_entry(config, entry);
+                return;
+        }
+}
+
 static ConfigEntry *config_entry_add_loader_auto(
                 Config *config,
                 EFI_HANDLE *device,
@@ -1961,7 +2071,7 @@ static void config_entry_add_osx(Config *config) {
 }
 
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
-static EFI_STATUS boot_windows_bitlocker(void) {
+static EFI_STATUS boot_windows_bitlocker(const ConfigEntry *entry) {
         _cleanup_free_ EFI_HANDLE *handles = NULL;
         size_t n_handles;
         EFI_STATUS err;
@@ -2336,7 +2446,7 @@ static EFI_STATUS image_start(const ConfigEntry *entry) {
 
         /* If this loader entry has a special way to boot, try that first. */
         if (entry->call)
-                (void) entry->call();
+                (void) entry->call(entry);
 
         _cleanup_(file_closep) EFI_FILE *image_root = NULL;
         err = open_volume(entry->device, &image_root);
@@ -2589,6 +2699,7 @@ static void config_load_all_entries(
         config_entry_add_windows(config, loaded_image->DeviceHandle, root_dir);
         config_entry_add_loader_auto(config, loaded_image->DeviceHandle, root_dir, NULL,
                                      u"auto-efi-shell", 's', u"UEFI Shell", u"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
+        config_entry_add_loader_uefi_internal(config);
         config_entry_add_loader_auto(config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
                                      u"auto-efi-default", '\0', u"UEFI Default Loader", NULL);
 
@@ -2704,7 +2815,7 @@ static EFI_STATUS run(void) {
                 /* Run special entry like "reboot" now. Those that have a loader
                  * will be handled by image_start() instead. */
                 if (entry->call && !entry->loader) {
-                        entry->call();
+                        entry->call(entry);
                         continue;
                 }
 
