@@ -307,14 +307,14 @@ static int get_firmware_date(usec_t *ret) {
                 return -EINVAL;
 
          unsigned m, d, y;
-         r = safe_atou(month, &m);
+         r = safe_atou(month + strspn(month, "0"), &m);
          if (r < 0)
                 return r;
          if (m < 1 || m > 12)
                 return -EINVAL;
          m -= 1;
 
-         r = safe_atou(day, &d);
+         r = safe_atou(day + strspn(day, "0"), &d);
          if (r < 0)
                 return r;
          if (d < 1 || d > 31)
