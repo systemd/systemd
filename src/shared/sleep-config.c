@@ -611,15 +611,18 @@ HibernateLocation* hibernate_location_free(HibernateLocation *hl) {
 }
 
 static int swap_device_to_device_id(const SwapEntry *swap, dev_t *ret_dev) {
+        _cleanup_close_ int fd = -EBADF;
         struct stat sb;
         int r;
 
         assert(swap);
         assert(swap->device);
-        assert(swap->type);
 
-        r = stat(swap->device, &sb);
-        if (r < 0)
+        fd = open(swap->device, O_CLOEXEC|O_PATH);
+        if (fd < 0)
+                return -errno;
+
+        if (fstat(fd, &sb) < 0)
                 return -errno;
 
         if (swap->type == SWAP_BLOCK) {
@@ -634,7 +637,7 @@ static int swap_device_to_device_id(const SwapEntry *swap, dev_t *ret_dev) {
         if (r < 0)
                 return r;
 
-        return get_block_device(swap->device, ret_dev);
+        return get_block_device_fd(fd, ret_dev);
 }
 
 /*
