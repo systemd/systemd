@@ -586,6 +586,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>hostname=</varname></term>
+
+        <listitem><para>Accepts a hostname to set during early boot. It is used as a default until another
+        hostname is set via e.g. <filename>/etc/hostname</filename> or DHCP.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.hostname=</varname></term>
 
         <listitem><para>Accepts a hostname to use instead of e.g. the one set in
