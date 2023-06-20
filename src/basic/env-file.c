@@ -243,7 +243,13 @@ static int parse_env_file_internal(
                         break;
 
                 case COMMENT_ESCAPE:
-                        state = COMMENT;
+                        log_debug("The line which doesn't begin with \";\" or \"#\", but follows a comment" \
+                                  " line trailing with escape is now treated as a non comment line since v254.");
+                        if (strchr(NEWLINE, c)) {
+                                state = PRE_KEY;
+                                line++;
+                        } else
+                                state = COMMENT;
                         break;
                 }
         }
