@@ -921,10 +921,10 @@ int transaction_add_job_and_dependencies(
         assert(type < _JOB_TYPE_MAX_IN_TRANSACTION);
         assert(unit);
 
-        /* Before adding jobs for this unit, let's ensure that its state has been loaded
-         * This matters when jobs are spawned as part of coldplugging itself (see e. g. path_coldplug()).
-         * This way, we "recursively" coldplug units, ensuring that we do not look at state of
-         * not-yet-coldplugged units. */
+        /* Before adding jobs for this unit, let's ensure that its state has been loaded This matters when
+         * jobs are spawned as part of coldplugging itself (see e. g. path_coldplug()).  This way, we
+         * "recursively" coldplug units, ensuring that we do not look at state of not-yet-coldplugged
+         * units. */
         if (MANAGER_IS_RELOADING(unit->manager))
                 unit_coldplug(unit);
 
@@ -938,15 +938,13 @@ int transaction_add_job_and_dependencies(
 
         if (type != JOB_STOP) {
                 r = bus_unit_validate_load_state(unit, e);
-                /* The time-based cache allows to start new units without daemon-reload,
-                 * but if they are already referenced (because of dependencies or ordering)
-                 * then we have to force a load of the fragment. As an optimization, check
-                 * first if anything in the usual paths was modified since the last time
-                 * the cache was loaded. Also check if the last time an attempt to load the
-                 * unit was made was before the most recent cache refresh, so that we know
-                 * we need to try again — even if the cache is current, it might have been
-                 * updated in a different context before we had a chance to retry loading
-                 * this particular unit.
+                /* The time-based cache allows to start new units without daemon-reload, but if they are
+                 * already referenced (because of dependencies or ordering) then we have to force a load of
+                 * the fragment. As an optimization, check first if anything in the usual paths was modified
+                 * since the last time the cache was loaded. Also check if the last time an attempt to load
+                 * the unit was made was before the most recent cache refresh, so that we know we need to try
+                 * again — even if the cache is current, it might have been updated in a different context
+                 * before we had a chance to retry loading this particular unit.
                  *
                  * Given building up the transaction is a synchronous operation, attempt
                  * to load the unit immediately. */
@@ -988,8 +986,8 @@ int transaction_add_job_and_dependencies(
         if (is_new && !FLAGS_SET(flags, TRANSACTION_IGNORE_REQUIREMENTS) && type != JOB_NOP) {
                 _cleanup_set_free_ Set *following = NULL;
 
-                /* If we are following some other unit, make sure we
-                 * add all dependencies of everybody following. */
+                /* If we are following some other unit, make sure we add all dependencies of everybody
+                 * following. */
                 if (unit_following_set(ret->unit, &following) > 0)
                         SET_FOREACH(dep, following) {
                                 r = transaction_add_job_and_dependencies(tr, type, dep, ret, flags & TRANSACTION_IGNORE_ORDER, e);
@@ -1016,7 +1014,8 @@ int transaction_add_job_and_dependencies(
                         UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PULL_IN_START_IGNORED) {
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, flags & TRANSACTION_IGNORE_ORDER, e);
                                 if (r < 0) {
-                                        /* unit masked, job type not applicable and unit not found are not considered as errors. */
+                                        /* unit masked, job type not applicable and unit not found are not
+                                         * considered as errors. */
                                         log_unit_full_errno(dep,
                                                             IN_SET(r, -ERFKILL, -EBADR, -ENOENT) ? LOG_DEBUG : LOG_WARNING,
                                                             r, "Cannot add dependency job, ignoring: %s",
@@ -1082,8 +1081,8 @@ int transaction_add_job_and_dependencies(
                                         }
                                 }
 
-                        /* The 'stop' part of a restart job is also propagated to
-                         * units with UNIT_ATOM_PROPAGATE_STOP */
+                        /* The 'stop' part of a restart job is also propagated to units with
+                         * UNIT_ATOM_PROPAGATE_STOP */
                         UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PROPAGATE_STOP) {
                                 /* Units experienced restart propagation are skipped */
                                 if (set_contains(propagated_restart, dep))
