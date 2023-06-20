@@ -89,7 +89,8 @@ TEST(load_env_file_3) {
 
         _cleanup_strv_free_ char **data = NULL;
         assert_se(load_env_file(NULL, name, &data) == 0);
-        assert_se(data == NULL);
+        assert_se(streq(data[0], "normal=line"))
+        assert_se(data[1] == NULL);
 }
 
 TEST(load_env_file_4) {
