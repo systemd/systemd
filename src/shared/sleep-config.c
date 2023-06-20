@@ -631,6 +631,10 @@ static int swap_device_to_device_id(const SwapEntry *swap, dev_t *ret_dev) {
                 return 0;
         }
 
+        r = stat_verify_regular(&sb);
+        if (r < 0)
+                return r;
+
         return get_block_device(swap->device, ret_dev);
 }
 
