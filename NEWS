@@ -2,6 +2,12 @@ systemd System and Service Manager
 
 CHANGES WITH 254 in spe:
 
+        Announcements of Future Feature Removals and Incompatible Changes:
+
+        * EnvironmentFile now treats the line following a comment line trailing
+          with escape as a non comment line. For details, see:
+          https://github.com/systemd/systemd/issues/27975
+
         Security relevant changes:
 
         * pam_systemd will now by default pass the CAP_WAKE_ALARM ambient
