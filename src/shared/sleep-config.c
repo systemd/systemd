@@ -596,7 +596,7 @@ SwapEntry* swap_entry_free(SwapEntry *se) {
         if (!se)
                 return NULL;
 
-        free(se->device);
+        free(se->path);
 
         return mfree(se);
 }
@@ -616,9 +616,9 @@ static int swap_device_to_devnum(const SwapEntry *swap, dev_t *ret_dev) {
         int r;
 
         assert(swap);
-        assert(swap->device);
+        assert(swap->path);
 
-        fd = open(swap->device, O_CLOEXEC|O_PATH);
+        fd = open(swap->path, O_CLOEXEC|O_PATH);
         if (fd < 0)
                 return -errno;
 
@@ -650,13 +650,13 @@ static int calculate_swap_file_offset(const SwapEntry *swap, uint64_t *ret_offse
         int r;
 
         assert(swap);
-        assert(swap->device);
+        assert(swap->path);
         assert(swap->type == SWAP_FILE);
         assert(ret_offset);
 
-        fd = open(swap->device, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fd = open(swap->path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
-                return log_debug_errno(errno, "Failed to open swap file %s to determine on-disk offset: %m", swap->device);
+                return log_debug_errno(errno, "Failed to open swap file %s to determine on-disk offset: %m", swap->path);
 
         r = fd_verify_regular(fd);
         if (r < 0)
@@ -664,16 +664,16 @@ static int calculate_swap_file_offset(const SwapEntry *swap, uint64_t *ret_offse
 
         r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
         if (r < 0)
-                return log_debug_errno(r, "Error checking %s for Btrfs filesystem: %m", swap->device);
+                return log_debug_errno(r, "Error checking %s for Btrfs filesystem: %m", swap->path);
         if (r > 0) {
-                log_debug("%s: detection of swap file offset on Btrfs is not supported", swap->device);
+                log_debug("%s: detection of swap file offset on Btrfs is not supported", swap->path);
                 *ret_offset = UINT64_MAX;
                 return 0;
         }
 
         r = read_fiemap(fd, &fiemap);
         if (r < 0)
-                return log_debug_errno(r, "Unable to read extent map for '%s': %m", swap->device);
+                return log_debug_errno(r, "Unable to read extent map for '%s': %m", swap->path);
 
         *ret_offset = fiemap->fm_extents[0].fe_physical / page_size();
         return 0;
@@ -785,12 +785,12 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
                 };
 
                 k = fscanf(f,
-                           "%ms "       /* device/file */
+                           "%ms "       /* device/file path */
                            "%ms "       /* type of swap */
                            "%" PRIu64   /* swap size */
                            "%" PRIu64   /* used */
                            "%i\n",      /* priority */
-                           &swap->device, &type, &swap->size, &swap->used, &swap->priority);
+                           &swap->path, &type, &swap->size, &swap->used, &swap->priority);
                 if (k == EOF)
                         break;
                 if (k != 5) {
@@ -800,8 +800,8 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
 
                 if (streq(type, "file")) {
 
-                        if (endswith(swap->device, "\\040(deleted)")) {
-                                log_debug("Ignoring deleted swap file '%s'.", swap->device);
+                        if (endswith(swap->path, "\\040(deleted)")) {
+                                log_debug("Ignoring deleted swap file '%s'.", swap->path);
                                 continue;
                         }
 
@@ -814,29 +814,29 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
                 } else if (streq(type, "partition")) {
                         const char *fn;
 
-                        fn = path_startswith(swap->device, "/dev/");
+                        fn = path_startswith(swap->path, "/dev/");
                         if (fn && startswith(fn, "zram")) {
-                                log_debug("%s: ignoring zram swap", swap->device);
+                                log_debug("%s: ignoring zram swap", swap->path);
                                 continue;
                         }
 
                         swap->type = SWAP_BLOCK;
 
                 } else {
-                        log_debug("%s: swap type %s is unsupported for hibernation, ignoring", swap->device, type);
+                        log_debug("%s: swap type %s is unsupported for hibernation, ignoring", swap->path, type);
                         continue;
                 }
 
                 /* prefer resume device or highest priority swap with most remaining space */
                 if (sys_resume == 0) {
                         if (hibernate_location && swap->priority < hibernate_location->swap->priority) {
-                                log_debug("%s: ignoring device with lower priority", swap->device);
+                                log_debug("%s: ignoring device with lower priority", swap->path);
                                 continue;
                         }
                         if (hibernate_location &&
                             (swap->priority == hibernate_location->swap->priority
                              && swap->size - swap->used < hibernate_location->swap->size - hibernate_location->swap->used)) {
-                                log_debug("%s: ignoring device with lower usable space", swap->device);
+                                log_debug("%s: ignoring device with lower usable space", swap->path);
                                 continue;
                         }
                 }
@@ -844,9 +844,9 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
                 dev_t swap_devno;
                 r = swap_device_to_devnum(swap, &swap_devno);
                 if (r < 0)
-                        return log_debug_errno(r, "%s: failed to query device number: %m", swap->device);
+                        return log_debug_errno(r, "%s: failed to query device number: %m", swap->path);
                 if (swap_devno == 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENODEV), "%s: not backed by block device.", swap->device);
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENODEV), "%s: not backed by block device.", swap->path);
 
                 hibernate_location = hibernate_location_free(hibernate_location);
                 hibernate_location = new(HibernateLocation, 1);
@@ -861,12 +861,12 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
 
                 /* if the swap is the resume device, stop the loop */
                 if (location_is_resume_device(hibernate_location, sys_resume, sys_offset)) {
-                        log_debug("%s: device matches configured resume settings.", hibernate_location->swap->device);
+                        log_debug("%s: device matches configured resume settings.", hibernate_location->swap->path);
                         resume_match = true;
                         break;
                 }
 
-                log_debug("%s: is a candidate device.", hibernate_location->swap->device);
+                log_debug("%s: is a candidate device.", hibernate_location->swap->path);
         }
 
         /* We found nothing at all */
@@ -888,11 +888,11 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
 
         if (resume_match)
                 log_debug("Hibernation will attempt to use swap entry with path: %s, device: %u:%u, offset: %" PRIu64 ", priority: %i",
-                          hibernate_location->swap->device, major(hibernate_location->devno), minor(hibernate_location->devno),
+                          hibernate_location->swap->path, major(hibernate_location->devno), minor(hibernate_location->devno),
                           hibernate_location->offset, hibernate_location->swap->priority);
         else
                 log_debug("/sys/power/resume is not configured; attempting to hibernate with path: %s, device: %u:%u, offset: %" PRIu64 ", priority: %i",
-                          hibernate_location->swap->device, major(hibernate_location->devno), minor(hibernate_location->devno),
+                          hibernate_location->swap->path, major(hibernate_location->devno), minor(hibernate_location->devno),
                           hibernate_location->offset, hibernate_location->swap->priority);
 
         *ret_hibernate_location = TAKE_PTR(hibernate_location);
