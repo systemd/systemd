@@ -4,6 +4,7 @@
 
 #include "btrfs-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "log.h"
@@ -62,6 +63,14 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "Failed to make snapshot: %m");
 
+        r = btrfs_subvol_snapshot_at(AT_FDCWD, "/xxxtest", AT_FDCWD, "/xxxtest4", BTRFS_SNAPSHOT_LOCK_BSD);
+        if (r < 0)
+                log_error_errno(r, "Failed to make snapshot: %m");
+        if (r >= 0)
+                assert_se(xopenat_lock(AT_FDCWD, "/xxxtest4", 0, 0, 0, LOCK_BSD, LOCK_EX|LOCK_NB) == -EAGAIN);
+
+        safe_close(r);
+
         r = btrfs_subvol_remove("/xxxtest", BTRFS_REMOVE_QUOTA);
         if (r < 0)
                 log_error_errno(r, "Failed to remove subvolume: %m");
@@ -71,6 +80,10 @@ int main(int argc, char *argv[]) {
                 log_error_errno(r, "Failed to remove subvolume: %m");
 
         r = btrfs_subvol_remove("/xxxtest3", BTRFS_REMOVE_QUOTA);
+        if (r < 0)
+                log_error_errno(r, "Failed to remove subvolume: %m");
+
+        r = btrfs_subvol_remove("/xxxtest4", BTRFS_REMOVE_QUOTA);
         if (r < 0)
                 log_error_errno(r, "Failed to remove subvolume: %m");
 
@@ -161,13 +174,15 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "Failed to query quota: %m");
 
-        assert_se(quota.referenced_max == 4ULL * 1024 * 1024 * 1024);
+        if (r >= 0)
+                assert_se(quota.referenced_max == 4ULL * 1024 * 1024 * 1024);
 
         r = btrfs_subvol_get_subtree_quota("/xxxquotatest2", 0, &quota);
         if (r < 0)
                 log_error_errno(r, "Failed to query quota: %m");
 
-        assert_se(quota.referenced_max == 5ULL * 1024 * 1024 * 1024);
+        if (r >= 0)
+                assert_se(quota.referenced_max == 5ULL * 1024 * 1024 * 1024);
 
         r = btrfs_subvol_remove("/xxxquotatest", BTRFS_REMOVE_QUOTA|BTRFS_REMOVE_RECURSIVE);
         if (r < 0)
