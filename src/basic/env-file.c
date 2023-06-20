@@ -243,7 +243,12 @@ static int parse_env_file_internal(
                         break;
 
                 case COMMENT_ESCAPE:
-                        state = COMMENT;
+                        log_debug("The trailing escape of ")
+                        if (strchr(NEWLINE, c)) {
+                                state = PRE_KEY;
+                                line++;
+                        } else
+                                state = COMMENT;
                         break;
                 }
         }
