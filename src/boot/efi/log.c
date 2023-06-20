@@ -5,6 +5,7 @@
 #include "proto/simple-text-io.h"
 #include "util.h"
 
+LogLevel max_log_level = LOG_WARNING;
 static unsigned log_count = 0;
 
 void freeze(void) {
@@ -32,7 +33,7 @@ void efi_assert(const char *expr, const char *file, unsigned line, const char *f
         freeze();
 }
 
-EFI_STATUS log_internal(EFI_STATUS status, const char *format, ...) {
+EFI_STATUS log_internal(LogLevel level, EFI_STATUS status, const char *format, ...) {
         assert(format);
 
         int32_t attr = ST->ConOut->Mode->Attribute;
@@ -58,7 +59,7 @@ void log_hexdump(const char16_t *prefix, const void *data, size_t size) {
         /* Debugging helper — please keep this around, even if not used */
 
         _cleanup_free_ char16_t *hex = hexdump(data, size);
-        log_internal(EFI_SUCCESS, "%ls[%zu]: %ls", prefix, size, hex);
+        log_debug("%ls[%zu]: %ls", prefix, size, hex);
 }
 #endif
 
