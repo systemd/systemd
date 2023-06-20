@@ -1305,6 +1305,8 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
         }
 
         if (in_addr_is_set(route->family, &route->prefsrc) > 0) {
+                if (link->static_address_messages > 0)
+                        return false;
                 r = manager_has_address(link->manager, route->family, &route->prefsrc, route->family == AF_INET6);
                 if (r <= 0)
                         return r;
