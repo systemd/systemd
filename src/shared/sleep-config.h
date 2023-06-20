@@ -28,10 +28,17 @@ typedef struct SleepConfig {
 SleepConfig* free_sleep_config(SleepConfig *sc);
 DEFINE_TRIVIAL_CLEANUP_FUNC(SleepConfig*, free_sleep_config);
 
+typedef enum SwapType {
+        SWAP_BLOCK,
+        SWAP_FILE,
+        _SWAP_TYPE_MAX,
+        _SWAP_TYPE_INVALID = -EINVAL,
+} SwapType;
+
 /* entry in /proc/swaps */
 typedef struct SwapEntry {
         char *device;
-        char *type;
+        SwapType type;
         uint64_t size;
         uint64_t used;
         int priority;

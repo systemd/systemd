@@ -597,7 +597,6 @@ SwapEntry* swap_entry_free(SwapEntry *se) {
                 return NULL;
 
         free(se->device);
-        free(se->type);
 
         return mfree(se);
 }
@@ -623,7 +622,7 @@ static int swap_device_to_device_id(const SwapEntry *swap, dev_t *ret_dev) {
         if (r < 0)
                 return -errno;
 
-        if (streq(swap->type, "partition")) {
+        if (swap->type == SWAP_BLOCK) {
                 if (!S_ISBLK(sb.st_mode))
                         return -ENOTBLK;
 
@@ -649,7 +648,8 @@ static int calculate_swap_file_offset(const SwapEntry *swap, uint64_t *ret_offse
 
         assert(swap);
         assert(swap->device);
-        assert(streq(swap->type, "file"));
+        assert(swap->type == SWAP_FILE);
+        assert(ret_offset);
 
         fd = open(swap->device, O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
@@ -678,9 +678,12 @@ static int calculate_swap_file_offset(const SwapEntry *swap, uint64_t *ret_offse
 
 static int read_resume_files(dev_t *ret_resume, uint64_t *ret_resume_offset) {
         _cleanup_free_ char *resume_str = NULL, *resume_offset_str = NULL;
-        uint64_t resume_offset = 0;
+        uint64_t resume_offset;
         dev_t resume;
         int r;
+
+        assert(ret_resume);
+        assert(ret_resume_offset);
 
         r = read_one_line_file("/sys/power/resume", &resume_str);
         if (r < 0)
@@ -691,9 +694,10 @@ static int read_resume_files(dev_t *ret_resume, uint64_t *ret_resume_offset) {
                 return log_debug_errno(r, "Error parsing /sys/power/resume device: %s: %m", resume_str);
 
         r = read_one_line_file("/sys/power/resume_offset", &resume_offset_str);
-        if (r == -ENOENT)
+        if (r == -ENOENT) {
                 log_debug_errno(r, "Kernel does not support resume_offset; swap file offset detection will be skipped.");
-        else if (r < 0)
+                resume_offset = 0;
+        } else if (r < 0)
                 return log_debug_errno(r, "Error reading /sys/power/resume_offset: %m");
         else {
                 r = safe_atou64(resume_offset_str, &resume_offset);
@@ -707,7 +711,6 @@ static int read_resume_files(dev_t *ret_resume, uint64_t *ret_resume_offset) {
 
         *ret_resume = resume;
         *ret_resume_offset = resume_offset;
-
         return 0;
 }
 
@@ -766,12 +769,17 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
         (void) fscanf(f, "%*s %*s %*s %*s %*s\n");
         for (unsigned i = 1;; i++) {
                 _cleanup_(swap_entry_freep) SwapEntry *swap = NULL;
+                _cleanup_free_ char *type = NULL;
                 uint64_t swap_offset = 0;
                 int k;
 
-                swap = new0(SwapEntry, 1);
+                swap = new(SwapEntry, 1);
                 if (!swap)
                         return -ENOMEM;
+
+                *swap = (SwapEntry) {
+                        .type = _SWAP_TYPE_INVALID,
+                };
 
                 k = fscanf(f,
                            "%ms "       /* device/file */
@@ -779,7 +787,7 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
                            "%" PRIu64   /* swap size */
                            "%" PRIu64   /* used */
                            "%i\n",      /* priority */
-                           &swap->device, &swap->type, &swap->size, &swap->used, &swap->priority);
+                           &swap->device, &type, &swap->size, &swap->used, &swap->priority);
                 if (k == EOF)
                         break;
                 if (k != 5) {
@@ -787,17 +795,20 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
                         continue;
                 }
 
-                if (streq(swap->type, "file")) {
+                if (streq(type, "file")) {
+
                         if (endswith(swap->device, "\\040(deleted)")) {
                                 log_debug("Ignoring deleted swap file '%s'.", swap->device);
                                 continue;
                         }
 
+                        swap->type = SWAP_FILE;
+
                         r = calculate_swap_file_offset(swap, &swap_offset);
                         if (r < 0)
                                 return r;
 
-                } else if (streq(swap->type, "partition")) {
+                } else if (streq(type, "partition")) {
                         const char *fn;
 
                         fn = path_startswith(swap->device, "/dev/");
@@ -806,8 +817,10 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
                                 continue;
                         }
 
+                        swap->type = SWAP_BLOCK;
+
                 } else {
-                        log_debug("%s: swap type %s is unsupported for hibernation, ignoring", swap->device, swap->type);
+                        log_debug("%s: swap type %s is unsupported for hibernation, ignoring", swap->device, type);
                         continue;
                 }
 
