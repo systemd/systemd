@@ -528,6 +528,18 @@ systemd-confext status
 systemd-confext unmerge
 rm -rf /run/confexts/
 
+unsquashfs -no-xattrs -d /tmp/img "${image}.raw"
+systemd-run --unit=test-root-ephemeral \
+    -p RootDirectory=/tmp/img \
+    -p RootEphemeral=yes \
+    -p Type=exec \
+    bash -c "touch /abc && sleep infinity"
+test -n "$(ls -A /var/lib/systemd/ephemeral-trees)"
+systemctl stop test-root-ephemeral
+# shellcheck disable=SC2016
+timeout 10 bash -c 'while ! test -z "$(ls -A /var/lib/systemd/ephemeral-trees)"; do sleep .5; done'
+test ! -f /tmp/img/abc
+
 echo OK >/testok
 
 exit 0
