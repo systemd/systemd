@@ -851,6 +851,7 @@ manpages = [
   ['sd_session_get_class',
    'sd_session_get_desktop',
    'sd_session_get_display',
+   'sd_session_get_leader',
    'sd_session_get_remote_host',
    'sd_session_get_remote_user',
    'sd_session_get_seat',
