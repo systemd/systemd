@@ -179,11 +179,33 @@ static void context_read_os_release(Context *c) {
         c->etc_os_release_stat = current_stat;
 }
 
+static bool use_dmi_data(void) {
+        int r;
+
+        r = getenv_bool("SYSTEMD_HOSTNAME_FORCE_DMI");
+        if (r >= 0) {
+                log_debug("Honouring $SYSTEMD_HOSTNAME_FORCE_DMI override: %s", yes_no(r));
+                return r;
+        }
+        if (r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_HOSTNAME_FORCE_DMI, ignoring: %m");
+
+        if (detect_container() > 0) {
+                log_debug("Running in a container, not using DMI hardware data.");
+                return false;
+        }
+
+        return true;
+}
+
 static int get_dmi_data(const char *database_key, const char *regular_key, char **ret) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         _cleanup_free_ char *b = NULL;
         const char *s = NULL;
         int r;
+
+        if (!use_dmi_data())
+                return -ENOENT;
 
         r = sd_device_new_from_syspath(&device, "/sys/class/dmi/id");
         if (r < 0)
@@ -222,6 +244,9 @@ static int get_hardware_firmware_data(const char *sysattr, char **ret) {
         int r;
 
         assert(sysattr);
+
+        if (!use_dmi_data())
+                return -ENOENT;
 
         r = sd_device_new_from_syspath(&device, "/sys/class/dmi/id");
         if (r < 0)
@@ -282,20 +307,20 @@ static int get_firmware_date(usec_t *ret) {
                 return -EINVAL;
 
          unsigned m, d, y;
-         r = safe_atou(month, &m);
+         r = safe_atou_full(month, 10 | SAFE_ATO_REFUSE_PLUS_MINUS | SAFE_ATO_REFUSE_LEADING_WHITESPACE, &m);
          if (r < 0)
                 return r;
          if (m < 1 || m > 12)
                 return -EINVAL;
          m -= 1;
 
-         r = safe_atou(day, &d);
+         r = safe_atou_full(day, 10 | SAFE_ATO_REFUSE_PLUS_MINUS | SAFE_ATO_REFUSE_LEADING_WHITESPACE, &d);
          if (r < 0)
                 return r;
          if (d < 1 || d > 31)
                 return -EINVAL;
 
-         r = safe_atou(year, &y);
+         r = safe_atou_full(year, 10 | SAFE_ATO_REFUSE_PLUS_MINUS | SAFE_ATO_REFUSE_LEADING_WHITESPACE, &y);
          if (r < 0)
                 return r;
          if (y < 1970 || y > (unsigned) INT_MAX)
