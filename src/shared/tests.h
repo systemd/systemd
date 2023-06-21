@@ -8,6 +8,7 @@
 #include "argv-util.h"
 #include "macro.h"
 #include "static-destruct.h"
+#include "strv.h"
 
 static inline bool manager_errno_skip_test(int r) {
         return IN_SET(abs(r),
@@ -83,13 +84,27 @@ extern const TestFunc _weak_ __stop_SYSTEMD_TEST_TABLE[];
         static int test_##name(void)
 
 static inline int run_test_table(void) {
+        _cleanup_strv_free_ char **tests = NULL;
         int r = EXIT_SUCCESS;
+        bool ran = false;
+        const char *e;
 
         if (!__start_SYSTEMD_TEST_TABLE)
                 return r;
 
-        const TestFunc *t = ALIGN_PTR(__start_SYSTEMD_TEST_TABLE);
-        while (t < __stop_SYSTEMD_TEST_TABLE) {
+        e = getenv("TESTFUNCS");
+        if (e) {
+                r = strv_split_full(&tests, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse $TESTFUNCS: %m");
+        }
+
+        for (const TestFunc *t = ALIGN_PTR(__start_SYSTEMD_TEST_TABLE);
+             t + 1 <= __stop_SYSTEMD_TEST_TABLE;
+             t = ALIGN_PTR(t + 1)) {
+
+                if (tests && !strv_contains(tests, t->name))
+                        continue;
 
                 if (t->sd_booted && sd_booted() <= 0) {
                         log_info("/* systemd not booted, skipping %s */", t->name);
@@ -106,8 +121,11 @@ static inline int run_test_table(void) {
                                 t->f.void_func();
                 }
 
-                t = ALIGN_PTR(t + 1);
+                ran = true;
         }
+
+        if (!ran)
+                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "No matching tests found.");
 
         return r;
 }
