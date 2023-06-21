@@ -587,6 +587,10 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
          * source. If true, then hwdb.bin will be created without the information. systemd-hwdb command
          * should set the argument false, and 'udevadm hwdb' command should set it true. */
 
+        hwdb_bin = path_join(root, hwdb_bin_dir ?: "/etc/udev", "hwdb.bin");
+        if (!hwdb_bin)
+                return -ENOMEM;
+
         trie = new0(struct trie, 1);
         if (!trie)
                 return -ENOMEM;
@@ -606,6 +610,15 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
         err = conf_files_list_strv(&files, ".hwdb", root, 0, conf_file_dirs);
         if (err < 0)
                 return log_error_errno(err, "Failed to enumerate hwdb files: %m");
+
+        if (strv_isempty(files)) {
+                if (unlink(hwdb_bin) >= 0)
+                        log_info("No hwdb files found, removing existing hwdb database at %s.", hwdb_bin);
+                else
+                        log_info("NO hwdb files found, skipping");
+
+                return 0;
+        }
 
         STRV_FOREACH(f, files) {
                 log_debug("Reading file \"%s\"", *f);
@@ -629,10 +642,6 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
                   trie->strings->in_len, trie->strings->in_count);
         log_debug("strings dedup'ed: %8zu bytes (%8zu)",
                   trie->strings->dedup_len, trie->strings->dedup_count);
-
-        hwdb_bin = path_join(root, hwdb_bin_dir ?: "/etc/udev", "hwdb.bin");
-        if (!hwdb_bin)
-                return -ENOMEM;
 
         (void) mkdir_parents_label(hwdb_bin, 0755);
         err = trie_store(trie, hwdb_bin, compat);
