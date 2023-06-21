@@ -123,13 +123,14 @@ static int verify_conditions(char **lines, RuntimeScope scope, const char *unit,
                 }
         }
 
-        r = condition_test_list(u->asserts, environ, assert_type_to_string, log_helper, u);
+        condition_test_logger_t logger = arg_quiet ? NULL : log_helper;
+        r = condition_test_list(u->asserts, environ, assert_type_to_string, logger, u);
         if (u->asserts)
-                log_notice("Asserts %s.", r > 0 ? "succeeded" : "failed");
+                log_full(arg_quiet ? LOG_DEBUG : LOG_NOTICE, "Asserts %s.", r > 0 ? "succeeded" : "failed");
 
-        q = condition_test_list(u->conditions, environ, condition_type_to_string, log_helper, u);
+        q = condition_test_list(u->conditions, environ, condition_type_to_string, logger, u);
         if (u->conditions)
-                log_notice("Conditions %s.", q > 0 ? "succeeded" : "failed");
+                log_full(arg_quiet ? LOG_DEBUG : LOG_NOTICE, "Conditions %s.", q > 0 ? "succeeded" : "failed");
 
         return r > 0 && q > 0 ? 0 : -EIO;
 }

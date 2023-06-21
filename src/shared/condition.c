@@ -1206,8 +1206,6 @@ bool condition_test_list(
 
         int triggered = -1;
 
-        assert(!!logger == !!to_string);
-
         /* If the condition list is empty, then it is true */
         if (!first)
                 return true;
