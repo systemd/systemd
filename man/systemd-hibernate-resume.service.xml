@@ -3,41 +3,41 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
-<refentry id="systemd-hibernate-resume@.service" conditional='ENABLE_HIBERNATE'>
+<refentry id="systemd-hibernate-resume.service" conditional='ENABLE_HIBERNATE'>
 
   <refentryinfo>
-    <title>systemd-hibernate-resume@.service</title>
+    <title>systemd-hibernate-resume.service</title>
     <productname>systemd</productname>
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>systemd-hibernate-resume@.service</refentrytitle>
+    <refentrytitle>systemd-hibernate-resume.service</refentrytitle>
     <manvolnum>8</manvolnum>
   </refmeta>
 
   <refnamediv>
-    <refname>systemd-hibernate-resume@.service</refname>
+    <refname>systemd-hibernate-resume.service</refname>
     <refname>systemd-hibernate-resume</refname>
     <refpurpose>Resume from hibernation</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>systemd-hibernate-resume@.service</filename></para>
+    <para><filename>systemd-hibernate-resume.service</filename></para>
     <para><filename>/usr/lib/systemd/systemd-hibernate-resume</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-hibernate-resume@.service</filename>
-    initiates the resume from hibernation. It is instantiated with the
-    device to resume from as the template argument.</para>
+    <para><filename>systemd-hibernate-resume.service</filename>
+    initiates the resume from hibernation.</para>
 
     <para><filename>systemd-hibernate-resume</filename> only supports
     the in-kernel hibernation implementation, see
     <ulink url="https://docs.kernel.org/power/swsusp.html">Swap suspend</ulink>.
     Internally, it works by writing the major:minor of specified
-    device node to <filename>/sys/power/resume</filename>.</para>
+    device node to <filename>/sys/power/resume</filename>, along with
+    the offset (<filename>/sys/power/resume_offset</filename>) if supported.</para>
 
     <para>Failing to initiate a resume is not an error condition. It
     may mean that there was no resume image (e. g. if the system has
