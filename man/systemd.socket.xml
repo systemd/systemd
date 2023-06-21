@@ -486,7 +486,7 @@
         and the <ulink
         url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP
         Keepalive HOWTO</ulink> for details.)
-        Defaults value is 7200 seconds (2 hours).</para></listitem>
+        Default value is 7200 seconds (2 hours).</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -496,7 +496,7 @@
         <constant>TCP_KEEPINTVL</constant> socket option (see <citerefentry
         project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry> and
         the <ulink url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP Keepalive
-        HOWTO</ulink> for details.) Defaults value is 75 seconds.</para></listitem>
+        HOWTO</ulink> for details.) Default value is 75 seconds.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -508,7 +508,7 @@
         <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         and the <ulink
         url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP
-        Keepalive HOWTO</ulink> for details.) Defaults value is
+        Keepalive HOWTO</ulink> for details.) Default value is
         9.</para></listitem>
       </varlistentry>
 
