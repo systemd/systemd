@@ -607,6 +607,11 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
         if (err < 0)
                 return log_error_errno(err, "Failed to enumerate hwdb files: %m");
 
+        if (strv_isempty(files)) {
+                log_debug("No hwdb files found, skipping.");
+                return 0;
+        }
+
         STRV_FOREACH(f, files) {
                 log_debug("Reading file \"%s\"", *f);
                 err = import_file(trie, *f, file_priority++, compat);
