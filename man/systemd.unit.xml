@@ -1004,10 +1004,12 @@
         inactive state.  Takes one of <option>none</option>, <option>reboot</option>,
         <option>reboot-force</option>, <option>reboot-immediate</option>, <option>poweroff</option>,
         <option>poweroff-force</option>, <option>poweroff-immediate</option>, <option>exit</option>,
-        <option>exit-force</option>, <option>soft-reboot</option> and <option>soft-reboot-force</option>. In
-        system mode, all options are allowed. In user mode, only <option>none</option>,
-        <option>exit</option>, <option>exit-force</option>, <option>soft-reboot</option> and
-        <option>soft-reboot-force</option> are allowed. Both options default to <option>none</option>.</para>
+        <option>exit-force</option>, <option>soft-reboot</option>, <option>soft-reboot-force</option>,
+        <option>kexec</option>, <option>kexec-force</option>, <option>halt</option>,
+        <option>halt-force</option> and <option>halt-immediate</option>. In system mode, all options are
+        allowed. In user mode, only <option>none</option>, <option>exit</option>,
+        <option>exit-force</option>, <option>soft-reboot</option> and <option>soft-reboot-force</option> are
+        allowed. Both options default to <option>none</option>.</para>
 
         <para>If <option>none</option> is set, no action will be triggered. <option>reboot</option> causes a
         reboot following the normal shutdown procedure (i.e. equivalent to <command>systemctl
@@ -1016,18 +1018,20 @@
         <command>systemctl reboot -f</command>) and <option>reboot-immediate</option> causes immediate
         execution of the
         <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry> system
-        call, which might result in data loss (i.e. equivalent to <command>systemctl reboot
-        -ff</command>). Similarly, <option>poweroff</option>, <option>poweroff-force</option>,
-        <option>poweroff-immediate</option> have the effect of powering down the system with similar
+        call, which might result in data loss (i.e. equivalent to <command>systemctl reboot -ff</command>).
+        Similarly, <option>poweroff</option>, <option>poweroff-force</option>,
+        <option>poweroff-immediate</option>, <option>kexec</option>, <option>kexec-force</option>,
+        <option>halt</option>, <option>halt-force</option> and <option>halt-immediate</option> have the
+        effect of powering down the system, executing kexec, and halting the system respectively with similar
         semantics. <option>exit</option> causes the manager to exit following the normal shutdown procedure,
         and <option>exit-force</option> causes it terminate without shutting down services. When
         <option>exit</option> or <option>exit-force</option> is used by default the exit status of the main
         process of the unit (if this applies) is returned from the service manager. However, this may be
         overridden with
-        <varname>FailureActionExitStatus=</varname>/<varname>SuccessActionExitStatus=</varname>, see
-        below. <option>soft-reboot</option> will trigger a userspace reboot
-        operation. <option>soft-reboot-force</option> does that too, but does not go through the shutdown
-        transaction beforehand.</para></listitem>
+        <varname>FailureActionExitStatus=</varname>/<varname>SuccessActionExitStatus=</varname>, see below.
+        <option>soft-reboot</option> will trigger a userspace reboot operation.
+        <option>soft-reboot-force</option> does that too, but does not go through the shutdown transaction
+        beforehand.</para></listitem>
       </varlistentry>
 
       <varlistentry>
