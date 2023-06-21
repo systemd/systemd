@@ -37,6 +37,44 @@ bool credential_name_valid(const char *s) {
         return filename_is_valid(s) && fdname_is_valid(s);
 }
 
+bool credential_glob_valid(const char *s) {
+        const char *e, *a;
+        size_t n;
+
+        /* Checks if a credential glob expression is valid. Note that this is more restrictive than
+         * fnmatch()! We only allow trailing asterisk matches for now (simply because we want some freedom
+         * with automatically extending the pattern in a systematic way to cover for unit instances getting
+         * per-instance credentials or similar. Moreover, credential globbing expressions are also more
+         * restrictive then credential names: we don't allow *, ?, [, ] in them (except for the asterisk
+         * match at the end of the string), simply to not allow ambiguity. After all, we want the flexibility
+         * to one day add full globbing should the need arise.  */
+
+        if (isempty(s))
+                return false;
+
+        /* Find first glob (or NUL byte) */
+        n = strcspn(s, "*?[]");
+        e = s + n;
+
+        /* For now, only allow asterisk wildcards, and only at the end of the string. If it's anything else, refuse. */
+        if (isempty(e))
+                return credential_name_valid(s);
+
+        if (!streq(e, "*")) /* only allow trailing "*", no other globs */
+                return false;
+
+        if (n == 0) /* Explicitly allow the complete wildcard. */
+                return true;
+
+        if (n > NAME_MAX + strlen(e)) /* before we make a copy on the stack, let's check this is not overly large */
+                return false;
+
+        /* Make a copy of the string without the '*' suffix */
+        a = strndupa(s, n);
+
+        return credential_name_valid(a);
+}
+
 static int get_credentials_dir_internal(const char *envvar, const char **ret) {
         const char *e;
 

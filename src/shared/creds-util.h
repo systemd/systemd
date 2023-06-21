@@ -25,6 +25,7 @@
 #define CREDENTIAL_ENCRYPTED_SIZE_MAX (CREDENTIAL_SIZE_MAX + 128U*1024U)
 
 bool credential_name_valid(const char *s);
+bool credential_glob_valid(const char *s);
 
 /* Where creds have been passed to the local execution context */
 int get_credentials_dir(const char **ret);

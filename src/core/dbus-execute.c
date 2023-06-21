@@ -2355,8 +2355,8 @@ int bus_exec_context_set_transient_property(
                         if (r == 0)
                                 break;
 
-                        if (!filename_is_valid(s))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Credential name is invalid: %s", s);
+                        if (!credential_glob_valid(s))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Credential name or glob is invalid: %s", s);
 
                         isempty = false;
 

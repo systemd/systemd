@@ -3320,6 +3320,12 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <filename>/usr/lib/credstore.encrypted/</filename> in that order. When multiple credentials of the
         same name are found, the first one found is used.</para>
 
+        <para>The globbing expression implements a restrictive subset of <citerefentry
+        project='man-pages'><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>: only
+        a single trailing <literal>*</literal> wildcard may be specified. Both <literal>?</literal> and
+        <literal>[]</literal> wildcards are not permitted, nor are <literal>*</literal> wildcards anywhere
+        except at the end of the glob expression.</para>
+
         <para>When multiple credentials of the same name are found, credentials found by
         <varname>LoadCredential=</varname> and <varname>LoadCredentialEncrypted=</varname> take priority over
         credentials found by <varname>ImportCredential=</varname>.</para></listitem>

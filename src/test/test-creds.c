@@ -71,4 +71,51 @@ TEST(read_credential_strings) {
                 assert_se(unsetenv("CREDENTIALS_DIRECTORY") >= 0);
 }
 
+TEST(credential_name_valid) {
+        char buf[NAME_MAX+2];
+
+        assert_se(!credential_name_valid(NULL));
+        assert_se(!credential_name_valid(""));
+        assert_se(!credential_name_valid("."));
+        assert_se(!credential_name_valid(".."));
+        assert_se(!credential_name_valid("foo/bar"));
+        assert_se(credential_name_valid("foo"));
+
+        memset(buf, 'x', sizeof(buf)-1);
+        buf[sizeof(buf)-1] = 0;
+        assert_se(!credential_name_valid(buf));
+
+        buf[sizeof(buf)-2] = 0;
+        assert_se(credential_name_valid(buf));
+}
+
+TEST(credential_glob_valid) {
+        char buf[NAME_MAX+2];
+
+        assert_se(!credential_glob_valid(NULL));
+        assert_se(!credential_glob_valid(""));
+        assert_se(!credential_glob_valid("."));
+        assert_se(!credential_glob_valid(".."));
+        assert_se(!credential_glob_valid("foo/bar"));
+        assert_se(credential_glob_valid("foo"));
+        assert_se(credential_glob_valid("foo*"));
+        assert_se(credential_glob_valid("x*"));
+        assert_se(credential_glob_valid("*"));
+        assert_se(!credential_glob_valid("?"));
+        assert_se(!credential_glob_valid("*a"));
+        assert_se(!credential_glob_valid("a?"));
+        assert_se(!credential_glob_valid("a[abc]"));
+        assert_se(!credential_glob_valid("a[abc]"));
+
+        memset(buf, 'x', sizeof(buf)-1);
+        buf[sizeof(buf)-1] = 0;
+        assert_se(!credential_glob_valid(buf));
+
+        buf[sizeof(buf)-2] = 0;
+        assert_se(credential_glob_valid(buf));
+
+        buf[sizeof(buf)-2] = '*';
+        assert_se(credential_glob_valid(buf));
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
