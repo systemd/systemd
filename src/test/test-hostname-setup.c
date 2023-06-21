@@ -57,6 +57,42 @@ TEST(read_etc_hostname) {
         assert_se(hostname == (char*) 0x1234);  /* does not touch argument on error */
 }
 
+TEST(read_static_hostname) {
+        char path[] = "/tmp/hostname.XXXXXX";
+        char *hostname;
+        int fd;
+
+        fd = mkostemp_safe(path);
+        assert_se(fd > 0);
+        close(fd);
+
+        assert_se(write_string_file(path, "foo", WRITE_STRING_FILE_CREATE) == 0);
+
+        /* kernel commandline takes precedence */
+        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=systemd.hostname=bar") == 0);
+        assert_se(read_static_hostname(path, &hostname) == 0);
+        assert_se(streq(hostname, "bar"));
+        hostname = mfree(hostname);
+
+        /* fallback to hostname file */
+        assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=") == 0);
+        assert_se(read_static_hostname(path, &hostname) == 0);
+        assert_se(streq(hostname, "foo"));
+        hostname = mfree(hostname);
+
+        /* no value set if hostname file and cmdline are empty */
+        hostname = (char*) 0x1234;
+        assert_se(write_string_file(path, "# nothing here\n", WRITE_STRING_FILE_CREATE) == 0);
+        assert_se(read_static_hostname(path, &hostname) == -ENOENT);
+        assert_se(hostname == (char*) 0x1234);  /* does not touch argument on error */
+
+        /* nonexisting hostname file and empty cmdline */
+        assert_se(read_static_hostname("/non/existing", &hostname) == -ENOENT);
+        assert_se(hostname == (char*) 0x1234);  /* does not touch argument on error */
+
+        unlink(path);
+}
+
 TEST(hostname_setup) {
         hostname_setup(false);
 }
