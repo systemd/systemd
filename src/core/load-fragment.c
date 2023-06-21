@@ -4985,8 +4985,8 @@ int config_parse_import_credential(
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in \"%s\", ignoring: %m", s);
                 return 0;
         }
-        if (!filename_is_valid(s)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential name \"%s\" not valid, ignoring.", s);
+        if (!credential_glob_valid(s)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential name or glob \"%s\" not valid, ignoring.", s);
                 return 0;
         }
 
