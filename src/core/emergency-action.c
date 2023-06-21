@@ -26,7 +26,6 @@ static const char* const emergency_action_table[_EMERGENCY_ACTION_MAX] = {
         [EMERGENCY_ACTION_SOFT_REBOOT_FORCE] =  "soft-reboot-force",
         [EMERGENCY_ACTION_KEXEC] =              "kexec",
         [EMERGENCY_ACTION_KEXEC_FORCE] =        "kexec-force",
-        [EMERGENCY_ACTION_KEXEC_IMMEDIATE] =    "kexec-immediate",
         [EMERGENCY_ACTION_HALT] =               "halt",
         [EMERGENCY_ACTION_HALT_FORCE] =         "halt-force",
         [EMERGENCY_ACTION_HALT_IMMEDIATE] =     "halt-immediate",
@@ -178,15 +177,6 @@ void emergency_action(
         case EMERGENCY_ACTION_KEXEC_FORCE:
                 log_and_status(m, warn, "Forcibly executing kexec", reason);
                 m->objective = MANAGER_KEXEC;
-                break;
-
-        case EMERGENCY_ACTION_KEXEC_IMMEDIATE:
-                log_and_status(m, warn, "Executing kexec immediately", reason);
-
-                sync();
-
-                log_info("Executing kexec.");
-                (void) reboot(RB_KEXEC);
                 break;
 
         case EMERGENCY_ACTION_HALT:
