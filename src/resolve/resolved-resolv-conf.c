@@ -375,7 +375,7 @@ int manager_write_resolv_conf(Manager *m) {
         } else {
                 r = path_extract_filename(PRIVATE_UPLINK_RESOLV_CONF, &fname);
                 if (r < 0)
-                        return r;
+                        return log_warning_errno(r, "Failed to extract filename from path '" PRIVATE_UPLINK_RESOLVE_CONF "', ignoring: %m");
 
                 r = symlink_atomic_label(fname, PRIVATE_STUB_RESOLV_CONF);
                 if (r < 0)
