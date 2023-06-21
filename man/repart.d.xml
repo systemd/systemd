@@ -18,14 +18,18 @@
 
   <refnamediv>
     <refname>repart.d</refname>
+    <refname>repart.installer.d</refname>
     <refpurpose>Partition Definition Files for Automatic Boot-Time Repartitioning</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <para><literallayout><filename>/etc/repart.d/*.conf</filename>
 <filename>/run/repart.d/*.conf</filename>
-<filename>/usr/lib/repart.d/*.conf</filename>
-    </literallayout></para>
+<filename>/usr/lib/repart.d/*.conf</filename></literallayout></para>
+
+    <para><literallayout><filename>/etc/repart.installer.d/*.conf</filename>
+<filename>/run/repart.installer.d/*.conf</filename>
+<filename>/usr/lib/repart.installer.d/*.conf</filename></literallayout></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -64,6 +68,11 @@
     used to grow the file systems inside of these partitions. Partitions may also be marked for automatic
     growing via the <varname>GrowFileSystem=</varname> setting, in which case the file system is grown on
     first mount by tools that respect this flag. See below for details.</para>
+
+    <para>When the
+    <citerefentry><refentrytitle>systemd-installer-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    is active, <filename>repart.installer.d/*.conf</filename> is used instead of
+    <filename>repart.d/*.conf</filename>. These two directories are otherwise identical.</para>
   </refsect1>
 
   <refsect1>
@@ -828,6 +837,7 @@ VerityMatchKey=root
       <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>sfdisk</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-installer-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 
