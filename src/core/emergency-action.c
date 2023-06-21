@@ -24,6 +24,11 @@ static const char* const emergency_action_table[_EMERGENCY_ACTION_MAX] = {
         [EMERGENCY_ACTION_EXIT_FORCE] =         "exit-force",
         [EMERGENCY_ACTION_SOFT_REBOOT] =        "soft-reboot",
         [EMERGENCY_ACTION_SOFT_REBOOT_FORCE] =  "soft-reboot-force",
+        [EMERGENCY_ACTION_KEXEC] =              "kexec",
+        [EMERGENCY_ACTION_KEXEC_FORCE] =        "kexec-force",
+        [EMERGENCY_ACTION_HALT] =               "halt",
+        [EMERGENCY_ACTION_HALT_FORCE] =         "halt-force",
+        [EMERGENCY_ACTION_HALT_IMMEDIATE] =     "halt-immediate",
 };
 
 static void log_and_status(Manager *m, bool warn, const char *message, const char *reason) {
@@ -49,7 +54,13 @@ void emergency_action(
         assert(action < _EMERGENCY_ACTION_MAX);
 
         /* Is the special shutdown target active or queued? If so, we are in shutdown state */
-        if (IN_SET(action, EMERGENCY_ACTION_REBOOT, EMERGENCY_ACTION_SOFT_REBOOT, EMERGENCY_ACTION_POWEROFF, EMERGENCY_ACTION_EXIT)) {
+        if (IN_SET(action,
+                   EMERGENCY_ACTION_REBOOT,
+                   EMERGENCY_ACTION_SOFT_REBOOT,
+                   EMERGENCY_ACTION_POWEROFF,
+                   EMERGENCY_ACTION_EXIT,
+                   EMERGENCY_ACTION_KEXEC,
+                   EMERGENCY_ACTION_HALT)) {
                 u = manager_get_unit(m, SPECIAL_SHUTDOWN_TARGET);
                 if (u && unit_active_or_pending(u)) {
                         log_notice("Shutdown is already active. Skipping emergency action request %s.",
@@ -156,6 +167,35 @@ void emergency_action(
 
                 log_info("Powering off.");
                 (void) reboot(RB_POWER_OFF);
+                break;
+
+        case EMERGENCY_ACTION_KEXEC:
+                log_and_status(m, warn, "Executing kexec", reason);
+                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_KEXEC_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL, NULL);
+                break;
+
+        case EMERGENCY_ACTION_KEXEC_FORCE:
+                log_and_status(m, warn, "Forcibly executing kexec", reason);
+                m->objective = MANAGER_KEXEC;
+                break;
+
+        case EMERGENCY_ACTION_HALT:
+                log_and_status(m, warn, "Halting", reason);
+                (void) manager_add_job_by_name_and_warn(m, JOB_START, SPECIAL_HALT_TARGET, JOB_REPLACE_IRREVERSIBLY, NULL, NULL);
+                break;
+
+        case EMERGENCY_ACTION_HALT_FORCE:
+                log_and_status(m, warn, "Forcibly halting", reason);
+                m->objective = MANAGER_HALT;
+                break;
+
+        case EMERGENCY_ACTION_HALT_IMMEDIATE:
+                log_and_status(m, warn, "Halting immediately", reason);
+
+                sync();
+
+                log_info("Halting.");
+                (void) reboot(RB_HALT_SYSTEM);
                 break;
 
         default:
