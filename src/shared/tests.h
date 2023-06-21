@@ -8,6 +8,7 @@
 #include "argv-util.h"
 #include "macro.h"
 #include "static-destruct.h"
+#include "strv.h"
 
 static inline bool manager_errno_skip_test(int r) {
         return IN_SET(abs(r),
@@ -82,14 +83,18 @@ extern const TestFunc _weak_ __stop_SYSTEMD_TEST_TABLE[];
         REGISTER_TEST(test_##name, ##__VA_ARGS__); \
         static int test_##name(void)
 
-static inline int run_test_table(void) {
+static inline int run_test_table(char **tests) {
         int r = EXIT_SUCCESS;
+        bool ran = false;
 
         if (!__start_SYSTEMD_TEST_TABLE)
                 return r;
 
         const TestFunc *t = ALIGN_PTR(__start_SYSTEMD_TEST_TABLE);
         while (t < __stop_SYSTEMD_TEST_TABLE) {
+
+                if (!strv_isempty(tests) && !strv_contains(tests, t->name))
+                        goto skip;
 
                 if (t->sd_booted && sd_booted() <= 0) {
                         log_info("/* systemd not booted, skipping %s */", t->name);
@@ -106,8 +111,14 @@ static inline int run_test_table(void) {
                                 t->f.void_func();
                 }
 
+                ran = true;
+
+        skip:
                 t = ALIGN_PTR(t + 1);
         }
+
+        if (!ran)
+                return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "No matching tests found.");
 
         return r;
 }
@@ -121,7 +132,7 @@ static inline int run_test_table(void) {
                 save_argc_argv(argc, argv);               \
                 _r = _intro ? _intro() : EXIT_SUCCESS;    \
                 if (_r == EXIT_SUCCESS)                   \
-                        _r = run_test_table();            \
+                        _r = run_test_table(strv_skip(argv, 1)); \
                 _q = _outro ? _outro() : EXIT_SUCCESS;    \
                 static_destruct();                        \
                 if (_r < 0)                               \
