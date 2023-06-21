@@ -21,6 +21,7 @@
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
 #include "user-util.h"
+#include "env-util.h"
 
 static int advance_tstamp(int fd, const struct stat *st) {
         assert_se(fd >= 0);
@@ -137,6 +138,11 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
         return 0;
 }
 
+struct traced_file;
+extern void __nss_disable_nscd (void (*) (size_t, struct traced_file *));
+static void register_traced_file (size_t dbidx, struct traced_file *finfo) {
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
@@ -197,6 +203,12 @@ static int run(int argc, char *argv[]) {
         r = manager_parse_fallback_string(m, NTP_SERVERS);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse fallback server strings: %m");
+
+        r = getenv_bool_secure("SYSTEMD_NSS_RESOLVE_VALIDATE");
+        if (r == 0) {
+                log_info("Disabling NSCD because DNSSEC validation is turned off");
+                __nss_disable_nscd (register_traced_file);
+        }
 
         log_debug("systemd-timesyncd running as pid " PID_FMT, getpid_cached());
 
