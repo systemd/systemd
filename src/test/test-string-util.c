@@ -1274,4 +1274,27 @@ TEST(version_is_valid) {
         assert_se(version_is_valid("6.2.12-300.fc38.x86_64"));
 }
 
+TEST(strrstr) {
+        assert_se(!strrstr(NULL, NULL));
+        assert_se(!strrstr("foo", NULL));
+        assert_se(!strrstr(NULL, "foo"));
+
+        const char *p = "foo";
+        assert_se(strrstr(p, "foo") == p);
+        assert_se(strrstr(p, "fo") == p);
+        assert_se(strrstr(p, "f") == p);
+        assert_se(strrstr(p, "oo") == p + 1);
+        assert_se(strrstr(p, "o") == p + 2);
+        assert_se(strrstr(p, "") == p + strlen(p));
+        assert_se(!strrstr(p, "bar"));
+
+        p = "xoxoxox";
+        assert_se(strrstr(p, "") == p + strlen(p));
+        assert_se(strrstr(p, "x") == p + 6);
+        assert_se(strrstr(p, "ox") == p + 5);
+        assert_se(strrstr(p, "xo") == p + 4);
+        assert_se(strrstr(p, "xox") == p + 4);
+        assert_se(!strrstr(p, "xx"));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);

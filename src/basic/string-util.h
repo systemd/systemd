@@ -277,3 +277,5 @@ char *startswith_strv(const char *string, char **strv);
         startswith_strv(p, STRV_MAKE(__VA_ARGS__))
 
 bool version_is_valid(const char *s);
+
+char *strrstr(const char *haystack, const char *needle);

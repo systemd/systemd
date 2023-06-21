@@ -48,6 +48,7 @@
 #include "tmpfile-util.h"
 #include "uid-alloc-range.h"
 #include "user-util.h"
+#include "vpick.h"
 
 static enum {
         ACTION_DISSECT,
@@ -1762,6 +1763,17 @@ static int run(int argc, char *argv[]) {
                 r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (arg_image) {
+                r = path_pick_update_warn(
+                                &arg_image,
+                                S_IFREG,
+                                _ARCHITECTURE_INVALID,
+                                ".raw",
+                                /* ret_architecture= */ NULL);
+                if (r < 0)
+                        return r;
+        }
 
         switch (arg_action) {
         case ACTION_UMOUNT:
