@@ -110,4 +110,34 @@ ELAPSED=$((END_SEC-START_SEC))
 [[ "$ELAPSED" -ge 3 ]] && [[ "$ELAPSED" -le 5 ]] || exit 1
 [[ "$RESULT" -ne 0 ]] || exit 1
 
+# Test unit with special characters in the path.
+# We copy bash so that the quotes and spaces appear in the executable path.
+mkdir -p "/root/what's up/\"quoted\""
+cp /bin/bash "/root/what's up/\"quoted\"/bash"
+cat <<EOF >"/root/what's up/\"quoted\"/service.sh"
+#!/bin/bash
+echo "\$@"
+sleep 666
+EOF
+
+cat <<EOF >/run/systemd/system/quoted-path.service
+[Service]
+ExecStart="/root/what's up/\"quoted\"/bash" "/root/what's up/\"quoted\"/service.sh" "'quoted again'"
+EOF
+
+systemctl start quoted-path.service
+systemctl is-active quoted-path.service
+systemctl daemon-reexec
+systemctl is-active quoted-path.service
+systemctl restart quoted-path.service
+systemctl is-active quoted-path.service
+systemctl stop quoted-path.service
+
+systemd-run -u quoted-path2.service "/root/what's up/\"quoted\"/bash" \
+            "/root/what's up/\"quoted\"/service.sh" "'quoted again'"
+systemctl cat quoted-path2.service | \
+    grep -q $'ExecStart="/root/what\'s up/."quoted."/bash" "/root/what\'s up/."quoted."/service.sh" "\'quoted again\'"'
+journalctl -u quoted-path2.service -n1 -o verbose | \
+    grep -q $'_EXE=/root/what\'s up/"quoted"/bash'
+
 touch /testok
