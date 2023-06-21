@@ -653,6 +653,12 @@ int generator_hook_up_growfs(
         if (empty_or_root(where)) {
                 growfs_unit = SPECIAL_GROWFS_ROOT_SERVICE;
                 growfs_unit_path = SYSTEM_DATA_UNIT_DIR "/" SPECIAL_GROWFS_ROOT_SERVICE;
+
+                /* If systemd-growfs-root.service is enabled, we also want it to be part of
+                 * root-fs-ready.target. */
+                r = generator_add_symlink(dir, SPECIAL_ROOT_FS_READY_TARGET, "wants", growfs_unit_path);
+                if (r < 0)
+                        return r;
         } else {
                 growfs_unit = SPECIAL_GROWFS_SERVICE;
                 growfs_unit_path = SYSTEM_DATA_UNIT_DIR "/" SPECIAL_GROWFS_SERVICE;

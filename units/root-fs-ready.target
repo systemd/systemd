@@ -8,10 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=System Initialization
+Description=Root File System is Ready
 Documentation=man:systemd.special(7)
 
-Wants=local-fs.target root-fs-ready.target swap.target
-After=local-fs.target root-fs-ready.target swap.target
-Conflicts=emergency.service emergency.target
-Before=emergency.service emergency.target
+DefaultDependencies=no
