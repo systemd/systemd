@@ -113,6 +113,7 @@
 #include "umask-util.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "vpick.h"
 
 /* The notify socket inside the container it can use to talk to nspawn using the sd_notify(3) protocol */
 #define NSPAWN_NOTIFY_SOCKET_PATH "/run/host/notify"
@@ -2998,14 +2999,52 @@ static int on_request_stop(sd_bus_message *m, void *userdata, sd_bus_error *erro
         return 0;
 }
 
+static int pick_paths(void) {
+        int r;
+
+        if (arg_directory) {
+                r = path_pick_update_warn(
+                                &arg_directory,
+                                S_IFDIR,
+                                arg_architecture,
+                                /* search_suffix= */ NULL,
+                                &arg_architecture);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_image) {
+                r = path_pick_update_warn(
+                                &arg_image,
+                                S_IFREG,
+                                arg_architecture,
+                                ".raw",
+                                &arg_architecture);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_template) {
+                r = path_pick_update_warn(
+                                &arg_template,
+                                S_IFDIR,
+                                arg_architecture,
+                                /* search_suffix= */ NULL,
+                                &arg_architecture);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int determine_names(void) {
         int r;
 
         if (arg_template && !arg_directory && arg_machine) {
 
-                /* If --template= was specified then we should not
-                 * search for a machine, but instead create a new one
-                 * in /var/lib/machine. */
+                /* If --template= was specified then we should not search for a machine, but instead create a
+                 * new one in /var/lib/machine. */
 
                 arg_directory = path_join("/var/lib/machines", arg_machine);
                 if (!arg_directory)
@@ -5470,6 +5509,10 @@ static int run(int argc, char *argv[]) {
                 goto finish;
 
         r = load_oci_bundle();
+        if (r < 0)
+                goto finish;
+
+        r = pick_paths();
         if (r < 0)
                 goto finish;
 
