@@ -1112,7 +1112,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         the root user) do not share their key material among each other. If <option>shared</option> is used a new
         session keyring is allocated as for <option>private</option>, but the user keyring of the user configured with
         <varname>User=</varname> is linked into it, so that keys assigned to the user may be requested by the unit's
-        processes. In this modes multiple units running processes under the same user ID may share key material. Unless
+        processes. In this mode multiple units running processes under the same user ID may share key material. Unless
         <option>inherit</option> is selected the unique invocation ID for the unit (see below) is added as a protected
         key by the name <literal>invocation_id</literal> to the newly created session keyring. Defaults to
         <option>private</option> for services of the system service manager and to <option>inherit</option> for
@@ -1738,7 +1738,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>NetworkNamespacePath=</varname></term>
 
-        <listitem><para>Takes an absolute file system path refererring to a Linux network namespace
+        <listitem><para>Takes an absolute file system path referring to a Linux network namespace
         pseudo-file (i.e. a file like <filename>/proc/$PID/ns/net</filename> or a bind mount or symlink to
         one). When set the invoked processes are added to the network namespace referenced by that path. The
         path has to point to a valid namespace file at the moment the processes are forked off. If this
@@ -1792,7 +1792,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>IPCNamespacePath=</varname></term>
 
-        <listitem><para>Takes an absolute file system path refererring to a Linux IPC namespace
+        <listitem><para>Takes an absolute file system path referring to a Linux IPC namespace
         pseudo-file (i.e. a file like <filename>/proc/$PID/ns/ipc</filename> or a bind mount or symlink to
         one). When set the invoked processes are added to the network namespace referenced by that path. The
         path has to point to a valid namespace file at the moment the processes are forked off. If this

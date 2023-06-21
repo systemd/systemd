@@ -101,7 +101,7 @@ To show all installed unit files use 'systemctl list-unit-files'.</programlistin
             <constant>failed</constant>, <constant>activating</constant>, <constant>deactivating</constant>. The SUB
             column shows the unit-type-specific detailed state of the unit, possible values vary by unit type. The list
             of possible LOAD, ACTIVE, and SUB states is not constant and new systemd releases may both add and remove
-            values. <programlisting>systemctl --state=help</programlisting> command maybe be used to display the
+            values. <programlisting>systemctl --state=help</programlisting> command may be used to display the
             current set of possible values.</para>
 
             <para>This is the default command.</para>

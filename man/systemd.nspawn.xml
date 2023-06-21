@@ -521,7 +521,7 @@
         name is the interface name on the host, the second the interface name in the container. The latter
         may be omitted in which case it is set to the same name as the host side interface. This setting
         implies <varname>Private=yes</varname>. This setting corresponds to the
-        <option>--network-veth-extra=</option> command line switch, and maybe be used multiple times. It is
+        <option>--network-veth-extra=</option> command line switch, and may be used multiple times. It is
         independent of <varname>VirtualEthernet=</varname>. Note that this option is unrelated to the
         <varname>Bridge=</varname> setting below, and thus any connections created this way are not
         automatically added to any bridge device on the host side. This option is privileged (see

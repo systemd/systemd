@@ -1105,7 +1105,7 @@
             <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
             service is a simple daemon that pulls in this target and orders itself before it. Besides
             implementing the SNTP network protocol it maintains a timestamp file on disk whose modification
-            time is regularlary updated. At service start-up the local system clock is set from that modification time,
+            time is regularly updated. At service start-up the local system clock is set from that modification time,
             ensuring it increases roughly monotonically.</para>
 
             <para>Note that ordering a unit after <filename>time-set.target</filename> only has effect if
