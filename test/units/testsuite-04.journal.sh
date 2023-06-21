@@ -127,6 +127,40 @@ journalctl --facility daemon --priority warning..info -n 1
 journalctl --facility daemon --priority notice..crit -n 1
 journalctl --facility daemon --priority 5..crit -n 1
 
+# Assorted combinations
+journalctl -o help
+journalctl -q -n all -a | grep . >/dev/null
+journalctl -q --no-full | grep . >/dev/null
+journalctl -q --user --system | grep . >/dev/null
+journalctl --namespace "*" | grep . >/dev/null
+journalctl --namespace "" | grep . >/dev/null
+journalctl -q --namespace "+foo-bar-baz-$RANDOM" | grep . >/dev/null
+(! journalctl -q --namespace "foo-bar-baz-$RANDOM" | grep .)
+journalctl --root / | grep . >/dev/null
+journalctl --cursor "t=0;t=-1;t=0;t=0x0" | grep . >/dev/null
+journalctl --header | grep system.journal
+journalctl --field _EXE | grep . >/dev/null
+journalctl --no-hostname --utc --catalog | grep . >/dev/null
+# Excercise executable_is_script() and the related code, e.g. `journalctl -b /path/to/a/script.sh` should turn
+# into ((_EXE=/bin/bash AND _COMM=script.sh) AND _BOOT_ID=c002e3683ba14fa8b6c1e12878386514)
+journalctl -b "$(readlink -f "$0")" | grep . >/dev/null
+journalctl -b "$(systemd-id128 boot-id)" | grep . >/dev/null
+journalctl --since yesterday --reverse | grep . >/dev/null
+journalctl --machine .host | grep . >/dev/null
+# Log something that journald will forward to wall
+echo "Oh no!" | systemd-cat -t "emerg$RANDOM" -p emerg --stderr-priority emerg
+
+TAG="$(systemd-id128 new)"
+echo "Foo Bar Baz" | systemd-cat -t "$TAG"
+journalctl --sync
+# Relevant excerpt from journalctl(1):
+#   If the pattern is all lowercase, matching is case insensitive. Otherwise, matching is case sensitive.
+#   This can be overridden with the --case-sensitive option
+journalctl -e -t "$TAG" --grep "Foo Bar Baz"
+journalctl -e -t "$TAG" --grep "foo bar baz"
+(! journalctl -e -t "$TAG" --grep "foo Bar baz")
+journalctl -e -t "$TAG" --case-sensitive=false --grep "foo Bar baz"
+
 (! journalctl --facility hopefully-an-unknown-facility)
 (! journalctl --priority hello-world)
 (! journalctl --priority 0..128)
