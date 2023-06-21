@@ -648,6 +648,33 @@ TEST(safe_fork) {
         assert_se(status.si_status == 88);
 }
 
+TEST(clone_hack) {
+        siginfo_t status;
+        pid_t pid = 0;
+        int r;
+
+        /* FORK_NEW_MOUNTNS/FORK_NEW_USERNS force safe_fork() to go through clone_hack() */
+        r = safe_fork("(test-nschild)", FORK_NEW_MOUNTNS|FORK_NEW_USERNS|FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REARRANGE_STDIO|FORK_REOPEN_LOG, &pid);
+
+        if (r < 0 && ERRNO_IS_PRIVILEGE(r)) {
+                log_notice_errno(r, "Skipping clone_hack() test, lacking privs.");
+                return;
+        }
+
+        assert_se(r >= 0);
+        if (r == 0) {
+                /* child */
+                assert_se(getpid_cached() == pid);
+                _exit(89);
+        }
+
+        assert_se(pid > 1);
+
+        assert_se(wait_for_terminate(pid, &status) >= 0);
+        assert_se(status.si_code == CLD_EXITED);
+        assert_se(status.si_status == 89);
+}
+
 TEST(pid_to_ptr) {
         assert_se(PTR_TO_PID(NULL) == 0);
         assert_se(PID_TO_PTR(0) == NULL);

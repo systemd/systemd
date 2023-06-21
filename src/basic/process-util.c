@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <linux/oom.h>
 #include <pthread.h>
+#include <setjmp.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1149,6 +1150,47 @@ static void restore_sigsetp(sigset_t **ssp) {
                 (void) sigprocmask(SIG_SETMASK, *ssp, NULL);
 }
 
+static int clone_hack_callback(void *userdata) {
+        jmp_buf *jb = userdata;
+        longjmp(*jb, 1); /* jump back into our original stack frame */
+        return 0;
+};
+
+static pid_t clone_hack(int flags) {
+        jmp_buf jb;
+        void *mystack;
+        pid_t pid;
+        size_t ps;
+
+        /* This is a terrible, terrible hack, around the fact that glibc clone() doesn't provide us with
+         * fork() style semantics of returning twice from the same stack frame. */
+
+        assert((flags & (CLONE_VM|CLONE_PARENT_SETTID|CLONE_CHILD_SETTID|
+                         CLONE_CHILD_CLEARTID|CLONE_SETTLS)) == 0);
+
+        if (setjmp(jb) != 0) {
+                /* we are in the child, if setjmp() returns non-zero */
+                reset_cached_pid();
+                return 0;
+        }
+
+        /* We allocate some space on the stack to use as the stack for the child. Note that the net effect is
+         * that the child will have the start of its stack inside the stack of the parent, but since they are
+         * a CoW copy of each other that's fine. We allocate one page-aligned page. */
+        ps = page_size();
+        mystack = alloca(ps*3);
+        mystack = (uint8_t*) mystack + ps; /* move pointer one page ahead since stacks usually grow backwards */
+        mystack = (void*) ALIGN_TO((uintptr_t) mystack, ps); /* align to page size (moving things further ahead) */
+
+        /* Now clone the child. The child will immediately jump back to our stack frame via the setjmp()
+         * above */
+        pid = clone(clone_hack_callback, mystack, flags, &jb);
+        if (pid < 0)
+                return -errno;
+
+        return pid;
+}
+
 int safe_fork_full(
                 const char *name,
                 const int stdio_fds[3],
@@ -1197,7 +1239,7 @@ int safe_fork_full(
         }
 
         if ((flags & (FORK_NEW_MOUNTNS|FORK_NEW_USERNS)) != 0)
-                pid = raw_clone(SIGCHLD|
+                pid = clone_hack(SIGCHLD|
                                 (FLAGS_SET(flags, FORK_NEW_MOUNTNS) ? CLONE_NEWNS : 0) |
                                 (FLAGS_SET(flags, FORK_NEW_USERNS) ? CLONE_NEWUSER : 0));
         else
