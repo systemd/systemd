@@ -68,7 +68,7 @@ elseif pid > 0 then
     posix.wait(pid)
 end
 
-%transfiletriggerin -P 100700 -p <lua> -- {{SYSUSERS_DIR}}
+%transfiletriggerin -P 1000700 -p <lua> -- {{SYSUSERS_DIR}}
 -- This script will process files installed in {{SYSUSERS_DIR}} to create
 -- specified users automatically. The priority is set such that it
 -- will run before the tmpfiles file trigger.
