@@ -216,6 +216,7 @@ DHCPv4.RoutesToDNS,                          config_parse_bool,                 
 DHCPv4.UseNTP,                               config_parse_dhcp_use_ntp,                                AF_INET,                       0
 DHCPv4.RoutesToNTP,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_routes_to_ntp)
 DHCPv4.UseSIP,                               config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_sip)
+DHCPv4.UseCaptivePortal,                     config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_captive_portal)
 DHCPv4.UseMTU,                               config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_mtu)
 DHCPv4.UseHostname,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_hostname)
 DHCPv4.UseDomains,                           config_parse_dhcp_use_domains,                            AF_INET,                       0
