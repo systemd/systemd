@@ -322,8 +322,15 @@ static void report_module_metadata(StackContext *c, const char *name, JsonVarian
         fputs("\n", c->m.f);
 }
 
+/* Returns 1 when we have been able to fully parse this elf object looking for a .note.package section. It may return 1
+ * even if no .note.package section is found, but the no elf parsing error happened.
+ * Returns 0 when some ignorable elf parsing error happened. In that case you shall try to find the package metadata via
+ * other means.
+ * Returns r < 0 when a non ignorable error happened.
+ */
 static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *elf, bool *ret_interpreter_found, StackContext *c) {
         bool interpreter_found = false;
+        bool ignored_elf_parsing_error = false;
         size_t n_program_headers;
         int r;
 
@@ -331,9 +338,9 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
         assert(elf);
         assert(c);
 
-        /* When iterating over PT_LOAD we will visit modules more than once */
+        /* When iterating over PT_LOAD we will visit modules more than once, and we have already found a module. */
         if (set_contains(*c->modules, name))
-                return 0;
+                return 1;
 
         r = sym_elf_getphdrnum(elf, &n_program_headers);
         if (r < 0) /* Not the handle we are looking for - that's ok, skip it */
@@ -348,7 +355,13 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
 
                 /* Package metadata is in PT_NOTE headers. */
                 program_header = sym_gelf_getphdr(elf, i, &mem);
-                if (!program_header || (program_header->p_type != PT_NOTE && program_header->p_type != PT_INTERP))
+
+                if (!program_header) {
+                        ignored_elf_parsing_error = true;
+                        continue;
+                }
+
+                if (program_header->p_type != PT_NOTE && program_header->p_type != PT_INTERP)
                         continue;
 
                 if (program_header->p_type == PT_INTERP) {
@@ -363,18 +376,27 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
                                                 program_header->p_offset,
                                                 program_header->p_filesz,
                                                 ELF_T_NHDR);
-                if (!data)
+                if (!data) {
+                        ignored_elf_parsing_error = true;
                         continue;
+                }
 
-                for (size_t note_offset = 0, name_offset, desc_offset;
-                     note_offset < data->d_size &&
-                     (note_offset = sym_gelf_getnote(data, note_offset, &note_header, &name_offset, &desc_offset)) > 0;) {
+                for (size_t note_offset = 0, name_offset, desc_offset; note_offset < data->d_size;) {
+                        note_offset = sym_gelf_getnote(data, note_offset, &note_header, &name_offset, &desc_offset);
+
+                        if (note_offset == 0) {
+                                ignored_elf_parsing_error = true;
+                                break;
+                        }
 
                         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
                         const char *payload = (const char *)data->d_buf + desc_offset;
 
                         if (note_header.n_namesz == 0 || note_header.n_descsz == 0)
+                        {
+                                ignored_elf_parsing_error = true;
                                 continue;
+                        }
 
                         /* Package metadata might have different owners, but the
                          * magic ID is always the same. */
@@ -438,8 +460,9 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
         if (ret_interpreter_found)
                 *ret_interpreter_found = interpreter_found;
 
-        /* Didn't find package metadata for this module - that's ok, just go to the next. */
-        return 0;
+        /* Didn't find package metadata for this module - that's ok. If no error was ignored, we can still
+         * return 1, otherwise return 0 so the caller knows it shall fallback to another method. */
+        return ignored_elf_parsing_error ? 0 : 1;
 }
 
 /* Get the build-id out of an ELF object or a dwarf core module. */
