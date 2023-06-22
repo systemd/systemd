@@ -1133,7 +1133,10 @@ static int fd_copy_tree_generic(
                 copy_progress_path_t progress_path,
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
+
         int r;
+
+        assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
 
         if (S_ISDIR(st->st_mode))
                 return fd_copy_directory(df, from, st, dt, to, original_device, depth_left-1, override_uid,
