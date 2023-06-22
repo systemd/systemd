@@ -86,7 +86,7 @@
     project='man-pages'><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more
     information. This function also internally caches the returned ID to make this call a cheap operation. It is
     recommended to use this ID as-is only in trusted environments. In untrusted environments it is recommended to
-    derive an application specific ID using <function>sd_id128_get_machine_app_specific()</function>, see below.</para>
+    derive an application specific ID using <function>sd_id128_get_boot_app_specific()</function>, see below.</para>
 
     <para><function>sd_id128_get_boot_app_specific()</function> is analogous to
     <function>sd_id128_get_machine_app_specific()</function> but returns an ID that changes between boots. Some
