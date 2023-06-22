@@ -1623,6 +1623,21 @@ int get_process_threads(pid_t pid) {
         return n;
 }
 
+int is_reaper_process(void) {
+        int b = 0;
+
+        /* Checks if we are running in a reaper process, i.e. if we are expected to deal with processes
+         * reparented to us. This simply checks if we are PID 1 or if PR_SET_CHILD_SUBREAPER was called. */
+
+        if (getpid_cached() == 1)
+                return true;
+
+        if (prctl(PR_GET_CHILD_SUBREAPER, (unsigned long) &b, 0UL, 0UL, 0UL) < 0)
+                return -errno;
+
+        return b != 0;
+}
+
 static const char *const sigchld_code_table[] = {
         [CLD_EXITED] = "exited",
         [CLD_KILLED] = "killed",

@@ -199,3 +199,5 @@ int setpriority_closest(int priority);
 _noreturn_ void freeze(void);
 
 int get_process_threads(pid_t pid);
+
+int is_reaper_process(void);

@@ -891,6 +891,53 @@ TEST(get_process_threads) {
         }
 }
 
+TEST(is_reaper_process) {
+        int r;
+
+        r = safe_fork("(regular)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_WAIT, NULL);
+        assert_se(r >= 0);
+        if (r == 0) {
+                /* child */
+
+                assert_se(is_reaper_process() == 0);
+                _exit(EXIT_SUCCESS);
+        }
+
+        r = safe_fork("(newpid)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_WAIT, NULL);
+        assert_se(r >= 0);
+        if (r == 0) {
+                /* child */
+
+                if (unshare(CLONE_NEWPID) < 0) {
+                        if (ERRNO_IS_PRIVILEGE(errno) || ERRNO_IS_NOT_SUPPORTED(errno)) {
+                                log_notice("Skipping CLONE_NEWPID reaper check, lacking privileges/support");
+                                _exit(EXIT_SUCCESS);
+                        }
+                }
+
+                r = safe_fork("(newpid1)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_WAIT, NULL);
+                assert_se(r >= 0);
+                if (r == 0) {
+                        /* grandchild, which is PID1 in a pidns */
+                        assert_se(getpid_cached() == 1);
+                        assert_se(is_reaper_process() > 0);
+                        _exit(EXIT_SUCCESS);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        r = safe_fork("(subreaper)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_WAIT, NULL);
+        assert_se(r >= 0);
+        if (r == 0) {
+                /* child */
+                assert_se(prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) >= 0);
+
+                assert_se(is_reaper_process() > 0);
+                _exit(EXIT_SUCCESS);
+        }
+}
+
 static int intro(void) {
         log_show_color(true);
         return EXIT_SUCCESS;
