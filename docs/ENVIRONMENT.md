@@ -368,6 +368,10 @@ systemd tests:
 * `$SYSTEMD_TEST_NSS_BUFSIZE` — size of scratch buffers for "reentrant"
   functions exported by the nss modules.
 
+* `$TESTFUNCS` – takes a colon separated list of test functions to invoke,
+  causes all non-matching test functions to be skipped. Only applies to tests
+  using our regular test boilerplate.
+
 fuzzers:
 
 * `$SYSTEMD_FUZZ_OUTPUT` — A boolean that specifies whether to write output to
