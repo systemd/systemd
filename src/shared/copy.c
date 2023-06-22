@@ -1084,6 +1084,9 @@ finish:
                         return -errno;
         }
 
+        if (r < 0)
+                return r;
+
         return copy_flags & COPY_LOCK_BSD ? TAKE_FD(fdt) : 0;
 }
 
@@ -1133,7 +1136,10 @@ static int fd_copy_tree_generic(
                 copy_progress_path_t progress_path,
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
+
         int r;
+
+        assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
 
         if (S_ISDIR(st->st_mode))
                 return fd_copy_directory(df, from, st, dt, to, original_device, depth_left-1, override_uid,
@@ -1236,6 +1242,7 @@ int copy_directory_at_full(
         assert(dir_fdf >= 0 || dir_fdf == AT_FDCWD);
         assert(dir_fdt >= 0 || dir_fdt == AT_FDCWD);
         assert(to);
+        assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
 
         if (fstatat(dir_fdf, strempty(from), &st, AT_SYMLINK_NOFOLLOW|(isempty(from) ? AT_EMPTY_PATH : 0)) < 0)
                 return -errno;
