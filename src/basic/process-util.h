@@ -209,3 +209,5 @@ _noreturn_ void freeze(void);
 int get_process_threads(pid_t pid);
 
 int reaper_process(void);
+
+int make_reaper_process(bool b);
