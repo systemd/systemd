@@ -16,6 +16,8 @@
 #include "parse-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "sd-daemon.h"
+#include "socket-util.h"
 #include "specifier.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -779,29 +781,101 @@ static void compile_pattern_fields(
         memcpy(ret->sha256sum, i->metadata.sha256sum, sizeof(ret->sha256sum));
 }
 
+static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        char buf[NOTIFY_BUFFER_MAX+1];
+        struct iovec iovec = {
+                .iov_base = buf,
+                .iov_len = sizeof(buf)-1,
+        };
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) +
+                         CMSG_SPACE(sizeof(int) * NOTIFY_FD_MAX)) control;
+        struct msghdr msghdr = {
+                .msg_iov = &iovec,
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct ucred *ucred;
+        ssize_t n;
+
+        n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        if (n < 0) {
+                if (ERRNO_IS_TRANSIENT(n))
+                        return 0;
+                return (int) n;
+        }
+
+        cmsg_close_all(&msghdr);
+
+        if (msghdr.msg_flags & MSG_TRUNC) {
+                log_warning("Got overly long notification datagram, ignoring.");
+                return 0;
+        }
+
+        ucred = CMSG_FIND_DATA(&msghdr, SOL_SOCKET, SCM_CREDENTIALS, struct ucred);
+        if (!ucred || ucred->pid <= 0) {
+                log_warning("Got notification datagram lacking credential information, ignoring.");
+                return 0;
+        }
+
+        buf[n] = 0;
+        return sd_notify(false, buf);
+}
+
 static int run_helper(
                 const char *name,
                 const char *path,
                 const char * const cmdline[]) {
-
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
+        _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
+        pid_t pid;
         int r;
 
         assert(name);
         assert(path);
         assert(cmdline);
 
-        r = safe_fork(name, FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = sd_event_new(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        /* Not setting SOCK_CLOEXEC because the notify socket should continue to exist
+         * in the child process, so that it can send us notifications */
+        if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
+                return -errno;
+
+        r = safe_fork(name, FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
                 /* Child */
+                pair[0] = safe_close(pair[0]);
+
+                if (setenv("NOTIFY_SOCKET", FORMAT_PROC_FD_PATH(pair[1]), 1) < 0) {
+                        log_error_errno(errno, "setenv() failed: %m");
+                        _exit(EXIT_FAILURE);
+                }
 
                 execv(path, (char *const*) cmdline);
                 log_error_errno(errno, "Failed to execute %s tool: %m", path);
                 _exit(EXIT_FAILURE);
         }
 
-        return 0;
+        /* Parent */
+        pair[1] = safe_close(pair[1]);
+
+        /* Quit the loop w/ return value of 0 when child process exits */
+        r = sd_event_add_child(event, /* source= */ NULL, pid, WEXITED, /* handler= */ NULL, /* userdata= */ INT_TO_PTR(0));
+        if (r < 0)
+                return r;
+
+        /* Propagate sd_notify calls */
+        r = sd_event_add_io(event, /* source= */ NULL, pair[1], EPOLLIN, helper_on_notify, /* userdata= */ NULL);
+        if (r < 0)
+                return r;
+
+        return sd_event_loop(event);
 }
 
 int transfer_acquire_instance(Transfer *t, Instance *i) {
