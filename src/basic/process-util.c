@@ -1149,6 +1149,41 @@ static void restore_sigsetp(sigset_t **ssp) {
                 (void) sigprocmask(SIG_SETMASK, *ssp, NULL);
 }
 
+pid_t clone_with_nested_stack(int (*fn)(void *), int flags, void *userdata) {
+        size_t ps;
+        pid_t pid;
+        void *mystack;
+
+        /* A wrapper around glibc's clone() call that automatically sets up a "nested" stack. Only supports
+         * invocations without CLONE_VM, so that we can continue to use the parent's stack mapping.
+         *
+         * Note: glibc's clone() wrapper does not synchronize malloc() locks. This means that if the parent
+         * is threaded these locks will be in an undefined state in the child, and hence memory allocations
+         * are likely going to run into deadlocks. Hence: if you use this function make sure your parent is
+         * strictly single-threaded or your child never calls malloc(). */
+
+        assert((flags & (CLONE_VM|CLONE_PARENT_SETTID|CLONE_CHILD_SETTID|
+                         CLONE_CHILD_CLEARTID|CLONE_SETTLS)) == 0);
+
+        /* We allocate some space on the stack to use as the stack for the child (hence "nested"). Note that
+         * the net effect is that the child will have the start of its stack inside the stack of the parent,
+         * but since they are a CoW copy of each other that's fine. We allocate one page-aligned page. But
+         * since we don't want to deal with differences between systems where the stack grows backwards or
+         * forwards we'll allocate one more and place the stack address in the middle. Except that we also
+         * want it page aligned, hence we'll allocate one page more. Makes 3. */
+
+        ps = page_size();
+        mystack = alloca(ps*3);
+        mystack = (uint8_t*) mystack + ps; /* move pointer one page ahead since stacks usually grow backwards */
+        mystack = (void*) ALIGN_TO((uintptr_t) mystack, ps); /* align to page size (moving things further ahead) */
+
+        pid = clone(fn, mystack, flags, userdata);
+        if (pid < 0)
+                return -errno;
+
+        return pid;
+}
+
 int safe_fork_full(
                 const char *name,
                 const int stdio_fds[3],
