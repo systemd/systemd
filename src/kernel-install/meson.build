@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+want_kernel_install = conf.get('ENABLE_KERNEL_INSTALL') == 1
+
 ukify_install = custom_target(
         '60-ukify.install',
         input : '60-ukify.install.in',
