@@ -7,7 +7,6 @@ basic_sources = files(
         'architecture.c',
         'argv-util.c',
         'arphrd-util.c',
-        'async.c',
         'audit-util.c',
         'build.c',
         'bus-label.c',
