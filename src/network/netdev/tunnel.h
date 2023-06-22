@@ -55,6 +55,7 @@ typedef struct Tunnel {
         FooOverUDPEncapType fou_encap_type;
 
         bool pmtudisc;
+        bool ignore_df;
         bool copy_dscp;
         bool independent;
         bool fou_tunnel;
