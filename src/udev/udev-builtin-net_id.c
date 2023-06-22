@@ -163,8 +163,29 @@ static bool is_valid_onboard_index(unsigned long idx) {
         return idx <= (naming_scheme_has(NAMING_16BIT_INDEX) ? ONBOARD_16BIT_INDEX_MAX : ONBOARD_14BIT_INDEX_MAX);
 }
 
+static int parse_vf_repr_num(const LinkInfo *info, unsigned *num) {
+        unsigned pf;
+
+        assert(info);
+
+        if (!isempty(info->phys_port_name) &&
+            sscanf(info->phys_port_name, "pf%uvf%u", &pf, num) == 2)
+                return 0;
+
+        return -EINVAL;
+}
+
+static bool is_vf_repr(const LinkInfo *info) {
+        unsigned vf;
+
+        assert(info);
+
+        return !parse_vf_repr_num(info, &vf);
+}
+
 /* retrieve on-board index number and label from firmware */
 static int dev_pci_onboard(sd_device *dev, const LinkInfo *info, NetNames *names) {
+        unsigned int repr_num = UINT_MAX;
         unsigned long idx, dev_port = 0;
         const char *attr;
         size_t l;
@@ -205,10 +226,17 @@ static int dev_pci_onboard(sd_device *dev, const LinkInfo *info, NetNames *names
                 log_device_debug(dev, "dev_port=%lu", dev_port);
         }
 
+        /* Parse VF number if the interface is VF representor */
+        if (naming_scheme_has(NAMING_SR_IOV_R) && is_vf_repr(info))
+                parse_vf_repr_num(info, &repr_num);
+
         s = names->pci_onboard;
         l = sizeof(names->pci_onboard);
         l = strpcpyf(&s, l, "o%lu", idx);
-        if (!isempty(info->phys_port_name))
+        if (repr_num != UINT_MAX)
+                /* For VF representor append 'r<VF_NUM>' and not phys_port_name */
+                l = strpcpyf(&s, l, "r%u", repr_num);
+        else if (!isempty(info->phys_port_name))
                 /* kernel provided front panel port name for multiple port PCI device */
                 l = strpcpyf(&s, l, "n%s", info->phys_port_name);
         else if (dev_port > 0)
@@ -333,6 +361,7 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
         _cleanup_(sd_device_unrefp) sd_device *pci = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
         unsigned domain, bus, slot, func;
+        unsigned int repr_num = UINT_MAX;
         sd_device *hotplug_slot_dev;
         unsigned long dev_port = 0;
         uint32_t hotplug_slot = 0;
@@ -383,6 +412,10 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
                 }
         }
 
+        /* Parse VF number if the interface is VF representor */
+        if (naming_scheme_has(NAMING_SR_IOV_R) && is_vf_repr(info))
+                parse_vf_repr_num(info, &repr_num);
+
         /* compose a name based on the raw kernel's PCI bus, slot numbers */
         s = names->pci_path;
         l = sizeof(names->pci_path);
@@ -391,7 +424,10 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
         l = strpcpyf(&s, l, "p%us%u", bus, slot);
         if (func > 0 || is_pci_multifunction(names->pcidev) > 0)
                 l = strpcpyf(&s, l, "f%u", func);
-        if (!isempty(info->phys_port_name))
+        if (repr_num != UINT_MAX)
+                /* For VF representor append 'r<VF_NUM>' and not phys_port_name */
+                l = strpcpyf(&s, l, "r%u", repr_num);
+        else if (!isempty(info->phys_port_name))
                 /* kernel provided front panel port name for multi-port PCI device */
                 l = strpcpyf(&s, l, "n%s", info->phys_port_name);
         else if (dev_port > 0)
@@ -485,7 +521,10 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
                 l = strpcpyf(&s, l, "s%"PRIu32, hotplug_slot);
                 if (func > 0 || is_pci_multifunction(names->pcidev) > 0)
                         l = strpcpyf(&s, l, "f%u", func);
-                if (!isempty(info->phys_port_name))
+                if (repr_num != UINT_MAX)
+                        /* For VF representor append 'r<VF_NUM>' and not phys_port_name */
+                        l = strpcpyf(&s, l, "r%u", repr_num);
+                else if (!isempty(info->phys_port_name))
                         l = strpcpyf(&s, l, "n%s", info->phys_port_name);
                 else if (dev_port > 0)
                         l = strpcpyf(&s, l, "d%lu", dev_port);
