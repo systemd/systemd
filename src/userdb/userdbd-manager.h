@@ -21,6 +21,8 @@ struct Manager {
         int listen_fd;
 
         RateLimit worker_ratelimit;
+
+        sd_event_source *deferred_start_worker_event_source;
 };
 
 int manager_new(Manager **ret);

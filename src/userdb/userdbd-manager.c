@@ -53,6 +53,17 @@ static int on_sigusr2(sd_event_source *s, const struct signalfd_siginfo *si, voi
         return 0;
 }
 
+static int on_deferred_start_worker(sd_event_source *s, uint64_t usec, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        assert(s);
+
+        m->deferred_start_worker_event_source = sd_event_source_unref(m->deferred_start_worker_event_source);
+
+        (void) start_workers(m, /* explicit_request=*/ false);
+        return 0;
+}
+
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 event_source_hash_ops,
                 sd_event_source,
@@ -110,6 +121,8 @@ Manager* manager_free(Manager *m) {
 
         set_free(m->workers_fixed);
         set_free(m->workers_dynamic);
+
+        m->deferred_start_worker_event_source = sd_event_source_unref(m->deferred_start_worker_event_source);
 
         sd_event_unref(m->event);
 
@@ -213,10 +226,31 @@ static int start_workers(Manager *m, bool explicit_request) {
                         break;
 
                 if (!ratelimit_below(&m->worker_ratelimit)) {
-                        /* If we keep starting workers too often, let's fail the whole daemon, something is wrong */
-                        sd_event_exit(m->event, EXIT_FAILURE);
 
-                        return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN), "Worker threads requested too frequently, something is wrong.");
+                        /* If we keep starting workers too often but none sticks, let's fail the whole
+                         * daemon, something is wrong */
+                        if (n == 0) {
+                                sd_event_exit(m->event, EXIT_FAILURE);
+                                return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN), "Worker threads requested too frequently, but worker count is zero, something is wrong.");
+                        }
+
+                        /* Otherwise, let's stop spawning more for a while. */
+                        log_warning("Worker threads requested too frequently, not starting new ones for a while.");
+
+                        if (!m->deferred_start_worker_event_source) {
+                                r = sd_event_add_time(
+                                                m->event,
+                                                &m->deferred_start_worker_event_source,
+                                                CLOCK_MONOTONIC,
+                                                ratelimit_end(&m->worker_ratelimit),
+                                                /* accuracy_usec= */ 0,
+                                                on_deferred_start_worker,
+                                                m);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to allocate deferred start worker event source: %m");
+                        }
+
+                        break;
                 }
 
                 r = start_one_worker(m);
