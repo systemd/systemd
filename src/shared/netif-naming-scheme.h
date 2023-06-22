@@ -39,6 +39,7 @@ typedef enum NamingSchemeFlags {
         NAMING_BRIDGE_MULTIFUNCTION_SLOT = 1 << 14, /* Use PCI hotplug slot information associated with bridge, but only if PCI device is multifunction */
         NAMING_DEVICETREE_ALIASES        = 1 << 15, /* Generate names from devicetree aliases */
         NAMING_USB_HOST                  = 1 << 16, /* Generate names for usb host */
+        NAMING_SR_IOV_R                  = 1 << 17, /* Use "r" suffix for SR-IOV VF representors */
 
         /* And now the masks that combine the features above */
         NAMING_V238 = 0,
@@ -53,6 +54,7 @@ typedef enum NamingSchemeFlags {
         NAMING_V251 = NAMING_V250 | NAMING_BRIDGE_MULTIFUNCTION_SLOT,
         NAMING_V252 = NAMING_V251 | NAMING_DEVICETREE_ALIASES,
         NAMING_V253 = NAMING_V252 | NAMING_USB_HOST,
+        NAMING_V254 = NAMING_V253 | NAMING_SR_IOV_R,
 
         EXTRA_NET_NAMING_SCHEMES
 

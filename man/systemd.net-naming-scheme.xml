@@ -159,6 +159,7 @@
           <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>b</constant><replaceable>number</replaceable></varname></term>
           <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>u</constant><replaceable>port</replaceable>…[<constant>c</constant><replaceable>config</replaceable>][<constant>i</constant><replaceable>interface</replaceable>]</varname></term>
           <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>v</constant><replaceable>slot</replaceable></varname></term>
+          <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>r</constant><replaceable>slot</replaceable></varname></term>
 
           <listitem><para>This property describes the slot position. Different schemes are used depending on
           the bus type, as described in the table below. In case of USB, BCMA, and SR-VIO devices, the full
@@ -206,6 +207,11 @@
                   <entry>… <constant>v</constant><replaceable>slot</replaceable></entry>
                   <entry>SR-VIO slot number</entry>
                 </row>
+
+                <row>
+                  <entry>… <constant>r</constant><replaceable>slot</replaceable></entry>
+                  <entry>SR-IOV slot number</entry>
+                </row>
               </tbody>
             </tgroup>
           </table>
@@ -225,6 +231,11 @@
           <para>SR-IOV virtual devices are named based on the name of the parent interface, with a suffix of
           <constant>v</constant> and the virtual device number, with any leading zeros removed. The bus
           number is ignored.</para>
+
+          <para>SR-IOV virtual device representors are named based on the name of the physical device
+          interface, with a suffix of <constant>r</constant> and the number of the virtual device that
+          is linked to the particular representor, with any leading zeros removed. The physical port
+          name and the bus number are ignored.</para>
 
           <para>In some configurations a parent PCI bridge of a given network controller may be associated
           with a slot. In such case we don't generate this device property to avoid possible naming conflicts.</para>
@@ -454,6 +465,17 @@
           <term><constant>v253</constant></term>
 
           <listitem><para>Set <varname>ID_NET_NAME_PATH</varname> for usb devices not connected via a PCI bus.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>v254</constant></term>
+
+          <listitem><para>Naming was changed for SR-IOV virtual device representors.</para>
+
+          <para>The <literal>r<replaceable>slot</replaceable></literal> suffix was added to differentiate SR-IOV
+          virtual device representors attached to a single physical device interface.
+          </para>
           </listitem>
         </varlistentry>
 
