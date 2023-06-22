@@ -80,6 +80,7 @@ typedef struct LinkInfo {
         int ifindex;
         int iflink;
         int iftype;
+        int vf_representor_id;
         const char *devtype;
         const char *phys_port_name;
         struct hw_addr_data hw_addr;
@@ -208,7 +209,10 @@ static int dev_pci_onboard(sd_device *dev, const LinkInfo *info, NetNames *names
         s = names->pci_onboard;
         l = sizeof(names->pci_onboard);
         l = strpcpyf(&s, l, "o%lu", idx);
-        if (!isempty(info->phys_port_name))
+        if (naming_scheme_has(NAMING_SR_IOV_R) && info->vf_representor_id >= 0)
+                /* For VF representor append 'r<VF_NUM>' and not phys_port_name */
+                l = strpcpyf(&s, l, "r%d", info->vf_representor_id);
+        else if (!isempty(info->phys_port_name))
                 /* kernel provided front panel port name for multiple port PCI device */
                 l = strpcpyf(&s, l, "n%s", info->phys_port_name);
         else if (dev_port > 0)
@@ -391,7 +395,10 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
         l = strpcpyf(&s, l, "p%us%u", bus, slot);
         if (func > 0 || is_pci_multifunction(names->pcidev) > 0)
                 l = strpcpyf(&s, l, "f%u", func);
-        if (!isempty(info->phys_port_name))
+        if (naming_scheme_has(NAMING_SR_IOV_R) && info->vf_representor_id >= 0)
+                /* For VF representor append 'r<VF_NUM>' and not phys_port_name */
+                l = strpcpyf(&s, l, "r%d", info->vf_representor_id);
+        else if (!isempty(info->phys_port_name))
                 /* kernel provided front panel port name for multi-port PCI device */
                 l = strpcpyf(&s, l, "n%s", info->phys_port_name);
         else if (dev_port > 0)
@@ -485,7 +492,10 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
                 l = strpcpyf(&s, l, "s%"PRIu32, hotplug_slot);
                 if (func > 0 || is_pci_multifunction(names->pcidev) > 0)
                         l = strpcpyf(&s, l, "f%u", func);
-                if (!isempty(info->phys_port_name))
+                if (naming_scheme_has(NAMING_SR_IOV_R) && info->vf_representor_id >= 0)
+                        /* For VF representor append 'r<VF_NUM>' and not phys_port_name */
+                        l = strpcpyf(&s, l, "r%d", info->vf_representor_id);
+                else if (!isempty(info->phys_port_name))
                         l = strpcpyf(&s, l, "n%s", info->phys_port_name);
                 else if (dev_port > 0)
                         l = strpcpyf(&s, l, "d%lu", dev_port);
@@ -1082,7 +1092,10 @@ static int get_link_info(sd_device *dev, LinkInfo *info) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        (void) sd_device_get_sysattr_value(dev, "phys_port_name", &info->phys_port_name);
+        r = sd_device_get_sysattr_value(dev, "phys_port_name", &info->phys_port_name);
+        if (r >= 0)
+                /* Check if phys_port_name indicates virtual device representor */
+                (void) sscanf(info->phys_port_name, "pf%*uvf%d", &info->vf_representor_id);
 
         r = sd_device_get_sysattr_value(dev, "address", &s);
         if (r < 0 && r != -ENOENT)
@@ -1100,7 +1113,9 @@ static int builtin_net_id(UdevEvent *event, int argc, char *argv[], bool test) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         const char *prefix;
         NetNames names = {};
-        LinkInfo info = {};
+        LinkInfo info = {
+                .vf_representor_id = -1,
+        };
         int r;
 
         r = get_link_info(dev, &info);
