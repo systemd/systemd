@@ -1084,6 +1084,9 @@ finish:
                         return -errno;
         }
 
+        if (r < 0)
+                return r;
+
         return copy_flags & COPY_LOCK_BSD ? TAKE_FD(fdt) : 0;
 }
 
