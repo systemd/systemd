@@ -158,3 +158,28 @@ int asynchronous_close(int fd) {
 
         return -EBADF; /* return an invalidated fd */
 }
+
+int asynchronous_rm_rf(const char *p, RemoveFlags flags) {
+        int r;
+
+        assert(p);
+
+        /* Forks off a child that destroys the specified path. This will be best effort only, i.e. the child
+         * will attempt to do its thing, but we won't wait for it or check its success. */
+
+        r = safe_fork("(sd-rmrf)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DETACH, NULL);
+        if (r != 0)
+                return r;
+
+        /* Child */
+
+        r = rm_rf(p, flags);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to rm -rf '%s', ignoring: %m", p);
+                _exit(EXIT_FAILURE); /* This is a detached process, hence noone really cares, but who knows
+                                      * maybe it's good for debugging/tracing to return an exit code
+                                      * indicative of our failure here. */
+        }
+
+        _exit(EXIT_SUCCESS);
+}
