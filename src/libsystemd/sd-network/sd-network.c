@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "env-file.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "inotify-util.h"
@@ -256,6 +257,12 @@ int sd_network_link_get_ntp(int ifindex, char ***ret) {
 
 int sd_network_link_get_sip(int ifindex, char ***ret) {
         return network_link_get_strv(ifindex, "SIP", ret);
+}
+
+int sd_network_link_get_captive_portal(int ifindex, char **ret) {
+        _cleanup_free_ char *escaped;
+        network_link_get_string(ifindex, "CAPTIVE_PORTAL", &escaped);
+        return cunescape(escaped, 0, ret);
 }
 
 int sd_network_link_get_search_domains(int ifindex, char ***ret) {
