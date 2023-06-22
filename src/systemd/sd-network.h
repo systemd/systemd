@@ -134,6 +134,9 @@ int sd_network_link_get_ntp(int ifindex, char ***ret);
  * representations of IP addresses */
 int sd_network_link_get_sip(int ifindex, char ***ret);
 
+/* Get the captive portal address for a given link. */
+int sd_network_link_get_captive_portal(int ifindex, char **ret);
+
 /* Indicates whether or not LLMNR should be enabled for the link
  * Possible levels of support: yes, no, resolve
  * Possible return codes:
