@@ -71,8 +71,8 @@ int manager_new(Manager **ret) {
         *m = (Manager) {
                 .listen_fd = -EBADF,
                 .worker_ratelimit = {
-                        .interval = 5 * USEC_PER_SEC,
-                        .burst = 50,
+                        .interval = 2 * USEC_PER_SEC,
+                        .burst = 2500,
                 },
         };
 
