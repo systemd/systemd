@@ -917,6 +917,8 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                         .interval = 10 * USEC_PER_MINUTE,
                         .burst = 10,
                 },
+
+                .executor_fd = -EBADF,
         };
 
 #if ENABLE_EFI
@@ -925,21 +927,6 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                                 m->timestamps + MANAGER_TIMESTAMP_FIRMWARE,
                                 m->timestamps + MANAGER_TIMESTAMP_LOADER);
 #endif
-
-        /* Prepare log fields we can use for structured logging */
-        if (MANAGER_IS_SYSTEM(m)) {
-                m->unit_log_field = "UNIT=";
-                m->unit_log_format_string = "UNIT=%s";
-
-                m->invocation_log_field = "INVOCATION_ID=";
-                m->invocation_log_format_string = "INVOCATION_ID=%s";
-        } else {
-                m->unit_log_field = "USER_UNIT=";
-                m->unit_log_format_string = "USER_UNIT=%s";
-
-                m->invocation_log_field = "USER_INVOCATION_ID=";
-                m->invocation_log_format_string = "USER_INVOCATION_ID=%s";
-        }
 
         /* Reboot immediately if the user hits C-A-D more often than 7x per 2s */
         m->ctrl_alt_del_ratelimit = (const RateLimit) { .interval = 2 * USEC_PER_SEC, .burst = 7 };
@@ -1033,6 +1020,47 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
 
                 if (r < 0 && r != -EEXIST)
                         return r;
+
+                m->executor_fd = open(SYSTEMD_EXECUTOR_BINARY_PATH, O_CLOEXEC|O_PATH);
+                if (m->executor_fd < 0)
+                        return log_warning_errno(errno,
+                                                 "Failed to open executor binary '%s': %m",
+                                                 SYSTEMD_EXECUTOR_BINARY_PATH);
+
+                m->executor_path = strdup(SYSTEMD_EXECUTOR_BINARY_PATH);
+                if (!m->executor_path)
+                        return -ENOMEM;
+        } else if (!FLAGS_SET(test_run_flags, MANAGER_TEST_DONT_OPEN_EXECUTOR)) {
+                _cleanup_free_ char *self_exe = NULL, *self_dir = NULL;
+                _cleanup_close_ int self_dir_fd = -EBADF;
+
+                /* Prefer sd-executor from the same directory as the test, e.g.: when running unit tests from the
+                * build directory. Fallback to working directory and then the installation path. */
+                r = readlink_and_make_absolute("/proc/self/exe", &self_exe);
+                if (r < 0)
+                        return r;
+
+                r = path_extract_directory(self_exe, &self_dir);
+                if (r < 0)
+                        return r;
+
+                self_dir_fd = open(self_dir, O_CLOEXEC|O_DIRECTORY);
+                if (self_dir_fd < 0)
+                        return -errno;
+
+                m->executor_fd = openat(self_dir_fd, "systemd-executor", O_CLOEXEC|O_PATH);
+                if (m->executor_fd < 0 && errno == ENOENT)
+                        m->executor_fd = openat(AT_FDCWD, "systemd-executor", O_CLOEXEC|O_PATH);
+                if (m->executor_fd < 0 && errno == ENOENT)
+                        m->executor_fd = open(SYSTEMD_EXECUTOR_BINARY_PATH, O_CLOEXEC|O_PATH);
+                if (m->executor_fd < 0)
+                        return -errno;
+
+                r = fd_get_path(m->executor_fd, &m->executor_path);
+                if (r < 0)
+                        return r;
+
+                log_debug("Using systemd-executor binary from '%s'", m->executor_path);
         }
 
         m->taint_usr =
@@ -1705,6 +1733,9 @@ Manager* manager_free(Manager *m) {
 #if BPF_FRAMEWORK
         lsm_bpf_destroy(m->restrict_fs);
 #endif
+
+        safe_close(m->executor_fd);
+        free(m->executor_path);
 
         return mfree(m);
 }
@@ -4169,7 +4200,7 @@ void manager_recheck_dbus(Manager *m) {
         }
 }
 
-static bool manager_journal_is_running(Manager *m) {
+bool manager_journal_is_running(Manager *m) {
         Unit *u;
 
         assert(m);
