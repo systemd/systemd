@@ -13,10 +13,12 @@
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "hmac.h"
+#include "initrd-util.h"
 #include "lock-util.h"
 #include "log.h"
 #include "logarithm.h"
 #include "memory-util.h"
+#include "nulstr-util.h"
 #include "openssl-util.h"
 #include "parse-util.h"
 #include "random-util.h"
@@ -3909,6 +3911,7 @@ int tpm2_parse_pcr_argument(const char *arg, uint32_t *mask) {
 }
 
 int tpm2_load_pcr_signature(const char *path, JsonVariant **ret) {
+        _cleanup_strv_free_ char **search = NULL;
         _cleanup_free_ char *discovered_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -3916,10 +3919,23 @@ int tpm2_load_pcr_signature(const char *path, JsonVariant **ret) {
         /* Tries to load a JSON PCR signature file. Takes an absolute path, a simple file name or NULL. In
          * the latter two cases searches in /etc/, /usr/lib/, /run/, as usual. */
 
-        if (!path)
+        search = strv_split_nulstr(CONF_PATHS_NULSTR("systemd"));
+        if (!search)
+                return log_oom();
+
+        if (!path) {
+                /* If no path is specified, then look for "tpm2-pcr-signature.json" automatically. Also, in
+                 * this case include /.extra/ in the search path, but only in this case, and if we run in the
+                 * initrd. We don't want to be too eager here, after all /.extra/ is untrusted territory. */
+
                 path = "tpm2-pcr-signature.json";
 
-        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("systemd"), &f, &discovered_path);
+                if (in_initrd())
+                        if (strv_extend(&search, "/.extra") < 0)
+                                return log_oom();
+        }
+
+        r = search_and_fopen(path, "re", NULL, (const char**) search, &f, &discovered_path);
         if (r < 0)
                 return log_debug_errno(r, "Failed to find TPM PCR signature file '%s': %m", path);
 
