@@ -36,7 +36,7 @@ TEST(asynchronous_close) {
         if (r == 0) {
                 /* child */
 
-                assert(prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) >= 0);
+                assert(make_reaper_process(true) >= 0);
 
                 fd = open("/dev/null", O_RDONLY|O_CLOEXEC);
                 assert_se(fd >= 0);
@@ -72,7 +72,7 @@ TEST(asynchronous_rm_rf) {
                 /* child */
 
                 assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
-                assert_se(prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) >= 0);
+                assert_se(make_reaper_process(true) >= 0);
 
                 assert_se(mkdtemp_malloc(NULL, &tt) >= 0);
                 assert_se(kk = path_join(tt, "somefile"));

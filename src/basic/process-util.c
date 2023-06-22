@@ -1705,6 +1705,24 @@ int is_reaper_process(void) {
         return b != 0;
 }
 
+int make_reaper_process(bool b) {
+
+        if (getpid_cached() == 1) {
+
+                if (!b)
+                        return -EINVAL;
+
+                return 0;
+        }
+
+        /* Some prctl()s insist that all 5 arguments are specified, others do not. Let's always specify all,
+         * to avoid any ambiguities */
+        if (prctl(PR_SET_CHILD_SUBREAPER, (unsigned long) b, 0UL, 0UL, 0UL) < 0)
+                return -errno;
+
+        return 0;
+}
+
 static const char *const sigchld_code_table[] = {
         [CLD_EXITED] = "exited",
         [CLD_KILLED] = "killed",
