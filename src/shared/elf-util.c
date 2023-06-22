@@ -532,14 +532,21 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
         for (size_t i = 0; i < n_program_headers; ++i) {
                 GElf_Phdr mem, *program_header;
                 Elf_Data *data;
+                GElf_Addr end_of_segment;
 
                 /* The core file stores the ELF files in the PT_LOAD segment. */
                 program_header = sym_gelf_getphdr(elf, i, &mem);
                 if (!program_header || program_header->p_type != PT_LOAD)
                         continue;
 
+                /* Check that the end of segment is a valid address. */
+                if (__builtin_add_overflow(program_header->p_vaddr, program_header->p_memsz, &end_of_segment)) {
+                        log_error("Abort due to corrupted core dump, end of segment address %#zx + %#zx overflows", (size_t)program_header->p_vaddr, (size_t)program_header->p_memsz);
+                        return DWARF_CB_ABORT;
+                }
+
                 /* This PT_LOAD segment doesn't contain the start address, so it can't be the module we are looking for. */
-                if (start < program_header->p_vaddr || start >= program_header->p_vaddr + program_header->p_memsz)
+                if (start < program_header->p_vaddr || start >= end_of_segment)
                         continue;
 
                 /* Now get a usable Elf reference, and parse the notes from it. */
