@@ -1224,6 +1224,15 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>IgnoreDF=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, enables IPv4 DF flag suppression on
+          the tunnel. Note that if <varname>IgnoreDF=</varname> is true,
+          <varname>DiscoverPathMTU=</varname> must be set to false.
+          Only applicable to GRE and GRETAP tunnels. </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>IPv6FlowLabel=</varname></term>
         <listitem>
           <para>Configures the 20-bit flow label (see <ulink url="https://tools.ietf.org/html/rfc6437">
