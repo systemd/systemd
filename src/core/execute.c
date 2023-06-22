@@ -7318,28 +7318,17 @@ int exec_command_append(ExecCommand *c, const char *path, ...) {
         return 0;
 }
 
-static void *rm_rf_thread(void *p) {
-        _cleanup_free_ char *path = p;
+static char *destroy_tree(char *path) {
+        if (!path)
+                return NULL;
 
-        (void) rm_rf(path, REMOVE_ROOT|REMOVE_SUBVOLUME|REMOVE_PHYSICAL);
-        return NULL;
-}
+        if (!path_equal(path, RUN_SYSTEMD_EMPTY)) {
+                log_debug("Spawning process to nuke '%s'", path);
 
-static void asynchronous_rm_rf(char **path) {
-        int r;
+                (void) asynchronous_rm_rf(path, REMOVE_ROOT|REMOVE_SUBVOLUME|REMOVE_PHYSICAL);
+        }
 
-        assert(path);
-
-        if (!*path || streq(*path, RUN_SYSTEMD_EMPTY))
-                return;
-
-        log_debug("Spawning thread to nuke %s", *path);
-
-        r = asynchronous_job(rm_rf_thread, *path);
-        if (r < 0)
-                log_warning_errno(r, "Failed to nuke %s: %m", *path);
-        else
-                *path = NULL;
+        return mfree(path);
 }
 
 static ExecSharedRuntime* exec_shared_runtime_free(ExecSharedRuntime *rt) {
@@ -7370,8 +7359,8 @@ ExecSharedRuntime* exec_shared_runtime_destroy(ExecSharedRuntime *rt) {
         if (rt->n_ref > 0)
                 return NULL;
 
-        asynchronous_rm_rf(&rt->tmp_dir);
-        asynchronous_rm_rf(&rt->var_tmp_dir);
+        rt->tmp_dir = destroy_tree(rt->tmp_dir);
+        rt->var_tmp_dir = destroy_tree(rt->var_tmp_dir);
 
         return exec_shared_runtime_free(rt);
 }
@@ -7862,9 +7851,8 @@ ExecRuntime* exec_runtime_free(ExecRuntime *rt) {
         exec_shared_runtime_unref(rt->shared);
         dynamic_creds_unref(rt->dynamic_creds);
 
-        asynchronous_rm_rf(&rt->ephemeral_copy);
+        rt->ephemeral_copy = destroy_tree(rt->ephemeral_copy);
 
-        free(rt->ephemeral_copy);
         safe_close_pair(rt->ephemeral_storage_socket);
         return mfree(rt);
 }
