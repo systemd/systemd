@@ -873,6 +873,18 @@ finalize:
         return r;
 }
 
+static int captive_portal_build_json(Link *link, JsonVariant **ret) {
+        const char *captive_portal = NULL;
+
+        assert(link);
+        assert(ret);
+
+        if (link->dhcp_lease)
+                (void) sd_dhcp_lease_get_captive_portal(link->dhcp_lease, &captive_portal);
+
+        return json_build(ret, JSON_BUILD_PAIR_STRING_NON_EMPTY("CaptivePortal", captive_portal));
+}
+
 static int domain_build_json(int family, const char *domain, NetworkConfigSource s, const union in_addr_union *p, JsonVariant **ret) {
         assert(IN_SET(family, AF_UNSPEC, AF_INET, AF_INET6));
         assert(domain);
@@ -1381,6 +1393,14 @@ int link_build_json(Link *link, JsonVariant **ret) {
         w = json_variant_unref(w);
 
         r = sip_build_json(link, &w);
+        if (r < 0)
+                return r;
+
+        r = json_variant_merge(&v, w);
+        if (r < 0)
+                return r;
+
+        r = captive_portal_build_json(link, &w);
         if (r < 0)
                 return r;
 

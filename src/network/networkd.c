@@ -1,5 +1,3 @@
-/* SPDX-License-Identifier: LGPL-2.1-or-later */
-
 #include <netinet/in.h>
 #include <sys/stat.h>
 #include <sys/types.h>
