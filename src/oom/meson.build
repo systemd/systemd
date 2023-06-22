@@ -7,7 +7,25 @@ systemd_oomd_sources = files(
         'oomd.c',
 )
 
-oomctl_sources = files('oomctl.c')
+executables += [
+        daemon_template + {
+                'name' : 'systemd-oomd',
+                'dbus' : true,
+                'conditions' : ['ENABLE_OOMD'],
+                'sources' : systemd_oomd_sources,
+                'dependencies' : [libatomic,
+                                  userspace,
+                                  versiondep],
+        },
+        executable_template + {
+                'name' : 'oomctl',
+                'public' : true,
+                'conditions' : ['ENABLE_OOMD'],
+                'sources' : files('oomctl.c'),
+                'dependencies' : [userspace,
+                                  versiondep],
+        },
+]
 
 if conf.get('ENABLE_OOMD') == 1
         install_data('org.freedesktop.oom1.conf',
