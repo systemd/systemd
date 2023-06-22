@@ -5335,14 +5335,12 @@ int unit_fork_helper_process(Unit *u, const char *name, pid_t *ret) {
 
         (void) unit_realize_cgroup(u);
 
-        r = safe_fork(name, FORK_REOPEN_LOG, ret);
+        r = safe_fork(name, FORK_REOPEN_LOG|FORK_DEATHSIG, ret);
         if (r != 0)
                 return r;
 
         (void) default_signals(SIGNALS_CRASH_HANDLER, SIGNALS_IGNORE);
         (void) ignore_signals(SIGPIPE);
-
-        (void) prctl(PR_SET_PDEATHSIG, SIGTERM);
 
         if (u->cgroup_path) {
                 r = cg_attach_everywhere(u->manager->cgroup_supported, u->cgroup_path, 0, NULL, NULL);
