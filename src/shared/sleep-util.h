@@ -53,7 +53,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(SwapEntry*, swap_entry_free);
  */
 typedef struct HibernateLocation {
         dev_t devno;
-        uint64_t offset;
+        uint64_t offset; /* in memory pages */
         SwapEntry *swap;
 } HibernateLocation;
 
