@@ -46,6 +46,8 @@ struct Transfer {
         PartitionChange partition_change;
 };
 
+typedef int (*TransferProgress)(const Transfer *, const Instance *, unsigned, void *);
+
 Transfer *transfer_new(void);
 
 Transfer *transfer_free(Transfer *t);
@@ -57,6 +59,6 @@ int transfer_resolve_paths(Transfer *t, const char *root, const char *node);
 
 int transfer_vacuum(Transfer *t, uint64_t space, const char *extra_protected_version);
 
-int transfer_acquire_instance(Transfer *t, Instance *i);
+int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, void *userdata);
 
 int transfer_install_instance(Transfer *t, Instance *i, const char *root);

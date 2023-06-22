@@ -25,6 +25,7 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "set.h"
+#include "signal-util.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -744,6 +745,30 @@ static int context_make_online(Context **ret, const char *node) {
         return 0;
 }
 
+static int context_on_acquire_progress(const Transfer *t, const Instance *inst, unsigned percentage, void *userdata) {
+        const Context *c = ASSERT_PTR(userdata);
+        size_t i, n = c->n_transfers;
+        uint64_t base, scaled;
+        unsigned overall;
+
+        for (i = 0; i < n; i++)
+                if (c->transfers[i] == t)
+                        break;
+        assert(i < n); /* We should have found the index */
+
+        base = (100 * 100 * i) / n;
+        scaled = (100 * percentage) / n;
+        overall = (unsigned) (base + scaled) / 100;
+        assert(overall <= 100);
+
+        log_debug("Transfer %zu/%zu is %u%% complete (%u%% overall).", i+1, n, percentage, overall);
+        return sd_notifyf(false, "X_UPDATE_PROGRESS=%u\n"
+                                 "X_UPDATE_FILES_LEFT=%zu\n"
+                                 "X_UPDATE_FILES_DONE=%zu\n"
+                                 "STATUS=Updating to '%s' (%u%% complete).",
+                                 overall, n - i, i, inst->metadata.version, overall);
+}
+
 static int context_apply(
                 Context *c,
                 const char *version,
@@ -816,13 +841,17 @@ static int context_apply(
         assert(us->n_instances == c->n_transfers);
 
         for (size_t i = 0; i < c->n_transfers; i++) {
-                r = transfer_acquire_instance(c->transfers[i], us->instances[i]);
+                r = transfer_acquire_instance(c->transfers[i], us->instances[i],
+                                              context_on_acquire_progress, c);
                 if (r < 0)
                         return r;
         }
 
         if (arg_sync)
                 sync();
+
+        (void) sd_notifyf(false,
+                          "STATUS=Installing '%s'.\n", us->version);
 
         for (size_t i = 0; i < c->n_transfers; i++) {
                 r = transfer_install_instance(c->transfers[i], us->instances[i], arg_root);
@@ -1411,6 +1440,9 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        /* SIGCHLD signal must be blocked for sd_event_add_child to work */
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
 
         return sysupdate_main(argc, argv);
 }
