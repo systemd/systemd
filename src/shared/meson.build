@@ -4,6 +4,7 @@ shared_sources = files(
         'acpi-fpdt.c',
         'apparmor-util.c',
         'ask-password-api.c',
+        'async.c',
         'barrier.c',
         'base-filesystem.c',
         'battery-util.c',
