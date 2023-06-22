@@ -2294,10 +2294,9 @@ static int initialize_runtime(
                 }
         }
 
-        if (arg_runtime_scope == RUNTIME_SCOPE_USER)
-                /* Become reaper of our children */
-                if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0)
-                        log_warning_errno(errno, "Failed to make us a subreaper, ignoring: %m");
+        r = make_reaper_process(true);
+        if (r < 0)
+                log_warning_errno(r, "Failed to make us a subreaper, ignoring: %m");
 
         /* Bump up RLIMIT_NOFILE for systemd itself */
         (void) bump_rlimit_nofile(saved_rlimit_nofile);
