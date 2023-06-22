@@ -22,7 +22,7 @@ int asynchronous_sync(pid_t *ret_pid) {
          * original process ever, and a thread would do that as the process can't exit with threads hanging in blocking
          * syscalls. */
 
-        r = safe_fork("(sd-sync)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, ret_pid);
+        r = safe_fork("(sd-sync)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|(ret_pid ? 0 : FORK_DETACH), ret_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
