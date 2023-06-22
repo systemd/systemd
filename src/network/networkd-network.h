@@ -143,6 +143,7 @@ struct Network {
         bool dhcp_use_ntp_set;
         bool dhcp_routes_to_ntp;
         bool dhcp_use_sip;
+        bool dhcp_use_captive_portal;
         bool dhcp_use_mtu;
         bool dhcp_use_routes;
         int dhcp_use_gateway;
