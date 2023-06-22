@@ -1195,8 +1195,11 @@ int safe_fork_full(
         pid_t original_pid, pid;
         sigset_t saved_ss, ss;
         _unused_ _cleanup_(restore_sigsetp) sigset_t *saved_ssp = NULL;
-        bool block_signals = false, block_all = false;
+        bool block_signals = false, block_all = false, intermediary = false;
         int prio, r;
+
+        assert(!FLAGS_SET(flags, FORK_DETACH) || !ret_pid);
+        assert(!FLAGS_SET(flags, FORK_DETACH|FORK_WAIT));
 
         /* A wrapper around fork(), that does a couple of important initializations in addition to mere forking. Always
          * returns the child's PID in *ret_pid. Returns == 0 in the child, and > 0 in the parent. */
@@ -1231,6 +1234,31 @@ int safe_fork_full(
                 saved_ssp = &saved_ss;
         }
 
+        if (FLAGS_SET(flags, FORK_DETACH)) {
+                assert(!FLAGS_SET(flags, FORK_WAIT));
+                assert(!ret_pid);
+
+                /* Fork off intermediary child if needed */
+
+                r = is_reaper_process();
+                if (r < 0)
+                        return log_full_errno(prio, r, "Failed to determine if we are a reaper process: %m");
+
+                if (!r) {
+                        /* Not a reaper process, hence do a double fork() so we are reparented to one */
+
+                        pid = fork();
+                        if (pid < 0)
+                                return log_full_errno(prio, errno, "Failed to fork off '%s': %m", strna(name));
+                        if (pid > 0) {
+                                log_debug("Successfully forked off intermediary '%s' as PID " PID_FMT ".", strna(name), pid);
+                                return 1; /* return in the parent */
+                        }
+
+                        intermediary = true;
+                }
+        }
+
         if ((flags & (FORK_NEW_MOUNTNS|FORK_NEW_USERNS)) != 0)
                 pid = raw_clone(SIGCHLD|
                                 (FLAGS_SET(flags, FORK_NEW_MOUNTNS) ? CLONE_NEWNS : 0) |
@@ -1240,8 +1268,12 @@ int safe_fork_full(
         if (pid < 0)
                 return log_full_errno(prio, errno, "Failed to fork off '%s': %m", strna(name));
         if (pid > 0) {
-                /* We are in the parent process */
 
+                /* If we are in the intermediary process, exit now */
+                if (intermediary)
+                        _exit(EXIT_SUCCESS);
+
+                /* We are in the parent process */
                 log_debug("Successfully forked off '%s' as PID " PID_FMT ".", strna(name), pid);
 
                 if (flags & FORK_WAIT) {

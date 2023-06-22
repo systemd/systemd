@@ -164,6 +164,7 @@ typedef enum ForkFlags {
         FORK_NEW_USERNS         = 1 << 14, /* Run child in its own user namespace                                💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_CLOEXEC_OFF        = 1 << 15, /* In the child: turn off O_CLOEXEC on all fds in except_fds[] */
         FORK_KEEP_NOTIFY_SOCKET = 1 << 16, /* Unless this specified, $NOTIFY_SOCKET will be unset. */
+        FORK_DETACH             = 1 << 17, /* Double fork if needed to ensure PID1/subreaper is parent */
 } ForkFlags;
 
 int safe_fork_full(
