@@ -604,14 +604,15 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
                 return log_warning_errno(errno, "Failed to seek: %m");
 
         field = malloc(9 + size);
-        if (!field) {
-                log_warning("Failed to allocate memory for coredump, coredump will not be stored.");
-                return -ENOMEM;
-        }
+        if (!field)
+                return log_warning_errno(SYNTHETIC_ERRNO(ENOMEM),
+                                         "Failed to allocate memory for coredump, coredump will not be stored.");
 
         memcpy(field, "COREDUMP=", 9);
 
-        n = read(fd, field + 9, size);
+        /* NB: simple read() would fail for overly large coredumps, since read() on Linux can only deal with
+         * 0x7ffff000 bytes max. Hence call things in a loop. */
+        n = loop_read(fd, field + 9, size, /* do_poll= */ false);
         if (n < 0)
                 return log_error_errno((int) n, "Failed to read core data: %m");
         if ((size_t) n < size)

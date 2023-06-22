@@ -54,8 +54,7 @@ ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll) {
 
         assert(fd >= 0);
 
-        /* If called with nbytes == 0, let's call read() at least
-         * once, to validate the operation */
+        /* If called with nbytes == 0, let's call read() at least once, to validate the operation */
 
         if (nbytes > (size_t) SSIZE_MAX)
                 return -EINVAL;
