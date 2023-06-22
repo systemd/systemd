@@ -931,7 +931,7 @@ TEST(reaper_process) {
         assert_se(r >= 0);
         if (r == 0) {
                 /* child */
-                assert_se(prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) >= 0);
+                assert_se(make_reaper_process(true) >= 0);
 
                 assert_se(reaper_process() > 0);
                 _exit(EXIT_SUCCESS);
