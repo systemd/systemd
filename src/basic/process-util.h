@@ -139,6 +139,8 @@ void reset_cached_pid(void);
 
 int must_be_root(void);
 
+pid_t clone_with_nested_stack(int (*fn)(void *), int flags, void *userdata);
+
 typedef enum ForkFlags {
         FORK_RESET_SIGNALS      = 1 <<  0, /* Reset all signal handlers and signal mask */
         FORK_CLOSE_ALL_FDS      = 1 <<  1, /* Close all open file descriptors in the child, except for 0,1,2 */
