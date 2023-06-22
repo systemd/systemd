@@ -141,6 +141,11 @@ int must_be_root(void);
 
 pid_t clone_with_nested_stack(int (*fn)(void *), int flags, void *userdata);
 
+/* 💣 Note that FORK_NEW_USERNS + FORK_NEW_MOUNTNS should not be called in threaded programs, because they
+ * cause us to use raw_clone() which does not synchronize the glibc malloc() locks, and thus will cause
+ * deadlocks if the parent uses threads and the child does memory allocations. Hence: if the parent is
+ * threaded these flags may not be used. These flags cannot be used if the parent uses threads or the child
+ * uses malloc(). 💣 */
 typedef enum ForkFlags {
         FORK_RESET_SIGNALS      = 1 <<  0, /* Reset all signal handlers and signal mask */
         FORK_CLOSE_ALL_FDS      = 1 <<  1, /* Close all open file descriptors in the child, except for 0,1,2 */
@@ -150,13 +155,13 @@ typedef enum ForkFlags {
         FORK_REOPEN_LOG         = 1 <<  5, /* Reopen log connection */
         FORK_LOG                = 1 <<  6, /* Log above LOG_DEBUG log level about failures */
         FORK_WAIT               = 1 <<  7, /* Wait until child exited */
-        FORK_NEW_MOUNTNS        = 1 <<  8, /* Run child in its own mount namespace */
+        FORK_NEW_MOUNTNS        = 1 <<  8, /* Run child in its own mount namespace                               💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_MOUNTNS_SLAVE      = 1 <<  9, /* Make child's mount namespace MS_SLAVE */
         FORK_PRIVATE_TMP        = 1 << 10, /* Mount new /tmp/ in the child (combine with FORK_NEW_MOUNTNS!) */
         FORK_RLIMIT_NOFILE_SAFE = 1 << 11, /* Set RLIMIT_NOFILE soft limit to 1K for select() compat */
         FORK_STDOUT_TO_STDERR   = 1 << 12, /* Make stdout a copy of stderr */
         FORK_FLUSH_STDIO        = 1 << 13, /* fflush() stdout (and stderr) before forking */
-        FORK_NEW_USERNS         = 1 << 14, /* Run child in its own user namespace */
+        FORK_NEW_USERNS         = 1 << 14, /* Run child in its own user namespace                                💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_CLOEXEC_OFF        = 1 << 15, /* In the child: turn off O_CLOEXEC on all fds in except_fds[] */
         FORK_KEEP_NOTIFY_SOCKET = 1 << 16, /* Unless this specified, $NOTIFY_SOCKET will be unset. */
 } ForkFlags;
