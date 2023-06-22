@@ -44,22 +44,6 @@ static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_FAILED] = UNIT_FAILED
 };
 
-struct expire_data {
-        int dev_autofs_fd;
-        int ioctl_fd;
-};
-
-static struct expire_data* expire_data_free(struct expire_data *data) {
-        if (!data)
-                return NULL;
-
-        safe_close(data->dev_autofs_fd);
-        safe_close(data->ioctl_fd);
-        return mfree(data);
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct expire_data*, expire_data_free);
-
 static int open_dev_autofs(Manager *m);
 static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, void *userdata);
 static int automount_start_expire(Automount *a);
@@ -674,54 +658,56 @@ fail:
         automount_enter_dead(a, AUTOMOUNT_FAILURE_RESOURCES);
 }
 
-static void *expire_thread(void *p) {
-        struct autofs_dev_ioctl param;
-        _cleanup_(expire_data_freep) struct expire_data *data = p;
+static int asynchronous_expire(int dev_autofs_fd, int ioctl_fd) {
         int r;
 
-        assert(data->dev_autofs_fd >= 0);
-        assert(data->ioctl_fd >= 0);
+        assert(dev_autofs_fd >= 0);
+        assert(ioctl_fd >= 0);
 
-        init_autofs_dev_ioctl(&param);
-        param.ioctlfd = data->ioctl_fd;
+        /* Issue AUTOFS_DEV_IOCTL_EXPIRE in subprocess, asynchronously. Note that we don't keep track of the
+         * child's PID, we are PID1/autoreaper after all, hence when it dies we'll automatically clean it up
+         * anyway. */
 
-        do {
-                r = ioctl(data->dev_autofs_fd, AUTOFS_DEV_IOCTL_EXPIRE, &param);
-        } while (r >= 0);
+        r = safe_fork_full("(sd-expire)",
+                           /* stdio_fds= */ NULL,
+                           (int[]) { dev_autofs_fd, ioctl_fd },
+                           /* n_except_fds= */ 2,
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG,
+                           /* pid= */ NULL);
+        if (r != 0)
+                return r;
+
+        /* Child */
+        for (;;) {
+                struct autofs_dev_ioctl param;
+                init_autofs_dev_ioctl(&param);
+                param.ioctlfd = ioctl_fd;
+
+                if (ioctl(dev_autofs_fd, AUTOFS_DEV_IOCTL_EXPIRE, &param) < 0)
+                        break;
+        }
 
         if (errno != EAGAIN)
                 log_warning_errno(errno, "Failed to expire automount, ignoring: %m");
 
-        return NULL;
+        _exit(EXIT_SUCCESS);
 }
 
 static int automount_dispatch_expire(sd_event_source *source, usec_t usec, void *userdata) {
+        _cleanup_close_ int ioctl_fd = -EBADF;
         Automount *a = AUTOMOUNT(userdata);
-        _cleanup_(expire_data_freep) struct expire_data *data = NULL;
         int r;
 
         assert(a);
         assert(source == a->expire_event_source);
 
-        data = new0(struct expire_data, 1);
-        if (!data)
-                return log_oom();
+        ioctl_fd = open_ioctl_fd(UNIT(a)->manager->dev_autofs_fd, a->where, a->dev_id);
+        if (ioctl_fd < 0)
+                return log_unit_error_errno(UNIT(a), ioctl_fd, "Couldn't open autofs ioctl fd: %m");
 
-        data->ioctl_fd = -EBADF;
-
-        data->dev_autofs_fd = fcntl(UNIT(a)->manager->dev_autofs_fd, F_DUPFD_CLOEXEC, 3);
-        if (data->dev_autofs_fd < 0)
-                return log_unit_error_errno(UNIT(a), errno, "Failed to duplicate autofs fd: %m");
-
-        data->ioctl_fd = open_ioctl_fd(UNIT(a)->manager->dev_autofs_fd, a->where, a->dev_id);
-        if (data->ioctl_fd < 0)
-                return log_unit_error_errno(UNIT(a), data->ioctl_fd, "Couldn't open autofs ioctl fd: %m");
-
-        r = asynchronous_job(expire_thread, data);
+        r = asynchronous_expire(UNIT(a)->manager->dev_autofs_fd, ioctl_fd);
         if (r < 0)
                 return log_unit_error_errno(UNIT(a), r, "Failed to start expire job: %m");
-
-        data = NULL;
 
         return automount_start_expire(a);
 }
