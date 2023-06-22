@@ -4,6 +4,7 @@
 #include "dns-domain.h"
 #include "dns-type.h"
 #include "resolved-dns-question.h"
+#include "socket-util.h"
 
 DnsQuestion *dns_question_new(size_t n) {
         DnsQuestion *q;
@@ -329,6 +330,11 @@ int dns_question_new_address(DnsQuestion **ret, int family, const char *name, bo
 
         if (!IN_SET(family, AF_INET, AF_INET6, AF_UNSPEC))
                 return -EAFNOSUPPORT;
+
+        /* If IPv6 is off and the request has an unspecified lookup family, restrict it automatically to
+         * IPv4. */
+        if (family == AF_UNSPEC && !socket_ipv6_is_enabled())
+                family = AF_INET;
 
         if (convert_idna) {
                 r = dns_name_apply_idna(name, &buf);
