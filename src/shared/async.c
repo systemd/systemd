@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
-#include <pthread.h>
 #include <stddef.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
@@ -14,52 +13,6 @@
 #include "macro.h"
 #include "process-util.h"
 #include "signal-util.h"
-
-int asynchronous_job(void* (*func)(void *p), void *arg) {
-        sigset_t ss, saved_ss;
-        pthread_attr_t a;
-        pthread_t t;
-        int r, k;
-
-        /* It kinda sucks that we have to resort to threads to implement an asynchronous close(), but well, such is
-         * life. */
-
-        r = pthread_attr_init(&a);
-        if (r > 0)
-                return -r;
-
-        r = pthread_attr_setdetachstate(&a, PTHREAD_CREATE_DETACHED);
-        if (r > 0) {
-                r = -r;
-                goto finish;
-        }
-
-        assert_se(sigfillset(&ss) >= 0);
-
-        /* Block all signals before forking off the thread, so that the new thread is started with all signals
-         * blocked. This way the existence of the new thread won't affect signal handling in other threads. */
-
-        r = pthread_sigmask(SIG_BLOCK, &ss, &saved_ss);
-        if (r > 0) {
-                r = -r;
-                goto finish;
-        }
-
-        r = pthread_create(&t, &a, func, arg);
-
-        k = pthread_sigmask(SIG_SETMASK, &saved_ss, NULL);
-
-        if (r > 0)
-                r = -r;
-        else if (k > 0)
-                r = -k;
-        else
-                r = 0;
-
-finish:
-        pthread_attr_destroy(&a);
-        return r;
-}
 
 int asynchronous_sync(pid_t *ret_pid) {
         int r;

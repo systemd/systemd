@@ -13,19 +13,8 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
-static bool test_async = false;
-
-static void *async_func(void *arg) {
-        test_async = true;
-
-        return NULL;
-}
-
-TEST(test_async) {
-        assert_se(asynchronous_job(async_func, NULL) >= 0);
+TEST(test_asynchronous_sync) {
         assert_se(asynchronous_sync(NULL) >= 0);
-
-        assert_se(test_async);
 }
 
 TEST(asynchronous_close) {
