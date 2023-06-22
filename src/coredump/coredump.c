@@ -172,9 +172,27 @@ static int parse_config(void) {
                 {}
         };
 
-        return config_parse_config_file("coredump.conf", "Coredump\0",
-                                        config_item_table_lookup, items,
-                                        CONFIG_PARSE_WARN, NULL);
+        int r;
+
+        r = config_parse_config_file(
+                        "coredump.conf",
+                        "Coredump\0",
+                        config_item_table_lookup,
+                        items,
+                        CONFIG_PARSE_WARN,
+                        /* userdata= */ NULL);
+        if (r < 0)
+                return r;
+
+        /* Let's make sure we fix up the maximum size we send to the journal here on the client side, for
+         * efficiency reasons. journald wouldn't accept anything larger anyway. */
+        if (arg_journal_size_max > JOURNAL_SIZE_MAX) {
+                log_warning("JournalSizeMax= set to larger value (%s) than journald would accept (%s), lowering automatically.",
+                            FORMAT_BYTES(arg_journal_size_max), FORMAT_BYTES(JOURNAL_SIZE_MAX));
+                arg_journal_size_max = JOURNAL_SIZE_MAX;
+        }
+
+        return 0;
 }
 
 static uint64_t storage_size_max(void) {
