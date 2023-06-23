@@ -125,6 +125,80 @@ int read_credential(const char *name, void **ret, size_t *ret_size) {
                         (char**) ret, ret_size);
 }
 
+int read_credential_with_decryption(const char *name, void **ret, size_t *ret_size) {
+        _cleanup_(erase_and_freep) void *data = NULL;
+        _cleanup_free_ char *fn = NULL;
+        size_t sz = 0;
+        const char *d;
+        int r;
+
+        assert(ret);
+
+        /* Just like read_credential() but will also look for encrypted credentials. Note that services only
+         * receive decrypted credentials, hence use read_credential() for those. This helper here is for
+         * generators, i.e. code that runs outside of service context, and thus has no decrypted credentials
+         * yet.
+         *
+         * Note that read_credential_harder_and_warn() logs on its own, while read_credential() does not!
+         * (It's a lot more complex and error prone given its TPM2 connectivty, and is generally called from
+         * generators only where logging is OK).
+         *
+         * Error handling is also a bit different: if we can't find a credential we'll return 0 and NULL
+         * pointers/zero size, rather than -ENXIO/-ENOENT. */
+
+        if (!credential_name_valid(name))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid credential name: %s", name);
+
+        r = read_credential(name, ret, ret_size);
+        if (r >= 0)
+                return 1; /* found */
+        if (!IN_SET(r, -ENXIO, -ENOENT))
+                return log_error_errno(r, "Failed read unencrypted credential '%s': %m", name);
+
+        r = get_encrypted_credentials_dir(&d);
+        if (r == -ENXIO)
+                goto not_found;
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine encrypted credentials directory: %m");
+
+        fn = path_join(d, name);
+        if (!fn)
+                return log_oom();
+
+        r = read_full_file_full(
+                        AT_FDCWD, fn,
+                        UINT64_MAX, SIZE_MAX,
+                        READ_FULL_FILE_SECURE,
+                        NULL,
+                        (char**) data, &sz);
+        if (r == -ENOENT)
+                goto not_found;
+        if (r < 0)
+                return log_error_errno(r, "Failed to read encrypted credential data: %m");
+
+        r = decrypt_credential_and_warn(
+                        name,
+                        now(CLOCK_REALTIME),
+                        /* tpm2_device = */ NULL,
+                        /* tpm2_signature_path = */ NULL,
+                        data,
+                        sz,
+                        ret,
+                        ret_size);
+        if (r < 0)
+                return r;
+
+        return 1; /* found */
+
+not_found:
+        *ret = NULL;
+
+        if (ret_size)
+                *ret_size = 0;
+
+        return 0; /* not found */
+}
+
 int read_credential_strings_many_internal(
                 const char *first_name, char **first_value,
                 ...) {
