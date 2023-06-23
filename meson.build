@@ -2215,6 +2215,9 @@ simple_tests = []
 fuzzers = []
 simple_fuzzers = []
 catalogs = []
+modules = [] # nss, pam, and other plugins
+executables = []
+executables_by_name = {}
 
 # binaries that have --help and are intended for use by humans,
 # usually, but not always, installed in /bin.
@@ -2401,6 +2404,68 @@ endif
 
 ############################################################
 
+executable_template = {
+        'include_directories' : includes,
+        'link_with' : libshared,
+        'install_rpath' : pkglibdir,
+        'install' : true,
+}
+
+generator_template = executable_template + {
+        'install_dir' : systemgeneratordir,
+}
+
+libexec_template = executable_template + {
+        'install_dir' : libexecdir,
+}
+
+executable_additional_kwargs = {
+        'dependencies' : userspace,
+}
+
+nss_template = {
+        'version' : '2',
+        'include_directories' : includes,
+        # Note that we link NSS modules with '-z nodelete' so that mempools never get orphaned
+        'link_args' : ['-z', 'nodelete'],
+        'link_with' : [
+                libsystemd_static,
+                libshared_static,
+                libbasic,
+        ],
+        'dependencies' : [
+                librt,
+                threads,
+        ],
+        'install' : true,
+        'install_tag' : 'nss',
+        'install_dir' : libdir,
+}
+
+pam_template = {
+        'name_prefix' : '',
+        'include_directories' : includes,
+        'link_with' : [
+                libsystemd_static,
+                libshared_static,
+        ],
+        'dependencies' : [
+                libpam_misc,
+                libpam,
+                threads,
+        ],
+        'install' : true,
+        'install_tag' : 'pam',
+        'install_dir' : pamlibdir,
+}
+
+module_additional_kwargs = {
+        'link_args' : ['-shared'],
+        'dependencies' : userspace,
+}
+
+############################################################
+
 # systemd-analyze requires 'libcore'
 subdir('src/core')
 # systemd-journal-remote requires 'libjournal_core'
@@ -2450,6 +2515,51 @@ subdir('test')
 subdir('src/ukify/test')  # needs to be last for test_env variable
 
 alias_target('devel', libsystemd_pc, libudev_pc, systemd_pc, udev_pc)
+
+############################################################
+
+foreach dict : executables
+        name = dict.get('name')
+
+        build = true
+        foreach cond : dict.get('conditions', [])
+                if conf.get(cond) != 1
+                        build = false
+                        break
+                endif
+        endforeach
+        if not build
+                continue
+        endif
+
+        kwargs = {}
+        foreach key, val : dict
+                if key in ['name', 'dbus', 'public', 'conditions']
+                        continue
+                endif
+                kwargs += { key : val }
+        endforeach
+
+        foreach key, val : executable_additional_kwargs
+                kwargs += { key : [ kwargs.get(key, []), val ]}
+        endforeach
+
+        exe = executable(
+                name,
+                kwargs : kwargs,
+        )
+
+        executables_by_name += { name : exe }
+
+        if dict.get('build_by_default', true)
+                if dict.get('dbus', false)
+                        dbus_programs += exe
+                endif
+                if dict.get('public', false)
+                        public_programs += exe
+                endif
+        endif
+endforeach
 
 ############################################################
 
@@ -2520,6 +2630,62 @@ foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
                              args : nss.full_path(),
                              depends : nss)
                 endif
+        endif
+endforeach
+
+foreach dict : modules
+        name = dict.get('name')
+        is_nss = name.startswith('nss_')
+        is_pam = name.startswith('pam_')
+
+        build = true
+        foreach cond : dict.get('conditions', [])
+                if conf.get(cond) != 1
+                        build = false
+                        break
+                endif
+        endforeach
+        if not build
+                continue
+        endif
+
+        kwargs = {}
+        foreach key, val : dict
+                if key in ['name', 'conditions']
+                        continue
+                endif
+                kwargs += { key : val }
+        endforeach
+
+        sym = meson.current_source_dir() / '@0@'.format(dict.get('link_depends')[0])
+        kwargs += {
+                'link_args' : [
+                        kwargs.get('link_args', []),
+                        '-Wl,--version-script=' + sym,
+                ],
+        }
+        foreach key, val : module_additional_kwargs
+                kwargs += { key : [ kwargs.get(key, []), val ]}
+        endforeach
+
+        lib = shared_library(
+                name,
+                kwargs : kwargs,
+        )
+
+        if is_nss
+                # We cannot use shared_module because it does not support version suffix.
+                # Unfortunately shared_library insists on creating the symlink…
+                meson.add_install_script('sh', '-c', 'rm $DESTDIR@0@/lib@1@.so'.format(libdir, name),
+                                         install_tag : 'nss')
+        endif
+
+        if want_tests != 'false' and (is_nss or is_pam)
+                test('dlopen-' + name,
+                     test_dlopen,
+                     # path to dlopen must include a slash
+                     args : lib.full_path(),
+                     depends : lib)
         endif
 endforeach
 
