@@ -914,7 +914,7 @@ EOF
 }
 
 create_asan_wrapper() {
-    local asan_wrapper default_asan_options default_ubsan_options default_environment
+    local asan_wrapper default_asan_options default_ubsan_options default_environment manager_environment
 
     [[ -z "$ASAN_RT_PATH" ]] && dfatal "ASAN_RT_PATH is empty, but it shouldn't be"
 
@@ -948,12 +948,17 @@ EOF
         "UBSAN_OPTIONS='$default_ubsan_options'"
         "ASAN_RT_PATH='$ASAN_RT_PATH'"
     )
+    manager_environment=(
+        "ASAN_OPTIONS='$default_asan_options:log_path=/systemd-pid1.asan.log:log_to_syslog=1'"
+        "UBSAN_OPTIONS='$default_ubsan_options:log_path=/systemd-pid1.ubsan.log:log_to_syslog=1'"
+        "ASAN_RT_PATH='$ASAN_RT_PATH'"
+    )
 
     mkdir -p "${initdir:?}/etc/systemd/system.conf.d/"
     cat >"${initdir:?}/etc/systemd/system.conf.d/asan.conf" <<EOF
 [Manager]
 DefaultEnvironment=${default_environment[*]}
-ManagerEnvironment=${default_environment[*]}
+ManagerEnvironment=${manager_environment[*]}
 DefaultTimeoutStartSec=180s
 DefaultStandardOutput=journal+console
 EOF
@@ -1002,7 +1007,7 @@ EOF
 set -eux
 
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin"
-export ${default_environment[@]}
+export ${manager_environment[@]}
 [[ -n "\$ASAN_OPTIONS" && -n "\$UBSAN_OPTIONS" ]]
 
 exec "$ROOTLIBDIR/systemd" "\$@"
@@ -1534,6 +1539,7 @@ create_empty_image_rootdir() {
 check_asan_reports() {
     local ret=0
     local root="${1:?}"
+    local log report
 
     if get_bool "$IS_BUILT_WITH_ASAN"; then
         ls -l "$root"
@@ -1542,12 +1548,15 @@ check_asan_reports() {
             ret=$((ret+1))
         fi
 
-        journald_report="$(find "$root" -name "systemd-journald.*san.log*" -exec cat {} \;)"
-        if [[ -n "$journald_report" ]]; then
-            printf "%s\n" "$journald_report"
-            cat "$root/systemd-journald.out" || :
-            ret=$((ret+1))
-        fi
+        for log in pid1 journald; do
+            report="$(find "$root" -name "systemd-$log.*san.log*" -exec cat {} \;)"
+            if [[ -n "$report" ]]; then
+                printf "%s\n" "$report"
+                # shellcheck disable=SC2015
+                [[ "$log" == journald ]] && cat "$root/systemd-journald.out" || :
+                ret=$((ret+1))
+            fi
+        done
 
         # May 08 13:23:31 H testleak[2907148]: SUMMARY: AddressSanitizer: 4 byte(s) leaked in 1 allocation(s).
         pids="$(
