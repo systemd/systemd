@@ -5,4 +5,4 @@ Description=No memory pressure
 [Service]
 MemoryHigh=3M
 Slice=testsuite-55-workload.slice
-ExecStart=sleep infinity
+ExecStart=stress --timeout 3m --vm 1 --vm-bytes 1M
