@@ -211,3 +211,21 @@ for opt in nice on-{active,boot,calendar,startup,unit-active,unit-inactive} prop
     (! systemd-run "--$opt=" true)
     (! systemd-run "--$opt=''" true)
 done
+
+# Let's make sure that ProtectProc= properly moves submounts of the original /proc over to the new proc
+
+A=$(cat /proc/sys/kernel/random/boot_id)
+B=$(systemd-run -q --wait --pipe -p ProtectProc=invisible cat /proc/sys/kernel/random/boot_id)
+assert_eq "$A" "$B"
+
+V="/tmp/version.$RANDOM"
+A="$(cat /proc/version).piff"
+echo "$A" > "$V"
+mount --bind "$V" /proc/version
+
+B=$(systemd-run -q --wait --pipe -p ProtectProc=invisible cat /proc/version)
+
+assert_eq "$A" "$B"
+
+umount /proc/version
+rm "$V"
