@@ -378,6 +378,10 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
         if (r < 0)
                 return r;
 
+        r = sd_netlink_message_append_u8(m, IFLA_GRE_IGNORE_DF, t->ignore_df);
+        if (r < 0)
+                return r;
+
         if (t->key != 0) {
                 ikey = okey = htobe32(t->key);
                 iflags |= GRE_KEY;
@@ -745,7 +749,11 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "The local address cannot be '%s' when Independent= or AssignToLoopback= is enabled, ignoring.",
                                               strna(netdev_local_address_type_to_string(t->local_type)));
-
+        if (t->pmtudisc < 0)
+                t->pmtudisc = !t->ignore_df;
+        if (t->ignore_df && t->pmtudisc)
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                              "IgnoreDF cannot be enabled when DiscoverPathMTU= is enabled");
         return 0;
 }
 
@@ -1189,7 +1197,7 @@ static void netdev_tunnel_init(NetDev *netdev) {
         assert(t);
 
         t->local_type = _NETDEV_LOCAL_ADDRESS_TYPE_INVALID;
-        t->pmtudisc = true;
+        t->pmtudisc = -1;
         t->fou_encap_type = NETDEV_FOO_OVER_UDP_ENCAP_DIRECT;
         t->isatap = -1;
         t->gre_erspan_sequence = -1;
