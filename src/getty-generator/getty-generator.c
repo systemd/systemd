@@ -25,8 +25,7 @@ static const char *arg_dest = NULL;
 static bool arg_enabled = true;
 
 static int add_symlink(const char *fservice, const char *tservice) {
-        char *from, *to;
-        int r;
+        const char *from, *to;
 
         assert(fservice);
         assert(tservice);
@@ -36,8 +35,7 @@ static int add_symlink(const char *fservice, const char *tservice) {
 
         (void) mkdir_parents_label(to, 0755);
 
-        r = symlink(from, to);
-        if (r < 0) {
+        if (symlink(from, to) < 0) {
                 /* In case console=hvc0 is passed this will very likely result in EEXIST */
                 if (errno == EEXIST)
                         return 0;
@@ -281,7 +279,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
                 p = path_join("/sys/class/tty", j);
                 if (!p)
-                        return -ENOMEM;
+                        return log_oom();
                 if (access(p, F_OK) < 0)
                         continue;
 
