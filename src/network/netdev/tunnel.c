@@ -752,7 +752,7 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
 
         if (t->pmtudisc > 0 && t->ignore_df)
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "IgnoreDF cannot be enabled when DiscoverPathMTU= is enabled");
+                                              "IgnoreDontFragment cannot be enabled when DiscoverPathMTU= is enabled");
         if (t->pmtudisc < 0)
                 t->pmtudisc = !t->ignore_df;
         return 0;
