@@ -131,6 +131,54 @@ Deprecations and removals:
 
 Features:
 
+* new "systemd-pcrlock" component for dealing with PCR4. Design idea:
+  1. define /{etc,usr,var/lib}/pcrlock.d/<component>/<version>.pcrlock
+  2. these files contain list of hashes that will be measured when component is
+     run, per PCR
+  3. each component involved in the boot that is deterministically measured can
+     place one or more of these files in those dirs (shim, sd-boot,
+     sd-stub/UKI, cryptsetup, pcrphase, pcrfs, …)
+  4. since each component has its own dir, with multiple files in them, package
+     such as kernels (of which there can be multiple installed at the same
+     time) can be grouped together: only one of them is measured at a time.
+  5. whenever a new component is added or an old one removed, or the PCR lock
+     shall be relaxed or tightened the systemd-pcrlock tool is invoked.
+  6. tool iterates through all these files, orders them alphabetically by
+     component, then matches them up with current measurements (as per uefi
+     event log), identifying by hash, accepting that the "beginning" of the
+     measurements might not be recognizable.
+  7. Then calculates expected PCR values starting with the "unrecognized
+     head" from the event log, then continuing with all of components
+     defined via the .pcrlock files (but dropping out the "recognized tail"
+     from the uefi event log). (This might mean combinatorial explosion, if
+     there are multiple shims, multiple sd-boot, and so on.)
+  8. Generates a public/private key pair on the TPM
+  9. Generates a counter object in the TPM, with a policy that allows only
+     one-by-one increase with signature policy by the public/private key pair.
+  10. now signs policies of all expected PCR values with the generated keypair,
+      using all combinations of components defined in the .pcrlock files
+      restricting it to the counter + 1.
+  11. locks down the keypair with a signed policy with its own public key
+  12. generates JSON file of all these policies with their signatures, drops
+      them as singleton in ESP
+  13. increases the counter by one.
+  14. after boot sd-stub picks JSON up from ESP, passes it to userspace via
+      .extra
+  15. JSON contained policies can now be used to unlock disk as well as the
+      public/key itself for signing further policies, as well as increment for
+      the counter
+  16. whenever any of the components above is added/removed new JSON file with
+      signatures for counter + 1 is generated, dropped in ESP, then counter
+      increased. (i.e. this means the "recognized tail" of the event log is
+      deterministically swapped out)
+  17. when firmware update is expected, relaxed signed policy is generated for
+      next boot only valid if counter is increased (this means the
+      "unrecognized head" for the event log can change without losing access)
+  18. on every boot checks if releaxed policy is in effect, if so, new strict
+      policy is generated and counter increased.
+  Net result: Removes downgrade attack surface + Locks OS to firmware + Allows
+              downgrades within bounds
+
 * add another PE section ".fname" or so that encodes the intended filename for
   PE file, and validate that when loading add-ons and similar before using
   it. This is particularly relevant when we load multiple add-ons and want to
