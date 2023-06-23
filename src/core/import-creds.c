@@ -611,27 +611,157 @@ static int import_credentials_smbios(ImportCredentialContext *c) {
         return 0;
 }
 
+static int import_credentials_initrd(ImportCredentialContext *c) {
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        _cleanup_close_ int source_dir_fd = -EBADF;
+        int r;
+
+        assert(c);
+
+        /* This imports credentials from /run/credentials/@initrd/ into our credentials directory and deletes
+         * the source directory afterwards. This is run once after the initrd → host transition. This is
+         * supposed to establish a well-defined avenue for initrd-based host configurators to pass
+         * credentials into the main system. */
+
+        if (in_initrd())
+                return 0;
+
+        source_dir_fd = open("/run/credentials/@initrd", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (source_dir_fd < 0) {
+                if (errno == ENOENT)
+                        log_debug_errno(errno, "No credentials passed from initrd.");
+                else
+                        log_warning_errno(errno, "Failed to open '/run/credentials/@initrd', ignoring: %m");
+                return 0;
+        }
+
+        r = readdir_all(source_dir_fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to read '/run/credentials/@initrd' contents, ignoring: %m");
+                return 0;
+        }
+
+        FOREACH_ARRAY(entry, de->entries, de->n_entries) {
+                _cleanup_close_ int cfd = -EBADF, nfd = -EBADF;
+                const struct dirent *d = *entry;
+                struct stat st;
+
+                if (!credential_name_valid(d->d_name)) {
+                        log_warning("Credential '%s' has invalid name, ignoring.", d->d_name);
+                        continue;
+                }
+
+                cfd = openat(source_dir_fd, d->d_name, O_RDONLY|O_CLOEXEC);
+                if (cfd < 0) {
+                        log_warning_errno(errno, "Failed to open %s, ignoring: %m", d->d_name);
+                        continue;
+                }
+
+                if (fstat(cfd, &st) < 0) {
+                        log_warning_errno(errno, "Failed to stat %s, ignoring: %m", d->d_name);
+                        continue;
+                }
+
+                r = stat_verify_regular(&st);
+                if (r < 0) {
+                        log_warning_errno(r, "Credential file %s is not a regular file, ignoring: %m", d->d_name);
+                        continue;
+                }
+
+                if (!credential_size_ok(c, d->d_name, st.st_size))
+                        continue;
+
+                r = acquire_credential_directory(c);
+                if (r < 0)
+                        return r;
+
+                nfd = open_credential_file_for_write(c->target_dir_fd, SYSTEM_CREDENTIALS_DIRECTORY, d->d_name);
+                if (nfd == -EEXIST)
+                        continue;
+                if (nfd < 0)
+                        return nfd;
+
+                r = copy_bytes(cfd, nfd, st.st_size, 0);
+                if (r < 0) {
+                        (void) unlinkat(c->target_dir_fd, d->d_name, 0);
+                        return log_error_errno(r, "Failed to create credential '%s': %m", d->d_name);
+                }
+
+                c->size_sum += st.st_size;
+                c->n_credentials++;
+
+                log_debug("Successfully copied initrd credential '%s'.", d->d_name);
+
+                (void) unlinkat(source_dir_fd, d->d_name, 0);
+        }
+
+        source_dir_fd = safe_close(source_dir_fd);
+
+        if (rmdir("/run/credentials/@initrd") < 0)
+                log_warning_errno(errno, "Failed to remove /run/credentials/@initrd after import, ignoring: %m");
+
+        return 0;
+}
+
 static int import_credentials_trusted(void) {
         _cleanup_(import_credentials_context_free) ImportCredentialContext c = {
                 .target_dir_fd = -EBADF,
         };
-        int q, w, r;
+        int q, w, r, y;
+
+        /* This is invoked during early boot when no credentials have been imported so far. (Specifically, if
+         * the $CREDENTIALS_DIRECTORY or $ENCRYPTED_CREDENTIALS_DIRECTORY environment variables are not set
+         * yet.) */
 
         r = import_credentials_qemu(&c);
         w = import_credentials_smbios(&c);
         q = import_credentials_proc_cmdline(&c);
+        y = import_credentials_initrd(&c);
 
         if (c.n_credentials > 0) {
                 int z;
 
-                log_debug("Imported %u credentials from kernel command line/smbios/fw_cfg.", c.n_credentials);
+                log_debug("Imported %u credentials from kernel command line/smbios/fw_cfg/initrd.", c.n_credentials);
 
                 z = finalize_credentials_dir(SYSTEM_CREDENTIALS_DIRECTORY, "CREDENTIALS_DIRECTORY");
                 if (z < 0)
                         return z;
         }
 
-        return r < 0 ? r : w < 0 ? w : q;
+        return r < 0 ? r : w < 0 ? w : q < 0 ? q : y;
+}
+
+static int merge_credentials_trusted(const char *creds_dir) {
+        _cleanup_(import_credentials_context_free) ImportCredentialContext c = {
+                .target_dir_fd = -EBADF,
+        };
+        int r;
+
+        /* This is invoked after the initrd → host transitions, when credentials already have been imported,
+         * but we might want to import some more from the initrd. */
+
+        if (in_initrd())
+                return 0;
+
+        /* Do not try to merge initrd credentials into foreign credentials directories */
+        if (!path_equal_ptr(creds_dir, SYSTEM_CREDENTIALS_DIRECTORY)) {
+                log_debug("Not importing initrd credentials, as foreign $CREDENTIALS_DIRECTORY has been set.");
+                return 0;
+        }
+
+        r = import_credentials_initrd(&c);
+
+        if (c.n_credentials > 0) {
+                int z;
+
+                log_debug("Merged %u credentials from initrd.", c.n_credentials);
+
+                z = finalize_credentials_dir(SYSTEM_CREDENTIALS_DIRECTORY, "CREDENTIALS_DIRECTORY");
+                if (z < 0)
+                        return z;
+        }
+
+        return r;
 }
 
 static int symlink_credential_dir(const char *envvar, const char *path, const char *where) {
@@ -689,6 +819,10 @@ int import_credentials(void) {
                         if (r >= 0)
                                 r = q;
                 }
+
+                q = merge_credentials_trusted(received_creds_dir);
+                if (r >= 0)
+                        r = q;
 
         } else {
                 _cleanup_free_ char *v = NULL;
