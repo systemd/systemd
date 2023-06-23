@@ -9,14 +9,11 @@ IMAGE_NAME="oomd"
 . "${TEST_BASE_DIR:?}/test-functions"
 
 test_append_files() {
-    # Create a swap device
+    # Create a swap file
     (
-        mkswap "${LOOPDEV:?}p2"
-        image_install swapon swapoff
+        image_install mkswap swapon stress
 
-        cat >>"${initdir:?}/etc/fstab" <<EOF
-UUID=$(blkid -o value -s UUID "${LOOPDEV}p2")    none    swap    defaults 0 0
-EOF
+        fallocate -l 50M "${initdir:?}/var/swapfile"
 
         mkdir -p "${initdir:?}/etc/systemd/system/init.scope.d/"
         cat >>"${initdir:?}/etc/systemd/system/init.scope.d/test-55-oomd.conf" <<EOF
