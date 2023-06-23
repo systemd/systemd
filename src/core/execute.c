@@ -5412,12 +5412,16 @@ static int exec_child(
 
         if (exec_needs_network_namespace(context) && runtime && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
 
-                if (ns_type_supported(NAMESPACE_NET)) {
+                /* Try to enable network namespacing if network namespacing is available and we have
+                 * CAP_NET_ADMIN. We need CAP_NET_ADMIN to be able to configure the loopback device in the
+                 * new network namespace. And if we don't have that, then we could only create a network
+                 * namespace without the ability to set up "lo". Hence gracefully skip things then. */
+                if (ns_type_supported(NAMESPACE_NET) && have_effective_cap(CAP_NET_ADMIN) > 0) {
                         r = setup_shareable_ns(runtime->shared->netns_storage_socket, CLONE_NEWNET);
                         if (r < 0) {
                                 if (ERRNO_IS_PRIVILEGE(r))
-                                        log_unit_warning_errno(unit, r,
-                                                               "PrivateNetwork=yes is configured, but network namespace setup failed, ignoring: %m");
+                                        log_unit_notice_errno(unit, r,
+                                                               "PrivateNetwork=yes is configured, but network namespace setup not permitted, proceeding without: %m");
                                 else {
                                         *exit_status = EXIT_NETWORK;
                                         return log_unit_error_errno(unit, r, "Failed to set up network namespacing: %m");
@@ -5428,7 +5432,7 @@ static int exec_child(
                         return log_unit_error_errno(unit, SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                     "NetworkNamespacePath= is not supported, refusing.");
                 } else
-                        log_unit_warning(unit, "PrivateNetwork=yes is configured, but the kernel does not support network namespaces, ignoring.");
+                        log_unit_notice(unit, "PrivateNetwork=yes is configured, but the kernel does not support or we lack privileges for network namespace, proceeding without.");
         }
 
         if (exec_needs_ipc_namespace(context) && runtime && runtime->shared && runtime->shared->ipcns_storage_socket[0] >= 0) {
