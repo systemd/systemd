@@ -1178,6 +1178,10 @@ static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
                 }
         } else if (r < 0)
                 return r;
+        else
+                /* We mounted a new instance now. Let's bind mount the children over now. This matters for
+                 * nspawn where a bunch of files are overmounted, in particular the boot id */
+                (void) bind_mount_submounts("/proc", entry_path);
 
         return 1;
 }
