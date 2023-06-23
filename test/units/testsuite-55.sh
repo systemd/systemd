@@ -24,6 +24,11 @@ fi
 
 rm -rf /run/systemd/system/testsuite-55-testbloat.service.d
 
+# Activate swap file
+mkswap /var/swapfile
+swapon /var/swapfile
+swapon --show
+
 # Configure oomd explicitly to avoid conflicts with distro dropins
 mkdir -p /run/systemd/oomd.conf.d/
 cat >/run/systemd/oomd.conf.d/99-oomd-test.conf <<EOF
