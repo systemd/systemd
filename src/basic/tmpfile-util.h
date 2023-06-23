@@ -29,7 +29,6 @@ static inline int open_tmpfile_linkable(const char *target, int flags, char **re
 }
 int fopen_tmpfile_linkable(const char *target, int flags, char **ret_path, FILE **ret_file);
 
-
 typedef enum LinkTmpfileFlags {
         LINK_TMPFILE_REPLACE = 1 << 0,
         LINK_TMPFILE_SYNC    = 1 << 1,
