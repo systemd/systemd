@@ -48,7 +48,7 @@
 
     <para>Further information about configuration of gettys can be
     found in
-    <ulink url="http://0pointer.de/blog/projects/serial-console.html">systemd
+    <ulink url="https://0pointer.de/blog/projects/serial-console.html">systemd
     for Administrators, Part XVI: Gettys on Serial Consoles (and
     Elsewhere)</ulink>.</para>
   </refsect1>

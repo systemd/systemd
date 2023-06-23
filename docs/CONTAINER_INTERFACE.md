@@ -171,7 +171,7 @@ manager, please consider supporting the following interfaces.
    `SIGRTMIN+3` like this, this might confuse other init systems.
 
 4. To support [Socket Activated
-   Containers](http://0pointer.de/blog/projects/socket-activated-containers.html)
+   Containers](https://0pointer.de/blog/projects/socket-activated-containers.html)
    the container manager should be capable of being run as a systemd
    service. It will then receive the sockets starting with FD 3, the number of
    passed FDs in `$LISTEN_FDS` and its PID as `$LISTEN_PID`. It should take
@@ -182,9 +182,9 @@ manager, please consider supporting the following interfaces.
    activation work. The protocol to hand sockets from systemd to services is
    hence the same as from the container manager to the container systemd. For
    further details see the explanations of
-   [sd_listen_fds(1)](http://0pointer.de/public/systemd-man/sd_listen_fds.html)
+   [sd_listen_fds(1)](https://0pointer.de/public/systemd-man/sd_listen_fds.html)
    and the [blog story for service
-   developers](http://0pointer.de/blog/projects/socket-activation.html).
+   developers](https://0pointer.de/blog/projects/socket-activation.html).
 
 5. Container managers should stay away from the cgroup hierarchy outside of the
    unit they created for their container. That's private property of systemd,

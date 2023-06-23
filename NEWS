@@ -3398,7 +3398,7 @@ CHANGES WITH 248:
           and PKCS#11 security tokens to LUKS volumes, list and destroy
           them. See:
 
-          http://0pointer.net/blog/unlocking-luks2-volumes-with-tpm2-fido2-pkcs11-security-hardware-on-systemd-248.html
+          https://0pointer.net/blog/unlocking-luks2-volumes-with-tpm2-fido2-pkcs11-security-hardware-on-systemd-248.html
 
           It also supports enrolling "recovery keys" and regular passphrases.
 
@@ -11882,7 +11882,7 @@ CHANGES WITH 215:
           system with /etc empty cleanly. For more information on the
           concepts involved see this recent blog story:
 
-          http://0pointer.de/blog/projects/stateless.html
+          https://0pointer.de/blog/projects/stateless.html
 
         * A new system group "input" has been introduced, and all
           input device nodes get this group assigned. This is useful
@@ -14620,7 +14620,7 @@ CHANGES WITH 193:
           journal. This will be extended later on. Here's an example
           screenshot of this app in its current state:
 
-          http://0pointer.de/public/journal-gatewayd
+          https://0pointer.de/public/journal-gatewayd
 
         Contributions from: Kay Sievers, Lennart Poettering, Robert
         Milasan, Tom Gundersen
@@ -15559,7 +15559,7 @@ CHANGES WITH 38:
           ssh://git.freedesktop.org/git/systemd/systemd
 
         * First release with the journal
-          http://0pointer.de/blog/projects/the-journal.html
+          https://0pointer.de/blog/projects/the-journal.html
 
         * The journal replaces both systemd-kmsg-syslogd and
           systemd-stdout-bridge.
