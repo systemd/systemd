@@ -110,4 +110,21 @@ ELAPSED=$((END_SEC-START_SEC))
 [[ "$ELAPSED" -ge 3 ]] && [[ "$ELAPSED" -le 5 ]] || exit 1
 [[ "$RESULT" -ne 0 ]] || exit 1
 
+# Test transactions with cycles
+# Provides coverage for issues like https://github.com/systemd/systemd/issues/26872
+for i in {0..19}; do
+    cat >"/run/systemd/system/transaction-cycle$i.service" <<EOF
+[Unit]
+After=transaction-cycle$(((i + 1) % 20)).service
+Requires=transaction-cycle$(((i + 1) % 20)).service
+
+[Service]
+ExecStart=true
+EOF
+done
+systemctl daemon-reload
+for i in {0..19}; do
+    systemctl start "transaction-cycle$i.service"
+done
+
 touch /testok
