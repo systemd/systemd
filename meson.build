@@ -1961,14 +1961,6 @@ conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', slow_tests)
 
 ############################################################
 
-tests = []
-simple_tests = []
-fuzzers = []
-simple_fuzzers = []
-catalogs = []
-
-############################################################
-
 pymod = import('python')
 python = pymod.find_installation('python3', required : true, modules : ['jinja2'])
 python_39 = python.language_version().version_compare('>=3.9')
@@ -2217,6 +2209,12 @@ userspace = declare_dependency(
 man_page_depends = []
 
 ############################################################
+
+tests = []
+simple_tests = []
+fuzzers = []
+simple_fuzzers = []
+catalogs = []
 
 # binaries that have --help and are intended for use by humans,
 # usually, but not always, installed in /bin.
