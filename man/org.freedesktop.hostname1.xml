@@ -205,7 +205,7 @@ node /org/freedesktop/hostname1 {
     set the hostname, this static hostname <emphasis>has the highest priority</emphasis>.</para>
 
     <para>The <varname>Hostname</varname> property exposes the actual hostname configured in the kernel via
-    <citerefentry project="man-pages"><refentrytitle>sethostname</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    <citerefentry project="man-pages"><refentrytitle>sethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
     It can be different from the static hostname. This property is never empty.</para>
 
     <para>The <varname>PrettyHostname</varname> property exposes the <emphasis>pretty hostname</emphasis>
@@ -259,7 +259,7 @@ node /org/freedesktop/hostname1 {
 
     <para>Applications may read the hostname data directly if hostname change notifications
     are not necessary. Use
-    <citerefentry project="man-pages"><refentrytitle>gethostname</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry project="man-pages"><refentrytitle>gethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
     <filename>/etc/hostname</filename> (possibly with per-distribution fallbacks), and
     <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     for that. For more information on these files and syscalls see the respective man pages.</para>
