@@ -311,7 +311,7 @@ static mhd_result request_handler(
 
                 if (chunked)
                         return mhd_respond(connection, MHD_HTTP_BAD_REQUEST,
-                                           "Content-Length must not specified when Transfer-Encoding type is 'chunked'");
+                                           "Content-Length not allowed when Transfer-Encoding type is 'chunked'");
 
                 r = safe_atozu(header, &len);
                 if (r < 0)
