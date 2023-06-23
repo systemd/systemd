@@ -131,6 +131,12 @@ Deprecations and removals:
 
 Features:
 
+* use kernel 6.3's "noswap" parameter in tmpfs in place of ramfs for storing
+  credentials.
+
+* import-creds: allocate a non-swap-backed fs for /run/credentials/@system,
+  like we do for services.
+
 * new "systemd-pcrlock" component for dealing with PCR4. Design idea:
   1. define /{etc,usr,var/lib}/pcrlock.d/<component>/<version>.pcrlock
   2. these files contain list of hashes that will be measured when component is
