@@ -27,8 +27,8 @@ Other parts include a logging daemon, utilities to control basic system configur
 
 ## See also
 
-* [Introductory blog story](http://0pointer.de/blog/projects/systemd.html)
-* [Three](http://0pointer.de/blog/projects/systemd-update.html) [status](http://0pointer.de/blog/projects/systemd-update-2.html) [updates](http://0pointer.de/blog/projects/systemd-update-3.html)
+* [Introductory blog story](https://0pointer.de/blog/projects/systemd.html)
+* [Three](https://0pointer.de/blog/projects/systemd-update.html) [status](https://0pointer.de/blog/projects/systemd-update-2.html) [updates](https://0pointer.de/blog/projects/systemd-update-3.html)
 * The [Wikipedia article](https://en.wikipedia.org/wiki/systemd)
 
 ---
