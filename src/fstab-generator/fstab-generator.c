@@ -8,6 +8,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "chase.h"
+#include "creds-util.h"
 #include "efi-loader.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -1281,6 +1282,40 @@ static int add_mounts_from_cmdline(void) {
         return ret;
 }
 
+static int add_mounts_from_creds(void) {
+        _cleanup_free_ void *b = NULL;
+        struct mntent *me;
+        int r, ret = 0;
+        size_t bs;
+
+        r = read_credential_with_decryption(
+                        in_initrd() ? "fstab.extra.initrd" : "fstab.extra",
+                        &b, &bs);
+        if (r <= 0)
+                return r;
+
+        _cleanup_fclose_ FILE *f = NULL;
+        f = fmemopen_unlocked(b, bs, "r");
+        if (!f)
+                return log_oom();
+
+        while ((me = getmntent(f))) {
+                r = parse_fstab_one(
+                                "/run/credentials",
+                                me->mnt_fsname,
+                                me->mnt_dir,
+                                me->mnt_type,
+                                me->mnt_opts,
+                                me->mnt_passno,
+                                /* initrd = */ false,
+                                /* use_swap_enabled = */ true);
+                if (r < 0 && ret >= 0)
+                        ret = r;
+        }
+
+        return ret;
+}
+
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
 
@@ -1510,6 +1545,10 @@ static int run_generator(void) {
         }
 
         r = add_mounts_from_cmdline();
+        if (r < 0 && ret >= 0)
+                ret = r;
+
+        r = add_mounts_from_creds();
         if (r < 0 && ret >= 0)
                 ret = r;
 
