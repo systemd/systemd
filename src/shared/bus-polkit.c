@@ -198,6 +198,8 @@ static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q) {
         return mfree(q);
 }
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(AsyncPolkitQuery*, async_polkit_query_free);
+
 static int async_polkit_defer(sd_event_source *s, void *userdata) {
         AsyncPolkitQuery *q = ASSERT_PTR(userdata);
 
@@ -351,6 +353,7 @@ int bus_verify_polkit_async(
 
 #if ENABLE_POLKIT
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
+        _cleanup_(async_polkit_query_freep) AsyncPolkitQuery *q_new = NULL;
 
         int c = sd_bus_message_get_allow_interactive_authorization(call);
         if (c < 0)
@@ -366,7 +369,7 @@ int bus_verify_polkit_async(
         if (r < 0)
                 return r;
 
-        q = new(AsyncPolkitQuery, 1);
+        q = q_new = new(AsyncPolkitQuery, 1);
         if (!q)
                 return -ENOMEM;
 
@@ -375,30 +378,24 @@ int bus_verify_polkit_async(
         };
 
         q->action = strdup(action);
-        if (!q->action) {
-                async_polkit_query_free(q);
+        if (!q->action)
                 return -ENOMEM;
-        }
 
         q->details = strv_copy((char**) details);
-        if (!q->details) {
-                async_polkit_query_free(q);
+        if (!q->details)
                 return -ENOMEM;
-        }
 
         r = hashmap_put(*registry, call, q);
-        if (r < 0) {
-                async_polkit_query_free(q);
+        if (r < 0)
                 return r;
-        }
 
         q->registry = *registry;
 
         r = sd_bus_call_async(call->bus, &q->slot, pk, async_polkit_callback, q, 0);
-        if (r < 0) {
-                async_polkit_query_free(q);
+        if (r < 0)
                 return r;
-        }
+
+        TAKE_PTR(q_new);
 
         return 0;
 #endif
