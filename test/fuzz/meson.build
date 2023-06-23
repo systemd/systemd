@@ -28,7 +28,6 @@ foreach section : ['Automount', 'Mount', 'Path', 'Scope', 'Service', 'Slice', 'S
                 capture: true)
 endforeach
 
-
 ############################################################
 
 sanitize_address_undefined = custom_target(
