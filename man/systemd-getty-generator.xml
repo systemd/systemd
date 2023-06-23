@@ -86,10 +86,28 @@
   </refsect1>
 
   <refsect1>
+    <title>System Credentials</title>
+
+    <variablelist class='system-credentials'>
+      <varlistentry>
+        <term><varname>getty.ttys.serial</varname></term>
+        <term><varname>getty.ttys.container</varname></term>
+
+        <listitem><para>These system credentials may be used to spawn additional login prompts on selected
+        TTYs. The two credentials should contain a newline-separated list of TTY names to spawn instances of
+        <filename>serial-getty@.service</filename> (in case of <varname>getty.ttys.serial</varname>) and
+        <filename>container-getty@.service</filename> (in case of <varname>getty.ttys.container</varname>)
+        on.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>agetty</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
