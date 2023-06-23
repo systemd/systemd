@@ -14,6 +14,8 @@ test_append_files() {
         mkswap "${LOOPDEV:?}p2"
         image_install swapon swapoff
 
+        inst_binary stress
+
         cat >>"${initdir:?}/etc/fstab" <<EOF
 UUID=$(blkid -o value -s UUID "${LOOPDEV}p2")    none    swap    defaults 0 0
 EOF
