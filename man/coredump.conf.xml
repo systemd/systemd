@@ -97,11 +97,14 @@
         <term><varname>ExternalSizeMax=</varname></term>
         <term><varname>JournalSizeMax=</varname></term>
 
-        <listitem><para>The maximum (compressed or uncompressed) size in bytes of a core to be saved in
-        separate files on disk (default: 1G on 32bit, 32G on 64bit systems) or in the journal (default:
-        10M). Unit suffixes are allowed just as in <option>ProcessSizeMax=</option>.</para></listitem>
+        <listitem><para>The maximum (compressed or uncompressed) size in bytes of a coredump to be saved in
+        separate files on disk (default: 1G on 32-bit systems, 32G on 64-bit systems) or in the journal
+        (default: 767M). Note that the journal service enforces a hard limit on journal log records of 767M,
+        and will ignore larger submitted log records. Hence, <varname>JournalSizeMax=</varname> may be
+        lowered relative to the default, but not increased. Unit suffixes are allowed just as in
+        <option>ProcessSizeMax=</option>.</para>
 
-        <para><varname>ExternalSizeMax=infinity</varname> sets the core size to unlimited.</para>
+        <para><varname>ExternalSizeMax=infinity</varname> sets the core size to unlimited.</para></listitem>
       </varlistentry>
 
       <varlistentry>
