@@ -30,11 +30,11 @@ static void *fake_pressure_thread(void *p) {
         _cleanup_free_ struct fake_pressure_context *c = ASSERT_PTR(p);
         _cleanup_close_ int cfd = -EBADF;
 
-        usleep(150);
+        usleep_safe(150);
 
         assert_se(write(c->fifo_fd, &(const char) { 'x' }, 1) == 1);
 
-        usleep(150);
+        usleep_safe(150);
 
         cfd = accept4(c->socket_fd, NULL, NULL, SOCK_CLOEXEC);
         assert_se(cfd >= 0);
@@ -164,7 +164,7 @@ _noreturn_ static void real_pressure_eat_memory(int pipe_fd) {
 
                 log_info("Ate %s in total.", FORMAT_BYTES(ate));
 
-                usleep(50 * USEC_PER_MSEC);
+                usleep_safe(50 * USEC_PER_MSEC);
         }
 }
 

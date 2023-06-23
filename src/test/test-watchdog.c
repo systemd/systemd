@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
         for (i = 0; i < count; i++) {
                 t = watchdog_runtime_wait();
                 log_info("Sleeping " USEC_FMT " microseconds...", t);
-                usleep(t);
+                usleep_safe(t);
                 log_info("Pinging...");
                 r = watchdog_ping();
                 if (r < 0)

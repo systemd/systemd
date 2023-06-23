@@ -249,7 +249,7 @@ static void test_dns_stream(bool tls) {
                 r = connect(clientfd, &server_address.sa, SOCKADDR_LEN(server_address));
                 if (r >= 0)
                         break;
-                usleep(EVENT_TIMEOUT_USEC / 100);
+                usleep_safe(EVENT_TIMEOUT_USEC / 100);
         }
         assert_se(r >= 0);
 
