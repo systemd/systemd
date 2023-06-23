@@ -1353,8 +1353,8 @@ int remount_and_move_sub_mounts(
                 unsigned long flags,
                 const char *options) {
 
-        SubMount *mounts = NULL; /* avoid false maybe-uninitialized warning */
-        size_t n = 0; /* avoid false maybe-uninitialized warning */
+        SubMount *mounts = NULL;
+        size_t n = 0;
         int r;
 
         CLEANUP_ARRAY(mounts, n, sub_mount_array_free);
