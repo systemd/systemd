@@ -131,12 +131,6 @@ Deprecations and removals:
 
 Features:
 
-* use kernel 6.3's "noswap" parameter in tmpfs in place of ramfs for storing
-  credentials.
-
-* import-creds: allocate a non-swap-backed fs for /run/credentials/@system,
-  like we do for services.
-
 * new "systemd-pcrlock" component for dealing with PCR4. Design idea:
   1. define /{etc,usr,var/lib}/pcrlock.d/<component>/<version>.pcrlock
   2. these files contain list of hashes that will be measured when component is
@@ -225,12 +219,10 @@ Features:
   support .microcode in PE add-ons, so that a microcode update can be shipped
   independently of any kernel.
 
-* add clean mechanism concept for passing env/creds from initrd to host on
-  switch root, so that cloud-init and similar have a clean, sane method to pass
-  along the stuff they picked up, without patching any dirs. Maybe add
-  SwitchRootEx() as new bus call that takes these as argument. When adding
-  SwitchRootEx() we should maybe also add a flags param that allows disabling
-  and enabling whether serialization is requested during switch root.
+* Maybe add SwitchRootEx() as new bus call that takes env vars to set for new
+  PID 1 as argument. When adding SwitchRootEx() we should maybe also add a
+  flags param that allows disabling and enabling whether serialization is
+  requested during switch root.
 
 * introduce a .acpitable section for early ACPI table override
 
@@ -248,10 +240,6 @@ Features:
 * figure out what to do about credentials sealed to PCRs in kexec + soft-reboot
   scenarios. Maybe insist sealing is done additionally against some keypair in
   the TPM to which access is updated on each boot, for the next, or so?
-
-* open up creds for uses in generators, and document clearly that encrypted
-  creds are only supported if strictly tpm bound, but not when using the host
-  secret (as that is only available if /var/ is around.
 
 * logind: when logging in, always take an fd to the home dir, to keep the dir
   busy, so that autofs release can never happen. (this is generally a good
@@ -819,10 +807,9 @@ Features:
 * Process credentials in:
   • networkd/udevd: add a way to define additional .link, .network, .netdev files
     via the credentials logic.
-  • fstab-generator: allow defining additional fstab-like mounts via
-    credentials (similar: crypttab-generator, verity-generator,
-    integrity-generator)
-  • getty-generator: allow defining additional getty instances via a credential
+  • crypttab-generator: allow defining additional crypttab-like volumes via
+    credentials (similar: verity-generator, integrity-generator). Use
+    fstab-generator logic as inspiration.
   • run-generator: allow defining additional commands to run via a credential
   • resolved: allow defining additional /etc/hosts entries via a credential (it
     might make sense to then synthesize a new combined /etc/hosts file in /run
@@ -837,9 +824,6 @@ Features:
     systemd.homed.register or so with JSON user records to automatically
     register if not registered yet.  Usecase: deploy a system, and add an
     account one can directly log into.
-  • initialize machine ID from systemd credential picked up from the ESP via
-    sd-stub, so that machine ID is stable even on systems where unified kernels
-    are used, and hence kernel cmdline cannot be modified locally
   • in gpt-auto-generator: check partition uuids against such uuids supplied via
     sd-stub credentials. That way, we can support parallel OS installations with
     pre-built kernels.
@@ -948,11 +932,6 @@ Features:
   https://0pointer.net/blog/testing-my-system-code-in-usr-without-modifying-usr.html
   https://0pointer.net/blog/running-an-container-off-the-host-usr.html
 
-* add a clear concept how the initrd can make up credentials on their own to
-  pass to the system when transitioning into the host OS. usecase: things like
-  cloud-init/ignitation and similar can parameterize the host with data they
-  acquire.
-
 * sd-event: compat wd reuse in inotify code: keep a set of removed watch
   descriptors, and clear this set piecemeal when we see the IN_IGNORED event
   for it, or when read() returns EAGAIN or on IN_Q_OVERFLOW. Then, whenever we
@@ -969,7 +948,6 @@ Features:
   - kernel-install should be able to pick up initrd sysexts automatically and
     place them next to EFI kernel, for sd-stub to pick them up.
   - systemd-fstab-generator should look for rootfs device to mount in creds
-  - pid 1 should look for machine ID in creds
   - systemd-resume-generator should look for resume partition uuid in creds
   - sd-stub: automatically pick up microcode from ESP (/loader/microcode/*)
     and synthesize initrd from it, and measure it. Signing is not necessary, as
