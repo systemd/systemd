@@ -1233,6 +1233,7 @@ int copy_directory_at_full(
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
 
+        _cleanup_close_ int fdt = -EBADF;
         struct stat st;
         int r;
 
@@ -1262,11 +1263,14 @@ int copy_directory_at_full(
         if (r < 0)
                 return r;
 
+        if (FLAGS_SET(copy_flags, COPY_LOCK_BSD))
+                fdt = r;
+
         r = sync_dir_by_flags(dir_fdt, to, copy_flags);
         if (r < 0)
                 return r;
 
-        return 0;
+        return FLAGS_SET(copy_flags, COPY_LOCK_BSD) ? TAKE_FD(fdt) : 0;
 }
 
 int copy_file_fd_at_full(
