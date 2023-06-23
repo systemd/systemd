@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "creds-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -13,8 +14,8 @@
 #include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "process-util.h"
 #include "proc-cmdline.h"
+#include "process-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"
@@ -141,6 +142,56 @@ static int run_container(void) {
         }
 }
 
+static int add_credential_gettys(void) {
+        static const struct {
+                const char *credential_name;
+                int (*func)(const char *tty);
+        } table[] = {
+                { "getty.ttys.serial",    add_serial_getty     },
+                { "getty.ttys.container", add_container_getty  },
+        };
+        int r;
+
+        FOREACH_ARRAY(t, table, ELEMENTSOF(table)) {
+                _cleanup_free_ char *b = NULL;
+                size_t sz = 0;
+
+                r = read_credential_with_decryption(t->credential_name, (void*) &b, &sz);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                _cleanup_fclose_ FILE *f = NULL;
+                f = fmemopen_unlocked(b, sz, "r");
+                if (!f)
+                        return log_oom();
+
+                for (;;) {
+                        _cleanup_free_ char *tty = NULL;
+                        char *s;
+
+                        r = read_line(f, PATH_MAX, &tty);
+                        if (r == 0)
+                                break;
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to parse credential %s: %m", t->credential_name);
+                                break;
+                        }
+
+                        s = strstrip(tty);
+                        if (startswith(s, "#"))
+                                continue;
+
+                        r = t->func(s);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
 
@@ -182,6 +233,10 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 log_debug("Disabled, exiting.");
                 return 0;
         }
+
+        r = add_credential_gettys();
+        if (r < 0)
+                return r;
 
         if (detect_container() > 0)
                 /* Add console shell and look at $container_ttys, but don't do add any
