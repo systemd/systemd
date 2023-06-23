@@ -53,7 +53,8 @@
 static SleepOperation arg_operation = _SLEEP_OPERATION_INVALID;
 
 static int write_efi_hibernate_location(const HibernateLocation *hibernate_location, bool required) {
-        int r = 0;
+        int log_level = required ? LOG_ERR : LOG_DEBUG,
+            log_level_ignore = required ? LOG_WARNING : LOG_DEBUG;
 
 #if ENABLE_EFI
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
@@ -63,16 +64,14 @@ static int write_efi_hibernate_location(const HibernateLocation *hibernate_locat
         const char *uuid_str;
         sd_id128_t uuid;
         struct utsname uts = {};
-        int log_level, log_level_ignore;
+        int r;
 
         assert(hibernate_location);
         assert(hibernate_location->swap);
 
         if (!is_efi_boot())
-                return 0;
-
-        log_level = required ? LOG_ERR : LOG_DEBUG;
-        log_level_ignore = required ? LOG_WARNING : LOG_DEBUG;
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                      "Not an EFI boot, passing HibernateLocation via EFI variable is not possible.");
 
         r = sd_device_new_from_devnum(&device, 'b', hibernate_location->devno);
         if (r < 0)
@@ -120,9 +119,11 @@ static int write_efi_hibernate_location(const HibernateLocation *hibernate_locat
                 return log_full_errno(log_level, r, "Failed to set EFI variable HibernateLocation: %m");
 
         log_debug("Set EFI variable HibernateLocation to '%s'.", formatted);
+        return 0;
+#else
+        return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                              "EFI support not enabled, passing HibernateLocation via EFI variable is not possible.");
 #endif
-
-        return r;
 }
 
 static int write_kernel_hibernate_location(const HibernateLocation *hibernate_location) {
