@@ -22,4 +22,4 @@ Further reading:
         man:journalctl(1)
         man:systemd-journald.service(8)
         man:journald.conf(5)
-        http://0pointer.de/blog/projects/the-journal.html
+        https://0pointer.de/blog/projects/the-journal.html

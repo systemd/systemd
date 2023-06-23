@@ -188,6 +188,6 @@ few additional notes for supporting these setups:
   written in a way that does not negatively impact usability on non-systemd
   systems. For more information on making use of socket activation in your
   program consult this blog story: [Socket
-  Activation](http://0pointer.de/blog/projects/socket-activation.html)
+  Activation](https://0pointer.de/blog/projects/socket-activation.html)
 
 * Consider having a look at the [initrd Interface of systemd](INITRD_INTERFACE.md).
