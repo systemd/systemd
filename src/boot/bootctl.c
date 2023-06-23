@@ -479,7 +479,9 @@ static int run(int argc, char *argv[]) {
 
                 r = device_path_make_canonical(S_IFBLK, devno, &path);
                 if (r < 0)
-                        return log_oom();
+                        return log_error_errno(r,
+                                               "Failed to format canonical device path for devno '" DEVNUM_FORMAT_STR "': %m",
+                                               DEVNUM_FORMAT_VAL(devno));
 
                 puts(path);
                 return 0;
