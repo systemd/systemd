@@ -41,8 +41,7 @@ static bool validate_payload(
         return true;
 }
 
-static EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, EFI_HANDLE *ret_image) {
-        assert(parent);
+static EFI_STATUS load_image(const void *source, size_t len, EFI_HANDLE *ret_image) {
         assert(source);
         assert(ret_image);
 
@@ -79,7 +78,7 @@ static EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, 
 
         EFI_STATUS ret = BS->LoadImage(
                         /*BootPolicy=*/false,
-                        parent,
+                        IMG,
                         &payload_device_path.payload.Header,
                         (void *) source,
                         len,
@@ -91,7 +90,6 @@ static EFI_STATUS load_image(EFI_HANDLE parent, const void *source, size_t len, 
 }
 
 EFI_STATUS linux_exec(
-                EFI_HANDLE parent,
                 const char16_t *cmdline,
                 const void *linux_buffer,
                 size_t linux_length,
@@ -101,7 +99,6 @@ EFI_STATUS linux_exec(
         uint32_t compat_address;
         EFI_STATUS err;
 
-        assert(parent);
         assert(linux_buffer && linux_length > 0);
         assert(initrd_buffer || initrd_length == 0);
 
@@ -111,18 +108,13 @@ EFI_STATUS linux_exec(
                 /* Kernel is too old to support LINUX_INITRD_MEDIA_GUID, try the deprecated EFI handover
                  * protocol. */
                 return linux_exec_efi_handover(
-                                parent,
-                                cmdline,
-                                linux_buffer,
-                                linux_length,
-                                initrd_buffer,
-                                initrd_length);
+                                cmdline, linux_buffer, linux_length, initrd_buffer, initrd_length);
 #endif
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Bad kernel image: %m");
 
         _cleanup_(unload_imagep) EFI_HANDLE kernel_image = NULL;
-        err = load_image(parent, linux_buffer, linux_length, &kernel_image);
+        err = load_image(linux_buffer, linux_length, &kernel_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error loading kernel image: %m");
 

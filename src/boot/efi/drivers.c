@@ -4,17 +4,12 @@
 #include "drivers.h"
 #include "util.h"
 
-static EFI_STATUS load_one_driver(
-                EFI_HANDLE parent_image,
-                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
-                const char16_t *fname) {
-
+static EFI_STATUS load_one_driver(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, const char16_t *fname) {
         _cleanup_(unload_imagep) EFI_HANDLE image = NULL;
         _cleanup_free_ EFI_DEVICE_PATH *path = NULL;
         _cleanup_free_ char16_t *spath = NULL;
         EFI_STATUS err;
 
-        assert(parent_image);
         assert(loaded_image);
         assert(fname);
 
@@ -23,7 +18,7 @@ static EFI_STATUS load_one_driver(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error making file device path: %m");
 
-        err = BS->LoadImage(false, parent_image, path, NULL, 0, &image);
+        err = BS->LoadImage(false, IMG, path, NULL, 0, &image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Failed to load image %ls: %m", fname);
 
@@ -68,11 +63,7 @@ EFI_STATUS reconnect_all_drivers(void) {
         return EFI_SUCCESS;
 }
 
-EFI_STATUS load_drivers(
-                EFI_HANDLE parent_image,
-                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
-                EFI_FILE *root_dir) {
-
+EFI_STATUS load_drivers(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI_FILE *root_dir) {
         _cleanup_(file_closep) EFI_FILE *drivers_dir = NULL;
         _cleanup_free_ EFI_FILE_INFO *dirent = NULL;
         size_t dirent_size = 0, n_succeeded = 0;
@@ -101,7 +92,7 @@ EFI_STATUS load_drivers(
                 if (!endswith_no_case(dirent->FileName, EFI_MACHINE_TYPE_NAME u".efi"))
                         continue;
 
-                err = load_one_driver(parent_image, loaded_image, dirent->FileName);
+                err = load_one_driver(loaded_image, dirent->FileName);
                 if (err != EFI_SUCCESS)
                         continue;
 

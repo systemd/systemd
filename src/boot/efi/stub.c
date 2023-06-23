@@ -134,13 +134,7 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
         (void) efivar_set_uint64_le(MAKE_GUID_PTR(LOADER), u"StubFeatures", stub_features, 0);
 }
 
-static bool use_load_options(
-                EFI_HANDLE stub_image,
-                EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
-                bool have_cmdline,
-                char16_t **ret) {
-
-        assert(stub_image);
+static bool use_load_options(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, bool have_cmdline, char16_t **ret) {
         assert(loaded_image);
         assert(ret);
 
@@ -157,7 +151,7 @@ static bool use_load_options(
         /* The UEFI shell registers EFI_SHELL_PARAMETERS_PROTOCOL onto images it runs. This lets us know that
          * LoadOptions starts with the stub binary path which we want to strip off. */
         EFI_SHELL_PARAMETERS_PROTOCOL *shell;
-        if (BS->HandleProtocol(stub_image, MAKE_GUID_PTR(EFI_SHELL_PARAMETERS_PROTOCOL), (void **) &shell)
+        if (BS->HandleProtocol(IMG, MAKE_GUID_PTR(EFI_SHELL_PARAMETERS_PROTOCOL), (void **) &shell)
             != EFI_SUCCESS) {
                 /* Not running from EFI shell, use entire LoadOptions. Note that LoadOptions is a void*, so
                  * it could be anything! */
@@ -247,7 +241,6 @@ static EFI_STATUS load_addons_from_dir(
 }
 
 static EFI_STATUS cmdline_append_and_measure_addons(
-                EFI_HANDLE stub_image,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const char16_t *prefix,
                 const char *uname,
@@ -260,7 +253,6 @@ static EFI_STATUS cmdline_append_and_measure_addons(
         size_t n_items = 0, n_allocated = 0;
         EFI_STATUS err;
 
-        assert(stub_image);
         assert(loaded_image);
         assert(prefix);
         assert(ret_parameters_measured);
@@ -302,7 +294,7 @@ static EFI_STATUS cmdline_append_and_measure_addons(
 
                 /* By using shim_load_image, we cover both the case where the PE files are signed with MoK
                  * and with DB, and running with or without shim. */
-                err = shim_load_image(stub_image, addon_path, &addon);
+                err = shim_load_image(addon_path, &addon);
                 if (err != EFI_SUCCESS) {
                         log_error_status(err,
                                          "Failed to read '%ls' from '%ls', ignoring: %m",
@@ -364,7 +356,7 @@ static EFI_STATUS cmdline_append_and_measure_addons(
         return EFI_SUCCESS;
 }
 
-static EFI_STATUS run(EFI_HANDLE image) {
+static EFI_STATUS run(void) {
         _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL;
         size_t credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
         size_t linux_size, initrd_size, dt_size;
@@ -379,7 +371,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         uint64_t loader_features = 0;
         EFI_STATUS err;
 
-        err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
+        err = BS->HandleProtocol(IMG, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
 
@@ -445,7 +437,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 uname = xstrndup8((char *)loaded_image->ImageBase + addrs[UNIFIED_SECTION_UNAME],
                                   szs[UNIFIED_SECTION_UNAME]);
 
-        if (use_load_options(image, loaded_image, szs[UNIFIED_SECTION_CMDLINE] > 0, &cmdline)) {
+        if (use_load_options(loaded_image, szs[UNIFIED_SECTION_CMDLINE] > 0, &cmdline)) {
                 /* Let's measure the passed kernel command line into the TPM. Note that this possibly
                  * duplicates what we already did in the boot menu, if that was already used. However, since
                  * we want the boot menu to support an EFI binary, and want to this stub to be usable from
@@ -464,25 +456,13 @@ static EFI_STATUS run(EFI_HANDLE image) {
          * measure the additions separately, after the embedded options, but before the smbios ones,
          * so that the order is reversed from "most hardcoded" to "most dynamic". The global addons are
          * loaded first, and the image-specific ones later, for the same reason. */
-        err = cmdline_append_and_measure_addons(
-                        image,
-                        loaded_image,
-                        u"\\loader\\addons",
-                        uname,
-                        &m,
-                        &cmdline);
+        err = cmdline_append_and_measure_addons(loaded_image, u"\\loader\\addons", uname, &m, &cmdline);
         if (err != EFI_SUCCESS)
                 log_error_status(err, "Error loading global addons, ignoring: %m");
         parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
 
         _cleanup_free_ char16_t *dropin_dir = get_extra_dir(loaded_image->FilePath);
-        err = cmdline_append_and_measure_addons(
-                        image,
-                        loaded_image,
-                        dropin_dir,
-                        uname,
-                        &m,
-                        &cmdline);
+        err = cmdline_append_and_measure_addons(loaded_image, dropin_dir, uname, &m, &cmdline);
         if (err != EFI_SUCCESS)
                 log_error_status(err, "Error loading UKI-specific addons, ignoring: %m");
         parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
@@ -633,7 +613,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                         log_error_status(err, "Error loading embedded devicetree: %m");
         }
 
-        err = linux_exec(image, cmdline,
+        err = linux_exec(cmdline,
                          PHYSICAL_ADDRESS_TO_POINTER(linux_base), linux_size,
                          PHYSICAL_ADDRESS_TO_POINTER(initrd_base), initrd_size);
         graphics_mode(false);
