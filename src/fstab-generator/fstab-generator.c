@@ -1501,7 +1501,7 @@ static int run_generator(void) {
         (void) determine_usr();
 
         if (arg_sysroot_check) {
-                r = parse_fstab(true);
+                r = parse_fstab(/* initrd= */ true);
                 if (r == 0)
                         log_debug("Nothing interesting found, not doing daemon-reload.");
                 if (r > 0)
@@ -1531,13 +1531,13 @@ static int run_generator(void) {
         /* Honour /etc/fstab only when that's enabled */
         if (arg_fstab_enabled) {
                 /* Parse the local /etc/fstab, possibly from the initrd */
-                r = parse_fstab(false);
+                r = parse_fstab(/* initrd= */ false);
                 if (r < 0 && ret >= 0)
                         ret = r;
 
                 /* If running in the initrd also parse the /etc/fstab from the host */
                 if (in_initrd())
-                        r = parse_fstab(true);
+                        r = parse_fstab(/* initrd= */ true);
                 else
                         r = generator_enable_remount_fs_service(arg_dest);
                 if (r < 0 && ret >= 0)
