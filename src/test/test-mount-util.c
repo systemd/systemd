@@ -568,6 +568,77 @@ TEST(fd_make_mount_point) {
         }
 }
 
+TEST(bind_mount_submounts) {
+        _cleanup_(rmdir_and_freep) char *a = NULL, *b = NULL;
+        _cleanup_free_ char *x = NULL;
+        int r;
+
+        assert_se(mkdtemp_malloc(NULL, &a) >= 0);
+        r = mount_nofollow_verbose(LOG_INFO, "tmpfs", a, "tmpfs", 0, NULL);
+        if (r < 0 && ERRNO_IS_PRIVILEGE(r)) {
+                (void) log_tests_skipped("Skipping bind_mount_submounts() test, lacking privileges");
+                return;
+        }
+        assert_se(r >= 0);
+
+        assert_se(x = path_join(a, "foo"));
+        assert_se(touch(x) >= 0);
+        free(x);
+
+        assert_se(x = path_join(a, "x"));
+        assert_se(mkdir(x, 0755) >= 0);
+        assert_se(mount_nofollow_verbose(LOG_INFO, "tmpfs", x, "tmpfs", 0, NULL) >= 0);
+        free(x);
+
+        assert_se(x = path_join(a, "x/xx"));
+        assert_se(touch(x) >= 0);
+        free(x);
+
+        assert_se(x = path_join(a, "y"));
+        assert_se(mkdir(x, 0755) >= 0);
+        assert_se(mount_nofollow_verbose(LOG_INFO, "tmpfs", x, "tmpfs", 0, NULL) >= 0);
+        free(x);
+
+        assert_se(x = path_join(a, "y/yy"));
+        assert_se(touch(x) >= 0);
+        free(x);
+
+        assert_se(mkdtemp_malloc(NULL, &b) >= 0);
+        assert_se(mount_nofollow_verbose(LOG_INFO, "tmpfs", b, "tmpfs", 0, NULL) >= 0);
+
+        assert_se(x = path_join(b, "x"));
+        assert_se(mkdir(x, 0755) >= 0);
+        free(x);
+
+        assert_se(x = path_join(b, "y"));
+        assert_se(mkdir(x, 0755) >= 0);
+        free(x);
+
+        assert_se(bind_mount_submounts(a, b) >= 0);
+
+        assert_se(x = path_join(b, "foo"));
+        assert_se(access(x, F_OK) < 0 && errno == ENOENT);
+        free(x);
+
+        assert_se(x = path_join(b, "x/xx"));
+        assert_se(access(x, F_OK) >= 0);
+        free(x);
+
+        assert_se(x = path_join(b, "y/yy"));
+        assert_se(access(x, F_OK) >= 0);
+        free(x);
+
+        assert_se(x = path_join(b, "x"));
+        assert_se(path_is_mount_point(x, NULL, 0) > 0);
+        free(x);
+
+        assert_se(x = path_join(b, "y"));
+        assert_se(path_is_mount_point(x, NULL, 0) > 0);
+
+        assert_se(umount_recursive(a, 0) >= 0);
+        assert_se(umount_recursive(b, 0) >= 0);
+}
+
 static int intro(void) {
          /* Create a dummy network interface for testing remount_sysfs(). */
         (void) system("ip link add dummy-test-mnt type dummy");
