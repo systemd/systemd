@@ -1149,6 +1149,41 @@ static void restore_sigsetp(sigset_t **ssp) {
                 (void) sigprocmask(SIG_SETMASK, *ssp, NULL);
 }
 
+pid_t clone_with_nested_stack(int (*fn)(void *), int flags, void *userdata) {
+        size_t ps;
+        pid_t pid;
+        void *mystack;
+
+        /* A wrapper around glibc's clone() call that automatically sets up a "nested" stack. Only supports
+         * invocations without CLONE_VM, so that we can continue to use the parent's stack mapping.
+         *
+         * Note: glibc's clone() wrapper does not synchronize malloc() locks. This means that if the parent
+         * is threaded these locks will be in an undefined state in the child, and hence memory allocations
+         * are likely going to run into deadlocks. Hence: if you use this function make sure your parent is
+         * strictly single-threaded or your child never calls malloc(). */
+
+        assert((flags & (CLONE_VM|CLONE_PARENT_SETTID|CLONE_CHILD_SETTID|
+                         CLONE_CHILD_CLEARTID|CLONE_SETTLS)) == 0);
+
+        /* We allocate some space on the stack to use as the stack for the child (hence "nested"). Note that
+         * the net effect is that the child will have the start of its stack inside the stack of the parent,
+         * but since they are a CoW copy of each other that's fine. We allocate one page-aligned page. But
+         * since we don't want to deal with differences between systems where the stack grows backwards or
+         * forwards we'll allocate one more and place the stack address in the middle. Except that we also
+         * want it page aligned, hence we'll allocate one page more. Makes 3. */
+
+        ps = page_size();
+        mystack = alloca(ps*3);
+        mystack = (uint8_t*) mystack + ps; /* move pointer one page ahead since stacks usually grow backwards */
+        mystack = (void*) ALIGN_TO((uintptr_t) mystack, ps); /* align to page size (moving things further ahead) */
+
+        pid = clone(fn, mystack, flags, userdata);
+        if (pid < 0)
+                return -errno;
+
+        return pid;
+}
+
 int safe_fork_full(
                 const char *name,
                 const int stdio_fds[3],
@@ -1160,8 +1195,11 @@ int safe_fork_full(
         pid_t original_pid, pid;
         sigset_t saved_ss, ss;
         _unused_ _cleanup_(restore_sigsetp) sigset_t *saved_ssp = NULL;
-        bool block_signals = false, block_all = false;
+        bool block_signals = false, block_all = false, intermediary = false;
         int prio, r;
+
+        assert(!FLAGS_SET(flags, FORK_DETACH) || !ret_pid);
+        assert(!FLAGS_SET(flags, FORK_DETACH|FORK_WAIT));
 
         /* A wrapper around fork(), that does a couple of important initializations in addition to mere forking. Always
          * returns the child's PID in *ret_pid. Returns == 0 in the child, and > 0 in the parent. */
@@ -1196,6 +1234,31 @@ int safe_fork_full(
                 saved_ssp = &saved_ss;
         }
 
+        if (FLAGS_SET(flags, FORK_DETACH)) {
+                assert(!FLAGS_SET(flags, FORK_WAIT));
+                assert(!ret_pid);
+
+                /* Fork off intermediary child if needed */
+
+                r = is_reaper_process();
+                if (r < 0)
+                        return log_full_errno(prio, r, "Failed to determine if we are a reaper process: %m");
+
+                if (!r) {
+                        /* Not a reaper process, hence do a double fork() so we are reparented to one */
+
+                        pid = fork();
+                        if (pid < 0)
+                                return log_full_errno(prio, errno, "Failed to fork off '%s': %m", strna(name));
+                        if (pid > 0) {
+                                log_debug("Successfully forked off intermediary '%s' as PID " PID_FMT ".", strna(name), pid);
+                                return 1; /* return in the parent */
+                        }
+
+                        intermediary = true;
+                }
+        }
+
         if ((flags & (FORK_NEW_MOUNTNS|FORK_NEW_USERNS)) != 0)
                 pid = raw_clone(SIGCHLD|
                                 (FLAGS_SET(flags, FORK_NEW_MOUNTNS) ? CLONE_NEWNS : 0) |
@@ -1205,8 +1268,12 @@ int safe_fork_full(
         if (pid < 0)
                 return log_full_errno(prio, errno, "Failed to fork off '%s': %m", strna(name));
         if (pid > 0) {
-                /* We are in the parent process */
 
+                /* If we are in the intermediary process, exit now */
+                if (intermediary)
+                        _exit(EXIT_SUCCESS);
+
+                /* We are in the parent process */
                 log_debug("Successfully forked off '%s' as PID " PID_FMT ".", strna(name), pid);
 
                 if (flags & FORK_WAIT) {
@@ -1621,6 +1688,39 @@ int get_process_threads(pid_t pid) {
                 return -EINVAL;
 
         return n;
+}
+
+int is_reaper_process(void) {
+        int b = 0;
+
+        /* Checks if we are running in a reaper process, i.e. if we are expected to deal with processes
+         * reparented to us. This simply checks if we are PID 1 or if PR_SET_CHILD_SUBREAPER was called. */
+
+        if (getpid_cached() == 1)
+                return true;
+
+        if (prctl(PR_GET_CHILD_SUBREAPER, (unsigned long) &b, 0UL, 0UL, 0UL) < 0)
+                return -errno;
+
+        return b != 0;
+}
+
+int make_reaper_process(bool b) {
+
+        if (getpid_cached() == 1) {
+
+                if (!b)
+                        return -EINVAL;
+
+                return 0;
+        }
+
+        /* Some prctl()s insist that all 5 arguments are specified, others do not. Let's always specify all,
+         * to avoid any ambiguities */
+        if (prctl(PR_SET_CHILD_SUBREAPER, (unsigned long) b, 0UL, 0UL, 0UL) < 0)
+                return -errno;
+
+        return 0;
 }
 
 static const char *const sigchld_code_table[] = {
