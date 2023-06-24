@@ -83,7 +83,7 @@ testcase_sanity() {
     create_dummy_container "$template"
     # Create a simple image from the just created container template
     image="$(mktemp /var/lib/machines/testsuite-13.image-XXX.img)"
-    dd if=/dev/zero of="$image" bs=1M count=32
+    dd if=/dev/zero of="$image" bs=1M count=64
     mkfs.ext4 "$image"
     mkdir -p /mnt
     mount -o loop "$image" /mnt

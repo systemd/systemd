@@ -150,7 +150,7 @@ test ! -d /var/lib/machines/.hidden1
 
 # Prepare a simple raw container
 mkdir -p /tmp/mnt
-dd if=/dev/zero of=/tmp/container.raw bs=1M count=32
+dd if=/dev/zero of=/tmp/container.raw bs=1M count=64
 mkfs.ext4 /tmp/container.raw
 mount -o loop /tmp/container.raw /tmp/mnt
 cp -r /var/lib/machines/container1/* /tmp/mnt
