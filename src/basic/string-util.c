@@ -295,6 +295,49 @@ static int write_ellipsis(char *buf, bool unicode) {
         return 3;
 }
 
+static size_t ansi_sequence_length(const char *s) {
+        if (s[0] != 0x1B)
+                return 0;  /* Not the start of a sequence */
+
+        if (s[1] == 0x5B) { /* CSI sequence */
+                size_t i = 2;
+
+                while (s[i] && s[i] >= 0x30 && s[i] <= 0x3F) /* Parameter bytes */
+                        i++;
+                while (s[i] && s[i] >= 0x20 && s[i] <= 0x2F) /* Intermediate bytes */
+                        i++;
+                if (s[i] < 0x40 || s[i] > 0x7E) /* Final byte */
+                        return 0;  /* Bad sequence */
+                return i + 1;
+        } else if (s[1] >= 0x40 && s[1] <= 0x5F) /* Fe sequence. */
+                return 2;
+
+        return 0;  /* Bad escape? */
+}
+
+static bool string_has_ansi_sequence(const char *s, size_t len) {
+        for (const char *t = s; t < s + len; t++)
+                if (ansi_sequence_length(t) > 0)
+                        return true;
+        return false;
+}
+
+static size_t previous_ansi_sequence(const char *s, size_t length, const char **where) {
+        /* Locate the previous ANSI sequence and save its start in *where and return length. */
+
+        for (size_t i = length; i > 0; i--) {
+                size_t slen = ansi_sequence_length(s + (i - 1));
+                if (slen == 0)
+                        continue;
+
+                *where = s + (i - 1);
+                return slen;
+        }
+
+        *where = NULL;
+        return 0;
+}
+
 static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
         size_t x, need_space, suffix_len;
         char *t;
@@ -354,7 +397,6 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
 char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
         size_t x, k, len, len2;
         const char *i, *j;
-        char *e;
         int r;
 
         /* Note that 'old_length' refers to bytes in the string, while 'new_length' refers to character cells taken up
@@ -378,73 +420,117 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
         if (new_length == 0)
                 return strdup("");
 
-        /* If no multibyte characters use ascii_ellipsize_mem for speed */
-        if (ascii_is_valid_n(s, old_length))
+        bool has_ansi_seq = string_has_ansi_sequence(s, old_length);
+
+        /* If no multibyte characters or ANSI sequences, use ascii_ellipsize_mem for speed */
+        if (!has_ansi_seq && ascii_is_valid_n(s, old_length))
                 return ascii_ellipsize_mem(s, old_length, new_length, percent);
 
-        x = ((new_length - 1) * percent) / 100;
+        x = (new_length - 1) * percent / 100;
         assert(x <= new_length - 1);
 
         k = 0;
-        for (i = s; i < s + old_length; i = utf8_next_char(i)) {
-                char32_t c;
-                int w;
+        for (i = s; i < s + old_length; ) {
+                size_t slen = has_ansi_seq ? ansi_sequence_length(i) : 0;
+                if (slen > 0) {
+                        i += slen;
+                        continue;  /* ANSI sequences don't take up any space in output */
+                }
 
+                char32_t c;
                 r = utf8_encoded_to_unichar(i, &c);
                 if (r < 0)
                         return NULL;
 
-                w = unichar_iswide(c) ? 2 : 1;
-                if (k + w <= x)
-                        k += w;
-                else
+                int w = unichar_iswide(c) ? 2 : 1;
+                if (k + w > x)
                         break;
+
+                k += w;
+                i += r;
         }
 
-        for (j = s + old_length; j > i; ) {
+        const char *ansi_start = s + old_length;
+        size_t ansi_len = 0;
+
+        for (const char *t = j = s + old_length; t > i && k < new_length; ) {
                 char32_t c;
                 int w;
-                const char *jj;
+                const char *tt;
 
-                jj = utf8_prev_char(j);
-                r = utf8_encoded_to_unichar(jj, &c);
+                if (has_ansi_seq && ansi_start >= t)
+                        /* Figure out the previous ANSI sequence, if any */
+                        ansi_len = previous_ansi_sequence(s, t - s, &ansi_start);
+
+                /* If the sequence extends all the way to the current position, skip it. */
+                if (has_ansi_seq && ansi_len > 0 && ansi_start + ansi_len == t) {
+                        t = ansi_start;
+                        continue;
+                }
+
+                tt = utf8_prev_char(t);
+                r = utf8_encoded_to_unichar(tt, &c);
                 if (r < 0)
                         return NULL;
 
                 w = unichar_iswide(c) ? 2 : 1;
-                if (k + w <= new_length) {
-                        k += w;
-                        j = jj;
-                } else
+                if (k + w > new_length)
                         break;
-        }
-        assert(i <= j);
 
-        /* we don't actually need to ellipsize */
-        if (i == j)
+                k += w;
+                j = t = tt;  /* j should always point to the first "real" character */
+        }
+
+        /* We don't actually need to ellipsize */
+        if (i >= j)
                 return memdup_suffix0(s, old_length);
 
-        /* make space for ellipsis, if possible */
-        if (j < s + old_length)
-                j = utf8_next_char(j);
-        else if (i > s)
-                i = utf8_prev_char(i);
+        if (k >= new_length) {
+                /* Make space for ellipsis, if required and possible. We know that the edge character is not
+                 * part of an ANSI sequence (because then we'd skip it). If the last character we looked at
+                 * was wide, we don't need to make space. */
+                if (j < s + old_length)
+                        j = utf8_next_char(j);
+                else if (i > s)
+                        i = utf8_prev_char(i);
+        }
 
         len = i - s;
         len2 = s + old_length - j;
-        e = new(char, len + 3 + len2 + 1);
+
+        /* If we have ANSI, allow the same length as the source string + ellipsis. It'd be too involved to
+         * figure out what exact space is needed. Strings with ANSI sequences are most likely to be fairly
+         * short anyway. */
+        size_t alloc_len = has_ansi_seq ? old_length + 3 + 1 : len + 3 + len2 + 1;
+
+        char *e = new(char, alloc_len);
         if (!e)
                 return NULL;
 
         /*
-        printf("old_length=%zu new_length=%zu x=%zu len=%u len2=%u k=%u\n",
+        printf("old_length=%zu new_length=%zu x=%zu len=%zu len2=%zu k=%zu\n",
                old_length, new_length, x, len, len2, k);
         */
 
-        memcpy(e, s, len);
+        memcpy_safe(e, s, len);
         write_ellipsis(e + len, true);
-        memcpy(e + len + 3, j, len2);
-        *(e + len + 3 + len2) = '\0';
+
+        char *dst = e + len + 3;
+
+        if (has_ansi_seq)
+                /* Copy over any ANSI sequences in full */
+                for (const char *p = s + len; p < j; ) {
+                        size_t slen = ansi_sequence_length(p);
+                        if (slen > 0) {
+                                memcpy(dst, p, slen);
+                                dst += slen;
+                                p += slen;
+                        } else
+                                p = utf8_next_char(p);
+                }
+
+        memcpy_safe(dst, j, len2);
+        dst[len2] = '\0';
 
         return e;
 }
