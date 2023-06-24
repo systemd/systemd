@@ -1468,13 +1468,13 @@ static void set_blkio_weight(Unit *u, uint64_t weight) {
         (void) set_attribute_and_warn(u, "blkio", "blkio.weight", buf);
 }
 
-static void cgroup_apply_bpf_foreign_program(Unit *u) {
+static int cgroup_apply_bpf_foreign_program(Unit *u) {
         assert(u);
 
-        (void) bpf_foreign_install(u);
+        return bpf_foreign_install(u);
 }
 
-static void cgroup_context_apply(
+static int cgroup_context_apply(
                 Unit *u,
                 CGroupMask apply_mask,
                 ManagerState state) {
@@ -1778,13 +1778,17 @@ static void cgroup_context_apply(
                 cgroup_apply_firewall(u);
 
         if (apply_mask & CGROUP_MASK_BPF_FOREIGN)
-                cgroup_apply_bpf_foreign_program(u);
+                int r = cgroup_apply_bpf_foreign_program(u);
+                if (r < 0)
+                        return r;
 
         if (apply_mask & CGROUP_MASK_BPF_SOCKET_BIND)
                 cgroup_apply_socket_bind(u);
 
         if (apply_mask & CGROUP_MASK_BPF_RESTRICT_NETWORK_INTERFACES)
                 cgroup_apply_restrict_network_interfaces(u);
+
+        return 0;
 }
 
 static bool unit_get_needs_bpf_firewall(Unit *u) {
@@ -2377,7 +2381,9 @@ static int unit_update_cgroup(
         }
 
         /* Set attributes */
-        cgroup_context_apply(u, target_mask, state);
+        int r = cgroup_context_apply(u, target_mask, state);
+        if (r < 0)
+                return r;
         cgroup_xattr_apply(u);
 
         /* For most units we expect that memory monitoring is set up before the unit is started and we won't
