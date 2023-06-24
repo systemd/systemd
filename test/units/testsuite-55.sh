@@ -24,6 +24,13 @@ fi
 
 rm -rf /run/systemd/system/testsuite-55-testbloat.service.d
 
+# Activate swap file if we are in a VM
+if systemd-detect-virt --vm --quiet; then
+    mkswap /swapfile
+    swapon /swapfile
+    swapon --show
+fi
+
 # Configure oomd explicitly to avoid conflicts with distro dropins
 mkdir -p /run/systemd/oomd.conf.d/
 cat >/run/systemd/oomd.conf.d/99-oomd-test.conf <<EOF
@@ -89,6 +96,7 @@ while [[ $(date -u +%s) -le $timeout ]]; do
     if ! systemctl status testsuite-55-testbloat.service; then
         break
     fi
+    oomctl
     sleep 2
 done
 
@@ -126,6 +134,7 @@ while [[ $(date -u +%s) -le $timeout ]]; do
     if ! systemctl --machine "testuser@.host" --user status testsuite-55-testbloat.service; then
         break
     fi
+    oomctl
     sleep 2
 done
 
@@ -153,6 +162,7 @@ EOF
         if ! systemctl status testsuite-55-testmunch.service; then
             break
         fi
+        oomctl
         sleep 2
     done
 
