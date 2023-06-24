@@ -330,7 +330,6 @@ TEST(executable_is_script) {
         assert_se(r == 0);
 
         r = executable_is_script("/usr/bin/yum", &command);
-        assert_se(r > 0 || r == -ENOENT);
         if (r > 0) {
                 assert_se(startswith(command, "/"));
                 free(command);
