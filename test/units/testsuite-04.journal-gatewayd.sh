@@ -37,11 +37,8 @@ curl -Lfs --header "Accept: text/plain" http://localhost:19531/entries | \
     grep -qE " $TEST_TAG\[[0-9]+\]: $TEST_MESSAGE"
 curl -Lfs --header "Accept: application/json" http://localhost:19531/entries | \
     jq -se ".[] | select(.MESSAGE == \"$TEST_MESSAGE\")"
-# FIXME: drop the condition once https://github.com/systemd/systemd/issues/28059 is resolved
-if ! systemd-detect-virt -cq; then
-    curl -Lfs --header "Accept: application/json" http://localhost:19531/entries?boot | \
-        jq -se ".[] | select(.MESSAGE == \"$TEST_MESSAGE\")"
-fi
+curl -Lfs --header "Accept: application/json" http://localhost:19531/entries?boot | \
+    jq -se ".[] | select(.MESSAGE == \"$TEST_MESSAGE\")"
 curl -Lfs --header "Accept: application/json" http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" | \
     jq -se "length == 1 and select(.[].MESSAGE == \"$TEST_MESSAGE\")"
 # Show 10 entries starting from $BOOT_CURSOR, skip the first 5

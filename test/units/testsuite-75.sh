@@ -270,11 +270,10 @@ grep -qE "^fd00:dead:beef:cafe::1\s+ns1\.unsigned\.test" "$RUN_OUT"
 monitor_check_rr "$TIMESTAMP" "ns1.unsigned.test IN AAAA fd00:dead:beef:cafe::1"
 # With IPv6 disabled
 # Issue: https://github.com/systemd/systemd/issues/23951
-# FIXME
-#disable_ipv6
-#run getent -s resolve hosts ns1.unsigned.test
-#grep -qE "^10\.0\.0\.1\s+ns1\.unsigned\.test" "$RUN_OUT"
-#monitor_check_rr "$TIMESTAMP" "ns1.unsigned.test IN A 10.0.0.1"
+disable_ipv6
+run getent -s resolve hosts ns1.unsigned.test
+grep -qE "^10\.0\.0\.1\s+ns1\.unsigned\.test" "$RUN_OUT"
+monitor_check_rr "$TIMESTAMP" "ns1.unsigned.test IN A 10.0.0.1"
 enable_ipv6
 
 # Issue: https://github.com/systemd/systemd/issues/18812
