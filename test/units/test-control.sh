@@ -89,7 +89,12 @@ run_subtests_with_signals() {
         : "--- $subtest BEGIN ---"
         "./$subtest" &
         _CHILD_PID=$!
-        _wait_harder "$_CHILD_PID" && _PASSED_TESTS+=("$subtest") || return 1
+        if ! _wait_harder "$_CHILD_PID"; then
+            echo "Subtest $subtest failed"
+            return 1
+        fi
+
+        _PASSED_TESTS+=("$subtest")
         : "--- $subtest END ---"
     done
 
@@ -113,7 +118,12 @@ run_subtests() {
         fi
 
         : "--- $subtest BEGIN ---"
-        "./$subtest" && _PASSED_TESTS+=("$subtest") || return 1
+        if ! "./$subtest"; then
+            echo "Subtest $subtest failed"
+            return 1
+        fi
+
+        _PASSED_TESTS+=("$subtest")
         : "--- $subtest END ---"
     done
 
