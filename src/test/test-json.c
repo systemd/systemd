@@ -751,4 +751,64 @@ TEST(json_array_append_nodup) {
         assert_se(json_variant_equal(s, nd));
 }
 
+TEST(bytes) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        size_t n = 0;
+        uint8_t *p = NULL;
+
+        assert_se(json_variant_bytes(NULL, &p, &n) == 0);
+        assert_se(n == 0);
+        assert_se(p == NULL);
+
+        assert_se(json_build(&v, JSON_BUILD_EMPTY_ARRAY) >= 0);
+        assert_se(json_variant_bytes(v, &p, &n) == 0);
+        assert_se(n == 0);
+        assert_se(p == NULL);
+
+        v = json_variant_unref(v);
+
+        assert_se(json_build(&v, JSON_BUILD_CONST_STRING("Test")) >= 0);
+        assert_se(json_variant_bytes(v, &p, &n) == -EINVAL);
+
+        v = json_variant_unref(v);
+
+        assert_se(json_build(&v, JSON_BUILD_ARRAY(JSON_BUILD_INTEGER(15), JSON_BUILD_CONST_STRING("Test"))) >= 0);
+        assert_se(json_variant_bytes(v, &p, &n) == -EINVAL);
+
+        v = json_variant_unref(v);
+
+        assert_se(json_build(&v, JSON_BUILD_ARRAY(JSON_BUILD_INTEGER(15), JSON_BUILD_INTEGER(-5))) >= 0);
+        assert_se(json_variant_bytes(v, &p, &n) == -EINVAL);
+
+        v = json_variant_unref(v);
+
+        assert_se(json_build(&v, JSON_BUILD_ARRAY(JSON_BUILD_INTEGER(15), JSON_BUILD_INTEGER(300))) >= 0);
+        assert_se(json_variant_bytes(v, &p, &n) == -EINVAL);
+
+        v = json_variant_unref(v);
+
+        assert_se(json_build(&v,
+                          JSON_BUILD_ARRAY(JSON_BUILD_INTEGER(15), JSON_BUILD_INTEGER(0), JSON_BUILD_INTEGER(30))) >=
+               0);
+        assert_se(json_variant_bytes(v, &p, &n) == 0);
+        assert_se(n == 3);
+        assert_se(p != NULL);
+        assert_se(p[0] == 15);
+        assert_se(p[1] == 0);
+        assert_se(p[2] == 30);
+        free(p);
+
+        v = json_variant_unref(v);
+
+        uint8_t d[] = { 5, 0, 10 };
+        assert_se(json_build(&v, JSON_BUILD_BYTE_ARRAY(d, 3)) >= 0);
+        assert_se(json_variant_bytes(v, &p, &n) == 0);
+        assert_se(n == 3);
+        assert_se(p != NULL);
+        assert_se(p[0] == 5);
+        assert_se(p[1] == 0);
+        assert_se(p[2] == 10);
+        free(p);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
