@@ -168,6 +168,17 @@ int sd_dhcp_lease_get_root_path(sd_dhcp_lease *lease, const char **root_path) {
         return 0;
 }
 
+int sd_dhcp_lease_get_captive_portal(sd_dhcp_lease *lease, const char **ret) {
+        assert_return(lease, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!lease->captive_portal)
+                return -ENODATA;
+
+        *ret = lease->captive_portal;
+        return 0;
+}
+
 int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, const struct in_addr **addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
@@ -673,6 +684,12 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 r = lease_parse_in_addrs(option, len, &lease->servers[SD_DHCP_LEASE_LPR].addr, &lease->servers[SD_DHCP_LEASE_LPR].size);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse LPR server, ignoring: %m");
+                break;
+
+        case SD_DHCP_OPTION_DHCP_CAPTIVE_PORTAL:
+                r = dhcp_option_parse_string(option, len, &lease->captive_portal);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse captive portal, ignoring: %m");
                 break;
 
         case SD_DHCP_OPTION_STATIC_ROUTE:
