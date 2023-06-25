@@ -268,6 +268,7 @@ endif
 
 if want_tests != 'false' and dmi_arches.contains(host_machine.cpu_family())
         udev_dmi_memory_id_test = find_program('udev-dmi-memory-id-test.sh')
+        exe = executables_by_name.get('dmi_memory_id')
 
         if git.found() and fs.is_dir(project_source_root / '.git')
                 out = run_command(
@@ -286,10 +287,10 @@ if want_tests != 'false' and dmi_arches.contains(host_machine.cpu_family())
                 test('dmidecode_' + fs.stem(p),
                      udev_dmi_memory_id_test,
                      suite : 'dist',
-                     args : [udev_prog_paths['dmi_memory_id'].full_path(),
+                     args : [exe.full_path(),
                              source,
                              source + '.txt'],
-                     depends : udev_prog_paths['dmi_memory_id'])
+                     depends : exe)
         endforeach
 endif
 
