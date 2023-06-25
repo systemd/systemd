@@ -201,9 +201,10 @@ meson.add_install_script(meson_make_symlink,
 
 ############################################################
 
-test_core_base = {
+core_test_template = test_template + {
         'link_with' : [libcore, libshared],
-        'includes' : core_includes,
+        'include_directories' : core_includes,
+        'suite' : 'core',
 }
 
 fuzzers += [
