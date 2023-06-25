@@ -11,10 +11,7 @@ executables += [
                 'public' : true,
                 'sources' : busctl_sources,
         },
-]
-
-tests += [
-        {
+        test_template + {
                 'sources' : files(
                         'test-busctl-introspect.c',
                         'busctl-introspect.c',
