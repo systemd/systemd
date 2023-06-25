@@ -2581,54 +2581,6 @@ meson.add_install_script(meson_make_symlink,
                          bindir / 'udevadm',
                          libexecdir / 'systemd-udevd')
 
-if conf.get('ENABLE_TIMEDATED') == 1
-        dbus_programs += executable(
-                'systemd-timedated',
-                'src/timedate/timedated.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
-endif
-
-if conf.get('ENABLE_TIMEDATECTL') == 1
-        public_programs += executable(
-                'timedatectl',
-                'src/timedate/timedatectl.c',
-                include_directories : includes,
-                install_rpath : pkglibdir,
-                link_with : [libshared],
-                dependencies : [libm,
-                                userspace],
-                install : true)
-endif
-
-if conf.get('ENABLE_TIMESYNCD') == 1
-        executable(
-                'systemd-timesyncd',
-                systemd_timesyncd_sources,
-                include_directories : includes,
-                link_with : [libtimesyncd_core],
-                dependencies : [libm,
-                                threads,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
-
-        executable(
-                'systemd-time-wait-sync',
-                'src/timesync/wait-sync.c',
-                include_directories : includes,
-                link_with : [libtimesyncd_core],
-                dependencies : userspace,
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
-endif
-
 if conf.get('ENABLE_MACHINED') == 1
         dbus_programs += executable(
                 'systemd-machined',
