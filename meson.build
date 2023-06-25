@@ -2568,52 +2568,6 @@ meson.add_install_script(meson_make_symlink,
                          rootbindir / 'udevadm',
                          rootlibexecdir / 'systemd-udevd')
 
-if conf.get('ENABLE_HOSTNAMED') == 1
-        dbus_programs += executable(
-                'systemd-hostnamed',
-                'src/hostname/hostnamed.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootlibexecdir)
-
-        public_programs += executable(
-                'hostnamectl',
-                'src/hostname/hostnamectl.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true)
-endif
-
-if conf.get('ENABLE_LOCALED') == 1
-        dbus_programs += executable(
-                'systemd-localed',
-                systemd_localed_sources,
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : libxkbcommon_deps +
-                               [userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootlibexecdir)
-
-        public_programs += executable(
-                'localectl',
-                localectl_sources,
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true)
-endif
-
 if conf.get('ENABLE_TIMEDATED') == 1
         dbus_programs += executable(
                 'systemd-timedated',
