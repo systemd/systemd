@@ -2379,6 +2379,10 @@ subdir('src/coredump')
 subdir('src/cryptenroll')
 subdir('src/cryptsetup')
 subdir('src/cryptsetup/cryptsetup-tokens')
+subdir('src/debug-generator')
+subdir('src/environment-d-generator')
+subdir('src/fstab-generator')
+subdir('src/getty-generator')
 subdir('src/home')
 subdir('src/hostname')
 subdir('src/import')
@@ -2399,6 +2403,7 @@ subdir('src/portable')
 subdir('src/pstore')
 subdir('src/resolve')
 subdir('src/rpm')
+subdir('src/run-generator')
 subdir('src/shutdown')
 subdir('src/sysext')
 subdir('src/systemctl')
@@ -2542,72 +2547,13 @@ if want_tests != 'false'
              args : exe.full_path())
 endif
 
-executable(
-        'systemd-getty-generator',
-        'src/getty-generator/getty-generator.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : userspace,
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : systemgeneratordir)
-
-executable(
-        'systemd-debug-generator',
-        'src/debug-generator/debug-generator.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : userspace,
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : systemgeneratordir)
-
-executable(
-        'systemd-run-generator',
-        'src/run-generator/run-generator.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : userspace,
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : systemgeneratordir)
-
-exe = executable(
-        'systemd-fstab-generator',
-        'src/fstab-generator/fstab-generator.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : userspace,
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : systemgeneratordir)
-
-meson.add_install_script(meson_make_symlink,
-                         systemgeneratordir / 'systemd-fstab-generator',
-                         rootlibexecdir / 'systemd-sysroot-fstab-check')
-
 if want_tests != 'false'
+        exe = executables_by_name.get('systemd-fstab-generator')
         test('test-fstab-generator',
              test_fstab_generator_sh,
              # https://github.com/mesonbuild/meson/issues/2681
              args : exe.full_path(),
              depends : exe)
-endif
-
-if conf.get('ENABLE_ENVIRONMENT_D') == 1
-        executable(
-                '30-systemd-environment-d-generator',
-                'src/environment-d-generator/environment-d-generator.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : userenvgeneratordir)
-
-        meson.add_install_script(meson_make_symlink,
-                                 sysconfdir / 'environment',
-                                 environmentdir / '99-environment.conf')
 endif
 
 if conf.get('ENABLE_HIBERNATE') == 1
