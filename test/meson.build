@@ -239,7 +239,15 @@ endif
 
 sys_script_py = files('sys-script.py')
 test_udev_py = files('test-udev.py')
-
+if want_tests != 'false'
+        exe = executables_by_name.get('udev-rule-runner')
+        test('test-udev',
+             test_udev_py,
+             args : ['-v'],
+             env : ['UDEV_RULE_RUNNER=' + exe.full_path()],
+             depends : exe,
+             timeout : 180)
+endif
 if install_tests
         install_data(
                 sys_script_py,
