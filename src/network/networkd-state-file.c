@@ -624,11 +624,23 @@ int link_save(Link *link) {
                                 log_link_warning(link, "DHCPv6 Captive Portal (%s) does not match DHCPv4 (%s). Ignoring.",
                                                 dhcp6_captive_portal, dhcp_captive_portal);
 
+                if (link->network->ipv6_accept_ra_use_captive_portal && link->ndisc_captive_portal) {
+                        if (dhcp_captive_portal && strcmp(dhcp_captive_portal, link->ndisc_captive_portal) != 0)
+                                log_link_warning(link, "IPv6RA captive portal (%s) does not match DHCPv4 (%s). Ignorning.",
+                                                link->ndisc_captive_portal, dhcp_captive_portal);
+                        if (dhcp6_captive_portal && strcmp(dhcp6_captive_portal, link->ndisc_captive_portal) != 0)
+                                log_link_warning(link, "IPv6RA captive portal (%s) does not match DHCPv6 (%s). Ignorning.",
+                                                link->ndisc_captive_portal, dhcp6_captive_portal);
+                }
+
                 if (dhcp_captive_portal) {
                         _cleanup_free_ char *escaped = cescape(dhcp_captive_portal);
                         fprintf(f, "CAPTIVE_PORTAL=%s\n", escaped);
                 } else if (dhcp6_captive_portal) {
                         _cleanup_free_ char *escaped = cescape(dhcp6_captive_portal);
+                        fprintf(f, "CAPTIVE_PORTAL=%s\n", escaped);
+                } else if (link->ndisc_captive_portal) {
+                        _cleanup_free_ char *escaped = cescape(link->ndisc_captive_portal);
                         fprintf(f, "CAPTIVE_PORTAL=%s\n", escaped);
                 }
 
