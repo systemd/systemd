@@ -21,6 +21,13 @@ executables += [
                 'conditions' : ['ENABLE_OOMD'],
                 'sources' : files('oomctl.c'),
         },
+        test_template + {
+                'sources' : files(
+                        'test-oomd-util.c',
+                        'oomd-util.c',
+                ),
+                'dependencies' : libatomic,
+        },
 ]
 
 if conf.get('ENABLE_OOMD') == 1
@@ -35,13 +42,3 @@ if conf.get('ENABLE_OOMD') == 1
                              install_dir : pkgsysconfdir)
         endif
 endif
-
-tests += [
-        {
-                'sources' : files(
-                        'test-oomd-util.c',
-                        'oomd-util.c',
-                ),
-                'dependencies' : libatomic,
-        },
-]

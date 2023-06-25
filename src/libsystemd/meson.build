@@ -155,7 +155,7 @@ simple_tests += files(
         'sd-journal/test-mmap-cache.c',
 )
 
-tests += [
+libsystemd_tests += [
         {
                 'sources' : files('sd-journal/test-journal-enum.c'),
                 'timeout' : 360,
@@ -177,7 +177,7 @@ simple_tests += files(
         'sd-netlink/test-netlink.c',
 )
 
-tests += [
+libsystemd_tests += [
         {
                 'sources' : files('sd-bus/test-bus-address.c'),
                 'dependencies' : threads

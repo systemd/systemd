@@ -31,6 +31,14 @@ executables += [
                 'conditions' : ['ENABLE_LOCALED'],
                 'sources' : files('localectl.c'),
         },
+        test_template + {
+                'sources' : files(
+                        'test-localed-util.c',
+                        'localed-util.c',
+                        'xkbcommon-util.c',
+                ),
+                'dependencies' : libxkbcommon_deps,
+        },
 ]
 
 # If you know a way that allows the same variables to be used
@@ -50,14 +58,3 @@ if conf.get('ENABLE_LOCALED') == 1
                      'language-fallback-map',
                      install_dir : pkgdatadir)
 endif
-
-tests += [
-        {
-                'sources' : files(
-                        'test-localed-util.c',
-                        'localed-util.c',
-                        'xkbcommon-util.c',
-                ),
-                'dependencies' : libxkbcommon_deps,
-        },
-]
