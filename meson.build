@@ -2378,9 +2378,11 @@ subdir('src/coredump')
 subdir('src/cryptenroll')
 subdir('src/cryptsetup')
 subdir('src/debug-generator')
+subdir('src/dissect')
 subdir('src/environment-d-generator')
 subdir('src/fstab-generator')
 subdir('src/getty-generator')
+subdir('src/gpt-auto-generator')
 subdir('src/hibernate-resume')
 subdir('src/home')
 subdir('src/hostname')
@@ -2554,32 +2556,6 @@ if want_tests != 'false'
              args : exe.full_path(),
              env : test_env,
              depends : exe)
-endif
-
-if conf.get('HAVE_BLKID') == 1
-        executable(
-                'systemd-gpt-auto-generator',
-                'src/gpt-auto-generator/gpt-auto-generator.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [libblkid,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : systemgeneratordir)
-
-        public_programs += executable(
-                'systemd-dissect',
-                'src/dissect/dissect.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [userspace],
-                install_rpath : pkglibdir,
-                install : true)
-
-        meson.add_install_script(meson_make_symlink,
-                                 bindir / 'systemd-dissect',
-                                 sbindir / 'mount.ddi')
 endif
 
 if conf.get('ENABLE_RESOLVE') == 1
