@@ -2456,8 +2456,6 @@ subdir('src/systemd')
 
 subdir('src/test')
 subdir('src/fuzz')
-subdir('rules.d')
-subdir('test')
 subdir('src/ukify/test')  # needs to be last for test_env variable
 
 alias_target('devel', libsystemd_pc, libudev_pc, systemd_pc, udev_pc)
@@ -2578,114 +2576,6 @@ endforeach
 
 ############################################################
 
-if want_tests != 'false'
-        exe = executables_by_name.get('systemd-analyze')
-        test('test-compare-versions',
-             test_compare_versions_sh,
-             args : exe.full_path())
-endif
-
-if want_tests != 'false'
-        exe = executables_by_name.get('systemd-fstab-generator')
-        test('test-fstab-generator',
-             test_fstab_generator_sh,
-             # https://github.com/mesonbuild/meson/issues/2681
-             args : exe.full_path(),
-             depends : exe)
-endif
-
-if conf.get('HAVE_BLKID') == 1 and conf.get('ENABLE_BOOTLOADER') == 1
-        if want_tests != 'false'
-                exe = executables_by_name.get('bootctl')
-                test('test-bootctl-json',
-                     test_bootctl_json_sh,
-                     args : exe.full_path(),
-                     depends : exe)
-        endif
-endif
-
-meson.add_install_script(meson_make_symlink,
-                         rootbindir / 'udevadm',
-                         rootlibexecdir / 'systemd-udevd')
-
-if want_tests != 'false'
-        systemctl = executables_by_name.get('systemctl')
-        systemd_id128 = executables_by_name.get('systemd-id128')
-        test('test-systemctl-enable',
-             test_systemctl_enable_sh,
-             # https://github.com/mesonbuild/meson/issues/2681
-             args : [systemctl.full_path(),
-                     systemd_id128.full_path()])
-endif
-
-if enable_sysusers
-        if want_tests != 'false'
-                exe = executables_by_name.get('systemd-sysusers')
-                test('test-sysusers',
-                     test_sysusers_sh,
-                     # https://github.com/mesonbuild/meson/issues/2681
-                     args : exe.full_path())
-        endif
-
-        if have_standalone_binaries
-                if want_tests != 'false'
-                        exe = executables_by_name.get('systemd-sysusers.standalone')
-                        test('test-sysusers.standalone',
-                             test_sysusers_sh,
-                             # https://github.com/mesonbuild/meson/issues/2681
-                             args : exe.full_path())
-                endif
-        endif
-endif
-
-if conf.get('ENABLE_TMPFILES') == 1
-        if want_tests != 'false'
-                exe = executables_by_name.get('systemd-tmpfiles')
-                test('test-systemd-tmpfiles',
-                     test_systemd_tmpfiles_py,
-                     # https://github.com/mesonbuild/meson/issues/2681
-                     args : exe.full_path())
-        endif
-
-        if have_standalone_binaries
-                if want_tests != 'false'
-                        exe = executables_by_name.get('systemd-tmpfiles.standalone')
-                        test('test-systemd-tmpfiles.standalone',
-                             test_systemd_tmpfiles_py,
-                             # https://github.com/mesonbuild/meson/issues/2681
-                             args : exe.full_path())
-                endif
-        endif
-endif
-
-if conf.get('ENABLE_HWDB') == 1
-        if want_tests != 'false'
-                exe = executables_by_name.get('systemd-hwdb')
-                test('hwdb-test',
-                     hwdb_test_sh,
-                     suite : 'dist',
-                     args : exe.full_path(),
-                     timeout : 90)
-        endif
-endif
-
-if want_tests != 'false'
-        exe = executables_by_name.get('udevadm')
-        test('udev-rules-check',
-             exe,
-             suite : 'dist',
-             args : ['verify', '--resolve-names=never', all_rules])
-endif
-
-if want_tests != 'false'
-        exe = executables_by_name.get('systemd-network-generator')
-        test('test-network-generator-conversion',
-             test_network_generator_conversion_sh,
-             # https://github.com/mesonbuild/meson/issues/2681
-             args : exe.full_path(),
-             depends : exe)
-endif
-
 ukify = custom_target(
         'ukify',
         input : 'src/ukify/ukify.py',
@@ -2698,23 +2588,10 @@ if want_ukify
         public_programs += ukify
 endif
 
-if want_tests != 'false' and conf.get('ENABLE_KERNEL_INSTALL') == 1
-        kernel_install = executables_by_name.get('kernel-install')
-        args = [kernel_install.full_path(), loaderentry_install.full_path(), uki_copy_install]
-        deps = [kernel_install, loaderentry_install]
-        if want_ukify and boot_stubs.length() > 0
-                args += [ukify.full_path(), ukify_install.full_path(), boot_stubs[0]]
-                deps += [ukify, ukify_install, boot_stubs[0]]
-        endif
-
-        test('test-kernel-install',
-             test_kernel_install_sh,
-             env : test_env,
-             args : args,
-             depends: deps)
-endif
-
 ############################################################
+
+subdir('rules.d')
+subdir('test')
 
 runtest_env = custom_target(
         'systemd-runtest.env',
