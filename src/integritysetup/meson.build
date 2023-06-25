@@ -9,8 +9,7 @@ executables += [
                 'name' : 'systemd-integritysetup',
                 'sources' : files('integritysetup.c',
                                   'integrity-util.c'),
-                'dependencies' : [libcryptsetup,
-                                  versiondep],
+                'dependencies' : libcryptsetup,
         },
         generator_template + {
                 'name' : 'systemd-integritysetup-generator',

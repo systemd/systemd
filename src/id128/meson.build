@@ -5,6 +5,5 @@ executables += [
                 'name' : 'systemd-id128',
                 'public' : true,
                 'sources' : files('id128.c'),
-                'dependencies' : [versiondep],
         },
 ]

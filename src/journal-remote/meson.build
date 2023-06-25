@@ -48,8 +48,7 @@ executables += [
                                   liblz4,
                                   libxz,
                                   libzstd,
-                                  threads,
-                                  versiondep],
+                                  threads],
         },
         libexec_template + {
                 'name' : 'systemd-journal-remote',
@@ -64,8 +63,7 @@ executables += [
                                   libmicrohttpd,
                                   libxz,
                                   libzstd,
-                                  threads,
-                                  versiondep],
+                                  threads],
         },
         libexec_template + {
                 'name' : 'systemd-journal-gatewayd',
@@ -77,8 +75,7 @@ executables += [
                                   libmicrohttpd,
                                   libxz,
                                   libzstd,
-                                  threads,
-                                  versiondep],
+                                  threads],
         },
 ]
 

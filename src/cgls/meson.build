@@ -5,6 +5,5 @@ executables += [
                 'name' : 'systemd-cgls',
                 'public' : true,
                 'sources' : files('cgls.c'),
-                'dependencies' : [versiondep],
         },
 ]

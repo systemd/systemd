@@ -27,11 +27,6 @@ cryptsetup_token_systemd_pkcs11_sources = files(
         'luks2-pkcs11.c',
 )
 
-common_dep = [
-        libcryptsetup,
-        versiondep,
-]
-
 template = {
         'include_directories' : includes,
         'link_with' : [lib_cryptsetup_token_common,
@@ -47,18 +42,21 @@ modules += [
                 'name' : 'cryptsetup-token-systemd-tpm2',
                 'conditions' : ['HAVE_TPM2'],
                 'sources' : cryptsetup_token_systemd_tpm2_sources,
-                'dependencies' : common_dep + [tpm2],
+                'dependencies' : [libcryptsetup,
+                                  tpm2],
         },
         template + {
                 'name' : 'cryptsetup-token-systemd-fido2',
                 'conditions' : ['HAVE_LIBFIDO2'],
                 'sources' : cryptsetup_token_systemd_fido2_sources,
-                'dependencies' : common_dep + [libfido2],
+                'dependencies' : [libcryptsetup,
+                                  libfido2],
         },
         template + {
                 'name' : 'cryptsetup-token-systemd-pkcs11',
                 'conditions' : ['HAVE_P11KIT'],
                 'sources' : cryptsetup_token_systemd_pkcs11_sources,
-                'dependencies' : common_dep + [libp11kit],
+                'dependencies' : [libcryptsetup,
+                                  libp11kit],
         },
 ]
