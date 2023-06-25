@@ -78,7 +78,27 @@ executables += [
                 'conditions' : ['ENABLE_LOGIND'],
                 'sources' : files('user-runtime-dir.c'),
         },
+        test_template + {
+                'sources' : files('test-inhibit.c'),
+                'type' : 'manual',
+        },
+        test_template + {
+                'sources' : files('test-login-tables.c'),
+                'link_with' : [
+                        liblogind_core,
+                        libshared,
+                ],
+                'dependencies' : threads,
+        },
+        test_template + {
+                'sources' : files('test-session-properties.c'),
+                'type' : 'manual',
+        },
 ]
+
+simple_tests += files(
+        'test-login-shared.c'
+)
 
 modules += [
         pam_template + {
@@ -115,28 +135,3 @@ if enable_logind
         install_data('org.freedesktop.login1.policy',
                      install_dir : polkitpolicydir)
 endif
-
-############################################################
-
-simple_tests += files(
-        'test-login-shared.c'
-)
-
-tests += [
-        {
-                'sources' : files('test-inhibit.c'),
-                'type' : 'manual',
-        },
-        {
-                'sources' : files('test-login-tables.c'),
-                'link_with' : [
-                        liblogind_core,
-                        libshared,
-                ],
-                'dependencies' : threads,
-        },
-        {
-                'sources' : files('test-session-properties.c'),
-                'type' : 'manual',
-        },
-]

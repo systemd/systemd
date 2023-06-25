@@ -45,12 +45,7 @@ executables += [
                 'dependencies' : [libblkid,
                                   libseccomp],
         },
-]
-
-############################################################
-
-tests += [
-        {
+        test_template + {
                 'sources' : files('test-nspawn-tables.c'),
                 'link_with' : [
                         libnspawn_core,
@@ -58,7 +53,7 @@ tests += [
                 ],
                 'dependencies' : libseccomp,
         },
-        {
+        test_template + {
                 'sources' : files('test-nspawn-util.c'),
                 'link_with' : [
                         libnspawn_core,
@@ -66,7 +61,7 @@ tests += [
                 ],
                 'dependencies' : libseccomp,
         },
-        {
+        test_template + {
                 'sources' : files('test-patch-uid.c'),
                 'link_with' : [
                         libnspawn_core,

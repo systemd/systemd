@@ -29,10 +29,7 @@ executables += [
                 'install' : have_standalone_binaries,
                 'install_dir' : rootbindir,
         },
-]
-
-tests += [
-        {
+        test_template + {
                 'sources' : files(
                         'test-offline-passwd.c',
                         'offline-passwd.c',

@@ -150,6 +150,11 @@ libnetworkd_core = static_library(
         link_with : networkd_link_with,
         build_by_default : false)
 
+network_test_template = test_template + {
+        'link_with' : [libnetworkd_core, libsystemd_network],
+        'include_directories' : network_includes,
+}
+
 executables += [
         libexec_template + {
                 'name' : 'systemd-networkd',
@@ -183,6 +188,31 @@ executables += [
                 'name' : 'systemd-network-generator',
                 'sources' : network_generator_sources,
                 'link_with' : networkd_link_with,
+        },
+        network_test_template + {
+                'sources' : files(
+                        'generator/test-network-generator.c',
+                        'generator/network-generator.c',
+                ),
+        },
+        network_test_template + {
+                'sources' : files('test-network-tables.c'),
+                'dependencies' : threads,
+        },
+        network_test_template + {
+                'sources' : files('test-network.c'),
+                'dependencies' : threads,
+        },
+        network_test_template + {
+                'sources' : files('test-networkd-address.c'),
+                'dependencies' : libatomic,
+        },
+        network_test_template + {
+                'sources' : files('test-networkd-conf.c'),
+                'dependencies' : libatomic,
+        },
+        network_test_template + {
+                'sources' : files('test-networkd-util.c'),
         },
 ]
 
@@ -222,43 +252,5 @@ fuzzers += [
         {
                 'sources' : files('fuzz-network-parser.c'),
                 'base' : fuzzer_network_base,
-        },
-]
-
-test_network_base = {
-        'link_with' : [libnetworkd_core, libsystemd_network],
-        'includes' : network_includes,
-}
-
-tests += [
-        {
-                'sources' : files(
-                        'generator/network-generator.c',
-                        'generator/test-network-generator.c'
-                )
-        },
-        {
-                'sources' : files('test-network-tables.c'),
-                'dependencies' : threads,
-                'base' : test_network_base,
-        },
-        {
-                'sources' : files('test-network.c'),
-                'dependencies' : threads,
-                'base' : test_network_base,
-        },
-        {
-                'sources' : files('test-networkd-address.c'),
-                'dependencies' : libatomic,
-                'base' : test_network_base,
-        },
-        {
-                'sources' : files('test-networkd-conf.c'),
-                'dependencies' : libatomic,
-                'base' : test_network_base,
-        },
-        {
-                'sources' : files('test-networkd-util.c'),
-                'base' : test_network_base,
         },
 ]
