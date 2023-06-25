@@ -2547,43 +2547,6 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('ENABLE_BOOTLOADER') == 1
         endif
 endif
 
-if conf.get('ENABLE_USERDB') == 1
-        executable(
-                'systemd-userwork',
-                systemd_userwork_sources,
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [threads,
-                                userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootlibexecdir)
-
-        executable(
-                'systemd-userdbd',
-                systemd_userdbd_sources,
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [threads,
-                                userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootlibexecdir)
-
-        public_programs += executable(
-                'userdbctl',
-                userdbctl_sources,
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [threads,
-                                userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true)
-endif
-
 if conf.get('ENABLE_HOMED') == 1
         executable(
                 'systemd-homework',
