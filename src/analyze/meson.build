@@ -44,14 +44,10 @@ executables += [
                                   versiondep],
                 'install' : conf.get('ENABLE_ANALYZE') == 1,
         },
-]
-
-tests += [
-        {
+        core_test_template + {
                 'sources' : files(
                         'test-verify.c',
                         'analyze-verify-util.c',
                 ),
-                'base' : test_core_base,
         },
 ]

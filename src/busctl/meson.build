@@ -12,10 +12,7 @@ executables += [
                 'sources' : busctl_sources,
                 'dependencies' : versiondep,
         },
-]
-
-tests += [
-        {
+        test_template + {
                 'sources' : files(
                         'test-busctl-introspect.c',
                         'busctl-introspect.c',
