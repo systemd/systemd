@@ -116,6 +116,14 @@ libudevd_core = static_library(
                         userspace],
         build_by_default : false)
 
+udev_dependencies = [
+        libacl,
+        libblkid,
+        libidn,
+        libkmod,
+        threads,
+]
+
 udev_plugin_template = executable_template + {
         'public' : true,
         'link_with' : udev_link_with,
@@ -123,19 +131,25 @@ udev_plugin_template = executable_template + {
         'install_dir' : udevlibexecdir,
 }
 
+udev_common_template = {
+        'link_with' : [
+                libshared,
+                libudevd_core,
+        ],
+        'dependencies' : [
+                libacl,
+                threads,
+        ],
+}
+udev_test_template = test_template + udev_common_template
+
 executables += [
         executable_template + {
                 'name' : 'udevadm',
                 'public' : true,
                 'sources' : udevadm_sources,
                 'link_with' : [libudevd_core],
-                'dependencies' : [
-                        libacl,
-                        libblkid,
-                        libidn,
-                        libkmod,
-                        threads,
-                ],
+                'dependencies' : udev_dependencies,
                 'install_rpath' : udev_rpath,
         },
         udev_plugin_template + {
@@ -179,6 +193,38 @@ executables += [
         udev_plugin_template + {
                 'name' : 'v4l_id',
                 'sources' : files('v4l_id/v4l_id.c'),
+        },
+        test_template + {
+                'sources' : files(
+                        'fido_id/test-fido-id-desc.c',
+                        'fido_id/fido_id_desc.c',
+                ),
+                'suite' : 'udev',
+        },
+        udev_test_template + {
+                'sources' : files('test-udev-builtin.c'),
+        },
+        udev_test_template + {
+                'sources' : files('test-udev-format.c'),
+        },
+        udev_test_template + {
+                'sources' : files('test-udev-manager.c'),
+        },
+        udev_test_template + {
+                'sources' : files('test-udev-node.c'),
+        },
+        udev_test_template + {
+                'sources' : files('test-udev-rule-runner.c'),
+                'dependencies' : udev_dependencies + [
+                        libselinux,
+                ],
+                'type' : 'manual',
+        },
+        udev_test_template + {
+                'sources' : files('test-udev-rules.c'),
+        },
+        udev_test_template + {
+                'sources' : files('test-udev-spawn.c'),
         },
 ]
 
@@ -231,60 +277,5 @@ fuzzers += [
                         'fido_id/fuzz-fido-id-desc.c',
                         'fido_id/fido_id_desc.c',
                 ),
-        },
-]
-
-test_libudev_base = {
-        'link_with' : [libudevd_core, libshared],
-        'dependencies' : [threads, libacl],
-}
-
-tests += [
-        {
-                'sources' : files(
-                        'fido_id/test-fido-id-desc.c',
-                        'fido_id/fido_id_desc.c',
-                ),
-        },
-        {
-                'sources' : files('test-udev-builtin.c'),
-                'base' : test_libudev_base,
-        },
-        {
-                'sources' : files('test-udev-format.c'),
-                'base' : test_libudev_base,
-        },
-        {
-                'sources' : files('test-udev-manager.c'),
-                'base' : test_libudev_base,
-        },
-        {
-                'sources' : files('test-udev-node.c'),
-                'base' : test_libudev_base,
-        },
-        {
-                'sources' : files('test-udev-rule-runner.c'),
-                'link_with' : [
-                        libshared,
-                        libudevd_core,
-                ],
-                'dependencies' : [
-                        libacl,
-                        libblkid,
-                        libkmod,
-                        librt,
-                        libselinux,
-                        threads,
-                ],
-                'includes' : udev_includes,
-                'type' : 'manual',
-        },
-        {
-                'sources' : files('test-udev-rules.c'),
-                'base' : test_libudev_base,
-        },
-        {
-                'sources' : files('test-udev-spawn.c'),
-                'base' : test_libudev_base,
         },
 ]
