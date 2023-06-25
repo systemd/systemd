@@ -2177,8 +2177,8 @@ man_page_depends = []
 
 ############################################################
 
-tests = []
 simple_tests = []
+libsystemd_tests = []
 fuzzers = []
 simple_fuzzers = []
 catalogs = []
@@ -2308,6 +2308,27 @@ install_libudev_static = static_library(
 
 ############################################################
 
+runtest_env = custom_target(
+        'systemd-runtest.env',
+        output : 'systemd-runtest.env',
+        command : [sh, '-c',
+                   '{ echo SYSTEMD_TEST_DATA=@0@; echo SYSTEMD_CATALOG_DIR=@1@; } >@OUTPUT@'.format(
+                           project_source_root / 'test',
+                           project_build_root / 'catalog')],
+        depends : catalogs,
+        build_by_default : true)
+
+test_cflags = ['-DTEST_CODE=1']
+# We intentionally do not do inline initializations with definitions for a
+# bunch of _cleanup_ variables in tests, to ensure valgrind is triggered if we
+# use the variable unexpectedly. This triggers a lot of maybe-uninitialized
+# false positives when the combination of -O2 and -flto is used. Suppress them.
+if '-O2' in c_args and '-flto=auto' in c_args
+        test_cflags += cc.first_supported_argument('-Wno-maybe-uninitialized')
+endif
+
+############################################################
+
 executable_template = {
         'include_directories' : includes,
         'link_with' : libshared,
@@ -2325,6 +2346,17 @@ libexec_template = executable_template + {
 
 executable_additional_kwargs = {
         'dependencies' : userspace,
+}
+
+test_template = executable_template + {
+        'build_by_default' : want_tests != 'false',
+        'install' : install_tests,
+        'install_dir' : unittestsdir,
+}
+
+test_additional_kwargs = {
+        'c_args' : test_cflags,
+        'link_depends' : runtest_env,
 }
 
 nss_template = {
@@ -2472,8 +2504,22 @@ alias_target('devel', libsystemd_pc, libudev_pc, systemd_pc, udev_pc)
 
 ############################################################
 
+foreach test : simple_tests
+        executables += test_template + { 'sources' : [test] }
+endforeach
+
+foreach test : libsystemd_tests
+        executables += test_template + test
+endforeach
+
 foreach dict : executables
-        name = dict.get('name')
+        name = dict.get('name', '')
+        if name == ''
+                name = fs.stem(dict.get('sources')[0])
+                assert(name.split('-')[0] == 'test')
+        endif
+
+        is_test = name.startswith('test-')
 
         build = true
         foreach cond : dict.get('conditions', [])
@@ -2488,15 +2534,24 @@ foreach dict : executables
 
         kwargs = {}
         foreach key, val : dict
-                if key in ['name', 'dbus', 'public', 'conditions']
+                if key in ['name', 'dbus', 'public', 'conditions',
+                           'type', 'suite', 'timeout', 'parallel']
                         continue
                 endif
+
                 kwargs += { key : val }
         endforeach
 
         foreach key, val : executable_additional_kwargs
                 kwargs += { key : [ kwargs.get(key, []), val ]}
         endforeach
+
+        if is_test
+                kwargs += { 'install_dir' : kwargs.get('install_dir') / dict.get('type', '') }
+                foreach key, val : test_additional_kwargs
+                        kwargs += { key : [ kwargs.get(key, []), val ] }
+                endforeach
+        endif
 
         exe = executable(
                 name,
@@ -2513,20 +2568,34 @@ foreach dict : executables
                         public_programs += exe
                 endif
         endif
+
+        if is_test
+                type = dict.get('type', '')
+                suite = dict.get('suite', '')
+                if suite == ''
+                        suite = fs.name(fs.parent(dict.get('sources')[0]))
+                        if suite.startswith('sd-')
+                                suite = 'libsystemd'
+                        endif
+                endif
+
+                if type == 'manual'
+                        message('@0@/@1@ is a manual test'.format(suite, name))
+                elif type == 'unsafe' and want_tests != 'unsafe'
+                        message('@0@/@1@ is an unsafe test'.format(suite, name))
+                elif dict.get('build_by_default')
+                        test(name, exe,
+                             env : test_env,
+                             timeout : dict.get('timeout', 30),
+                             suite : suite,
+                             is_parallel : dict.get('parallel', true))
+                endif
+        endif
 endforeach
 
 ############################################################
 
-# only static linking apart from libdl, to make sure that the
-# module is linked to all libraries that it uses.
-test_dlopen = executable(
-        'test-dlopen',
-        test_dlopen_c,
-        include_directories : includes,
-        link_with : [libbasic],
-        dependencies : [libdl,
-                        userspace],
-        build_by_default : want_tests != 'false')
+test_dlopen = executables_by_name.get('test-dlopen')
 
 foreach dict : modules
         name = dict.get('name')
@@ -2602,146 +2671,6 @@ endif
 
 subdir('rules.d')
 subdir('test')
-
-runtest_env = custom_target(
-        'systemd-runtest.env',
-        output : 'systemd-runtest.env',
-        command : [sh, '-c',
-                   '{ echo SYSTEMD_TEST_DATA=@0@; echo SYSTEMD_CATALOG_DIR=@1@; } >@OUTPUT@'.format(
-                           project_source_root / 'test',
-                           project_build_root / 'catalog')],
-        depends : catalogs,
-        build_by_default : true)
-
-test_cflags = ['-DTEST_CODE=1']
-# We intentionally do not do inline initializations with definitions for a
-# bunch of _cleanup_ variables in tests, to ensure valgrind is triggered if we
-# use the variable unexpectedly. This triggers a lot of maybe-uninitialized
-# false positives when the combination of -O2 and -flto is used. Suppress them.
-if '-O2' in c_args and '-flto=auto' in c_args
-        test_cflags += cc.first_supported_argument('-Wno-maybe-uninitialized')
-endif
-
-foreach test : simple_tests
-        tests += { 'sources' : [test] }
-endforeach
-
-TESTS = {}
-foreach test : tests
-        sources = test.get('sources')
-        condition = test.get('condition', '')
-        type = test.get('type', '')
-        base = test.get('base', {})
-        deps = [
-                base.get('dependencies', []),
-                test.get('dependencies', []),
-                userspace,
-        ]
-
-        name = fs.stem(sources[0])
-        suite = fs.name(fs.parent(sources[0])).replace('sd-', '')
-
-        if condition != '' and conf.get(condition) == 0
-                message('Not compiling @0@ because @1@ is not true'.format(name, condition))
-                continue
-        endif
-
-        exe = executable(
-                name,
-                sources,
-                include_directories : [base.get('includes', []), test.get('includes', includes)],
-                link_with : [base.get('link_with', []), test.get('link_with', libshared)],
-                dependencies : deps,
-                c_args : [test_cflags, test.get('c_args', [])],
-                build_by_default : want_tests != 'false',
-                install_rpath : rootpkglibdir,
-                install : install_tests,
-                install_dir : unittestsdir / type,
-                link_depends : runtest_env)
-
-        if type == 'manual'
-                message('@0@ is a manual test'.format(name))
-        elif type == 'unsafe' and want_tests != 'unsafe'
-                message('@0@ is an unsafe test'.format(name))
-        elif want_tests != 'false'
-                test(name, exe,
-                     env : test_env,
-                     timeout : test.get('timeout', 30),
-                     suite : suite,
-                     is_parallel : test.get('parallel', true))
-        endif
-
-        TESTS += { name : exe }
-endforeach
-
-exe = executable(
-        'test-libsystemd-sym',
-        test_libsystemd_sym_c,
-        include_directories : includes,
-        link_with : [libsystemd],
-        dependencies : userspace,
-        build_by_default : want_tests != 'false',
-        install : install_tests,
-        install_dir : unittestsdir)
-if want_tests != 'false'
-        test('test-libsystemd-sym', exe)
-endif
-
-exe = executable(
-        'test-libsystemd-static-sym',
-        test_libsystemd_sym_c,
-        include_directories : includes,
-        link_with : [install_libsystemd_static],
-        dependencies : [
-                # threads is already included in dependencies on the library,
-                # but does not seem to get propagated. Add here as a work-around.
-                threads,
-                userspace,
-        ],
-        build_by_default : want_tests != 'false' and static_libsystemd != 'false',
-        install : install_tests and static_libsystemd != 'false',
-        install_dir : unittestsdir)
-if want_tests != 'false' and static_libsystemd != 'false'
-        test('test-libsystemd-static-sym', exe)
-endif
-
-exe = executable(
-        'test-libudev-sym',
-        test_libudev_sym_c,
-        include_directories : libudev_includes,
-        c_args : ['-Wno-deprecated-declarations'] + test_cflags,
-        link_with : [libudev],
-        dependencies : userspace,
-        build_by_default : want_tests != 'false',
-        install : install_tests,
-        install_dir : unittestsdir)
-if want_tests != 'false'
-        test('test-libudev-sym', exe)
-endif
-
-exe = executable(
-        'test-libudev-static-sym',
-        test_libudev_sym_c,
-        include_directories : libudev_includes,
-        c_args : ['-Wno-deprecated-declarations'] + test_cflags,
-        link_with : [install_libudev_static],
-        dependencies : userspace,
-        build_by_default : want_tests != 'false' and static_libudev != 'false',
-        install : install_tests and static_libudev != 'false',
-        install_dir : unittestsdir)
-if want_tests != 'false' and static_libudev != 'false'
-        test('test-libudev-static-sym', exe)
-endif
-
-if want_tests != 'false'
-        exe = TESTS.get('udev-rule-runner')
-        test('test-udev',
-             test_udev_py,
-             args : ['-v'],
-             env : ['UDEV_RULE_RUNNER=' + exe.full_path()],
-             depends : exe,
-             timeout : 180)
-endif
 
 ############################################################
 

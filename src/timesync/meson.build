@@ -48,6 +48,14 @@ executables += [
                 'sources' : files('wait-sync.c'),
                 'link_with' : libtimesyncd_core,
         },
+        test_template + {
+                'sources' : files('test-timesync.c'),
+                'link_with' : [
+                        libshared,
+                        libtimesyncd_core,
+                ],
+                'dependencies' : libm,
+        },
 ]
 
 custom_target(
@@ -68,16 +76,3 @@ if conf.get('ENABLE_TIMESYNCD') == 1
         install_data('org.freedesktop.timesync1.policy',
                      install_dir : polkitpolicydir)
 endif
-
-############################################################
-
-tests += [
-        {
-                'sources' : files('test-timesync.c'),
-                'link_with' : [
-                        libshared,
-                        libtimesyncd_core,
-                ],
-                'dependencies' : libm,
-        },
-]
