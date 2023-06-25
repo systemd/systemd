@@ -2412,6 +2412,7 @@ subdir('src/sysupdate')
 subdir('src/timedate')
 subdir('src/timesync')
 subdir('src/tmpfiles')
+subdir('src/user-sessions')
 subdir('src/userdb')
 subdir('src/xdg-autostart-generator')
 
@@ -2556,18 +2557,6 @@ if want_tests != 'false'
              args : exe.full_path(),
              env : test_env,
              depends : exe)
-endif
-
-if conf.get('HAVE_PAM') == 1
-        executable(
-                'systemd-user-sessions',
-                'src/user-sessions/user-sessions.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
 endif
 
 if conf.get('HAVE_BLKID') == 1 and conf.get('ENABLE_BOOTLOADER') == 1
