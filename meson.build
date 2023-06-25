@@ -2208,7 +2208,6 @@ subdir('src/fundamental')
 subdir('src/basic')
 subdir('src/libsystemd')
 subdir('src/shared')
-subdir('src/udev')
 subdir('src/libudev')
 
 libsystemd = shared_library(
@@ -2350,6 +2349,8 @@ subdir('src/core')
 subdir('src/journal')
 # systemd-networkd requires 'libsystemd_network'
 subdir('src/libsystemd-network')
+# hwdb requires 'udev_link_with' and 'udev_rpath'
+subdir('src/udev')
 
 subdir('src/ac-power')
 subdir('src/analyze')
@@ -2405,6 +2406,7 @@ subdir('src/partition')
 subdir('src/path')
 subdir('src/portable')
 subdir('src/pstore')
+subdir('src/quotacheck')
 subdir('src/random-seed')
 subdir('src/rc-local-generator')
 subdir('src/remount-fs')
@@ -2417,6 +2419,7 @@ subdir('src/run-generator')
 subdir('src/shutdown')
 subdir('src/sleep')
 subdir('src/socket-activate')
+subdir('src/socket-proxy')
 subdir('src/stdio-bridge')
 subdir('src/sysctl')
 subdir('src/sysext')
@@ -2659,81 +2662,13 @@ if conf.get('ENABLE_HWDB') == 1
         endif
 endif
 
-if conf.get('ENABLE_QUOTACHECK') == 1
-        executable(
-                'systemd-quotacheck',
-                'src/quotacheck/quotacheck.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootlibexecdir)
-endif
-
-public_programs += executable(
-        'systemd-socket-proxyd',
-        'src/socket-proxy/socket-proxyd.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [threads,
-                        userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : rootlibexecdir)
-
-udevadm = executable(
-        'udevadm',
-        udevadm_sources,
-        include_directories : includes,
-        link_with : [libudevd_core],
-        dependencies : [libacl,
-                        libblkid,
-                        libidn,
-                        libkmod,
-                        threads,
-                        userspace,
-                        versiondep],
-        install_rpath : udev_rpath,
-        install : true,
-        install_dir : rootbindir)
-public_programs += udevadm
-
 if want_tests != 'false'
+        exe = executables_by_name.get('udevadm')
         test('udev-rules-check',
-             udevadm,
+             exe,
              suite : 'dist',
              args : ['verify', '--resolve-names=never', all_rules])
 endif
-
-executable(
-        'systemd-shutdown',
-        systemd_shutdown_sources,
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [libmount,
-                        userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : rootlibexecdir)
-
-executable(
-        'systemd-shutdown.standalone',
-        systemd_shutdown_sources,
-        include_directories : includes,
-        c_args : '-DSTANDALONE',
-        link_with : [libshared_static,
-                     libbasic,
-                     libsystemd_static],
-        dependencies : [libmount,
-                        userspace,
-                        versiondep],
-        build_by_default: have_standalone_binaries,
-        install_rpath : rootpkglibdir,
-        install : have_standalone_binaries,
-        install_dir : rootlibexecdir)
 
 executable(
         'systemd-update-done',
