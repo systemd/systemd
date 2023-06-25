@@ -2363,6 +2363,7 @@ subdir('src/debug-generator')
 subdir('src/environment-d-generator')
 subdir('src/fstab-generator')
 subdir('src/getty-generator')
+subdir('src/hibernate-resume')
 subdir('src/home')
 subdir('src/hostname')
 subdir('src/import')
@@ -2539,28 +2540,6 @@ if want_tests != 'false'
              # https://github.com/mesonbuild/meson/issues/2681
              args : exe.full_path(),
              depends : exe)
-endif
-
-if conf.get('ENABLE_HIBERNATE') == 1
-        executable(
-                'systemd-hibernate-resume-generator',
-                'src/hibernate-resume/hibernate-resume-generator.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : systemgeneratordir)
-
-        executable(
-                'systemd-hibernate-resume',
-                'src/hibernate-resume/hibernate-resume.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootlibexecdir)
 endif
 
 if conf.get('HAVE_BLKID') == 1
