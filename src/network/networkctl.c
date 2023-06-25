@@ -1678,7 +1678,7 @@ static int link_status_one(
 
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL,
                 **route_domains = NULL, **link_dropins = NULL, **network_dropins = NULL;
-        _cleanup_free_ char *t = NULL, *network = NULL, *iaid = NULL, *duid = NULL,
+        _cleanup_free_ char *t = NULL, *network = NULL, *iaid = NULL, *duid = NULL, *captive_portal = NULL,
                 *setup_state = NULL, *operational_state = NULL, *online_state = NULL, *activation_policy = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL,
                 *on_color_operational, *off_color_operational, *on_color_setup, *off_color_setup, *on_color_online;
@@ -1706,6 +1706,7 @@ static int link_status_one(
         (void) sd_network_link_get_route_domains(info->ifindex, &route_domains);
         (void) sd_network_link_get_ntp(info->ifindex, &ntp);
         (void) sd_network_link_get_sip(info->ifindex, &sip);
+        (void) sd_network_link_get_captive_portal(info->ifindex, &captive_portal);
         (void) sd_network_link_get_network_file(info->ifindex, &network);
         (void) sd_network_link_get_network_file_dropins(info->ifindex, &network_dropins);
         (void) sd_network_link_get_carrier_bound_to(info->ifindex, &carrier_bound_to);
@@ -2357,6 +2358,9 @@ static int link_status_one(
                 if (r < 0)
                         return table_log_add_error(r);
         }
+
+        if (captive_portal)
+                table_add_string_line(table, "Captive Portal:", captive_portal);
 
         if (lease) {
                 const void *client_id;
