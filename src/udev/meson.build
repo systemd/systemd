@@ -112,6 +112,23 @@ libudevd_core = static_library(
                         userspace],
         build_by_default : false)
 
+executables += [
+        executable_template + {
+                'name' : 'udevadm',
+                'public' : true,
+                'sources' : udevadm_sources,
+                'link_with' : [libudevd_core],
+                'dependencies' : [libacl,
+                                  libblkid,
+                                  libidn,
+                                  libkmod,
+                                  threads,
+                                  versiondep],
+                'install_rpath' : udev_rpath,
+                'install_dir' : rootbindir,
+        },
+]
+
 udev_progs = [['ata_id/ata_id.c'],
               ['cdrom_id/cdrom_id.c'],
               ['fido_id/fido_id.c',
@@ -146,6 +163,10 @@ foreach prog : udev_progs
         udev_prog_paths += {name : exe}
         public_programs += exe
 endforeach
+
+meson.add_install_script(meson_make_symlink,
+                         rootbindir / 'udevadm',
+                         rootlibexecdir / 'systemd-udevd')
 
 if install_sysconfdir_samples
         install_data('udev.conf',
