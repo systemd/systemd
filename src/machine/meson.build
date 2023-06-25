@@ -35,8 +35,7 @@ executables += [
                 'dependencies' : [liblz4,
                                   libxz,
                                   libzstd,
-                                  threads,
-                                  versiondep],
+                                  threads],
                 'install_dir' : rootbindir,
         },
 ]

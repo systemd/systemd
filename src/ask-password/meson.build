@@ -5,7 +5,6 @@ executables += [
                 'name' : 'systemd-ask-password',
                 'public' : true,
                 'sources' : files('ask-password.c'),
-                'dependencies' : [versiondep],
                 'install_dir' : rootbindir,
         },
 ]

@@ -9,7 +9,6 @@ executables += [
                 'name' : 'systemd-dissect',
                 'public' : true,
                 'sources' : files('dissect.c'),
-                'dependencies' : [versiondep],
         },
 ]
 
