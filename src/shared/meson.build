@@ -310,8 +310,7 @@ libshared_deps = [threads,
                   libselinux,
                   libxenctrl,
                   libxz,
-                  libzstd,
-                  versiondep]
+                  libzstd]
 
 libshared_sym_path = '@0@/libshared.sym'.format(meson.current_source_dir())
 libshared_build_dir = meson.current_build_dir()
@@ -321,7 +320,8 @@ libshared_static = static_library(
         shared_sources,
         include_directories : includes,
         dependencies : [libshared_deps,
-                        userspace],
+                        userspace,
+                        versiondep],
         c_args : ['-fvisibility=default'],
         build_by_default : false)
 

@@ -122,7 +122,8 @@ libsystemd_static = static_library(
                      libbasic_compress],
         dependencies : [threads,
                         librt,
-                        userspace],
+                        userspace,
+                        versiondep],
         build_by_default : false)
 
 libsystemd_dir_path = meson.current_source_dir()

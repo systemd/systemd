@@ -13,8 +13,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-shutdown',
                 'sources' : systemd_shutdown_sources,
-                'dependencies' : [libmount,
-                                  versiondep],
+                'dependencies' : libmount,
         },
         libexec_template + {
                 'name' : 'systemd-shutdown.standalone',
@@ -23,8 +22,7 @@ executables += [
                 'link_with' : [libshared_static,
                                libbasic,
                                libsystemd_static],
-                'dependencies' : [libmount,
-                                  versiondep],
+                'dependencies' : libmount,
                 'build_by_default' : have_standalone_binaries,
                 'install' : have_standalone_binaries,
         },
