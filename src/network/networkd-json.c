@@ -897,6 +897,10 @@ static int captive_portal_build_json(Link *link, JsonVariant **ret) {
                         return r;
         }
 
+        if (link->network->ipv6_accept_ra_use_captive_portal && !captive_portal) {
+                captive_portal = link->ndisc_captive_portal;
+        }
+
         return json_build(ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("CaptivePortal", captive_portal)));
 }
 
