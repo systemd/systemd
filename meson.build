@@ -2529,59 +2529,6 @@ if want_tests != 'false'
 endif
 
 executable(
-        'systemd-journald',
-        systemd_journald_sources,
-        include_directories : includes,
-        link_with : [libjournal_core,
-                     libshared],
-        dependencies : [liblz4,
-                        libselinux,
-                        libxz,
-                        libzstd,
-                        threads,
-                        userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : rootlibexecdir)
-
-public_programs += executable(
-        'systemd-cat',
-        systemd_cat_sources,
-        include_directories : includes,
-        link_with : [libjournal_core,
-                     libshared],
-        dependencies : [threads,
-                        userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true)
-
-if get_option('link-journalctl-shared')
-        journalctl_link_with = [libshared]
-else
-        journalctl_link_with = [libsystemd_static,
-                                libshared_static,
-                                libbasic_gcrypt]
-endif
-
-public_programs += executable(
-        'journalctl',
-        journalctl_sources,
-        include_directories : includes,
-        link_with : [journalctl_link_with],
-        dependencies : [libdl,
-                        liblz4,
-                        libxz,
-                        libzstd,
-                        threads,
-                        userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : rootbindir)
-
-executable(
         'systemd-getty-generator',
         'src/getty-generator/getty-generator.c',
         include_directories : includes,
