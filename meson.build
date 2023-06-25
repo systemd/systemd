@@ -2404,6 +2404,7 @@ subdir('src/oom')
 subdir('src/partition')
 subdir('src/portable')
 subdir('src/pstore')
+subdir('src/rc-local-generator')
 subdir('src/resolve')
 subdir('src/rfkill')
 subdir('src/rpm')
@@ -2414,6 +2415,7 @@ subdir('src/sysext')
 subdir('src/system-update-generator')
 subdir('src/systemctl')
 subdir('src/sysupdate')
+subdir('src/sysv-generator')
 subdir('src/timedate')
 subdir('src/timesync')
 subdir('src/tmpfiles')
@@ -2578,57 +2580,6 @@ endif
 meson.add_install_script(meson_make_symlink,
                          bindir / 'udevadm',
                          libexecdir / 'systemd-udevd')
-
-if conf.get('HAVE_SYSV_COMPAT') == 1
-        exe = executable(
-                'systemd-sysv-generator',
-                'src/sysv-generator/sysv-generator.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : systemgeneratordir)
-
-        sysv_generator_test_py = find_program('test/sysv-generator-test.py')
-        if want_tests != 'false'
-                test('sysv-generator-test',
-                     sysv_generator_test_py,
-                     depends : exe)
-        endif
-
-        executable(
-                'systemd-rc-local-generator',
-                'src/rc-local-generator/rc-local-generator.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : systemgeneratordir)
-endif
-
-if conf.get('ENABLE_XDG_AUTOSTART') == 1
-        executable(
-                'systemd-xdg-autostart-generator',
-                systemd_xdg_autostart_generator_sources,
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : usergeneratordir)
-
-        executable(
-                'systemd-xdg-autostart-condition',
-                'src/xdg-autostart-generator/xdg-autostart-condition.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
-endif
 
 if conf.get('ENABLE_HOSTNAMED') == 1
         dbus_programs += executable(
