@@ -106,7 +106,8 @@ static int ordered_set_put_in4_addrv(
 
 int manager_save(Manager *m) {
         _cleanup_ordered_set_free_ OrderedSet *dns = NULL, *ntp = NULL, *sip = NULL, *search_domains = NULL, *route_domains = NULL;
-        const char *operstate_str, *carrier_state_str, *address_state_str, *ipv4_address_state_str, *ipv6_address_state_str, *online_state_str;
+        const char *operstate_str, *carrier_state_str, *address_state_str, *ipv4_address_state_str, *ipv6_address_state_str,
+              *online_state_str, *captive_portal;
         LinkOperationalState operstate = LINK_OPERSTATE_OFF;
         LinkCarrierState carrier_state = LINK_CARRIER_STATE_OFF;
         LinkAddressState ipv4_address_state = LINK_ADDRESS_STATE_OFF, ipv6_address_state = LINK_ADDRESS_STATE_OFF,
@@ -200,6 +201,12 @@ int manager_save(Manager *m) {
                                 return r;
                 }
 
+                if (link->network->dhcp_use_captive_portal) {
+                        r = sd_dhcp_lease_get_captive_portal(link->dhcp_lease, &captive_portal);
+                        if (r < 0 && r != -ENODATA)
+                                return r;
+                }
+
                 if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO) {
                         OrderedSet **target_domains;
                         const char *domainname;
@@ -264,6 +271,8 @@ int manager_save(Manager *m) {
         online_state_str = link_online_state_to_string(online_state);
         if (online_state_str)
                 fprintf(f, "ONLINE_STATE=%s\n", online_state_str);
+        if (captive_portal)
+                fprintf(f, "CAPTIVE_PORTAL=%s\n", captive_portal);
 
         ordered_set_print(f, "DNS=", dns);
         ordered_set_print(f, "NTP=", ntp);
