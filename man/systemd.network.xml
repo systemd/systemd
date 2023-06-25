@@ -2291,6 +2291,14 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UseCaptivePortal=</varname></term>
+        <listitem>
+          <para>When true (the default), the captive portal advertised by the DHCPv6 server will be recorded
+          and made available to client programs.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UseDelegatedPrefix=</varname></term>
         <listitem>
           <para>When true (the default), the client will request the DHCPv6 server to delegate

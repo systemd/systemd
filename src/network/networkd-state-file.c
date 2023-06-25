@@ -207,6 +207,12 @@ int manager_save(Manager *m) {
                                 return r;
                 }
 
+                if (!captive_portal && link->network->dhcp6_use_captive_portal) {
+                        r = sd_dhcp6_lease_get_captive_portal(link->dhcp6_lease, &captive_portal);
+                        if (r < 0 && r != -ENODATA)
+                                return r;
+                }
+
                 if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO) {
                         OrderedSet **target_domains;
                         const char *domainname;
