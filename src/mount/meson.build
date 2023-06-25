@@ -6,8 +6,7 @@ executables += [
                 'public' : true,
                 'sources' : files('mount-tool.c'),
                 'dependencies' : [libmount,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
 ]
 

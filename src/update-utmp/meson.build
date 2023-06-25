@@ -9,7 +9,6 @@ executables += [
                 'name' : 'systemd-update-utmp',
                 'sources' : files('update-utmp.c'),
                 'dependencies' : [libaudit,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
 ]

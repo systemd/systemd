@@ -9,8 +9,6 @@ executables += [
                 'name' : 'systemd-binfmt',
                 'public' : true,
                 'sources' : files('binfmt.c'),
-                'dependencies' : [userspace,
-                                  versiondep],
         },
 ]
 

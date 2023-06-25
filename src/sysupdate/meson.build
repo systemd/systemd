@@ -34,7 +34,6 @@ executables += [
                                   libfdisk,
                                   libopenssl,
                                   threads,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
 ]

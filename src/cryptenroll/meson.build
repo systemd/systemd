@@ -33,7 +33,6 @@ executables += [
                                   libdl,
                                   libopenssl,
                                   libp11kit,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
 ]

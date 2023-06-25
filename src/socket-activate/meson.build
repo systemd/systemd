@@ -6,7 +6,6 @@ executables += [
                 'public' : true,
                 'sources' : files('socket-activate.c'),
                 'dependencies' : [threads,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
 ]

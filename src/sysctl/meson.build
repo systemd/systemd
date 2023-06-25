@@ -5,7 +5,5 @@ executables += [
                 'name' : 'systemd-sysctl',
                 'public' : true,
                 'sources' : files('sysctl.c'),
-                'dependencies' : [userspace,
-                                  versiondep],
         },
 ]

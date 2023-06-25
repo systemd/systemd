@@ -52,5 +52,8 @@ tests += [
                         libshared,
                         libudev_basic,
                 ],
+                'dependencies' : [
+                        versiondep,
+                ],
         },
 ]

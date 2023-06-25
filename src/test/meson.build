@@ -421,6 +421,7 @@ tests += [
                         librt,
                         libselinux,
                         threads,
+                        versiondep,
                 ],
                 'includes' : udev_includes,
                 'type' : 'manual',

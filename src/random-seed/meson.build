@@ -8,7 +8,5 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-random-seed',
                 'sources' : files('random-seed.c'),
-                'dependencies' : [userspace,
-                                  versiondep],
         },
 ]

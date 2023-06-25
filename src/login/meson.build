@@ -54,8 +54,7 @@ executables += [
                                libshared],
                 'dependencies' : [libacl,
                                   threads,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
         executable_template + {
                 'name' : 'loginctl',
@@ -66,8 +65,7 @@ executables += [
                                   libxz,
                                   libzstd,
                                   threads,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
                 'install_dir' : rootbindir,
         },
         executable_template + {
@@ -75,8 +73,6 @@ executables += [
                 'public' : true,
                 'conditions' : ['ENABLE_LOGIND'],
                 'sources' : files('inhibit.c'),
-                'dependencies' : [userspace,
-                                  versiondep],
                 'install_dir' : rootbindir,
         },
         libexec_template + {

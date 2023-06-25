@@ -78,8 +78,7 @@ executables += [
                                   libopenssl,
                                   libp11kit,
                                   threads,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
         libexec_template + {
                 'name' : 'systemd-homed',
@@ -91,8 +90,7 @@ executables += [
                                   libm,
                                   libopenssl,
                                   threads,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
         executable_template + {
                 'name' : 'homectl',
@@ -103,8 +101,7 @@ executables += [
                                   libopenssl,
                                   libp11kit,
                                   threads,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
 ]
 
@@ -117,8 +114,7 @@ modules += [
                                   libpam_misc,
                                   libpam,
                                   threads,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
                 'link_depends' : files('pam_systemd_home.sym'),
         },
 ]

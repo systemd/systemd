@@ -66,8 +66,7 @@ executables += [
                                   libxz,
                                   libzstd,
                                   threads,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
         libexec_template + {
                 'name' : 'systemd-journal-gatewayd',
@@ -80,8 +79,7 @@ executables += [
                                   libxz,
                                   libzstd,
                                   threads,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
 ]
 

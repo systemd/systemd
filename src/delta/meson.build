@@ -5,7 +5,5 @@ executables += [
                 'name' : 'systemd-delta',
                 'public' : true,
                 'sources' : files('delta.c'),
-                'dependencies' : [userspace,
-                                  versiondep],
         },
 ]

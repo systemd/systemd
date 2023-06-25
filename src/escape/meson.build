@@ -5,8 +5,6 @@ executables += [
                 'name' : 'systemd-escape',
                 'public' : true,
                 'sources' : files('escape.c'),
-                'dependencies' : [userspace,
-                                  versiondep],
                 'install_dir' : rootbindir,
         },
 ]

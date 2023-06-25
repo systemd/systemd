@@ -10,8 +10,6 @@ executables += [
                 'public' : true,
                 'sources' : files('hwdb.c'),
                 'link_with' : udev_link_with,
-                'dependencies' : [userspace,
-                                  versiondep],
                 'install_rpath' : udev_rpath,
                 'install_dir' : rootbindir,
         },

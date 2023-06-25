@@ -10,8 +10,7 @@ executables += [
                 'public' : true,
                 'sources' : files('firstboot.c'),
                 'dependencies' : [libcrypt,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
                 'install_dir' : rootbindir,
         },
 ]

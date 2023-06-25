@@ -50,8 +50,7 @@ executables += [
                                   libxz,
                                   libzstd,
                                   threads,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
         executable_template + {
                 'name' : 'systemd-cat',
@@ -60,8 +59,7 @@ executables += [
                 'link_with' : [libjournal_core,
                                libshared],
                 'dependencies' : [threads,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
         executable_template + {
                 'name' : 'journalctl',
@@ -73,8 +71,7 @@ executables += [
                                   libxz,
                                   libzstd,
                                   threads,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
                 'install_dir' : rootbindir,
         },
 ]

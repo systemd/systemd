@@ -9,8 +9,6 @@ executables += [
                 'name' : 'systemd-sysext',
                 'public' : true,
                 'sources' : files('sysext.c'),
-                'dependencies' : [userspace,
-                                  versiondep],
                 'install_dir' : rootbindir,
         },
 ]

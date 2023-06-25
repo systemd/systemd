@@ -24,16 +24,13 @@ executables += [
                 'conditions' : ['ENABLE_LOCALED'],
                 'sources' : systemd_localed_sources,
                 'dependencies' : libxkbcommon_deps +
-                                 [userspace,
-                                  versiondep],
+                                 [userspace],
         },
         executable_template + {
                 'name' : 'localectl',
                 'public' : true,
                 'conditions' : ['ENABLE_LOCALED'],
                 'sources' : files('localectl.c'),
-                'dependencies' : [userspace,
-                                  versiondep],
         },
 ]
 

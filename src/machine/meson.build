@@ -36,8 +36,7 @@ executables += [
                                   libxz,
                                   libzstd,
                                   threads,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
                 'install_dir' : rootbindir,
         },
 ]

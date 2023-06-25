@@ -41,8 +41,7 @@ executables += [
                 'link_with' : [libtimesyncd_core],
                 'dependencies' : [libm,
                                   threads,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
         libexec_template + {
                 'name' : 'systemd-time-wait-sync',

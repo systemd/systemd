@@ -5,7 +5,5 @@ executables += [
                 'name' : 'systemd-run',
                 'public' : true,
                 'sources' : files('run.c'),
-                'dependencies' : [userspace,
-                                  versiondep],
         },
 ]

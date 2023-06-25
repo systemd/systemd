@@ -4,8 +4,6 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-sleep',
                 'sources' : files('sleep.c'),
-                'dependencies' : [userspace,
-                                  versiondep],
         },
 ]
 

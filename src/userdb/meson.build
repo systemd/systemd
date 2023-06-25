@@ -12,7 +12,6 @@ userdbd_sources = files(
 dependencies = [
         threads,
         userspace,
-        versiondep,
 ]
 
 executables += [

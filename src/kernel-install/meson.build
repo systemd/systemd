@@ -9,8 +9,6 @@ executables += [
                 'name' : 'kernel-install',
                 'public' : true,
                 'sources' : files('kernel-install.c'),
-                'dependencies' : [userspace,
-                                  versiondep],
         },
 ]
 

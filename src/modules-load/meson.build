@@ -9,8 +9,7 @@ executables += [
                 'name' : 'systemd-modules-load',
                 'sources' : files('modules-load.c'),
                 'dependencies' : [libkmod,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
 ]
 

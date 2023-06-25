@@ -17,8 +17,7 @@ executables += [
                 'conditions' : ['ENABLE_TIMEDATECTL'],
                 'sources' : files('timedatectl.c'),
                 'dependencies' : [libm,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
 ]
 

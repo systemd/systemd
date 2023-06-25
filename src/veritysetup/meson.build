@@ -9,8 +9,7 @@ executables += [
                 'name' : 'systemd-veritysetup',
                 'sources' : files('veritysetup.c'),
                 'dependencies' : [libcryptsetup,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
         generator_template + {
                 'name' : 'systemd-veritysetup-generator',

@@ -52,8 +52,7 @@ executables += [
                 'conditions' : ['ENABLE_IMPORTD'],
                 'sources' : systemd_importd_sources,
                 'dependencies' : [threads,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
         libexec_template + {
                 'name' : 'systemd-pull',
@@ -81,8 +80,7 @@ executables += [
                                   libcurl,
                                   libxz,
                                   libz,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
         libexec_template + {
                 'name' : 'systemd-import-fs',
@@ -91,8 +89,6 @@ executables += [
                 'sources' : systemd_import_fs_sources,
                 'link_with' : [libshared,
                                lib_import_common],
-                'dependencies' : [userspace,
-                                  versiondep],
         },
         libexec_template + {
                 'name' : 'systemd-export',
@@ -105,8 +101,7 @@ executables += [
                                   libcurl,
                                   libxz,
                                   libz,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
 ]
 

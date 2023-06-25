@@ -44,8 +44,7 @@ executables += [
                                libshared],
                 'dependencies' : [libblkid,
                                   libseccomp,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
 ]
 

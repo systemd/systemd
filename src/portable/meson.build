@@ -28,8 +28,7 @@ executables += [
                 'link_with' : portabled_link_with,
                 'dependencies' : [libselinux,
                                   threads,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
         executable_template + {
                 'name' : 'portablectl',
@@ -37,8 +36,7 @@ executables += [
                 'sources' : files('portablectl.c'),
                 'link_with' : portabled_link_with,
                 'dependencies' : [threads,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
                 'install_dir' : rootbindir,
         },
 ]

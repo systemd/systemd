@@ -145,8 +145,7 @@ executables += [
                                   libidn,
                                   libm,
                                   threads,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
 ]
 

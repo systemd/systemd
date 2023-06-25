@@ -24,8 +24,7 @@ executables += [
                 'dependencies' : [libcryptsetup,
                                   libopenssl,
                                   libp11kit,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
         generator_template + {
                 'name' : 'systemd-cryptsetup-generator',

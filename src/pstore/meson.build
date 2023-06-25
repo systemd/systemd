@@ -13,8 +13,7 @@ executables += [
                                   libxz,
                                   libzstd,
                                   threads,
-                                  userspace,
-                                  versiondep],
+                                  userspace],
         },
 ]
 
