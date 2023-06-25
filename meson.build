@@ -2373,17 +2373,21 @@ subdir('src/libsystemd-network')
 subdir('src/ac-power')
 subdir('src/analyze')
 subdir('src/backlight')
+subdir('src/battery-check')
 subdir('src/binfmt')
 subdir('src/boot')
 subdir('src/boot/efi')
 subdir('src/busctl')
 subdir('src/coredump')
+subdir('src/creds')
 subdir('src/cryptenroll')
 subdir('src/cryptsetup')
 subdir('src/debug-generator')
+subdir('src/delta')
 subdir('src/detect-virt')
 subdir('src/dissect')
 subdir('src/environment-d-generator')
+subdir('src/escape')
 subdir('src/firstboot')
 subdir('src/fsck')
 subdir('src/fstab-generator')
@@ -2401,6 +2405,7 @@ subdir('src/login')
 subdir('src/machine')
 subdir('src/machine-id-setup')
 subdir('src/network')
+subdir('src/notify')
 subdir('src/nspawn')
 subdir('src/nss-myhostname')
 subdir('src/nss-mymachines')
@@ -2591,64 +2596,6 @@ endif
 meson.add_install_script(meson_make_symlink,
                          bindir / 'udevadm',
                          libexecdir / 'systemd-udevd')
-
-public_programs += executable(
-        'systemd-delta',
-        'src/delta/delta.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace],
-        install_rpath : pkglibdir,
-        install : true)
-
-public_programs += executable(
-        'systemd-escape',
-        'src/escape/escape.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace],
-        install_rpath : pkglibdir,
-        install : true)
-
-public_programs += executable(
-        'systemd-notify',
-        'src/notify/notify.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace],
-        install_rpath : pkglibdir,
-        install : true)
-
-public_programs += executable(
-        'systemd-creds',
-        'src/creds/creds.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [threads,
-                        libopenssl,
-                        userspace],
-        install_rpath : pkglibdir,
-        install : true)
-
-public_programs += executable(
-        'systemd-battery-check',
-        'src/battery-check/battery-check.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace],
-        install_rpath : pkglibdir,
-        install_dir : libexecdir,
-        install : true)
-
-# Protecting files from the distro in /usr doesn't make sense since they can be trivially accessed otherwise,
-# so don't restrict the access mode in /usr. That doesn't apply to /etc, so we do restrict the access mode
-# there.
-meson.add_install_script('sh', '-c', mkdir_p.format(credstoredir))
-if install_sysconfdir
-        # Keep in sync with tmpfiles.d/credstore.conf
-        meson.add_install_script('sh', '-c', mkdir_p_mode.format(sysconfdir / 'credstore', '0700'))
-        meson.add_install_script('sh', '-c', mkdir_p_mode.format(sysconfdir / 'credstore.encrypted', '0700'))
-endif
 
 executable(
         'systemd-volatile-root',
