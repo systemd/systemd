@@ -5,6 +5,5 @@ executables += [
                 'name' : 'systemd-detect-virt',
                 'public' : true,
                 'sources' : files('detect-virt.c'),
-                'dependencies' : [versiondep],
         },
 ]
