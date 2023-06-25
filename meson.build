@@ -2352,6 +2352,7 @@ subdir('src/journal')
 # systemd-networkd requires 'libsystemd_network'
 subdir('src/libsystemd-network')
 
+subdir('src/ac-power')
 subdir('src/analyze')
 subdir('src/backlight')
 subdir('src/binfmt')
@@ -2363,6 +2364,7 @@ subdir('src/cryptenroll')
 subdir('src/cryptsetup')
 subdir('src/cryptsetup/cryptsetup-tokens')
 subdir('src/debug-generator')
+subdir('src/detect-virt')
 subdir('src/dissect')
 subdir('src/environment-d-generator')
 subdir('src/firstboot')
@@ -2399,7 +2401,9 @@ subdir('src/rfkill')
 subdir('src/rpm')
 subdir('src/run-generator')
 subdir('src/shutdown')
+subdir('src/sleep')
 subdir('src/socket-activate')
+subdir('src/sysctl')
 subdir('src/sysext')
 subdir('src/system-update-generator')
 subdir('src/systemctl')
@@ -2564,53 +2568,6 @@ endif
 meson.add_install_script(meson_make_symlink,
                          rootbindir / 'udevadm',
                          rootlibexecdir / 'systemd-udevd')
-
-executable(
-        'systemd-sleep',
-        'src/sleep/sleep.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : rootlibexecdir)
-
-if install_sysconfdir_samples
-        install_data('src/sleep/sleep.conf',
-                     install_dir : pkgsysconfdir)
-endif
-
-public_programs += executable(
-        'systemd-sysctl',
-        'src/sysctl/sysctl.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : rootlibexecdir)
-
-public_programs += executable(
-        'systemd-ac-power',
-        'src/ac-power/ac-power.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true)
-
-public_programs += executable(
-        'systemd-detect-virt',
-        'src/detect-virt/detect-virt.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true)
 
 public_programs += executable(
         'systemd-delta',
