@@ -2384,6 +2384,8 @@ subdir('src/cryptsetup/cryptsetup-tokens')
 subdir('src/debug-generator')
 subdir('src/dissect')
 subdir('src/environment-d-generator')
+subdir('src/firstboot')
+subdir('src/fsck')
 subdir('src/fstab-generator')
 subdir('src/getty-generator')
 subdir('src/gpt-auto-generator')
@@ -2397,6 +2399,7 @@ subdir('src/kernel-install')
 subdir('src/locale')
 subdir('src/login')
 subdir('src/machine')
+subdir('src/machine-id-setup')
 subdir('src/network')
 subdir('src/nspawn')
 subdir('src/nss-myhostname')
@@ -2409,6 +2412,7 @@ subdir('src/portable')
 subdir('src/pstore')
 subdir('src/random-seed')
 subdir('src/rc-local-generator')
+subdir('src/remount-fs')
 subdir('src/resolve')
 subdir('src/rfkill')
 subdir('src/rpm')
@@ -2584,53 +2588,6 @@ endif
 meson.add_install_script(meson_make_symlink,
                          rootbindir / 'udevadm',
                          rootlibexecdir / 'systemd-udevd')
-
-if conf.get('ENABLE_FIRSTBOOT') == 1
-        public_programs += executable(
-                'systemd-firstboot',
-                'src/firstboot/firstboot.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [libcrypt,
-                                userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootbindir)
-endif
-
-executable(
-        'systemd-remount-fs',
-        'src/remount-fs/remount-fs.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : rootlibexecdir)
-
-executable(
-        'systemd-machine-id-setup',
-        'src/machine-id-setup/machine-id-setup-main.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : rootbindir)
-
-executable(
-        'systemd-fsck',
-        'src/fsck/fsck.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : rootlibexecdir)
 
 executable(
         'systemd-growfs',
