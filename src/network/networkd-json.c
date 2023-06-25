@@ -891,6 +891,12 @@ static int captive_portal_build_json(Link *link, JsonVariant **ret) {
                         return r;
         }
 
+        if (link->network->dhcp6_use_captive_portal && link->dhcp6_lease && !captive_portal) {
+                r = sd_dhcp6_lease_get_captive_portal(link->dhcp6_lease, &captive_portal);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+        }
+
         if (!captive_portal) {
                 *ret = NULL;
                 return 0;
