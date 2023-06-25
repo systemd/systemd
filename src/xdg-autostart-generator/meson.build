@@ -15,10 +15,7 @@ executables += [
                 'name' : 'systemd-xdg-autostart-condition',
                 'sources' : files('xdg-autostart-condition.c'),
         },
-]
-
-tests += [
-        {
+        test_template + {
                 'sources' : files(
                         'test-xdg-autostart.c',
                         'xdg-autostart-service.c',

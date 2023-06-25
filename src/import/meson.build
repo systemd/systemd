@@ -99,6 +99,15 @@ executables += [
                                   libxz,
                                   libz],
         },
+        test_template + {
+                'sources' : files(
+                        'test-qcow2.c',
+                        'qcow2-util.c',
+                ),
+                'dependencies' : libz,
+                'conditions' : ['HAVE_ZLIB'],
+                'type' : 'manual',
+        },
 ]
 
 if conf.get('ENABLE_IMPORTD') == 1
@@ -113,15 +122,3 @@ if conf.get('ENABLE_IMPORTD') == 1
                      install_dir : rootlibexecdir)
         # TODO: shouldn't this be in pkgdatadir?
 endif
-
-tests += [
-        {
-                'sources' : files(
-                        'test-qcow2.c',
-                        'qcow2-util.c',
-                ),
-                'dependencies' : libz,
-                'condition' : 'HAVE_ZLIB',
-                'type' : 'manual',
-        },
-]

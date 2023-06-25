@@ -119,6 +119,11 @@ udev_plugin_template = executable_template + {
         'install_dir' : udevlibexecdir,
 }
 
+udev_test_template = test_template + {
+        'link_with' : [libudevd_core, libshared],
+        'dependencies' : [threads, libacl],
+}
+
 executables += [
         executable_template + {
                 'name' : 'udevadm',
@@ -164,6 +169,22 @@ executables += [
                 'name' : 'mtd_probe',
                 'sources' : files('mtd_probe/mtd_probe.c',
                                   'mtd_probe/probe_smartmedia.c'),
+        },
+        test_template + {
+                'sources' : files(
+                        'fido_id/test-fido-id-desc.c',
+                        'fido_id/fido_id_desc.c',
+                ),
+                'suite' : 'udev',
+        },
+        udev_test_template + {
+                'sources' : files('test-udev-builtin.c'),
+        },
+        udev_test_template + {
+                'sources' : files('test-udev-event.c'),
+        },
+        udev_test_template + {
+                'sources' : files('test-udev-node.c'),
         },
 ]
 
@@ -226,31 +247,5 @@ fuzzers += [
                         'fido_id/fuzz-fido-id-desc.c',
                         'fido_id/fido_id_desc.c',
                 ),
-        },
-]
-
-test_libudev_base = {
-        'link_with' : [libudevd_core, libshared],
-        'dependencies' : [threads, libacl],
-}
-
-tests += [
-        {
-                'sources' : files(
-                        'fido_id/test-fido-id-desc.c',
-                        'fido_id/fido_id_desc.c',
-                ),
-        },
-        {
-                'sources' : files('test-udev-builtin.c'),
-                'base' : test_libudev_base,
-        },
-        {
-                'sources' : files('test-udev-event.c'),
-                'base' : test_libudev_base,
-        },
-        {
-                'sources' : files('test-udev-node.c'),
-                'base' : test_libudev_base,
         },
 ]
