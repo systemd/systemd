@@ -2620,14 +2620,10 @@ foreach test : tests
         deps = [
                 base.get('dependencies', []),
                 test.get('dependencies', []),
+                userspace,
         ]
 
-        name = fs.name(sources[0])
-        if not name.endswith('.cc')
-                deps += [userspace]
-        endif
-        name = fs.stem(name)
-
+        name = fs.stem(sources[0])
         suite = fs.name(fs.parent(sources[0])).replace('sd-', '')
 
         if condition != '' and conf.get(condition) == 0
