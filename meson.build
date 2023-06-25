@@ -2443,6 +2443,7 @@ subdir('src/sleep')
 subdir('src/socket-activate')
 subdir('src/socket-proxy')
 subdir('src/stdio-bridge')
+subdir('src/sulogin-shell')
 subdir('src/sysctl')
 subdir('src/sysext')
 subdir('src/system-update-generator')
@@ -2697,29 +2698,6 @@ if want_tests != 'false'
              depends : exe)
 endif
 
-executable(
-        'systemd-sulogin-shell',
-        'src/sulogin-shell/sulogin-shell.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : rootlibexecdir)
-
-kernel_install = executable(
-        'kernel-install',
-        'src/kernel-install/kernel-install.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : want_kernel_install,
-        install_dir : bindir)
-public_programs += kernel_install
-
 ukify = custom_target(
         'ukify',
         input : 'src/ukify/ukify.py',
@@ -2732,7 +2710,8 @@ if want_ukify
         public_programs += ukify
 endif
 
-if want_tests != 'false' and want_kernel_install
+if want_tests != 'false' and conf.get('ENABLE_KERNEL_INSTALL') == 1
+        kernel_install = executables_by_name.get('kernel-install')
         args = [kernel_install.full_path(), loaderentry_install.full_path(), uki_copy_install]
         deps = [kernel_install, loaderentry_install]
         if want_ukify and boot_stubs.length() > 0
