@@ -2521,22 +2521,8 @@ endforeach
 
 ############################################################
 
-exe = executable(
-        'systemd-analyze',
-        systemd_analyze_sources,
-        include_directories : core_includes,
-        link_with : [libcore,
-                     libshared],
-        dependencies : [libseccomp,
-                        userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : conf.get('ENABLE_ANALYZE') == 1)
-if conf.get('ENABLE_ANALYZE') == 1
-        public_programs += exe
-endif
-
 if want_tests != 'false'
+        exe = executables_by_name.get('systemd-analyze')
         test('test-compare-versions',
              test_compare_versions_sh,
              args : exe.full_path())
