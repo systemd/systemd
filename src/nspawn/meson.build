@@ -43,8 +43,7 @@ executables += [
                 'link_with' : [libnspawn_core,
                                libshared],
                 'dependencies' : [libblkid,
-                                  libseccomp,
-                                  versiondep],
+                                  libseccomp],
         },
 ]
 

@@ -26,8 +26,7 @@ executables += [
                                 'ENABLE_BOOTLOADER'],
                 'sources' : bootctl_sources,
                 'link_with' : boot_link_with,
-                'dependencies' : [libblkid,
-                                  versiondep],
+                'dependencies' : libblkid,
         },
         libexec_template + {
                 'name' : 'systemd-bless-boot',
@@ -36,8 +35,7 @@ executables += [
                                 'ENABLE_BOOTLOADER'],
                 'sources' : files('bless-boot.c'),
                 'link_with' : boot_link_with,
-                'dependencies' : [libblkid,
-                                  versiondep],
+                'dependencies' : libblkid,
         },
         generator_template + {
                 'name' : 'systemd-bless-boot-generator',
@@ -53,8 +51,7 @@ executables += [
                                 'HAVE_OPENSSL',
                                 'HAVE_TPM2'],
                 'sources' : files('measure.c'),
-                'dependencies' : [libopenssl,
-                                  versiondep],
+                'dependencies' : libopenssl,
         },
         libexec_template + {
                 'name' : 'systemd-pcrphase',
@@ -65,13 +62,11 @@ executables += [
                 'sources' : files('pcrphase.c'),
                 'dependencies' : [libblkid,
                                   libopenssl,
-                                  tpm2,
-                                  versiondep],
+                                  tpm2],
         },
         libexec_template + {
                 'name' : 'systemd-boot-check-no-failures',
                 'sources' : files('boot-check-no-failures.c'),
-                'dependencies' : [libblkid,
-                                  versiondep],
+                'dependencies' : libblkid,
         },
 ]

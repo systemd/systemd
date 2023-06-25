@@ -9,8 +9,7 @@ executables += [
                 'name' : 'systemd-firstboot',
                 'public' : true,
                 'sources' : files('firstboot.c'),
-                'dependencies' : [libcrypt,
-                                  versiondep],
+                'dependencies' : libcrypt,
                 'install_dir' : rootbindir,
         },
 ]

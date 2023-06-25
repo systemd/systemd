@@ -13,15 +13,13 @@ executables += [
                 'dbus' : true,
                 'conditions' : ['ENABLE_OOMD'],
                 'sources' : systemd_oomd_sources,
-                'dependencies' : [libatomic,
-                                  versiondep],
+                'dependencies' : libatomic,
         },
         executable_template + {
                 'name' : 'oomctl',
                 'public' : true,
                 'conditions' : ['ENABLE_OOMD'],
                 'sources' : files('oomctl.c'),
-                'dependencies' : [versiondep],
         },
 ]
 

@@ -2334,8 +2334,7 @@ pam_template = {
                        libshared_static],
         'dependencies' : [libpam_misc,
                           libpam,
-                          threads,
-                          versiondep],
+                          threads],
         'install' : true,
         'install_tag' : 'pam',
         'install_dir' : pamlibdir,
@@ -2621,7 +2620,6 @@ foreach test : tests
         deps = [
                 base.get('dependencies', []),
                 test.get('dependencies', []),
-                versiondep,
         ]
 
         name = fs.name(sources[0])
@@ -2775,7 +2773,6 @@ foreach fuzzer : fuzzers
                 dependencies : [
                         dependencies,
                         userspace,
-                        versiondep,
                 ],
                 c_args : [test_cflags, fuzzer.get('c_args', [])],
                 link_args: link_args,

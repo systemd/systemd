@@ -8,8 +8,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-modules-load',
                 'sources' : files('modules-load.c'),
-                'dependencies' : [libkmod,
-                                  versiondep],
+                'dependencies' : libkmod,
         },
 ]
 
