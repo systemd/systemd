@@ -33,15 +33,7 @@ executables += [
                 'link_with' : common_link_with,
                 'dependencies' : common_dependencies,
         },
-]
-
-if conf.get('ENABLE_COREDUMP') == 1 and install_sysconfdir_samples
-        install_data('coredump.conf',
-                     install_dir : pkgsysconfdir)
-endif
-
-tests += [
-        {
+        test_template + {
                 'sources' : files(
                         'test-coredump-vacuum.c',
                         'coredump-vacuum.c',
@@ -49,3 +41,8 @@ tests += [
                 'type' : 'manual',
         },
 ]
+
+if conf.get('ENABLE_COREDUMP') == 1 and install_sysconfdir_samples
+        install_data('coredump.conf',
+                     install_dir : pkgsysconfdir)
+endif
