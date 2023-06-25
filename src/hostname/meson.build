@@ -1,5 +1,21 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+executables += [
+        libexec_template + {
+                'name' : 'systemd-hostnamed',
+                'conditions' : ['ENABLE_HOSTNAMED'],
+                'dbus' : true,
+                'sources' : files('hostnamed.c'),
+        },
+        executable_template + {
+                'name' : 'hostnamectl',
+                'conditions' : ['ENABLE_HOSTNAMED'],
+                'public' : true,
+                'sources' : files('hostnamectl.c'),
+                'dependencies' : [versiondep],
+        },
+]
+
 if conf.get('ENABLE_HOSTNAMED') == 1
         install_data('org.freedesktop.hostname1.conf',
                      install_dir : dbuspolicydir)
