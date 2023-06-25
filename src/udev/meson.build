@@ -119,6 +119,18 @@ udev_plugin_template = executable_template + {
         'install_dir' : udevlibexecdir,
 }
 
+udev_common_template = {
+        'link_with' : [
+                libshared,
+                libudevd_core,
+        ],
+        'dependencies' : [
+                libacl,
+                threads,
+        ],
+}
+udev_test_template = test_template + udev_common_template
+
 executables += [
         executable_template + {
                 'name' : 'udevadm',
@@ -176,6 +188,22 @@ executables += [
                 'name' : 'v4l_id',
                 'sources' : files('v4l_id/v4l_id.c'),
         },
+        test_template + {
+                'sources' : files(
+                        'fido_id/test-fido-id-desc.c',
+                        'fido_id/fido_id_desc.c',
+                ),
+                'suite' : 'udev',
+        },
+        udev_test_template + {
+                'sources' : files('test-udev-builtin.c'),
+        },
+        udev_test_template + {
+                'sources' : files('test-udev-event.c'),
+        },
+        udev_test_template + {
+                'sources' : files('test-udev-node.c'),
+        },
 ]
 
 meson.add_install_script(meson_make_symlink,
@@ -227,31 +255,5 @@ fuzzers += [
                         'fido_id/fuzz-fido-id-desc.c',
                         'fido_id/fido_id_desc.c',
                 ),
-        },
-]
-
-test_libudev_base = {
-        'link_with' : [libudevd_core, libshared],
-        'dependencies' : [threads, libacl],
-}
-
-tests += [
-        {
-                'sources' : files(
-                        'fido_id/test-fido-id-desc.c',
-                        'fido_id/fido_id_desc.c',
-                ),
-        },
-        {
-                'sources' : files('test-udev-builtin.c'),
-                'base' : test_libudev_base,
-        },
-        {
-                'sources' : files('test-udev-event.c'),
-                'base' : test_libudev_base,
-        },
-        {
-                'sources' : files('test-udev-node.c'),
-                'base' : test_libudev_base,
         },
 ]
