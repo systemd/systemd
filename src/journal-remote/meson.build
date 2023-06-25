@@ -37,6 +37,51 @@ systemd_journal_gatewayd_sources = files(
         'microhttpd-util.c',
 )
 
+executables += [
+        libexec_template + {
+                'name' : 'systemd-journal-upload',
+                'public' : true,
+                'conditions' : ['ENABLE_REMOTE', 'HAVE_LIBCURL'],
+                'sources' : systemd_journal_upload_sources,
+                'dependencies' : [libcurl,
+                                  libgnutls,
+                                  liblz4,
+                                  libxz,
+                                  libzstd,
+                                  threads,
+                                  versiondep],
+        },
+        libexec_template + {
+                'name' : 'systemd-journal-remote',
+                'public' : true,
+                'conditions' : ['ENABLE_REMOTE', 'HAVE_MICROHTTPD'],
+                'sources' : systemd_journal_remote_sources,
+                'include_directories' : journal_includes,
+                'link_with' : [libshared,
+                               libsystemd_journal_remote],
+                'dependencies' : [libgnutls,
+                                  liblz4,
+                                  libmicrohttpd,
+                                  libxz,
+                                  libzstd,
+                                  threads,
+                                  versiondep],
+        },
+        libexec_template + {
+                'name' : 'systemd-journal-gatewayd',
+                'public' : true,
+                'conditions' : ['ENABLE_REMOTE', 'HAVE_MICROHTTPD'],
+                'sources' : systemd_journal_gatewayd_sources,
+                'dependencies' : [libgnutls,
+                                  liblz4,
+                                  libmicrohttpd,
+                                  libxz,
+                                  libzstd,
+                                  threads,
+                                  versiondep],
+        },
+]
+
 in_files = [
         ['journal-upload.conf',
          conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_LIBCURL') == 1 and install_sysconfdir_samples],
