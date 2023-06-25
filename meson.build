@@ -2581,59 +2581,6 @@ meson.add_install_script(meson_make_symlink,
                          bindir / 'udevadm',
                          libexecdir / 'systemd-udevd')
 
-if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_LIBCURL') == 1
-        public_programs += executable(
-                'systemd-journal-upload',
-                systemd_journal_upload_sources,
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [libcurl,
-                                libgnutls,
-                                liblz4,
-                                libxz,
-                                libzstd,
-                                threads,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
-endif
-
-if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
-        public_programs += executable(
-                'systemd-journal-remote',
-                systemd_journal_remote_sources,
-                include_directories : journal_includes,
-                link_with : [libshared,
-                             libsystemd_journal_remote],
-                dependencies : [libgnutls,
-                                liblz4,
-                                libmicrohttpd,
-                                libxz,
-                                libzstd,
-                                threads,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
-
-        public_programs += executable(
-                'systemd-journal-gatewayd',
-                systemd_journal_gatewayd_sources,
-                include_directories : journal_includes,
-                link_with : [libshared],
-                dependencies : [libgnutls,
-                                liblz4,
-                                libmicrohttpd,
-                                libxz,
-                                libzstd,
-                                threads,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
-endif
-
 if conf.get('ENABLE_COREDUMP') == 1
         executable(
                 'systemd-coredump',
