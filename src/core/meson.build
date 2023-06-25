@@ -130,8 +130,7 @@ libcore = shared_library(
                         libseccomp,
                         libselinux,
                         threads,
-                        userspace,
-                        versiondep],
+                        userspace],
         install : true,
         install_dir : rootpkglibdir)
 
@@ -150,8 +149,7 @@ executables += [
                 'sources' : systemd_sources,
                 'link_with' : [libcore,
                                libshared],
-                'dependencies' : [libseccomp,
-                                  versiondep],
+                'dependencies' : [libseccomp],
         },
 ]
 

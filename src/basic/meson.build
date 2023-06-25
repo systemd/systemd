@@ -269,8 +269,7 @@ libbasic = static_library(
         dependencies : [libcap,
                         libm,
                         threads,
-                        userspace,
-                        versiondep],
+                        userspace],
         c_args : ['-fvisibility=default'],
         build_by_default : false)
 

@@ -58,8 +58,7 @@ executables += [
                                   libselinux,
                                   libxz,
                                   libzstd,
-                                  threads,
-                                  versiondep],
+                                  threads],
                 'install_dir' : rootbindir,
         },
 ]

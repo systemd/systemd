@@ -5,6 +5,5 @@ executables += [
                 'name' : 'systemd-battery-check',
                 'public' : true,
                 'sources' : files('battery-check.c'),
-                'dependencies' : [versiondep],
         },
 ]
