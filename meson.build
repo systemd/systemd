@@ -2372,6 +2372,7 @@ subdir('src/libsystemd-network')
 
 subdir('src/analyze')
 subdir('src/backlight')
+subdir('src/binfmt')
 subdir('src/boot')
 subdir('src/boot/efi')
 subdir('src/busctl')
@@ -2580,63 +2581,6 @@ endif
 meson.add_install_script(meson_make_symlink,
                          bindir / 'udevadm',
                          libexecdir / 'systemd-udevd')
-
-if conf.get('ENABLE_PSTORE') == 1
-        executable(
-                'systemd-pstore',
-                systemd_pstore_sources,
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [libacl,
-                                liblz4,
-                                libxz,
-                                libzstd,
-                                threads,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
-endif
-
-if conf.get('ENABLE_OOMD') == 1
-        dbus_programs += executable('systemd-oomd',
-                   systemd_oomd_sources,
-                   include_directories : includes,
-                   link_with : [libshared],
-                   dependencies : [libatomic,
-                                   userspace],
-                   install_rpath : pkglibdir,
-                   install : true,
-                   install_dir : libexecdir)
-
-        public_programs += executable(
-                'oomctl',
-                oomctl_sources,
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [userspace],
-                install_rpath : pkglibdir,
-                install : true)
-endif
-
-if conf.get('ENABLE_BINFMT') == 1
-        public_programs += executable(
-                'systemd-binfmt',
-                'src/binfmt/binfmt.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [userspace],
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
-
-        meson.add_install_script('sh', '-c',
-                                 mkdir_p.format(binfmtdir))
-        if install_sysconfdir
-                meson.add_install_script('sh', '-c',
-                                         mkdir_p.format(sysconfdir / 'binfmt.d'))
-        endif
-endif
 
 if conf.get('ENABLE_SYSUPDATE') == 1
         exe = executable(
