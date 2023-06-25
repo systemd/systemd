@@ -2388,6 +2388,7 @@ subdir('src/hibernate-resume')
 subdir('src/home')
 subdir('src/hostname')
 subdir('src/import')
+subdir('src/integritysetup')
 subdir('src/journal-remote')
 subdir('src/kernel-install')
 subdir('src/locale')
@@ -2418,6 +2419,7 @@ subdir('src/timesync')
 subdir('src/tmpfiles')
 subdir('src/user-sessions')
 subdir('src/userdb')
+subdir('src/veritysetup')
 subdir('src/xdg-autostart-generator')
 
 subdir('src/systemd')
@@ -2576,86 +2578,6 @@ endif
 meson.add_install_script(meson_make_symlink,
                          bindir / 'udevadm',
                          libexecdir / 'systemd-udevd')
-
-if conf.get('HAVE_LIBCRYPTSETUP') == 1
-        executable(
-                'systemd-cryptsetup',
-                systemd_cryptsetup_sources,
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [libcryptsetup,
-                                libopenssl,
-                                libp11kit,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
-
-        executable(
-                'systemd-cryptsetup-generator',
-                'src/cryptsetup/cryptsetup-generator.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : systemgeneratordir)
-
-        executable(
-                'systemd-veritysetup',
-                'src/veritysetup/veritysetup.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [libcryptsetup,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
-
-        executable(
-                'systemd-veritysetup-generator',
-                'src/veritysetup/veritysetup-generator.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [userspace],
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : systemgeneratordir)
-
-        public_programs += executable(
-                'systemd-cryptenroll',
-                systemd_cryptenroll_sources,
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [libcryptsetup,
-                                libdl,
-                                libopenssl,
-                                libp11kit,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true)
-
-        executable(
-                'systemd-integritysetup',
-                ['src/integritysetup/integritysetup.c', 'src/integritysetup/integrity-util.c'],
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [libcryptsetup,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
-
-        executable(
-                'systemd-integritysetup-generator',
-                ['src/integritysetup/integritysetup-generator.c', 'src/integritysetup/integrity-util.c'],
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : systemgeneratordir)
-endif
 
 if conf.get('HAVE_SYSV_COMPAT') == 1
         exe = executable(
