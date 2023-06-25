@@ -213,6 +213,9 @@ int manager_save(Manager *m) {
                                 return r;
                 }
 
+                if (!captive_portal && link->network->ipv6_accept_ra_use_captive_portal)
+                        captive_portal = link->ndisc_captive_portal;
+
                 if (link->network->dhcp_use_domains != DHCP_USE_DOMAINS_NO) {
                         OrderedSet **target_domains;
                         const char *domainname;
