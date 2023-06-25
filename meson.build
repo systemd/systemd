@@ -2387,6 +2387,7 @@ subdir('src/oom')
 subdir('src/partition')
 subdir('src/portable')
 subdir('src/pstore')
+subdir('src/random-seed')
 subdir('src/rc-local-generator')
 subdir('src/resolve')
 subdir('src/rfkill')
@@ -2404,6 +2405,7 @@ subdir('src/timesync')
 subdir('src/tmpfiles')
 subdir('src/user-sessions')
 subdir('src/userdb')
+subdir('src/vconsole')
 subdir('src/veritysetup')
 subdir('src/xdg-autostart-generator')
 
@@ -2567,50 +2569,6 @@ endif
 meson.add_install_script(meson_make_symlink,
                          rootbindir / 'udevadm',
                          rootlibexecdir / 'systemd-udevd')
-
-if conf.get('ENABLE_SYSUPDATE') == 1
-        exe = executable(
-                'systemd-sysupdate',
-                systemd_sysupdate_sources,
-                include_directories : includes,
-                link_with : [libshared,
-                             libshared_fdisk],
-                dependencies : [libblkid,
-                                libfdisk,
-                                libopenssl,
-                                threads,
-                                userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootlibexecdir)
-        public_programs += exe
-endif
-
-if conf.get('ENABLE_VCONSOLE') == 1
-        executable(
-                'systemd-vconsole-setup',
-                'src/vconsole/vconsole-setup.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootlibexecdir)
-endif
-
-if conf.get('ENABLE_RANDOMSEED') == 1
-        executable(
-                'systemd-random-seed',
-                'src/random-seed/random-seed.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootlibexecdir)
-endif
 
 if conf.get('ENABLE_FIRSTBOOT') == 1
         public_programs += executable(
