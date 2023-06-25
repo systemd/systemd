@@ -32,6 +32,21 @@ systemd_analyze_sources = files(
         'analyze.c',
 )
 
+executables += [
+        executable_template + {
+                'name' : 'systemd-analyze',
+                'public' : conf.get('ENABLE_ANALYZE') == 1,
+                'sources' : systemd_analyze_sources,
+                'include_directories' : core_includes,
+                'link_with' : [libcore,
+                               libshared],
+                'dependencies' : [libseccomp,
+                                  userspace,
+                                  versiondep],
+                'install' : conf.get('ENABLE_ANALYZE') == 1,
+        },
+]
+
 tests += [
         {
                 'sources' : files(
