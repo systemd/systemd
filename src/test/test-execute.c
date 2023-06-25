@@ -673,6 +673,11 @@ static void test_exec_mount_apivfs(Manager *m) {
 
         assert_se(user_runtime_unit_dir);
 
+        r = find_executable("ldd", NULL);
+        if (r < 0) {
+                log_notice_errno(r, "Skipping %s, could not find 'ldd' command: %m", __func__);
+                return;
+        }
         r = find_executable("touch", &fullpath_touch);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find 'touch' command: %m", __func__);
