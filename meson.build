@@ -2581,38 +2581,6 @@ meson.add_install_script(meson_make_symlink,
                          bindir / 'udevadm',
                          libexecdir / 'systemd-udevd')
 
-if conf.get('ENABLE_COREDUMP') == 1
-        executable(
-                'systemd-coredump',
-                systemd_coredump_sources,
-                include_directories : includes,
-                link_with : [libshared,
-                             libbasic_compress],
-                dependencies : [libacl,
-                                liblz4,
-                                libxz,
-                                libzstd,
-                                threads,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
-
-        public_programs += executable(
-                'coredumpctl',
-                coredumpctl_sources,
-                include_directories : includes,
-                link_with : [libshared,
-                             libbasic_compress],
-                dependencies : [liblz4,
-                                libxz,
-                                libzstd,
-                                threads,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true)
-endif
-
 if conf.get('ENABLE_PSTORE') == 1
         executable(
                 'systemd-pstore',
