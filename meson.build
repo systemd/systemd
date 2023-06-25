@@ -2538,92 +2538,14 @@ if want_tests != 'false'
 endif
 
 if conf.get('HAVE_BLKID') == 1 and conf.get('ENABLE_BOOTLOADER') == 1
-        if get_option('link-boot-shared')
-                boot_link_with = [libshared]
-        else
-                boot_link_with = [libsystemd_static, libshared_static]
-        endif
-
-        exe = executable(
-                'bootctl',
-                bootctl_sources,
-                include_directories : includes,
-                link_with : [boot_link_with],
-                dependencies : [libblkid,
-                                userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true)
-        public_programs += exe
-
         if want_tests != 'false'
+                exe = executables_by_name.get('bootctl')
                 test('test-bootctl-json',
                      test_bootctl_json_sh,
                      args : exe.full_path(),
                      depends : exe)
         endif
-
-        public_programs += executable(
-                'systemd-bless-boot',
-                'src/boot/bless-boot.c',
-                include_directories : includes,
-                link_with : [boot_link_with],
-                dependencies : [libblkid,
-                                userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootlibexecdir)
-
-        executable(
-                'systemd-bless-boot-generator',
-                'src/boot/bless-boot-generator.c',
-                include_directories : includes,
-                link_with : [boot_link_with],
-                dependencies : userspace,
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : systemgeneratordir)
-
-        if conf.get('HAVE_OPENSSL') == 1 and conf.get('HAVE_TPM2') == 1
-                executable(
-                        'systemd-measure',
-                        'src/boot/measure.c',
-                        include_directories : includes,
-                        link_with : [libshared],
-                        dependencies : [libopenssl,
-                                        userspace,
-                                        versiondep],
-                        install_rpath : rootpkglibdir,
-                        install : true,
-                        install_dir : rootlibexecdir)
-                executable(
-                        'systemd-pcrphase',
-                        'src/boot/pcrphase.c',
-                        include_directories : includes,
-                        link_with : [libshared],
-                        dependencies : [libblkid,
-                                        libopenssl,
-                                        tpm2,
-                                        userspace,
-                                        versiondep],
-                        install_rpath : rootpkglibdir,
-                        install : true,
-                        install_dir : rootlibexecdir)
-        endif
 endif
-
-executable(
-        'systemd-boot-check-no-failures',
-        'src/boot/boot-check-no-failures.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [libblkid,
-                        userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : rootlibexecdir)
 
 public_programs += executable(
         'systemd-socket-activate',
