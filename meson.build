@@ -2369,7 +2369,9 @@ subdir('src/binfmt')
 subdir('src/boot')
 subdir('src/boot/efi')
 subdir('src/busctl')
+subdir('src/cgls')
 subdir('src/cgroups-agent')
+subdir('src/cgtop')
 subdir('src/coredump')
 subdir('src/creds')
 subdir('src/cryptenroll')
@@ -2391,6 +2393,7 @@ subdir('src/home')
 subdir('src/hostname')
 subdir('src/id128')
 subdir('src/import')
+subdir('src/initctl')
 subdir('src/integritysetup')
 subdir('src/journal-remote')
 subdir('src/kernel-install')
@@ -2398,6 +2401,7 @@ subdir('src/locale')
 subdir('src/login')
 subdir('src/machine')
 subdir('src/machine-id-setup')
+subdir('src/mount')
 subdir('src/network')
 subdir('src/notify')
 subdir('src/nspawn')
@@ -2603,50 +2607,6 @@ if want_tests != 'false'
              args : [systemctl.full_path(),
                      systemd_id128.full_path()])
 endif
-
-public_programs += executable(
-        'systemd-cgls',
-        'src/cgls/cgls.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true)
-
-public_programs += executable(
-        'systemd-cgtop',
-        'src/cgtop/cgtop.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true)
-
-executable(
-        'systemd-initctl',
-        'src/initctl/initctl.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : userspace,
-        install_rpath : rootpkglibdir,
-        install : (conf.get('HAVE_SYSV_COMPAT') == 1),
-        install_dir : rootlibexecdir)
-
-public_programs += executable(
-        'systemd-mount',
-        'src/mount/mount-tool.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies: [libmount,
-                       userspace,
-                       versiondep],
-        install_rpath : rootpkglibdir,
-        install : true)
-
-meson.add_install_script(meson_make_symlink,
-                         'systemd-mount', bindir / 'systemd-umount')
 
 public_programs += executable(
         'systemd-run',
