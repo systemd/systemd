@@ -2398,6 +2398,7 @@ subdir('src/resolve')
 subdir('src/rpm')
 subdir('src/run-generator')
 subdir('src/shutdown')
+subdir('src/socket-activate')
 subdir('src/sysext')
 subdir('src/systemctl')
 subdir('src/sysupdate')
@@ -2559,17 +2560,6 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('ENABLE_BOOTLOADER') == 1
                      depends : exe)
         endif
 endif
-
-public_programs += executable(
-        'systemd-socket-activate',
-        'src/socket-activate/socket-activate.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [threads,
-                        userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true)
 
 systemctl = executable(
         'systemctl',
