@@ -2363,6 +2363,7 @@ subdir('src/libsystemd-network')
 
 subdir('src/ac-power')
 subdir('src/analyze')
+subdir('src/ask-password')
 subdir('src/backlight')
 subdir('src/binfmt')
 subdir('src/boot')
@@ -2412,6 +2413,7 @@ subdir('src/pstore')
 subdir('src/random-seed')
 subdir('src/rc-local-generator')
 subdir('src/remount-fs')
+subdir('src/reply-password')
 subdir('src/resolve')
 subdir('src/rfkill')
 subdir('src/rpm')
@@ -2428,6 +2430,7 @@ subdir('src/sysv-generator')
 subdir('src/timedate')
 subdir('src/timesync')
 subdir('src/tmpfiles')
+subdir('src/tty-ask-password-agent')
 subdir('src/user-sessions')
 subdir('src/userdb')
 subdir('src/vconsole')
@@ -2600,38 +2603,6 @@ if want_tests != 'false'
              args : [systemctl.full_path(),
                      systemd_id128.full_path()])
 endif
-
-public_programs += executable(
-        'systemd-ask-password',
-        'src/ask-password/ask-password.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : rootbindir)
-
-executable(
-        'systemd-reply-password',
-        'src/reply-password/reply-password.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : userspace,
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : rootlibexecdir)
-
-public_programs += executable(
-        'systemd-tty-ask-password-agent',
-        'src/tty-ask-password-agent/tty-ask-password-agent.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : rootbindir)
 
 public_programs += executable(
         'systemd-cgls',
