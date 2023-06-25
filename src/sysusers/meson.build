@@ -1,45 +1,29 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-systemd_tmpfiles_sources = files(
-        'tmpfiles.c',
-        'offline-passwd.c',
-)
-
 executables += [
         executable_template + {
-                'name' : 'systemd-tmpfiles',
+                'name' : 'systemd-sysusers',
                 'public' : true,
-                'conditions' : ['ENABLE_TMPFILES'],
-                'sources' : systemd_tmpfiles_sources,
-                'dependencies' : [libacl,
-                                  userspace,
+                'conditions' : ['ENABLE_SYSUSERS'],
+                'sources' : files('sysusers.c'),
+                'dependencies' : [userspace,
                                   versiondep],
                 'install_dir' : rootbindir,
         },
         executable_template + {
-                'name' : 'systemd-tmpfiles.standalone',
+                'name' : 'systemd-sysusers.standalone',
                 'public' : have_standalone_binaries,
-                'conditions' : ['ENABLE_TMPFILES'],
-                'sources' : systemd_tmpfiles_sources,
+                'conditions' : ['ENABLE_SYSUSERS'],
+                'sources' : files('sysusers.c'),
                 'c_args' : '-DSTANDALONE',
                 'link_with' : [libshared_static,
                                libbasic,
                                libbasic_gcrypt,
                                libsystemd_static],
-                'dependencies' : [libacl,
-                                  userspace,
+                'dependencies' : [userspace,
                                   versiondep],
                 'build_by_default' : have_standalone_binaries,
                 'install' : have_standalone_binaries,
                 'install_dir' : rootbindir,
-        },
-]
-
-tests += [
-        {
-                'sources' : files(
-                        'test-offline-passwd.c',
-                        'offline-passwd.c',
-                ),
         },
 ]
