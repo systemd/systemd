@@ -14,7 +14,6 @@ executables += [
                 'name' : 'hostnamectl',
                 'public' : true,
                 'sources' : files('hostnamectl.c'),
-                'dependencies' : [versiondep],
         },
 ]
 
