@@ -445,6 +445,37 @@ int sd_dhcp6_lease_get_fqdn(sd_dhcp6_lease *lease, const char **ret) {
         return 0;
 }
 
+int dhcp6_lease_set_captive_portal(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
+        _cleanup_free_ char *captive_portal = NULL;
+        int r;
+
+        assert(lease);
+        assert(optval || optlen == 0);
+
+        if (optlen == 0) {
+                lease->captive_portal = mfree(lease->captive_portal);
+                return 0;
+        }
+
+        r = make_cstring((char *)optval, optlen, MAKE_CSTRING_REFUSE_TRAILING_NUL, &captive_portal);
+        if (r < 0)
+                return r;
+
+        free_and_replace(lease->captive_portal, captive_portal);
+        return 0;
+}
+
+int sd_dhcp6_lease_get_captive_portal(sd_dhcp6_lease *lease, const char **ret) {
+        assert_return(lease, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!lease->captive_portal)
+                return -ENODATA;
+
+        *ret = lease->captive_portal;
+        return 0;
+}
+
 static int dhcp6_lease_parse_message(
                 sd_dhcp6_client *client,
                 sd_dhcp6_lease *lease,
@@ -605,6 +636,12 @@ static int dhcp6_lease_parse_message(
 
                         break;
 
+                case SD_DHCP6_OPTION_CAPTIVE_PORTAL:
+                        r = dhcp6_lease_set_captive_portal(lease, optval, optlen);
+                        if (r < 0)
+                                log_dhcp6_client_errno(client, r, "Failed to parse captive portal option, ignoring: %m");
+                        break;
+
                 case SD_DHCP6_OPTION_CLIENT_FQDN:
                         r = dhcp6_lease_set_fqdn(lease, optval, optlen);
                         if (r < 0)
@@ -665,6 +702,7 @@ static sd_dhcp6_lease *dhcp6_lease_free(sd_dhcp6_lease *lease) {
         dhcp6_ia_free(lease->ia_pd);
         free(lease->dns);
         free(lease->fqdn);
+        free(lease->captive_portal);
         strv_free(lease->domains);
         free(lease->ntp);
         strv_free(lease->ntp_fqdn);
