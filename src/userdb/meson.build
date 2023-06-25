@@ -1,10 +1,25 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-systemd_userwork_sources = files('userwork.c')
-
-systemd_userdbd_sources = files(
-        'userdbd-manager.c',
-        'userdbd.c',
-)
-
-userdbctl_sources = files('userdbctl.c')
+executables += [
+        libexec_template + {
+                'name' : 'systemd-userwork',
+                'conditions' : ['ENABLE_USERDB'],
+                'sources' : files('userwork.c'),
+                'dependencies' : threads,
+        },
+        libexec_template + {
+                'name' : 'systemd-userdbd',
+                'conditions' : ['ENABLE_USERDB'],
+                'sources' : files(
+                        'userdbd-manager.c',
+                        'userdbd.c',
+                ),
+                'dependencies' : threads,
+        },
+        executable_template + {
+                'name' : 'userdbctl',
+                'conditions' : ['ENABLE_USERDB'],
+                'sources' : files('userdbctl.c'),
+                'dependencies' : threads,
+        },
+]
