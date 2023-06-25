@@ -26,13 +26,10 @@ executables += [
                 'build_by_default' : have_standalone_binaries,
                 'install' : have_standalone_binaries,
         },
-]
-
-tests += [
-        {
+        test_template + {
                 'sources' : files(
-                        'detach-swap.c',
                         'test-umount.c',
+                        'detach-swap.c',
                         'umount.c',
                 ),
                 'dependencies' : libmount,
