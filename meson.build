@@ -2579,28 +2579,6 @@ meson.add_install_script(meson_make_symlink,
                          rootlibexecdir / 'systemd-udevd')
 
 executable(
-        'systemd-growfs',
-        'src/partition/growfs.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : rootlibexecdir)
-
-executable(
-        'systemd-makefs',
-        'src/partition/makefs.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : rootlibexecdir)
-
-executable(
         'systemd-sleep',
         'src/sleep/sleep.c',
         include_directories : includes,
@@ -3020,49 +2998,6 @@ if want_tests != 'false'
              udevadm,
              suite : 'dist',
              args : ['verify', '--resolve-names=never', all_rules])
-endif
-
-if conf.get('ENABLE_REPART') == 1
-        exe = executable(
-                'systemd-repart',
-                systemd_repart_sources,
-                include_directories : includes,
-                link_with : [libshared,
-                             libshared_fdisk],
-                dependencies : [libblkid,
-                                libfdisk,
-                                libopenssl,
-                                threads,
-                                userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootbindir)
-        public_programs += exe
-
-        exe = executable(
-                'systemd-repart.standalone',
-                systemd_repart_sources,
-                include_directories : includes,
-                c_args : '-DSTANDALONE',
-                link_with : [libshared_static,
-                             libbasic,
-                             libbasic_gcrypt,
-                             libsystemd_static,
-                             libshared_fdisk],
-                dependencies : [libblkid,
-                                libfdisk,
-                                libopenssl,
-                                threads,
-                                userspace,
-                                versiondep],
-                build_by_default: have_standalone_binaries,
-                install_rpath : rootpkglibdir,
-                install : have_standalone_binaries,
-                install_dir : rootbindir)
-        if have_standalone_binaries
-                public_programs += exe
-        endif
 endif
 
 executable(
