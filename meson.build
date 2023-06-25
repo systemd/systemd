@@ -2413,10 +2413,12 @@ subdir('src/reply-password')
 subdir('src/resolve')
 subdir('src/rfkill')
 subdir('src/rpm')
+subdir('src/run')
 subdir('src/run-generator')
 subdir('src/shutdown')
 subdir('src/sleep')
 subdir('src/socket-activate')
+subdir('src/stdio-bridge')
 subdir('src/sysctl')
 subdir('src/sysext')
 subdir('src/system-update-generator')
@@ -2594,36 +2596,6 @@ if want_tests != 'false'
              args : [systemctl.full_path(),
                      systemd_id128.full_path()])
 endif
-
-public_programs += executable(
-        'systemd-run',
-        'src/run/run.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true)
-
-public_programs += executable(
-        'systemd-stdio-bridge',
-        'src/stdio-bridge/stdio-bridge.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true)
-
-public_programs += executable(
-        'busctl',
-        busctl_sources,
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true)
 
 if enable_sysusers
         exe = executable(
