@@ -60,6 +60,7 @@ struct sd_dhcp_lease {
         char **search_domains;
         char *hostname;
         char *root_path;
+        char *captive_portal;
 
         void *client_id;
         size_t client_id_len;
