@@ -4,6 +4,5 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-sulogin-shell',
                 'sources' : files('sulogin-shell.c'),
-                'dependencies' : [versiondep],
         },
 ]

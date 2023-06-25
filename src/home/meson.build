@@ -77,8 +77,7 @@ executables += [
                                   libfdisk,
                                   libopenssl,
                                   libp11kit,
-                                  threads,
-                                  versiondep],
+                                  threads],
         },
         libexec_template + {
                 'name' : 'systemd-homed',
@@ -89,8 +88,7 @@ executables += [
                 'dependencies' : [libcrypt,
                                   libm,
                                   libopenssl,
-                                  threads,
-                                  versiondep],
+                                  threads],
         },
         executable_template + {
                 'name' : 'homectl',
@@ -100,8 +98,7 @@ executables += [
                                   libdl,
                                   libopenssl,
                                   libp11kit,
-                                  threads,
-                                  versiondep],
+                                  threads],
         },
 ]
 
@@ -113,8 +110,7 @@ modules += [
                 'dependencies' : [libcrypt,
                                   libpam_misc,
                                   libpam,
-                                  threads,
-                                  versiondep],
+                                  threads],
                 'link_depends' : files('pam_systemd_home.sym'),
         },
 ]

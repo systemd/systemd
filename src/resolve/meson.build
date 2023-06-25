@@ -143,8 +143,7 @@ executables += [
                 'dependencies' : [lib_openssl_or_gcrypt,
                                   libidn,
                                   libm,
-                                  threads,
-                                  versiondep],
+                                  threads],
         },
 ]
 

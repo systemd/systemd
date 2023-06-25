@@ -160,8 +160,7 @@ executables += [
                 'link_with' : [libnetworkd_core,
                                libsystemd_network,
                                networkd_link_with],
-                'dependencies' : [threads,
-                                  versiondep],
+                'dependencies' : threads,
         },
         libexec_template + {
                 'name' : 'systemd-networkd-wait-online',
@@ -169,7 +168,6 @@ executables += [
                 'conditions' : ['ENABLE_NETWORKD'],
                 'sources' : systemd_networkd_wait_online_sources,
                 'link_with' : networkd_link_with,
-                'dependencies' : [versiondep],
         },
         executable_template + {
                 'name' : 'networkctl',
@@ -179,14 +177,12 @@ executables += [
                 'include_directories' : libsystemd_network_includes,
                 'link_with' : [libsystemd_network,
                                networkd_link_with],
-                'dependencies' : [versiondep],
                 'install_dir' : rootbindir,
         },
         libexec_template + {
                 'name' : 'systemd-network-generator',
                 'sources' : network_generator_sources,
                 'link_with' : networkd_link_with,
-                'dependencies' : [versiondep],
         },
 ]
 

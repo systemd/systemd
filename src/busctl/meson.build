@@ -10,7 +10,6 @@ executables += [
                 'name' : 'busctl',
                 'public' : true,
                 'sources' : busctl_sources,
-                'dependencies' : versiondep,
         },
 ]
 

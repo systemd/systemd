@@ -6,7 +6,6 @@ executables += [
                 'public' : true,
                 'conditions' : ['ENABLE_SYSUSERS'],
                 'sources' : files('sysusers.c'),
-                'dependencies' : [versiondep],
                 'install_dir' : rootbindir,
         },
         executable_template + {
@@ -19,7 +18,6 @@ executables += [
                                libbasic,
                                libbasic_gcrypt,
                                libsystemd_static],
-                'dependencies' : [versiondep],
                 'build_by_default' : have_standalone_binaries,
                 'install' : have_standalone_binaries,
                 'install_dir' : rootbindir,

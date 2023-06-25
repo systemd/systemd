@@ -4,7 +4,6 @@ executables += [
         executable_template + {
                 'name' : 'systemd-machine-id-setup',
                 'sources' : files('machine-id-setup-main.c'),
-                'dependencies' : [versiondep],
                 'install_dir' : rootbindir,
         },
 ]

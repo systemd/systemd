@@ -32,7 +32,6 @@ executables += [
                 'dependencies' : [libcryptsetup,
                                   libdl,
                                   libopenssl,
-                                  libp11kit,
-                                  versiondep],
+                                  libp11kit],
         },
 ]

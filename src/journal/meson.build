@@ -49,8 +49,7 @@ executables += [
                                   libselinux,
                                   libxz,
                                   libzstd,
-                                  threads,
-                                  versiondep],
+                                  threads],
         },
         executable_template + {
                 'name' : 'systemd-cat',
@@ -58,8 +57,7 @@ executables += [
                 'sources' : files('cat.c'),
                 'link_with' : [libjournal_core,
                                libshared],
-                'dependencies' : [threads,
-                                  versiondep],
+                'dependencies' : threads,
         },
         executable_template + {
                 'name' : 'journalctl',
@@ -70,8 +68,7 @@ executables += [
                                   liblz4,
                                   libxz,
                                   libzstd,
-                                  threads,
-                                  versiondep],
+                                  threads],
                 'install_dir' : rootbindir,
         },
 ]

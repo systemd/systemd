@@ -8,7 +8,6 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-update-utmp',
                 'sources' : files('update-utmp.c'),
-                'dependencies' : [libaudit,
-                                  versiondep],
+                'dependencies' : libaudit,
         },
 ]
