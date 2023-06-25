@@ -2353,6 +2353,7 @@ subdir('src/journal')
 subdir('src/libsystemd-network')
 
 subdir('src/analyze')
+subdir('src/backlight')
 subdir('src/boot')
 subdir('src/boot/efi')
 subdir('src/busctl')
@@ -2386,11 +2387,13 @@ subdir('src/partition')
 subdir('src/portable')
 subdir('src/pstore')
 subdir('src/resolve')
+subdir('src/rfkill')
 subdir('src/rpm')
 subdir('src/run-generator')
 subdir('src/shutdown')
 subdir('src/socket-activate')
 subdir('src/sysext')
+subdir('src/system-update-generator')
 subdir('src/systemctl')
 subdir('src/sysupdate')
 subdir('src/timedate')
@@ -2550,40 +2553,6 @@ endif
 meson.add_install_script(meson_make_symlink,
                          rootbindir / 'udevadm',
                          rootlibexecdir / 'systemd-udevd')
-
-if conf.get('ENABLE_BACKLIGHT') == 1
-        executable(
-                'systemd-backlight',
-                'src/backlight/backlight.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootlibexecdir)
-endif
-
-if conf.get('ENABLE_RFKILL') == 1
-        executable(
-                'systemd-rfkill',
-                'src/rfkill/rfkill.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootlibexecdir)
-endif
-
-executable(
-        'systemd-system-update-generator',
-        'src/system-update-generator/system-update-generator.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : userspace,
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : systemgeneratordir)
 
 if conf.get('HAVE_LIBCRYPTSETUP') == 1
         executable(
