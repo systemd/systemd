@@ -22,8 +22,7 @@ executables += [
                 'sources' : systemd_cryptsetup_sources,
                 'dependencies' : [libcryptsetup,
                                   libopenssl,
-                                  libp11kit,
-                                  versiondep],
+                                  libp11kit],
         },
         generator_template + {
                 'name' : 'systemd-cryptsetup-generator',

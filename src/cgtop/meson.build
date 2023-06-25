@@ -5,7 +5,5 @@ executables += [
                 'name' : 'systemd-cgtop',
                 'public' : true,
                 'sources' : files('cgtop.c'),
-                'dependencies' : [userspace,
-                                  versiondep],
         },
 ]

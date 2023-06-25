@@ -5,7 +5,6 @@ executables += [
                 'name' : 'systemd-update-utmp',
                 'conditions' : ['ENABLE_UTMP'],
                 'sources' : files('update-utmp.c'),
-                'dependencies' : [libaudit,
-                                  versiondep],
+                'dependencies' : libaudit,
         },
 ]

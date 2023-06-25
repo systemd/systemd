@@ -5,6 +5,5 @@ executables += [
                 'name' : 'systemd-random-seed',
                 'conditions' : ['ENABLE_RANDOMSEED'],
                 'sources' : files('random-seed.c'),
-                'dependencies' : [versiondep],
         },
 ]

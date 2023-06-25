@@ -53,8 +53,7 @@ executables += [
                 'link_with' : [liblogind_core,
                                libshared],
                 'dependencies' : [libacl,
-                                  threads,
-                                  versiondep],
+                                  threads],
         },
         executable_template + {
                 'name' : 'loginctl',
@@ -64,8 +63,7 @@ executables += [
                 'dependencies' : [liblz4,
                                   libxz,
                                   libzstd,
-                                  threads,
-                                  versiondep],
+                                  threads],
                 'install_dir' : rootbindir,
         },
         executable_template + {
@@ -73,7 +71,6 @@ executables += [
                 'public' : true,
                 'conditions' : ['ENABLE_LOGIND'],
                 'sources' : files('inhibit.c'),
-                'dependencies' : [versiondep],
                 'install_dir' : rootbindir,
         },
         libexec_template + {

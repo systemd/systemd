@@ -41,8 +41,7 @@ executables += [
                 'include_directories' : core_includes,
                 'link_with' : [libcore,
                                libshared],
-                'dependencies' : [libseccomp,
-                                  versiondep],
+                'dependencies' : [libseccomp],
                 'install' : conf.get('ENABLE_ANALYZE') == 1,
         },
 ]

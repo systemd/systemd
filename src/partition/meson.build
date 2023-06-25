@@ -4,12 +4,10 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-growfs',
                 'sources' : files('growfs.c'),
-                'dependencies' : [versiondep],
         },
         libexec_template + {
                 'name' : 'systemd-makefs',
                 'sources' : files('makefs.c'),
-                'dependencies' : [versiondep],
         },
         executable_template + {
                 'name' : 'systemd-repart',
@@ -21,8 +19,7 @@ executables += [
                 'dependencies' : [libblkid,
                                   libfdisk,
                                   libopenssl,
-                                  threads,
-                                  versiondep],
+                                  threads],
                 'install_dir' : rootbindir,
         },
         executable_template + {
@@ -39,8 +36,7 @@ executables += [
                 'dependencies' : [libblkid,
                                   libfdisk,
                                   libopenssl,
-                                  threads,
-                                  versiondep],
+                                  threads],
                 'build_by_default' : have_standalone_binaries,
                 'install' : have_standalone_binaries,
                 'install_dir' : rootbindir,

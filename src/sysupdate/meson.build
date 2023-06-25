@@ -30,7 +30,6 @@ executables += [
                 'dependencies' : [libblkid,
                                   libfdisk,
                                   libopenssl,
-                                  threads,
-                                  versiondep],
+                                  threads],
         },
 ]

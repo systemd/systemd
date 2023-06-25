@@ -12,7 +12,6 @@ executables += [
                 'conditions' : ['ENABLE_HOSTNAMED'],
                 'public' : true,
                 'sources' : files('hostnamectl.c'),
-                'dependencies' : [versiondep],
         },
 ]
 

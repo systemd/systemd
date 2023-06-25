@@ -9,8 +9,7 @@ executables += [
                                   liblz4,
                                   libxz,
                                   libzstd,
-                                  threads,
-                                  versiondep],
+                                  threads],
         },
 ]
 
