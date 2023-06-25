@@ -2199,8 +2199,11 @@ userspace_c_args += ['-include', 'config.h']
 jinja2_cmdline = [meson_render_jinja2, config_h, version_h]
 
 userspace = declare_dependency(
+        sources : config_h,
         compile_args : userspace_c_args,
         link_args : userspace_c_ld_args,
+        include_directories : include_directories('.'),
+        dependencies : versiondep,
 )
 
 man_page_depends = []
@@ -2230,7 +2233,7 @@ basic_includes = include_directories(
         'src/basic',
         'src/fundamental',
         'src/systemd',
-        '.')
+)
 
 libsystemd_includes = [basic_includes, include_directories(
         'src/libsystemd/sd-bus',
@@ -2297,8 +2300,7 @@ install_libsystemd_static = static_library(
                         libxz,
                         libzstd,
                         threads,
-                        userspace,
-                        versiondep],
+                        userspace],
         c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
 
 libudev = shared_library(
@@ -2333,8 +2335,7 @@ install_libudev_static = static_library(
         link_depends : libudev_sym,
         dependencies : [libmount,
                         libshared_deps,
-                        userspace,
-                        versiondep],
+                        userspace],
         c_args : static_libudev_pic ? [] : ['-fno-PIC'],
         pic : static_libudev_pic)
 
@@ -2381,8 +2382,7 @@ pam_template = {
                        libshared_static],
         'dependencies' : [libpam_misc,
                           libpam,
-                          threads,
-                          versiondep],
+                          threads],
         'install' : true,
         'install_tag' : 'pam',
         'install_dir' : pamlibdir,
@@ -2669,7 +2669,6 @@ foreach test : tests
                 base.get('dependencies', []),
                 test.get('dependencies', []),
                 userspace,
-                versiondep,
         ]
 
         name = fs.stem(sources[0])
@@ -2818,7 +2817,6 @@ foreach fuzzer : fuzzers
                 dependencies : [
                         dependencies,
                         userspace,
-                        versiondep,
                 ],
                 c_args : [test_cflags, fuzzer.get('c_args', [])],
                 link_args: link_args,

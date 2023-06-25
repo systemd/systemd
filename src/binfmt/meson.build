@@ -6,7 +6,6 @@ executables += [
                 'conditions' : ['ENABLE_BINFMT'],
                 'public' : true,
                 'sources' : files('binfmt.c'),
-                'dependencies' : [versiondep],
         },
 ]
 

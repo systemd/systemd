@@ -5,6 +5,5 @@ executables += [
                 'name' : 'systemd-stdio-bridge',
                 'public' : true,
                 'sources' : files('stdio-bridge.c'),
-                'dependencies' : [versiondep],
         },
 ]

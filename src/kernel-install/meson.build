@@ -8,7 +8,6 @@ executables += [
                 'conditions' : ['ENABLE_KERNEL_INSTALL'],
                 'public' : true,
                 'sources' : files('kernel-install.c'),
-                'dependencies' : [versiondep],
         },
 ]
 

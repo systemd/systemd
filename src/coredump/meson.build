@@ -15,7 +15,6 @@ common_dependencies = [
         libxz,
         libzstd,
         threads,
-        versiondep,
 ]
 
 executables += [

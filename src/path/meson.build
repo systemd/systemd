@@ -5,6 +5,5 @@ executables += [
                 'name' : 'systemd-path',
                 'public' : true,
                 'sources' : files('path.c'),
-                'dependencies' : [versiondep],
         },
 ]

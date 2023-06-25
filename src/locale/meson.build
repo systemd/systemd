@@ -23,15 +23,13 @@ executables += [
                 'dbus' : true,
                 'conditions' : ['ENABLE_LOCALED'],
                 'sources' : systemd_localed_sources,
-                'dependencies' : libxkbcommon_deps +
-                                 [versiondep],
+                'dependencies' : libxkbcommon_deps,
         },
         executable_template + {
                 'name' : 'localectl',
                 'public' : true,
                 'conditions' : ['ENABLE_LOCALED'],
                 'sources' : files('localectl.c'),
-                'dependencies' : [versiondep],
         },
 ]
 

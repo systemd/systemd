@@ -4,6 +4,5 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-fsck',
                 'sources' : files('fsck.c'),
-                'dependencies' : [versiondep],
         },
 ]

@@ -6,8 +6,7 @@ executables += [
                 'public' : true,
                 'sources' : files('creds.c'),
                 'dependencies' : [threads,
-                                  libopenssl,
-                                  versiondep],
+                                  libopenssl],
                 'install_dir' : rootbindir,
         },
 ]

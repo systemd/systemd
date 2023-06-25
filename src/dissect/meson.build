@@ -6,7 +6,6 @@ executables += [
                 'conditions' : ['HAVE_BLKID'],
                 'public' : true,
                 'sources' : files('dissect.c'),
-                'dependencies' : [versiondep],
         },
 ]
 

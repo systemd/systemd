@@ -5,8 +5,7 @@ executables += [
                 'name' : 'systemd-mount',
                 'public' : true,
                 'sources' : files('mount-tool.c'),
-                'dependencies' : [libmount,
-                                  versiondep],
+                'dependencies' : libmount,
         },
 ]
 

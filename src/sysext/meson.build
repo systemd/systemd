@@ -6,7 +6,6 @@ executables += [
                 'conditions' : ['ENABLE_SYSEXT'],
                 'public' : true,
                 'sources' : files('sysext.c'),
-                'dependencies' : [versiondep],
                 'install_dir' : rootbindir,
         },
 ]
