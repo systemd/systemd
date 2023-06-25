@@ -2534,24 +2534,6 @@ endforeach
 ############################################################
 
 exe = executable(
-        'systemd',
-        systemd_sources,
-        include_directories : includes,
-        link_with : [libcore,
-                     libshared],
-        dependencies : [libseccomp,
-                        userspace],
-        install_rpath : pkglibdir,
-        install : true,
-        install_dir : libexecdir)
-dbus_programs += exe
-public_programs += exe
-
-meson.add_install_script(meson_make_symlink,
-                         libexecdir / 'systemd',
-                         sbindir / 'init')
-
-exe = executable(
         'systemd-analyze',
         systemd_analyze_sources,
         include_directories : core_includes,
