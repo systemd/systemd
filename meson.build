@@ -2548,45 +2548,6 @@ if want_tests != 'false'
              depends : exe)
 endif
 
-if conf.get('ENABLE_RESOLVE') == 1
-        dbus_programs += executable(
-                'systemd-resolved',
-                systemd_resolved_sources,
-                include_directories : resolve_includes,
-                link_with : [libshared,
-                             libbasic_gcrypt,
-                             libsystemd_resolve_core],
-                dependencies : [systemd_resolved_dependencies,
-                                userspace],
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootlibexecdir)
-
-        public_programs += executable(
-                'resolvectl',
-                resolvectl_sources,
-                include_directories : includes,
-                link_with : [libshared,
-                             libbasic_gcrypt,
-                             libsystemd_resolve_core],
-                dependencies : [lib_openssl_or_gcrypt,
-                                libidn,
-                                libm,
-                                threads,
-                                userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true)
-
-        meson.add_install_script(meson_make_symlink,
-                                 bindir / 'resolvectl',
-                                 rootsbindir / 'resolvconf')
-
-        meson.add_install_script(meson_make_symlink,
-                                 bindir / 'resolvectl',
-                                 bindir / 'systemd-resolve')
-endif
-
 if conf.get('ENABLE_LOGIND') == 1
         dbus_programs += executable(
                 'systemd-logind',
