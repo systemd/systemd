@@ -2570,37 +2570,6 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('ENABLE_BOOTLOADER') == 1
         endif
 endif
 
-if conf.get('ENABLE_PORTABLED') == 1
-        if get_option('link-portabled-shared')
-                portabled_link_with = [libshared]
-        else
-                portabled_link_with = [libsystemd_static,
-                                       libshared_static]
-        endif
-
-        dbus_programs += executable(
-                'systemd-portabled',
-                systemd_portabled_sources,
-                include_directories : includes,
-                link_with : [portabled_link_with],
-                dependencies : [libselinux,
-                                threads,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
-
-        public_programs += executable(
-                'portablectl',
-                'src/portable/portablectl.c',
-                include_directories : includes,
-                link_with : [portabled_link_with],
-                dependencies : [threads,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true)
-endif
-
 if conf.get('ENABLE_SYSEXT') == 1
         public_programs += executable(
                 'systemd-sysext',
