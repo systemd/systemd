@@ -716,6 +716,37 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 ndisc_dnssl_compare_func,
                 free);
 
+static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) {
+        const char *uri = NULL;
+        _cleanup_free_ char *captive_portal = NULL;
+        size_t len;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        if (!link->network->ipv6_accept_ra_use_captive_portal)
+                return 0;
+
+        r = sd_ndisc_router_captive_portal_get_uri(rt, &uri, &len);
+        if (r < 0)
+                return r;
+
+        mfree(link->ndisc_captive_portal);
+
+        if (len == 0)
+                return 0;
+
+        r = make_cstring(uri, len, MAKE_CSTRING_REFUSE_TRAILING_NUL, &captive_portal);
+        if (r < 0)
+                return r;
+
+        link->ndisc_captive_portal = TAKE_PTR(captive_portal);
+        link_dirty(link);
+        return 0;
+}
+
 static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         _cleanup_strv_free_ char **l = NULL;
         usec_t lifetime_usec, timestamp_usec;
@@ -831,6 +862,9 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
 
                 case SD_NDISC_OPTION_DNSSL:
                         r = ndisc_router_process_dnssl(link, rt);
+                        break;
+                case SD_NDISC_OPTION_CAPTIVE_PORTAL:
+                        r = ndisc_router_process_captive_portal(link, rt);
                         break;
                 }
                 if (r < 0 && r != -EBADMSG)

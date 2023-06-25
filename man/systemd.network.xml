@@ -1970,6 +1970,14 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UseCaptivePortal=</varname></term>
+        <listitem>
+          <para>When true (the default), the captive portal advertised by the DHCP server will be recorded
+          and made available to client programs.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UseMTU=</varname></term>
         <listitem>
           <para>When true, the interface maximum transmission unit from the DHCP server will be used on
@@ -2279,6 +2287,14 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>When true (the default), the IP addresses provided by the DHCPv6 server will be
           assigned.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UseCaptivePortal=</varname></term>
+        <listitem>
+          <para>When true (the default), the captive portal advertised by the DHCPv6 server will be recorded
+          and made available to client programs.</para>
         </listitem>
       </varlistentry>
 
@@ -2593,6 +2609,14 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>When true (the default), the routes corresponding to the route prefixes received in
           the Router Advertisement will be configured.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UseCaptivePortal=</varname></term>
+        <listitem>
+          <para>When true (the default), the captive portal received in the Router Advertisement will be recorded
+          and made available to client programs.</para>
         </listitem>
       </varlistentry>
 
