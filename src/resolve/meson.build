@@ -117,6 +117,37 @@ if conf.get('ENABLE_DNS_OVER_TLS') == 1
         endif
 endif
 
+link_with = [
+        libshared,
+        libbasic_gcrypt,
+        libsystemd_resolve_core
+]
+
+executables += [
+        libexec_template + {
+                'name' : 'systemd-resolved',
+                'dbus' : true,
+                'conditions' : ['ENABLE_RESOLVE'],
+                'sources' : systemd_resolved_sources +
+                            files('resolved.c'),
+                'include_directories' : resolve_includes,
+                'link_with' : link_with,
+                'dependencies' : systemd_resolved_dependencies,
+        },
+        executable_template + {
+                'name' : 'resolvectl',
+                'public' : true,
+                'conditions' : ['ENABLE_RESOLVE'],
+                'sources' : resolvectl_sources,
+                'link_with' : link_with,
+                'dependencies' : [lib_openssl_or_gcrypt,
+                                  libidn,
+                                  libm,
+                                  threads,
+                                  versiondep],
+        },
+]
+
 if conf.get('ENABLE_RESOLVE') == 1
         install_data('org.freedesktop.resolve1.conf',
                      install_dir : dbuspolicydir)
@@ -126,6 +157,14 @@ if conf.get('ENABLE_RESOLVE') == 1
                      install_dir : polkitpolicydir)
         install_data('resolv.conf',
                      install_dir : rootlibexecdir)
+
+        meson.add_install_script(meson_make_symlink,
+                                 bindir / 'resolvectl',
+                                 rootsbindir / 'resolvconf')
+
+        meson.add_install_script(meson_make_symlink,
+                                 bindir / 'resolvectl',
+                                 bindir / 'systemd-resolve')
 endif
 
 custom_target(
@@ -210,5 +249,3 @@ fuzzers += [
                 'base' : fuzzer_resolve_base,
         },
 ]
-
-systemd_resolved_sources += files('resolved.c')
