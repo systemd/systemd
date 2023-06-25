@@ -2561,19 +2561,6 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('ENABLE_BOOTLOADER') == 1
         endif
 endif
 
-if conf.get('ENABLE_SYSEXT') == 1
-        public_programs += executable(
-                'systemd-sysext',
-                systemd_sysext_sources,
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootbindir)
-endif
-
 if conf.get('ENABLE_USERDB') == 1
         executable(
                 'systemd-userwork',
