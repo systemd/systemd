@@ -38,6 +38,14 @@ executables += [
                                   threads],
                 'install_dir' : rootbindir,
         },
+        test_template + {
+                'sources' : files('test-machine-tables.c'),
+                'link_with': [
+                        libmachine_core,
+                        libshared
+                ],
+                'dependencies': threads,
+        },
 ]
 
 if conf.get('ENABLE_MACHINED') == 1
@@ -48,14 +56,3 @@ if conf.get('ENABLE_MACHINED') == 1
         install_data('org.freedesktop.machine1.policy',
                      install_dir : polkitpolicydir)
 endif
-
-tests += [
-        {
-                'sources' : files('test-machine-tables.c'),
-                'link_with': [
-                        libmachine_core,
-                        libshared
-                ],
-                'dependencies': threads,
-        },
-]
