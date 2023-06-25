@@ -2688,57 +2688,8 @@ if want_tests != 'false'
              args : ['verify', '--resolve-names=never', all_rules])
 endif
 
-if conf.get('ENABLE_NETWORKD') == 1
-        dbus_programs += executable(
-                'systemd-networkd',
-                systemd_networkd_sources,
-                include_directories : network_includes,
-                link_with : [libnetworkd_core,
-                             libsystemd_network,
-                             networkd_link_with],
-                dependencies : [threads,
-                                userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootlibexecdir)
-
-        public_programs += executable(
-                'systemd-networkd-wait-online',
-                systemd_networkd_wait_online_sources,
-                include_directories : includes,
-                link_with : [networkd_link_with],
-                dependencies : [userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootlibexecdir)
-
-        public_programs += executable(
-                'networkctl',
-                networkctl_sources,
-                include_directories : libsystemd_network_includes,
-                link_with : [libsystemd_network,
-                             networkd_link_with],
-                dependencies : [userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootbindir)
-endif
-
-exe = executable(
-        'systemd-network-generator',
-        network_generator_sources,
-        include_directories : includes,
-        link_with : [networkd_link_with],
-        dependencies : [userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : rootlibexecdir)
-
 if want_tests != 'false'
+        exe = executables_by_name.get('systemd-network-generator')
         test('test-network-generator-conversion',
              test_network_generator_conversion_sh,
              # https://github.com/mesonbuild/meson/issues/2681
