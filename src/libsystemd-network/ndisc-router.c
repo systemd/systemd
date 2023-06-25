@@ -715,3 +715,34 @@ int sd_ndisc_router_dnssl_get_lifetime(sd_ndisc_router *rt, uint32_t *ret_sec) {
         *ret_sec = be32toh(*(uint32_t*) (ri + 4));
         return 0;
 }
+
+int sd_ndisc_router_captive_portal_get_uri(sd_ndisc_router *rt, const char **ret_uri, size_t *ret_size) {
+        int r;
+        const char *nd_opt_captive_portal;
+        size_t length;
+
+        assert_return(rt, -EINVAL);
+        assert_return(ret_uri, -EINVAL);
+
+        r = sd_ndisc_router_option_is_type(rt, SD_NDISC_OPTION_CAPTIVE_PORTAL);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EMEDIUMTYPE;
+
+        r = sd_ndisc_router_option_get_raw(rt, (void *)&nd_opt_captive_portal, &length);
+        if (r < 0)
+                return r;
+        if (length < 2)
+                return -EBADMSG;
+        if (length == 2) {
+                *ret_uri = NULL;
+                *ret_size = 0;
+                return 0;
+        }
+
+        *ret_uri = nd_opt_captive_portal + 2;
+        *ret_size = strnlen(*ret_uri, length - 2);
+
+        return 0;
+}
