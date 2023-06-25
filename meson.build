@@ -2395,6 +2395,7 @@ subdir('src/sysupdate')
 subdir('src/timedate')
 subdir('src/timesync')
 subdir('src/tmpfiles')
+subdir('src/user-sessions')
 subdir('src/userdb')
 subdir('src/xdg-autostart-generator')
 
@@ -2533,18 +2534,6 @@ if want_tests != 'false'
              # https://github.com/mesonbuild/meson/issues/2681
              args : exe.full_path(),
              depends : exe)
-endif
-
-if conf.get('HAVE_PAM') == 1
-        executable(
-                'systemd-user-sessions',
-                'src/user-sessions/user-sessions.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootlibexecdir)
 endif
 
 if conf.get('HAVE_BLKID') == 1 and conf.get('ENABLE_BOOTLOADER') == 1
