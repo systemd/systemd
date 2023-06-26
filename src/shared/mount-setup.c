@@ -5,6 +5,7 @@
 #include <sys/mount.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
+#include <sys/utsname.h>
 
 #include "alloc-util.h"
 #include "bus-util.h"
@@ -148,12 +149,33 @@ bool mount_point_ignore(const char *path) {
         return false;
 }
 
+static bool is_old_kernel(void) {
+    bool old = false;
+    struct utsname uts;
+    int r = 0;
+
+    r = uname(&uts);
+    if (r < 0)
+            return old;
+
+    if (strverscmp(uts.release, "5.7") < 0) {
+            log_debug("Pre v5.7 kernel detected [v%s] - skipping memory_recursiveprot", uts.release);
+            old = true;
+    }
+
+    return old;
+}
+
 static int mount_one(const MountPoint *p, bool relabel) {
         int r, priority;
 
         assert(p);
 
         priority = (p->mode & MNT_FATAL) ? LOG_ERR : LOG_DEBUG;
+
+        if (streq(p->what, "cgroup2") && p->options && streq(p->options, "nsdelegate,memory_recursiveprot") && is_old_kernel()) {
+            return 0;
+        }
 
         if (p->condition_fn && !p->condition_fn())
                 return 0;
