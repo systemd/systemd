@@ -742,7 +742,7 @@ static int process_machine_id(int rfd) {
         r = write_string_file_at(pfd, "machine-id", SD_ID128_TO_STRING(arg_machine_id),
                                  WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_ATOMIC);
         if (r < 0)
-                return log_error_errno(r, "Failed to write /etc/machine id: %m");
+                return log_error_errno(r, "Failed to write /etc/machine-id: %m");
 
         log_info("/etc/machine-id written.");
         return 0;
