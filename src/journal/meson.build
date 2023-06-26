@@ -48,6 +48,14 @@ journal_test_template = test_template + {
         ],
 }
 
+journal_fuzz_template = fuzz_template + {
+        'link_with' : [
+                libjournal_core,
+                libshared,
+        ],
+        'dependencies' : libselinux,
+}
+
 executables += [
         libexec_template + {
                 'name' : 'systemd-journald',
@@ -124,6 +132,42 @@ executables += [
         journal_test_template + {
                 'sources' : files('test-journal.c'),
         },
+        journal_fuzz_template + {
+                'sources' : files(
+                        'fuzz-journald-audit.c',
+                        'fuzz-journald.c',
+                ),
+        },
+        journal_fuzz_template + {
+                'sources' : files(
+                        'fuzz-journald-kmsg.c',
+                        'fuzz-journald.c',
+                ),
+        },
+        journal_fuzz_template + {
+                'sources' : files(
+                        'fuzz-journald-native.c',
+                        'fuzz-journald.c',
+                ),
+        },
+        journal_fuzz_template + {
+                'sources' : files(
+                        'fuzz-journald-native-fd.c',
+                        'fuzz-journald.c',
+                ),
+        },
+        journal_fuzz_template + {
+                'sources' : files(
+                        'fuzz-journald-stream.c',
+                        'fuzz-journald.c',
+                ),
+        },
+        journal_fuzz_template + {
+                'sources' : files(
+                        'fuzz-journald-syslog.c',
+                        'fuzz-journald.c',
+                ),
+        },
 ]
 
 if install_sysconfdir_samples
@@ -150,55 +194,3 @@ if get_option('create-log-dirs')
                         'setfacl -nm g:wheel:rx,d:g:wheel:rx $DESTDIR/var/log/journal || :')
         endif
 endif
-
-############################################################
-
-fuzzer_journald_base = {
-        'link_with' : [libjournal_core, libshared],
-        'dependencies' : [libselinux],
-}
-
-fuzzers += [
-        {
-                'sources' : files(
-                        'fuzz-journald-audit.c',
-                        'fuzz-journald.c',
-                ),
-                'base' : fuzzer_journald_base,
-        },
-        {
-                'sources' : files(
-                        'fuzz-journald-kmsg.c',
-                        'fuzz-journald.c',
-                ),
-                'base' : fuzzer_journald_base,
-        },
-        {
-                'sources' : files(
-                        'fuzz-journald-native.c',
-                        'fuzz-journald.c',
-                ),
-                'base' : fuzzer_journald_base,
-        },
-        {
-                'sources' : files(
-                        'fuzz-journald-native-fd.c',
-                        'fuzz-journald.c',
-                ),
-                'base' : fuzzer_journald_base,
-        },
-        {
-                'sources' : files(
-                        'fuzz-journald-stream.c',
-                        'fuzz-journald.c',
-                ),
-                'base' : fuzzer_journald_base,
-        },
-        {
-                'sources' : files(
-                        'fuzz-journald-syslog.c',
-                        'fuzz-journald.c',
-                ),
-                'base' : fuzzer_journald_base,
-        },
-]

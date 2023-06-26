@@ -45,6 +45,7 @@ nspawn_common_template = {
         'dependencies' : libseccomp,
 }
 nspawn_test_template = test_template + nspawn_common_template
+nspawn_fuzz_template = fuzz_template + nspawn_common_template
 
 executables += [
         executable_template + {
@@ -69,20 +70,10 @@ executables += [
                 'dependencies' : libacl,
                 'type' : 'manual',
         },
-]
-
-fuzzer_nspawn_base = {
-        'link_with' : [libshared, libnspawn_core],
-        'dependencies' : libseccomp
-}
-
-fuzzers += [
-        {
+        nspawn_fuzz_template + {
                 'sources' : files('fuzz-nspawn-settings.c'),
-                'base' : fuzzer_nspawn_base,
         },
-        {
+        nspawn_fuzz_template + {
                 'sources' : files('fuzz-nspawn-oci.c'),
-                'base' : fuzzer_nspawn_base,
         },
 ]
