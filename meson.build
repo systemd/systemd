@@ -2720,7 +2720,8 @@ foreach dict : modules
                      test_dlopen,
                      # path to dlopen must include a slash
                      args : lib.full_path(),
-                     depends : lib)
+                     depends : lib,
+                     suite : is_nss ? 'nss' : 'pam')
         endif
 endforeach
 
@@ -2896,7 +2897,8 @@ if git.found()
                         test('check-includes',
                              files('tools/check-includes.py'),
                              args: all_files,
-                             env : ['PROJECT_SOURCE_ROOT=@0@'.format(project_source_root)])
+                             env : ['PROJECT_SOURCE_ROOT=@0@'.format(project_source_root)],
+                             suite : 'headers')
                 endif
         endif
 
