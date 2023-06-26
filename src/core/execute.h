@@ -27,6 +27,7 @@ typedef struct Manager Manager;
 #include "numa-util.h"
 #include "open-file.h"
 #include "path-util.h"
+#include "runtime-scope.h"
 #include "set.h"
 #include "time-util.h"
 
@@ -418,6 +419,8 @@ typedef enum ExecFlags {
 /* Parameters for a specific invocation of a command. This structure is put together right before a command is
  * executed. */
 struct ExecParameters {
+        RuntimeScope runtime_scope;
+
         char **environment;
 
         int *fds;
