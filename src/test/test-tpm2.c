@@ -699,13 +699,22 @@ TEST(tpm_required_tests) {
         assert_se(tpm2_test_parms(c, TPM2_ALG_SYMCIPHER, &parms));
 
         /* Test invalid algs */
-        assert_se(tpm2_supports_alg(c, TPM2_ALG_ERROR) == 0);
-        assert_se(tpm2_supports_alg(c, TPM2_ALG_LAST + 1) == 0);
+        assert_se(!tpm2_supports_alg(c, TPM2_ALG_ERROR));
+        assert_se(!tpm2_supports_alg(c, TPM2_ALG_LAST + 1));
 
         /* Test valid algs */
-        assert_se(tpm2_supports_alg(c, TPM2_ALG_RSA) == 1);
-        assert_se(tpm2_supports_alg(c, TPM2_ALG_AES) == 1);
-        assert_se(tpm2_supports_alg(c, TPM2_ALG_CFB) == 1);
+        assert_se(tpm2_supports_alg(c, TPM2_ALG_RSA));
+        assert_se(tpm2_supports_alg(c, TPM2_ALG_AES));
+        assert_se(tpm2_supports_alg(c, TPM2_ALG_CFB));
+
+        /* Test invalid commands */
+        assert_se(!tpm2_supports_command(c, TPM2_CC_FIRST - 1));
+        assert_se(!tpm2_supports_command(c, TPM2_CC_LAST + 1));
+
+        /* Test valid commands */
+        assert_se(tpm2_supports_command(c, TPM2_CC_Create));
+        assert_se(tpm2_supports_command(c, TPM2_CC_CreatePrimary));
+        assert_se(tpm2_supports_command(c, TPM2_CC_Unseal));
 }
 
 #endif /* HAVE_TPM2 */
