@@ -44,12 +44,14 @@ typedef enum SpecialGlyph {
         SPECIAL_GLYPH_RECYCLING,
         SPECIAL_GLYPH_DOWNLOAD,
         SPECIAL_GLYPH_SPARKLES,
+        SPECIAL_GLYPH_LOW_BATTERY,
         SPECIAL_GLYPH_WARNING_SIGN,
         _SPECIAL_GLYPH_MAX,
         _SPECIAL_GLYPH_INVALID = -EINVAL,
 } SpecialGlyph;
 
 const char *special_glyph(SpecialGlyph code) _const_;
+const char *special_glyph_utf8(SpecialGlyph code) _const_;
 
 bool emoji_enabled(void);
 
