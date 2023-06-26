@@ -5,18 +5,19 @@ set -e
 TEST_DESCRIPTION="systemd-oomd Memory Pressure Test"
 IMAGE_NAME="oomd"
 
+# Need to set up swap
+TEST_NO_NSPAWN=1
+
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
 test_append_files() {
-    # Create a swap device
+    # Create a swap file
     (
-        mkswap "${LOOPDEV:?}p2"
-        image_install swapon swapoff
+        image_install mkswap swapon swapoff stress
 
-        cat >>"${initdir:?}/etc/fstab" <<EOF
-UUID=$(blkid -o value -s UUID "${LOOPDEV}p2")    none    swap    defaults 0 0
-EOF
+        dd if=/dev/zero of="${initdir:?}/swapfile" bs=1M count=48
+        chmod 0600 "${initdir:?}/swapfile"
 
         mkdir -p "${initdir:?}/etc/systemd/system/init.scope.d/"
         cat >>"${initdir:?}/etc/systemd/system/init.scope.d/test-55-oomd.conf" <<EOF
