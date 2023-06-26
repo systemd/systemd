@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+fuzz_main_c = files('fuzz-main.c')
+
 simple_fuzzers += files(
         'fuzz-bootspec.c',
         'fuzz-bus-label.c',
