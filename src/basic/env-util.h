@@ -53,7 +53,10 @@ int _strv_env_assign_many(char ***l, ...) _sentinel_;
 #define strv_env_assign_many(l, ...) _strv_env_assign_many(l, __VA_ARGS__, NULL)
 
 char *strv_env_get_n(char **l, const char *name, size_t k, ReplaceEnvFlags flags) _pure_;
-char *strv_env_get(char **x, const char *n) _pure_;
+static inline char *strv_env_get(char **x, const char *n) {
+        return strv_env_get_n(x, n, SIZE_MAX, 0);
+}
+
 char *strv_env_pairs_get(char **l, const char *name) _pure_;
 
 int getenv_bool(const char *p);

@@ -503,6 +503,8 @@ int _strv_env_assign_many(char ***l, ...) {
 char *strv_env_get_n(char **l, const char *name, size_t k, ReplaceEnvFlags flags) {
         assert(name);
 
+        if (k == SIZE_MAX)
+                k = strlen_ptr(name);
         if (k <= 0)
                 return NULL;
 
@@ -523,12 +525,6 @@ char *strv_env_get_n(char **l, const char *name, size_t k, ReplaceEnvFlags flags
         };
 
         return NULL;
-}
-
-char *strv_env_get(char **l, const char *name) {
-        assert(name);
-
-        return strv_env_get_n(l, name, strlen(name), 0);
 }
 
 char *strv_env_pairs_get(char **l, const char *name) {
