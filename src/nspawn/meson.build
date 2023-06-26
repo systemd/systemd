@@ -35,12 +35,17 @@ libnspawn_core = static_library(
                         userspace],
         build_by_default : false)
 
-systemd_nspawn_sources = files('nspawn.c')
-
-############################################################
-
-tests += [
-        {
+executables += [
+        executable_template + {
+                'name' : 'systemd-nspawn',
+                'public' : true,
+                'sources' : files('nspawn.c'),
+                'link_with' : [libnspawn_core,
+                               libshared],
+                'dependencies' : [libblkid,
+                                  libseccomp],
+        },
+        test_template + {
                 'sources' : files('test-nspawn-tables.c'),
                 'link_with' : [
                         libnspawn_core,
@@ -48,7 +53,7 @@ tests += [
                 ],
                 'dependencies' : libseccomp,
         },
-        {
+        test_template + {
                 'sources' : files('test-nspawn-util.c'),
                 'link_with' : [
                         libnspawn_core,
@@ -56,7 +61,7 @@ tests += [
                 ],
                 'dependencies' : libseccomp,
         },
-        {
+        test_template + {
                 'sources' : files('test-patch-uid.c'),
                 'link_with' : [
                         libnspawn_core,

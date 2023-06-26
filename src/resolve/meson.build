@@ -117,6 +117,77 @@ if conf.get('ENABLE_DNS_OVER_TLS') == 1
         endif
 endif
 
+link_with = [
+        libshared,
+        libbasic_gcrypt,
+        libsystemd_resolve_core
+]
+
+resolve_test_template = test_template + {
+        'link_with' : [libsystemd_resolve_core, libshared],
+        'dependencies' : [lib_openssl_or_gcrypt, libm],
+}
+
+executables += [
+        libexec_template + {
+                'name' : 'systemd-resolved',
+                'dbus' : true,
+                'conditions' : ['ENABLE_RESOLVE'],
+                'sources' : systemd_resolved_sources +
+                            files('resolved.c'),
+                'include_directories' : resolve_includes,
+                'link_with' : link_with,
+                'dependencies' : systemd_resolved_dependencies,
+        },
+        executable_template + {
+                'name' : 'resolvectl',
+                'public' : true,
+                'conditions' : ['ENABLE_RESOLVE'],
+                'sources' : resolvectl_sources,
+                'link_with' : link_with,
+                'dependencies' : [lib_openssl_or_gcrypt,
+                                  libidn,
+                                  libm,
+                                  threads],
+        },
+        resolve_test_template + {
+                'sources' : files('test-resolve-tables.c'),
+        },
+        resolve_test_template + {
+                'sources' : files('test-dns-packet.c'),
+        },
+        resolve_test_template + {
+                'sources' : files(
+                        'test-resolved-etc-hosts.c',
+                        'resolved-etc-hosts.c',
+                ),
+        },
+        resolve_test_template + {
+                'sources' : files('test-resolved-packet.c'),
+        },
+        resolve_test_template + {
+                'sources' : files('test-dnssec.c'),
+                'conditions' : ['HAVE_OPENSSL_OR_GCRYPT'],
+        },
+        resolve_test_template + {
+                'sources' : files('test-dnssec-complex.c'),
+                'type' : 'manual',
+        },
+        test_template + {
+                'sources' : [
+                        files('test-resolved-stream.c'),
+                        basic_dns_sources,
+                        systemd_resolved_sources,
+                ],
+                'dependencies' : [
+                        lib_openssl_or_gcrypt,
+                        libm,
+                        systemd_resolved_dependencies,
+                ],
+                'include_directories' : resolve_includes,
+        },
+]
+
 if conf.get('ENABLE_RESOLVE') == 1
         install_data('org.freedesktop.resolve1.conf',
                      install_dir : dbuspolicydir)
@@ -126,6 +197,14 @@ if conf.get('ENABLE_RESOLVE') == 1
                      install_dir : polkitpolicydir)
         install_data('resolv.conf',
                      install_dir : rootlibexecdir)
+
+        meson.add_install_script(meson_make_symlink,
+                                 bindir / 'resolvectl',
+                                 rootsbindir / 'resolvconf')
+
+        meson.add_install_script(meson_make_symlink,
+                                 bindir / 'resolvectl',
+                                 bindir / 'systemd-resolve')
 endif
 
 custom_target(
@@ -137,56 +216,6 @@ custom_target(
         install_dir : pkgsysconfdir)
 
 ############################################################
-
-test_resolve_base = {
-        'link_with' : [libsystemd_resolve_core, libshared],
-        'dependencies' : [lib_openssl_or_gcrypt, libm],
-}
-
-tests += [
-        {
-                'sources' : files('test-resolve-tables.c'),
-                'base' : test_resolve_base,
-        },
-        {
-                'sources' : files('test-dns-packet.c'),
-                'base' : test_resolve_base,
-        },
-        {
-                'sources' : files(
-                        'test-resolved-etc-hosts.c',
-                        'resolved-etc-hosts.c',
-                ),
-                'base' : test_resolve_base,
-        },
-        {
-                'sources' : files('test-resolved-packet.c'),
-                'base' : test_resolve_base,
-        },
-        {
-                'sources' : files('test-dnssec.c'),
-                'base' : test_resolve_base,
-                'condition' : 'HAVE_OPENSSL_OR_GCRYPT',
-        },
-        {
-                'sources' : files('test-dnssec-complex.c'),
-                'base' : test_resolve_base,
-                'type' : 'manual',
-        },
-        {
-                'sources' : [
-                        files('test-resolved-stream.c'),
-                        basic_dns_sources,
-                        systemd_resolved_sources,
-                ],
-                'dependencies' : [
-                        lib_openssl_or_gcrypt,
-                        libm,
-                        systemd_resolved_dependencies,
-                ],
-                'includes' : resolve_includes,
-        },
-]
 
 fuzzer_resolve_base = {
         'link_with' : [libsystemd_resolve_core, libshared],
@@ -210,5 +239,3 @@ fuzzers += [
                 'base' : fuzzer_resolve_base,
         },
 ]
-
-systemd_resolved_sources += files('resolved.c')
