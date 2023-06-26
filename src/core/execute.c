@@ -4066,7 +4066,7 @@ static int apply_mount_namespace(
                         return -ENOMEM;
         }
 
-        if (MANAGER_IS_SYSTEM(u->manager)) {
+        if (params->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
                 propagate_dir = path_join("/run/systemd/propagate/", u->id);
                 if (!propagate_dir)
                         return -ENOMEM;
@@ -4078,9 +4078,12 @@ static int apply_mount_namespace(
                 extension_dir = strdup("/run/systemd/unit-extensions");
                 if (!extension_dir)
                         return -ENOMEM;
-        } else
+        } else {
+                assert(params->runtime_scope == RUNTIME_SCOPE_USER);
+
                 if (asprintf(&extension_dir, "/run/user/" UID_FMT "/systemd/unit-extensions", geteuid()) < 0)
                         return -ENOMEM;
+        }
 
         if (root_image) {
                 r = verity_settings_prepare(
@@ -4707,14 +4710,17 @@ static void log_command_line(Unit *unit, const char *msg, const char *executable
                         LOG_UNIT_INVOCATION_ID(unit));
 }
 
-static bool exec_context_need_unprivileged_private_users(const ExecContext *context, const Manager *manager) {
+static bool exec_context_need_unprivileged_private_users(
+                const ExecContext *context,
+                const ExecParameters *params) {
+
         assert(context);
-        assert(manager);
+        assert(params);
 
         /* These options require PrivateUsers= when used in user units, as we need to be in a user namespace
          * to have permission to enable them when not running as root. If we have effective CAP_SYS_ADMIN
          * (system manager) then we have privileges and don't need this. */
-        if (MANAGER_IS_SYSTEM(manager))
+        if (params->runtime_scope != RUNTIME_SCOPE_USER)
                 return false;
 
         return context->private_users ||
@@ -4924,7 +4930,7 @@ static int exec_child(
          * invocations themselves. Also note that while we'll only invoke NSS modules involved in user management they
          * might internally call into other NSS modules that are involved in hostname resolution, we never know. */
         if (setenv("SYSTEMD_ACTIVATION_UNIT", unit->id, true) != 0 ||
-            setenv("SYSTEMD_ACTIVATION_SCOPE", runtime_scope_to_string(unit->manager->runtime_scope), true) != 0) {
+            setenv("SYSTEMD_ACTIVATION_SCOPE", runtime_scope_to_string(params->runtime_scope), true) != 0) {
                 *exit_status = EXIT_MEMORY;
                 return log_unit_error_errno(unit, errno, "Failed to update environment: %m");
         }
@@ -5392,7 +5398,7 @@ static int exec_child(
                 }
         }
 
-        if (needs_sandboxing && exec_context_need_unprivileged_private_users(context, unit->manager)) {
+        if (needs_sandboxing && exec_context_need_unprivileged_private_users(context, params)) {
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
                  * set up the all of the other namespaces (i.e. network, mount, UTS) without a user namespace. */
