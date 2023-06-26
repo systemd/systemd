@@ -24,7 +24,7 @@ static int bpf_foreign_key_new(uint32_t prog_id,
 
         p = new(BPFForeignKey, 1);
         if (!p)
-                return log_oom();
+                return -ENOMEM;
 
         *p = (BPFForeignKey) {
                 .prog_id = prog_id,
@@ -139,12 +139,12 @@ int bpf_foreign_install(Unit *u) {
         LIST_FOREACH(programs, p, cc->bpf_foreign_programs) {
                 r = bpf_foreign_prepare(u, p->attach_type, p->bpffs_path);
                 if (r < 0)
-                        return log_unit_error_errno(u, r, "bpf-foreign: Failed to prepare foreign BPF hashmap: %m");
+                        return r;
         }
 
         r = attach_programs(u, cgroup_path, u->bpf_foreign_by_key, BPF_F_ALLOW_MULTI);
         if (r < 0)
-                  return log_unit_error_errno(u, r, "bpf-foreign: Failed to install foreign BPF programs: %m");
+                return r;
 
         return 0;
 }
