@@ -1274,4 +1274,22 @@ TEST(version_is_valid) {
         assert_se(version_is_valid("6.2.12-300.fc38.x86_64"));
 }
 
+TEST(strextendn) {
+        _cleanup_free_ char *x = NULL;
+
+        assert_se(streq_ptr(strextendn(&x, NULL, 0), ""));
+        x = mfree(x);
+
+        assert_se(streq_ptr(strextendn(&x, "", 0), ""));
+        x = mfree(x);
+
+        assert_se(streq_ptr(strextendn(&x, "xxx", 3), "xxx"));
+        assert_se(streq_ptr(strextendn(&x, "xxx", 3), "xxxxxx"));
+        assert_se(streq_ptr(strextendn(&x, "...", 1), "xxxxxx."));
+        assert_se(streq_ptr(strextendn(&x, "...", 2), "xxxxxx..."));
+        assert_se(streq_ptr(strextendn(&x, "...", 3), "xxxxxx......"));
+        assert_se(streq_ptr(strextendn(&x, "...", 4), "xxxxxx........."));
+        x = mfree(x);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
