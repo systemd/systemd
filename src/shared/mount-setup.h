@@ -10,3 +10,5 @@ int mount_cgroup_controllers(void);
 
 bool mount_point_is_api(const char *path);
 bool mount_point_ignore(const char *path);
+
+bool check_cg_feature_supported(void);
