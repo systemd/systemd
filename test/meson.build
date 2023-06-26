@@ -319,5 +319,3 @@ if want_tests != 'false' and conf.get('ENABLE_KERNEL_INSTALL') == 1
              args : args,
              depends : deps)
 endif
-
-subdir('fuzz')
