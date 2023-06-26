@@ -61,6 +61,14 @@ executables += [
                                   threads],
                 'install_dir' : rootbindir,
         },
+        fuzz_template + {
+                'sources' : [
+                        files('fuzz-systemctl-parse-argv.c'),
+                        systemctl_sources,
+                ],
+                'link_with' : systemctl_link_with,
+                'c_args' : [test_cflags, '-DFUZZ_SYSTEMCTL_PARSE_ARGV'],
+        },
 ]
 
 foreach alias : (['halt', 'poweroff', 'reboot', 'shutdown'] +
@@ -69,14 +77,3 @@ foreach alias : (['halt', 'poweroff', 'reboot', 'shutdown'] +
                                  rootbindir / 'systemctl',
                                  rootsbindir / alias)
 endforeach
-
-fuzzers += [
-        {
-                'sources' : [
-                        files('fuzz-systemctl-parse-argv.c'),
-                        systemctl_sources,
-                ],
-                'link_with' : systemctl_link_with,
-                'c_args' : '-DFUZZ_SYSTEMCTL_PARSE_ARGV',
-        },
-]

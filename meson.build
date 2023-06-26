@@ -2189,12 +2189,12 @@ man_page_depends = []
 
 simple_tests = []
 libsystemd_tests = []
-fuzzers = []
 simple_fuzzers = []
 catalogs = []
 modules = [] # nss, pam, and other plugins
 executables = []
 executables_by_name = {}
+fuzzer_exes = []
 
 # binaries that have --help and are intended for use by humans,
 # usually, but not always, installed in /bin.
@@ -2369,6 +2369,29 @@ test_additional_kwargs = {
         'link_depends' : runtest_env,
 }
 
+fuzz_template = executable_template + {
+        'build_by_default' : fuzzer_build,
+        'install' : false,
+}
+
+if want_ossfuzz or (want_libfuzzer and fuzzing_engine.found())
+        fuzz_additional_kwargs = {
+                'dependencies' : fuzzing_engine,
+        }
+elif want_libfuzzer and not fuzzing_engine.found()
+        fuzz_additional_kwargs = {
+                'link_args' : ['-fsanitize=fuzzer'],
+        }
+else
+        fuzz_additional_kwargs = {
+                'sources' : files('src/fuzz/fuzz-main.c'),
+        }
+endif
+fuzz_additional_kwargs += {
+        'include_directories' : include_directories('src/fuzz'),
+        'c_args' : test_cflags,
+}
+
 nss_template = {
         'version' : '2',
         'include_directories' : includes,
@@ -2510,6 +2533,7 @@ subdir('src/systemd')
 subdir('src/test')
 subdir('src/fuzz')
 subdir('src/ukify/test')  # needs to be last for test_env variable
+subdir('test/fuzz')
 
 alias_target('devel', libsystemd_pc, libudev_pc, systemd_pc, udev_pc)
 
@@ -2523,14 +2547,19 @@ foreach test : libsystemd_tests
         executables += test_template + test
 endforeach
 
+foreach fuzzer : simple_fuzzers
+        executables += fuzz_template + { 'sources' : [fuzzer] }
+endforeach
+
 foreach dict : executables
         name = dict.get('name', '')
         if name == ''
                 name = fs.stem(dict.get('sources')[0])
-                assert(name.split('-')[0] == 'test')
+                assert(name.split('-')[0] in ['test', 'fuzz'])
         endif
 
         is_test = name.startswith('test-')
+        is_fuzz = name.startswith('fuzz-')
 
         build = true
         foreach cond : dict.get('conditions', [])
@@ -2560,6 +2589,12 @@ foreach dict : executables
         if is_test
                 kwargs += { 'install_dir' : kwargs.get('install_dir') / dict.get('type', '') }
                 foreach key, val : test_additional_kwargs
+                        kwargs += { key : [ kwargs.get(key, []), val ] }
+                endforeach
+        endif
+
+        if is_fuzz
+                foreach key, val : fuzz_additional_kwargs
                         kwargs += { key : [ kwargs.get(key, []), val ] }
                 endforeach
         endif
@@ -2602,7 +2637,32 @@ foreach dict : executables
                              is_parallel : dict.get('parallel', true))
                 endif
         endif
+
+        if is_fuzz
+                fuzzer_exes += exe
+
+                if want_tests != 'false'
+                        # Run the fuzz regression tests without any sanitizers enabled.
+                        # Additional invocations with sanitizers may be added below.
+                        fuzz_ins = fuzz_regression_tests.get(name, {})
+                        foreach directive : fuzz_ins.get('directives', [])
+                                test('@0@_@1@'.format(name, fs.name(directive.full_path())),
+                                     exe,
+                                     suite : 'fuzz',
+                                     args : directive.full_path(),
+                                     depends : directive)
+                        endforeach
+                        foreach file : fuzz_ins.get('files', [])
+                                test('@0@_@1@'.format(name, fs.name(file)),
+                                     exe,
+                                     suite : 'fuzz',
+                                     args : file)
+                        endforeach
+                endif
+        endif
 endforeach
+
+alias_target('fuzzers', fuzzer_exes)
 
 ############################################################
 
@@ -2682,71 +2742,6 @@ endif
 
 subdir('rules.d')
 subdir('test')
-
-############################################################
-
-foreach fuzzer : simple_fuzzers
-        fuzzers += { 'sources' : [fuzzer] }
-endforeach
-
-fuzzer_exes = []
-
-foreach fuzzer : fuzzers
-        sources = fuzzer.get('sources')
-        base = fuzzer.get('base', {})
-        dependencies = [base.get('dependencies', []), fuzzer.get('dependencies', [])]
-        link_args = []
-
-        if want_ossfuzz
-                dependencies += fuzzing_engine
-        elif want_libfuzzer
-                if fuzzing_engine.found()
-                        dependencies += fuzzing_engine
-                else
-                        link_args += ['-fsanitize=fuzzer']
-                endif
-        else
-                sources += files('src/fuzz/fuzz-main.c')
-        endif
-        sources += fuzz_generated_directives
-
-        name = fs.stem(sources[0])
-
-        exe = executable(
-                name,
-                sources,
-                include_directories : [
-                        base.get('includes', []),
-                        fuzzer.get('includes', includes),
-                        include_directories('src/fuzz'),
-                ],
-                link_with : [base.get('link_with', []), fuzzer.get('link_with', libshared)],
-                dependencies : [
-                        dependencies,
-                        userspace,
-                ],
-                c_args : [test_cflags, fuzzer.get('c_args', [])],
-                link_args: link_args,
-                install : false,
-                build_by_default : fuzzer_build)
-        fuzzer_exes += exe
-
-        if want_tests != 'false' and name in fuzz_regression_tests
-                # Run the fuzz regression tests without any sanitizers enabled.
-                # Additional invocations with sanitizers may be added below.
-                foreach tuple : fuzz_regression_tests[name]
-                        fuzz_dir = tuple[0]
-                        fuzz_in = tuple[1]
-                        test('@0@_@1@'.format(name, fuzz_in),
-                             exe,
-                             suite : 'fuzz',
-                             args : [fuzz_dir != '' ? project_source_root / fuzz_dir / name / fuzz_in
-                                                    : fuzz_generated_in_dir / '@0@_@1@'.format(name, fuzz_in)])
-                endforeach
-        endif
-endforeach
-
-alias_target('fuzzers', fuzzer_exes)
 
 ############################################################
 
@@ -2849,24 +2844,28 @@ foreach tuple : fuzz_sanitizers
                         exe = custom_target(
                                 name,
                                 output : name,
-                                depends : [build] + fuzz_generated_directives,
+                                depends : build,
                                 command : [ln, '-fs',
                                            build.full_path() / fuzzer,
                                            '@OUTPUT@'],
                                 build_by_default : true)
 
-                        foreach tuple : fuzz_ins
-                                fuzz_dir = tuple[0]
-                                fuzz_in = tuple[1]
-
-                                test('@0@_@1@_@2@'.format(fuzzer, fuzz_in, sanitizer),
+                        foreach directive : fuzz_ins.get('directives', [])
+                                test('@0@_@1@_@2@'.format(fuzzer, fs.name(directive.full_path()), sanitizer),
                                      env,
                                      suite : 'fuzz+san',
                                      env : ['UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1'],
                                      timeout : 60,
-                                     args : [exe.full_path(),
-                                             fuzz_dir != '' ? project_source_root / fuzz_dir / fuzzer / fuzz_in
-                                                            : fuzz_generated_in_dir / '@0@_@1@'.format(fuzzer, fuzz_in)])
+                                     args : [exe.full_path(), directive.full_path()],
+                                     depends : directive)
+                        endforeach
+                        foreach file : fuzz_ins.get('files', [])
+                                test('@0@_@1@_@2@'.format(fuzzer, fs.name(file), sanitizer),
+                                     env,
+                                     suite : 'fuzz+san',
+                                     env : ['UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1'],
+                                     timeout : 60,
+                                     args : [exe.full_path(), file])
                         endforeach
                 endforeach
         endif
