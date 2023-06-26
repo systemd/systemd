@@ -111,6 +111,87 @@ int openssl_digest_many(
         return 0;
 }
 
+int openssl_hmac_many(
+                const char *digest_alg,
+                const void *key,
+                size_t key_size,
+                const struct iovec data[],
+                size_t n_data,
+                void **ret_digest,
+                size_t *ret_digest_size) {
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        _cleanup_(EVP_MAC_freep) EVP_MAC *mac = EVP_MAC_fetch(NULL, "HMAC", NULL);
+        if (!mac)
+                return log_oom_debug();
+
+        _cleanup_(EVP_MAC_CTX_freep) EVP_MAC_CTX *ctx = EVP_MAC_CTX_new(mac);
+        if (!ctx)
+                return log_oom_debug();
+
+        _cleanup_(OSSL_PARAM_BLD_freep) OSSL_PARAM_BLD *bld = OSSL_PARAM_BLD_new();
+        if (!bld)
+                return log_oom_debug();
+
+        if (!OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_MAC_PARAM_DIGEST, (char*) digest_alg, 0))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set HMAC OSSL_MAC_PARAM_DIGEST.");
+
+        _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = OSSL_PARAM_BLD_to_param(bld);
+        if (!params)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to build HMAC OSSL_PARAM.");
+
+        if (!EVP_MAC_init(ctx, key, key_size, params))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to initializate EVP_MAC_CTX.");
+#else
+        _cleanup_(HMAC_CTX_freep) HMAC_CTX *ctx = HMAC_CTX_new();
+        if (!ctx)
+                return log_oom_debug();
+
+        EVP_MD *digest_md = EVP_get_digestbyname(digest_alg);
+        if (!digest_md)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get EVP_MD for '%s'.", digest_alg);
+
+        if (!HMAC_Init_ex(ctx, key, key_size, digest_md, NULL))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to initialize HMAC_CTX.");
+#endif
+
+        for (size_t i = 0; i < n_data; i++)
+#if OPENSSL_VERSION_MAJOR >= 3
+                if (!EVP_MAC_update(ctx, data[i].iov_base, data[i].iov_len))
+#else
+                if (!HMAC_update(ctx, data[i].iov_base, data[i].iov_len))
+#endif
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to update HMAC.");
+
+        size_t digest_size;
+#if OPENSSL_VERSION_MAJOR >= 3
+        digest_size = EVP_MAC_CTX_get_mac_size(ctx);
+#else
+        digest_size = HMAC_size(ctx);
+#endif
+        if (digest_size == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get HMAC digest size.");
+
+        _cleanup_free_ void *buf = malloc(digest_size);
+        if (!buf)
+                return log_oom_debug();
+
+        size_t size;
+#if OPENSSL_VERSION_MAJOR >= 3
+        if (!EVP_MAC_final(ctx, buf, &size, digest_size))
+#else
+        if (!HMAC_final(ctx, buf, &size))
+#endif
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to finalize HMAC.");
+
+        assert(size == digest_size);
+
+        *ret_digest = TAKE_PTR(buf);
+        *ret_digest_size = size;
+
+        return 0;
+}
+
 int rsa_encrypt_bytes(
                 EVP_PKEY *pkey,
                 const void *decrypted_key,
