@@ -112,40 +112,74 @@ libudevd_core = static_library(
                         userspace],
         build_by_default : false)
 
-udev_progs = [['ata_id/ata_id.c'],
-              ['cdrom_id/cdrom_id.c'],
-              ['fido_id/fido_id.c',
-               'fido_id/fido_id_desc.c'],
-              ['iocost/iocost.c'],
-              ['scsi_id/scsi_id.c',
-               'scsi_id/scsi_serial.c'],
-              ['v4l_id/v4l_id.c'],
-              ['mtd_probe/mtd_probe.c',
-               'mtd_probe/probe_smartmedia.c']]
+udev_plugin_template = executable_template + {
+        'public' : true,
+        'link_with' : udev_link_with,
+        'install_rpath' : udev_rpath,
+        'install_dir' : udevlibexecdir,
+}
 
 dmi_arches = ['x86', 'x86_64', 'aarch64', 'arm', 'ia64', 'loongarch64', 'mips']
-if dmi_arches.contains(host_machine.cpu_family())
-        udev_progs += [['dmi_memory_id/dmi_memory_id.c']]
-endif
 
-udev_prog_paths = {}
-foreach prog : udev_progs
-        name = fs.stem(prog[0])
+executables += [
+        executable_template + {
+                'name' : 'udevadm',
+                'public' : true,
+                'sources' : udevadm_sources,
+                'link_with' : [libudevd_core],
+                'dependencies' : [libacl,
+                                  libblkid,
+                                  libidn,
+                                  libkmod,
+                                  threads,
+                                  userspace,
+                                  versiondep],
+                'install_rpath' : udev_rpath,
+                'install_dir' : rootbindir,
+        },
+        udev_plugin_template + {
+                'name' : 'ata_id',
+                'sources' : files('ata_id/ata_id.c'),
+        },
+        udev_plugin_template + {
+                'name' : 'cdrom_id',
+                'sources' : files('cdrom_id/cdrom_id.c'),
+        },
+        udev_plugin_template + {
+                'name' : 'fido_id',
+                'sources' : files('fido_id/fido_id.c',
+                                  'fido_id/fido_id_desc.c'),
+        },
+        udev_plugin_template + {
+                'name' : 'iocost',
+                'sources' : files('iocost/iocost.c'),
+        },
+        udev_plugin_template + {
+                'name' : 'scsi_id',
+                'sources' : files('scsi_id/scsi_id.c',
+                                  'scsi_id/scsi_serial.c'),
+        },
+        udev_plugin_template + {
+                'name' : 'v4l_id',
+                'sources' : files('v4l_id/v4l_id.c'),
+        },
+        udev_plugin_template + {
+                'name' : 'mtd_probe',
+                'sources' : files('mtd_probe/mtd_probe.c',
+                                  'mtd_probe/probe_smartmedia.c'),
+        },
+        udev_plugin_template + {
+                'name' : 'dmi_memory_id',
+                'public' : dmi_arches.contains(host_machine.cpu_family()),
+                'sources' : files('dmi_memory_id/dmi_memory_id.c'),
+                'build_by_default' : dmi_arches.contains(host_machine.cpu_family()),
+                'install' : dmi_arches.contains(host_machine.cpu_family()),
+        },
+]
 
-        exe = executable(
-                name,
-                prog,
-                include_directories : includes,
-                dependencies : [userspace,
-                                versiondep],
-                link_with : udev_link_with,
-                install_rpath : udev_rpath,
-                install : true,
-                install_dir : udevlibexecdir)
-
-        udev_prog_paths += {name : exe}
-        public_programs += exe
-endforeach
+meson.add_install_script(meson_make_symlink,
+                         rootbindir / 'udevadm',
+                         rootlibexecdir / 'systemd-udevd')
 
 if install_sysconfdir_samples
         install_data('udev.conf',

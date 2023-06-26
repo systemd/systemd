@@ -33,6 +33,24 @@ libtimesyncd_core = static_library(
         link_with : timesyncd_link_with,
         build_by_default : false)
 
+executables += [
+        libexec_template + {
+                'name' : 'systemd-timesyncd',
+                'conditions' : ['ENABLE_TIMESYNCD'],
+                'sources' : systemd_timesyncd_sources,
+                'link_with' : [libtimesyncd_core],
+                'dependencies' : [libm,
+                                  threads,
+                                  userspace],
+        },
+        libexec_template + {
+                'name' : 'systemd-time-wait-sync',
+                'conditions' : ['ENABLE_TIMESYNCD'],
+                'sources' : files('wait-sync.c'),
+                'link_with' : [libtimesyncd_core],
+        },
+]
+
 custom_target(
         'timesyncd.conf',
         input : 'timesyncd.conf.in',

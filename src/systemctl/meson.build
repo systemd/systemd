@@ -47,6 +47,30 @@ else
                                libbasic_gcrypt]
 endif
 
+executables += [
+        executable_template + {
+                'name' : 'systemctl',
+                'public' : true,
+                'sources' : systemctl_sources,
+                'link_with' : systemctl_link_with,
+                'dependencies' : [libcap,
+                                  liblz4,
+                                  libselinux,
+                                  libxz,
+                                  libzstd,
+                                  threads,
+                                  userspace],
+                'install_dir' : rootbindir,
+        },
+]
+
+foreach alias : (['halt', 'poweroff', 'reboot', 'shutdown'] +
+                 (conf.get('HAVE_SYSV_COMPAT') == 1 ? ['runlevel', 'telinit'] : []))
+        meson.add_install_script(meson_make_symlink,
+                                 rootbindir / 'systemctl',
+                                 rootsbindir / alias)
+endforeach
+
 fuzzers += [
         {
                 'sources' : [

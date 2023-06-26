@@ -142,6 +142,20 @@ systemd_sources = files(
         'crash-handler.c',
 )
 
+executables += [
+        libexec_template + {
+                'name' : 'systemd',
+                'dbus' : true,
+                'public' : true,
+                'sources' : systemd_sources,
+                'link_with' : [libcore,
+                               libshared],
+                'dependencies' : [libseccomp,
+                                  userspace,
+                                  versiondep],
+        },
+]
+
 in_files = [['system.conf',                     pkgsysconfdir],
             ['user.conf',                       pkgsysconfdir],
             ['org.freedesktop.systemd1.policy', polkitpolicydir]]
@@ -184,11 +198,16 @@ if install_sysconfdir
         meson.add_install_script('sh', '-c', mkdir_p.format(sysconfdir / 'xdg/systemd'))
 endif
 
+meson.add_install_script(meson_make_symlink,
+                         rootlibexecdir / 'systemd',
+                         rootsbindir / 'init')
+
 ############################################################
 
 test_core_base = {
         'link_with' : [libcore, libshared],
         'includes' : core_includes,
+        'dependencies' : [versiondep],
 }
 
 fuzzers += [
