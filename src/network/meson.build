@@ -114,6 +114,9 @@ network_generator_sources = files(
         'generator/network-generator.c',
 )
 
+networkd_network_gperf_gperf = files('networkd-network-gperf.gperf')
+networkd_netdev_gperf_gperf = files('netdev/netdev-gperf.gperf')
+
 sources += custom_target(
         'networkd-gperf.c',
         input : 'networkd-gperf.gperf',
@@ -122,13 +125,13 @@ sources += custom_target(
 
 sources += custom_target(
         'networkd-network-gperf.c',
-        input : 'networkd-network-gperf.gperf',
+        input : networkd_network_gperf_gperf,
         output : 'networkd-network-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 sources += custom_target(
         'netdev-gperf.c',
-        input : 'netdev/netdev-gperf.gperf',
+        input : networkd_netdev_gperf_gperf,
         output : 'netdev-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
@@ -152,6 +155,12 @@ libnetworkd_core = static_library(
 
 network_test_template = test_template + {
         'link_with' : [libnetworkd_core, libsystemd_network],
+        'include_directories' : network_includes,
+}
+
+network_fuzz_template = fuzz_template + {
+        'link_with' : [libnetworkd_core, libsystemd_network, networkd_link_with],
+        'dependencies' : threads,
         'include_directories' : network_includes,
 }
 
@@ -214,6 +223,12 @@ executables += [
         network_test_template + {
                 'sources' : files('test-networkd-util.c'),
         },
+        network_fuzz_template + {
+                'sources' : files('fuzz-netdev-parser.c'),
+        },
+        network_fuzz_template + {
+                'sources' : files('fuzz-network-parser.c'),
+        },
 ]
 
 if conf.get('ENABLE_NETWORKD') == 1
@@ -237,20 +252,3 @@ if conf.get('ENABLE_NETWORKD') == 1
                              install_dir : pkgsysconfdir)
         endif
 endif
-
-fuzzer_network_base = {
-        'link_with' : [libnetworkd_core, libsystemd_network, networkd_link_with],
-        'dependencies' : threads,
-        'includes' : network_includes,
-}
-
-fuzzers += [
-        {
-                'sources' : files('fuzz-netdev-parser.c'),
-                'base' : fuzzer_network_base,
-        },
-        {
-                'sources' : files('fuzz-network-parser.c'),
-                'base' : fuzzer_network_base,
-        },
-]
