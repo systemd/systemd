@@ -5,8 +5,14 @@ busctl_sources = files(
         'busctl.c',
 )
 
-tests += [
-        {
+executables += [
+        executable_template + {
+                'name' : 'busctl',
+                'public' : true,
+                'sources' : busctl_sources,
+                'dependencies' : versiondep,
+        },
+        test_template + {
                 'sources' : files(
                         'test-busctl-introspect.c',
                         'busctl-introspect.c',

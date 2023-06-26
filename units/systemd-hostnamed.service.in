@@ -17,7 +17,7 @@ Documentation=man:org.freedesktop.hostname1(5)
 [Service]
 BusName=org.freedesktop.hostname1
 CapabilityBoundingSet=CAP_SYS_ADMIN
-ExecStart={{ROOTLIBEXECDIR}}/systemd-hostnamed
+ExecStart={{LIBEXECDIR}}/systemd-hostnamed
 IPAddressDeny=any
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
