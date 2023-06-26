@@ -153,6 +153,21 @@ executables += [
                 'dependencies' : [libseccomp,
                                   versiondep],
         },
+        fuzz_template + {
+                'sources' : files('fuzz-unit-file.c'),
+                'link_with' : [
+                        libcore,
+                        libshared
+                ],
+                'dependencies' : libmount,
+        },
+        fuzz_template + {
+                'sources' : files('fuzz-manager-serialize.c'),
+                'link_with' : [
+                        libcore,
+                        libshared
+                ],
+        },
 ]
 
 in_files = [['system.conf',                     pkgsysconfdir],
@@ -209,21 +224,3 @@ core_test_template = test_template + {
         'dependencies' : versiondep,
         'suite' : 'core',
 }
-
-fuzzers += [
-        {
-                'sources' : files('fuzz-unit-file.c'),
-                'link_with' : [
-                        libcore,
-                        libshared
-                ],
-                'dependencies' : libmount,
-        },
-        {
-                'sources' : files('fuzz-manager-serialize.c'),
-                'link_with' : [
-                        libcore,
-                        libshared
-                ],
-        },
-]
