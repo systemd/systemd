@@ -23,10 +23,7 @@ executables += [
                         'xdg-autostart-service.c',
                 ),
         },
-]
-
-fuzzers += [
-        {
+        fuzz_template + {
                 'sources' : files(
                         'fuzz-xdg-desktop.c',
                         'xdg-autostart-service.c',
