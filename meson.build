@@ -2166,12 +2166,12 @@ man_page_depends = []
 
 simple_tests = []
 libsystemd_tests = []
-fuzzers = []
 simple_fuzzers = []
 catalogs = []
 modules = [] # nss, pam, and other plugins
 executables = []
 executables_by_name = {}
+fuzzer_exes = []
 
 # binaries that have --help and are intended for use by humans,
 # usually, but not always, installed in /bin.
@@ -2201,6 +2201,8 @@ libsystemd_includes = [basic_includes, include_directories(
         'src/libsystemd/sd-resolve')]
 
 includes = [libsystemd_includes, include_directories('src/shared')]
+
+fuzz_includes = [includes, include_directories('src/fuzz')]
 
 subdir('po')
 subdir('catalog')
@@ -2341,6 +2343,14 @@ test_template = executable_template + {
         'link_depends' : runtest_env,
 }
 
+fuzz_template = {
+        'include_directories' : fuzz_includes,
+        'link_with' : libshared,
+        'c_args' : test_cflags,
+        'build_by_default' : fuzzer_build,
+        'install' : false,
+}
+
 nss_template = {
         'version' : '2',
         'include_directories' : includes,
@@ -2473,8 +2483,10 @@ subdir('src/xdg-autostart-generator')
 
 subdir('src/systemd')
 
-subdir('src/test')
 subdir('src/fuzz')
+subdir('src/test')
+subdir('src/ukify/test')  # needs to be after src/test for test_env variable
+subdir('test/fuzz')
 
 alias_target('devel', libsystemd_pc, libudev_pc, systemd_pc, udev_pc)
 
@@ -2488,15 +2500,20 @@ foreach test : libsystemd_tests
         executables += test_template + test
 endforeach
 
+foreach fuzzer : simple_fuzzers
+        executables += fuzz_template + { 'sources' : [fuzzer] }
+endforeach
+
 foreach dict : executables
         sources = dict.get('sources')
         name = dict.get('name', '')
         if name == ''
                 name = fs.stem(sources[0])
-                assert(name.split('-')[0] == 'test')
+                assert(name.split('-')[0] in ['test', 'fuzz'])
         endif
 
         is_test = name.startswith('test-')
+        is_fuzz = name.startswith('fuzz-')
 
         build = true
         foreach cond : dict.get('conditions', [])
@@ -2514,9 +2531,29 @@ foreach dict : executables
                 userspace,
         ]
 
+        link_args = [
+                dict.get('link_args', []),
+        ]
+
+        if is_fuzz
+                if want_ossfuzz
+                        dependencies += fuzzing_engine
+                elif want_libfuzzer
+                        if fuzzing_engine.found()
+                                dependencies += fuzzing_engine
+                        else
+                                link_args += ['-fsanitize=fuzzer']
+                        endif
+                else
+                        sources += fuzz_main_c
+                endif
+                sources += fuzz_generated_directives
+        endif
+
         kwargs = {}
         foreach key, val : dict
-                if key in ['name', 'dbus', 'public', 'conditions', 'dependencies',
+                if key in ['name', 'dbus', 'public', 'conditions',
+                           'sources', 'dependencies', 'link_args',
                            'type', 'suite', 'timeout', 'parallel']
                         continue
                 endif
@@ -2530,7 +2567,9 @@ foreach dict : executables
 
         exe = executable(
                 name,
+                sources : sources,
                 dependencies : dependencies,
+                link_args : link_args,
                 kwargs : kwargs,
         )
 
@@ -2567,7 +2606,28 @@ foreach dict : executables
                              is_parallel : dict.get('parallel', true))
                 endif
         endif
+
+        if is_fuzz
+                fuzzer_exes += exe
+
+                if want_tests != 'false' and name in fuzz_regression_tests
+                        # Run the fuzz regression tests without any sanitizers enabled.
+                        # Additional invocations with sanitizers may be added below.
+                        foreach tuple : fuzz_regression_tests[name]
+                                fuzz_dir = tuple[0]
+                                fuzz_in = tuple[1]
+                                test('@0@_@1@'.format(name, fuzz_in),
+                                     exe,
+                                     suite : 'fuzz',
+                                     args : [fuzz_dir != '' ? project_source_root / fuzz_dir / name / fuzz_in
+                                                            : fuzz_generated_in_dir / '@0@_@1@'.format(name, fuzz_in)])
+                        endforeach
+                endif
+        endif
+
 endforeach
+
+alias_target('fuzzers', fuzzer_exes)
 
 ############################################################
 
@@ -2651,72 +2711,6 @@ endif
 
 subdir('rules.d')
 subdir('test')
-subdir('src/ukify/test')  # needs to be last for test_env variable
-
-############################################################
-
-foreach fuzzer : simple_fuzzers
-        fuzzers += { 'sources' : [fuzzer] }
-endforeach
-
-fuzzer_exes = []
-
-foreach fuzzer : fuzzers
-        sources = fuzzer.get('sources')
-        base = fuzzer.get('base', {})
-        dependencies = [base.get('dependencies', []), fuzzer.get('dependencies', [])]
-        link_args = []
-
-        if want_ossfuzz
-                dependencies += fuzzing_engine
-        elif want_libfuzzer
-                if fuzzing_engine.found()
-                        dependencies += fuzzing_engine
-                else
-                        link_args += ['-fsanitize=fuzzer']
-                endif
-        else
-                sources += files('src/fuzz/fuzz-main.c')
-        endif
-        sources += fuzz_generated_directives
-
-        name = fs.stem(sources[0])
-
-        exe = executable(
-                name,
-                sources,
-                include_directories : [
-                        base.get('includes', []),
-                        fuzzer.get('includes', includes),
-                        include_directories('src/fuzz'),
-                ],
-                link_with : [base.get('link_with', []), fuzzer.get('link_with', libshared)],
-                dependencies : [
-                        dependencies,
-                        userspace,
-                ],
-                c_args : [test_cflags, fuzzer.get('c_args', [])],
-                link_args: link_args,
-                install : false,
-                build_by_default : fuzzer_build)
-        fuzzer_exes += exe
-
-        if want_tests != 'false' and name in fuzz_regression_tests
-                # Run the fuzz regression tests without any sanitizers enabled.
-                # Additional invocations with sanitizers may be added below.
-                foreach tuple : fuzz_regression_tests[name]
-                        fuzz_dir = tuple[0]
-                        fuzz_in = tuple[1]
-                        test('@0@_@1@'.format(name, fuzz_in),
-                             exe,
-                             suite : 'fuzz',
-                             args : [fuzz_dir != '' ? project_source_root / fuzz_dir / name / fuzz_in
-                                                    : fuzz_generated_in_dir / '@0@_@1@'.format(name, fuzz_in)])
-                endforeach
-        endif
-endforeach
-
-alias_target('fuzzers', fuzzer_exes)
 
 ############################################################
 
