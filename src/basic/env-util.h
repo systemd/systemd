@@ -25,12 +25,12 @@ typedef enum ReplaceEnvFlags {
         REPLACE_ENV_ALLOW_EXTENDED  = 1 << 2,
 } ReplaceEnvFlags;
 
-char *replace_env_n(const char *format, size_t n, char **env, ReplaceEnvFlags flags);
-static inline char *replace_env(const char *format, char **env, ReplaceEnvFlags flags) {
-        return replace_env_n(format, strlen(format), env, flags);
+int replace_env_full(const char *format, size_t n, char **env, ReplaceEnvFlags flags, char **ret, char ***ret_unset_variables, char ***ret_bad_variables);
+static inline int replace_env(const char *format, char **env, ReplaceEnvFlags flags, char **ret) {
+        return replace_env_full(format, SIZE_MAX, env, flags, ret, NULL, NULL);
 }
 
-char **replace_env_argv(char **argv, char **env);
+int replace_env_argv(char **argv, char **env, char ***ret, char ***ret_unset_variables, char ***ret_bad_variables);
 
 bool strv_env_is_valid(char **e);
 #define strv_env_clean(l) strv_env_clean_with_callback(l, NULL, NULL)
