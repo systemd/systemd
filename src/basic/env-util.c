@@ -26,20 +26,21 @@
         "_"
 
 static bool env_name_is_valid_n(const char *e, size_t n) {
-        if (!e)
-                return false;
+
+        if (n == SIZE_MAX)
+                n = strlen_ptr(e);
 
         if (n <= 0)
                 return false;
 
+        assert(e);
+
         if (ascii_isdigit(e[0]))
                 return false;
 
-        /* POSIX says the overall size of the environment block cannot
-         * be > ARG_MAX, an individual assignment hence cannot be
-         * either. Discounting the equal sign and trailing NUL this
-         * hence leaves ARG_MAX-2 as longest possible variable
-         * name. */
+        /* POSIX says the overall size of the environment block cannot be > ARG_MAX, an individual assignment
+         * hence cannot be either. Discounting the equal sign and trailing NUL this hence leaves ARG_MAX-2 as
+         * longest possible variable name. */
         if (n > (size_t) sysconf(_SC_ARG_MAX) - 2)
                 return false;
 
