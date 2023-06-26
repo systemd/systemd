@@ -90,6 +90,10 @@ static int bpf_foreign_prepare(
         assert(bpffs_path);
 
         r = path_is_fs_type(bpffs_path, BPF_FS_MAGIC);
+        if (r == -ENOENT) {
+                log_unit_warning_errno(u, r, "bpf-foreign: foreign program %s does not exist, skipping.", bpffs_path);
+                return 0;
+        }
         if (r < 0)
                 return log_unit_error_errno(u, r,
                                 "bpf-foreign: Failed to determine filesystem type of %s: %m", bpffs_path);
