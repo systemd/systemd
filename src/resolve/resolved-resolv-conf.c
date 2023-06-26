@@ -329,7 +329,6 @@ int manager_write_resolv_conf(Manager *m) {
         _cleanup_ordered_set_free_ OrderedSet *dns = NULL, *domains = NULL;
         _cleanup_(unlink_and_freep) char *temp_path_uplink = NULL, *temp_path_stub = NULL;
         _cleanup_fclose_ FILE *f_uplink = NULL, *f_stub = NULL;
-        _cleanup_free_ char *fname = NULL;
         int r;
 
         assert(m);
@@ -373,6 +372,7 @@ int manager_write_resolv_conf(Manager *m) {
 
                 temp_path_stub = mfree(temp_path_stub); /* free the string explicitly, so that we don't unlink anymore */
         } else {
+                _cleanup_free_ char *fname = NULL;
                 r = path_extract_filename(PRIVATE_UPLINK_RESOLV_CONF, &fname);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to extract filename from path '" PRIVATE_UPLINK_RESOLV_CONF "', ignoring: %m");
