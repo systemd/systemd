@@ -44,6 +44,10 @@ network_test_template = test_template + {
         'suite' : 'network',
 }
 
+network_fuzz_template = fuzz_template + {
+        'link_with' : [libshared, libsystemd_network],
+}
+
 executables += [
         network_test_template + {
                 'sources' : files('test-acd.c'),
@@ -80,35 +84,22 @@ executables += [
         network_test_template + {
                 'sources' : files('test-sd-dhcp-lease.c'),
         },
-]
-
-fuzzer_network_base = {
-        'link_with' : [libshared, libsystemd_network],
-}
-
-fuzzers += [
-        {
+        network_fuzz_template + {
                 'sources' : files('fuzz-dhcp-client.c'),
-                'base' : fuzzer_network_base,
         },
-        {
+        network_fuzz_template + {
                 'sources' : files('fuzz-dhcp6-client.c'),
-                'base' : fuzzer_network_base,
         },
-        {
+        network_fuzz_template + {
                 'sources' : files('fuzz-dhcp-server.c'),
-                'base' : fuzzer_network_base,
         },
-        {
+        network_fuzz_template + {
                 'sources' : files('fuzz-dhcp-server-relay.c'),
-                'base' : fuzzer_network_base,
         },
-        {
+        network_fuzz_template + {
                 'sources' : files('fuzz-lldp-rx.c'),
-                'base' : fuzzer_network_base,
         },
-        {
+        network_fuzz_template + {
                 'sources' : files('fuzz-ndisc-rs.c'),
-                'base' : fuzzer_network_base,
         },
 ]

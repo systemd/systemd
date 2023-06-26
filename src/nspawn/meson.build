@@ -35,6 +35,11 @@ libnspawn_core = static_library(
                         userspace],
         build_by_default : false)
 
+nspawn_fuzz_template = fuzz_template + {
+        'link_with' : [libshared, libnspawn_core],
+        'dependencies' : libseccomp
+}
+
 executables += [
         executable_template + {
                 'name' : 'systemd-nspawn',
@@ -70,20 +75,10 @@ executables += [
                 'dependencies' : libacl,
                 'type' : 'manual',
         },
-]
-
-fuzzer_nspawn_base = {
-        'link_with' : [libshared, libnspawn_core],
-        'dependencies' : libseccomp
-}
-
-fuzzers += [
-        {
+        nspawn_fuzz_template + {
                 'sources' : files('fuzz-nspawn-settings.c'),
-                'base' : fuzzer_nspawn_base,
         },
-        {
+        nspawn_fuzz_template + {
                 'sources' : files('fuzz-nspawn-oci.c'),
-                'base' : fuzzer_nspawn_base,
         },
 ]
