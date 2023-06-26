@@ -19,18 +19,18 @@ bool env_name_is_valid(const char *e);
 bool env_value_is_valid(const char *e);
 bool env_assignment_is_valid(const char *e);
 
-enum {
+typedef enum ReplaceEnvFlags {
         REPLACE_ENV_USE_ENVIRONMENT = 1 << 0,
         REPLACE_ENV_ALLOW_BRACELESS = 1 << 1,
         REPLACE_ENV_ALLOW_EXTENDED  = 1 << 2,
-};
+} ReplaceEnvFlags;
 
-char *replace_env_n(const char *format, size_t n, char **env, unsigned flags);
-char **replace_env_argv(char **argv, char **env);
-
-static inline char *replace_env(const char *format, char **env, unsigned flags) {
+char *replace_env_n(const char *format, size_t n, char **env, ReplaceEnvFlags flags);
+static inline char *replace_env(const char *format, char **env, ReplaceEnvFlags flags) {
         return replace_env_n(format, strlen(format), env, flags);
 }
+
+char **replace_env_argv(char **argv, char **env);
 
 bool strv_env_is_valid(char **e);
 #define strv_env_clean(l) strv_env_clean_with_callback(l, NULL, NULL)
@@ -52,7 +52,7 @@ int strv_env_assign(char ***l, const char *key, const char *value);
 int _strv_env_assign_many(char ***l, ...) _sentinel_;
 #define strv_env_assign_many(l, ...) _strv_env_assign_many(l, __VA_ARGS__, NULL)
 
-char *strv_env_get_n(char **l, const char *name, size_t k, unsigned flags) _pure_;
+char *strv_env_get_n(char **l, const char *name, size_t k, ReplaceEnvFlags flags) _pure_;
 char *strv_env_get(char **x, const char *n) _pure_;
 char *strv_env_pairs_get(char **l, const char *name) _pure_;
 

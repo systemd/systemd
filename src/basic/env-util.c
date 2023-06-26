@@ -500,7 +500,7 @@ int _strv_env_assign_many(char ***l, ...) {
         return 0;
 }
 
-char *strv_env_get_n(char **l, const char *name, size_t k, unsigned flags) {
+char *strv_env_get_n(char **l, const char *name, size_t k, ReplaceEnvFlags flags) {
         assert(name);
 
         if (k <= 0)
@@ -578,7 +578,7 @@ char **strv_env_clean_with_callback(char **e, void (*invalid_callback)(const cha
         return e;
 }
 
-char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
+char *replace_env_n(const char *format, size_t n, char **env, ReplaceEnvFlags flags) {
         enum {
                 WORD,
                 CURLY,
