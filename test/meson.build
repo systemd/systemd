@@ -75,7 +75,8 @@ if want_tests != 'false'
              # https://github.com/mesonbuild/meson/issues/2681
              args : [systemctl.full_path(),
                      systemd_id128.full_path()],
-             depends : [systemctl, systemd_id128])
+             depends : [systemctl, systemd_id128],
+             suite : 'systemctl')
 endif
 
 ############################################################
@@ -86,7 +87,8 @@ if conf.get('HAVE_SYSV_COMPAT') == 1
                 exe = executables_by_name.get('systemd-sysv-generator')
                 test('sysv-generator-test',
                      sysv_generator_test_py,
-                     depends : exe)
+                     depends : exe,
+                     suite : 'sysv')
         endif
 endif
 
@@ -99,7 +101,8 @@ if conf.get('HAVE_BLKID') == 1 and conf.get('ENABLE_BOOTLOADER') == 1
                 test('test-bootctl-json',
                      test_bootctl_json_sh,
                      args : exe.full_path(),
-                     depends : exe)
+                     depends : exe,
+                     suite : 'boot')
         endif
 endif
 
@@ -113,7 +116,8 @@ if conf.get('ENABLE_TMPFILES') == 1
                      test_systemd_tmpfiles_py,
                      # https://github.com/mesonbuild/meson/issues/2681
                      args : exe.full_path(),
-                     depends : exe)
+                     depends : exe,
+                     suite : 'tmpfiles')
 
                 if have_standalone_binaries
                         exe = executables_by_name.get('systemd-tmpfiles.standalone')
@@ -121,7 +125,8 @@ if conf.get('ENABLE_TMPFILES') == 1
                              test_systemd_tmpfiles_py,
                              # https://github.com/mesonbuild/meson/issues/2681
                              args : exe.full_path(),
-                             depends : exe)
+                             depends : exe,
+                             suite : 'tmpfiles')
                 endif
         endif
 endif
@@ -140,7 +145,8 @@ if conf.get('ENABLE_SYSUSERS') == 1
                      test_sysusers_sh,
                      # https://github.com/mesonbuild/meson/issues/2681
                      args : exe.full_path(),
-                     depends : exe)
+                     depends : exe,
+                     suite : 'sysusers')
 
                 if have_standalone_binaries
                         exe = executables_by_name.get('systemd-sysusers.standalone')
@@ -148,7 +154,8 @@ if conf.get('ENABLE_SYSUSERS') == 1
                              test_sysusers_sh,
                              # https://github.com/mesonbuild/meson/issues/2681
                              args : exe.full_path(),
-                             depends : exe)
+                             depends : exe,
+                             suite : 'sysusers')
                 endif
         endif
 
@@ -169,7 +176,8 @@ if want_tests != 'false'
         test('test-compare-versions',
              test_compare_versions_sh,
              args : exe.full_path(),
-             depends : exe)
+             depends : exe,
+             suite : 'test')
 endif
 if install_tests
         install_data(test_compare_versions_sh,
@@ -185,7 +193,8 @@ if want_tests != 'false'
              test_fstab_generator_sh,
              # https://github.com/mesonbuild/meson/issues/2681
              args : exe.full_path(),
-             depends : exe)
+             depends : exe,
+             suite : 'fstab')
 endif
 if install_tests
         install_data('test-fstab-generator.sh',
@@ -205,7 +214,7 @@ if want_tests != 'false'
         exe = executables_by_name.get('udevadm')
         test('udev-rules-check',
              exe,
-             suite : 'dist',
+             suite : 'udev',
              args : ['verify', '--resolve-names=never', all_rules])
 endif
 
@@ -227,7 +236,8 @@ if want_tests != 'false'
              test_network_generator_conversion_sh,
              # https://github.com/mesonbuild/meson/issues/2681
              args : exe.full_path(),
-             depends : exe)
+             depends : exe,
+             suite : 'network')
 endif
 if install_tests
         install_data('test-network-generator-conversion.sh',
@@ -246,7 +256,8 @@ if want_tests != 'false'
              args : ['-v'],
              env : ['UDEV_RULE_RUNNER=' + exe.full_path()],
              depends : exe,
-             timeout : 180)
+             timeout : 180,
+             suite : 'udev')
 endif
 if install_tests
         install_data(
@@ -294,7 +305,7 @@ if want_tests != 'false' and dmi_arches.contains(host_machine.cpu_family())
                 source = project_source_root / p
                 test('dmidecode_' + fs.stem(p),
                      udev_dmi_memory_id_test,
-                     suite : 'dist',
+                     suite : 'udev',
                      args : [exe.full_path(),
                              source,
                              source + '.txt'],
@@ -317,5 +328,6 @@ if want_tests != 'false' and conf.get('ENABLE_KERNEL_INSTALL') == 1
              test_kernel_install_sh,
              env : test_env,
              args : args,
-             depends : deps)
+             depends : deps,
+             suite : 'kernel-install')
 endif
