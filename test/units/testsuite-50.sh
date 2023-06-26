@@ -540,6 +540,15 @@ systemctl stop test-root-ephemeral
 timeout 10 bash -c 'while ! test -z "$(ls -A /var/lib/systemd/ephemeral-trees)"; do sleep .5; done'
 test ! -f /tmp/img/abc
 
+# Test for dissect tool support with systemd-confext
+mkdir -p /run/confexts/ testjob/usr/lib/extension-release.d/
+echo "ID=_any" >testjob/usr/lib/extension-release.d/extension-release.testjob
+echo "ARCHITECTURE=_any" >>testjob/usr/lib/extension-release.d/extension-release.testjob
+mksquashfs testjob/ testjob.raw
+cp testjob.raw /run/confexts/
+unsquashfs -l /run/confexts/testjob.raw
+systemd-dissect /run/confexts/testjob.raw
+
 echo OK >/testok
 
 exit 0
