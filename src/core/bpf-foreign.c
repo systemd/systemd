@@ -56,17 +56,20 @@ DEFINE_PRIVATE_HASH_OPS_FULL(bpf_foreign_by_key_hash_ops,
 static int attach_programs(Unit *u, const char *path, Hashmap* foreign_by_key, uint32_t attach_flags) {
         const BPFForeignKey *key;
         BPFProgram *prog;
-        int r;
+        int r, ret = 0;
 
         assert(u);
 
         HASHMAP_FOREACH_KEY(prog, key, foreign_by_key) {
                 r = bpf_program_cgroup_attach(prog, key->attach_type, path, attach_flags);
-                if (r < 0)
-                        return log_unit_error_errno(u, r, "bpf-foreign: Attaching foreign BPF program to cgroup %s failed: %m", path);
+                if (r < 0) {
+                        log_unit_error_errno(u, r, "bpf-foreign: Attaching foreign BPF program to cgroup %s failed: %m", path);
+                        if (ret >= 0)
+                                ret = r;
+                }
         }
 
-        return 0;
+        return ret;
 }
 
 /*
@@ -124,7 +127,7 @@ static int bpf_foreign_prepare(
 int bpf_foreign_install(Unit *u) {
         _cleanup_free_ char *cgroup_path = NULL;
         CGroupContext *cc;
-        int r;
+        int r, ret = 0;
 
         assert(u);
 
@@ -138,13 +141,10 @@ int bpf_foreign_install(Unit *u) {
 
         LIST_FOREACH(programs, p, cc->bpf_foreign_programs) {
                 r = bpf_foreign_prepare(u, p->attach_type, p->bpffs_path);
-                if (r < 0)
-                        return r;
+                if (r < 0 && ret >= 0)
+                        ret = r;
         }
 
         r = attach_programs(u, cgroup_path, u->bpf_foreign_by_key, BPF_F_ALLOW_MULTI);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return ret < 0 ? ret : r;
 }
