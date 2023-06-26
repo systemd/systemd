@@ -24,6 +24,7 @@ if efi_arch != ''
                 ],
         }
         efi_test_template = test_template + efitest_base
+        efi_fuzz_template = fuzz_template + efitest_base
 
         executables += [
                 efi_test_template + {
@@ -34,19 +35,14 @@ if efi_arch != ''
                 efi_test_template + {
                         'sources' : files('test-efi-string.c'),
                 },
-        ]
-        fuzzers += [
-                {
+                efi_fuzz_template + {
                         'sources' : files('fuzz-bcd.c'),
-                        'base' : efitest_base,
                 },
-                {
+                efi_fuzz_template + {
                         'sources' : files('fuzz-efi-string.c'),
-                        'base' : efitest_base,
                 },
-                {
+                efi_fuzz_template + {
                         'sources' : files('fuzz-efi-printf.c'),
-                        'base' : efitest_base,
                 },
         ]
 endif
