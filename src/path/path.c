@@ -118,7 +118,7 @@ static int list_homes(void) {
                         continue;
                 }
 
-                printf("%s: %s\n", path_table[i], p);
+                printf("%s%s:%s %s\n", ansi_highlight(), path_table[i], ansi_normal(), p);
         }
 
         return r;
