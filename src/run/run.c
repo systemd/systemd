@@ -1472,7 +1472,7 @@ static int start_transient_scope(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
-        _cleanup_strv_free_ char **env = NULL, **user_env = NULL, **expanded_cmdline = NULL;
+        _cleanup_strv_free_ char **env = NULL, **user_env = NULL;
         _cleanup_free_ char *scope = NULL;
         const char *object = NULL;
         sd_id128_t invocation_id;
@@ -1615,10 +1615,23 @@ static int start_transient_scope(sd_bus *bus) {
                 log_info("Running scope as unit: %s", scope);
 
         if (arg_expand_environment) {
-                expanded_cmdline = replace_env_argv(arg_cmdline, env);
-                if (!expanded_cmdline)
-                        return log_oom();
-                arg_cmdline = expanded_cmdline;
+                _cleanup_strv_free_ char **expanded_cmdline = NULL, **unset_variables = NULL, **bad_variables = NULL;
+
+                r = replace_env_argv(arg_cmdline, env, &expanded_cmdline, &unset_variables, &bad_variables);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to expand environment variables: %m");
+
+                free_and_replace(arg_cmdline, expanded_cmdline);
+
+                if (!strv_isempty(unset_variables)) {
+                        _cleanup_free_ char *ju = strv_join(unset_variables, ", ");
+                        log_warning("Referenced but unset environment variable evaluates to an empty string: %s", strna(ju));
+                }
+
+                if (!strv_isempty(bad_variables)) {
+                        _cleanup_free_ char *jb = strv_join(bad_variables, ", ");
+                        log_warning("Invalid environment variable name evaluates to an empty string: %s", strna(jb));
+                }
         }
 
         execvpe(arg_cmdline[0], arg_cmdline, env);
