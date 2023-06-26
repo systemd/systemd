@@ -155,6 +155,12 @@ network_test_template = test_template + {
         'include_directories' : network_includes,
 }
 
+network_fuzz_template = fuzz_template + {
+        'link_with' : [libnetworkd_core, libsystemd_network, networkd_link_with],
+        'dependencies' : threads,
+        'include_directories' : network_includes,
+}
+
 executables += [
         libexec_template + {
                 'name' : 'systemd-networkd',
@@ -214,6 +220,12 @@ executables += [
         network_test_template + {
                 'sources' : files('test-networkd-util.c'),
         },
+        network_fuzz_template + {
+                'sources' : files('fuzz-netdev-parser.c'),
+        },
+        network_fuzz_template + {
+                'sources' : files('fuzz-network-parser.c'),
+        },
 ]
 
 if conf.get('ENABLE_NETWORKD') == 1
@@ -237,20 +249,3 @@ if conf.get('ENABLE_NETWORKD') == 1
                              install_dir : pkgsysconfdir)
         endif
 endif
-
-fuzzer_network_base = {
-        'link_with' : [libnetworkd_core, libsystemd_network, networkd_link_with],
-        'dependencies' : threads,
-        'includes' : network_includes,
-}
-
-fuzzers += [
-        {
-                'sources' : files('fuzz-netdev-parser.c'),
-                'base' : fuzzer_network_base,
-        },
-        {
-                'sources' : files('fuzz-network-parser.c'),
-                'base' : fuzzer_network_base,
-        },
-]
