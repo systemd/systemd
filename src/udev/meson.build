@@ -84,9 +84,11 @@ keyboard_keys_from_name_h = custom_target(
 
 ############################################################
 
+udev_link_gperf_gperf = files('net/link-config-gperf.gperf')
+
 link_config_gperf_c = custom_target(
         'link-config-gperf.c',
-        input : 'net/link-config-gperf.gperf',
+        input : udev_link_gperf_gperf,
         output : 'link-config-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
@@ -134,6 +136,7 @@ udev_common_template = {
         ],
 }
 udev_test_template = test_template + udev_common_template
+udev_fuzz_template = fuzz_template + udev_common_template
 
 executables += [
         executable_template + {
@@ -217,6 +220,22 @@ executables += [
         udev_test_template + {
                 'sources' : files('test-udev-spawn.c'),
         },
+        fuzz_template + {
+                'sources' : files(
+                        'fido_id/fuzz-fido-id-desc.c',
+                        'fido_id/fido_id_desc.c',
+                ),
+        },
+        udev_fuzz_template + {
+                'sources' : files('net/fuzz-link-parser.c'),
+                'include_directories' : udev_includes,
+        },
+        udev_fuzz_template + {
+                'sources' : files('fuzz-udev-rule-parse-value.c'),
+        },
+        udev_fuzz_template + {
+                'sources' : files('fuzz-udev-rules.c'),
+        },
 ]
 
 meson.add_install_script(meson_make_symlink,
@@ -243,30 +262,3 @@ if install_sysconfdir
         meson.add_install_script('sh', '-c',
                                  mkdir_p.format(sysconfdir / 'udev/rules.d'))
 endif
-
-fuzzer_udev_base = {
-        'link_with' : [libudevd_core, libshared],
-        'dependencies' : [threads, libacl],
-}
-
-fuzzers += [
-        {
-                'sources' : files('net/fuzz-link-parser.c'),
-                'includes' : udev_includes,
-                'base' : fuzzer_udev_base,
-        },
-        {
-                'sources' : files('fuzz-udev-rule-parse-value.c'),
-                'base' : fuzzer_udev_base,
-        },
-        {
-                'sources' : files('fuzz-udev-rules.c'),
-                'base' : fuzzer_udev_base,
-        },
-        {
-                'sources' : files(
-                        'fido_id/fuzz-fido-id-desc.c',
-                        'fido_id/fido_id_desc.c',
-                ),
-        },
-]

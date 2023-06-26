@@ -1,32 +1,38 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 generate_directives_py = find_program('generate-directives.py')
-fuzz_generated_in_dir = meson.current_build_dir()
 
-fuzz_generated_directives = []
+fuzz_regression_tests = {}
 
-directives = [['fuzz-network-parser_directives',        'src/network/networkd-network-gperf.gperf'],
-              ['fuzz-netdev-parser_directives.netdev',  'src/network/netdev/netdev-gperf.gperf'],
-              ['fuzz-link-parser_directives.link',      'src/udev/net/link-config-gperf.gperf'],
+directives = [['fuzz-network-parser', 'directives.network', networkd_network_gperf_gperf],
+              ['fuzz-netdev-parser', 'directives.netdev',   networkd_netdev_gperf_gperf],
+              ['fuzz-link-parser', 'directives.link',       udev_link_gperf_gperf],
              ]
 
 foreach tuple : directives
-        fuzz_generated_directives += custom_target(
-                tuple[0],
-                output: tuple[0],
-                command: [generate_directives_py, files(project_source_root / tuple[1])],
+        directive = custom_target(
+                tuple[1],
+                output: tuple[1],
+                command: [generate_directives_py, tuple[2]],
                 capture: true)
+
+        dict = { 'directives' : [directive] }
+        fuzz_regression_tests += { tuple[0] : dict }
 endforeach
 
+unit_directives = []
 foreach section : ['Automount', 'Mount', 'Path', 'Scope', 'Service', 'Slice', 'Socket', 'Swap', 'Timer']
         unit_type = section.to_lower()
         sec_rx = section == 'Service' ? '(Service|Unit|Install)' : section
-        fuzz_generated_directives += custom_target(
-                'fuzz-unit-file_directives.@0@'.format(unit_type),
-                output: 'fuzz-unit-file_directives.@0@'.format(unit_type),
+        name = 'directives.@0@'.format(unit_type)
+        unit_directives += custom_target(
+                name,
+                output: name,
                 command: [generate_directives_py, load_fragment_gperf_gperf, sec_rx, unit_type],
                 capture: true)
 endforeach
+dict = { 'directives' : unit_directives }
+fuzz_regression_tests += { 'fuzz-unit-file' : dict }
 
 ############################################################
 
@@ -58,21 +64,6 @@ else
         out = run_command(sh, '-c', 'cd "@0@"; echo @1@/*/*'.format(project_source_root, fuzz_testsdir), check: true)
 endif
 
-# Fuzz inputs that we generate (see above fuzz_generated_directives)
-fuzz_regression_tests = {
-        'fuzz-link-parser':    [['', 'directives.link']],
-        'fuzz-netdev-parser':  [['', 'directives.netdev']],
-        'fuzz-network-parser': [['', 'directives']],
-        'fuzz-unit-file':      [['', 'directives.automount'],
-                                ['', 'directives.mount'],
-                                ['', 'directives.path'],
-                                ['', 'directives.scope'],
-                                ['', 'directives.service'],
-                                ['', 'directives.slice'],
-                                ['', 'directives.socket'],
-                                ['', 'directives.swap'],
-                                ['', 'directives.timer']]}
-
 # Add crafted fuzz inputs we have in the repo
 foreach p : out.stdout().split()
         # Remove the last entry which is ''.
@@ -84,11 +75,8 @@ foreach p : out.stdout().split()
         endif
         fuzzer = fs.name(fs.parent(p))
         fuzz_in = fs.name(p)
-        if fuzzer not in fuzz_regression_tests
-                fuzz_regression_tests += {fuzzer: []}
-        endif
-        # Meson parser provision for: fuzz_regression_tests[fuzzer] += [fuzz_in]
-        l = fuzz_regression_tests[fuzzer]
-        l += [[fuzz_testsdir, fuzz_in]]
-        fuzz_regression_tests += {fuzzer: l}
+
+        dict = fuzz_regression_tests.get(fuzzer, {})
+        dict += { 'files' : dict.get('files', []) + files(fuzzer / fuzz_in) }
+        fuzz_regression_tests += { fuzzer : dict }
 endforeach
