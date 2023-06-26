@@ -567,42 +567,21 @@ int mode_to_inaccessible_node(
          * we operate in system context and $XDG_RUNTIME_DIR if we operate in user context. */
 
         _cleanup_free_ char *d = NULL;
-        const char *node = NULL;
+        const char *node;
 
         assert(ret);
 
         if (!runtime_dir)
                 runtime_dir = "/run";
 
-        switch (mode & S_IFMT) {
-                case S_IFREG:
-                        node = "/systemd/inaccessible/reg";
-                        break;
+        if (S_ISLNK(mode))
+                return -EINVAL;
 
-                case S_IFDIR:
-                        node = "/systemd/inaccessible/dir";
-                        break;
-
-                case S_IFCHR:
-                        node = "/systemd/inaccessible/chr";
-                        break;
-
-                case S_IFBLK:
-                        node = "/systemd/inaccessible/blk";
-                        break;
-
-                case S_IFIFO:
-                        node = "/systemd/inaccessible/fifo";
-                        break;
-
-                case S_IFSOCK:
-                        node = "/systemd/inaccessible/sock";
-                        break;
-        }
+        node = inode_type_to_string(mode);
         if (!node)
                 return -EINVAL;
 
-        d = path_join(runtime_dir, node);
+        d = path_join(runtime_dir, "systemd/inaccessible", node);
         if (!d)
                 return -ENOMEM;
 
