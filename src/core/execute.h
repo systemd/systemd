@@ -141,7 +141,7 @@ struct ExecRuntime {
 };
 
 typedef enum ExecDirectoryType {
-        EXEC_DIRECTORY_RUNTIME = 0,
+        EXEC_DIRECTORY_RUNTIME,
         EXEC_DIRECTORY_STATE,
         EXEC_DIRECTORY_CACHE,
         EXEC_DIRECTORY_LOGS,
