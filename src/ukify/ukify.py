@@ -244,14 +244,7 @@ class Uname:
                 print(str(e))
         return None
 
-
-@dataclasses.dataclass
-class Section:
-    name: str
-    content: pathlib.Path
-    tmpfile: Optional[IO] = None
-    measure: bool = False
-    sections_to_show = {
+DEFAULT_LIST_OF_SECTIONS_TO_PRINT = {
         '.linux'    : 'binary',
         '.initrd'   : 'binary',
         '.splash'   : 'binary',
@@ -262,8 +255,15 @@ class Section:
         '.pcrpkey'  : 'text',
         '.pcrsig'   : 'text',
         '.sbat'     : 'text'
-    }
-    custom_out_file = {}
+}
+
+@dataclasses.dataclass
+class Section:
+    name: str
+    content: pathlib.Path
+    files_to_write: dict[str, pathlib.Path]
+    tmpfile: Optional[IO] = None
+    measure: bool = False
 
     @classmethod
     def create(cls, name, contents, **kwargs):
@@ -293,25 +293,23 @@ class Section:
         return cls.create(name, contents)
 
     @classmethod
-    def parse_text_arg(cls, s):
-        try:
-            name, ttype = s.split(':')
-        except ValueError as e:
-            raise ValueError(f'Cannot parse section spec (name or type missing): {s!r}') from e
+    def parse_section_name_and_type(cls, s):
+        additionals = {}
+        for el in s:
+            if len(el) < 2 or len(el) > 3:
+                raise ValueError('Usage: --read-section section_name binary/text [output_file]')
 
-        if '@' in ttype:
-            try:
-                ttype, path = ttype.split('@')
-            except ValueError as e:
-                raise ValueError(f'Cannot parse section spec (type or path missing): {ttype!r}') from e
-            outfile = pathlib.Path(path)
-            Section.custom_out_file[name] = outfile
+            name = el[0]
+            ttype = el[1]
+            out = el[2]
 
-        if ttype not in ('binary', 'text'):
-            raise ValueError(f'Cannot parse section spec (type can only be binary or text): {ttype!r}')
+            if ttype not in ('binary', 'text'):
+                raise ValueError(f'Cannot parse section spec (type can only be binary or text): {ttype!r}')
 
-        Section.sections_to_show[name] = ttype
-        return Section.sections_to_show
+            additionals[name] = ttype
+            cls.files_to_write[name] = pathlib.Path(out)
+
+        return DEFAULT_LIST_OF_SECTIONS_TO_PRINT | additionals
 
     def size(self):
         return self.content.stat().st_size
@@ -944,7 +942,7 @@ def generate_keys(opts):
             pub_key.write_bytes(pub_key_pem)
 
 
-def pe_read_single_section(section, opts, name, text):
+def pe_read_single_section(section, opts, name):
     data = section.get_data(ignore_padding=True)
     size = section.Misc_VirtualSize
     h = sha256(data).hexdigest()
@@ -955,39 +953,39 @@ def pe_read_single_section(section, opts, name, text):
         'sha256' : h,
     }
 
-    if text:
+    if opts.print_text:
         try:
             data_printed = data.decode()
         except UnicodeDecodeError:
             print(f"Warning! {name} cannot be read. Not a valid UTF8-encoded text")
             data_printed = None
-        finally:
-            tmp['text'] = data_printed
+
+        tmp['text'] = data_printed
 
     if opts.json:
         out_str = json.dumps(tmp)
     else:
         out_str = f"{name}:\nsize: {size} bytes\nsha256: {h}\n"
-        if text:
+        if opts.print_text:
             out_str += f"text:\n{data_printed}\n"
         print(out_str)
 
-    if name in Section.custom_out_file:
-        Section.custom_out_file[name].write_text(out_str)
+    if name in Section.files_to_write:
+        Section.files_to_write[name].write_text(out_str)
 
     return tmp
 
 
-def pe_read_sections(opts):
+def pe_print_sections(opts, sections_to_show):
     pe = pefile.PE(opts.file, fast_load=True)
     json_obj = {}
     for section in pe.sections:
         name = section.Name.rstrip(b"\x00").decode()
-        text_format = False
-        if name in Section.sections_to_show:
-            text_format = Section.sections_to_show[name] == 'text'
-        if opts.print_all or name in Section.sections_to_show:
-            json_obj[name] = pe_read_single_section(section, opts, name, text_format)
+        opts.print_text = False
+        if name in sections_to_show:
+            opts.print_text = sections_to_show[name] == 'text'
+        if opts.print_all or name in sections_to_show:
+            json_obj[name] = pe_read_single_section(section, opts, name)
 
     if opts.json:
         json.dump(json_obj, sys.stdout)
@@ -1367,10 +1365,8 @@ CONFIG_ITEMS = [
 
     ConfigItem(
         '--read-section',
-        metavar = 'NAME:TYPE@PATH',
-        type = Section.parse_text_arg,
+        nargs='+',
         action = 'append',
-        default = [],
         help = 'additional section as name and content type (binary or text). Example: .linux:binary',
     ),
 
@@ -1584,7 +1580,8 @@ def main():
         check_cert_and_keys_nonexistent(opts)
         generate_keys(opts)
     elif opts.verb == 'inspect':
-        pe_read_sections(opts)
+        sections = Section.parse_section_name_and_type(opts.read_section)
+        pe_print_sections(opts, sections)
     else:
         assert False
 
