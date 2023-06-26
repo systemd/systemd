@@ -134,6 +134,7 @@ resolve_common_template = {
         ],
 }
 resolve_test_template = test_template + resolve_common_template
+resolve_fuzz_template = fuzz_template + resolve_common_template
 
 executables += [
         libexec_template + {
@@ -195,6 +196,18 @@ executables += [
                 ],
                 'include_directories' : resolve_includes,
         },
+        resolve_fuzz_template + {
+                'sources' : files('fuzz-dns-packet.c'),
+        },
+        resolve_fuzz_template + {
+                'sources' : files(
+                        'fuzz-etc-hosts.c',
+                        'resolved-etc-hosts.c',
+                ),
+        },
+        resolve_fuzz_template + {
+                'sources' : files('fuzz-resource-record.c'),
+        },
 ]
 
 if conf.get('ENABLE_RESOLVE') == 1
@@ -223,28 +236,3 @@ custom_target(
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : conf.get('ENABLE_RESOLVE') == 1 and install_sysconfdir_samples,
         install_dir : pkgsysconfdir)
-
-############################################################
-
-fuzzer_resolve_base = {
-        'link_with' : [libsystemd_resolve_core, libshared],
-        'dependencies' : [lib_openssl_or_gcrypt, libm],
-}
-
-fuzzers += [
-        {
-                'sources' : files('fuzz-dns-packet.c'),
-                'base' : fuzzer_resolve_base,
-        },
-        {
-                'sources' : files(
-                        'fuzz-etc-hosts.c',
-                        'resolved-etc-hosts.c',
-                ),
-                'base' : fuzzer_resolve_base,
-        },
-        {
-                'sources' : files('fuzz-resource-record.c'),
-                'base' : fuzzer_resolve_base,
-        },
-]
