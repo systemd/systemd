@@ -87,7 +87,7 @@ static const MountPoint mount_table[] = {
         { "tmpfs",       "/run",                      "tmpfs",      "mode=0755" TMPFS_LIMITS_RUN,               MS_NOSUID|MS_NODEV|MS_STRICTATIME,
           NULL,          MNT_FATAL|MNT_IN_CONTAINER },
         { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    "nsdelegate,memory_recursiveprot",          MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          cg_is_unified_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
+          memory_recursiveprot_supported, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
         { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    "nsdelegate",                               MS_NOSUID|MS_NOEXEC|MS_NODEV,
           cg_is_unified_wanted, MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
         { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
@@ -146,6 +146,22 @@ bool mount_point_ignore(const char *path) {
                 return true;
 
         return false;
+}
+
+bool memory_recursiveprot_supported(void) {
+        int r;
+
+        r = mount_option_supported("cgroup2", "memory_recursiveprot", "yes");
+        if (r < 0) {
+                log_debug_errno(r, "Failed to determine whether 'memory_recursiveprot' option "
+                                    "is supported: %m");
+                return false;
+        }
+
+        if (r == 0)
+                log_debug("Pre v5.7 kernel detected - skipping 'memory_recursiveprot'");
+
+        return r > 0;
 }
 
 static int mount_one(const MountPoint *p, bool relabel) {
