@@ -22,19 +22,23 @@ TEST(serialize_item) {
         assert_se(serialize_item(f, "a", NULL) == 0);
         assert_se(serialize_item(f, "a", "bbb") == 1);
         assert_se(serialize_item(f, "a", "bbb") == 1);
+        assert_se(serialize_bool_elide(f, "c", true) == 1);
+        assert_se(serialize_bool_elide(f, "d", false) == 0);
         assert_se(serialize_item(f, "a", long_string) == -EINVAL);
         assert_se(serialize_item(f, long_string, "a") == -EINVAL);
         assert_se(serialize_item(f, long_string, long_string) == -EINVAL);
 
         rewind(f);
 
-        _cleanup_free_ char *line1 = NULL, *line2 = NULL, *line3 = NULL;
+        _cleanup_free_ char *line1 = NULL, *line2 = NULL, *line3 = NULL, *line4 = NULL;
         assert_se(read_line(f, LONG_LINE_MAX, &line1) > 0);
         assert_se(streq(line1, "a=bbb"));
         assert_se(read_line(f, LONG_LINE_MAX, &line2) > 0);
         assert_se(streq(line2, "a=bbb"));
-        assert_se(read_line(f, LONG_LINE_MAX, &line3) == 0);
-        assert_se(streq(line3, ""));
+        assert_se(read_line(f, LONG_LINE_MAX, &line3) > 0);
+        assert_se(streq(line3, "c=yes"));
+        assert_se(read_line(f, LONG_LINE_MAX, &line4) == 0);
+        assert_se(streq(line4, ""));
 }
 
 TEST(serialize_item_escaped) {
