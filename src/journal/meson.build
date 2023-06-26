@@ -31,13 +31,83 @@ libjournal_core = static_library(
 
 journal_includes = [includes, include_directories('.')]
 
-systemd_journald_sources = files(
-        'journald.c',
-)
+if get_option('link-journalctl-shared')
+        journalctl_link_with = [libshared]
+else
+        journalctl_link_with = [libsystemd_static,
+                                libshared_static,
+                                libbasic_gcrypt]
+endif
 
-systemd_cat_sources = files('cat.c')
+journal_test_template = test_template + {
+        'link_with' : [libjournal_core, libshared],
+}
 
-journalctl_sources = files('journalctl.c')
+executables += [
+        libexec_template + {
+                'name' : 'systemd-journald',
+                'sources' : files('journald.c'),
+                'link_with' : [libjournal_core,
+                               libshared],
+                'dependencies' : [liblz4,
+                                  libselinux,
+                                  libxz,
+                                  libzstd,
+                                  threads],
+        },
+        executable_template + {
+                'name' : 'systemd-cat',
+                'public' : true,
+                'sources' : files('cat.c'),
+                'link_with' : [libjournal_core,
+                               libshared],
+                'dependencies' : threads,
+        },
+        executable_template + {
+                'name' : 'journalctl',
+                'public' : true,
+                'sources' : files('journalctl.c'),
+                'link_with' : journalctl_link_with,
+                'dependencies' : [libdl,
+                                  liblz4,
+                                  libxz,
+                                  libzstd,
+                                  threads],
+        },
+        journal_test_template + {
+                'sources' : files('test-journal-config.c'),
+                'dependencies' : [
+                        liblz4,
+                        libselinux,
+                        libxz,
+                ],
+        },
+        journal_test_template + {
+                'sources' : files('test-journal-flush.c'),
+        },
+        journal_test_template + {
+                'sources' : files('test-journal-interleaving.c'),
+        },
+        journal_test_template + {
+                'sources' : files('test-journal-stream.c'),
+        },
+        journal_test_template + {
+                'sources' : files('test-journal-syslog.c'),
+                'dependencies' : [
+                        liblz4,
+                        libselinux,
+                        libxz,
+                        threads,
+                ],
+        },
+        journal_test_template + {
+                'sources' : files('test-journal-verify.c'),
+                'timeout' : 90,
+        },
+        journal_test_template + {
+                'sources' : files('test-journal.c'),
+        },
+]
 
 if install_sysconfdir_samples
         install_data('journald.conf',
@@ -45,13 +115,8 @@ if install_sysconfdir_samples
 endif
 
 if get_option('create-log-dirs')
-        meson.add_install_script(
-                'sh', '-c',
-                mkdir_p.format('/var/log/journal'))
-        meson.add_install_script(
-                'sh', '-c',
-                '''chown 0:0 $DESTDIR/var/log/journal &&
-                   chmod 755 $DESTDIR/var/log/journal || :''')
+        install_emptydir('/var/log/journal',
+                         install_mode : [ 'rwxr-xr-x', 'root', 'root' ])
         if get_option('adm-group')
                 meson.add_install_script(
                         'sh', '-c',
@@ -65,53 +130,6 @@ if get_option('create-log-dirs')
 endif
 
 ############################################################
-
-test_journal_base = {
-        'link_with' : [libjournal_core, libshared],
-}
-
-tests += [
-        {
-                'sources' : files('test-journal-config.c'),
-                'dependencies' : [
-                        liblz4,
-                        libselinux,
-                        libxz,
-                ],
-                'base' : test_journal_base,
-        },
-        {
-                'sources' : files('test-journal-flush.c'),
-                'base' : test_journal_base,
-        },
-        {
-                'sources' : files('test-journal-interleaving.c'),
-                'base' : test_journal_base,
-        },
-        {
-                'sources' : files('test-journal-stream.c'),
-                'base' : test_journal_base,
-        },
-        {
-                'sources' : files('test-journal-syslog.c'),
-                'dependencies' : [
-                        liblz4,
-                        libselinux,
-                        libxz,
-                        threads,
-                ],
-                'base' : test_journal_base,
-        },
-        {
-                'sources' : files('test-journal-verify.c'),
-                'base' : test_journal_base,
-                'timeout' : 90,
-        },
-        {
-                'sources' : files('test-journal.c'),
-                'base' : test_journal_base,
-        },
-]
 
 fuzzer_journald_base = {
         'link_with' : [libjournal_core, libshared],

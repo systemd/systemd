@@ -133,7 +133,7 @@ libcore = shared_library(
                         userspace,
                         versiondep],
         install : true,
-        install_dir : rootpkglibdir)
+        install_dir : pkglibdir)
 
 core_includes = [includes, include_directories('.')]
 
@@ -141,6 +141,19 @@ systemd_sources = files(
         'main.c',
         'crash-handler.c',
 )
+
+executables += [
+        libexec_template + {
+                'name' : 'systemd',
+                'dbus' : true,
+                'public' : true,
+                'sources' : systemd_sources,
+                'link_with' : [libcore,
+                               libshared],
+                'dependencies' : [libseccomp,
+                                  versiondep],
+        },
+]
 
 in_files = [['system.conf',                     pkgsysconfdir],
             ['user.conf',                       pkgsysconfdir],
@@ -173,22 +186,34 @@ install_data('org.freedesktop.systemd1.conf',
 install_data('org.freedesktop.systemd1.service',
              install_dir : dbussystemservicedir)
 
-meson.add_install_script('sh', '-c', mkdir_p.format(systemshutdowndir))
-meson.add_install_script('sh', '-c', mkdir_p.format(systemsleepdir))
-meson.add_install_script('sh', '-c', mkdir_p.format(systemgeneratordir))
-meson.add_install_script('sh', '-c', mkdir_p.format(usergeneratordir))
+install_emptydir(systemshutdowndir)
+install_emptydir(systemsleepdir)
+install_emptydir(systemgeneratordir)
+install_emptydir(usergeneratordir)
 
 if install_sysconfdir
-        meson.add_install_script('sh', '-c', mkdir_p.format(pkgsysconfdir / 'system'))
-        meson.add_install_script('sh', '-c', mkdir_p.format(pkgsysconfdir / 'user'))
-        meson.add_install_script('sh', '-c', mkdir_p.format(sysconfdir / 'xdg/systemd'))
+        install_emptydir(pkgsysconfdir / 'system')
+        install_emptydir(pkgsysconfdir / 'user')
+        install_emptydir(sysconfdir / 'xdg/systemd')
+
+        assert(sysconfdir / 'systemd' == pkgsysconfdir)
+        install_symlink('user',
+                        pointing_to : '../../systemd/user',
+                        install_dir : sysconfdir / 'xdg/systemd')
 endif
+
+assert(fs.parent(sbindir) / 'lib/systemd' == libexecdir)
+install_symlink('init',
+                pointing_to : '../lib/systemd/systemd',
+                install_dir : sbindir)
 
 ############################################################
 
-test_core_base = {
+core_test_template = test_template + {
         'link_with' : [libcore, libshared],
-        'includes' : core_includes,
+        'include_directories' : core_includes,
+        'dependencies' : versiondep,
+        'suite' : 'core',
 }
 
 fuzzers += [

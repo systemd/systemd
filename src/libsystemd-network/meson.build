@@ -39,56 +39,46 @@ libsystemd_network_includes = [includes, include_directories('.')]
 
 ############################################################
 
-test_libsystemd_network_base = {
+template = test_template + {
         'link_with' : [libshared, libsystemd_network],
+        'suite' : 'network',
 }
 
-tests += [
-        {
+executables += [
+        template + {
                 'sources' : files('test-acd.c'),
-                'base' : test_libsystemd_network_base,
                 'type' : 'manual',
         },
-        {
+        template + {
                 'sources' : files('test-dhcp-client.c'),
-                'base' : test_libsystemd_network_base,
         },
-        {
+        template + {
                 'sources' : files('test-dhcp-option.c'),
-                'base' : test_libsystemd_network_base,
         },
-        {
+        template + {
                 'sources' : files('test-dhcp-server.c'),
-                'base' : test_libsystemd_network_base,
         },
-        {
+        template + {
                 'sources' : files('test-dhcp6-client.c'),
-                'base' : test_libsystemd_network_base,
         },
-        {
+        template + {
                 'sources' : files('test-ipv4ll-manual.c'),
-                'base' : test_libsystemd_network_base,
                 'type' : 'manual',
         },
-        {
+        template + {
                 'sources' : files('test-ipv4ll.c'),
-                'base' : test_libsystemd_network_base,
         },
-        {
+        template + {
                 'sources' : files('test-lldp-rx.c'),
-                'base' : test_libsystemd_network_base,
         },
-        {
+        template + {
                 'sources' : files('test-ndisc-ra.c'),
-                'base' : test_libsystemd_network_base,
         },
-        {
+        template + {
                 'sources' : files('test-ndisc-rs.c'),
-                'base' : test_libsystemd_network_base,
         },
-        {
+        template + {
                 'sources' : files('test-sd-dhcp-lease.c'),
-                'base' : test_libsystemd_network_base,
         },
 ]
 

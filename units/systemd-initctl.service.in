@@ -13,7 +13,7 @@ Documentation=man:systemd-initctl.service(8)
 DefaultDependencies=no
 
 [Service]
-ExecStart={{ROOTLIBEXECDIR}}/systemd-initctl
+ExecStart={{LIBEXECDIR}}/systemd-initctl
 NoNewPrivileges=yes
 NotifyAccess=all
 SystemCallArchitectures=native

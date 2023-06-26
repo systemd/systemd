@@ -13,7 +13,7 @@ Documentation=man:systemd-journal-remote(8) man:journal-remote.conf(5)
 Requires=systemd-journal-remote.socket
 
 [Service]
-ExecStart={{ROOTLIBEXECDIR}}/systemd-journal-remote --listen-https=-3 --output=/var/log/journal/remote/
+ExecStart={{LIBEXECDIR}}/systemd-journal-remote --listen-https=-3 --output=/var/log/journal/remote/
 LockPersonality=yes
 LogsDirectory=journal/remote
 MemoryDenyWriteExecute=yes

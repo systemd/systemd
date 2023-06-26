@@ -47,6 +47,28 @@ else
                                libbasic_gcrypt]
 endif
 
+executables += [
+        executable_template + {
+                'name' : 'systemctl',
+                'public' : true,
+                'sources' : systemctl_sources,
+                'link_with' : systemctl_link_with,
+                'dependencies' : [libcap,
+                                  liblz4,
+                                  libselinux,
+                                  libxz,
+                                  libzstd,
+                                  threads],
+        },
+]
+
+foreach alias : (['halt', 'poweroff', 'reboot', 'shutdown'] +
+                 (conf.get('HAVE_SYSV_COMPAT') == 1 ? ['runlevel', 'telinit'] : []))
+        install_symlink(alias,
+                        pointing_to : sbin_to_bin + 'systemctl',
+                        install_dir : sbindir)
+endforeach
+
 fuzzers += [
         {
                 'sources' : [
