@@ -2511,6 +2511,61 @@ static int setup_exec_directory(
                 if (r < 0)
                         goto fail;
 
+                if (IN_SET(type, EXEC_DIRECTORY_STATE, EXEC_DIRECTORY_LOGS) && params->runtime_scope == RUNTIME_SCOPE_USER) {
+
+                        /* If we are in user mode, and a configuration directory exists but a state directory
+                         * doesn't exist, then we likely are upgrading from an older systemd version that
+                         * didn't know the more recent addition to the xdg-basedir spec: the $XDG_STATE_HOME
+                         * directory. In older systemd versions EXEC_DIRECTORY_STATE was aliased to
+                         * EXEC_DIRECTORY_CONFIGURATION, with the advent of $XDG_STATE_HOME is is now
+                         * seperated. If a service has both dirs configured but only the configuration dir
+                         * exists and the state dir does not, we assume we are looking at an update
+                         * situation. Hence, create a compatibility symlink, so that all expectations are
+                         * met.
+                         *
+                         * (We also do something similar with the log directory, which still doesn't exist in
+                         * the xdg basedir spec. We'll make it a subdir of the state dir.) */
+
+                        /* this assumes the state dir is always created before the configuration dir */
+                        assert_cc(EXEC_DIRECTORY_STATE < EXEC_DIRECTORY_LOGS);
+                        assert_cc(EXEC_DIRECTORY_LOGS < EXEC_DIRECTORY_CONFIGURATION);
+
+                        r = laccess(p, F_OK);
+                        if (r == -ENOENT) {
+                                _cleanup_free_ char *q = NULL;
+
+                                /* OK, we know that the state dir does not exist. Let's see if the dir exists
+                                 * under the configuration hierarchy. */
+
+                                if (type == EXEC_DIRECTORY_STATE)
+                                        q = path_join(params->prefix[EXEC_DIRECTORY_CONFIGURATION], context->directories[type].items[i].path);
+                                else if (type == EXEC_DIRECTORY_LOGS)
+                                        q = path_join(params->prefix[EXEC_DIRECTORY_CONFIGURATION], "log", context->directories[type].items[i].path);
+                                else
+                                        assert_not_reached();
+                                if (!q) {
+                                        r = -ENOMEM;
+                                        goto fail;
+                                }
+
+                                r = laccess(q, F_OK);
+                                if (r >= 0) {
+                                        /* It does exist! This hence looks like an update. Symlink the
+                                         * configuration directory into the state directory. */
+
+                                        r = symlink_idempotent(q, p, /* make_relative= */ true);
+                                        if (r < 0)
+                                                goto fail;
+
+                                        log_notice("Unit state directory %s missing but matching configuration directory %s exists, assuming update from systemd 253 or older, creating compatibility symlink.", p, q);
+                                        continue;
+                                } else if (r != -ENOENT)
+                                        log_warning_errno(r, "Unable to detect whether unit configuration directory '%s' exists, assuming not: %m", q);
+
+                        } else if (r < 0)
+                                log_warning_errno(r, "Unable to detect whether unit state directory '%s' is missing, assuming it is: %m", p);
+                }
+
                 if (exec_directory_is_private(context, type)) {
                         /* So, here's one extra complication when dealing with DynamicUser=1 units. In that
                          * case we want to avoid leaving a directory around fully accessible that is owned by

@@ -209,8 +209,8 @@ int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, 
          * %C: the cache directory root (e.g. /var/cache or $XDG_CACHE_HOME)
          * %d: the credentials directory ($CREDENTIALS_DIRECTORY)
          * %E: the configuration directory root (e.g. /etc or $XDG_CONFIG_HOME)
-         * %L: the log directory root (e.g. /var/log or $XDG_CONFIG_HOME/log)
-         * %S: the state directory root (e.g. /var/lib or $XDG_CONFIG_HOME)
+         * %L: the log directory root (e.g. /var/log or $XDG_STATE_HOME/log)
+         * %S: the state directory root (e.g. /var/lib or $XDG_STATE_HOME)
          * %t: the runtime directory root (e.g. /run or $XDG_RUNTIME_DIR)
          *
          * %h: the homedir of the running user
