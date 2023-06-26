@@ -41,6 +41,8 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_USER_CONFIGURATION]                          = "user-configuration",
         [SD_PATH_USER_RUNTIME]                                = "user-runtime",
         [SD_PATH_USER_STATE_CACHE]                            = "user-state-cache",
+        [SD_PATH_USER_STATE_PRIVATE]                          = "user-state-private",
+
         [SD_PATH_USER]                                        = "user",
         [SD_PATH_USER_DOCUMENTS]                              = "user-documents",
         [SD_PATH_USER_MUSIC]                                  = "user-music",

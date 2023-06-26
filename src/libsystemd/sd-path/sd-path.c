@@ -281,6 +281,9 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
         case SD_PATH_USER_STATE_CACHE:
                 return from_home_dir("XDG_CACHE_HOME", ".cache", buffer, ret);
 
+        case SD_PATH_USER_STATE_PRIVATE:
+                return from_home_dir("XDG_STATE_HOME", ".local/state", buffer, ret);
+
         case SD_PATH_USER:
                 r = get_home_dir(buffer);
                 if (r < 0)
