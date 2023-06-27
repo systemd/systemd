@@ -3163,7 +3163,7 @@ typedef struct DecryptedPartitionTarget {
 } DecryptedPartitionTarget;
 
 static DecryptedPartitionTarget* decrypted_partition_target_free(DecryptedPartitionTarget *t) {
-#ifdef HAVE_LIBCRYPTSETUP
+#if HAVE_LIBCRYPTSETUP
         int r;
 
         if (!t)
