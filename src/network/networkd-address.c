@@ -427,6 +427,10 @@ static int address_equalify(Address *address, const Address *src) {
                 address->in_addr_peer = src->in_addr_peer;
         }
 
+        r = free_and_strdup(&address->netlabel, src->netlabel);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
