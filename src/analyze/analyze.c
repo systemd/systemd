@@ -86,7 +86,6 @@
 #include "unit-name.h"
 #include "verb-log-control.h"
 #include "verbs.h"
-#include "version.h"
 
 DotMode arg_dot = DEP_ALL;
 char **arg_dot_from_patterns = NULL, **arg_dot_to_patterns = NULL;
