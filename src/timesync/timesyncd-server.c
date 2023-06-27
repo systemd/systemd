@@ -60,6 +60,14 @@ ServerAddress* server_address_free(ServerAddress *a) {
         return mfree(a);
 }
 
+static void enable_ntp_server_defer_event(Manager *m, ServerType type) {
+        int r = sd_event_source_set_enabled(m->deferred_ntp_server_event_source, SD_EVENT_ONESHOT);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to reenable system ntp server change event source!");
+        m->ntp_server_change_mask |= 1U << type;
+}
+
+
 int server_name_new(
                 Manager *m,
                 ServerName **ret,
@@ -103,6 +111,7 @@ int server_name_new(
                 assert_not_reached();
         }
 
+        enable_ntp_server_defer_event(m, type);
         if (type != SERVER_FALLBACK &&
             m->current_server_name &&
             m->current_server_name->type == SERVER_FALLBACK)
@@ -117,6 +126,7 @@ int server_name_new(
 }
 
 ServerName *server_name_free(ServerName *n) {
+        int r;
         if (!n)
                 return NULL;
 
@@ -134,6 +144,7 @@ ServerName *server_name_free(ServerName *n) {
                 else
                         assert_not_reached();
 
+                enable_ntp_server_defer_event(n->manager, n->type);
                 if (n->manager->current_server_name == n)
                         manager_set_server_name(n->manager, NULL);
         }

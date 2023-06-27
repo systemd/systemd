@@ -955,6 +955,8 @@ Manager* manager_free(Manager *m) {
 
         sd_event_source_unref(m->event_save_time);
 
+        sd_event_source_unref(m->deferred_ntp_server_event_source);
+
         sd_resolve_unref(m->resolve);
         sd_event_unref(m->event);
 
@@ -1220,4 +1222,59 @@ static int manager_save_time_and_rearm(Manager *m, usec_t t) {
         }
 
         return 0;
+}
+
+static const char* ntp_server_property_name[] = {
+        "SystemNTPServers",
+        "FallbackNTPServers",
+        "LinkNTPServers",
+        "RuntimeNTPServers",
+};
+
+static int on_deferred_ntp_server(sd_event_source *s, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+        log_warning("doujb: here come to emit the ntp server signal function");
+        m->deferred_ntp_server_event_source = sd_event_source_disable_unref(m->deferred_ntp_server_event_source);
+        for(int type = SERVER_SYSTEM; type <= SERVER_RUNTIME; type++)
+        {
+                log_warning("doujb: here to emit the ntp server signal type = %d", type);
+                if (m->ntp_server_change_mask & (1U << type) ) {
+                        r = sd_bus_emit_properties_changed(
+                                m->bus,
+                                "/org/freedesktop/timesync1",
+                                "org.freedesktop.timesync1.Manager",
+                                ntp_server_property_name[type], NULL);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to send ntp server property change event, ignoring: %m");
+                        m->ntp_server_change_mask &= (~(1U << type));
+                }
+        }
+        return 0;
+}
+
+int bus_manager_emit_ntp_server_changed(Manager *m) {
+        int r;
+        assert(m);
+
+        if (m->deferred_ntp_server_event_source)
+                return 0;
+
+        if (!m->event)
+                return 0;
+
+        if (IN_SET(sd_event_get_state(m->event), SD_EVENT_FINISHED, SD_EVENT_EXITING))
+                return 0;
+
+        r = sd_event_add_defer(m->event, &m->deferred_ntp_server_event_source, on_deferred_ntp_server, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate ntp server event source: %m");
+
+        r = sd_event_source_set_priority(m->deferred_ntp_server_event_source, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                log_warning_errno(r, "Failed to tweak priority of event source, ignoring: %m");
+
+        (void) sd_event_source_set_description(m->deferred_ntp_server_event_source, "deferred-ntp-server");
+        log_warning("doujb: register defer eventto emit the ntp server signal");
+        return 1;
 }
