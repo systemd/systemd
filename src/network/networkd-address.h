@@ -25,6 +25,12 @@ typedef int (*address_netlink_handler_t)(
                 Link *link,
                 Address *address);
 
+/* Note: when adding new fields which require memory management (strings etc.), don't forget to update the
+   following functions:
+   address_free()
+   address_equalify()
+   address_dup()
+ */
 struct Address {
         Link *link;
         Network *network;
