@@ -296,4 +296,20 @@ TEST(hmac_many) {
         DEFINE_HMAC_SHA256_TEST(key3, "5BE1F4D9C2AFAA2BB3F58FCE967BC7D3084BB8F512659875BDA634991145B0F0", i1, i1, i1, i4, i4, i4, i4, i3, i3, i2);
 }
 
+TEST(kdf_kb_hmac_derive) {
+#if OPENSSL_VERSION_MAJOR >= 3
+        _cleanup_free_ void *derived_key = NULL;
+
+        DEFINE_HEX_PTR(key, "d7ac57124f28371eacaec475b74869d26b4cd64586412a607ce0a9e0c63d468c");
+        const char *salt = "salty chocolate";
+        DEFINE_HEX_PTR(info, "6721a2012d9554f5a64593ed3eaa8fe15e6a21e1c8c8736ea4d234eb55b9e31a");
+        DEFINE_HEX_PTR(expected_derived_key, "A9DA9CEEB9578DBE7DD2862F82898B086E85FF2D10C4E8EC5BD99D0D7F003A2DE1574EB4BD789C03EF5235259BCB3A009DA303EA4DB4CA6BF507DB7C5A063279");
+
+        assert_se(kdf_kb_hmac_derive("COUNTER", "SHA256", key, key_len, salt, strlen(salt), info, info_len, /* seed= */ NULL, /* seed_size= */ 0, 64, &derived_key) >= 0);
+        assert_se(memcmp_nn(derived_key, 64, expected_derived_key, expected_derived_key_len) == 0);
+#else
+        log_tests_skipped("KDF-KB requires Openssl >= 3");
+#endif
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
