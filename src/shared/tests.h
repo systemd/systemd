@@ -43,7 +43,8 @@ bool can_memlock(void);
 #define DEFINE_HEX_PTR(name, hex)                                       \
         _cleanup_free_ void *name = NULL;                               \
         size_t name##_len = 0;                                          \
-        assert_se(unhexmem(hex, strlen(hex), &name, &name##_len) >= 0);
+        if (hex)                                                        \
+                assert_se(unhexmem(hex, strlen(hex), &name, &name##_len) >= 0);
 
 #define TEST_REQ_RUNNING_SYSTEMD(x)                                 \
         if (sd_booted() > 0) {                                      \
