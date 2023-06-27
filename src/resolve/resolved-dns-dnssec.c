@@ -14,7 +14,7 @@
 #include "sort-util.h"
 #include "string-table.h"
 
-#if PREFER_OPENSSL
+#if PREFER_OPENSSL && OPENSSL_VERSION_MAJOR >= 3
 #  pragma GCC diagnostic push
 #    pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(RSA*, RSA_free, NULL);
