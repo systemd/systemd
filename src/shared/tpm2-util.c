@@ -19,7 +19,6 @@
 #include "logarithm.h"
 #include "memory-util.h"
 #include "nulstr-util.h"
-#include "openssl-util.h"
 #include "parse-util.h"
 #include "random-util.h"
 #include "sha256.h"
@@ -2839,124 +2838,6 @@ static int tpm2_make_policy_session(
         return 0;
 }
 
-static int openssl_pubkey_to_tpm2_pubkey(
-                const void *pubkey,
-                size_t pubkey_size,
-                TPM2B_PUBLIC *output,
-                void **ret_fp,
-                size_t *ret_fp_size) {
-
-#if HAVE_OPENSSL
-#if OPENSSL_VERSION_MAJOR >= 3
-        _cleanup_(BN_freep) BIGNUM *n = NULL, *e = NULL;
-#else
-        const BIGNUM *n = NULL, *e = NULL;
-        const RSA *rsa = NULL;
-#endif
-        int r, n_bytes, e_bytes;
-
-        assert(pubkey);
-        assert(pubkey_size > 0);
-        assert(output);
-
-        /* Converts an OpenSSL public key to a structure that the TPM chip can process. */
-
-        _cleanup_fclose_ FILE *f = NULL;
-        f = fmemopen((void*) pubkey, pubkey_size, "r");
-        if (!f)
-                return log_oom();
-
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *input = NULL;
-        input = PEM_read_PUBKEY(f, NULL, NULL, NULL);
-        if (!input)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse PEM public key.");
-
-        if (EVP_PKEY_base_id(input) != EVP_PKEY_RSA)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Provided public key is not an RSA key.");
-
-#if OPENSSL_VERSION_MAJOR >= 3
-        if (!EVP_PKEY_get_bn_param(input, OSSL_PKEY_PARAM_RSA_N, &n))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to get RSA modulus from public key.");
-#else
-        rsa = EVP_PKEY_get0_RSA(input);
-        if (!rsa)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to extract RSA key from public key.");
-
-        n = RSA_get0_n(rsa);
-        if (!n)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to get RSA modulus from public key.");
-#endif
-
-        n_bytes = BN_num_bytes(n);
-        assert_se(n_bytes > 0);
-        if ((size_t) n_bytes > sizeof_field(TPM2B_PUBLIC, publicArea.unique.rsa.buffer))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "RSA modulus too large for TPM2 public key object.");
-
-#if OPENSSL_VERSION_MAJOR >= 3
-        if (!EVP_PKEY_get_bn_param(input, OSSL_PKEY_PARAM_RSA_E, &e))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to get RSA exponent from public key.");
-#else
-        e = RSA_get0_e(rsa);
-        if (!e)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to get RSA exponent from public key.");
-#endif
-
-        e_bytes = BN_num_bytes(e);
-        assert_se(e_bytes > 0);
-        if ((size_t) e_bytes > sizeof_field(TPM2B_PUBLIC, publicArea.parameters.rsaDetail.exponent))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "RSA exponent too large for TPM2 public key object.");
-
-        *output = (TPM2B_PUBLIC) {
-                .size = sizeof(TPMT_PUBLIC),
-                .publicArea = {
-                        .type = TPM2_ALG_RSA,
-                        .nameAlg = TPM2_ALG_SHA256,
-                        .objectAttributes = TPMA_OBJECT_DECRYPT | TPMA_OBJECT_SIGN_ENCRYPT | TPMA_OBJECT_USERWITHAUTH,
-                        .parameters.rsaDetail = {
-                                .scheme = {
-                                        .scheme = TPM2_ALG_NULL,
-                                        .details.anySig.hashAlg = TPM2_ALG_NULL,
-                                },
-                                .symmetric = {
-                                        .algorithm = TPM2_ALG_NULL,
-                                        .mode.sym = TPM2_ALG_NULL,
-                                },
-                                .keyBits = n_bytes * 8,
-                                /* .exponent will be filled in below. */
-                        },
-                        .unique = {
-                                .rsa.size = n_bytes,
-                                /* .rsa.buffer will be filled in below. */
-                        },
-                },
-        };
-
-        if (BN_bn2bin(n, output->publicArea.unique.rsa.buffer) <= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to convert RSA modulus.");
-
-        if (BN_bn2bin(e, (unsigned char*) &output->publicArea.parameters.rsaDetail.exponent) <= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to convert RSA exponent.");
-
-        if (ret_fp) {
-                _cleanup_free_ void *fp = NULL;
-                size_t fp_size;
-
-                assert(ret_fp_size);
-
-                r = pubkey_fingerprint(input, EVP_sha256(), &fp, &fp_size);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to calculate public key fingerprint: %m");
-
-                *ret_fp = TAKE_PTR(fp);
-                *ret_fp_size = fp_size;
-        }
-
-        return 0;
-#else /* HAVE_OPENSSL */
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
-#endif
-}
-
 static int find_signature(
                 JsonVariant *v,
                 const TPML_PCR_SELECTION *pcr_selection,
@@ -3569,6 +3450,210 @@ static int tpm2_build_sealing_policy(
         return 0;
 }
 
+#if HAVE_OPENSSL
+static int tpm2_ecc_curve_from_openssl_curve_id(int curve_id, TPM2_ECC_CURVE *ret) {
+        assert(ret);
+
+        switch (curve_id) {
+        case NID_X9_62_prime192v1: *ret = TPM2_ECC_NIST_P192; return 0;
+        case NID_secp224r1:        *ret = TPM2_ECC_NIST_P192; return 0;
+        case NID_X9_62_prime256v1: *ret = TPM2_ECC_NIST_P256; return 0;
+        case NID_secp384r1:        *ret = TPM2_ECC_NIST_P384; return 0;
+        case NID_secp521r1:        *ret = TPM2_ECC_NIST_P521; return 0;
+        case NID_sm2:              *ret = TPM2_ECC_SM2_P256;  return 0;
+        }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Openssl ECC curve id %d not supported.", curve_id);
+}
+
+static int tpm2_ecc_curve_to_openssl_curve_id(TPM2_ECC_CURVE curve, int *ret) {
+        assert(ret);
+
+        switch (curve) {
+        case TPM2_ECC_NIST_P192: *ret = NID_X9_62_prime192v1; return 0;
+        case TPM2_ECC_NIST_P224: *ret = NID_secp224r1;        return 0;
+        case TPM2_ECC_NIST_P256: *ret = NID_X9_62_prime256v1; return 0;
+        case TPM2_ECC_NIST_P384: *ret = NID_secp384r1;        return 0;
+        case TPM2_ECC_NIST_P521: *ret = NID_secp521r1;        return 0;
+        case TPM2_ECC_SM2_P256:  *ret = NID_sm2;              return 0;
+        }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "TPM2 ECC curve %u not supported.", curve);
+}
+
+#define TPM2_RSA_DEFAULT_EXPONENT UINT32_C(0x10001)
+
+int tpm2_tpm2b_public_to_openssl_pkey(const TPM2B_PUBLIC *public, EVP_PKEY **ret) {
+        int r;
+
+        assert(public);
+        assert(ret);
+
+        const TPMT_PUBLIC *p = &public->publicArea;
+        if (p->type == TPM2_ALG_ECC) {
+                int curve_id;
+                r = tpm2_ecc_curve_to_openssl_curve_id(p->parameters.eccDetail.curveID, &curve_id);
+                if (r < 0)
+                        return r;
+
+                const TPMS_ECC_POINT *point = &p->unique.ecc;
+                return ecc_pkey_from_curve_x_y(
+                                curve_id,
+                                point->x.buffer,
+                                point->x.size,
+                                point->y.buffer,
+                                point->y.size,
+                                ret);
+        } else if (p->type == TPM2_ALG_RSA) {
+                /* TPM specification Part 2 ("Structures") section for TPMS_RSA_PARAMS states "An exponent of
+                 * zero indicates that the exponent is the default of 2^16 + 1". */
+                uint32_t exponent = htobe32(p->parameters.rsaDetail.exponent ?: TPM2_RSA_DEFAULT_EXPONENT);
+                return rsa_pkey_from_n_e(
+                                p->unique.rsa.buffer,
+                                p->unique.rsa.size,
+                                &exponent,
+                                sizeof(exponent),
+                                ret);
+        }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "TPM2 asymmetric algorithm 0x%" PRIx16 " not supported.", p->type);
+}
+
+int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret) {
+        int key_id, r;
+
+        assert(pkey);
+        assert(ret);
+
+        TPMT_PUBLIC public = {
+                .nameAlg = TPM2_ALG_SHA256,
+                .objectAttributes = TPMA_OBJECT_DECRYPT | TPMA_OBJECT_USERWITHAUTH,
+                .parameters.asymDetail = {
+                        .symmetric.algorithm = TPM2_ALG_NULL,
+                        .scheme.scheme = TPM2_ALG_NULL,
+                },
+        };
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        key_id = EVP_PKEY_get_id(pkey);
+#else
+        key_id = EVP_PKEY_id(pkey);
+#endif
+
+        if (key_id == EVP_PKEY_EC) {
+                public.type = TPM2_ALG_ECC;
+
+                int curve_id;
+                _cleanup_free_ void *x = NULL, *y = NULL;
+                size_t x_size, y_size;
+                r = ecc_pkey_to_curve_x_y(pkey, &curve_id, &x, &x_size, &y, &y_size);
+                if (r < 0)
+                        return log_error_errno(r, "Could not get ECC key curve/x/y: %m");
+
+                TPM2_ECC_CURVE curve;
+                r = tpm2_ecc_curve_from_openssl_curve_id(curve_id, &curve);
+                if (r < 0)
+                        return r;
+
+                public.parameters.eccDetail.curveID = curve;
+
+                public.parameters.eccDetail.kdf.scheme = TPM2_ALG_NULL;
+
+                r = TPM2B_ECC_PARAMETER_CHECK_SIZE(x_size);
+                if (r < 0)
+                        return r;
+
+                public.unique.ecc.x = TPM2B_ECC_PARAMETER_MAKE(x, x_size);
+
+                r = TPM2B_ECC_PARAMETER_CHECK_SIZE(y_size);
+                if (r < 0)
+                        return r;
+
+                public.unique.ecc.y = TPM2B_ECC_PARAMETER_MAKE(y, y_size);
+        } else if (key_id == EVP_PKEY_RSA) {
+                public.type = TPM2_ALG_RSA;
+
+                _cleanup_free_ void *n = NULL, *e = NULL;
+                size_t n_size, e_size;
+                r = rsa_pkey_to_n_e(pkey, &n, &n_size, &e, &e_size);
+                if (r < 0)
+                        return log_error_errno(r, "Could not get RSA key n/e: %m");
+
+                r = TPM2B_PUBLIC_KEY_RSA_CHECK_SIZE(n_size);
+                if (r < 0)
+                        return r;
+
+                public.unique.rsa = TPM2B_PUBLIC_KEY_RSA_MAKE(n, n_size);
+                public.parameters.rsaDetail.keyBits = n_size * 8;
+
+                if (sizeof(uint32_t) < e_size)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "RSA e size %zu too large for TPM.", e_size);
+
+                uint32_t exponent = 0;
+                memcpy((void*) &exponent, e, e_size);
+                exponent = be32toh(exponent) >> (32 - e_size * 8);
+                if (exponent == TPM2_RSA_DEFAULT_EXPONENT)
+                        exponent = 0;
+                public.parameters.rsaDetail.exponent = exponent;
+        } else
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "EVP_PKEY type %d not supported.", key_id);
+
+        *ret = (TPM2B_PUBLIC) {
+                .size = sizeof(public),
+                .publicArea = public,
+        };
+
+        return 0;
+}
+#endif
+
+int tpm2_tpm2b_public_to_fingerprint(
+                const TPM2B_PUBLIC *public,
+                void **ret_fingerprint,
+                size_t *ret_fingerprint_size) {
+
+#if HAVE_OPENSSL
+        int r;
+
+        assert(public);
+        assert(ret_fingerprint);
+        assert(ret_fingerprint_size);
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        r = tpm2_tpm2b_public_to_openssl_pkey(public, &pkey);
+        if (r < 0)
+                return r;
+
+        /* Hardcode fingerprint to SHA256 */
+        return pubkey_fingerprint(pkey, EVP_sha256(), ret_fingerprint, ret_fingerprint_size);
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
+}
+
+int tpm2_tpm2b_public_from_pem(const void *pem, size_t pem_size, TPM2B_PUBLIC *ret) {
+#if HAVE_OPENSSL
+        int r;
+
+        assert(pem);
+        assert(ret);
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        r = openssl_pkey_from_pem(pem, pem_size, &pkey);
+        if (r < 0)
+                return r;
+
+        return tpm2_tpm2b_public_from_openssl_pkey(pkey, ret);
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
+#endif
+}
+
 int tpm2_seal(const char *device,
               uint32_t hash_pcr_mask,
               const void *pubkey,
@@ -3646,12 +3731,11 @@ int tpm2_seal(const char *device,
                         return r;
         }
 
-        TPM2B_PUBLIC pubkey_tpm2, *authorize_key = NULL;
+        TPM2B_PUBLIC pubkey_tpm2b;
         if (pubkey) {
-                r = openssl_pubkey_to_tpm2_pubkey(pubkey, pubkey_size, &pubkey_tpm2, NULL, NULL);
+                r = tpm2_tpm2b_public_from_pem(pubkey, pubkey_size, &pubkey_tpm2b);
                 if (r < 0)
-                        return r;
-                authorize_key = &pubkey_tpm2;
+                        return log_error_errno(r, "Could not create TPMT_PUBLIC: %m");
         }
 
         TPM2B_DIGEST policy_digest;
@@ -3662,7 +3746,7 @@ int tpm2_seal(const char *device,
         r = tpm2_calculate_sealing_policy(
                         hash_pcr_values,
                         n_hash_pcr_values,
-                        authorize_key,
+                        pubkey ? &pubkey_tpm2b : NULL,
                         !!pin,
                         &policy_digest);
         if (r < 0)
@@ -3949,14 +4033,17 @@ int tpm2_unseal(const char *device,
         if (r < 0)
                 return r;
 
-        TPM2B_PUBLIC pubkey_tpm2, *authorize_key = NULL;
+        TPM2B_PUBLIC pubkey_tpm2b;
         _cleanup_free_ void *fp = NULL;
         size_t fp_size = 0;
         if (pubkey) {
-                r = openssl_pubkey_to_tpm2_pubkey(pubkey, pubkey_size, &pubkey_tpm2, &fp, &fp_size);
+                r = tpm2_tpm2b_public_from_pem(pubkey, pubkey_size, &pubkey_tpm2b);
                 if (r < 0)
-                        return r;
-                authorize_key = &pubkey_tpm2;
+                        return log_error_errno(r, "Could not create TPMT_PUBLIC: %m");
+
+                r = tpm2_tpm2b_public_to_fingerprint(&pubkey_tpm2b, &fp, &fp_size);
+                if (r < 0)
+                        return log_error_errno(r, "Could not get key fingerprint: %m");
         }
 
         /*
@@ -3993,7 +4080,7 @@ int tpm2_unseal(const char *device,
                                 policy_session,
                                 hash_pcr_mask,
                                 pcr_bank,
-                                authorize_key,
+                                pubkey ? &pubkey_tpm2b : NULL,
                                 fp, fp_size,
                                 pubkey_pcr_mask,
                                 signature,
