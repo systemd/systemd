@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+if conf.get('ENABLE_SYSUPDATE') != 1
+        subdir_done()
+endif
+
 systemd_sysupdate_sources = files(
         'sysupdate-cache.c',
         'sysupdate-cache.h',
@@ -18,3 +22,17 @@ systemd_sysupdate_sources = files(
         'sysupdate.c',
         'sysupdate.h',
 )
+
+executables += [
+        libexec_template + {
+                'name' : 'systemd-sysupdate',
+                'public' : true,
+                'sources' : systemd_sysupdate_sources,
+                'link_with' : [libshared,
+                               libshared_fdisk],
+                'dependencies' : [libblkid,
+                                  libfdisk,
+                                  libopenssl,
+                                  threads],
+        },
+]
