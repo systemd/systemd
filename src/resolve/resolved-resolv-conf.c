@@ -12,6 +12,7 @@
 #include "fs-util.h"
 #include "label-util.h"
 #include "ordered-set.h"
+#include "path-util.h"
 #include "resolved-conf.h"
 #include "resolved-dns-server.h"
 #include "resolved-resolv-conf.h"
@@ -371,7 +372,12 @@ int manager_write_resolv_conf(Manager *m) {
 
                 temp_path_stub = mfree(temp_path_stub); /* free the string explicitly, so that we don't unlink anymore */
         } else {
-                r = symlink_atomic_label(basename(PRIVATE_UPLINK_RESOLV_CONF), PRIVATE_STUB_RESOLV_CONF);
+                _cleanup_free_ char *fname = NULL;
+                r = path_extract_filename(PRIVATE_UPLINK_RESOLV_CONF, &fname);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to extract filename from path '" PRIVATE_UPLINK_RESOLV_CONF "', ignoring: %m");
+
+                r = symlink_atomic_label(fname, PRIVATE_STUB_RESOLV_CONF);
                 if (r < 0)
                         log_warning_errno(r, "Failed to symlink %s, ignoring: %m", PRIVATE_STUB_RESOLV_CONF);
         }
