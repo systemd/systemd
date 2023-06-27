@@ -1221,7 +1221,7 @@
         <listitem>
           <para>Takes a boolean. When true, enables Path MTU Discovery on
           the tunnel.
-          When <varname>IgnoreDontFragment=</varname> is explicitly set to true,
+          When <varname>IgnoreDontFragment=</varname> is enabled,
           defaults to false. Otherwise, defaults to true.</para>
         </listitem>
       </varlistentry>
