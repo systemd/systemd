@@ -525,6 +525,7 @@ static int merge_env_file_push(
 
         char ***env = ASSERT_PTR(userdata);
         char *expanded_value;
+        int r;
 
         assert(key);
 
@@ -539,12 +540,12 @@ static int merge_env_file_push(
                 return 0;
         }
 
-        expanded_value = replace_env(value, *env,
-                                     REPLACE_ENV_USE_ENVIRONMENT|
-                                     REPLACE_ENV_ALLOW_BRACELESS|
-                                     REPLACE_ENV_ALLOW_EXTENDED);
-        if (!expanded_value)
-                return -ENOMEM;
+        r = replace_env(value,
+                        *env,
+                        REPLACE_ENV_USE_ENVIRONMENT|REPLACE_ENV_ALLOW_BRACELESS|REPLACE_ENV_ALLOW_EXTENDED,
+                        &expanded_value);
+        if (r < 0)
+                return log_error_errno(r, "%s:%u: Failed to expand variable '%s': %m", strna(filename), line, value);
 
         free_and_replace(value, expanded_value);
 
