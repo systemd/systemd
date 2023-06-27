@@ -90,7 +90,7 @@ int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar) {
         switch (len) {
         case 1:
                 *ret_unichar = (char32_t)str[0];
-                return 0;
+                return 1;
         case 2:
                 unichar = str[0] & 0x1f;
                 break;
@@ -119,15 +119,14 @@ int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar) {
         }
 
         *ret_unichar = unichar;
-
-        return 0;
+        return len;
 }
 
 bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newline) {
         assert(str);
 
         for (const char *p = str; length > 0;) {
-                int encoded_len, r;
+                int encoded_len;
                 char32_t val;
 
                 encoded_len = utf8_encoded_valid_unichar(p, length);
@@ -135,8 +134,7 @@ bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newlin
                         return false;
                 assert(encoded_len > 0 && (size_t) encoded_len <= length);
 
-                r = utf8_encoded_to_unichar(p, &val);
-                if (r < 0 ||
+                if (utf8_encoded_to_unichar(p, &val) < 0 ||
                     unichar_is_control(val) ||
                     (!allow_newline && val == '\n'))
                         return false;
