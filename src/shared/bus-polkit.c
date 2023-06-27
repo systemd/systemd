@@ -490,7 +490,9 @@ int bus_verify_polkit_async(
                 return r;
 
 #if ENABLE_POLKIT
-        AsyncPolkitQuery *q = hashmap_get(*registry, call);
+        _cleanup_(async_polkit_query_unrefp) AsyncPolkitQuery *q = NULL;
+
+        q = async_polkit_query_ref(hashmap_get(*registry, call));
         /* This is a repeated invocation of this function, hence let's check if we've already got
          * a response from polkit for this action */
         if (q) {
@@ -508,7 +510,6 @@ int bus_verify_polkit_async(
 
 #if ENABLE_POLKIT
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
-        _cleanup_(async_polkit_query_unrefp) AsyncPolkitQuery *q_new = NULL;
 
         int c = sd_bus_message_get_allow_interactive_authorization(call);
         if (c < 0)
@@ -525,7 +526,7 @@ int bus_verify_polkit_async(
                 return r;
 
         if (!q) {
-                q = q_new = new(AsyncPolkitQuery, 1);
+                q = new(AsyncPolkitQuery, 1);
                 if (!q)
                         return -ENOMEM;
 
@@ -533,8 +534,7 @@ int bus_verify_polkit_async(
                         .n_ref = 1,
                         .request = sd_bus_message_ref(call),
                 };
-        } else
-                async_polkit_query_ref(q);
+        }
 
         assert(!q->action);
         q->action = new(AsyncPolkitQueryAction, 1);
@@ -560,7 +560,7 @@ int bus_verify_polkit_async(
         if (r < 0)
                 return r;
 
-        TAKE_PTR(q_new);
+        TAKE_PTR(q);
 
         return 0;
 #endif
