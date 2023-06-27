@@ -28,6 +28,7 @@
 #include "analyze-inspect-elf.h"
 #include "analyze-log-control.h"
 #include "analyze-malloc.h"
+#include "analyze-pcrs.h"
 #include "analyze-plot.h"
 #include "analyze-security.h"
 #include "analyze-service-watchdogs.h"
@@ -234,6 +235,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  inspect-elf FILE...        Parse and print ELF package metadata\n"
                "  malloc [D-BUS SERVICE...]  Dump malloc stats of a D-Bus service\n"
                "  fdstore SERVICE...         Show file descriptor store contents of service\n"
+               "  pcrs [PCR…]                Show TPM2 PCRs and their names\n"
                "\nOptions:\n"
                "     --recursive-errors=MODE Control which units are verified\n"
                "     --offline=BOOL          Perform a security review on unit file(s)\n"
@@ -636,6 +638,7 @@ static int run(int argc, char *argv[]) {
                 { "malloc",            VERB_ANY, VERB_ANY, 0,            verb_malloc            },
                 { "fdstore",           2,        VERB_ANY, 0,            verb_fdstore           },
                 { "image-policy",      2,        2,        0,            verb_image_policy      },
+                { "pcrs",              VERB_ANY, VERB_ANY, 0,            verb_pcrs              },
                 {}
         };
 

@@ -4046,3 +4046,4 @@ static const char* const pcr_index_table[_PCR_INDEX_MAX_DEFINED] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_FALLBACK(pcr_index, int, TPM2_PCRS_MAX - 1);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(pcr_index, int);
