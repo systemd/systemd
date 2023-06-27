@@ -312,4 +312,116 @@ TEST(kdf_kb_hmac_derive) {
 #endif
 }
 
+static void check_cipher(
+                const char *alg,
+                size_t bits,
+                const char *mode,
+                const char *hex_key,
+                const char *hex_iv,
+                const struct iovec data[],
+                size_t n_data,
+                const char *hex_expected) {
+
+        _cleanup_free_ void *enc_buf = NULL;
+        size_t enc_buf_len;
+
+        DEFINE_HEX_PTR(key, hex_key);
+        DEFINE_HEX_PTR(iv, hex_iv);
+        DEFINE_HEX_PTR(expected, hex_expected);
+
+        if (n_data == 0) {
+                assert_se(openssl_cipher(alg, bits, mode, key, key_len, iv, iv_len, NULL, 0, &enc_buf, &enc_buf_len) >= 0);
+                assert_se(memcmp_nn(enc_buf, enc_buf_len, expected, expected_len) == 0);
+                enc_buf = mfree(enc_buf);
+        } else if (n_data == 1) {
+                assert_se(openssl_cipher(alg, bits, mode, key, key_len, iv, iv_len, data[0].iov_base, data[0].iov_len, &enc_buf, &enc_buf_len) >= 0);
+                assert_se(memcmp_nn(enc_buf, enc_buf_len, expected, expected_len) == 0);
+                enc_buf = mfree(enc_buf);
+        }
+
+        assert_se(openssl_cipher_many(alg, bits, mode, key, key_len, iv, iv_len, data, n_data, &enc_buf, &enc_buf_len) >= 0);
+        assert_se(memcmp_nn(enc_buf, enc_buf_len, expected, expected_len) == 0);
+}
+
+TEST(openssl_cipher) {
+        struct iovec data[] = {
+                IOVEC_MAKE_STRING("my"),
+                IOVEC_MAKE_STRING(" "),
+                IOVEC_MAKE_STRING("secret"),
+                IOVEC_MAKE_STRING(" "),
+                IOVEC_MAKE_STRING("text"),
+                IOVEC_MAKE_STRING("!"),
+        };
+
+        check_cipher(
+                "aes", 256, "cfb",
+                "32c62bbaeb0decc5c874b8e0148f86475b5bb10a36f7078a75a6f11704c2f06a",
+                /* hex_iv= */ NULL,
+                data, ELEMENTSOF(data),
+                "bd4a46f8762bf4bef4430514aaec5e");
+
+        check_cipher(
+                "aes", 256, "cfb",
+                "32c62bbaeb0decc5c874b8e0148f86475b5bb10a36f7078a75a6f11704c2f06a",
+                "00000000000000000000000000000000",
+                data, ELEMENTSOF(data),
+                "bd4a46f8762bf4bef4430514aaec5e");
+
+        check_cipher(
+                "aes", 256, "cfb",
+                "32c62bbaeb0decc5c874b8e0148f86475b5bb10a36f7078a75a6f11704c2f06a",
+                "9088fd5c4ad9b9419eced86283021a59",
+                data, ELEMENTSOF(data),
+                "6dfbf8dc972f9a462ad7427a1fa41a");
+
+        check_cipher(
+                "aes", 256, "cfb",
+                "32c62bbaeb0decc5c874b8e0148f86475b5bb10a36f7078a75a6f11704c2f06a",
+                /* hex_iv= */ NULL,
+                &data[2], 1,
+                "a35605f9763c");
+
+        check_cipher(
+                "aes", 256, "cfb",
+                "32c62bbaeb0decc5c874b8e0148f86475b5bb10a36f7078a75a6f11704c2f06a",
+                /* hex_iv= */ NULL,
+                /* data= */ NULL, /* n_data= */ 0,
+                /* expected= */ NULL);
+
+        check_cipher(
+                "aes", 128, "cfb",
+                "b8fe4b89f6f25dd58cadceb68c99d508",
+                /* hex_iv= */ NULL,
+                data, ELEMENTSOF(data),
+                "9c0fe3abb904ab419d950ae00c93a1");
+
+        check_cipher(
+                "aes", 128, "cfb",
+                "b8fe4b89f6f25dd58cadceb68c99d508",
+                "00000000000000000000000000000000",
+                data, ELEMENTSOF(data),
+                "9c0fe3abb904ab419d950ae00c93a1");
+
+        check_cipher(
+                "aes", 128, "cfb",
+                "b8fe4b89f6f25dd58cadceb68c99d508",
+                "9088fd5c4ad9b9419eced86283021a59",
+                data, ELEMENTSOF(data),
+                "e765617aceb1326f5309008c14f4e1");
+
+        check_cipher(
+                "aes", 128, "cfb",
+                "b8fe4b89f6f25dd58cadceb68c99d508",
+                /* hex_iv= */ NULL,
+                /* data= */ NULL, /* n_data= */ 0,
+                /* expected= */ NULL);
+
+        check_cipher(
+                "aes", 128, "cfb",
+                "b8fe4b89f6f25dd58cadceb68c99d508",
+                "00000000000000000000000000000000",
+                /* data= */ NULL, /* n_data= */ 0,
+                /* expected= */ NULL);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
