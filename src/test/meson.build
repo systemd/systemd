@@ -167,7 +167,6 @@ simple_tests += files(
         'test-sysctl-util.c',
         'test-terminal-util.c',
         'test-tmpfile-util.c',
-        'test-tpm2.c',
         'test-udev-util.c',
         'test-uid-alloc-range.c',
         'test-uid-range.c',
@@ -419,6 +418,10 @@ executables += [
         test_template + {
                 'sources' : files('test-time-util.c'),
                 'timeout' : 120,
+        },
+        test_template + {
+                'sources' : files('test-tpm2.c'),
+                'dependencies' : libopenssl,
         },
         test_template + {
                 'sources' : files('test-utmp.c'),
