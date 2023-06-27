@@ -803,7 +803,7 @@ static int image_discover_and_read_metadata(Hashmap **ret_images) {
                 return log_error_errno(r, "Failed to discover images: %m");
 
         HASHMAP_FOREACH(img, images) {
-                r = image_read_metadata(img, &image_policy_sysext);
+                r = image_read_metadata(img, image_class_info[arg_image_class].default_image_policy);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read metadata for image %s: %m", img->name);
         }
