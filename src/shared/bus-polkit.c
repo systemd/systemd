@@ -212,11 +212,11 @@ static int async_polkit_defer(sd_event_source *s, void *userdata) {
         return 0;
 }
 
-static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_error *error) {
-        AsyncPolkitQuery *q = ASSERT_PTR(userdata);
+static int async_polkit_process_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
         int r;
 
         assert(reply);
+        assert(q);
 
         assert(q->slot);
         q->slot = sd_bus_slot_unref(q->slot);
@@ -234,30 +234,39 @@ static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_e
         assert(!q->defer_event_source);
         r = sd_event_add_defer(sd_bus_get_event(sd_bus_message_get_bus(reply)), &q->defer_event_source, async_polkit_defer, q);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = sd_event_source_set_priority(q->defer_event_source, SD_EVENT_PRIORITY_IDLE);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = sd_event_source_set_enabled(q->defer_event_source, SD_EVENT_ONESHOT);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = sd_bus_message_rewind(q->request, true);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = sd_bus_enqueue_for_read(sd_bus_message_get_bus(q->request), q->request);
         if (r < 0)
-                goto fail;
+                return r;
 
         return 1;
+}
 
-fail:
-        log_debug_errno(r, "Processing asynchronous PolicyKit reply failed, ignoring: %m");
-        (void) sd_bus_reply_method_errno(q->request, r, NULL);
-        async_polkit_query_free(q);
+static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_error *error) {
+        AsyncPolkitQuery *q = ASSERT_PTR(userdata);
+        int r;
+
+        assert(reply);
+
+        r = async_polkit_process_reply(reply, q);
+        if (r < 0) {
+                log_debug_errno(r, "Processing asynchronous PolicyKit reply failed, ignoring: %m");
+                (void) sd_bus_reply_method_errno(q->request, r, NULL);
+                async_polkit_query_free(q);
+        }
         return r;
 }
 
