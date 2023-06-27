@@ -266,7 +266,6 @@ static int process_polkit_response(
                 sd_bus_message *call,
                 const char *action,
                 const char **details,
-                Hashmap **registry,
                 sd_bus_error *ret_error) {
 
         int authorized, challenge, r;
@@ -274,7 +273,6 @@ static int process_polkit_response(
         assert(q);
         assert(call);
         assert(action);
-        assert(registry);
         assert(ret_error);
 
         assert(q->action);
@@ -342,7 +340,7 @@ int bus_verify_polkit_async(
         /* This is the second invocation of this function, and there's already a response from
          * polkit, let's process it */
         if (q)
-                return process_polkit_response(q, call, action, details, registry, ret_error);
+                return process_polkit_response(q, call, action, details, ret_error);
 #endif
 
         r = sd_bus_query_sender_privilege(call, capability);
