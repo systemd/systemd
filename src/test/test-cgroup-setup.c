@@ -9,7 +9,6 @@
 #include "proc-cmdline.h"
 #include "string-util.h"
 #include "tests.h"
-#include "version.h"
 
 static void test_is_wanted_print_one(bool header) {
         _cleanup_free_ char *cmdline = NULL;
