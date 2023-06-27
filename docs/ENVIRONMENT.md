@@ -514,7 +514,7 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   unconditionally as a child process by another tool, such as package managers
   running kernel-install in a postinstall script.
 
-`systemd-journald`:
+`systemd-journald`, `journalctl`:
 
 * `$SYSTEMD_JOURNAL_COMPACT` – Takes a boolean. If enabled, journal files are written
   in a more compact format that reduces the amount of disk space required by the
@@ -528,6 +528,13 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   compression mode of existing journal files are not changed. To make the
   specified algorithm takes an effect immediately, you need to explicitly run
   `journalctl --rotate`.
+
+* `$SYSTEMD_CATALOG` – path to the compiled catalog database file to use for
+  `journalctl -x`, `journalctl --update-catalog`, `journalctl --list-catalog`
+  and related calls.
+
+* `$SYSTEMD_CATALOG_SOURCES` – path to the catalog database input source
+  directory to use for `journalctl --update-catalog`.
 
 `systemd-pcrphase`, `systemd-cryptsetup`:
 
