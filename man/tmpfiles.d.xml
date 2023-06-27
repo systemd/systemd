@@ -736,7 +736,7 @@ d /tmp/foo/bar - - - bmA:1h -</programlisting></para>
             <row>
               <entry><literal>%L</literal></entry>
               <entry>System or user log directory</entry>
-              <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_CONFIG_HOME</varname> with <filename index="false">/log</filename> appended, and <filename>/var/log</filename> otherwise.</entry>
+              <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_STATE_HOME</varname> with <filename index="false">/log</filename> appended, and <filename>/var/log</filename> otherwise.</entry>
             </row>
             <xi:include href="standard-specifiers.xml" xpointer="m"/>
             <xi:include href="standard-specifiers.xml" xpointer="M"/>
@@ -744,7 +744,7 @@ d /tmp/foo/bar - - - bmA:1h -</programlisting></para>
             <row>
               <entry><literal>%S</literal></entry>
               <entry>System or user state directory</entry>
-              <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_CONFIG_HOME</varname>, and <filename>/var/lib</filename> otherwise.</entry>
+              <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_STATE_HOME</varname>, and <filename>/var/lib</filename> otherwise.</entry>
             </row>
             <row>
               <entry><literal>%t</literal></entry>
