@@ -27,7 +27,7 @@ CHANGES WITH 254 in spe:
        * The sd-journal API learnt a new call sd_journal_get_seqnum() for
          retrieving the current log record's sequence number and sequence
          number ID, which allows applications to order records the same way as
-         journal does internally already. The sequence number is now alos
+         journal does internally already. The sequence number is now also
          exported in the JSON and "export" output of the journal.
 
        * The default keymap to apply may now be chosen at build-time via the
@@ -74,8 +74,8 @@ CHANGES WITH 254 in spe:
          mechanism to return process memory back to the kernel if the kernel
          was under pressure to acquire some. This makes use of the kernel's PSI
          interface. Most long-running services that systemd contains have been
-         hooked up with this, and in particular systems with little memory
-         should benefit from this.
+         hooked up with this, and in particular systems with low memory should
+         benefit from this.
 
        * Service units learnt the new MemoryPressureWatch=,
          MemoryPressureThresholdSec= for configuring the PSI memory pressure
@@ -118,7 +118,7 @@ CHANGES WITH 254 in spe:
 
        * Most of systemd's long-running services now have a generic handler of
          the SIGRTMIN+18 signal handler which executes various operations
-         depending ont the sigqueue() parameter sent along. For example, values
+         depending on the sigqueue() parameter sent along. For example, values
          0x100…0x107 allow changing the maximum log level of such
          services. 0x200…0x203 allow changing the log target of such
          services. 0x300 make the services trim their memory similar to the
@@ -128,7 +128,7 @@ CHANGES WITH 254 in spe:
        * systemd-dissect will now show the intended CPU architecture of an
          inspected DDI.
 
-       * networkd's GENEVE support as gained a new .network optoin
+       * networkd's GENEVE support as gained a new .network option
          InheritInnerProtocol=.
 
        * systemd-dissect will now install itself as mount helper for the "ddi"
@@ -151,14 +151,14 @@ CHANGES WITH 254 in spe:
          util-linux losetup command now supports a complementing new switch
          --loop-ref= for selecting the string. This means a loopback block
          device may now be allocated under a caller chosen reference and can
-         subsequently be referenced by that without having to look up the block
-         device name the caller ended up with first.
+         subsequently be referenced by that without first having to look up the
+         block device name the caller ended up with.
 
        * udev also creates symlinks to loopback block devices in the
          /dev/loop/by-ref/ directory based on the .st_dev/st_ino fields of the
          inode attached to the loopback block device. This means that attaching
          a file to a loopback device will implicitly make a handle available to
-         find it via that file's inode information.
+         be found via that file's inode information.
 
        * The systemd-dissect tool gained the new switches --attach/--detach for
          attaching a DDI to a loopback block device without mounting it. It
@@ -173,7 +173,7 @@ CHANGES WITH 254 in spe:
 
        * If MemoryDenyWriteExecute= is enabled for a service and the kernel
          supports the new PR_SET_MDWE prctl() call it is used in preference
-         over seccomp() based system call filtering to achieve the same.
+         over seccomp() based system call filtering to achieve the same effect.
 
        * systemctl gained a new --when= switch which is honoured by the various
          forms of shutdown (i.e. reboot, kexec, poweroff, halt) and allows
