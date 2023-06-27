@@ -20,6 +20,7 @@ static const char *arg_suffix = NULL;
 static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_TEMPORARY]                                   = "temporary",
         [SD_PATH_TEMPORARY_LARGE]                             = "temporary-large",
+
         [SD_PATH_SYSTEM_BINARIES]                             = "system-binaries",
         [SD_PATH_SYSTEM_INCLUDE]                              = "system-include",
         [SD_PATH_SYSTEM_LIBRARY_PRIVATE]                      = "system-library-private",
@@ -27,6 +28,7 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_SYSTEM_SHARED]                               = "system-shared",
         [SD_PATH_SYSTEM_CONFIGURATION_FACTORY]                = "system-configuration-factory",
         [SD_PATH_SYSTEM_STATE_FACTORY]                        = "system-state-factory",
+
         [SD_PATH_SYSTEM_CONFIGURATION]                        = "system-configuration",
         [SD_PATH_SYSTEM_RUNTIME]                              = "system-runtime",
         [SD_PATH_SYSTEM_RUNTIME_LOGS]                         = "system-runtime-logs",
@@ -34,13 +36,17 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_SYSTEM_STATE_LOGS]                           = "system-state-logs",
         [SD_PATH_SYSTEM_STATE_CACHE]                          = "system-state-cache",
         [SD_PATH_SYSTEM_STATE_SPOOL]                          = "system-state-spool",
+
         [SD_PATH_USER_BINARIES]                               = "user-binaries",
         [SD_PATH_USER_LIBRARY_PRIVATE]                        = "user-library-private",
         [SD_PATH_USER_LIBRARY_ARCH]                           = "user-library-arch",
         [SD_PATH_USER_SHARED]                                 = "user-shared",
+
         [SD_PATH_USER_CONFIGURATION]                          = "user-configuration",
         [SD_PATH_USER_RUNTIME]                                = "user-runtime",
         [SD_PATH_USER_STATE_CACHE]                            = "user-state-cache",
+        [SD_PATH_USER_STATE_PRIVATE]                          = "user-state-private",
+
         [SD_PATH_USER]                                        = "user",
         [SD_PATH_USER_DOCUMENTS]                              = "user-documents",
         [SD_PATH_USER_MUSIC]                                  = "user-music",
@@ -50,6 +56,7 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_USER_PUBLIC]                                 = "user-public",
         [SD_PATH_USER_TEMPLATES]                              = "user-templates",
         [SD_PATH_USER_DESKTOP]                                = "user-desktop",
+
         [SD_PATH_SEARCH_BINARIES]                             = "search-binaries",
         [SD_PATH_SEARCH_BINARIES_DEFAULT]                     = "search-binaries-default",
         [SD_PATH_SEARCH_LIBRARY_PRIVATE]                      = "search-library-private",
@@ -60,18 +67,22 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_SEARCH_CONFIGURATION]                        = "search-configuration",
 
         [SD_PATH_SYSTEMD_UTIL]                                = "systemd-util",
+
         [SD_PATH_SYSTEMD_SYSTEM_UNIT]                         = "systemd-system-unit",
         [SD_PATH_SYSTEMD_SYSTEM_PRESET]                       = "systemd-system-preset",
         [SD_PATH_SYSTEMD_SYSTEM_CONF]                         = "systemd-system-conf",
-        [SD_PATH_SYSTEMD_SEARCH_SYSTEM_UNIT]                  = "systemd-search-system-unit",
-        [SD_PATH_SYSTEMD_SYSTEM_GENERATOR]                    = "systemd-system-generator",
-        [SD_PATH_SYSTEMD_SEARCH_SYSTEM_GENERATOR]             = "systemd-search-system-generator",
         [SD_PATH_SYSTEMD_USER_UNIT]                           = "systemd-user-unit",
         [SD_PATH_SYSTEMD_USER_PRESET]                         = "systemd-user-preset",
         [SD_PATH_SYSTEMD_USER_CONF]                           = "systemd-user-conf",
+
+        [SD_PATH_SYSTEMD_SEARCH_SYSTEM_UNIT]                  = "systemd-search-system-unit",
         [SD_PATH_SYSTEMD_SEARCH_USER_UNIT]                    = "systemd-search-user-unit",
-        [SD_PATH_SYSTEMD_SEARCH_USER_GENERATOR]               = "systemd-search-user-generator",
+
+        [SD_PATH_SYSTEMD_SYSTEM_GENERATOR]                    = "systemd-system-generator",
         [SD_PATH_SYSTEMD_USER_GENERATOR]                      = "systemd-user-generator",
+        [SD_PATH_SYSTEMD_SEARCH_SYSTEM_GENERATOR]             = "systemd-search-system-generator",
+        [SD_PATH_SYSTEMD_SEARCH_USER_GENERATOR]               = "systemd-search-user-generator",
+
         [SD_PATH_SYSTEMD_SLEEP]                               = "systemd-sleep",
         [SD_PATH_SYSTEMD_SHUTDOWN]                            = "systemd-shutdown",
 
@@ -107,7 +118,7 @@ static int list_homes(void) {
                         continue;
                 }
 
-                printf("%s: %s\n", path_table[i], p);
+                printf("%s%s:%s %s\n", ansi_highlight(), path_table[i], ansi_normal(), p);
         }
 
         return r;
