@@ -50,10 +50,6 @@ void pwq_maybe_disable_dictionary(pwquality_settings_t *pwq) {
                 return;
         }
 
-        // REMOVE THIS AS SOON AS https://github.com/libpwquality/libpwquality/pull/21 IS MERGED AND RELEASED
-        if (isempty(path))
-                path = "/usr/share/cracklib/pw_dict.pwd.gz";
-
         if (isempty(path)) {
                 log_debug("Weird, no dictionary file configured, ignoring.");
                 return;
