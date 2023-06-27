@@ -28,6 +28,7 @@
 #include "analyze-inspect-elf.h"
 #include "analyze-log-control.h"
 #include "analyze-malloc.h"
+#include "analyze-pcrs.h"
 #include "analyze-plot.h"
 #include "analyze-security.h"
 #include "analyze-service-watchdogs.h"
@@ -234,6 +235,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  inspect-elf FILE...        Parse and print ELF package metadata\n"
                "  malloc [D-BUS SERVICE...]  Dump malloc stats of a D-Bus service\n"
                "  fdstore SERVICE...         Show file descriptor store contents of service\n"
+               "  pcrs [PCR...]              Show TPM2 PCRs and their names\n"
                "\nOptions:\n"
                "     --recursive-errors=MODE Control which units are verified\n"
                "     --offline=BOOL          Perform a security review on unit file(s)\n"
@@ -545,9 +547,9 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --offline= is only supported for security right now.");
 
-        if (arg_json_format_flags != JSON_FORMAT_OFF && !STRPTR_IN_SET(argv[optind], "security", "inspect-elf", "plot", "fdstore"))
+        if (arg_json_format_flags != JSON_FORMAT_OFF && !STRPTR_IN_SET(argv[optind], "security", "inspect-elf", "plot", "fdstore", "pcrs"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Option --json= is only supported for security, inspect-elf, plot, and fdstore right now.");
+                                       "Option --json= is only supported for security, inspect-elf, plot, fdstore, pcrs right now.");
 
         if (arg_threshold != 100 && !streq_ptr(argv[optind], "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -636,6 +638,7 @@ static int run(int argc, char *argv[]) {
                 { "malloc",            VERB_ANY, VERB_ANY, 0,            verb_malloc            },
                 { "fdstore",           2,        VERB_ANY, 0,            verb_fdstore           },
                 { "image-policy",      2,        2,        0,            verb_image_policy      },
+                { "pcrs",              VERB_ANY, VERB_ANY, 0,            verb_pcrs              },
                 {}
         };
 
