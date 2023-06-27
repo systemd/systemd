@@ -4,6 +4,20 @@ CHANGES WITH 254 in spe:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
+        * We intend to remove cgroup v1 support from systemd release after the
+          end of 2023. If you run services that make explicit use of cgroup v1
+          features (i.e. the "legacy hierarchy" with separate hierarchies for
+          each controller), please implement compatibility with cgroup v2 (i.e.
+          the "unified hierarchy") sooner rather than later. Most of Linux
+          userspace has been ported over already.
+
+        * The next release (v255) will remove support for split-usr (/usr
+          mounted separately during late boot, instead of being mounted by the
+          initrd before switching to the rootfs) and unmerged-usr (parallel
+          directories /bin and /usr/bin, /lib and /usr/lib, …).
+          For more details, see:
+          https://lists.freedesktop.org/archives/systemd-devel/2022-September/048352.html
+
         * EnvironmentFile now treats the line following a comment line trailing
           with escape as a non comment line. For details, see:
           https://github.com/systemd/systemd/issues/27975
