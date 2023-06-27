@@ -16,4 +16,4 @@ After=sleep.target
 
 [Service]
 Type=oneshot
-ExecStart={{ROOTLIBEXECDIR}}/systemd-sleep hybrid-sleep
+ExecStart={{LIBEXECDIR}}/systemd-sleep hybrid-sleep

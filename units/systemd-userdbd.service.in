@@ -17,7 +17,7 @@ DefaultDependencies=no
 
 [Service]
 CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_SYS_RESOURCE
-ExecStart={{ROOTLIBEXECDIR}}/systemd-userdbd
+ExecStart={{LIBEXECDIR}}/systemd-userdbd
 IPAddressDeny=any
 LimitNOFILE={{HIGH_RLIMIT_NOFILE}}
 LockPersonality=yes
