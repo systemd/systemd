@@ -2689,7 +2689,7 @@ static int setup_exec_directory(
                 /* Then, change the ownership of the whole tree, if necessary. When dynamic users are used we
                  * drop the suid/sgid bits, since we really don't want SUID/SGID files for dynamic UID/GID
                  * assignments to exist. */
-                r = path_chown_recursive(pp ?: p, uid, gid, context->dynamic_user ? 01777 : 07777);
+                r = path_chown_recursive(pp ?: p, uid, gid, context->dynamic_user ? 01777 : 07777, AT_SYMLINK_FOLLOW);
                 if (r < 0)
                         goto fail;
         }
