@@ -17,7 +17,6 @@
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "version.h"
 
 #define DEFAULT_BUS_PATH "unix:path=/run/dbus/system_bus_socket"
 

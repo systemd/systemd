@@ -99,6 +99,7 @@
 #include "time-util.h"
 #include "umask-util.h"
 #include "user-util.h"
+#include "version.h"
 #include "virt.h"
 #include "watchdog.h"
 
