@@ -2466,6 +2466,7 @@ static int create_many_symlinks(const char *root, const char *source, char **sym
 }
 
 static int setup_exec_directory(
+                Unit *u,
                 const ExecContext *context,
                 const ExecParameters *params,
                 uid_t uid,
@@ -2557,13 +2558,13 @@ static int setup_exec_directory(
                                         if (r < 0)
                                                 goto fail;
 
-                                        log_notice("Unit state directory %s missing but matching configuration directory %s exists, assuming update from systemd 253 or older, creating compatibility symlink.", p, q);
+                                        log_unit_notice(u, "Unit state directory %s missing but matching configuration directory %s exists, assuming update from systemd 253 or older, creating compatibility symlink.", p, q);
                                         continue;
                                 } else if (r != -ENOENT)
-                                        log_warning_errno(r, "Unable to detect whether unit configuration directory '%s' exists, assuming not: %m", q);
+                                        log_unit_warning_errno(u, r, "Unable to detect whether unit configuration directory '%s' exists, assuming not: %m", q);
 
                         } else if (r < 0)
-                                log_warning_errno(r, "Unable to detect whether unit state directory '%s' is missing, assuming it is: %m", p);
+                                log_unit_warning_errno(u, r, "Unable to detect whether unit state directory '%s' is missing, assuming it is: %m", p);
                 }
 
                 if (exec_directory_is_private(context, type)) {
@@ -2620,9 +2621,9 @@ static int setup_exec_directory(
                                  * it over. Most likely the service has been upgraded from one that didn't use
                                  * DynamicUser=1, to one that does. */
 
-                                log_info("Found pre-existing public %s= directory %s, migrating to %s.\n"
-                                         "Apparently, service previously had DynamicUser= turned off, and has now turned it on.",
-                                         exec_directory_type_to_string(type), p, pp);
+                                log_unit_info(u, "Found pre-existing public %s= directory %s, migrating to %s.\n"
+                                              "Apparently, service previously had DynamicUser= turned off, and has now turned it on.",
+                                              exec_directory_type_to_string(type), p, pp);
 
                                 if (rename(p, pp) < 0) {
                                         r = -errno;
@@ -2689,9 +2690,9 @@ static int setup_exec_directory(
                                         /* Hmm, apparently DynamicUser= was once turned on for this service,
                                          * but is no longer. Let's move the directory back up. */
 
-                                        log_info("Found pre-existing private %s= directory %s, migrating to %s.\n"
-                                                 "Apparently, service previously had DynamicUser= turned on, and has now turned it off.",
-                                                 exec_directory_type_to_string(type), q, p);
+                                        log_unit_info(u, "Found pre-existing private %s= directory %s, migrating to %s.\n"
+                                                      "Apparently, service previously had DynamicUser= turned on, and has now turned it off.",
+                                                      exec_directory_type_to_string(type), q, p);
 
                                         if (unlink(p) < 0) {
                                                 r = -errno;
@@ -2724,10 +2725,10 @@ static int setup_exec_directory(
 
                                         /* Still complain if the access mode doesn't match */
                                         if (((st.st_mode ^ context->directories[type].mode) & 07777) != 0)
-                                                log_warning("%s \'%s\' already exists but the mode is different. "
-                                                            "(File system: %o %sMode: %o)",
-                                                            exec_directory_type_to_string(type), context->directories[type].items[i].path,
-                                                            st.st_mode & 07777, exec_directory_type_to_string(type), context->directories[type].mode & 07777);
+                                                log_unit_warning(u, "%s \'%s\' already exists but the mode is different. "
+                                                                 "(File system: %o %sMode: %o)",
+                                                                 exec_directory_type_to_string(type), context->directories[type].items[i].path,
+                                                                 st.st_mode & 07777, exec_directory_type_to_string(type), context->directories[type].mode & 07777);
 
                                         continue;
                                 }
@@ -5297,7 +5298,7 @@ static int exec_child(
         needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
 
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
-                r = setup_exec_directory(context, params, uid, gid, dt, needs_mount_namespace, exit_status);
+                r = setup_exec_directory(unit, context, params, uid, gid, dt, needs_mount_namespace, exit_status);
                 if (r < 0)
                         return log_unit_error_errno(unit, r, "Failed to set up special execution directory in %s: %m", params->prefix[dt]);
         }
