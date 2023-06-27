@@ -111,12 +111,15 @@ int path_chown_recursive(
                 const char *path,
                 uid_t uid,
                 gid_t gid,
-                mode_t mask) {
+                mode_t mask,
+                int flags) {
 
         _cleanup_close_ int fd = -EBADF;
         struct stat st;
 
-        fd = open(path, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
+        assert((flags & ~AT_SYMLINK_FOLLOW) == 0);
+
+        fd = open(path, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOATIME|(FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? 0 : O_NOFOLLOW));
         if (fd < 0)
                 return -errno;
 
