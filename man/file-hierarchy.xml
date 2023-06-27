@@ -505,13 +505,10 @@
       <varlistentry>
         <term><filename>~/.cache/</filename></term>
 
-        <listitem><para>Persistent user cache data. User programs may
-        place non-essential data in this directory. Flushing this
-        directory should have no effect on operation of programs,
-        except for increased runtimes necessary to rebuild these
-        caches. If an application finds
-        <varname>$XDG_CACHE_HOME</varname> set, it should use the
-        directory specified in it instead of this
+        <listitem><para>Persistent user cache data. User programs may place non-essential data in this
+        directory. Flushing this directory should have no effect on operation of programs, except for
+        increased runtimes necessary to rebuild these caches. If an application finds
+        <varname>$XDG_CACHE_HOME</varname> set, it should use the directory specified in it instead of this
         directory.</para></listitem>
       </varlistentry>
 
@@ -527,44 +524,36 @@
       <varlistentry>
         <term><filename>~/.local/bin/</filename></term>
 
-        <listitem><para>Executables that shall appear in the user's
-        <varname>$PATH</varname> search path. It is recommended not to
-        place executables in this directory that are not useful for
-        invocation from a shell; these should be placed in a
-        subdirectory of <filename>~/.local/lib/</filename> instead.
-        Care should be taken when placing architecture-dependent
-        binaries in this place, which might be problematic if the home
-        directory is shared between multiple hosts with different
+        <listitem><para>Executables that shall appear in the user's <varname>$PATH</varname> search path. It
+        is recommended not to place executables in this directory that are not useful for invocation from a
+        shell; these should be placed in a subdirectory of <filename>~/.local/lib/</filename> instead. Care
+        should be taken when placing architecture-dependent binaries in this place, which might be
+        problematic if the home directory is shared between multiple hosts with different
         architectures.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><filename>~/.local/lib/</filename></term>
 
-        <listitem><para>Static, private vendor data that is compatible
-        with all architectures.</para></listitem>
+        <listitem><para>Static, private vendor data that is compatible with all
+        architectures.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><filename>~/.local/lib/<replaceable>arch-id</replaceable>/</filename></term>
 
-        <listitem><para>Location for placing public dynamic libraries.
-        The architecture identifier to use is defined on <ulink
-        url="https://wiki.debian.org/Multiarch/Tuples">Multiarch
-        Architecture Specifiers (Tuples)</ulink>
-        list.</para></listitem>
+        <listitem><para>Location for placing public dynamic libraries. The architecture identifier to use is
+        defined on <ulink url="https://wiki.debian.org/Multiarch/Tuples">Multiarch Architecture Specifiers
+        (Tuples)</ulink> list.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><filename>~/.local/share/</filename></term>
 
-        <listitem><para>Resources shared between multiple packages,
-        such as fonts or artwork. Usually, the precise location and
-        format of files stored below this directory is subject to
-        specifications that ensure interoperability. If an application
-        finds <varname>$XDG_DATA_HOME</varname> set, it should use the
-        directory specified in it instead of this
-        directory.</para></listitem>
+        <listitem><para>Resources shared between multiple packages, such as fonts or artwork. Usually, the
+        precise location and format of files stored below this directory is subject to specifications that
+        ensure interoperability. If an application finds <varname>$XDG_DATA_HOME</varname> set, it should use
+        the directory specified in it instead of this directory.</para></listitem>
       </varlistentry>
 
       <varlistentry>
