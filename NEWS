@@ -22,6 +22,11 @@ CHANGES WITH 254 in spe:
           with escape as a non comment line. For details, see:
           https://github.com/systemd/systemd/issues/27975
 
+        * Support for System V service scripts is now deprecated and will be
+          removed in a future release. Please make sure to update your software
+          *now* to include a native systemd unit file instead of a legacy
+          System V script to retain compatibility with future systemd releases.
+
         Security relevant changes:
 
         * pam_systemd will now by default pass the CAP_WAKE_ALARM ambient
