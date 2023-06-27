@@ -2625,10 +2625,9 @@ static int setup_exec_directory(
                                               "Apparently, service previously had DynamicUser= turned off, and has now turned it on.",
                                               exec_directory_type_to_string(type), p, pp);
 
-                                if (rename(p, pp) < 0) {
-                                        r = -errno;
+                                r = RET_NERRNO(rename(p, pp));
+                                if (r < 0)
                                         goto fail;
-                                }
                         } else {
                                 /* Otherwise, create the actual directory for the service */
 
@@ -2694,15 +2693,13 @@ static int setup_exec_directory(
                                                       "Apparently, service previously had DynamicUser= turned on, and has now turned it off.",
                                                       exec_directory_type_to_string(type), q, p);
 
-                                        if (unlink(p) < 0) {
-                                                r = -errno;
+                                        r = RET_NERRNO(unlink(p));
+                                        if (r < 0)
                                                 goto fail;
-                                        }
 
-                                        if (rename(q, p) < 0) {
-                                                r = -errno;
+                                        r = RET_NERRNO(rename(q, p));
+                                        if (r < 0)
                                                 goto fail;
-                                        }
                                 }
                         }
 
@@ -2718,10 +2715,9 @@ static int setup_exec_directory(
                                          * as in the common case it is not written to by a service, and shall
                                          * not be writable. */
 
-                                        if (stat(p, &st) < 0) {
-                                                r = -errno;
+                                        r = RET_NERRNO(stat(p, &st));
+                                        if (r < 0)
                                                 goto fail;
-                                        }
 
                                         /* Still complain if the access mode doesn't match */
                                         if (((st.st_mode ^ context->directories[type].mode) & 07777) != 0)
