@@ -19,5 +19,5 @@ ConditionPathExists=/sys/firmware/efi/efivars/StubPcrKernelImage-4a67b082-0a4c-4
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart={{ROOTLIBEXECDIR}}/systemd-pcrphase --graceful ready
-ExecStop={{ROOTLIBEXECDIR}}/systemd-pcrphase --graceful shutdown
+ExecStart={{LIBEXECDIR}}/systemd-pcrphase --graceful ready
+ExecStop={{LIBEXECDIR}}/systemd-pcrphase --graceful shutdown

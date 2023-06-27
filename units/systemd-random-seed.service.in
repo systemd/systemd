@@ -25,8 +25,8 @@ Before=shutdown.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart={{ROOTLIBEXECDIR}}/systemd-random-seed load
-ExecStop={{ROOTLIBEXECDIR}}/systemd-random-seed save
+ExecStart={{LIBEXECDIR}}/systemd-random-seed load
+ExecStop={{LIBEXECDIR}}/systemd-random-seed save
 
 # This service waits until the kernel's entropy pool is initialized, and may be
 # used as ordering barrier for service that require an initialized entropy

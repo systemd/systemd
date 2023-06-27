@@ -17,7 +17,7 @@ Requires=systemd-journald.socket
 Before=shutdown.target
 
 [Service]
-ExecStart=-{{ROOTLIBEXECDIR}}/systemd-coredump
+ExecStart=-{{LIBEXECDIR}}/systemd-coredump
 IPAddressDeny=any
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
