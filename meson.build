@@ -1054,7 +1054,6 @@ if default_user_path != ''
         conf.set_quoted('DEFAULT_USER_PATH', default_user_path)
 endif
 
-
 #####################################################################
 
 threads = dependency('threads')
@@ -1956,14 +1955,6 @@ conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', slow_tests)
 
 ############################################################
 
-tests = []
-simple_tests = []
-fuzzers = []
-simple_fuzzers = []
-catalogs = []
-
-############################################################
-
 pymod = import('python')
 python = pymod.find_installation('python3', required : true, modules : ['jinja2'])
 python_39 = python.language_version().version_compare('>=3.9')
@@ -2173,6 +2164,15 @@ man_page_depends = []
 
 ############################################################
 
+tests = []
+simple_tests = []
+fuzzers = []
+simple_fuzzers = []
+catalogs = []
+modules = [] # nss, pam, and other plugins
+executables = []
+executables_by_name = {}
+
 # binaries that have --help and are intended for use by humans,
 # usually, but not always, installed in /bin.
 public_programs = []
@@ -2210,7 +2210,6 @@ subdir('src/libsystemd')
 subdir('src/shared')
 subdir('src/udev')
 subdir('src/libudev')
-subdir('src/cryptsetup/cryptsetup-tokens')
 
 libsystemd = shared_library(
         'systemd',
@@ -2297,64 +2296,60 @@ install_libudev_static = static_library(
         c_args : static_libudev_pic ? [] : ['-fno-PIC'],
         pic : static_libudev_pic)
 
-if conf.get('HAVE_LIBCRYPTSETUP_PLUGINS') == 1
-        if conf.get('HAVE_TPM2') == 1
-                shared_library(
-                        'cryptsetup-token-systemd-tpm2',
-                        cryptsetup_token_systemd_tpm2_sources,
-                        include_directories : includes,
-                        link_args : ['-shared',
-                                     '-Wl,--version-script=' + cryptsetup_token_sym_path],
-                        link_with : [lib_cryptsetup_token_common,
-                                     libshared],
-                        dependencies : [libcryptsetup,
-                                        tpm2,
-                                        userspace,
-                                        versiondep],
-                        link_depends : cryptsetup_token_sym,
-                        install_rpath : rootpkglibdir,
-                        install : true,
-                        install_dir : libcryptsetup_plugins_dir)
-        endif
+############################################################
 
-        if conf.get('HAVE_LIBFIDO2') == 1
-                shared_library(
-                        'cryptsetup-token-systemd-fido2',
-                        cryptsetup_token_systemd_fido2_sources,
-                        include_directories : includes,
-                        link_args : ['-shared',
-                                     '-Wl,--version-script=' + cryptsetup_token_sym_path],
-                        link_with : [lib_cryptsetup_token_common,
-                                     libshared],
-                        dependencies : [libcryptsetup,
-                                        libfido2,
-                                        userspace,
-                                        versiondep],
-                        link_depends : cryptsetup_token_sym,
-                        install_rpath : rootpkglibdir,
-                        install : true,
-                        install_dir : libcryptsetup_plugins_dir)
-        endif
+executable_template = {
+        'include_directories' : includes,
+        'link_with' : libshared,
+        'install_rpath' : rootpkglibdir,
+        'install' : true,
+}
 
-        if conf.get('HAVE_P11KIT') == 1
-                shared_library(
-                        'cryptsetup-token-systemd-pkcs11',
-                        cryptsetup_token_systemd_pkcs11_sources,
-                        include_directories : includes,
-                        link_args : ['-shared',
-                                     '-Wl,--version-script=' + cryptsetup_token_sym_path],
-                        link_with : [lib_cryptsetup_token_common,
-                                     libshared],
-                        dependencies : [libcryptsetup,
-                                        libp11kit,
-                                        userspace,
-                                        versiondep],
-                        link_depends : cryptsetup_token_sym,
-                        install_rpath : rootpkglibdir,
-                        install : true,
-                        install_dir : libcryptsetup_plugins_dir)
-        endif
-endif
+generator_template = executable_template + {
+        'install_dir' : systemgeneratordir,
+}
+
+libexec_template = executable_template + {
+        'install_dir' : rootlibexecdir,
+}
+
+executable_additional_kwargs = {
+        'dependencies' : userspace,
+}
+
+nss_template = {
+        'version' : '2',
+        'include_directories' : includes,
+        # Note that we link NSS modules with '-z nodelete' so that mempools never get orphaned
+        'link_args' : ['-z', 'nodelete'],
+        'link_with' : [libsystemd_static,
+                       libshared_static,
+                       libbasic],
+        'dependencies' : [librt,
+                          threads],
+        'install' : true,
+        'install_tag' : 'nss',
+        'install_dir' : rootlibdir,
+}
+
+pam_template = {
+        'name_prefix' : '',
+        'include_directories' : includes,
+        'link_with' : [libsystemd_static,
+                       libshared_static],
+        'dependencies' : [libpam_misc,
+                          libpam,
+                          threads,
+                          versiondep],
+        'install' : true,
+        'install_tag' : 'pam',
+        'install_dir' : pamlibdir,
+}
+
+module_additional_kwargs = {
+        'link_args' : ['-shared'],
+        'dependencies' : userspace,
+}
 
 ############################################################
 
@@ -2372,6 +2367,7 @@ subdir('src/busctl')
 subdir('src/coredump')
 subdir('src/cryptenroll')
 subdir('src/cryptsetup')
+subdir('src/cryptsetup/cryptsetup-tokens')
 subdir('src/home')
 subdir('src/hostname')
 subdir('src/import')
@@ -2382,6 +2378,10 @@ subdir('src/login')
 subdir('src/machine')
 subdir('src/network')
 subdir('src/nspawn')
+subdir('src/nss-myhostname')
+subdir('src/nss-mymachines')
+subdir('src/nss-resolve')
+subdir('src/nss-systemd')
 subdir('src/oom')
 subdir('src/partition')
 subdir('src/portable')
@@ -2410,6 +2410,51 @@ alias_target('devel', libsystemd_pc, libudev_pc, systemd_pc, udev_pc)
 
 ############################################################
 
+foreach dict : executables
+        name = dict.get('name')
+
+        build = true
+        foreach cond : dict.get('conditions', [])
+                if conf.get(cond) != 1
+                        build = false
+                        break
+                endif
+        endforeach
+        if not build
+                continue
+        endif
+
+        kwargs = {}
+        foreach key, val : dict
+                if key in ['name', 'dbus', 'public', 'conditions']
+                        continue
+                endif
+                kwargs += { key : val }
+        endforeach
+
+        foreach key, val : executable_additional_kwargs
+                kwargs += { key : [ kwargs.get(key, []), val ]}
+        endforeach
+
+        exe = executable(
+                name,
+                kwargs : kwargs,
+        )
+
+        executables_by_name += { name : exe }
+
+        if dict.get('build_by_default', true)
+                if dict.get('dbus', false)
+                        dbus_programs += exe
+                endif
+                if dict.get('public', false)
+                        public_programs += exe
+                endif
+        endif
+endforeach
+
+############################################################
+
 # only static linking apart from libdl, to make sure that the
 # module is linked to all libraries that it uses.
 test_dlopen = executable(
@@ -2421,85 +2466,63 @@ test_dlopen = executable(
                         userspace],
         build_by_default : want_tests != 'false')
 
-foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
-                 ['systemd',    'ENABLE_NSS_SYSTEMD', ['nss-systemd.h', 'userdb-glue.c', 'userdb-glue.h']],
-                 ['mymachines', 'ENABLE_NSS_MYMACHINES'],
-                 ['resolve',    'ENABLE_NSS_RESOLVE', [], resolve_includes]]
+foreach dict : modules
+        name = dict.get('name')
+        is_nss = name.startswith('nss_')
+        is_pam = name.startswith('pam_')
 
-        condition = tuple[1] == '' or conf.get(tuple[1]) == 1
-        if condition
-                module = tuple[0]
-
-                sym = 'src/nss-@0@/nss-@0@.sym'.format(module)
-                version_script_arg = project_source_root / sym
-
-                sources = ['src/nss-@0@/nss-@0@.c'.format(module)]
-                if tuple.length() > 2
-                        foreach s : tuple[2]
-                                sources += ['src/nss-@0@/@1@'.format(module, s)]
-                        endforeach
+        build = true
+        foreach cond : dict.get('conditions', [])
+                if conf.get(cond) != 1
+                        build = false
+                        break
                 endif
+        endforeach
+        if not build
+                continue
+        endif
 
-                incs = tuple.length() > 3 ? tuple[3] : includes
+        kwargs = {}
+        foreach key, val : dict
+                if key in ['name', 'conditions']
+                        continue
+                endif
+                kwargs += { key : val }
+        endforeach
 
-                nss = shared_library(
-                        'nss_' + module,
-                        sources,
-                        version : '2',
-                        include_directories : incs,
-                        # Note that we link NSS modules with '-z nodelete' so that mempools never get orphaned
-                        link_args : ['-Wl,-z,nodelete',
-                                     '-shared',
-                                     '-Wl,--version-script=' + version_script_arg],
-                        link_with : [libsystemd_static,
-                                     libshared_static,
-                                     libbasic],
-                        dependencies : [librt,
-                                        threads,
-                                        userspace],
-                        link_depends : sym,
-                        install : true,
-                        install_tag : 'nss',
-                        install_dir : rootlibdir)
+        sym = meson.current_source_dir() / '@0@'.format(dict.get('link_depends')[0])
+        kwargs += {
+                'link_args' : [
+                        kwargs.get('link_args', []),
+                        '-Wl,--version-script=' + sym,
+                ],
+        }
+        foreach key, val : module_additional_kwargs
+                kwargs += { key : [ kwargs.get(key, []), val ]}
+        endforeach
 
+        lib = shared_library(
+                name,
+                kwargs : kwargs,
+        )
+
+        if is_nss
                 # We cannot use shared_module because it does not support version suffix.
                 # Unfortunately shared_library insists on creating the symlink…
-                meson.add_install_script('sh', '-c',
-                                         'rm $DESTDIR@0@/libnss_@1@.so'
-                                         .format(rootlibdir, module),
-                                         install_tag : 'nss'
-                                         )
+                meson.add_install_script('sh', '-c', 'rm $DESTDIR@0@/lib@1@.so'.format(rootlibdir, name),
+                                         install_tag : 'nss')
+        endif
 
-                if want_tests != 'false'
-                        test('dlopen-nss_' + module,
-                             test_dlopen,
-                             # path to dlopen must include a slash
-                             args : nss.full_path(),
-                             depends : nss)
-                endif
+        if want_tests != 'false' and (is_nss or is_pam)
+                test('dlopen-' + name,
+                     test_dlopen,
+                     # path to dlopen must include a slash
+                     args : lib.full_path(),
+                     depends : lib)
         endif
 endforeach
 
 ############################################################
-
-exe = executable(
-        'systemd',
-        systemd_sources,
-        include_directories : includes,
-        link_with : [libcore,
-                     libshared],
-        dependencies : [libseccomp,
-                        userspace,
-                        versiondep],
-        install_rpath : rootpkglibdir,
-        install : true,
-        install_dir : rootlibexecdir)
-dbus_programs += exe
-public_programs += exe
-
-meson.add_install_script(meson_make_symlink,
-                         rootlibexecdir / 'systemd',
-                         rootsbindir / 'init')
 
 exe = executable(
         'systemd-analyze',
