@@ -1290,7 +1290,7 @@ static int socket_symlink(Socket *s) {
 
                 if (r < 0)
                         log_unit_warning_errno(UNIT(s), r, "Failed to create symlink %s %s %s, ignoring: %m",
-                                               p, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), *i);
+                                               p, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), *i);
         }
 
         return 0;

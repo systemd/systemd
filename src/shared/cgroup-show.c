@@ -70,9 +70,9 @@ static void show_pid_array(
                                            &t);
 
                 if (extra)
-                        printf("%s%s ", prefix, special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET));
+                        printf("%s%s ", prefix, special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET, /* force_utf8= */ false));
                 else
-                        printf("%s%s", prefix, special_glyph(((more || i < n_pids-1) ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT)));
+                        printf("%s%s", prefix, special_glyph(((more || i < n_pids-1) ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT), /* force_utf= */ false));
 
                 printf("%s%*"PID_PRI" %s%s\n", ansi_grey(), (int) pid_width, pids[i], strna(t), ansi_normal());
         }
@@ -193,7 +193,7 @@ static int show_cgroup_name(
                 return log_error_errno(r, "Failed to extract filename from cgroup path: %m");
 
         printf("%s%s%s%s%s",
-               prefix, special_glyph(glyph),
+               prefix, special_glyph(glyph, /* force_utf8= */ false),
                delegate ? ansi_underline() : "",
                cg_unescape(b),
                delegate ? ansi_normal() : "");
@@ -201,7 +201,7 @@ static int show_cgroup_name(
         if (delegate)
                 printf(" %s%s%s",
                        ansi_highlight(),
-                       special_glyph(SPECIAL_GLYPH_ELLIPSIS),
+                       special_glyph(SPECIAL_GLYPH_ELLIPSIS, /* force_utf8= */ false),
                        ansi_normal());
 
         if (cgroupid != UINT64_MAX)
@@ -239,8 +239,8 @@ static int show_cgroup_name(
 
                         printf("%s%s%s %s%s%s: %s\n",
                                prefix,
-                               glyph == SPECIAL_GLYPH_TREE_BRANCH ? special_glyph(SPECIAL_GLYPH_TREE_VERTICAL) : "  ",
-                               special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                               glyph == SPECIAL_GLYPH_TREE_BRANCH ? special_glyph(SPECIAL_GLYPH_TREE_VERTICAL, /* force_utf8= */ false) : "  ",
+                               special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false),
                                ansi_blue(), x, ansi_normal(),
                                y);
                 }
@@ -298,7 +298,7 @@ int show_cgroup_by_path(
                                 return r;
 
                         if (!p1) {
-                                p1 = strjoin(prefix, special_glyph(SPECIAL_GLYPH_TREE_VERTICAL));
+                                p1 = strjoin(prefix, special_glyph(SPECIAL_GLYPH_TREE_VERTICAL, /* force_utf8= */ false));
                                 if (!p1)
                                         return -ENOMEM;
                         }

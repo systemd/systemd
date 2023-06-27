@@ -198,7 +198,7 @@ static int output_machines_list(struct machine_info *machine_infos, unsigned n) 
                         mname = strjoin(strna(m->name), " (host)");
 
                 r = table_add_many(table,
-                                   TABLE_STRING, circle ? special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE) : " ",
+                                   TABLE_STRING, circle ? special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE, /* force_utf8= */ false) : " ",
                                    TABLE_SET_COLOR, on_state,
                                    TABLE_STRING, m->is_host ? mname : strna(m->name),
                                    TABLE_STRING, strna(m->state),

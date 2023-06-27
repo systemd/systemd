@@ -199,7 +199,7 @@ static int prompt_loop(const char *text, char **l, unsigned percentage, bool (*i
                 unsigned u;
 
                 r = ask_string(&p, "%s %s (empty to skip, \"list\" to list options): ",
-                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), text);
+                               special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET, /* force_utf8= */ false), text);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query user: %m");
 
@@ -657,7 +657,7 @@ static int prompt_hostname(int rfd) {
         for (;;) {
                 _cleanup_free_ char *h = NULL;
 
-                r = ask_string(&h, "%s Please enter hostname for new system (empty to skip): ", special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET));
+                r = ask_string(&h, "%s Please enter hostname for new system (empty to skip): ", special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET, /* force_utf8= */ false));
                 if (r < 0)
                         return log_error_errno(r, "Failed to query hostname: %m");
 
@@ -768,8 +768,8 @@ static int prompt_root_password(int rfd) {
         print_welcome(rfd);
         putchar('\n');
 
-        msg1 = strjoina(special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), " Please enter a new root password (empty to skip):");
-        msg2 = strjoina(special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), " Please enter new root password again:");
+        msg1 = strjoina(special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET, /* force_utf8= */ false), " Please enter a new root password (empty to skip):");
+        msg2 = strjoina(special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET, /* force_utf8= */ false), " Please enter new root password again:");
 
         suggest_passwords();
 
@@ -856,7 +856,7 @@ static int prompt_root_shell(int rfd) {
         for (;;) {
                 _cleanup_free_ char *s = NULL;
 
-                r = ask_string(&s, "%s Please enter root shell for new system (empty to skip): ", special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET));
+                r = ask_string(&s, "%s Please enter root shell for new system (empty to skip): ", special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET, /* force_utf8= */ false));
                 if (r < 0)
                         return log_error_errno(r, "Failed to query root shell: %m");
 

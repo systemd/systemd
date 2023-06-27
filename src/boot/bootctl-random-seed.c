@@ -41,11 +41,11 @@ static int random_seed_verify_permissions(int fd, mode_t expected_type) {
 
         if (S_ISREG(expected_type))
                 log_warning("%s Random seed file '%s' is world accessible, which is a security hole! %s",
-                            special_glyph(SPECIAL_GLYPH_WARNING_SIGN), full_path, special_glyph(SPECIAL_GLYPH_WARNING_SIGN));
+                            special_glyph(SPECIAL_GLYPH_WARNING_SIGN, /* force_utf8= */ false), full_path, special_glyph(SPECIAL_GLYPH_WARNING_SIGN, /* force_utf8= */ false));
         else {
                 assert(S_ISDIR(expected_type));
                 log_warning("%s Mount point '%s' which backs the random seed file is world accessible, which is a security hole! %s",
-                            special_glyph(SPECIAL_GLYPH_WARNING_SIGN), full_path, special_glyph(SPECIAL_GLYPH_WARNING_SIGN));
+                            special_glyph(SPECIAL_GLYPH_WARNING_SIGN, /* force_utf8= */ false), full_path, special_glyph(SPECIAL_GLYPH_WARNING_SIGN, /* force_utf8= */ false));
         }
 
         return 1;

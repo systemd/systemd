@@ -33,7 +33,7 @@ static int output_waiting_jobs(sd_bus *bus, Table *table, uint32_t id, const cha
                         return log_oom();
 
                 rc = table_add_many(table,
-                                    TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT),
+                                    TABLE_STRING, special_glyph(SPECIAL_GLYPH_TREE_RIGHT, /* force_utf8= */ false),
                                     TABLE_STRING, row,
                                     TABLE_EMPTY,
                                     TABLE_EMPTY);

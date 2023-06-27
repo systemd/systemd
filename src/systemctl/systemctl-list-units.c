@@ -156,7 +156,7 @@ static int output_units_list(const UnitInfo *unit_infos, size_t c) {
                         return log_oom();
 
                 r = table_add_many(table,
-                                   TABLE_STRING, circle ? special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE) : " ",
+                                   TABLE_STRING, circle ? special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE, /* force_utf8= */ false) : " ",
                                    TABLE_SET_BOTH_COLORS, on_circle,
                                    TABLE_STRING, id,
                                    TABLE_SET_BOTH_COLORS, on_active,

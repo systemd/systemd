@@ -80,7 +80,7 @@ TEST(keymaps) {
         assert_se(keymap_is_valid("unicode"));
 }
 
-#define dump_glyph(x) log_info(STRINGIFY(x) ": %s", special_glyph(x))
+#define dump_glyph(x) log_info(STRINGIFY(x) ": %s", special_glyph(x, /* force_utf8= */ false))
 TEST(dump_special_glyphs) {
         assert_cc(SPECIAL_GLYPH_WARNING_SIGN + 1 == _SPECIAL_GLYPH_MAX);
 
@@ -119,7 +119,51 @@ TEST(dump_special_glyphs) {
         dump_glyph(SPECIAL_GLYPH_RECYCLING);
         dump_glyph(SPECIAL_GLYPH_DOWNLOAD);
         dump_glyph(SPECIAL_GLYPH_SPARKLES);
+        dump_glyph(SPECIAL_GLYPH_LOW_BATTERY);
         dump_glyph(SPECIAL_GLYPH_WARNING_SIGN);
+}
+
+#define dump_glyph_force_utf(x) log_info(STRINGIFY(x) ": %s", special_glyph(x, /* force_utf= */ true))
+TEST(dump_special_glyphs_utf8) {
+        assert_cc(SPECIAL_GLYPH_WARNING_SIGN + 1 == _SPECIAL_GLYPH_MAX);
+
+        log_info("is_locale_utf8: %s", yes_no(is_locale_utf8()));
+
+        dump_glyph_force_utf(SPECIAL_GLYPH_TREE_VERTICAL);
+        dump_glyph_force_utf(SPECIAL_GLYPH_TREE_BRANCH);
+        dump_glyph_force_utf(SPECIAL_GLYPH_TREE_RIGHT);
+        dump_glyph_force_utf(SPECIAL_GLYPH_TREE_SPACE);
+        dump_glyph_force_utf(SPECIAL_GLYPH_TREE_TOP);
+        dump_glyph_force_utf(SPECIAL_GLYPH_VERTICAL_DOTTED);
+        dump_glyph_force_utf(SPECIAL_GLYPH_TRIANGULAR_BULLET);
+        dump_glyph_force_utf(SPECIAL_GLYPH_BLACK_CIRCLE);
+        dump_glyph_force_utf(SPECIAL_GLYPH_WHITE_CIRCLE);
+        dump_glyph_force_utf(SPECIAL_GLYPH_MULTIPLICATION_SIGN);
+        dump_glyph_force_utf(SPECIAL_GLYPH_CIRCLE_ARROW);
+        dump_glyph_force_utf(SPECIAL_GLYPH_BULLET);
+        dump_glyph_force_utf(SPECIAL_GLYPH_ARROW_LEFT);
+        dump_glyph_force_utf(SPECIAL_GLYPH_ARROW_RIGHT);
+        dump_glyph_force_utf(SPECIAL_GLYPH_ARROW_UP);
+        dump_glyph_force_utf(SPECIAL_GLYPH_ARROW_DOWN);
+        dump_glyph_force_utf(SPECIAL_GLYPH_ELLIPSIS);
+        dump_glyph_force_utf(SPECIAL_GLYPH_MU);
+        dump_glyph_force_utf(SPECIAL_GLYPH_CHECK_MARK);
+        dump_glyph_force_utf(SPECIAL_GLYPH_CROSS_MARK);
+        dump_glyph_force_utf(SPECIAL_GLYPH_EXTERNAL_LINK);
+        dump_glyph_force_utf(SPECIAL_GLYPH_ECSTATIC_SMILEY);
+        dump_glyph_force_utf(SPECIAL_GLYPH_HAPPY_SMILEY);
+        dump_glyph_force_utf(SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY);
+        dump_glyph_force_utf(SPECIAL_GLYPH_NEUTRAL_SMILEY);
+        dump_glyph_force_utf(SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY);
+        dump_glyph_force_utf(SPECIAL_GLYPH_UNHAPPY_SMILEY);
+        dump_glyph_force_utf(SPECIAL_GLYPH_DEPRESSED_SMILEY);
+        dump_glyph_force_utf(SPECIAL_GLYPH_LOCK_AND_KEY);
+        dump_glyph_force_utf(SPECIAL_GLYPH_TOUCH);
+        dump_glyph_force_utf(SPECIAL_GLYPH_RECYCLING);
+        dump_glyph_force_utf(SPECIAL_GLYPH_DOWNLOAD);
+        dump_glyph_force_utf(SPECIAL_GLYPH_SPARKLES);
+        dump_glyph_force_utf(SPECIAL_GLYPH_LOW_BATTERY);
+        dump_glyph_force_utf(SPECIAL_GLYPH_WARNING_SIGN);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

@@ -310,7 +310,7 @@ static void varlink_set_state(Varlink *v, VarlinkState state) {
         else
                 varlink_log(v, "Changing state %s %s %s",
                             varlink_state_to_string(v->state),
-                            special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                            special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false),
                             varlink_state_to_string(state));
 
         v->state = state;

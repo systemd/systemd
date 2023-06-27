@@ -1906,7 +1906,7 @@ static int assess(const SecurityInfo *info,
                         name = info->id;
 
                 printf("\n%s %sOverall exposure level for %s%s: %s%" PRIu64 ".%" PRIu64 " %s%s %s\n",
-                       special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                       special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false),
                        ansi_highlight(),
                        name,
                        ansi_normal(),
@@ -1914,7 +1914,7 @@ static int assess(const SecurityInfo *info,
                        exposure / 10, exposure % 10,
                        badness_table[i].name,
                        ansi_normal(),
-                       special_glyph(badness_table[i].smiley));
+                       special_glyph(badness_table[i].smiley, /* force_utf8= */ false));
         }
 
         fflush(stdout);
@@ -1938,7 +1938,7 @@ static int assess(const SecurityInfo *info,
                                    TABLE_SET_ALIGN_PERCENT, 100,
                                    TABLE_STRING, badness_table[i].name,
                                    TABLE_SET_COLOR, strempty(badness_table[i].color),
-                                   TABLE_STRING, special_glyph(badness_table[i].smiley));
+                                   TABLE_STRING, special_glyph(badness_table[i].smiley, /* force_utf8= */ false));
                 if (r < 0)
                         return table_log_add_error(r);
         }

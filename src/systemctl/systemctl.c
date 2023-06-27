@@ -1247,7 +1247,7 @@ static int run(int argc, char *argv[]) {
                          "%s%s/proc/ is not mounted. This is not a supported mode of operation. Please fix\n"
                          "your invocation environment to mount /proc/ and /sys/ properly. Proceeding anyway.\n"
                          "Your mileage may vary.",
-                         emoji_enabled() ? special_glyph(SPECIAL_GLYPH_WARNING_SIGN) : "",
+                         emoji_enabled() ? special_glyph(SPECIAL_GLYPH_WARNING_SIGN, /* force_utf8= */ false) : "",
                          emoji_enabled() ? " " : "");
 
         if (arg_action != ACTION_SYSTEMCTL && running_in_chroot() > 0) {

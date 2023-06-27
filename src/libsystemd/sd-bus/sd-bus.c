@@ -530,7 +530,7 @@ void bus_set_state(sd_bus *bus, enum bus_state state) {
                 return;
 
         log_debug("Bus %s: changing state %s %s %s", strna(bus->description),
-                  table[bus->state], special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), table[state]);
+                  table[bus->state], special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), table[state]);
         bus->state = state;
 }
 

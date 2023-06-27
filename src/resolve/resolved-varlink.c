@@ -386,7 +386,7 @@ static int json_dispatch_address(const char *name, JsonVariant *variant, JsonDis
                 if (b < 0 || b > 0xff)
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
                                         "Element %zu of JSON field '%s' is out of range 0%s255.",
-                                        k, strna(name), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                                        k, strna(name), special_glyph(SPECIAL_GLYPH_ELLIPSIS, /* force_utf8= */ false));
 
                 buf.bytes[k++] = (uint8_t) b;
         }
