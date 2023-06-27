@@ -198,6 +198,9 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_MEMORY_TRIM                        SD_ID128_MAKE(f9,b0,be,46,5a,d5,40,d0,85,0a,d3,21,72,d5,7c,21)
 #define SD_MESSAGE_MEMORY_TRIM_STR                    SD_ID128_MAKE_STR(f9,b0,be,46,5a,d5,40,d0,85,0a,d3,21,72,d5,7c,21)
 
+#define SD_MESSAGE_SYSV_GENERATOR_DEPRECATED          SD_ID128_MAKE(a8,fa,8d,ac,db,1d,44,3e,95,03,b8,be,36,7a,6a,db)
+#define SD_MESSAGE_SYSV_GENERATOR_DEPRECATED_STR      SD_ID128_MAKE_STR(a8,fa,8d,ac,db,1d,44,3e,95,03,b8,be,36,7a,6a,db)
+
 _SD_END_DECLARATIONS;
 
 #endif
