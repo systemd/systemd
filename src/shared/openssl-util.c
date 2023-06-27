@@ -223,6 +223,104 @@ int openssl_hmac_many(
         return 0;
 }
 
+/* Symmetric Cipher encryption using the alg-bits-mode cipher, e.g. AES-128-CFB. The key is required and must
+ * be at least the minimum required key length for the cipher. The IV is optional but, if provided, it must
+ * be at least the minimum iv length for the cipher. If no IV is provided and the cipher requires one, a
+ * buffer of zeroes is used. */
+int openssl_cipher(
+                const char *alg,
+                size_t bits,
+                const char *mode,
+                const void *key,
+                size_t key_size,
+                const void *iv,
+                size_t iv_size,
+                const struct iovec data[],
+                size_t n_data,
+                void **ret,
+                size_t *ret_size) {
+
+        assert(alg);
+        assert(bits > 0);
+        assert(mode);
+        assert(key);
+        assert(iv || iv_size == 0);
+        assert(data || n_data == 0);
+        assert(ret);
+        assert(ret_size);
+
+        _cleanup_free_ char *cipher_alg = NULL;
+        if (asprintf(&cipher_alg, "%s-%zu-%s", alg, bits, mode) < 0)
+                return log_oom_debug();
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        _cleanup_(EVP_CIPHER_freep) EVP_CIPHER *cipher = EVP_CIPHER_fetch(NULL, cipher_alg, NULL);
+#else
+        const EVP_CIPHER *cipher = EVP_get_cipherbyname(cipher_alg);
+#endif
+        if (!cipher)
+                return log_openssl_errors("Failed to get EVP_CIPHER for '%s'", cipher_alg);
+
+        _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+        if (!ctx)
+                return log_openssl_errors("Failed to create new EVP_CIPHER_CTX");
+
+        /* Verify enough key data was provided. */
+        int cipher_key_length = EVP_CIPHER_key_length(cipher);
+        assert(cipher_key_length >= 0);
+        if ((size_t) cipher_key_length > key_size)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Not enough key bytes provided, require %d", cipher_key_length);
+
+        /* Verify enough IV data was provided or, if no IV was provided, use a zeroed buffer for IV data. */
+        int cipher_iv_length = EVP_CIPHER_iv_length(cipher);
+        assert(cipher_iv_length >= 0);
+        _cleanup_free_ void *zero_iv = NULL;
+        if (!iv) {
+                zero_iv = malloc0(cipher_iv_length);
+                if (!zero_iv)
+                        return log_oom_debug();
+
+                iv = zero_iv;
+                iv_size = (size_t) cipher_iv_length;
+        }
+        if ((size_t) cipher_iv_length > iv_size)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Not enough IV bytes provided, require %d", cipher_iv_length);
+
+        if (!EVP_EncryptInit(ctx, cipher, key, iv))
+                return log_openssl_errors("Failed to initialize EVP_CIPHER_CTX.");
+
+        int cipher_block_size = EVP_CIPHER_CTX_block_size(ctx);
+
+        _cleanup_free_ uint8_t *buf = NULL;
+        size_t size = 0;
+
+        for (size_t i = 0; i < n_data; i++) {
+                /* Cipher may produce (up to) input length + cipher block size of output. */
+                if (!GREEDY_REALLOC(buf, size + data[i].iov_len + cipher_block_size))
+                        return log_oom_debug();
+
+                int update_size;
+                if (!EVP_EncryptUpdate(ctx, &buf[size], &update_size, data[i].iov_base, data[i].iov_len))
+                        return log_openssl_errors("Failed to update Cipher.");
+
+                size += update_size;
+        }
+
+        if (!GREEDY_REALLOC(buf, size + cipher_block_size))
+                return log_oom_debug();
+
+        int final_size;
+        if (!EVP_EncryptFinal_ex(ctx, &buf[size], &final_size))
+                return log_openssl_errors("Failed to finalize Cipher.");
+
+        *ret = TAKE_PTR(buf);
+        *ret_size = size + final_size;
+
+        return 0;
+}
+
 /* Perform Key-Based HMAC KDF. The mode must be "COUNTER" or "FEEDBACK". The parameter naming is from the
  * Openssl api, and maps to SP800-108 naming as "...key, salt, info, and seed correspond to KI, Label,
  * Context, and IV (respectively)...". The derive_size parameter specifies how many bytes are derived.
