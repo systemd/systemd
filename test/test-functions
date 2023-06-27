@@ -2765,9 +2765,6 @@ inst_binary() {
 #!/bin/bash
 # Preload the ASan runtime DSO, otherwise ASAn will complain
 export LD_PRELOAD="$ASAN_RT_PATH"
-# Disable LSan to speed things up, since we don't care about leak reports
-# from 'external' binaries
-export ASAN_OPTIONS=detect_leaks=0
 # Set argv[0] to the original binary name without the ".orig" suffix
 exec -a "\$0" -- "${target}.orig" "\$@"
 EOF
