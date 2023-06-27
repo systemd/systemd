@@ -37,6 +37,57 @@ systemd_journal_gatewayd_sources = files(
         'microhttpd-util.c',
 )
 
+executables += [
+        libexec_template + {
+                'name' : 'systemd-journal-upload',
+                'public' : true,
+                'conditions' : ['ENABLE_REMOTE', 'HAVE_LIBCURL'],
+                'sources' : systemd_journal_upload_sources,
+                'dependencies' : [libcurl,
+                                  libgnutls,
+                                  liblz4,
+                                  libxz,
+                                  libzstd,
+                                  threads,
+                                  versiondep],
+        },
+        libexec_template + {
+                'name' : 'systemd-journal-remote',
+                'public' : true,
+                'conditions' : ['ENABLE_REMOTE', 'HAVE_MICROHTTPD'],
+                'sources' : systemd_journal_remote_sources,
+                'include_directories' : journal_includes,
+                'link_with' : [libshared,
+                               libsystemd_journal_remote],
+                'dependencies' : [libgnutls,
+                                  liblz4,
+                                  libmicrohttpd,
+                                  libxz,
+                                  libzstd,
+                                  threads],
+        },
+        libexec_template + {
+                'name' : 'systemd-journal-gatewayd',
+                'public' : true,
+                'conditions' : ['ENABLE_REMOTE', 'HAVE_MICROHTTPD'],
+                'sources' : systemd_journal_gatewayd_sources,
+                'dependencies' : [libgnutls,
+                                  liblz4,
+                                  libmicrohttpd,
+                                  libxz,
+                                  libzstd,
+                                  threads],
+        },
+        fuzz_template + {
+                'sources' : files('fuzz-journal-remote.c'),
+                'link_with' : [
+                        libshared,
+                        libsystemd_journal_remote,
+                ],
+                'include_directories' : journal_includes,
+        },
+]
+
 in_files = [
         ['journal-upload.conf',
          conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_LIBCURL') == 1 and install_sysconfdir_samples],
@@ -66,16 +117,3 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
                                             chmod 755 $DESTDIR/var/log/journal/remote || :''')
         endif
 endif
-
-############################################################
-
-fuzzers += [
-        {
-                'sources' : files('fuzz-journal-remote.c'),
-                'link_with' : [
-                        libshared,
-                        libsystemd_journal_remote,
-                ],
-                'includes' : journal_includes,
-        },
-]
