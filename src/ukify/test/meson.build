@@ -15,5 +15,6 @@ if want_ukify and want_tests != 'false'
         test('test-ukify',
              files('test_ukify.py'),
              args: args,
-             env : test_env)
+             env : test_env,
+             suite : 'ukify')
 endif
