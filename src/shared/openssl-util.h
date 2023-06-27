@@ -23,6 +23,7 @@
 #  endif
 #  if OPENSSL_VERSION_MAJOR >= 3
 #    include <openssl/core_names.h>
+#    include <openssl/kdf.h>
 #    include <openssl/param_build.h>
 #  endif
 
@@ -40,6 +41,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(SSL*, SSL_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BIO*, BIO_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MD_CTX*, EVP_MD_CTX_free, NULL);
 #if OPENSSL_VERSION_MAJOR >= 3
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_KDF*, EVP_KDF_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_KDF_CTX*, EVP_KDF_CTX_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MAC*, EVP_MAC_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MAC_CTX*, EVP_MAC_CTX_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MD*, EVP_MD_free, NULL);
@@ -73,6 +76,8 @@ int openssl_hmac_many(const char *digest_alg, const void *key, size_t key_size, 
 static inline int openssl_hmac(const char *digest_alg, const void *key, size_t key_size, const void *buf, size_t len, void **ret_digest, size_t *ret_digest_size) {
         return openssl_hmac_many(digest_alg, key, key_size, &IOVEC_MAKE((void*) buf, len), 1, ret_digest, ret_digest_size);
 }
+
+int kdf_kb_hmac_derive(const char *mode, const char *digest, const void *key, size_t key_size, const void *salt, size_t salt_size, const void *info, size_t info_size, const void *seed, size_t seed_size, size_t derive_size, void **ret);
 
 int rsa_encrypt_bytes(EVP_PKEY *pkey, const void *decrypted_key, size_t decrypted_key_size, void **ret_encrypt_key, size_t *ret_encrypt_key_size);
 

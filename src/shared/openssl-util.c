@@ -223,6 +223,91 @@ int openssl_hmac_many(
         return 0;
 }
 
+/* Perform Key-Based HMAC KDF. The mode must be "COUNTER" or "FEEDBACK". The parameter naming is from the
+ * Openssl api, and maps to SP800-108 naming as "...key, salt, info, and seed correspond to KI, Label,
+ * Context, and IV (respectively)...". The derive_size parameter specifies how many bytes are derived.
+ *
+ * For more details see: https://www.openssl.org/docs/manmaster/man7/EVP_KDF-KB.html */
+int kdf_kb_hmac_derive(
+                const char *mode,
+                const char *digest,
+                const void *key,
+                size_t key_size,
+                const void *salt,
+                size_t salt_size,
+                const void *info,
+                size_t info_size,
+                const void *seed,
+                size_t seed_size,
+                size_t derive_size,
+                void **ret) {
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        assert(mode);
+        assert(digest);
+        assert(key || key_size == 0);
+        assert(salt || salt_size == 0);
+        assert(info || info_size == 0);
+        assert(seed || seed_size == 0);
+        assert(derive_size > 0);
+        assert(ret);
+
+        _cleanup_(EVP_KDF_freep) EVP_KDF *kdf = EVP_KDF_fetch(NULL, "KBKDF", NULL);
+        if (!kdf)
+                return log_openssl_errors("Failed to create new EVP_KDF");
+
+        _cleanup_(EVP_KDF_CTX_freep) EVP_KDF_CTX *ctx = EVP_KDF_CTX_new(kdf);
+        if (!ctx)
+                return log_openssl_errors("Failed to create new EVP_KDF_CTX");
+
+        _cleanup_(OSSL_PARAM_BLD_freep) OSSL_PARAM_BLD *bld = OSSL_PARAM_BLD_new();
+        if (!bld)
+                return log_openssl_errors("Failed to create new OSSL_PARAM_BLD");
+
+        if (!OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_KDF_PARAM_MAC, (char*) "HMAC", 0))
+                return log_openssl_errors("Failed to add KDF-KB OSSL_KDF_PARAM_MAC");
+
+        if (!OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_KDF_PARAM_MODE, (char*) mode, 0))
+                return log_openssl_errors("Failed to add KDF-KB OSSL_KDF_PARAM_MODE");
+
+        if (!OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_KDF_PARAM_DIGEST, (char*) digest, 0))
+                return log_openssl_errors("Failed to add KDF-KB OSSL_KDF_PARAM_DIGEST");
+
+        if (key)
+                if (!OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_KEY, (char*) key, key_size))
+                        return log_openssl_errors("Failed to add KDF-KB OSSL_KDF_PARAM_KEY");
+
+        if (salt)
+                if (!OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_SALT, (char*) salt, salt_size))
+                        return log_openssl_errors("Failed to add KDF-KB OSSL_KDF_PARAM_SALT");
+
+        if (info)
+                if (!OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_INFO, (char*) info, info_size))
+                        return log_openssl_errors("Failed to add KDF-KB OSSL_KDF_PARAM_INFO");
+
+        if (seed)
+                if (!OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_SEED, (char*) seed, seed_size))
+                        return log_openssl_errors("Failed to add KDF-KB OSSL_KDF_PARAM_SEED");
+
+        _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = OSSL_PARAM_BLD_to_param(bld);
+        if (!params)
+                return log_openssl_errors("Failed to build KDF-KB OSSL_PARAM");
+
+        _cleanup_free_ void *buf = malloc(derive_size);
+        if (!buf)
+                return log_oom_debug();
+
+        if (EVP_KDF_derive(ctx, buf, derive_size, params) <= 0)
+                return log_openssl_errors("Openssl KDF-KB derive failed");
+
+        *ret = TAKE_PTR(buf);
+
+        return 0;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "KDF-KB requires openssl >= 3.");
+#endif
+}
+
 int rsa_encrypt_bytes(
                 EVP_PKEY *pkey,
                 const void *decrypted_key,
