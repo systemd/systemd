@@ -17,6 +17,7 @@ systemd_analyze_sources = files(
         'analyze-inspect-elf.c',
         'analyze-log-control.c',
         'analyze-malloc.c',
+        'analyze-pcrs.c',
         'analyze-plot.c',
         'analyze-security.c',
         'analyze-service-watchdogs.c',

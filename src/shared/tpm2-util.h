@@ -221,4 +221,5 @@ int tpm2_util_pbkdf2_hmac_sha256(const void *pass,
                     size_t saltlen,
                     uint8_t res[static SHA256_DIGEST_SIZE]);
 
-int pcr_index_from_string(const char *s);
+int pcr_index_from_string(const char *s) _pure_;
+const char *pcr_index_to_string(int pcr) _const_;
