@@ -2615,7 +2615,7 @@ static int setup_exec_directory(
                                 goto fail;
 
                         if (is_dir(p, false) > 0 &&
-                            (laccess(pp, F_OK) < 0 && errno == ENOENT)) {
+                            (laccess(pp, F_OK) == -ENOENT)) {
 
                                 /* Hmm, the private directory doesn't exist yet, but the normal one exists? If so, move
                                  * it over. Most likely the service has been upgraded from one that didn't use
