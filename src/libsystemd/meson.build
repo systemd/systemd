@@ -111,7 +111,6 @@ libsystemd_sources = files(
         'sd-resolve/sd-resolve.c',
 ) + sd_journal_sources + id128_sources + sd_daemon_sources + sd_event_sources + sd_login_sources
 
-
 libsystemd_c_args = ['-fvisibility=default']
 
 libsystemd_static = static_library(
@@ -123,7 +122,8 @@ libsystemd_static = static_library(
                      libbasic_compress],
         dependencies : [threads,
                         librt,
-                        userspace],
+                        userspace,
+                        versiondep],
         build_by_default : false)
 
 libsystemd_dir_path = meson.current_source_dir()
@@ -155,7 +155,7 @@ simple_tests += files(
         'sd-journal/test-mmap-cache.c',
 )
 
-tests += [
+libsystemd_tests += [
         {
                 'sources' : files('sd-journal/test-journal-enum.c'),
                 'timeout' : 360,
@@ -177,7 +177,7 @@ simple_tests += files(
         'sd-netlink/test-netlink.c',
 )
 
-tests += [
+libsystemd_tests += [
         {
                 'sources' : files('sd-bus/test-bus-address.c'),
                 'dependencies' : threads
