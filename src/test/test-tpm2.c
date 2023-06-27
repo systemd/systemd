@@ -706,7 +706,7 @@ TEST(parse_pcr_argument) {
         check_parse_pcr_argument_to_mask("debug+24", -EINVAL);
 }
 
-static void tpm2b_public_init(TPM2B_PUBLIC *public) {
+static void tpm2b_public_rsa_init(TPM2B_PUBLIC *public, const char *rsa_n) {
         TPMT_PUBLIC tpmt = {
                 .type = TPM2_ALG_RSA,
                 .nameAlg = TPM2_ALG_SHA256,
@@ -722,23 +722,149 @@ static void tpm2b_public_init(TPM2B_PUBLIC *public) {
                 },
         };
 
-        DEFINE_HEX_PTR(key, "9ec7341c52093ac40a1965a5df10432513c539adcf905e30577ab6ebc88ffe53cd08cef12ed9bec6125432f4fada3629b8b96d31b8f507aa35029188fe396da823fcb236027f7fbb01b0da3d87be7f999390449ced604bdf7e26c48657cc0671000f1147da195c3861c96642e54427cb7a11572e07567ec3fd6316978abc4bd92b27bb0a0e4958e599804eeb41d682b3b7fc1f960209f80a4fb8a1b64abfd96bf5d554e73cdd6ad1c8becb4fcf5e8f0c3e621d210e5e2f308f6520ad9a966779231b99f06c5989e5a23a9415c8808ab89ce81117632e2f8461cd4428bded40979236aeadafe8de3f51660a45e1dbc87694e6a36360201cca3ff9e7263e712727");
+        DEFINE_HEX_PTR(key, rsa_n);
         tpmt.unique.rsa = TPM2B_PUBLIC_KEY_RSA_MAKE(key, key_len);
 
+        public->size = sizeof(tpmt);
         public->publicArea = tpmt;
+}
+
+static void tpm2b_public_ecc_init(TPM2B_PUBLIC *public, TPMI_ECC_CURVE curve, const char *x, const char *y) {
+        TPMT_PUBLIC tpmt = {
+                .type = TPM2_ALG_ECC,
+                .nameAlg = TPM2_ALG_SHA256,
+                .objectAttributes = TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH,
+                .parameters.eccDetail = {
+                        .symmetric = {
+                                .algorithm = TPM2_ALG_AES,
+                                .keyBits.aes = 128,
+                                .mode.aes = TPM2_ALG_CFB,
+                        },
+                        .scheme.scheme = TPM2_ALG_NULL,
+                        .curveID = curve,
+                        .kdf.scheme = TPM2_ALG_NULL,
+                },
+        };
+
+        DEFINE_HEX_PTR(buf_x, x);
+        tpmt.unique.ecc.x = TPM2B_ECC_PARAMETER_MAKE(buf_x, buf_x_len);
+
+        DEFINE_HEX_PTR(buf_y, y);
+        tpmt.unique.ecc.y = TPM2B_ECC_PARAMETER_MAKE(buf_y, buf_y_len);
+
+        public->size = sizeof(tpmt);
+        public->publicArea = tpmt;
+}
+
+#if HAVE_OPENSSL
+TEST(tpm2b_public_to_openssl_pkey) {
+        DEFINE_HEX_PTR(msg, "edc64c6523778961fe9ba03ab7d624b27ca1dd5b01e7734cc6c891d50db04269");
+        TPM2B_PUBLIC public;
+
+        /* RSA */
+        tpm2b_public_rsa_init(&public, "d71cff5bba2173f0434a389171048e7da8cf8409b892c62946481cc383089bc754324620967fea3d00a02a717cdda4bfe1525ad957d294b88434e0a3933e86fb40f234e4935fd2ba27eb1d21da87efa466b74eb4ad18d26059904643441cf402ee933d138a2151f40459c49d87fef59e2cb822768b2d8689a9b58f82bf9a37e70693f2b2d40dfa388d365c1b1f029a14c4fc8dadb68978ef377d20ff2ca24e7078464c705eab42f531557c9c6dc0df66b506d0c26ef604f8110c64867099267453c71871e7ed22505a09daf102afc34355209ca7680eccc0ed368d148f402fa58cbb6c9d52351f535f09e4e24ad805e149f130edaa2f5e7efed3a4d2d03adb85");
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey_rsa = NULL;
+        assert_se(tpm2_tpm2b_public_to_openssl_pkey(&public, &pkey_rsa) >= 0);
+
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx_rsa = EVP_PKEY_CTX_new((EVP_PKEY*) pkey_rsa, NULL);
+        assert_se(ctx_rsa);
+        assert_se(EVP_PKEY_verify_init(ctx_rsa) == 1);
+        assert_se(EVP_PKEY_CTX_set_signature_md(ctx_rsa, EVP_sha256()) > 0);
+
+        DEFINE_HEX_PTR(sig_rsa, "9f70a9e68911be3ec464cae91126328307bf355872127e042d6c61e0a80982872c151033bcf727abfae5fc9500c923120011e7ef4aa5fc690a59a034697b6022c141b4b209e2df6f4b282288cd9181073fbe7158ce113c79d87623423c1f3996ff931e59cc91db74f8e8656215b1436fc93ddec0f1f8fa8510826e674b250f047e6cba94c95ff98072a286baca94646b577974a1e00d56c21944e38960d8ee90511a2f938e5cf1ac7b7cc7ff8e3ac001d321254d3e4f988b90e9f6f873c26ecd0a12a626b3474833cdbb9e9f793238f6c97ee5b75a1a89bb7a7858d34ecfa6d34ac58d95085e6c4fbbebd47a4364be2725c2c6b3fa15d916f3c0b62a66fe76ae");
+        assert_se(EVP_PKEY_verify(ctx_rsa, sig_rsa, sig_rsa_len, (unsigned char*) msg, msg_len) == 1);
+
+        /* ECC */
+        tpm2b_public_ecc_init(&public, TPM2_ECC_NIST_P256, "6fc0ecf3645c673ab7e86d1ec5b315afb950257c5f68ab23296160006711fac2", "8dd2ef7a2c9ecede91493ba98c8fb3f893aff325c6a1e0f752c657b2d6ca1413");
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey_ecc = NULL;
+        assert_se(tpm2_tpm2b_public_to_openssl_pkey(&public, &pkey_ecc) >= 0);
+
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx_ecc = EVP_PKEY_CTX_new((EVP_PKEY*) pkey_ecc, NULL);
+        assert_se(ctx_ecc);
+        assert_se(EVP_PKEY_verify_init(ctx_ecc) == 1);
+
+        DEFINE_HEX_PTR(sig_ecc, "304602210092447ac0b5b32e90923f79bb4aba864b9c546a9900cf193a83243d35d189a2110221009a8b4df1dfa85e225eff9c606694d4d205a7a3968c9552f50bc2790209a90001");
+        assert_se(EVP_PKEY_verify(ctx_ecc, sig_ecc, sig_ecc_len, (unsigned char*) msg, msg_len) == 1);
+}
+
+static void get_tpm2b_public_from_pem(const void *pem, size_t pem_size, TPM2B_PUBLIC *ret) {
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        TPM2B_PUBLIC p1 = {}, p2 = {};
+
+        assert(pem);
+        assert(ret);
+
+        assert_se(openssl_pkey_from_pem(pem, pem_size, &pkey) >= 0);
+        assert_se(tpm2_tpm2b_public_from_openssl_pkey(pkey, &p1) >= 0);
+        assert_se(tpm2_tpm2b_public_from_pem(pem, pem_size, &p2) >= 0);
+        assert_se(memcmp_nn(&p1, sizeof(p1), &p2, sizeof(p2)) == 0);
+
+        *ret = p1;
+}
+
+static void check_tpm2b_public_fingerprint(const TPM2B_PUBLIC *public, const char *hexfp) {
+        DEFINE_HEX_PTR(expected, hexfp);
+        _cleanup_free_ void *fp = NULL;
+        size_t fp_size;
+
+        assert_se(tpm2_tpm2b_public_to_fingerprint(public, &fp, &fp_size) >= 0);
+        assert_se(memcmp_nn(fp, fp_size, expected, expected_len) == 0);
+}
+
+TEST(tpm2b_public_from_openssl_pkey) {
+        TPM2B_PUBLIC public;
+        TPMT_PUBLIC *p = &public.publicArea;
+
+        DEFINE_HEX_PTR(key_ecc, "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a30444151634451674145726a6e4575424c73496c3972687068777976584e50686a346a426e500a44586e794a304b395579724e6764365335413532542b6f5376746b436a365a726c34685847337741515558706f426c532b7448717452714c35513d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a");
+        get_tpm2b_public_from_pem(key_ecc, key_ecc_len, &public);
+
+        assert_se(p->type == TPM2_ALG_ECC);
+        assert_se(p->parameters.eccDetail.curveID == TPM2_ECC_NIST_P256);
+
+        DEFINE_HEX_PTR(expected_x, "ae39c4b812ec225f6b869870caf5cd3e18f88c19cf0d79f22742bd532acd81de");
+        assert_se(memcmp_nn(p->unique.ecc.x.buffer, p->unique.ecc.x.size, expected_x, expected_x_len) == 0);
+
+        DEFINE_HEX_PTR(expected_y, "92e40e764fea12bed9028fa66b9788571b7c004145e9a01952fad1eab51a8be5");
+        assert_se(memcmp_nn(p->unique.ecc.y.buffer, p->unique.ecc.y.size, expected_y, expected_y_len) == 0);
+
+        check_tpm2b_public_fingerprint(&public, "cd3373293b62a52b48c12100e80ea9bfd806266ce76893a5ec31cb128052d97c");
+
+        DEFINE_HEX_PTR(key_rsa, "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d494942496a414e42676b71686b6947397730424151454641414f43415138414d49494243674b4341514541795639434950652f505852337a436f63787045300a6a575262546c3568585844436b472f584b79374b6d2f4439584942334b734f5a31436a5937375571372f674359363170697838697552756a73413464503165380a593445336c68556d374a332b6473766b626f4b64553243626d52494c2f6675627771694c4d587a41673342575278747234547545443533527a373634554650640a307a70304b68775231496230444c67772f344e67566f314146763378784b4d6478774d45683567676b73733038326332706c354a504e32587677426f744e6b4d0a5471526c745a4a35355244436170696e7153334577376675646c4e735851357746766c7432377a7637344b585165616d704c59433037584f6761304c676c536b0a79754774586b6a50542f735542544a705374615769674d5a6f714b7479563463515a58436b4a52684459614c47587673504233687a766d5671636e6b47654e540a65774944415141420a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a");
+        get_tpm2b_public_from_pem(key_rsa, key_rsa_len, &public);
+
+        DEFINE_HEX_PTR(expected_n, "c95f4220f7bf3d7477cc2a1cc691348d645b4e5e615d70c2906fd72b2eca9bf0fd5c80772ac399d428d8efb52aeff80263ad698b1f22b91ba3b00e1d3f57bc638137961526ec9dfe76cbe46e829d53609b99120bfdfb9bc2a88b317cc0837056471b6be13b840f9dd1cfbeb85053ddd33a742a1c11d486f40cb830ff8360568d4016fdf1c4a31dc7030487982092cb34f36736a65e493cdd97bf0068b4d90c4ea465b59279e510c26a98a7a92dc4c3b7ee76536c5d0e7016f96ddbbcefef829741e6a6a4b602d3b5ce81ad0b8254a4cae1ad5e48cf4ffb140532694ad6968a0319a2a2adc95e1c4195c29094610d868b197bec3c1de1cef995a9c9e419e3537b");
+        assert_se(p->unique.rsa.size == expected_n_len);
+        assert_se(memcmp(p->unique.rsa.buffer, expected_n, expected_n_len) == 0);
+
+        assert_se(p->parameters.rsaDetail.keyBits == expected_n_len * 8);
+
+        assert_se(p->parameters.rsaDetail.exponent == 0);
+
+        check_tpm2b_public_fingerprint(&public, "d9186d13a7fd5b3644cee05448f49ad3574e82a2942ff93cf89598d36cca78a9");
+}
+#endif
+
+static void check_name(const TPM2B_NAME *name, const char *expect) {
+        assert_se(name->size == SHA256_DIGEST_SIZE + 2);
+
+        DEFINE_HEX_PTR(e, expect);
+        assert_se(name->size == e_len);
+        assert_se(memcmp(name->name, e, e_len) == 0);
 }
 
 TEST(calculate_name) {
         TPM2B_PUBLIC public;
         TPM2B_NAME name;
 
-        tpm2b_public_init(&public);
-        assert_se(tpm2_calculate_name(&public.publicArea, &name) == 0);
-        assert_se(name.size == SHA256_DIGEST_SIZE + 2);
+        /* RSA */
+        tpm2b_public_rsa_init(&public, "9ec7341c52093ac40a1965a5df10432513c539adcf905e30577ab6ebc88ffe53cd08cef12ed9bec6125432f4fada3629b8b96d31b8f507aa35029188fe396da823fcb236027f7fbb01b0da3d87be7f999390449ced604bdf7e26c48657cc0671000f1147da195c3861c96642e54427cb7a11572e07567ec3fd6316978abc4bd92b27bb0a0e4958e599804eeb41d682b3b7fc1f960209f80a4fb8a1b64abfd96bf5d554e73cdd6ad1c8becb4fcf5e8f0c3e621d210e5e2f308f6520ad9a966779231b99f06c5989e5a23a9415c8808ab89ce81117632e2f8461cd4428bded40979236aeadafe8de3f51660a45e1dbc87694e6a36360201cca3ff9e7263e712727");
+        assert_se(tpm2_calculate_name(&public.publicArea, &name) >= 0);
+        check_name(&name, "000be78f74a470dd92e979ca067cdb2293a35f075e8560b436bd2ccea5da21486a07");
 
-        DEFINE_HEX_PTR(e, "000be78f74a470dd92e979ca067cdb2293a35f075e8560b436bd2ccea5da21486a07");
-        assert_se(name.size == e_len);
-        assert_se(memcmp(name.name, e, e_len) == 0);
+        /* ECC */
+        tpm2b_public_ecc_init(&public, TPM2_ECC_NIST_P256, "238e02ee4fd5598add6b502429f1815418515e4b0d6551c8e816b38cb15451d1", "70c2d491769775ec43ccd5a571c429233e9d30cf0f486c2e01acd6cb32ba93b6");
+        assert_se(tpm2_calculate_name(&public.publicArea, &name) >= 0);
+        check_name(&name, "000b302787187ba19c82011c987bd2dcdbb652b3a543ccc5cb0b49c33d4caae604a6");
 }
 
 TEST(calculate_policy_auth_value) {
@@ -755,12 +881,21 @@ TEST(calculate_policy_authorize) {
         TPM2B_PUBLIC public;
         TPM2B_DIGEST d;
 
-        tpm2b_public_init(&public);
+        /* RSA */
+        tpm2b_public_rsa_init(&public, "9ec7341c52093ac40a1965a5df10432513c539adcf905e30577ab6ebc88ffe53cd08cef12ed9bec6125432f4fada3629b8b96d31b8f507aa35029188fe396da823fcb236027f7fbb01b0da3d87be7f999390449ced604bdf7e26c48657cc0671000f1147da195c3861c96642e54427cb7a11572e07567ec3fd6316978abc4bd92b27bb0a0e4958e599804eeb41d682b3b7fc1f960209f80a4fb8a1b64abfd96bf5d554e73cdd6ad1c8becb4fcf5e8f0c3e621d210e5e2f308f6520ad9a966779231b99f06c5989e5a23a9415c8808ab89ce81117632e2f8461cd4428bded40979236aeadafe8de3f51660a45e1dbc87694e6a36360201cca3ff9e7263e712727");
         digest_init(&d, "0000000000000000000000000000000000000000000000000000000000000000");
         assert_se(tpm2_calculate_policy_authorize(&public, NULL, &d) == 0);
         assert_se(digest_check(&d, "95213a3784eaab04f427bc7e8851c2f1df0903be8e42428ec25dcefd907baff1"));
         assert_se(tpm2_calculate_policy_authorize(&public, NULL, &d) == 0);
         assert_se(digest_check(&d, "95213a3784eaab04f427bc7e8851c2f1df0903be8e42428ec25dcefd907baff1"));
+
+        /* ECC */
+        tpm2b_public_ecc_init(&public, TPM2_ECC_NIST_P256, "423a89da6f0998f510489ab9682706e762031ef8f9faef2a185eff67065a187e", "996f73291670cef9e303d6cd9fa19ddf2c9c1fb1e283324ca9acca07c405c8d0");
+        digest_init(&d, "0000000000000000000000000000000000000000000000000000000000000000");
+        assert_se(tpm2_calculate_policy_authorize(&public, NULL, &d) == 0);
+        assert_se(digest_check(&d, "2a5b705e83f949c27ac4d2e79e54fb5fb0a60f0b37bbd54a0ee1022ba00d3628"));
+        assert_se(tpm2_calculate_policy_authorize(&public, NULL, &d) == 0);
+        assert_se(digest_check(&d, "2a5b705e83f949c27ac4d2e79e54fb5fb0a60f0b37bbd54a0ee1022ba00d3628"));
 }
 
 TEST(calculate_policy_pcr) {
