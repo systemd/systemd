@@ -393,7 +393,7 @@ int ask_password_tty(
                 message = "Password:";
 
         if (!FLAGS_SET(flags, ASK_PASSWORD_HIDE_EMOJI) && emoji_enabled())
-                message = strjoina(special_glyph(SPECIAL_GLYPH_LOCK_AND_KEY), " ", message);
+                message = strjoina(special_glyph(SPECIAL_GLYPH_LOCK_AND_KEY, /* force_utf8= */ false), " ", message);
 
         if (flag_file || (FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED) && keyname)) {
                 notify = inotify_init1(IN_CLOEXEC|IN_NONBLOCK);

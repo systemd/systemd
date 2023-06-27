@@ -2599,7 +2599,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                         if (r > 0) {
                                 type = DNS_TYPE_SOA;
                                 log_debug("Requesting parent SOA (%s %s) to validate transaction %" PRIu16 " (%s, %s empty DS response).",
-                                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), name, t->id,
+                                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), name, t->id,
                                           dns_resource_key_name(dns_transaction_key(t)), signed_status);
                         } else
                                 name = NULL;
@@ -2608,12 +2608,12 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
 
                         type = DNS_TYPE_DS;
                         log_debug("Requesting DS (%s %s) to validate transaction %" PRIu16 " (%s, %s empty SOA/NS response).",
-                                  special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), name, t->id, name, signed_status);
+                                  special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), name, t->id, name, signed_status);
 
                 } else {
                         type = DNS_TYPE_SOA;
                         log_debug("Requesting SOA (%s %s) to validate transaction %" PRIu16 " (%s, %s empty non-SOA/NS/DS response).",
-                                  special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), name, t->id, name, signed_status);
+                                  special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), name, t->id, name, signed_status);
                 }
 
                 if (name) {

@@ -1945,7 +1945,7 @@ static int manager_rebalance_calculate(Manager *m) {
                 else {
                         log_debug("Rebalancing home directory '%s' %s %s %s.", h->user_name,
                                   FORMAT_BYTES(h->rebalance_size),
-                                  special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                  special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false),
                                   FORMAT_BYTES(h->rebalance_goal));
                         h->rebalance_pending = true;
                 }

@@ -4068,7 +4068,7 @@ static int read_config_file(
         assert(fn);
 
         if (streq(fn, "-")) {
-                log_debug("Reading config from stdin%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                log_debug("Reading config from stdin%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS, /* force_utf8= */ false));
                 fn = "<stdin>";
                 f = stdin;
         } else {
@@ -4082,7 +4082,7 @@ static int read_config_file(
                         return log_error_errno(r, "Failed to open '%s': %m", fn);
                 }
 
-                log_debug("Reading config file \"%s\"%s", pp, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                log_debug("Reading config file \"%s\"%s", pp, special_glyph(SPECIAL_GLYPH_ELLIPSIS, /* force_utf8= */ false));
                 fn = pp;
                 f = _f;
         }
@@ -4185,7 +4185,7 @@ static int read_config_files(char **config_dirs, char **args, bool *invalid_conf
 
         STRV_FOREACH(f, files)
                 if (p && path_equal(*f, p)) {
-                        log_debug("Parsing arguments at position \"%s\"%s", *f, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                        log_debug("Parsing arguments at position \"%s\"%s", *f, special_glyph(SPECIAL_GLYPH_ELLIPSIS, /* force_utf8= */ false));
 
                         r = parse_arguments(config_dirs, args, invalid_config);
                         if (r < 0)

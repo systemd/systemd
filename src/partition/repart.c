@@ -1306,7 +1306,7 @@ static int config_parse_size4096(
 
         if (*sz != parsed)
                 log_syntax(unit, LOG_NOTICE, filename, line, r, "Rounded %s= size %" PRIu64 " %s %" PRIu64 ", a multiple of 4096.",
-                           lvalue, parsed, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), *sz);
+                           lvalue, parsed, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), *sz);
 
         return 0;
 }
@@ -2449,9 +2449,9 @@ static int format_size_change(uint64_t from, uint64_t to, char **ret) {
                 if (from == to || to == UINT64_MAX)
                         t = strdup(FORMAT_BYTES(from));
                 else
-                        t = strjoin(FORMAT_BYTES(from), " ", special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), " ", FORMAT_BYTES(to));
+                        t = strjoin(FORMAT_BYTES(from), " ", special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), " ", FORMAT_BYTES(to));
         } else if (to != UINT64_MAX)
-                t = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), " ", FORMAT_BYTES(to));
+                t = strjoin(special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), " ", FORMAT_BYTES(to));
         else {
                 *ret = NULL;
                 return 0;
@@ -2593,8 +2593,8 @@ static int context_dump_partitions(Context *context) {
         if ((arg_json_format_flags & JSON_FORMAT_OFF) && (sum_padding > 0 || sum_size > 0)) {
                 const char *a, *b;
 
-                a = strjoina(special_glyph(SPECIAL_GLYPH_SIGMA), " = ", FORMAT_BYTES(sum_size));
-                b = strjoina(special_glyph(SPECIAL_GLYPH_SIGMA), " = ", FORMAT_BYTES(sum_padding));
+                a = strjoina(special_glyph(SPECIAL_GLYPH_SIGMA, /* force_utf8= */ false), " = ", FORMAT_BYTES(sum_size));
+                b = strjoina(special_glyph(SPECIAL_GLYPH_SIGMA, /* force_utf8= */ false), " = ", FORMAT_BYTES(sum_padding));
 
                 r = table_add_many(
                                 t,
@@ -2748,10 +2748,10 @@ static int context_dump_partition_bar(Context *context) {
                                 z = !z;
 
                         fputs(z ? ansi_green() : ansi_yellow(), stdout);
-                        fputs(special_glyph(SPECIAL_GLYPH_DARK_SHADE), stdout);
+                        fputs(special_glyph(SPECIAL_GLYPH_DARK_SHADE, /* force_utf8= */ false), stdout);
                 } else {
                         fputs(ansi_normal(), stdout);
-                        fputs(special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), stdout);
+                        fputs(special_glyph(SPECIAL_GLYPH_LIGHT_SHADE, /* force_utf8= */ false), stdout);
                 }
 
                 last = bar[i];
@@ -2778,16 +2778,16 @@ static int context_dump_partition_bar(Context *context) {
                                         const char *e;
 
                                         /* Upgrade final corner to the right with a branch to the right */
-                                        e = startswith(line[start_array[j-1]], special_glyph(SPECIAL_GLYPH_TREE_RIGHT));
+                                        e = startswith(line[start_array[j-1]], special_glyph(SPECIAL_GLYPH_TREE_RIGHT, /* force_utf8= */ false));
                                         if (e) {
-                                                d = strjoin(special_glyph(SPECIAL_GLYPH_TREE_BRANCH), e);
+                                                d = strjoin(special_glyph(SPECIAL_GLYPH_TREE_BRANCH, /* force_utf8= */ false), e);
                                                 if (!d)
                                                         return log_oom();
                                         }
                                 }
 
                                 if (!d) {
-                                        d = strdup(special_glyph(SPECIAL_GLYPH_TREE_VERTICAL));
+                                        d = strdup(special_glyph(SPECIAL_GLYPH_TREE_VERTICAL, /* force_utf8= */ false));
                                         if (!d)
                                                 return log_oom();
                                 }
@@ -2797,10 +2797,10 @@ static int context_dump_partition_bar(Context *context) {
 
                                 (void) partition_hint(p, context->node, &hint);
 
-                                if (streq_ptr(line[start_array[j-1]], special_glyph(SPECIAL_GLYPH_TREE_VERTICAL)))
-                                        d = strjoin(special_glyph(SPECIAL_GLYPH_TREE_BRANCH), " ", strna(hint));
+                                if (streq_ptr(line[start_array[j-1]], special_glyph(SPECIAL_GLYPH_TREE_VERTICAL, /* force_utf8= */ false)))
+                                        d = strjoin(special_glyph(SPECIAL_GLYPH_TREE_BRANCH, /* force_utf8= */ false), " ", strna(hint));
                                 else
-                                        d = strjoin(special_glyph(SPECIAL_GLYPH_TREE_RIGHT), " ", strna(hint));
+                                        d = strjoin(special_glyph(SPECIAL_GLYPH_TREE_RIGHT, /* force_utf8= */ false), " ", strna(hint));
 
                                 if (!d)
                                         return log_oom();
@@ -6191,7 +6191,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         if (rounded != parsed)
                                 log_warning("Specified size is not a multiple of 4096, rounding up automatically. (%" PRIu64 " %s %" PRIu64 ")",
-                                            parsed, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), rounded);
+                                            parsed, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), rounded);
 
                         arg_size = rounded;
                         arg_size_auto = false;

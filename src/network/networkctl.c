@@ -1660,7 +1660,7 @@ static int format_dropins(char **dropins) {
                 _cleanup_free_ char *s = NULL;
                 int glyph = *(d + 1) == NULL ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH;
 
-                s = strjoin(special_glyph(glyph), *d);
+                s = strjoin(special_glyph(glyph, /* force_utf8= */ false), *d);
                 if (!s)
                         return log_oom();
 
@@ -1773,7 +1773,7 @@ static int link_status_one(
 
         /* First line: circle, ifindex, ifname. */
         r = table_add_many(table,
-                           TABLE_STRING, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE),
+                           TABLE_STRING, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE, /* force_utf8= */ false),
                            TABLE_SET_COLOR, on_color_operational);
         if (r < 0)
                 return table_log_add_error(r);
@@ -2461,7 +2461,7 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         table_set_header(table, false);
 
         r = table_add_many(table,
-                           TABLE_STRING, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE),
+                           TABLE_STRING, special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE, /* force_utf8= */ false),
                            TABLE_SET_COLOR, on_color_operational,
                            TABLE_STRING, "State:",
                            TABLE_STRING, strna(operational_state),

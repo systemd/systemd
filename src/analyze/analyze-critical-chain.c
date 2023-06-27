@@ -24,9 +24,9 @@ static int list_dependencies_print(
                 BootTimes *boot) {
 
         for (unsigned i = level; i != 0; i--)
-                printf("%s", special_glyph(branches & (1 << (i-1)) ? SPECIAL_GLYPH_TREE_VERTICAL : SPECIAL_GLYPH_TREE_SPACE));
+                printf("%s", special_glyph(branches & (1 << (i-1)) ? SPECIAL_GLYPH_TREE_VERTICAL : SPECIAL_GLYPH_TREE_SPACE, /* force_utf= */ false));
 
-        printf("%s", special_glyph(last ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH));
+        printf("%s", special_glyph(last ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH, /* force_utf8= */ false));
 
         if (times) {
                 if (timestamp_is_set(times->time))

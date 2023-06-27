@@ -1287,7 +1287,7 @@ int dns_name_apply_idna(const char *name, char **ret) {
                 r = sym_idn2_lookup_u8((uint8_t*) name, (uint8_t**) &t,
                                        IDN2_NFC_INPUT | IDN2_TRANSITIONAL);
 
-        log_debug("idn2_lookup_u8: %s %s %s", name, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), t);
+        log_debug("idn2_lookup_u8: %s %s %s", name, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), t);
         if (r == IDN2_OK) {
                 if (!startswith(name, "xn--")) {
                         _cleanup_free_ char *s = NULL;
@@ -1302,8 +1302,8 @@ int dns_name_apply_idna(const char *name, char **ret) {
 
                         if (!streq_ptr(name, s)) {
                                 log_debug("idn2 roundtrip failed: \"%s\" %s \"%s\" %s \"%s\", ignoring.",
-                                          name, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), t,
-                                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), s);
+                                          name, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), t,
+                                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), s);
                                 *ret = NULL;
                                 return 0;
                         }

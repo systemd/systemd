@@ -484,7 +484,7 @@ static void home_set_state(Home *h, HomeState state) {
 
         log_info("%s: changing state %s %s %s", h->user_name,
                  home_state_to_string(old_state),
-                 special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                 special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false),
                  home_state_to_string(new_state));
 
         home_update_pin_fd(h, new_state);

@@ -57,7 +57,7 @@ static int load_and_print(void) {
          * that in case of failure, a partial update is better than none. */
 
         STRV_FOREACH(i, files) {
-                log_debug("Reading %s%s", *i, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                log_debug("Reading %s%s", *i, special_glyph(SPECIAL_GLYPH_ELLIPSIS, /* force_utf8= */ false));
 
                 r = merge_env_file(&env, NULL, *i);
                 if (r == -ENOMEM)

@@ -2604,7 +2604,7 @@ static int print_question(char prefix, const char *color, JsonVariant *question)
 
                 printf("%s%s %c%s: %s\n",
                        color,
-                       special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                       special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false),
                        prefix,
                        ansi_normal(),
                        dns_resource_key_to_string(key, buf, sizeof(buf)));
@@ -2648,7 +2648,7 @@ static int print_answer(JsonVariant *answer) {
 
                 printf("%s%s A%s: %s\n",
                        ansi_highlight_yellow(),
-                       special_glyph(SPECIAL_GLYPH_ARROW_LEFT),
+                       special_glyph(SPECIAL_GLYPH_ARROW_LEFT, /* force_utf8= */ false),
                        ansi_normal(),
                        s);
         }
@@ -2685,7 +2685,7 @@ static void monitor_query_dump(JsonVariant *v) {
 
         printf("%s%s S%s: %s\n",
                streq_ptr(state, "success") ? ansi_highlight_green() : ansi_highlight_red(),
-               special_glyph(SPECIAL_GLYPH_ARROW_LEFT),
+               special_glyph(SPECIAL_GLYPH_ARROW_LEFT, /* force_utf8= */ false),
                ansi_normal(),
                strna(streq_ptr(state, "errno") ? errno_to_name(error) :
                      streq_ptr(state, "rcode-failure") ? dns_rcode_to_string(rcode) :

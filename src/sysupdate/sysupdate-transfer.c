@@ -702,7 +702,7 @@ int transfer_vacuum(
 
                 assert(oldest->resource);
 
-                log_info("%s Removing old '%s' (%s).", special_glyph(SPECIAL_GLYPH_RECYCLING), oldest->path, resource_type_to_string(oldest->resource->type));
+                log_info("%s Removing old '%s' (%s).", special_glyph(SPECIAL_GLYPH_RECYCLING, /* force_utf8= */ false), oldest->path, resource_type_to_string(oldest->resource->type));
 
                 switch (t->target.type) {
 
@@ -873,7 +873,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
 
         assert(where);
 
-        log_info("%s Acquiring %s %s %s...", special_glyph(SPECIAL_GLYPH_DOWNLOAD), i->path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), where);
+        log_info("%s Acquiring %s %s %s...", special_glyph(SPECIAL_GLYPH_DOWNLOAD, /* force_utf8= */ false), i->path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), where);
 
         if (RESOURCE_IS_URL(i->resource->type)) {
                 /* For URL sources we require the SHA256 sum to be known so that we can validate the
@@ -1233,11 +1233,11 @@ int transfer_install_instance(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to update current symlink '%s' %s '%s': %m",
                                                        link_path,
-                                                       special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                                       special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false),
                                                        relative);
 
                         log_info("Updated symlink '%s' %s '%s'.",
-                                 link_path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), relative);
+                                 link_path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT, /* force_utf8= */ false), relative);
                 }
         }
 

@@ -26,13 +26,13 @@ int conf_files_cat(const char *root, const char *name);
 
 static inline const char *red_cross_mark_internal(char buffer[static RED_CROSS_MARK_MAX]) {
         assert(buffer);
-        assert_se(stpcpy(stpcpy(stpcpy(buffer, ansi_highlight_red()), special_glyph(SPECIAL_GLYPH_CROSS_MARK)), ansi_normal()) < buffer + RED_CROSS_MARK_MAX);
+        assert_se(stpcpy(stpcpy(stpcpy(buffer, ansi_highlight_red()), special_glyph(SPECIAL_GLYPH_CROSS_MARK, /* force_utf= */ false)), ansi_normal()) < buffer + RED_CROSS_MARK_MAX);
         return buffer;
 }
 
 static inline const char *green_check_mark_internal(char buffer[static GREEN_CHECK_MARK_MAX]) {
         assert(buffer);
-        assert_se(stpcpy(stpcpy(stpcpy(buffer, ansi_highlight_green()), special_glyph(SPECIAL_GLYPH_CHECK_MARK)), ansi_normal()) < buffer + GREEN_CHECK_MARK_MAX);
+        assert_se(stpcpy(stpcpy(stpcpy(buffer, ansi_highlight_green()), special_glyph(SPECIAL_GLYPH_CHECK_MARK, /* force_utf= */ false)), ansi_normal()) < buffer + GREEN_CHECK_MARK_MAX);
         return buffer;
 }
 

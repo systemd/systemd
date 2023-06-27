@@ -426,7 +426,7 @@ static int write_temporary_passwd(const char *passwd_path, FILE **ret_tmpfile, c
                 return 0;
 
         if (arg_dry_run) {
-                log_info("Would write /etc/passwd%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                log_info("Would write /etc/passwd%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS, /* force_utf8= */ false));
                 return 0;
         }
 
@@ -562,7 +562,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **ret_tmpfile, c
                 return 0;
 
         if (arg_dry_run) {
-                log_info("Would write /etc/shadow%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                log_info("Would write /etc/shadow%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS, /* force_utf8= */ false));
                 return 0;
         }
 
@@ -690,7 +690,7 @@ static int write_temporary_group(const char *group_path, FILE **ret_tmpfile, cha
                 return 0;
 
         if (arg_dry_run) {
-                log_info("Would write /etc/group%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                log_info("Would write /etc/group%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS, /* force_utf8= */ false));
                 return 0;
         }
 
@@ -796,7 +796,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **ret_tmpfile
                 return 0;
 
         if (arg_dry_run) {
-                log_info("Would write /etc/gshadow%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                log_info("Would write /etc/gshadow%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS, /* force_utf8= */ false));
                 return 0;
         }
 
@@ -2124,13 +2124,13 @@ static int read_config_files(char **args) {
 
         STRV_FOREACH(f, files)
                 if (p && path_equal(*f, p)) {
-                        log_debug("Parsing arguments at position \"%s\"%s", *f, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                        log_debug("Parsing arguments at position \"%s\"%s", *f, special_glyph(SPECIAL_GLYPH_ELLIPSIS, /* force_utf8= */ false));
 
                         r = parse_arguments(args);
                         if (r < 0)
                                 return r;
                 } else {
-                        log_debug("Reading config file \"%s\"%s", *f, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                        log_debug("Reading config file \"%s\"%s", *f, special_glyph(SPECIAL_GLYPH_ELLIPSIS, /* force_utf8= */ false));
 
                         /* Just warn, ignore result otherwise */
                         (void) read_config_file(*f, /* ignore_enoent= */ true);

@@ -48,16 +48,16 @@ const char *update_set_flags_to_color(UpdateSetFlags flags) {
 const char *update_set_flags_to_glyph(UpdateSetFlags flags) {
 
         if (flags == 0 || (flags & UPDATE_OBSOLETE))
-                return special_glyph(SPECIAL_GLYPH_MULTIPLICATION_SIGN);
+                return special_glyph(SPECIAL_GLYPH_MULTIPLICATION_SIGN, /* force_utf8= */ false);
 
         if (FLAGS_SET(flags, UPDATE_INSTALLED|UPDATE_NEWEST))
-                return special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE);
+                return special_glyph(SPECIAL_GLYPH_BLACK_CIRCLE, /* force_utf8= */ false);
 
         if (FLAGS_SET(flags, UPDATE_INSTALLED|UPDATE_PROTECTED))
-                return special_glyph(SPECIAL_GLYPH_WHITE_CIRCLE);
+                return special_glyph(SPECIAL_GLYPH_WHITE_CIRCLE, /* force_utf8= */ false);
 
         if ((flags & (UPDATE_AVAILABLE|UPDATE_INSTALLED|UPDATE_NEWEST|UPDATE_OBSOLETE)) == (UPDATE_AVAILABLE|UPDATE_NEWEST))
-                return special_glyph(SPECIAL_GLYPH_CIRCLE_ARROW);
+                return special_glyph(SPECIAL_GLYPH_CIRCLE_ARROW, /* force_utf8= */ false);
 
         return " ";
 }

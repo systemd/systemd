@@ -117,7 +117,7 @@ static int extension_release_strict_xattr_value(int extension_release_fd, const 
 
         log_debug("%s/%s: 'user.extension-release.strict' attribute is false%s",
                   extension_release_dir_path, filename,
-                  special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                  special_glyph(SPECIAL_GLYPH_ELLIPSIS, /* force_utf8= */ false));
 
         return false;
 }
