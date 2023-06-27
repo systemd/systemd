@@ -92,8 +92,8 @@
     disabled; see the <option>--no-pager</option> option and the "Environment" section below.</para>
 
     <para>When outputting to a tty, lines are colored according to priority: lines of level ERROR and higher
-    are colored red; lines of level NOTICE and higher are highlighted; lines of level DEBUG are colored
-    lighter grey; other lines are displayed normally.</para>
+    are colored red; lines of level WARNING are colored yellow; lines of level NOTICE are highlighted;
+    lines of level INFO are displayed normally; lines of level DEBUG are colored grey.</para>
 
     <para>To write entries <emphasis>to</emphasis> the journal, a few methods may be used. In general, output
     from systemd units is automatically connected to the journal, see
