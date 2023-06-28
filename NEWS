@@ -27,6 +27,21 @@ CHANGES WITH 254 in spe:
           *now* to include a native systemd unit file instead of a legacy
           System V script to retain compatibility with future systemd releases.
 
+        * Behaviour of the per-user service manager units have changed w.r.t.
+          sandboxing options, so that they work without having to manually
+          enable PrivateUsers= as well, which is not required for system units.
+          To make this work, we will implicitly enable user namespaces
+          (PrivateUsers=yes) when a sandboxing option is enabled in a user unit.
+          The drawback is that system users will no longer be visible (and
+          appear as 'nobody') to the user unit when a sandboxing option is
+          enabled. By definition a sandboxed user unit should run with reduced
+          privileges, so impact should be small. This will remove a great source
+          of confusion that has been reported by users over the years, due to
+          how these options require an extra setting to be manually enabled when
+          used in the per-user service manager, as opposed as to the system
+          service manager. For more details, see:
+          https://lists.freedesktop.org/archives/systemd-devel/2022-December/048682.html
+
         Security Relevant Changes:
 
         * pam_systemd will now by default pass the CAP_WAKE_ALARM ambient
@@ -113,11 +128,6 @@ CHANGES WITH 254 in spe:
 
         * The "systemctl clean" command may now be used to clear the fdstore of
           a service.
-
-        * The PrivateUsers= setting is now implied for user services if certain
-          sandboxing options are enabled for them, that cannot be implemented
-          unprivileged unless a user namespace is allocated. (See comment about
-          this in the v253 NEWS below).
 
         * Unit *.preset files gained a new directive "ignore", in addition to
           the existing "enable" and "disable". As the name suggests it leaves
