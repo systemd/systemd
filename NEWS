@@ -444,6 +444,9 @@ CHANGES WITH 254 in spe:
           mode= setting for controlling the dm-integrity mode (journal, bitmap,
           direct) for the volume.
 
+        * systemd-analyze gained a new verb "pcrs" that shows the known TPM PCR
+          registers, their symbolic names and current values.
+
         systemd-tmpfiles:
 
         * The ACL support in tmpfiles.d/ has been updated: if an uppercase "X"
