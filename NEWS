@@ -97,7 +97,8 @@ CHANGES WITH 254 in spe:
           takes a boolean argument. If enabled for services that use RootImage=
           or RootDirectory= an ephemeral copy of the disk image or directory
           tree is made when the service is started. It is removed automatically
-          when the service is stopped.
+          when the service is stopped. That ephemeral copy is made using
+          btrfs/xfs reflinks or btrfs snaphots, if available.
 
         * The service activation logic gained new settings RestartSteps= and
           RestartMaxDelaySec= which allow exponentially growing restart
@@ -177,9 +178,9 @@ CHANGES WITH 254 in spe:
         * A new service setting MemoryKSM= has been added, which may be used to
           enable kernel same-page merging individually for services.
 
-        * A new service setting ImportCredentials= has been added that
-          configures LoadCredential= and LoadCredentialEncrypted= and searches
-          for credentials to import from the system, and supports globbing.
+        * A new service setting ImportCredentials= has been added that augments
+          LoadCredential= and LoadCredentialEncrypted= and searches for
+          credentials to import from the system, and supports globbing.
 
         Journal:
 
@@ -214,8 +215,8 @@ CHANGES WITH 254 in spe:
         * systemd-repart gained a new --architecture= switch. If specified, the
           per-architecture GPT partition types (i.e. the root and /usr/
           partitions) configured in the partition drop-in files are
-          automatically adjusted to match the selected architecture, in order
-          to simplify cross-architecture DDI building.
+          automatically adjusted to match the specified CPU architecture, in
+          order to simplify cross-architecture DDI building.
 
         systemd-boot, systemd-stub, ukify, bootctl, kernel-install:
 
@@ -558,7 +559,7 @@ CHANGES WITH 254 in spe:
           support for /system-update to decide whether to enter system update
           mode.
 
-        * The /dev/hugepages file system is now mounted with nosuid + nodev
+        * The /dev/hugepages/ file system is now mounted with nosuid + nodev
           mount options by default.
 
         * systemd-fstab-generator now understands two new kernel command line
@@ -585,6 +586,17 @@ CHANGES WITH 254 in spe:
           the system will attempt to resume from the location indicated in this
           EFI variable. This should make hibernation a lot more robust, and
           requiring no manual configuration of the resume location.
+
+        * The $XDG_STATE_HOME environment variable (added in more recent
+          versions of the XDG basedir specification) is now honoured to
+          implement the StateDirectory= setting in user services.
+
+        * A new component "systemd-battery-check" has been added. It may run
+          during early boot (usually in the initrd), and checks the battery
+          charge level of the system. In case the charge level is very low the
+          user is notified (graphically via Plymouth – if available – as well
+          as in text form on the console), and the system is turned off after a
+          10s delay.
 
 CHANGES WITH 253:
 
