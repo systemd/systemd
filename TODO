@@ -953,10 +953,6 @@ Features:
   case the same wd is reused multiple times before we start processing
   IN_IGNORED again)
 
-* systemd-fstab-generator: support addition mount specifications via kernel
-  cmdline. Usecase: invoke a VM, and mount a host homedir into it via
-  virtio-fs.
-
 * for vendor-built signed initrds:
   - kernel-install should be able to install encrypted creds automatically for
     machine id, root pw, rootfs uuid, resume partition uuid, and place next to
@@ -1320,19 +1316,6 @@ Features:
   - cryptsetup-generator: allow specification of passwords in crypttab itself
   - support rd.luks.allow-discards= kernel cmdline params in cryptsetup generator
 
-* when configuring loopback netif, and it fails due to EPERM, eat up error if
-  it happens to be set up alright already.
-
-* userdb: add field for ambient caps, so that a user can have CAP_WAKE_ALARM
-  for example. And add code that resets ambient caps for all services by
-  default.
-
-* sd-bus: when connecting to some dbus server socker, set originating AF_UNIX
-  socket name in abstract namespace to include "description" string, and pick
-  it up from there in sd_bus_creds logic. i.e. we can use the socket peer
-  address as conduit for some minimal connection metainfo, and use it to
-  restore the "description" logic that kdbus used to have.
-
 * systemd-analyze netif that explains predictable interface (or networkctl)
 
 * Add service setting to run a service within the specified VRF. i.e. do the
@@ -1524,13 +1507,7 @@ Features:
 * When reloading configuration PID 1 should reset all its properties to the
   original defaults before calling parse_config()
 
-* hibernate/s2h: make this robust and safe to enable in Fedora by default.
-  Specifically:
-
-  1. add resume_offset support to the resume code (i.e. support swap files
-     properly)
-  2. check if swap is on weird storage and refuse if so
-  3. add auto-detection of hibernation images
+* hibernate/s2h: if swap is on weird storage and refuse if so
 
 * cgroups: use inotify to get notified when somebody else modifies cgroups
   owned by us, then log a friendly warning.
@@ -1561,15 +1538,6 @@ Features:
 * pid1: lock image configured with RootDirectory=/RootImage= using the usual nspawn semantics while the unit is up
 
 * add --vacuum-xyz options to coredumpctl, matching those journalctl already has.
-
-* introduce Ephemeral= unit file switch, that creates an ephemeral copy of all
-  files and directories that are left writable for a unit, and which are
-  removed after the unit goes down again. A bit like --ephemeral for
-  systemd-nspawn but for system services. If used together with RootImage= this
-  should reflink the image file itself.
-
-  Related: add Ephemeral=<path1> <path2> … which would allow marking
-  specific paths only like this.
 
 * add CopyFile= or so as unit file setting that may be used to copy files or
   directory trees from the host to the services RootImage= and RootDirectory=
@@ -1781,8 +1749,6 @@ Features:
 * exponential backoff in timesyncd when we cannot reach a server
 
 * timesyncd: add ugly bus calls to set NTP servers per-interface, for usage by NM
-
-* merge ~/.local/share and ~/.local/lib into one similar /usr/lib and /usr/share....
 
 * add systemd.abort_on_kill or some other such flag to send SIGABRT instead of SIGKILL
   (throughout the codebase, not only PID1)
