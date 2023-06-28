@@ -130,8 +130,7 @@ libcore = shared_library(
                         libseccomp,
                         libselinux,
                         threads,
-                        userspace,
-                        versiondep],
+                        userspace],
         install : true,
         install_dir : rootpkglibdir)
 
@@ -141,6 +140,33 @@ systemd_sources = files(
         'main.c',
         'crash-handler.c',
 )
+
+executables += [
+        libexec_template + {
+                'name' : 'systemd',
+                'dbus' : true,
+                'public' : true,
+                'sources' : systemd_sources,
+                'link_with' : [libcore,
+                               libshared],
+                'dependencies' : [libseccomp],
+        },
+        fuzz_template + {
+                'sources' : files('fuzz-unit-file.c'),
+                'link_with' : [
+                        libcore,
+                        libshared
+                ],
+                'dependencies' : libmount,
+        },
+        fuzz_template + {
+                'sources' : files('fuzz-manager-serialize.c'),
+                'link_with' : [
+                        libcore,
+                        libshared
+                ],
+        },
+]
 
 in_files = [['system.conf',                     pkgsysconfdir],
             ['user.conf',                       pkgsysconfdir],
@@ -184,27 +210,14 @@ if install_sysconfdir
         meson.add_install_script('sh', '-c', mkdir_p.format(sysconfdir / 'xdg/systemd'))
 endif
 
+meson.add_install_script(meson_make_symlink,
+                         rootlibexecdir / 'systemd',
+                         rootsbindir / 'init')
+
 ############################################################
 
-test_core_base = {
+core_test_template = test_template + {
         'link_with' : [libcore, libshared],
-        'includes' : core_includes,
+        'include_directories' : core_includes,
+        'suite' : 'core',
 }
-
-fuzzers += [
-        {
-                'sources' : files('fuzz-unit-file.c'),
-                'link_with' : [
-                        libcore,
-                        libshared
-                ],
-                'dependencies' : libmount,
-        },
-        {
-                'sources' : files('fuzz-manager-serialize.c'),
-                'link_with' : [
-                        libcore,
-                        libshared
-                ],
-        },
-]
