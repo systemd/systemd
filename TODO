@@ -1323,8 +1323,6 @@ Features:
 * when configuring loopback netif, and it fails due to EPERM, eat up error if
   it happens to be set up alright already.
 
-* at boot: check if battery above some threshold, if not power off again after explanation
-
 * userdb: add field for ambient caps, so that a user can have CAP_WAKE_ALARM
   for example. And add code that resets ambient caps for all services by
   default.
