@@ -1069,6 +1069,16 @@
           notification via VSOCK when a virtual machine has finished booting.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>system.machine_id</varname></term>
+        <listitem>
+          <para>Takes a 128bit hexadecimal ID to initialize <filename>/etc/machine-id</filename> from, if the
+          file is not set up yet. See
+          <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+          details.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
