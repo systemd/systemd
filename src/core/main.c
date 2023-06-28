@@ -2224,10 +2224,15 @@ static int initialize_runtime(
                                 return r;
                         }
 
+                        /* Pull credentials from various sources into a common credential directory (we do
+                         * this here, before setting up the machine ID, so that we can use credential info
+                         * for setting up the machine ID) */
+                        (void) import_credentials();
+
                         (void) os_release_status();
                         (void) hostname_setup(true);
                         /* Force transient machine-id on first boot. */
-                        machine_id_setup(NULL, /* force_transient= */ first_boot, arg_machine_id, NULL);
+                        machine_id_setup(/* root= */ NULL, /* force_transient= */ first_boot, arg_machine_id, /* ret_machine_id */ NULL);
                         (void) loopback_setup();
                         bump_unix_max_dgram_qlen();
                         bump_file_max_and_nr_open();
@@ -2305,10 +2310,6 @@ static int initialize_runtime(
         /* Bump up RLIMIT_NOFILE for systemd itself */
         (void) bump_rlimit_nofile(saved_rlimit_nofile);
         (void) bump_rlimit_memlock(saved_rlimit_memlock);
-
-        /* Pull credentials from various sources into a common credential directory */
-        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM && !skip_setup)
-                (void) import_credentials();
 
         return 0;
 }
