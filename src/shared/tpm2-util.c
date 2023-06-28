@@ -3752,6 +3752,79 @@ int tpm2_tpm2b_public_from_pem(const void *pem, size_t pem_size, TPM2B_PUBLIC *r
 #endif
 }
 
+/* Marshal the public and private objects into a single nonstandard 'blob'. This is not a (publicly) standard
+ * format, this is specific to how we currently store the sealed object. This 'blob' can be unmarshalled by
+ * tpm2_unmarshal_blob(). */
+int tpm2_marshal_blob(
+                const TPM2B_PUBLIC *public,
+                const TPM2B_PRIVATE *private,
+                void **ret_blob,
+                size_t *ret_blob_size) {
+
+        TSS2_RC rc;
+
+        assert(public);
+        assert(private);
+        assert(ret_blob);
+        assert(ret_blob_size);
+
+        size_t max_size = sizeof(*private) + sizeof(*public);
+
+        _cleanup_free_ void *blob = malloc(max_size);
+        if (!blob)
+                return log_oom_debug();
+
+        size_t blob_size = 0;
+        rc = sym_Tss2_MU_TPM2B_PRIVATE_Marshal(private, blob, max_size, &blob_size);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal private key: %s", sym_Tss2_RC_Decode(rc));
+
+        rc = sym_Tss2_MU_TPM2B_PUBLIC_Marshal(public, blob, max_size, &blob_size);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal public key: %s", sym_Tss2_RC_Decode(rc));
+
+        *ret_blob = TAKE_PTR(blob);
+        *ret_blob_size = blob_size;
+
+        return 0;
+}
+
+/* Unmarshal the 'blob' into public and private objects. This is not a (publicly) standard format, this is
+ * specific to how we currently store the sealed object. This expects the 'blob' to have been created by
+ * tpm2_marshal_blob(). */
+int tpm2_unmarshal_blob(
+                const void *blob,
+                size_t blob_size,
+                TPM2B_PUBLIC *ret_public,
+                TPM2B_PRIVATE *ret_private) {
+
+        TSS2_RC rc;
+
+        assert(blob);
+        assert(ret_public);
+        assert(ret_private);
+
+        TPM2B_PRIVATE private = {};
+        size_t offset = 0;
+        rc = sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal(blob, blob_size, &offset, &private);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal private key: %s", sym_Tss2_RC_Decode(rc));
+
+        TPM2B_PUBLIC public = {};
+        rc = sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal(blob, blob_size, &offset, &public);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal public key: %s", sym_Tss2_RC_Decode(rc));
+
+        *ret_public = public;
+        *ret_private = private;
+
+        return 0;
+}
+
 int tpm2_seal(Tpm2Context *c,
               const TPM2B_DIGEST *policy,
               const char *pin,
@@ -3889,21 +3962,10 @@ int tpm2_seal(Tpm2Context *c,
         log_debug("Marshalling private and public part of HMAC key.");
 
         _cleanup_free_ void *blob = NULL;
-        size_t max_size = sizeof(*private) + sizeof(*public), blob_size = 0;
-
-        blob = malloc0(max_size);
-        if (!blob)
-                return log_oom();
-
-        rc = sym_Tss2_MU_TPM2B_PRIVATE_Marshal(private, blob, max_size, &blob_size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal private key: %s", sym_Tss2_RC_Decode(rc));
-
-        rc = sym_Tss2_MU_TPM2B_PUBLIC_Marshal(public, blob, max_size, &blob_size);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to marshal public key: %s", sym_Tss2_RC_Decode(rc));
+        size_t blob_size;
+        r = tpm2_marshal_blob(public, private, &blob, &blob_size);
+        if (r < 0)
+                return log_error_errno(r, "Could not create sealed blob: %m");
 
         /* serialize the key for storage in the LUKS header. A deserialized ESYS_TR provides both
          * the raw TPM handle as well as the object name. The object name is used to verify that
@@ -3994,22 +4056,11 @@ int tpm2_unseal(const char *device,
 
         usec_t start = now(CLOCK_MONOTONIC);
 
-        log_debug("Unmarshalling private part of HMAC key.");
-
-        TPM2B_PRIVATE private = {};
-        size_t offset = 0;
-        rc = sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal(blob, blob_size, &offset, &private);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to unmarshal private key: %s", sym_Tss2_RC_Decode(rc));
-
-        log_debug("Unmarshalling public part of HMAC key.");
-
-        TPM2B_PUBLIC public = {};
-        rc = sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal(blob, blob_size, &offset, &public);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to unmarshal public key: %s", sym_Tss2_RC_Decode(rc));
+        TPM2B_PUBLIC public;
+        TPM2B_PRIVATE private;
+        r = tpm2_unmarshal_blob(blob, blob_size, &public, &private);
+        if (r < 0)
+                return log_error_errno(r, "Could not extract parts from blob: %m");
 
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         r = tpm2_context_new(device, &c);
