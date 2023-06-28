@@ -216,6 +216,7 @@ DHCPv4.RoutesToDNS,                          config_parse_bool,                 
 DHCPv4.UseNTP,                               config_parse_dhcp_use_ntp,                                AF_INET,                       0
 DHCPv4.RoutesToNTP,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_routes_to_ntp)
 DHCPv4.UseSIP,                               config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_sip)
+DHCPv4.UseCaptivePortal,                     config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_captive_portal)
 DHCPv4.UseMTU,                               config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_mtu)
 DHCPv4.UseHostname,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_hostname)
 DHCPv4.UseDomains,                           config_parse_dhcp_use_domains,                            AF_INET,                       0
@@ -257,6 +258,7 @@ DHCPv6.UseDNS,                               config_parse_dhcp_use_dns,         
 DHCPv6.UseHostname,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_hostname)
 DHCPv6.UseDomains,                           config_parse_dhcp_use_domains,                            AF_INET6,                      0
 DHCPv6.UseNTP,                               config_parse_dhcp_use_ntp,                                AF_INET6,                      0
+DHCPv6.UseCaptivePortal,                     config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_captive_portal)
 DHCPv6.MUDURL,                               config_parse_mud_url,                                     0,                             offsetof(Network, dhcp6_mudurl)
 DHCPv6.RequestOptions,                       config_parse_dhcp_request_options,                        AF_INET6,                      0
 DHCPv6.UserClass,                            config_parse_dhcp_user_or_vendor_class,                   AF_INET6,                      offsetof(Network, dhcp6_user_class)
@@ -282,6 +284,7 @@ IPv6AcceptRA.DHCPv6Client,                   config_parse_ipv6_accept_ra_start_d
 IPv6AcceptRA.RouteTable,                     config_parse_dhcp_or_ra_route_table,                      AF_INET6,                      0
 IPv6AcceptRA.RouteMetric,                    config_parse_ipv6_accept_ra_route_metric,                 0,                             0
 IPv6AcceptRA.QuickAck,                       config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_quickack)
+IPv6AcceptRA.UseCaptivePortal,               config_parse_bool,                                        0,                             offsetof(Network, ipv6_accept_ra_use_captive_portal)
 IPv6AcceptRA.RouterAllowList,                config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_allow_listed_router)
 IPv6AcceptRA.RouterDenyList,                 config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_deny_listed_router)
 IPv6AcceptRA.PrefixAllowList,                config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_allow_listed_prefix)
