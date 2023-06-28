@@ -255,9 +255,9 @@ static int specifier_directory(char specifier, const void *data, const char *roo
 
         static const struct table_entry paths_user[] = {
                 [DIRECTORY_RUNTIME] = { SD_PATH_USER_RUNTIME              },
-                [DIRECTORY_STATE] =   { SD_PATH_USER_CONFIGURATION        },
+                [DIRECTORY_STATE] =   { SD_PATH_USER_STATE_PRIVATE        },
                 [DIRECTORY_CACHE] =   { SD_PATH_USER_STATE_CACHE          },
-                [DIRECTORY_LOGS] =    { SD_PATH_USER_CONFIGURATION, "log" },
+                [DIRECTORY_LOGS] =    { SD_PATH_USER_STATE_PRIVATE, "log" },
         };
 
         const struct table_entry *paths;

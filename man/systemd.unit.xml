@@ -2131,7 +2131,7 @@ Note that this setting is <emphasis>not</emphasis> influenced by the <varname>Us
           <row>
             <entry><literal>%L</literal></entry>
             <entry>Log directory root</entry>
-            <entry>This is either <filename>/var/log</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to with <filename index="false">/log</filename> appended (for user managers).</entry>
+            <entry>This is either <filename>/var/log</filename> (for the system manager) or the path <varname>$XDG_STATE_HOME</varname> resolves to with <filename index="false">/log</filename> appended (for user managers).</entry>
           </row>
           <xi:include href="standard-specifiers.xml" xpointer="m"/>
           <xi:include href="standard-specifiers.xml" xpointer="M"/>
@@ -2171,7 +2171,7 @@ Note that this setting is <emphasis>not</emphasis> influenced by the <varname>Us
           <row>
             <entry><literal>%S</literal></entry>
             <entry>State directory root</entry>
-            <entry>This is either <filename>/var/lib</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to (for user managers).</entry>
+            <entry>This is either <filename>/var/lib</filename> (for the system manager) or the path <varname>$XDG_STATE_HOME</varname> resolves to (for user managers).</entry>
           </row>
           <row>
             <entry><literal>%t</literal></entry>
