@@ -1196,7 +1196,9 @@ conf.set10('HAVE_LIBFDISK', have)
 
 want_pwquality = get_option('pwquality')
 if want_pwquality != 'false' and not skip_deps
-        libpwquality = dependency('pwquality', required : want_pwquality == 'true')
+        libpwquality = dependency('pwquality',
+                                  version : '>= 1.4.1',
+                                  required : want_pwquality == 'true')
         have = libpwquality.found()
 else
         have = false
