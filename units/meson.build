@@ -56,6 +56,10 @@ units = [
           'conditions' : ['ENABLE_HIBERNATE'],
         },
         {
+          'file' : 'initrd-battery-check.service.in',
+          'conditions' : ['ENABLE_INITRD'],
+        },
+        {
           'file' : 'initrd-cleanup.service',
           'conditions' : ['ENABLE_INITRD'],
         },
