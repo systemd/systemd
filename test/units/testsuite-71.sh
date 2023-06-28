@@ -132,6 +132,97 @@ EOF
     assert_not_in 'Firmware Date' "$(hostnamectl)"
 }
 
+testcase_nss-myhostname() {
+    local database host i
+
+    HOSTNAME="$(hostnamectl hostname)"
+
+    # Set up a dummy network for _gateway and _outbound labels
+    ip link add foo type dummy
+    ip link set up dev foo
+    ip addr add 10.0.0.2/24 dev foo
+    for i in {128..150}; do
+        ip addr add "10.0.0.$i/24" dev foo
+    done
+    ip route add 10.0.0.1 dev foo
+    ip route add default via 10.0.0.1 dev foo
+
+    # Note: `getent hosts` probes gethostbyname2(), whereas `getent ahosts` probes gethostbyname3()
+    #       and gethostbyname4() (through getaddrinfo() -> gaih_inet() -> get_nss_addresses())
+    getent hosts -s myhostname
+    getent ahosts -s myhostname
+
+    # With IPv6 disabled
+    sysctl -w net.ipv6.conf.all.disable_ipv6=1
+    # Everything under .localhost and .localhost.localdomain should resolve to localhost
+    for host in {foo.,foo.bar.baz.,.,}localhost{,.} {foo.,foo.bar.baz.,.,}localhost.localdomain{,.}; do
+        run_and_grep "^127\.0\.0\.1\s+localhost$" getent hosts -s myhostname "$host"
+        run_and_grep "^127\.0\.0\.1\s+STREAM\s+localhost" getent ahosts -s myhostname "$host"
+        run_and_grep "^127\.0\.0\.1\s+STREAM\s+localhost" getent ahostsv4 -s myhostname "$host"
+        (! getent ahostsv6 -s myhostname localhost)
+    done
+    for i in 2 {128..150}; do
+        run_and_grep "^10\.0\.0\.$i\s+$HOSTNAME$" getent hosts -s myhostname "$HOSTNAME"
+        run_and_grep "^10\.0\.0\.$i\s+" getent ahosts -s myhostname "$HOSTNAME"
+        run_and_grep "^10\.0\.0\.$i\s+" getent ahostsv4 -s myhostname "$HOSTNAME"
+        run_and_grep "^10\.0\.0\.$i\s+$HOSTNAME$" getent hosts -s myhostname "10.0.0.$i"
+        run_and_grep "^10\.0\.0\.$i\s+STREAM\s+10\.0\.0\.$i$" getent ahosts -s myhostname "10.0.0.$i"
+        run_and_grep "^10\.0\.0\.$i\s+STREAM\s+10\.0\.0\.$i$" getent ahostsv4 -s myhostname "10.0.0.$i"
+    done
+    for database in hosts ahosts ahostsv4 ahostsv6; do
+        (! getent "$database" -s myhostname ::1)
+    done
+    (! getent ahostsv6 -s myhostname "$HOSTNAME")
+    run_and_grep -n "^fe80:[^ ]+\s+STREAM$" getent ahosts -s myhostname "$HOSTNAME"
+
+    # With IPv6 enabled
+    sysctl -w net.ipv6.conf.all.disable_ipv6=0
+    # Everything under .localhost and .localhost.localdomain should resolve to localhost
+    for host in {foo.,foo.bar.baz.,.,}localhost{,.} {foo.,foo.bar.baz.,.,}localhost.localdomain{,.}; do
+        run_and_grep "^::1\s+localhost$" getent hosts -s myhostname "$host"
+        run_and_grep "^::1\s+STREAM" getent ahosts -s myhostname "$host"
+        run_and_grep "^127\.0\.0\.1\s+STREAM" getent ahosts -s myhostname "$host"
+        run_and_grep "^127\.0\.0\.1\s+STREAM" getent ahostsv4 -s myhostname "$host"
+        run_and_grep -n "^::1\s+STREAM" getent ahostsv4 -s myhostname "$host"
+        run_and_grep "^::1\s+STREAM" getent ahostsv6 -s myhostname "$host"
+        run_and_grep -n "^127\.0\.0\.1\s+STREAM" getent ahostsv6 -s myhostname "$host"
+    done
+    for i in 2 {128..150}; do
+        run_and_grep "^10\.0\.0\.$i\s+" getent ahosts -s myhostname "$HOSTNAME"
+        run_and_grep "^10\.0\.0\.$i\s+" getent ahostsv4 -s myhostname "$HOSTNAME"
+        run_and_grep "^10\.0\.0\.$i\s+STREAM\s+10\.0\.0\.$i$" getent ahosts -s myhostname "10.0.0.$i"
+        run_and_grep "^10\.0\.0\.$i\s+STREAM\s+10\.0\.0\.$i$" getent ahostsv4 -s myhostname "10.0.0.$i"
+    done
+    run_and_grep "^fe80:[^ ]+\s+$HOSTNAME$" getent hosts -s myhostname "$HOSTNAME"
+    run_and_grep "^fe80:[^ ]+\s+STREAM" getent ahosts -s myhostname "$HOSTNAME"
+    run_and_grep "^127\.0\.0\.1\s+localhost$" getent hosts -s myhostname 127.0.0.1
+    run_and_grep "^127\.0\.0\.1\s+STREAM\s+127\.0\.0\.1$" getent ahosts -s myhostname 127.0.0.1
+    run_and_grep "^::ffff:127\.0\.0\.1\s+STREAM\s+127\.0\.0\.1$" getent ahostsv6 -s myhostname 127.0.0.1
+    run_and_grep "^127\.0\.0\.2\s+$HOSTNAME$" getent hosts -s myhostname 127.0.0.2
+    run_and_grep "^::1\s+localhost $HOSTNAME$" getent hosts -s myhostname ::1
+    run_and_grep "^::1\s+STREAM\s+::1$" getent ahosts -s myhostname ::1
+    (! getent ahostsv4 -s myhostname ::1)
+
+    # _gateway
+    for host in _gateway{,.} 10.0.0.1; do
+        run_and_grep "^10\.0\.0\.1\s+_gateway$" getent hosts -s myhostname "$host"
+        run_and_grep "^10\.0\.0\.1\s+STREAM" getent ahosts -s myhostname "$host"
+    done
+
+    # _outbound
+    for host in _outbound{,.} 10.0.0.2; do
+        run_and_grep "^10\.0\.0\.2\s+" getent hosts -s myhostname "$host"
+        run_and_grep "^10\.0\.0\.2\s+STREAM" getent ahosts -s myhostname "$host"
+    done
+
+    # Non-existent records
+    for database in hosts ahosts ahostsv4 ahostsv6; do
+        (! getent "$database" -s myhostname this.should.not.exist)
+    done
+    (! getent hosts -s myhostname 10.254.254.1)
+    (! getent hosts -s myhostname fd00:dead:beef:cafe::1)
+}
+
 : >/failed
 
 run_testcases
