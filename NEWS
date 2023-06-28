@@ -87,8 +87,8 @@ CHANGES WITH 254 in spe:
         * A new set of kernel command line options is now understood:
           systemd.tty.term.<name>=, systemd.tty.rows.<name>=,
           systemd.tty.columns.<name>= allow configuring the TTY type and
-          dimensions for the tty specified via <name>. When the service invokes
-          a service on a tty (via TTYName=) it will look for these and configure
+          dimensions for the tty specified via <name>. When systemd invokes a
+          service on a tty (via TTYName=) it will look for these and configure
           the TTY accordingly. This is particularly useful in VM environments,
           to propagate host terminal settings into the appropriate TTYs of the
           guest.
@@ -422,7 +422,7 @@ CHANGES WITH 254 in spe:
         TPM2 Support + Disk Encryption & Authentication:
 
         * systemd-cryptenroll/systemd-cryptsetup will now install a TPM2 SRK
-          ("Storage Primary Key") as first step in the TPM2, and then use that
+          ("Storage Root Key") as first step in the TPM2, and then use that
           for binding FDE to, if TPM2 support is used. This matches
           recommendations of TCG (see
           https://trustedcomputinggroup.org/wp-content/uploads/TCG-TPM-v2.0-Provisioning-Guidance-Published-v1r1.pdf)
