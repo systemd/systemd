@@ -245,7 +245,7 @@ CHANGES WITH 254 in spe:
           only the .cmdline PE section may be used in add-ons, in which case
           any specified string is appended to the command line embedded into
           the UKI itself. In future we expect other sections to be made
-          extensible like this as well, for example the .initrd section.
+          extensible like this as well.
 
         * ukify has been updated to allow building these UEFI PE "add-on"
           images.
