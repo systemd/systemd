@@ -787,6 +787,23 @@ static int symlink_credential_dir(const char *envvar, const char *path, const ch
         return 0;
 }
 
+static int setenv_notify_socket(void) {
+        _cleanup_free_ char *address = NULL;
+        int r;
+
+        r = read_credential_with_decryption("vmm.notify_socket", (void **)&address, /* ret_size= */ NULL);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to read 'vmm.notify_socket' credential, ignoring: %m");
+
+        if (isempty(address))
+                return 0;
+
+        if (setenv("NOTIFY_SOCKET", address, /* replace= */ 1) < 0)
+                return log_warning_errno(errno, "Failed to set $NOTIFY_SOCKET environment variable, ignoring: %m");
+
+        return 1;
+}
+
 int import_credentials(void) {
         const char *received_creds_dir = NULL, *received_encrypted_creds_dir = NULL;
         bool envvar_set = false;
@@ -847,18 +864,8 @@ int import_credentials(void) {
                         r = q;
         }
 
-        if (r >= 0) {
-                _cleanup_free_ char *address = NULL;
-
-                r = read_credential("vmm.notify_socket", (void **)&address, /* ret_size= */ NULL);
-                if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
-                        log_warning_errno(r, "Failed to read 'vmm.notify_socket' credential, ignoring: %m");
-                else if (r >= 0 && !isempty(address)) {
-                        r = setenv("NOTIFY_SOCKET", address, /* replace= */ 1);
-                        if (r < 0)
-                                log_warning_errno(errno, "Failed to set $NOTIFY_SOCKET environment variable, ignoring: %m");
-                }
-        }
+        /* Propagate vmm_notify_socket credential → $NOTIFY_SOCKET env var */
+        (void) setenv_notify_socket();
 
         return r;
 }
