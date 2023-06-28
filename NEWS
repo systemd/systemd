@@ -244,11 +244,13 @@ CHANGES WITH 254 in spe:
           additional resources in a secure and authenticated way. Currently,
           only the .cmdline PE section may be used in add-ons, in which case
           any specified string is appended to the command line embedded into
-          the UKI itself. In future we expect other sections to be made
-          extensible like this as well.
+          the UKI itself. A new 'addon<EFI-ARCH>.efi.stub' is now provided that
+          can be used to trivially create addons, via 'ukify' or 'objcopy'. In
+          the future we expect other sections to be made extensible like this as
+          well.
 
         * ukify has been updated to allow building these UEFI PE "add-on"
-          images.
+          images, using the new 'addon<EFI-ARCH>.efi.stub'.
 
         * ukify gained a new "genkey" verb for generating a set of of key pairs
           to sign UKIs and their PCR data with.
