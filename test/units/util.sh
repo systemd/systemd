@@ -57,6 +57,45 @@ assert_rc() {(
     assert_eq "$rc" "$exp"
 )}
 
+run_and_grep() {(
+    set +ex
+
+    local expression
+    local log ec
+    local exp_ec=0
+
+    # Invert the grep condition - i.e. check if the expression is _not_ in command's output
+    if [[ "${1:?}" == "-n" ]]; then
+        exp_ec=1
+        shift
+    fi
+
+    expression="${1:?}"
+    shift
+
+    if [[ $# -eq 0 ]]; then
+        echo >&2 "FAIL: Not enough arguments for ${FUNCNAME[0]}()"
+        return 1
+    fi
+
+    log="$(mktemp)"
+    if ! "$@" |& tee "${log:?}"; then
+        echo >&2 "FAIL: Command '$*' failed"
+        return 1
+    fi
+
+    grep -qE "$expression" "$log" && ec=0 || ec=$?
+    if [[ "$exp_ec" -eq 0 && "$ec" -ne 0 ]]; then
+        echo >&2 "FAIL: Expression '$expression' not found in the output of '$*'"
+        return 1
+    elif [[ "$exp_ec" -ne 0 && "$ec" -eq 0 ]]; then
+        echo >&2 "FAIL: Expression '$expression' found in the output of '$*'"
+        return 1
+    fi
+
+    rm -f "$log"
+)}
+
 get_cgroup_hierarchy() {
     case "$(stat -c '%T' -f /sys/fs/cgroup)" in
         cgroup2fs)
