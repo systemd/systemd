@@ -564,3 +564,23 @@ the OS.
 
 @TRIMMED_BYTES@ of memory were returned to the OS, which took @TRIMMED_USEC@
 micro-seconds (μs).
+
+-- a8fa8dacdb1d443e9503b8be367a6adb
+Subject: SysV Service Found
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+A System V service script @SYSVSCRIPT@ has been found on the system that lacks
+a native systemd unit. An automatic unit file @UNIT@ has been generated for
+compatibility.
+
+Note that these automatically generated compatibility unit files cannot replace
+native unit files as they generally slow down the system (by creating
+unnecessary, additional synchronization points), are less robust (as SysV services
+cannot properly be life-cycle tracked or automatically restarted) and less
+secure (as no sandboxing restrictions can be enforced).
+
+Compatibility support for System V services in systemd is deprecated. Please
+make sure to update the package in question to provide proper, native systemd
+unit files. Contact vendor if necesssary. Compatibility support for System V
+services is deprecated and will be removed soon.
