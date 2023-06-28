@@ -804,6 +804,62 @@ static int setenv_notify_socket(void) {
         return 1;
 }
 
+static int report_credentials_per_func(const char *title, int (*get_directory_func)(const char **ret)) {
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        _cleanup_close_ int dir_fd = -EBADF;
+        _cleanup_free_ char *ll = NULL;
+        const char *d = NULL;
+        int r, c = 0;
+
+        assert(title);
+        assert(get_directory_func);
+
+        r = get_directory_func(&d);
+        if (r < 0) {
+                if (r == -ENXIO) /* Env var not set */
+                        return 0;
+
+                return log_warning_errno(r, "Failed to determine %s directory: %m", title);
+        }
+
+        dir_fd = open(d, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        if (dir_fd < 0)
+                return log_warning_errno(errno, "Failed to open credentials directory %s: %m", d);
+
+        r = readdir_all(dir_fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to enumerate credentials directory %s: %m", d);
+
+        FOREACH_ARRAY(entry, de->entries, de->n_entries) {
+                const struct dirent *e = *entry;
+
+                if (!credential_name_valid(e->d_name))
+                        continue;
+
+                if (!strextend_with_separator(&ll, ", ", e->d_name))
+                        return log_oom();
+
+                c++;
+        }
+
+        if (ll)
+                log_info("Received %s: %s", title, ll);
+
+        return c;
+}
+
+static void report_credentials(void) {
+        int p, q;
+
+        p = report_credentials_per_func("regular credentials", get_credentials_dir);
+        q = report_credentials_per_func("untrusted credentials", get_encrypted_credentials_dir);
+
+        log_full(p > 0 || q > 0 ? LOG_INFO : LOG_DEBUG,
+                 "Acquired %i regular credentials, %i untrusted credentials.",
+                 p > 0 ? p : 0,
+                 q > 0 ? q : 0);
+}
+
 int import_credentials(void) {
         const char *received_creds_dir = NULL, *received_encrypted_creds_dir = NULL;
         bool envvar_set = false;
@@ -863,6 +919,8 @@ int import_credentials(void) {
                 if (r >= 0)
                         r = q;
         }
+
+        report_credentials();
 
         /* Propagate vmm_notify_socket credential → $NOTIFY_SOCKET env var */
         (void) setenv_notify_socket();
