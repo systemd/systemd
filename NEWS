@@ -287,7 +287,8 @@ CHANGES WITH 254 in spe:
           configuring an event source that is called whenever the OS signals
           memory pressure. Another call sd_event_trim_memory() is provided that
           compacts the process' memory use by releasing allocated but unused
-          malloc() memory back to the kernel. This should improve system
+          malloc() memory back to the kernel. Services can also provide their
+          own custom callback to do memory trimming. This should improve system
           behaviour under memory pressure, as on Linux traditionally provided no
           mechanism to return process memory back to the kernel if the kernel
           was under pressure to acquire some. This makes use of the kernel's PSI
