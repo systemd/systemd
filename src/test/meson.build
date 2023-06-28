@@ -93,6 +93,7 @@ simple_tests += files(
         'test-fstab-util.c',
         'test-glob-util.c',
         'test-gpt.c',
+        'test-gunicode.c',
         'test-hash-funcs.c',
         'test-hexdecoct.c',
         'test-hmac.c',

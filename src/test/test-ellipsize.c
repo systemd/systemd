@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "constants.h"
+#include "escape.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -113,6 +114,46 @@ TEST(ellipsize) {
         test_ellipsize_one("🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮🐮");
         test_ellipsize_one("Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.");
         test_ellipsize_one("shórt");
+}
+
+TEST(ellipsize_ansi) {
+        const char *s = ANSI_HIGHLIGHT_YELLOW_UNDERLINE "yęllow"
+                        ANSI_HIGHLIGHT_GREY_UNDERLINE "grěy"
+                        ANSI_HIGHLIGHT_BLUE_UNDERLINE "blue"
+                        ANSI_NORMAL "nórmął";
+        size_t len = strlen(s);
+
+        for (unsigned percent = 0; percent <= 100; percent += 15)
+                for (ssize_t x = 21; x >= 0; x--) {
+                        _cleanup_free_ char *t = ellipsize_mem(s, len, x, percent);
+                        printf("%02zd: \"%s\"\n", x, t);
+                        assert_se(utf8_is_valid(t));
+
+                        if (DEBUG_LOGGING) {
+                                _cleanup_free_ char *e = cescape(t);
+                                printf("  : \"%s\"\n", e);
+                        }
+                }
+}
+
+TEST(ellipsize_ansi_cats) {
+        _cleanup_free_ char *e, *f, *g, *h;
+
+        /* Make sure we don't cut off in the middle of an ANSI escape sequence. */
+
+        e = ellipsize("01" ANSI_NORMAL "23", 4, 0);
+        puts(e);
+        assert_se(streq(e, "01" ANSI_NORMAL "23"));
+        f = ellipsize("ab" ANSI_NORMAL "cd", 4, 90);
+        puts(f);
+        assert_se(streq(f, "ab" ANSI_NORMAL "cd"));
+
+        g = ellipsize("🐱🐱" ANSI_NORMAL "🐱🐱" ANSI_NORMAL, 5, 0);
+        puts(g);
+        assert_se(streq(g, "…" ANSI_NORMAL "🐱🐱" ANSI_NORMAL));
+        h = ellipsize("🐱🐱" ANSI_NORMAL "🐱🐱" ANSI_NORMAL, 5, 90);
+        puts(h);
+        assert_se(streq(h, "🐱…" ANSI_NORMAL "🐱" ANSI_NORMAL));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
