@@ -838,6 +838,10 @@ systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -q -e '^usr
 
 (! systemd-analyze image-policy 'doedel')
 
+# Output is very hard to predict, but let's run it for coverage anyway
+systemd-analyze pcrs
+systemd-analyze pcrs --json=pretty
+
 systemd-analyze log-level info
 
 echo OK >/testok
