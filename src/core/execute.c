@@ -5869,12 +5869,24 @@ static int exec_child(
         }
 
         if (!FLAGS_SET(command->flags, EXEC_COMMAND_NO_ENV_EXPAND)) {
-                replaced_argv = replace_env_argv(command->argv, accum_env);
-                if (!replaced_argv) {
+                _cleanup_strv_free_ char **unset_variables = NULL, **bad_variables = NULL;
+
+                r = replace_env_argv(command->argv, accum_env, &replaced_argv, &unset_variables, &bad_variables);
+                if (r < 0) {
                         *exit_status = EXIT_MEMORY;
-                        return log_oom();
+                        return log_unit_error_errno(unit, r, "Failed to replace environment variables: %m");
                 }
                 final_argv = replaced_argv;
+
+                if (!strv_isempty(unset_variables)) {
+                        _cleanup_free_ char *ju = strv_join(unset_variables, ", ");
+                        log_unit_warning(unit, "Referenced but unset environment variable evaluates to an empty string: %s", strna(ju));
+                }
+
+                if (!strv_isempty(bad_variables)) {
+                        _cleanup_free_ char *jb = strv_join(bad_variables, ", ");
+                        log_unit_warning(unit, "Invalid environment variable name evaluates to an empty string: %s", strna(jb));;
+                }
         } else
                 final_argv = command->argv;
 
