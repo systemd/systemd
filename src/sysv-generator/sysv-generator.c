@@ -28,6 +28,9 @@
 #include "strv.h"
 #include "unit-name.h"
 
+/* 🚨 Note: this generator is deprecated! Please do not add new features! Instead, please port remaining SysV
+ * scripts over to native unit files! Thank you! 🚨 */
+
 static const struct {
         const char *path;
         const char *target;

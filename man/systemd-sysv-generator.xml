@@ -27,38 +27,35 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-sysv-generator</filename> is a generator
-    that creates wrapper .service units for
-    <ulink url="https://savannah.nongnu.org/projects/sysvinit">SysV init</ulink>
-    scripts in <filename>/etc/init.d/*</filename> at boot and when
-    configuration of the system manager is reloaded. This allows
-    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    to support them similarly to native units.</para>
+    <para><emphasis>Note: this component is deprecated and scheduled for removal. Please replace remaining
+    SysV init scripts with native unit files.</emphasis></para>
 
-    <para><ulink url="http://refspecs.linuxbase.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB headers</ulink>
-    in SysV init scripts are interpreted, and the ordering specified
-    in the header is turned into dependencies between the generated
-    unit and other units. The LSB facilities
-    <literal>$remote_fs</literal>, <literal>$network</literal>,
-    <literal>$named</literal>, <literal>$portmap</literal>,
-    <literal>$time</literal> are supported and will be turned into
-    dependencies on specific native systemd targets.  See
-    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-    for more details.</para>
+    <para><filename>systemd-sysv-generator</filename> is a generator that creates wrapper .service units for
+    <ulink url="https://savannah.nongnu.org/projects/sysvinit">System V init</ulink> scripts in
+    <filename>/etc/init.d/*</filename> at boot and when configuration of the system manager is reloaded. This
+    allows <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> to
+    support them similarly to native units.</para>
+
+    <para><ulink
+    url="http://refspecs.linuxbase.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB
+    headers</ulink> in SysV init scripts are interpreted, and the ordering specified in the header is turned
+    into dependencies between the generated unit and other units. The LSB facilities
+    <literal>$remote_fs</literal>, <literal>$network</literal>, <literal>$named</literal>,
+    <literal>$portmap</literal>, <literal>$time</literal> are supported and will be turned into dependencies
+    on specific native systemd targets.  See
+    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+    more details.</para>
 
     <para>Note that compatibility is quite comprehensive but not 100%, for more details see <ulink
     url="https://www.freedesktop.org/wiki/Software/systemd/Incompatibilities">Incompatibilities with
     SysV</ulink>.</para>
 
     <para>SysV runlevels have corresponding systemd targets
-    (<filename>runlevel<replaceable>X</replaceable>.target</filename>).
-    The wrapper unit that is generated will be wanted by those targets
-    which correspond to runlevels for which the script is
-    enabled.</para>
+    (<filename>runlevel<replaceable>X</replaceable>.target</filename>).  The wrapper unit that is generated
+    will be wanted by those targets which correspond to runlevels for which the script is enabled.</para>
 
-    <para><command>systemd</command> does not support SysV scripts as
-    part of early boot, so all wrapper units are ordered after
-    <filename>basic.target</filename>.</para>
+    <para><command>systemd</command> does not support SysV scripts as part of early boot, so all wrapper
+    units are ordered after <filename>basic.target</filename>.</para>
 
     <para><filename>systemd-sysv-generator</filename> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
