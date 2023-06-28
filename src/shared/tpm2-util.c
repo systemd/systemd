@@ -48,6 +48,7 @@ static TSS2_RC (*sym_Esys_FlushContext)(ESYS_CONTEXT *esysContext, ESYS_TR flush
 static void (*sym_Esys_Free)(void *ptr) = NULL;
 static TSS2_RC (*sym_Esys_GetCapability)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2_CAP capability, UINT32 property, UINT32 propertyCount, TPMI_YES_NO *moreData, TPMS_CAPABILITY_DATA **capabilityData) = NULL;
 static TSS2_RC (*sym_Esys_GetRandom)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, UINT16 bytesRequested, TPM2B_DIGEST **randomBytes) = NULL;
+static TSS2_RC (*sym_Esys_Import)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DATA *encryptionKey, const TPM2B_PUBLIC *objectPublic, const TPM2B_PRIVATE *duplicate, const TPM2B_ENCRYPTED_SECRET *inSymSeed, const TPMT_SYM_DEF_OBJECT *symmetricAlg, TPM2B_PRIVATE **outPrivate) = NULL;
 static TSS2_RC (*sym_Esys_Initialize)(ESYS_CONTEXT **esys_context,  TSS2_TCTI_CONTEXT *tcti, TSS2_ABI_VERSION *abiVersion) = NULL;
 static TSS2_RC (*sym_Esys_Load)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_PRIVATE *inPrivate, const TPM2B_PUBLIC *inPublic, ESYS_TR *objectHandle) = NULL;
 static TSS2_RC (*sym_Esys_LoadExternal)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE *inPrivate, const TPM2B_PUBLIC *inPublic, ESYS_TR hierarchy, ESYS_TR *objectHandle) = NULL;
@@ -73,6 +74,8 @@ static TSS2_RC (*sym_Esys_Unseal)(ESYS_CONTEXT *esysContext, ESYS_TR itemHandle,
 static TSS2_RC (*sym_Esys_VerifySignature)(ESYS_CONTEXT *esysContext, ESYS_TR keyHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *digest, const TPMT_SIGNATURE *signature, TPMT_TK_VERIFIED **validation) = NULL;
 
 static TSS2_RC (*sym_Tss2_MU_TPM2_CC_Marshal)(TPM2_CC src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
+static TSS2_RC (*sym_Tss2_MU_TPM2B_ENCRYPTED_SECRET_Marshal)(TPM2B_ENCRYPTED_SECRET const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
+static TSS2_RC (*sym_Tss2_MU_TPM2B_ENCRYPTED_SECRET_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_ENCRYPTED_SECRET *dest) = NULL;
 static TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Marshal)(TPM2B_PRIVATE const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 static TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PRIVATE  *dest) = NULL;
 static TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Marshal)(TPM2B_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
@@ -97,6 +100,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_Free),
                         DLSYM_ARG(Esys_GetCapability),
                         DLSYM_ARG(Esys_GetRandom),
+                        DLSYM_ARG(Esys_Import),
                         DLSYM_ARG(Esys_Initialize),
                         DLSYM_ARG(Esys_Load),
                         DLSYM_ARG(Esys_LoadExternal),
@@ -132,6 +136,8 @@ int dlopen_tpm2(void) {
         return dlopen_many_sym_or_warn(
                         &libtss2_mu_dl, "libtss2-mu.so.0", LOG_DEBUG,
                         DLSYM_ARG(Tss2_MU_TPM2_CC_Marshal),
+                        DLSYM_ARG(Tss2_MU_TPM2B_ENCRYPTED_SECRET_Marshal),
+                        DLSYM_ARG(Tss2_MU_TPM2B_ENCRYPTED_SECRET_Unmarshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_PRIVATE_Marshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_PRIVATE_Unmarshal),
                         DLSYM_ARG(Tss2_MU_TPM2B_PUBLIC_Marshal),
@@ -2264,6 +2270,48 @@ int tpm2_create_loaded(
         return 0;
 }
 
+static int tpm2_import(
+                Tpm2Context *c,
+                const Tpm2Handle *parent,
+                const Tpm2Handle *session,
+                const TPM2B_PUBLIC *public,
+                const TPM2B_PRIVATE *private,
+                const TPM2B_ENCRYPTED_SECRET *seed,
+                const TPM2B_DATA *encryption_key,
+                const TPMT_SYM_DEF_OBJECT *symmetric,
+                TPM2B_PRIVATE **ret_private) {
+
+        TSS2_RC rc;
+
+        assert(c);
+        assert(parent);
+        assert(!!encryption_key == !!symmetric);
+        assert(public);
+        assert(private);
+        assert(seed);
+        assert(ret_private);
+
+        log_debug("Importing key into TPM.");
+
+        rc = sym_Esys_Import(
+                        c->esys_context,
+                        parent->esys_handle,
+                        session ? session->esys_handle : ESYS_TR_PASSWORD,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        encryption_key,
+                        public,
+                        private,
+                        seed,
+                        symmetric ?: &(TPMT_SYM_DEF_OBJECT){ .algorithm = TPM2_ALG_NULL, },
+                        ret_private);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to import key into TPM: %s", sym_Tss2_RC_Decode(rc));
+
+        return 0;
+}
+
 /* Read hash values from the specified PCR selection. Provides a Tpm2PCRValue array that contains all
  * requested PCR values, in the order provided by the TPM. Normally, the provided pcr values will match
  * exactly what is in the provided selection, but the TPM may ignore some selected PCRs (for example, if an
@@ -3754,12 +3802,14 @@ int tpm2_tpm2b_public_from_pem(const void *pem, size_t pem_size, TPM2B_PUBLIC *r
 #endif
 }
 
-/* Marshal the public and private objects into a single nonstandard 'blob'. This is not a (publicly) standard
- * format, this is specific to how we currently store the sealed object. This 'blob' can be unmarshalled by
+/* Marshal the public, private, and seed objects into a single nonstandard 'blob'. The public and private
+ * objects are required, while the seed is optional. This is not a (publicly) standard format, this is
+ * specific to how we currently store the sealed object. This 'blob' can be unmarshalled by
  * tpm2_unmarshal_blob(). */
 int tpm2_marshal_blob(
                 const TPM2B_PUBLIC *public,
                 const TPM2B_PRIVATE *private,
+                const TPM2B_ENCRYPTED_SECRET *seed,
                 void **ret_blob,
                 size_t *ret_blob_size) {
 
@@ -3771,6 +3821,8 @@ int tpm2_marshal_blob(
         assert(ret_blob_size);
 
         size_t max_size = sizeof(*private) + sizeof(*public);
+        if (seed)
+                max_size += sizeof(*seed);
 
         _cleanup_free_ void *blob = malloc(max_size);
         if (!blob)
@@ -3787,26 +3839,36 @@ int tpm2_marshal_blob(
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to marshal public key: %s", sym_Tss2_RC_Decode(rc));
 
+        if (seed) {
+                rc = sym_Tss2_MU_TPM2B_ENCRYPTED_SECRET_Marshal(seed, blob, max_size, &blob_size);
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to marshal encrypted seed: %s", sym_Tss2_RC_Decode(rc));
+        }
+
         *ret_blob = TAKE_PTR(blob);
         *ret_blob_size = blob_size;
 
         return 0;
 }
 
-/* Unmarshal the 'blob' into public and private objects. This is not a (publicly) standard format, this is
- * specific to how we currently store the sealed object. This expects the 'blob' to have been created by
+/* Unmarshal the 'blob' into public, private, and seed objects. The public and private objects are required
+ * in the 'blob', while the seed is optional. This is not a (publicly) standard format, this is specific to
+ * how we currently store the sealed object. This expects the 'blob' to have been created by
  * tpm2_marshal_blob(). */
 int tpm2_unmarshal_blob(
                 const void *blob,
                 size_t blob_size,
                 TPM2B_PUBLIC *ret_public,
-                TPM2B_PRIVATE *ret_private) {
+                TPM2B_PRIVATE *ret_private,
+                TPM2B_ENCRYPTED_SECRET *ret_seed) {
 
         TSS2_RC rc;
 
         assert(blob);
         assert(ret_public);
         assert(ret_private);
+        assert(ret_seed);
 
         TPM2B_PRIVATE private = {};
         size_t offset = 0;
@@ -3821,8 +3883,17 @@ int tpm2_unmarshal_blob(
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to unmarshal public key: %s", sym_Tss2_RC_Decode(rc));
 
+        TPM2B_ENCRYPTED_SECRET seed = {};
+        if (blob_size > offset) {
+                rc = sym_Tss2_MU_TPM2B_ENCRYPTED_SECRET_Unmarshal(blob, blob_size, &offset, &seed);
+                if (rc != TSS2_RC_SUCCESS)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to unmarshal encrypted seed: %s", sym_Tss2_RC_Decode(rc));
+        }
+
         *ret_public = public;
         *ret_private = private;
+        *ret_seed = seed;
 
         return 0;
 }
@@ -3965,7 +4036,7 @@ int tpm2_seal(Tpm2Context *c,
 
         _cleanup_free_ void *blob = NULL;
         size_t blob_size;
-        r = tpm2_marshal_blob(public, private, &blob, &blob_size);
+        r = tpm2_marshal_blob(public, private, /* seed= */ NULL, &blob, &blob_size);
         if (r < 0)
                 return log_error_errno(r, "Could not create sealed blob: %m");
 
@@ -4060,7 +4131,8 @@ int tpm2_unseal(const char *device,
 
         TPM2B_PUBLIC public;
         TPM2B_PRIVATE private;
-        r = tpm2_unmarshal_blob(blob, blob_size, &public, &private);
+        TPM2B_ENCRYPTED_SECRET seed = {};
+        r = tpm2_unmarshal_blob(blob, blob_size, &public, &private, &seed);
         if (r < 0)
                 return log_error_errno(r, "Could not extract parts from blob: %m");
 
@@ -4112,6 +4184,24 @@ int tpm2_unseal(const char *device,
         } else
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "No SRK or primary alg provided.");
+
+        if (seed.size > 0) {
+                /* This is a calculated (or duplicated) sealed object, and must be imported. */
+                _cleanup_free_ TPM2B_PRIVATE *imported_private = NULL;
+                r = tpm2_import(c,
+                                primary_handle,
+                                /* session= */ NULL,
+                                &public,
+                                &private,
+                                &seed,
+                                /* encryption_key= */ NULL,
+                                /* symmetric= */ NULL,
+                                &imported_private);
+                if (r < 0)
+                        return r;
+
+                private = *imported_private;
+        }
 
         log_debug("Loading HMAC key into TPM.");
 
