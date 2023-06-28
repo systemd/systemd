@@ -9,7 +9,7 @@
 
 [Unit]
 Description=Check battery level during early boot
-Documentation=man:systemd-battery-check(1)
+Documentation=man:initrd-battery-check.service(8)
 DefaultDependencies=no
 AssertPathExists=/etc/initrd-release
 Before=local-fs-pre.target
