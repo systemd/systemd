@@ -2708,6 +2708,7 @@ inst_binary() {
     # DSOs provided by systemd
     local systemd_so_regex='/(libudev|libsystemd.*|.+[\-_]systemd([\-_].+)?|libnss_(mymachines|myhostname|resolve)).so'
     local wrap_binary=0
+    local enable_lsan=0
     # I love bash!
     while read -r line; do
         [[ "$line" = 'not a dynamic executable' ]] && break
@@ -2750,6 +2751,14 @@ inst_binary() {
     bin_rx='/(agetty|chown|curl|delv|dig|getfacl|getent|id|login|ls|mkfs\.[a-z0-9]+|mksquashfs|mkswap|setfacl|setpriv|stat|su|tar|useradd|userdel)$'
     if get_bool "$IS_BUILT_WITH_ASAN" && [[ "$bin" =~ $bin_rx ]]; then
         wrap_binary=1
+        # Ugh, so we want to disable LSan in most cases for the wrapped binaries, since
+        # we don't care about memory leaks in such binaries. However, in certain cases
+        # the external binary is the only interface for the systemd code, like for
+        # the systemd NSS modules, where we want to detect memory leaks. So let's
+        # do another check to decide if we want to enable LSan for given binary.
+        if [[ "$bin" =~ /getent$ ]]; then
+            enable_lsan=1
+        fi
     fi
 
     # If the target binary is built with ASan support, we don't need to wrap
@@ -2767,7 +2776,7 @@ inst_binary() {
 export LD_PRELOAD="$ASAN_RT_PATH"
 # Disable LSan to speed things up, since we don't care about leak reports
 # from 'external' binaries
-export ASAN_OPTIONS=detect_leaks=0
+export ASAN_OPTIONS=detect_leaks=$enable_lsan
 # Set argv[0] to the original binary name without the ".orig" suffix
 exec -a "\$0" -- "${target}.orig" "\$@"
 EOF
