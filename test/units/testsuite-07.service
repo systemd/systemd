@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 [Unit]
-Description=TEST-07-ISSUE-1981
+Description=TEST-07-PID1
 
 [Service]
 Type=oneshot
