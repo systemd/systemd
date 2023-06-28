@@ -1,0 +1,72 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="initrd-battery-check.service" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-battery-check</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>initrd-battery-check.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>initrd-battery-check.service</refname>
+    <refname>systemd-battery-check</refname>
+    <refpurpose>Check battery level whether there's enough charge, and power off if not.</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>initrd-battery-check.service</filename></para>
+    <cmdsynopsis>
+      <command>/usr/lib/systemd/systemd-battery-check</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>
+      <filename>initrd-battery-check.service</filename> is used to check the battery level during the early
+      boot stage to determine whether there's sufficient battery power to carry on with the booting process.
+    </para>
+    <para>
+      <command>systemd-battery-check</command> returns success if the device is connected to an AC power
+      source or if the battery charge is greater than 5%. It returns failure otherwise.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood by <command>systemd-battery-check</command>:</para>
+
+    <variablelist>
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>
+      On success (running on AC power or battery capacity greater than 5%), 0 is returned, a non-zero failure
+      code otherwise.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
