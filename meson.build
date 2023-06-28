@@ -1054,7 +1054,6 @@ if default_user_path != ''
         conf.set_quoted('DEFAULT_USER_PATH', default_user_path)
 endif
 
-
 #####################################################################
 
 threads = dependency('threads')
@@ -1197,7 +1196,9 @@ conf.set10('HAVE_LIBFDISK', have)
 
 want_pwquality = get_option('pwquality')
 if want_pwquality != 'false' and not skip_deps
-        libpwquality = dependency('pwquality', required : want_pwquality == 'true')
+        libpwquality = dependency('pwquality',
+                                  version : '>= 1.4.1',
+                                  required : want_pwquality == 'true')
         have = libpwquality.found()
 else
         have = false
@@ -3845,6 +3846,16 @@ public_programs += executable(
         install : true,
         install_dir : rootbindir)
 
+public_programs += executable(
+        'systemd-battery-check',
+        'src/battery-check/battery-check.c',
+        include_directories : includes,
+        link_with : [libshared],
+        dependencies : [userspace, versiondep],
+        install_rpath : rootpkglibdir,
+        install_dir : rootlibexecdir,
+        install : true)
+
 # Protecting files from the distro in /usr doesn't make sense since they can be trivially accessed otherwise,
 # so don't restrict the access mode in /usr. That doesn't apply to /etc, so we do restrict the access mode
 # there.
@@ -4746,7 +4757,6 @@ foreach tuple : fuzz_sanitizers
                 endforeach
         endif
 endforeach
-
 
 ############################################################
 

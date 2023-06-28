@@ -149,7 +149,7 @@ uruchamiania.
 
 Uruchamianie jądra zajęło @KERNEL_USEC@ μs.
 
-Uruchamianie początkowego dysku RAM zajęło @INITRD_USEC@ μs.
+Uruchamianie initrd zajęło @INITRD_USEC@ μs.
 
 Uruchamianie przestrzeni użytkownika zajęło @USERSPACE_USEC@ μs.
 
@@ -542,3 +542,40 @@ Support: %SUPPORT_URL%
 
 Po raz pierwszy podczas obecnego uruchomienia uzyskano synchronizację NTP
 i zainicjowano regulację lokalnego zegara systemowego.
+
+-- 7db73c8af0d94eeb822ae04323fe6ab6
+Subject: Początkowe przestawienie zegara
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Przestawiono zegar systemowy na podstawie pliku ze znacznikiem czasu na dysku
+w celu zapewnienia, że nadal jest w przybliżeniu monotoniczny — nawet między
+ponownymi uruchomieniami — jeśli zegar czasu rzeczywistego jest niedostępny
+lub zawodny.
+
+-- 3f7d5ef3e54f4302b4f0b143bb270cab
+Subject: Rozszerzono PCR układu TPM
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Rejestr konfiguracji platformy (PCR) @PCR@ układu TPM, w rzędach @BANKS@,
+został rozszerzony ciągiem „@MEASURING@”.
+
+Kiedy system przechodzi do nowego etapu uruchamiania, podany PCR jest
+rozszerzany innym ciągiem, aby zapewnić, że zasady zabezpieczeń dla haseł
+związanych z TPM i innych zasobów są ograniczone do konkretnych etapów
+uruchamiania.
+
+-- f9b0be465ad540d0850ad32172d57c21
+Subject: Obniżono zużycie pamięci
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Obniżono zużycie pamięci procesu @_PID@ (@_COMM@).
+
+Na żądanie użytkownika lub w wyniku zdarzenia braku pamięci obniżono zużycie
+pamięci procesu, zwracając niepotrzebne bufory przydziału i inne zasoby
+z powrotem do jądra systemu operacyjnego, udostępniając je innym częściom
+systemu.
+
+Zwrócono @TRIMMED_BYTES@ pamięci do systemu operacyjnego, co zajęło @TRIMMED_USEC@ μs.

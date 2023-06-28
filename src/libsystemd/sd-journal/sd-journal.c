@@ -3496,7 +3496,7 @@ _public_ int sd_journal_get_catalog(sd_journal *j, char **ret) {
         if (r < 0)
                 return r;
 
-        r = catalog_get(CATALOG_DATABASE, id, &text);
+        r = catalog_get(secure_getenv("SYSTEMD_CATALOG") ?: CATALOG_DATABASE, id, &text);
         if (r < 0)
                 return r;
 

@@ -2400,12 +2400,19 @@ static int run(int argc, char *argv[]) {
         case ACTION_UPDATE_CATALOG: {
                 _cleanup_free_ char *database = NULL;
 
-                database = path_join(arg_root, CATALOG_DATABASE);
+                database = path_join(arg_root, secure_getenv("SYSTEMD_CATALOG") ?: CATALOG_DATABASE);
                 if (!database)
                         return log_oom();
 
                 if (arg_action == ACTION_UPDATE_CATALOG) {
-                        r = catalog_update(database, arg_root, catalog_file_dirs);
+                        const char *e;
+
+                        e = secure_getenv("SYSTEMD_CATALOG_SOURCES");
+
+                        r = catalog_update(
+                                        database,
+                                        arg_root,
+                                        e ? (const char* const*) STRV_MAKE(e) : catalog_file_dirs);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to list catalog: %m");
                 } else {
