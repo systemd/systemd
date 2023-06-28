@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "chase.h"
+#include "creds-util.h"
 #include "fd-util.h"
 #include "id128-util.h"
 #include "io-util.h"
@@ -27,6 +28,24 @@
 #include "umask-util.h"
 #include "virt.h"
 
+static int acquire_machine_id_from_credential(sd_id128_t *ret) {
+        _cleanup_free_ char *buf = NULL;
+        int r;
+
+        r = read_credential_with_decryption("system.machine_id", (void**) &buf, /* ret_size= */ NULL);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to read system.machine_id credential, ignoring: %m");
+        if (r == 0) /* not found */
+                return -ENXIO;
+
+        r = sd_id128_from_string(buf, ret);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to parse system.machine_id credential, ignoring: %m");
+
+        log_info("Initializing machine ID from credential.");
+        return 0;
+}
+
 static int generate_machine_id(const char *root, sd_id128_t *ret) {
         _cleanup_close_ int fd = -EBADF;
         int r;
@@ -41,6 +60,11 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
         }
 
         if (isempty(root) && running_in_chroot() <= 0) {
+                /* Let's use a system credential for the machine ID if we can */
+                r = acquire_machine_id_from_credential(ret);
+                if (r >= 0)
+                        return r;
+
                 /* If that didn't work, see if we are running in a container,
                  * and a machine ID was passed in via $container_uuid the way
                  * libvirt/LXC does it */
