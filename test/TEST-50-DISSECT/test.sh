@@ -24,7 +24,9 @@ test_append_files() {
     if command -v openssl >/dev/null 2>&1; then
         inst_binary openssl
     fi
+    inst_binary mksquashfs
     inst_binary unsquashfs
+    image_install -o mksquashfs
     install_verity_minimal
 }
 
