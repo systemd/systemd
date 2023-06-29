@@ -3389,7 +3389,7 @@ static int setup_credentials_internal(
                         if (r < 0)
                                 return r;
 
-                        r = mount_nofollow_verbose(LOG_DEBUG, NULL, workspace, NULL, MS_BIND|MS_REMOUNT|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL);
+                        r = mount_nofollow_verbose(LOG_DEBUG, NULL, workspace, NULL, MS_BIND|MS_REMOUNT|credentials_fs_mount_flags(/* ro= */ false), NULL);
                         if (r < 0)
                                 return r;
 
@@ -3400,57 +3400,34 @@ static int setup_credentials_internal(
 
         if (workspace_mounted < 0) {
                 /* Nothing is mounted on the workspace yet, let's try to mount something now */
-                for (int try = 0;; try++) {
 
-                        if (try == 0) {
-                                /* Try "ramfs" first, since it's not swap backed */
-                                r = mount_nofollow_verbose(LOG_DEBUG, "ramfs", workspace, "ramfs", MS_NODEV|MS_NOEXEC|MS_NOSUID, "mode=0700");
-                                if (r >= 0) {
-                                        workspace_mounted = true;
-                                        break;
-                                }
+                r = mount_credentials_fs(workspace, CREDENTIALS_TOTAL_SIZE_MAX, /* ro= */ false);
+                if (r < 0) {
+                        /* If that didn't work, try to make a bind mount from the final to the workspace, so that we can make it writable there. */
+                        r = mount_nofollow_verbose(LOG_DEBUG, final, workspace, NULL, MS_BIND|MS_REC, NULL);
+                        if (r < 0) {
+                                if (!ERRNO_IS_PRIVILEGE(r)) /* Propagate anything that isn't a permission problem */
+                                        return r;
 
-                        } else if (try == 1) {
-                                _cleanup_free_ char *opts = NULL;
+                                if (must_mount) /* If we it's not OK to use the plain directory
+                                                 * fallback, propagate all errors too */
+                                        return r;
 
-                                if (asprintf(&opts, "mode=0700,nr_inodes=1024,size=%zu", (size_t) CREDENTIALS_TOTAL_SIZE_MAX) < 0)
-                                        return -ENOMEM;
+                                /* If we lack privileges to bind mount stuff, then let's gracefully
+                                 * proceed for compat with container envs, and just use the final dir
+                                 * as is. */
 
-                                /* Fall back to "tmpfs" otherwise */
-                                r = mount_nofollow_verbose(LOG_DEBUG, "tmpfs", workspace, "tmpfs", MS_NODEV|MS_NOEXEC|MS_NOSUID, opts);
-                                if (r >= 0) {
-                                        workspace_mounted = true;
-                                        break;
-                                }
-
+                                workspace_mounted = false;
                         } else {
-                                /* If that didn't work, try to make a bind mount from the final to the workspace, so that we can make it writable there. */
-                                r = mount_nofollow_verbose(LOG_DEBUG, final, workspace, NULL, MS_BIND|MS_REC, NULL);
-                                if (r < 0) {
-                                        if (!ERRNO_IS_PRIVILEGE(r)) /* Propagate anything that isn't a permission problem */
-                                                return r;
-
-                                        if (must_mount) /* If we it's not OK to use the plain directory
-                                                         * fallback, propagate all errors too */
-                                                return r;
-
-                                        /* If we lack privileges to bind mount stuff, then let's gracefully
-                                         * proceed for compat with container envs, and just use the final dir
-                                         * as is. */
-
-                                        workspace_mounted = false;
-                                        break;
-                                }
-
                                 /* Make the new bind mount writable (i.e. drop MS_RDONLY) */
-                                r = mount_nofollow_verbose(LOG_DEBUG, NULL, workspace, NULL, MS_BIND|MS_REMOUNT|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL);
+                                r = mount_nofollow_verbose(LOG_DEBUG, NULL, workspace, NULL, MS_BIND|MS_REMOUNT|credentials_fs_mount_flags(/* ro= */ false), NULL);
                                 if (r < 0)
                                         return r;
 
                                 workspace_mounted = true;
-                                break;
                         }
-                }
+                } else
+                        workspace_mounted = true;
         }
 
         assert(!must_mount || workspace_mounted > 0);
@@ -3482,7 +3459,7 @@ static int setup_credentials_internal(
 
                 if (install) {
                         /* Make workspace read-only now, so that any bind mount we make from it defaults to read-only too */
-                        r = mount_nofollow_verbose(LOG_DEBUG, NULL, workspace, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL);
+                        r = mount_nofollow_verbose(LOG_DEBUG, NULL, workspace, NULL, MS_BIND|MS_REMOUNT|credentials_fs_mount_flags(/* ro= */ true), NULL);
                         if (r < 0)
                                 return r;
 
