@@ -8,6 +8,10 @@ RUN_IN_UNPRIVILEGED_CONTAINER=${RUN_IN_UNPRIVILEGED_CONTAINER:-yes}
 TEST_REQUIRE_INSTALL_TESTS=0
 TEST_SUPPORTING_SERVICES_SHOULD_BE_MASKED=0
 
+# Check if we can correctly deserialize if the kernel cmdline contains "weird" stuff
+# See: https://github.com/systemd/systemd/issues/28184
+KERNEL_APPEND="foo -- bar --- baz"
+
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 

@@ -1860,12 +1860,16 @@ static int do_reexecute(
                 xsprintf(sfd, "--deserialize=%i", fileno(arg_serialization));
 
                 i = 1;         /* Leave args[0] empty for now. */
-                filter_args(args, &i, argv, argc);
 
+                /* Put our stuff first to make sure it always gets parsed in case
+                 * we get weird stuff from the kernel cmdline (like --) */
                 if (IN_SET(objective, MANAGER_SWITCH_ROOT, MANAGER_SOFT_REBOOT))
                         args[i++] = "--switched-root";
                 args[i++] = runtime_scope_cmdline_option_to_string(arg_runtime_scope);
                 args[i++] = sfd;
+
+                filter_args(args, &i, argv, argc);
+
                 args[i++] = NULL;
 
                 assert(i <= args_size);
