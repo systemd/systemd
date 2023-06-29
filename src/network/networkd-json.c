@@ -873,6 +873,41 @@ finalize:
         return r;
 }
 
+static int captive_portal_build_json(Link *link, JsonVariant **ret) {
+        int r;
+        const char *captive_portal = NULL;
+
+        assert(link);
+        assert(ret);
+
+        if (!link->network) {
+                *ret = NULL;
+                return 0;
+        }
+
+        if (link->network->dhcp_use_captive_portal && link->dhcp_lease) {
+                r = sd_dhcp_lease_get_captive_portal(link->dhcp_lease, &captive_portal);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+        }
+
+        if (link->network->dhcp6_use_captive_portal && link->dhcp6_lease && !captive_portal) {
+                r = sd_dhcp6_lease_get_captive_portal(link->dhcp6_lease, &captive_portal);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+        }
+
+        if (link->network->ipv6_accept_ra_use_captive_portal && !captive_portal)
+                captive_portal = link->ndisc_captive_portal;
+
+        if (!captive_portal) {
+                *ret = NULL;
+                return 0;
+        }
+
+        return json_build(ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("CaptivePortal", captive_portal)));
+}
+
 static int domain_build_json(int family, const char *domain, NetworkConfigSource s, const union in_addr_union *p, JsonVariant **ret) {
         assert(IN_SET(family, AF_UNSPEC, AF_INET, AF_INET6));
         assert(domain);
@@ -1381,6 +1416,16 @@ int link_build_json(Link *link, JsonVariant **ret) {
         w = json_variant_unref(w);
 
         r = sip_build_json(link, &w);
+        if (r < 0)
+                return r;
+
+        r = json_variant_merge(&v, w);
+        if (r < 0)
+                return r;
+
+        w = json_variant_unref(w);
+
+        r = captive_portal_build_json(link, &w);
         if (r < 0)
                 return r;
 
