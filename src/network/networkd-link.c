@@ -196,6 +196,7 @@ static Link *link_free(Link *link) {
         free(link->ssid);
         free(link->previous_ssid);
         free(link->driver);
+        free(link->ndisc_captive_portal);
 
         unlink_and_free(link->lease_file);
         unlink_and_free(link->lldp_file);
