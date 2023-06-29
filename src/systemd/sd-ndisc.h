@@ -123,6 +123,9 @@ int sd_ndisc_router_rdnss_get_lifetime(sd_ndisc_router *rt, uint32_t *ret);
 int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret);
 int sd_ndisc_router_dnssl_get_lifetime(sd_ndisc_router *rt, uint32_t *ret);
 
+/* Specific option access: SD_NDISC_OPTION_CAPTIVE_PORTAL */
+int sd_ndisc_router_captive_portal_get_uri(sd_ndisc_router *rt, const char **uri, size_t *size);
+
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ndisc, sd_ndisc_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ndisc_router, sd_ndisc_router_unref);
 

@@ -315,6 +315,7 @@ struct Network {
         bool ipv6_accept_ra_use_onlink_prefix;
         bool ipv6_accept_ra_use_mtu;
         bool ipv6_accept_ra_quickack;
+        bool ipv6_accept_ra_use_captive_portal;
         bool active_slave;
         bool primary_slave;
         DHCPUseDomains ipv6_accept_ra_use_domains;
