@@ -724,8 +724,10 @@ Table=1234</programlisting></para>
           enables the privacy extensions and prefers temporary addresses over public addresses. When
           <literal>prefer-public</literal>, enables the privacy extensions, but prefers public
           addresses over temporary addresses. When false, the privacy extensions remain disabled. When
-          <literal>kernel</literal>, the kernel's default setting will be left in place. Defaults to
-          <literal>no</literal>.</para>
+          <literal>kernel</literal>, the kernel's default setting will be left in place. When unspecified,
+          the value specified in the same setting in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          which defaults to <literal>no</literal>, will be used.</para>
         </listitem>
       </varlistentry>
 

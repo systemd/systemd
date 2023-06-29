@@ -13,6 +13,7 @@
 #include "hashmap.h"
 #include "networkd-link.h"
 #include "networkd-network.h"
+#include "networkd-sysctl.h"
 #include "ordered-set.h"
 #include "set.h"
 #include "time-util.h"
@@ -29,6 +30,7 @@ struct Manager {
         int ethtool_fd;
 
         KeepConfiguration keep_configuration;
+        IPv6PrivacyExtensions ipv6_privacy_extensions;
 
         bool test_mode;
         bool enumerating;
