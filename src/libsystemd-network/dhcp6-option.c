@@ -524,6 +524,26 @@ int dhcp6_option_parse_status(const uint8_t *data, size_t data_len, char **ret_s
         return status;
 }
 
+/* parse a string from dhcp option field. *ret must be initialized */
+int dhcp6_option_parse_string(const uint8_t *data, size_t data_len, char **ret) {
+        _cleanup_free_ char *string = NULL;
+        int r;
+
+        assert(data);
+        assert(ret);
+
+        if (data_len <= 0) {
+                *ret = mfree(*ret);
+                return 0;
+        }
+
+        r = make_cstring((const char *) data, data_len, MAKE_CSTRING_REFUSE_TRAILING_NUL, &string);
+        if (r < 0)
+                return r;
+
+        return free_and_replace(*ret, string);
+}
+
 static int dhcp6_option_parse_ia_options(sd_dhcp6_client *client, const uint8_t *buf, size_t buflen) {
         int r;
 

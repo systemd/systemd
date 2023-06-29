@@ -43,6 +43,7 @@ struct sd_dhcp6_lease {
         struct in6_addr *sntp;
         size_t sntp_count;
         char *fqdn;
+        char *captive_portal;
 };
 
 int dhcp6_lease_get_lifetime(sd_dhcp6_lease *lease, usec_t *ret_t1, usec_t *ret_t2, usec_t *ret_valid);
@@ -60,6 +61,7 @@ int dhcp6_lease_add_domains(sd_dhcp6_lease *lease, const uint8_t *optval, size_t
 int dhcp6_lease_add_ntp(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
 int dhcp6_lease_add_sntp(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
 int dhcp6_lease_set_fqdn(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
+int dhcp6_lease_set_captive_portal(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
 
 int dhcp6_lease_new(sd_dhcp6_lease **ret);
 int dhcp6_lease_new_from_message(
