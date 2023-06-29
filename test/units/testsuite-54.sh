@@ -308,6 +308,9 @@ if ! systemd-detect-virt -q -c ; then
     # Check that the fstab credential logic worked
     test -d /injected
     grep -q /injected /proc/self/mountinfo
+
+    # Make sure the getty generator processed the credentials properly
+    systemctl -P Wants show getty.target | grep -q container-getty@idontexist.service
 fi
 
 systemd-analyze log-level info
