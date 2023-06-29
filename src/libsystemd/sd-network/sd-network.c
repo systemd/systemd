@@ -258,6 +258,10 @@ int sd_network_link_get_sip(int ifindex, char ***ret) {
         return network_link_get_strv(ifindex, "SIP", ret);
 }
 
+int sd_network_link_get_captive_portal(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "CAPTIVE_PORTAL", ret);
+}
+
 int sd_network_link_get_search_domains(int ifindex, char ***ret) {
         return network_link_get_strv(ifindex, "DOMAINS", ret);
 }
