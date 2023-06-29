@@ -17,6 +17,7 @@
 #include "fd-util.h"
 #include "find-esp.h"
 #include "gpt.h"
+#include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
@@ -362,6 +363,12 @@ static int verify_esp(
                 r = path_extract_filename(p, &f);
                 if (r < 0 && r != -EADDRNOTAVAIL)
                         return log_error_errno(r, "Failed to extract filename of %s: %m", p);
+
+                /* Trigger any automounts so that xstatfsat() operates on the mount instead of the mountpoint
+                 * directory. */
+                r = trigger_automount_at(pfd, f);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to trigger automount at %s: %m", p);
 
                 r = xstatfsat(pfd, strempty(f), &sfs);
                 if (r < 0)
