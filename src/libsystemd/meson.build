@@ -144,6 +144,16 @@ libsystemd_pc = custom_target(
 
 ############################################################
 
+cmake = import('cmake')
+
+cmake.configure_package_config_file(
+    name: 'libsystemd',
+    input: 'libsystemdConfig.cmake.in',
+    configuration: conf
+)
+
+############################################################
+
 simple_tests += files(
         'sd-journal/test-audit-type.c',
         'sd-journal/test-catalog.c',
