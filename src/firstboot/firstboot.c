@@ -38,7 +38,7 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
-#include "pwquality-util.h"
+#include "password-quality-util.h"
 #include "random-util.h"
 #include "smack-util.h"
 #include "string-util.h"
@@ -789,7 +789,7 @@ static int prompt_root_password(int rfd) {
                         break;
                 }
 
-                r = quality_check_password(*a, "root", &error);
+                r = check_password_quality(*a, /* old */ NULL, "root", &error);
                 if (r < 0)
                         return log_error_errno(r, "Failed to check quality of password: %m");
                 if (r == 0)
