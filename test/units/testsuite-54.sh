@@ -304,6 +304,10 @@ systemd-run -p DynamicUser=yes -p 'LoadCredential=os:/etc/os-release' \
 if ! systemd-detect-virt -q -c ; then
     # Validate that the credential we inserted via the initrd logic arrived
     test "$(systemd-creds cat --system myinitrdcred)" = "guatemala"
+
+    # Check that the fstab credential logic worked
+    test -d /injected
+    grep -q /injected /proc/self/mountinfo
 fi
 
 systemd-analyze log-level info
