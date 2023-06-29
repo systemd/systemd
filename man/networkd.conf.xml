@@ -94,6 +94,16 @@
         specified earlier are cleared. Defaults to unset.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>IPv6PrivacyExtensions=</varname></term>
+        <listitem>
+          <para>Specifies the default value for per-network <varname>IPv6PrivacyExtensions=</varname>.
+          Takes a boolean or the special values <literal>prefer-public</literal> and
+          <literal>kernel</literal>. See for details in
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          Defaults to <literal>no</literal>.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
