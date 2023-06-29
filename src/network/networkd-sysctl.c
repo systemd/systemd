@@ -100,8 +100,8 @@ static int link_set_ipv6_privacy_extensions(Link *link) {
         if (!link->network)
                 return 0;
 
-        // this is the special "kernel" value
-        if (link->network->ipv6_privacy_extensions == _IPV6_PRIVACY_EXTENSIONS_INVALID)
+        /* When "kernel", do not update the setting. */
+        if (link->network->ipv6_privacy_extensions == IPV6_PRIVACY_EXTENSIONS_KERNEL)
                 return 0;
 
         return sysctl_write_ip_property_int(AF_INET6, link->ifname, "use_tempaddr", (int) link->network->ipv6_privacy_extensions);
@@ -307,44 +307,13 @@ int link_set_sysctl(Link *link) {
 }
 
 static const char* const ipv6_privacy_extensions_table[_IPV6_PRIVACY_EXTENSIONS_MAX] = {
-        [IPV6_PRIVACY_EXTENSIONS_NO] = "no",
+        [IPV6_PRIVACY_EXTENSIONS_NO]            = "no",
         [IPV6_PRIVACY_EXTENSIONS_PREFER_PUBLIC] = "prefer-public",
-        [IPV6_PRIVACY_EXTENSIONS_YES] = "yes",
+        [IPV6_PRIVACY_EXTENSIONS_YES]           = "yes",
+        [IPV6_PRIVACY_EXTENSIONS_KERNEL]        = "kernel",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(ipv6_privacy_extensions, IPv6PrivacyExtensions,
                                         IPV6_PRIVACY_EXTENSIONS_YES);
-
-int config_parse_ipv6_privacy_extensions(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        IPv6PrivacyExtensions s, *ipv6_privacy_extensions = ASSERT_PTR(data);
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        s = ipv6_privacy_extensions_from_string(rvalue);
-        if (s < 0) {
-                if (streq(rvalue, "kernel"))
-                        s = _IPV6_PRIVACY_EXTENSIONS_INVALID;
-                else {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Failed to parse IPv6 privacy extensions option, ignoring: %s", rvalue);
-                        return 0;
-                }
-        }
-
-        *ipv6_privacy_extensions = s;
-
-        return 0;
-}
+DEFINE_CONFIG_PARSE_ENUM(config_parse_ipv6_privacy_extensions, ipv6_privacy_extensions, IPv6PrivacyExtensions,
+                         "Failed to parse IPv6 privacy extensions option");
