@@ -456,7 +456,9 @@ int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(ret);
 
-        fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC|O_NOCTTY, /* xopen_flags = */ 0, /* mode = */ 0);
+        /* No O_PATH here to make sure that we trigger automounts as we generally want to get the information
+         * of the automount filesystem rather than the mountpoint filesystem information. */
+        fd = xopenat(dir_fd, path, O_CLOEXEC|O_NOCTTY, /* xopen_flags = */ 0, /* mode = */ 0);
         if (fd < 0)
                 return fd;
 
