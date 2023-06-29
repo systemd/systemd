@@ -465,6 +465,11 @@ static int dhcp6_lease_parse_message(
                 size_t optlen;
                 const uint8_t *optval;
 
+                if (len - offset < offsetof(DHCP6Option, data)) {
+                        log_dhcp6_client(client, "Ignoring %zu invalid byte(s) at the end of the packet", len - offset);
+                        break;
+                }
+
                 r = dhcp6_option_parse(message->options, len, &offset, &optcode, &optlen, &optval);
                 if (r < 0)
                         return log_dhcp6_client_errno(client, r,
