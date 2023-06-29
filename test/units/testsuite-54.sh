@@ -301,6 +301,11 @@ systemd-run -p DynamicUser=yes -p 'LoadCredential=os:/etc/os-release' \
             --pipe \
             true | cmp /etc/os-release
 
+if ! systemd-detect-virt -q -c ; then
+    # Validate that the credential we inserted via the initrd logic arrived
+    test "$(systemd-creds cat --system myinitrdcred)" = "guatemala"
+fi
+
 systemd-analyze log-level info
 
 echo OK >/testok
