@@ -70,21 +70,36 @@ static void import_credentials_context_free(ImportCredentialContext *c) {
         c->target_dir_fd = safe_close(c->target_dir_fd);
 }
 
-static int acquire_encrypted_credential_directory(ImportCredentialContext *c) {
+static int acquire_credential_directory(ImportCredentialContext *c, const char *path, bool with_mount) {
         int r;
 
         assert(c);
+        assert(path);
 
         if (c->target_dir_fd >= 0)
                 return c->target_dir_fd;
 
-        r = mkdir_safe_label(ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, 0700, 0, 0, MKDIR_WARN_MODE);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create " ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY ": %m");
+        r = path_is_mount_point(path, NULL, 0);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return log_error_errno(r, "Failed to determine if %s is a mount point: %m", path);
 
-        c->target_dir_fd = open(ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                r = mkdir_safe_label(path, 0700, 0, 0, MKDIR_WARN_MODE);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create %s mount point: %m", path);
+
+                r = 0; /* Now it exists and is not a mount point */
+        }
+        if (r > 0)
+                /* If already a mount point, then remount writable */
+                (void) mount_nofollow_verbose(LOG_WARNING, NULL, path, NULL, MS_BIND|MS_REMOUNT|credentials_fs_mount_flags(/* ro= */ false), NULL);
+        else if (with_mount)
+                /* If not a mount point yet, and the credentials are not encrypted, then let's try to mount a no-swap fs there */
+                (void) mount_credentials_fs(path, CREDENTIALS_TOTAL_SIZE_MAX, /* ro= */ false);
+
+        c->target_dir_fd = open(path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
         if (c->target_dir_fd < 0)
-                return log_error_errno(errno, "Failed to open " ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY ": %m");
+                return log_error_errno(errno, "Failed to open %s: %m", path);
 
         return c->target_dir_fd;
 }
@@ -137,7 +152,7 @@ static int finalize_credentials_dir(const char *dir, const char *envvar) {
         if (r < 0)
                 log_warning_errno(r, "Failed to make '%s' a mount point, ignoring: %m", dir);
         else
-                (void) mount_nofollow_verbose(LOG_WARNING, NULL, dir, NULL, MS_BIND|MS_NODEV|MS_NOEXEC|MS_NOSUID|MS_RDONLY|MS_REMOUNT, NULL);
+                (void) mount_nofollow_verbose(LOG_WARNING, NULL, dir, NULL, MS_BIND|MS_REMOUNT|credentials_fs_mount_flags(/* ro= */ true), NULL);
 
         if (setenv(envvar, dir, /* overwrite= */ true) < 0)
                 return log_error_errno(errno, "Failed to set $%s environment variable: %m", envvar);
@@ -227,7 +242,7 @@ static int import_credentials_boot(void) {
                         if (!credential_size_ok(&context, n, st.st_size))
                                 continue;
 
-                        r = acquire_encrypted_credential_directory(&context);
+                        r = acquire_credential_directory(&context, ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, /* with_mount= */ false);
                         if (r < 0)
                                 return r;
 
@@ -259,37 +274,6 @@ static int import_credentials_boot(void) {
         }
 
         return 0;
-}
-
-static int acquire_credential_directory(ImportCredentialContext *c) {
-        int r;
-
-        assert(c);
-
-        if (c->target_dir_fd >= 0)
-                return c->target_dir_fd;
-
-        r = path_is_mount_point(SYSTEM_CREDENTIALS_DIRECTORY, NULL, 0);
-        if (r < 0) {
-                if (r != -ENOENT)
-                        return log_error_errno(r, "Failed to determine if " SYSTEM_CREDENTIALS_DIRECTORY " is a mount point: %m");
-
-                r = mkdir_safe_label(SYSTEM_CREDENTIALS_DIRECTORY, 0700, 0, 0, MKDIR_WARN_MODE);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create " SYSTEM_CREDENTIALS_DIRECTORY " mount point: %m");
-
-                r = 0; /* Now it exists and is not a mount point */
-        }
-        if (r == 0)
-                /* If not a mountpoint yet, try to mount a ramfs there (so that this stuff isn't swapped
-                 * out), but if that doesn't work, let's just use the regular tmpfs it already is. */
-                (void) mount_nofollow_verbose(LOG_WARNING, "ramfs", SYSTEM_CREDENTIALS_DIRECTORY, "ramfs", MS_NODEV|MS_NOEXEC|MS_NOSUID, "mode=0700");
-
-        c->target_dir_fd = open(SYSTEM_CREDENTIALS_DIRECTORY, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-        if (c->target_dir_fd < 0)
-                return log_error_errno(errno, "Failed to open " SYSTEM_CREDENTIALS_DIRECTORY ": %m");
-
-        return c->target_dir_fd;
 }
 
 static int proc_cmdline_callback(const char *key, const char *value, void *data) {
@@ -326,7 +310,7 @@ static int proc_cmdline_callback(const char *key, const char *value, void *data)
         if (!credential_size_ok(c, n, l))
                 return 0;
 
-        r = acquire_credential_directory(c);
+        r = acquire_credential_directory(c, SYSTEM_CREDENTIALS_DIRECTORY, /* with_mount= */ true);
         if (r < 0)
                 return r;
 
@@ -433,7 +417,7 @@ static int import_credentials_qemu(ImportCredentialContext *c) {
                         continue;
                 }
 
-                r = acquire_credential_directory(c);
+                r = acquire_credential_directory(c, SYSTEM_CREDENTIALS_DIRECTORY, /* with_mount= */ true);
                 if (r < 0)
                         return r;
 
@@ -535,7 +519,7 @@ static int parse_smbios_strings(ImportCredentialContext *c, const char *data, si
                 if (!credential_size_ok(c, cn, cdata_len))
                         continue;
 
-                r = acquire_credential_directory(c);
+                r = acquire_credential_directory(c, SYSTEM_CREDENTIALS_DIRECTORY, /* with_mount= */ true);
                 if (r < 0)
                         return r;
 
@@ -671,7 +655,7 @@ static int import_credentials_initrd(ImportCredentialContext *c) {
                 if (!credential_size_ok(c, d->d_name, st.st_size))
                         continue;
 
-                r = acquire_credential_directory(c);
+                r = acquire_credential_directory(c, SYSTEM_CREDENTIALS_DIRECTORY, /* with_mount= */ true);
                 if (r < 0)
                         return r;
 
