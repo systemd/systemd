@@ -1,0 +1,75 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="smbios-type-11">
+
+  <refentryinfo>
+    <title>smbios-type-11</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>smbios-type-11</refentrytitle>
+    <manvolnum>7</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>smbios-type-11</refname>
+    <refpurpose>SMBIOS Type 11 strings</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/sys/firmware/dmi/entries/11-*/raw</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>Various OS components process SMBIOS Type 11 vendor strings that a virtual machine manager (VMM)
+    may set and a virtual machine (VM) receives. SMBIOS Type 11 vendor strings may play a similar role as
+    <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    parameters but generally are under control of the VMM rather than the boot loader or UKI.</para>
+
+    <para>For details on SMBIOS Type 11 see the <ulink url="https://www.dmtf.org/standards/smbios/">System
+    Management BIOS</ulink> specifications.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Core OS Command Line Arguments</title>
+
+    <para>The following strings are supported:</para>
+
+    <variablelist class='smbios-type-11-options'>
+      <varlistentry>
+        <term><varname>io.systemd.credential:</varname><replaceable>CREDENTIAL=VALUE</replaceable></term>
+        <term><varname>io.systemd.credential.binary:</varname><replaceable>CREDENTIAL=VALUE</replaceable></term>
+
+        <listitem><para>This allows passing additional system credentials into the system, in textual or binary (Base64)
+        form. See
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+        <ulink url="https://systemd.io/CREDENTIALS">System and Service Credentials</ulink> for
+        details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>io.systemd.stub.kernel-cmdline-extra=</varname><replaceable>CMDLINE</replaceable></term>
+
+        <listitem><para>This allows configuration of additional kernel command line options, and is read by
+        the kernel UEFI stub. For details see
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+      <title>See Also</title>
+      <para>
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      </para>
+  </refsect1>
+
+</refentry>

@@ -876,6 +876,7 @@ manpages = [
   'HAVE_PAM'],
  ['sd_watchdog_enabled', '3', [], ''],
  ['shutdown', '8', [], ''],
+ ['smbios-type-11', '7', [], ''],
  ['sysctl.d', '5', [], ''],
  ['systemctl', '1', [], ''],
  ['systemd-ac-power', '1', [], ''],
