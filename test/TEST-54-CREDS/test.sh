@@ -15,6 +15,7 @@ QEMU_CREDS=(
     "-smbios type=11,value=io.systemd.credential.binary:binarysmbioscredential=bWFnaWNiaW5hcnlkYXRh"
     "-smbios type=11,value=io.systemd.credential.binary:sysusers.extra=dSBjcmVkdGVzdHVzZXIK"
     "-smbios type=11,value=io.systemd.credential.binary:tmpfiles.extra=ZiAvdG1wL3NvdXJjZWRmcm9tY3JlZGVudGlhbCAtIC0gLSAtIHRtcGZpbGVzc2VjcmV0Cg=="
+    "-smbios type=11,value=io.systemd.credential.binary:fstab.extra=aW5qZWN0ZWQgL2luamVjdGVkIHRtcGZzIFgtbW91bnQubWtkaXIgMCAwCg=="
 )
 QEMU_OPTIONS="${QEMU_OPTIONS:-} ${QEMU_CREDS[*]}"
 
