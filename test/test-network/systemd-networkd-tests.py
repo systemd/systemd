@@ -3121,18 +3121,25 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet6 .* scope link')
 
     def test_sysctl(self):
-        copy_network_unit('25-sysctl.network', '12-dummy.netdev')
+        copy_networkd_conf_dropin('25-global-ipv6-privacy-extensions.conf')
+        copy_network_unit('25-sysctl.network', '12-dummy.netdev', copy_dropins=False)
         start_networkd()
         self.wait_online(['dummy98:degraded'])
 
         self.check_ipv6_sysctl_attr('dummy98', 'forwarding', '1')
-        self.check_ipv6_sysctl_attr('dummy98', 'use_tempaddr', '2')
+        self.check_ipv6_sysctl_attr('dummy98', 'use_tempaddr', '1')
         self.check_ipv6_sysctl_attr('dummy98', 'dad_transmits', '3')
         self.check_ipv6_sysctl_attr('dummy98', 'hop_limit', '5')
         self.check_ipv6_sysctl_attr('dummy98', 'proxy_ndp', '1')
         self.check_ipv4_sysctl_attr('dummy98', 'forwarding', '1')
         self.check_ipv4_sysctl_attr('dummy98', 'proxy_arp', '1')
         self.check_ipv4_sysctl_attr('dummy98', 'accept_local', '1')
+
+        copy_network_unit('25-sysctl.network.d/25-ipv6-privacy-extensions.conf')
+        networkctl_reload()
+        self.wait_online(['dummy98:degraded'])
+
+        self.check_ipv6_sysctl_attr('dummy98', 'use_tempaddr', '2')
 
     def test_sysctl_disable_ipv6(self):
         copy_network_unit('25-sysctl-disable-ipv6.network', '12-dummy.netdev')
