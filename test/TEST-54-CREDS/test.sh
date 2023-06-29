@@ -38,4 +38,27 @@ test_append_files() {
     generate_module_dependencies
 }
 
+run_qemu_hook() {
+    local td="$WORKDIR"/initrd.extra."$RANDOM"
+    mkdir -m 755 "$td"
+    add_at_exit_handler "rm -rf $td"
+    mkdir -m 755 "$td/etc" "$td"/etc/systemd "$td"/etc/systemd/system "$td"/etc/systemd/system/initrd.target.wants
+
+    cat > "$td"/etc/systemd/system/initrdcred.service <<EOF
+[Unit]
+Description=populate initrd credential dir
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=sh -c "mkdir -m 0755 -p /run/credentials && mkdir -m 0700 /run/credentials/@initrd && umask 0077 && echo guatemala > /run/credentials/@initrd/myinitrdcred"
+EOF
+    ln -s ../initrdcred.service "$td"/etc/systemd/system/initrd.target.wants/initrdcred.service
+
+    ( cd "$td" && find . | cpio -o -H newc -R root:root > "$td".cpio )
+    add_at_exit_handler "rm $td.cpio"
+
+    INITRD_EXTRA="$td.cpio"
+}
+
 do_test "$@"
