@@ -958,15 +958,19 @@ TEST(calculate_policy_pcr) {
         assert_se(digest_check(&d, "7481fd1b116078eb3ac2456e4ad542c9b46b9b8eb891335771ca8e7c8f8e4415"));
 }
 
-TEST(tpm_required_tests) {
-        int r;
+static Tpm2Context *get_tpm2_context(void) {
+        Tpm2Context *c = NULL;
 
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
-        r = tpm2_context_new(NULL, &c);
-        if (r < 0) {
+        if (tpm2_context_new(NULL, &c) < 0)
                 log_tests_skipped("Could not find TPM");
+
+        return c;
+}
+
+TEST(test_parms) {
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = get_tpm2_context();
+        if (!c)
                 return;
-        }
 
         TPMU_PUBLIC_PARMS parms = {
                 .symDetail.sym = {
@@ -985,6 +989,12 @@ TEST(tpm_required_tests) {
 
         /* Test with valid parms */
         assert_se(tpm2_test_parms(c, TPM2_ALG_SYMCIPHER, &parms));
+}
+
+TEST(supports_alg) {
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = get_tpm2_context();
+        if (!c)
+                return;
 
         /* Test invalid algs */
         assert_se(!tpm2_supports_alg(c, TPM2_ALG_ERROR));
@@ -994,6 +1004,12 @@ TEST(tpm_required_tests) {
         assert_se(tpm2_supports_alg(c, TPM2_ALG_RSA));
         assert_se(tpm2_supports_alg(c, TPM2_ALG_AES));
         assert_se(tpm2_supports_alg(c, TPM2_ALG_CFB));
+}
+
+TEST(supports_command) {
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = get_tpm2_context();
+        if (!c)
+                return;
 
         /* Test invalid commands */
         assert_se(!tpm2_supports_command(c, TPM2_CC_FIRST - 1));
@@ -1003,6 +1019,98 @@ TEST(tpm_required_tests) {
         assert_se(tpm2_supports_command(c, TPM2_CC_Create));
         assert_se(tpm2_supports_command(c, TPM2_CC_CreatePrimary));
         assert_se(tpm2_supports_command(c, TPM2_CC_Unseal));
+}
+
+static void seal_unseal(TPM2_HANDLE parent_location, const TPM2B_PUBLIC *parent_public) {
+        _cleanup_free_ char *secret_string = NULL;
+        assert_se(asprintf(&secret_string, "The classified documents are in room %x", parent_location) > 0);
+        size_t secret_size = strlen(secret_string) + 1;
+
+        _cleanup_free_ void *blob = NULL;
+        size_t blob_size = 0;
+        _cleanup_free_ void *serialized_parent = NULL;
+        size_t serialized_parent_size;
+        assert_se(tpm2_calculate_seal(
+                        parent_location,
+                        parent_public,
+                        /* attributes= */ NULL,
+                        secret_string, secret_size,
+                        /* policy= */ NULL,
+                        /* pin= */ NULL,
+                        /* ret_secret= */ NULL, /* ret_secret_size= */ 0,
+                        &blob, &blob_size,
+                        &serialized_parent, &serialized_parent_size) >= 0);
+
+        _cleanup_free_ void *unsealed_secret = NULL;
+        size_t unsealed_secret_size;
+        assert_se(tpm2_unseal(
+                        /* device= */ NULL,
+                        /* hash_pcr_mask= */ 0,
+                        /* pcr_bank= */ 0,
+                        /* pubkey= */ NULL, /* pubkey_size= */ 0,
+                        /* pubkey_pcr_mask= */ 0,
+                        /* signature= */ NULL,
+                        /* pin= */ NULL,
+                        /* primary_alg= */ 0,
+                        blob, blob_size,
+                        /* known_policy_hash= */ NULL, /* known_policy_hash_size= */ 0,
+                        serialized_parent, serialized_parent_size,
+                        &unsealed_secret, &unsealed_secret_size) >= 0);
+
+        assert_se(memcmp_nn(secret_string, secret_size, unsealed_secret, unsealed_secret_size) == 0);
+
+        char unsealed_string[unsealed_secret_size];
+        assert_se(snprintf(unsealed_string, unsealed_secret_size, "%s", (char*) unsealed_secret) == (int) unsealed_secret_size - 1);
+        log_debug("Unsealed secret is: %s", unsealed_string);
+}
+
+TEST(calculate_seal_srk) {
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = get_tpm2_context();
+        if (!c)
+                return;
+
+        _cleanup_free_ TPM2B_PUBLIC *srk_public = NULL;
+        assert_se(tpm2_get_or_create_srk(c, NULL, &srk_public, NULL, NULL, NULL) >= 0);
+        seal_unseal(TPM2_SRK_HANDLE, srk_public);
+}
+
+static int transient_key_calculate_seal(Tpm2Context *c, TPMI_ALG_ASYM alg) {
+        assert(c);
+
+        TPMT_PUBLIC template;
+        assert_se(tpm2_get_srk_template(c, alg, &template) >= 0);
+
+        _cleanup_free_ TPM2B_PUBLIC *public = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        assert_se(tpm2_create_loaded(c, NULL, NULL, &template, NULL, &public, NULL, &handle) >= 0);
+
+        /* Once our minimum libtss2-esys version is 2.4.0 or later, this can assume tpm2_get_location()
+         * should always work. */
+        TPM2_HANDLE location;
+        int r = tpm2_get_location(c, handle, &location);
+        if (r == -EOPNOTSUPP)
+                return log_tests_skipped("libtss2-esys version too old to support tpm2_get_location(), skipping tests.");
+        assert_se(r >= 0);
+
+        seal_unseal(location, public);
+
+        return 0;
+}
+
+TEST_RET(calculate_seal_rsa) {
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = get_tpm2_context();
+        if (!c)
+                return 0;
+
+        return transient_key_calculate_seal(c, TPM2_ALG_RSA);
+}
+
+TEST_RET(calculate_seal_ecc) {
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = get_tpm2_context();
+        if (!c)
+                return 0;
+
+        return transient_key_calculate_seal(c, TPM2_ALG_ECC);
 }
 
 #endif /* HAVE_TPM2 */
