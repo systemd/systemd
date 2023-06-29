@@ -2784,7 +2784,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         unit_log_resources(u);
                 }
 
-                if (ns == UNIT_INACTIVE && !IN_SET(os, UNIT_FAILED, UNIT_INACTIVE, UNIT_MAINTENANCE))
+                if (ns == UNIT_INACTIVE && !IN_SET(os, UNIT_ACTIVATING, UNIT_FAILED, UNIT_INACTIVE, UNIT_MAINTENANCE))
                         unit_start_on_failure(u, "OnSuccess=", UNIT_ATOM_ON_SUCCESS, u->on_success_job_mode);
         }
 
