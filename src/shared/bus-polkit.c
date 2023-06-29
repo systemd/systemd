@@ -182,14 +182,21 @@ static AsyncPolkitQueryAction *async_polkit_query_action_free(AsyncPolkitQueryAc
         return mfree(a);
 }
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(AsyncPolkitQueryAction*, async_polkit_query_action_free);
+
 typedef struct AsyncPolkitQuery {
         AsyncPolkitQueryAction *action;
 
-        sd_bus_message *request, *reply;
+        sd_bus_message *request;
         sd_bus_slot *slot;
 
         Hashmap *registry;
         sd_event_source *defer_event_source;
+
+        AsyncPolkitQueryAction *authorized_action;
+        AsyncPolkitQueryAction *denied_action;
+        AsyncPolkitQueryAction *error_action;
+        sd_bus_error error;
 } AsyncPolkitQuery;
 
 static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q) {
@@ -202,11 +209,16 @@ static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q) {
                 hashmap_remove(q->registry, q->request);
 
         sd_bus_message_unref(q->request);
-        sd_bus_message_unref(q->reply);
 
         async_polkit_query_action_free(q->action);
 
         sd_event_source_disable_unref(q->defer_event_source);
+
+        async_polkit_query_action_free(q->authorized_action);
+        async_polkit_query_action_free(q->denied_action);
+        async_polkit_query_action_free(q->error_action);
+
+        sd_bus_error_free(&q->error);
 
         return mfree(q);
 }
@@ -225,6 +237,56 @@ static int async_polkit_defer(sd_event_source *s, void *userdata) {
         return 0;
 }
 
+static int async_polkit_read_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
+        _cleanup_(async_polkit_query_action_freep) AsyncPolkitQueryAction *a = NULL;
+        int authorized, challenge, r;
+
+        assert(reply);
+        assert(q);
+
+        assert(q->action);
+        a = TAKE_PTR(q->action);
+
+        if (sd_bus_message_is_method_error(reply, NULL)) {
+                const sd_bus_error *e;
+
+                e = sd_bus_message_get_error(reply);
+
+                /* Save error from polkit reply, so it can be returned when the same authorization is
+                 * attempted for second time */
+                if (!bus_error_is_unknown_service(e)) {
+                        q->error_action = TAKE_PTR(a);
+                        return sd_bus_error_copy(&q->error, e);
+                }
+
+                /* Treat no PK available as access denied */
+                q->denied_action = TAKE_PTR(a);
+
+                return 0;
+        }
+
+        r = sd_bus_message_enter_container(reply, 'r', "bba{ss}");
+        if (r >= 0)
+                r = sd_bus_message_read(reply, "bb", &authorized, &challenge);
+        if (r < 0)
+                return r;
+
+        assert(!q->authorized_action);
+        assert(!q->denied_action);
+        assert(!q->error_action);
+        assert(!sd_bus_error_is_set(&q->error));
+
+        if (authorized)
+                q->authorized_action = TAKE_PTR(a);
+        else if (challenge) {
+                q->error_action = TAKE_PTR(a);
+                return sd_bus_error_set(&q->error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED, "Interactive authentication required.");
+        } else
+                q->denied_action = TAKE_PTR(a);
+
+        return 0;
+}
+
 static int async_polkit_process_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
         int r;
 
@@ -234,8 +296,9 @@ static int async_polkit_process_reply(sd_bus_message *reply, AsyncPolkitQuery *q
         assert(q->slot);
         q->slot = sd_bus_slot_unref(q->slot);
 
-        assert(!q->reply);
-        q->reply = sd_bus_message_ref(reply);
+        r = async_polkit_read_reply(reply, q);
+        if (r < 0)
+                return r;
 
         /* Now, let's dispatch the original message a second time be re-enqueing. This will then traverse the
          * whole message processing again, and thus re-validating and re-retrieving the "userdata" field
@@ -283,56 +346,26 @@ static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_e
         return r;
 }
 
-static int process_polkit_response(
+_pure_ static int async_polkit_query_check_action(
                 AsyncPolkitQuery *q,
-                sd_bus_message *call,
                 const char *action,
                 const char **details,
                 sd_bus_error *ret_error) {
 
-        int authorized, challenge, r;
-
         assert(q);
-        assert(call);
         assert(action);
         assert(ret_error);
 
-        assert(q->action);
-        assert(q->action->action);
-        assert(q->reply);
+        if (q->authorized_action)
+                /* If the operation we want to authenticate changed between the first and the second time,
+                 * let's not use this authentication, it might be out of date as the object and context we
+                 * operate on might have changed. */
+                return streq(q->authorized_action->action, action) && strv_equal(q->action->details, (char**) details) ? 1 : -ESTALE;
 
-        /* If the operation we want to authenticate changed between the first and the second time,
-         * let's not use this authentication, it might be out of date as the object and context we
-         * operate on might have changed. */
-        if (!streq(q->action->action, action) || !strv_equal(q->action->details, (char**) details))
-                return -ESTALE;
+        if (q->error_action)
+                return sd_bus_error_copy(ret_error, &q->error);
 
-        if (sd_bus_message_is_method_error(q->reply, NULL)) {
-                const sd_bus_error *e;
-
-                e = sd_bus_message_get_error(q->reply);
-
-                /* Treat no PK available as access denied */
-                if (bus_error_is_unknown_service(e))
-                        return -EACCES;
-
-                /* Copy error from polkit reply */
-                sd_bus_error_copy(ret_error, e);
-                return -sd_bus_error_get_errno(e);
-        }
-
-        r = sd_bus_message_enter_container(q->reply, 'r', "bba{ss}");
-        if (r >= 0)
-                r = sd_bus_message_read(q->reply, "bb", &authorized, &challenge);
-        if (r < 0)
-                return r;
-
-        if (authorized)
-                return 1;
-
-        if (challenge)
-                return sd_bus_error_set(ret_error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED, "Interactive authentication required.");
-
+        assert(q->denied_action);
         return -EACCES;
 }
 
@@ -437,7 +470,7 @@ int bus_verify_polkit_async(
         /* This is the second invocation of this function, and there's already a response from
          * polkit, let's process it */
         if (q)
-                return process_polkit_response(q, call, action, details, ret_error);
+                return async_polkit_query_check_action(q, action, details, ret_error);
 #endif
 
         r = sd_bus_query_sender_privilege(call, capability);
