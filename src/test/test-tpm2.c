@@ -838,7 +838,7 @@ TEST(tpm2b_public_from_openssl_pkey) {
 
         check_tpm2b_public_fingerprint(&public, "d9186d13a7fd5b3644cee05448f49ad3574e82a2942ff93cf89598d36cca78a9");
 }
-#endif
+#endif /* HAVE_OPENSSL */
 
 static void check_name(const TPM2B_NAME *name, const char *expect) {
         assert_se(name->size == SHA256_DIGEST_SIZE + 2);
@@ -950,15 +950,8 @@ TEST(calculate_policy_pcr) {
         assert_se(digest_check(&d, "7481fd1b116078eb3ac2456e4ad542c9b46b9b8eb891335771ca8e7c8f8e4415"));
 }
 
-TEST(tpm_required_tests) {
-        int r;
-
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
-        r = tpm2_context_new(NULL, &c);
-        if (r < 0) {
-                log_tests_skipped("Could not find TPM");
-                return;
-        }
+static void check_test_parms(Tpm2Context *c) {
+        assert(c);
 
         TPMU_PUBLIC_PARMS parms = {
                 .symDetail.sym = {
@@ -977,6 +970,10 @@ TEST(tpm_required_tests) {
 
         /* Test with valid parms */
         assert_se(tpm2_test_parms(c, TPM2_ALG_SYMCIPHER, &parms));
+}
+
+static void check_supports_alg(Tpm2Context *c) {
+        assert(c);
 
         /* Test invalid algs */
         assert_se(!tpm2_supports_alg(c, TPM2_ALG_ERROR));
@@ -986,6 +983,10 @@ TEST(tpm_required_tests) {
         assert_se(tpm2_supports_alg(c, TPM2_ALG_RSA));
         assert_se(tpm2_supports_alg(c, TPM2_ALG_AES));
         assert_se(tpm2_supports_alg(c, TPM2_ALG_CFB));
+}
+
+static void check_supports_command(Tpm2Context *c) {
+        assert(c);
 
         /* Test invalid commands */
         assert_se(!tpm2_supports_command(c, TPM2_CC_FIRST - 1));
@@ -995,6 +996,105 @@ TEST(tpm_required_tests) {
         assert_se(tpm2_supports_command(c, TPM2_CC_Create));
         assert_se(tpm2_supports_command(c, TPM2_CC_CreatePrimary));
         assert_se(tpm2_supports_command(c, TPM2_CC_Unseal));
+}
+
+static int calculate_seal_and_unseal(Tpm2Context *c, TPM2_HANDLE parent_index, const TPM2B_PUBLIC *parent_public) {
+#if HAVE_OPENSSL && OPENSSL_VERSION_MAJOR >= 3 /* calculating sealed object requires openssl >= 3 */
+        _cleanup_free_ char *secret_string = NULL;
+        assert_se(asprintf(&secret_string, "The classified documents are in room %x", parent_index) > 0);
+        size_t secret_size = strlen(secret_string) + 1;
+
+        _cleanup_free_ void *blob = NULL;
+        size_t blob_size = 0;
+        _cleanup_free_ void *serialized_parent = NULL;
+        size_t serialized_parent_size;
+        assert_se(tpm2_calculate_seal(
+                        parent_index,
+                        parent_public,
+                        /* attributes= */ NULL,
+                        secret_string, secret_size,
+                        /* policy= */ NULL,
+                        /* pin= */ NULL,
+                        /* ret_secret= */ NULL, /* ret_secret_size= */ 0,
+                        &blob, &blob_size,
+                        &serialized_parent, &serialized_parent_size) >= 0);
+
+        _cleanup_free_ void *unsealed_secret = NULL;
+        size_t unsealed_secret_size;
+        assert_se(tpm2_unseal(
+                        c,
+                        /* hash_pcr_mask= */ 0,
+                        /* pcr_bank= */ 0,
+                        /* pubkey= */ NULL, /* pubkey_size= */ 0,
+                        /* pubkey_pcr_mask= */ 0,
+                        /* signature= */ NULL,
+                        /* pin= */ NULL,
+                        /* primary_alg= */ 0,
+                        blob, blob_size,
+                        /* known_policy_hash= */ NULL, /* known_policy_hash_size= */ 0,
+                        serialized_parent, serialized_parent_size,
+                        &unsealed_secret, &unsealed_secret_size) >= 0);
+
+        assert_se(memcmp_nn(secret_string, secret_size, unsealed_secret, unsealed_secret_size) == 0);
+
+        char unsealed_string[unsealed_secret_size];
+        assert_se(snprintf(unsealed_string, unsealed_secret_size, "%s", (char*) unsealed_secret) == (int) unsealed_secret_size - 1);
+        log_debug("Unsealed secret is: %s", unsealed_string);
+
+        return 0;
+#else
+        return log_tests_skipped("No support for calculating sealed object");
+#endif
+}
+
+static int check_calculate_seal(Tpm2Context *c) {
+        assert(c);
+        int r;
+
+        _cleanup_free_ TPM2B_PUBLIC *srk_public = NULL;
+        assert_se(tpm2_get_or_create_srk(c, NULL, &srk_public, NULL, NULL, NULL) >= 0);
+        r = calculate_seal_and_unseal(c, TPM2_SRK_HANDLE, srk_public);
+        if (r)
+                return r;
+
+        TPMI_ALG_ASYM test_algs[] = { TPM2_ALG_RSA, TPM2_ALG_ECC, };
+        for (unsigned i = 0; i < ELEMENTSOF(test_algs); i++) {
+                TPMI_ALG_ASYM alg = test_algs[i];
+
+                TPM2B_PUBLIC template = { .size = sizeof(TPMT_PUBLIC), };
+                assert_se(tpm2_get_srk_template(c, alg, &template.publicArea) >= 0);
+
+                _cleanup_free_ TPM2B_PUBLIC *public = NULL;
+                _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+                assert_se(tpm2_create_primary(c, NULL, &template, NULL, &public, &handle) >= 0);
+
+                /* Once our minimum libtss2-esys version is 2.4.0 or later, this can assume tpm2_get_handle_index()
+                 * should always work. */
+                TPM2_HANDLE index;
+                r = tpm2_get_handle_index(c, handle, &index);
+                if (r == -EOPNOTSUPP)
+                        return log_tests_skipped("libtss2-esys version too old to support tpm2_get_handle_index()");
+                assert_se(r >= 0);
+
+                r = calculate_seal_and_unseal(c, index, public);
+                if (r)
+                        return r;
+        }
+
+        return 0;
+}
+
+TEST_RET(tpm_required_tests) {
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+
+        if (tpm2_context_new(NULL, &c) < 0)
+                return log_tests_skipped("Could not find TPM");
+
+        check_test_parms(c);
+        check_supports_alg(c);
+        check_supports_command(c);
+
+        return check_calculate_seal(c);
 }
 
 #endif /* HAVE_TPM2 */
