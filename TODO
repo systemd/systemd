@@ -771,7 +771,13 @@ Features:
   an sd_device, then always work based on that.
 
 * add small wrapper around qemu that implements sd_notify/AF_VSOCK + machined and
-  maybe some other stuff and boots it
+  maybe some other stuff and boots it. Should implement command line roughly
+  equivalent to nspawn's. Maybe be called "systemd-vmspawn". Should imply good
+  settings, i.e. RNG + HyperV enlightenments. Should also result in swtpm
+  instance, plus virtiofsd instances. Translate credentials into smbios type
+  11 strings. Correctly translate SIGTERM into ACPI shutdown events.
+  Listen to logind suspend events and turn these into suspend key pressed +
+  ACPI resume events.
 
 * maybe add new flags to gpt partition tables for rootfs and usrfs indicating
   purpose, i.e. whether something is supposed to be bootable in a VM, on
@@ -977,10 +983,6 @@ Features:
   two sides of the channel. The latter env var could then be used in an
   appropriate qemu cmdline. That way qemu payloads could talk sd_notify()
   directly to host service manager.
-
-* maybe write a tool that binds an AF_VFSOCK socket, then invokes qemu,
-  extending the command line to enable vsock on the VM, and using SMBIOS
-  credentials to configure socket address.
 
 * sd-boot: add menu item for shutdown? or hotkey?
 
