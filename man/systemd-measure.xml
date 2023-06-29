@@ -73,9 +73,10 @@
         <listitem><para>Pre-calculate the expected values seen in PCR register 11 after boot-up of a unified
         kernel image consisting of the components specified with <option>--linux=</option>,
         <option>--osrel=</option>, <option>--cmdline=</option>, <option>--initrd=</option>,
-        <option>--splash=</option>, <option>--dtb=</option>, <option>--pcrpkey=</option> see below. Only
-        <option>--linux=</option> is mandatory. (Alternatively, specify <option>--current</option> to use the
-        current values of PCR register 11 instead.)</para></listitem>
+        <option>--splash=</option>, <option>--dtb=</option>, <option>--sbat=</option>,
+        <option>--pcrpkey=</option> see below. Only <option>--linux=</option> is mandatory. (Alternatively,
+        specify <option>--current</option> to use the current values of PCR register 11 instead.)</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -112,6 +113,7 @@
         <term><option>--initrd=<replaceable>PATH</replaceable></option></term>
         <term><option>--splash=<replaceable>PATH</replaceable></option></term>
         <term><option>--dtb=<replaceable>PATH</replaceable></option></term>
+        <term><option>--sbat=<replaceable>PATH</replaceable></option></term>
         <term><option>--pcrpkey=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>When used with the <command>calculate</command> or <command>sign</command> verb,
