@@ -572,12 +572,26 @@ def pe_add_sections(uki: UKI, output: str):
         else:
             new_section.IMAGE_SCN_CNT_INITIALIZED_DATA = True
 
-        pe.__data__ = pe.__data__[:] + bytes(new_section.PointerToRawData - len(pe.__data__)) + data + bytes(new_section.SizeOfRawData - len(data))
+        # Special case, mostly for .sbat: the stub will already have a .sbat section, but we want to append
+        # the one from the kernel to it. It should be small enough to fit in the existing section, so just
+        # swap the data.
+        for i, s in enumerate(pe.sections):
+            if s.Name.rstrip(b"\x00").decode() == section.name:
+                if new_section.Misc_VirtualSize > s.SizeOfRawData:
+                    raise PEError(f'Not enough space in existing section {section.name} to append new data.')
 
-        pe.FILE_HEADER.NumberOfSections += 1
-        pe.OPTIONAL_HEADER.SizeOfInitializedData += new_section.Misc_VirtualSize
-        pe.__structures__.append(new_section)
-        pe.sections.append(new_section)
+                padding = bytes(new_section.SizeOfRawData - new_section.Misc_VirtualSize)
+                pe.__data__ = pe.__data__[:s.PointerToRawData] + data + padding + pe.__data__[pe.sections[i+1].PointerToRawData:]
+                s.SizeOfRawData = new_section.SizeOfRawData
+                s.Misc_VirtualSize = new_section.Misc_VirtualSize
+                break
+        else:
+            pe.__data__ = pe.__data__[:] + bytes(new_section.PointerToRawData - len(pe.__data__)) + data + bytes(new_section.SizeOfRawData - len(data))
+
+            pe.FILE_HEADER.NumberOfSections += 1
+            pe.OPTIONAL_HEADER.SizeOfInitializedData += new_section.Misc_VirtualSize
+            pe.__structures__.append(new_section)
+            pe.sections.append(new_section)
 
     pe.OPTIONAL_HEADER.CheckSum = 0
     pe.OPTIONAL_HEADER.SizeOfImage = round_up(
@@ -586,6 +600,28 @@ def pe_add_sections(uki: UKI, output: str):
     )
 
     pe.write(output)
+
+def merge_sbat(input: [pathlib.Path]) -> str:
+    sbat = []
+
+    for f in input:
+        try:
+            pe = pefile.PE(f, fast_load=True)
+        except pefile.PEFormatError:
+            print(f"{f} is not a valid PE file, not extracting SBAT section.")
+            continue
+
+        for section in pe.sections:
+            if section.Name.rstrip(b"\x00").decode() == ".sbat":
+                split = section.get_data().rstrip(b"\x00").decode().splitlines()
+                if not split[0].startswith('sbat,'):
+                    print(f"{f} does not contain a valid SBAT section, skipping.")
+                    continue
+                # Filter out the sbat line, we'll add it back later, there needs to be only one and it
+                # needs to be first.
+                sbat += split[1:]
+
+    return 'sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md\n' + '\n'.join(sbat) + "\n\x00"
 
 def signer_sign(cmd):
     print('+', shell_join(cmd))
@@ -719,6 +755,8 @@ def make_uki(opts):
     # UKI or addon creation - addons don't use the stub so we add SBAT manually
 
     if linux is not None:
+        # Merge the .sbat sections from the stub and the kernel, so that revocation can be done on either.
+        uki.add_section(Section.create('.sbat', merge_sbat([opts.stub, linux]), measure=False))
         uki.add_section(Section.create('.linux', linux, measure=True))
     elif opts.sbat:
         uki.add_section(Section.create('.sbat', opts.sbat, measure=False))

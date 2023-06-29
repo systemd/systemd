@@ -98,6 +98,12 @@
       discussion of automatic enrollment in
       <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
       </para>
+
+      <para>If the stub and/or the kernel contain <literal>.sbat</literal> sections they will be merged in
+      the UKI so that revocation updates affecting either are considered when the UKI is loaded by Shim. For
+      more information on SBAT see
+      <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim's documentation.</ulink>
+      </para>
     </refsect2>
 
     <refsect2>
