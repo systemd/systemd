@@ -167,9 +167,23 @@ int bus_test_polkit(
 
 #if ENABLE_POLKIT
 
-typedef struct AsyncPolkitQuery {
+typedef struct AsyncPolkitQueryAction {
         char *action;
         char **details;
+} AsyncPolkitQueryAction;
+
+static AsyncPolkitQueryAction *async_polkit_query_action_free(AsyncPolkitQueryAction *a) {
+        if (!a)
+                return NULL;
+
+        free(a->action);
+        strv_free(a->details);
+
+        return mfree(a);
+}
+
+typedef struct AsyncPolkitQuery {
+        AsyncPolkitQueryAction *action;
 
         sd_bus_message *request, *reply;
         sd_bus_slot *slot;
@@ -190,8 +204,7 @@ static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q) {
         sd_bus_message_unref(q->request);
         sd_bus_message_unref(q->reply);
 
-        free(q->action);
-        strv_free(q->details);
+        async_polkit_query_action_free(q->action);
 
         sd_event_source_disable_unref(q->defer_event_source);
 
@@ -285,12 +298,13 @@ static int process_polkit_response(
         assert(ret_error);
 
         assert(q->action);
+        assert(q->action->action);
         assert(q->reply);
 
         /* If the operation we want to authenticate changed between the first and the second time,
          * let's not use this authentication, it might be out of date as the object and context we
          * operate on might have changed. */
-        if (!streq(q->action, action) || !strv_equal(q->details, (char**) details))
+        if (!streq(q->action->action, action) || !strv_equal(q->action->details, (char**) details))
                 return -ESTALE;
 
         if (sd_bus_message_is_method_error(q->reply, NULL)) {
@@ -458,12 +472,15 @@ int bus_verify_polkit_async(
                 .request = sd_bus_message_ref(call),
         };
 
-        q->action = strdup(action);
+        q->action = new(AsyncPolkitQueryAction, 1);
         if (!q->action)
                 return -ENOMEM;
 
-        q->details = strv_copy((char**) details);
-        if (!q->details)
+        *q->action = (AsyncPolkitQueryAction) {
+                .action = strdup(action),
+                .details = strv_copy((char**) details),
+        };
+        if (!q->action->action || !q->action->details)
                 return -ENOMEM;
 
         r = hashmap_put(*registry, call, q);
