@@ -3,7 +3,7 @@
 set -eux
 set -o pipefail
 
-systemd-battery-check --help
-systemd-battery-check --version
+/usr/lib/systemd/systemd-battery-check --help
+/usr/lib/systemd/systemd-battery-check --version
 
-systemd-battery-check || :
+/usr/lib/systemd/systemd-battery-check || :
