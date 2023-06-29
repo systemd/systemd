@@ -451,10 +451,18 @@ int statx_fallback(int dfd, const char *path, int flags, unsigned mask, struct s
 }
 
 int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
+        _cleanup_free_ char *nested = NULL;
         _cleanup_close_ int fd = -EBADF;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(ret);
+
+        nested = path_join(path, "a");
+        if (!nested)
+                return -ENOMEM;
+
+        /* Make sure we trigger any automounts by trying to access a file inside the given path. */
+        (void) faccessat(dir_fd, nested, F_OK, 0);
 
         fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC|O_NOCTTY, /* xopen_flags = */ 0, /* mode = */ 0);
         if (fd < 0)
