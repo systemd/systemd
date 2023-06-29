@@ -589,6 +589,7 @@ int manager_new(Manager **ret, bool test_mode) {
 
         *m = (Manager) {
                 .keep_configuration = _KEEP_CONFIGURATION_INVALID,
+                .ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO,
                 .test_mode = test_mode,
                 .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
                 .online_state = _LINK_ONLINE_STATE_INVALID,
