@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "version.h"
-
 #ifdef SBAT_DISTRO
 #  define SBAT_SECTION_TEXT \
         "sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md\n" \

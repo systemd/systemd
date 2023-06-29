@@ -7,6 +7,7 @@
 #include "manager-dump.h"
 #include "memstream-util.h"
 #include "unit-serialize.h"
+#include "version.h"
 
 void manager_dump_jobs(Manager *s, FILE *f, char **patterns, const char *prefix) {
         Job *j;

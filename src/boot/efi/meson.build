@@ -23,31 +23,26 @@ if efi_arch != ''
                         libshared,
                 ],
         }
+        efi_test_template = test_template + efitest_base
+        efi_fuzz_template = fuzz_template + efitest_base
 
-        tests += [
-                {
+        executables += [
+                efi_test_template + {
                         'sources' : files('test-bcd.c'),
                         'dependencies' : libzstd,
-                        'condition' : 'HAVE_ZSTD',
-                        'base' : efitest_base,
+                        'conditions' : ['HAVE_ZSTD'],
                 },
-                {
+                efi_test_template + {
                         'sources' : files('test-efi-string.c'),
-                        'base' : efitest_base,
                 },
-        ]
-        fuzzers += [
-                {
+                efi_fuzz_template + {
                         'sources' : files('fuzz-bcd.c'),
-                        'base' : efitest_base,
                 },
-                {
+                efi_fuzz_template + {
                         'sources' : files('fuzz-efi-string.c'),
-                        'base' : efitest_base,
                 },
-                {
+                efi_fuzz_template + {
                         'sources' : files('fuzz-efi-printf.c'),
-                        'base' : efitest_base,
                 },
         ]
 endif
@@ -98,13 +93,10 @@ elif get_option('sbat-distro') != ''
 
         pkgver = get_option('sbat-distro-version')
         if pkgver == ''
-                efi_conf.set('SBAT_DISTRO_VERSION', 'GIT_VERSION')
-                # This is determined during build, not configuration, so we can't display it yet.
-                sbat_distro_version_display = '(git version)'
-        else
-                efi_conf.set_quoted('SBAT_DISTRO_VERSION', pkgver)
-                sbat_distro_version_display = pkgver
+                pkgver = version_tag
         endif
+        efi_conf.set_quoted('SBAT_DISTRO_VERSION', pkgver)
+        sbat_distro_version_display = pkgver
 endif
 
 summary({'UEFI architectures' : efi_arch + (efi_arch_alt == '' ? '' : ', ' + efi_arch_alt)},
@@ -306,46 +298,36 @@ foreach archspec : efi_archspecs
                 override_options : efi_override_options,
                 pic : true)
 
+        kwargs = {
+                'include_directories' : efi_includes,
+                'c_args' : archspec['c_args'],
+                'link_args' : archspec['link_args'],
+                'link_depends' : elf2efi_lds,
+                'dependencies' : versiondep,
+                'gnu_symbol_visibility' : 'hidden',
+                'override_options' : efi_override_options,
+                'pie' : true,
+        }
+
         efi_elf_binaries += executable(
                 'systemd-boot' + archspec['arch'],
-                systemd_boot_sources,
-                include_directories : efi_includes,
-                c_args : archspec['c_args'],
-                link_args : archspec['link_args'],
+                sources : systemd_boot_sources,
                 link_with : libefi,
-                link_depends : elf2efi_lds,
-                dependencies : versiondep,
-                gnu_symbol_visibility : 'hidden',
-                override_options : efi_override_options,
                 name_suffix : 'elf',
-                pie : true)
+                kwargs : kwargs)
 
         efi_elf_binaries += executable(
                 'linux' + archspec['arch'],
-                stub_sources,
-                include_directories : efi_includes,
-                c_args : archspec['c_args'],
-                link_args : archspec['link_args'],
+                sources : stub_sources,
                 link_with : libefi,
-                link_depends : elf2efi_lds,
-                dependencies : versiondep,
-                gnu_symbol_visibility : 'hidden',
-                override_options : efi_override_options,
                 name_suffix : 'elf.stub',
-                pie : true)
+                kwargs : kwargs)
 
         efi_elf_binaries += executable(
                 'addon' + archspec['arch'],
-                addon_sources,
-                include_directories : efi_includes,
-                c_args : archspec['c_args'],
-                link_args : archspec['link_args'],
-                link_depends : elf2efi_lds,
-                dependencies : versiondep,
-                gnu_symbol_visibility : 'hidden',
-                override_options : efi_override_options,
+                sources : addon_sources,
                 name_suffix : 'elf.stub',
-                pie : true)
+                kwargs : kwargs)
 endforeach
 
 foreach efi_elf_binary : efi_elf_binaries
