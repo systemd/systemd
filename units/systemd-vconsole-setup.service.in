@@ -20,5 +20,5 @@ Before=initrd-switch-root.target shutdown.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart={{ROOTLIBEXECDIR}}/systemd-vconsole-setup
+ExecStart={{LIBEXECDIR}}/systemd-vconsole-setup
 ImportCredential=vconsole.*

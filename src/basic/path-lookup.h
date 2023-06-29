@@ -10,7 +10,6 @@
 typedef enum LookupPathsFlags {
         LOOKUP_PATHS_EXCLUDE_GENERATED   = 1 << 0,
         LOOKUP_PATHS_TEMPORARY_GENERATED = 1 << 1,
-        LOOKUP_PATHS_SPLIT_USR           = 1 << 2,
 } LookupPathsFlags;
 
 typedef struct LookupPaths {
