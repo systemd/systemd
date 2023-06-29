@@ -35,9 +35,6 @@ static const char prefixes[] =
         "/usr/local/share\0"
         "/usr/lib\0"
         "/usr/share\0"
-#if HAVE_SPLIT_USR
-        "/lib\0"
-#endif
         ;
 
 static const char suffixes[] =
@@ -368,36 +365,6 @@ static int enumerate_dir(
         return 0;
 }
 
-static int should_skip_path(const char *prefix, const char *suffix) {
-#if HAVE_SPLIT_USR
-        _cleanup_free_ char *target = NULL, *dirname = NULL;
-
-        dirname = path_join(prefix, suffix);
-        if (!dirname)
-                return -ENOMEM;
-
-        if (chase(dirname, NULL, 0, &target, NULL) < 0)
-                return false;
-
-        NULSTR_FOREACH(p, prefixes) {
-                _cleanup_free_ char *tmp = NULL;
-
-                if (path_startswith(dirname, p))
-                        continue;
-
-                tmp = path_join(p, suffix);
-                if (!tmp)
-                        return -ENOMEM;
-
-                if (path_equal(target, tmp)) {
-                        log_debug("%s redirects to %s, skipping.", dirname, target);
-                        return true;
-                }
-        }
-#endif
-        return false;
-}
-
 static int process_suffix(const char *suffix, const char *onlyprefix) {
         char *f, *key;
         OrderedHashmap *top, *bottom, *drops, *h;
@@ -420,9 +387,6 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
 
         NULSTR_FOREACH(p, prefixes) {
                 _cleanup_free_ char *t = NULL;
-
-                if (should_skip_path(p, suffix) > 0)
-                        continue;
 
                 t = path_join(p, suffix);
                 if (!t) {
