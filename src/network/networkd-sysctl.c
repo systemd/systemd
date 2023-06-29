@@ -5,6 +5,7 @@
 
 #include "missing_network.h"
 #include "networkd-link.h"
+#include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-sysctl.h"
 #include "socket-util.h"
@@ -89,7 +90,10 @@ static int link_set_ipv6_forward(Link *link) {
 }
 
 static int link_set_ipv6_privacy_extensions(Link *link) {
+        IPv6PrivacyExtensions val;
+
         assert(link);
+        assert(link->manager);
 
         if (!socket_ipv6_is_supported())
                 return 0;
@@ -100,11 +104,15 @@ static int link_set_ipv6_privacy_extensions(Link *link) {
         if (!link->network)
                 return 0;
 
+        val = link->network->ipv6_privacy_extensions;
+        if (val < 0) /* If not specified, then use the global setting. */
+                val = link->manager->ipv6_privacy_extensions;
+
         /* When "kernel", do not update the setting. */
-        if (link->network->ipv6_privacy_extensions == IPV6_PRIVACY_EXTENSIONS_KERNEL)
+        if (val == IPV6_PRIVACY_EXTENSIONS_KERNEL)
                 return 0;
 
-        return sysctl_write_ip_property_int(AF_INET6, link->ifname, "use_tempaddr", (int) link->network->ipv6_privacy_extensions);
+        return sysctl_write_ip_property_int(AF_INET6, link->ifname, "use_tempaddr", (int) val);
 }
 
 static int link_set_ipv6_accept_ra(Link *link) {
