@@ -684,13 +684,16 @@ int mount_verbose_full(
 
         (void) mount_flags_to_string(f, &fl);
 
-        if ((f & MS_REMOUNT) && !what && !type)
-                log_debug("Remounting %s (%s \"%s\")...",
+        if (FLAGS_SET(f, MS_REMOUNT|MS_BIND))
+                log_debug("Changing mount flags %s (%s \"%s\")...",
                           where, strnull(fl), strempty(o));
-        else if (!what && !type)
-                log_debug("Mounting %s (%s \"%s\")...",
+        else if (f & MS_REMOUNT)
+                log_debug("Remounting superblock %s (%s \"%s\")...",
                           where, strnull(fl), strempty(o));
-        else if ((f & MS_BIND) && !type)
+        else if (f & (MS_SHARED|MS_PRIVATE|MS_SLAVE|MS_UNBINDABLE))
+                log_debug("Changing mount propagation %s (%s \"%s\")",
+                          where, strnull(fl), strempty(o));
+        else if (f & MS_BIND)
                 log_debug("Bind-mounting %s on %s (%s \"%s\")...",
                           what, where, strnull(fl), strempty(o));
         else if (f & MS_MOVE)
