@@ -464,7 +464,8 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, D
 }
 
 int link_save(Link *link) {
-        const char *admin_state, *oper_state, *carrier_state, *address_state, *ipv4_address_state, *ipv6_address_state;
+        const char *admin_state, *oper_state, *carrier_state, *address_state, *ipv4_address_state, *ipv6_address_state,
+              *dhcp_captive_portal = NULL;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -603,6 +604,17 @@ int link_save(Link *link) {
                                     link->network->dhcp_use_sip,
                                     SD_DHCP_LEASE_SIP,
                                     NULL, false, NULL, NULL);
+
+                /************************************************************/
+
+                if (link->dhcp_lease && link->network->dhcp_use_captive_portal) {
+                        r = sd_dhcp_lease_get_captive_portal(link->dhcp_lease, &dhcp_captive_portal);
+                        if (r < 0 && r != -ENODATA)
+                                return r;
+                }
+
+                if (dhcp_captive_portal)
+                        fprintf(f, "CAPTIVE_PORTAL=%s\n", dhcp_captive_portal);
 
                 /************************************************************/
 
