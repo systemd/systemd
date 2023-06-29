@@ -1220,7 +1220,19 @@
         <term><varname>DiscoverPathMTU=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, enables Path MTU Discovery on
-          the tunnel.</para>
+          the tunnel.
+          When <varname>IgnoreDontFragment=</varname> is enabled,
+          defaults to false. Otherwise, defaults to true.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>IgnoreDontFragment=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, enables IPv4 Don't Fragment (DF) suppression on
+          the tunnel. Defaults to false.
+          Note that if <varname>IgnoreDontFragment=</varname> is set to true,
+          <varname>DiscoverPathMTU=</varname> cannot be set to true.
+          Only applicable to GRE, GRETAP, and ERSPAN tunnels.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

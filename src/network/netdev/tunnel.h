@@ -54,7 +54,8 @@ typedef struct Tunnel {
         Ip6TnlMode ip6tnl_mode;
         FooOverUDPEncapType fou_encap_type;
 
-        bool pmtudisc;
+        int pmtudisc;
+        bool ignore_df;
         bool copy_dscp;
         bool independent;
         bool fou_tunnel;

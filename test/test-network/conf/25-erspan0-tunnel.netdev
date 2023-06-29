@@ -13,3 +13,4 @@ Local = 172.16.1.200
 Remote = 172.16.1.100
 Key=101
 SerializeTunneledPackets=true
+IgnoreDontFragment=true
