@@ -493,11 +493,6 @@
         <listitem><para>Optionally takes a human-presentable URL to a website containing a change-log of
         the resource being updated.</para>
 
-        <para>At most one transfer definition (one <filename>*.conf</filename> file in the directory)
-        can include this setting. Thus, the website should describe all changes for all the transfer
-        definitions. For instance, in the foobarOS example above, any URL specified here should describe
-        changes in both the kernel UKI and in the rootfs.</para>
-
         <para>This setting supports specifier expansion. See below for details on supported
         specifiers. This setting will also expand the <literal>@v</literal> wildcard pattern. See above
         for details.</para>
@@ -514,9 +509,6 @@
         rich metadata about the resources being updated. This includes display names, changelogs, icons,
         and more. The specified catalog must include <ulink url="https://systemd.io/APPSTREAM_BUNDLE">special metadata</ulink>
         to be correctly associated with <command>systemd-sysupdate</command> by the software centers.</para>
-
-        <para>At most one transfer definition (one <filename>*.conf</filename> file in the directory)
-        can include this setting.</para>
 
         <para>This setting supports specifier expansion. See below for details on supported
         specifiers.</para>
