@@ -1,0 +1,4 @@
+[Service]
+Type=dbus
+BusName=org.freedesktop.PolicyKit1
+ExecStart=/usr/lib/systemd/tests/unit-tests/manual/test-bus-polkit --mock-polkit

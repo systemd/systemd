@@ -22,6 +22,7 @@ if install_tests
                 'testsuite-52.units',
                 'testsuite-63.units',
                 'testsuite-80.units',
+                'testsuite-83.units',
         ]
                 install_subdir(subdir,
                                exclude_files : '.gitattributes',
