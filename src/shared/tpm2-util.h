@@ -29,6 +29,14 @@ static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
 
 #define FOREACH_PCR_IN_MASK(pcr, mask) BIT_FOREACH(pcr, mask)
 
+/* The SRK handle is defined in the Provisioning Guidance document (see above) in the table "Reserved Handles
+ * for TPM Provisioning Fundamental Elements". The SRK is useful because it is "shared", meaning it has no
+ * authValue nor authPolicy set, and thus may be used by anyone on the system to generate derived keys or
+ * seal secrets. This is useful if the TPM has an auth (password) set for the 'owner hierarchy', which would
+ * prevent users from generating primary transient keys, unless they knew the owner hierarchy auth. See
+ * the Provisioning Guidance document for more details. */
+#define TPM2_SRK_HANDLE UINT32_C(0x81000001)
+
 #if HAVE_TPM2
 
 #include <tss2/tss2_esys.h>
@@ -170,6 +178,14 @@ void tpm2_log_debug_pcr_value(const Tpm2PCRValue *pcr_value, const char *msg);
 void tpm2_log_debug_buffer(const void *buffer, size_t size, const char *msg);
 void tpm2_log_debug_digest(const TPM2B_DIGEST *digest, const char *msg);
 void tpm2_log_debug_name(const TPM2B_NAME *name, const char *msg);
+
+int tpm2_index_to_handle(Tpm2Context *c, TPM2_HANDLE index, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
+
+int tpm2_get_srk_template(Tpm2Context *c, TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_template);
+int tpm2_get_best_srk_template(Tpm2Context *c, TPMT_PUBLIC *ret_template);
+
+int tpm2_get_srk(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
+int tpm2_get_or_create_srk(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 
 int tpm2_pcr_read(Tpm2Context *c, const TPML_PCR_SELECTION *pcr_selection, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
 int tpm2_pcr_read_missing_values(Tpm2Context *c, Tpm2PCRValue *pcr_values, size_t n_pcr_values);
