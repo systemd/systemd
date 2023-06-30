@@ -190,6 +190,20 @@
         <varname>ConditionArchitecture=</varname> in
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>$CREDENTIALS_DIRECTORY</varname></term>
+        <term><varname>$ENCRYPTED_CREDENTIALS_DIRECTORY</varname></term>
+
+        <listitem><para>If set, refers to the directory system credentials have been placed in. Credentials
+        passed into the system in plaintext form will be placed in <varname>$CREDENTIALS_DIRECTORY</varname>,
+        and those passed in in encrypted form will be placed in
+        <varname>$ENCRYPTED_CREDENTIALS_DIRECTORY</varname>. Use the
+        <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        command to automatically decrypt/authenticate credentials passed in, if needed. Specifically, use the
+        <command>systemd-creds --system cat</command> command.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
