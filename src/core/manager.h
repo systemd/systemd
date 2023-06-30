@@ -474,6 +474,7 @@ struct Manager {
          * serialization/deserialization compatibility issues during upgrades. */
         int executor_fd;
         char *executor_path;
+        int executors_pool_socket[2];
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
@@ -610,6 +611,9 @@ int manager_set_watchdog_pretimeout_governor(Manager *m, const char *governor);
 int manager_override_watchdog_pretimeout_governor(Manager *m, const char *governor);
 
 bool manager_journal_is_running(Manager *m);
+
+int manager_spawn_workers(Manager *m);
+int manager_kill_workers(Manager *m);
 
 const char* oom_policy_to_string(OOMPolicy i) _const_;
 OOMPolicy oom_policy_from_string(const char *s) _pure_;

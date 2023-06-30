@@ -29,6 +29,7 @@
 #include "bus-error.h"
 #include "bus-kernel.h"
 #include "bus-util.h"
+#include "cgroup-setup.h"
 #include "clean-ipc.h"
 #include "clock-util.h"
 #include "common-signal.h"
@@ -125,6 +126,112 @@ static int manager_dispatch_timezone_change(sd_event_source *source, const struc
 static int manager_run_environment_generators(Manager *m);
 static int manager_run_generators(Manager *m);
 static void manager_vacuum(Manager *m);
+
+int manager_spawn_workers(Manager *m) {
+        char socket_fd_number[DECIMAL_STR_MAX(int) + 1];
+        _cleanup_free_ char *log_level = NULL;
+        int log_target = LOG_TARGET_KMSG;
+        static int n_workers_cache = -2;
+        const char *scope_path;
+        size_t n_workers;
+        int r;
+
+        assert(m);
+
+        if (FLAGS_SET(m->test_run_flags, MANAGER_TEST_RUN_MINIMAL))
+                return 0;
+
+        if (n_workers_cache < -1) {
+                const char *e = secure_getenv("SYSTEMD_WORKERS_POOL_SIZE");
+                if (e) {
+                        r = safe_atoi(e, &n_workers_cache);
+                        if (r < 0) {
+                                log_debug("Invalid value in $SYSTEMD_WORKERS_POOL_SIZE, ignoring: %s", e);
+                                n_workers_cache = -1;
+                        }
+                } else
+                        n_workers_cache = -1;
+        }
+
+        if (n_workers_cache == 0)
+                return 0;
+
+        scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_WORKERS_SCOPE);
+
+        r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, scope_path);
+        if (r <= 0)
+                return r;
+
+        /* At boot we are going to fork off a lot of processes on average, so prepare a bunch. */
+        if (n_workers_cache >= 0)
+                n_workers = n_workers_cache;
+        else if (MANAGER_IS_SYSTEM(m) && IN_SET(manager_state(m), MANAGER_STARTING, MANAGER_INITIALIZING))
+                n_workers = 25;
+        else
+                n_workers = 5;
+
+        /* If journald might not be available log to kmsg, as we might be starting journald */
+        if (!MANAGER_IS_SYSTEM(m) || (manager_journal_is_running(m) && manager_state(m) == MANAGER_RUNNING))
+                log_target = log_get_target();
+
+        r = log_level_to_string_alloc(log_get_max_level(), &log_level);
+        if (r < 0)
+                return log_error_errno(r, "Failed to convert log level to string: %m");
+
+        xsprintf(socket_fd_number, "%i", m->executors_pool_socket[1]);
+
+        r = fd_cloexec(m->executors_pool_socket[1], false);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to set O_CLOEXEC on serialization fd: %m");
+
+        for (size_t i = 0; i < n_workers; ++i) {
+                pid_t pid;
+
+                /* The executor binary is pinned, to avoid compatibility problems during upgrades. */
+                r = posix_spawn_wrapper(m->executor_path,
+                                STRV_MAKE(m->executor_path,
+                                        "--manager-socket", socket_fd_number,
+                                        "--log-level", log_level,
+                                        "--log-target", log_target_to_string(log_target)),
+                                environ,
+                                &pid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to spawn executor: %m");
+
+                (void) cg_attach(SYSTEMD_CGROUP_CONTROLLER, scope_path, pid);
+        }
+
+        r = fd_cloexec(m->executors_pool_socket[1], true);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to set O_CLOEXEC on serialization fd: %m");
+
+        return 1;
+}
+
+int manager_kill_workers(Manager *m) {
+        const char *scope_path;
+        int r;
+
+        assert(m);
+
+        scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_WORKERS_SCOPE);
+
+        r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, scope_path);
+        if (r > 0)
+                return 0;
+
+        r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER,
+                        scope_path,
+                        SIGKILL,
+                        /* flags= */ 0,
+                        /* s= */ NULL,
+                        /* log_kill= */ NULL,
+                        /* userdata= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to kill workers: %m");
+
+        return 1;
+}
 
 static usec_t manager_watch_jobs_next_time(Manager *m) {
         usec_t timeout;
@@ -920,6 +1027,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 },
 
                 .executor_fd = -EBADF,
+                .executors_pool_socket = { -EBADF, -EBADF },
         };
 
 #if ENABLE_EFI
@@ -1069,6 +1177,9 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
 
                 log_debug("Using systemd-executor binary from '%s'", executor_path);
         }
+
+        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, m->executors_pool_socket) < 0)
+                return -errno;
 
         /* Note that we do not set up the notify fd here. We do that after deserialization,
          * since they might have gotten serialized across the reexec. */
@@ -1731,6 +1842,7 @@ Manager* manager_free(Manager *m) {
 
         safe_close(m->executor_fd);
         free(m->executor_path);
+        safe_close_pair(m->executors_pool_socket);
 
         return mfree(m);
 }
@@ -3245,6 +3357,10 @@ int manager_loop(Manager *m) {
                         log_warning("Looping too fast. Throttling execution a little.");
                         sleep(1);
                 }
+
+                r = manager_spawn_workers(m);
+                if (r < 0)
+                        log_error_errno(r, "Failed to spawn workers, ignoring: %m");
 
                 if (manager_dispatch_load_queue(m) > 0)
                         continue;
