@@ -920,6 +920,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 },
 
                 .executor_fd = -EBADF,
+                .executors_pool_socket = { -EBADF, -EBADF },
         };
 
 #if ENABLE_EFI
@@ -1069,6 +1070,9 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
 
                 log_debug("Using systemd-executor binary from '%s'", executor_path);
         }
+
+        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, m->executors_pool_socket) < 0)
+                return -errno;
 
         m->taint_usr =
                 !in_initrd() &&
@@ -1743,6 +1747,7 @@ Manager* manager_free(Manager *m) {
 
         safe_close(m->executor_fd);
         free(m->executor_path);
+        safe_close_pair(m->executors_pool_socket);
 
         return mfree(m);
 }

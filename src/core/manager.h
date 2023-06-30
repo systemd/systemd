@@ -476,6 +476,7 @@ struct Manager {
          * serialization/deserialization compatibility issues during upgrades. */
         int executor_fd;
         char *executor_path;
+        int executors_pool_socket[2];
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
