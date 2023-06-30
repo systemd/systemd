@@ -168,6 +168,7 @@ REQUIREMENTS:
         sure to either turn off auditing at runtime using the kernel command
         line option "audit=0", or turn it off at kernel compile time using:
           CONFIG_AUDIT=n
+
         If systemd is compiled with libseccomp support on architectures which do
         not use socketcall() and where seccomp is supported (this effectively
         means x86-64 and ARM, but excludes 32-bit x86!), then nspawn will now
@@ -294,7 +295,6 @@ POLICY FOR SUPPORT OF DISTRIBUTIONS AND ARCHITECTURES:
         architecture-specific constants are not defined.
 
 STATIC COMPILATION AND "STANDALONE" BINARIES:
-
         systemd provides a public shared libraries libsystemd.so and
         libudev.so. The latter is deprecated, and the sd-device APIs in
         libsystemd should be used instead for new code. In addition, systemd is
@@ -306,28 +306,37 @@ STATIC COMPILATION AND "STANDALONE" BINARIES:
         It is possible to build static versions of systemd public shared
         libraries (via the configuration options '-Dstatic-libsystemd' and
         '-Dstatic-libudev'). This allows the libsystemd and libudev code to be
-        linked statically into programs. In addition, it is possible to disable
-        the use of libsystemd-shared-<suffix>.so for various components (via
-        the configuration options '-Dlink-*-shared'). In this mode, the
-        libsystemd and libsystemd-shared code is linked statically into
-        selected binaries. This option is intended for systems where some of
-        the components are intended to be delivered independently of the main
+        linked statically into programs. Note that mixing & matching different
+        versions of libsystemd and systemd is generally not recommended, since
+        various of its APIs wrap internal state and protocols of systemd
+        (e.g. logind and udev databases), which are not considered
+        stable. Hence, using static libraries is not recommended since it
+        generally means that version of the static libsystemd linked into
+        applications and the host systemd are not in sync, and will thus create
+        compatibility problems.
+
+        In addition, it is possible to disable the use of
+        libsystemd-shared-<suffix>.so for various components (via the
+        configuration options '-Dlink-*-shared'). In this mode, the libsystemd
+        and libsystemd-shared code is linked statically into selected
+        binaries. This option is intended for systems where some of the
+        components are intended to be delivered independently of the main
         systemd package. Finally, some binaries can be compiled in a second
         version (via the configuration option '-Dstandalone-binaries'). The
         version suffixed with ".standalone" has the libsystemd and
         libsystemd-shared code linked statically. Those binaries are intended
         as replacements to be used in limited installations where the full
-        systemd is not installed. Yet another option is to rebuild systemd with
-        a different '-Dshared-lib-tag' setting, allowing different systemd
-        binaries to be linked to instances of the private shared library that
-        can be installed in parallel.
+        systemd suite is not installed. Yet another option is to rebuild
+        systemd with a different '-Dshared-lib-tag' setting, allowing different
+        systemd binaries to be linked to instances of the private shared
+        library that can be installed in parallel.
 
-        Using the default shared linking is recommended. Mixing versions of
-        systemd components that would normally be built and used together (in
-        particular various daemons and the manager) is not recommended: we do
-        not test such combinations upstream and cannot provide support.
-        Distributors making use of those options are responsible if things do
-        not work as expected.
+        Again: Using the default shared linking is recommended, building static
+        or "standalone" versions is not. Mixing versions of systemd components
+        that would normally be built and used together (in particular various
+        daemons and the manager) is not recommended: we do not test such
+        combinations upstream and cannot provide support. Distributors making
+        use of those options are responsible if things do not work as expected.
 
 USERS AND GROUPS:
         Default udev rules use the following standard system group names, which
