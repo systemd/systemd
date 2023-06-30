@@ -112,8 +112,9 @@
 #define SPECIAL_MACHINE_SLICE "machine.slice"
 #define SPECIAL_ROOT_SLICE "-.slice"
 
-/* The scope unit systemd itself lives in. */
+/* The scope units systemd itself lives in. */
 #define SPECIAL_INIT_SCOPE "init.scope"
+#define SPECIAL_INIT_WORKERS_SCOPE "init-workers.scope"
 
 /* The root directory. */
 #define SPECIAL_ROOT_MOUNT "-.mount"
