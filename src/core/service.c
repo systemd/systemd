@@ -28,6 +28,7 @@
 #include "load-fragment.h"
 #include "log.h"
 #include "manager.h"
+#include "missing_audit.h"
 #include "open-file.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -5166,4 +5167,7 @@ const UnitVTable service_vtable = {
         },
 
         .can_start = service_can_start,
+
+        .audit_start_message_type = AUDIT_SERVICE_START,
+        .audit_stop_message_type = AUDIT_SERVICE_STOP,
 };

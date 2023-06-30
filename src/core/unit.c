@@ -39,7 +39,6 @@
 #include "log.h"
 #include "logarithm.h"
 #include "macro.h"
-#include "missing_audit.h"
 #include "mkdir-label.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -2585,30 +2584,30 @@ static void unit_update_on_console(Unit *u) {
 static void unit_emit_audit_start(Unit *u) {
         assert(u);
 
-        if (u->type != UNIT_SERVICE)
+        if (UNIT_VTABLE(u)->audit_start_message_type <= 0)
                 return;
 
         /* Write audit record if we have just finished starting up */
-        manager_send_unit_audit(u->manager, u, AUDIT_SERVICE_START, true);
+        manager_send_unit_audit(u->manager, u, UNIT_VTABLE(u)->audit_start_message_type, /* success= */ true);
         u->in_audit = true;
 }
 
 static void unit_emit_audit_stop(Unit *u, UnitActiveState state) {
         assert(u);
 
-        if (u->type != UNIT_SERVICE)
+        if (UNIT_VTABLE(u)->audit_start_message_type <= 0)
                 return;
 
         if (u->in_audit) {
                 /* Write audit record if we have just finished shutting down */
-                manager_send_unit_audit(u->manager, u, AUDIT_SERVICE_STOP, state == UNIT_INACTIVE);
+                manager_send_unit_audit(u->manager, u, UNIT_VTABLE(u)->audit_stop_message_type, /* success= */ state == UNIT_INACTIVE);
                 u->in_audit = false;
         } else {
                 /* Hmm, if there was no start record written write it now, so that we always have a nice pair */
-                manager_send_unit_audit(u->manager, u, AUDIT_SERVICE_START, state == UNIT_INACTIVE);
+                manager_send_unit_audit(u->manager, u, UNIT_VTABLE(u)->audit_start_message_type, /* success= */ state == UNIT_INACTIVE);
 
                 if (state == UNIT_INACTIVE)
-                        manager_send_unit_audit(u->manager, u, AUDIT_SERVICE_STOP, true);
+                        manager_send_unit_audit(u->manager, u, UNIT_VTABLE(u)->audit_stop_message_type, /* success= */ true);
         }
 }
 
