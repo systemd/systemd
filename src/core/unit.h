@@ -756,6 +756,10 @@ typedef struct UnitVTable {
          * limiting checks to occur before we do anything else. */
         int (*can_start)(Unit *u);
 
+        /* Returns > 0 if the whole subsystem is ratelimited, and new start operations should not be started
+         * for this unit type right now. */
+        int (*subsystem_ratelimited)(Manager *m);
+
         /* The strings to print in status messages */
         UnitStatusMessageFormats status_message_formats;
 
