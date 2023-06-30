@@ -5996,11 +5996,13 @@ int exec_spawn(Unit *unit,
                const CGroupContext *cgroup_context,
                pid_t *ret) {
 
-        char serialization_fd_number[DECIMAL_STR_MAX(int) + 1];
         _cleanup_free_ char *subcgroup_path = NULL, *log_level = NULL;
         _cleanup_close_ int serialization_fd = -EBADF;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
+        _cleanup_free_ int *fds_array = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        size_t n_fds_array = 0;
+        const char *scope_path;
         pid_t pid;
         int r;
 
@@ -6041,6 +6043,41 @@ int exec_spawn(Unit *unit,
                 }
         }
 
+        r = log_level_to_string_alloc(log_get_max_level(), &log_level);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to convert log level to string: %m");
+
+        scope_path = strjoina(unit->manager->cgroup_root, "/" SPECIAL_INIT_WORKERS_SCOPE);
+
+        // TODO: move to manager.c and spawn a bunch
+        {
+                char serialization_fd_number[DECIMAL_STR_MAX(int) + 1];
+
+                xsprintf(serialization_fd_number, "%i", unit->manager->executors_pool_socket[1]);
+                r = fd_cloexec(unit->manager->executors_pool_socket[1], false);
+                if (r < 0)
+                        return log_unit_error_errno(unit, errno, "Failed to set O_CLOEXEC on serialization fd: %m");
+
+                /* The executor binary is pinned, to avoid compatibility problems during upgrades. */
+                r = posix_spawn_wrapper(unit->manager->executor_path,
+                                STRV_MAKE(unit->manager->executor_path,
+                                        "--manager-socket", serialization_fd_number,
+                                        "--log-level", log_level,
+                                        /* If journald is not available tell sd-executor to go to kmsg, as it might be starting journald */
+                                        "--log-target", log_target_to_string(manager_journal_is_running(unit->manager) ? log_get_target() : LOG_TARGET_KMSG)),
+                                environ,
+                                &pid);
+                if (r < 0)
+                        return log_unit_error_errno(unit, r, "Failed to spawn executor: %m");
+
+                (void) cg_attach(SYSTEMD_CGROUP_CONTROLLER, scope_path, pid);
+                r = fd_cloexec(unit->manager->executors_pool_socket[1], true);
+                if (r < 0)
+                        return log_unit_error_errno(unit, errno, "Failed to set O_CLOEXEC on serialization fd: %m");
+        }
+
+
+
         /* In order to avoid copy-on-write traps and OOM-kills when pid1's memory.current is above the
          * child's memory.max, serialize all the state needed to start the unit, and pass it to the
          * systemd-executor binary. clone() with CLONE_VM + CLONE_VFORK will pause the parent until the exec
@@ -6056,42 +6093,70 @@ int exec_spawn(Unit *unit,
         if (!f)
                 return log_unit_error_errno(unit, serialization_fd, "Failed to open serialization stream: %m");
 
-        fdset = fdset_new();
-        if (!fdset)
-                return log_oom();
+        /* If the workers pool is not empty, then send the serialization FD so that one of the workers will
+         * pick it up and send us back its pid. Otherwise, fallback to the slower direct spawn. */
+        r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, scope_path);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                fds_array = new(int, 1);
+                if (!fds_array)
+                        return log_oom();
 
-        r = exec_serialize(f, fdset, unit, context, command, params, runtime, cgroup_context);
+                fds_array[n_fds_array++] = fileno(f);
+        } else {
+                fdset = fdset_new();
+                if (!fdset)
+                        return log_oom();
+        }
+
+        r = exec_serialize(f, fdset, &fds_array, &n_fds_array, unit, context, command, params, runtime, cgroup_context);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to serialize parameters: %m");
 
         if (fseeko(f, 0, SEEK_SET) == (off_t) -1)
                 return log_unit_error_errno(unit, errno, "Failed to reseek on serialization stream: %m");
 
-        r = fd_cloexec(fileno(f), false);
-        if (r < 0)
-                return log_unit_error_errno(unit, errno, "Failed to set O_CLOEXEC on serialization fd: %m");
+        if (fds_array) {
+                _cleanup_close_ int pidfd = -EBADF;
 
-        r = fdset_cloexec(fdset, false);
-        if (r < 0)
-                return log_unit_error_errno(unit, errno, "Failed to set O_CLOEXEC on serialized fds: %m");
+                r = send_many_fds(unit->manager->executors_pool_socket[0], fds_array, n_fds_array, 0);
+                if (r < 0)
+                        return log_unit_error_errno(unit, r, "Failed to send serialization fd: %m");
 
-        r = log_level_to_string_alloc(log_get_max_level(), &log_level);
-        if (r < 0)
-                return log_unit_error_errno(unit, r, "Failed to convert log level to string: %m");
+                pidfd = receive_one_fd(unit->manager->executors_pool_socket[0], 0);
+                if (pidfd < 0)
+                        return log_error_errno(r, "Failed to receive worker's PID fd: %m");
 
-        xsprintf(serialization_fd_number, "%i", fileno(f));
+                r = pidfd_get_pid(pidfd, &pid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get worker's PID: %m");
+                // TODO: fallback with no pidfd
+        } else {
+                char serialization_fd_number[DECIMAL_STR_MAX(int) + 1];
 
-        /* The executor binary is pinned, to avoid compatibility problems during upgrades. */
-        r = posix_spawn_wrapper(unit->manager->executor_path,
-                        STRV_MAKE(unit->manager->executor_path,
-                                  "--deserialize", serialization_fd_number,
-                                  "--log-level", log_level,
-                                  /* If journald is not available tell sd-executor to go to kmsg, as it might be starting journald */
-                                  "--log-target", log_target_to_string(manager_journal_is_running(unit->manager) ? log_get_target() : LOG_TARGET_KMSG)),
-                        environ,
-                        &pid);
-        if (r < 0)
-                return log_unit_error_errno(unit, r, "Failed to spawn executor: %m");
+                r = fd_cloexec(fileno(f), false);
+                if (r < 0)
+                        return log_unit_error_errno(unit, errno, "Failed to set O_CLOEXEC on serialization fd: %m");
+
+                r = fdset_cloexec(fdset, false);
+                if (r < 0)
+                        return log_unit_error_errno(unit, errno, "Failed to set O_CLOEXEC on serialized fds: %m");
+
+                xsprintf(serialization_fd_number, "%i", fileno(f));
+
+                /* The executor binary is pinned, to avoid compatibility problems during upgrades. */
+                r = posix_spawn_wrapper(unit->manager->executor_path,
+                                STRV_MAKE(unit->manager->executor_path,
+                                        "--deserialize", serialization_fd_number,
+                                        "--log-level", log_level,
+                                        /* If journald is not available tell sd-executor to go to kmsg, as it might be starting journald */
+                                        "--log-target", log_target_to_string(manager_journal_is_running(unit->manager) ? log_get_target() : LOG_TARGET_KMSG)),
+                                environ,
+                                &pid);
+                if (r < 0)
+                        return log_unit_error_errno(unit, r, "Failed to spawn executor: %m");
+        }
 
         log_unit_debug(unit, "Forked %s as "PID_FMT, command->path, pid);
 
