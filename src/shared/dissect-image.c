@@ -3362,9 +3362,29 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                                  * we allow a fallback that matches on the first extension-release
                                  * file found in the directory, if one named after the image cannot
                                  * be found first. */
-                                r = open_extension_release(t, IMAGE_SYSEXT, m->image_name, /* relax_extension_release_check= */ false, NULL, &fd);
-                                if (r < 0)
-                                        fd = r; /* Propagate the error. */
+                                Hashmap *images = hashmap_new(&image_hash_ops);
+                                if (!images)
+                                        return log_oom();
+
+                                r = image_discover(IMAGE_SYSEXT, NULL, images);
+                                if (hashmap_isempty(images)) {
+                                        r = image_discover(IMAGE_CONFEXT, NULL, images);
+                                        if (r < 0)
+                                                fd = r;
+                                        else {
+                                                r = open_extension_release(t, IMAGE_CONFEXT, m->image_name, /* relax_extension_release_check= */ false, NULL, &fd);
+                                                if (r < 0)
+                                                        fd = r; /* Propagate the error. */
+                                        }
+                                } else {
+                                        if (r < 0) {
+                                                fd = r;
+                                                break;
+                                        }
+                                        r = open_extension_release(t, IMAGE_SYSEXT, m->image_name, /* relax_extension_release_check= */ false, NULL, &fd);
+                                        if (r < 0)
+                                                fd = r; /* Propagate the error. */
+                                }
                                 break;
 
                         case META_HAS_INIT_SYSTEM: {
