@@ -139,3 +139,6 @@ int bind_mount_submounts(
 /* Creates a mount point (not parents) based on the source path or stat - ie, a file or a directory */
 int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mode_t mode);
 int make_mount_point_inode_from_path(const char *source, const char *dest, mode_t mode);
+
+unsigned long credentials_fs_mount_flags(bool ro);
+int mount_credentials_fs(const char *path, size_t size, bool ro);
