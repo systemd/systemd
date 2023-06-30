@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "env-util.h"
 #include "exec-invoke.h"
 #include "execute-serialize.h"
 #include "execute.h"
@@ -15,11 +16,15 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "getopt-defs.h"
+#include "io-util.h"
 #include "parse-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "static-destruct.h"
+#include "socket-util.h"
 
 static FILE* arg_serialization = NULL;
+static int arg_manager_socket = -EBADF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_serialization, fclosep);
 
@@ -45,6 +50,8 @@ static int help(void) {
                "     --log-location[=BOOL] Include code location in messages\n"
                "     --log-time[=BOOL]     Prefix messages with current time\n"
                "     --deserialize=FD      Deserialize process config from FD\n"
+               "     --manager-socket=FD   Socket to receive commands from\n"
+               "                           the unit manager\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -59,13 +66,15 @@ static int parse_argv(int argc, char *argv[]) {
                 COMMON_GETOPT_ARGS,
                 ARG_VERSION,
                 ARG_DESERIALIZE,
+                ARG_MANAGER_SOCKET,
         };
 
         static const struct option options[] = {
                 COMMON_GETOPT_OPTIONS,
-                { "help",         no_argument,       NULL, 'h'             },
-                { "version",      no_argument,       NULL, ARG_VERSION     },
-                { "deserialize",  required_argument, NULL, ARG_DESERIALIZE },
+                { "help",           no_argument,       NULL, 'h'                },
+                { "version",        no_argument,       NULL, ARG_VERSION        },
+                { "deserialize",    required_argument, NULL, ARG_DESERIALIZE    },
+                { "manager-socket", required_argument, NULL, ARG_MANAGER_SOCKET },
                 {}
         };
 
@@ -154,6 +163,23 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_MANAGER_SOCKET: {
+                        int fd;
+
+                        fd = parse_fd(optarg);
+                        if (fd < 0)
+                                return log_error_errno(fd,
+                                                "Failed to parse manager socket \"%s\": %m",
+                                                optarg);
+
+                        (void) fd_cloexec(fd, true);
+
+                        safe_close(arg_manager_socket);
+                        arg_manager_socket = fd;
+
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
@@ -161,16 +187,24 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if (!arg_serialization)
+        if (!arg_serialization && arg_manager_socket < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "No serialization fd specified.");
+                                       "No serialization nor manager socket specified.");
+
+        if (arg_serialization && arg_manager_socket >= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Both serialization and manager socket specified.");
 
         return 1 /* work to do */;
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_fclose_ FILE *serialization = NULL;
+        _cleanup_close_ int manager_socket = -EBADF;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
+        _cleanup_free_ int *fds_array = NULL;
         int exit_status = EXIT_SUCCESS, r;
+        size_t n_fds_array = 0;
         _cleanup_(cgroup_context_done) CGroupContext cgroup_context = {};
         _cleanup_(exec_context_done) ExecContext context = {};
         _cleanup_(exec_command_done) ExecCommand command = {};
@@ -201,10 +235,6 @@ int main(int argc, char *argv[]) {
         log_set_prohibit_ipc(true);
         log_setup();
 
-        r = fdset_new_fill(/* filter_cloexec= */ 0, &fdset);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create fd set: %m");
-
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
@@ -215,14 +245,65 @@ int main(int argc, char *argv[]) {
                 log_open();
         }
 
-        r = fdset_remove(fdset, fileno(arg_serialization));
-        if (r < 0)
-                return log_error_errno(r, "Failed to remove serialization fd from fd set: %m");
+        /* If we are forked directly then we will have all the required FDs already open, create a set to
+         * prepare for deserialization. If we are getting a socket instead we'll get them in an array via
+         * SCM_RIGHTS. */
+        if (arg_serialization) {
+                serialization = arg_serialization;
 
-        r = exec_deserialize_invocation(arg_serialization,
+                r = fdset_new_fill(/* filter_cloexec= */ 0, &fdset);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create fd set: %m");
+        } else if (arg_manager_socket >= 0) {
+                _cleanup_close_ int serialization_fd = -EBADF, pidfd = -EBADF;
+
+                manager_socket = arg_manager_socket;
+
+                /* Wait for serialization FD from manager datagram socket */
+                r = receive_many_fds(manager_socket, &fds_array, &n_fds_array, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to receive serialization FDs: %m");
+
+                /* There always at the very least the exec FD */
+                if (n_fds_array == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Received no FDs from manager socket.");
+
+                /* The memfd with all the data is always the first one */
+                serialization_fd = TAKE_FD(fds_array[0]);
+
+                log_debug("Accepting work from worker " PID_FMT, getpid_cached());
+
+                /* Send back pidfd so that systemd knows who took up this job */
+                pidfd = pidfd_open(getpid_cached(), 0);
+                if (pidfd < 0) {
+                        char iov_buffer[DECIMAL_STR_MAX(pid_t) + 1] = {};
+                        struct iovec iov = IOVEC_MAKE(iov_buffer, sizeof(iov_buffer) - 1);
+
+                        if (!ERRNO_IS_NOT_SUPPORTED(errno))
+                                return log_error_errno(errno, "Failed to open pidfd: %m");
+
+                        /* Fallback to sending the pid */
+                        xsprintf(iov_buffer, "%d", getpid_cached());
+                        r = send_one_fd_iov(manager_socket, /* fd= */ -EBADF, &iov, 1, 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to send pid: %m");
+                } else {
+                        r = send_one_fd(manager_socket, pidfd, 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to send pidfd: %m");
+                }
+
+                serialization = take_fdopen(&serialization_fd, "r");
+                if (!serialization)
+                        return log_error_errno(errno, "Failed to open serialization fd: %m");
+        } else
+                assert_not_reached();
+
+        r = exec_deserialize_invocation(serialization,
                                         fdset,
-                                        /* fds_array= */ NULL,
-                                        /* n_fds_array= */ 0,
+                                        fds_array,
+                                        n_fds_array,
                                         &context,
                                         &command,
                                         &params,
@@ -231,7 +312,15 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to deserialize: %m");
 
-        arg_serialization = safe_fclose(arg_serialization);
+        /* The worker might have been spawned long before it needs to execute a child, so clear the
+         * environment and set it to what the manager says it should be */
+        r = set_full_environment(context.manager_environment);
+        if (r < 0)
+                return r;
+
+        arg_serialization = serialization = safe_fclose(serialization);
+        arg_manager_socket = manager_socket = safe_close(manager_socket);
+        fds_array = mfree(fds_array);
         fdset = fdset_free(fdset);
 
         r = exec_invoke(&command,
