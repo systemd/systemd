@@ -3,11 +3,10 @@
 Name=dummy98
 
 [Network]
-IPForward=true
-IPv6PrivacyExtensions=true
+IPForward=yes
 IPv6DuplicateAddressDetection=3
 IPv6HopLimit=5
-IPv4ProxyARP=true
-IPv6ProxyNDP=true
+IPv4ProxyARP=yes
+IPv6ProxyNDP=yes
 IPv6AcceptRA=no
 IPv4AcceptLocal=yes

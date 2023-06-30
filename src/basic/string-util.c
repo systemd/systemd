@@ -990,6 +990,33 @@ oom:
         return -ENOMEM;
 }
 
+char *strextendn(char **x, const char *s, size_t l) {
+        assert(x);
+        assert(s || l == 0);
+
+        if (l == SIZE_MAX)
+                l = strlen_ptr(s);
+        else if (l > 0)
+                l = strnlen(s, l); /* ignore trailing noise */
+
+        if (l > 0 || !*x) {
+                size_t q;
+                char *m;
+
+                q = strlen_ptr(*x);
+                m = realloc(*x, q + l + 1);
+                if (!m)
+                        return NULL;
+
+                memcpy_safe(m + q, s, l);
+                m[q + l] = 0;
+
+                *x = m;
+        }
+
+        return *x;
+}
+
 char *strrep(const char *s, unsigned n) {
         char *r, *p;
         size_t l;

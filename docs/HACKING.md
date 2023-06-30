@@ -57,12 +57,7 @@ $ mkosi qemu
 ```
 
 Every time you rerun the `mkosi` command a fresh image is built, incorporating
-all current changes you made to the project tree. To save time when rebuilding,
-you can use mkosi's incremental mode (`-i`). This instructs mkosi to build a set
-of cache images that make future builds a lot faster. Note that the `-i` flag
-both instructs mkosi to build cached images if they don't exist yet and to use
-cached images if they already exist so make sure to always specify `-i` if you
-want mkosi to use the cached images.
+all current changes you made to the project tree.
 
 If you want to do a local build without mkosi, most distributions also provide
 very simple and convenient ways to install all development packages necessary
