@@ -277,6 +277,7 @@ conf.set_quoted('SYSTEMD_LANGUAGE_FALLBACK_MAP',              pkgdatadir / 'lang
 conf.set_quoted('SYSTEMD_MAKEFS_PATH',                        rootlibexecdir / 'systemd-makefs')
 conf.set_quoted('SYSTEMD_PULL_PATH',                          rootlibexecdir / 'systemd-pull')
 conf.set_quoted('SYSTEMD_SHUTDOWN_BINARY_PATH',               rootlibexecdir / 'systemd-shutdown')
+conf.set_quoted('SYSTEMD_SYSUPDATE_PATH',                     rootlibexecdir / 'systemd-sysupdate')
 conf.set_quoted('SYSTEMD_TEST_DATA',                          testdata_dir)
 conf.set_quoted('SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH', rootbindir / 'systemd-tty-ask-password-agent')
 conf.set_quoted('SYSTEMD_UPDATE_HELPER_PATH',                 rootlibexecdir / 'systemd-update-helper')
@@ -3676,6 +3677,18 @@ if conf.get('ENABLE_BINFMT') == 1
 endif
 
 if conf.get('ENABLE_SYSUPDATE') == 1
+        dbus_programs += executable(
+                'systemd-sysupdated',
+                systemd_sysupdated_sources,
+                include_directories : includes,
+                link_with : [libshared],
+                dependencies : [threads,
+                                userspace,
+                                versiondep],
+                install_rpath : rootpkglibdir,
+                install : true,
+                install_dir : rootlibexecdir)
+
         exe = executable(
                 'systemd-sysupdate',
                 systemd_sysupdate_sources,
