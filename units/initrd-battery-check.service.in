@@ -12,10 +12,15 @@ Description=Check battery level during early boot
 Documentation=man:initrd-battery-check.service(8)
 DefaultDependencies=no
 AssertPathExists=/etc/initrd-release
+After=plymouth-start.service
 Before=local-fs-pre.target
+Wants=local-fs-pre.target
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart={{ROOTLIBEXECDIR}}/systemd-battery-check
 FailureAction=poweroff-force
+
+[Install]
+WantedBy=sysinit.target
