@@ -39,6 +39,7 @@
 #include "glob-util.h"
 #include "hexdecoct.h"
 #include "ioprio-util.h"
+#include "io-util.h"
 #include "lock-util.h"
 #include "log.h"
 #include "macro.h"
@@ -58,6 +59,7 @@
 #include "securebits-util.h"
 #include "selinux-util.h"
 #include "serialize.h"
+#include "socket-util.h"
 #include "sort-util.h"
 #include "special.h"
 #include "stat-util.h"
@@ -333,6 +335,48 @@ static void log_command_line(Unit *unit, const char *msg, const char *executable
 
 static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***l);
 
+static int direct_spawn_fallback(Unit *unit, FILE *f, FDSet *fdset, pid_t *ret_pid) {
+        _cleanup_free_ char *executor_path = NULL, *log_level = NULL;
+        char serialization_fd_number[DECIMAL_STR_MAX(int) + 1];
+        int r;
+
+        assert(unit);
+        assert(f);
+        assert(fdset);
+        assert(ret_pid);
+
+        r = fd_cloexec(fileno(f), false);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to set O_CLOEXEC on serialization fd: %m");
+
+        r = fdset_cloexec(fdset, false);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to set O_CLOEXEC on serialized fds: %m");
+
+        r = fd_get_path(unit->manager->executor_fd, &executor_path);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to get executor path from fd: %m");
+
+        r = log_level_to_string_alloc(log_get_max_level(), &log_level);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to convert log level to string: %m");
+
+        xsprintf(serialization_fd_number, "%i", fileno(f));
+
+        /* The executor binary is pinned, to avoid compatibility problems during upgrades. */
+        r = posix_spawn_wrapper(FORMAT_PROC_FD_PATH(unit->manager->executor_fd),
+                        STRV_MAKE(executor_path,
+                                  "--deserialize", serialization_fd_number,
+                                  "--log-level", log_level,
+                                  "--log-target", log_target_to_string(manager_get_executor_log_target(unit->manager))),
+                        environ,
+                        ret_pid);
+        if (r < 0)
+                return log_unit_error_errno(unit, r, "Failed to spawn executor: %m");
+
+        return 0;
+}
+
 int exec_spawn(Unit *unit,
                ExecCommand *command,
                const ExecContext *context,
@@ -341,12 +385,12 @@ int exec_spawn(Unit *unit,
                const CGroupContext *cgroup_context,
                pid_t *ret) {
 
-        char serialization_fd_number[DECIMAL_STR_MAX(int) + 1];
-        _cleanup_free_ char *subcgroup_path = NULL, *log_level = NULL, *executor_path = NULL;
+        _cleanup_free_ char *subcgroup_path = NULL;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         _cleanup_free_ int *fds_array = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         size_t n_fds_array = 0;
+        const char *scope_path;
         pid_t pid;
         int r;
 
@@ -398,9 +442,23 @@ int exec_spawn(Unit *unit,
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to open serialization stream: %m");
 
-        fdset = fdset_new();
-        if (!fdset)
-                return log_oom();
+        /* If the workers pool is not empty, then send the serialization FD so that one of the workers will
+         * pick it up and send us back its pid. Otherwise, fallback to the slower direct spawn. */
+        scope_path = strjoina(unit->manager->cgroup_root, "/" SPECIAL_INIT_WORKERS_SCOPE);
+        r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, scope_path);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                fds_array = new(int, 1);
+                if (!fds_array)
+                        return log_oom();
+
+                fds_array[n_fds_array++] = fileno(f);
+        } else {
+                fdset = fdset_new();
+                if (!fdset)
+                        return log_oom();
+        }
 
         r = exec_serialize_invocation(f,
                                       fdset,
@@ -414,37 +472,104 @@ int exec_spawn(Unit *unit,
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to serialize parameters: %m");
 
-        if (fseeko(f, 0, SEEK_SET) == (off_t) -1)
-                return log_unit_error_errno(unit, errno, "Failed to reseek on serialization stream: %m");
+        rewind(f);
 
-        r = fd_cloexec(fileno(f), false);
-        if (r < 0)
-                return log_unit_error_errno(unit, r, "Failed to set O_CLOEXEC on serialization fd: %m");
+        if (fds_array) {
+                r = send_many_fds(unit->manager->executors_pool_socket[0], fds_array, n_fds_array, 0);
+                if (r < 0)
+                        return log_unit_error_errno(unit, r, "Failed to send serialization fd: %m");
 
-        r = fdset_cloexec(fdset, false);
-        if (r < 0)
-                return log_unit_error_errno(unit, r, "Failed to set O_CLOEXEC on serialized fds: %m");
+                r = fd_wait_for_event(unit->manager->executors_pool_socket[0], POLLIN, 1 * USEC_PER_SEC);
+                if (r <= 0) {
+                        log_unit_debug(unit, "No response from any worker, clearing out the pool.");
 
-        r = log_level_to_string_alloc(log_get_max_level(), &log_level);
-        if (r < 0)
-                return log_unit_error_errno(unit, r, "Failed to convert log level to string: %m");
+                        /* Something's very wrong, there are workers in the pool, but there is no response?
+                         * Kill the slackers (to ensure no double processing) and then fall back to a direct
+                         * spawn. The manager will respawn workers later. */
+                        (void) manager_kill_workers(unit->manager);
 
-        r = fd_get_path(unit->manager->executor_fd, &executor_path);
-        if (r < 0)
-                return log_unit_error_errno(unit, r, "Failed to get executor path from fd: %m");
+                        /* Let's REALLY make sure. Now the cgroup is empty, so if a worker managed to sneak
+                         * past somehow between the poll and the kill, we'll have a message in the pipe. */
+                        r = fd_wait_for_event(unit->manager->executors_pool_socket[0], POLLIN, 0);
+                }
+                if (r <= 0) {
+                        log_unit_debug(unit, "Falling back to direct spawn.");
 
-        xsprintf(serialization_fd_number, "%i", fileno(f));
+                        /* Now that we know there are no messages in the socket and all workers are down,
+                         * also close the sockets so that any message we queued before is lost, otherwise
+                         * the next time workers are started, the message queued now that is taken over by
+                         * this direct execution would be picked up. */
+                        r = manager_setup_executors_pool_socket(unit->manager);
+                        if (r < 0)
+                                return r;
 
-        /* The executor binary is pinned, to avoid compatibility problems during upgrades. */
-        r = posix_spawn_wrapper(FORMAT_PROC_FD_PATH(unit->manager->executor_fd),
-                        STRV_MAKE(executor_path,
-                                  "--deserialize", serialization_fd_number,
-                                  "--log-level", log_level,
-                                  "--log-target", log_target_to_string(manager_get_executor_log_target(unit->manager))),
-                        environ,
-                        &pid);
-        if (r < 0)
-                return log_unit_error_errno(unit, r, "Failed to spawn executor: %m");
+                        /* Unfortunately this means we have to redo the serialization, as the FDs will now
+                         * be passed through directly, rather than via a socket message. */
+                        fds_array = mfree(fds_array);
+                        n_fds_array = 0;
+
+                        fdset = fdset_new();
+                        if (!fdset)
+                                return log_oom();
+
+                        if (ftruncate(fileno(f), 0) < 0)
+                                return log_unit_error_errno(unit,
+                                                errno,
+                                                "Failed to truncate serialization stream: %m");
+
+                        r = exec_serialize_invocation(f,
+                                                      fdset,
+                                                      &fds_array,
+                                                      &n_fds_array,
+                                                      context,
+                                                      command,
+                                                      params,
+                                                      runtime,
+                                                      cgroup_context);
+                        if (r < 0)
+                                return log_unit_error_errno(unit, r, "Failed to serialize parameters: %m");
+
+                        rewind(f);
+
+                        r = direct_spawn_fallback(unit, f, fdset, &pid);
+                        if (r < 0)
+                                return log_unit_error_errno(unit,
+                                                r,
+                                                "Failed to directly spawn executor: %m");
+                } else {
+                        char iov_buffer[DECIMAL_STR_MAX(int) + 1] = {};
+                        struct iovec iov = IOVEC_MAKE(iov_buffer, sizeof(iov_buffer) - 1);
+                        _cleanup_close_ int pidfd = -EBADF;
+
+                        ssize_t n = receive_one_fd_iov(unit->manager->executors_pool_socket[0],
+                                        &iov,
+                                        /* iovlen= */ 1,
+                                        /* flags= */ 0,
+                                        &pidfd);
+                        if (n < 0)
+                                return log_error_errno(n, "Failed to receive worker's PID: %m");
+
+                        /* In case we are running on a kernel without pidfd support */
+                        if (pidfd < 0) {
+                                r = parse_pid(iov_buffer, &pid);
+                                if (r < 0)
+                                        return log_error_errno(r,
+                                                        "Failed to parse worker's PID from '%s': %m",
+                                                        strna(iov_buffer));
+                        } else {
+                                r = pidfd_get_pid(pidfd, &pid);
+                                if (r < 0)
+                                        return log_error_errno(r,
+                                                        "Failed to get worker's PID from PID fd: %m");
+                        }
+
+                        log_unit_debug(unit, "Successfully assigned %s to "PID_FMT, command->path, pid);
+                }
+        } else {
+                r = direct_spawn_fallback(unit, f, fdset, &pid);
+                if (r < 0)
+                        return log_unit_error_errno(unit, r, "Failed to directly spawn executor: %m");
+        }
 
         log_unit_debug(unit, "Forked %s as "PID_FMT, command->path, pid);
 
@@ -503,6 +628,7 @@ void exec_context_done(ExecContext *c) {
         c->environment_files = strv_free(c->environment_files);
         c->pass_environment = strv_free(c->pass_environment);
         c->unset_environment = strv_free(c->unset_environment);
+        c->manager_environment = strv_free(c->manager_environment);
 
         rlimit_free_all(c->rlimit);
 
