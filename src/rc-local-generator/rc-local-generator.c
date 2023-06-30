@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "generator.h"
+#include "initrd-util.h"
 #include "log.h"
 #include "mkdir-label.h"
 #include "string-util.h"
@@ -57,6 +58,11 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         int r = 0, k = 0;
 
         assert_se(arg_dest = dest);
+
+        if (in_initrd()) {
+                log_debug("Skipping generator, running in the initrd.");
+                return EXIT_SUCCESS;
+        }
 
         if (check_executable(RC_LOCAL_PATH) >= 0) {
                 log_debug("Automatically adding rc-local.service.");
