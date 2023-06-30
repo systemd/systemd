@@ -860,6 +860,7 @@ static int context_apply(
         log_info("Selected update '%s' for install.", us->version);
 
         (void) sd_notifyf(false,
+                          "READY=1\n" /* Tell sysupdated that we've started working */
                           "STATUS=Making room for '%s'.", us->version);
 
         /* Let's make some room. We make sure for each transfer we have one free space to fill. While
