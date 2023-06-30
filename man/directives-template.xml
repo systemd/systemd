@@ -50,6 +50,15 @@
   </refsect1>
 
   <refsect1>
+    <title>System Credentials</title>
+
+    <para>System credentials understood by the system and service manager and various other
+    components:</para>
+
+    <variablelist id='system-credentials' />
+  </refsect1>
+
+  <refsect1>
     <title>EFI variables</title>
 
     <para>EFI variables understood by
