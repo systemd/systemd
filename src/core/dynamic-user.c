@@ -607,21 +607,21 @@ static DynamicUser* dynamic_user_destroy(DynamicUser *d) {
         return dynamic_user_free(d);
 }
 
-int dynamic_user_serialize_one(DynamicUser *d, const char *key, FILE *f, FDSet *fds) {
+int dynamic_user_serialize_one(DynamicUser *d, const char *key, FILE *f, FDSet *fds, int **fds_array, size_t *n_fds_array) {
         int copy0, copy1;
 
         assert(key);
         assert(f);
-        assert(fds);
+        assert(fds || (fds_array && n_fds_array));
 
         if (!d)
                 return 0;
 
-        copy0 = fdset_put_dup(fds, d->storage_socket[0]);
+        copy0 = serialize_prepare_fd_array_or_set(d->storage_socket[0], fds, fds_array, n_fds_array);
         if (copy0 < 0)
                 return log_error_errno(copy0, "Failed to add dynamic user storage fd to serialization: %m");
 
-        copy1 = fdset_put_dup(fds, d->storage_socket[1]);
+        copy1 = serialize_prepare_fd_array_or_set(d->storage_socket[1], fds, fds_array, n_fds_array);
         if (copy1 < 0)
                 return log_error_errno(copy1, "Failed to add dynamic user storage fd to serialization: %m");
 
@@ -638,17 +638,16 @@ int dynamic_user_serialize(Manager *m, FILE *f, FDSet *fds) {
         /* Dump the dynamic user database into the manager serialization, to deal with daemon reloads. */
 
         HASHMAP_FOREACH(d, m->dynamic_users)
-                dynamic_user_serialize_one(d, "dynamic-user", f, fds);
+                dynamic_user_serialize_one(d, "dynamic-user", f, fds, NULL, NULL);
 
         return 0;
 }
 
-void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds, DynamicUser **ret) {
+void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds, int *fds_array, size_t n_fds_array, DynamicUser **ret) {
         _cleanup_free_ char *name = NULL, *s0 = NULL, *s1 = NULL;
         int r, fd0, fd1;
 
         assert(value);
-        assert(fds);
 
         /* Parse the serialization again, after a daemon reload */
 
@@ -658,13 +657,15 @@ void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds, Dyn
                 return;
         }
 
-        if ((fd0 = parse_fd(s0)) < 0 || !fdset_contains(fds, fd0)) {
-                log_debug("Unable to process dynamic user fd specification.");
+        fd0 = deserialize_fd_array_or_set(s0, fds, fds_array, n_fds_array);
+        if (fd0 < 0) {
+                log_debug_errno(fd0, "Unable to process dynamic user fd specification: %m");
                 return;
         }
 
-        if ((fd1 = parse_fd(s1)) < 0 || !fdset_contains(fds, fd1)) {
-                log_debug("Unable to process dynamic user fd specification.");
+        fd1 = deserialize_fd_array_or_set(s1, fds, fds_array, n_fds_array);
+        if (fd1 < 0) {
+                log_debug_errno(fd1, "Unable to process dynamic user fd specification: %m");
                 return;
         }
 
@@ -673,9 +674,6 @@ void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds, Dyn
                 log_debug_errno(r, "Failed to add dynamic user: %m");
                 return;
         }
-
-        (void) fdset_remove(fds, fd0);
-        (void) fdset_remove(fds, fd1);
 }
 
 void dynamic_user_vacuum(Manager *m, bool close_user) {
