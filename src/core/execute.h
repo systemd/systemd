@@ -198,6 +198,7 @@ struct ExecContext {
         char **environment_files;
         char **pass_environment;
         char **unset_environment;
+        char **manager_environment;
 
         struct rlimit *rlimit[_RLIMIT_MAX];
         char *working_directory, *root_directory, *root_image, *root_verity, *root_hash_path, *root_hash_sig_path;
