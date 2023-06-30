@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+systemd_sysupdated_sources = files(
+        'sysupdated.c',
+)
+
 systemd_sysupdate_sources = files(
         'sysupdate-cache.c',
         'sysupdate-cache.h',
@@ -18,3 +22,12 @@ systemd_sysupdate_sources = files(
         'sysupdate.c',
         'sysupdate.h',
 )
+
+if conf.get('ENABLE_SYSUPDATE') == 1
+        install_data('org.freedesktop.sysupdate1.conf',
+                     install_dir : dbuspolicydir)
+        install_data('org.freedesktop.sysupdate1.service',
+                     install_dir : dbussystemservicedir)
+        install_data('org.freedesktop.sysupdate1.policy',
+                     install_dir : polkitpolicydir)
+endif
