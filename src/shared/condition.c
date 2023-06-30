@@ -24,6 +24,7 @@
 #include "cgroup-util.h"
 #include "compare-operator.h"
 #include "condition.h"
+#include "confidential-virt.h"
 #include "cpu-set-util.h"
 #include "creds-util.h"
 #include "efi-api.h"
@@ -689,6 +690,8 @@ static int condition_test_security(Condition *c, char **env) {
                 return is_efi_secure_boot();
         if (streq(c->parameter, "tpm2"))
                 return has_tpm2();
+        if (streq(c->parameter, "cvm"))
+                return detect_confidential_virtualization() > 0;
 
         return false;
 }
