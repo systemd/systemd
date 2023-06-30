@@ -226,6 +226,7 @@ static void _test(const char *file, unsigned line, const char *func,
         /* We need to start the slices as well otherwise the slice cgroups might be pruned
          * in on_cgroup_empty_event. */
         start_parent_slices(unit);
+        manager_spawn_workers(m);
         assert_se(unit_start(unit, NULL) >= 0);
         check_main_result(file, line, func, m, unit, status_expected, code_expected);
 
@@ -1261,6 +1262,7 @@ static void run_tests(RuntimeScope scope, char **patterns) {
 
         m->default_std_output = EXEC_OUTPUT_NULL; /* don't rely on host journald */
         assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
+        manager_spawn_workers(m);
 
         /* Uncomment below if you want to make debugging logs stored to journal. */
         //manager_override_log_target(m, LOG_TARGET_AUTO);
@@ -1284,6 +1286,8 @@ static void run_tests(RuntimeScope scope, char **patterns) {
                  scope == RUNTIME_SCOPE_SYSTEM ? "system" : "user",
                  yes_no(can_unshare),
                  FORMAT_TIMESPAN(finish - start, USEC_PER_MSEC));
+
+        manager_kill_workers(m);
 }
 
 static int prepare_ns(const char *process_name) {
