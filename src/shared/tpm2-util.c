@@ -65,6 +65,7 @@ static TSS2_RC (*sym_Esys_TR_Close)(ESYS_CONTEXT *esys_context, ESYS_TR *rsrc_ha
 static TSS2_RC (*sym_Esys_TR_Deserialize)(ESYS_CONTEXT *esys_context, uint8_t const *buffer, size_t buffer_size, ESYS_TR *esys_handle) = NULL;
 static TSS2_RC (*sym_Esys_TR_FromTPMPublic)(ESYS_CONTEXT *esysContext, TPM2_HANDLE tpm_handle, ESYS_TR optionalSession1, ESYS_TR optionalSession2, ESYS_TR optionalSession3, ESYS_TR *object) = NULL;
 static TSS2_RC (*sym_Esys_TR_GetName)(ESYS_CONTEXT *esysContext, ESYS_TR handle, TPM2B_NAME **name) = NULL;
+static TSS2_RC (*sym_Esys_TR_GetTpmHandle)(ESYS_CONTEXT *esys_context, ESYS_TR esys_handle, TPM2_HANDLE *tpm_handle) = NULL;
 static TSS2_RC (*sym_Esys_TR_Serialize)(ESYS_CONTEXT *esys_context, ESYS_TR object, uint8_t **buffer, size_t *buffer_size) = NULL;
 static TSS2_RC (*sym_Esys_TR_SetAuth)(ESYS_CONTEXT *esysContext, ESYS_TR handle, TPM2B_AUTH const *authValue) = NULL;
 static TSS2_RC (*sym_Esys_TRSess_GetAttributes)(ESYS_CONTEXT *esysContext, ESYS_TR session, TPMA_SESSION *flags) = NULL;
@@ -122,6 +123,12 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_VerifySignature));
         if (r < 0)
                 return r;
+
+        /* Esys_TR_GetTpmHandle was added to tpm2-tss in version 2.4.0. Once we can set a minimum tpm2-tss
+         * version of 2.4.0 this sym can be moved up to the normal list above. */
+        r = dlsym_many_or_warn(libtss2_esys_dl, LOG_DEBUG, DLSYM_ARG_FORCE(Esys_TR_GetTpmHandle));
+        if (r < 0)
+                log_debug("libtss2-esys too old, does not include Esys_TR_GetTpmHandle.");
 
         r = dlopen_many_sym_or_warn(
                         &libtss2_rc_dl, "libtss2-rc.so.0", LOG_DEBUG,
@@ -706,53 +713,59 @@ int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle) {
         return 0;
 }
 
-/* Create a Tpm2Handle object that references a pre-existing handle in the TPM, at the TPM2_HANDLE address
- * provided. This should be used only for persistent, transient, or NV handles. Returns 1 on success, 0 if
- * the requested handle is not present in the TPM, or < 0 on error. */
-static int tpm2_esys_handle_from_tpm_handle(
+/* Create a Tpm2Handle object that references a pre-existing handle in the TPM, at the handle index provided.
+ * This should be used only for persistent, transient, or NV handles; and the handle must already exist in
+ * the TPM at the specified handle index. The handle index should not be 0. Returns 1 if found, 0 if the
+ * index is empty, or < 0 on error. Also see tpm2_get_srk() below; the SRK is a commonly used persistent
+ * Tpm2Handle. */
+int tpm2_index_to_handle(
                 Tpm2Context *c,
+                TPM2_HANDLE index,
                 const Tpm2Handle *session,
-                TPM2_HANDLE tpm_handle,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_NAME **ret_name,
+                TPM2B_NAME **ret_qname,
                 Tpm2Handle **ret_handle) {
 
         TSS2_RC rc;
         int r;
 
         assert(c);
-        assert(tpm_handle > 0);
-        assert(ret_handle);
 
         /* Let's restrict this, at least for now, to allow only some handle types. */
-        switch (TPM2_HANDLE_TYPE(tpm_handle)) {
+        switch (TPM2_HANDLE_TYPE(index)) {
         case TPM2_HT_PERSISTENT:
         case TPM2_HT_NV_INDEX:
         case TPM2_HT_TRANSIENT:
                 break;
         case TPM2_HT_PCR:
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Refusing to create ESYS handle for PCR handle 0x%08" PRIx32 ".",
-                                       tpm_handle);
+                                       "Invalid handle 0x%08" PRIx32 " (in PCR range).", index);
         case TPM2_HT_HMAC_SESSION:
         case TPM2_HT_POLICY_SESSION:
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Refusing to create ESYS handle for session handle 0x%08" PRIx32 ".",
-                                       tpm_handle);
+                                       "Invalid handle 0x%08" PRIx32 " (in session range).", index);
         case TPM2_HT_PERMANENT: /* Permanent handles are defined, e.g. ESYS_TR_RH_OWNER. */
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Refusing to create ESYS handle for permanent handle 0x%08" PRIx32 ".",
-                                       tpm_handle);
+                                       "Invalid handle 0x%08" PRIx32 " (in permanent range).", index);
         default:
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Refusing to create ESYS handle for unknown handle 0x%08" PRIx32 ".",
-                                       tpm_handle);
+                                       "Invalid handle 0x%08" PRIx32 " (in unknown range).", index);
         }
 
-        r = tpm2_get_capability_handle(c, tpm_handle);
+        r = tpm2_get_capability_handle(c, index);
         if (r < 0)
                 return r;
         if (r == 0) {
-                log_debug("TPM handle 0x%08" PRIx32 " not populated.", tpm_handle);
-                *ret_handle = NULL;
+                log_debug("TPM handle 0x%08" PRIx32 " not populated.", index);
+                if (ret_public)
+                        *ret_public = NULL;
+                if (ret_name)
+                        *ret_name = NULL;
+                if (ret_qname)
+                        *ret_qname = NULL;
+                if (ret_handle)
+                        *ret_handle = NULL;
                 return 0;
         }
 
@@ -767,7 +780,7 @@ static int tpm2_esys_handle_from_tpm_handle(
 
         rc = sym_Esys_TR_FromTPMPublic(
                         c->esys_context,
-                        tpm_handle,
+                        index,
                         session ? session->esys_handle : ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
@@ -776,25 +789,61 @@ static int tpm2_esys_handle_from_tpm_handle(
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to read public info: %s", sym_Tss2_RC_Decode(rc));
 
-        *ret_handle = TAKE_PTR(handle);
+        if (ret_public || ret_name || ret_qname) {
+                r = tpm2_read_public(c, session, handle, ret_public, ret_name, ret_qname);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_handle)
+                *ret_handle = TAKE_PTR(handle);
 
         return 1;
 }
 
-/* Copy an object in the TPM at a transient location to a persistent location.
+/* Get the handle index for the provided Tpm2Handle. */
+int tpm2_index_from_handle(Tpm2Context *c, const Tpm2Handle *handle, TPM2_HANDLE *ret_index) {
+        TSS2_RC rc;
+
+        assert(c);
+        assert(handle);
+        assert(ret_index);
+
+        /* Esys_TR_GetTpmHandle was added to tpm2-tss in version 2.4.0. Once we can set a minimum tpm2-tss
+         * version of 2.4.0 this check can be removed. */
+        if (!sym_Esys_TR_GetTpmHandle)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "libtss2-esys too old, does not include Esys_TR_GetTpmHandle.");
+
+        rc = sym_Esys_TR_GetTpmHandle(c->esys_context, handle->esys_handle, ret_index);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to get handle index: %s", sym_Tss2_RC_Decode(rc));
+
+        return 0;
+}
+
+/* Copy an object in the TPM at a transient handle to a persistent handle.
  *
- * The provided transient handle must exist in the TPM in the transient range. The persistent location may be
- * 0 or any location in the persistent range. If 0, this will try each handle in the persistent range, in
- * ascending order, until an available one is found. If non-zero, only the requested persistent location will
+ * The provided transient handle must exist in the TPM in the transient range. The persistent handle may be 0
+ * or any handle in the persistent range. If 0, this will try each handle in the persistent range, in
+ * ascending order, until an available one is found. If non-zero, only the requested persistent handle will
  * be used.
  *
+ * Note that the persistent handle parameter is an handle index (i.e. number), while the transient handle is
+ * a Tpm2Handle object. The returned persistent handle will be a Tpm2Handle object that is located in the TPM
+ * at the requested persistent handle index (or the first available if none was requested).
+ *
  * Returns 1 if the object was successfully persisted, or 0 if there is already a key at the requested
- * location(s), or < 0 on error. The persistent handle is only provided when returning 1. */
+ * handle, or < 0 on error. Theoretically, this would also return 0 if no specific persistent handle is
+ * requiested but all persistent handles are used, but it is extremely unlikely the TPM has enough internal
+ * memory to store the entire persistent range, in which case an error will be returned if the TPM is out of
+ * memory for persistent storage. The persistent handle is only provided when returning 1. */
 static int tpm2_persist_handle(
                 Tpm2Context *c,
                 const Tpm2Handle *transient_handle,
                 const Tpm2Handle *session,
-                TPMI_DH_PERSISTENT persistent_location,
+                TPMI_DH_PERSISTENT persistent_handle_index,
                 Tpm2Handle **ret_persistent_handle) {
 
         /* We don't use TPM2_PERSISTENT_FIRST and TPM2_PERSISTENT_LAST here due to:
@@ -806,13 +855,13 @@ static int tpm2_persist_handle(
         assert(c);
         assert(transient_handle);
 
-        /* If persistent location specified, only try that. */
-        if (persistent_location != 0) {
-                if (TPM2_HANDLE_TYPE(persistent_location) != TPM2_HT_PERSISTENT)
+        /* If persistent handle index specified, only try that. */
+        if (persistent_handle_index != 0) {
+                if (TPM2_HANDLE_TYPE(persistent_handle_index) != TPM2_HT_PERSISTENT)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Handle not in persistent range: 0x%x", persistent_location);
+                                               "Handle not in persistent range: 0x%x", persistent_handle_index);
 
-                first = last = persistent_location;
+                first = last = persistent_handle_index;
         }
 
         for (TPMI_DH_PERSISTENT requested = first; requested <= last; requested++) {
@@ -910,7 +959,7 @@ static int tpm2_credit_random(Tpm2Context *c) {
         return 0;
 }
 
-static int tpm2_read_public(
+int tpm2_read_public(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 const Tpm2Handle *handle,
@@ -1122,36 +1171,7 @@ static int tpm2_get_srk(
                 TPM2B_NAME **ret_qname,
                 Tpm2Handle **ret_handle) {
 
-        int r;
-
-        assert(c);
-
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
-        r = tpm2_esys_handle_from_tpm_handle(c, session, TPM2_SRK_HANDLE, &handle);
-        if (r < 0)
-                return r;
-        if (r == 0) { /* SRK not found */
-                if (ret_public)
-                        *ret_public = NULL;
-                if (ret_name)
-                        *ret_name = NULL;
-                if (ret_qname)
-                        *ret_qname = NULL;
-                if (ret_handle)
-                        *ret_handle = NULL;
-                return 0;
-        }
-
-        if (ret_public || ret_name || ret_qname) {
-                r = tpm2_read_public(c, session, handle, ret_public, ret_name, ret_qname);
-                if (r < 0)
-                        return r;
-        }
-
-        if (ret_handle)
-                *ret_handle = TAKE_PTR(handle);
-
-        return 1;
+        return tpm2_index_to_handle(c, TPM2_SRK_HANDLE, session, ret_public, ret_name, ret_qname, ret_handle);
 }
 
 /* Get the SRK, creating one if needed. Returns 0 on success, or < 0 on error. */

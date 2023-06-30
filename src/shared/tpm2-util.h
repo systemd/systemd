@@ -171,6 +171,11 @@ void tpm2_log_debug_buffer(const void *buffer, size_t size, const char *msg);
 void tpm2_log_debug_digest(const TPM2B_DIGEST *digest, const char *msg);
 void tpm2_log_debug_name(const TPM2B_NAME *name, const char *msg);
 
+int tpm2_index_to_handle(Tpm2Context *c, TPM2_HANDLE index, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
+int tpm2_index_from_handle(Tpm2Context *c, const Tpm2Handle *handle, TPM2_HANDLE *ret_index);
+
+int tpm2_read_public(Tpm2Context *c, const Tpm2Handle *session, const Tpm2Handle *handle, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname);
+
 int tpm2_pcr_read(Tpm2Context *c, const TPML_PCR_SELECTION *pcr_selection, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
 int tpm2_pcr_read_missing_values(Tpm2Context *c, Tpm2PCRValue *pcr_values, size_t n_pcr_values);
 
