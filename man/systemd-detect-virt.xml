@@ -281,6 +281,12 @@
         <listitem><para>Output all currently known and detectable container and VM environments.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--list-cvm</option></term>
+
+        <listitem><para>Output all currently known and detectable confidential virtualization technologies.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
