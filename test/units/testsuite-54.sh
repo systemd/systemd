@@ -301,6 +301,18 @@ systemd-run -p DynamicUser=yes -p 'LoadCredential=os:/etc/os-release' \
             --pipe \
             true | cmp /etc/os-release
 
+if systemd-detect-virt -q -v ; then
+    # Validate that the credential we inserted via the initrd logic arrived
+    test "$(systemd-creds cat --system myinitrdcred)" = "guatemala"
+
+    # Check that the fstab credential logic worked
+    test -d /injected
+    grep -q /injected /proc/self/mountinfo
+
+    # Make sure the getty generator processed the credentials properly
+    systemctl -P Wants show getty.target | grep -q container-getty@idontexist.service
+fi
+
 systemd-analyze log-level info
 
 echo OK >/testok

@@ -57,7 +57,7 @@
     (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
     details). The following credentials are used when passed in:</para>
 
-    <variablelist>
+    <variablelist class='system-credentials'>
       <varlistentry>
         <term><varname>vconsole.keymap</varname></term>
         <term><varname>vconsole.keymap_toggle</varname></term>
