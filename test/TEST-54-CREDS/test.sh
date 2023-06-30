@@ -15,6 +15,8 @@ QEMU_CREDS=(
     "-smbios type=11,value=io.systemd.credential.binary:binarysmbioscredential=bWFnaWNiaW5hcnlkYXRh"
     "-smbios type=11,value=io.systemd.credential.binary:sysusers.extra=dSBjcmVkdGVzdHVzZXIK"
     "-smbios type=11,value=io.systemd.credential.binary:tmpfiles.extra=ZiAvdG1wL3NvdXJjZWRmcm9tY3JlZGVudGlhbCAtIC0gLSAtIHRtcGZpbGVzc2VjcmV0Cg=="
+    "-smbios type=11,value=io.systemd.credential.binary:fstab.extra=aW5qZWN0ZWQgL2luamVjdGVkIHRtcGZzIFgtbW91bnQubWtkaXIgMCAwCg=="
+    "-smbios type=11,value=io.systemd.credential:getty.ttys.container=idontexist"
 )
 QEMU_OPTIONS="${QEMU_OPTIONS:-} ${QEMU_CREDS[*]}"
 
@@ -36,6 +38,23 @@ test_append_files() {
         instmods dmi-sysfs
     fi
     generate_module_dependencies
+}
+
+run_qemu_hook() {
+    local td="$WORKDIR"/initrd.extra."$RANDOM"
+    mkdir -m 755 "$td" "$td/etc" "$td"/etc/tmpfiles.d
+    add_at_exit_handler "rm -rf $td"
+
+    cat > "$td"/etc/tmpfiles.d/50-initrd-cred.conf <<EOF
+d /run/credentials 0775
+d /run/credentials/@initrd 0700
+f /run/credentials/@initrd/myinitrdcred 0600 - - - guatemala
+EOF
+
+    ( cd "$td" && find . | cpio -o -H newc -R root:root > "$td".cpio )
+    add_at_exit_handler "rm $td.cpio"
+
+    INITRD_EXTRA="$td.cpio"
 }
 
 do_test "$@"
