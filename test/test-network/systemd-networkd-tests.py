@@ -2104,18 +2104,22 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.wait_online(['test1:degraded', 'veth99:routable', 'veth-peer:degraded',
                           'vxlan99:degraded', 'vxlan98:degraded', 'vxlan97:degraded', 'vxlan-slaac:degraded'])
 
-        output = check_output('ip -d link show vxlan99')
+        output = check_output('ip -d -d link show vxlan99')
         print(output)
         self.assertIn('999', output)
         self.assertIn('5555', output)
         self.assertIn('l2miss', output)
         self.assertIn('l3miss', output)
-        self.assertIn('udpcsum', output)
-        self.assertIn('udp6zerocsumtx', output)
-        self.assertIn('udp6zerocsumrx', output)
-        self.assertIn('remcsumtx', output)
-        self.assertIn('remcsumrx', output)
         self.assertIn('gbp', output)
+        # Since [0] some of the options use slightly different names and some
+        # options with default values are shown only if the -d(etails) setting
+        # is repeated
+        # [0] https://git.kernel.org/pub/scm/network/iproute2/iproute2.git/commit/?id=1215e9d3862387353d8672296cb4c6c16e8cbb72
+        self.assertRegex(output, '(udpcsum|udp_csum)')
+        self.assertRegex(output, '(udp6zerocsumtx|udp_zero_csum6_tx)')
+        self.assertRegex(output, '(udp6zerocsumrx|udp_zero_csum6_rx)')
+        self.assertRegex(output, '(remcsumtx|remcsum_tx)')
+        self.assertRegex(output, '(remcsumrx|remcsum_rx)')
 
         output = check_output('bridge fdb show dev vxlan99')
         print(output)
