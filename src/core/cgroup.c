@@ -3626,6 +3626,12 @@ int manager_setup_cgroup(Manager *m) {
                 if (r < 0)
                         log_warning_errno(r, "Couldn't move remaining userspace processes, ignoring: %m");
 
+                /* Create the workers pool scope as well */
+                scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_WORKERS_SCOPE);
+                r = cg_create(SYSTEMD_CGROUP_CONTROLLER, scope_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create %s control group: %m", scope_path);
+
                 /* 6. And pin it, so that it cannot be unmounted */
                 safe_close(m->pin_cgroupfs_fd);
                 m->pin_cgroupfs_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);
