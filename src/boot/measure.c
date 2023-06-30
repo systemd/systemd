@@ -85,6 +85,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --splash=PATH       Path to splash bitmap file             %7$s .splash\n"
                "     --dtb=PATH          Path to Devicetree file                %7$s .dtb\n"
                "     --uname=PATH        Path to 'uname -r' file                %7$s .uname\n"
+               "     --sbat=PATH         Path to SBAT file                      %7$s .sbat\n"
                "     --pcrpkey=PATH      Path to public key for PCR signatures  %7$s .pcrpkey\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
@@ -125,6 +126,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SPLASH,
                 ARG_DTB,
                 ARG_UNAME,
+                ARG_SBAT,
                 _ARG_PCRSIG, /* the .pcrsig section is not input for signing, hence not actually an argument here */
                 _ARG_SECTION_LAST,
                 ARG_PCRPKEY = _ARG_SECTION_LAST,
@@ -148,6 +150,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "splash",      required_argument, NULL, ARG_SPLASH      },
                 { "dtb",         required_argument, NULL, ARG_DTB         },
                 { "uname",       required_argument, NULL, ARG_UNAME       },
+                { "sbat",        required_argument, NULL, ARG_SBAT        },
                 { "pcrpkey",     required_argument, NULL, ARG_PCRPKEY     },
                 { "current",     no_argument,       NULL, 'c'             },
                 { "bank",        required_argument, NULL, ARG_BANK        },
