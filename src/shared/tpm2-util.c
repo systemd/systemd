@@ -712,53 +712,59 @@ int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle) {
         return 0;
 }
 
-/* Create a Tpm2Handle object that references a pre-existing handle in the TPM, at the TPM2_HANDLE address
- * provided. This should be used only for persistent, transient, or NV handles. Returns 1 on success, 0 if
- * the requested handle is not present in the TPM, or < 0 on error. */
-static int tpm2_esys_handle_from_tpm_handle(
+/* Create a Tpm2Handle object that references a pre-existing handle in the TPM, at the handle index provided.
+ * This should be used only for persistent, transient, or NV handles; and the handle must already exist in
+ * the TPM at the specified handle index. The handle index should not be 0. Returns 1 if found, 0 if the
+ * index is empty, or < 0 on error. Also see tpm2_get_srk() below; the SRK is a commonly used persistent
+ * Tpm2Handle. */
+int tpm2_index_to_handle(
                 Tpm2Context *c,
+                TPM2_HANDLE index,
                 const Tpm2Handle *session,
-                TPM2_HANDLE tpm_handle,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_NAME **ret_name,
+                TPM2B_NAME **ret_qname,
                 Tpm2Handle **ret_handle) {
 
         TSS2_RC rc;
         int r;
 
         assert(c);
-        assert(tpm_handle > 0);
-        assert(ret_handle);
 
         /* Let's restrict this, at least for now, to allow only some handle types. */
-        switch (TPM2_HANDLE_TYPE(tpm_handle)) {
+        switch (TPM2_HANDLE_TYPE(index)) {
         case TPM2_HT_PERSISTENT:
         case TPM2_HT_NV_INDEX:
         case TPM2_HT_TRANSIENT:
                 break;
         case TPM2_HT_PCR:
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Refusing to create ESYS handle for PCR handle 0x%08" PRIx32 ".",
-                                       tpm_handle);
+                                       "Invalid handle 0x%08" PRIx32 " (in PCR range).", index);
         case TPM2_HT_HMAC_SESSION:
         case TPM2_HT_POLICY_SESSION:
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Refusing to create ESYS handle for session handle 0x%08" PRIx32 ".",
-                                       tpm_handle);
+                                       "Invalid handle 0x%08" PRIx32 " (in session range).", index);
         case TPM2_HT_PERMANENT: /* Permanent handles are defined, e.g. ESYS_TR_RH_OWNER. */
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Refusing to create ESYS handle for permanent handle 0x%08" PRIx32 ".",
-                                       tpm_handle);
+                                       "Invalid handle 0x%08" PRIx32 " (in permanent range).", index);
         default:
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Refusing to create ESYS handle for unknown handle 0x%08" PRIx32 ".",
-                                       tpm_handle);
+                                       "Invalid handle 0x%08" PRIx32 " (in unknown range).", index);
         }
 
-        r = tpm2_get_capability_handle(c, tpm_handle);
+        r = tpm2_get_capability_handle(c, index);
         if (r < 0)
                 return r;
         if (r == 0) {
-                log_debug("TPM handle 0x%08" PRIx32 " not populated.", tpm_handle);
-                *ret_handle = NULL;
+                log_debug("TPM handle 0x%08" PRIx32 " not populated.", index);
+                if (ret_public)
+                        *ret_public = NULL;
+                if (ret_name)
+                        *ret_name = NULL;
+                if (ret_qname)
+                        *ret_qname = NULL;
+                if (ret_handle)
+                        *ret_handle = NULL;
                 return 0;
         }
 
@@ -773,7 +779,7 @@ static int tpm2_esys_handle_from_tpm_handle(
 
         rc = sym_Esys_TR_FromTPMPublic(
                         c->esys_context,
-                        tpm_handle,
+                        index,
                         session ? session->esys_handle : ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
@@ -782,7 +788,14 @@ static int tpm2_esys_handle_from_tpm_handle(
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to read public info: %s", sym_Tss2_RC_Decode(rc));
 
-        *ret_handle = TAKE_PTR(handle);
+        if (ret_public || ret_name || ret_qname) {
+                r = tpm2_read_public(c, session, handle, ret_public, ret_name, ret_qname);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_handle)
+                *ret_handle = TAKE_PTR(handle);
 
         return 1;
 }
@@ -916,7 +929,7 @@ static int tpm2_credit_random(Tpm2Context *c) {
         return 0;
 }
 
-static int tpm2_read_public(
+int tpm2_read_public(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 const Tpm2Handle *handle,
@@ -1011,11 +1024,11 @@ static int tpm2_get_legacy_template(TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_templa
  *
  * These templates are only needed to create a new persistent SRK (or a new transient key that is
  * SRK-compatible). Preferably, the TPM should contain a shared SRK located at the reserved shared SRK handle
- * (see TPM2_SRK_HANDLE and tpm2_get_srk() below).
+ * (see TPM2_SRK_HANDLE in tpm2-util.h, and tpm2_get_srk() below).
  *
  * The alg must be TPM2_ALG_RSA or TPM2_ALG_ECC. Returns error if the requested template is not supported on
  * this TPM. Also see tpm2_get_best_srk_template() below. */
-static int tpm2_get_srk_template(Tpm2Context *c, TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_template) {
+int tpm2_get_srk_template(Tpm2Context *c, TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_template) {
         /* The attributes are the same between ECC and RSA templates. This has the changes specified in the
          * Provisioning Guidance document, specifically:
          * TPMA_OBJECT_USERWITHAUTH is added.
@@ -1101,7 +1114,7 @@ static int tpm2_get_srk_template(Tpm2Context *c, TPMI_ALG_PUBLIC alg, TPMT_PUBLI
 }
 
 /* Get the best supported SRK template. ECC is preferred, then RSA. */
-static int tpm2_get_best_srk_template(Tpm2Context *c, TPMT_PUBLIC *ret_template) {
+int tpm2_get_best_srk_template(Tpm2Context *c, TPMT_PUBLIC *ret_template) {
         if (tpm2_get_srk_template(c, TPM2_ALG_ECC, ret_template) >= 0 ||
             tpm2_get_srk_template(c, TPM2_ALG_RSA, ret_template) >= 0)
                 return 0;
@@ -1110,17 +1123,9 @@ static int tpm2_get_best_srk_template(Tpm2Context *c, TPMT_PUBLIC *ret_template)
                                "TPM does not support either SRK template L-1 (RSA) or L-2 (ECC).");
 }
 
-/* The SRK handle is defined in the Provisioning Guidance document (see above) in the table "Reserved Handles
- * for TPM Provisioning Fundamental Elements". The SRK is useful because it is "shared", meaning it has no
- * authValue nor authPolicy set, and thus may be used by anyone on the system to generate derived keys or
- * seal secrets. This is useful if the TPM has an auth (password) set for the 'owner hierarchy', which would
- * prevent users from generating primary transient keys, unless they knew the owner hierarchy auth. See
- * the Provisioning Guidance document for more details. */
-#define TPM2_SRK_HANDLE UINT32_C(0x81000001)
-
 /* Get the SRK. Returns 1 if SRK is found, 0 if there is no SRK, or < 0 on error. Also see
  * tpm2_get_or_create_srk() below. */
-static int tpm2_get_srk(
+int tpm2_get_srk(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 TPM2B_PUBLIC **ret_public,
@@ -1128,40 +1133,11 @@ static int tpm2_get_srk(
                 TPM2B_NAME **ret_qname,
                 Tpm2Handle **ret_handle) {
 
-        int r;
-
-        assert(c);
-
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
-        r = tpm2_esys_handle_from_tpm_handle(c, session, TPM2_SRK_HANDLE, &handle);
-        if (r < 0)
-                return r;
-        if (r == 0) { /* SRK not found */
-                if (ret_public)
-                        *ret_public = NULL;
-                if (ret_name)
-                        *ret_name = NULL;
-                if (ret_qname)
-                        *ret_qname = NULL;
-                if (ret_handle)
-                        *ret_handle = NULL;
-                return 0;
-        }
-
-        if (ret_public || ret_name || ret_qname) {
-                r = tpm2_read_public(c, session, handle, ret_public, ret_name, ret_qname);
-                if (r < 0)
-                        return r;
-        }
-
-        if (ret_handle)
-                *ret_handle = TAKE_PTR(handle);
-
-        return 1;
+        return tpm2_index_to_handle(c, TPM2_SRK_HANDLE, session, ret_public, ret_name, ret_qname, ret_handle);
 }
 
 /* Get the SRK, creating one if needed. Returns 0 on success, or < 0 on error. */
-static int tpm2_get_or_create_srk(
+int tpm2_get_or_create_srk(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 TPM2B_PUBLIC **ret_public,
