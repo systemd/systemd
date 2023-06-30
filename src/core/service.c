@@ -285,11 +285,11 @@ usec_t service_restart_usec_next(Service *s) {
 
         assert(s);
 
-        /* When the service state is in SERVICE_*_BEFORE_AUTO_RESTART or SERVICE_AUTO_RESTART,
-         * we still need to add 1 to s->n_restarts manually because s->n_restarts is not updated
-         * until a restart job is enqueued. Note that for SERVICE_AUTO_RESTART, that might have been
-         * the case, i.e. s->n_restarts is already increased. But we assume it's not since the time
-         * between job enqueuing and running is usually neglectable compared to the time we'll be sleeping. */
+        /* When the service state is in SERVICE_*_BEFORE_AUTO_RESTART or SERVICE_AUTO_RESTART, we still need
+         * to add 1 to s->n_restarts manually because s->n_restarts is not updated until a restart job is
+         * enqueued. Note that for SERVICE_AUTO_RESTART, that might have been the case, i.e. s->n_restarts is
+         * already increased. But we assume it's not since the time between job enqueuing and running is
+         * usually neglectable compared to the time we'll be sleeping. */
         n_restarts_next = s->n_restarts + 1;
 
         if (n_restarts_next <= 1 ||
@@ -2519,9 +2519,9 @@ static void service_enter_restart(Service *s) {
         if (r < 0)
                 goto fail;
 
-        /* Count the jobs we enqueue for restarting. This counter is maintained as long as the unit isn't fully
-         * stopped, i.e. as long as it remains up or remains in auto-start states. The user can reset the counter
-         * explicitly however via the usual "systemctl reset-failure" logic. */
+        /* Count the jobs we enqueue for restarting. This counter is maintained as long as the unit isn't
+         * fully stopped, i.e. as long as it remains up or remains in auto-start states. The user can reset
+         * the counter explicitly however via the usual "systemctl reset-failure" logic. */
         s->n_restarts ++;
         s->flush_n_restarts = false;
 
@@ -2537,10 +2537,8 @@ static void service_enter_restart(Service *s) {
         /* Notify clients about changed restart counter */
         unit_add_to_dbus_queue(UNIT(s));
 
-        /* Note that we stay in the SERVICE_AUTO_RESTART state here,
-         * it will be canceled as part of the service_stop() call that
-         * is executed as part of JOB_RESTART. */
-
+        /* Note that we stay in the SERVICE_AUTO_RESTART state here, it will be canceled as part of the
+         * service_stop() call that is executed as part of JOB_RESTART. */
         return;
 
 fail:
