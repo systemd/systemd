@@ -374,6 +374,8 @@ struct ExecContext {
         Set *import_credentials;
 
         ImagePolicy *root_image_policy, *mount_image_policy, *extension_image_policy;
+
+        RuntimeScope runtime_scope;
 };
 
 static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
@@ -419,8 +421,6 @@ typedef enum ExecFlags {
 /* Parameters for a specific invocation of a command. This structure is put together right before a command is
  * executed. */
 struct ExecParameters {
-        RuntimeScope runtime_scope;
-
         char **environment;
 
         int *fds;
@@ -439,6 +439,7 @@ struct ExecParameters {
         const char *received_encrypted_credentials_directory;
 
         const char *confirm_spawn;
+        bool shall_confirm_spawn;
 
         usec_t watchdog_usec;
 
@@ -454,15 +455,29 @@ struct ExecParameters {
         const char *notify_socket;
 
         LIST_HEAD(OpenFile, open_files);
+
+        const char *default_smack_process_label;
+
+        char **files_env;
+        int user_lookup_fd;
+        int bpf_outer_map_fd;
 };
 
 #include "unit.h"
 #include "dynamic-user.h"
 
+int exec_child(Unit *unit,
+               const ExecCommand *command,
+               const ExecContext *context,
+               ExecParameters *params,
+               ExecRuntime *runtime,
+               const CGroupContext *cgroup_context,
+               int *exit_status);
+
 int exec_spawn(Unit *unit,
                ExecCommand *command,
                const ExecContext *context,
-               const ExecParameters *exec_params,
+               ExecParameters *exec_params,
                ExecRuntime *runtime,
                const CGroupContext *cgroup_context,
                pid_t *ret);
@@ -516,6 +531,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(ExecSharedRuntime*, exec_shared_runtime_unref);
 int exec_shared_runtime_serialize(const Manager *m, FILE *f, FDSet *fds);
 int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char *value, FDSet *fds);
 int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds);
+void exec_shared_runtime_done(ExecSharedRuntime *rt);
 void exec_shared_runtime_vacuum(Manager *m);
 
 int exec_runtime_make(const Unit *unit, const ExecContext *context, ExecSharedRuntime *shared, DynamicCreds *creds, ExecRuntime **ret);
@@ -524,6 +540,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(ExecRuntime*, exec_runtime_free);
 ExecRuntime* exec_runtime_destroy(ExecRuntime *rt);
 
 void exec_params_clear(ExecParameters *p);
+void exec_params_serialized_clear(ExecParameters *p);
 
 bool exec_context_get_cpu_affinity_from_numa(const ExecContext *c);
 
