@@ -146,7 +146,6 @@ int manager_varlink_send_managed_oom_update(Unit *u) {
 }
 
 static int build_managed_oom_cgroups_json(Manager *m, JsonVariant **ret) {
-        static const UnitType supported_unit_types[] = { UNIT_SLICE, UNIT_SERVICE, UNIT_SCOPE };
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *arr = NULL;
         int r;
 
@@ -157,8 +156,12 @@ static int build_managed_oom_cgroups_json(Manager *m, JsonVariant **ret) {
         if (r < 0)
                 return r;
 
-        for (size_t i = 0; i < ELEMENTSOF(supported_unit_types); i++)
-                LIST_FOREACH(units_by_type, u, m->units_by_type[supported_unit_types[i]]) {
+        for (UnitType t = 0; t < _UNIT_TYPE_MAX; t++) {
+
+                if (!unit_vtable[t]->can_set_managed_oom)
+                        continue;
+
+                LIST_FOREACH(units_by_type, u, m->units_by_type[t]) {
                         CGroupContext *c;
 
                         if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)))
@@ -186,6 +189,7 @@ static int build_managed_oom_cgroups_json(Manager *m, JsonVariant **ret) {
                                         return r;
                         }
                 }
+        }
 
         r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("cgroups", JSON_BUILD_VARIANT(arr))));
         if (r < 0)
