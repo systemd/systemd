@@ -756,6 +756,10 @@ typedef struct UnitVTable {
          * limiting checks to occur before we do anything else. */
         int (*can_start)(Unit *u);
 
+        /* Returns > 0 if the whole subsystem is ratelimited, and new start operations should not be started
+         * for this unit type right now. */
+        int (*subsystem_ratelimited)(Manager *m);
+
         /* The strings to print in status messages */
         UnitStatusMessageFormats status_message_formats;
 
@@ -782,6 +786,13 @@ typedef struct UnitVTable {
 
         /* True if systemd-oomd can monitor and act on this unit's recursive children's cgroups  */
         bool can_set_managed_oom;
+
+        /* If true, we'll notify plymouth about this unit */
+        bool notify_plymouth;
+
+        /* The audit events to generate on start + stop (or 0 if none shall be generated) */
+        int audit_start_message_type;
+        int audit_stop_message_type;
 } UnitVTable;
 
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];

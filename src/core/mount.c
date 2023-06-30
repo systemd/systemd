@@ -2299,6 +2299,15 @@ static int mount_can_start(Unit *u) {
         return 1;
 }
 
+static int mount_subsystem_ratelimited(Manager *m) {
+        assert(m);
+
+        if (!m->mount_event_source)
+                return false;
+
+        return sd_event_source_is_ratelimited(m->mount_event_source);
+}
+
 static const char* const mount_exec_command_table[_MOUNT_EXEC_COMMAND_MAX] = {
         [MOUNT_EXEC_MOUNT]   = "ExecMount",
         [MOUNT_EXEC_UNMOUNT] = "ExecUnmount",
@@ -2379,6 +2388,7 @@ const UnitVTable mount_vtable = {
         .enumerate_perpetual = mount_enumerate_perpetual,
         .enumerate = mount_enumerate,
         .shutdown = mount_shutdown,
+        .subsystem_ratelimited = mount_subsystem_ratelimited,
 
         .status_message_formats = {
                 .starting_stopping = {
@@ -2398,4 +2408,6 @@ const UnitVTable mount_vtable = {
         },
 
         .can_start = mount_can_start,
+
+        .notify_plymouth = true,
 };
