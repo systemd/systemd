@@ -1818,6 +1818,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        r = serialize_strv(f, "exec-context-manager-environment", environ);
+        if (r < 0)
+                return r;
+
         r = serialize_strv(f, "exec-context-environment-files", c->environment_files);
         if (r < 0)
                 return r;
@@ -2687,6 +2691,10 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
 
                 if ((val = startswith(l, "exec-context-environment="))) {
                         r = deserialize_strv(val, &c->environment);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-context-manager-environment="))) {
+                        r = deserialize_strv(val, &c->manager_environment);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-environment-files="))) {
