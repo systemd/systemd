@@ -308,10 +308,10 @@
     (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
     details). The following credentials are used when passed in:</para>
 
-    <variablelist>
+    <variablelist class='system-credentials'>
       <varlistentry>
-        <term><literal>passwd.hashed-password.root</literal></term>
-        <term><literal>passwd.plaintext-password.root</literal></term>
+        <term><varname>passwd.hashed-password.root</varname></term>
+        <term><varname>passwd.plaintext-password.root</varname></term>
 
         <listitem><para>A hashed or plaintext version of the root password to use, in place of prompting the
         user. These credentials are equivalent to the same ones defined for the
@@ -320,7 +320,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><literal>passwd.shell.root</literal></term>
+        <term><varname>passwd.shell.root</varname></term>
 
         <listitem><para>Specifies the shell binary to use for the specified account.
         Equivalent to the credential of the same name defined for the
@@ -329,20 +329,20 @@
       </varlistentry>
 
       <varlistentry>
-        <term><literal>firstboot.locale</literal></term>
-        <term><literal>firstboot.locale-messages</literal></term>
+        <term><varname>firstboot.locale</varname></term>
+        <term><varname>firstboot.locale-messages</varname></term>
 
         <listitem><para>These credentials specify the locale settings to set during first boot, in place of
         prompting the user.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><literal>firstboot.keymap</literal></term>
+        <term><varname>firstboot.keymap</varname></term>
 
         <listitem><para>This credential specifies the keyboard setting to set during first boot, in place of
         prompting the user.</para>
 
-        <para>Note the relationship to the <literal>vconsole.keymap</literal> credential understood by
+        <para>Note the relationship to the <varname>vconsole.keymap</varname> credential understood by
         <citerefentry><refentrytitle>systemd-vconsole-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>:
         both ultimately affect the same setting, but <varname>firstboot.keymap</varname> is written into
         <filename>/etc/vconsole.conf</filename> on first boot (if not already configured), and then read from
@@ -352,7 +352,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><literal>firstboot.timezone</literal></term>
+        <term><varname>firstboot.timezone</varname></term>
 
         <listitem><para>This credential specifies the system timezone setting to set during first boot, in
         place of prompting the user.</para></listitem>

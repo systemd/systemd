@@ -334,7 +334,7 @@ static int prompt_locale(int rfd) {
 
         r = read_credential("firstboot.locale-messages", (void**) &arg_locale_messages, NULL);
         if (r < 0)
-                log_debug_errno(r, "Failed to read credential firstboot.locale-message, ignoring: %m");
+                log_debug_errno(r, "Failed to read credential firstboot.locale-messages, ignoring: %m");
         else
                 acquired_from_creds = true;
 

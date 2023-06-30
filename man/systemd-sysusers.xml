@@ -143,9 +143,9 @@
     (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
     details). The following credentials are used when passed in:</para>
 
-    <variablelist>
+    <variablelist class='system-credentials'>
       <varlistentry>
-        <term><literal>passwd.hashed-password.<replaceable>user</replaceable></literal></term>
+        <term><varname>passwd.hashed-password.<replaceable>user</replaceable></varname></term>
         <listitem><para>A UNIX hashed password string to use for the specified user, when creating an entry
         for it. This is particularly useful for the <literal>root</literal> user as it allows provisioning
         the default root password to use via a unit file drop-in or from a container manager passing in this
@@ -155,7 +155,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><literal>passwd.plaintext-password.<replaceable>user</replaceable></literal></term>
+        <term><varname>passwd.plaintext-password.<replaceable>user</replaceable></varname></term>
 
         <listitem><para>Similar to <literal>passwd.hashed-password.<replaceable>user</replaceable></literal>
         but expect a literal, plaintext password, which is then automatically hashed before used for the user
@@ -166,13 +166,13 @@
       </varlistentry>
 
       <varlistentry>
-        <term><literal>passwd.shell.<replaceable>user</replaceable></literal></term>
+        <term><varname>passwd.shell.<replaceable>user</replaceable></varname></term>
 
         <listitem><para>Specifies the shell binary to use for the specified account when creating it.</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><literal>sysusers.extra</literal></term>
+        <term><varname>sysusers.extra</varname></term>
 
         <listitem><para>The contents of this credential may contain additional lines to operate on. The
         credential contents should follow the same format as any other <filename>sysusers.d/</filename>

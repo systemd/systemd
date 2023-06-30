@@ -1053,7 +1053,7 @@
 
     <para>The service manager when run as PID 1 reads the following system credentials:</para>
 
-    <variablelist>
+    <variablelist class='system-credentials'>
       <varlistentry>
         <term><varname>vmm.notify_socket</varname></term>
         <listitem>

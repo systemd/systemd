@@ -407,7 +407,7 @@ search foobar.com barbar.com
     (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
     details). The following credentials are used when passed in:</para>
 
-    <variablelist>
+    <variablelist class='system-credentials'>
       <varlistentry>
         <term><varname>network.dns</varname></term>
         <term><varname>network.search_domains</varname></term>
