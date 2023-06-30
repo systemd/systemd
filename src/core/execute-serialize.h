@@ -5,6 +5,8 @@
 
 int exec_serialize(FILE *f,
                 FDSet *fds,
+                int **fds_array,
+                size_t *n_fds_array,
                 const Unit *u,
                 const ExecContext *ctx,
                 const ExecCommand *cmd,
@@ -14,6 +16,8 @@ int exec_serialize(FILE *f,
 
 int exec_deserialize(FILE *f,
                 FDSet *fds,
+                int *fds_array,
+                size_t n_fds_array,
                 Unit **ret_unit,
                 ExecCommand *c,
                 ExecParameters *p,
