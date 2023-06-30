@@ -3873,6 +3873,63 @@ int tpm2_unmarshal_blob(
         return 0;
 }
 
+static int tpm2_serialize(
+                Tpm2Context *c,
+                const Tpm2Handle *handle,
+                void **ret_serialized,
+                size_t *ret_serialized_size) {
+
+        TSS2_RC rc;
+
+        assert(c);
+        assert(handle);
+        assert(ret_serialized);
+        assert(ret_serialized_size);
+
+        _cleanup_(Esys_Freep) unsigned char *serialized = NULL;
+        size_t size = 0;
+        rc = sym_Esys_TR_Serialize(c->esys_context, handle->esys_handle, &serialized, &size);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to serialize: %s", sym_Tss2_RC_Decode(rc));
+
+        *ret_serialized = TAKE_PTR(serialized);
+        *ret_serialized_size = size;
+
+        return 0;
+}
+
+static int tpm2_deserialize(
+                Tpm2Context *c,
+                const void *serialized,
+                size_t serialized_size,
+                Tpm2Handle **ret_handle) {
+
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(serialized);
+        assert(ret_handle);
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        r = tpm2_handle_new(c, &handle);
+        if (r < 0)
+                return r;
+
+        /* Since this is an existing handle in the TPM we should not implicitly flush it. */
+        handle->flush = false;
+
+        rc = sym_Esys_TR_Deserialize(c->esys_context, serialized, serialized_size, &handle->esys_handle);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to deserialize: %s", sym_Tss2_RC_Decode(rc));
+
+        *ret_handle = TAKE_PTR(handle);
+
+        return 0;
+}
+
 int tpm2_seal(Tpm2Context *c,
               const TPM2B_DIGEST *policy,
               const char *pin,
@@ -3885,7 +3942,6 @@ int tpm2_seal(Tpm2Context *c,
               size_t *ret_srk_buf_size) {
 
         uint16_t primary_alg = 0;
-        TSS2_RC rc;
         int r;
 
         assert(ret_secret);
@@ -4015,34 +4071,27 @@ int tpm2_seal(Tpm2Context *c,
         if (r < 0)
                 return log_error_errno(r, "Could not create sealed blob: %m");
 
-        /* serialize the key for storage in the LUKS header. A deserialized ESYS_TR provides both
-         * the raw TPM handle as well as the object name. The object name is used to verify that
-         * the key we use later is the key we expect to establish the session with.
-         */
-        _cleanup_(Esys_Freep) uint8_t *srk_buf = NULL;
-        size_t srk_buf_size = 0;
-        if (ret_srk_buf) {
-                log_debug("Serializing SRK ESYS_TR reference");
-                rc = sym_Esys_TR_Serialize(c->esys_context, primary_handle->esys_handle, &srk_buf, &srk_buf_size);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                            "Failed to serialize primary key: %s", sym_Tss2_RC_Decode(rc));
-        }
-
         if (DEBUG_LOGGING)
                 log_debug("Completed TPM2 key sealing in %s.", FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - start, 1));
 
+        _cleanup_free_ void *srk_buf = NULL;
+        size_t srk_buf_size = 0;
         if (ret_srk_buf) {
+                _cleanup_(Esys_Freep) void *tmp = NULL;
+                r = tpm2_serialize(c, primary_handle, &tmp, &srk_buf_size);
+                if (r < 0)
+                        return r;
+
                 /*
                  * make a copy since we don't want the caller to understand that
                  * ESYS allocated the pointer. It would make tracking what deallocator
                  * to use for srk_buf in which context a PITA.
                  */
-                void *tmp = memdup(srk_buf, srk_buf_size);
-                if (!tmp)
+                srk_buf = memdup(tmp, srk_buf_size);
+                if (!srk_buf)
                         return log_oom();
 
-                *ret_srk_buf = TAKE_PTR(tmp);
+                *ret_srk_buf = TAKE_PTR(srk_buf);
                 *ret_srk_buf_size = srk_buf_size;
         }
 
@@ -4126,21 +4175,9 @@ int tpm2_unseal(const char *device,
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *primary_handle = NULL;
         if (srk_buf) {
-                r = tpm2_handle_new(c, &primary_handle);
+                r = tpm2_deserialize(c, srk_buf, srk_buf_size, &primary_handle);
                 if (r < 0)
                         return r;
-
-                primary_handle->flush = false;
-
-                log_debug("Found existing SRK key to use, deserializing ESYS_TR");
-                rc = sym_Esys_TR_Deserialize(
-                                c->esys_context,
-                                srk_buf,
-                                srk_buf_size,
-                                &primary_handle->esys_handle);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to deserialize primary key: %s", sym_Tss2_RC_Decode(rc));
         } else if (primary_alg != 0) {
                 TPM2B_PUBLIC template = { .size = sizeof(TPMT_PUBLIC), };
                 r = tpm2_get_legacy_template(primary_alg, &template.publicArea);
