@@ -592,6 +592,11 @@ run_qemu() {
             echo "Additional initrd contents:"
             cpio -tv < "$INITRD_EXTRA"
 
+            echo "initrd1"
+            head -c 1024 "$INITRD" | base64 -w 0
+            echo "initrd2"
+            head -c 1024 "$INITRD_EXTRA" | base64 -w 0
+
             # Copy the main initrd
             cat "$INITRD" > "$t"
             add_at_exit_handler "rm $t"
