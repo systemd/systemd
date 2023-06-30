@@ -1687,4 +1687,6 @@ const UnitVTable swap_vtable = {
         },
 
         .can_start = swap_can_start,
+
+        .notify_plymouth = true,
 };
