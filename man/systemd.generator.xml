@@ -191,7 +191,6 @@
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
-
       <varlistentry>
         <term><varname>$CREDENTIALS_DIRECTORY</varname></term>
         <term><varname>$ENCRYPTED_CREDENTIALS_DIRECTORY</varname></term>
