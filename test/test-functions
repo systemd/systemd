@@ -431,6 +431,13 @@ qemu_min_version() {
 # Return 0 if qemu did run (then you must check the result state/logs for actual
 # success), or 1 if qemu is not available.
 run_qemu() {
+    if declare -F run_qemu_hook >/dev/null; then
+        if ! run_qemu_hook "${workspace}"; then
+            derror "check_qemu_hook() returned with EC > 0"
+            ret=4
+        fi
+    fi
+
     # If the test provided its own initrd, use it (e.g. TEST-24)
     if [[ -z "$INITRD" && -f "${TESTDIR:?}/initrd.img" ]]; then
         INITRD="$TESTDIR/initrd.img"
@@ -577,7 +584,37 @@ run_qemu() {
     fi
 
     if [[ -n "$INITRD" ]]; then
-        qemu_options+=(-initrd "$INITRD")
+        if [[ -n "$INITRD_EXTRA" ]]; then
+            # An addition initrd has been specified, let's combine it with the main one.
+            local t="$WORKDIR"/initrd.combined."$RANDOM"
+
+            # First, show contents of additional initrd
+            echo "Additional initrd contents:"
+            cpio -tv < "$INITRD_EXTRA"
+
+            echo "initrd1"
+            head -c 1024 "$INITRD" | base64 -w 0
+            echo "initrd2"
+            head -c 1024 "$INITRD_EXTRA" | base64 -w 0
+
+            # Copy the main initrd
+            zstd -d -c -f "$INITRD" > "$t"
+            add_at_exit_handler "rm $t"
+
+            # Kernel requires this to be padded to multipl of 4 bytes with zeroes
+            local size
+            size=$(stat -c "%s" "$INITRD")
+            local padded
+            padded=$((((size + 3) / 4) * 4))
+            truncate -s "$padded" "$t"
+
+            # Append the additional
+            cat "$INITRD_EXTRA" >> "$t"
+
+            qemu_options+=(-initrd "$t")
+        else
+            qemu_options+=(-initrd "$INITRD")
+        fi
     fi
 
     # Let's use KVM if possible
