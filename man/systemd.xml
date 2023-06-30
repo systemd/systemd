@@ -1051,7 +1051,40 @@
   <refsect1>
     <title>System credentials</title>
 
-    <para>The service manager when run as PID 1 reads the following system credentials:</para>
+    <para>During initialization the service manager will import credentials from various sources into the
+    system's set of credentials, which can then be propagated into services and consumed by
+    generators:</para>
+
+    <itemizedlist>
+      <listitem><para>When the service manager first initializes it will read system credentials from SMBIOS
+      Type 11 vendor strings
+      <varname>io.systemd.credential:<replaceable>name</replaceable>=<replaceable>value</replaceable></varname>,
+      and
+      <varname>io.systemd.credential.binary:<replaceable>name</replaceable>=<replaceable>value</replaceable></varname>.</para></listitem>
+
+      <listitem><para>At the same time it will import credentials from QEMU <literal>fw_cfg</literal>. (Note
+      that the SMBIOS mechanism is generally preferred, because it is faster and generic.)</para></listitem>
+
+      <listitem><para>Credentials may be passed via the kernel command line, using the
+      <varname>systemd.set-credential=</varname> parameter, see above.</para></listitem>
+
+      <listitem><para>Credentials may be passed from the UEFI environment via
+      <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
+
+      <listitem><para>When the service manager is invoked during the initrd → host transition it will import
+      all files in <filename>/run/credentials/@initrd/</filename> as system credentials.</para></listitem>
+    </itemizedlist>
+
+    <para>Invoke
+    <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry> as
+    follows to see the list of credentials passed into the system:</para>
+
+    <programlisting># systemd-creds --system list</programlisting>
+
+    <para>For further information see <ulink url="https://systemd.io/CREDENTIALS">System and Service
+    Credentials</ulink> documentation.</para>
+
+    <para>The service manager when run as PID 1 consumes the following system credentials:</para>
 
     <variablelist class='system-credentials'>
       <varlistentry>
