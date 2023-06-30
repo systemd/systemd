@@ -494,6 +494,7 @@ struct Manager {
         /* Pin the systemd-executor binary, so that it never changes until re-exec, ensuring we don't have
          * serialization/deserialization compatibility issues during upgrades. */
         int executor_fd;
+        int executors_pool_socket[2];
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
@@ -524,6 +525,7 @@ Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *root);
+int manager_setup_executors_pool_socket(Manager *m);
 
 Job *manager_get_job(Manager *m, uint32_t id);
 Unit *manager_get_unit(Manager *m, const char *name);
@@ -627,6 +629,9 @@ int manager_set_watchdog_pretimeout_governor(Manager *m, const char *governor);
 int manager_override_watchdog_pretimeout_governor(Manager *m, const char *governor);
 
 LogTarget manager_get_executor_log_target(Manager *m);
+
+int manager_spawn_workers(Manager *m);
+int manager_kill_workers(Manager *m);
 
 const char* oom_policy_to_string(OOMPolicy i) _const_;
 OOMPolicy oom_policy_from_string(const char *s) _pure_;
