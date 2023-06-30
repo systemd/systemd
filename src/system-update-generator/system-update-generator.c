@@ -5,6 +5,7 @@
 
 #include "fs-util.h"
 #include "generator.h"
+#include "initrd-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
@@ -60,6 +61,11 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         int r;
 
         assert_se(arg_dest = dest_early);
+
+        if (in_initrd()) {
+                log_debug("Skipping generator, running in the initrd.");
+                return EXIT_SUCCESS;
+        }
 
         r = generate_symlink();
         if (r <= 0)
