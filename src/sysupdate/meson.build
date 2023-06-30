@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+systemd_sysupdated_sources = files(
+        'sysupdated.c',
+)
+
 systemd_sysupdate_sources = files(
         'sysupdate-cache.c',
         'sysupdate-cache.h',
