@@ -2398,4 +2398,6 @@ const UnitVTable mount_vtable = {
         },
 
         .can_start = mount_can_start,
+
+        .notify_plymouth = true,
 };

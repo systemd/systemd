@@ -5168,6 +5168,8 @@ const UnitVTable service_vtable = {
 
         .can_start = service_can_start,
 
+        .notify_plymouth = true,
+
         .audit_start_message_type = AUDIT_SERVICE_START,
         .audit_stop_message_type = AUDIT_SERVICE_STOP,
 };

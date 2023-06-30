@@ -783,6 +783,9 @@ typedef struct UnitVTable {
         /* True if systemd-oomd can monitor and act on this unit's recursive children's cgroups  */
         bool can_set_managed_oom;
 
+        /* If true, we'll notify plymouth about this unit */
+        bool notify_plymouth;
+
         /* The audit events to generate on start + stop (or 0 if none shall be generated) */
         int audit_start_message_type;
         int audit_stop_message_type;

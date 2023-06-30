@@ -3386,7 +3386,7 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
         if (detect_container() > 0)
                 return;
 
-        if (!IN_SET(u->type, UNIT_SERVICE, UNIT_MOUNT, UNIT_SWAP))
+        if (!UNIT_VTABLE(u)->notify_plymouth)
                 return;
 
         /* We set SOCK_NONBLOCK here so that we rather drop the
