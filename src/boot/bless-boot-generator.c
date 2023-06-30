@@ -18,9 +18,9 @@
 
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
 
-        if (in_initrd() > 0) {
+        if (in_initrd()) {
                 log_debug("Skipping generator, running in the initrd.");
-                return 0;
+                return EXIT_SUCCESS;
         }
 
         if (detect_container() > 0) {

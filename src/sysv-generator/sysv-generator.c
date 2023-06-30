@@ -14,6 +14,7 @@
 #include "generator.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
+#include "initrd-util.h"
 #include "install.h"
 #include "log.h"
 #include "main-func.h"
@@ -898,6 +899,11 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         SysvStub *service;
         int r;
+
+        if (in_initrd()) {
+                log_debug("Skipping generator, running in the initrd.");
+                return EXIT_SUCCESS;
+        }
 
         assert_se(arg_dest = dest_late);
 
