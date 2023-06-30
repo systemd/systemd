@@ -2854,6 +2854,7 @@ static int tpm2_make_encryption_session(
         int r;
 
         assert(c);
+        assert(primary);
         assert(ret_session);
 
         log_debug("Starting HMAC encryption session.");
@@ -2869,7 +2870,7 @@ static int tpm2_make_encryption_session(
         rc = sym_Esys_StartAuthSession(
                         c->esys_context,
                         primary->esys_handle,
-                        bind_key->esys_handle,
+                        bind_key ? bind_key->esys_handle : ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
@@ -4021,7 +4022,7 @@ int tpm2_seal(Tpm2Context *c,
         }
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
-        r = tpm2_make_encryption_session(c, primary_handle, &TPM2_HANDLE_NONE, &encryption_session);
+        r = tpm2_make_encryption_session(c, primary_handle, /* bind_key= */ NULL, &encryption_session);
         if (r < 0)
                 return r;
 
