@@ -2720,6 +2720,10 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         r = deserialize_strv(&c->environment, val);
                         if (r < 0)
                                 return r;
+                } else if ((val = startswith(l, "exec-context-manager-environment="))) {
+                        r = deserialize_strv(&c->manager_environment, val);
+                        if (r < 0)
+                                return r;
                 } else if ((val = startswith(l, "exec-context-environment-files="))) {
                         r = deserialize_strv(&c->environment_files, val);
                         if (r < 0)
