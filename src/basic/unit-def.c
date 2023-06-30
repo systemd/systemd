@@ -204,6 +204,7 @@ static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_FAILED_BEFORE_AUTO_RESTART] = "failed-before-auto-restart",
         [SERVICE_DEAD_RESOURCES_PINNED]      = "dead-resources-pinned",
         [SERVICE_AUTO_RESTART]               = "auto-restart",
+        [SERVICE_AUTO_RESTART_QUEUED]        = "auto-restart-queued",
         [SERVICE_CLEANING]                   = "cleaning",
 };
 
