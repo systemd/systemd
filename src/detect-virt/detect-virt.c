@@ -42,6 +42,8 @@ static int help(void) {
                "     --cvm              Only detect whether we are run in a confidential VM\n"
                "  -q --quiet            Don't output anything, just set return value\n"
                "     --list             List all known and detectable types of virtualization\n"
+               "     --list-cvm         List all known and detectable types of confidential \n"
+               "                        virtualization\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
@@ -56,6 +58,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PRIVATE_USERS,
                 ARG_LIST,
                 ARG_CVM,
+                ARG_LIST_CVM,
         };
 
         static const struct option options[] = {
@@ -68,6 +71,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "quiet",         no_argument, NULL, 'q'               },
                 { "cvm",           no_argument, NULL, ARG_CVM           },
                 { "list",          no_argument, NULL, ARG_LIST          },
+                { "list-cvm",      no_argument, NULL, ARG_LIST_CVM      },
                 {}
         };
 
@@ -113,6 +117,10 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_CVM:
                         arg_mode = ONLY_CVM;
                         return 1;
+
+                case ARG_LIST_CVM:
+                        DUMP_STRING_TABLE(confidential_virtualization, ConfidentialVirtualization, _CONFIDENTIAL_VIRTUALIZATION_MAX);
+                        return 0;
 
                 case '?':
                         return -EINVAL;
