@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="initrd-battery-check.service" xmlns:xi="http://www.w3.org/2001/XInclude">
+<refentry id="systemd-battery-check.service" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-battery-check</title>
@@ -11,18 +11,18 @@
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>initrd-battery-check.service</refentrytitle>
+    <refentrytitle>systemd-battery-check.service</refentrytitle>
     <manvolnum>8</manvolnum>
   </refmeta>
 
   <refnamediv>
-    <refname>initrd-battery-check.service</refname>
+    <refname>systemd-battery-check.service</refname>
     <refname>systemd-battery-check</refname>
     <refpurpose>Check battery level whether there's enough charge, and power off if not.</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>initrd-battery-check.service</filename></para>
+    <para><filename>systemd-battery-check.service</filename></para>
     <cmdsynopsis>
       <command>/usr/lib/systemd/systemd-battery-check</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
@@ -33,7 +33,7 @@
     <title>Description</title>
 
     <para>
-      <filename>initrd-battery-check.service</filename> is used to check the battery level during the early
+      <filename>systemd-battery-check.service</filename> is used to check the battery level during the early
       boot stage to determine whether there's sufficient battery power to carry on with the booting process.
     </para>
     <para>
