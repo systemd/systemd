@@ -1336,7 +1336,7 @@ int bus_cgroup_set_property(
                         new_set = (CPUSet) {};
 
                         unit_invalidate_cgroup(u, CGROUP_MASK_CPUSET);
-                        unit_write_settingf(u, flags, name, "%s=%s", name, setstr);
+                        unit_write_settingf(u, flags, name, "%s=\n%s=%s", name, name, setstr);
                 }
 
                 return 1;
