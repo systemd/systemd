@@ -598,7 +598,7 @@ run_qemu() {
             head -c 1024 "$INITRD_EXTRA" | base64 -w 0
 
             # Copy the main initrd
-            cat "$INITRD" > "$t"
+            zstd -d -c -f "$INITRD" > "$t"
             add_at_exit_handler "rm $t"
 
             # Kernel requires this to be padded to multipl of 4 bytes with zeroes
