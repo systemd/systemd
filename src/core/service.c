@@ -2510,11 +2510,9 @@ static void service_enter_restart(Service *s) {
                 return;
         }
 
-        /* Any units that are bound to this service must also be
-         * restarted. We use JOB_RESTART (instead of the more obvious
-         * JOB_START) here so that those dependency jobs will be added
-         * as well. */
-        r = manager_add_job(UNIT(s)->manager, JOB_RESTART, UNIT(s), JOB_REPLACE, NULL, &error, NULL);
+        /* Any units that are bound to this service must also be restarted. We use JOB_RESTART (instead of
+         * the more obvious JOB_START) here so that those dependency jobs will be added as well. */
+        r = manager_add_job(UNIT(s)->manager, JOB_RESTART, UNIT(s), JOB_RESTART_DEPENDENCIES, NULL, &error, NULL);
         if (r < 0)
                 goto fail;
 
