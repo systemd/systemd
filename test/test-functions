@@ -603,7 +603,7 @@ run_qemu() {
 
             # Kernel requires this to be padded to multipl of 4 bytes with zeroes
             local size
-            size=$(stat -c "%s" "$INITRD")
+            size=$(stat -c "%s" "$t")
             local padded
             padded=$((((size + 3) / 4) * 4))
             truncate -s "$padded" "$t"
