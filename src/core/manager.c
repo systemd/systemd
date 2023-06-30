@@ -2044,6 +2044,9 @@ int manager_add_job(
         if (mode == JOB_TRIGGERING && type != JOB_STOP)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "--job-mode=triggering is only valid for stop.");
 
+        if (mode == JOB_RESTART_DEPENDENCIES && type != JOB_START)
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "--job-mode=restart-dependencies is only valid for start.");
+
         log_unit_debug(unit, "Trying to enqueue job %s/%s/%s", unit->id, job_type_to_string(type), job_mode_to_string(mode));
 
         type = job_type_collapse(type, unit);
@@ -2059,7 +2062,8 @@ int manager_add_job(
                         /* by= */ NULL,
                         TRANSACTION_MATTERS |
                         (IN_SET(mode, JOB_IGNORE_DEPENDENCIES, JOB_IGNORE_REQUIREMENTS) ? TRANSACTION_IGNORE_REQUIREMENTS : 0) |
-                        (mode == JOB_IGNORE_DEPENDENCIES ? TRANSACTION_IGNORE_ORDER : 0),
+                        (mode == JOB_IGNORE_DEPENDENCIES ? TRANSACTION_IGNORE_ORDER : 0) |
+                        (mode == JOB_RESTART_DEPENDENCIES ? TRANSACTION_PROPAGATE_START_AS_RESTART : 0),
                         error);
         if (r < 0)
                 return r;
