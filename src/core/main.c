@@ -3145,6 +3145,10 @@ finish:
         pager_close();
 
         if (m) {
+                /* Clear up init-workers.scope so that when we start again we can pick up the new sd-executor
+                * binary, if any */
+                (void) manager_kill_workers(m);
+
                 arg_reboot_watchdog = manager_get_watchdog(m, WATCHDOG_REBOOT);
                 arg_kexec_watchdog = manager_get_watchdog(m, WATCHDOG_KEXEC);
                 m = manager_free(m);
