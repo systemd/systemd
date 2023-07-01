@@ -753,7 +753,7 @@ static bool menu_run(Config *config, ConfigEntry **chosen_entry, char16_t *loade
                                 if (current_menu->entries[i]->entry_type == MENU)
                                         continue;
                         }
-                        line_width = MAX(line_width,strlen16(u"More..."));
+                        line_width = MAX(line_width,strlen16(u"    More..."));
                         line_width = MIN(line_width + 2 * entry_padding, x_max);
 
                         /* offsets to center the entries on the screen */
@@ -782,7 +782,7 @@ static bool menu_run(Config *config, ConfigEntry **chosen_entry, char16_t *loade
                                 }
                                 if (current_menu->entries[i]->entry_type == MENU) {
                                         lines[i] = create_padded_line(
-                                                        u"More...",
+                                                        u"    More...",
                                                         line_width);
                                 }
                         }
@@ -1097,7 +1097,7 @@ static bool menu_run(Config *config, ConfigEntry **chosen_entry, char16_t *loade
                 case KEYPRESS(0, SCAN_ESC, 0): /* HP. */
                         if (current_menu->is_submenu == true) {
                                 // Leave the current submenu
-                                current_menu = current_menu->entries[0]->entry_data.menu;
+                                current_menu = config->main_menu;
                                 idx_highlight = 0;
                                 new_mode = true;
                         } else if (FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
@@ -1263,7 +1263,14 @@ static void menu_add_entry_generic(Menu *menu, EntryType entry_type, void *data)
     TAKE_PTR(entry);
 }
 
-static void menu_add_entry(Menu *menu, ConfigEntry *config_entry) {
+static void menu_add_entry(Menu *menu, Entry *entry) {
+        if(entry->entry_type == CONFIG_ENTRY)
+                menu_add_entry_generic(menu, CONFIG_ENTRY, entry->entry_data.config_entry);
+        else if(entry->entry_type == MENU)
+                menu_add_entry_generic(menu, MENU, entry->entry_data.menu);
+}
+
+static void menu_add_config_entry(Menu *menu, ConfigEntry *config_entry) {
     menu_add_entry_generic(menu, CONFIG_ENTRY, config_entry);
 }
 
@@ -1690,7 +1697,7 @@ static void config_entry_add_type1(
         entry->id = xstrdup16(file);
         strtolower16(entry->id);
 
-        menu_add_entry(menu, entry);
+        menu_add_config_entry(menu, entry);
 
         config_entry_parse_tries(entry, path, file, u".conf");
         TAKE_PTR(entry);
@@ -2163,7 +2170,7 @@ static ConfigEntry *config_entry_add_loader_auto(
                 .tries_left = -1,
         };
 
-        menu_add_entry(config->main_menu, entry);
+        menu_add_config_entry(config->main_menu, entry);
         return entry;
 }
 
@@ -2458,7 +2465,7 @@ static void config_entry_add_unified(
                 };
 
                 strtolower16(entry->id);
-                menu_add_entry(config->main_menu, entry);
+                menu_add_config_entry(config->main_menu, entry);
                 config_entry_parse_tries(entry, u"\\EFI\\Linux", f->FileName, u".efi");
 
                 if (szs[SECTION_CMDLINE] == 0)
@@ -2688,6 +2695,86 @@ static void menu_get_entries(Menu *menu, char **current_position, size_t *remain
         }
 }
 
+typedef struct {
+        size_t start_index;
+        size_t end_index;
+} Indices;
+
+static void menu_copy_entries(Menu *menu, Menu *new_menu, size_t start_index, size_t end_index) {
+        assert(menu);
+        assert(new_menu);
+
+        for (size_t i = start_index; i <= end_index; i++) {
+                menu_add_entry(new_menu, menu->entries[i]);
+                menu->entries[i] = NULL;
+        }
+}
+static void config_create_groups(Config *config, Indices *indices, size_t group_count){
+        assert(config);
+
+        Menu *menu = config->main_menu;
+        _cleanup_(menu_freep) Menu *new_menu = NULL;
+                new_menu = xnew(Menu, 1);
+                *new_menu = (Menu){ .entry_count = 0, .is_submenu = false };
+
+        menu_copy_entries(menu, new_menu, 0, indices[0].start_index - 1);
+        size_t i = 0;
+        for (; i < group_count; i++) {
+                _cleanup_(menu_freep) Menu *submenu = NULL;
+                submenu = xnew(Menu, 1);
+                *submenu = (Menu){ .entry_count = 0, .is_submenu = true };
+                menu_copy_entries(menu, submenu, indices[i].start_index, indices[i].end_index);
+                menu_add_menu(new_menu, submenu);
+                TAKE_PTR(submenu);
+                if(i+1 < group_count)
+                        menu_copy_entries(menu, new_menu, indices[i].end_index+1, indices[i+1].start_index-1);
+        }
+        if (indices[i-1].end_index != menu->entry_count-1)
+                menu_copy_entries(menu, new_menu, indices[i-1].end_index+1, menu->entry_count - 1);
+
+        menu_free(config->main_menu);
+        config->main_menu = new_menu;
+        TAKE_PTR(new_menu);
+}
+
+static void config_group_menu(Config *config){
+        assert(config);
+
+        Menu *menu = config->main_menu;
+        size_t group_count = 0;
+        Indices *indices = NULL;
+        for(size_t i = 0; i < menu->entry_count; i++){
+                if (menu->entries[i]->entry_type == MENU)
+                        continue;
+                if(menu->entries[i]->entry_data.config_entry->sort_key == NULL)
+                        continue;
+                size_t k = i;
+                for(; k < menu->entry_count; k++){
+                        if(menu->entries[i]->entry_type == MENU)
+                                break;
+                        if(menu->entries[k]->entry_data.config_entry->sort_key == NULL)
+                                break;
+                        if(strcmp(menu->entries[i]->entry_data.config_entry->sort_key, 
+                                  menu->entries[k]->entry_data.config_entry->sort_key) == 0)
+                                continue;
+                        break;
+                }
+                if(k>=i+2){
+                        indices = xrealloc(
+                                        indices,
+                                        sizeof(void *) * group_count,
+                                        sizeof(void *) * (group_count + 1));
+                        indices[group_count].start_index = i+1;
+                        indices[group_count++].end_index = k-1;
+                        i = k;
+                }
+        }
+        if(group_count == 0)
+                return;
+        config_create_groups(config, indices, group_count);
+        free(indices);
+}
+
 static size_t menu_total_size(Menu *menu) {
         assert(menu);
 
@@ -2784,7 +2871,7 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
                         .tries_done = -1,
                         .tries_left = -1,
                 };
-                menu_add_entry(config->main_menu, entry);
+                menu_add_config_entry(config->main_menu, entry);
 
                 if (IN_SET(config->secure_boot_enroll, ENROLL_IF_SAFE, ENROLL_FORCE) &&
                     strcaseeq16(dirent->FileName, u"auto"))
@@ -2863,6 +2950,9 @@ static void config_load_all_entries(
         /* sort entries after version number */
         sort_pointer_array((void **) config->main_menu->entries, config->main_menu->entry_count, (compare_pointer_func_t) compare_entries);
 
+        /* create the menu hierarchy */
+        config_group_menu(config);
+
         /* if we find some well-known loaders, add them to the end of the list */
         config_entry_add_osx(config);
         config_entry_add_windows(config, loaded_image->DeviceHandle, root_dir);
@@ -2880,7 +2970,7 @@ static void config_load_all_entries(
                         .tries_done = -1,
                         .tries_left = -1,
                 };
-                menu_add_entry(config->main_menu, entry);
+                menu_add_config_entry(config->main_menu, entry);
         }
 
         /* find if secure boot signing keys exist and autoload them if necessary
