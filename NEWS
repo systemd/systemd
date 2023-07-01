@@ -14,7 +14,7 @@ CHANGES WITH 254 in spe:
         * The next release (v255) will remove support for split-usr (/usr/
           mounted separately during late boot, instead of being mounted by the
           initrd before switching to the rootfs) and unmerged-usr (parallel
-          directories /bin/ and /usr/bin/, /lib/ and /usr/lib/, …).  For more
+          directories /bin/ and /usr/bin/, /lib/ and /usr/lib/, …). For more
           details, see:
           https://lists.freedesktop.org/archives/systemd-devel/2022-September/048352.html
 
@@ -894,7 +894,7 @@ CHANGES WITH 253:
 
         * A new "installation layout" can be configured as layout=uki. With
           this setting, a Boot Loader Specification Type#1 entry will not be
-          created.  Instead, a new kernel-install plugin 90-uki-copy.install
+          created. Instead, a new kernel-install plugin 90-uki-copy.install
           will copy any .efi files from the staging area into the boot
           partition. A plugin to generate the UKI .efi file must be provided
           separately.
@@ -1193,7 +1193,7 @@ CHANGES WITH 253:
           enabled if $NOTIFY_SOCKET is set in a "vsock:CID:port" format.
 
         * Detection of chroot() environments now works if /proc/ is not
-          mounted.  This affects systemd-detect-virt --chroot, but also means
+          mounted. This affects systemd-detect-virt --chroot, but also means
           that systemd tools will silently skip various operations in such an
           environment.
 
@@ -3270,7 +3270,7 @@ CHANGES WITH 250:
 
         * A LICENSES/ directory is now included in the git tree. It contains a
           README.md file that explains the licenses used by source files in
-          this repository.  It also contains the text of all applicable
+          this repository. It also contains the text of all applicable
           licenses as they appear on spdx.org.
 
         Contributions from: Aakash Singh, acsfer, Adolfo Jayme Barrientos,
@@ -6419,7 +6419,7 @@ CHANGES WITH 243:
           associated with (AssociatedWith=).
 
         * systemd-networkd's DHCPv4 support now understands a new MaxAttempts=
-          option for configuring the maximum number of DHCP lease requests.  It
+          option for configuring the maximum number of DHCP lease requests. It
           also learnt a new BlackList= option for deny-listing DHCP servers (a
           similar setting has also been added to the IPv6 RA client), as well
           as a SendRelease= option for configuring whether to send a DHCP
@@ -8087,7 +8087,7 @@ CHANGES WITH 238:
           systemd --user instance uses this call of the systemd --system
           instance to migrate processes if it itself gets the request to
           migrate processes and the kernel refuses this due to access
-          restrictions.  Thanks to this "systemd-run --scope --user …" works
+          restrictions. Thanks to this "systemd-run --scope --user …" works
           again in pure cgroup v2 environments when invoked from the user
           session scope.
 
@@ -8209,7 +8209,7 @@ CHANGES WITH 237:
         * In systemd-networkd, the [IPVLAN] section in .netdev files gained
           support for configuring device flags in the Flags= setting. In the
           same files, the [Tunnel] section gained support for configuring
-          AllowLocalRemote=.  The [Route] section in .network files gained
+          AllowLocalRemote=. The [Route] section in .network files gained
           support for configuring InitialCongestionWindow=,
           InitialAdvertisedReceiveWindow= and QuickAck=. The [DHCP] section now
           understands RapidCommit=.
@@ -9809,7 +9809,7 @@ CHANGES WITH 231:
         * When using systemd's default tmp.mount unit for /tmp, the mount point
           will now be established with the "nosuid" and "nodev" options. This
           avoids privilege escalation attacks that put traps and exploits into
-          /tmp.  However, this might cause problems if you e. g. put container
+          /tmp. However, this might cause problems if you e.g. put container
           images or overlays into /tmp; if you need this, override tmp.mount's
           "Options=" with a drop-in, or mount /tmp from /etc/fstab with your
           desired options.
@@ -10329,7 +10329,7 @@ CHANGES WITH 229:
           that report whether log data from /run or /var has been found.
 
         * journalctl gained a new switch "--fields" that prints all journal
-          record field names currently in use in the journal.  This is backed
+          record field names currently in use in the journal. This is backed
           by two new sd-journal API calls sd_journal_enumerate_fields() and
           sd_journal_restart_fields().
 
@@ -10667,7 +10667,7 @@ CHANGES WITH 227:
           stopped having this file around as anything else than a
           symlink to /proc/self/mounts.
 
-        * Support for the "pids" cgroup controller has been added.  It
+        * Support for the "pids" cgroup controller has been added. It
           allows accounting the number of tasks in a cgroup and
           enforcing limits on it. This adds two new setting
           TasksAccounting= and TasksMax= to each unit, as well as a
@@ -10771,7 +10771,7 @@ CHANGES WITH 227:
 
         * File descriptors passed during socket activation may now be
           named. A new API sd_listen_fds_with_names() is added to
-          access the names.  The default names may be overridden,
+          access the names. The default names may be overridden,
           either in the .socket file using the FileDescriptorName=
           parameter, or by passing FDNAME= when storing the file
           descriptors using sd_notify().
@@ -10873,7 +10873,7 @@ CHANGES WITH 226:
           - Server and client now support transmission and reception
             of timezone information. It can be configured via the
             newly introduced network options UseTimezone=,
-            EmitTimezone=, and Timezone=.  Transmission of timezone
+            EmitTimezone=, and Timezone=. Transmission of timezone
             information is enabled between host and containers by
             default now: the container will change its local timezone
             to what the host has set.
@@ -10918,7 +10918,7 @@ CHANGES WITH 226:
           unified hierarchy, and the legacy hierarchy otherwise.
           Please note that at this point the unified hierarchy is an
           experimental kernel feature and is likely to change in one
-          of the next kernel releases.  Therefore, it should not be
+          of the next kernel releases. Therefore, it should not be
           enabled by default in downstream distributions yet. The
           minimum required kernel version for the unified hierarchy to
           work is 4.2. Note that when the unified hierarchy is used
@@ -11928,12 +11928,12 @@ CHANGES WITH 218:
           files in /etc now also support a corresponding series of
           .conf.d configuration directories in /etc/, /run/,
           /usr/local/lib/, /usr/lib/, and (if configured with
-          --enable-split-usr) /lib/.  In particular, the following
+          --enable-split-usr) /lib/. In particular, the following
           configuration files now have corresponding configuration
           directories: system.conf user.conf, logind.conf,
           journald.conf, sleep.conf, bootchart.conf, coredump.conf,
           resolved.conf, timesyncd.conf, journal-remote.conf, and
-          journal-upload.conf.  Note that distributions should use the
+          journal-upload.conf. Note that distributions should use the
           configuration directories in /usr/lib/; the directories in
           /etc/ are reserved for the system administrator.
 
