@@ -182,7 +182,7 @@ int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit, 
         }
 
         case 'u': {
-                /* C++11 style 16bit unicode */
+                /* C++11 style 16-bit unicode */
 
                 int a[4];
                 size_t i;
@@ -209,7 +209,7 @@ int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit, 
         }
 
         case 'U': {
-                /* C++11 style 32bit unicode */
+                /* C++11 style 32-bit unicode */
 
                 int a[8];
                 size_t i;

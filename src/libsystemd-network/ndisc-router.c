@@ -81,7 +81,7 @@ int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt) {
                 return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
                                        "Too small to be a router advertisement, ignoring.");
 
-        /* Router advertisement packets are neatly aligned to 64bit boundaries, hence we can access them directly */
+        /* Router advertisement packets are neatly aligned to 64-bit boundaries, hence we can access them directly */
         a = NDISC_ROUTER_RAW(rt);
 
         if (a->nd_ra_type != ND_ROUTER_ADVERT)
@@ -93,7 +93,7 @@ int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt) {
                                        "Received ND packet with wrong RA code, ignoring.");
 
         rt->hop_limit = a->nd_ra_curhoplimit;
-        rt->flags = a->nd_ra_flags_reserved; /* the first 8bit */
+        rt->flags = a->nd_ra_flags_reserved; /* the first 8 bits */
         rt->lifetime = be16toh(a->nd_ra_router_lifetime);
 
         rt->preference = (rt->flags >> 3) & 3;

@@ -64,7 +64,7 @@ static int fdisk_partition_get_attrs_as_uint64(
                                 continue;
                         }
 
-                        if (u >= sizeof(flags)*8) { /* partition flags on GPT are 64bit. Let's ignore any further
+                        if (u >= sizeof(flags)*8) { /* partition flags on GPT are 64-bit. Let's ignore any further
                                                        bits should libfdisk report them */
                                 log_debug("Partition flag above bit 63 (%s), ignoring.", word);
                                 continue;

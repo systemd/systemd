@@ -39,11 +39,11 @@
 
     <para><function>sd_journal_get_seqnum()</function> returns the sequence number of the current journal
     entry. It takes three arguments: the journal context object, a pointer to a 64-bit unsigned integer to
-    store the sequence number in, and a buffer to return the 128bit sequence number ID in.</para>
+    store the sequence number in, and a buffer to return the 128-bit sequence number ID in.</para>
 
     <para>When writing journal entries to disk each <command>systemd-journald</command> instance will number
     them sequentially, starting from 1 for the first entry written after subsystem initialization. Each such
-    series of sequence numbers is associated with a 128bit sequence number ID which is initialized randomly,
+    series of sequence numbers is associated with a 128-bit sequence number ID which is initialized randomly,
     once at <command>systemd-journal</command> initialization. Thus, while multiple instances of
     <command>systemd-journald</command> will assign the same sequence numbers to their written journal
     entries, they will have a distinct sequence number IDs. The sequence number is assigned at the moment of

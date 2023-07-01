@@ -85,12 +85,9 @@ int dns_label_unescape(const char **name, char *dest, size_t sz, DNSLabelFlags f
                                         ((unsigned) (n[1] - '0') * 10) +
                                         ((unsigned) (n[2] - '0'));
 
-                                /* Don't allow anything that doesn't
-                                 * fit in 8bit. Note that we do allow
-                                 * control characters, as some servers
-                                 * (e.g. cloudflare) are happy to
-                                 * generate labels with them
-                                 * inside. */
+                                /* Don't allow anything that doesn't fit in 8 bits. Note that we do allow
+                                 * control characters, as some servers (e.g. cloudflare) are happy to
+                                 * generate labels with them inside. */
                                 if (k > 255)
                                         return -EINVAL;
 
@@ -297,7 +294,7 @@ int dns_label_escape_new(const char *p, size_t l, char **ret) {
 int dns_label_apply_idna(const char *encoded, size_t encoded_size, char *decoded, size_t decoded_max) {
         _cleanup_free_ uint32_t *input = NULL;
         size_t input_size, l;
-        bool contains_8bit = false;
+        bool contains_8_bit = false;
         char buffer[DNS_LABEL_MAX+1];
         int r;
 
@@ -315,9 +312,9 @@ int dns_label_apply_idna(const char *encoded, size_t encoded_size, char *decoded
 
         for (const char *p = encoded; p < encoded + encoded_size; p++)
                 if ((uint8_t) *p > 127)
-                        contains_8bit = true;
+                        contains_8_bit = true;
 
-        if (!contains_8bit) {
+        if (!contains_8_bit) {
                 if (encoded_size > DNS_LABEL_MAX)
                         return -EINVAL;
 

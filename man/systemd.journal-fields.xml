@@ -376,7 +376,7 @@
       <varlistentry>
         <term><varname>_STREAM_ID=</varname></term>
         <listitem>
-          <para>Only applies to <literal>_TRANSPORT=stdout</literal> records: specifies a randomized 128bit ID assigned
+          <para>Only applies to <literal>_TRANSPORT=stdout</literal> records: specifies a randomized 128-bit ID assigned
           to the stream connection when it was first created. This ID is useful to reconstruct individual log streams
           from the log records: all log records carrying the same stream ID originate from the same stream.</para>
         </listitem>

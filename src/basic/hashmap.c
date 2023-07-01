@@ -174,9 +174,9 @@ struct _packed_ indirect_storage {
 };
 
 struct direct_storage {
-        /* This gives us 39 bytes on 64bit, or 35 bytes on 32bit.
-         * That's room for 4 set_entries + 4 DIB bytes + 3 unused bytes on 64bit,
-         *              or 7 set_entries + 7 DIB bytes + 0 unused bytes on 32bit. */
+        /* This gives us 39 bytes on 64-bit, or 35 bytes on 32-bit.
+         * That's room for 4 set_entries + 4 DIB bytes + 3 unused bytes on 64-bit,
+         *              or 7 set_entries + 7 DIB bytes + 0 unused bytes on 32-bit. */
         uint8_t storage[sizeof(struct indirect_storage)];
 };
 
