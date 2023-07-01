@@ -156,7 +156,7 @@ static int help(void) {
                 return log_oom();
 
         printf("%s [OPTIONS...] COMMAND\n\n"
-               "%sGenerate and print 128bit identifiers.%s\n"
+               "%sGenerate and print 128-bit identifiers.%s\n"
                "\nCommands:\n"
                "  new                     Generate a new ID\n"
                "  machine-id              Print the ID of current machine\n"

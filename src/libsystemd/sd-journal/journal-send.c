@@ -261,7 +261,7 @@ _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
 
                         /* Already includes a newline? Bummer, then
                          * let's write the variable name, then a
-                         * newline, then the size (64bit LE), followed
+                         * newline, then the size (64-bit LE), followed
                          * by the data and a final newline */
 
                         w[j++] = IOVEC_MAKE(iov[i].iov_base, c - (char*) iov[i].iov_base);

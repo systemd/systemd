@@ -47,7 +47,7 @@
       <function>sd_bus_get_n_queued_read()</function> may be used to query the number of bus messages in the read queue
       of a bus connection object. The read queue contains all messages read from the transport medium (e.g. network
       socket) but not yet processed locally. The function expects two arguments: the bus object to query, and a pointer
-      to a 64bit counter variable to write the current queue size to. Use <function>sd_bus_process()</function> in
+      to a 64-bit counter variable to write the current queue size to. Use <function>sd_bus_process()</function> in
       order to process queued messages, i.e. to reduce the size of the read queue (as well as, in fact, the write
       queue, see below).
     </para>

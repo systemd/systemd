@@ -67,7 +67,7 @@ variables. All EFI variables use the vendor UUID
   identifier that was booted. It is set by the boot loader and read by
   the OS in order to identify which entry has been used for the current boot.
 
-* The EFI variable `LoaderFeatures` contains a 64bit unsigned integer with a
+* The EFI variable `LoaderFeatures` contains a 64-bit unsigned integer with a
   number of flags bits that are set by the boot loader and passed to the OS and
   indicate the features the boot loader supports. Specifically, the following
   bits are defined:

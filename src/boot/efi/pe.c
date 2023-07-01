@@ -171,7 +171,7 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
         static const char *sections[] = { ".compat", NULL };
 
         /* The kernel may provide alternative PE entry points for different PE architectures. This allows
-         * booting a 64bit kernel on 32bit EFI that is otherwise running on a 64bit CPU. The locations of any
+         * booting a 64-bit kernel on 32-bit EFI that is otherwise running on a 64-bit CPU. The locations of any
          * such compat entry points are located in a special PE section. */
 
         locate_sections((const PeSectionHeader *) ((const uint8_t *) dos + section_table_offset(dos, pe)),

@@ -87,7 +87,7 @@ static int rlimit_parse_u64(const char *val, rlim_t *ret) {
                 return 0;
         }
 
-        /* setrlimit(2) suggests rlim_t is always 64bit on Linux. */
+        /* setrlimit(2) suggests rlim_t is always 64-bit on Linux. */
         assert_cc(sizeof(rlim_t) == sizeof(uint64_t));
 
         r = safe_atou64(val, &u);

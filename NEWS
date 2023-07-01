@@ -1173,7 +1173,7 @@ CHANGES WITH 253:
           sd_bus_emit_signal_tov(), and sd_bus_message_new_signal_to().
 
         * sd-id128 functions now return -EUCLEAN (instead of -EIO) when the
-          128bit ID in files such as /etc/machine-id has an invalid
+          128-bit ID in files such as /etc/machine-id has an invalid
           format. They also accept NULL as output parameter in more places,
           which is useful when the caller only wants to validate the inputs and
           does not need the output value.
@@ -1568,7 +1568,7 @@ CHANGES WITH 252 🎃:
 
         * libsystemd now exports sd_bus_error_setfv() (a convenience function
           for setting bus errors), sd_id128_string_equal (a convenience
-          function for 128bit ID string comparisons), and
+          function for 128-bit ID string comparisons), and
           sd_bus_message_read_strv_extend() (a function to incrementally read
           string arrays).
 
@@ -2030,7 +2030,7 @@ CHANGES WITH 251:
           of activated home directories it manages (if the kernel and selected
           file systems support it). So far it mapped three UID ranges: the
           range from 0…60000, the user's own UID, and the range 60514…65534,
-          leaving everything else unmapped (in other words, the 16bit UID range
+          leaving everything else unmapped (in other words, the 16-bit UID range
           is mapped almost fully, with the exception of the UID subrange used
           for systemd-homed users, with one exception: the user's own UID).
           Unmapped UIDs may not be used for file ownership in the home
@@ -5894,7 +5894,7 @@ CHANGES WITH 245:
           systemd-timedated.
 
         * The systemd-id128 tool gained a new "show" verb for listing or
-          resolving a number of well-known UUIDs/128bit IDs, currently mostly
+          resolving a number of well-known UUIDs/128-bit IDs, currently mostly
           GPT partition table types.
 
         * The Discoverable Partitions Specification has been updated to support
@@ -6174,7 +6174,7 @@ CHANGES WITH 244:
           path as the system manager.
 
         * The systemd-id128 tool gained a new switch "-u" (or "--uuid") for
-          outputting the 128bit IDs in UUID format (i.e. in the "canonical
+          outputting the 128-bit IDs in UUID format (i.e. in the "canonical
           representation").
 
         * Service units gained a new sandboxing option ProtectKernelLogs= which
@@ -6242,7 +6242,7 @@ CHANGES WITH 243:
 
         * On 64 bit systems, the "kernel.pid_max" sysctl is now bumped to
           4194304 by default, i.e. the full 22bit range the kernel allows, up
-          from the old 16bit range. This should improve security and
+          from the old 16-bit range. This should improve security and
           robustness, as PID collisions are made less likely (though certainly
           still possible). There are rumours this might create compatibility
           problems, though at this moment no practical ones are known to
@@ -6557,7 +6557,7 @@ CHANGES WITH 243:
           with gcc's cleanup extension.
 
         * The sd-id128.h public API gained a new definition
-          SD_ID128_UUID_FORMAT_STR for formatting a 128bit ID in UUID format
+          SD_ID128_UUID_FORMAT_STR for formatting a 128-bit ID in UUID format
           with printf().
 
         * "busctl introspect" gained a new switch --xml-interface for dumping
@@ -7337,7 +7337,7 @@ CHANGES WITH 240:
           ID.
 
         * A new tool systemd-id128 has been added that can be used to determine
-          and generate various 128bit IDs.
+          and generate various 128-bit IDs.
 
         * /etc/os-release gained two new standardized fields DOCUMENTATION_URL=
           and LOGO=.
@@ -7492,7 +7492,7 @@ CHANGES WITH 240:
           is improved.
 
         * sd-id128.h learnt two new auxiliary helpers: sd_id128_is_allf() and
-          SD_ID128_ALLF to test if a 128bit ID is set to all 0xFF bytes, and to
+          SD_ID128_ALLF to test if a 128-bit ID is set to all 0xFF bytes, and to
           initialize one to all 0xFF.
 
         * After loading the SELinux policy systemd will now recursively relabel
@@ -9219,9 +9219,9 @@ CHANGES WITH 233:
           Verity root partitions when systemd boots up. In order to make use of
           this your partition setup should follow the Discoverable Partitions
           Specification, and the GPT partition ID of the root file system
-          partition should be identical to the upper 128bit of the Verity root
+          partition should be identical to the upper 128-bit of the Verity root
           hash. The GPT partition ID of the Verity partition protecting it
-          should be the lower 128bit of the Verity root hash. If the partition
+          should be the lower 128-bit of the Verity root hash. If the partition
           image follows this model it is sufficient to specify a single
           "roothash=" kernel command line argument to both configure which root
           image and verity partition to use as well as the root hash for
@@ -9654,7 +9654,7 @@ CHANGES WITH 232:
 
         * The service manager learnt a new "invocation ID" concept for invoked
           services. Each runtime cycle of a service will get a new invocation
-          ID (a 128bit random UUID) assigned that identifies the current
+          ID (a 128-bit random UUID) assigned that identifies the current
           run of the service uniquely and globally. A new invocation ID
           is generated each time a service starts up. The journal will store
           the invocation ID of a service along with any logged messages, thus

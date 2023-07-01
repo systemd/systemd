@@ -226,7 +226,7 @@ static int make_home_userns(uid_t stored_uid, uid_t exposed_uid) {
                 return log_oom();
 
         /* Leave everything else unmapped, starting from UID_NOBODY itself. Specifically, this means the
-         * whole space outside of 16bit remains unmapped */
+         * whole space outside of 16-bit remains unmapped */
 
         log_debug("Creating userns with mapping:\n%s", text);
 

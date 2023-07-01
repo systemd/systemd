@@ -225,11 +225,11 @@ static int message_append_field_string(
 
         assert(m);
 
-        /* dbus only allows 8bit header field ids */
+        /* dbus only allows 8-bit header field ids */
         if (h > 0xFF)
                 return -EINVAL;
 
-        /* dbus doesn't allow strings over 32bit */
+        /* dbus doesn't allow strings over 32-bit */
         l = strlen(s);
         if (l > UINT32_MAX)
                 return -EINVAL;
@@ -266,11 +266,11 @@ static int message_append_field_signature(
 
         assert(m);
 
-        /* dbus only allows 8bit header field ids */
+        /* dbus only allows 8-bit header field ids */
         if (h > 0xFF)
                 return -EINVAL;
 
-        /* dbus doesn't allow signatures over 8bit */
+        /* dbus doesn't allow signatures over 8-bit */
         l = strlen(s);
         if (l > SD_BUS_MAXIMUM_SIGNATURE_LENGTH)
                 return -EINVAL;
@@ -300,7 +300,7 @@ static int message_append_field_uint32(sd_bus_message *m, uint64_t h, uint32_t x
 
         assert(m);
 
-        /* dbus only allows 8bit header field ids */
+        /* dbus only allows 8-bit header field ids */
         if (h > 0xFF)
                 return -EINVAL;
 
@@ -322,7 +322,7 @@ static int message_append_field_uint32(sd_bus_message *m, uint64_t h, uint32_t x
 static int message_append_reply_cookie(sd_bus_message *m, uint64_t cookie) {
         assert(m);
 
-        /* 64bit cookies are not supported */
+        /* 64-bit cookies are not supported */
         if (cookie > UINT32_MAX)
                 return -EOPNOTSUPP;
 
@@ -1203,7 +1203,7 @@ static void *message_extend_body(
         padding = start_body - m->body_size;
         added = padding + sz;
 
-        /* Check for 32bit overflows */
+        /* Check for 32-bit overflows */
         if (end_body < start_body || end_body > UINT32_MAX) {
                 m->poisoned = true;
                 return NULL;
