@@ -19,7 +19,7 @@ assert_cc(sizeof(int) == sizeof(int32_t));
 assert_cc(sizeof(unsigned) == sizeof(uint32_t));
 #define bus_property_get_unsigned ((sd_bus_property_get_t) NULL)
 
-/* On 64bit machines we can use the default serializer for size_t and
+/* On 64-bit machines we can use the default serializer for size_t and
  * friends, otherwise we need to cast this manually */
 #if __SIZEOF_SIZE_T__ == 8
 #define bus_property_get_size ((sd_bus_property_get_t) NULL)
@@ -36,7 +36,7 @@ int bus_property_get_ulong(sd_bus *bus, const char *path, const char *interface,
 #endif
 
 /* uid_t and friends on Linux 32 bit. This means we can just use the
- * default serializer for 32bit unsigned, for serializing it, and map
+ * default serializer for 32-bit unsigned, for serializing it, and map
  * it to NULL here */
 assert_cc(sizeof(uid_t) == sizeof(uint32_t));
 #define bus_property_get_uid ((sd_bus_property_get_t) NULL)

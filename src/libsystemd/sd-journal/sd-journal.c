@@ -1647,7 +1647,7 @@ static bool dirent_is_journal_subdir(const struct dirent *de) {
         assert(de);
 
         /* returns true if the specified directory entry looks like a directory that might contain journal
-         * files we might be interested in, i.e. is either a 128bit ID or a 128bit ID suffixed by a
+         * files we might be interested in, i.e. is either a 128-bit ID or a 128-bit ID suffixed by a
          * namespace. */
 
         if (!IN_SET(de->d_type, DT_DIR, DT_LNK, DT_UNKNOWN))

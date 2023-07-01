@@ -222,7 +222,7 @@ static int fscrypt_setup(
                 char **list;
                 int n;
 
-                /* Check if this xattr has the format 'trusted.fscrypt_slot<nr>' where '<nr>' is a 32bit unsigned integer */
+                /* Check if this xattr has the format 'trusted.fscrypt_slot<nr>' where '<nr>' is a 32-bit unsigned integer */
                 nr = startswith(xa, "trusted.fscrypt_slot");
                 if (!nr)
                         continue;
@@ -655,7 +655,7 @@ int home_passwd_fscrypt(
                 const char *nr;
                 uint32_t z;
 
-                /* Check if this xattr has the format 'trusted.fscrypt_slot<nr>' where '<nr>' is a 32bit unsigned integer */
+                /* Check if this xattr has the format 'trusted.fscrypt_slot<nr>' where '<nr>' is a 32-bit unsigned integer */
                 nr = startswith(xa, "trusted.fscrypt_slot");
                 if (!nr)
                         continue;

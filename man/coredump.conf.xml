@@ -86,7 +86,7 @@
         <listitem><para>The maximum size in bytes of a core which will be processed. Core dumps exceeding
         this size may be stored, but the backtrace will not be generated.  Like other sizes in this same
         config file, the usual suffixes to the base of 1024 are allowed (B, K, M, G, T, P, and E). Defaults
-        to 1G on 32bit systems, 32G on 64bit systems.</para>
+        to 1G on 32-bit systems, 32G on 64-bit systems.</para>
 
         <para>Setting <varname>Storage=none</varname> and <varname>ProcessSizeMax=0</varname>
         disables all coredump handling except for a log entry.</para>

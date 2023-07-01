@@ -27,8 +27,8 @@ int sync_everything(void) {
 }
 
 const char *get_efi_arch(void) {
-        /* Detect EFI firmware architecture of the running system. On mixed mode systems, it could be 32bit
-         * while the kernel is running in 64bit. */
+        /* Detect EFI firmware architecture of the running system. On mixed mode systems, it could be 32-bit
+         * while the kernel is running in 64-bit. */
 
 #ifdef __x86_64__
         _cleanup_free_ char *platform_size = NULL;

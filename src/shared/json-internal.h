@@ -9,7 +9,7 @@
  * interface with this. */
 
 typedef union JsonValue  {
-        /* Encodes a simple value. This structure is generally 8 bytes wide (as double is 64bit). */
+        /* Encodes a simple value. This structure is generally 8 bytes wide (as double is 64-bit). */
         bool boolean;
         double real;
         int64_t integer;

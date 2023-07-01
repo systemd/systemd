@@ -111,7 +111,7 @@
       other event sources or at event loop termination. See
       <citerefentry><refentrytitle>sd_event_add_defer</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
 
-      <listitem><para>Event sources may be assigned a 64bit priority
+      <listitem><para>Event sources may be assigned a 64-bit priority
       value, that controls the order in which event sources are
       dispatched if multiple are pending simultaneously. See
       <citerefentry><refentrytitle>sd_event_source_set_priority</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>

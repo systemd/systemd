@@ -33,7 +33,7 @@ struct dirent *readdir_no_dot(DIR *dirp);
 /* Maximum space one dirent structure might require at most */
 #define DIRENT_SIZE_MAX CONST_MAX(sizeof(struct dirent), offsetof(struct dirent, d_name) + NAME_MAX + 1)
 
-/* Only if 64bit off_t is enabled struct dirent + struct dirent64 are actually the same. We require this, and
+/* Only if 64-bit off_t is enabled struct dirent + struct dirent64 are actually the same. We require this, and
  * we want them to be interchangeable to make getdents64() work, hence verify that. */
 assert_cc(_FILE_OFFSET_BITS == 64);
 #if HAVE_STRUCT_DIRENT64

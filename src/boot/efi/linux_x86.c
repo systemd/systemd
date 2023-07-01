@@ -102,19 +102,19 @@ typedef void (*handover_f)(void *parent, EFI_SYSTEM_TABLE *table, BootParams *pa
 static void linux_efi_handover(EFI_HANDLE parent, uintptr_t kernel, BootParams *params) {
         assert(params);
 
-        kernel += (params->hdr.setup_sects + 1) * KERNEL_SECTOR_SIZE; /* 32bit entry address. */
+        kernel += (params->hdr.setup_sects + 1) * KERNEL_SECTOR_SIZE; /* 32-bit entry address. */
 
         /* Old kernels needs this set, while newer ones seem to ignore this. */
         params->hdr.code32_start = kernel;
 
 #ifdef __x86_64__
-        kernel += KERNEL_SECTOR_SIZE; /* 64bit entry address. */
+        kernel += KERNEL_SECTOR_SIZE; /* 64-bit entry address. */
 #endif
 
-        kernel += params->hdr.handover_offset; /* 32/64bit EFI handover address. */
+        kernel += params->hdr.handover_offset; /* 32/64-bit EFI handover address. */
 
-        /* Note in EFI mixed mode this now points to the correct 32bit handover entry point, allowing a 64bit
-         * kernel to be booted from a 32bit sd-stub. */
+        /* Note in EFI mixed mode this now points to the correct 32-bit handover entry point, allowing a 64-bit
+         * kernel to be booted from a 32-bit sd-stub. */
 
         handover_f handover = (handover_f) kernel;
         handover(parent, ST, params);

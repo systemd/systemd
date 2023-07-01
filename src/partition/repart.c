@@ -850,7 +850,7 @@ static int context_sum_weights(Context *context, FreeArea *a, uint64_t *ret) {
         return 0;
 
 overflow_sum:
-        return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Combined weight of partition exceeds unsigned 64bit range, refusing.");
+        return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Combined weight of partition exceeds unsigned 64-bit range, refusing.");
 }
 
 static uint64_t scale_by_weight(uint64_t value, uint64_t weight, uint64_t weight_sum) {
@@ -1590,7 +1590,7 @@ static int config_parse_uuid(
 
         r = sd_id128_from_string(rvalue, &partition->new_uuid);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse 128bit ID/UUID, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse 128-bit ID/UUID, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -5957,7 +5957,7 @@ static int help(void) {
                "                          Enroll signed TPM2 PCR policy against PEM public key\n"
                "     --tpm2-public-key-pcrs=PCR1+PCR2+PCR3+…\n"
                "                          Enroll signed TPM2 PCR policy for specified TPM2 PCRs\n"
-               "     --seed=UUID          128bit seed UUID to derive all UUIDs from\n"
+               "     --seed=UUID          128-bit seed UUID to derive all UUIDs from\n"
                "     --size=BYTES         Grow loopback file to specified size\n"
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"

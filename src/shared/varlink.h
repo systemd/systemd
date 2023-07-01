@@ -13,7 +13,7 @@
  * to write our own implementation relatively easily. However, the main reasons are these:
  *
  * • We want to use our own JSON subsystem, with all the benefits that brings (i.e. accurate unsigned+signed
- *   64bit integers, full fuzzing, logging during parsing and so on). If we'd want to use that with
+ *   64-bit integers, full fuzzing, logging during parsing and so on). If we'd want to use that with
  *   libvarlink we'd have to serialize and deserialize all the time from its own representation which is
  *   inefficient and nasty.
  *

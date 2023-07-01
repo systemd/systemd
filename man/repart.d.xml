@@ -76,13 +76,13 @@
         <listitem><para>The GPT partition type UUID to match. This may be a GPT partition type UUID such as
         <constant>4f68bce3-e8cd-4db1-96e7-fbcaf984b709</constant>, or an identifier.
         Architecture specific partition types can use one of these architecture identifiers:
-        <constant>alpha</constant>, <constant>arc</constant>, <constant>arm</constant> (32bit),
-        <constant>arm64</constant> (64bit, aka aarch64), <constant>ia64</constant>,
+        <constant>alpha</constant>, <constant>arc</constant>, <constant>arm</constant> (32-bit),
+        <constant>arm64</constant> (64-bit, aka aarch64), <constant>ia64</constant>,
         <constant>loongarch64</constant>, <constant>mips-le</constant>, <constant>mips64-le</constant>,
         <constant>parisc</constant>, <constant>ppc</constant>, <constant>ppc64</constant>,
         <constant>ppc64-le</constant>, <constant>riscv32</constant>, <constant>riscv64</constant>,
         <constant>s390</constant>, <constant>s390x</constant>, <constant>tilegx</constant>,
-        <constant>x86</constant> (32bit, aka i386) and <constant>x86-64</constant> (64bit, aka amd64).
+        <constant>x86</constant> (32-bit, aka i386) and <constant>x86-64</constant> (64-bit, aka amd64).
 
         The supported identifiers are:</para>
 
@@ -158,7 +158,7 @@
 
               <row>
                 <entry><constant>root-secondary</constant></entry>
-                <entry>Root file system partition of the secondary architecture of the local architecture (usually the matching 32bit architecture for the local 64bit architecture)</entry>
+                <entry>Root file system partition of the secondary architecture of the local architecture (usually the matching 32-bit architecture for the local 64-bit architecture)</entry>
               </row>
 
               <row>
@@ -203,7 +203,7 @@
 
               <row>
                 <entry><constant>usr-secondary</constant></entry>
-                <entry><filename>/usr/</filename> file system partition of the secondary architecture of the local architecture (usually the matching 32bit architecture for the local 64bit architecture)</entry>
+                <entry><filename>/usr/</filename> file system partition of the secondary architecture of the local architecture (usually the matching 32-bit architecture for the local 64-bit architecture)</entry>
               </row>
 
               <row>
@@ -572,7 +572,7 @@
       <varlistentry>
         <term><varname>Flags=</varname></term>
 
-        <listitem><para>Configures the 64bit GPT partition flags field to set for the partition when creating
+        <listitem><para>Configures the 64-bit GPT partition flags field to set for the partition when creating
         it. This option has no effect if the partition already exists. If not specified the flags values is
         set to all zeroes, except for the three bits that can also be configured via
         <varname>NoAuto=</varname>, <varname>ReadOnly=</varname> and <varname>GrowFileSystem=</varname>; see

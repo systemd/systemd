@@ -229,7 +229,7 @@ static void test_apply_ambient_caps(void) {
         assert_se(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0) == 0);
 }
 
-static void test_ensure_cap_64bit(void) {
+static void test_ensure_cap_64_bit(void) {
         _cleanup_free_ char *content = NULL;
         unsigned long p = 0;
         int r;
@@ -241,7 +241,7 @@ static void test_ensure_cap_64bit(void) {
 
         assert_se(safe_atolu(content, &p) >= 0);
 
-        /* If caps don't fit into 64bit anymore, we have a problem, fail the test. */
+        /* If caps don't fit into 64-bit anymore, we have a problem, fail the test. */
         assert_se(p <= 63);
 
         /* Also check for the header definition */
@@ -303,7 +303,7 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        test_ensure_cap_64bit();
+        test_ensure_cap_64_bit();
 
         test_last_cap_file();
         test_last_cap_probe();

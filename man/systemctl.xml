@@ -2224,7 +2224,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         project='man-pages'><refentrytitle>sigqueue</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         system call, rather than <citerefentry
         project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>3</manvolnum></citerefentry>. The
-        specified value must be a 32bit signed integer, and may be specified either in decimal, in
+        specified value must be a 32-bit signed integer, and may be specified either in decimal, in
         hexadecimal (if prefixed with <literal>0x</literal>), octal (if prefixed with <literal>0o</literal>)
         or binary (if prefixed with <literal>0b</literal>)</para>
 

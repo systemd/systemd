@@ -87,7 +87,7 @@
           <row>
             <entry><literal>y</literal></entry>
             <entry><constant>SD_BUS_TYPE_BYTE</constant></entry>
-            <entry>8bit unsigned integer</entry>
+            <entry>8-bit unsigned integer</entry>
             <entry><type>uint8_t *</type></entry>
           </row>
 
@@ -101,42 +101,42 @@
           <row>
             <entry><literal>n</literal></entry>
             <entry><constant>SD_BUS_TYPE_INT16</constant></entry>
-            <entry>16bit signed integer</entry>
+            <entry>16-bit signed integer</entry>
             <entry><type>int16_t *</type></entry>
           </row>
 
           <row>
             <entry><literal>q</literal></entry>
             <entry><constant>SD_BUS_TYPE_UINT16</constant></entry>
-            <entry>16bit unsigned integer</entry>
+            <entry>16-bit unsigned integer</entry>
             <entry><type>uint16_t *</type></entry>
           </row>
 
           <row>
             <entry><literal>i</literal></entry>
             <entry><constant>SD_BUS_TYPE_INT32</constant></entry>
-            <entry>32bit signed integer</entry>
+            <entry>32-bit signed integer</entry>
             <entry><type>int32_t *</type></entry>
           </row>
 
           <row>
             <entry><literal>u</literal></entry>
             <entry><constant>SD_BUS_TYPE_UINT32</constant></entry>
-            <entry>32bit unsigned integer</entry>
+            <entry>32-bit unsigned integer</entry>
             <entry><type>uint32_t *</type></entry>
           </row>
 
           <row>
             <entry><literal>x</literal></entry>
             <entry><constant>SD_BUS_TYPE_INT64</constant></entry>
-            <entry>64bit signed integer</entry>
+            <entry>64-bit signed integer</entry>
             <entry><type>int64_t *</type></entry>
           </row>
 
           <row>
             <entry><literal>t</literal></entry>
             <entry><constant>SD_BUS_TYPE_UINT64</constant></entry>
-            <entry>64bit unsigned integer</entry>
+            <entry>64-bit unsigned integer</entry>
             <entry><type>uint64_t *</type></entry>
           </row>
 

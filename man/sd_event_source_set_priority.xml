@@ -56,7 +56,7 @@
     <para><function>sd_event_source_set_priority()</function> may be
     used to set the priority for the event source object specified as
     <parameter>source</parameter>. The priority is specified as an
-    arbitrary signed 64bit integer. The priority is initialized to
+    arbitrary signed 64-bit integer. The priority is initialized to
     <constant>SD_EVENT_PRIORITY_NORMAL</constant> (0) when the event
     source is allocated with a call such as
     <citerefentry><refentrytitle>sd_event_add_io</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -70,7 +70,7 @@
     <constant>SD_EVENT_PRIORITY_IDLE</constant> (100) may be used to
     indicate event sources that shall be dispatched early, normally or
     late. It is recommended to specify priorities based on these
-    definitions, and relative to them — however, the full 64bit
+    definitions, and relative to them — however, the full 64-bit
     signed integer range is available for ordering event
     sources.</para>
 

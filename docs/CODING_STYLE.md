@@ -118,7 +118,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   compatibility. Since we typically want to allow adding new enum values to an
   existing enum type with later API versions, please use the
   `_SD_ENUM_FORCE_S64()` macro in the enum definition, which forces the size of
-  the enum to be signed 64bit wide.
+  the enum to be signed 64-bit wide.
 
 - Empty lines to separate code blocks are a good thing, please add them
   abundantly. However, please stick to one at a time, i.e. multiple empty lines

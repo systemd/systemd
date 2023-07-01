@@ -70,7 +70,7 @@ static int add_lookup_instructions(
         }
 
         do {
-                /* Compare IPv4 with one word instruction (32bit) */
+                /* Compare IPv4 with one word instruction (32-bit) */
                 struct bpf_insn insn[] = {
                         /* If skb->protocol != ETH_P_IP, skip this whole block. The offset will be set later. */
                         BPF_JMP_IMM(BPF_JNE, BPF_REG_7, htobe16(protocol), 0),

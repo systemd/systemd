@@ -71,15 +71,15 @@ thread](https://lists.freedesktop.org/archives/systemd-devel/2012-October/007054
 
 ## Basics
 
-* All offsets, sizes, time values, hashes (and most other numeric values) are 32bit/64bit unsigned integers in LE format.
+* All offsets, sizes, time values, hashes (and most other numeric values) are 32-bit/64-bit unsigned integers in LE format.
 * Offsets are always relative to the beginning of the file.
-* The 64bit hash function siphash24 is used for newer journal files. For older files [Jenkins lookup3](https://en.wikipedia.org/wiki/Jenkins_hash_function) is used, more specifically `jenkins_hashlittle2()` with the first 32bit integer it returns as higher 32bit part of the 64bit value, and the second one uses as lower 32bit part.
-* All structures are aligned to 64bit boundaries and padded to multiples of 64bit
+* The 64-bit hash function siphash24 is used for newer journal files. For older files [Jenkins lookup3](https://en.wikipedia.org/wiki/Jenkins_hash_function) is used, more specifically `jenkins_hashlittle2()` with the first 32-bit integer it returns as higher 32-bit part of the 64-bit value, and the second one uses as lower 32-bit part.
+* All structures are aligned to 64-bit boundaries and padded to multiples of 64-bit
 * The format is designed to be read and written via memory mapping using multiple mapped windows.
 * All time values are stored in usec since the respective epoch.
 * Wall clock time values are relative to the Unix time epoch, i.e. January 1st, 1970. (`CLOCK_REALTIME`)
 * Monotonic time values are always stored jointly with the kernel boot ID value (i.e. `/proc/sys/kernel/random/boot_id`) they belong to. They tend to be relative to the start of the boot, but aren't for containers. (`CLOCK_MONOTONIC`)
-* Randomized, unique 128bit IDs are used in various locations. These are generally UUID v4 compatible, but this is not a requirement.
+* Randomized, unique 128-bit IDs are used in various locations. These are generally UUID v4 compatible, but this is not a requirement.
 
 ## General Rules
 
@@ -547,7 +547,7 @@ plus their respective hashes (which are calculated the same way as in the DATA
 objects, i.e. keyed by the file ID).
 
 If the `HEADER_INCOMPATIBLE_COMPACT` flag is set, DATA object offsets are stored
-as 32-bit integers instead of 64bit and the unused hash field per data object is
+as 32-bit integers instead of 64-bit and the unused hash field per data object is
 not stored anymore.
 
 In the file ENTRY objects are written ordered monotonically by sequence
@@ -615,7 +615,7 @@ arrays are strictly sorted by offsets on disk, and hence by their timestamps
 and sequence numbers (with some restrictions, see above).
 
 If the `HEADER_INCOMPATIBLE_COMPACT` flag is set, offsets are stored as 32-bit
-integers instead of 64bit.
+integers instead of 64-bit.
 
 Entry Arrays are chained up. If one entry array is full another one is
 allocated and the **next_entry_array_offset** field of the old one pointed to

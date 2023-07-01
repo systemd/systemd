@@ -91,7 +91,7 @@ static uint64_t ticks_freq(void) {
         uint64_t ticks_end = ticks_read_arch();
 
         if (ticks_end < ticks_start) /* Check for an overflow (which is not that unlikely, given on some
-                                      * archs the value is 32bit) */
+                                      * archs the value is 32-bit) */
                 return 0;
 
         cache = (ticks_end - ticks_start) * 1000UL;

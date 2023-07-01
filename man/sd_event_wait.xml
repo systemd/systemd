@@ -121,7 +121,7 @@
     of the states described below.</para>
 
     <para><function>sd_event_get_iteration()</function> may be used to determine the current iteration of the event
-    loop. It returns an unsigned 64bit integer containing a counter that increases monotonically with each iteration of
+    loop. It returns an unsigned 64-bit integer containing a counter that increases monotonically with each iteration of
     the event loop, starting with 0. The counter is increased at the time of the
     <function>sd_event_prepare()</function> invocation.</para>
 

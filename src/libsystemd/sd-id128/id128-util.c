@@ -21,7 +21,7 @@ bool id128_is_valid(const char *s) {
         l = strlen(s);
 
         if (l == SD_ID128_STRING_MAX - 1)
-                /* Plain formatted 128bit hex string */
+                /* Plain formatted 128-bit hex string */
                 return in_charset(s, HEXDIGITS);
 
         if (l == SD_ID128_UUID_STRING_MAX - 1) {
@@ -49,7 +49,7 @@ int id128_read_fd(int fd, Id128Flag f, sd_id128_t *ret) {
 
         assert(fd >= 0);
 
-        /* Reads an 128bit ID from a file, which may either be in plain format (32 hex digits), or in UUID format, both
+        /* Reads an 128-bit ID from a file, which may either be in plain format (32 hex digits), or in UUID format, both
          * optionally followed by a newline and nothing else. ID files should really be newline terminated, but if they
          * aren't that's OK too, following the rule of "Be conservative in what you send, be liberal in what you
          * accept".

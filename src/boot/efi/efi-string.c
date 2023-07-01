@@ -629,7 +629,7 @@ static bool handle_format_specifier(FormatContext *ctx, SpecifierContext *sp) {
         /* Parses one item from the format specifier in ctx and put the info into sp. If we are done with
          * this specifier returns true, otherwise this function should be called again. */
 
-        /* This implementation assumes 32bit ints. Also note that all types smaller than int are promoted to
+        /* This implementation assumes 32-bit ints. Also note that all types smaller than int are promoted to
          * int in vararg functions, which is why we fetch only ints for any such types. The compiler would
          * otherwise warn about fetching smaller types. */
         assert_cc(sizeof(int) == 4);

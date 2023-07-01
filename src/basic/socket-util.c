@@ -1179,7 +1179,7 @@ void* cmsg_find_and_copy_data(struct msghdr *mh, int level, int type, void *buf,
         assert(buf_len > 0);
 
         /* This is similar to cmsg_find_data(), but copy the found data to buf. This should be typically used
-         * when reading possibly unaligned data such as timestamp, as time_t is 64bit and size_t is 32bit on
+         * when reading possibly unaligned data such as timestamp, as time_t is 64-bit and size_t is 32-bit on
          * RISCV32. See issue #27241. */
 
         cmsg = cmsg_find(mh, level, type, CMSG_LEN(buf_len));

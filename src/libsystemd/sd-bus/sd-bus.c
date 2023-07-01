@@ -1902,7 +1902,7 @@ _public_ int sd_bus_get_bus_id(sd_bus *bus, sd_id128_t *id) {
 
 static uint64_t cookie_inc(uint64_t cookie) {
 
-        /* Stay within the 32bit range, since classic D-Bus can't deal with more */
+        /* Stay within the 32-bit range, since classic D-Bus can't deal with more */
         if (cookie >= UINT32_MAX)
                 return COOKIE_CYCLED; /* Don't go back to zero, but use the highest bit for checking
                                        * whether we are looping. */

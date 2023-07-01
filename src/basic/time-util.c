@@ -1661,13 +1661,13 @@ int time_change_fd(void) {
         if (timerfd_settime(fd, TFD_TIMER_ABSTIME|TFD_TIMER_CANCEL_ON_SET, &its, NULL) >= 0)
                 return TAKE_FD(fd);
 
-        /* So apparently there are systems where time_t is 64bit, but the kernel actually doesn't support
-         * 64bit time_t. In that case configuring a timer to TIME_T_MAX will fail with EOPNOTSUPP or a
+        /* So apparently there are systems where time_t is 64-bit, but the kernel actually doesn't support
+         * 64-bit time_t. In that case configuring a timer to TIME_T_MAX will fail with EOPNOTSUPP or a
          * similar error. If that's the case let's try with INT32_MAX instead, maybe that works. It's a bit
          * of a black magic thing though, but what can we do?
          *
-         * We don't want this code on x86-64, hence let's conditionalize this for systems with 64bit time_t
-         * but where "long" is shorter than 64bit, i.e. 32bit archs.
+         * We don't want this code on x86-64, hence let's conditionalize this for systems with 64-bit time_t
+         * but where "long" is shorter than 64-bit, i.e. 32-bit archs.
          *
          * See: https://github.com/systemd/systemd/issues/14362 */
 

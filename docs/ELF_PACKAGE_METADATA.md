@@ -74,7 +74,7 @@ not contain any control character, nor use `\uXXX` escaping.
 
 When it comes to JSON numbers, this specification assumes that JSON parsers
 processing this information are capable of reproducing the full signed 53bit
-integer range (i.e. -2⁵³+1…+2⁵³-1) as well as the full 64bit IEEE floating
+integer range (i.e. -2⁵³+1…+2⁵³-1) as well as the full 64-bit IEEE floating
 point number range losslessly (with the exception of NaN/-inf/+inf, since JSON
 cannot encode that), as per recommendations of
 [RFC8259](https://datatracker.ietf.org/doc/html/rfc8259#page-8). Fields in

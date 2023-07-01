@@ -179,7 +179,7 @@ int flush_accept(int fd);
  * at compile time, that the requested type has a smaller or same alignment as 'struct cmsghdr', and one
  * during runtime, that the actual pointer matches the alignment too. This is supposed to catch cases such as
  * 'struct timeval' is embedded into 'struct cmsghdr' on architectures where the alignment of the former is 8
- * bytes (because of a 64bit time_t), but of the latter is 4 bytes (because size_t is 32bit), such as
+ * bytes (because of a 64-bit time_t), but of the latter is 4 bytes (because size_t is 32 bits), such as
  * riscv32. */
 #define CMSG_TYPED_DATA(cmsg, type)                                     \
         ({                                                              \
@@ -294,7 +294,7 @@ static inline int getsockopt_int(int fd, int level, int optname, int *ret) {
 int socket_bind_to_ifname(int fd, const char *ifname);
 int socket_bind_to_ifindex(int fd, int ifindex);
 
-/* Define a 64bit version of timeval/timespec in any case, even on 32bit userspace. */
+/* Define a 64-bit version of timeval/timespec in any case, even on 32-bit userspace. */
 struct timeval_large {
         uint64_t tvl_sec, tvl_usec;
 };
@@ -302,7 +302,7 @@ struct timespec_large {
         uint64_t tvl_sec, tvl_nsec;
 };
 
-/* glibc duplicates timespec/timeval on certain 32bit archs, once in 32bit and once in 64bit.
+/* glibc duplicates timespec/timeval on certain 32-bit arches, once in 32-bit and once in 64-bit.
  * See __convert_scm_timestamps() in glibc source code. Hence, we need additional buffer space for them
  * to prevent from recvmsg_safe() returning -EXFULL. */
 #define CMSG_SPACE_TIMEVAL                                              \

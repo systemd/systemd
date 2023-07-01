@@ -1093,7 +1093,7 @@ struct ethtool_rx_flow_spec {
 /* How rings are laid out when accessing virtual functions or
  * offloaded queues is device specific. To allow users to do flow
  * steering and specify these queues the ring cookie is partitioned
- * into a 32bit queue index with an 8 bit virtual function id.
+ * into a 32-bit queue index with an 8 bit virtual function id.
  * This also leaves the 3bytes for further specifiers. It is possible
  * future devices may support more than 256 virtual functions if
  * devices start supporting PCIe w/ARI. However at the moment I

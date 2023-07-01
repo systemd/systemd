@@ -394,7 +394,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to parse root hash '%s': %m", optarg);
                         if (l < sizeof(sd_id128_t))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Root hash must be at least 128bit long: %s", optarg);
+                                                       "Root hash must be at least 128-bit long: %s", optarg);
 
                         free_and_replace(arg_verity_settings.root_hash, p);
                         arg_verity_settings.root_hash_size = l;

@@ -52,7 +52,7 @@
 #include "uid-alloc-range.h"
 #include "user-util.h"
 
-/* The maximum size up to which we process coredumps. We use 1G on 32bit systems, and 32G on 64bit systems */
+/* The maximum size up to which we process coredumps. We use 1G on 32-bit systems, and 32G on 64-bit systems */
 #if __SIZEOF_POINTER__ == 4
 #define PROCESS_SIZE_MAX ((uint64_t) (1LLU*1024LLU*1024LLU*1024LLU))
 #elif __SIZEOF_POINTER__ == 8

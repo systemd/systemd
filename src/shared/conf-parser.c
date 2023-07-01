@@ -953,12 +953,12 @@ int config_parse_id128(
 
         r = sd_id128_from_string(rvalue, &t);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse 128bit ID/UUID, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse 128-bit ID/UUID, ignoring: %s", rvalue);
                 return 0;
         }
 
         if (sd_id128_is_null(t)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "128bit ID/UUID is all 0, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "128-bit ID/UUID is all 0, ignoring: %s", rvalue);
                 return 0;
         }
 

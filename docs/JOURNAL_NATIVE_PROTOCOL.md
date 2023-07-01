@@ -70,7 +70,7 @@ key `FOO` with a value `BAR` is serialized `F`, `O`, `O`, `=`, `B`, `A`, `R`,
 
 * The second method should be used if the value of a field contains a `\n`
 byte. In this case, the key name is serialized as is, followed by a `\n`
-character, followed by a (non-aligned) little-endian unsigned 64bit integer
+character, followed by a (non-aligned) little-endian unsigned 64-bit integer
 encoding the size of the value, followed by the literal value data, followed by
 `\n`. Example: a key `FOO` with a value `BAR` may be serialized using this
 second method as: `F`, `O`, `O`, `\n`, `\003`, `\000`, `\000`, `\000`, `\000`,

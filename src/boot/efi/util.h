@@ -147,16 +147,16 @@ static inline void strv_freep(char16_t ***p) {
 
 EFI_STATUS open_directory(EFI_FILE *root_dir, const char16_t *path, EFI_FILE **ret);
 
-/* Conversion between EFI_PHYSICAL_ADDRESS and pointers is not obvious. The former is always 64bit, even on
- * 32bit archs. And gcc complains if we cast a pointer to an integer of a different size. Hence let's do the
+/* Conversion between EFI_PHYSICAL_ADDRESS and pointers is not obvious. The former is always 64-bit, even on
+ * 32-bit archs. And gcc complains if we cast a pointer to an integer of a different size. Hence let's do the
  * conversion indirectly: first into uintptr_t and then extended to EFI_PHYSICAL_ADDRESS. */
 static inline EFI_PHYSICAL_ADDRESS POINTER_TO_PHYSICAL_ADDRESS(const void *p) {
         return (EFI_PHYSICAL_ADDRESS) (uintptr_t) p;
 }
 
 static inline void *PHYSICAL_ADDRESS_TO_POINTER(EFI_PHYSICAL_ADDRESS addr) {
-        /* On 32bit systems the address might not be convertible (as pointers are 32bit but
-         * EFI_PHYSICAL_ADDRESS 64bit) */
+        /* On 32-bit systems the address might not be convertible (as pointers are 32-bit but
+         * EFI_PHYSICAL_ADDRESS 64-bit) */
         assert(addr <= UINTPTR_MAX);
         return (void *) (uintptr_t) addr;
 }
