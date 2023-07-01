@@ -22,7 +22,7 @@ jobs:
 
     steps:
     - name: Label PR based on policy in labeler.yml
-      uses: actions/labeler@0776a679364a9a16110aac8d0f40f5e11009e327
+      uses: actions/labeler@0967ca812e7fdc8f5f71402a1b486d5bd061fe20
       if: github.event_name == 'pull_request_target' && github.event.action != 'closed'
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
