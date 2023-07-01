@@ -211,10 +211,10 @@ static int shorten_ifname(char *ifname) {
         if (naming_scheme_has(NAMING_NSPAWN_LONG_HASH)) {
                 uint64_t h;
 
-                /* Calculate 64bit hash value */
+                /* Calculate 64-bit hash value */
                 h = siphash24(ifname, strlen(ifname), SHORTEN_IFNAME_HASH_KEY.bytes);
 
-                /* Set the final four bytes (i.e. 32bit) to the lower 24bit of the hash, encoded in url-safe base64 */
+                /* Set the final four bytes (i.e. 32-bit) to the lower 24bit of the hash, encoded in url-safe base64 */
                 memcpy(new_ifname, ifname, IFNAMSIZ - 5);
                 new_ifname[IFNAMSIZ - 5] = urlsafe_base64char(h >> 18);
                 new_ifname[IFNAMSIZ - 4] = urlsafe_base64char(h >> 12);

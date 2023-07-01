@@ -918,7 +918,7 @@ static int bind_description(sd_bus *b, int fd, int family) {
         (void) sd_bus_get_description(b, &d);
 
         /* Generate a recognizable source address in the abstract namespace. We'll include:
-         * - a random 64bit value (to avoid collisions)
+         * - a random 64-bit value (to avoid collisions)
          * - our "comm" process name (suppressed if contains "/" to avoid parsing issues)
          * - the description string of the bus connection. */
         (void) get_process_comm(0, &comm);

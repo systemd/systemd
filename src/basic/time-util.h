@@ -222,7 +222,7 @@ static inline int usleep_safe(usec_t usec) {
 /* The last second we can format is 31. Dec 9999, 1s before midnight, because otherwise we'd enter 5 digit
  * year territory. However, since we want to stay away from this in all timezones we take one day off. */
 #define USEC_TIMESTAMP_FORMATTABLE_MAX_64BIT ((usec_t) 253402214399000000) /* Thu 9999-12-30 23:59:59 UTC */
-/* With a 32bit time_t we can't go beyond 2038...
+/* With a 32-bit time_t we can't go beyond 2038...
  * We parse timestamp with RFC-822/ISO 8601 (e.g. +06, or -03:00) as UTC, hence the upper bound must be off
  * by USEC_PER_DAY. See parse_timestamp() for more details. */
 #define USEC_TIMESTAMP_FORMATTABLE_MAX_32BIT (((usec_t) INT32_MAX) * USEC_PER_SEC - USEC_PER_DAY)

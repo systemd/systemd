@@ -79,7 +79,7 @@ static double ts_to_d(const struct timespec *ts) {
 }
 
 static uint32_t graceful_add_offset_1900_1970(time_t t) {
-        /* Adds OFFSET_1900_1970 to t and returns it as 32bit value. This is handles overflows
+        /* Adds OFFSET_1900_1970 to t and returns it as 32-bit value. This is handles overflows
          * gracefully in a deterministic and well-defined way by cutting off the top bits. */
         uint64_t a = (uint64_t) t + OFFSET_1900_1970;
         return (uint32_t) (a & UINT64_C(0xFFFFFFFF));

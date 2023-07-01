@@ -21,7 +21,7 @@
   In case you wonder why we have our own JSON implementation, here are a couple of reasons why this implementation has
   benefits over various other implementations:
 
-  - We need support for 64bit signed and unsigned integers, i.e. the full 64,5bit range of -9223372036854775808…18446744073709551615
+  - We need support for 64-bit signed and unsigned integers, i.e. the full 64,5bit range of -9223372036854775808…18446744073709551615
   - All our variants are immutable after creation
   - Special values such as true, false, zero, null, empty strings, empty array, empty objects require zero dynamic memory
   - Progressive parsing

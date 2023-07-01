@@ -44,7 +44,7 @@ assert_cc(sizeof(struct iphdr) == 20);
 assert_cc(sizeof(struct udphdr) == 8);
 assert_cc(sizeof(DnsPacketHeader) == 12);
 
-/* The various DNS protocols deviate in how large a packet can grow, but the TCP transport has a 16bit size
+/* The various DNS protocols deviate in how large a packet can grow, but the TCP transport has a 16-bit size
  * field, hence that appears to be the absolute maximum. */
 #define DNS_PACKET_SIZE_MAX 0xFFFFu
 

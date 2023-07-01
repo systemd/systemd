@@ -1062,7 +1062,7 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         /* Objects may only be located at multiple of 64 bit */
         if (!VALID64(offset))
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to move to %s object at non-64bit boundary: %" PRIu64,
+                                       "Attempt to move to %s object at non-64-bit boundary: %" PRIu64,
                                        journal_object_type_to_string(type),
                                        offset);
 
@@ -1109,7 +1109,7 @@ int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t of
         /* Objects may only be located at multiple of 64 bit */
         if (!VALID64(offset))
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Attempt to read %s object at non-64bit boundary: %" PRIu64,
+                                       "Attempt to read %s object at non-64-bit boundary: %" PRIu64,
                                        journal_object_type_to_string(type), offset);
 
         /* Object may not be located in the file header */
@@ -1880,7 +1880,7 @@ static int maybe_decompress_payload(
 
         assert(f);
 
-        /* We can't read objects larger than 4G on a 32bit machine */
+        /* We can't read objects larger than 4G on a 32-bit machine */
         if ((uint64_t) (size_t) size != size)
                 return -E2BIG;
 

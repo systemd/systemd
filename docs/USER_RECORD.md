@@ -269,13 +269,13 @@ disposition of a user automatically from a record even in absence of this
 field, based on other fields, for example the numeric UID. By setting this
 field explicitly applications can override this default determination.
 
-`lastChangeUSec` → An unsigned 64bit integer value, referring to a timestamp in µs
+`lastChangeUSec` → An unsigned 64-bit integer value, referring to a timestamp in µs
 since the epoch 1970, indicating when the user record (specifically, any of the
 `regular`, `privileged`, `perMachine` sections) was last changed. This field is
 used when comparing two records of the same user to identify the newer one, and
 is used for example for automatic updating of user records, where appropriate.
 
-`lastPasswordChangeUSec` → Similar, also an unsigned 64bit integer value,
+`lastPasswordChangeUSec` → Similar, also an unsigned 64-bit integer value,
 indicating the point in time the password (or any authentication token) of the
 user was last changed. This corresponds to the `sp_lstchg` field of `struct
 spwd`, i.e. the matching field in the user shadow database `/etc/shadow`,
@@ -338,7 +338,7 @@ i.e. logins are permitted. This field corresponds to the `sp_expire` field of
 `struct spwd` (i.e. the `/etc/shadow` data for a user) being set to zero or
 one.
 
-`notBeforeUSec` → An unsigned 64bit integer value, indicating a time in µs since
+`notBeforeUSec` → An unsigned 64-bit integer value, indicating a time in µs since
 the UNIX epoch (1970) before which the record should be considered invalid for
 the purpose of logging in.
 
@@ -360,7 +360,7 @@ mounted from a Windows File Share. The five latter types are primarily used by
 `systemd-homed` when managing home directories, but may be used if other
 managers are used too. If this is not set, `classic` is the implied default.
 
-`diskSize` → An unsigned 64bit integer, indicating the intended home directory
+`diskSize` → An unsigned 64-bit integer, indicating the intended home directory
 disk space in bytes to assign to the user. Depending on the selected storage
 type this might be implemented differently: for `luks` this is the intended size
 of the file system and LUKS volume, while for the others this likely translates
@@ -378,7 +378,7 @@ directory is first created, and defaults to `/etc/skel` if not defined.
 `accessMode` → Takes an unsigned integer in the range 0…511 indicating the UNIX
 access mask for the home directory when it is first created.
 
-`tasksMax` → Takes an unsigned 64bit integer indicating the maximum number of
+`tasksMax` → Takes an unsigned 64-bit integer indicating the maximum number of
 tasks the user may start in parallel during system runtime. This counts
 all tasks (i.e. threads, where each process is at least one thread) the user starts or that are
 forked from these processes even if the user identity is changed (for example
@@ -387,7 +387,7 @@ by setuid binaries/`su`/`sudo` and similar).
 enforces this by setting the `TasksMax` slice property for the user's slice
 `user-$UID.slice`.
 
-`memoryHigh`/`memoryMax` → These take unsigned 64bit integers indicating upper
+`memoryHigh`/`memoryMax` → These take unsigned 64-bit integers indicating upper
 memory limits for all processes of the user (plus all processes forked off them
 that might have changed user identity), in bytes. Enforced by
 [`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/systemd-logind.service.html),
@@ -490,20 +490,20 @@ the PBKDF operation for the LUKS storage mechanism.
 
 `luksPbkdfType` → A string, indicating the PBKDF type to use for the LUKS storage mechanism.
 
-`luksPbkdfForceIterations` → An unsigned 64bit integer, indicating the intended
+`luksPbkdfForceIterations` → An unsigned 64-bit integer, indicating the intended
 number of iterations for the PBKDF operation, when LUKS storage is used.
 
-`luksPbkdfTimeCostUSec` → An unsigned 64bit integer, indicating the intended
+`luksPbkdfTimeCostUSec` → An unsigned 64-bit integer, indicating the intended
 time cost for the PBKDF operation, when the LUKS storage mechanism is used, in
 µs. Ignored when `luksPbkdfForceIterations` is set.
 
-`luksPbkdfMemoryCost` → An unsigned 64bit integer, indicating the intended
+`luksPbkdfMemoryCost` → An unsigned 64-bit integer, indicating the intended
 memory cost for the PBKDF operation, when LUKS storage is used, in bytes.
 
-`luksPbkdfParallelThreads` → An unsigned 64bit integer, indicating the intended
+`luksPbkdfParallelThreads` → An unsigned 64-bit integer, indicating the intended
 required parallel threads for the PBKDF operation, when LUKS storage is used.
 
-`luksSectorSize` → An unsigned 64bit integer, indicating the sector size to
+`luksSectorSize` → An unsigned 64-bit integer, indicating the sector size to
 use for the LUKS storage mechanism, in bytes. Must be a power of two between
 512 and 4096.
 
@@ -524,13 +524,13 @@ record. It is recommended to use reverse domain name notation for this. For
 example, if `systemd-homed` manages a user a string of `io.systemd.Home` is
 used for this.
 
-`rateLimitIntervalUSec` → An unsigned 64bit integer that configures the
+`rateLimitIntervalUSec` → An unsigned 64-bit integer that configures the
 authentication rate limiting enforced on the user account. This specifies a
 timer interval (in µs) within which to count authentication attempts. When the
 counter goes above the value configured n `rateLimitIntervalBurst` log-ins are
 temporarily refused until the interval passes.
 
-`rateLimitIntervalBurst` → An unsigned 64bit integer, closely related to
+`rateLimitIntervalBurst` → An unsigned 64-bit integer, closely related to
 `rateLimitIntervalUSec`, that puts a limit on authentication attempts within
 the configured time interval.
 
@@ -543,7 +543,7 @@ it is bypassed.
 auto-login. Systems are supposed to automatically log in a user marked this way
 during boot, if there's exactly one user on it defined this way.
 
-`stopDelayUSec` → An unsigned 64bit integer, indicating the time in µs the
+`stopDelayUSec` → An unsigned 64-bit integer, indicating the time in µs the
 per-user service manager is kept around after the user fully logged out.  This
 value is honored by
 [`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/systemd-logind.service.html). If
@@ -557,17 +557,17 @@ automatically killed when the user logs out. This is enforced by
 [`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/systemd-logind.service.html). If
 false any processes left around when the user logs out are left running.
 
-`passwordChangeMinUSec`/`passwordChangeMaxUSec` → An unsigned 64bit integer,
+`passwordChangeMinUSec`/`passwordChangeMaxUSec` → An unsigned 64-bit integer,
 encoding how much time has to pass at least/at most between password changes of
 the user. This corresponds with the `sp_min` and `sp_max` fields of `struct
 spwd` (i.e. the `/etc/shadow` entries of the user), but offers finer
 granularity.
 
-`passwordChangeWarnUSec` → An unsigned 64bit integer, encoding how much time to
+`passwordChangeWarnUSec` → An unsigned 64-bit integer, encoding how much time to
 warn the user before their password expires, in µs. This corresponds with the
 `sp_warn` field of `struct spwd`.
 
-`passwordChangeInactiveUSec` → An unsigned 64bit integer, encoding how much
+`passwordChangeInactiveUSec` → An unsigned 64-bit integer, encoding how much
 time has to pass after the password expired that the account is
 deactivated. This corresponds with the `sp_inact` field of `struct spwd`.
 
@@ -717,7 +717,7 @@ in full).
 
 The following fields are defined in this section:
 
-`matchMachineId` → An array of strings that are formatted 128bit IDs in
+`matchMachineId` → An array of strings that are formatted 128-bit IDs in
 hex. If any of the specified IDs match the system's local machine ID
 (i.e. matches `/etc/machine-id`) the fields in this object are honored.
 
@@ -799,26 +799,26 @@ sub-object of the top-level user record object is keyed by the machine ID,
 which points to the object with the fields defined here. The following fields
 are defined:
 
-`diskUsage` → An unsigned 64bit integer. The currently used disk space of the
+`diskUsage` → An unsigned 64-bit integer. The currently used disk space of the
 home directory in bytes. This value might be determined in different ways,
 depending on the selected storage mechanism. For LUKS storage this is the file
 size of the loopback file or block device size. For the
 directory/subvolume/fscrypt storage this is the current disk space used as
 reported by the file system quota subsystem.
 
-`diskFree` → An unsigned 64bit integer, denoting the number of "free" bytes in
+`diskFree` → An unsigned 64-bit integer, denoting the number of "free" bytes in
 the disk space allotment, i.e. usually the difference between the disk size as
 reported by `diskSize` and the used already as reported in `diskFree`, but
 possibly skewed by metadata sizes, disk compression and similar.
 
-`diskSize` → An unsigned 64bit integer, denoting the disk space currently
+`diskSize` → An unsigned 64-bit integer, denoting the disk space currently
 allotted to the user, in bytes. Depending on the storage mechanism this can mean
 different things (see above). In contrast to the top-level field of the same
 (or the one in the `perMachine` section), this field reports the current size
 allotted to the user, not the intended one. The values may differ when user
 records are updated without the home directory being re-sized.
 
-`diskCeiling`/`diskFloor` → Unsigned 64bit integers indicating upper and lower
+`diskCeiling`/`diskFloor` → Unsigned 64-bit integers indicating upper and lower
 bounds when changing the `diskSize` value, in bytes. These values are typically
 derived from the underlying data storage, and indicate in which range the home
 directory may be re-sized in, i.e. in which sensible range the `diskSize` value
@@ -851,27 +851,27 @@ recognized by the local manager but whose private key is not available
 locally. This means the user record cannot be modified locally as it couldn't
 be signed afterwards.
 
-`goodAuthenticationCounter` → An unsigned 64bit integer. This counter is
+`goodAuthenticationCounter` → An unsigned 64-bit integer. This counter is
 increased by one on every successful authentication attempt, i.e. an
 authentication attempt where a security token of some form was presented and it
 was correct.
 
-`badAuthenticationCounter` → An unsigned 64bit integer. This counter is
+`badAuthenticationCounter` → An unsigned 64-bit integer. This counter is
 increased by one on every unsuccessfully authentication attempt, i.e. an
 authentication attempt where a security token of some form was presented and it
 was incorrect.
 
-`lastGoodAuthenticationUSec` → An unsigned 64bit integer, indicating the time
+`lastGoodAuthenticationUSec` → An unsigned 64-bit integer, indicating the time
 of the last successful authentication attempt in µs since the UNIX epoch (1970).
 
 `lastBadAuthenticationUSec` → Similar, but the timestamp of the last
 unsuccessfully authentication attempt.
 
-`rateLimitBeginUSec` → An unsigned 64bit integer: the µs timestamp since the
+`rateLimitBeginUSec` → An unsigned 64-bit integer: the µs timestamp since the
 UNIX epoch (1970) where the most recent rate limiting interval has been
 started, as configured with `rateLimitIntervalUSec`.
 
-`rateLimitCount` → An unsigned 64bit integer, counting the authentication
+`rateLimitCount` → An unsigned 64-bit integer, counting the authentication
 attempts in the current rate limiting interval, see above. If this counter
 grows beyond the value configured in `rateLimitBurst` authentication attempts
 are temporarily refused.

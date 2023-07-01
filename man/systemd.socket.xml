@@ -341,7 +341,7 @@
 
       <varlistentry>
         <term><varname>Backlog=</varname></term>
-        <listitem><para>Takes an unsigned 32bit integer argument. Specifies the number of connections to
+        <listitem><para>Takes an unsigned 32-bit integer argument. Specifies the number of connections to
         queue that have not been accepted yet. This setting matters only for stream and sequential packet
         sockets. See
         <citerefentry><refentrytitle>listen</refentrytitle><manvolnum>2</manvolnum></citerefentry> for

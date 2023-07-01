@@ -75,7 +75,7 @@ static EFI_STATUS pack_cpio_one(
          *
          * See: https://docs.kernel.org/driver-api/early-userspace/buffer-format.html */
 
-        if (contents_size > UINT32_MAX) /* cpio cannot deal with > 32bit file sizes */
+        if (contents_size > UINT32_MAX) /* cpio cannot deal with > 32-bit file sizes */
                 return EFI_LOAD_ERROR;
 
         if (*inode_counter == UINT32_MAX) /* more than 2^32-1 inodes? yikes. cpio doesn't support that either */
