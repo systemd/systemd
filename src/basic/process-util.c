@@ -1095,7 +1095,7 @@ pid_t getpid_cached(void) {
          * https://sourceware.org/git/gitweb.cgi?p=glibc.git;h=c579f48edba88380635ab98cb612030e3ed8691e
          */
 
-        __atomic_compare_exchange_n(
+        (void) __atomic_compare_exchange_n(
                         &cached_pid,
                         &current_value,
                         CACHED_PID_BUSY,

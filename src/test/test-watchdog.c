@@ -23,8 +23,6 @@ int main(int argc, char *argv[]) {
         r = watchdog_setup(t);
         if (r < 0)
                 log_warning_errno(r, "Failed to open watchdog: %m");
-        if (r == -EPERM)
-                t = 0;
 
         for (i = 0; i < count; i++) {
                 t = watchdog_runtime_wait();
