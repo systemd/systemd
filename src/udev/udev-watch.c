@@ -51,7 +51,7 @@ int udev_watch_restore(int inotify_fd) {
 
         assert(inotify_fd >= 0);
 
-        rm_rf("/run/udev/watch.old", REMOVE_ROOT);
+        (void) rm_rf("/run/udev/watch.old", REMOVE_ROOT);
 
         if (rename("/run/udev/watch", "/run/udev/watch.old") < 0) {
                 if (errno == ENOENT)

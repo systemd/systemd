@@ -492,8 +492,6 @@ Virtualization detect_vm(void) {
                         return xen_dom0;
                 if (xen_dom0 == 0)
                         goto finish;
-
-                v = VIRTUALIZATION_NONE;
         } else if (v != VIRTUALIZATION_NONE)
                 assert_not_reached();
 

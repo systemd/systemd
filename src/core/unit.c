@@ -2880,9 +2880,7 @@ int unit_watch_pid(Unit *u, pid_t pid, bool exclusive) {
                                 if (array[n] == u)
                                         found = true;
 
-                if (found) /* Found it already? if so, do nothing */
-                        r = 0;
-                else {
+                if (!found) {
                         Unit **new_array;
 
                         /* Allocate a new array */
