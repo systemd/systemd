@@ -1,0 +1,31 @@
+# This file is part of systemd.
+#
+# Database of sound hardware that gets misdetected
+#
+# To add local entries, copy this file to
+#   /etc/udev/hwdb.d/
+# and add your rules there. To load the new rules execute (as root):
+#   systemd-hwdb update
+#   udevadm trigger
+
+###########################################################
+# Steelseries
+###########################################################
+# Arctis Headsets
+usb:v1038p12B3*
+usb:v1038p12B6*
+usb:v1038p12D7*
+usb:v1038p1260*
+usb:v1038p12AD*
+usb:v1038p1252*
+usb:v1038p1280*
+usb:v1038p220E*
+usb:v1038p2212*
+usb:v1038p2216*
+usb:v1038p2236*
+usb:v1038p12C2*
+usb:v1038p2202*
+usb:v1038p2206*
+usb:v1038p220A*
+usb:v1038p1290*
+ SOUND_FORM_FACTOR=headset
