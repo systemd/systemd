@@ -1013,7 +1013,7 @@ _public_ sd_device *sd_device_get_child_next(sd_device *device, const char **ret
 
         assert(device);
 
-        hashmap_iterate(device->children, &device->children_iterator, (void**) &child, (const void**) ret_suffix);
+        (void) hashmap_iterate(device->children, &device->children_iterator, (void**) &child, (const void**) ret_suffix);
         return child;
 }
 

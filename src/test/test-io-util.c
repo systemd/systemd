@@ -37,7 +37,7 @@ TEST(sparse_write) {
 
         fd = mkostemp(fn, O_CLOEXEC);
         assert_se(fd >= 0);
-        unlink(fn);
+        (void) unlink(fn);
 
         test_sparse_write_one(fd, test_a, sizeof(test_a));
         test_sparse_write_one(fd, test_b, sizeof(test_b));

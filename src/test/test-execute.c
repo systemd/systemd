@@ -419,7 +419,7 @@ static void test_exec_privatetmp(Manager *m) {
         test(m, "exec-privatetmp-no.service", 0, CLD_EXITED);
         test(m, "exec-privatetmp-disabled-by-prefix.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 
-        unlink("/tmp/test-exec_privatetmp");
+        (void) unlink("/tmp/test-exec_privatetmp");
 }
 
 static void test_exec_privatedevices(Manager *m) {

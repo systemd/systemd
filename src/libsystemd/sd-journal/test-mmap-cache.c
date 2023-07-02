@@ -21,17 +21,17 @@ int main(int argc, char *argv[]) {
 
         x = mkostemp_safe(px);
         assert_se(x >= 0);
-        unlink(px);
+        (void) unlink(px);
 
         assert_se(fx = mmap_cache_add_fd(m, x, PROT_READ));
 
         y = mkostemp_safe(py);
         assert_se(y >= 0);
-        unlink(py);
+        (void) unlink(py);
 
         z = mkostemp_safe(pz);
         assert_se(z >= 0);
-        unlink(pz);
+        (void) unlink(pz);
 
         r = mmap_cache_fd_get(fx, 0, false, 1, 2, NULL, &p);
         assert_se(r >= 0);
