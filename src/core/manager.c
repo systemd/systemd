@@ -3272,7 +3272,7 @@ int manager_load_unit_from_dbus_path(Manager *m, const char *s, sd_bus_error *e,
         if (r < 0)
                 return r;
 
-        /* Permit addressing units by invocation ID: if the passed bus path is suffixed by a 128bit ID then
+        /* Permit addressing units by invocation ID: if the passed bus path is suffixed by a 128-bit ID then
          * we use it as invocation ID. */
         r = sd_id128_from_string(n, &invocation_id);
         if (r >= 0) {
@@ -3350,23 +3350,20 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         if (MANAGER_IS_RELOADING(m))
                 return;
 
-        if (u->type != UNIT_SERVICE)
-                return;
-
         r = unit_name_to_prefix_and_instance(u->id, &p);
         if (r < 0) {
-                log_error_errno(r, "Failed to extract prefix and instance of unit name: %m");
+                log_warning_errno(r, "Failed to extract prefix and instance of unit name, ignoring: %m");
                 return;
         }
 
         msg = strjoina("unit=", p);
         if (audit_log_user_comm_message(audit_fd, type, msg, "systemd", NULL, NULL, NULL, success) < 0) {
-                if (errno == EPERM)
-                        /* We aren't allowed to send audit messages?
-                         * Then let's not retry again. */
+                if (ERRNO_IS_PRIVILEGE(errno)) {
+                        /* We aren't allowed to send audit messages?  Then let's not retry again. */
+                        log_debug_errno(errno, "Failed to send audit message, closing audit socket: %m");
                         close_audit_fd();
-                else
-                        log_warning_errno(errno, "Failed to send audit message: %m");
+                } else
+                        log_warning_errno(errno, "Failed to send audit message, ignoring: %m");
         }
 #endif
 
@@ -3389,7 +3386,7 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
         if (detect_container() > 0)
                 return;
 
-        if (!IN_SET(u->type, UNIT_SERVICE, UNIT_MOUNT, UNIT_SWAP))
+        if (!UNIT_VTABLE(u)->notify_plymouth)
                 return;
 
         /* We set SOCK_NONBLOCK here so that we rather drop the
@@ -4500,7 +4497,7 @@ static void manager_unref_uid_internal(
         /* A generic implementation, covering both manager_unref_uid() and manager_unref_gid(), under the
          * assumption that uid_t and gid_t are actually defined the same way, with the same validity rules.
          *
-         * We store a hashmap where the key is the UID/GID and the value is a 32bit reference counter, whose
+         * We store a hashmap where the key is the UID/GID and the value is a 32-bit reference counter, whose
          * highest bit is used as flag for marking UIDs/GIDs whose IPC objects to remove when the last
          * reference to the UID/GID is dropped. The flag is set to on, once at least one reference from a
          * unit where RemoveIPC= is set is added on a UID/GID. It is reset when the UID's/GID's reference

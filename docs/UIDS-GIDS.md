@@ -18,14 +18,14 @@ validity for GIDs too.
 
 ## Special Linux UIDs
 
-In theory, the range of the C type `uid_t` is 32bit wide on Linux,
+In theory, the range of the C type `uid_t` is 32-bit wide on Linux,
 i.e. 0…4294967295. However, four UIDs are special on Linux:
 
 1. 0 → The `root` super-user
 
 2. 65534 → The `nobody` UID, also called the "overflow" UID or similar. It's
    where various subsystems map unmappable users to, for example file systems
-   only supporting 16bit UIDs, NFS or user namespacing. (The latter can be
+   only supporting 16-bit UIDs, NFS or user namespacing. (The latter can be
    changed with a sysctl during runtime, but that's not supported on
    `systemd`. If you do change it you void your warranty.) Because Fedora is a
    bit confused the `nobody` user is called `nfsnobody` there (and they have a
@@ -33,13 +33,13 @@ i.e. 0…4294967295. However, four UIDs are special on Linux:
    though. (Also, some distributions call the `nobody` group `nogroup`. I wish
    they didn't.)
 
-3. 4294967295, aka "32bit `(uid_t) -1`" → This UID is not a valid user ID, as
+3. 4294967295, aka "32-bit `(uid_t) -1`" → This UID is not a valid user ID, as
    `setresuid()`, `chown()` and friends treat -1 as a special request to not
    change the UID of the process/file. This UID is hence not available for
    assignment to users in the user database.
 
-4. 65535, aka "16bit `(uid_t) -1`" → Before Linux kernel 2.4 `uid_t` used to be
-   16bit, and programs compiled for that would hence assume that `(uid_t) -1`
+4. 65535, aka "16-bit `(uid_t) -1`" → Before Linux kernel 2.4 `uid_t` used to be
+   16-bit, and programs compiled for that would hence assume that `(uid_t) -1`
    is 65535. This UID is hence not usable either.
 
 The `nss-systemd` glibc NSS module will synthesize user database records for
@@ -108,7 +108,7 @@ but downstreams are strongly advised against doing that.)
 2. 61184…65519 → UIDs for dynamic users are allocated from this range (see the
    `DynamicUser=` documentation in
    [`systemd.exec(5)`](https://www.freedesktop.org/software/systemd/man/systemd.exec.html)). This
-   range has been chosen so that it is below the 16bit boundary (i.e. below
+   range has been chosen so that it is below the 16-bit boundary (i.e. below
    65535), in order to provide compatibility with container environments that
    assign a 64K range of UIDs to containers using user namespacing. This range
    is above the 60000 boundary, so that its allocations are unlikely to be
@@ -122,15 +122,15 @@ but downstreams are strongly advised against doing that.)
 
 3. 524288…1879048191 → UID range for `systemd-nspawn`'s automatic allocation of
    per-container UID ranges. When the `--private-users=pick` switch is used (or
-   `-U`) then it will automatically find a so far unused 16bit subrange of this
+   `-U`) then it will automatically find a so far unused 16-bit subrange of this
    range and assign it to the container. The range is picked so that the upper
-   16bit of the 32bit UIDs are constant for all users of the container, while
-   the lower 16bit directly encode the 65536 UIDs assigned to the
-   container. This mode of allocation means that the upper 16bit of any UID
-   assigned to a container are kind of a "container ID", while the lower 16bit
+   16-bit of the 32-bit UIDs are constant for all users of the container, while
+   the lower 16-bit directly encode the 65536 UIDs assigned to the
+   container. This mode of allocation means that the upper 16-bit of any UID
+   assigned to a container are kind of a "container ID", while the lower 16-bit
    directly expose the container's own UID numbers. If you wonder why precisely
    these numbers, consider them in hexadecimal: 0x00080000…0x6FFFFFFF. This
-   range is above the 16bit boundary. Moreover it's below the 31bit boundary,
+   range is above the 16-bit boundary. Moreover it's below the 31-bit boundary,
    as some broken code (specifically: the kernel's `devpts` file system)
    erroneously considers UIDs signed integers, and hence can't deal with values
    above 2^31. The `systemd-machined.service` service will synthesize user
@@ -185,7 +185,7 @@ assign to your containers, here are a few recommendations:
 
 1. Definitely, don't assign less than 65536 UIDs/GIDs. After all the `nobody`
 user has magic properties, and hence should be available in your container, and
-given that it's assigned the UID 65534, you should really cover the full 16bit
+given that it's assigned the UID 65534, you should really cover the full 16-bit
 range in your container. Note that systemd will — as mentioned — synthesize
 user records for the `nobody` user, and assumes its availability in various
 other parts of its codebase, too, hence assigning fewer users means you lose
@@ -195,15 +195,15 @@ other packages make similar restrictions.
 2. While it's fine to assign more than 65536 UIDs/GIDs to a container, there's
 most likely not much value in doing so, as Linux distributions won't use the
 higher ranges by default (as mentioned neither `adduser` nor `systemd`'s
-dynamic user concept allocate from above the 16bit range). Unless you actively
+dynamic user concept allocate from above the 16-bit range). Unless you actively
 care for nested containers, it's hence probably a good idea to allocate exactly
 65536 UIDs per container, and neither less nor more. A pretty side-effect is
 that by doing so, you expose the same number of UIDs per container as Linux 2.2
 supported for the whole system, back in the days.
 
 3. Consider allocating UID ranges for containers so that the first UID you
-assign has the lower 16bits all set to zero. That way, the upper 16bits become
-a container ID of some kind, while the lower 16bits directly encode the
+assign has the lower 16-bits all set to zero. That way, the upper 16-bits become
+a container ID of some kind, while the lower 16-bits directly encode the
 internal container UID. This is the way `systemd-nspawn` allocates UID ranges
 (see above). Following this allocation logic ensures best compatibility with
 `systemd-nspawn` and all other container managers following the scheme, as it
@@ -212,7 +212,7 @@ as that's what they do, too. Moreover, it makes `chown()`ing container file
 system trees nicely robust to interruptions: as the external UID encodes the
 internal UID in a fixed way, it's very easy to adjust the container's base UID
 without the need to know the original base UID: to change the container base,
-just mask away the upper 16bit, and insert the upper 16bit of the new container
+just mask away the upper 16-bit, and insert the upper 16-bit of the new container
 base instead. Here are the easy conversions to derive the internal UID, the
 external UID, and the container base UID from each other:
 
@@ -264,17 +264,17 @@ i.e. somewhere below `/var/` or similar.
 |                 6…999 | System users          | Distributions | `/etc/passwd`                 |
 |            1000…60000 | Regular users         | Distributions | `/etc/passwd` + LDAP/NIS/…    |
 |           60001…60513 | Human users (homed)   | `systemd`     | `nss-systemd`                 |
-|           60514…60577 | Host users mapped into containers | `systemd` | `systemd-nspawn`           |
+|           60514…60577 | Host users mapped into containers | `systemd` | `systemd-nspawn`      |
 |           60578…61183 | Unused                |               |                               |
 |           61184…65519 | Dynamic service users | `systemd`     | `nss-systemd`                 |
 |           65520…65533 | Unused                |               |                               |
 |                 65534 | `nobody` user         | Linux         | `/etc/passwd` + `nss-systemd` |
-|                 65535 | 16bit `(uid_t) -1`    | Linux         |                               |
+|                 65535 | 16-bit `(uid_t) -1`   | Linux         |                               |
 |          65536…524287 | Unused                |               |                               |
 |     524288…1879048191 | Container UID ranges  | `systemd`     | `nss-systemd`                 |
 | 1879048192…2147483647 | Unused                |               |                               |
 | 2147483648…4294967294 | HIC SVNT LEONES       |               |                               |
-|            4294967295 | 32bit `(uid_t) -1`    | Linux         |                               |
+|            4294967295 | 32-bit `(uid_t) -1`   | Linux         |                               |
 
 Note that "Unused" in the table above doesn't mean that these ranges are
 really unused. It just means that these ranges have no well-established
@@ -285,7 +285,7 @@ ranges.
 Note that the range 2147483648…4294967294 (i.e. 2^31…2^32-2) should be handled
 with care. Various programs (including kernel file systems — see `devpts` — or
 even kernel syscalls – see `setfsuid()`) have trouble with UIDs outside of the
-signed 32bit range, i.e any UIDs equal to or above 2147483648. It is thus
+signed 32-bit range, i.e any UIDs equal to or above 2147483648. It is thus
 strongly recommended to stay away from this range in order to avoid
 complications. This range should be considered reserved for future, special
 purposes.

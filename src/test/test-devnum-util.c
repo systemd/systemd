@@ -25,7 +25,7 @@ TEST(parse_devnum) {
 }
 
 TEST(device_major_minor_valid) {
-        /* on glibc dev_t is 64bit, even though in the kernel it is only 32bit */
+        /* on glibc dev_t is 64-bit, even though in the kernel it is only 32-bit */
         assert_cc(sizeof(dev_t) == sizeof(uint64_t));
 
         assert_se(DEVICE_MAJOR_VALID(0U));

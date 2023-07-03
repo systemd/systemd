@@ -266,7 +266,7 @@ int bus_service_method_dump_file_descriptor_store(sd_bus_message *message, void 
                         continue;
                 }
 
-                /* glibc implies O_LARGEFILE everywhere on 64bit off_t builds, but forgets to hide it away on
+                /* glibc implies O_LARGEFILE everywhere on 64-bit off_t builds, but forgets to hide it away on
                  * F_GETFL, but provides no definition to check for that. Let's mask the flag away manually,
                  * to not confuse clients. */
                 flags &= ~RAW_O_LARGEFILE;
@@ -307,7 +307,7 @@ static int property_get_size_as_uint32(
         size_t *value = ASSERT_PTR(userdata);
         uint32_t sz = *value >= UINT32_MAX ? UINT32_MAX : (uint32_t) *value;
 
-        /* Returns a size_t as a D-Bus "u" type, i.e. as 32bit value, even if size_t is 64bit. We'll saturate if it doesn't fit. */
+        /* Returns a size_t as a D-Bus "u" type, i.e. as 32-bit value, even if size_t is 64-bit. We'll saturate if it doesn't fit. */
 
         return sd_bus_message_append_basic(reply, 'u', &sz);
 }

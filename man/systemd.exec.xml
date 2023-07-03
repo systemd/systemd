@@ -1143,13 +1143,13 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <constant>ppc</constant>, <constant>ppc-le</constant>, <constant>ppc64</constant>,
         <constant>ppc64-le</constant>, <constant>s390</constant> or <constant>s390x</constant>. Which
         personality architectures are supported depends on the kernel's native architecture. Usually the
-        64bit versions of the various system architectures support their immediate 32bit personality
+        64-bit versions of the various system architectures support their immediate 32-bit personality
         architecture counterpart, but no others. For example, <constant>x86-64</constant> systems support the
         <constant>x86-64</constant> and <constant>x86</constant> personalities but no others. The personality
         feature is useful when running 32-bit services on a 64-bit host system. If not specified, the
         personality is left unmodified and thus reflects the personality of the host system's kernel. This
         option is not useful on architectures for which only one native word width was ever available, such
-        as <constant>m68k</constant> (32bit only) or <constant>alpha</constant> (64bit only).</para></listitem>
+        as <constant>m68k</constant> (32-bit only) or <constant>alpha</constant> (64-bit only).</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3505,7 +3505,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <varlistentry>
           <term><varname>$INVOCATION_ID</varname></term>
 
-          <listitem><para>Contains a randomized, unique 128bit ID identifying each runtime cycle of the unit, formatted
+          <listitem><para>Contains a randomized, unique 128-bit ID identifying each runtime cycle of the unit, formatted
           as 32 character hexadecimal string. A new ID is assigned each time the unit changes from an inactive state into
           an activating or active state, and may be used to identify this specific runtime cycle, in particular in data
           stored offline, such as the journal. The same ID is passed to all processes run as part of the

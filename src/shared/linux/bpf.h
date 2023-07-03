@@ -3972,7 +3972,7 @@ union bpf_attr {
  *
  * u64 bpf_jiffies64(void)
  *	Description
- *		Obtain the 64bit jiffies
+ *		Obtain the 64-bit jiffies
  *	Return
  *		The 64 bit jiffies
  *

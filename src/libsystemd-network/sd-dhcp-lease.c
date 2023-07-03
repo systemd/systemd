@@ -168,6 +168,17 @@ int sd_dhcp_lease_get_root_path(sd_dhcp_lease *lease, const char **root_path) {
         return 0;
 }
 
+int sd_dhcp_lease_get_captive_portal(sd_dhcp_lease *lease, const char **ret) {
+        assert_return(lease, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!lease->captive_portal)
+                return -ENODATA;
+
+        *ret = lease->captive_portal;
+        return 0;
+}
+
 int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, const struct in_addr **addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
@@ -322,6 +333,7 @@ static sd_dhcp_lease *dhcp_lease_free(sd_dhcp_lease *lease) {
         free(lease->timezone);
         free(lease->hostname);
         free(lease->domainname);
+        free(lease->captive_portal);
 
         for (sd_dhcp_lease_server_type_t i = 0; i < _SD_DHCP_LEASE_SERVER_TYPE_MAX; i++)
                 free(lease->servers[i].addr);
@@ -404,6 +416,22 @@ static int lease_parse_domain(const uint8_t *option, size_t len, char **ret) {
         free_and_replace(*ret, normalized);
 
         return 0;
+}
+
+static int lease_parse_captive_portal(const uint8_t *option, size_t len, char **ret) {
+        _cleanup_free_ char *uri = NULL;
+        int r;
+
+        assert(option);
+        assert(ret);
+
+        r = dhcp_option_parse_string(option, len, &uri);
+        if (r < 0)
+                return r;
+        if (uri && !in_charset(uri, URI_VALID))
+                return -EINVAL;
+
+        return free_and_replace(*ret, uri);
 }
 
 static int lease_parse_in_addrs(const uint8_t *option, size_t len, struct in_addr **ret, size_t *n_ret) {
@@ -673,6 +701,12 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 r = lease_parse_in_addrs(option, len, &lease->servers[SD_DHCP_LEASE_LPR].addr, &lease->servers[SD_DHCP_LEASE_LPR].size);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse LPR server, ignoring: %m");
+                break;
+
+        case SD_DHCP_OPTION_DHCP_CAPTIVE_PORTAL:
+                r = lease_parse_captive_portal(option, len, &lease->captive_portal);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse captive portal, ignoring: %m");
                 break;
 
         case SD_DHCP_OPTION_STATIC_ROUTE:

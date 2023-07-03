@@ -33,7 +33,7 @@ same field of user records. A string.
 `service` → A string, an identifier for the service managing this group record
 (this field is typically in reverse domain name syntax.)
 
-`lastChangeUSec` → An unsigned 64bit integer, a timestamp (in µs since the UNIX
+`lastChangeUSec` → An unsigned 64-bit integer, a timestamp (in µs since the UNIX
 epoch 1970) of the last time the group record has been modified. (Covers only
 the `regular`, `perMachine` and `privileged` sections).
 

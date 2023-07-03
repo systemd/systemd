@@ -711,8 +711,8 @@ static int dissect_image(
                 sd_id128_t fsuuid, vuuid;
 
                 /* If a root hash is supplied, then we use the root partition that has a UUID that match the
-                 * first 128bit of the root hash. And we use the verity partition that has a UUID that match
-                 * the final 128bit. */
+                 * first 128-bit of the root hash. And we use the verity partition that has a UUID that match
+                 * the final 128-bit. */
 
                 if (verity->root_hash_size < sizeof(sd_id128_t))
                         return -EINVAL;
