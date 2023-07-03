@@ -99,6 +99,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--namespace=<replaceable>NAMESPACE</replaceable></option></term>
+
+        <listitem><para>Takes a journal namespace identifier string as argument. Upload
+        entries from the specified journal namespace
+        <replaceable>NAMESPACE</replaceable> instead of the default namespace. This has the same meaning as
+        <option>--namespace=</option> option for
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-D</option></term>
         <term><option>--directory=<replaceable>DIR</replaceable></option></term>
 
