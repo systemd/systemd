@@ -6,6 +6,7 @@
 #include "architecture.h"
 #include "conf-files.h"
 #include "conf-parser.h"
+#include "confidential-virt.h"
 #include "constants.h"
 #include "device-private.h"
 #include "device-util.h"
@@ -1920,6 +1921,8 @@ static int udev_rule_apply_token_to_event(
                         val = architecture_to_string(uname_architecture());
                 else if (streq(k, "virt"))
                         val = virtualization_to_string(detect_virtualization());
+                else if (streq(k, "cvm"))
+                        val = confidential_virtualization_to_string(detect_confidential_virtualization());
                 else
                         assert_not_reached();
                 return token_match_string(token, val);

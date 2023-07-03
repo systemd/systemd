@@ -279,6 +279,14 @@
                     for possible values.</para>
                   </listitem>
                 </varlistentry>
+                <varlistentry>
+                  <term><literal>cvm</literal></term>
+                  <listitem>
+                    <para>System's confidential virtualization technology. See
+                    <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+                    for possible values.</para>
+                  </listitem>
+                </varlistentry>
               </variablelist>
               <para>Unknown keys will never match.</para>
             </listitem>
