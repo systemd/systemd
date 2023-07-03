@@ -743,7 +743,7 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
                 return r;
 
         if (!in_charset(captive_portal, URI_VALID))
-                return -EINVAL;
+                return -EBADMSG;
 
         if (!streq_ptr(link->ndisc_captive_portal, captive_portal)) {
                 free_and_replace(link->ndisc_captive_portal, captive_portal);
