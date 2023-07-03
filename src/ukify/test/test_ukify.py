@@ -454,7 +454,14 @@ def test_addon(tmpdir):
         'build',
         f'--output={output}',
         '--cmdline=ARG1 ARG2 ARG3',
+        """--sbat=sbat,1,foo
+foo,1
+bar,2
+""",
         '--section=.test:CONTENTZ',
+        """--sbat=sbat,1,foo
+baz,3
+"""
     ]
     if stub := os.getenv('EFI_ADDON'):
         args += [f'--stub={stub}']
@@ -473,8 +480,20 @@ def test_addon(tmpdir):
     # let's check that objdump likes the resulting file
     dump = subprocess.check_output(['objdump', '-h', output], text=True)
 
-    for sect in 'text cmdline test'.split():
+    for sect in 'text cmdline test sbat'.split():
         assert re.search(fr'^\s*\d+\s+.{sect}\s+0', dump, re.MULTILINE)
+
+    pe = pefile.PE(output, fast_load=True)
+    found = False
+
+    for section in pe.sections:
+        if section.Name.rstrip(b"\x00").decode() == ".sbat":
+            assert found is False
+            split = section.get_data().rstrip(b"\x00").decode().splitlines()
+            assert split == ["sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md", "foo,1", "bar,2", "baz,3"]
+            found = True
+
+    assert found is True
 
 
 def unbase64(filename):

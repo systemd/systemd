@@ -601,10 +601,10 @@ def pe_add_sections(uki: UKI, output: str):
 
     pe.write(output)
 
-def merge_sbat(input: [pathlib.Path]) -> str:
+def merge_sbat(input_pe: [pathlib.Path], input_text: [str]) -> str:
     sbat = []
 
-    for f in input:
+    for f in input_pe:
         try:
             pe = pefile.PE(f, fast_load=True)
         except pefile.PEFormatError:
@@ -620,6 +620,15 @@ def merge_sbat(input: [pathlib.Path]) -> str:
                 # Filter out the sbat line, we'll add it back later, there needs to be only one and it
                 # needs to be first.
                 sbat += split[1:]
+
+    for t in input_text:
+        if t.startswith('@'):
+            t = pathlib.Path(t[1:]).read_text()
+        split = t.splitlines()
+        if not split[0].startswith('sbat,'):
+            print(f"{t} does not contain a valid SBAT section, skipping.")
+            continue
+        sbat += split[1:]
 
     return 'sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md\n' + '\n'.join(sbat) + "\n\x00"
 
@@ -755,11 +764,15 @@ def make_uki(opts):
     # UKI or addon creation - addons don't use the stub so we add SBAT manually
 
     if linux is not None:
-        # Merge the .sbat sections from the stub and the kernel, so that revocation can be done on either.
-        uki.add_section(Section.create('.sbat', merge_sbat([opts.stub, linux]), measure=False))
+        # Merge the .sbat sections from stub, kernel and parameter, so that revocation can be done on either.
+        uki.add_section(Section.create('.sbat', merge_sbat([opts.stub, linux], opts.sbat), measure=False))
         uki.add_section(Section.create('.linux', linux, measure=True))
-    elif opts.sbat:
-        uki.add_section(Section.create('.sbat', opts.sbat, measure=False))
+    else:
+        if not opts.sbat:
+            opts.sbat = ["""sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
+uki,1,UKI,uki,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html
+"""]
+        uki.add_section(Section.create('.sbat', merge_sbat([], opts.sbat), measure=False))
 
     if sign_args_present:
         unsigned = tempfile.NamedTemporaryFile(prefix='uki')
@@ -1131,11 +1144,10 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--sbat',
         metavar = 'TEXT|@PATH',
-        help = 'SBAT policy [.sbat section] for addons',
-        default = """sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
-uki.addon,1,UKI Addon,uki.addon,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html
-""",
-        config_key = 'Addon/SBAT',
+        help = 'SBAT policy [.sbat section]',
+        default = [],
+        action = 'append',
+        config_key = 'UKI/SBAT',
     ),
 
     ConfigItem(
