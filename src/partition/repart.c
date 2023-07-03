@@ -1922,6 +1922,8 @@ static int determine_current_padding(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Partition has no end!");
 
         offset = fdisk_partition_get_end(p);
+        assert(offset < UINT64_MAX);
+        offset++; /* The end is one sector before the next partition or padding. */
         assert(offset < UINT64_MAX / secsz);
         offset *= secsz;
 
