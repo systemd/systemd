@@ -734,7 +734,7 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
                 return r;
 
         if (len == 0) {
-                mfree(link->ndisc_captive_portal);
+                link->ndisc_captive_portal = mfree(link->ndisc_captive_portal);
                 return 0;
         }
 
