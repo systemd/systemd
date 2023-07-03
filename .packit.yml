@@ -15,28 +15,9 @@ downstream_package_name: systemd
 upstream_tag_template: "v{version}"
 srpm_build_deps: []
 
-actions:
-  post-upstream-clone:
-    # Use the Fedora Rawhide specfile
-    - "git clone https://src.fedoraproject.org/rpms/systemd .packit_rpm --depth=1"
-    # Drop the "sources" file so rebase-helper doesn't think we're a dist-git
-    - "rm -fv .packit_rpm/sources"
-    # Drop backported patches from the specfile, but keep the downstream-only ones
-    # - Patch(0000-0499): backported patches from upstream
-    # - Patch0500-9999: downstream-only patches
-    - "sed -ri '/^Patch(0[0-4]?[0-9]{0,2})?\\:.+\\.patch/d' .packit_rpm/systemd.spec"
-    # Build the RPM with --werror. Even though --werror doesn't work in all
-    # cases (see [0]), we can't use -Dc_args=/-Dcpp_args= here because of the
-    # RPM hardening macros, that use $CFLAGS/$CPPFLAGS (see [1]).
-    #
-    # [0] https://github.com/mesonbuild/meson/issues/7360
-    # [1] https://github.com/systemd/systemd/pull/18908#issuecomment-792250110
-    - 'sed -i "/^CONFIGURE_OPTS=(/a--werror" .packit_rpm/systemd.spec'
-    # Ignore unpackages standalone binaries
-    - "sed -i 's/assert False,.*/pass/' .packit_rpm/split-files.py"
-
 jobs:
 - job: copr_build
+  identifier: fedora
   trigger: pull_request
   targets:
   - fedora-rawhide-aarch64
@@ -44,3 +25,63 @@ jobs:
   - fedora-rawhide-ppc64le
   - fedora-rawhide-s390x
   - fedora-rawhide-x86_64
+
+  actions:
+    post-upstream-clone:
+      # Use the Fedora Rawhide specfile
+      - "git clone https://src.fedoraproject.org/rpms/systemd .packit_rpm --depth=1"
+      # Drop the "sources" file so rebase-helper doesn't think we're a dist-git
+      - "rm -fv .packit_rpm/sources"
+      # Drop backported patches from the specfile, but keep the downstream-only ones
+      # - Patch(0000-0499): backported patches from upstream
+      # - Patch0500-9999: downstream-only patches
+      - "sed -ri '/^Patch(0[0-4]?[0-9]{0,2})?\\:.+\\.patch/d' .packit_rpm/systemd.spec"
+      # Build the RPM with --werror. Even though --werror doesn't work in all
+      # cases (see [0]), we can't use -Dc_args=/-Dcpp_args= here because of the
+      # RPM hardening macros, that use $CFLAGS/$CPPFLAGS (see [1]).
+      #
+      # [0] https://github.com/mesonbuild/meson/issues/7360
+      # [1] https://github.com/systemd/systemd/pull/18908#issuecomment-792250110
+      - 'sed -i "/^CONFIGURE_OPTS=(/a--werror" .packit_rpm/systemd.spec'
+      # Ignore unpackages standalone binaries
+      - "sed -i 's/assert False,.*/pass/' .packit_rpm/split-files.py"
+
+- job: copr_build
+  identifier: centos-stream-hyperscale-main
+  trigger: pull_request
+  targets:
+  - centos-stream+epel-next-9-x86_64
+  - centos-stream+epel-next-9-aarch64
+  additional_repos:
+  - https://mirror.stream.centos.org/SIGs/9-stream/hyperscale/$basearch/packages-main
+
+  actions:
+    post-upstream-clone:
+      # Same as above
+      - "git clone https://git.centos.org/rpms/systemd.git -b c9s-sig-hyperscale .packit_rpm --depth=1"
+      - "rm -fv .packit_rpm/sources"
+      - "sed -ri '/^Patch(0[0-4]?[0-9]{0,2})?\\:.+\\.patch/d' .packit_rpm/systemd.spec"
+      - 'sed -i "/^CONFIGURE_OPTS=(/a--werror" .packit_rpm/systemd.spec'
+      - "sed -i 's/assert False,.*/pass/' .packit_rpm/split-files.py"
+
+- job: copr_build
+  identifier: centos-stream-hyperscale-facebook
+  trigger: pull_request
+  targets:
+  - centos-stream+epel-next-9-x86_64
+  - centos-stream+epel-next-9-aarch64
+  additional_repos:
+  - https://mirror.stream.centos.org/SIGs/9-stream/hyperscale/$basearch/packages-main
+  - https://mirror.stream.centos.org/SIGs/9-stream/hyperscale/$basearch/packages-experimental
+  - https://mirror.stream.centos.org/SIGs/9-stream/hyperscale/$basearch/packages-facebook
+
+  actions:
+    post-upstream-clone:
+      # Same as above
+      - "git clone https://git.centos.org/rpms/systemd.git -b c9s-sig-hyperscale .packit_rpm --depth=1"
+      - "rm -fv .packit_rpm/sources"
+      - "sed -ri '/^Patch(0[0-4]?[0-9]{0,2})?\\:.+\\.patch/d' .packit_rpm/systemd.spec"
+      - 'sed -i "/^CONFIGURE_OPTS=(/a--werror" .packit_rpm/systemd.spec'
+      - "sed -i 's/assert False,.*/pass/' .packit_rpm/split-files.py"
+      # copr doesn't support defining custom rpm macros so let's hack the spec file instead.
+      - "sed '3 i %global facebook 1' .packit_rpm/systemd.spec"
