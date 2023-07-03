@@ -29,6 +29,7 @@ disable_ipv6() {
 enable_ipv6() {
     sysctl -w net.ipv6.conf.all.disable_ipv6=0
     networkctl reconfigure dns0
+    /usr/lib/systemd/systemd-networkd-wait-online --ipv4 --ipv6 --interface=dns0:routable --timeout=30
 }
 
 monitor_check_rr() (
