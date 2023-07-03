@@ -305,6 +305,8 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Virtualization = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s ConfidentialVirtualization = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Architecture = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Tainted = '...';
@@ -1009,6 +1011,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="Features"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Virtualization"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ConfidentialVirtualization"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Architecture"/>
 
@@ -1764,6 +1768,12 @@ node /org/freedesktop/systemd1 {
       <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
       Note that only the "innermost" virtualization technology is exported here. This detects both
       full-machine virtualizations (VMs) and shared-kernel virtualization (containers).</para>
+
+      <para><varname>ConfidentialVirtualization</varname> contains a short ID string describing the confidential
+      virtualization technology the system runs in. On bare-metal hardware this is the empty string. Otherwise,
+      it contains an identifier such as <literal>sev</literal>, <literal>sev-es</literal>, <literal>sev-snp</literal>,
+      <literal>tdx</literal> and so on. For a full list of IDs see
+      <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry></para>.
 
       <para><varname>Architecture</varname> contains a short ID string describing the architecture the
       systemd instance is running on. This follows the same vocabulary as
