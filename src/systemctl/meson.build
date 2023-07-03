@@ -36,6 +36,7 @@ systemctl_sources = files(
         'systemctl-sysv-compat.c',
         'systemctl-trivial-method.c',
         'systemctl-util.c',
+        'systemctl-whoami.c',
         'systemctl.c',
 )
 
