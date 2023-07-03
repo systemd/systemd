@@ -1085,7 +1085,7 @@ EOF
                                               --json=pretty \
                                               "$imgs/zzz")
 
-    # FIXME: the second invocation fails.
+    # The second invocation
     output2=$(SYSTEMD_REPART_MKFS_OPTIONS_VFAT="-S 512" systemd-repart \
                                               --definitions="$defs" \
                                               --seed="$seed" \
@@ -1095,7 +1095,9 @@ EOF
                                               --sector-size=4096 \
                                               --defer-partitions=esp \
                                               --json=pretty \
-                                              "$imgs/zzz") || :
+                                              "$imgs/zzz")
+
+    diff -u <(echo "$output1" | grep -E "(offset|raw_size|raw_padding)") <(echo "$output2" | grep -E "(offset|raw_size|raw_padding)")
 }
 
 test_sector() {
