@@ -21,13 +21,16 @@ Transaction *transaction_abort_and_free(Transaction *tr);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Transaction*, transaction_abort_and_free);
 
 typedef enum TransactionAddFlags {
-        TRANSACTION_MATTERS                    = 1 << 0,
-        TRANSACTION_CONFLICTS                  = 1 << 1,
-        TRANSACTION_IGNORE_REQUIREMENTS        = 1 << 2,
-        TRANSACTION_IGNORE_ORDER               = 1 << 3,
+        TRANSACTION_MATTERS                         = 1 << 0,
+        TRANSACTION_CONFLICTS                       = 1 << 1,
+        TRANSACTION_IGNORE_REQUIREMENTS             = 1 << 2,
+        TRANSACTION_IGNORE_ORDER                    = 1 << 3,
 
         /* Propagate a START job to other units like a RESTART */
-        TRANSACTION_PROPAGATE_START_AS_RESTART = 1 << 4,
+        TRANSACTION_PROPAGATE_START_AS_RESTART      = 1 << 4,
+
+        /* Indicate that we're in the recursion for processing UNIT_ATOM_PROPAGATE_STOP_GRACEFUL units */
+        TRANSACTION_PROCESS_PROPAGATE_STOP_GRACEFUL = 1 << 5,
 } TransactionAddFlags;
 
 void transaction_add_propagate_reload_jobs(
