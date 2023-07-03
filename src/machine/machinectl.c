@@ -2567,10 +2567,10 @@ static int help(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] COMMAND ...\n\n"
-               "%sSend control commands to or query the virtual machine and container%s\n"
-               "%sregistration manager.%s\n"
-               "\nMachine Commands:\n"
+        printf("%1$s [OPTIONS...] COMMAND ...\n\n"
+               "%5$sSend control commands to or query the virtual machine and container%6$s\n"
+               "%5$sregistration manager.%6$s\n"
+               "\n%3$sMachine Commands:%4$s\n"
                "  list                        List running VMs and containers\n"
                "  status NAME...              Show VM/container details\n"
                "  show [NAME...]              Show properties of one or more VMs/containers\n"
@@ -2589,7 +2589,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  copy-to NAME PATH [PATH]    Copy files from the host to a container\n"
                "  copy-from NAME PATH [PATH]  Copy files from a container to the host\n"
                "  bind NAME PATH [PATH]       Bind mount a path from the host into a container\n"
-               "\nImage Commands:\n"
+               "\n%3$sImage Commands:%4$s\n"
                "  list-images                 Show available container and VM images\n"
                "  image-status [NAME...]      Show image details\n"
                "  show-image [NAME...]        Show properties of image\n"
@@ -2601,7 +2601,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  remove NAME...              Remove an image\n"
                "  set-limit [NAME] BYTES      Set image or pool size limit (disk quota)\n"
                "  clean                       Remove hidden (or all) images\n"
-               "\nImage Transfer Commands:\n"
+               "\n%3$sImage Transfer Commands:%4$s\n"
                "  pull-tar URL [NAME]         Download a TAR container image\n"
                "  pull-raw URL [NAME]         Download a RAW container or VM image\n"
                "  import-tar FILE [NAME]      Import a local TAR container image\n"
@@ -2611,7 +2611,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  export-raw NAME [FILE]      Export a RAW container or VM image locally\n"
                "  list-transfers              Show list of downloads in progress\n"
                "  cancel-transfer             Cancel a download\n"
-               "\nOptions:\n"
+               "\n%3$sOptions:%4$s\n"
                "  -h --help                   Show this help\n"
                "     --version                Show package version\n"
                "     --no-pager               Do not pipe output into a pager\n"
@@ -2642,13 +2642,13 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --force                  Download image even if already exists\n"
                "     --now                    Start or power off container after enabling or\n"
                "                              disabling it\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %2$s for details.\n",
                program_invocation_short_name,
-               ansi_highlight(),
+               link,
+               ansi_underline(),
                ansi_normal(),
                ansi_highlight(),
-               ansi_normal(),
-               link);
+               ansi_normal());
 
         return 0;
 }
