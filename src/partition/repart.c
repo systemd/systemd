@@ -2108,7 +2108,7 @@ static int context_load_partition_table(Context *context) {
                         return log_error_errno(errno, "Failed to stat block device '%s': %m", context->node);
 
                 if (S_ISREG(st.st_mode) && st.st_size == 0) {
-                        /* User the fallback values if we have no better idea */
+                        /* Use the fallback values if we have no better idea */
                         context->sector_size = arg_sector_size ?: 512;
                         context->grain_size = 4096;
                         return /* from_scratch = */ true;
