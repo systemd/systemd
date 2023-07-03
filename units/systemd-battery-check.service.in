@@ -10,8 +10,10 @@
 [Unit]
 Description=Check battery level during early boot
 Documentation=man:systemd-battery-check.service(8)
-DefaultDependencies=no
+ConditionVirtualization=no
+ConditionDirectoryNotEmpty=/sys/class/power_supply/
 AssertPathExists=/etc/initrd-release
+DefaultDependencies=no
 After=plymouth-start.service
 Before=initrd-root-device.target
 
