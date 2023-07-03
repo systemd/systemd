@@ -2975,6 +2975,21 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('abcd::/16 via 2001:1234:56:8f63::1:1 proto static src 2001:1234:56:8f63::2', output)
 
+    def test_route_preferred_source_with_existing_address(self):
+        # See issue #28009.
+        copy_network_unit('25-route-preferred-source.network', '12-dummy.netdev')
+        start_networkd()
+
+        for i in range(3):
+            if i != 0:
+                networkctl_reconfigure('dummy98')
+
+            self.wait_online(['dummy98:routable'])
+
+            output = check_output('ip -6 route list dev dummy98')
+            print(output)
+            self.assertIn('abcd::/16 via 2001:1234:56:8f63::1:1 proto static src 2001:1234:56:8f63::1', output)
+
     def test_ip_link_mac_address(self):
         copy_network_unit('25-address-link-section.network', '12-dummy.netdev')
         start_networkd()
