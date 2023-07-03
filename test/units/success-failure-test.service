@@ -1,0 +1,9 @@
+[Unit]
+OnSuccess=success-failure-test-success.service
+OnFailure=success-failure-test-failure.service
+
+[Service]
+Type=notify
+Restart=always
+ExecStart=bash -c 'test -f /tmp/success-failure-test-ran && touch /tmp/success-failure-test-ran2 && systemd-notify --ready && sleep infinity'
+ExecStopPost=touch /tmp/success-failure-test-ran
