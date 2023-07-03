@@ -32,6 +32,7 @@
 #include "clean-ipc.h"
 #include "clock-util.h"
 #include "common-signal.h"
+#include "conf-virt.h"
 #include "constants.h"
 #include "core-varlink.h"
 #include "creds-util.h"
@@ -3886,6 +3887,7 @@ static int manager_run_environment_generators(Manager *m) {
 static int build_generator_environment(Manager *m, char ***ret) {
         _cleanup_strv_free_ char **nl = NULL;
         Virtualization v;
+        ConfidentialVirtualization cv;
         int r;
 
         assert(m);
@@ -3930,6 +3932,19 @@ static int build_generator_environment(Manager *m, char ***ret) {
                              virtualization_to_string(v));
 
                 r = strv_env_assign(&nl, "SYSTEMD_VIRTUALIZATION", s);
+                if (r < 0)
+                        return r;
+        }
+
+        cv = detect_confidential_virtualization();
+        if (cv < 0)
+                log_debug_errno(cv, "Failed to detect confidential virtualization, ignoring: %m");
+        else if (v > 0) {
+                const char *s;
+
+                s = strjoina(confidential_virtualization_to_string(cv));
+
+                r = strv_env_assign(&nl, "SYSTEMD_CONFIDENTIAL_VIRTUALIZATION", s);
                 if (r < 0)
                         return r;
         }
