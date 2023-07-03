@@ -288,11 +288,9 @@ usec_t service_restart_usec_next(Service *s) {
         assert(s);
 
         /* When the service state is in SERVICE_*_BEFORE_AUTO_RESTART or SERVICE_AUTO_RESTART, we still need
-         * to add 1 to s->n_restarts manually because s->n_restarts is not updated until a restart job is
-         * enqueued. Note that for SERVICE_AUTO_RESTART, that might have been the case, i.e. s->n_restarts is
-         * already increased. But we assume it's not since the time between job enqueuing and running is
-         * usually neglectable compared to the time we'll be sleeping. */
-        n_restarts_next = s->n_restarts + 1;
+         * to add 1 to s->n_restarts manually, because s->n_restarts is not updated until a restart job is
+         * enqueued, i.e. state has transitioned to SERVICE_AUTO_RESTART_QUEUED. */
+        n_restarts_next = s->n_restarts + (s->state == SERVICE_AUTO_RESTART_QUEUED ? 0 : 1);
 
         if (n_restarts_next <= 1 ||
             s->restart_steps == 0 ||
@@ -305,7 +303,7 @@ usec_t service_restart_usec_next(Service *s) {
                 /* Enforced in service_verify() and above */
                 assert(s->restart_max_delay_usec > s->restart_usec);
 
-                /* ((restart_usec_max - restart_usec)^(1/restart_steps))^(n_restart_next - 1) */
+                /* ((restart_max_delay_usec - restart_usec)^(1/restart_steps))^(n_restart_next - 1) */
                 value = usec_add(s->restart_usec,
                                  (usec_t) powl(s->restart_max_delay_usec - s->restart_usec,
                                                (long double) (n_restarts_next - 1) / s->restart_steps));
