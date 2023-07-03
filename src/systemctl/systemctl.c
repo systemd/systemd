@@ -59,6 +59,7 @@
 #include "systemctl-sysv-compat.h"
 #include "systemctl-trivial-method.h"
 #include "systemctl-util.h"
+#include "systemctl-whoami.h"
 #include "systemctl.h"
 #include "terminal-util.h"
 #include "time-util.h"
@@ -193,7 +194,9 @@ static int systemctl_help(void) {
                "  service-log-level SERVICE [LEVEL]   Get/set logging threshold for service\n"
                "  service-log-target SERVICE [TARGET] Get/set logging target for service\n"
                "  reset-failed [PATTERN...]           Reset failed state for all, one, or more\n"
-               "                                      units"
+               "                                      units\n"
+               "  whoami [PID...]                     Return unit caller or specified PIDs are\n"
+               "                                      part of\n"
                "\n%3$sUnit File Commands:%4$s\n"
                "  list-unit-files [PATTERN...]        List installed unit files\n"
                "  enable [UNIT...|PATH...]            Enable one or more unit files\n"
@@ -1213,6 +1216,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "edit",                  2,        VERB_ANY, VERB_ONLINE_ONLY, verb_edit                    },
                 { "bind",                  3,        4,        VERB_ONLINE_ONLY, verb_bind                    },
                 { "mount-image",           4,        5,        VERB_ONLINE_ONLY, verb_mount_image             },
+                { "whoami",                VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_whoami                  },
                 {}
         };
 
