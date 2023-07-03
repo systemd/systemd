@@ -28,8 +28,8 @@ _systemd_detect_virt() {
     local i verb comps
 
     local -A OPTS=(
-        [STANDALONE]='-h --help --version -c --container -v --vm -q --quiet
-                             --private-users'
+        [STANDALONE]='-h --help --version -c --container -v --vm -q --quiet --cvm
+                             --private-users --list --list-cvm'
     )
 
     _init_completion || return

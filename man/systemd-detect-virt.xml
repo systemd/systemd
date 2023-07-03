@@ -258,6 +258,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--cvm</option></term>
+
+        <listitem><para>Detect whether invoked in a confidential virtual machine.
+        The result of this detection may be used to disable features that should
+        not be used in confidential VMs. It must not be used to release security
+        sensitive information. The latter must only be released after attestation
+        of the confidential environment.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-q</option></term>
         <term><option>--quiet</option></term>
 
@@ -269,6 +279,12 @@
         <term><option>--list</option></term>
 
         <listitem><para>Output all currently known and detectable container and VM environments.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--list-cvm</option></term>
+
+        <listitem><para>Output all currently known and detectable confidential virtualization technologies.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
