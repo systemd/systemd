@@ -34,6 +34,7 @@
 #include "chase.h"
 #include "clock-util.h"
 #include "conf-parser.h"
+#include "confidential-virt.h"
 #include "cpu-set-util.h"
 #include "crash-handler.h"
 #include "dbus-manager.h"
@@ -2119,6 +2120,10 @@ static void log_execution_mode(bool *ret_first_boot) {
                 v = detect_virtualization();
                 if (v > 0)
                         log_info("Detected virtualization %s.", virtualization_to_string(v));
+
+                v = detect_confidential_virtualization();
+                if (v > 0)
+                        log_info("Detected confidential virtualization %s.", confidential_virtualization_to_string(v));
 
                 log_info("Detected architecture %s.", architecture_to_string(uname_architecture()));
 
