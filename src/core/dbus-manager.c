@@ -12,6 +12,7 @@
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
 #include "chase.h"
+#include "confidential-virt.h"
 #include "data-fd-util.h"
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
@@ -89,6 +90,27 @@ static int property_get_virtualization(
         return sd_bus_message_append(
                         reply, "s",
                         v == VIRTUALIZATION_NONE ? NULL : virtualization_to_string(v));
+}
+
+static int property_get_confidential_virtualization(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ConfidentialVirtualization v;
+
+        assert(bus);
+        assert(reply);
+
+        v = detect_confidential_virtualization();
+
+        return sd_bus_message_append(
+                        reply, "s",
+                        v <= 0 ? NULL : confidential_virtualization_to_string(v));
 }
 
 static int property_get_tainted(
@@ -2920,6 +2942,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("Version", "s", property_get_version, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Features", "s", property_get_features, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Virtualization", "s", property_get_virtualization, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ConfidentialVirtualization", "s", property_get_confidential_virtualization, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Architecture", "s", property_get_architecture, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Tainted", "s", property_get_tainted, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("FirmwareTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_FIRMWARE]), SD_BUS_VTABLE_PROPERTY_CONST),
