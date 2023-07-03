@@ -232,6 +232,8 @@ Features:
   SwitchRootEx() we should maybe also add a flags param that allows disabling
   and enabling whether serialization is requested during switch root.
 
+* introduce a .acpitable section for early ACPI table override
+
 * add proper .osrel matching for PE addons. i.e. refuse applying an addon
   intended for a different OS. Take inspiration from how confext/sysext are
   matched against OS.
