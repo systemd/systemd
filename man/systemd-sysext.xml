@@ -139,6 +139,7 @@
     architecture reported by <citerefentry><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     but the used architecture identifiers are the same as for <varname>ConditionArchitecture=</varname>
     described in <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    <varname>RELOAD_MANAGER=</varname> can be set to 1 if the extension requires a manager reload.
     System extensions should not ship a <filename>/usr/lib/os-release</filename> file (as that would be merged
     into the host <filename>/usr/</filename> tree, overriding the host OS version data, which is not desirable).
     The <filename>extension-release</filename> file follows the same format and semantics, and carries the same
@@ -297,6 +298,16 @@
         <listitem><para>When merging configuration extensions into <filename>/etc/</filename> the
         <literal>MS_NOEXEC</literal> mount flag is used by default. This option can be used to disable
         it.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--no-reload</option></term>
+
+        <listitem>
+          <para>When used with <command>merge</command>,
+	  <command>unmerge</command> or <command>refresh</command>, do not reload daemon
+          after executing the changes even if the extension requires a reload</para>
+        </listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />
