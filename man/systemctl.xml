@@ -740,6 +740,15 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             to be started again, use this command to make it startable again.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><command>whoami [<replaceable>PID</replaceable>…]</command></term>
+
+          <listitem><para>Returns the units the processes referenced by the given PIDs belong to (one per
+          line). If no PID is specified returns the unit the <command>systemctl</command> command is invoked
+          in.</para></listitem>
+        </varlistentry>
+
       </variablelist>
     </refsect2>
 
