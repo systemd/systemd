@@ -18,11 +18,10 @@ case "$command" in
         ;;
 
     remove-system-units)
+        systemctl --no-reload disable --no-warn "$@"
         if [ -d /run/systemd/system ]; then
-            systemctl --no-reload disable --now --no-warn "$@"
-        else
-            systemctl --no-reload disable --no-warn "$@"
-        fi
+            systemctl --no-reload stop "$@"
+        
         ;;
 
     remove-user-units)
