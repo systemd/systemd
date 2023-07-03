@@ -428,6 +428,15 @@ qemu_min_version() {
     printf "%s\n%s\n" "$1" "$qemu_ver" | sort -V -C
 }
 
+# Pads a file to multiple of 4 bytes
+pad4_file() {
+    local size
+    size=$(stat -c "%s" "$1")
+    local padded
+    padded=$((((size + 3) / 4) * 4))
+    truncate -s "$padded" "$1"
+}
+
 # Return 0 if qemu did run (then you must check the result state/logs for actual
 # success), or 1 if qemu is not available.
 run_qemu() {
@@ -597,19 +606,15 @@ run_qemu() {
             echo "initrd2"
             head -c 1024 "$INITRD_EXTRA" | base64 -w 0
 
-            # Copy the main initrd
-            zstd -d -c -f "$INITRD" > "$t"
+            # Copy the additional initrd
+            cat "$INITRD_EXTRA" > "$t"
             add_at_exit_handler "rm $t"
+            # Kernel requires this to be padded to multiple of 4 bytes with zeroes
+            pad4_file "$t"
 
-            # Kernel requires this to be padded to multipl of 4 bytes with zeroes
-            local size
-            size=$(stat -c "%s" "$t")
-            local padded
-            padded=$((((size + 3) / 4) * 4))
-            truncate -s "$padded" "$t"
-
-            # Append the additional
-            cat "$INITRD_EXTRA" >> "$t"
+            # Copy the main initrd
+            zstd -d -c -f "$INITRD" >> "$t"
+            pad4_file "$t"
 
             qemu_options+=(-initrd "$t")
         else
