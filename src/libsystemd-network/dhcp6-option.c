@@ -529,7 +529,7 @@ int dhcp6_option_parse_string(const uint8_t *data, size_t data_len, char **ret) 
         _cleanup_free_ char *string = NULL;
         int r;
 
-        assert(data);
+        assert(data || data_len == 0);
         assert(ret);
 
         if (data_len <= 0) {
