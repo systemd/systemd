@@ -1055,21 +1055,15 @@ int transaction_add_job_and_dependencies(
                 }
         }
 
-        _cleanup_set_free_ Set *propagated_restart = NULL;
+        if (IN_SET(type, JOB_RESTART, JOB_STOP) || (type == JOB_START && FLAGS_SET(flags, TRANSACTION_PROPAGATE_START_AS_RESTART))) {
+                bool is_stop = type == JOB_STOP;
 
-        if (type == JOB_RESTART || (type == JOB_START && FLAGS_SET(flags, TRANSACTION_PROPAGATE_START_AS_RESTART))) {
-
-                /* We propagate RESTART only as TRY_RESTART, in order not to start dependencies that
-                 * are not around. */
-
-                UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PROPAGATE_RESTART) {
+                UNIT_FOREACH_DEPENDENCY(dep, ret->unit, is_stop ? UNIT_ATOM_PROPAGATE_STOP : UNIT_ATOM_PROPAGATE_RESTART) {
+                        /* We propagate RESTART only as TRY_RESTART, in order not to start dependencies that
+                         * are not around. */
                         JobType nt;
 
-                        r = set_ensure_put(&propagated_restart, NULL, dep);
-                        if (r < 0)
-                                return r;
-
-                        nt = job_type_collapse(JOB_TRY_RESTART, dep);
+                        nt = job_type_collapse(is_stop ? JOB_STOP : JOB_TRY_RESTART, dep);
                         if (nt == JOB_NOP)
                                 continue;
 
@@ -1081,23 +1075,11 @@ int transaction_add_job_and_dependencies(
                                 sd_bus_error_free(e);
                         }
                 }
-        }
 
-        if (type == JOB_STOP) {
-                /* The 'stop' part of a restart job is also propagated to units with UNIT_ATOM_PROPAGATE_STOP. */
-
-                UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PROPAGATE_STOP) {
-                        /* Units experienced restart propagation are skipped */
-                        if (set_contains(propagated_restart, dep))
-                                continue;
-
-                        r = transaction_add_job_and_dependencies(tr, JOB_STOP, dep, ret, TRANSACTION_MATTERS | (flags & TRANSACTION_IGNORE_ORDER), e);
-                        if (r < 0) {
-                                if (r != -EBADR) /* job type not applicable */
-                                        return r;
-
-                                sd_bus_error_free(e);
-                        }
+                UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PROPAGATE_STOP_GRACEFUL) {
+                        r = set_ensure_put(&tr->propagate_stop_graceful, NULL, dep);
+                        if (r < 0)
+                                return r;
                 }
         }
 
@@ -1105,6 +1087,42 @@ int transaction_add_job_and_dependencies(
                 transaction_add_propagate_reload_jobs(tr, ret->unit, ret, flags & TRANSACTION_IGNORE_ORDER);
 
         /* JOB_VERIFY_ACTIVE requires no dependency handling */
+
+        /* Process UNIT_ATOM_PROPAGATE_STOP_GRACEFUL (PropagatesStopTo=) units */
+        if (by) { /* is anchor job */
+                SET_FOREACH(dep, tr->propagate_stop_graceful) {
+                        bool has_job = false;
+                        Job *j;
+
+                        while ((j = hashmap_get(tr->jobs, dep))) {
+                                has_job = true;
+
+                                switch (j->type) {
+
+                                case JOB_RESTART:
+                                case JOB_STOP:
+                                        break; /* Nothing to worry about, an appropriate job is in-place */
+
+                                case JOB_START:
+                                        /* This unit is pulled in by other dependency types in this transaction.
+                                         * We will run into job type conflict if we enqueue a stop job, so
+                                         * let's enqueue a restart job instead. */
+                                        r = transaction_add_job_and_dependencies(tr, JOB_RESTART, dep, ret, TRANSACTION_MATTERS | (flags & TRANSACTION_IGNORE_ORDER), e);
+                                        if (r < 0)
+                                                return r;
+
+                                default: /* We don't care about others */
+                                        ;
+                                }
+                        }
+
+                        if (!has_job) {
+                                r = transaction_add_job_and_dependencies(tr, JOB_STOP, dep, ret, TRANSACTION_MATTERS | (flags & TRANSACTION_IGNORE_ORDER), e);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+        }
 
         return 0;
 
