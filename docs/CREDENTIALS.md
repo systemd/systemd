@@ -51,9 +51,9 @@ purpose. Specifically, the following features are provided:
    allow it, via `ramfs`.)
 
 7. Credentials may be acquired from a hosting VM hypervisor (SMBIOS OEM strings
-   or qemu `fw_cfg`), a hosting container manager, the kernel command line, or
-   from the UEFI environment and the EFI System Partition (via
-   `systemd-stub`). Such system credentials may then be propagated into
+   or qemu `fw_cfg`), a hosting container manager, the kernel command line,
+   from the initrd, or from the UEFI environment via the EFI System Partition
+   (via `systemd-stub`). Such system credentials may then be propagated into
    individual services as needed.
 
 8. Credentials are an effective way to pass parameters into services that run
@@ -72,19 +72,19 @@ Within unit files, there are four settings to configure service credentials.
 1. `LoadCredential=` may be used to load a credential from disk, from an
    `AF_UNIX` socket, or propagate them from a system credential.
 
-2. `ImportCredential=` may be used to load one or more (encrypted) credentials
-   from disk or from the credential stores.
+2. `ImportCredential=` may be used to load one or more (optionally encrypted)
+   credentials from disk or from the credential stores.
 
-2. `SetCredential=` may be used to set a credential to a literal string encoded
+3. `SetCredential=` may be used to set a credential to a literal string encoded
    in the unit file. Because unit files are world-readable (both on disk and
    via D-Bus), this should only be used for credentials that aren't sensitive,
    e.g. public keys or certificates, but not private keys.
 
-3. `LoadCredentialEncrypted=` is similar to `LoadCredential=` but will load an
+4. `LoadCredentialEncrypted=` is similar to `LoadCredential=` but will load an
    encrypted credential, and decrypt it before passing it to the service. For
    details on credential encryption, see below.
 
-4. `SetCredentialEncrypted=` is similar to `SetCredential=` but expects an
+5. `SetCredentialEncrypted=` is similar to `SetCredential=` but expects an
    encrypted credential to be specified literally. Unlike `SetCredential=` it
    is thus safe to be used even for sensitive information, because even though
    unit files are world readable, the ciphertext included in them cannot be
@@ -153,6 +153,33 @@ credentials directory. For daemons that allow passing credentials via a path
 supplied as environment variable, use the `%d` specifier in the `Environment=`
 setting to build valid paths to specific credentials.
 
+Encrypted credentials are automatically decrypted/authenticated during service
+activation, so that service code only receives plaintext credentials.
+
+## Programming Interface from Generator Code
+
+[Generators](https://www.freedesktop.org/software/systemd/man/systemd.generator.html)
+may generate native unit files from external configuration or system
+parameters, such as system credentials. Note that they run outside of service
+context, and hence will not receive encrypted credentials in plaintext
+form. Specifically, credentials passed into the system in encrypted form will
+be placed as they are in a directory referenced by the
+`$ENCRYPTED_CREDENTIALS_DIRECTORY` environment variable, and those passed in
+plaintext form will be placed in `$CREDENTIALS_DIRECTORY`. Use a command such
+as `systemd-creds --system cat …` to access both forms of credentials, and
+decrypt them if needed (see
+[systemd-creds(1)](https://www.freedesktop.org/software/systemd/man/systemd-creds.html)
+for details.
+
+Note that generators typically run very early during boot (similar to initrd
+code), earlier than the `/var/` file system is necessarily mounted (which is
+where the system's credential encryption secret is located). Thus it's a good
+idea to encrypt credentials with `systemd-creds encrypt --with-key=auto-initrd`
+if they shall be consumed by a generator, to ensure they are locked to the TPM2
+only, not the credentials secret stored below `/var/`.
+
+For further details about encrypted credentials, see below.
+
 ## Tools
 
 The
@@ -193,6 +220,12 @@ local hardware and OS installation. Encrypted credentials stored on disk thus
 cannot be decrypted without access to the TPM2 chip and the aforementioned key
 file `/var/lib/systemd/credential.secret`. Moreover, credentials cannot be
 prepared on a machine other than the local one.
+
+Decryption generally takes place at the moment of service activation. This
+means credentials passed to the system can be either encrypted or plaintext and
+remain that way all the way while they are propagated to their consumers, until
+the moment of service activation when they are decrypted and authenticated, so
+that the service only sees plaintext credentials.
 
 The `systemd-creds` tool provides the commands `encrypt` and `decrypt` to
 encrypt and decrypt/authenticate credentials. Example:
@@ -247,7 +280,7 @@ via `systemd` credentials. In particular, it might make sense to boot a
 system with a set of credentials that are then propagated to individual
 services where they are ultimately consumed.
 
-`systemd` supports four ways to pass credentials to systems:
+`systemd` supports five ways to pass credentials to systems:
 
 1. A container manager may set the `$CREDENTIALS_DIRECTORY` environment
    variable for systemd running as PID 1 in the container, the same way as
@@ -255,8 +288,7 @@ services where they are ultimately consumed.
    invokes. [`systemd-nspawn(1)`](https://www.freedesktop.org/software/systemd/man/systemd-nspawn.html#Credentials)'s
    `--set-credential=` and `--load-credential=` switches implement this, in
    order to pass arbitrary credentials from host to container payload. Also see
-   the [Container Interface](CONTAINER_INTERFACE.md)
-   documentation.
+   the [Container Interface](CONTAINER_INTERFACE.md) documentation.
 
 2. Quite similar, VMs can be passed credentials via SMBIOS OEM strings (example
    qemu command line switch `-smbios
@@ -269,16 +301,17 @@ services where they are ultimately consumed.
    three of these specific switches would set credential `foo` to `bar`.)
    Passing credentials via the SMBIOS mechanism is typically preferable over
    `fw_cfg` since it is faster and less specific to the chosen VMM
-   implementation. Moreover, `fw_cfg` has a 55 character limitation
-   on names passed that way. So some settings may not fit.
+   implementation. Moreover, `fw_cfg` has a 55 character limitation on names
+   passed that way. So some settings may not fit.
 
-3. Credentials can also be passed into a system via the kernel command line,
-   via the `systemd.set-credential=` kernel command line option. Note though
-   that any data specified here is visible to any userspace application via
-   `/proc/cmdline`. This is hence typically not useful to pass sensitive
-   information.
+3. Credentials may be passed from the initrd to the host during the initrd →
+   host transition. Provisioning systems that run in the initrd may use this to
+   install credentials on the system. All files placed in
+   `/run/credentials/@initrd/` are imported into the set of file system
+   credentials during the transition. The files (and their directory) are
+   removed once this is completed.
 
-4. Credentials may also be passed from the UEFI environment to userspace, if
+5. Credentials may also be passed from the UEFI environment to userspace, if
    the
    [`systemd-stub`](https://www.freedesktop.org/software/systemd/man/systemd-stub.html)
    UEFI kernel stub is used. This allows placing encrypted credentials in the
@@ -287,6 +320,13 @@ services where they are ultimately consumed.
    useful to implement secure parameterization of vendor-built and signed
    initrds, as userspace can place credentials next to these EFI kernels, and
    be sure they can be accessed securely from initrd context.
+
+4. Credentials can also be passed into a system via the kernel command line,
+   via the `systemd.set_credential=` and `systemd.set_credential_binary=`
+   kernel command line options (the latter takes Base64 encoded binary
+   data). Note though that any data specified here is visible to all userspace
+   applications (even unprivileged ones) via `/proc/cmdline`. Typically, this
+   is hence not useful to pass sensitive information, and should be avoided.
 
 Credentials passed to the system may be enumerated/displayed via `systemd-creds
 --system`. They may also be propagated down to services, via the
@@ -359,6 +399,9 @@ Various services shipped with `systemd` consume credentials for tweaking behavio
   will look for the credentials `tmpfiles.extra` with arbitrary tmpfiles.d lines.
   Can be encoded in base64 to allow easily passing it on the command line.
 
+* Further well-known credentials are documented in
+  [`systemd.system-credentials(7)`](https://www.freedesktop.org/software/systemd/man/systemd.system-credentials.html).
+
 In future more services are likely to gain support for consuming credentials.
 
 Example:
@@ -427,6 +470,11 @@ READY=1
 From *service* perspective the runtime path to find loaded credentials in is
 provided in the `$CREDENTIALS_DIRECTORY` environment variable.
 
+From *generator* perspective the runtime path to find credentials passed into
+the system in plaintext form in is provided in `$CREDENTIALS_DIRECTORY`, and
+those passed into the system in encrypted form is provided in
+`$ENCRYPTED_CREDENTIALS_DIRECTORY`.
+
 At runtime, credentials passed to the *system* are placed in
 `/run/credentials/@system/` (for regular credentials, such as those passed from
 a container manager or via qemu) and `/run/credentials/@encrypted/` (for
@@ -434,13 +482,14 @@ credentials that must be decrypted/validated before use, such as those from
 `systemd-stub`).
 
 The `ImportCredential=` setting (and the `LoadCredential=` and
-`LoadCredentialEncrypted=` settings when configured with a relative source path)
-will search for the source file to read the credential from automatically. Primarily,
-these credentials are searched among the credentials passed into the system. If
-not found there, they are searched in `/etc/credstore/`, `/run/credstore/`,
+`LoadCredentialEncrypted=` settings when configured with a relative source
+path) will search for the source file to read the credential from
+automatically. Primarily, these credentials are searched among the credentials
+passed into the system. If not found there, they are searched in
+`/etc/credstore/`, `/run/credstore/`,
 `/usr/lib/credstore/`. `LoadCredentialEncrypted=` will also search
-`/etc/credstore.encrypted/` and similar directories. `ImportCredential` will search
-both the non-encrypted and encrypted directories. These directories are
+`/etc/credstore.encrypted/` and similar directories. `ImportCredential=` will
+search both the non-encrypted and encrypted directories. These directories are
 hence a great place to store credentials to load on the system.
 
 ## Conditionalizing Services
