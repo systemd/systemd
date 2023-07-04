@@ -221,9 +221,11 @@ CHANGES WITH 254 in spe:
         systemd-boot, systemd-stub, ukify, bootctl, kernel-install:
 
         * bootctl gained a new switch --print-root-device/-R that prints the
-          main block device the root file system is backed by. It's useful for
-          invocations such as "cfdisk $(bootctl -R)" to quickly show the
-          partition table of the running OS.
+          block device the root file system is backed by. If specified twice,
+          it returns the whole disk block device (as opposed to partition block
+          device) the root file system is on. It's useful for invocations such
+          as "cfdisk $(bootctl -RR)" to quickly show the partition table of the
+          running OS.
 
         * systemd-stub will now look for the SMBIOS Type 1 field
           "io.systemd.stub.kernel-cmdline-extra" and append its value to the
