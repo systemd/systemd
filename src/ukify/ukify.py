@@ -765,7 +765,7 @@ def make_uki(opts):
 
     if linux is not None:
         # Merge the .sbat sections from stub, kernel and parameter, so that revocation can be done on either.
-        uki.add_section(Section.create('.sbat', merge_sbat([opts.stub, linux], opts.sbat), measure=False))
+        uki.add_section(Section.create('.sbat', merge_sbat([opts.stub, linux], opts.sbat), measure=True))
         uki.add_section(Section.create('.linux', linux, measure=True))
     else:
         if not opts.sbat:
