@@ -9,6 +9,7 @@
 #if HAVE_OPENSSL
 #  include <openssl/bio.h>
 #  include <openssl/bn.h>
+#  include <openssl/crypto.h>
 #  include <openssl/err.h>
 #  include <openssl/evp.h>
 #  include <openssl/opensslv.h>
@@ -24,6 +25,7 @@
 #    include <openssl/param_build.h>
 #  endif
 
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO(void*, OPENSSL_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509_NAME*, X509_NAME_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY_CTX*, EVP_PKEY_CTX_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_CIPHER_CTX*, EVP_CIPHER_CTX_free, NULL);
@@ -64,6 +66,12 @@ int rsa_pkey_new(size_t bits, EVP_PKEY **ret);
 int rsa_pkey_from_n_e(const void *n, size_t n_size, const void *e, size_t e_size, EVP_PKEY **ret);
 
 int rsa_pkey_to_n_e(const EVP_PKEY *pkey, void **ret_n, size_t *ret_n_size, void **ret_e, size_t *ret_e_size);
+
+int ecc_pkey_from_curve_x_y(int curve_id, const void *x, size_t x_size, const void *y, size_t y_size, EVP_PKEY **ret);
+
+int ecc_pkey_to_curve_x_y(const EVP_PKEY *pkey, int *ret_curve_id, void **ret_x, size_t *ret_x_size, void **ret_y, size_t *ret_y_size);
+
+int ecc_pkey_new(int curve_id, EVP_PKEY **ret);
 
 int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_size);
 
