@@ -3285,7 +3285,8 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
         from the initrd (see
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>), or be
-        specified on the kernel command line using the <literal>systemd.set_credential=</literal> switch (see
+        specified on the kernel command line using the <literal>systemd.set_credential=</literal> and
+        <literal>systemd.set_credential_binary=</literal> switches (see
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> – this is
         not recommended since unprivileged userspace can read the kernel command line). </para>
 

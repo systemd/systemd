@@ -322,10 +322,11 @@ services where they are ultimately consumed.
    be sure they can be accessed securely from initrd context.
 
 4. Credentials can also be passed into a system via the kernel command line,
-   via the `systemd.set-credential=` kernel command line option. Note though
-   that any data specified here is visible to all userspace applications (even
-   unprivileged ones) via `/proc/cmdline`. Typically, this is hence not useful
-   to pass sensitive information, and should be avoided.
+   via the `systemd.set_credential=` and `systemd.set_credential_binary=`
+   kernel command line options (the latter takes Base64 encoded binary
+   data). Note though that any data specified here is visible to all userspace
+   applications (even unprivileged ones) via `/proc/cmdline`. Typically, this
+   is hence not useful to pass sensitive information, and should be avoided.
 
 Credentials passed to the system may be enumerated/displayed via `systemd-creds
 --system`. They may also be propagated down to services, via the

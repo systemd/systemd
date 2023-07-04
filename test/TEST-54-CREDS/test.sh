@@ -25,6 +25,7 @@ KERNEL_CREDS=(
     "systemd.set_credential=sysctl.extra:kernel.domainname=sysctltest"
     "systemd.set_credential=login.motd:hello"
     "systemd.set_credential=login.issue:welcome"
+    "systemd.set_credential_binary=waldi:d29vb29mZmZ3dWZmZnd1ZmYK"
     "rd.systemd.import_credentials=no"
 )
 KERNEL_APPEND="${KERNEL_APPEND:-} ${KERNEL_CREDS[*]}"

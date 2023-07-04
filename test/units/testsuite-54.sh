@@ -176,6 +176,7 @@ if systemd-detect-virt -q -c ; then
 elif [ -d /sys/firmware/qemu_fw_cfg/by_name ]; then
     # Verify that passing creds through kernel cmdline works
     [ "$(systemd-creds --system cat kernelcmdlinecred)" = "uff" ]
+    [ "$(systemd-creds --system cat waldi)" = "woooofffwufffwuff" ]
 
     # And that it also works via SMBIOS
     [ "$(systemd-creds --system cat smbioscredential)" = "magicdata" ]
