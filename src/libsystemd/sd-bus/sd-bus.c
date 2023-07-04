@@ -1523,12 +1523,91 @@ _public_ int sd_bus_open_system_remote(sd_bus **ret, const char *host) {
         return 0;
 }
 
+static int user_and_machine_valid(const char *user_and_machine) {
+        const char *h;
+
+        /* Checks if a container specification in the form "user@container" or just "container" is valid.
+         *
+         * If the "@" syntax is used we'll allow either the "user" or the "container" part to be omitted, but
+         * not both. */
+
+        h = strchr(user_and_machine, '@');
+        if (!h)
+                h = user_and_machine;
+        else {
+                _cleanup_free_ char *user = NULL;
+
+                user = strndup(user_and_machine, h - user_and_machine);
+                if (!user)
+                        return -ENOMEM;
+
+                if (!isempty(user) && !valid_user_group_name(user, VALID_USER_RELAX | VALID_USER_ALLOW_NUMERIC))
+                        return false;
+
+                h++;
+
+                if (isempty(h))
+                        return !isempty(user);
+        }
+
+        return hostname_is_valid(h, VALID_HOSTNAME_DOT_HOST);
+}
+
+static int user_and_machine_equivalent(const char *user_and_machine) {
+        _cleanup_free_ char *un = NULL;
+        const char *f;
+
+        /* Returns true if the specified user+machine name are actually equivalent to our own identity and
+         * our own host. If so we can shortcut things.  Why bother? Because that way we don't have to fork
+         * off short-lived worker processes that are then unavailable for authentication and logging in the
+         * peer. Moreover joining a namespace requires privileges. If we are in the right namespace anyway,
+         * we can avoid permission problems thus. */
+
+        assert(user_and_machine);
+
+        /* Omitting the user name means that we shall use the same user name as we run as locally, which
+         * means we'll end up on the same host, let's shortcut */
+        if (streq(user_and_machine, "@.host"))
+                return true;
+
+        /* Otherwise, if we are root, then we can also allow the ".host" syntax, as that's the user this
+         * would connect to. */
+        uid_t uid = geteuid();
+
+        if (uid == 0 && STR_IN_SET(user_and_machine, ".host", "root@.host", "0@.host"))
+                return true;
+
+        /* Otherwise, we have to figure out our user id and name, and compare things with that. */
+        char buf[DECIMAL_STR_MAX(uid_t)];
+        xsprintf(buf, UID_FMT, uid);
+
+        f = startswith(user_and_machine, buf);
+        if (!f) {
+                un = getusername_malloc();
+                if (!un)
+                        return -ENOMEM;
+
+                f = startswith(user_and_machine, un);
+                if (!f)
+                        return false;
+        }
+
+        return STR_IN_SET(f, "@", "@.host");
+}
+
 int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *machine) {
         _cleanup_free_ char *a = NULL;
         const char *rhs;
+        int r;
 
         assert(b);
         assert(machine);
+
+        r = user_and_machine_valid(machine);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
 
         rhs = strchr(machine, '@');
         if (rhs || runtime_scope == RUNTIME_SCOPE_USER) {
@@ -1613,78 +1692,6 @@ int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *m
         return free_and_replace(b->address, a);
 }
 
-static int user_and_machine_valid(const char *user_and_machine) {
-        const char *h;
-
-        /* Checks if a container specification in the form "user@container" or just "container" is valid.
-         *
-         * If the "@" syntax is used we'll allow either the "user" or the "container" part to be omitted, but
-         * not both. */
-
-        h = strchr(user_and_machine, '@');
-        if (!h)
-                h = user_and_machine;
-        else {
-                _cleanup_free_ char *user = NULL;
-
-                user = strndup(user_and_machine, h - user_and_machine);
-                if (!user)
-                        return -ENOMEM;
-
-                if (!isempty(user) && !valid_user_group_name(user, VALID_USER_RELAX | VALID_USER_ALLOW_NUMERIC))
-                        return false;
-
-                h++;
-
-                if (isempty(h))
-                        return !isempty(user);
-        }
-
-        return hostname_is_valid(h, VALID_HOSTNAME_DOT_HOST);
-}
-
-static int user_and_machine_equivalent(const char *user_and_machine) {
-        _cleanup_free_ char *un = NULL;
-        const char *f;
-
-        /* Returns true if the specified user+machine name are actually equivalent to our own identity and
-         * our own host. If so we can shortcut things.  Why bother? Because that way we don't have to fork
-         * off short-lived worker processes that are then unavailable for authentication and logging in the
-         * peer. Moreover joining a namespace requires privileges. If we are in the right namespace anyway,
-         * we can avoid permission problems thus. */
-
-        assert(user_and_machine);
-
-        /* Omitting the user name means that we shall use the same user name as we run as locally, which
-         * means we'll end up on the same host, let's shortcut */
-        if (streq(user_and_machine, "@.host"))
-                return true;
-
-        /* Otherwise, if we are root, then we can also allow the ".host" syntax, as that's the user this
-         * would connect to. */
-        uid_t uid = geteuid();
-
-        if (uid == 0 && STR_IN_SET(user_and_machine, ".host", "root@.host", "0@.host"))
-                return true;
-
-        /* Otherwise, we have to figure out our user id and name, and compare things with that. */
-        char buf[DECIMAL_STR_MAX(uid_t)];
-        xsprintf(buf, UID_FMT, uid);
-
-        f = startswith(user_and_machine, buf);
-        if (!f) {
-                un = getusername_malloc();
-                if (!un)
-                        return -ENOMEM;
-
-                f = startswith(user_and_machine, un);
-                if (!f)
-                        return false;
-        }
-
-        return STR_IN_SET(f, "@", "@.host");
-}
-
 _public_ int sd_bus_open_system_machine(sd_bus **ret, const char *user_and_machine) {
         _cleanup_(bus_freep) sd_bus *b = NULL;
         int r;
@@ -1694,12 +1701,6 @@ _public_ int sd_bus_open_system_machine(sd_bus **ret, const char *user_and_machi
 
         if (user_and_machine_equivalent(user_and_machine))
                 return sd_bus_open_system(ret);
-
-        r = user_and_machine_valid(user_and_machine);
-        if (r < 0)
-                return r;
-
-        assert_return(r > 0, -EINVAL);
 
         r = sd_bus_new(&b);
         if (r < 0)
@@ -1730,12 +1731,6 @@ _public_ int sd_bus_open_user_machine(sd_bus **ret, const char *user_and_machine
         /* Shortcut things if we'd end up on this host and as the same user.  */
         if (user_and_machine_equivalent(user_and_machine))
                 return sd_bus_open_user(ret);
-
-        r = user_and_machine_valid(user_and_machine);
-        if (r < 0)
-                return r;
-
-        assert_return(r > 0, -EINVAL);
 
         r = sd_bus_new(&b);
         if (r < 0)
