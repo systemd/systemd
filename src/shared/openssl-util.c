@@ -271,6 +271,199 @@ int rsa_pkey_new(size_t bits, EVP_PKEY **ret) {
         return 0;
 }
 
+/* Generate ECC public key from provided curve ID and x/y points. */
+int ecc_pkey_from_curve_x_y(
+                int curve_id,
+                const void *x,
+                size_t x_size,
+                const void *y,
+                size_t y_size,
+                EVP_PKEY **ret) {
+
+        assert(x);
+        assert(y);
+        assert(ret);
+
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
+        if (!ctx)
+                return log_oom_debug();
+
+        _cleanup_(BN_freep) BIGNUM *bn_x = BN_bin2bn(x, x_size, NULL), *bn_y = BN_bin2bn(y, y_size, NULL);
+        if (!bn_x || !bn_y)
+                return log_oom_debug();
+
+        _cleanup_(EC_GROUP_freep) EC_GROUP *group = EC_GROUP_new_by_curve_name(curve_id);
+        if (!group)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "ECC curve id %d not supported.", curve_id);
+
+        _cleanup_(EC_POINT_freep) EC_POINT *point = EC_POINT_new(group);
+        if (!point)
+                return log_oom_debug();
+
+        if (!EC_POINT_set_affine_coordinates(group, point, bn_x, bn_y, NULL))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set ECC coordinates.");
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        if (EVP_PKEY_fromdata_init(ctx) <= 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to initialize EVP_PKEY_CTX.");
+
+        _cleanup_(OSSL_PARAM_BLD_freep) OSSL_PARAM_BLD *bld = OSSL_PARAM_BLD_new();
+        if (!bld)
+                return log_oom_debug();
+
+        if (!OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_PKEY_PARAM_GROUP_NAME, (char*) OSSL_EC_curve_nid2name(curve_id), 0))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to add ECC OSSL_PKEY_PARAM_GROUP_NAME.");
+
+        _cleanup_(OPENSSL_freep) void *pbuf = NULL;
+        size_t pbuf_len = 0;
+        pbuf_len = EC_POINT_point2buf(group, point, POINT_CONVERSION_UNCOMPRESSED, (unsigned char**) &pbuf, NULL);
+        if (pbuf_len == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert ECC point to buffer.");
+
+        if (!OSSL_PARAM_BLD_push_octet_string(bld, OSSL_PKEY_PARAM_PUB_KEY, pbuf, pbuf_len))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to add ECC OSSL_PKEY_PARAM_PUB_KEY.");
+
+        _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = OSSL_PARAM_BLD_to_param(bld);
+        if (!params)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to build ECC OSSL_PARAM.");
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        if (EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Failed to create ECC EVP_PKEY.");
+#else
+        _cleanup_(EC_KEY_freep) EC_KEY *eckey = EC_KEY_new();
+        if (!eckey)
+                return log_oom_debug();
+
+        if (!EC_KEY_set_group(eckey, group))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set ECC group.");
+
+        if (!EC_KEY_set_public_key(eckey, point))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set ECC point.");
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = EVP_PKEY_new();
+        if (!pkey)
+                return log_oom_debug();
+
+        if (!EVP_PKEY_assign_EC_KEY(pkey, eckey))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to assign ECC key.");
+        /* pkey owns this now, don't free */
+        TAKE_PTR(eckey);
+#endif
+
+    *ret = TAKE_PTR(pkey);
+
+    return 0;
+}
+
+int ecc_pkey_to_curve_x_y(
+                const EVP_PKEY *pkey,
+                int *ret_curve_id,
+                void **ret_x,
+                size_t *ret_x_size,
+                void **ret_y,
+                size_t *ret_y_size) {
+
+        _cleanup_(BN_freep) BIGNUM *bn_x = NULL, *bn_y = NULL;
+        int curve_id;
+
+        assert(pkey);
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        size_t name_size;
+        if (!EVP_PKEY_get_utf8_string_param(pkey, OSSL_PKEY_PARAM_GROUP_NAME, NULL, 0, &name_size))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get ECC group name size.");
+
+        _cleanup_free_ char *name = malloc(name_size + 1);
+        if (!name)
+                return log_oom_debug();
+
+        if (!EVP_PKEY_get_utf8_string_param(pkey, OSSL_PKEY_PARAM_GROUP_NAME, name, name_size + 1, NULL))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get ECC group name.");
+
+        curve_id = OBJ_sn2nid(name);
+        if (curve_id == NID_undef)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get ECC curve id.");
+
+        if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_EC_PUB_X, &bn_x))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get ECC point x.");
+
+        if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_EC_PUB_Y, &bn_y))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get ECC point y.");
+#else
+        const EC_KEY *eckey = EVP_PKEY_get0_EC_KEY((EVP_PKEY*) pkey);
+        if (!eckey)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get EC_KEY.");
+
+        const EC_GROUP *group = EC_KEY_get0_group(eckey);
+        if (!group)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get EC_GROUP.");
+
+        curve_id = EC_GROUP_get_curve_name(group);
+        if (curve_id == NID_undef)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get ECC curve id.");
+
+        const EC_POINT *point = EC_KEY_get0_public_key(eckey);
+        if (!point)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get EC_POINT.");
+
+        bn_x = BN_new();
+        bn_y = BN_new();
+        if (!bn_x || !bn_y)
+                return log_oom_debug();
+
+        if (!EC_POINT_get_affine_coordinates(group, point, bn_x, bn_y, NULL))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get ECC x/y.");
+#endif
+
+        size_t x_size = BN_num_bytes(bn_x), y_size = BN_num_bytes(bn_y);
+        _cleanup_free_ void *x = malloc(x_size), *y = malloc(y_size);
+        if (!x || !y)
+                return log_oom_debug();
+
+        assert(BN_bn2bin(bn_x, x) == (int) x_size);
+        assert(BN_bn2bin(bn_y, y) == (int) y_size);
+
+        if (ret_curve_id)
+                *ret_curve_id = curve_id;
+        if (ret_x)
+                *ret_x = TAKE_PTR(x);
+        if (ret_x_size)
+                *ret_x_size = x_size;
+        if (ret_y)
+                *ret_y = TAKE_PTR(y);
+        if (ret_y_size)
+                *ret_y_size = y_size;
+
+        return 0;
+}
+
+/* Generate a new ECC key for the specified ECC curve id. */
+int ecc_pkey_new(int curve_id, EVP_PKEY **ret) {
+        assert(ret);
+
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
+        if (!ctx)
+                return log_oom_debug();
+
+        if (EVP_PKEY_keygen_init(ctx) <= 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to initialize EVP_PKEY_CTX.");
+
+        if (EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, curve_id) <= 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set ECC curve %d.", curve_id);
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        if (EVP_PKEY_keygen(ctx, &pkey) <= 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to generate ECC key.");
+
+        *ret = TAKE_PTR(pkey);
+
+        return 0;
+}
+
 int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_size) {
         _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* m = NULL;
         _cleanup_free_ void *d = NULL, *h = NULL;
