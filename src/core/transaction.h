@@ -12,6 +12,7 @@ struct Transaction {
         /* Jobs to be added */
         Hashmap *jobs;      /* Unit object => Job object list 1:1 */
         Job *anchor_job;      /* the job the user asked for */
+        Set *propagate_stop_graceful; /* PropagatesStopTo= units */
         bool irreversible;
 };
 
