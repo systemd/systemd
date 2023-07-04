@@ -250,7 +250,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         /* Don't even consider resuming outside of initrd. */
         if (!in_initrd()) {
-                log_debug("Not running in an initrd, quitting.");
+                log_debug("Not running in an initrd, exiting.");
                 return 0;
         }
 
@@ -259,7 +259,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
         if (arg_noresume) {
-                log_notice("Found \"noresume\" on the kernel command line, quitting.");
+                log_info("Found \"noresume\" on the kernel command line, exiting.");
                 return 0;
         }
 
