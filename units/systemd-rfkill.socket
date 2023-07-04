@@ -10,6 +10,7 @@
 [Unit]
 Description=Load/Save RF Kill Switch Status /dev/rfkill Watch
 Documentation=man:systemd-rfkill.socket(8)
+ConditionPathExists=!/etc/initrd-release
 
 DefaultDependencies=no
 BindsTo=sys-devices-virtual-misc-rfkill.device

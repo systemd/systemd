@@ -10,6 +10,7 @@
 [Unit]
 Description=Record System Boot/Shutdown in UTMP
 Documentation=man:systemd-update-utmp.service(8) man:utmp(5)
+ConditionPathExists=!/etc/initrd-release
 
 DefaultDependencies=no
 After=systemd-remount-fs.service systemd-tmpfiles-setup.service auditd.service
