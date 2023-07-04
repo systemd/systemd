@@ -932,12 +932,15 @@
 
       <varlistentry>
         <term><varname>systemd.set_credential=</varname></term>
+        <term><varname>systemd.set_credential_binary=</varname></term>
 
         <listitem><para>Sets a system credential, which can then be propagated to system services using the
         <varname>ImportCredential=</varname> or <varname>LoadCredential=</varname> setting, see
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-        details. Takes a pair of credential name and value, separated by a colon. Note that the kernel
-        command line is typically accessible by unprivileged programs in
+        details. Takes a pair of credential name and value, separated by a colon. The
+        <varname>systemd.set_credential=</varname> parameter expects the credential value in literal text
+        form, the <varname>systemd.set_credential_binary=</varname> parameter takes binary data encoded in
+        Base64. Note that the kernel command line is typically accessible by unprivileged programs in
         <filename>/proc/cmdline</filename>. Thus, this mechanism is not suitable for transferring sensitive
         data. Use it only for data that is not sensitive (e.g. public keys/certificates, rather than private
         keys), or in testing/debugging environments.</para>
