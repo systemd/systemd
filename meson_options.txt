@@ -381,6 +381,8 @@ option('xenctrl', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'support for Xen kexec')
 option('pam', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'PAM support')
+option('passwdqc', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'libpasswdqc support')
 option('pwquality', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libpwquality support')
 option('microhttpd', type : 'combo', choices : ['auto', 'true', 'false'],
