@@ -1469,3 +1469,62 @@ int trigger_automount_at(int dir_fd, const char *path) {
 
         return 0;
 }
+
+unsigned long credentials_fs_mount_flags(bool ro) {
+        /* A tight set of mount flags for credentials mounts */
+        return MS_NODEV|MS_NOEXEC|MS_NOSUID|ms_nosymfollow_supported()|(ro ? MS_RDONLY : 0);
+}
+
+int mount_credentials_fs(const char *path, size_t size, bool ro) {
+        _cleanup_free_ char *opts = NULL;
+        int r, noswap_supported;
+
+        /* Mounts a file system we can place credentials in, i.e. with tight access modes right from the
+         * beginning, and ideally swapping turned off. In order of preference:
+         *
+         *      1. tmpfs if it supports "noswap"
+         *      2. ramfs
+         *      3. tmpfs if it doesn't support "noswap"
+         */
+
+        noswap_supported = mount_option_supported("tmpfs", "noswap", NULL); /* Check explicitly to avoid kmsg noise */
+        if (noswap_supported > 0) {
+                _cleanup_free_ char *noswap_opts = NULL;
+
+                if (asprintf(&noswap_opts, "mode=0700,nr_inodes=1024,size=%zu,noswap", size) < 0)
+                        return -ENOMEM;
+
+                /* Best case: tmpfs with noswap (needs kernel >= 6.3) */
+
+                r = mount_nofollow_verbose(
+                                LOG_DEBUG,
+                                "tmpfs",
+                                path,
+                                "tmpfs",
+                                credentials_fs_mount_flags(ro),
+                                noswap_opts);
+                if (r >= 0)
+                        return r;
+        }
+
+        r = mount_nofollow_verbose(
+                        LOG_DEBUG,
+                        "ramfs",
+                        path,
+                        "ramfs",
+                        credentials_fs_mount_flags(ro),
+                        "mode=0700");
+        if (r >= 0)
+                return r;
+
+        if (asprintf(&opts, "mode=0700,nr_inodes=1024,size=%zu", size) < 0)
+                return -ENOMEM;
+
+        return mount_nofollow_verbose(
+                        LOG_DEBUG,
+                        "tmpfs",
+                        path,
+                        "tmpfs",
+                        credentials_fs_mount_flags(ro),
+                        opts);
+}
