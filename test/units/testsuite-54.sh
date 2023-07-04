@@ -176,6 +176,7 @@ if systemd-detect-virt -q -c ; then
 elif [ -d /sys/firmware/qemu_fw_cfg/by_name ]; then
     # Verify that passing creds through kernel cmdline works
     [ "$(systemd-creds --system cat kernelcmdlinecred)" = "uff" ]
+    [ "$(systemd-creds --system cat waldi)" = "woooofffwufffwuff" ]
 
     # And that it also works via SMBIOS
     [ "$(systemd-creds --system cat smbioscredential)" = "magicdata" ]
@@ -300,6 +301,18 @@ systemd-run -p DynamicUser=yes -p 'LoadCredential=os:/etc/os-release' \
             --wait \
             --pipe \
             true | cmp /etc/os-release
+
+if ! systemd-detect-virt -q -c ; then
+    # Validate that the credential we inserted via the initrd logic arrived
+    test "$(systemd-creds cat --system myinitrdcred)" = "guatemala"
+
+    # Check that the fstab credential logic worked
+    test -d /injected
+    grep -q /injected /proc/self/mountinfo
+
+    # Make sure the getty generator processed the credentials properly
+    systemctl -P Wants show getty.target | grep -q container-getty@idontexist.service
+fi
 
 systemd-analyze log-level info
 
