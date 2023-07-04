@@ -10,6 +10,7 @@
 [Unit]
 Description=Automatic Boot Loader Update
 Documentation=man:bootctl(1)
+ConditionPathExists=!/etc/initrd-release
 
 DefaultDependencies=no
 After=local-fs.target
