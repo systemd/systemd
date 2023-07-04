@@ -278,15 +278,21 @@ static int import_credentials_boot(void) {
 
 static int proc_cmdline_callback(const char *key, const char *value, void *data) {
         ImportCredentialContext *c = ASSERT_PTR(data);
+        _cleanup_free_ void *binary = NULL;
         _cleanup_free_ char *n = NULL;
         _cleanup_close_ int nfd = -EBADF;
-        const char *colon;
+        const char *colon, *d;
+        bool base64;
         size_t l;
         int r;
 
         assert(key);
 
-        if (!proc_cmdline_key_streq(key, "systemd.set_credential"))
+        if (proc_cmdline_key_streq(key, "systemd.set_credential"))
+                base64 = false;
+        else if (proc_cmdline_key_streq(key, "systemd.set_credential_binary"))
+                base64 = true;
+        else
                 return 0;
 
         colon = value ? strchr(value, ':') : NULL;
@@ -305,7 +311,19 @@ static int proc_cmdline_callback(const char *key, const char *value, void *data)
         }
 
         colon++;
-        l = strlen(colon);
+
+        if (base64) {
+                r = unbase64mem(colon, SIZE_MAX, &binary, &l);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to decode binary credential '%s' data, ignoring: %m", n);
+                        return 0;
+                }
+
+                d = binary;
+        } else {
+                d = colon;
+                l = strlen(colon);
+        }
 
         if (!credential_size_ok(c, n, l))
                 return 0;
@@ -320,7 +338,7 @@ static int proc_cmdline_callback(const char *key, const char *value, void *data)
         if (nfd < 0)
                 return nfd;
 
-        r = loop_write(nfd, colon, l, /* do_poll= */ false);
+        r = loop_write(nfd, d, l, /* do_poll= */ false);
         if (r < 0) {
                 (void) unlinkat(c->target_dir_fd, n, 0);
                 return log_error_errno(r, "Failed to write credential: %m");
