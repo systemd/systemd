@@ -911,7 +911,6 @@ int transaction_add_job_and_dependencies(
                 sd_bus_error *e) {
 
         bool is_new;
-        Unit *dep;
         Job *ret;
         int r;
 
@@ -982,97 +981,136 @@ int transaction_add_job_and_dependencies(
                 tr->anchor_job = ret;
         }
 
-        if (is_new && !FLAGS_SET(flags, TRANSACTION_IGNORE_REQUIREMENTS) && type != JOB_NOP) {
-                _cleanup_set_free_ Set *following = NULL;
+        if (!is_new || FLAGS_SET(flags, TRANSACTION_IGNORE_REQUIREMENTS) || type == JOB_NOP)
+                return 0;
 
-                /* If we are following some other unit, make sure we add all dependencies of everybody
-                 * following. */
-                if (unit_following_set(ret->unit, &following) > 0)
-                        SET_FOREACH(dep, following) {
-                                r = transaction_add_job_and_dependencies(tr, type, dep, ret, flags & TRANSACTION_IGNORE_ORDER, e);
-                                if (r < 0) {
-                                        log_unit_full_errno(dep, r == -ERFKILL ? LOG_INFO : LOG_WARNING, r,
-                                                            "Cannot add dependency job, ignoring: %s",
-                                                            bus_error_message(e, r));
-                                        sd_bus_error_free(e);
-                                }
-                        }
+        _cleanup_set_free_ Set *following = NULL;
+        Unit *dep;
 
-                /* Finally, recursively add in all dependencies. */
-                if (IN_SET(type, JOB_START, JOB_RESTART)) {
-                        UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PULL_IN_START) {
-                                r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, TRANSACTION_MATTERS | (flags & TRANSACTION_IGNORE_ORDER), e);
-                                if (r < 0) {
-                                        if (r != -EBADR) /* job type not applicable */
-                                                goto fail;
-
-                                        sd_bus_error_free(e);
-                                }
-                        }
-
-                        UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PULL_IN_START_IGNORED) {
-                                r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, flags & TRANSACTION_IGNORE_ORDER, e);
-                                if (r < 0) {
-                                        /* unit masked, job type not applicable and unit not found are not
-                                         * considered as errors. */
-                                        log_unit_full_errno(dep,
-                                                            IN_SET(r, -ERFKILL, -EBADR, -ENOENT) ? LOG_DEBUG : LOG_WARNING,
-                                                            r, "Cannot add dependency job, ignoring: %s",
-                                                            bus_error_message(e, r));
-                                        sd_bus_error_free(e);
-                                }
-                        }
-
-                        UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PULL_IN_VERIFY) {
-                                r = transaction_add_job_and_dependencies(tr, JOB_VERIFY_ACTIVE, dep, ret, TRANSACTION_MATTERS | (flags & TRANSACTION_IGNORE_ORDER), e);
-                                if (r < 0) {
-                                        if (r != -EBADR) /* job type not applicable */
-                                                goto fail;
-
-                                        sd_bus_error_free(e);
-                                }
-                        }
-
-                        UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PULL_IN_STOP) {
-                                r = transaction_add_job_and_dependencies(tr, JOB_STOP, dep, ret, TRANSACTION_MATTERS | TRANSACTION_CONFLICTS | (flags & TRANSACTION_IGNORE_ORDER), e);
-                                if (r < 0) {
-                                        if (r != -EBADR) /* job type not applicable */
-                                                goto fail;
-
-                                        sd_bus_error_free(e);
-                                }
-                        }
-
-                        UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PULL_IN_STOP_IGNORED) {
-                                r = transaction_add_job_and_dependencies(tr, JOB_STOP, dep, ret, flags & TRANSACTION_IGNORE_ORDER, e);
-                                if (r < 0) {
-                                        log_unit_warning(dep,
-                                                         "Cannot add dependency job, ignoring: %s",
-                                                         bus_error_message(e, r));
-                                        sd_bus_error_free(e);
-                                }
+        /* If we are following some other unit, make sure we add all dependencies of everybody following. */
+        if (unit_following_set(ret->unit, &following) > 0)
+                SET_FOREACH(dep, following) {
+                        r = transaction_add_job_and_dependencies(tr, type, dep, ret, flags & TRANSACTION_IGNORE_ORDER, e);
+                        if (r < 0) {
+                                log_unit_full_errno(dep, r == -ERFKILL ? LOG_INFO : LOG_WARNING, r,
+                                                    "Cannot add dependency job, ignoring: %s",
+                                                    bus_error_message(e, r));
+                                sd_bus_error_free(e);
                         }
                 }
 
-                _cleanup_set_free_ Set *propagated_restart = NULL;
+        /* Finally, recursively add in all dependencies. */
+        if (IN_SET(type, JOB_START, JOB_RESTART)) {
+                UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PULL_IN_START) {
+                        r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, TRANSACTION_MATTERS | (flags & TRANSACTION_IGNORE_ORDER), e);
+                        if (r < 0) {
+                                if (r != -EBADR) /* job type not applicable */
+                                        goto fail;
 
-                if (type == JOB_RESTART || (type == JOB_START && FLAGS_SET(flags, TRANSACTION_PROPAGATE_START_AS_RESTART))) {
+                                sd_bus_error_free(e);
+                        }
+                }
 
+                UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PULL_IN_START_IGNORED) {
+                        r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, flags & TRANSACTION_IGNORE_ORDER, e);
+                        if (r < 0) {
+                                /* unit masked, job type not applicable and unit not found are not considered
+                                 * as errors. */
+                                log_unit_full_errno(dep,
+                                                    IN_SET(r, -ERFKILL, -EBADR, -ENOENT) ? LOG_DEBUG : LOG_WARNING,
+                                                    r, "Cannot add dependency job, ignoring: %s",
+                                                    bus_error_message(e, r));
+                                sd_bus_error_free(e);
+                        }
+                }
+
+                UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PULL_IN_VERIFY) {
+                        r = transaction_add_job_and_dependencies(tr, JOB_VERIFY_ACTIVE, dep, ret, TRANSACTION_MATTERS | (flags & TRANSACTION_IGNORE_ORDER), e);
+                        if (r < 0) {
+                                if (r != -EBADR) /* job type not applicable */
+                                        goto fail;
+
+                                sd_bus_error_free(e);
+                        }
+                }
+
+                UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PULL_IN_STOP) {
+                        r = transaction_add_job_and_dependencies(tr, JOB_STOP, dep, ret, TRANSACTION_MATTERS | TRANSACTION_CONFLICTS | (flags & TRANSACTION_IGNORE_ORDER), e);
+                        if (r < 0) {
+                                if (r != -EBADR) /* job type not applicable */
+                                        goto fail;
+
+                                sd_bus_error_free(e);
+                        }
+                }
+
+                UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PULL_IN_STOP_IGNORED) {
+                        r = transaction_add_job_and_dependencies(tr, JOB_STOP, dep, ret, flags & TRANSACTION_IGNORE_ORDER, e);
+                        if (r < 0) {
+                                log_unit_warning(dep,
+                                                 "Cannot add dependency job, ignoring: %s",
+                                                 bus_error_message(e, r));
+                                sd_bus_error_free(e);
+                        }
+                }
+        }
+
+        if (IN_SET(type, JOB_RESTART, JOB_STOP) || (type == JOB_START && FLAGS_SET(flags, TRANSACTION_PROPAGATE_START_AS_RESTART))) {
+                bool is_stop = type == JOB_STOP;
+
+                UNIT_FOREACH_DEPENDENCY(dep, ret->unit, is_stop ? UNIT_ATOM_PROPAGATE_STOP : UNIT_ATOM_PROPAGATE_RESTART) {
                         /* We propagate RESTART only as TRY_RESTART, in order not to start dependencies that
                          * are not around. */
+                        JobType nt;
 
-                        UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PROPAGATE_RESTART) {
-                                JobType nt;
+                        nt = job_type_collapse(is_stop ? JOB_STOP : JOB_TRY_RESTART, dep);
+                        if (nt == JOB_NOP)
+                                continue;
 
-                                r = set_ensure_put(&propagated_restart, NULL, dep);
-                                if (r < 0)
+                        r = transaction_add_job_and_dependencies(tr, nt, dep, ret, TRANSACTION_MATTERS | (flags & TRANSACTION_IGNORE_ORDER), e);
+                        if (r < 0) {
+                                if (r != -EBADR) /* job type not applicable */
                                         return r;
 
-                                nt = job_type_collapse(JOB_TRY_RESTART, dep);
+                                sd_bus_error_free(e);
+                        }
+                }
+
+                /* Process UNIT_ATOM_PROPAGATE_STOP_GRACEFUL (PropagatesStopTo=) units. We need to wait until
+                 * all other dependencies are processed, i.e. we're the anchor job or already in the recursion
+                 * that handles it. */
+                if (!by || FLAGS_SET(flags, TRANSACTION_PROCESS_PROPAGATE_STOP_GRACEFUL))
+                        UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PROPAGATE_STOP_GRACEFUL) {
+                                JobType nt = JOB_STOP;
+                                Job *j;
+
+                                j = hashmap_get(tr->jobs, dep);
+                                if (j)
+                                        LIST_FOREACH(transaction, i, j)
+                                                switch (i->type) {
+
+                                                case JOB_STOP:
+                                                case JOB_RESTART:
+                                                        /* Nothing to worry about, an appropriate job is in-place */
+                                                        nt = JOB_NOP;
+                                                        break;
+
+                                                case JOB_START:
+                                                        /* This unit is pulled in by other dependency types in
+                                                         * this transaction. We will run into job type conflict
+                                                         * if we enqueue a stop job, so let's enqueue a restart
+                                                         * job instead. */
+                                                        nt = JOB_RESTART;
+
+                                                default: /* We don't care about others */
+                                                        ;
+
+                                                }
+
                                 if (nt == JOB_NOP)
                                         continue;
 
-                                r = transaction_add_job_and_dependencies(tr, nt, dep, ret, TRANSACTION_MATTERS | (flags & TRANSACTION_IGNORE_ORDER), e);
+                                r = transaction_add_job_and_dependencies(tr, nt, dep, ret, TRANSACTION_MATTERS | (flags & TRANSACTION_IGNORE_ORDER) | TRANSACTION_PROCESS_PROPAGATE_STOP_GRACEFUL, e);
                                 if (r < 0) {
                                         if (r != -EBADR) /* job type not applicable */
                                                 return r;
@@ -1080,41 +1118,22 @@ int transaction_add_job_and_dependencies(
                                         sd_bus_error_free(e);
                                 }
                         }
-                }
-
-                if (type == JOB_STOP) {
-                        /* The 'stop' part of a restart job is also propagated to units with
-                         * UNIT_ATOM_PROPAGATE_STOP */
-
-                        UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PROPAGATE_STOP) {
-                                /* Units experienced restart propagation are skipped */
-                                if (set_contains(propagated_restart, dep))
-                                        continue;
-
-                                r = transaction_add_job_and_dependencies(tr, JOB_STOP, dep, ret, TRANSACTION_MATTERS | (flags & TRANSACTION_IGNORE_ORDER), e);
-                                if (r < 0) {
-                                        if (r != -EBADR) /* job type not applicable */
-                                                return r;
-
-                                        sd_bus_error_free(e);
-                                }
-                        }
-                }
-
-                if (type == JOB_RELOAD)
-                        transaction_add_propagate_reload_jobs(tr, ret->unit, ret, flags & TRANSACTION_IGNORE_ORDER);
-
-                /* JOB_VERIFY_ACTIVE requires no dependency handling */
         }
 
+        if (type == JOB_RELOAD)
+                transaction_add_propagate_reload_jobs(tr, ret->unit, ret, flags & TRANSACTION_IGNORE_ORDER);
+
+        /* JOB_VERIFY_ACTIVE requires no dependency handling */
+
         return 0;
+
 fail:
         /* Recursive call failed to add required jobs so let's drop top level job as well. */
         log_unit_debug_errno(unit, r, "Cannot add dependency job to transaction, deleting job %s/%s again: %s",
                              unit->id, job_type_to_string(type), bus_error_message(e, r));
+
         transaction_delete_job(tr, ret, /* delete_dependencies= */ false);
         return r;
-
 }
 
 static bool shall_stop_on_isolate(Transaction *tr, Unit *u) {
