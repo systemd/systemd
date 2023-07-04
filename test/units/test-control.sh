@@ -87,6 +87,7 @@ run_subtests_with_signals() {
 
     for subtest in "${subtests[@]}"; do
         : "--- $subtest BEGIN ---"
+        SECONDS=0
         "./$subtest" &
         _CHILD_PID=$!
         if ! _wait_harder "$_CHILD_PID"; then
@@ -95,7 +96,7 @@ run_subtests_with_signals() {
         fi
 
         _PASSED_TESTS+=("$subtest")
-        : "--- $subtest END ---"
+        : "--- $subtest END (${SECONDS}s) ---"
     done
 
     _show_summary
@@ -118,13 +119,14 @@ run_subtests() {
         fi
 
         : "--- $subtest BEGIN ---"
+        SECONDS=0
         if ! "./$subtest"; then
             echo "Subtest $subtest failed"
             return 1
         fi
 
         _PASSED_TESTS+=("$subtest")
-        : "--- $subtest END ---"
+        : "--- $subtest END (${SECONDS}s) ---"
     done
 
     _show_summary
