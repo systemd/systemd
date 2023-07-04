@@ -89,9 +89,9 @@
     (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
     details). The following credentials are used when passed in:</para>
 
-    <variablelist>
+    <variablelist class='system-credentials'>
       <varlistentry>
-        <term><literal>sysctl.extra</literal></term>
+        <term><varname>sysctl.extra</varname></term>
 
         <listitem><para>The contents of this credential may contain additional lines to operate on. The
         credential contents should follow the same format as any other <filename>sysctl.d/</filename> drop-in
