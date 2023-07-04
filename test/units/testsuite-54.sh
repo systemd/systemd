@@ -295,8 +295,8 @@ fi
 
 # https://github.com/systemd/systemd/issues/27275
 systemd-run -p DynamicUser=yes -p 'LoadCredential=os:/etc/os-release' \
-            -p 'ExecStartPre=true' \
-            -p 'ExecStartPre=systemd-creds cat os' \
+            -p 'ExecStartPre=bash -c "ls -ald /run/credentials/test-54-exec-start.service ; true"' \
+            -p 'ExecStartPre=bash -c "ls -ald /run/credentials/test-54-exec-start.service ; systemd-creds cat os"' \
             --unit=test-54-exec-start.service \
             --wait \
             --pipe \
