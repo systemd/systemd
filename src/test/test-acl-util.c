@@ -69,4 +69,62 @@ TEST_RET(add_acls_for_user) {
         return 0;
 }
 
+TEST(fd_acl_make_read_only) {
+        _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-empty.XXXXXX";
+        _cleanup_close_ int fd = -EBADF;
+        const char *cmd;
+        struct stat st;
+
+        fd = mkostemp_safe(fn);
+        assert_se(fd >= 0);
+
+        /* make it more exciting */
+        (void) fd_add_uid_acl_permission(fd, 1, ACL_READ|ACL_WRITE|ACL_EXECUTE);
+
+        assert_se(fstat(fd, &st) >= 0);
+        assert_se((st.st_mode & 0200) == 0200);
+
+        cmd = strjoina("getfacl -p ", fn);
+        assert_se(system(cmd) == 0);
+
+        cmd = strjoina("stat ", fn);
+        assert_se(system(cmd) == 0);
+
+        log_info("read-only");
+        assert_se(fd_acl_make_read_only(fd));
+
+        assert_se(fstat(fd, &st) >= 0);
+        assert_se((st.st_mode & 0222) == 0000);
+
+        cmd = strjoina("getfacl -p ", fn);
+        assert_se(system(cmd) == 0);
+
+        cmd = strjoina("stat ", fn);
+        assert_se(system(cmd) == 0);
+
+        log_info("writable");
+        assert_se(fd_acl_make_writable(fd));
+
+        assert_se(fstat(fd, &st) >= 0);
+        assert_se((st.st_mode & 0222) == 0200);
+
+        cmd = strjoina("getfacl -p ", fn);
+        assert_se(system(cmd) == 0);
+
+        cmd = strjoina("stat ", fn);
+        assert_se(system(cmd) == 0);
+
+        log_info("read-only");
+        assert_se(fd_acl_make_read_only(fd));
+
+        assert_se(fstat(fd, &st) >= 0);
+        assert_se((st.st_mode & 0222) == 0000);
+
+        cmd = strjoina("getfacl -p ", fn);
+        assert_se(system(cmd) == 0);
+
+        cmd = strjoina("stat ", fn);
+        assert_se(system(cmd) == 0);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
