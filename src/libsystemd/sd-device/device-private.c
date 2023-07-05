@@ -620,74 +620,58 @@ int device_get_devlink_priority(sd_device *device, int *ret) {
         return 0;
 }
 
-static int device_shallow_clone(sd_device *device, sd_device **ret) {
+int device_clone_with_db(sd_device *device, sd_device **ret) {
         _cleanup_(sd_device_unrefp) sd_device *dest = NULL;
-        const char *val = NULL;
+        const char *key, *val;
         int r;
 
         assert(device);
         assert(ret);
+
+        /* The device may be already removed. Let's copy minimal set of information that was obtained through
+         * netlink socket. */
 
         r = device_new_aux(&dest);
         if (r < 0)
                 return r;
 
+        /* Seal device to prevent reading the uevent file, as the device may have been already removed. */
+        dest->sealed = true;
+
+        /* Copy syspath, then also devname, sysname or sysnum can be obtained. */
         r = device_set_syspath(dest, device->syspath, false);
         if (r < 0)
                 return r;
 
-        (void) sd_device_get_subsystem(device, &val);
-        r = device_set_subsystem(dest, val);
-        if (r < 0)
-                return r;
-        if (streq_ptr(val, "drivers")) {
-                r = free_and_strdup(&dest->driver_subsystem, device->driver_subsystem);
+        /* Copy other information stored in database. Here, do not use FOREACH_DEVICE_PROPERTY() and
+         * sd_device_get_property_value(), as they calls device_properties_prepare() ->
+         * device_read_uevent_file(), but as commented in the above, the device may be already removed and
+         * reading uevent file may fail. */
+        ORDERED_HASHMAP_FOREACH_KEY(val, key, device->properties) {
+                if (streq(key, "MINOR"))
+                        continue;
+
+                if (streq(key, "MAJOR")) {
+                        const char *minor = NULL;
+
+                        minor = ordered_hashmap_get(device->properties, "MINOR");
+                        r = device_set_devnum(dest, val, minor);
+                } else
+                        r = device_amend(dest, key, val);
                 if (r < 0)
                         return r;
+
+                if (streq(key, "SUBSYSTEM") && streq(val, "drivers")) {
+                        r = free_and_strdup(&dest->driver_subsystem, device->driver_subsystem);
+                        if (r < 0)
+                                return r;
+                }
         }
 
-        /* The device may be already removed. Let's copy minimal set of information to make
-         * device_get_device_id() work without uevent file. */
-
-        if (sd_device_get_property_value(device, "IFINDEX", &val) >= 0) {
-                r = device_set_ifindex(dest, val);
-                if (r < 0)
-                        return r;
-        }
-
-        if (sd_device_get_property_value(device, "MAJOR", &val) >= 0) {
-                const char *minor = NULL;
-
-                (void) sd_device_get_property_value(device, "MINOR", &minor);
-                r = device_set_devnum(dest, val, minor);
-                if (r < 0)
-                        return r;
-        }
-
-        r = device_read_uevent_file(dest);
+        /* Finally, read the udev database. */
+        r = device_read_db_internal(dest, /* force = */ true);
         if (r < 0)
                 return r;
-
-        *ret = TAKE_PTR(dest);
-        return 0;
-}
-
-int device_clone_with_db(sd_device *device, sd_device **ret) {
-        _cleanup_(sd_device_unrefp) sd_device *dest = NULL;
-        int r;
-
-        assert(device);
-        assert(ret);
-
-        r = device_shallow_clone(device, &dest);
-        if (r < 0)
-                return r;
-
-        r = device_read_db(dest);
-        if (r < 0)
-                return r;
-
-        dest->sealed = true;
 
         *ret = TAKE_PTR(dest);
         return 0;
