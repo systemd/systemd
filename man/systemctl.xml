@@ -1950,8 +1950,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <literal>isolate</literal>,
         <literal>ignore-dependencies</literal>,
         <literal>ignore-requirements</literal>,
-        <literal>flush</literal>, or
-        <literal>triggering</literal>. Defaults to
+        <literal>flush</literal>,
+        <literal>triggering</literal>, or
+        <literal>restart-dependencies</literal>. Defaults to
         <literal>replace</literal>, except when the
         <command>isolate</command> command is used which implies the
         <literal>isolate</literal> job mode.</para>
@@ -1994,7 +1995,6 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <literal>ignore-dependencies</literal>, but only causes the
         requirement dependencies to be ignored, the ordering
         dependencies will still be honored.</para>
-        </listitem>
 
         <para><literal>triggering</literal> may only be used with
         <command>systemctl stop</command>. In this mode, the specified
@@ -2003,6 +2003,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <varname>Triggers=</varname> in <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for more information about triggering units.</para>
 
+        <para><literal>restart-dependencies</literal> may only be used with
+        <command>systemctl start</command>. In this mode, dependencies of
+        the specified unit will receive restart propagation, as if a restart
+        job had been enqueued for the unit.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
