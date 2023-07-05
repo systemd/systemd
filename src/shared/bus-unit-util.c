@@ -3,6 +3,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "cap-list.h"
@@ -2810,4 +2811,23 @@ int unit_info_compare(const UnitInfo *a, const UnitInfo *b) {
 
         /* Third, order by name */
         return strcasecmp(a->id, b->id);
+}
+
+int bus_service_manager_reload(sd_bus *bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r;
+
+        assert(bus);
+
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "Reload");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* Reloading the daemon may take long, hence set a longer timeout here */
+        r = sd_bus_call(bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reload service manager: %s", bus_error_message(&error, r));
+
+        return 0;
 }
