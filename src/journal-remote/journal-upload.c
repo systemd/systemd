@@ -770,6 +770,8 @@ static int parse_argv(int argc, char *argv[]) {
 static int open_journal(sd_journal **j) {
         int r;
 
+        assert(j);
+
         if (arg_directory)
                 r = sd_journal_open_directory(j, arg_directory, arg_journal_type);
         else if (arg_file)
