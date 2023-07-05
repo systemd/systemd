@@ -32,6 +32,7 @@
     <refname>SD_JOURNAL_OS_ROOT</refname>
     <refname>SD_JOURNAL_ALL_NAMESPACES</refname>
     <refname>SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE</refname>
+    <refname>SD_JOURNAL_TAKE_DIRECTORY_FD</refname>
     <refpurpose>Open the system journal for reading</refpurpose>
   </refnamediv>
 
@@ -136,7 +137,13 @@
 
     <para><function>sd_journal_open_directory_fd()</function> is similar to
     <function>sd_journal_open_directory()</function>, but takes a file descriptor referencing a directory in the file
-    system instead of an absolute file system path.</para>
+    system instead of an absolute file system path. In addtion to the flags accepted by
+    <function>sd_journal_open_directory()</function>, this function also accepts
+    <constant>SD_JOURNAL_TAKE_DIRECTORY_FD</constant>. If <constant>SD_JOURNAL_TAKE_DIRECTORY_FD</constant> is
+    specified, the function will take the ownership of the specified file descriptor on success, and it will be
+    closed by <function>sd_journal_close()</function>, hence the caller of the function must not close the file
+    descriptor. When the flag is not specified, <function>sd_journal_close()</function> will not close the file
+    descriptor, so the caller should close it after <function>sd_journal_close()</function>.</para>
 
     <para><function>sd_journal_open_files()</function> is similar to <function>sd_journal_open()</function> but takes a
     <constant>NULL</constant>-terminated list of file paths to open.  All files will be opened and interleaved
