@@ -444,9 +444,13 @@ EOF
 }
 
 testcase_simultaneous_events_2() {
-    local disk expected i iterations key link num_part part partscript target timeout
+    local disk expected i iterations key link num_part part script_dir target timeout
     local -a devices symlinks
     local -A running
+
+    script_dir="$(mktemp --directory "/tmp/test-udev-storage.script.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$script_dir'" RETURN
 
     if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" ]]; then
         num_part=20
@@ -469,13 +473,11 @@ testcase_simultaneous_events_2() {
         devices+=("$target")
     done
 
-    symlinks=("/dev/disk/by-partlabel/testlabel")
-
-    partscript="$(mktemp)"
-
-    cat >"$partscript" <<EOF
-$(for ((part = 1; part <= num_part; part++)); do printf 'name="testlabel", size=1M\n'; done)
+    for ((i = 1; i <= iterations; i++)); do
+        cat >"$script_dir/partscript-$i" <<EOF
+$(for ((part = 1; part <= num_part; part++)); do printf 'name="testlabel-%d", size=1M\n' "$i"; done)
 EOF
+    done
 
     echo "## $iterations iterations start: $(date '+%H:%M:%S.%N')"
     for ((i = 1; i <= iterations; i++)); do
@@ -491,7 +493,7 @@ EOF
         done
 
         for disk in {0..9}; do
-            udevadm lock --device="${devices[$disk]}" sfdisk -q -X gpt "${devices[$disk]}" <"$partscript" &
+            udevadm lock --device="${devices[$disk]}" sfdisk -q -X gpt "${devices[$disk]}" <"$script_dir/partscript-$i" &
             running[$disk]=$!
         done
 
@@ -500,7 +502,7 @@ EOF
             unset "running[$key]"
         done
 
-        udevadm wait --settle --timeout="$timeout" "${devices[@]}" "${symlinks[@]}"
+        udevadm wait --settle --timeout="$timeout" "${devices[@]}" "/dev/disk/by-partlabel/testlabel-$i"
     done
     echo "## $iterations iterations end: $(date '+%H:%M:%S.%N')"
 }
