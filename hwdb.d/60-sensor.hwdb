@@ -127,7 +127,7 @@ sensor:modalias:acpi:SMO8500*:dmi:*:svnARCHOS:pnARCHOS80Cesium:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 # Archos 101 Cesium Educ
-sensor:modalias:acpi:KIOX000A*:dmi:*svn*ARCHOS:*pn*ARCHOS101CesiumEduc*
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnARCHOS:pnARCHOS101CesiumEduc:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
