@@ -57,6 +57,9 @@ acpi:AWDZ*:
 acpi:BABA*:
  ID_VENDOR_FROM_DATABASE=Alibaba Co., Ltd.
 
+acpi:BECS*:
+ ID_VENDOR_FROM_DATABASE=Beijer Electronics AB
+
 acpi:BOOT*:
  ID_VENDOR_FROM_DATABASE=Coreboot Project
 
@@ -65,6 +68,9 @@ acpi:BOSC*:
 
 acpi:BRCM*:
  ID_VENDOR_FROM_DATABASE=Broadcom Corporation
+
+acpi:CIRQ*:
+ ID_VENDOR_FROM_DATABASE=Cirque Corporation
 
 acpi:CIXH*:
  ID_VENDOR_FROM_DATABASE=Cix Technology (Shanghai) Co., Ltd.
@@ -77,6 +83,9 @@ acpi:CORE*:
 
 acpi:CPLM*:
  ID_VENDOR_FROM_DATABASE=Capella Microsystems Inc.
+
+acpi:CSOT*:
+ ID_VENDOR_FROM_DATABASE=China Star Optoelectronics Technology Co., Ltd
 
 acpi:DELL*:
  ID_VENDOR_FROM_DATABASE=Dell, Inc.
@@ -174,6 +183,9 @@ acpi:IDEM*:
 acpi:IHSE*:
  ID_VENDOR_FROM_DATABASE=IHSE GmbH
 
+acpi:ILIT*:
+ ID_VENDOR_FROM_DATABASE=ILI Technology Corp
+
 acpi:IMPJ*:
  ID_VENDOR_FROM_DATABASE=Impinj
 
@@ -194,6 +206,9 @@ acpi:IP3T*:
 
 acpi:IPHI*:
  ID_VENDOR_FROM_DATABASE=Inphi Corporation
+
+acpi:ISIC*:
+ ID_VENDOR_FROM_DATABASE=Shenzhen Istaric Technology Co., Ltd.
 
 acpi:JMIC*:
  ID_VENDOR_FROM_DATABASE=Shenzhen Jaguar Microsystems Co.,Ltd.
@@ -287,6 +302,12 @@ acpi:RAYD*:
 
 acpi:RKCP*:
  ID_VENDOR_FROM_DATABASE=Fuzhou Rockchip Electronics Co., Ltd.
+
+acpi:RPIL*:
+ ID_VENDOR_FROM_DATABASE=Raspberry Pi
+
+acpi:RVOS*:
+ ID_VENDOR_FROM_DATABASE=Rivos Inc.
 
 acpi:RZSN*:
  ID_VENDOR_FROM_DATABASE=Rozsnyó, s.r.o.
@@ -933,6 +954,9 @@ acpi:ATP*:
 acpi:ATT*:
  ID_VENDOR_FROM_DATABASE=AT&T
 
+acpi:ATU*:
+ ID_VENDOR_FROM_DATABASE=Avocor Technologies USA, Inc
+
 acpi:ATV*:
  ID_VENDOR_FROM_DATABASE=Office Depot, Inc.
 
@@ -1241,6 +1265,9 @@ acpi:BRG*:
 
 acpi:BRI*:
  ID_VENDOR_FROM_DATABASE=Boca Research Inc
+
+acpi:BRL*:
+ ID_VENDOR_FROM_DATABASE=Brainlab AG
 
 acpi:BRM*:
  ID_VENDOR_FROM_DATABASE=Braemar Inc
@@ -2039,6 +2066,9 @@ acpi:DLB*:
 
 acpi:DLC*:
  ID_VENDOR_FROM_DATABASE=Diamond Lane Comm. Corporation
+
+acpi:DLD*:
+ ID_VENDOR_FROM_DATABASE=Delem
 
 acpi:DLG*:
  ID_VENDOR_FROM_DATABASE=Digital-Logic GmbH
@@ -3198,6 +3228,9 @@ acpi:HMK*:
 acpi:HMX*:
  ID_VENDOR_FROM_DATABASE=HUMAX Co., Ltd.
 
+acpi:HNM*:
+ ID_VENDOR_FROM_DATABASE=HONOR Device Co., Ltd.
+
 acpi:HNS*:
  ID_VENDOR_FROM_DATABASE=Hughes Network Systems
 
@@ -3810,6 +3843,9 @@ acpi:JIC*:
 acpi:JKC*:
  ID_VENDOR_FROM_DATABASE=JVC KENWOOD Corporation
 
+acpi:JLK*:
+ ID_VENDOR_FROM_DATABASE=UNIONMAN TECHNOLOGY CO., LTD
+
 acpi:JMT*:
  ID_VENDOR_FROM_DATABASE=Micro Technical Company Ltd
 
@@ -3917,6 +3953,9 @@ acpi:KGI*:
 
 acpi:KGL*:
  ID_VENDOR_FROM_DATABASE=KEISOKU GIKEN Co.,Ltd.
+
+acpi:KGN*:
+ ID_VENDOR_FROM_DATABASE=KOGAN AUSTRALIA PTY LTD
 
 acpi:KIO*:
  ID_VENDOR_FROM_DATABASE=Kionix, Inc.
@@ -4193,6 +4232,9 @@ acpi:LMP*:
 
 acpi:LMT*:
  ID_VENDOR_FROM_DATABASE=Laser Master
+
+acpi:LNC*:
+ ID_VENDOR_FROM_DATABASE=Lincoln Technology Solutions
 
 acpi:LND*:
  ID_VENDOR_FROM_DATABASE=Land Computer Company Ltd
@@ -5156,6 +5198,9 @@ acpi:NWS*:
 
 acpi:NXC*:
  ID_VENDOR_FROM_DATABASE=NextCom K.K.
+
+acpi:NXE*:
+ ID_VENDOR_FROM_DATABASE=Norxe AS
 
 acpi:NXG*:
  ID_VENDOR_FROM_DATABASE=Nexgen
@@ -6179,6 +6224,9 @@ acpi:SCX*:
 
 acpi:SDA*:
  ID_VENDOR_FROM_DATABASE=SAT (Societe Anonyme)
+
+acpi:SDC*:
+ ID_VENDOR_FROM_DATABASE=Samsung Display Corp.
 
 acpi:SDD*:
  ID_VENDOR_FROM_DATABASE=Intrada-SDD Ltd
@@ -7655,6 +7703,9 @@ acpi:VTX*:
 
 acpi:VUT*:
  ID_VENDOR_FROM_DATABASE=Vutrix (UK) Ltd
+
+acpi:VVI*:
+ ID_VENDOR_FROM_DATABASE=VITEC
 
 acpi:VWB*:
  ID_VENDOR_FROM_DATABASE=Vweb Corp.
