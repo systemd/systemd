@@ -150,7 +150,7 @@ int hostname_setup(bool really) {
         if (r < 0)
                 log_warning_errno(r, "Failed to retrieve system hostname from kernel command line, ignoring: %m");
         else if (r > 0) {
-                if (hostname_is_valid(b, true)) {
+                if (hostname_is_valid(b, VALID_HOSTNAME_TRAILING_DOT)) {
                         hn = b;
                         source = HOSTNAME_TRANSIENT;
                 } else  {
