@@ -34,14 +34,15 @@ _used_ _section_(".osrel") static const char osrel[] =
         "VERSION=\"" GIT_VERSION "\"\n"
         "NAME=\"systemd-boot " GIT_VERSION "\"\n";
 
-enum loader_type {
+typedef enum LoaderType {
         LOADER_UNDEFINED,
         LOADER_AUTO,
         LOADER_EFI,
         LOADER_LINUX,         /* Boot loader spec type #1 entries */
         LOADER_UNIFIED_LINUX, /* Boot loader spec type #2 entries */
         LOADER_SECURE_BOOT_KEYS,
-};
+        _LOADER_TYPE_MAX,
+} LoaderType;
 
 typedef struct {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry) */
@@ -51,7 +52,7 @@ typedef struct {
         char16_t *version;    /* The raw (human readable) version string of the entry */
         char16_t *machine_id;
         EFI_HANDLE *device;
-        enum loader_type type;
+        LoaderType type;
         char16_t *loader;
         char16_t *devicetree;
         char16_t *options;
