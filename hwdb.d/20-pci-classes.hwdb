@@ -92,6 +92,15 @@ pci:v*d*sv*sd*bc01sc08i01*
 pci:v*d*sv*sd*bc01sc08i02*
  ID_PCI_INTERFACE_FROM_DATABASE=NVM Express
 
+pci:v*d*sv*sd*bc01sc09*
+ ID_PCI_SUBCLASS_FROM_DATABASE=Universal Flash Storage controller
+
+pci:v*d*sv*sd*bc01sc09i00*
+ ID_PCI_INTERFACE_FROM_DATABASE=Vendor specific
+
+pci:v*d*sv*sd*bc01sc09i01*
+ ID_PCI_INTERFACE_FROM_DATABASE=UFSHCI
+
 pci:v*d*sv*sd*bc01sc80*
  ID_PCI_SUBCLASS_FROM_DATABASE=Mass storage controller
 
