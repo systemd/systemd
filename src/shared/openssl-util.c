@@ -87,6 +87,33 @@ int openssl_hash(const EVP_MD *alg,
         return 0;
 }
 
+int openssl_digest_size(const char *digest_alg, size_t *ret_digest_size) {
+        size_t digest_size;
+
+        assert(digest_alg);
+        assert(ret_digest_size);
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        _cleanup_(EVP_MD_freep) EVP_MD *md = EVP_MD_fetch(NULL, digest_alg, NULL);
+#else
+        const EVP_MD *md = EVP_get_digestbyname(digest_alg);
+#endif
+        if (!md)
+                return log_openssl_errors("Failed to get EVP_MD for '%s'", digest_alg);
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        digest_size = EVP_MD_get_size(md);
+#else
+        digest_size = EVP_MD_size(md);
+#endif
+        if (digest_size == 0)
+                return log_openssl_errors("Failed to get Digest size");
+
+        *ret_digest_size = digest_size;
+
+        return 0;
+}
+
 int rsa_encrypt_bytes(
                 EVP_PKEY *pkey,
                 const void *decrypted_key,
