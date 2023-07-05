@@ -14,6 +14,7 @@
 #include "battery-util.h"
 #include "cgroup-util.h"
 #include "condition.h"
+#include "confidential-virt.h"
 #include "cpu-set-util.h"
 #include "efi-loader.h"
 #include "env-util.h"
@@ -784,6 +785,12 @@ TEST(condition_test_security) {
         assert_se(condition);
         assert_se(condition_test(condition, environ) == is_efi_secure_boot());
         condition_free(condition);
+
+        condition = condition_new(CONDITION_SECURITY, "cvm", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition, environ) ==
+                  (detect_confidential_virtualization() != CONFIDENTIAL_VIRTUALIZATION_NONE));
+        condition_free(condition);
 }
 
 TEST(print_securities) {
@@ -795,6 +802,8 @@ TEST(print_securities) {
         log_info("SMACK: %s", yes_no(mac_smack_use()));
         log_info("Audit: %s", yes_no(use_audit()));
         log_info("UEFI secure boot: %s", yes_no(is_efi_secure_boot()));
+        log_info("Confidential VM: %s", yes_no
+                 (detect_confidential_virtualization() != CONFIDENTIAL_VIRTUALIZATION_NONE));
         log_info("-------------------------------------------");
 }
 
