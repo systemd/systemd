@@ -21,6 +21,7 @@ bpf	5315
 brk	5012
 cachectl	5198
 cacheflush	5197
+cachestat	5451
 capget	5123
 capset	5124
 chdir	5078

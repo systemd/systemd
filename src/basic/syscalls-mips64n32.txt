@@ -21,6 +21,7 @@ bpf	6319
 brk	6012
 cachectl	6198
 cacheflush	6197
+cachestat	6451
 capget	6123
 capset	6124
 chdir	6078

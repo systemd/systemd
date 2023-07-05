@@ -20,7 +20,8 @@ bind	22
 bpf	341
 brk	45
 cachectl
-cacheflush
+cacheflush	356
+cachestat	451
 capget	106
 capset	107
 chdir	12

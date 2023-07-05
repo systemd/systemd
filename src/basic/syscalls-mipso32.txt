@@ -21,6 +21,7 @@ bpf	4355
 brk	4045
 cachectl	4148
 cacheflush	4147
+cachestat	4451
 capget	4204
 capset	4205
 chdir	4012
