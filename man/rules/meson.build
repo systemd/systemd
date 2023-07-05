@@ -754,6 +754,7 @@ manpages = [
    'SD_JOURNAL_OS_ROOT',
    'SD_JOURNAL_RUNTIME_ONLY',
    'SD_JOURNAL_SYSTEM',
+   'SD_JOURNAL_TAKE_DIRECTORY_FD',
    'sd_journal',
    'sd_journal_close',
    'sd_journal_open_directory',
