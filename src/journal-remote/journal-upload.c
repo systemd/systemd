@@ -779,11 +779,9 @@ static int open_journal(sd_journal **j) {
                 /* FIXME: replace with D-Bus call OpenMachineRootDirectory() so that things also work with raw disk images */
                 r = sd_journal_open_container(j, arg_machine, 0);
 #pragma GCC diagnostic pop
-        } else if (arg_namespace)
-                r = sd_journal_open_namespace(j, arg_namespace, (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) |
-                                              arg_namespace_flags | arg_journal_type);
-        else
-                r = sd_journal_open(j, (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) | arg_journal_type);
+        } else
+                r = sd_journal_open_namespace(j, arg_namespace,
+                                              (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) | arg_namespace_flags | arg_journal_type);
         if (r < 0)
                 log_error_errno(r, "Failed to open %s: %m",
                                 arg_directory ?: (arg_file ? "files" : "journal"));
