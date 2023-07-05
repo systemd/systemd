@@ -145,4 +145,12 @@ systemctl --quiet is-active sleep-infinity-simple.service
 systemctl restart propagatestopto-only.target
 assert_rc 3 systemctl --quiet is-active sleep-infinity-simple.service
 
+systemctl start propagatesstopto-indirect.target propagatestopto-and-pullin.target
+systemctl --quiet is-active propagatestopto-indirect.target
+systemctl --quiet is-active propagatestopto-and-pullin.target
+
+systemctl restart propagatestopto-indirect.target
+assert_rc 3 systemctl --quiet is-active propagatestopto-and-pullin.target
+assert_rc 3 systemctl --quiet is-active sleep-infinity-simple.service
+
 touch /testok
