@@ -50,43 +50,6 @@ int openssl_pkey_from_pem(const void *pem, size_t pem_size, EVP_PKEY **ret) {
         return 0;
 }
 
-int openssl_hash(const EVP_MD *alg,
-                 const void *msg,
-                 size_t msg_len,
-                 uint8_t *ret_hash,
-                 size_t *ret_hash_len) {
-
-        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = NULL;
-        unsigned len;
-        int r;
-
-        ctx = EVP_MD_CTX_new();
-        if (!ctx)
-                /* This function just calls OPENSSL_zalloc, so failure
-                 * here is almost certainly a failed allocation. */
-                return -ENOMEM;
-
-        /* The documentation claims EVP_DigestInit behaves just like
-         * EVP_DigestInit_ex if passed NULL, except it also calls
-         * EVP_MD_CTX_reset, which deinitializes the context. */
-        r = EVP_DigestInit_ex(ctx, alg, NULL);
-        if (r == 0)
-                return -EIO;
-
-        r = EVP_DigestUpdate(ctx, msg, msg_len);
-        if (r == 0)
-                return -EIO;
-
-        r = EVP_DigestFinal_ex(ctx, ret_hash, &len);
-        if (r == 0)
-                return -EIO;
-
-        if (ret_hash_len)
-                *ret_hash_len = len;
-
-        return 0;
-}
-
 int openssl_digest_size(const char *digest_alg, size_t *ret_digest_size) {
         size_t digest_size;
 
@@ -633,28 +596,26 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
 int string_hashsum(
                 const char *s,
                 size_t len,
-                const EVP_MD *md_algorithm,
+                const char *md_algorithm,
                 char **ret) {
 
-        uint8_t hash[EVP_MAX_MD_SIZE];
-        size_t hash_size;
-        char *enc;
         int r;
 
-        hash_size = EVP_MD_size(md_algorithm);
-        assert(hash_size > 0);
+        assert(s || len == 0);
+        assert(md_algorithm);
+        assert(ret);
 
-        r = openssl_hash(md_algorithm, s, len, hash, NULL);
+        _cleanup_free_ void *digest = NULL;
+        size_t digest_size;
+        r = openssl_digest(md_algorithm, s, len, &digest, &digest_size);
         if (r < 0)
                 return r;
 
-        enc = hexmem(hash, hash_size);
-        if (!enc)
+        *ret = hexmem(digest, digest_size);
+        if (!*ret)
                 return -ENOMEM;
 
-        *ret = enc;
         return 0;
-
 }
 #  endif
 #endif
