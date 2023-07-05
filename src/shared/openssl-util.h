@@ -57,8 +57,6 @@ static inline void sk_X509_free_allp(STACK_OF(X509) **sk) {
 
 int openssl_pkey_from_pem(const void *pem, size_t pem_size, EVP_PKEY **ret);
 
-int openssl_hash(const EVP_MD *alg, const void *msg, size_t msg_len, uint8_t *ret_hash, size_t *ret_hash_len);
-
 int openssl_digest_size(const char *digest_alg, size_t *ret_digest_size);
 
 int openssl_digest_many(const char *digest_alg, const struct iovec data[], size_t n_data, void **ret_digest, size_t *ret_digest_size);
@@ -128,13 +126,13 @@ typedef gcry_md_hd_t hash_context_t;
 #endif
 
 #if PREFER_OPENSSL
-int string_hashsum(const char *s, size_t len, hash_algorithm_t md_algorithm, char **ret);
+int string_hashsum(const char *s, size_t len, const char *md_algorithm, char **ret);
 
 static inline int string_hashsum_sha224(const char *s, size_t len, char **ret) {
-        return string_hashsum(s, len, EVP_sha224(), ret);
+        return string_hashsum(s, len, "SHA224", ret);
 }
 
 static inline int string_hashsum_sha256(const char *s, size_t len, char **ret) {
-        return string_hashsum(s, len, EVP_sha256(), ret);
+        return string_hashsum(s, len, "SHA256", ret);
 }
 #endif
