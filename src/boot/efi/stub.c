@@ -88,6 +88,8 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
                 EFI_STUB_FEATURE_PICK_UP_SYSEXTS |          /* We pick up system extensions from the boot partition */
                 EFI_STUB_FEATURE_THREE_PCRS |               /* We can measure kernel image, parameters and sysext */
                 EFI_STUB_FEATURE_RANDOM_SEED |              /* We pass a random seed to the kernel */
+                EFI_STUB_FEATURE_CMDLINE_ADDONS |           /* We pick up .cmdline addons */
+                EFI_STUB_FEATURE_CMDLINE_SMBIOS |           /* We support extending kernel cmdline from SMBIOS Type #11 */
                 0;
 
         assert(loaded_image);
