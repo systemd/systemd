@@ -21,6 +21,7 @@
 #include "fs-util.h"
 #include "glob-util.h"
 #include "journal-upload.h"
+#include "journal-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
@@ -773,13 +774,9 @@ static int open_journal(sd_journal **j) {
                 r = sd_journal_open_directory(j, arg_directory, arg_journal_type);
         else if (arg_file)
                 r = sd_journal_open_files(j, (const char**) arg_file, 0);
-        else if (arg_machine) {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-                /* FIXME: replace with D-Bus call OpenMachineRootDirectory() so that things also work with raw disk images */
-                r = sd_journal_open_container(j, arg_machine, 0);
-#pragma GCC diagnostic pop
-        } else
+        else if (arg_machine)
+                r = journal_open_machine(j, arg_machine);
+        else
                 r = sd_journal_open_namespace(j, arg_namespace,
                                               (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) | arg_namespace_flags | arg_journal_type);
         if (r < 0)
