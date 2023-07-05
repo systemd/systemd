@@ -428,9 +428,25 @@ qemu_min_version() {
     printf "%s\n%s\n" "$1" "$qemu_ver" | sort -V -C
 }
 
+# Pads a file to multiple of 4 bytes
+pad4_file() {
+    local size
+    size=$(stat -c "%s" "$1")
+    local padded
+    padded=$((((size + 3) / 4) * 4))
+    truncate -s "$padded" "$1"
+}
+
 # Return 0 if qemu did run (then you must check the result state/logs for actual
 # success), or 1 if qemu is not available.
 run_qemu() {
+    if declare -F run_qemu_hook >/dev/null; then
+        if ! run_qemu_hook "${workspace}"; then
+            derror "check_qemu_hook() returned with EC > 0"
+            ret=4
+        fi
+    fi
+
     # If the test provided its own initrd, use it (e.g. TEST-24)
     if [[ -z "$INITRD" && -f "${TESTDIR:?}/initrd.img" ]]; then
         INITRD="$TESTDIR/initrd.img"
@@ -577,7 +593,28 @@ run_qemu() {
     fi
 
     if [[ -n "$INITRD" ]]; then
-        qemu_options+=(-initrd "$INITRD")
+        if [[ -n "$INITRD_EXTRA" ]]; then
+            # An addition initrd has been specified, let's combine it with the main one.
+            local t="$WORKDIR"/initrd.combined."$RANDOM"
+
+            # First, show contents of additional initrd
+            echo "Additional initrd contents:"
+            cpio -tv < "$INITRD_EXTRA"
+
+            # Copy the main initrd
+            zstd -d -c -f "$INITRD" > "$t"
+            add_at_exit_handler "rm $t"
+            # Kernel requires this to be padded to multiple of 4 bytes with zeroes
+            pad4_file "$t"
+
+            # Copy the additional initrd
+            cat "$INITRD_EXTRA" >> "$t"
+            pad4_file "$t"
+
+            qemu_options+=(-initrd "$t")
+        else
+            qemu_options+=(-initrd "$INITRD")
+        fi
     fi
 
     # Let's use KVM if possible
