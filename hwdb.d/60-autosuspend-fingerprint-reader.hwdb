@@ -173,9 +173,12 @@ usb:v10A5pD205*
 # Supported by libfprint driver goodixmoc
 usb:v27C6p5840*
 usb:v27C6p6014*
+usb:v27C6p6092*
 usb:v27C6p6094*
 usb:v27C6p609C*
 usb:v27C6p60A2*
+usb:v27C6p60A4*
+usb:v27C6p60BC*
 usb:v27C6p631C*
 usb:v27C6p634C*
 usb:v27C6p6384*
