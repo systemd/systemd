@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "io-util.h"
 #include "macro.h"
 #include "sha256.h"
 
@@ -59,6 +60,12 @@ int openssl_pkey_from_pem(const void *pem, size_t pem_size, EVP_PKEY **ret);
 int openssl_hash(const EVP_MD *alg, const void *msg, size_t msg_len, uint8_t *ret_hash, size_t *ret_hash_len);
 
 int openssl_digest_size(const char *digest_alg, size_t *ret_digest_size);
+
+int openssl_digest_many(const char *digest_alg, const struct iovec data[], size_t n_data, void **ret_digest, size_t *ret_digest_size);
+
+static inline int openssl_digest(const char *digest_alg, const void *buf, size_t len, void **ret_digest, size_t *ret_digest_size) {
+        return openssl_digest_many(digest_alg, &IOVEC_MAKE((void*) buf, len), 1, ret_digest, ret_digest_size);
+}
 
 int rsa_encrypt_bytes(EVP_PKEY *pkey, const void *decrypted_key, size_t decrypted_key_size, void **ret_encrypt_key, size_t *ret_encrypt_key_size);
 
