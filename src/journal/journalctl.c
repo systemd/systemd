@@ -2348,7 +2348,6 @@ static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        _cleanup_close_ int machine_fd = -EBADF;
         int n_shown, r, poll_fd = -EBADF;
 
         setlocale(LC_ALL, "");
@@ -2467,35 +2466,9 @@ static int run(int argc, char *argv[]) {
                 r = sd_journal_open_files_fd(&j, (int[]) { STDIN_FILENO }, 1, 0);
         else if (arg_file)
                 r = sd_journal_open_files(&j, (const char**) arg_file, 0);
-        else if (arg_machine) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-                int fd;
-
-                if (geteuid() != 0)
-                        /* The file descriptor returned by OpenMachineRootDirectory() will be owned by users/groups of
-                         * the container, thus we need root privileges to override them. */
-                        return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Using the --machine= switch requires root privileges.");
-
-                r = sd_bus_open_system(&bus);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to open system bus: %m");
-
-                r = bus_call_method(bus, bus_machine_mgr, "OpenMachineRootDirectory", &error, &reply, "s", arg_machine);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to open root directory: %s", bus_error_message(&error, r));
-
-                r = sd_bus_message_read(reply, "h", &fd);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                machine_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
-                if (machine_fd < 0)
-                        return log_error_errno(errno, "Failed to duplicate file descriptor: %m");
-
-                r = sd_journal_open_directory_fd(&j, machine_fd, SD_JOURNAL_OS_ROOT);
-        } else
+        else if (arg_machine)
+                r = journal_open_machine(&j, arg_machine);
+        else
                 r = sd_journal_open_namespace(
                                 &j,
                                 arg_namespace,

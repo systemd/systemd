@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "acl-util.h"
+#include "bus-error.h"
+#include "bus-locator.h"
+#include "bus-util.h"
+#include "fd-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
 #include "journal-internal.h"
@@ -139,4 +143,46 @@ int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_use
         }
 
         return r;
+}
+
+int journal_open_machine(sd_journal **ret, const char *machine) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close_ int machine_fd = -EBADF;
+        int fd, r;
+
+        assert(ret);
+        assert(machine);
+
+        if (geteuid() != 0)
+                /* The file descriptor returned by OpenMachineRootDirectory() will be owned by users/groups of
+                 * the container, thus we need root privileges to override them. */
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Using the --machine= switch requires root privileges.");
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open system bus: %m");
+
+        r = bus_call_method(bus, bus_machine_mgr, "OpenMachineRootDirectory", &error, &reply, "s", machine);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open root directory of machine '%s': %s",
+                                       machine, bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "h", &fd);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        machine_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (machine_fd < 0)
+                return log_error_errno(errno, "Failed to duplicate file descriptor: %m");
+
+        r = sd_journal_open_directory_fd(&j, machine_fd, SD_JOURNAL_OS_ROOT | SD_JOURNAL_TAKE_DIRECTORY_FD);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open journal in machine '%s': %m", machine);
+
+        TAKE_FD(machine_fd);
+        *ret = TAKE_PTR(j);
+        return 0;
 }
