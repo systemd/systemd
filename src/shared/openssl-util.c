@@ -114,6 +114,63 @@ int openssl_digest_size(const char *digest_alg, size_t *ret_digest_size) {
         return 0;
 }
 
+int openssl_digest_many(
+                const char *digest_alg,
+                const struct iovec data[],
+                size_t n_data,
+                void **ret_digest,
+                size_t *ret_digest_size) {
+
+        assert(digest_alg);
+        assert(data || n_data == 0);
+        assert(ret_digest);
+        /* ret_digest_size is optional, as caller may already know the digest size */
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        _cleanup_(EVP_MD_freep) EVP_MD *md = EVP_MD_fetch(NULL, digest_alg, NULL);
+#else
+        const EVP_MD *md = EVP_get_digestbyname(digest_alg);
+#endif
+        if (!md)
+                return log_openssl_errors("Failed to get EVP_MD for '%s'", digest_alg);
+
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+        if (!ctx)
+                return log_openssl_errors("Failed to create new EVP_MD_CTX");
+
+        if (!EVP_DigestInit_ex(ctx, md, NULL))
+                return log_openssl_errors("Failed to initializate EVP_MD_CTX");
+
+        for (size_t i = 0; i < n_data; i++)
+                if (!EVP_DigestUpdate(ctx, data[i].iov_base, data[i].iov_len))
+                        return log_openssl_errors("Failed to update Digest");
+
+        size_t digest_size;
+#if OPENSSL_VERSION_MAJOR >= 3
+        digest_size = EVP_MD_CTX_get_size(ctx);
+#else
+        digest_size = EVP_MD_CTX_size(ctx);
+#endif
+        if (digest_size == 0)
+                return log_openssl_errors("Failed to get Digest size");
+
+        _cleanup_free_ void *buf = malloc(digest_size);
+        if (!buf)
+                return log_oom_debug();
+
+        unsigned int size;
+        if (!EVP_DigestFinal_ex(ctx, buf, &size))
+                return log_openssl_errors("Failed to finalize Digest");
+
+        assert(size == digest_size);
+
+        *ret_digest = TAKE_PTR(buf);
+        if (ret_digest_size)
+                *ret_digest_size = size;
+
+        return 0;
+}
+
 int rsa_encrypt_bytes(
                 EVP_PKEY *pkey,
                 const void *decrypted_key,
