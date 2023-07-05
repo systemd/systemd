@@ -82,7 +82,7 @@ class SysvGeneratorTest(unittest.TestCase):
                 cp = RawConfigParser(dict_type=MultiDict)
             cp.optionxform = lambda o: o  # don't lower-case option names
             with open(service) as f:
-                cp.readfp(f)
+                cp.read_file(f)
             results[os.path.basename(service)] = cp
 
         return (err, results)
