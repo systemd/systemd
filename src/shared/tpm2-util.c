@@ -2712,7 +2712,7 @@ int tpm2_get_good_pcr_banks_strv(
  * On success, the digest hash will be updated with the hashing operation result and the digest size will be
  * correct for 'alg'.
  *
- * This currently only provides SHA256, so 'alg' must be TPM2_ALG_SHA256. */
+ * If built without openssl, this only provides SHA256. */
 int tpm2_digest_many(
                 TPMI_ALG_HASH alg,
                 TPM2B_DIGEST *digest,
@@ -2720,10 +2720,63 @@ int tpm2_digest_many(
                 size_t n_data,
                 bool extend) {
 
-        struct sha256_ctx ctx;
-
         assert(digest);
         assert(data || n_data == 0);
+
+#if HAVE_OPENSSL
+        int r;
+
+        const char *digest_alg = tpm2_hash_alg_to_string(alg);
+        if (!digest_alg)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Hash algorithm not supported: 0x%04" PRIx16, alg);
+
+        size_t digest_size;
+        r = openssl_digest_size(digest_alg, &digest_size);
+        if (r < 0)
+                return log_error_errno(r, "Could not get digest size: %m");
+
+        if (sizeof(digest->buffer) < digest_size)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Digest hash size %zu too large for TPM2B_DIGEST buffer.",
+                                       digest_size);
+
+        _cleanup_free_ struct iovec *data_copy = NULL;
+        if (extend) {
+                if (digest->size != digest_size)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Digest size 0x%04" PRIx16 ", require 0x%zu",
+                                               digest->size, digest_size);
+
+                data_copy = memdup(data, sizeof(data[0]) * n_data);
+
+                struct iovec digest_buf = IOVEC_MAKE(digest->buffer, digest->size);
+                size_t n_data_copy = n_data;
+                if (!GREEDY_REALLOC_PREPEND(data_copy, n_data_copy, &digest_buf, 1))
+                    return log_oom();
+
+                data = data_copy;
+                n_data = n_data_copy;
+        } else if (n_data == 0) {
+                /* If not extending and no data, return zero hash */
+                *digest = (TPM2B_DIGEST) {
+                        .size = digest_size,
+                };
+
+                return 0;
+        }
+
+        _cleanup_free_ void *buf = NULL;
+        r = openssl_digest_many(digest_alg, data, n_data, &buf, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to calculate digest hash: %m");
+
+        *digest = (TPM2B_DIGEST) {
+                .size = digest_size,
+        };
+        memcpy(digest->buffer, buf, digest_size);
+#else
+        struct sha256_ctx ctx;
 
         if (alg != TPM2_ALG_SHA256)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
@@ -2753,6 +2806,7 @@ int tpm2_digest_many(
                 sha256_process_bytes(d->iov_base, d->iov_len, &ctx);
 
         sha256_finish_ctx(&ctx, digest->buffer);
+#endif
 
         return 0;
 }
