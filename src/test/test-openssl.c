@@ -153,4 +153,64 @@ TEST(digest_size) {
         assert_se(openssl_digest_size("invalid.alg", &size) == -EOPNOTSUPP);
 }
 
+static void verify_digest(const char *digest_alg, const struct iovec *data, size_t n_data, const char *expect) {
+        _cleanup_free_ void *digest = NULL;
+        size_t digest_size;
+        int r;
+
+        r = openssl_digest_many(digest_alg, data, n_data, &digest, &digest_size);
+        if (r == -EOPNOTSUPP)
+                return;
+        assert_se(r >= 0);
+
+        DEFINE_HEX_PTR(e, expect);
+        assert_se(memcmp_nn(e, e_len, digest, digest_size) == 0);
+}
+
+#define _DEFINE_DIGEST_TEST(uniq, alg, expect, ...)                     \
+        const struct iovec UNIQ_T(i, uniq)[] = { __VA_ARGS__ };         \
+        verify_digest(alg,                                              \
+                      UNIQ_T(i, uniq),                                  \
+                      ELEMENTSOF(UNIQ_T(i, uniq)),                      \
+                      expect);
+#define DEFINE_DIGEST_TEST(alg, expect, ...) _DEFINE_DIGEST_TEST(UNIQ, alg, expect, __VA_ARGS__)
+#define DEFINE_SHA1_TEST(expect, ...) DEFINE_DIGEST_TEST("SHA1", expect, __VA_ARGS__)
+#define DEFINE_SHA256_TEST(expect, ...) DEFINE_DIGEST_TEST("SHA256", expect, __VA_ARGS__)
+#define DEFINE_SHA384_TEST(expect, ...) DEFINE_DIGEST_TEST("SHA384", expect, __VA_ARGS__)
+#define DEFINE_SHA512_TEST(expect, ...) DEFINE_DIGEST_TEST("SHA512", expect, __VA_ARGS__)
+
+TEST(digest_many) {
+        const struct iovec test = IOVEC_MAKE_STRING("test");
+
+        /* Empty digests */
+        DEFINE_SHA1_TEST("da39a3ee5e6b4b0d3255bfef95601890afd80709");
+        DEFINE_SHA256_TEST("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+        DEFINE_SHA384_TEST("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b");
+        DEFINE_SHA512_TEST("cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e");
+
+        DEFINE_SHA1_TEST("a94a8fe5ccb19ba61c4c0873d391e987982fbbd3", test);
+        DEFINE_SHA256_TEST("9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08", test);
+        DEFINE_SHA384_TEST("768412320f7b0aa5812fce428dc4706b3cae50e02a64caa16a782249bfe8efc4b7ef1ccb126255d196047dfedf17a0a9", test);
+        DEFINE_SHA512_TEST("ee26b0dd4af7e749aa1a8ee3c10ae9923f618980772e473f8819a5d4940e0db27ac185f8a0e1d5f84f88bc887fd67b143732c304cc5fa9ad8e6f57f50028a8ff", test);
+
+        DEFINE_HEX_PTR(h1, "e9ff2b6dfbc03b8dd0471a0f23840334e3ef51c64a325945524563c0375284a092751eca8d084fae22f74a104559a0ee8339d1845538481e674e6d31d4f63089");
+        DEFINE_HEX_PTR(h2, "5b6e809933a1b8d5a4a6bb62e20b36ae82d9408141e7479d0aa067273bd2d04007fb1977bad549d54330a49ed98f82b495ba");
+        DEFINE_HEX_PTR(h3, "d2aeef94d7ba2a");
+        DEFINE_HEX_PTR(h4, "1557db45ded3e38c79b5bb25c83ade42fa7d13047ef1b9a0b21a3c2ab2d4eee5c75e2927ce643163addbda65331035850a436c0acffc723f419e1d1cbf04c9064e6d850580c0732a12600f9feb");
+
+        const struct iovec i1 = IOVEC_MAKE(h1, h1_len);
+        const struct iovec i2 = IOVEC_MAKE(h2, h2_len);
+        const struct iovec i3 = IOVEC_MAKE(h3, h3_len);
+        const struct iovec i4 = IOVEC_MAKE(h4, h4_len);
+
+        DEFINE_SHA1_TEST("8e7c659a6331508b06adf98b430759dafb92fc43", i1, i2, i3, i4);
+        DEFINE_SHA256_TEST("4d6be38798786a5500651c1a02d96aa010e9d7b2bece1695294cd396d456cde8", i1, i2, i3, i4);
+        DEFINE_SHA384_TEST("82e6ec14f8d90f1ae1fd4fb7f415ea6fdb674515b13092e3e548a8d37a8faed30cda8ea613ec2a015a51bc578dacc995", i1, i2, i3, i4);
+        DEFINE_SHA512_TEST("21fe5beb15927257a9143ff59010e51d4c65c7c5237b0cd9a8db3c3fabe429be3a0759f9ace3cdd70f6ea543f998bec9bc3308833d70aa1bd380364de872a62c", i1, i2, i3, i4);
+
+        DEFINE_SHA256_TEST("0e0ed67d6717dc08dd6f472f6c35107a92b8c2695dcba344b884436f97a9eb4d", i1, i1, i1, i4);
+
+        DEFINE_SHA256_TEST("8fe8b8d1899c44bfb82e1edc4ff92642db5b2cb25c4210ea06c3846c757525a8", i1, i1, i1, i4, i4, i4, i4, i3, i3, i2);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
