@@ -902,6 +902,37 @@ void transaction_add_propagate_reload_jobs(
         }
 }
 
+static JobType job_type_propagate_stop_graceful(Job *j) {
+        JobType type;
+
+        if (!j)
+                return JOB_STOP;
+
+        type = JOB_STOP;
+
+        LIST_FOREACH(transaction, i, j)
+                switch (i->type) {
+
+                case JOB_STOP:
+                case JOB_RESTART:
+                        /* Nothing to worry about, an appropriate job is in-place */
+                        return JOB_NOP;
+
+                case JOB_START:
+                        /* This unit is pulled in by other dependency types in this transaction. We will run
+                         * into job type conflict if we enqueue a stop job, so let's enqueue a restart job
+                         * instead. */
+                        type = JOB_RESTART;
+                        break;
+
+                default: /* We don't care about others */
+                        ;
+
+                }
+
+        return type;
+}
+
 int transaction_add_job_and_dependencies(
                 Transaction *tr,
                 JobType type,
@@ -1081,31 +1112,11 @@ int transaction_add_job_and_dependencies(
                  * that handles it. */
                 if (!by || FLAGS_SET(flags, TRANSACTION_PROCESS_PROPAGATE_STOP_GRACEFUL))
                         UNIT_FOREACH_DEPENDENCY(dep, ret->unit, UNIT_ATOM_PROPAGATE_STOP_GRACEFUL) {
-                                JobType nt = JOB_STOP;
+                                JobType nt;
                                 Job *j;
 
                                 j = hashmap_get(tr->jobs, dep);
-                                if (j)
-                                        LIST_FOREACH(transaction, i, j)
-                                                switch (i->type) {
-
-                                                case JOB_STOP:
-                                                case JOB_RESTART:
-                                                        /* Nothing to worry about, an appropriate job is in-place */
-                                                        nt = JOB_NOP;
-                                                        break;
-
-                                                case JOB_START:
-                                                        /* This unit is pulled in by other dependency types in
-                                                         * this transaction. We will run into job type conflict
-                                                         * if we enqueue a stop job, so let's enqueue a restart
-                                                         * job instead. */
-                                                        nt = JOB_RESTART;
-
-                                                default: /* We don't care about others */
-                                                        ;
-
-                                                }
+                                nt = job_type_propagate_stop_graceful(j);
 
                                 if (nt == JOB_NOP)
                                         continue;
