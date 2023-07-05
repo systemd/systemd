@@ -19,6 +19,7 @@
 #include "creds-util.h"
 #include "dissect-image.h"
 #include "env-file.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -790,8 +791,12 @@ static int prompt_root_password(int rfd) {
                 }
 
                 r = quality_check_password(*a, "root", &error);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to check quality of password: %m");
+                if (r < 0) {
+                        if (ERRNO_IS_NOT_SUPPORTED(r))
+                                log_warning("Password quality check is not supported, proceeding anyway.");
+                        else
+                                return log_error_errno(r, "Failed to check password quality: %m");
+                }
                 if (r == 0)
                         log_warning("Password is weak, accepting anyway: %s", error);
 
