@@ -2177,13 +2177,16 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
         return 0;
 }
 
-#define OPEN_DIRECTORY_FD_ALLOWED_FLAGS         \
+#define OPEN_DIRECTORY_FD_ALLOWED_FLAGS                 \
         (SD_JOURNAL_OS_ROOT |                           \
-         SD_JOURNAL_SYSTEM | SD_JOURNAL_CURRENT_USER )
+         SD_JOURNAL_SYSTEM |                            \
+         SD_JOURNAL_CURRENT_USER |                      \
+         SD_JOURNAL_TAKE_DIRECTORY_FD)
 
 _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         struct stat st;
+        bool take_fd;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -2196,7 +2199,8 @@ _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
         if (!S_ISDIR(st.st_mode))
                 return -EBADFD;
 
-        j = journal_new(flags, NULL, NULL);
+        take_fd = FLAGS_SET(flags, SD_JOURNAL_TAKE_DIRECTORY_FD);
+        j = journal_new(flags & ~SD_JOURNAL_TAKE_DIRECTORY_FD, NULL, NULL);
         if (!j)
                 return -ENOMEM;
 
@@ -2208,6 +2212,8 @@ _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
                 r = add_root_directory(j, NULL, false);
         if (r < 0)
                 return r;
+
+        SET_FLAG(j->flags, SD_JOURNAL_TAKE_DIRECTORY_FD, take_fd);
 
         *ret = TAKE_PTR(j);
         return 0;
@@ -2287,6 +2293,9 @@ _public_ void sd_journal_close(sd_journal *j) {
 
         hashmap_free(j->directories_by_path);
         hashmap_free(j->directories_by_wd);
+
+        if (FLAGS_SET(j->flags, SD_JOURNAL_TAKE_DIRECTORY_FD))
+                safe_close(j->toplevel_fd);
 
         safe_close(j->inotify_fd);
 
