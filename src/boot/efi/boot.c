@@ -34,14 +34,15 @@ _used_ _section_(".osrel") static const char osrel[] =
         "VERSION=\"" GIT_VERSION "\"\n"
         "NAME=\"systemd-boot " GIT_VERSION "\"\n";
 
-enum loader_type {
+typedef enum LoaderType {
         LOADER_UNDEFINED,
         LOADER_AUTO,
         LOADER_EFI,
         LOADER_LINUX,         /* Boot loader spec type #1 entries */
         LOADER_UNIFIED_LINUX, /* Boot loader spec type #2 entries */
         LOADER_SECURE_BOOT_KEYS,
-};
+        _LOADER_TYPE_MAX,
+} LoaderType;
 
 typedef struct {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry) */
@@ -51,7 +52,7 @@ typedef struct {
         char16_t *version;    /* The raw (human readable) version string of the entry */
         char16_t *machine_id;
         EFI_HANDLE *device;
-        enum loader_type type;
+        LoaderType type;
         char16_t *loader;
         char16_t *devicetree;
         char16_t *options;
@@ -67,7 +68,7 @@ typedef struct {
 
 typedef struct {
         ConfigEntry **entries;
-        size_t entry_count;
+        size_t n_entries;
         size_t idx_default;
         size_t idx_default_efivar;
         uint32_t timeout_sec; /* Actual timeout used (efi_main() override > efivar > config). */
@@ -363,13 +364,13 @@ static size_t entry_lookup_key(Config *config, size_t start, char16_t key) {
         /* select entry by number key */
         if (key >= '1' && key <= '9') {
                 size_t i = key - '0';
-                if (i > config->entry_count)
-                        i = config->entry_count;
+                if (i > config->n_entries)
+                        i = config->n_entries;
                 return i-1;
         }
 
         /* find matching key in config entries */
-        for (size_t i = start; i < config->entry_count; i++)
+        for (size_t i = start; i < config->n_entries; i++)
                 if (config->entries[i]->key == key)
                         return i;
 
@@ -548,7 +549,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         if (!ps_continue())
                 return;
 
-        for (size_t i = 0; i < config->entry_count; i++) {
+        for (size_t i = 0; i < config->n_entries; i++) {
                 ConfigEntry *entry = config->entries[i];
                 EFI_DEVICE_PATH *dp = NULL;
                 _cleanup_free_ char16_t *dp_str = NULL;
@@ -558,7 +559,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                                     EFI_SUCCESS)
                         (void) device_path_to_str(dp, &dp_str);
 
-                printf("  config entry: %zu/%zu\n", i + 1, config->entry_count);
+                printf("  config entry: %zu/%zu\n", i + 1, config->n_entries);
                 printf("            id: %ls\n", entry->id);
                 if (entry->title)
                         printf("         title: %ls\n", entry->title);
@@ -663,38 +664,38 @@ static bool menu_run(
                         * sure that idx_highlight is centered, but not if we are close to the
                         * beginning/end of the entry list. Otherwise we would have a half-empty
                         * screen. */
-                        if (config->entry_count <= visible_max || idx_highlight <= visible_max / 2)
+                        if (config->n_entries <= visible_max || idx_highlight <= visible_max / 2)
                                 idx_first = 0;
-                        else if (idx_highlight >= config->entry_count - (visible_max / 2))
-                                idx_first = config->entry_count - visible_max;
+                        else if (idx_highlight >= config->n_entries - (visible_max / 2))
+                                idx_first = config->n_entries - visible_max;
                         else
                                 idx_first = idx_highlight - (visible_max / 2);
                         idx_last = idx_first + visible_max - 1;
 
                         /* length of the longest entry */
                         line_width = 0;
-                        for (size_t i = 0; i < config->entry_count; i++)
+                        for (size_t i = 0; i < config->n_entries; i++)
                                 line_width = MAX(line_width, strlen16(config->entries[i]->title_show));
                         line_width = MIN(line_width + 2 * entry_padding, x_max);
 
                         /* offsets to center the entries on the screen */
                         x_start = (x_max - (line_width)) / 2;
-                        if (config->entry_count < visible_max)
-                                y_start = ((visible_max - config->entry_count) / 2) + 1;
+                        if (config->n_entries < visible_max)
+                                y_start = ((visible_max - config->n_entries) / 2) + 1;
                         else
                                 y_start = 0;
 
                         /* Put status line after the entry list, but give it some breathing room. */
-                        y_status = MIN(y_start + MIN(visible_max, config->entry_count) + 1, y_max - 1);
+                        y_status = MIN(y_start + MIN(visible_max, config->n_entries) + 1, y_max - 1);
 
                         lines = strv_free(lines);
                         clearline = mfree(clearline);
                         separator = mfree(separator);
 
                         /* menu entries title lines */
-                        lines = xnew(char16_t *, config->entry_count + 1);
+                        lines = xnew(char16_t *, config->n_entries + 1);
 
-                        for (size_t i = 0; i < config->entry_count; i++) {
+                        for (size_t i = 0; i < config->n_entries; i++) {
                                 size_t j, padding;
 
                                 lines[i] = xnew(char16_t, line_width + 1);
@@ -710,7 +711,7 @@ static bool menu_run(
                                         lines[i][j] = ' ';
                                 lines[i][line_width] = '\0';
                         }
-                        lines[config->entry_count] = NULL;
+                        lines[config->n_entries] = NULL;
 
                         clearline = xnew(char16_t, x_max + 1);
                         separator = xnew(char16_t, x_max + 1);
@@ -732,7 +733,7 @@ static bool menu_run(
                 }
 
                 if (refresh) {
-                        for (size_t i = idx_first; i <= idx_last && i < config->entry_count; i++) {
+                        for (size_t i = idx_first; i <= idx_last && i < config->n_entries; i++) {
                                 print_at(x_start, y_start + i - idx_first,
                                          i == idx_highlight ? COLOR_HIGHLIGHT : COLOR_ENTRY,
                                          lines[i]);
@@ -834,7 +835,7 @@ static bool menu_run(
                 case KEYPRESS(0, SCAN_DOWN, 0):
                 case KEYPRESS(0, 0, 'j'):
                 case KEYPRESS(0, 0, 'J'):
-                        if (idx_highlight < config->entry_count-1)
+                        if (idx_highlight < config->n_entries-1)
                                 idx_highlight++;
                         break;
 
@@ -848,9 +849,9 @@ static bool menu_run(
 
                 case KEYPRESS(0, SCAN_END, 0):
                 case KEYPRESS(EFI_ALT_PRESSED, 0, '>'):
-                        if (idx_highlight < config->entry_count-1) {
+                        if (idx_highlight < config->n_entries-1) {
                                 refresh = true;
-                                idx_highlight = config->entry_count-1;
+                                idx_highlight = config->n_entries-1;
                         }
                         break;
 
@@ -863,8 +864,8 @@ static bool menu_run(
 
                 case KEYPRESS(0, SCAN_PAGE_DOWN, 0):
                         idx_highlight += visible_max;
-                        if (idx_highlight > config->entry_count-1)
-                                idx_highlight = config->entry_count-1;
+                        if (idx_highlight > config->n_entries-1)
+                                idx_highlight = config->n_entries-1;
                         break;
 
                 case KEYPRESS(0, 0, '\n'):
@@ -1067,15 +1068,15 @@ static void config_add_entry(Config *config, ConfigEntry *entry) {
         assert(entry);
 
         /* This is just for paranoia. */
-        assert(config->entry_count < IDX_MAX);
+        assert(config->n_entries < IDX_MAX);
 
-        if ((config->entry_count & 15) == 0) {
+        if ((config->n_entries & 15) == 0) {
                 config->entries = xrealloc(
                                 config->entries,
-                                sizeof(void *) * config->entry_count,
-                                sizeof(void *) * (config->entry_count + 16));
+                                sizeof(void *) * config->n_entries,
+                                sizeof(void *) * (config->n_entries + 16));
         }
-        config->entries[config->entry_count++] = entry;
+        config->entries[config->n_entries++] = entry;
 }
 
 static void config_entry_free(ConfigEntry *entry) {
@@ -1722,7 +1723,7 @@ static size_t config_entry_find(Config *config, const char16_t *pattern) {
         if (!pattern)
                 return IDX_INVALID;
 
-        for (size_t i = 0; i < config->entry_count; i++)
+        for (size_t i = 0; i < config->n_entries; i++)
                 if (efi_fnmatch(pattern, config->entries[i]->id))
                         return i;
 
@@ -1758,7 +1759,7 @@ static void config_default_entry_select(Config *config) {
         }
 
         /* select the first suitable entry */
-        for (i = 0; i < config->entry_count; i++) {
+        for (i = 0; i < config->n_entries; i++) {
                 if (config->entries[i]->type == LOADER_AUTO || config->entries[i]->call)
                         continue;
                 config->idx_default = i;
@@ -1771,14 +1772,14 @@ static void config_default_entry_select(Config *config) {
                 config->timeout_sec = 10;
 }
 
-static bool entries_unique(ConfigEntry **entries, bool *unique, size_t entry_count) {
+static bool entries_unique(ConfigEntry **entries, bool *unique, size_t n_entries) {
         bool is_unique = true;
 
         assert(entries);
         assert(unique);
 
-        for (size_t i = 0; i < entry_count; i++)
-                for (size_t k = i + 1; k < entry_count; k++) {
+        for (size_t i = 0; i < n_entries; i++)
+                for (size_t k = i + 1; k < n_entries; k++) {
                         if (!streq16(entries[i]->title_show, entries[k]->title_show))
                                 continue;
 
@@ -1792,20 +1793,20 @@ static bool entries_unique(ConfigEntry **entries, bool *unique, size_t entry_cou
 static void config_title_generate(Config *config) {
         assert(config);
 
-        bool unique[config->entry_count];
+        bool unique[config->n_entries];
 
         /* set title */
-        for (size_t i = 0; i < config->entry_count; i++) {
+        for (size_t i = 0; i < config->n_entries; i++) {
                 assert(!config->entries[i]->title_show);
                 unique[i] = true;
                 config->entries[i]->title_show = xstrdup16(config->entries[i]->title ?: config->entries[i]->id);
         }
 
-        if (entries_unique(config->entries, unique, config->entry_count))
+        if (entries_unique(config->entries, unique, config->n_entries))
                 return;
 
         /* add version to non-unique titles */
-        for (size_t i = 0; i < config->entry_count; i++) {
+        for (size_t i = 0; i < config->n_entries; i++) {
                 if (unique[i])
                         continue;
 
@@ -1818,11 +1819,11 @@ static void config_title_generate(Config *config) {
                 config->entries[i]->title_show = xasprintf("%ls (%ls)", t, config->entries[i]->version);
         }
 
-        if (entries_unique(config->entries, unique, config->entry_count))
+        if (entries_unique(config->entries, unique, config->n_entries))
                 return;
 
         /* add machine-id to non-unique titles */
-        for (size_t i = 0; i < config->entry_count; i++) {
+        for (size_t i = 0; i < config->n_entries; i++) {
                 if (unique[i])
                         continue;
 
@@ -1835,11 +1836,11 @@ static void config_title_generate(Config *config) {
                 config->entries[i]->title_show = xasprintf("%ls (%.8ls)", t, config->entries[i]->machine_id);
         }
 
-        if (entries_unique(config->entries, unique, config->entry_count))
+        if (entries_unique(config->entries, unique, config->n_entries))
                 return;
 
         /* add file name to non-unique titles */
-        for (size_t i = 0; i < config->entry_count; i++) {
+        for (size_t i = 0; i < config->n_entries; i++) {
                 if (unique[i])
                         continue;
 
@@ -2417,7 +2418,7 @@ static EFI_STATUS image_start(
 
 static void config_free(Config *config) {
         assert(config);
-        for (size_t i = 0; i < config->entry_count; i++)
+        for (size_t i = 0; i < config->n_entries; i++)
                 config_entry_free(config->entries[i]);
         free(config->entries);
         free(config->entry_default_config);
@@ -2433,12 +2434,12 @@ static void config_write_entries_to_variable(Config *config) {
 
         assert(config);
 
-        for (size_t i = 0; i < config->entry_count; i++)
+        for (size_t i = 0; i < config->n_entries; i++)
                 sz += strsize16(config->entries[i]->id);
 
         p = buffer = xmalloc(sz);
 
-        for (size_t i = 0; i < config->entry_count; i++)
+        for (size_t i = 0; i < config->n_entries; i++)
                 p = mempcpy(p, config->entries[i]->id, strsize16(config->entries[i]->id));
 
         assert(p == buffer + sz);
@@ -2537,6 +2538,8 @@ static void export_variables(
                 EFI_LOADER_FEATURE_SORT_KEY |
                 EFI_LOADER_FEATURE_SAVED_ENTRY |
                 EFI_LOADER_FEATURE_DEVICETREE |
+                EFI_LOADER_FEATURE_SECUREBOOT_ENROLL |
+                EFI_LOADER_FEATURE_RETAIN_SHIM |
                 0;
 
         _cleanup_free_ char16_t *infostr = NULL, *typestr = NULL;
@@ -2585,7 +2588,7 @@ static void config_load_all_entries(
         config_load_xbootldr(config, loaded_image->DeviceHandle);
 
         /* sort entries after version number */
-        sort_pointer_array((void **) config->entries, config->entry_count, (compare_pointer_func_t) config_entry_compare);
+        sort_pointer_array((void **) config->entries, config->n_entries, (compare_pointer_func_t) config_entry_compare);
 
         /* if we find some well-known loaders, add them to the end of the list */
         config_entry_add_osx(config);
@@ -2614,7 +2617,7 @@ static void config_load_all_entries(
         if (config->secure_boot_enroll != ENROLL_OFF)
                 secure_boot_discover_keys(config, root_dir);
 
-        if (config->entry_count == 0)
+        if (config->n_entries == 0)
                 return;
 
         config_write_entries_to_variable(config);
@@ -2663,7 +2666,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         config_load_all_entries(&config, loaded_image, loaded_image_path, root_dir);
 
-        if (config.entry_count == 0)
+        if (config.n_entries == 0)
                 return log_error_status(
                                 EFI_NOT_FOUND,
                                 "No loader found. Configuration files in \\loader\\entries\\*.conf are needed.");
