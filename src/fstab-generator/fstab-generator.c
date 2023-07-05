@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-unit-util.h"
 #include "chase.h"
 #include "creds-util.h"
 #include "efi-loader.h"
@@ -712,7 +713,6 @@ static int add_mount(
 
 static int do_daemon_reload(void) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r, k;
 
@@ -722,13 +722,9 @@ static int do_daemon_reload(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get D-Bus connection: %m");
 
-        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "Reload");
+        r = bus_service_manager_reload(bus);
         if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_call(bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to reload daemon: %s", bus_error_message(&error, r));
+                return r;
 
         /* We need to requeue the two targets so that any new units which previously were not part of the
          * targets, and which we now added, will be started. */

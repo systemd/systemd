@@ -231,8 +231,6 @@ static int acquire_bus(sd_bus **bus) {
 }
 
 static int maybe_reload(sd_bus **bus) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
         if (!arg_reload)
@@ -242,16 +240,7 @@ static int maybe_reload(sd_bus **bus) {
         if (r < 0)
                 return r;
 
-        r = bus_message_new_method_call(*bus, &m, bus_systemd_mgr, "Reload");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        /* Reloading the daemon may take long, hence set a longer timeout here */
-        r = sd_bus_call(*bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to reload daemon: %s", bus_error_message(&error, r));
-
-        return 0;
+        return bus_service_manager_reload(*bus);
 }
 
 static int get_image_metadata(sd_bus *bus, const char *image, char **matches, sd_bus_message **reply) {
