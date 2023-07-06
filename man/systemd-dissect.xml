@@ -202,8 +202,8 @@
         <term><option>--list</option></term>
         <term><option>-l</option></term>
 
-        <listitem><para>Prints the paths of all the files and directories in the specified OS image to
-        standard output.</para></listitem>
+        <listitem><para>Prints the paths of all the files and directories in the specified OS image or
+        directory to standard output.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -212,7 +212,7 @@
 
         <listitem><para>Generates a BSD
         <citerefentry project='die-net'><refentrytitle>mtree</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        compatible file manifest of the specified disk image. This is useful for comparing disk image
+        compatible file manifest of the specified disk image or directory. This is useful for comparing image
         contents in detail, including inode information and other metadata. While the generated manifest will
         contain detailed inode information, it currently excludes extended attributes, file system
         capabilities, MAC labels,
@@ -242,15 +242,16 @@
         <term><option>--copy-from</option></term>
         <term><option>-x</option></term>
 
-        <listitem><para>Copies a file or directory from the specified OS image into the specified location on
-        the host file system. Expects three arguments: a path to an image file, a source path (relative to
-        the image's root directory) and a destination path (relative to the current working directory, or an
-        absolute path, both outside of the image). If the destination path is omitted or specified as dash
-        (<literal>-</literal>), the specified file is written to standard output. If the source path in the
-        image file system refers to a regular file it is copied to the destination path. In this case access
-        mode, extended attributes and timestamps are copied as well, but file ownership is not. If the source
-        path in the image refers to a directory, it is copied to the destination path, recursively with all
-        containing files and directories. In this case the file ownership is copied too.</para></listitem>
+        <listitem><para>Copies a file or directory from the specified OS image or directory into the
+        specified location on the host file system. Expects three arguments: a path to an image file or
+        directory, a source path (relative to the image's root directory) and a destination path (relative to
+        the current working directory, or an absolute path, both outside of the image). If the destination
+        path is omitted or specified as dash (<literal>-</literal>), the specified file is written to
+        standard output. If the source path in the image file system refers to a regular file it is copied to
+        the destination path. In this case access mode, extended attributes and timestamps are copied as
+        well, but file ownership is not. If the source path in the image refers to a directory, it is copied
+        to the destination path, recursively with all containing files and directories. In this case the file
+        ownership is copied too.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -258,15 +259,15 @@
         <term><option>-a</option></term>
 
         <listitem><para>Copies a file or directory from the specified location in the host file system into
-        the specified OS image. Expects three arguments: a path to an image file, a source path (relative to
-        the current working directory, or an absolute path, both outside of the image) and a destination path
-        (relative to the image's root directory). If the source path is omitted or specified as dash
-        (<literal>-</literal>), the data to write is read from standard input. If the source path in the host
-        file system refers to a regular file, it is copied to the destination path. In this case access mode,
-        extended attributes and timestamps are copied as well, but file ownership is not. If the source path
-        in the host file system refers to a directory it is copied to the destination path, recursively with
-        all containing files and directories. In this case the file ownership is copied
-        too.</para>
+        the specified OS image or directory. Expects three arguments: a path to an image file or directory, a
+        source path (relative to the current working directory, or an absolute path, both outside of the
+        image) and a destination path (relative to the image's root directory). If the source path is omitted
+        or specified as dash (<literal>-</literal>), the data to write is read from standard input. If the
+        source path in the host file system refers to a regular file, it is copied to the destination path.
+        In this case access mode, extended attributes and timestamps are copied as well, but file ownership
+        is not. If the source path in the host file system refers to a directory it is copied to the
+        destination path, recursively with all containing files and directories. In this case the file
+        ownership is copied too.</para>
 
         <para>As with <option>--mount</option> file system checks are implicitly run before the copy
         operation begins.</para></listitem>
@@ -419,6 +420,14 @@
         symlinks. Example: first, set up the loopback device via <command>systemd-dissect attach
         --loop-ref=quux foo.raw</command>, and then reference it in a command via the specified filename:
         <command>cfdisk /dev/loop/by-ref/quux</command>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--mtree-hash=no</option></term>
+
+        <listitem><para>If combined with <option>--mtree</option>, turns off inclusion of file hashes in the
+        mtree output. This makes the <option>--mtree</option> faster when operating on large images.
+        </para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="image-policy-open" />
