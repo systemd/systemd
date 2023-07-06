@@ -13,8 +13,7 @@ msgstr ""
 "POT-Creation-Date: 2023-07-06 20:45+0100\n"
 "PO-Revision-Date: 2021-11-08 00:49+0000\n"
 "Last-Translator: Ettore Atalan <atalanttore@googlemail.com>\n"
-"Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
-"master/de/>\n"
+"Language-Team: German <https://translate.fedoraproject.org/projects/systemd/master/de/>\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -27,11 +26,8 @@ msgid "Send passphrase back to system"
 msgstr "Passphrase zurück an das System senden"
 
 #: src/core/org.freedesktop.systemd1.policy.in:23
-msgid ""
-"Authentication is required to send the entered passphrase back to the system."
-msgstr ""
-"Legitimierung ist zum Senden des eingegebenen Kennworts zurück an das System "
-"notwendig."
+msgid "Authentication is required to send the entered passphrase back to the system."
+msgstr "Legitimierung ist zum Senden des eingegebenen Kennworts zurück an das System notwendig."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
@@ -39,9 +35,7 @@ msgstr "Systemdienste und andere Einheiten verwalten"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
-msgstr ""
-"Legitimierung ist notwendig für die Verwaltung von Systemdiensten und "
-"anderen Einheiten."
+msgstr "Legitimierung ist notwendig für die Verwaltung von Systemdiensten und anderen Einheiten."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
@@ -49,19 +43,14 @@ msgstr "Systemdienste und Einheitendateien verwalten"
 
 #: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
-msgstr ""
-"Legitimierung ist notwendig für die Verwaltung von Systemdiensten und "
-"Einheitendateien."
+msgstr "Legitimierung ist notwendig für die Verwaltung von Systemdiensten und Einheitendateien."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
-msgstr ""
-"Umgebungsvariablen der System- und Dienstverwaltung festlegen oder entfernen"
+msgstr "Umgebungsvariablen der System- und Dienstverwaltung festlegen oder entfernen"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
-msgid ""
-"Authentication is required to set or unset system and service manager "
-"environment variables."
+msgid "Authentication is required to set or unset system and service manager environment variables."
 msgstr "Legitimierung ist notwendig für die System- und Dienstverwaltung."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
@@ -78,8 +67,7 @@ msgstr ""
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 #, fuzzy
-msgid ""
-"Authentication is required to dump the systemd state without rate limits."
+msgid "Authentication is required to dump the systemd state without rate limits."
 msgstr "Legitimierung ist zum erneuten Laden des systemd-Zustands notwendig."
 
 #: src/home/org.freedesktop.home1.policy:13
@@ -107,11 +95,8 @@ msgstr "Prüfen Sie die Zugangsdaten für den Zuhause-Bereich"
 # https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/home/org.freedesktop.home1.policy:34
 #, fuzzy
-msgid ""
-"Authentication is required to check credentials against a user's home area."
-msgstr ""
-"Legitimierung ist zur Verwaltung aktiver Sitzungen, Benutzern und "
-"Arbeitsstationen notwendig."
+msgid "Authentication is required to check credentials against a user's home area."
+msgstr "Legitimierung ist zur Verwaltung aktiver Sitzungen, Benutzern und Arbeitsstationen notwendig."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -121,9 +106,7 @@ msgstr "Zuhause-Bereich aktualisieren"
 #: src/home/org.freedesktop.home1.policy:44
 #, fuzzy
 msgid "Authentication is required to update a user's home area."
-msgstr ""
-"Legitimierung ist zum Anschließen eines Geräts an eine Arbeitsstation "
-"notwendig."
+msgstr "Legitimierung ist zum Anschließen eines Geräts an eine Arbeitsstation notwendig."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Resize a home area"
@@ -141,11 +124,8 @@ msgstr ""
 # https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/home/org.freedesktop.home1.policy:64
 #, fuzzy
-msgid ""
-"Authentication is required to change the password of a user's home area."
-msgstr ""
-"Legitimierung ist zur Verwaltung aktiver Sitzungen, Benutzern und "
-"Arbeitsstationen notwendig."
+msgid "Authentication is required to change the password of a user's home area."
+msgstr "Legitimierung ist zur Verwaltung aktiver Sitzungen, Benutzern und Arbeitsstationen notwendig."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
@@ -160,12 +140,8 @@ msgid "Set static hostname"
 msgstr "Statischen Rechnernamen festlegen"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
-msgid ""
-"Authentication is required to set the statically configured local hostname, "
-"as well as the pretty hostname."
-msgstr ""
-"Authentifizierung ist erforderlich, um den statisch geänderten, lokalen "
-"Rechnernamen, sowie den beschönigten Rechnernamen festzulegen."
+msgid "Authentication is required to set the statically configured local hostname, as well as the pretty hostname."
+msgstr "Authentifizierung ist erforderlich, um den statisch geänderten, lokalen Rechnernamen, sowie den beschönigten Rechnernamen festzulegen."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
@@ -173,9 +149,7 @@ msgstr "Maschinen-Information festlegen"
 
 #: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
-msgstr ""
-"Legitimierung ist zum Festlegen der lokalen Maschinen-Information "
-"erforderlich."
+msgstr "Legitimierung ist zum Festlegen der lokalen Maschinen-Information erforderlich."
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
@@ -211,9 +185,7 @@ msgstr "Abbild einer VM oder eines Containers importieren"
 
 #: src/import/org.freedesktop.import1.policy:23
 msgid "Authentication is required to import a VM or container image"
-msgstr ""
-"Legitimierung ist zum Importieren eines VM- oder Containerabbilds "
-"erforderlich"
+msgstr "Legitimierung ist zum Importieren eines VM- oder Containerabbilds erforderlich"
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a VM or container image"
@@ -221,9 +193,7 @@ msgstr "Abbild einer VM oder eines Containers exportieren"
 
 #: src/import/org.freedesktop.import1.policy:33
 msgid "Authentication is required to export a VM or container image"
-msgstr ""
-"Legitimierung ist zum Exportieren eines VM- oder Containerabbilds "
-"erforderlich"
+msgstr "Legitimierung ist zum Exportieren eines VM- oder Containerabbilds erforderlich"
 
 #: src/import/org.freedesktop.import1.policy:42
 msgid "Download a VM or container image"
@@ -231,9 +201,7 @@ msgstr "Abbild einer VM oder eines Containers herunterladen"
 
 #: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a VM or container image"
-msgstr ""
-"Legitimierung ist zum Herunterladen eines VM- oder Containerabbilds "
-"erforderlich"
+msgstr "Legitimierung ist zum Herunterladen eines VM- oder Containerabbilds erforderlich"
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -241,9 +209,7 @@ msgstr "Die lokale Sprachumgebung festlegen"
 
 #: src/locale/org.freedesktop.locale1.policy:23
 msgid "Authentication is required to set the system locale."
-msgstr ""
-"Legitimierung ist zum Festlegen der systemweiten Spracheinstellungen "
-"erforderlich."
+msgstr "Legitimierung ist zum Festlegen der systemweiten Spracheinstellungen erforderlich."
 
 #: src/locale/org.freedesktop.locale1.policy:33
 msgid "Set system keyboard settings"
@@ -251,20 +217,15 @@ msgstr "Tastatureinstellungen des Systems festlegen"
 
 #: src/locale/org.freedesktop.locale1.policy:34
 msgid "Authentication is required to set the system keyboard settings."
-msgstr ""
-"Legitimierung ist zum Festlegen der Tastatureinstellungen des Systems "
-"erforderlich."
+msgstr "Legitimierung ist zum Festlegen der Tastatureinstellungen des Systems erforderlich."
 
 #: src/login/org.freedesktop.login1.policy:22
 msgid "Allow applications to inhibit system shutdown"
 msgstr "Anwendungen dürfen das Herunterfahren des Systems unterbinden"
 
 #: src/login/org.freedesktop.login1.policy:23
-msgid ""
-"Authentication is required for an application to inhibit system shutdown."
-msgstr ""
-"Legitimierung ist notwendig, um Anwendungen das Herunterfahren des Systems "
-"zu erlauben."
+msgid "Authentication is required for an application to inhibit system shutdown."
+msgstr "Legitimierung ist notwendig, um Anwendungen das Herunterfahren des Systems zu erlauben."
 
 #: src/login/org.freedesktop.login1.policy:33
 msgid "Allow applications to delay system shutdown"
@@ -272,9 +233,7 @@ msgstr "Anwendungen dürfen das Herunterfahren des Systems verzögern"
 
 #: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
-msgstr ""
-"Legitimierung ist notwendig, um Anwendungen das Verzögern des Herunterfahren "
-"des Systems zu erlauben."
+msgstr "Legitimierung ist notwendig, um Anwendungen das Verzögern des Herunterfahren des Systems zu erlauben."
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
@@ -282,9 +241,7 @@ msgstr "Anwendungen dürfen den Bereitschaftsmodus unterbinden"
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
-msgstr ""
-"Legitimierung ist erforderlich, um Anwendungen das Unterbinden des "
-"Bereitschaftsmodus zu erlauben."
+msgstr "Legitimierung ist erforderlich, um Anwendungen das Unterbinden des Bereitschaftsmodus zu erlauben."
 
 #: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
@@ -292,91 +249,57 @@ msgstr "Anwendungen dürfen den Bereitschaftsmodus verzögern"
 
 #: src/login/org.freedesktop.login1.policy:56
 msgid "Authentication is required for an application to delay system sleep."
-msgstr ""
-"Legitimierung ist erforderlich, um Anwendungen das Verzögern des "
-"Bereitschaftsmodus zu erlauben."
+msgstr "Legitimierung ist erforderlich, um Anwendungen das Verzögern des Bereitschaftsmodus zu erlauben."
 
 #: src/login/org.freedesktop.login1.policy:65
 msgid "Allow applications to inhibit automatic system suspend"
 msgstr "Anwendungen dürfen den automatischen Bereitschaftsmodus unterbinden"
 
 #: src/login/org.freedesktop.login1.policy:66
-msgid ""
-"Authentication is required for an application to inhibit automatic system "
-"suspend."
-msgstr ""
-"Legitimierung ist notwendig, um Anwendungen das Unterbinden des "
-"automatischen Bereitschaftsmodus zu erlauben."
+msgid "Authentication is required for an application to inhibit automatic system suspend."
+msgstr "Legitimierung ist notwendig, um Anwendungen das Unterbinden des automatischen Bereitschaftsmodus zu erlauben."
 
 #: src/login/org.freedesktop.login1.policy:75
 msgid "Allow applications to inhibit system handling of the power key"
-msgstr ""
-"Anwendungen dürfen das Auswerten des Ein-/Ausschaltknopfs des Systems "
-"unterbinden"
+msgstr "Anwendungen dürfen das Auswerten des Ein-/Ausschaltknopfs des Systems unterbinden"
 
 #: src/login/org.freedesktop.login1.policy:76
-msgid ""
-"Authentication is required for an application to inhibit system handling of "
-"the power key."
-msgstr ""
-"Legitmierung ist erforderlich, um Anwendungen das Unterbinden der Auswertung "
-"der Ein-/Ausschaltknopfs des Systems zu erlauben."
+msgid "Authentication is required for an application to inhibit system handling of the power key."
+msgstr "Legitmierung ist erforderlich, um Anwendungen das Unterbinden der Auswertung der Ein-/Ausschaltknopfs des Systems zu erlauben."
 
 #: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
-msgstr ""
-"Anwendungen dürfen das Auswerten des Bereitschaftsknopfs des Systems "
-"unterbinden"
+msgstr "Anwendungen dürfen das Auswerten des Bereitschaftsknopfs des Systems unterbinden"
 
 #: src/login/org.freedesktop.login1.policy:87
-msgid ""
-"Authentication is required for an application to inhibit system handling of "
-"the suspend key."
-msgstr ""
-"Legitimierung ist erforderlich, um Anwendungen das Unterbinden der "
-"Auswertung des Bereitschaftsknopfes des Systems zu erlauben."
+msgid "Authentication is required for an application to inhibit system handling of the suspend key."
+msgstr "Legitimierung ist erforderlich, um Anwendungen das Unterbinden der Auswertung des Bereitschaftsknopfes des Systems zu erlauben."
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
-msgstr ""
-"Anwendungen dürfen das Auswerten des Knopfs für den Ruhezustand unterbinden"
+msgstr "Anwendungen dürfen das Auswerten des Knopfs für den Ruhezustand unterbinden"
 
 #: src/login/org.freedesktop.login1.policy:98
-msgid ""
-"Authentication is required for an application to inhibit system handling of "
-"the hibernate key."
-msgstr ""
-"Legitimierung ist erforderlich, um Anwendungen das Unterbinden der "
-"Auswertung des Knopfs für den Ruhezustand zu erlauben."
+msgid "Authentication is required for an application to inhibit system handling of the hibernate key."
+msgstr "Legitimierung ist erforderlich, um Anwendungen das Unterbinden der Auswertung des Knopfs für den Ruhezustand zu erlauben."
 
 #: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
-msgstr ""
-"Anwendungen dürfen das Auswerten des Notebookdeckelschalters unterbinden"
+msgstr "Anwendungen dürfen das Auswerten des Notebookdeckelschalters unterbinden"
 
 #: src/login/org.freedesktop.login1.policy:108
-msgid ""
-"Authentication is required for an application to inhibit system handling of "
-"the lid switch."
-msgstr ""
-"Legitimierung ist erforderlich, um Anwendungen das Unterbinden der "
-"Auswertung des Notebookdeckelschalters des Systems zu erlauben."
+msgid "Authentication is required for an application to inhibit system handling of the lid switch."
+msgstr "Legitimierung ist erforderlich, um Anwendungen das Unterbinden der Auswertung des Notebookdeckelschalters des Systems zu erlauben."
 
 #: src/login/org.freedesktop.login1.policy:117
 #, fuzzy
 msgid "Allow applications to inhibit system handling of the reboot key"
-msgstr ""
-"Anwendungen dürfen das Auswerten des Ein-/Ausschaltknopfs des Systems "
-"unterbinden"
+msgstr "Anwendungen dürfen das Auswerten des Ein-/Ausschaltknopfs des Systems unterbinden"
 
 #: src/login/org.freedesktop.login1.policy:118
 #, fuzzy
-msgid ""
-"Authentication is required for an application to inhibit system handling of "
-"the reboot key."
-msgstr ""
-"Legitimierung ist erforderlich, um Anwendungen das Unterbinden der "
-"Auswertung der Ein-/Ausschaltknopfs des Systems zu erlauben."
+msgid "Authentication is required for an application to inhibit system handling of the reboot key."
+msgstr "Legitimierung ist erforderlich, um Anwendungen das Unterbinden der Auswertung der Ein-/Ausschaltknopfs des Systems zu erlauben."
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
@@ -385,9 +308,7 @@ msgstr "Nicht angemeldetem Benutzer die Ausführung von Programmen erlauben"
 #: src/login/org.freedesktop.login1.policy:129
 #, fuzzy
 msgid "Explicit request is required to run programs as a non-logged-in user."
-msgstr ""
-"Legitimierung ist erforderlich, damit nicht angemeldete Benutzer Programme "
-"ausführen dürfen."
+msgstr "Legitimierung ist erforderlich, damit nicht angemeldete Benutzer Programme ausführen dürfen."
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
@@ -395,9 +316,7 @@ msgstr "Nicht angemeldete Benutzer dürfen Programme ausführen"
 
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
-msgstr ""
-"Legitimierung ist erforderlich, damit nicht angemeldete Benutzer Programme "
-"ausführen dürfen."
+msgstr "Legitimierung ist erforderlich, damit nicht angemeldete Benutzer Programme ausführen dürfen."
 
 # https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/login/org.freedesktop.login1.policy:148
@@ -407,9 +326,7 @@ msgstr "Das Anschließen von Geräten an Arbeitsstationen erlauben"
 # https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
-msgstr ""
-"Legitimierung ist zum Anschließen eines Geräts an eine Arbeitsstation "
-"notwendig."
+msgstr "Legitimierung ist zum Anschließen eines Geräts an eine Arbeitsstation notwendig."
 
 # https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/login/org.freedesktop.login1.policy:159
@@ -419,9 +336,7 @@ msgstr "Zurücksetzen der an eine Arbeitsstation angeschlossenen Geräte"
 # https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
-msgstr ""
-"Legitimierung ist zum Zurücksetzen notwendig, wie Geräte an eine "
-"Arbeitsstation angeschlossen werden."
+msgstr "Legitimierung ist zum Zurücksetzen notwendig, wie Geräte an eine Arbeitsstation angeschlossen werden."
 
 #: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
@@ -436,25 +351,16 @@ msgid "Power off the system while other users are logged in"
 msgstr "Das System herunter fahren, während andere Benutzer angemeldet sind"
 
 #: src/login/org.freedesktop.login1.policy:181
-msgid ""
-"Authentication is required to power off the system while other users are "
-"logged in."
-msgstr ""
-"Legitimierung ist zum Herunterfahren des Systems notwendig, während andere "
-"Benutzer angemeldet sind."
+msgid "Authentication is required to power off the system while other users are logged in."
+msgstr "Legitimierung ist zum Herunterfahren des Systems notwendig, während andere Benutzer angemeldet sind."
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
-msgstr ""
-"Das System ausschalten, während eine Anwendung anfordert es zu unterbinden"
+msgstr "Das System ausschalten, während eine Anwendung anfordert es zu unterbinden"
 
 #: src/login/org.freedesktop.login1.policy:192
-msgid ""
-"Authentication is required to power off the system while an application is "
-"inhibiting this."
-msgstr ""
-"Legitimierung ist zum Ausschalten des Systems notwendig, während eine "
-"Anwendung anfordert es zu unterbinden."
+msgid "Authentication is required to power off the system while an application is inhibiting this."
+msgstr "Legitimierung ist zum Ausschalten des Systems notwendig, während eine Anwendung anfordert es zu unterbinden."
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
@@ -469,25 +375,16 @@ msgid "Reboot the system while other users are logged in"
 msgstr "Das Systems neu starten, während andere Benutzer angemeldet sind"
 
 #: src/login/org.freedesktop.login1.policy:214
-msgid ""
-"Authentication is required to reboot the system while other users are logged "
-"in."
-msgstr ""
-"Legitimierung ist zum Neustart des Systems notwendig, während andere "
-"Benutzer angemeldet sind."
+msgid "Authentication is required to reboot the system while other users are logged in."
+msgstr "Legitimierung ist zum Neustart des Systems notwendig, während andere Benutzer angemeldet sind."
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
-msgstr ""
-"Das System neu starten, während eine Anwendung anfordert es zu unterbinden"
+msgstr "Das System neu starten, während eine Anwendung anfordert es zu unterbinden"
 
 #: src/login/org.freedesktop.login1.policy:225
-msgid ""
-"Authentication is required to reboot the system while an application is "
-"inhibiting this."
-msgstr ""
-"Legitimierung ist zum Neustart des Systems notwendig, während eine Anwendung "
-"anforderte es zu unterbinden."
+msgid "Authentication is required to reboot the system while an application is inhibiting this."
+msgstr "Legitimierung ist zum Neustart des Systems notwendig, während eine Anwendung anforderte es zu unterbinden."
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
@@ -496,40 +393,27 @@ msgstr "Das System anhalten"
 #: src/login/org.freedesktop.login1.policy:236
 #, fuzzy
 msgid "Authentication is required to halt the system."
-msgstr ""
-"Legitimierung ist zum Aktivieren des Ruhezustands des Systems notwendig."
+msgstr "Legitimierung ist zum Aktivieren des Ruhezustands des Systems notwendig."
 
 #: src/login/org.freedesktop.login1.policy:246
 #, fuzzy
 msgid "Halt the system while other users are logged in"
-msgstr ""
-"Den Ruhezustand des Systems aktivieren, während andere Benutzer angemeldet "
-"sind"
+msgstr "Den Ruhezustand des Systems aktivieren, während andere Benutzer angemeldet sind"
 
 #: src/login/org.freedesktop.login1.policy:247
 #, fuzzy
-msgid ""
-"Authentication is required to halt the system while other users are logged "
-"in."
-msgstr ""
-"Legitimierung ist zum Aktivieren des Ruhezustands des Systems notwendig, "
-"während andere Benutzer angemeldet sind."
+msgid "Authentication is required to halt the system while other users are logged in."
+msgstr "Legitimierung ist zum Aktivieren des Ruhezustands des Systems notwendig, während andere Benutzer angemeldet sind."
 
 #: src/login/org.freedesktop.login1.policy:257
 #, fuzzy
 msgid "Halt the system while an application is inhibiting this"
-msgstr ""
-"Das System in den Ruhezustand versetzen, während eine Anwendung wünscht dies "
-"zu verhindern"
+msgstr "Das System in den Ruhezustand versetzen, während eine Anwendung wünscht dies zu verhindern"
 
 #: src/login/org.freedesktop.login1.policy:258
 #, fuzzy
-msgid ""
-"Authentication is required to halt the system while an application is "
-"inhibiting this."
-msgstr ""
-"Legitimierung ist zum Versetzen des System in den Ruhezustand notwendig, "
-"während eine Anwendung wünscht dies zu verhindern."
+msgid "Authentication is required to halt the system while an application is inhibiting this."
+msgstr "Legitimierung ist zum Versetzen des System in den Ruhezustand notwendig, während eine Anwendung wünscht dies zu verhindern."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -541,31 +425,19 @@ msgstr "Legitimierung ist zum Versetzen des Systems in Bereitschaft notwendig."
 
 #: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while other users are logged in"
-msgstr ""
-"Das System in Bereitschaft versetzen, während andere Benutzer angemeldet "
-"sind."
+msgstr "Das System in Bereitschaft versetzen, während andere Benutzer angemeldet sind."
 
 #: src/login/org.freedesktop.login1.policy:279
-msgid ""
-"Authentication is required to suspend the system while other users are "
-"logged in."
-msgstr ""
-"Legitimierung ist zum Versetzen des Systems in Bereitschaft notwendig, "
-"während andere Benutzer angemeldet sind."
+msgid "Authentication is required to suspend the system while other users are logged in."
+msgstr "Legitimierung ist zum Versetzen des Systems in Bereitschaft notwendig, während andere Benutzer angemeldet sind."
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
-msgstr ""
-"Das System in Bereitschaft versetzen, während eine Anwendung anfordert dies "
-"zu unterbinden"
+msgstr "Das System in Bereitschaft versetzen, während eine Anwendung anfordert dies zu unterbinden"
 
 #: src/login/org.freedesktop.login1.policy:290
-msgid ""
-"Authentication is required to suspend the system while an application is "
-"inhibiting this."
-msgstr ""
-"Legitimierung ist zum Versetzen des Systems in Bereitschaft notwendig, "
-"während eine Anwendung anfordert dies zu unterbinden."
+msgid "Authentication is required to suspend the system while an application is inhibiting this."
+msgstr "Legitimierung ist zum Versetzen des Systems in Bereitschaft notwendig, während eine Anwendung anfordert dies zu unterbinden."
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
@@ -573,36 +445,23 @@ msgstr "Den Ruhezustand des Systems aktivieren"
 
 #: src/login/org.freedesktop.login1.policy:301
 msgid "Authentication is required to hibernate the system."
-msgstr ""
-"Legitimierung ist zum Aktivieren des Ruhezustands des Systems notwendig."
+msgstr "Legitimierung ist zum Aktivieren des Ruhezustands des Systems notwendig."
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
-msgstr ""
-"Den Ruhezustand des Systems aktivieren, während andere Benutzer angemeldet "
-"sind"
+msgstr "Den Ruhezustand des Systems aktivieren, während andere Benutzer angemeldet sind"
 
 #: src/login/org.freedesktop.login1.policy:311
-msgid ""
-"Authentication is required to hibernate the system while other users are "
-"logged in."
-msgstr ""
-"Legitimierung ist zum Aktivieren des Ruhezustands des Systems notwendig, "
-"während andere Benutzer angemeldet sind."
+msgid "Authentication is required to hibernate the system while other users are logged in."
+msgstr "Legitimierung ist zum Aktivieren des Ruhezustands des Systems notwendig, während andere Benutzer angemeldet sind."
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
-msgstr ""
-"Das System in den Ruhezustand versetzen, während eine Anwendung wünscht dies "
-"zu verhindern"
+msgstr "Das System in den Ruhezustand versetzen, während eine Anwendung wünscht dies zu verhindern"
 
 #: src/login/org.freedesktop.login1.policy:322
-msgid ""
-"Authentication is required to hibernate the system while an application is "
-"inhibiting this."
-msgstr ""
-"Legitimierung ist zum Versetzen des System in den Ruhezustand notwendig, "
-"während eine Anwendung wünscht dies zu verhindern."
+msgid "Authentication is required to hibernate the system while an application is inhibiting this."
+msgstr "Legitimierung ist zum Versetzen des System in den Ruhezustand notwendig, während eine Anwendung wünscht dies zu verhindern."
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
@@ -611,9 +470,7 @@ msgstr "Aktive Sitzungen, Benutzer und Arbeitsstationen verwalten"
 # https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/login/org.freedesktop.login1.policy:333
 msgid "Authentication is required to manage active sessions, users and seats."
-msgstr ""
-"Legitimierung ist zur Verwaltung aktiver Sitzungen, Benutzern und "
-"Arbeitsstationen notwendig."
+msgstr "Legitimierung ist zur Verwaltung aktiver Sitzungen, Benutzern und Arbeitsstationen notwendig."
 
 #: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
@@ -621,8 +478,7 @@ msgstr "Aktive Sitzungen sperren und entsperren"
 
 #: src/login/org.freedesktop.login1.policy:343
 msgid "Authentication is required to lock or unlock active sessions."
-msgstr ""
-"Legitimierung ist zum Sperren und Entsperren aktiver Sitzungen notwendig."
+msgstr "Legitimierung ist zum Sperren und Entsperren aktiver Sitzungen notwendig."
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
@@ -636,17 +492,11 @@ msgstr "Legitimierung ist zum Festlegen der Systemzeitzone notwendig."
 #: src/login/org.freedesktop.login1.policy:363
 #, fuzzy
 msgid "Indicate to the firmware to boot to setup interface"
-msgstr ""
-"Mitteilungen an die Firmware zum Starten in die Einrichtungsoberfläche "
-"zulassen"
+msgstr "Mitteilungen an die Firmware zum Starten in die Einrichtungsoberfläche zulassen"
 
 #: src/login/org.freedesktop.login1.policy:364
-msgid ""
-"Authentication is required to indicate to the firmware to boot to setup "
-"interface."
-msgstr ""
-"Legitimierung ist zum Starten der Firmware in die Einrichtungsoberfläche "
-"notwendig."
+msgid "Authentication is required to indicate to the firmware to boot to setup interface."
+msgstr "Legitimierung ist zum Starten der Firmware in die Einrichtungsoberfläche notwendig."
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
@@ -654,12 +504,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:375
 #, fuzzy
-msgid ""
-"Authentication is required to indicate to the boot loader to boot to the "
-"boot loader menu."
-msgstr ""
-"Legitimierung ist zum Starten der Firmware in die Einrichtungsoberfläche "
-"notwendig."
+msgid "Authentication is required to indicate to the boot loader to boot to the boot loader menu."
+msgstr "Legitimierung ist zum Starten der Firmware in die Einrichtungsoberfläche notwendig."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
@@ -667,12 +513,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:386
 #, fuzzy
-msgid ""
-"Authentication is required to indicate to the boot loader to boot into a "
-"specific boot loader entry."
-msgstr ""
-"Legitimierung ist zum Starten der Firmware in die Einrichtungsoberfläche "
-"notwendig."
+msgid "Authentication is required to indicate to the boot loader to boot into a specific boot loader entry."
+msgstr "Legitimierung ist zum Starten der Firmware in die Einrichtungsoberfläche notwendig."
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
@@ -712,9 +554,7 @@ msgstr "Eine Shell in einem lokalen Container erhalten"
 
 #: src/machine/org.freedesktop.machine1.policy:43
 msgid "Authentication is required to acquire a shell in a local container."
-msgstr ""
-"Legitimierung ist zum Erhalten einer Shell in einem lokalen Container "
-"notwendig."
+msgstr "Legitimierung ist zum Erhalten einer Shell in einem lokalen Container notwendig."
 
 #: src/machine/org.freedesktop.machine1.policy:53
 msgid "Acquire a shell on the local host"
@@ -722,19 +562,15 @@ msgstr "Eine Shell auf dem lokalen Rechner erhalten"
 
 #: src/machine/org.freedesktop.machine1.policy:54
 msgid "Authentication is required to acquire a shell on the local host."
-msgstr ""
-"Legitimierung ist zum Erhalten einer Shell auf dem lokalen Rechner notwendig."
+msgstr "Legitimierung ist zum Erhalten einer Shell auf dem lokalen Rechner notwendig."
 
 #: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"
 msgstr "Ein Pseudo-TTY in einem lokalen Container erhalten"
 
 #: src/machine/org.freedesktop.machine1.policy:65
-msgid ""
-"Authentication is required to acquire a pseudo TTY in a local container."
-msgstr ""
-"Legitimierung ist zum Erhalten eines Pseudo-TTY in einem lokalen Container "
-"notwendig."
+msgid "Authentication is required to acquire a pseudo TTY in a local container."
+msgstr "Legitimierung ist zum Erhalten eines Pseudo-TTY in einem lokalen Container notwendig."
 
 #: src/machine/org.freedesktop.machine1.policy:74
 msgid "Acquire a pseudo TTY on the local host"
@@ -742,32 +578,23 @@ msgstr "Ein Pseudo-TTY auf dem lokalen Rechner erhalten"
 
 #: src/machine/org.freedesktop.machine1.policy:75
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
-msgstr ""
-"Legitimierung ist zum Erhalten eines Pseudo-TTY auf dem lokalen Rechner "
-"notwendig."
+msgstr "Legitimierung ist zum Erhalten eines Pseudo-TTY auf dem lokalen Rechner notwendig."
 
 #: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
 msgstr "Lokale virtuelle Maschinen und Container verwalten"
 
 #: src/machine/org.freedesktop.machine1.policy:85
-msgid ""
-"Authentication is required to manage local virtual machines and containers."
-msgstr ""
-"Legitimierung ist zum Verwalten lokaler virtueller Maschinen und Container "
-"erforderlich."
+msgid "Authentication is required to manage local virtual machines and containers."
+msgstr "Legitimierung ist zum Verwalten lokaler virtueller Maschinen und Container erforderlich."
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Manage local virtual machine and container images"
 msgstr "Lokale virtuelle Maschinen und Containerabbilder verwalten"
 
 #: src/machine/org.freedesktop.machine1.policy:96
-msgid ""
-"Authentication is required to manage local virtual machine and container "
-"images."
-msgstr ""
-"Legitimierung ist zum Verwalten lokaler virtueller Maschinen und "
-"Containerabbildern erforderlich."
+msgid "Authentication is required to manage local virtual machine and container images."
+msgstr "Legitimierung ist zum Verwalten lokaler virtueller Maschinen und Containerabbildern erforderlich."
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -818,8 +645,7 @@ msgstr "LLMNR aktivieren/deaktivieren"
 #: src/resolve/org.freedesktop.resolve1.policy:78
 #, fuzzy
 msgid "Authentication is required to enable or disable LLMNR."
-msgstr ""
-"Legitimierung ist zum Aktivieren oder Deaktivieren von  LLMNR notwendig."
+msgstr "Legitimierung ist zum Aktivieren oder Deaktivieren von  LLMNR notwendig."
 
 #: src/network/org.freedesktop.network1.policy:77
 #: src/resolve/org.freedesktop.resolve1.policy:88
@@ -830,9 +656,7 @@ msgstr "Multicast-DNS aktivieren/deaktivieren"
 #: src/resolve/org.freedesktop.resolve1.policy:89
 #, fuzzy
 msgid "Authentication is required to enable or disable multicast DNS."
-msgstr ""
-"Legitimierung ist zum Aktivieren oder Deaktivieren von Multicast-DNS "
-"notwendig."
+msgstr "Legitimierung ist zum Aktivieren oder Deaktivieren von Multicast-DNS notwendig."
 
 #: src/network/org.freedesktop.network1.policy:88
 #: src/resolve/org.freedesktop.resolve1.policy:99
@@ -843,9 +667,7 @@ msgstr "DNS over TLS aktivieren/deaktivieren"
 #: src/resolve/org.freedesktop.resolve1.policy:100
 #, fuzzy
 msgid "Authentication is required to enable or disable DNS over TLS."
-msgstr ""
-"Legitimierung ist zum Aktivieren oder Deaktivieren von DNS over TLS "
-"notwendig."
+msgstr "Legitimierung ist zum Aktivieren oder Deaktivieren von DNS over TLS notwendig."
 
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
@@ -856,8 +678,7 @@ msgstr "DNSSEC aktivieren/deaktivieren"
 #: src/resolve/org.freedesktop.resolve1.policy:111
 #, fuzzy
 msgid "Authentication is required to enable or disable DNSSEC."
-msgstr ""
-"Legitimierung ist zum Aktivieren oder Deaktivieren von DNSSEC notwendig."
+msgstr "Legitimierung ist zum Aktivieren oder Deaktivieren von DNSSEC notwendig."
 
 #: src/network/org.freedesktop.network1.policy:110
 #: src/resolve/org.freedesktop.resolve1.policy:121
@@ -868,9 +689,7 @@ msgstr "Negative Vertrauensanker für DNSSEC festlegen"
 #: src/resolve/org.freedesktop.resolve1.policy:122
 #, fuzzy
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
-msgstr ""
-"Legitimierung ist zum Festlegen von negativen Vertrauensankern für DNSSEC "
-"erforderlich."
+msgstr "Legitimierung ist zum Festlegen von negativen Vertrauensankern für DNSSEC erforderlich."
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
@@ -911,8 +730,7 @@ msgstr "Netzwerkeinstellungen neu laden"
 
 #: src/network/org.freedesktop.network1.policy:166
 msgid "Authentication is required to reload network settings."
-msgstr ""
-"Legitimierung ist zum erneuten Laden der Netzwerkeinstellungen notwendig."
+msgstr "Legitimierung ist zum erneuten Laden der Netzwerkeinstellungen notwendig."
 
 #: src/network/org.freedesktop.network1.policy:176
 msgid "Reconfigure network interface"
@@ -920,8 +738,7 @@ msgstr "Netzwerkschnittstelle neu konfigurieren"
 
 #: src/network/org.freedesktop.network1.policy:177
 msgid "Authentication is required to reconfigure network interface."
-msgstr ""
-"Legitimierung ist zur Neukonfiguration der Netzwerkschnittstelle notwendig."
+msgstr "Legitimierung ist zur Neukonfiguration der Netzwerkschnittstelle notwendig."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
@@ -930,9 +747,7 @@ msgstr ""
 #: src/portable/org.freedesktop.portable1.policy:14
 #, fuzzy
 msgid "Authentication is required to inspect a portable service image."
-msgstr ""
-"Legitimierung ist zum Importieren eines VM- oder Containerabbilds "
-"erforderlich"
+msgstr "Legitimierung ist zum Importieren eines VM- oder Containerabbilds erforderlich"
 
 #: src/portable/org.freedesktop.portable1.policy:23
 msgid "Attach or detach a portable service image"
@@ -941,11 +756,8 @@ msgstr ""
 # https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/portable/org.freedesktop.portable1.policy:24
 #, fuzzy
-msgid ""
-"Authentication is required to attach or detach a portable service image."
-msgstr ""
-"Legitimierung ist zum Anschließen eines Geräts an eine Arbeitsstation "
-"notwendig."
+msgid "Authentication is required to attach or detach a portable service image."
+msgstr "Legitimierung ist zum Anschließen eines Geräts an eine Arbeitsstation notwendig."
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
@@ -953,11 +765,8 @@ msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:35
 #, fuzzy
-msgid ""
-"Authentication is required to delete or modify a portable service image."
-msgstr ""
-"Legitimierung ist zum Herunterladen eines VM- oder Containerabbilds "
-"erforderlich"
+msgid "Authentication is required to delete or modify a portable service image."
+msgstr "Legitimierung ist zum Herunterladen eines VM- oder Containerabbilds erforderlich"
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
@@ -983,9 +792,7 @@ msgstr "Namensauflösungseinstellungen zurücksetzen"
 
 #: src/resolve/org.freedesktop.resolve1.policy:133
 msgid "Authentication is required to reset name resolution settings."
-msgstr ""
-"Legitimierung ist zum Zurücksetzen der Namensauflösungseinstellungen "
-"erforderlich."
+msgstr "Legitimierung ist zum Zurücksetzen der Namensauflösungseinstellungen erforderlich."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -1008,24 +815,16 @@ msgid "Set RTC to local timezone or UTC"
 msgstr "Echtzeituhr auf lokale Zeitzone oder UTC setzen"
 
 #: src/timedate/org.freedesktop.timedate1.policy:44
-msgid ""
-"Authentication is required to control whether the RTC stores the local or "
-"UTC time."
-msgstr ""
-"Legitimierung ist notwendig zum Festlegen, ob die Echtzeituhr auf lokale "
-"Zeitzone oder UTC eingestellt ist."
+msgid "Authentication is required to control whether the RTC stores the local or UTC time."
+msgstr "Legitimierung ist notwendig zum Festlegen, ob die Echtzeituhr auf lokale Zeitzone oder UTC eingestellt ist."
 
 #: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
 msgstr "Netzwerkzeitabgeich ein- oder ausschalten"
 
 #: src/timedate/org.freedesktop.timedate1.policy:54
-msgid ""
-"Authentication is required to control whether network time synchronization "
-"shall be enabled."
-msgstr ""
-"Legitimierung ist zum Festlegen, ob Netzwerkzeitabgeich eingeschaltet sein "
-"soll, erforderlich."
+msgid "Authentication is required to control whether network time synchronization shall be enabled."
+msgstr "Legitimierung ist zum Festlegen, ob Netzwerkzeitabgeich eingeschaltet sein soll, erforderlich."
 
 #: src/core/dbus-unit.c:364
 msgid "Authentication is required to start '$(unit)'."
@@ -1044,39 +843,25 @@ msgid "Authentication is required to restart '$(unit)'."
 msgstr "Legitimierung ist zum Neustarten von »$(unit)« notwendig."
 
 #: src/core/dbus-unit.c:565
-msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
-msgstr ""
-"Legitimierung ist zum Senden eines UNIX-Signals an die Prozesse von "
-"»$(unit)« notwendig."
+msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
+msgstr "Legitimierung ist zum Senden eines UNIX-Signals an die Prozesse von »$(unit)« notwendig."
 
 #: src/core/dbus-unit.c:595
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
-msgstr ""
-"Legitimierung ist zum Zurücksetzen des Status »fehlgeschlagen« von »$(unit)« "
-"notwendig"
+msgstr "Legitimierung ist zum Zurücksetzen des Status »fehlgeschlagen« von »$(unit)« notwendig"
 
 #: src/core/dbus-unit.c:627
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr ""
-"Legitimierung ist zum Festlegen der Eigenschaften von »$(unit)« notwendig."
+msgstr "Legitimierung ist zum Festlegen der Eigenschaften von »$(unit)« notwendig."
 
 #: src/core/dbus-unit.c:728
-msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
-msgstr ""
-"Legitimierung ist zum Löschen von Dateien und Verzeichnissen, die zu "
-"»$(unit)« gehören, erforderlich."
+msgid "Authentication is required to delete files and directories associated with '$(unit)'."
+msgstr "Legitimierung ist zum Löschen von Dateien und Verzeichnissen, die zu »$(unit)« gehören, erforderlich."
 
 #: src/core/dbus-unit.c:776
 #, fuzzy
-msgid ""
-"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
-msgstr ""
-"Legitimierung ist zum Zurücksetzen des Status »fehlgeschlagen« von »$(unit)« "
-"notwendig"
+msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr "Legitimierung ist zum Zurücksetzen des Status »fehlgeschlagen« von »$(unit)« notwendig"
 
 #~ msgid "Authentication is required to kill '$(unit)'."
 #~ msgstr "Legitimierung ist zum Eliminieren von »$(unit)« notwendig."

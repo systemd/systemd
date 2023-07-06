@@ -8,8 +8,7 @@ msgstr ""
 "POT-Creation-Date: 2023-07-06 20:45+0100\n"
 "PO-Revision-Date: 2021-10-03 16:04+0000\n"
 "Last-Translator: Slimane Selyan Amiri <selyan.kab@gmail.com>\n"
-"Language-Team: Kabyle <https://translate.fedoraproject.org/projects/systemd/"
-"master/kab/>\n"
+"Language-Team: Kabyle <https://translate.fedoraproject.org/projects/systemd/master/kab/>\n"
 "Language: kab\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -22,8 +21,7 @@ msgid "Send passphrase back to system"
 msgstr "Azen awal uɛeddi ɣer unagraw"
 
 #: src/core/org.freedesktop.systemd1.policy.in:23
-msgid ""
-"Authentication is required to send the entered passphrase back to the system."
+msgid "Authentication is required to send the entered passphrase back to the system."
 msgstr ""
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
@@ -47,9 +45,7 @@ msgid "Set or unset system and service manager environment variables"
 msgstr ""
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
-msgid ""
-"Authentication is required to set or unset system and service manager "
-"environment variables."
+msgid "Authentication is required to set or unset system and service manager environment variables."
 msgstr ""
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
@@ -65,8 +61,7 @@ msgid "Dump the systemd state without rate limits"
 msgstr ""
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
-msgid ""
-"Authentication is required to dump the systemd state without rate limits."
+msgid "Authentication is required to dump the systemd state without rate limits."
 msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:13
@@ -90,8 +85,7 @@ msgid "Check credentials of a home area"
 msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:34
-msgid ""
-"Authentication is required to check credentials against a user's home area."
+msgid "Authentication is required to check credentials against a user's home area."
 msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:43
@@ -115,8 +109,7 @@ msgid "Change password of a home area"
 msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:64
-msgid ""
-"Authentication is required to change the password of a user's home area."
+msgid "Authentication is required to change the password of a user's home area."
 msgstr ""
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
@@ -132,9 +125,7 @@ msgid "Set static hostname"
 msgstr ""
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
-msgid ""
-"Authentication is required to set the statically configured local hostname, "
-"as well as the pretty hostname."
+msgid "Authentication is required to set the statically configured local hostname, as well as the pretty hostname."
 msgstr ""
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
@@ -214,8 +205,7 @@ msgid "Allow applications to inhibit system shutdown"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:23
-msgid ""
-"Authentication is required for an application to inhibit system shutdown."
+msgid "Authentication is required for an application to inhibit system shutdown."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:33
@@ -247,9 +237,7 @@ msgid "Allow applications to inhibit automatic system suspend"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:66
-msgid ""
-"Authentication is required for an application to inhibit automatic system "
-"suspend."
+msgid "Authentication is required for an application to inhibit automatic system suspend."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:75
@@ -257,9 +245,7 @@ msgid "Allow applications to inhibit system handling of the power key"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:76
-msgid ""
-"Authentication is required for an application to inhibit system handling of "
-"the power key."
+msgid "Authentication is required for an application to inhibit system handling of the power key."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:86
@@ -267,9 +253,7 @@ msgid "Allow applications to inhibit system handling of the suspend key"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:87
-msgid ""
-"Authentication is required for an application to inhibit system handling of "
-"the suspend key."
+msgid "Authentication is required for an application to inhibit system handling of the suspend key."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:97
@@ -277,9 +261,7 @@ msgid "Allow applications to inhibit system handling of the hibernate key"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:98
-msgid ""
-"Authentication is required for an application to inhibit system handling of "
-"the hibernate key."
+msgid "Authentication is required for an application to inhibit system handling of the hibernate key."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:107
@@ -287,9 +269,7 @@ msgid "Allow applications to inhibit system handling of the lid switch"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:108
-msgid ""
-"Authentication is required for an application to inhibit system handling of "
-"the lid switch."
+msgid "Authentication is required for an application to inhibit system handling of the lid switch."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:117
@@ -297,9 +277,7 @@ msgid "Allow applications to inhibit system handling of the reboot key"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:118
-msgid ""
-"Authentication is required for an application to inhibit system handling of "
-"the reboot key."
+msgid "Authentication is required for an application to inhibit system handling of the reboot key."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:128
@@ -347,9 +325,7 @@ msgid "Power off the system while other users are logged in"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:181
-msgid ""
-"Authentication is required to power off the system while other users are "
-"logged in."
+msgid "Authentication is required to power off the system while other users are logged in."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:191
@@ -357,9 +333,7 @@ msgid "Power off the system while an application is inhibiting this"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:192
-msgid ""
-"Authentication is required to power off the system while an application is "
-"inhibiting this."
+msgid "Authentication is required to power off the system while an application is inhibiting this."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:202
@@ -375,9 +349,7 @@ msgid "Reboot the system while other users are logged in"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:214
-msgid ""
-"Authentication is required to reboot the system while other users are logged "
-"in."
+msgid "Authentication is required to reboot the system while other users are logged in."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:224
@@ -385,9 +357,7 @@ msgid "Reboot the system while an application is inhibiting this"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:225
-msgid ""
-"Authentication is required to reboot the system while an application is "
-"inhibiting this."
+msgid "Authentication is required to reboot the system while an application is inhibiting this."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:235
@@ -403,9 +373,7 @@ msgid "Halt the system while other users are logged in"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:247
-msgid ""
-"Authentication is required to halt the system while other users are logged "
-"in."
+msgid "Authentication is required to halt the system while other users are logged in."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:257
@@ -413,9 +381,7 @@ msgid "Halt the system while an application is inhibiting this"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:258
-msgid ""
-"Authentication is required to halt the system while an application is "
-"inhibiting this."
+msgid "Authentication is required to halt the system while an application is inhibiting this."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:268
@@ -431,9 +397,7 @@ msgid "Suspend the system while other users are logged in"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:279
-msgid ""
-"Authentication is required to suspend the system while other users are "
-"logged in."
+msgid "Authentication is required to suspend the system while other users are logged in."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:289
@@ -441,9 +405,7 @@ msgid "Suspend the system while an application is inhibiting this"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:290
-msgid ""
-"Authentication is required to suspend the system while an application is "
-"inhibiting this."
+msgid "Authentication is required to suspend the system while an application is inhibiting this."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:300
@@ -459,9 +421,7 @@ msgid "Hibernate the system while other users are logged in"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:311
-msgid ""
-"Authentication is required to hibernate the system while other users are "
-"logged in."
+msgid "Authentication is required to hibernate the system while other users are logged in."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:321
@@ -469,9 +429,7 @@ msgid "Hibernate the system while an application is inhibiting this"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:322
-msgid ""
-"Authentication is required to hibernate the system while an application is "
-"inhibiting this."
+msgid "Authentication is required to hibernate the system while an application is inhibiting this."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:332
@@ -503,9 +461,7 @@ msgid "Indicate to the firmware to boot to setup interface"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:364
-msgid ""
-"Authentication is required to indicate to the firmware to boot to setup "
-"interface."
+msgid "Authentication is required to indicate to the firmware to boot to setup interface."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:374
@@ -513,9 +469,7 @@ msgid "Indicate to the boot loader to boot to the boot loader menu"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:375
-msgid ""
-"Authentication is required to indicate to the boot loader to boot to the "
-"boot loader menu."
+msgid "Authentication is required to indicate to the boot loader to boot to the boot loader menu."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:385
@@ -523,9 +477,7 @@ msgid "Indicate to the boot loader to boot a specific entry"
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:386
-msgid ""
-"Authentication is required to indicate to the boot loader to boot into a "
-"specific boot loader entry."
+msgid "Authentication is required to indicate to the boot loader to boot into a specific boot loader entry."
 msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:396
@@ -581,8 +533,7 @@ msgid "Acquire a pseudo TTY in a local container"
 msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:65
-msgid ""
-"Authentication is required to acquire a pseudo TTY in a local container."
+msgid "Authentication is required to acquire a pseudo TTY in a local container."
 msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:74
@@ -598,8 +549,7 @@ msgid "Manage local virtual machines and containers"
 msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:85
-msgid ""
-"Authentication is required to manage local virtual machines and containers."
+msgid "Authentication is required to manage local virtual machines and containers."
 msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:95
@@ -607,9 +557,7 @@ msgid "Manage local virtual machine and container images"
 msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:96
-msgid ""
-"Authentication is required to manage local virtual machine and container "
-"images."
+msgid "Authentication is required to manage local virtual machine and container images."
 msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:22
@@ -761,8 +709,7 @@ msgid "Attach or detach a portable service image"
 msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:24
-msgid ""
-"Authentication is required to attach or detach a portable service image."
+msgid "Authentication is required to attach or detach a portable service image."
 msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:34
@@ -770,8 +717,7 @@ msgid "Delete or modify portable service image"
 msgstr ""
 
 #: src/portable/org.freedesktop.portable1.policy:35
-msgid ""
-"Authentication is required to delete or modify a portable service image."
+msgid "Authentication is required to delete or modify a portable service image."
 msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
@@ -819,9 +765,7 @@ msgid "Set RTC to local timezone or UTC"
 msgstr ""
 
 #: src/timedate/org.freedesktop.timedate1.policy:44
-msgid ""
-"Authentication is required to control whether the RTC stores the local or "
-"UTC time."
+msgid "Authentication is required to control whether the RTC stores the local or UTC time."
 msgstr ""
 
 #: src/timedate/org.freedesktop.timedate1.policy:53
@@ -829,9 +773,7 @@ msgid "Turn network time synchronization on or off"
 msgstr ""
 
 #: src/timedate/org.freedesktop.timedate1.policy:54
-msgid ""
-"Authentication is required to control whether network time synchronization "
-"shall be enabled."
+msgid "Authentication is required to control whether network time synchronization shall be enabled."
 msgstr ""
 
 #: src/core/dbus-unit.c:364
@@ -851,9 +793,7 @@ msgid "Authentication is required to restart '$(unit)'."
 msgstr ""
 
 #: src/core/dbus-unit.c:565
-msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
 msgstr ""
 
 #: src/core/dbus-unit.c:595
@@ -865,12 +805,9 @@ msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 
 #: src/core/dbus-unit.c:728
-msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+msgid "Authentication is required to delete files and directories associated with '$(unit)'."
 msgstr ""
 
 #: src/core/dbus-unit.c:776
-msgid ""
-"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
