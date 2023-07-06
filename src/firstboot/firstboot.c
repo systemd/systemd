@@ -790,7 +790,7 @@ static int prompt_root_password(int rfd) {
                         break;
                 }
 
-                r = quality_check_password(*a, "root", &error);
+                r = quality_check_password(*a, /* old */ NULL, "root", &error);
                 if (r < 0) {
                         if (ERRNO_IS_NOT_SUPPORTED(r))
                                 log_warning("Password quality check is not supported, proceeding anyway.");
