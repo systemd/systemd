@@ -64,6 +64,7 @@ static enum {
         ACTION_VALIDATE,
 } arg_action = ACTION_DISSECT;
 static char *arg_image = NULL;
+static char *arg_root = NULL;
 static char *arg_path = NULL;
 static const char *arg_source = NULL;
 static const char *arg_target = NULL;
@@ -85,8 +86,10 @@ static bool arg_in_memory = false;
 static char **arg_argv = NULL;
 static char *arg_loop_ref = NULL;
 static ImagePolicy* arg_image_policy = NULL;
+static bool arg_mtree_hash = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_verity_settings, verity_settings_done);
 STATIC_DESTRUCTOR_REGISTER(arg_argv, strv_freep);
@@ -135,6 +138,7 @@ static int help(void) {
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
                "     --loop-ref=NAME      Set reference string for loopback device\n"
+               "     --mtree-hash=BOOL    Whether to include SHA256 hash in the mtree output\n"
                "\n%3$sCommands:%4$s\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
@@ -206,6 +210,31 @@ static int patch_argv(int *argc, char ***argv, char ***buf) {
         return 1;
 }
 
+static int parse_image_path_argument(const char *path, char **ret_root, char **ret_image) {
+        _cleanup_free_ char *p = NULL;
+        struct stat st;
+        int r;
+
+        assert(ret_image);
+
+        r = parse_path_argument(path, /* suppress_root= */ false, &p);
+        if (r < 0)
+                return r;
+
+        if (stat(p, &st) < 0)
+                return log_error_errno(errno, "Failed to stat %s: %m", p);
+
+        if (S_ISDIR(st.st_mode)) {
+                if (!ret_root)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not an image file.", p);
+
+                *ret_root = TAKE_PTR(p);
+        } else
+                *ret_image = TAKE_PTR(p);
+
+        return 0;
+}
+
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -230,6 +259,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LOOP_REF,
                 ARG_IMAGE_POLICY,
                 ARG_VALIDATE,
+                ARG_MTREE_HASH,
         };
 
         static const struct option options[] = {
@@ -261,6 +291,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "loop-ref",      required_argument, NULL, ARG_LOOP_REF      },
                 { "image-policy",  required_argument, NULL, ARG_IMAGE_POLICY  },
                 { "validate",      no_argument,       NULL, ARG_VALIDATE      },
+                { "mtree-hash",    required_argument, NULL, ARG_MTREE_HASH    },
                 {}
         };
 
@@ -478,6 +509,12 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_VALIDATE;
                         break;
 
+                case ARG_MTREE_HASH:
+                        r = parse_boolean_argument("--mtree-hash=", optarg, &arg_mtree_hash);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -493,7 +530,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path as only argument.");
 
-                r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+                r = parse_image_path_argument(argv[optind], NULL, &arg_image);
                 if (r < 0)
                         return r;
 
@@ -506,7 +543,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path and mount point path as only arguments.");
 
-                r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+                r = parse_image_path_argument(argv[optind], NULL, &arg_image);
                 if (r < 0)
                         return r;
 
@@ -532,7 +569,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path as only argument.");
 
-                r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+                r = parse_image_path_argument(argv[optind], NULL, &arg_image);
                 if (r < 0)
                         return r;
                 break;
@@ -542,7 +579,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path or loopback device as only argument.");
 
-                r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+                r = parse_image_path_argument(argv[optind], NULL, &arg_image);
                 if (r < 0)
                         return r;
                 break;
@@ -551,9 +588,9 @@ static int parse_argv(int argc, char *argv[]) {
         case ACTION_MTREE:
                 if (optind + 1 != argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Expected an image file path as only argument.");
+                                               "Expected an image file or directory path as only argument.");
 
-                r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+                r = parse_image_path_argument(argv[optind], &arg_root, &arg_image);
                 if (r < 0)
                         return r;
 
@@ -563,9 +600,9 @@ static int parse_argv(int argc, char *argv[]) {
         case ACTION_COPY_FROM:
                 if (argc < optind + 2 || argc > optind + 3)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Expected an image file path, a source path and an optional destination path as only arguments.");
+                                               "Expected an image file or directory path, a source path and an optional destination path as only arguments.");
 
-                r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+                r = parse_image_path_argument(argv[optind], &arg_root, &arg_image);
                 if (r < 0)
                         return r;
                 arg_source = argv[optind + 1];
@@ -577,9 +614,9 @@ static int parse_argv(int argc, char *argv[]) {
         case ACTION_COPY_TO:
                 if (argc < optind + 2 || argc > optind + 3)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Expected an image file path, an optional source path and a destination path as only arguments.");
+                                               "Expected an image file or directory path, an optional source path and a destination path as only arguments.");
 
-                r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+                r = parse_image_path_argument(argv[optind], &arg_root, &arg_image);
                 if (r < 0)
                         return r;
 
@@ -599,7 +636,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path and an optional command line.");
 
-                r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+                r = parse_image_path_argument(argv[optind], NULL, &arg_image);
                 if (r < 0)
                         return r;
 
@@ -622,7 +659,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Expected an image file path as only argument.");
 
-                r = parse_path_argument(argv[optind], /* suppress_root= */ false, &arg_image);
+                r = parse_image_path_argument(argv[optind], NULL, &arg_image);
                 if (r < 0)
                         return r;
 
@@ -1175,7 +1212,7 @@ static int mtree_print_item(
                        ansi_normal(),
                        (uint64_t) sx->stx_size);
 
-                if (inode_fd >= 0 && sx->stx_size > 0) {
+                if (arg_mtree_hash && inode_fd >= 0 && sx->stx_size > 0) {
                         uint8_t hash[SHA256_DIGEST_SIZE];
 
                         r = get_file_sha256(inode_fd, hash);
@@ -1232,46 +1269,52 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(rmdir_and_freep) char *created_dir = NULL;
         _cleanup_free_ char *temp = NULL;
+        const char *root;
         int r;
 
-        assert(m);
-        assert(d);
         assert(IN_SET(arg_action, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO));
 
-        r = detach_mount_namespace();
-        if (r < 0)
-                return log_error_errno(r, "Failed to detach mount namespace: %m");
+        if (arg_image) {
+                assert(m);
+                assert(d);
 
-        r = tempfn_random_child(NULL, program_invocation_short_name, &temp);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate temporary mount directory: %m");
+                r = detach_mount_namespace();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to detach mount namespace: %m");
 
-        r = mkdir_p(temp, 0700);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create mount point: %m");
+                r = tempfn_random_child(NULL, program_invocation_short_name, &temp);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate temporary mount directory: %m");
 
-        created_dir = TAKE_PTR(temp);
+                r = mkdir_p(temp, 0700);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create mount point: %m");
 
-        r = dissected_image_mount_and_warn(m, created_dir, UID_INVALID, UID_INVALID, arg_flags);
-        if (r < 0)
-                return r;
+                created_dir = TAKE_PTR(temp);
 
-        mounted_dir = TAKE_PTR(created_dir);
+                r = dissected_image_mount_and_warn(m, created_dir, UID_INVALID, UID_INVALID, arg_flags);
+                if (r < 0)
+                        return r;
 
-        r = loop_device_flock(d, LOCK_UN);
-        if (r < 0)
-                return log_error_errno(r, "Failed to unlock loopback block device: %m");
+                mounted_dir = TAKE_PTR(created_dir);
 
-        r = dissected_image_relinquish(m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
+                r = loop_device_flock(d, LOCK_UN);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to unlock loopback block device: %m");
+
+                r = dissected_image_relinquish(m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to relinquish DM and loopback block devices: %m");
+        }
+
+        root = mounted_dir ?: arg_root;
 
         switch (arg_action) {
 
         case ACTION_COPY_FROM: {
                 _cleanup_close_ int source_fd = -EBADF, target_fd = -EBADF;
 
-                source_fd = chase_and_open(arg_source, mounted_dir, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+                source_fd = chase_and_open(arg_source, root, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
                 if (source_fd < 0)
                         return log_error_errno(source_fd, "Failed to open source path '%s' in image '%s': %m", arg_source, arg_image);
 
@@ -1328,7 +1371,7 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
                         return log_error_errno(r, "Failed to extract filename from target path '%s': %m", arg_target);
                 is_dir = r == O_DIRECTORY;
 
-                r = chase(dn, mounted_dir, CHASE_PREFIX_ROOT|CHASE_WARN, NULL, &dfd);
+                r = chase(dn, root, CHASE_PREFIX_ROOT|CHASE_WARN, NULL, &dfd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open '%s': %m", dn);
 
@@ -1398,7 +1441,7 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
         case ACTION_MTREE: {
                 _cleanup_close_ int dfd = -EBADF;
 
-                dfd = open(mounted_dir, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
+                dfd = open(root, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
                 if (dfd < 0)
                         return log_error_errno(errno, "Failed to open mount directory: %m");
 
@@ -1778,64 +1821,65 @@ static int run(int argc, char *argv[]) {
                 break;
         }
 
-        r = verity_settings_load(
+        if (arg_image) {
+                r = verity_settings_load(
                         &arg_verity_settings,
                         arg_image, NULL, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to read verity artifacts for %s: %m", arg_image);
-
-        if (arg_verity_settings.data_path)
-                arg_flags |= DISSECT_IMAGE_NO_PARTITION_TABLE; /* We only support Verity per file system,
-                                                                * hence if there's external Verity data
-                                                                * available we turn off partition table
-                                                                * support */
-
-        if (arg_action == ACTION_VALIDATE)
-                return action_validate();
-
-        open_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR;
-        loop_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN;
-
-        if (arg_in_memory)
-                r = loop_device_make_by_path_memory(arg_image, open_flags, /* sector_size= */ UINT32_MAX, loop_flags, LOCK_SH, &d);
-        else
-                r = loop_device_make_by_path(arg_image, open_flags, /* sector_size= */ UINT32_MAX, loop_flags, LOCK_SH, &d);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
-
-        if (arg_loop_ref) {
-                r = loop_device_set_filename(d, arg_loop_ref);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to set loop reference string to '%s', ignoring: %m", arg_loop_ref);
-        }
+                        return log_error_errno(r, "Failed to read verity artifacts for %s: %m", arg_image);
 
-        r = dissect_loop_device_and_warn(
-                        d,
-                        &arg_verity_settings,
-                        /* mount_options= */ NULL,
-                        arg_image_policy,
-                        arg_flags,
-                        &m);
-        if (r < 0)
-                return r;
+                if (arg_verity_settings.data_path)
+                        arg_flags |= DISSECT_IMAGE_NO_PARTITION_TABLE; /* We only support Verity per file system,
+                                                                        * hence if there's external Verity data
+                                                                        * available we turn off partition table
+                                                                        * support */
 
-        if (arg_action == ACTION_ATTACH)
-                return action_attach(m, d);
+                if (arg_action == ACTION_VALIDATE)
+                        return action_validate();
 
-        r = dissected_image_load_verity_sig_partition(
-                        m,
-                        d->fd,
-                        &arg_verity_settings);
-        if (r < 0)
-                return log_error_errno(r, "Failed to load verity signature partition: %m");
+                open_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR;
+                loop_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN;
+                if (arg_in_memory)
+                        r = loop_device_make_by_path_memory(arg_image, open_flags, /* sector_size= */ UINT32_MAX, loop_flags, LOCK_SH, &d);
+                else
+                        r = loop_device_make_by_path(arg_image, open_flags, /* sector_size= */ UINT32_MAX, loop_flags, LOCK_SH, &d);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
 
-        if (arg_action != ACTION_DISSECT) {
-                r = dissected_image_decrypt_interactively(
-                                m, NULL,
+                if (arg_loop_ref) {
+                        r = loop_device_set_filename(d, arg_loop_ref);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to set loop reference string to '%s', ignoring: %m", arg_loop_ref);
+                }
+
+                r = dissect_loop_device_and_warn(
+                                d,
                                 &arg_verity_settings,
-                                arg_flags);
+                                /* mount_options= */ NULL,
+                                arg_image_policy,
+                                arg_flags,
+                                &m);
                 if (r < 0)
                         return r;
+
+                if (arg_action == ACTION_ATTACH)
+                        return action_attach(m, d);
+
+                r = dissected_image_load_verity_sig_partition(
+                                m,
+                                d->fd,
+                                &arg_verity_settings);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load verity signature partition: %m");
+
+                if (arg_action != ACTION_DISSECT) {
+                        r = dissected_image_decrypt_interactively(
+                                        m, NULL,
+                                        &arg_verity_settings,
+                                        arg_flags);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         switch (arg_action) {
