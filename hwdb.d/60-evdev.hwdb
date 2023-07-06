@@ -813,7 +813,7 @@ evdev:name:ETPS/2 Elantech Touchpad:dmi:*svnSAMSUNGELECTRONICSCO.,LTD.:pn870Z5E/
 
 #########################################
 # Sanwa Direct
-#########################################a
+#########################################
 
 # Sanwa Direct 400-MA128 Trackpad
 evdev:input:b0003v258Ap0501*
