@@ -823,7 +823,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 NDiscCaptivePortal,
                 ndisc_captive_portal_hash_func,
                 ndisc_captive_portal_compare_func,
-                free);
+                ndisc_captive_portal_free);
 
 static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) {
         _cleanup_(ndisc_captive_portal_freep) NDiscCaptivePortal *new_entry = NULL;
