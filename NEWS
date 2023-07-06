@@ -183,6 +183,44 @@ CHANGES WITH 254 in spe:
           LoadCredential= and LoadCredentialEncrypted= and searches for
           credentials to import from the system, and supports globbing.
 
+        * A new job mode "restart-dependencies" has been added to the service
+          manager (exposed via systemctl --job-mode=). It is only valid when
+          used with "start" jobs, and has the effect that the "start" job will
+          be propagated as "restart" jobs to currently running units that have
+          a BindsTo= or Requires= dependency on the started unit.
+
+        * A new verb "whoami" has been added to "systemctl" which determines as
+          part of which unit the command is being invoked. It writes the unit
+          name to standard output. If one or more PIDs are specified reports
+          the unit names the processes referenced by the PIDs belong to.
+
+        * The system and service credential logic has been improved: there's
+          now a clearly defined place where system provisioning tools running
+          in the initrd can place credentials that will be imported into the
+          system's set of credentials during the initrd → host transition: the
+          /run/credentials/@initrd/ directory. Once the credentials placed
+          there are imported into the system credential set they are deleted
+          from this directory, and the directory itself is deleted afterwards
+          too.
+
+        * A new kernel command line option systemd.set_credential_binary= has
+          been added, that is similar to the pre-existing
+          systemd.set_credential= but accepts arbitrary binary credential data,
+          encoded in Base64. Note that the kernel command line is not a
+          recommend way to transfer credentials into a system, since it is
+          world-readable from userspace.
+
+        * The default machine ID to use may now be configured via the
+          system.machine_id system credential. It will only be used if no
+          machine ID was set yet on the host.
+
+        * On Linux kernel 6.4 and newer system and service credentials will now
+          be placed in a tmpfs instance that has the "noswap" mount option
+          set. Previously, a "ramfs" instance was used. By switching to tmpfs
+          ACL support and overall size limits can now be enforced, without
+          compromising on security, as the memory is never paged out either
+          way.
+
         Journal:
 
         * The sd-journal API gained a new call sd_journal_get_seqnum() to
@@ -194,6 +232,9 @@ CHANGES WITH 254 in spe:
         * journalctl gained a new switch --truncate-newline. If specified
           multi-line log records will be truncated at the first newline,
           i.e. only the first line of each log message will be shown.
+
+        * systemd-journal-upload gained support for --namespace=, similar to
+          the switch of the same name of journalctl.
 
         systemd-repart:
 
@@ -258,6 +299,11 @@ CHANGES WITH 254 in spe:
 
         * ukify gained a new "genkey" verb for generating a set of of key pairs
           to sign UKIs and their PCR data with.
+
+        * ukify now accepts SBAT information to place in the .sbat PE section
+          of UKIs and addons. If an UKI is built the SBAT information from the
+          inner kernel is merged with any SBAT information associated with
+          systemd-stub and the SBAT data specified on the ukify command line.
 
         * The kernel-install script has been rewritten in C, and reuses much of
           the infrastructure of existing tools such as bootctl. It also gained
@@ -399,6 +445,19 @@ CHANGES WITH 254 in spe:
         * networkd's GENEVE support as gained a new .network option
           InheritInnerProtocol=.
 
+        * The [Tunnel] section in .netdev files has gained a new setting
+          IgnoreDontFragment for controlling the IPv4 "DF" flag of datagrams.
+
+        * A new global IPv6PrivacyExtensions= setting has been added that
+          selects the default value of the per-network setting of the same
+          name.
+
+        * The predictable network interface naming logic will now include
+          SR-IOV-R "representor" information in network interface names.
+
+        * The DHCPv4 + DHCPv6 + IPv6 RA logic in networkd gained support for
+          the RFC8910 captive portal option.
+
         Device Management:
 
         * udevadm gained the new "verify" verb for validating udev rules files
@@ -531,6 +590,7 @@ CHANGES WITH 254 in spe:
 
           https://systemd.io/COREDUMP
           https://systemd.io/MEMORY_PRESSURE
+          smbios-type-11(7)
 
         * systemd-firstboot gained a new --reset option. If specified, the
           settings in /etc/ it knows how to initialize are reset.
@@ -568,7 +628,14 @@ CHANGES WITH 254 in spe:
 
         * systemd-fstab-generator now understands two new kernel command line
           options systemd.mount-extra= and systemd.swap-extra=, which configure
-          additional mounts or swaps in a format similar to /etc/fstab.
+          additional mounts or swaps in a format similar to /etc/fstab. It also
+          now supports the new fstab.extra and fstab.extra.initrd credentials
+          that may contain additional /etc/fstab lines to apply at boot.
+
+        * systemd-getty-generator now understands two new credentials
+          getty.ttys.container and getty.ttys.serial. These credentials may
+          contain a list of TTY devices – one per line – to instantiate
+          container-getty@.service and serial-getty@.service on.
 
         * systemd-sysupdate's sysupdate.d/ drop-ins gained a new setting
           PathRelativeTo=, which can be set to "esp", "xbootldr", "boot", in
@@ -601,6 +668,48 @@ CHANGES WITH 254 in spe:
           user is notified (graphically via Plymouth – if available – as well
           as in text form on the console), and the system is turned off after a
           10s delay.
+
+        Contributions from: 김인수, 07416, Addison Snelling, Adrian Vovk,
+        Aidan Dang, Alexander Krabler, Alfred Klomp, Anatoli Babenia,
+        Andrei Stepanov, Antonio Alvarez Feijoo, Arian van Putten, Arthur Shau,
+        A S Alam, Asier Sarasua Garmendia, Balló György, Bastien Nocera,
+        Benjamin Herrenschmidt, Benjamin Raison, Bill Peterson,
+        Brad Fitzpatrick, Brett Holman, bri, Chen Qi, Chitoku,
+        Christoph Anton Mitterer, Christopher Gurnee, Colin Walters,
+        Cornelius Hoffmann, Cristian Rodríguez, cunshunxia, cvlc12,
+        Cyril Roelandt, Daan De Meyer, Daniele Medri, Dan Streetman,
+        David Edmundson, David Schroeder, David Tardon, dependabot[bot],
+        Dimitri John Ledkov, Dmitrii Fomchenkov, Dmitry V. Levin, dmkUK,
+        Dominique Martinet, don bright, drosdeck, Edson Juliano Drosdeck,
+        EinBaum, Emanuele Giuseppe Esposito, Eric Curtin, Evgeny Vereshchagin,
+        Florian Klink, Franck Bui, François Rigault, Fran Diéguez, Franklin Yu,
+        Frantisek Sumsal, Gaël PORTAY, Gerd Hoffmann, Gertalitec, Gibeom Gwon,
+        Gustavo Noronha Silva, Hannu Lounento, Hans de Goede, Haochen Tong,
+        HATAYAMA Daisuke, Henrik Holst, Hoe Hao Cheng, Igor Tsiglyar,
+        Ivan Vecera, James Hilliard, Jan Engelhardt, Jan Janssen, Jan Luebbe,
+        Jan Macku, Janne Sirén, jcg, Jeidnx, Joan Bruguera, Joerg Behrmann,
+        jonathanmetzman, Jordan Rome, Josef Miegl, Joshua Goins, Joyce,
+        Joyce Brum, Juno Computers, Kai Lueke, Kevin P. Fleming, Kiran Vemula,
+        Klaus, Klaus Zipfel, Lawrence Thorpe, Lennart Poettering, licunlong,
+        Lily Foster, Luca Boccassi, Ludwig Nussel, maanyagoenka,
+        Maksim Kliazovich, Malte Poll, Marko Korhonen, Masatake YAMATO,
+        Mateusz Poliwczak, Matt Johnston, Miao Wang, Michal Koutný,
+        Michal Sekletár, Mike Yuan, mooo, Morten Linderud, msizanoen,
+        Nick Rosbrook, nikstur, Olivier Gayot, Omojola Joshua, Paolo Velati,
+        Paul Barker, Philipp Kern, Philip Withnall, Piotr Drąg, Quintin Hill,
+        Rene Hollander, Richard Phibel, Robert Meijers, Robert Scheck,
+        Romain Geissler, Ronan Pigott, Russell Harmon, saikat0511,
+        Samanta Navarro, Sam James, Sam Morris, Simon Braunschmidt,
+        Sjoerd Simons, Sorah Fukumori, Stanislaw Gruszka, Stefan Roesch,
+        Steven Luo, Steve Ramage, taniishkaaa, Tanishka, Thierry Martin,
+        Thomas Blume, Thomas Genty, Thomas Weißschuh, Thorsten Kukuk, Times-Z,
+        Tobias Powalowski, tofylion, Topi Miettinen, Uwe Kleine-König,
+        Velislav Ivanov, Vitaly Kuznetsov, Vít Zikmund, Will Fancher,
+        William Roberts, Winterhuman, Wolfgang Müller, Xiaotian Wu, Xi Ruoyao,
+        Yu Watanabe, Yuxiang Zhu, Zbigniew Jędrzejewski-Szmek, zhmylove,
+        ZjYwMj, Дамјан Георгиевски, наб
+
+        — ??, 2023-07-XX
 
 CHANGES WITH 253:
 
