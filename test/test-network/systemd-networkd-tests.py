@@ -4829,7 +4829,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         ]
         if classless:
             additional_options += [
-                '--dhcp-option=option:classless-static-route,0.0.0.0/0,192.168.5.4,8.0.0.0/8,192.168.5.5'
+                '--dhcp-option=option:classless-static-route,0.0.0.0/0,192.168.5.4,8.0.0.0/8,192.168.5.5,192.168.5.64/26,192.168.5.5'
             ]
         start_dnsmasq(*additional_options)
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
@@ -4842,6 +4842,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
             if classless:
                 self.assertRegex(output, r'default via 192.168.5.4 proto dhcp src 192.168.5.[0-9]* metric 1024')
                 self.assertRegex(output, r'8.0.0.0/8 via 192.168.5.5 proto dhcp src 192.168.5.[0-9]* metric 1024')
+                self.assertRegex(output, r'192.168.5.64/26 via 192.168.5.5 proto dhcp src 192.168.5.[0-9]* metric 1024')
                 self.assertRegex(output, r'192.168.5.4 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
                 self.assertRegex(output, r'192.168.5.5 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
             else:
