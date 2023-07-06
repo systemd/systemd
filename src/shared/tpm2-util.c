@@ -3829,7 +3829,7 @@ int tpm2_pcr_mask_from_string(const char *arg, uint32_t *ret_mask) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse specified PCR or specified PCR is out of range: %s", pcr);
                 n = r;
-                SET_BIT(mask, n);;
+                SET_BIT(mask, n);
         }
 
         *ret_mask = mask;
