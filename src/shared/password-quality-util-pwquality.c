@@ -7,7 +7,7 @@
 #include "log.h"
 #include "macro.h"
 #include "memory-util.h"
-#include "pwquality-util.h"
+#include "password-quality-util.h"
 #include "strv.h"
 
 #if HAVE_PWQUALITY
@@ -36,7 +36,7 @@ int dlopen_pwquality(void) {
                         DLSYM_ARG(pwquality_strerror));
 }
 
-void pwq_maybe_disable_dictionary(pwquality_settings_t *pwq) {
+static void pwq_maybe_disable_dictionary(pwquality_settings_t *pwq) {
         char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
         const char *path;
         int r;
@@ -69,7 +69,7 @@ void pwq_maybe_disable_dictionary(pwquality_settings_t *pwq) {
                           sym_pwquality_strerror(buf, sizeof(buf), r, NULL));
 }
 
-int pwq_allocate_context(pwquality_settings_t **ret) {
+static int pwq_allocate_context(pwquality_settings_t **ret) {
         _cleanup_(sym_pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
         char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
         void *auxerror;
@@ -96,8 +96,6 @@ int pwq_allocate_context(pwquality_settings_t **ret) {
         return 0;
 }
 
-#define N_SUGGESTIONS 6
-
 int suggest_passwords(void) {
         _cleanup_(sym_pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
         _cleanup_strv_free_erase_ char **suggestions = NULL;
@@ -107,10 +105,11 @@ int suggest_passwords(void) {
         int r;
 
         r = pwq_allocate_context(&pwq);
-        if (ERRNO_IS_NOT_SUPPORTED(r))
-                return 0;
-        if (r < 0)
+        if (r < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(r))
+                        return 0;
                 return log_error_errno(r, "Failed to allocate libpwquality context: %m");
+        }
 
         suggestions = new0(char*, N_SUGGESTIONS+1);
         if (!suggestions)
@@ -127,11 +126,11 @@ int suggest_passwords(void) {
         if (!joined)
                 return log_oom();
 
-        log_info("Password suggestions: %s", joined);
+        printf("Password suggestions: %s\n", joined);
         return 1;
 }
 
-int quality_check_password(const char *password, const char *username, char **ret_error) {
+int check_password_quality(const char *password, const char *old, const char *username, char **ret_error) {
         _cleanup_(sym_pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
         char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
         void *auxerror;
@@ -140,14 +139,11 @@ int quality_check_password(const char *password, const char *username, char **re
         assert(password);
 
         r = pwq_allocate_context(&pwq);
-        if (ERRNO_IS_NOT_SUPPORTED(r))
-                return 0;
         if (r < 0)
                 return log_debug_errno(r, "Failed to allocate libpwquality context: %m");
 
-        r = sym_pwquality_check(pwq, password, NULL, username, &auxerror);
+        r = sym_pwquality_check(pwq, password, old, username, &auxerror);
         if (r < 0) {
-
                 if (ret_error) {
                         _cleanup_free_ char *e = NULL;
 

@@ -3,9 +3,10 @@
 #include "ask-password-api.h"
 #include "cryptenroll-password.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "memory-util.h"
-#include "pwquality-util.h"
+#include "password-quality-util.h"
 #include "strv.h"
 
 int load_volume_key_password(
@@ -155,9 +156,13 @@ int enroll_password(
                 }
         }
 
-        r = quality_check_password(new_password, NULL, &error);
-        if (r < 0)
-                return log_error_errno(r, "Failed to check password for quality: %m");
+        r = check_password_quality(new_password, /* old */ NULL, /* user */ NULL, &error);
+        if (r < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(r))
+                        log_warning("Password quality check is not supported, proceeding anyway.");
+                else
+                        return log_error_errno(r, "Failed to check password quality: %m");
+        }
         if (r == 0)
                 log_warning("Specified password does not pass quality checks (%s), proceeding anyway.", error);
 
