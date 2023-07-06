@@ -137,7 +137,7 @@ but downstreams are strongly advised against doing that.)
    database records for all UIDs assigned to a running container from this
    range.
 
-Note for both allocation ranges: when an UID allocation takes place NSS is
+Note for both allocation ranges: when a UID allocation takes place NSS is
 checked for collisions first, and a different UID is picked if an entry is
 found. Thus, the user database is used as synchronization mechanism to ensure
 exclusive ownership of UIDs and UID ranges. To ensure compatibility with other

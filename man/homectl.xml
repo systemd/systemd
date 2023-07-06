@@ -55,7 +55,7 @@
       security and is thus recommended.</para></listitem>
 
       <listitem><para>Similar, but the LUKS2 encrypted file system is located on regular block device, such
-      as an USB storage stick. In this mode home directories and all data they include are nicely migratable
+      as a USB storage stick. In this mode home directories and all data they include are nicely migratable
       between machines, simply by plugging the USB stick into different systems at different
       times.</para></listitem>
 

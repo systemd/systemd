@@ -943,7 +943,7 @@
   <refsect1>
     <title>Examples</title>
     <example>
-      <title>Download an Ubuntu image and open a shell in it</title>
+      <title>Download a Ubuntu image and open a shell in it</title>
 
       <programlisting># machinectl pull-tar https://cloud-images.ubuntu.com/trusty/current/trusty-server-cloudimg-amd64-root.tar.gz
 # systemd-nspawn -M trusty-server-cloudimg-amd64-root</programlisting>

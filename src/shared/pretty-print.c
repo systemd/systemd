@@ -42,7 +42,7 @@ int terminal_urlify(const char *url, const char *text, char **ret) {
 
         assert(url);
 
-        /* Takes an URL and a pretty string and formats it as clickable link for the terminal. See
+        /* Takes a URL and a pretty string and formats it as clickable link for the terminal. See
          * https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda for details. */
 
         if (isempty(text))

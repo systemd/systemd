@@ -2208,7 +2208,7 @@ int home_create_luks(
                 uint64_t block_device_size;
                 struct stat st;
 
-                /* Let's place the home directory on a real device, i.e. an USB stick or such */
+                /* Let's place the home directory on a real device, i.e. a USB stick or such */
 
                 setup->image_fd = open_image_file(h, ip, &st);
                 if (setup->image_fd < 0)

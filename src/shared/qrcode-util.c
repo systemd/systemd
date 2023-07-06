@@ -93,7 +93,7 @@ int print_qrcode(FILE *out, const char *header, const char *string) {
         QRcode* qr;
         int r;
 
-        /* If this is not an UTF-8 system or ANSI colors aren't supported/disabled don't print any QR
+        /* If this is not a UTF-8 system or ANSI colors aren't supported/disabled don't print any QR
          * codes */
         if (!is_locale_utf8() || !colors_enabled())
                 return -EOPNOTSUPP;
