@@ -540,6 +540,16 @@ systemctl stop test-root-ephemeral
 timeout 10 bash -c 'while ! test -z "$(ls -A /var/lib/systemd/ephemeral-trees)"; do sleep .5; done'
 test ! -f /tmp/img/abc
 
+systemd-dissect --mtree /tmp/img
+systemd-dissect --list /tmp/img
+
+read -r SHA256SUM1 _ < <(systemd-dissect --copy-from /tmp/img etc/os-release | sha256sum)
+test "$SHA256SUM1" != ""
+
+echo abc > abc
+systemd-dissect --copy-to /tmp/img abc /abc
+test -f /tmp/img/abc
+
 echo OK >/testok
 
 exit 0
