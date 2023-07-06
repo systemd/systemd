@@ -259,6 +259,74 @@ bool address_is_filtered(int family, const union in_addr_union *address, uint8_t
         return false;
 }
 
+int link_get_captive_portal(Link *link, const char **ret) {
+        const char *dhcp4_cp = NULL, *dhcp6_cp = NULL, *ndisc_cp = NULL;
+        int r;
+
+        assert(link);
+
+        if (!link->network) {
+                *ret = NULL;
+                return 0;
+        }
+
+        if (link->network->dhcp_use_captive_portal && link->dhcp_lease) {
+                r = sd_dhcp_lease_get_captive_portal(link->dhcp_lease, &dhcp4_cp);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+        }
+
+        if (link->network->dhcp6_use_captive_portal && link->dhcp6_lease) {
+                r = sd_dhcp6_lease_get_captive_portal(link->dhcp6_lease, &dhcp6_cp);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+        }
+
+        if (link->network->ipv6_accept_ra_use_captive_portal) {
+                NDiscCaptivePortal *cp;
+                usec_t usec = 0;
+
+                /* Use the captive portal with the longest lifetime. */
+
+                SET_FOREACH(cp, link->ndisc_captive_portals) {
+                        if (cp->lifetime_usec < usec)
+                                continue;
+
+                        ndisc_cp = cp->captive_portal;
+                        usec = cp->lifetime_usec;
+                }
+
+                if (set_size(link->ndisc_captive_portals) > 1)
+                        log_link_debug(link, "Multiple captive portals obtained by IPv6RA, using \"%s\" and ignoring others.",
+                                       ndisc_cp);
+        }
+
+        if (dhcp4_cp) {
+                if (dhcp6_cp && !streq(dhcp4_cp, dhcp6_cp))
+                        log_link_debug(link, "DHCPv6 captive portal (%s) does not match DHCPv4 (%s), ignoring DHCPv6 captive portal.",
+                                       dhcp6_cp, dhcp4_cp);
+
+                if (ndisc_cp && !streq(dhcp4_cp, ndisc_cp))
+                        log_link_debug(link, "IPv6RA captive portal (%s) does not match DHCPv4 (%s), ignoring IPv6RA captive portal.",
+                                       ndisc_cp, dhcp4_cp);
+
+                *ret = dhcp4_cp;
+                return 1;
+        }
+
+        if (dhcp6_cp) {
+                if (ndisc_cp && !streq(dhcp6_cp, ndisc_cp))
+                        log_link_debug(link, "IPv6RA captive portal (%s) does not match DHCPv6 (%s), ignoring IPv6RA captive portal.",
+                                       ndisc_cp, dhcp6_cp);
+
+                *ret = dhcp6_cp;
+                return 1;
+        }
+
+        *ret = ndisc_cp;
+        return !!ndisc_cp;
+}
+
 int config_parse_dhcp(
                 const char* unit,
                 const char *filename,

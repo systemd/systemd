@@ -7,6 +7,7 @@
 #include "ip-protocol-list.h"
 #include "netif-util.h"
 #include "networkd-address.h"
+#include "networkd-dhcp-common.h"
 #include "networkd-json.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -874,31 +875,15 @@ finalize:
 }
 
 static int captive_portal_build_json(Link *link, JsonVariant **ret) {
+        const char *captive_portal;
         int r;
-        const char *captive_portal = NULL;
 
         assert(link);
         assert(ret);
 
-        if (!link->network) {
-                *ret = NULL;
-                return 0;
-        }
-
-        if (link->network->dhcp_use_captive_portal && link->dhcp_lease) {
-                r = sd_dhcp_lease_get_captive_portal(link->dhcp_lease, &captive_portal);
-                if (r < 0 && r != -ENODATA)
-                        return r;
-        }
-
-        if (link->network->dhcp6_use_captive_portal && link->dhcp6_lease && !captive_portal) {
-                r = sd_dhcp6_lease_get_captive_portal(link->dhcp6_lease, &captive_portal);
-                if (r < 0 && r != -ENODATA)
-                        return r;
-        }
-
-        if (link->network->ipv6_accept_ra_use_captive_portal && !captive_portal)
-                captive_portal = link->ndisc_captive_portal;
+        r = link_get_captive_portal(link, &captive_portal);
+        if (r < 0)
+                return r;
 
         if (!captive_portal) {
                 *ret = NULL;
