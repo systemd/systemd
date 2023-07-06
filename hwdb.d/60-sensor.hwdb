@@ -123,7 +123,11 @@ sensor:modalias:acpi:MXC6655*:dmi:*:svnAquarius*:pnNS483:*
 #########################################
 # Archos
 #########################################
+
+# Archos 80 Cesium
 sensor:modalias:acpi:SMO8500*:dmi:*:svnARCHOS:pnARCHOS80Cesium:*
+# Archos 101 Cesium
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnARCHOS:pnARCHOS101CESIUM:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 # Archos 101 Cesium Educ
