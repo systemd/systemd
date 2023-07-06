@@ -10,9 +10,10 @@
 #include "libfido2-util.h"
 #include "macro.h"
 #include "main-func.h"
+#include "password-quality-util-passwdqc.h"
+#include "password-quality-util-pwquality.h"
 #include "pcre2-util.h"
 #include "pkcs11-util.h"
-#include "pwquality-util.h"
 #include "qrcode-util.h"
 #include "tests.h"
 #include "tpm2-util.h"
@@ -30,6 +31,10 @@ static int run(int argc, char **argv) {
 
 #if HAVE_LIBCRYPTSETUP
         assert_se(dlopen_cryptsetup() >= 0);
+#endif
+
+#if HAVE_PASSWDQC
+        assert_se(dlopen_passwdqc() >= 0);
 #endif
 
 #if HAVE_PWQUALITY
