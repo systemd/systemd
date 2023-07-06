@@ -716,43 +716,6 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 ndisc_dnssl_compare_func,
                 free);
 
-static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) {
-        const char *uri;
-        _cleanup_free_ char *captive_portal = NULL;
-        size_t len;
-        int r;
-
-        assert(link);
-        assert(link->network);
-        assert(rt);
-
-        if (!link->network->ipv6_accept_ra_use_captive_portal)
-                return 0;
-
-        r = sd_ndisc_router_captive_portal_get_uri(rt, &uri, &len);
-        if (r < 0)
-                return r;
-
-        if (len == 0) {
-                link->ndisc_captive_portal = mfree(link->ndisc_captive_portal);
-                return 0;
-        }
-
-        r = make_cstring(uri, len, MAKE_CSTRING_REFUSE_TRAILING_NUL, &captive_portal);
-        if (r < 0)
-                return r;
-
-        if (!in_charset(captive_portal, URI_VALID))
-                return -EBADMSG;
-
-        if (!streq_ptr(link->ndisc_captive_portal, captive_portal)) {
-                free_and_replace(link->ndisc_captive_portal, captive_portal);
-                link_dirty(link);
-        }
-
-        return 0;
-}
-
 static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         _cleanup_strv_free_ char **l = NULL;
         usec_t lifetime_usec, timestamp_usec;
@@ -834,6 +797,108 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
+static NDiscCaptivePortal* ndisc_captive_portal_free(NDiscCaptivePortal *x) {
+        if (!x)
+                return NULL;
+
+        free(x->captive_portal);
+        return mfree(x);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(NDiscCaptivePortal*, ndisc_captive_portal_free);
+
+static void ndisc_captive_portal_hash_func(const NDiscCaptivePortal *x, struct siphash *state) {
+        assert(x);
+        siphash24_compress_string(x->captive_portal, state);
+}
+
+static int ndisc_captive_portal_compare_func(const NDiscCaptivePortal *a, const NDiscCaptivePortal *b) {
+        assert(a);
+        assert(b);
+        return strcmp_ptr(a->captive_portal, b->captive_portal);
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                ndisc_captive_portal_hash_ops,
+                NDiscCaptivePortal,
+                ndisc_captive_portal_hash_func,
+                ndisc_captive_portal_compare_func,
+                free);
+
+static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) {
+        _cleanup_(ndisc_captive_portal_freep) NDiscCaptivePortal *new_entry = NULL;
+        _cleanup_free_ char *captive_portal = NULL;
+        usec_t lifetime_usec, timestamp_usec;
+        NDiscCaptivePortal *exist;
+        struct in6_addr router;
+        uint16_t lifetime_sec;
+        const char *uri;
+        size_t len;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        if (!link->network->ipv6_accept_ra_use_captive_portal)
+                return 0;
+
+        r = sd_ndisc_router_get_address(rt, &router);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get router address from RA: %m");
+
+        r = sd_ndisc_router_get_lifetime(rt, &lifetime_sec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get lifetime of RA message: %m");
+
+        r = sd_ndisc_router_get_timestamp(rt, CLOCK_BOOTTIME, &timestamp_usec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get RA timestamp: %m");
+
+        lifetime_usec = sec16_to_usec(lifetime_sec, timestamp_usec);
+
+        r = sd_ndisc_router_captive_portal_get_uri(rt, &uri, &len);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get captive portal from RA: %m");
+
+        if (len == 0)
+                return 0;
+
+        r = make_cstring(uri, len, MAKE_CSTRING_REFUSE_TRAILING_NUL, &captive_portal);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to convert captive portal URI: %m");
+
+        if (!in_charset(captive_portal, URI_VALID))
+                return log_link_debug_errno(link, SYNTHETIC_ERRNO(EBADMSG), "Received invalid captive portal, ignoring.");
+
+        exist = set_get(link->ndisc_captive_portals, &(NDiscCaptivePortal) { .captive_portal = captive_portal });
+        if (exist) {
+                /* update existing entry */
+                exist->router = router;
+                exist->lifetime_usec = lifetime_usec;
+                return 0;
+        }
+
+        new_entry = new(NDiscCaptivePortal, 1);
+        if (!new_entry)
+                return log_oom();
+
+        *new_entry = (NDiscCaptivePortal) {
+                .router = router,
+                .lifetime_usec = lifetime_usec,
+                .captive_portal = TAKE_PTR(captive_portal),
+        };
+
+        r = set_ensure_put(&link->ndisc_captive_portals, &ndisc_captive_portal_hash_ops, new_entry);
+        if (r < 0)
+                return log_oom();
+        assert(r > 0);
+        TAKE_PTR(new_entry);
+
+        link_dirty(link);
+        return 0;
+}
+
 static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
         int r;
 
@@ -882,6 +947,7 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
         bool updated = false;
         NDiscDNSSL *dnssl;
         NDiscRDNSS *rdnss;
+        NDiscCaptivePortal *cp;
         Address *address;
         Route *route;
         int r = 0, k;
@@ -934,6 +1000,14 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
                 updated = true;
         }
 
+        SET_FOREACH(cp, link->ndisc_captive_portals) {
+                if (cp->lifetime_usec >= timestamp_usec)
+                        continue; /* the captive portal is still valid */
+
+                free(set_remove(link->ndisc_captive_portals, cp));
+                updated = true;
+        }
+
         if (updated)
                 link_dirty(link);
 
@@ -957,6 +1031,7 @@ static int ndisc_expire_handler(sd_event_source *s, uint64_t usec, void *userdat
 
 static int ndisc_setup_expire(Link *link) {
         usec_t lifetime_usec = USEC_INFINITY;
+        NDiscCaptivePortal *cp;
         NDiscDNSSL *dnssl;
         NDiscRDNSS *rdnss;
         Address *address;
@@ -991,6 +1066,9 @@ static int ndisc_setup_expire(Link *link) {
 
         SET_FOREACH(dnssl, link->ndisc_dnssl)
                 lifetime_usec = MIN(lifetime_usec, dnssl->lifetime_usec);
+
+        SET_FOREACH(cp, link->ndisc_captive_portals)
+                lifetime_usec = MIN(lifetime_usec, cp->lifetime_usec);
 
         if (lifetime_usec == USEC_INFINITY)
                 return 0;
@@ -1254,10 +1332,11 @@ int ndisc_stop(Link *link) {
 void ndisc_flush(Link *link) {
         assert(link);
 
-        /* Removes all RDNSS and DNSSL entries, without exception */
+        /* Remove all RDNSS, DNSSL, and Captive Portal entries, without exception. */
 
         link->ndisc_rdnss = set_free(link->ndisc_rdnss);
         link->ndisc_dnssl = set_free(link->ndisc_dnssl);
+        link->ndisc_captive_portals = set_free(link->ndisc_captive_portals);
 }
 
 static const char* const ipv6_accept_ra_start_dhcp6_client_table[_IPV6_ACCEPT_RA_START_DHCP6_CLIENT_MAX] = {
