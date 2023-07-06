@@ -1357,12 +1357,15 @@ static int bus_get_address_user(char **ret) {
 
         e = secure_getenv("DBUS_SESSION_BUS_ADDRESS");
         if (!e) {
-                _cleanup_free_ char *ee = NULL;
+                _cleanup_free_ char *ee = NULL, *buf = NULL;
 
                 e = secure_getenv("XDG_RUNTIME_DIR");
-                if (!e)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
-                                               "sd-bus: $XDG_RUNTIME_DIR not set, cannot connect to user bus.");
+                if (!e) {
+                        if (asprintf(&buf, "/run/user/" UID_FMT, geteuid()) < 0)
+                                return -ENOMEM;
+
+                        e = buf;
+                }
 
                 ee = bus_address_escape(e);
                 if (!ee)
