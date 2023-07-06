@@ -1671,13 +1671,6 @@ int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *m
                                 u = strndup(machine, rhs - machine);
                         else
                                 u = getusername_malloc(); /* Empty user name, let's use the local one */
-                        if (!u)
-                                return -ENOMEM;
-
-                        eu = bus_address_escape(u);
-                        if (!eu)
-                                return -ENOMEM;
-
                         rhs++;
                 } else {
                         /* No "@" specified but we shall connect to the user instance? Then assume root (and
@@ -1691,34 +1684,57 @@ int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *m
                          * regardless what the calling user is. */
 
                         rhs = machine;
+                        u = strdup("root");
                 }
 
-                if (!isempty(rhs)) {
-                        erhs = bus_address_escape(rhs);
-                        if (!erhs)
-                                return -ENOMEM;
-                }
+                if (!u || !(eu = bus_address_escape(u)))
+                        return -ENOMEM;
 
-                /* systemd-run -M… -PGq --wait -pUser=… -pPAMName=login systemd-stdio-bridge */
+                if (isempty(rhs))
+                        rhs = ".host";
+
+                erhs = bus_address_escape(rhs);
+                if (!erhs)
+                        return -ENOMEM;
 
                 a = strjoin("unixexec:path=systemd-run,"
-                            "argv1=-M", erhs ?: ".host", ","
+                            "argv1=-M", erhs, ","
                             "argv2=-PGq,"
                             "argv3=--wait,"
-                            "argv4=-pUser%3d", eu ?: "root", ",",
-                            "argv5=-pPAMName%3dlogin,"
-                            "argv6=systemd-stdio-bridge");
+                            "argv4=-pUser%3d", eu, ",");
                 if (!a)
                         return -ENOMEM;
 
-                if (runtime_scope == RUNTIME_SCOPE_USER) {
-                        /* Ideally we'd use the "--user" switch to systemd-stdio-bridge here, but it's only
-                         * available in recent systemd versions. Using the "-p" switch with the explicit path
-                         * is a working alternative, and is compatible with older versions, hence that's what
-                         * we use here. */
-                        if (!strextend(&a, ",argv7=-punix:path%3d%24%7bXDG_RUNTIME_DIR%7d/bus"))
+                if (streq(erhs, ".host")) {
+                        /* If we're connecting to the local system we know that systemd-stdio-bridge is
+                         * recent enough and does not require a new PAM session for resolving the path of the
+                         * user runtime directory. */
+
+                        /* systemd-run -M… -PGq --wait -pUser=… systemd-stdio-bridge -M@host */
+
+                        if (!strextend(&a,
+                                       "argv5=systemd-stdio-bridge,",
+                                       "argv6=-M@.host"))
                                 return -ENOMEM;
-                }
+
+                        if (runtime_scope == RUNTIME_SCOPE_USER)
+                                if (!strextend(&a, ",argv7=--user"))
+                                        return -ENOMEM;
+                } else {
+                        /* Otherwise Using the "-p" switch with the explicit path is a working alternative,
+                         * and is compatible with older versions. */
+
+                        /* systemd-run -M… -PGq --wait -pUser=… -pPAMName=login systemd-stdio-bridge -punix:path=${XDG_RUNTIME_DIR}/bus */
+
+                        if (!strextend(&a,
+                                       "argv5=-pPAMName%3dlogin,"
+                                       "argv6=systemd-stdio-bridge"))
+                                return -ENOMEM;
+
+                        if (runtime_scope == RUNTIME_SCOPE_USER)
+                                if (!strextend(&a, ",argv7=-punix:path%3d%24%7bXDG_RUNTIME_DIR%7d/bus"))
+                                        return -ENOMEM;
+                 }
         } else {
                 _cleanup_free_ char *e = NULL;
 
