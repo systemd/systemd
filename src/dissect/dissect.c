@@ -782,29 +782,110 @@ static void strv_pair_print(char **l, const char *prefix) {
 
 static int get_sysext_scopes(DissectedImage *m, char ***ret_scopes) {
         _cleanup_strv_free_ char **l = NULL;
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_free_ char *bn = NULL;
+        bool p = false;
+        Image *img;
         const char *e;
+        int r;
 
         assert(m);
         assert(ret_scopes);
 
         /* If there's no extension-release file its not a system extension. Otherwise the SYSEXT_SCOPE field
          * indicates which scope it is for — and it defaults to "system" + "portable" if unset. */
-
         if (!m->extension_release) {
                 *ret_scopes = NULL;
                 return 0;
         }
 
-        e = strv_env_pairs_get(m->extension_release, "SYSEXT_SCOPE");
-        if (e)
-                l = strv_split(e, WHITESPACE);
-        else
-                l = strv_new("system", "portable");
-        if (!l)
-                return -ENOMEM;
+        images = hashmap_new(&image_hash_ops);
+        if (!images)
+                return log_oom();
 
-        *ret_scopes = TAKE_PTR(l);
-        return 1;
+        r = image_discover(IMAGE_SYSEXT, NULL, images);
+
+        HASHMAP_FOREACH(img, images) {
+                _cleanup_free_ char *truncated = NULL;
+                int temp = path_extract_filename(arg_image, &bn);
+                if (temp < 0)
+                        return log_error_errno(r, "Failed to extract file name from image path '%s': %m", arg_image);
+
+                e = endswith(bn, ".raw");
+                truncated = strndup(bn, e - bn);
+
+                if (streq(img->name, truncated)) {
+                        p = true;
+                        break;
+                }
+        }
+
+        if (r >= 0 && !hashmap_isempty(images) && p) {
+                e = strv_env_pairs_get(m->extension_release, "SYSEXT_SCOPE");
+                if (e)
+                        l = strv_split(e, WHITESPACE);
+                else
+                        l = strv_new("system", "portable");
+                if (!l)
+                        return -ENOMEM;
+                *ret_scopes = TAKE_PTR(l);
+                return 1;
+        }
+        return 0;
+}
+
+static int get_confext_scopes(DissectedImage *m, char ***ret_scopes) {
+        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_free_ char *bn = NULL;
+        bool p = false;
+        Image *img;
+        const char *e;
+        int r;
+
+        assert(m);
+        assert(ret_scopes);
+
+        /* If there's no extension-release file its not a system extension. Otherwise the CONFEXT_SCOPE field
+         * indicates which scope it is for — and it defaults to "system" + "portable" if unset. */
+        if (!m->extension_release) {
+                *ret_scopes = NULL;
+                return 0;
+        }
+
+        images = hashmap_new(&image_hash_ops);
+        if (!images)
+                return log_oom();
+
+        r = image_discover(IMAGE_CONFEXT, NULL, images);
+
+        HASHMAP_FOREACH(img, images) {
+                _cleanup_free_ char *truncated = NULL;
+                int temp = path_extract_filename(arg_image, &bn);
+                if (temp < 0)
+                        return log_error_errno(r, "Failed to extract file name from image path '%s': %m", arg_image);
+
+                e = endswith(bn, ".raw");
+                truncated = strndup(bn, e - bn);
+
+                if (streq(img->name, truncated)) {
+                        p = true;
+                        break;
+                }
+        }
+
+        if (r >= 0 && !hashmap_isempty(images) && p) {
+                e = strv_env_pairs_get(m->extension_release, "CONFEXT_SCOPE");
+                if (e)
+                        l = strv_split(e, WHITESPACE);
+                else
+                        l = strv_new("system", "portable");
+                if (!l)
+                        return -ENOMEM;
+                *ret_scopes = TAKE_PTR(l);
+                return 1;
+        }
+        return 0;
 }
 
 static int action_dissect(DissectedImage *m, LoopDevice *d) {
@@ -857,6 +938,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                 return log_error_errno(r, "Failed to acquire image metadata: %m");
         else if (arg_json_format_flags & JSON_FORMAT_OFF) {
                 _cleanup_strv_free_ char **sysext_scopes = NULL;
+                _cleanup_strv_free_ char **confext_scopes = NULL;
 
                 if (!sd_id128_is_null(m->image_uuid))
                         printf("Image UUID: %s\n", SD_ID128_TO_UUID_STRING(m->image_uuid));
@@ -896,19 +978,30 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
 
                 r = get_sysext_scopes(m, &sysext_scopes);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse SYSEXT_SCOPE: %m");
+                        return log_error_errno(r, "Failed to parse sysext scope: %m");
 
-                printf("            %s extension for system\n",
+                r = get_confext_scopes(m, &confext_scopes);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse confext scope: %m");
+
+                printf("            %s sysext extension for system\n",
                        COLOR_MARK_BOOL(strv_contains(sysext_scopes, "system")));
-                printf("            %s extension for initrd\n",
+                printf("            %s sysext extension for initrd\n",
                        COLOR_MARK_BOOL(strv_contains(sysext_scopes, "initrd")));
-                printf("            %s extension for portable service\n",
+                printf("            %s sysext extension for portable service\n",
                        COLOR_MARK_BOOL(strv_contains(sysext_scopes, "portable")));
+                printf("            %s confext extension for system\n",
+                       COLOR_MARK_BOOL(strv_contains(confext_scopes, "system")));
+                printf("            %s confext extension for initrd\n",
+                       COLOR_MARK_BOOL(strv_contains(confext_scopes, "initrd")));
+                printf("            %s confext extension for portable service\n",
+                       COLOR_MARK_BOOL(strv_contains(confext_scopes, "portable")));
 
                 putc('\n', stdout);
         } else {
                 _cleanup_(json_variant_unrefp) JsonVariant *mi = NULL, *osr = NULL, *irdr = NULL, *exr = NULL;
                 _cleanup_strv_free_ char **sysext_scopes = NULL;
+                _cleanup_strv_free_ char **confext_scopes = NULL;
 
                 if (!strv_isempty(m->machine_info)) {
                         r = strv_pair_to_json(m->machine_info, &mi);
@@ -936,7 +1029,11 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
 
                 r = get_sysext_scopes(m, &sysext_scopes);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse SYSEXT_SCOPE: %m");
+                        return log_error_errno(r, "Failed to parse sysext scope: %m");
+
+                r = get_confext_scopes(m, &confext_scopes);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse confext scope: %m");
 
                 r = json_build(&v, JSON_BUILD_OBJECT(
                                                JSON_BUILD_PAIR("name", JSON_BUILD_STRING(bn)),
@@ -955,7 +1052,10 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                                                JSON_BUILD_PAIR("usePortableService", JSON_BUILD_BOOLEAN(strv_env_pairs_get(m->os_release, "PORTABLE_MATCHES"))),
                                                JSON_BUILD_PAIR("useSystemExtension", JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "system"))),
                                                JSON_BUILD_PAIR("useInitRDExtension", JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "initrd"))),
-                                               JSON_BUILD_PAIR("usePortableExtension", JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "portable")))));
+                                               JSON_BUILD_PAIR("usePortableExtension", JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "portable"))),
+                                               JSON_BUILD_PAIR("useSystemExtensionConfext", JSON_BUILD_BOOLEAN(strv_contains(confext_scopes, "system"))),
+                                               JSON_BUILD_PAIR("useInitRDExtensionConfext", JSON_BUILD_BOOLEAN(strv_contains(confext_scopes, "initrd"))),
+                                               JSON_BUILD_PAIR("usePortableExtensionConfext", JSON_BUILD_BOOLEAN(strv_contains(confext_scopes, "portable")))));
                 if (r < 0)
                         return log_oom();
         }
