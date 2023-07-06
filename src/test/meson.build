@@ -354,6 +354,11 @@ executables += [
                 'conditions' : ['ENABLE_NSS'],
         },
         test_template + {
+                'sources' : files('test-openssl.c'),
+                'dependencies' : libopenssl,
+                'conditions' : ['HAVE_OPENSSL'],
+        },
+        test_template + {
                 'sources' : files('test-parse-util.c'),
                 'dependencies' : libm,
         },
