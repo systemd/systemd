@@ -85,6 +85,8 @@ static inline bool in6_prefix_is_filtered(const struct in6_addr *prefix, uint8_t
         return address_is_filtered(AF_INET6, &(union in_addr_union) { .in6 = *prefix }, prefixlen, allow_list, deny_list);
 }
 
+int link_get_captive_portal(Link *link, const char **ret);
+
 const char* dhcp_use_domains_to_string(DHCPUseDomains p) _const_;
 DHCPUseDomains dhcp_use_domains_from_string(const char *s) _pure_;
 
