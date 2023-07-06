@@ -187,7 +187,7 @@ node /org/freedesktop/import1 {
       to <function>ImportTar()</function> or <function>ImportRaw()</function> as described above.</para>
 
       <para><function>PullTar()</function> and <function>PullRaw()</function> may be used to download, verify
-      and import a system image from a URL. They take an URL argument which should point to a tar or
+      and import a system image from a URL. They take a URL argument which should point to a tar or
       raw file on the <literal>http://</literal> or <literal>https://</literal> protocols, possibly
       compressed with xz, bzip2 or gzip. The second argument is a local name for the image. It should be
       suitable as a hostname, similarly to the matching argument of the <function>ImportTar()</function> and
