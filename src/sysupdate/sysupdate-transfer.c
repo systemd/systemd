@@ -316,7 +316,7 @@ static int config_parse_resource_path(
         }
 
         /* Note that we don't validate the path as being absolute or normalized. We'll do that in
-         * transfer_read_definition() as we might not know yet whether Path refers to an URL or a file system
+         * transfer_read_definition() as we might not know yet whether Path refers to a URL or a file system
          * path. */
 
         rr->path_auto = false;

@@ -197,7 +197,7 @@ static int backspace_string(int ttyfd, const char *str) {
         size_t m = utf8_n_codepoints(str);
         if (m == SIZE_MAX)
                 m = strlen(str); /* Not a valid UTF-8 string? If so, let's backspace the number of bytes
-                                  * output. Most likely this happened because we are not in an UTF-8 locale,
+                                  * output. Most likely this happened because we are not in a UTF-8 locale,
                                   * and in that case that is the correct thing to do. And even if it's not,
                                   * terminals tend to stop backspacing at the leftmost column, hence
                                   * backspacing too much should be mostly OK. */

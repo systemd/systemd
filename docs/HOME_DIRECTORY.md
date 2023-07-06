@@ -115,7 +115,7 @@ When the image is stored on removable media (such as a USB stick), the image
 file can be directly `dd`'ed onto it; the format is unchanged. The GPT envelope
 should ensure the image is properly recognizable as a home directory both when
 used in a loopback file and on a removable USB stick. (Note that when mounting
-a home directory from an USB stick, it too defaults to a directory in `/home/`,
+a home directory from a USB stick, it too defaults to a directory in `/home/`,
 named after the username, with no further suffix.)
 
 Rationale for the GPT partition table envelope: this way the image is nicely

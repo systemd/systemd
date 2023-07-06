@@ -542,7 +542,7 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                            DNS_SERVER_FEATURE_LEVEL_IS_UDP(s->possible_feature_level) &&
                            ((s->possible_feature_level != DNS_SERVER_FEATURE_LEVEL_DO) || dns_server_get_dnssec_mode(s) != DNSSEC_YES)) {
 
-                        /* We lost too many UDP packets in a row, and are on an UDP feature level. If the
+                        /* We lost too many UDP packets in a row, and are on a UDP feature level. If the
                          * packets are lost, maybe the server cannot parse them, hence downgrading sounds
                          * like a good idea. We might downgrade all the way down to TCP this way.
                          *

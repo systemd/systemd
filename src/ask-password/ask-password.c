@@ -38,7 +38,7 @@ static int help(void) {
                 return log_oom();
 
         printf("%1$s [OPTIONS...] MESSAGE\n\n"
-               "%3$sQuery the user for a system passphrase, via the TTY or an UI agent.%4$s\n\n"
+               "%3$sQuery the user for a system passphrase, via the TTY or a UI agent.%4$s\n\n"
                "  -h --help           Show this help\n"
                "     --icon=NAME      Icon name\n"
                "     --id=ID          Query identifier (e.g. \"cryptsetup:/dev/sda5\")\n"
