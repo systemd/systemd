@@ -43,7 +43,8 @@ systemd-dissect "${image}.raw" | grep -q -F "MARKER=1"
 systemd-dissect "${image}.raw" | grep -q -F -f <(sed 's/"//g' "$os_release")
 
 systemd-dissect --list "${image}.raw" | grep -q '^etc/os-release$'
-systemd-dissect --mtree "${image}.raw" | grep -q "./usr/bin/cat type=file mode=0755 uid=0 gid=0"
+systemd-dissect --mtree "${image}.raw" --mtree-hash yes | grep -qe "^./usr/bin/cat type=file mode=0755 uid=0 gid=0 size=[0-9]* sha256sum=[a-z0-9]*$"
+systemd-dissect --mtree "${image}.raw" --mtree-hash no  | grep -qe "^./usr/bin/cat type=file mode=0755 uid=0 gid=0 size=[0-9]*$"
 
 read -r SHA256SUM1 _ < <(systemd-dissect --copy-from "${image}.raw" etc/os-release | sha256sum)
 test "$SHA256SUM1" != ""
@@ -539,6 +540,16 @@ systemctl stop test-root-ephemeral
 # shellcheck disable=SC2016
 timeout 10 bash -c 'while ! test -z "$(ls -A /var/lib/systemd/ephemeral-trees)"; do sleep .5; done'
 test ! -f /tmp/img/abc
+
+systemd-dissect --mtree /tmp/img
+systemd-dissect --list /tmp/img
+
+read -r SHA256SUM1 _ < <(systemd-dissect --copy-from /tmp/img etc/os-release | sha256sum)
+test "$SHA256SUM1" != ""
+
+echo abc > abc
+systemd-dissect --copy-to /tmp/img abc /abc
+test -f /tmp/img/abc
 
 echo OK >/testok
 
