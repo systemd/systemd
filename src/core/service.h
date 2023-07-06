@@ -91,6 +91,13 @@ typedef enum ServiceTimeoutFailureMode {
         _SERVICE_TIMEOUT_FAILURE_MODE_INVALID = -EINVAL,
 } ServiceTimeoutFailureMode;
 
+typedef enum ServiceRestartMode {
+        SERVICE_RESTART_MODE_NORMAL,
+        SERVICE_RESTART_MODE_DIRECT,
+        _SERVICE_RESTART_MODE_MAX,
+        _SERVICE_RESTART_MODE_INVALID = -EINVAL,
+} ServiceRestartMode;
+
 struct ServiceFDStore {
         Service *service;
 
@@ -108,6 +115,7 @@ struct Service {
         ServiceType type;
         ServiceExitType exit_type;
         ServiceRestart restart;
+        ServiceRestartMode restart_mode;
         ExitStatusSet restart_prevent_status;
         ExitStatusSet restart_force_status;
         ExitStatusSet success_status;
@@ -248,6 +256,9 @@ usec_t service_restart_usec_next(Service *s);
 
 const char* service_restart_to_string(ServiceRestart i) _const_;
 ServiceRestart service_restart_from_string(const char *s) _pure_;
+
+const char* service_restart_mode_to_string(ServiceRestartMode i) _const_;
+ServiceRestartMode service_restart_mode_from_string(const char *s) _pure_;
 
 const char* service_type_to_string(ServiceType i) _const_;
 ServiceType service_type_from_string(const char *s) _pure_;

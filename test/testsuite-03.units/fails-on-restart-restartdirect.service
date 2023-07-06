@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Fail on restart
+StartLimitIntervalSec=1m
+StartLimitBurst=3
+
+[Service]
+Type=oneshot
+ExecStart=false
+Restart=on-failure
+RestartMode=direct

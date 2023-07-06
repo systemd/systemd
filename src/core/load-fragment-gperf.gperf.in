@@ -427,6 +427,7 @@ Service.RebootArgument,                  config_parse_unit_string_printf,       
 Service.Type,                            config_parse_service_type,                   0,                                  offsetof(Service, type)
 Service.ExitType,                        config_parse_service_exit_type,              0,                                  offsetof(Service, exit_type)
 Service.Restart,                         config_parse_service_restart,                0,                                  offsetof(Service, restart)
+Service.RestartMode,                     config_parse_service_restart_mode,           0,                                  offsetof(Service, restart_mode)
 Service.PermissionsStartOnly,            config_parse_bool,                           0,                                  offsetof(Service, permissions_start_only)
 Service.RootDirectoryStartOnly,          config_parse_bool,                           0,                                  offsetof(Service, root_directory_start_only)
 Service.RemainAfterExit,                 config_parse_bool,                           0,                                  offsetof(Service, remain_after_exit)

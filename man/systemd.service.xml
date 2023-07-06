@@ -898,6 +898,28 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RestartMode=</varname></term>
+
+        <listitem>
+          <para>Takes a string value that specifies how a service should restart:
+            <itemizedlist>
+              <listitem><para>If set to <option>normal</option> (the default), the service restarts by
+              going through a failed/inactive state.</para></listitem>
+
+              <listitem><para>If set to <option>direct</option>, the service transitions to the activating
+              state directly during auto-restart, skipping failed/inactive state.
+              <varname>ExecStopPost=</varname> is invoked.
+              <varname>OnSuccess=</varname> and <varname>OnFailure=</varname> are skipped.</para></listitem>
+            </itemizedlist>
+          </para>
+
+          <para>This option is useful in cases where a dependency can fail temporarily
+          but we don't want these temporary failures to make the dependent units fail.
+          When this option is set to <option>direct</option>, dependent units are not notified of these temporary failures.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SuccessExitStatus=</varname></term>
 
         <listitem><para>Takes a list of exit status definitions that, when returned by the main service
