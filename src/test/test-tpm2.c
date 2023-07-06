@@ -434,17 +434,14 @@ static bool digest_check(const TPM2B_DIGEST *digest, const char *expect) {
 }
 
 static void digest_init(TPM2B_DIGEST *digest, const char *hash) {
-        _cleanup_free_ void *h = NULL;
-        size_t s = 0;
-
         assert_se(strlen(hash) <= sizeof(digest->buffer) * 2);
 
-        assert_se(unhexmem(hash, strlen(hash), &h, &s) == 0);
+        DEFINE_HEX_PTR(h, hash);
 
         /* Make sure the length matches a known hash algorithm */
-        assert_se(IN_SET(s, TPM2_SHA1_DIGEST_SIZE, TPM2_SHA256_DIGEST_SIZE, TPM2_SHA384_DIGEST_SIZE, TPM2_SHA512_DIGEST_SIZE));
+        assert_se(IN_SET(h_len, TPM2_SHA1_DIGEST_SIZE, TPM2_SHA256_DIGEST_SIZE, TPM2_SHA384_DIGEST_SIZE, TPM2_SHA512_DIGEST_SIZE));
 
-        *digest = TPM2B_DIGEST_MAKE(h, s);
+        *digest = TPM2B_DIGEST_MAKE(h, h_len);
 
         assert_se(digest_check(digest, hash));
 }
@@ -721,11 +718,8 @@ static void tpm2b_public_init(TPM2B_PUBLIC *public) {
                 },
         };
 
-        const char *key = "9ec7341c52093ac40a1965a5df10432513c539adcf905e30577ab6ebc88ffe53cd08cef12ed9bec6125432f4fada3629b8b96d31b8f507aa35029188fe396da823fcb236027f7fbb01b0da3d87be7f999390449ced604bdf7e26c48657cc0671000f1147da195c3861c96642e54427cb7a11572e07567ec3fd6316978abc4bd92b27bb0a0e4958e599804eeb41d682b3b7fc1f960209f80a4fb8a1b64abfd96bf5d554e73cdd6ad1c8becb4fcf5e8f0c3e621d210e5e2f308f6520ad9a966779231b99f06c5989e5a23a9415c8808ab89ce81117632e2f8461cd4428bded40979236aeadafe8de3f51660a45e1dbc87694e6a36360201cca3ff9e7263e712727";
-        _cleanup_free_ void *mem = NULL;
-        size_t len = 0;
-        assert_se(unhexmem(key, strlen(key), &mem, &len) == 0);
-        tpmt.unique.rsa = TPM2B_PUBLIC_KEY_RSA_MAKE(mem, len);
+        DEFINE_HEX_PTR(key, "9ec7341c52093ac40a1965a5df10432513c539adcf905e30577ab6ebc88ffe53cd08cef12ed9bec6125432f4fada3629b8b96d31b8f507aa35029188fe396da823fcb236027f7fbb01b0da3d87be7f999390449ced604bdf7e26c48657cc0671000f1147da195c3861c96642e54427cb7a11572e07567ec3fd6316978abc4bd92b27bb0a0e4958e599804eeb41d682b3b7fc1f960209f80a4fb8a1b64abfd96bf5d554e73cdd6ad1c8becb4fcf5e8f0c3e621d210e5e2f308f6520ad9a966779231b99f06c5989e5a23a9415c8808ab89ce81117632e2f8461cd4428bded40979236aeadafe8de3f51660a45e1dbc87694e6a36360201cca3ff9e7263e712727");
+        tpmt.unique.rsa = TPM2B_PUBLIC_KEY_RSA_MAKE(key, key_len);
 
         public->publicArea = tpmt;
 }
@@ -738,12 +732,9 @@ TEST(calculate_name) {
         assert_se(tpm2_calculate_name(&public.publicArea, &name) == 0);
         assert_se(name.size == SHA256_DIGEST_SIZE + 2);
 
-        const char *expect = "000be78f74a470dd92e979ca067cdb2293a35f075e8560b436bd2ccea5da21486a07";
-        _cleanup_free_ char *h = hexmem(name.name, name.size);
-        assert_se(h);
-
-        assert_se(strlen(expect) == strlen(h));
-        assert_se(streq(expect, h));
+        DEFINE_HEX_PTR(e, "000be78f74a470dd92e979ca067cdb2293a35f075e8560b436bd2ccea5da21486a07");
+        assert_se(name.size == e_len);
+        assert_se(memcmp(name.name, e, e_len) == 0);
 }
 
 TEST(calculate_policy_auth_value) {

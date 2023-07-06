@@ -39,6 +39,12 @@ bool have_namespaces(void);
 #define CAN_MEMLOCK_SIZE (512 * 1024U)
 bool can_memlock(void);
 
+/* Define void* buffer and size_t length variables from a hex string. */
+#define DEFINE_HEX_PTR(name, hex)                                       \
+        _cleanup_free_ void *name = NULL;                               \
+        size_t name##_len = 0;                                          \
+        assert_se(unhexmem(hex, strlen(hex), &name, &name##_len) >= 0);
+
 #define TEST_REQ_RUNNING_SYSTEMD(x)                                 \
         if (sd_booted() > 0) {                                      \
                 x;                                                  \
