@@ -2359,8 +2359,15 @@ static int link_status_one(
                         return table_log_add_error(r);
         }
 
-        if (captive_portal)
-                table_add_string_line(table, "Captive Portal:", captive_portal);
+        if (captive_portal) {
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "Captive Portal:",
+                                   TABLE_STRING, captive_portal,
+                                   TABLE_SET_URL, captive_portal);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
         if (lease) {
                 const void *client_id;
