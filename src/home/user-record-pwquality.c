@@ -16,21 +16,13 @@ int user_record_quality_check_password(
                 UserRecord *secret,
                 sd_bus_error *error) {
 
-        _cleanup_(sym_pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
-        char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
-        void *auxerror;
+        _cleanup_free_ char *auxerror = NULL;
         int r;
 
         assert(hr);
         assert(secret);
 
-        r = pwq_allocate_context(&pwq);
-        if (ERRNO_IS_NOT_SUPPORTED(r))
-                return 0;
-        if (r < 0)
-                return log_debug_errno(r, "Failed to allocate libpwquality context: %m");
-
-        /* This is a bit more complex than one might think at first. pwquality_check() would like to know the
+        /* This is a bit more complex than one might think at first. quality_check_password() would like to know the
          * old password to make security checks. We support arbitrary numbers of passwords however, hence we
          * call the function once for each combination of old and new password. */
 
@@ -56,10 +48,9 @@ int user_record_quality_check_password(
                         if (r > 0) /* This is a new password, not suitable as old password */
                                 continue;
 
-                        r = sym_pwquality_check(pwq, *pp, *old, hr->user_name, &auxerror);
-                        if (r < 0)
-                                return sd_bus_error_setf(error, BUS_ERROR_LOW_PASSWORD_QUALITY, "Password too weak: %s",
-                                                         sym_pwquality_strerror(buf, sizeof(buf), r, auxerror));
+                        r = quality_check_password(*pp, *old, hr->user_name, &auxerror);
+                        if (r <= 0)
+                                goto error;
 
                         called = true;
                 }
@@ -67,14 +58,21 @@ int user_record_quality_check_password(
                 if (called)
                         continue;
 
-                /* If there are no old passwords, let's call pwquality_check() without any. */
-                r = sym_pwquality_check(pwq, *pp, NULL, hr->user_name, &auxerror);
-                if (r < 0)
-                        return sd_bus_error_setf(error, BUS_ERROR_LOW_PASSWORD_QUALITY, "Password too weak: %s",
-                                                 sym_pwquality_strerror(buf, sizeof(buf), r, auxerror));
+                /* If there are no old passwords, let's call quality_check_password() without any. */
+                r = quality_check_password(*pp, /* old */ NULL, hr->user_name, &auxerror);
+                if (r <= 0)
+                        goto error;
         }
 
         return 1;
+
+error:
+        if (r == 0)
+                return sd_bus_error_setf(error, BUS_ERROR_LOW_PASSWORD_QUALITY,
+                                         "Password too weak: %s", auxerror);
+        if (ERRNO_IS_NOT_SUPPORTED(r))
+                return 0;
+        return log_debug_errno(r, "Failed to check password quality: %m");
 }
 
 #else
