@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-10-20 10:35+0200\n"
+"POT-Creation-Date: 2023-07-06 20:45+0100\n"
 "PO-Revision-Date: 2021-08-10 11:36+0800\n"
 "Last-Translator: pan93412 <pan93412@gmail.com>\n"
 "Language-Team: Chinese <chinese-l10n@googlegroups.com>\n"
@@ -58,6 +58,16 @@ msgstr "重新載入 systemd 狀態"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
+msgstr "重新載入 systemd 狀態需要驗證。"
+
+#: src/core/org.freedesktop.systemd1.policy.in:74
+msgid "Dump the systemd state without rate limits"
+msgstr ""
+
+#: src/core/org.freedesktop.systemd1.policy.in:75
+#, fuzzy
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
 msgstr "重新載入 systemd 狀態需要驗證。"
 
 #: src/home/org.freedesktop.home1.policy:13
@@ -828,43 +838,43 @@ msgid ""
 "shall be enabled."
 msgstr "控制網路時間同步是否啟用需要驗證。"
 
-#: src/core/dbus-unit.c:359
+#: src/core/dbus-unit.c:364
 msgid "Authentication is required to start '$(unit)'."
 msgstr "啟動 '$(unit)' 需要驗證。"
 
-#: src/core/dbus-unit.c:360
+#: src/core/dbus-unit.c:365
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "停止 '$(unit)' 需要驗證。"
 
-#: src/core/dbus-unit.c:361
+#: src/core/dbus-unit.c:366
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "重新載入 '$(unit)' 需要驗證。"
 
-#: src/core/dbus-unit.c:362 src/core/dbus-unit.c:363
+#: src/core/dbus-unit.c:367 src/core/dbus-unit.c:368
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "重新啟動 '$(unit)' 需要驗證。"
 
-#: src/core/dbus-unit.c:546
+#: src/core/dbus-unit.c:565
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr "傳送 UNIX 信號至「$(unit)」的程序需要身份驗證。"
 
-#: src/core/dbus-unit.c:576
+#: src/core/dbus-unit.c:595
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "重置 '$(unit)' 的「失敗」狀態需要驗證。"
 
-#: src/core/dbus-unit.c:608
+#: src/core/dbus-unit.c:627
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "在 '$(unit)' 上設定屬性需要驗證。"
 
-#: src/core/dbus-unit.c:714
+#: src/core/dbus-unit.c:728
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr "刪除與 '$(unit)' 相關的檔案及目錄需要身份驗證。"
 
-#: src/core/dbus-unit.c:762
+#: src/core/dbus-unit.c:776
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "凍結或解凍「$(unit)」的程序需要身份驗證。"

@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-10-20 10:35+0200\n"
+"POT-Creation-Date: 2023-07-06 20:45+0100\n"
 "PO-Revision-Date: 2022-10-22 17:19+0000\n"
 "Last-Translator: Daniel Rusek <mail@asciiwolf.com>\n"
 "Language-Team: Czech <https://translate.fedoraproject.org/projects/systemd/"
@@ -64,6 +64,16 @@ msgstr "Znovu načíst stav systemd"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
+msgstr "Pro opětovné načtení stavu systemd je vyžadováno ověření."
+
+#: src/core/org.freedesktop.systemd1.policy.in:74
+msgid "Dump the systemd state without rate limits"
+msgstr ""
+
+#: src/core/org.freedesktop.systemd1.policy.in:75
+#, fuzzy
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
 msgstr "Pro opětovné načtení stavu systemd je vyžadováno ověření."
 
 #: src/home/org.freedesktop.home1.policy:13
@@ -891,37 +901,37 @@ msgid ""
 "shall be enabled."
 msgstr "Pro kontrolu synchronizace času ze sítě je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:359
+#: src/core/dbus-unit.c:364
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Pro spuštění „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:360
+#: src/core/dbus-unit.c:365
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Pro vypnutí „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:361
+#: src/core/dbus-unit.c:366
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Pro opětovné načtení „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:362 src/core/dbus-unit.c:363
+#: src/core/dbus-unit.c:367 src/core/dbus-unit.c:368
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Pro restart „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:546
+#: src/core/dbus-unit.c:565
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr "Pro odeslání UNIX signálu procesům „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:576
+#: src/core/dbus-unit.c:595
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "Pro resetování chybného stavu „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:608
+#: src/core/dbus-unit.c:627
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Pro nastavení vlastností na „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:714
+#: src/core/dbus-unit.c:728
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -929,7 +939,7 @@ msgstr ""
 "Pro odstranění souborů nebo adresářů souvisejících s „$(unit)” je vyžadováno "
 "ověření."
 
-#: src/core/dbus-unit.c:762
+#: src/core/dbus-unit.c:776
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

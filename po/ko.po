@@ -8,7 +8,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-10-20 10:35+0200\n"
+"POT-Creation-Date: 2023-07-06 20:45+0100\n"
 "PO-Revision-Date: 2023-06-25 07:20+0000\n"
 "Last-Translator: 김인수 <simmon@nplob.com>\n"
 "Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
@@ -64,6 +64,16 @@ msgstr "systemd 상태 다시 불러오기"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
+msgstr "systemd 상태를 다시 불러오려면 인증이 필요합니다."
+
+#: src/core/org.freedesktop.systemd1.policy.in:74
+msgid "Dump the systemd state without rate limits"
+msgstr ""
+
+#: src/core/org.freedesktop.systemd1.policy.in:75
+#, fuzzy
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
 msgstr "systemd 상태를 다시 불러오려면 인증이 필요합니다."
 
 #: src/home/org.freedesktop.home1.policy:13
@@ -859,43 +869,43 @@ msgid ""
 "shall be enabled."
 msgstr "네트워크 시간 동기화의 활성화 여부를 제어하려면 인증이 필요합니다."
 
-#: src/core/dbus-unit.c:359
+#: src/core/dbus-unit.c:364
 msgid "Authentication is required to start '$(unit)'."
 msgstr "'$(unit)' 서비스 유닛을 시작하려면 인증이 필요합니다."
 
-#: src/core/dbus-unit.c:360
+#: src/core/dbus-unit.c:365
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "'$(unit)' 서비스 유닛을 멈추려면 인증이 필요합니다."
 
-#: src/core/dbus-unit.c:361
+#: src/core/dbus-unit.c:366
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "'$(unit)' 서비스 유닛을 다시 불러오려면 인증이 필요합니다."
 
-#: src/core/dbus-unit.c:362 src/core/dbus-unit.c:363
+#: src/core/dbus-unit.c:367 src/core/dbus-unit.c:368
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "'$(unit)' 서비스 유닛을 다시 시작하려면 인증이 필요합니다."
 
-#: src/core/dbus-unit.c:546
+#: src/core/dbus-unit.c:565
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr "'$(unit)'의 처리에 유닉스 신호를 전송하려면 인증이 필요합니다."
 
-#: src/core/dbus-unit.c:576
+#: src/core/dbus-unit.c:595
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "'$(unit)' 서비스 유닛의 \"실패\" 상태를 되돌리려면 인증이 필요합니다."
 
-#: src/core/dbus-unit.c:608
+#: src/core/dbus-unit.c:627
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "'$(unit)' 서비스 유닛 속성을 설정하려면 인증이 필요합니다."
 
-#: src/core/dbus-unit.c:714
+#: src/core/dbus-unit.c:728
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr "인증은 '$(unit)'과 관련된 파일과 디렉토리를 삭제하는데 필요합니다."
 
-#: src/core/dbus-unit.c:762
+#: src/core/dbus-unit.c:776
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "'$(unit)'단위의 처리를 동결 또는 해제하려면 인증이 필요합니다."

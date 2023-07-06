@@ -9,7 +9,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-10-20 10:35+0200\n"
+"POT-Creation-Date: 2023-07-06 20:45+0100\n"
 "PO-Revision-Date: 2022-08-09 20:19+0000\n"
 "Last-Translator: Balázs Meskó <meskobalazs@mailbox.org>\n"
 "Language-Team: Hungarian <https://translate.fedoraproject.org/projects/"
@@ -69,6 +69,16 @@ msgstr "A systemd állapotának újratöltése"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
+msgstr "Hitelesítés szükséges a systemd állapotának újratöltéséhez."
+
+#: src/core/org.freedesktop.systemd1.policy.in:74
+msgid "Dump the systemd state without rate limits"
+msgstr ""
+
+#: src/core/org.freedesktop.systemd1.policy.in:75
+#, fuzzy
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
 msgstr "Hitelesítés szükséges a systemd állapotának újratöltéséhez."
 
 #: src/home/org.freedesktop.home1.policy:13
@@ -934,23 +944,23 @@ msgid ""
 "shall be enabled."
 msgstr "Hitelesítés szükséges a hálózati időszinkronizáció engedélyezéséhez."
 
-#: src/core/dbus-unit.c:359
+#: src/core/dbus-unit.c:364
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Hitelesítés szükséges a következő elindításához: „$(unit)”."
 
-#: src/core/dbus-unit.c:360
+#: src/core/dbus-unit.c:365
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Hitelesítés szükséges a következő leállításához: „$(unit)”."
 
-#: src/core/dbus-unit.c:361
+#: src/core/dbus-unit.c:366
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Hitelesítés szükséges a következő újratöltéséhez: „$(unit)”."
 
-#: src/core/dbus-unit.c:362 src/core/dbus-unit.c:363
+#: src/core/dbus-unit.c:367 src/core/dbus-unit.c:368
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Hitelesítés szükséges a következő újraindításához: „$(unit)”."
 
-#: src/core/dbus-unit.c:546
+#: src/core/dbus-unit.c:565
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -958,18 +968,18 @@ msgstr ""
 "Hitelesítés szükséges a UNIX szignál elküldéséhez a következő folyamatai "
 "számára: „$(unit)”."
 
-#: src/core/dbus-unit.c:576
+#: src/core/dbus-unit.c:595
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Hitelesítés szükséges a következő „sikertelen” állapotának törléséhez: "
 "„$(unit)”."
 
-#: src/core/dbus-unit.c:608
+#: src/core/dbus-unit.c:627
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Hitelesítés szükséges a következő tulajdonságainak beállításához: „$(unit)”."
 
-#: src/core/dbus-unit.c:714
+#: src/core/dbus-unit.c:728
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -977,7 +987,7 @@ msgstr ""
 "Hitelesítés szükséges a következővel kapcsolatos fájlok és könyvtárak "
 "törléséhez: „$(unit)”."
 
-#: src/core/dbus-unit.c:762
+#: src/core/dbus-unit.c:776
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
