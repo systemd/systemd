@@ -18,7 +18,7 @@ typedef enum IPv6AcceptRAStartDHCP6Client {
 typedef struct NDiscRDNSS {
         struct in6_addr router;
         /* This is an absolute point in time, and NOT a timespan/duration.
-         * Must be specified with clock_boottime_or_monotonic(). */
+         * Must be specified with CLOCK_BOOTTIME. */
         usec_t lifetime_usec;
         struct in6_addr address;
 } NDiscRDNSS;
@@ -26,7 +26,7 @@ typedef struct NDiscRDNSS {
 typedef struct NDiscDNSSL {
         struct in6_addr router;
         /* This is an absolute point in time, and NOT a timespan/duration.
-         * Must be specified with clock_boottime_or_monotonic(). */
+         * Must be specified with CLOCK_BOOTTIME. */
         usec_t lifetime_usec;
         /* The domain name follows immediately. */
 } NDiscDNSSL;
