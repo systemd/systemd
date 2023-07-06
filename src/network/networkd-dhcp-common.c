@@ -282,8 +282,24 @@ int link_get_captive_portal(Link *link, const char **ret) {
                         return r;
         }
 
-        if (link->network->ipv6_accept_ra_use_captive_portal && link->ndisc_captive_portal)
-                ndisc_cp = link->ndisc_captive_portal;
+        if (link->network->ipv6_accept_ra_use_captive_portal) {
+                NDiscCaptivePortal *cp;
+                usec_t usec = 0;
+
+                /* Use the captive portal with the longest lifetime. */
+
+                SET_FOREACH(cp, link->ndisc_captive_portals) {
+                        if (cp->lifetime_usec < usec)
+                                continue;
+
+                        ndisc_cp = cp->captive_portal;
+                        usec = cp->lifetime_usec;
+                }
+
+                if (set_size(link->ndisc_captive_portals) > 1)
+                        log_link_debug(link, "Multiple captive portals obtained by IPv6RA, using \"%s\" and ignoring others.",
+                                       ndisc_cp);
+        }
 
         if (dhcp4_cp) {
                 if (dhcp6_cp && !streq(dhcp4_cp, dhcp6_cp))

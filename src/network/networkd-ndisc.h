@@ -31,6 +31,14 @@ typedef struct NDiscDNSSL {
         /* The domain name follows immediately. */
 } NDiscDNSSL;
 
+typedef struct NDiscCaptivePortal {
+        struct in6_addr router;
+        /* This is an absolute point in time, and NOT a timespan/duration.
+         * Must be specified with CLOCK_BOOTTIME. */
+        usec_t lifetime_usec;
+        char *captive_portal;
+} NDiscCaptivePortal;
+
 static inline char* NDISC_DNSSL_DOMAIN(const NDiscDNSSL *n) {
         return ((char*) n) + ALIGN(sizeof(NDiscDNSSL));
 }
