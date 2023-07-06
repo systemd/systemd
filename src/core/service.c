@@ -294,6 +294,7 @@ usec_t service_restart_usec_next(Service *s) {
 
         if (n_restarts_next <= 1 ||
             s->restart_steps == 0 ||
+            s->restart_usec == 0 ||
             s->restart_max_delay_usec == USEC_INFINITY ||
             s->restart_usec >= s->restart_max_delay_usec)
                 value = s->restart_usec;
@@ -303,10 +304,15 @@ usec_t service_restart_usec_next(Service *s) {
                 /* Enforced in service_verify() and above */
                 assert(s->restart_max_delay_usec > s->restart_usec);
 
-                /* ((restart_max_delay_usec - restart_usec)^(1/restart_steps))^(n_restart_next - 1) */
-                value = usec_add(s->restart_usec,
-                                 (usec_t) powl(s->restart_max_delay_usec - s->restart_usec,
-                                               (long double) (n_restarts_next - 1) / s->restart_steps));
+                /* r_i / r_0 = (r_n / r_0) ^ (i / n)
+                 * where,
+                 *   r_0 : initial restart usec (s->restart_usec),
+                 *   r_i : i-th restart usec (value),
+                 *   r_n : maximum restart usec (s->restart_max_delay_usec),
+                 *   i : index of the next step (n_restarts_next - 1)
+                 *   n : num maximum steps (s->restart_steps) */
+                value = s->restart_usec * powl((long double) s->restart_max_delay_usec / s->restart_usec,
+                                               (long double) (n_restarts_next - 1) / s->restart_steps);
         }
 
         log_unit_debug(UNIT(s), "Next restart interval calculated as: %s", FORMAT_TIMESPAN(value, 0));
