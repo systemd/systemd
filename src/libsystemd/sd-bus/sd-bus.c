@@ -1277,15 +1277,33 @@ _public_ int sd_bus_open(sd_bus **ret) {
         return sd_bus_open_with_description(ret, NULL);
 }
 
-int bus_set_address_system(sd_bus *b) {
+static int bus_get_address_system(char **ret) {
+        _cleanup_free_ char *a = NULL;
         const char *e;
+
+        e = secure_getenv("DBUS_SYSTEM_BUS_ADDRESS");
+        if (!e)
+                e = DEFAULT_SYSTEM_BUS_ADDRESS;
+
+        a = strdup(e);
+        if (!a)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(a);
+        return 0;
+}
+
+int bus_set_address_system(sd_bus *b) {
+        _cleanup_free_ char *a = NULL;
         int r;
 
         assert(b);
 
-        e = secure_getenv("DBUS_SYSTEM_BUS_ADDRESS");
+        r = bus_get_address_system(&a);
+        if (r < 0)
+                return r;
 
-        r = sd_bus_set_address(b, e ?: DEFAULT_SYSTEM_BUS_ADDRESS);
+        r = sd_bus_set_address(b, a);
         if (r < 0)
                 return r;
 
@@ -1333,16 +1351,12 @@ _public_ int sd_bus_open_system(sd_bus **ret) {
         return sd_bus_open_system_with_description(ret, NULL);
 }
 
-int bus_set_address_user(sd_bus *b) {
-        const char *a;
-        _cleanup_free_ char *_a = NULL;
-        int r;
+static int bus_get_address_user(char **ret) {
+        _cleanup_free_ char *a = NULL;
+        const char *e;
 
-        assert(b);
-
-        a = secure_getenv("DBUS_SESSION_BUS_ADDRESS");
-        if (!a) {
-                const char *e;
+        e = secure_getenv("DBUS_SESSION_BUS_ADDRESS");
+        if (!e) {
                 _cleanup_free_ char *ee = NULL;
 
                 e = secure_getenv("XDG_RUNTIME_DIR");
@@ -1354,10 +1368,27 @@ int bus_set_address_user(sd_bus *b) {
                 if (!ee)
                         return -ENOMEM;
 
-                if (asprintf(&_a, DEFAULT_USER_BUS_ADDRESS_FMT, ee) < 0)
+                if (asprintf(&a, DEFAULT_USER_BUS_ADDRESS_FMT, ee) < 0)
                         return -ENOMEM;
-                a = _a;
+        } else {
+                a = strdup(e);
+                if (!a)
+                        return -ENOMEM;
         }
+
+        *ret = TAKE_PTR(a);
+        return 0;
+}
+
+int bus_set_address_user(sd_bus *b) {
+        _cleanup_free_ char *a = NULL;
+        int r;
+
+        assert(b);
+
+        r = bus_get_address_user(&a);
+        if (r < 0)
+                return r;
 
         r = sd_bus_set_address(b, a);
         if (r < 0)
@@ -1609,6 +1640,17 @@ int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *m
         if (r == 0)
                 return -EINVAL;
 
+        /* Shortcut things if we'd end up on this host and as the same user.  */
+        if (user_and_machine_equivalent(machine)) {
+                if (runtime_scope == RUNTIME_SCOPE_USER)
+                        r = bus_get_address_user(&a);
+                else
+                        r = bus_get_address_system(&a);
+                if (r < 0)
+                        return r;
+                goto finish;
+        }
+
         rhs = strchr(machine, '@');
         if (rhs || runtime_scope == RUNTIME_SCOPE_USER) {
                 _cleanup_free_ char *u = NULL, *eu = NULL, *erhs = NULL;
@@ -1688,7 +1730,7 @@ int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *m
                 if (!a)
                         return -ENOMEM;
         }
-
+finish:
         return free_and_replace(b->address, a);
 }
 
@@ -1698,9 +1740,6 @@ _public_ int sd_bus_open_system_machine(sd_bus **ret, const char *user_and_machi
 
         assert_return(user_and_machine, -EINVAL);
         assert_return(ret, -EINVAL);
-
-        if (user_and_machine_equivalent(user_and_machine))
-                return sd_bus_open_system(ret);
 
         r = sd_bus_new(&b);
         if (r < 0)
@@ -1727,10 +1766,6 @@ _public_ int sd_bus_open_user_machine(sd_bus **ret, const char *user_and_machine
 
         assert_return(user_and_machine, -EINVAL);
         assert_return(ret, -EINVAL);
-
-        /* Shortcut things if we'd end up on this host and as the same user.  */
-        if (user_and_machine_equivalent(user_and_machine))
-                return sd_bus_open_user(ret);
 
         r = sd_bus_new(&b);
         if (r < 0)
