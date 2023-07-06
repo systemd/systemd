@@ -86,6 +86,7 @@ static bool arg_in_memory = false;
 static char **arg_argv = NULL;
 static char *arg_loop_ref = NULL;
 static ImagePolicy* arg_image_policy = NULL;
+static bool arg_mtree_hash = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -137,6 +138,7 @@ static int help(void) {
                "     --json=pretty|short|off\n"
                "                          Generate JSON output\n"
                "     --loop-ref=NAME      Set reference string for loopback device\n"
+               "     --mtree-hash=BOOL    Whether to include SHA256 hash in the mtree output\n"
                "\n%3$sCommands:%4$s\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
@@ -257,6 +259,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LOOP_REF,
                 ARG_IMAGE_POLICY,
                 ARG_VALIDATE,
+                ARG_MTREE_HASH,
         };
 
         static const struct option options[] = {
@@ -288,6 +291,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "loop-ref",      required_argument, NULL, ARG_LOOP_REF      },
                 { "image-policy",  required_argument, NULL, ARG_IMAGE_POLICY  },
                 { "validate",      no_argument,       NULL, ARG_VALIDATE      },
+                { "mtree-hash",    required_argument, NULL, ARG_MTREE_HASH    },
                 {}
         };
 
@@ -503,6 +507,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VALIDATE:
                         arg_action = ACTION_VALIDATE;
+                        break;
+
+                case ARG_MTREE_HASH:
+                        r = parse_boolean_argument("--mtree-hash=", optarg, &arg_mtree_hash);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':
@@ -1202,7 +1212,7 @@ static int mtree_print_item(
                        ansi_normal(),
                        (uint64_t) sx->stx_size);
 
-                if (inode_fd >= 0 && sx->stx_size > 0) {
+                if (arg_mtree_hash && inode_fd >= 0 && sx->stx_size > 0) {
                         uint8_t hash[SHA256_DIGEST_SIZE];
 
                         r = get_file_sha256(inode_fd, hash);

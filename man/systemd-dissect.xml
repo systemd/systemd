@@ -422,6 +422,14 @@
         <command>cfdisk /dev/loop/by-ref/quux</command>.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--mtree-hash=no</option></term>
+
+        <listitem><para>If combined with <option>--mtree</option>, turns off inclusion of file hashes in the
+        mtree output. This makes the <option>--mtree</option> faster when operating on large images.
+        </para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="image-policy-open" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
