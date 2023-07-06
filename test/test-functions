@@ -836,8 +836,18 @@ EOF
         export initdir="$TESTDIR/app-nodistro"
         mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system"
         ( echo "ID=_any"
-          echo "ARCHITECTURE=_any" ) >"$initdir/usr/lib/extension-release.d/extension-release.app-nodistro"
+          echo "ARCHITECTURE=_any"
+          echo "EXTENSION_RELOAD_MANAGER=1" ) >"$initdir/usr/lib/extension-release.d/extension-release.app-nodistro"
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/some_file"
+        mkdir -p "$initdir/usr/lib/systemd/system/multi-user.target.d"
+        cat >"${initdir}/usr/lib/systemd/system/foo.service" <<EOF
+[Service]
+ExecStart=echo foo
+
+[Install]
+WantedBy=multi-user.target
+EOF
+        { echo "[Unit]"; echo "Upholds=foo.service"; } > "$initdir/usr/lib/systemd/system/multi-user.target.d/10-foo-service.conf"
         mksquashfs "$initdir" "$oldinitdir/usr/share/app-nodistro.raw" -noappend
     )
 }
