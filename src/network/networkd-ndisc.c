@@ -1004,7 +1004,7 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
                 if (cp->lifetime_usec >= timestamp_usec)
                         continue; /* the captive portal is still valid */
 
-                free(set_remove(link->ndisc_captive_portals, cp));
+                ndisc_captive_portal_free(set_remove(link->ndisc_captive_portals, cp));
                 updated = true;
         }
 
