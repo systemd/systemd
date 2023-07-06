@@ -105,6 +105,13 @@ CHANGES WITH 254 in spe:
           RestartMaxDelaySec= which allow exponentially-growing restart
           intervals for Restart=.
 
+        * The service activation logic gained a new setting RestartMode= which
+          can be set to 'direct' to skip the inactive/failed states when
+          restarting, so that dependent units are not notified until the service
+          converges to a final (successful or failed) state. For example, this
+          means that OnSuccess=/OnFailure= units will not be triggered until the
+          service state has converged.
+
         * PID 1 will now automatically load the virtio_console kernel module
           during early initialization if running in a suitable VM. This is done
           so that early-boot logging can be written to the console if available.
@@ -220,6 +227,17 @@ CHANGES WITH 254 in spe:
           ACL support and overall size limits can now be enforced, without
           compromising on security, as the memory is never paged out either
           way.
+
+        * The service manager now can detect when it is running in a
+          'Confidential Virtual Machine', and a corresponding 'cvm' value is now
+          accepted by ConditionSecurity= for units that want to conditionalize
+          themselves on this. systemd-detect-virt gained new 'cvm' and
+          '--list-cvm' switches to respectively perform the detection or list
+          all known flavours of confidential VM, depending on the vendor. The
+          manager will publish a 'ConfidentialVirtualization' D-Bus property,
+          and will also set a SYSTEMD_CONFIDENTIAL_VIRTUALIZATION= environment
+          variable for unit generators. Finally, udev rules can match on a new
+          'cvm' key that will be set when in a confidential VM.
 
         Journal:
 
@@ -439,6 +457,13 @@ CHANGES WITH 254 in spe:
         * systemd-dissect gained support for a new --validate switch to
           superficially validate DDI structure, and check whether a specific
           image policy allows the DDI.
+
+        * systemd-dissect gained support for a new --mtree-hash switch to
+          optionally disable calculating mtree hashes, which can be slow on
+          large images.
+
+        * systemd-dissect --copy-to, --copy-from, --list and --mtree switches
+          are now able to operate on directories too, other than images.
 
         Network Management:
 
@@ -668,6 +693,9 @@ CHANGES WITH 254 in spe:
           user is notified (graphically via Plymouth – if available – as well
           as in text form on the console), and the system is turned off after a
           10s delay.
+
+        * The 'passwdqc' library is now supported as an alternative to the
+          'pwquality' library and it can be selected at build time.
 
         Contributions from: 김인수, 07416, Addison Snelling, Adrian Vovk,
         Aidan Dang, Alexander Krabler, Alfred Klomp, Anatoli Babenia,
