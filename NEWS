@@ -301,7 +301,7 @@ CHANGES WITH 254 in spe:
           to sign UKIs and their PCR data with.
 
         * ukify now accepts SBAT information to place in the .sbat PE section
-          of UKIs and addons. If an UKI is built the SBAT information from the
+          of UKIs and addons. If a UKI is built the SBAT information from the
           inner kernel is merged with any SBAT information associated with
           systemd-stub and the SBAT data specified on the ukify command line.
 
@@ -313,7 +313,7 @@ CHANGES WITH 254 in spe:
           of the same name.
 
         * A new kernel-install plugin 60-ukify has been added which will
-          combine kernel/initrd locally into an UKI and optionally sign them
+          combine kernel/initrd locally into a UKI and optionally sign them
           with a local key. This may be used to switch to UKI mode even on
           systems where a local kernel or initrd is used. (Typically UKIs are
           built and signed by the vendor.)
@@ -3712,7 +3712,7 @@ CHANGES WITH 249:
 
         * A new ConditionFirmware= setting has been added to unit files to
           conditionalize on certain firmware features. At the moment it may
-          check whether running on an UEFI system, a device.tree system, or if
+          check whether running on a UEFI system, a device.tree system, or if
           the system is compatible with some specified device-tree feature.
 
         * A new ConditionOSRelease= setting has been added to unit files to
@@ -5498,7 +5498,7 @@ CHANGES WITH 246:
           implementations.
 
         * journalctl will now include a clickable link in the default output for
-          each log message for which an URL with further documentation is
+          each log message for which a URL with further documentation is
           known. This is only supported on terminal emulators that support
           clickable hyperlinks, and is turned off if a pager is used (since
           "less" still doesn't support hyperlinks,
@@ -11861,7 +11861,7 @@ CHANGES WITH 219:
           triggering automatic unmounting when devices become
           unavailable. With this in place systemd will now
           automatically unmount left-over mounts when a CD-ROM is
-          ejected or an USB stick is yanked from the system.
+          ejected or a USB stick is yanked from the system.
 
         * networkd-wait-online now has support for waiting for
           specific interfaces only (with globbing), and for giving up

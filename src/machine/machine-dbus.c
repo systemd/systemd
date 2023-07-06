@@ -1015,7 +1015,7 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
                         goto child_fail;
                 }
 
-                /* Run the actual copy operation. Note that when an UID shift is set we'll either clamp the UID/GID to
+                /* Run the actual copy operation. Note that when a UID shift is set we'll either clamp the UID/GID to
                  * 0 or to the actual UID shift depending on the direction we copy. If no UID shift is set we'll copy
                  * the UID/GIDs as they are. */
                 if (copy_from)

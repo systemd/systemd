@@ -177,7 +177,7 @@
         <literal>=</literal> and a string of options separated by
         commas as argument. This will override the options for the
         given UUID.</para>
-        <para>If only a list of options, without an UUID, is
+        <para>If only a list of options, without a UUID, is
         specified, they apply to any UUIDs not specified elsewhere,
         and without an entry in
         <filename>/etc/crypttab</filename>.</para>

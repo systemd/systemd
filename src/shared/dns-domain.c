@@ -301,7 +301,7 @@ int dns_label_apply_idna(const char *encoded, size_t encoded_size, char *decoded
         assert(encoded);
         assert(decoded);
 
-        /* Converts an U-label into an A-label */
+        /* Converts a U-label into an A-label */
 
         r = dlopen_idn();
         if (r < 0)
@@ -353,7 +353,7 @@ int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded,
         size_t w;
         int r;
 
-        /* To be invoked after unescaping. Converts an A-label into an U-label. */
+        /* To be invoked after unescaping. Converts an A-label into a U-label. */
 
         assert(encoded);
         assert(decoded);

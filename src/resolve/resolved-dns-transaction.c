@@ -69,7 +69,7 @@ static void dns_transaction_close_connection(
 
         t->dns_udp_event_source = sd_event_source_disable_unref(t->dns_udp_event_source);
 
-        /* If we have an UDP socket where we sent a packet, but never received one, then add it to the socket
+        /* If we have a UDP socket where we sent a packet, but never received one, then add it to the socket
          * graveyard, instead of closing it right away. That way it will stick around for a moment longer,
          * and the reply we might still get from the server will be eaten up instead of resulting in an ICMP
          * port unreachable error message. */
