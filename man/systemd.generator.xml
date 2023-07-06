@@ -204,6 +204,17 @@
         <command>systemd-creds --system cat</command> command.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>$SYSTEMD_CONFIDENTIAL_VIRTUALIZATION</varname></term>
+
+        <listitem><para>If the service manager is run in a confidential virtualized environment,
+        <varname>$SYSTEMD_CONFIDENTIAL_VIRTUALIZATION</varname> is set to a string that identifies
+        the confidential virtualization hardware technology. If no confidential virtualization is
+        detected this variable will not be set. This data is identical to what
+        <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        detects and reports, and uses the same vocabulary of confidential virtualization
+        technology identifiers.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

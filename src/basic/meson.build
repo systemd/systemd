@@ -16,6 +16,7 @@ basic_sources = files(
         'chase.c',
         'chattr-util.c',
         'conf-files.c',
+        'confidential-virt.c',
         'devnum-util.c',
         'dirent-util.c',
         'efivars.c',
