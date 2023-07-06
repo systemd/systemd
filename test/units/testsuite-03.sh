@@ -153,4 +153,17 @@ systemctl restart propagatestopto-indirect.target
 assert_rc 3 systemctl --quiet is-active propagatestopto-and-pullin.target
 assert_rc 3 systemctl --quiet is-active sleep-infinity-simple.service
 
+# Test restart mode quick
+systemctl start succeeds-on-restart-restartquick.target
+assert_rc 0 systemctl --quiet is-active succeeds-on-restart-restartquick.target
+
+systemctl start fails-on-restart-restartquick.target || :
+assert_rc 3 systemctl --quiet is-active fails-on-restart-restartquick.target
+
+systemctl start succeeds-on-restart.target || :
+assert_rc 3 systemctl --quiet is-active succeeds-on-restart.target
+
+systemctl start fails-on-restart.target || :
+assert_rc 3 systemctl --quiet is-active fails-on-restart.target
+
 touch /testok
