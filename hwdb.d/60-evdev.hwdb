@@ -812,6 +812,17 @@ evdev:name:ETPS/2 Elantech Touchpad:dmi:*svnSAMSUNGELECTRONICSCO.,LTD.:pn870Z5E/
  EVDEV_ABS_36=::29
 
 #########################################
+# Sanwa Direct
+#########################################
+
+# Sanwa Direct 400-MA128 Trackpad
+evdev:input:b0003v258Ap0501*
+ EVDEV_ABS_00=::16
+ EVDEV_ABS_01=::10
+ EVDEV_ABS_35=::16
+ EVDEV_ABS_36=::10
+
+#########################################
 # Star Labs
 #########################################
 
