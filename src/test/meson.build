@@ -348,6 +348,11 @@ tests += [
                 'condition' : 'ENABLE_NSS',
         },
         {
+                'sources' : files('test-openssl.c'),
+                'dependencies' : libopenssl,
+                'condition' : 'HAVE_OPENSSL',
+        },
+        {
                 'sources' : files('test-parse-util.c'),
                 'dependencies' : libm,
         },
