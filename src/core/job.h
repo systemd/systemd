@@ -169,7 +169,7 @@ Job* job_new(Unit *unit, JobType type);
 Job* job_new_raw(Unit *unit);
 void job_unlink(Job *job);
 Job* job_free(Job *job);
-Job* job_install(Job *j);
+Job* job_install(Job *j, JobMode mode);
 int job_install_deserialized(Job *j);
 void job_uninstall(Job *j);
 void job_dump(Job *j, FILE *f, const char *prefix);
