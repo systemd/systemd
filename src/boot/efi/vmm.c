@@ -4,6 +4,7 @@
 #  include <cpuid.h>
 #endif
 
+#include "confidential-virt-fundamental.h"
 #include "device-path-util.h"
 #include "drivers.h"
 #include "efi-string.h"
@@ -306,4 +307,120 @@ const char* smbios_find_oem_string(const char *name) {
         }
 
         return NULL;
+}
+
+#if defined(__i386__) || defined(__x86_64__)
+static uint32_t cpuid_leaf(uint32_t eax, char ret_sig[static 13], bool swapped) {
+        /* zero-init as some queries explicitly require subleaf == 0 */
+        uint32_t sig[3] = {};
+
+        if (swapped)
+                __cpuid_count(eax, 0, eax, sig[0], sig[2], sig[1]);
+        else
+                __cpuid_count(eax, 0, eax, sig[0], sig[1], sig[2]);
+
+        memcpy(ret_sig, sig, sizeof(sig));
+        ret_sig[12] = 0; /* \0-terminate the string to make string comparison possible */
+
+        return eax;
+}
+
+static uint64_t msr(uint32_t index) {
+        uint64_t val;
+#ifdef __x86_64__
+        uint32_t low, high;
+        asm volatile ("rdmsr" : "=a"(low), "=d"(high) : "c"(index) : "memory");
+        val = ((uint64_t)high << 32) | low;
+#else
+        asm volatile ("rdmsr" : "=A"(val) : "c"(index) : "memory");
+#endif
+        return val;
+}
+
+static bool detect_hyperv_sev(void) {
+        uint32_t eax, ebx, ecx, edx, feat;
+        char sig[13] = {};
+
+        feat = cpuid_leaf(CPUID_HYPERV_VENDOR_AND_MAX_FUNCTIONS, sig, false);
+
+        if (feat < CPUID_HYPERV_MIN || feat > CPUID_HYPERV_MAX)
+                return false;
+
+        if (memcmp(sig, CPUID_SIG_HYPERV, sizeof(sig)) != 0)
+                return false;
+
+        __cpuid(CPUID_HYPERV_FEATURES, eax, ebx, ecx, edx);
+
+        if (ebx & CPUID_HYPERV_ISOLATION && !(ebx & CPUID_HYPERV_CPU_MANAGEMENT)) {
+                __cpuid(CPUID_HYPERV_ISOLATION_CONFIG, eax, ebx, ecx, edx);
+
+                if ((ebx & CPUID_HYPERV_ISOLATION_TYPE_MASK) == CPUID_HYPERV_ISOLATION_TYPE_SNP)
+                        return true;
+        }
+
+        return false;
+}
+
+static bool detect_sev(void) {
+        uint32_t eax, ebx, ecx, edx;
+        uint64_t msrval;
+
+        __cpuid(CPUID_GET_HIGHEST_FUNCTION, eax, ebx, ecx, edx);
+
+        if (eax < CPUID_AMD_GET_ENCRYPTED_MEMORY_CAPABILITIES)
+                return false;
+
+        __cpuid(CPUID_AMD_GET_ENCRYPTED_MEMORY_CAPABILITIES, eax, ebx, ecx, edx);
+
+        /* bit 1 == CPU supports SEV feature
+         *
+         * Note, Azure blocks this CPUID leaf from its SEV-SNP
+         * guests, so we must fallback to trying some HyperV
+         * specific CPUID checks.
+         */
+        if (!(eax & EAX_SEV))
+                return detect_hyperv_sev();
+
+        msrval = msr(MSR_AMD64_SEV);
+
+        if (msrval & (MSR_SEV_SNP | MSR_SEV_ES | MSR_SEV))
+                return true;
+
+        return false;
+}
+
+static bool detect_tdx(void) {
+        uint32_t eax, ebx, ecx, edx;
+        char sig[13] = {};
+
+        __cpuid(CPUID_GET_HIGHEST_FUNCTION, eax, ebx, ecx, edx);
+
+        if (eax < CPUID_INTEL_TDX_ENUMERATION)
+                return false;
+
+        cpuid_leaf(CPUID_INTEL_TDX_ENUMERATION, sig, true);
+
+        if (memcmp(sig, CPUID_SIG_INTEL_TDX, sizeof(sig)) == 0)
+                return true;
+
+        return false;
+}
+#endif /* ! __i386__ && ! __x86_64__ */
+
+bool is_confidential_vm(void) {
+#if defined(__i386__) || defined(__x86_64__)
+        char sig[13] = {};
+
+        if (!cpuid_in_hypervisor())
+                return false;
+
+        cpuid_leaf(0, sig, true);
+
+        if (memcmp(sig, CPUID_SIG_AMD, sizeof(sig)) == 0)
+                return detect_sev();
+        if (memcmp(sig, CPUID_SIG_INTEL, sizeof(sig)) == 0)
+                return detect_tdx();
+#endif /* ! __i386__ && ! __x86_64__ */
+
+        return false;
 }
