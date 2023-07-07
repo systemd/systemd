@@ -211,7 +211,7 @@ _systemctl () {
         [MASKED_UNITS]='unmask'
         [JOBS]='cancel'
         [ENVS]='set-environment unset-environment import-environment'
-        [STANDALONE]='daemon-reexec daemon-reload default
+        [STANDALONE]='daemon-reexec daemon-reload default whoami
                              emergency exit halt hibernate hybrid-sleep
                              suspend-then-hibernate kexec soft-reboot list-jobs list-sockets
                              list-timers list-units list-unit-files poweroff
