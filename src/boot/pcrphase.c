@@ -241,6 +241,7 @@ static int get_file_system_word(
 
 static int run(int argc, char *argv[]) {
         _cleanup_free_ char *joined = NULL, *word = NULL;
+        Tpm2UserspaceEventType event;
         unsigned target_pcr_nr;
         size_t length;
         int r;
@@ -291,6 +292,7 @@ static int run(int argc, char *argv[]) {
                 }
 
                 target_pcr_nr = TPM2_PCR_SYSTEM_IDENTITY; /* → PCR 15 */
+                event = TPM2_EVENT_FILESYSTEM;
 
         } else if (arg_machine_id) {
                 sd_id128_t mid;
@@ -307,6 +309,7 @@ static int run(int argc, char *argv[]) {
                         return log_oom();
 
                 target_pcr_nr = TPM2_PCR_SYSTEM_IDENTITY; /* → PCR 15 */
+                event = TPM2_EVENT_MACHINE_ID;
 
         } else {
                 if (optind+1 != argc)
@@ -323,6 +326,7 @@ static int run(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "String to measure cannot be empty, refusing.");
 
                 target_pcr_nr = TPM2_PCR_KERNEL_BOOT; /* → PCR 11 */
+                event = TPM2_EVENT_PHASE;
         }
 
         if (arg_graceful && tpm2_support() != TPM2_SUPPORT_FULL) {
@@ -358,7 +362,7 @@ static int run(int argc, char *argv[]) {
 
         log_debug("Measuring '%s' into PCR index %u, banks %s.", word, target_pcr_nr, joined);
 
-        r = tpm2_extend_bytes(c, arg_banks, target_pcr_nr, word, length, NULL, 0);
+        r = tpm2_extend_bytes(c, arg_banks, target_pcr_nr, word, length, NULL, 0, event, word);
         if (r < 0)
                 return r;
 
