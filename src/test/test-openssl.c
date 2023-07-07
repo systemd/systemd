@@ -424,4 +424,23 @@ TEST(openssl_cipher) {
                 /* expected= */ NULL);
 }
 
+TEST(ecc_ecdh) {
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkeyA = NULL, *pkeyB = NULL, *pkeyC = NULL;
+        _cleanup_free_ void *secretAB = NULL, *secretBA = NULL, *secretAC = NULL, *secretCA = NULL;
+        size_t secretAB_size, secretBA_size, secretAC_size, secretCA_size;
+
+        assert_se(ecc_pkey_new(NID_X9_62_prime256v1, &pkeyA) >= 0);
+        assert_se(ecc_pkey_new(NID_X9_62_prime256v1, &pkeyB) >= 0);
+        assert_se(ecc_pkey_new(NID_X9_62_prime256v1, &pkeyC) >= 0);
+
+        assert_se(ecc_ecdh(pkeyA, pkeyB, &secretAB, &secretAB_size) >= 0);
+        assert_se(ecc_ecdh(pkeyB, pkeyA, &secretBA, &secretBA_size) >= 0);
+        assert_se(ecc_ecdh(pkeyA, pkeyC, &secretAC, &secretAC_size) >= 0);
+        assert_se(ecc_ecdh(pkeyC, pkeyA, &secretCA, &secretCA_size) >= 0);
+
+        assert_se(memcmp_nn(secretAB, secretAB_size, secretBA, secretBA_size) == 0);
+        assert_se(memcmp_nn(secretAC, secretAC_size, secretCA, secretCA_size) == 0);
+        assert_se(memcmp_nn(secretAC, secretAC_size, secretAB, secretAB_size) != 0);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
