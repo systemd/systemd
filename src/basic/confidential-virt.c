@@ -15,6 +15,9 @@
 #include "string-table.h"
 #include "utf8.h"
 
+/* Keep CVM detection logic in this file at feature parity with
+ * that in src/efi/boot/vmm.c */
+
 #define CPUID_PROCESSOR_INFO_AND_FEATURE_BITS UINT32_C(0x1)
 
 /*
