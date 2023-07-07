@@ -11,7 +11,7 @@ TEST_REQUIRE_INSTALL_TESTS=0
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
-test_require_bin swtpm tpm2_pcrextend
+test_require_bin swtpm tpm2_pcrextend tpm2_dictionarylockout
 
 test_append_files() {
     local workspace="${1:?}"
