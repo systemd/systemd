@@ -1095,3 +1095,27 @@ static const char* const dns_server_feature_level_table[_DNS_SERVER_FEATURE_LEVE
         [DNS_SERVER_FEATURE_LEVEL_TLS_DO]    = "TLS+EDNS0+DO",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);
+
+int dns_server_dump_state_to_json(DnsServer *server, JsonVariant **ret) {
+
+        assert(server);
+        assert(ret);
+
+        return json_build(ret,
+                          JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR_STRING("server", strna(dns_server_string_full(server))),
+                                        JSON_BUILD_PAIR_STRING("type", strna(dns_server_type_to_string(server->type))),
+                                        JSON_BUILD_PAIR_CONDITION(server->type == DNS_SERVER_LINK, "interface", JSON_BUILD_STRING(server->link ? server->link->ifname : NULL)),
+                                        JSON_BUILD_PAIR_STRING("verifiedFeatureLevel", strna(dns_server_feature_level_to_string(server->verified_feature_level))),
+                                        JSON_BUILD_PAIR_STRING("possibleFeatureLevel", strna(dns_server_feature_level_to_string(server->possible_feature_level))),
+                                        JSON_BUILD_PAIR_STRING("dnssecMode", strna(dnssec_mode_to_string(dns_server_get_dnssec_mode(server)))),
+                                        JSON_BUILD_PAIR_BOOLEAN("canDoDNSSEC", dns_server_dnssec_supported(server)),
+                                        JSON_BUILD_PAIR_UNSIGNED("maxUDPFragmentSize", server->received_udp_fragment_max),
+                                        JSON_BUILD_PAIR_UNSIGNED("failedUDPAttempts", server->n_failed_udp),
+                                        JSON_BUILD_PAIR_UNSIGNED("failedTCPAttempts", server->n_failed_tcp),
+                                        JSON_BUILD_PAIR_BOOLEAN("seenTruncatedPacket", server->packet_truncated),
+                                        JSON_BUILD_PAIR_BOOLEAN("seenOPTRRGettingLost", server->packet_bad_opt),
+                                        JSON_BUILD_PAIR_BOOLEAN("seenRRSIGRRMissing", server->packet_rrsig_missing),
+                                        JSON_BUILD_PAIR_BOOLEAN("seenInvalidPacket", server->packet_invalid),
+                                        JSON_BUILD_PAIR_BOOLEAN("serverDroppedDOFlag", server->packet_do_off)));
+}

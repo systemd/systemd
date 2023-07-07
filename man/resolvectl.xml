@@ -219,6 +219,13 @@
         output.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><command>show-server-state</command></term>
+
+        <listitem><para>Show detailed server state information, per DNS Server. Use <option>--json=</option>
+        to enable JSON output.</para></listitem>
+      </varlistentry>
+
       <xi:include href="systemctl.xml" xpointer="log-level" />
     </variablelist>
   </refsect1>

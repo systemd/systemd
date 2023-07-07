@@ -2,6 +2,7 @@
 #pragma once
 
 #include "in-addr-util.h"
+#include "json.h"
 #include "list.h"
 #include "resolve-util.h"
 #include "time-util.h"
@@ -172,3 +173,5 @@ void dns_server_dump(DnsServer *s, FILE *f);
 void dns_server_unref_stream(DnsServer *s);
 
 DnsScope *dns_server_scope(DnsServer *s);
+
+int dns_server_dump_state_to_json(DnsServer *server, JsonVariant **ret);

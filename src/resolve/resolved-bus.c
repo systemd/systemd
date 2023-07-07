@@ -1712,11 +1712,7 @@ static int bus_method_reset_statistics(sd_bus_message *message, void *userdata, 
 
         bus_client_log(message, "statistics reset");
 
-        LIST_FOREACH(scopes, s, m->dns_scopes)
-                s->cache.n_hit = s->cache.n_miss = 0;
-
-        m->n_transactions_total = 0;
-        zero(m->n_dnssec_verdict);
+        dns_manager_reset_satistics(m);
 
         return sd_bus_reply_method_return(message, NULL);
 }
