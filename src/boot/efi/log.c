@@ -7,16 +7,48 @@
 
 static unsigned log_count = 0;
 
+#define DEBUGCON_PREFIX u"systemd: "
+#define DEBUGCON_ACK 0xE9
+#define DEBUGCON_PORT 0x402
+
 void freeze(void) {
         for (;;)
                 BS->Stall(60 * 1000 * 1000);
 }
+
+#if defined(__i386__) || defined(__x86_64__)
+static bool log_has_debugcon(void) {
+        static bool init;
+        static bool present;
+
+        if (!init) {
+                present = (inb(DEBUGCON_PORT) == DEBUGCON_ACK);
+                init = true;
+        }
+        return present;
+}
+
+static void log_debugcon(const char16_t *msg) {
+        size_t i;
+
+        if (!log_has_debugcon())
+                return;
+
+        for (i = 0; msg[i]; i++)
+                outb(DEBUGCON_PORT, msg[i]);
+}
+#else /* ! __i386__ && ! __x86_64__ */
+static void log_debugcon(const char16_t *msg) {
+}
+#endif /* ! __i386__ && ! __x86_64__ */
 
 _noreturn_ static void panic(const char16_t *message) {
         if (ST->ConOut->Mode->CursorColumn > 0)
                 ST->ConOut->OutputString(ST->ConOut, (char16_t *) u"\r\n");
         ST->ConOut->SetAttribute(ST->ConOut, EFI_TEXT_ATTR(EFI_LIGHTRED, EFI_BLACK));
         ST->ConOut->OutputString(ST->ConOut, (char16_t *) message);
+        log_debugcon(DEBUGCON_PREFIX);
+        log_debugcon(message);
         freeze();
 }
 
@@ -34,6 +66,7 @@ void efi_assert(const char *expr, const char *file, unsigned line, const char *f
 
 EFI_STATUS log_internal(EFI_STATUS status, const char *format, ...) {
         assert(format);
+        char16_t *msg;
 
         int32_t attr = ST->ConOut->Mode->Attribute;
 
@@ -43,13 +76,38 @@ EFI_STATUS log_internal(EFI_STATUS status, const char *format, ...) {
 
         va_list ap;
         va_start(ap, format);
-        vprintf_status(status, format, ap);
+        msg = xvasprintf_status(status, format, ap);
         va_end(ap);
 
+        ST->ConOut->OutputString(ST->ConOut, msg);
         ST->ConOut->OutputString(ST->ConOut, (char16_t *) u"\r\n");
         ST->ConOut->SetAttribute(ST->ConOut, attr);
 
+        log_debugcon(DEBUGCON_PREFIX);
+        log_debugcon(msg);
+        log_debugcon(u"\r\n");
+
+        msg = mfree(msg);
+
         log_count++;
+        return status;
+}
+
+EFI_STATUS log_debugcon_internal(EFI_STATUS status, const char *format, ...) {
+        assert(format);
+        char16_t *msg;
+
+        va_list ap;
+        va_start(ap, format);
+        msg = xvasprintf_status(status, format, ap);
+        va_end(ap);
+
+        log_debugcon(DEBUGCON_PREFIX);
+        log_debugcon(msg);
+        msg = mfree(msg);
+
+        log_debugcon(u"\r\n");
+
         return status;
 }
 

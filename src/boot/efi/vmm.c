@@ -12,11 +12,81 @@
 #include "util.h"
 #include "vmm.h"
 
+/* Keep CVM detection logic in this file at feature parity with
+ * that in src/basic/confidential-virt.c */
+
 #define QEMU_KERNEL_LOADER_FS_MEDIA_GUID \
         { 0x1428f772, 0xb64a, 0x441e, { 0xb8, 0xc3, 0x9e, 0xbd, 0xd7, 0xf8, 0x93, 0xc7 } }
 
 #define VMM_BOOT_ORDER_GUID \
         { 0x668f4529, 0x63d0, 0x4bb5, { 0xb6, 0x5d, 0x6f, 0xbb, 0x9d, 0x36, 0xa4, 0x4a } }
+
+
+#define CPUID_PROCESSOR_INFO_AND_FEATURE_BITS 0x1U
+
+/*
+ * AMD64 Architecture Programmer’s Manual Volume 3:
+ * General-Purpose and System Instructions.
+ * Chapter: E4.1 - Maximum Extended Function Number and Vendor String
+ *  https://www.amd.com/system/files/TechDocs/24594.pdf
+ */
+#define CPUID_GET_HIGHEST_FUNCTION 0x80000000U
+
+/*
+ * AMD64 Architecture Programmer’s Manual Volume 3:
+ * General-Purpose and System Instructions.
+ * Chapter: E4.17 - Encrypted Memory Capabilities
+ *  https://www.amd.com/system/files/TechDocs/24594.pdf
+ */
+#define CPUID_AMD_GET_ENCRYPTED_MEMORY_CAPABILITIES 0x8000001fU
+
+/*
+ * AMD64 Architecture Programmer’s Manual Volume 3:
+ * General-Purpose and System Instructions.
+ * Chapter: 15.34.10 - SEV_STATUS MSR
+ * https://www.amd.com/system/files/TechDocs/24593.pdf
+ */
+#define MSR_AMD64_SEV 0xc0010131U
+
+/*
+ * Intel® TDX Module v1.5 Base Architecture Specification
+ * Chapter: 11.2
+ * https://www.intel.com/content/www/us/en/content-details/733575/intel-tdx-module-v1-5-base-architecture-specification.html
+ */
+
+#define CPUID_INTEL_TDX_ENUMERATION 0x21U
+
+/* Requirements for Implementing the Microsoft Hypervisor Interface
+ * https://learn.microsoft.com/en-us/virtualization/hyper-v-on-windows/tlfs/tlfs
+ */
+#define CPUID_HYPERV_VENDOR_AND_MAX_FUNCTIONS 0x40000000U
+
+#define CPUID_HYPERV_FEATURES 0x40000003U
+
+#define CPUID_HYPERV_ISOLATION_CONFIG 0x4000000CU
+
+#define CPUID_HYPERV_MIN 0x40000005U
+#define CPUID_HYPERV_MAX 0x4000ffffU
+
+#define CPUID_SIG_AMD       "AuthenticAMD"
+#define CPUID_SIG_INTEL     "GenuineIntel"
+#define CPUID_SIG_INTEL_TDX "IntelTDX    "
+#define CPUID_SIG_HYPERV    "Microsoft Hv"
+
+/* ecx bit 31: set => hyperpvisor, unset => bare metal */
+#define CPUID_FEATURE_HYPERVISOR (1U << 31)
+
+/* Linux include/asm-generic/hyperv-tlfs.h */
+#define CPUID_HYPERV_CPU_MANAGEMENT (1U << 12) /* root partition */
+#define CPUID_HYPERV_ISOLATION      (1U << 22) /* confidential VM partition */
+
+#define CPUID_HYPERV_ISOLATION_TYPE_MASK 0xfU
+#define CPUID_HYPERV_ISOLATION_TYPE_SNP 2
+
+#define EAX_SEV     (1U << 1)
+#define MSR_SEV     (1ULL << 0)
+#define MSR_SEV_ES  (1ULL << 1)
+#define MSR_SEV_SNP (1ULL << 2)
 
 /* detect direct boot */
 bool is_direct_boot(EFI_HANDLE device) {
@@ -306,4 +376,139 @@ const char* smbios_find_oem_string(const char *name) {
         }
 
         return NULL;
+}
+
+#if defined(__i386__) || defined(__x86_64__)
+static uint32_t cpuid_leaf(uint32_t eax, char ret_sig[static 13], bool swapped) {
+        /* zero-init as some queries explicitly require subleaf == 0 */
+        uint32_t sig[3] = {};
+
+        if (swapped)
+                __cpuid_count(eax, 0, eax, sig[0], sig[2], sig[1]);
+        else
+                __cpuid_count(eax, 0, eax, sig[0], sig[1], sig[2]);
+
+        memcpy(ret_sig, sig, sizeof(sig));
+        ret_sig[12] = 0; /* \0-terminate the string to make string comparison possible */
+
+        return eax;
+}
+
+static uint64_t msr(uint32_t index) {
+        uint64_t val;
+#ifdef __x86_64__
+        uint32_t low, high;
+        asm volatile ("rdmsr" : "=a"(low), "=d"(high) : "c"(index) : "memory");
+        val = ((uint64_t)high << 32) | low;
+#else
+        asm volatile ("rdmsr" : "=A"(val) : "c"(index) : "memory");
+#endif
+        return val;
+}
+
+static bool detect_hyperv_sev(void) {
+        uint32_t eax, ebx, ecx, edx, feat;
+        char sig[13] = {};
+
+        feat = cpuid_leaf(CPUID_HYPERV_VENDOR_AND_MAX_FUNCTIONS, sig, false);
+
+        if (feat < CPUID_HYPERV_MIN || feat > CPUID_HYPERV_MAX)
+                return false;
+
+        if (memcmp(sig, CPUID_SIG_HYPERV, sizeof(sig)) != 0)
+                return false;
+
+        log_debug("CPUID is on hyperv");
+        __cpuid(CPUID_HYPERV_FEATURES, eax, ebx, ecx, edx);
+
+        if (ebx & CPUID_HYPERV_ISOLATION && !(ebx & CPUID_HYPERV_CPU_MANAGEMENT)) {
+                __cpuid(CPUID_HYPERV_ISOLATION_CONFIG, eax, ebx, ecx, edx);
+
+                if ((ebx & CPUID_HYPERV_ISOLATION_TYPE_MASK) == CPUID_HYPERV_ISOLATION_TYPE_SNP)
+                        return true;
+        }
+
+        log_debug("No hyperv CPUID SNP signature");
+        return false;
+}
+
+static bool detect_sev(void) {
+        uint32_t eax, ebx, ecx, edx;
+        uint64_t msrval;
+
+        __cpuid(CPUID_GET_HIGHEST_FUNCTION, eax, ebx, ecx, edx);
+
+        if (eax < CPUID_AMD_GET_ENCRYPTED_MEMORY_CAPABILITIES) {
+                log_debug("AMD SEV CPUID beyond max function");
+                return false;
+        }
+
+        __cpuid(CPUID_AMD_GET_ENCRYPTED_MEMORY_CAPABILITIES, eax, ebx, ecx, edx);
+
+        /* bit 1 == CPU supports SEV feature
+         *
+         * Note, Azure blocks this CPUID leaf from its SEV-SNP
+         * guests, so we must fallback to trying some HyperV
+         * specific CPUID checks.
+         */
+        if (!(eax & EAX_SEV)) {
+                log_debug("No sev in CPUID, trying hyperv CPUID");
+
+                return detect_hyperv_sev();
+        }
+
+        msrval = msr(MSR_AMD64_SEV);
+
+        if (msrval & (MSR_SEV_SNP | MSR_SEV_ES | MSR_SEV)) {
+                log_debug("AMD SEV MSR signature found");
+                return true;
+        }
+
+        log_debug("AMD SEV MSR signature missing");
+        return false;
+}
+
+static bool detect_tdx(void) {
+        uint32_t eax, ebx, ecx, edx;
+        char sig[13] = {};
+
+        __cpuid(CPUID_GET_HIGHEST_FUNCTION, eax, ebx, ecx, edx);
+
+        if (eax < CPUID_INTEL_TDX_ENUMERATION) {
+                log_debug("Intel TDX CPUID beyond max function");
+                return false;
+        }
+
+        cpuid_leaf(CPUID_INTEL_TDX_ENUMERATION, sig, true);
+
+        if (memcmp(sig, CPUID_SIG_INTEL_TDX, sizeof(sig)) == 0) {
+                log_debug("Intel TDX CPUID signature found");
+                return true;
+        }
+
+        log_debug("Intel TDX CPUID signature missing");
+        return false;
+}
+#endif /* ! __i386__ && ! __x86_64__ */
+
+bool is_confidential_vm(void) {
+#if defined(__i386__) || defined(__x86_64__)
+        char sig[13] = {};
+        bool ret = false;
+
+        if (!cpuid_in_hypervisor()) {
+                log_debug("bare metal, not confidential VM");
+                return false;
+        }
+
+        cpuid_leaf(0, sig, true);
+
+        if (memcmp(sig, CPUID_SIG_AMD, sizeof(sig)) == 0)
+                ret = detect_sev();
+        else if (memcmp(sig, CPUID_SIG_INTEL, sizeof(sig)) == 0)
+                ret = detect_tdx();
+#endif /* ! __i386__ && ! __x86_64__ */
+
+        log_debug("Is confidential VM ? %ls", yes_no(ret));
+        return ret;
 }

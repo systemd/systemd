@@ -22,10 +22,12 @@ __attribute__((no_stack_protector, noinline)) void __stack_chk_guard_init(void);
 _noreturn_ void freeze(void);
 void log_wait(void);
 _gnu_printf_(2, 3) EFI_STATUS log_internal(EFI_STATUS status, const char *format, ...);
+_gnu_printf_(2, 3) EFI_STATUS log_debugcon_internal(EFI_STATUS status, const char *format, ...);
 #define log_error_status(status, ...) log_internal(status, __VA_ARGS__)
 #define log_error(...) log_internal(EFI_INVALID_PARAMETER, __VA_ARGS__)
 #define log_oom() log_internal(EFI_OUT_OF_RESOURCES, "Out of memory.")
-#define log_trace() log_internal(EFI_SUCCESS, "%s:%i@%s", __FILE__, __LINE__, __func__)
+#define log_trace() log_debugcon_internal(EFI_SUCCESS, "%s:%i@%s", __FILE__, __LINE__, __func__)
+#define log_debug(...) log_debugcon_internal(EFI_SUCCESS, __VA_ARGS__)
 
 #ifdef EFI_DEBUG
 void log_hexdump(const char16_t *prefix, const void *data, size_t size);
