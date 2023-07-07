@@ -873,6 +873,48 @@ int ecc_pkey_new(int curve_id, EVP_PKEY **ret) {
         return 0;
 }
 
+/* Perform ECDH to derive an ECC shared secret between the provided private key and public peer key. For two
+ * keys, this will result in the same shared secret in either direction; ECDH using Alice's private key and
+ * Bob's public (peer) key will result in the same shared secret as ECDH using Bob's private key and Alice's
+ * public (peer) key. On success, this returns 0 and provides the shared secret; otherwise this returns an
+ * error. */
+int ecc_ecdh(const EVP_PKEY *private_pkey,
+             const EVP_PKEY *peer_pkey,
+             void **ret_shared_secret,
+             size_t *ret_shared_secret_size) {
+
+        assert(private_pkey);
+        assert(peer_pkey);
+        assert(ret_shared_secret);
+        assert(ret_shared_secret_size);
+
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new((EVP_PKEY*) private_pkey, NULL);
+        if (!ctx)
+                return log_openssl_errors("Failed to create new EVP_PKEY_CTX");
+
+        if (EVP_PKEY_derive_init(ctx) <= 0)
+                return log_openssl_errors("Failed to initialize EVP_PKEY_CTX");
+
+        if (EVP_PKEY_derive_set_peer(ctx, (EVP_PKEY*) peer_pkey) <= 0)
+                return log_openssl_errors("Failed to set ECC derive peer");
+
+        size_t shared_secret_size;
+        if (EVP_PKEY_derive(ctx, NULL, &shared_secret_size) <= 0)
+                return log_openssl_errors("Failed to get ECC shared secret size");
+
+        _cleanup_free_ void *shared_secret = malloc(shared_secret_size);
+        if (!shared_secret)
+                return log_oom_debug();
+
+        if (EVP_PKEY_derive(ctx, (unsigned char*) shared_secret, &shared_secret_size) <= 0)
+                return log_openssl_errors("Failed to derive ECC shared secret");
+
+        *ret_shared_secret = TAKE_PTR(shared_secret);
+        *ret_shared_secret_size = shared_secret_size;
+
+        return 0;
+}
+
 int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_size) {
         _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* m = NULL;
         _cleanup_free_ void *d = NULL, *h = NULL;
