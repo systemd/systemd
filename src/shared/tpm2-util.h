@@ -158,6 +158,8 @@ void tpm2_log_debug_name(const TPM2B_NAME *name, const char *msg);
 
 int tpm2_create_loaded(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handle *session, const TPMT_PUBLIC *template, const TPMS_SENSITIVE_CREATE *sensitive, TPM2B_PUBLIC **ret_public, TPM2B_PRIVATE **ret_private, Tpm2Handle **ret_handle);
 
+int tpm2_get_location(Tpm2Context *c, const Tpm2Handle *handle, TPM2_HANDLE *ret_location);
+
 int tpm2_get_handle(Tpm2Context *c, TPM2_HANDLE location, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 
 int tpm2_get_srk_template(Tpm2Context *c, TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_template);
