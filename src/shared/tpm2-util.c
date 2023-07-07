@@ -61,6 +61,7 @@ static TSS2_RC (*sym_Esys_TR_Close)(ESYS_CONTEXT *esys_context, ESYS_TR *rsrc_ha
 static TSS2_RC (*sym_Esys_TR_Deserialize)(ESYS_CONTEXT *esys_context, uint8_t const *buffer, size_t buffer_size, ESYS_TR *esys_handle) = NULL;
 static TSS2_RC (*sym_Esys_TR_FromTPMPublic)(ESYS_CONTEXT *esysContext, TPM2_HANDLE tpm_handle, ESYS_TR optionalSession1, ESYS_TR optionalSession2, ESYS_TR optionalSession3, ESYS_TR *object) = NULL;
 static TSS2_RC (*sym_Esys_TR_GetName)(ESYS_CONTEXT *esysContext, ESYS_TR handle, TPM2B_NAME **name) = NULL;
+static TSS2_RC (*sym_Esys_TR_GetTpmHandle)(ESYS_CONTEXT *esys_context, ESYS_TR esys_handle, TPM2_HANDLE *tpm_handle) = NULL;
 static TSS2_RC (*sym_Esys_TR_Serialize)(ESYS_CONTEXT *esys_context, ESYS_TR object, uint8_t **buffer, size_t *buffer_size) = NULL;
 static TSS2_RC (*sym_Esys_TR_SetAuth)(ESYS_CONTEXT *esysContext, ESYS_TR handle, TPM2B_AUTH const *authValue) = NULL;
 static TSS2_RC (*sym_Esys_TRSess_GetAttributes)(ESYS_CONTEXT *esysContext, ESYS_TR session, TPMA_SESSION *flags) = NULL;
@@ -127,6 +128,12 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_VerifySignature));
         if (r < 0)
                 return r;
+
+        /* Esys_TR_GetTpmHandle was added to tpm2-tss in version 2.4.0. Once we can set a minimum tpm2-tss
+         * version of 2.4.0 this sym can be moved up to the normal list above. */
+        r = dlsym_many_or_warn(libtss2_esys_dl, LOG_DEBUG, DLSYM_ARG_FORCE(Esys_TR_GetTpmHandle));
+        if (r < 0)
+                log_debug("libtss2-esys too old, does not include Esys_TR_GetTpmHandle.");
 
         r = dlopen_many_sym_or_warn(
                         &libtss2_rc_dl, "libtss2-rc.so.0", LOG_DEBUG,
@@ -1122,6 +1129,28 @@ int tpm2_get_best_srk_template(Tpm2Context *c, TPMT_PUBLIC *ret_template) {
 
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "TPM does not support either SRK template L-1 (RSA) or L-2 (ECC).");
+}
+
+/* Get the TPM2_HANDLE index for the provided Tpm2Handle. */
+int tpm2_get_handle_index(Tpm2Context *c, const Tpm2Handle *handle, TPM2_HANDLE *ret_index) {
+        TSS2_RC rc;
+
+        assert(c);
+        assert(handle);
+        assert(ret_index);
+
+        /* Esys_TR_GetTpmHandle was added to tpm2-tss in version 2.4.0. Once we can set a minimum tpm2-tss
+         * version of 2.4.0 this check can be removed. */
+        if (!sym_Esys_TR_GetTpmHandle)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "libtss2-esys too old, does not include Esys_TR_GetTpmHandle.");
+
+        rc = sym_Esys_TR_GetTpmHandle(c->esys_context, handle->esys_handle, ret_index);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to get handle index: %s", sym_Tss2_RC_Decode(rc));
+
+        return 0;
 }
 
 /* Get the Tpm2Handle at the requested index. Returns 1 if found, 0 if the index is empty, or < 0 on
