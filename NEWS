@@ -279,6 +279,10 @@ CHANGES WITH 254 in spe:
 
         systemd-boot, systemd-stub, ukify, bootctl, kernel-install:
 
+        * gnu-efi is no longer required to build systemd-boot and systemd-stub.
+          Instead, pyelftools is now needed, and it will be used to perform the
+          ELF -> PE relocations at build time.
+
         * bootctl gained a new switch --print-root-device/-R that prints the
           block device the root file system is backed by. If specified twice,
           it returns the whole disk block device (as opposed to partition block
