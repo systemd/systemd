@@ -40,6 +40,7 @@ typedef enum TableDataType {
         TABLE_UINT8,
         TABLE_UINT16,
         TABLE_UINT32,
+        TABLE_UINT32_HEX,
         TABLE_UINT64,
         TABLE_UINT64_HEX,
         TABLE_PERCENT,
