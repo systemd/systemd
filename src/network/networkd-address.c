@@ -708,16 +708,22 @@ static void log_address_debug(const Address *address, const char *str, const Lin
         const char *peer = in_addr_is_set(address->family, &address->in_addr_peer) ?
                 IN_ADDR_TO_STRING(address->family, &address->in_addr_peer) : NULL;
 
+        const char *broadcast = (address->family == AF_INET && in4_addr_is_set(&address->broadcast)) ?
+                IN4_ADDR_TO_STRING(&address->broadcast) : NULL;
+
         (void) address_flags_to_string_alloc(address->flags, address->family, &flags_str);
         (void) route_scope_to_string_alloc(address->scope, &scope_str);
 
-        log_link_debug(link, "%s %s address (%s): %s%s%s/%u (valid %s, preferred %s), flags: %s, scope: %s",
+        log_link_debug(link, "%s %s address (%s): %s%s%s/%u%s%s (valid %s, preferred %s), flags: %s, scope: %s%s%s",
                        str, strna(network_config_source_to_string(address->source)), strna(state),
                        IN_ADDR_TO_STRING(address->family, &address->in_addr),
                        peer ? " peer " : "", strempty(peer), address->prefixlen,
+                       broadcast ? " broadcast " : "", strempty(broadcast),
                        FORMAT_LIFETIME(address->lifetime_valid_usec),
                        FORMAT_LIFETIME(address->lifetime_preferred_usec),
-                       strna(flags_str), strna(scope_str));
+                       strna(flags_str), strna(scope_str),
+                       address->family == AF_INET ? ", label: " : "",
+                       address->family == AF_INET ? strna(address->label) : "");
 }
 
 static int address_set_netlink_message(const Address *address, sd_netlink_message *m, Link *link) {
