@@ -312,6 +312,43 @@ TEST(kdf_kb_hmac_derive) {
 #endif
 }
 
+#if OPENSSL_VERSION_MAJOR >= 3
+static void check_ss_derive(const char *hex_key, const char *hex_salt, const char *hex_info, const char *hex_expected) {
+        DEFINE_HEX_PTR(key, hex_key);
+        DEFINE_HEX_PTR(salt, hex_salt);
+        DEFINE_HEX_PTR(info, hex_info);
+        DEFINE_HEX_PTR(expected, hex_expected);
+
+        _cleanup_free_ void *derived_key = NULL;
+        assert_se(kdf_ss_derive("SHA256", key, key_len, salt, salt_len, info, info_len, expected_len, &derived_key) >= 0);
+        assert_se(memcmp_nn(derived_key, expected_len, expected, expected_len) == 0);
+}
+#endif
+
+TEST(kdf_ss_derive) {
+#if OPENSSL_VERSION_MAJOR >= 3
+        check_ss_derive(
+                "01166ad6b05d1fad8cdb50d1902170e9",
+                "feea805789dc8d0b57da5d4d61886b1a",
+                "af4cb6d1d0a996e21e3788584165e2ae",
+                "46CECAB4544E11EF986641BA6F843FAFFD111D3974C34E3B9592311E8579C6BD");
+
+        check_ss_derive(
+                "d1c39e37260d79d6e766f1d1412c4b61fc0801db469b97c897b0fbcaebea5178",
+                "b75e3b65d1bb845dee581c7e14cfebc6e882946e90273b77ebe289faaf7de248",
+                "ed25a0043d6c1eb28296da1f9ab138dafee18f4c937bfc43601d4ee6e7634199",
+                "30EB1A1E9DEA7DE4DDB8F3FDF50A01E3");
+        /* Same inputs as above, but derive more bytes */
+        check_ss_derive(
+                "d1c39e37260d79d6e766f1d1412c4b61fc0801db469b97c897b0fbcaebea5178",
+                "b75e3b65d1bb845dee581c7e14cfebc6e882946e90273b77ebe289faaf7de248",
+                "ed25a0043d6c1eb28296da1f9ab138dafee18f4c937bfc43601d4ee6e7634199",
+                "30EB1A1E9DEA7DE4DDB8F3FDF50A01E30581D606C1228D98AFF691DF743AC2EE9D99EFD2AE1946C079AA18C9524877FA65D5065F0DAED058AB3416AF80EB2B73");
+#else
+        log_tests_skipped("KDF-SS requires Openssl >= 3");
+#endif
+}
+
 static void check_cipher(
                 const char *alg,
                 size_t bits,
