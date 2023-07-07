@@ -8,6 +8,7 @@ basic_dns_sources = files(
         'resolved-dns-rr.c',
         'resolved-dns-answer.c',
         'resolved-dns-question.c',
+        'resolved-dns-browse-services.c',
         'resolved-util.c',
         'dns-type.c',
 )
