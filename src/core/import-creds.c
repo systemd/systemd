@@ -2,6 +2,7 @@
 
 #include <sys/mount.h>
 
+#include "confidential-virt.h"
 #include "copy.h"
 #include "creds-util.h"
 #include "escape.h"
@@ -9,8 +10,8 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
-#include "initrd-util.h"
 #include "import-creds.h"
+#include "initrd-util.h"
 #include "io-util.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
@@ -376,6 +377,9 @@ static int import_credentials_qemu(ImportCredentialContext *c) {
         if (detect_container() > 0) /* don't access /sys/ in a container */
                 return 0;
 
+        if (detect_confidential_virtualization() > 0) /* don't trust firmware if confidential VMs */
+                return 0;
+
         source_dir_fd = open(QEMU_FWCFG_PATH, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
         if (source_dir_fd < 0) {
                 if (errno == ENOENT) {
@@ -568,6 +572,9 @@ static int import_credentials_smbios(ImportCredentialContext *c) {
         /* Parses DMI OEM strings fields (SMBIOS type 11), as settable with qemu's -smbios type=11,value=… switch. */
 
         if (detect_container() > 0) /* don't access /sys/ in a container */
+                return 0;
+
+        if (detect_confidential_virtualization() > 0) /* don't trust firmware if confidential VMs */
                 return 0;
 
         for (unsigned i = 0;; i++) {
