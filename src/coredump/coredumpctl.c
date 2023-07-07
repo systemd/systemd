@@ -483,14 +483,15 @@ static void analyze_coredump_file(
                 r = -errno;
         } else
                 r = access_fd(fd, R_OK);
-        if (ERRNO_IS_PRIVILEGE(r)) {
-                *ret_state = "inaccessible";
-                *ret_color = ansi_highlight_yellow();
-                *ret_size = UINT64_MAX;
-                return;
-        }
-        if (r < 0)
+        if (r < 0) {
+                if (ERRNO_IS_PRIVILEGE(r)) {
+                        *ret_state = "inaccessible";
+                        *ret_color = ansi_highlight_yellow();
+                        *ret_size = UINT64_MAX;
+                        return;
+                }
                 goto error;
+        }
 
         if (fstat(fd, &st) < 0)
                 goto error;
