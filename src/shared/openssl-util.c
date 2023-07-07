@@ -858,6 +858,56 @@ int ecc_pkey_new(int curve_id, EVP_PKEY **ret) {
         return 0;
 }
 
+/* Perform ECDH to derive a ECC shared secret. */
+int ecc_ecdh(const EVP_PKEY *peerkey,
+             EVP_PKEY **ret_pkey,
+             void **ret_shared_secret,
+             size_t *ret_shared_secret_size) {
+
+        int curve_id, r;
+
+        assert(peerkey);
+        assert(ret_pkey);
+        assert(ret_shared_secret);
+        assert(ret_shared_secret_size);
+
+        r = ecc_pkey_to_curve_x_y(peerkey, &curve_id, NULL, NULL, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        r = ecc_pkey_new(curve_id, &pkey);
+        if (r < 0)
+                return r;
+
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(pkey, NULL);
+        if (!ctx)
+                return log_openssl_errors("Failed to create new EVP_PKEY_CTX");
+
+        if (EVP_PKEY_derive_init(ctx) <= 0)
+                return log_openssl_errors("Failed to initialize EVP_PKEY_CTX");
+
+        if (EVP_PKEY_derive_set_peer(ctx, (EVP_PKEY*) peerkey) <= 0)
+                return log_openssl_errors("Failed to set ECC derive peer");
+
+        size_t shared_secret_size;
+        if (EVP_PKEY_derive(ctx, NULL, &shared_secret_size) <= 0)
+                return log_openssl_errors("Failed to get ECC shared secret size");
+
+        _cleanup_free_ void *shared_secret = malloc(shared_secret_size);
+        if (!shared_secret)
+                return log_oom_debug();
+
+        if (EVP_PKEY_derive(ctx, (unsigned char*) shared_secret, &shared_secret_size) <= 0)
+                return log_openssl_errors("Failed to derive ECC shared secret");
+
+        *ret_pkey = TAKE_PTR(pkey);
+        *ret_shared_secret = TAKE_PTR(shared_secret);
+        *ret_shared_secret_size = shared_secret_size;
+
+        return 0;
+}
+
 int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_size) {
         _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* m = NULL;
         _cleanup_free_ void *d = NULL, *h = NULL;
