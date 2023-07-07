@@ -322,6 +322,72 @@ int openssl_cipher(
         return 0;
 }
 
+/* Perform Single-Step (aka "Concat") KDF. Currently, this only supports using the digest for the auxiliary
+ * function. The derive_size parameter specifies how many bytes are derived.
+ *
+ * For more details see: https://www.openssl.org/docs/manmaster/man7/EVP_KDF-SS.html */
+int kdf_ss_derive(
+                const char *digest,
+                const void *key,
+                size_t key_size,
+                const void *salt,
+                size_t salt_size,
+                const void *info,
+                size_t info_size,
+                size_t derive_size,
+                void **ret) {
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        assert(digest);
+        assert(key);
+        assert(derive_size > 0);
+        assert(ret);
+
+        _cleanup_(EVP_KDF_freep) EVP_KDF *kdf = EVP_KDF_fetch(NULL, "SSKDF", NULL);
+        if (!kdf)
+                return log_openssl_errors("Failed to create new EVP_KDF");
+
+        _cleanup_(EVP_KDF_CTX_freep) EVP_KDF_CTX *ctx = EVP_KDF_CTX_new(kdf);
+        if (!ctx)
+                return log_openssl_errors("Failed to create new EVP_KDF_CTX");
+
+        _cleanup_(OSSL_PARAM_BLD_freep) OSSL_PARAM_BLD *bld = OSSL_PARAM_BLD_new();
+        if (!bld)
+                return log_openssl_errors("Failed to create new OSSL_PARAM_BLD");
+
+        _cleanup_free_ void *buf = malloc(derive_size);
+        if (!buf)
+                return log_oom_debug();
+
+        if (!OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_KDF_PARAM_DIGEST, (char*) digest, 0))
+                return log_openssl_errors("Failed to add KDF-SS OSSL_KDF_PARAM_DIGEST");
+
+        if (!OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_KEY, (char*) key, key_size))
+                return log_openssl_errors("Failed to add KDF-SS OSSL_KDF_PARAM_KEY");
+
+        if (salt)
+                if (!OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_SALT, (char*) salt, salt_size))
+                        return log_openssl_errors("Failed to add KDF-SS OSSL_KDF_PARAM_SALT");
+
+        if (info)
+                if (!OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_INFO, (char*) info, info_size))
+                        return log_openssl_errors("Failed to add KDF-SS OSSL_KDF_PARAM_INFO");
+
+        _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = OSSL_PARAM_BLD_to_param(bld);
+        if (!params)
+                return log_openssl_errors("Failed to build KDF-SS OSSL_PARAM");
+
+        if (EVP_KDF_derive(ctx, buf, derive_size, params) <= 0)
+                return log_openssl_errors("Openssl KDF-SS derive failed");
+
+        *ret = TAKE_PTR(buf);
+
+        return 0;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "KDF-SS requires openssl >= 3.");
+#endif
+}
+
 /* Perform Key-Based HMAC KDF. The mode must be "COUNTER" or "FEEDBACK". The parameter naming is from the
  * Openssl api, and maps to SP800-108 naming as "...key, salt, info, and seed correspond to KI, Label,
  * Context, and IV (respectively)...". The derive_size parameter specifies how many bytes are derived.
