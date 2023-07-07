@@ -339,30 +339,6 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
         address_kernel_compare_func,
         address_free);
 
-/* The functions below are mainly used by managing Request. */
-static void address_hash_func(const Address *a, struct siphash *state) {
-        assert(a);
-
-        siphash24_compress(&a->family, sizeof(a->family), state);
-
-        /* treat any other address family as AF_UNSPEC */
-        if (!IN_SET(a->family, AF_INET, AF_INET6))
-                return;
-
-        siphash24_compress(&a->prefixlen, sizeof(a->prefixlen), state);
-        siphash24_compress(&a->in_addr, FAMILY_ADDRESS_SIZE(a->family), state);
-        siphash24_compress(&a->in_addr_peer, FAMILY_ADDRESS_SIZE(a->family), state);
-
-        if (a->family == AF_INET) {
-                /* On update, the kernel ignores the address label and broadcast address, hence we need
-                 * to distinguish addresses with different labels or broadcast addresses. Otherwise,
-                 * the label or broadcast address change will not be applied when we reconfigure the
-                 * interface. */
-                siphash24_compress_string(a->label, state);
-                siphash24_compress(&a->broadcast, sizeof(a->broadcast), state);
-        }
-}
-
 int address_compare_func(const Address *a1, const Address *a2) {
         int r;
 
@@ -386,6 +362,10 @@ int address_compare_func(const Address *a1, const Address *a2) {
                 return r;
 
         if (a1->family == AF_INET) {
+                /* On update, the kernel ignores the address label and broadcast address, hence we need
+                 * to distinguish addresses with different labels or broadcast addresses. Otherwise,
+                 * the label or broadcast address change will not be applied when we reconfigure the
+                 * interface. */
                 r = strcmp_ptr(a1->label, a2->label);
                 if (r != 0)
                         return r;
@@ -1295,8 +1275,8 @@ int link_request_address(
         log_address_debug(existing, "Requesting", link);
         r = link_queue_request_safe(link, REQUEST_TYPE_ADDRESS,
                                     existing, NULL,
-                                    address_hash_func,
-                                    address_compare_func,
+                                    address_kernel_hash_func,
+                                    address_kernel_compare_func,
                                     address_process_request,
                                     message_counter, netlink_handler, ret);
         if (r < 0)
@@ -1383,8 +1363,8 @@ void address_cancel_request(Address *address) {
                 .link = address->link,
                 .type = REQUEST_TYPE_ADDRESS,
                 .userdata = address,
-                .hash_func = (hash_func_t) address_hash_func,
-                .compare_func = (compare_func_t) address_compare_func,
+                .hash_func = (hash_func_t) address_kernel_hash_func,
+                .compare_func = (compare_func_t) address_kernel_compare_func,
         };
 
         request_detach(address->link->manager, &req);
