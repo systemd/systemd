@@ -128,6 +128,11 @@ struct Manager {
         sd_event_source *sigrtmin1_event_source;
 
         unsigned n_transactions_total;
+        unsigned n_timeouts_total;
+        unsigned n_timeouts_served_stale_total;
+        unsigned n_negative_responses_total;
+        unsigned n_negative_responses_served_stale_total;
+
         unsigned n_dnssec_verdict[_DNSSEC_VERDICT_MAX];
 
         /* Data from /etc/hosts */
