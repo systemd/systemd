@@ -1036,10 +1036,8 @@ static int address_acquire(Link *link, const Address *original, Address **ret) {
         assert(ret);
 
         /* Something useful was configured? just use it */
-        if (in_addr_is_set(original->family, &original->in_addr)) {
-                *ret = NULL;
-                return 0;
-        }
+        if (in_addr_is_set(original->family, &original->in_addr))
+                return address_dup(original, ret);
 
         /* The address is configured to be 0.0.0.0 or [::] by the user?
          * Then let's acquire something more useful from the pool. */
@@ -1062,7 +1060,7 @@ static int address_acquire(Link *link, const Address *original, Address **ret) {
         na->in_addr = in_addr;
 
         *ret = TAKE_PTR(na);
-        return 1;
+        return 0;
 }
 
 int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg) {
@@ -1193,79 +1191,54 @@ int link_request_address(
                 address_netlink_handler_t netlink_handler,
                 Request **ret) {
 
-        Address *acquired, *existing = NULL;
+        _unused_ _cleanup_(address_freep) Address *address_will_be_freed = NULL;
+        Address *existing;
         int r;
 
         assert(link);
         assert(address);
         assert(address->source != NETWORK_CONFIG_SOURCE_FOREIGN);
 
-        r = address_acquire(link, address, &acquired);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to acquire an address from pool: %m");
-        if (r > 0) {
-                if (consume_object)
-                        address_free(address);
+        if (consume_object)
+                address_will_be_freed = address;
 
-                address = acquired;
-                consume_object = true;
-        }
-
-        if (address_needs_to_set_broadcast(address, link)) {
-                if (!consume_object) {
-                        Address *a;
-
-                        r = address_dup(address, &a);
-                        if (r < 0)
-                                return r;
-
-                        address = a;
-                        consume_object = true;
-                }
-
-                address_set_broadcast(address, link);
-        }
-
-        (void) address_get(link, address, &existing);
-
-        if (address->lifetime_valid_usec == 0) {
-                if (consume_object)
-                        address_free(address);
-
-                /* The requested address is outdated. Let's remove it. */
-                return address_remove_and_drop(existing);
-        }
-
-        if (!existing) {
+        if (address_get(link, address, &existing) < 0) {
                 _cleanup_(address_freep) Address *tmp = NULL;
 
-                if (consume_object)
-                        tmp = address;
-                else {
-                        r = address_dup(address, &tmp);
-                        if (r < 0)
-                                return r;
-                }
+                if (address->lifetime_valid_usec == 0)
+                        /* The requested address is outdated. Let's ignore the request. */
+                        return 0;
+
+                r = address_acquire(link, address, &tmp);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to acquire an address from pool: %m");
+
+                address_set_broadcast(tmp, link);
 
                 /* Consider address tentative until we get the real flags from the kernel */
                 tmp->flags |= IFA_F_TENTATIVE;
 
                 r = address_add(link, tmp);
                 if (r < 0)
-                        return r;
+                        return log_link_warning_errno(link, r, "Failed to save requested address: %m");
 
                 existing = TAKE_PTR(tmp);
         } else {
+                if (address->lifetime_valid_usec == 0)
+                        /* The requested address is outdated. Let's remove it. */
+                        return address_remove_and_drop(existing);
+
                 r = address_equalify(existing, address);
                 if (r < 0)
-                        return r;
+                        return log_link_warning_errno(link, r, "Failed to equalify saved address with the requested one: %m");
+
+                address_set_broadcast(existing, link);
+
                 existing->source = address->source;
                 existing->provider = address->provider;
                 existing->duplicate_address_detection = address->duplicate_address_detection;
                 existing->lifetime_valid_usec = address->lifetime_valid_usec;
                 existing->lifetime_preferred_usec = address->lifetime_preferred_usec;
-                if (consume_object)
-                        address_free(address);
         }
 
         r = ipv4acd_configure(existing);
