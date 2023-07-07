@@ -278,7 +278,8 @@ static int dhcp4_request_route_to_gateway(Link *link, const struct in_addr *gw) 
 static int dhcp4_request_route_auto(
                 Route *in,
                 Link *link,
-                const struct in_addr *gw) {
+                const struct in_addr *gw,
+                bool force_use_gw) {
 
         _cleanup_(route_freep) Route *route = in;
         struct in_addr address, netmask, prefix;
@@ -323,7 +324,8 @@ static int dhcp4_request_route_auto(
                 route->gw = IN_ADDR_NULL;
                 route->prefsrc.in = address;
 
-        } else if (route->dst_prefixlen >= prefixlen &&
+        } else if (!force_use_gw &&
+                   route->dst_prefixlen >= prefixlen &&
                    (route->dst.in.s_addr & netmask.s_addr) == prefix.s_addr) {
                 if (in4_addr_is_set(gw))
                         log_link_debug(link, "DHCP: requested route destination "IPV4_ADDRESS_FMT_STR"/%u is in the assigned network "
@@ -473,7 +475,9 @@ static int dhcp4_request_static_routes(Link *link, struct in_addr *ret_default_g
                     in4_addr_is_null(&default_gw))
                         default_gw = gw;
 
-                r = dhcp4_request_route_auto(TAKE_PTR(route), link, &gw);
+                /* Do not ignore the gateway given by the classless route option even if the destination is
+                 * in the same network. See issue #28280. */
+                r = dhcp4_request_route_auto(TAKE_PTR(route), link, &gw, /* force_use_gw = */ n_classless_routes > 0);
                 if (r < 0)
                         return r;
         }
@@ -609,7 +613,7 @@ static int dhcp4_request_routes_to_servers(
                 route->dst.in = servers[i];
                 route->dst_prefixlen = 32;
 
-                r = dhcp4_request_route_auto(TAKE_PTR(route), link, gw);
+                r = dhcp4_request_route_auto(TAKE_PTR(route), link, gw, /* force_use_gw = */ false);
                 if (r < 0)
                         return r;
         }
