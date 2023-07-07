@@ -2091,6 +2091,10 @@ static void address_section_adjust_broadcast(Address *address) {
                 log_warning("%s: broadcast address is set for an IPv4 address with peer address. "
                             "Ignoring Broadcast= setting in the [Address] section from line %u.",
                             address->section->filename, address->section->line);
+        else if (!in4_addr_is_set(&address->in_addr.in))
+                log_warning("%s: broadcast address is set for an IPv4 address with null address. "
+                            "Ignoring Broadcast= setting in the [Address] section from line %u.",
+                            address->section->filename, address->section->line);
         else
                 /* Otherwise, keep the specified broadcast address. */
                 return;
