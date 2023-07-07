@@ -1630,9 +1630,13 @@ static int bus_property_get_transaction_statistics(
 
         assert(reply);
 
-        return sd_bus_message_append(reply, "(tt)",
+        return sd_bus_message_append(reply, "(tttttt)",
                                      (uint64_t) hashmap_size(m->dns_transactions),
-                                     (uint64_t) m->n_transactions_total);
+                                     (uint64_t) m->n_transactions_total,
+                                     (uint64_t) m->n_timeouts_total,
+                                     (uint64_t) m->n_timeouts_served_stale_total,
+                                     (uint64_t) m->n_negative_responses_total,
+                                     (uint64_t) m->n_negative_responses_served_stale_total);
 }
 
 static int bus_property_get_cache_statistics(
@@ -1716,6 +1720,10 @@ static int bus_method_reset_statistics(sd_bus_message *message, void *userdata, 
                 s->cache.n_hit = s->cache.n_miss = 0;
 
         m->n_transactions_total = 0;
+        m->n_timeouts_total = 0;
+        m->n_timeouts_served_stale_total = 0;
+        m->n_negative_responses_total = 0;
+        m->n_negative_responses_served_stale_total = 0;
         zero(m->n_dnssec_verdict);
 
         return sd_bus_reply_method_return(message, NULL);
@@ -2070,7 +2078,7 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_PROPERTY("CurrentDNSServer", "(iiay)", bus_property_get_current_dns_server, offsetof(Manager, current_dns_server), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("CurrentDNSServerEx", "(iiayqs)", bus_property_get_current_dns_server_ex, offsetof(Manager, current_dns_server), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Domains", "a(isb)", bus_property_get_domains, 0, 0),
-        SD_BUS_PROPERTY("TransactionStatistics", "(tt)", bus_property_get_transaction_statistics, 0, 0),
+        SD_BUS_PROPERTY("TransactionStatistics", "(tttttt)", bus_property_get_transaction_statistics, 0, 0),
         SD_BUS_PROPERTY("CacheStatistics", "(ttt)", bus_property_get_cache_statistics, 0, 0),
         SD_BUS_PROPERTY("DNSSEC", "s", bus_property_get_dnssec_mode, 0, 0),
         SD_BUS_PROPERTY("DNSSECStatistics", "(tttt)", bus_property_get_dnssec_statistics, 0, 0),
