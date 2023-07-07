@@ -80,6 +80,8 @@ static inline int openssl_hmac(const char *digest_alg, const void *key, size_t k
 
 int openssl_cipher(const char *alg, size_t bits, const char *mode, const void *key, size_t key_size, const void *iv, size_t iv_size, const struct iovec data[], size_t n_data, void **ret, size_t *ret_size);
 
+int kdf_ss_derive(const char *digest, const void *key, size_t key_size, const void *salt, size_t salt_size, const void *info, size_t info_size, size_t derive_size, void **ret);
+
 int kdf_kb_hmac_derive(const char *mode, const char *digest, const void *key, size_t n_key, const void *salt, size_t n_salt, const void *info, size_t n_info, const void *seed, size_t n_seed, size_t n_derive, void **ret);
 
 int rsa_encrypt_bytes(EVP_PKEY *pkey, const void *decrypted_key, size_t decrypted_key_size, void **ret_encrypt_key, size_t *ret_encrypt_key_size);
