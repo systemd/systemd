@@ -211,7 +211,7 @@ REQUIREMENTS:
         python-pefile (optional, required for ukify)
         python-lxml (optional, required to build the indices)
         pyelftools (optional, required for systemd-boot)
-        meson >= 0.53.2
+        meson >= 0.60.0
         ninja
         gcc >= 4.7
         awk, sed, grep, and similar tools
