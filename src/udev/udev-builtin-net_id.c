@@ -522,7 +522,7 @@ static int names_vio(sd_device *dev, NetNames *names) {
         r = sd_device_get_subsystem(parent, &subsystem);
         if (r < 0)
                 return log_device_debug_errno(parent, r, "sd_device_get_subsystem() failed: %m");
-        if (!streq("vio", subsystem))
+        if (!streq(subsystem, "vio"))
                 return -ENOENT;
         log_device_debug(dev, "Parent device is in the vio subsystem.");
 
@@ -567,7 +567,7 @@ static int names_platform(sd_device *dev, NetNames *names, bool test) {
         if (r < 0)
                 return log_device_debug_errno(parent, r, "sd_device_get_subsystem() failed: %m");
 
-        if (!streq("platform", subsystem))
+        if (!streq(subsystem, "platform"))
                  return -ENOENT;
         log_device_debug(dev, "Parent device is in the platform subsystem.");
 
@@ -725,7 +725,7 @@ static int names_pci(sd_device *dev, const LinkInfo *info, NetNames *names) {
 
         /* check if our direct parent is a PCI device with no other bus in-between */
         if (sd_device_get_subsystem(parent, &subsystem) >= 0 &&
-            streq("pci", subsystem)) {
+            streq(subsystem, "pci")) {
                 names->type = NET_PCI;
                 names->pcidev = parent;
         } else {
@@ -1012,7 +1012,7 @@ static int names_xen(sd_device *dev, NetNames *names) {
         r = sd_device_get_subsystem(parent, &subsystem);
         if (r < 0)
                 return r;
-        if (!streq("xen", subsystem))
+        if (!streq(subsystem, "xen"))
                 return -ENOENT;
 
         /* Use the vif-n name to extract "n" */
@@ -1142,9 +1142,9 @@ static int builtin_net_id(UdevEvent *event, int argc, char *argv[], bool test) {
                 return 0;
         }
 
-        if (streq_ptr("wlan", info.devtype))
+        if (streq_ptr(info.devtype, "wlan"))
                 prefix = "wl";
-        else if (streq_ptr("wwan", info.devtype))
+        else if (streq_ptr(info.devtype, "wwan"))
                 prefix = "ww";
 
         udev_builtin_add_property(dev, test, "ID_NET_NAMING_SCHEME", naming_scheme()->name);
