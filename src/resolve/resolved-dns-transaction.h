@@ -109,6 +109,8 @@ struct DnsTransaction {
 
         bool probing:1;
 
+        bool seen_timeout:1;
+
         /* Query candidates this transaction is referenced by and that
          * shall be notified about this specific transaction
          * completing. */
