@@ -2072,6 +2072,32 @@ int config_parse_address_netlabel(
         return 0;
 }
 
+static void address_section_adjust_broadcast(Address *address) {
+        assert(address);
+        assert(address->section);
+
+        if (!in4_addr_is_set(&address->broadcast))
+                return;
+
+        if (address->family == AF_INET6)
+                log_warning("%s: broadcast address is set for an IPv6 address. "
+                            "Ignoring Broadcast= setting in the [Address] section from line %u.",
+                            address->section->filename, address->section->line);
+        else if (address->prefixlen > 30)
+                log_warning("%s: broadcast address is set for an IPv4 address with prefix length larger than 30. "
+                            "Ignoring Broadcast= setting in the [Address] section from line %u.",
+                            address->section->filename, address->section->line);
+        else if (in4_addr_is_set(&address->in_addr_peer.in))
+                log_warning("%s: broadcast address is set for an IPv4 address with peer address. "
+                            "Ignoring Broadcast= setting in the [Address] section from line %u.",
+                            address->section->filename, address->section->line);
+        else
+                /* Otherwise, keep the specified broadcast address. */
+                return;
+
+        address->broadcast.s_addr = 0;
+}
+
 static int address_section_verify(Address *address) {
         if (section_is_invalid(address->section))
                 return -EINVAL;
@@ -2087,16 +2113,7 @@ static int address_section_verify(Address *address) {
 
         assert(IN_SET(address->family, AF_INET, AF_INET6));
 
-        if (in4_addr_is_set(&address->broadcast) &&
-            (address->family == AF_INET6 || address->prefixlen > 30 ||
-             in_addr_is_set(address->family, &address->in_addr_peer))) {
-                log_warning("%s: broadcast address is set for an IPv6 address, "
-                            "an IPv4 address with peer address, or with prefix length larger than 30. "
-                            "Ignoring Broadcast= setting in the [Address] section from line %u.",
-                            address->section->filename, address->section->line);
-
-                address->broadcast.s_addr = 0;
-        }
+        address_section_adjust_broadcast(address);
 
         if (address->family == AF_INET6 && address->label) {
                 log_warning("%s: address label is set for IPv6 address in the [Address] section from line %u. "
