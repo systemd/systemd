@@ -53,6 +53,7 @@ struct Address {
 
         bool scope_set:1;
         bool ip_masquerade_done:1;
+        bool requested_as_null:1;
 
         /* duplicate_address_detection is only used by static or IPv4 dynamic addresses.
          * To control DAD for IPv6 dynamic addresses, set IFA_F_NODAD to flags. */
