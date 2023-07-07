@@ -2342,6 +2342,34 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         # TODO: check json string
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
 
+    def test_address_null(self):
+        copy_network_unit('25-address-null.network', '12-dummy.netdev')
+        start_networkd()
+
+        self.wait_online(['dummy98:routable'])
+
+        output = check_output('ip address show dev dummy98 scope global')
+        print(output)
+
+        ipv4_address_16 = re.findall(r'inet 172.[0-9]*.0.1/16 brd 172.[0-9]*.255.255', output)
+        self.assertEqual(len(ipv4_address_16), 1)
+        ipv4_address_24 = re.findall(r'inet 192.168.[0-9]*.1/24 brd 192.168.[0-9]*.255', output)
+        self.assertEqual(len(ipv4_address_24), 1)
+        ipv4_address_30 = re.findall(r'inet 192.168.[0-9]*.[0-9]*/30 brd 192.168.[0-9]*.[0-9]*', output)
+        self.assertEqual(len(ipv4_address_30), 1)
+        ipv6_address = re.findall(r'inet6 fd[0-9a-f:]*/64', output)
+        self.assertEqual(len(ipv6_address), 1)
+
+        networkctl_reconfigure('dummy98')
+        self.wait_online(['dummy98:routable'])
+
+        output = check_output('ip address show dev dummy98 scope global')
+        print(output)
+        self.assertIn(ipv4_address_16[0], output)
+        self.assertIn(ipv4_address_24[0], output)
+        self.assertIn(ipv4_address_30[0], output)
+        self.assertIn(ipv6_address[0], output)
+
     def test_address_ipv4acd(self):
         check_output('ip netns add ns99')
         check_output('ip link add veth99 type veth peer veth-peer')
