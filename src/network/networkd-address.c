@@ -262,6 +262,19 @@ static void address_set_lifetime(Manager *m, Address *a, const struct ifa_cachei
         a->lifetime_preferred_usec = sec_to_usec(cinfo->ifa_prefered, now_usec);
 }
 
+static bool address_is_static_null(const Address *address) {
+        assert(address);
+
+        if (!address->network)
+                return false;
+
+        if (!address->requested_as_null)
+                return false;
+
+        assert(!in_addr_is_set(address->family, &address->in_addr));
+        return true;
+}
+
 static uint32_t address_prefix(const Address *a) {
         assert(a);
 
@@ -389,16 +402,31 @@ int address_equal(const Address *a1, const Address *a2) {
 }
 
 static int address_equalify(Address *address, const Address *src) {
+        bool src_is_null;
         int r;
 
         assert(address);
         assert(src);
 
-        if (address_kernel_compare_func(address, src) != 0)
+        src_is_null = address_is_static_null(src);
+
+        if (src_is_null) {
+                /* When the source address has an null address, then we cannot compare the two objects with
+                 * address_kernel_compare_func(). Let's do minimal check here. */
+                if (address->family != src->family)
+                        return -EINVAL;
+                if (address->prefixlen != src->prefixlen)
+                        return -EINVAL;
+
+        } else if (address_kernel_compare_func(address, src) != 0)
                 return -EINVAL;
 
         if (address->family == AF_INET) {
-                address->broadcast = src->broadcast;
+                /* When the source is null, then the broadcast address will be determined based on the
+                 * acquired address. Hence, do not copy it here. */
+                if (!src_is_null)
+                        address->broadcast = src->broadcast;
+
                 r = free_and_strdup(&address->label, src->label);
                 if (r < 0)
                         return r;
@@ -552,18 +580,40 @@ static int address_drop(Address *address) {
 }
 
 int address_get(Link *link, const Address *in, Address **ret) {
-        Address *existing;
+        Address *a;
 
         assert(link);
         assert(in);
 
-        existing = set_get(link->addresses, in);
-        if (!existing)
-                return -ENOENT;
+        a = set_get(link->addresses, in);
+        if (a) {
+                if (ret)
+                        *ret = a;
+                return 0;
+        }
 
-        if (ret)
-                *ret = existing;
-        return 0;
+        /* Find matching address that originally requested as null address. */
+        if (address_is_static_null(in))
+                SET_FOREACH(a, link->addresses) {
+                        if (!a->requested_as_null)
+                                continue;
+
+                        /* Currently, null address is supported only by static addresses. Note that static
+                         * address may be set as foreign during reconfiguring the interface. */
+                        if (!IN_SET(a->source, NETWORK_CONFIG_SOURCE_FOREIGN, NETWORK_CONFIG_SOURCE_STATIC))
+                                continue;
+
+                        if (a->family != in->family)
+                                continue;
+                        if (a->prefixlen != in->prefixlen)
+                                continue;
+
+                        if (ret)
+                                *ret = a;
+                        return 0;
+                }
+
+        return -ENOENT;
 }
 
 int link_get_address(Link *link, int family, const union in_addr_union *address, unsigned char prefixlen, Address **ret) {
@@ -971,12 +1021,24 @@ int link_drop_foreign_addresses(Link *link) {
         ORDERED_HASHMAP_FOREACH(address, link->network->addresses_by_section) {
                 Address *existing;
 
+                if (address_get(link, address, &existing) < 0)
+                        continue;
+
                 /* On update, the kernel ignores the address label and broadcast address. Hence we need to
                  * distinguish addresses with different labels or broadcast addresses. Thus, we need to check
                  * the existing address with address_equal(). Otherwise, the label or broadcast address
                  * change will not be applied when we reconfigure the interface. */
-                if (address_get(link, address, &existing) >= 0 && address_equal(address, existing))
-                        address_unmark(existing);
+                if (address_is_static_null(address)) {
+                        /* If the static configuration has null address, then the broadcast address will be
+                         * determined automatically. Hence, here we need to compare only address label. */
+                        if (address->family == AF_INET && !streq_ptr(address->label, existing->label))
+                                continue;
+
+                } else if (!address_equal(address, existing))
+                        continue;
+
+                /* Found matching static configuration. Keep the existing address. */
+                address_unmark(existing);
         }
 
         /* Finally, remove all marked addresses. */
@@ -1700,9 +1762,10 @@ int config_parse_address(
         n->family = f;
         n->prefixlen = prefixlen;
 
-        if (streq(lvalue, "Address"))
+        if (streq(lvalue, "Address")) {
                 n->in_addr = buffer;
-        else
+                n->requested_as_null = !in_addr_is_set(n->family, &n->in_addr);
+        } else
                 n->in_addr_peer = buffer;
 
         TAKE_PTR(n);
