@@ -97,6 +97,7 @@
         "suspend:Suspend the system"
         "poweroff:Shut down and power-off the system"
         "reboot:Shut down and reboot the system"
+        "soft-reboot:Shut down and reboot the userspace"
         "kexec:Shut down and reboot the system with kexec"
         "exit:Ask for user instance termination"
         "switch-root:Change root directory"
