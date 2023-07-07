@@ -745,7 +745,7 @@
         has a one-time effect when this units started, a <varname>Upholds=</varname> dependency on it has a
         continuous effect, constantly restarting the unit if necessary. This is an alternative to the
         <varname>Restart=</varname> setting of service units, to ensure they are kept running whatever
-        happens.</para>
+        happens. The restart happens without delay, and usual per-unit rate-limit applies.</para>
 
         <para>When <varname>Upholds=b.service</varname> is used on <filename>a.service</filename>, this
         dependency will show as <varname>UpheldBy=a.service</varname> in the property listing of
