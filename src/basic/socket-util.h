@@ -153,6 +153,28 @@ int getpeercred(int fd, struct ucred *ucred);
 int getpeersec(int fd, char **ret);
 int getpeergroups(int fd, gid_t **ret);
 
+ssize_t send_many_fds_iov_sa(
+                int transport_fd,
+                int *fds_array, size_t n_fds_array,
+                const struct iovec *iov, size_t iovlen,
+                const struct sockaddr *sa, socklen_t len,
+                int flags);
+static inline ssize_t send_many_fds_iov(
+                int transport_fd,
+                int *fds_array, size_t n_fds_array,
+                const struct iovec *iov, size_t iovlen,
+                int flags) {
+
+        return send_many_fds_iov_sa(transport_fd, fds_array, n_fds_array, iov, iovlen, NULL, 0, flags);
+}
+static inline int send_many_fds(
+                int transport_fd,
+                int *fds_array,
+                size_t n_fds_array,
+                int flags) {
+
+        return send_many_fds_iov_sa(transport_fd, fds_array, n_fds_array, NULL, 0, NULL, 0, flags);
+}
 ssize_t send_one_fd_iov_sa(
                 int transport_fd,
                 int fd,
@@ -167,6 +189,8 @@ int send_one_fd_sa(int transport_fd,
 #define send_one_fd(transport_fd, fd, flags) send_one_fd_iov_sa(transport_fd, fd, NULL, 0, NULL, 0, flags)
 ssize_t receive_one_fd_iov(int transport_fd, struct iovec *iov, size_t iovlen, int flags, int *ret_fd);
 int receive_one_fd(int transport_fd, int flags);
+ssize_t receive_many_fds_iov(int transport_fd, struct iovec *iov, size_t iovlen, int **ret_fds_array, size_t *ret_n_fds_array, int flags);
+int receive_many_fds(int transport_fd, int **ret_fds_array, size_t *ret_n_fds_array, int flags);
 
 ssize_t next_datagram_size_fd(int fd);
 
