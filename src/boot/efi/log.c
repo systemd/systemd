@@ -93,6 +93,24 @@ EFI_STATUS log_internal(EFI_STATUS status, const char *format, ...) {
         return status;
 }
 
+EFI_STATUS log_debugcon_internal(EFI_STATUS status, const char *format, ...) {
+        assert(format);
+        char16_t *msg;
+
+        va_list ap;
+        va_start(ap, format);
+        msg = xvasprintf_status(status, format, ap);
+        va_end(ap);
+
+        log_debugcon(DEBUGCON_PREFIX);
+        log_debugcon(msg);
+        msg = mfree(msg);
+
+        log_debugcon(u"\r\n");
+
+        return status;
+}
+
 #ifdef EFI_DEBUG
 void log_hexdump(const char16_t *prefix, const void *data, size_t size) {
         /* Debugging helper — please keep this around, even if not used */
