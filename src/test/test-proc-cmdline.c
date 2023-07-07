@@ -63,6 +63,7 @@ TEST(proc_cmdline_override) {
         assert_se(strv_equal(args, STRV_MAKE("hoge")));
         args = strv_free(args);
 
+#if ENABLE_EFI
         assert_se(proc_cmdline_get_key("foo_bar", 0, &value) > 0 && streq_ptr(value, "quux"));
         value = mfree(value);
 
@@ -71,6 +72,7 @@ TEST(proc_cmdline_override) {
 
         assert_se(proc_cmdline_get_key("and_one_more", 0, &value) > 0 && streq_ptr(value, "zzz aaa"));
         value = mfree(value);
+#endif
 }
 
 static int parse_item_given(const char *key, const char *value, void *data) {
