@@ -11,7 +11,7 @@ TEST_REQUIRE_INSTALL_TESTS=0
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
-test_require_bin swtpm tpm2_pcrextend
+test_require_bin swtpm tpm2_pcrextend tpm2_dictionarylockout
 
 test_append_files() {
     local workspace="${1:?}"
@@ -19,6 +19,7 @@ test_append_files() {
     instmods tpm tpm_tis tpm_ibmvtpm
     install_dmevent
     generate_module_dependencies
+    inst_binary tpm2_dictionarylockout
     inst_binary tpm2_pcrextend
     inst_binary tpm2_pcrread
     inst_binary openssl

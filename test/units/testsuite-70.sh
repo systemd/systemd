@@ -22,6 +22,21 @@ tpm_has_pcr() {
     [[ -f "/sys/class/tpm/tpm0/pcr-$algorithm/$pcr" ]]
 }
 
+tpm_check_failure_with_wrong_pin() {
+    local testimg="${1:?}"
+    local badpin="${2:?}"
+    local goodpin="${3:?}"
+
+    # We need to be careful not to trigger DA lockout; allow 2 failures
+    tpm2_dictionarylockout -s -n 2
+    (! PIN=$badpin "$SD_CRYPTSETUP" attach test-volume "$testimg" - tpm2-device=auto,headless=1)
+    # Verify the correct PIN works, to be sure the failure wasn't a DA lockout
+    PIN=$goodpin "$SD_CRYPTSETUP" attach test-volume "$testimg" - tpm2-device=auto,headless=1
+    "$SD_CRYPTSETUP" detach test-volume
+    # Clear/reset the DA lockout counter
+    tpm2_dictionarylockout -c
+}
+
 # Prepare a fresh disk image
 img="/tmp/test.img"
 truncate -s 20M "$img"
@@ -46,8 +61,10 @@ PASSWORD=passphrase NEWPIN=123456 systemd-cryptenroll --tpm2-device=auto --tpm2-
 PIN=123456 "$SD_CRYPTSETUP" attach test-volume "$img" - tpm2-device=auto,headless=1
 "$SD_CRYPTSETUP" detach test-volume
 
-# Check failure with wrong PIN
-(! PIN=123457 "$SD_CRYPTSETUP" attach test-volume "$img" - tpm2-device=auto,headless=1)
+# Check failure with wrong PIN; try a few times to make sure we avoid DA lockout
+for _ in {0..3}; do
+    tpm_check_failure_with_wrong_pin "$img" 123457 123456
+done
 
 # Check LUKS2 token plugin unlock (i.e. without specifying tpm2-device=auto)
 if cryptsetup_has_token_plugin_support; then
@@ -55,7 +72,9 @@ if cryptsetup_has_token_plugin_support; then
     "$SD_CRYPTSETUP" detach test-volume
 
     # Check failure with wrong PIN
-    (! PIN=123457 "$SD_CRYPTSETUP" attach test-volume "$img" - headless=1)
+    for _ in {0..3}; do
+        tpm_check_failure_with_wrong_pin "$img" 123457 123456
+    done
 else
     echo 'cryptsetup has no LUKS2 token plugin support, skipping'
 fi
