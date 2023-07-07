@@ -37,6 +37,7 @@
         "clean:Remove configuration, state, cache, logs or runtime data of units"
         "bind:Bind mount a path from the host into a unit's namespace"
         "mount-image:Mount an image from the host into a unit's namespace"
+        "whoami:Determines as part of which unit the command is being invoked"
     )
 
     local -a machine_commands=(
@@ -97,6 +98,7 @@
         "suspend:Suspend the system"
         "poweroff:Shut down and power-off the system"
         "reboot:Shut down and reboot the system"
+        "soft-reboot:Shut down and reboot the userspace"
         "kexec:Shut down and reboot the system with kexec"
         "exit:Ask for user instance termination"
         "switch-root:Change root directory"
