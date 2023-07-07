@@ -594,6 +594,8 @@ CHANGES WITH 254 in spe:
 
         Other:
 
+        * Meson >= 0.60.0 is now required to build systemd.
+
         * The default keymap to apply may now be chosen at build-time via the
           new -Ddefault-keymap= meson option.
 
