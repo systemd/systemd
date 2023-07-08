@@ -165,7 +165,7 @@ static int run(int argc, char *argv[]) {
                                                "Failed to fstat(%s): %m",
                                                FORMAT_PROC_FD_PATH(STDERR_FILENO));
 
-                if (asprintf(&s, DEV_FMT ":" INO_FMT, st.st_dev, st.st_ino) < 0)
+                if (asprintf(&s, DEV_FMT ":" INO_FMT, (dev_t)st.st_dev, st.st_ino) < 0)
                         return log_oom();
 
                 if (setenv("JOURNAL_STREAM", s, /* overwrite = */ true) < 0)
