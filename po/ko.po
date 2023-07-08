@@ -9,15 +9,16 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-07-06 20:45+0100\n"
-"PO-Revision-Date: 2023-06-25 07:20+0000\n"
+"PO-Revision-Date: 2023-07-08 17:21+0000\n"
 "Last-Translator: 김인수 <simmon@nplob.com>\n"
-"Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/master/ko/>\n"
+"Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
+"master/ko/>\n"
 "Language: ko\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 4.18.1\n"
+"X-Generator: Weblate 4.18.2\n"
 "X-Poedit-SourceCharset: UTF-8\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
@@ -62,12 +63,11 @@ msgstr "systemd 상태를 다시 불러오려면 인증이 필요합니다."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
-msgstr ""
+msgstr "속도 제한 없이 systemd 상태 출력"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
-#, fuzzy
 msgid "Authentication is required to dump the systemd state without rate limits."
-msgstr "systemd 상태를 다시 불러오려면 인증이 필요합니다."
+msgstr "인증은 속도 제한 없이 systemd 상태를 출력하는데 필요합니다."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
