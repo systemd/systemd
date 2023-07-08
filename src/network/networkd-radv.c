@@ -214,7 +214,7 @@ int link_request_radv_addresses(Link *link) {
                         address->prefixlen = p->prefixlen;
                         address->route_metric = p->route_metric;
 
-                        r = link_request_static_address(link, TAKE_PTR(address), true);
+                        r = link_request_static_address(link, address);
                         if (r < 0)
                                 return r;
                 }
