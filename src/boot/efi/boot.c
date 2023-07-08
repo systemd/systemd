@@ -3,6 +3,7 @@
 #include "bcd.h"
 #include "bootspec-fundamental.h"
 #include "console.h"
+#include "addon-util.h"
 #include "device-path-util.h"
 #include "devicetree.h"
 #include "drivers.h"
@@ -57,6 +58,7 @@ typedef struct {
         char16_t *devicetree;
         char16_t *options;
         char16_t **initrd;
+        char16_t **addons; /* systemd-addons for this entry */
         char16_t key;
         EFI_STATUS (*call)(void);
         int tries_done;
@@ -577,6 +579,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                         printf("        loader: %ls\n", entry->loader);
                 STRV_FOREACH(initrd, entry->initrd)
                         printf("        initrd: %ls\n", *initrd);
+                STRV_FOREACH(addon, entry->addons)
+                        printf("         addon: %ls\n", *addon);
                 if (entry->devicetree)
                         printf("    devicetree: %ls\n", entry->devicetree);
                 if (entry->options)
@@ -1093,6 +1097,7 @@ static void config_entry_free(ConfigEntry *entry) {
         free(entry->devicetree);
         free(entry->options);
         strv_free(entry->initrd);
+        strv_free(entry->addons);
         free(entry->path);
         free(entry->current_name);
         free(entry->next_name);
@@ -1406,7 +1411,7 @@ static void config_entry_add_type1(
 
         _cleanup_(config_entry_freep) ConfigEntry *entry = NULL;
         char *line;
-        size_t pos = 0, n_initrd = 0;
+        size_t pos = 0, n_initrd = 0, n_addons = 0;
         char *key, *value;
         EFI_STATUS err;
 
@@ -1485,12 +1490,24 @@ static void config_entry_add_type1(
                 }
 
                 if (streq8(key, "initrd")) {
-                        entry->initrd = xrealloc(
+                        entry->initrd = xrealloc_extra_item(
+                                uint16_t,
                                 entry->initrd,
-                                n_initrd == 0 ? 0 : (n_initrd + 1) * sizeof(uint16_t *),
-                                (n_initrd + 2) * sizeof(uint16_t *));
+                                n_initrd
+                        );
                         entry->initrd[n_initrd++] = xstr8_to_path(value);
                         entry->initrd[n_initrd] = NULL;
+                        continue;
+                }
+
+                if (streq8(key, "addon")) {
+                        entry->addons = xrealloc_extra_item(
+                                uint16_t,
+                                entry->addons,
+                                n_addons
+                        );
+                        entry->addons[n_addons++] = xstr8_to_path(value);
+                        entry->addons[n_addons] = NULL;
                         continue;
                 }
 
@@ -2387,6 +2404,12 @@ static EFI_STATUS image_start(
                 (void) tpm_log_load_options(options, NULL);
         }
 
+        if (entry->addons) {
+                err = addons_install(loaded_image, (const char16_t**)entry->addons);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error installing addons: %m");
+        }
+
         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeExecUSec", 0);
         err = BS->StartImage(image, NULL, NULL);
         graphics_mode(false);
@@ -2540,6 +2563,7 @@ static void export_variables(
                 EFI_LOADER_FEATURE_DEVICETREE |
                 EFI_LOADER_FEATURE_SECUREBOOT_ENROLL |
                 EFI_LOADER_FEATURE_RETAIN_SHIM |
+                EFI_LOADER_FEATURE_OFFER_ADDONS |
                 0;
 
         _cleanup_free_ char16_t *infostr = NULL, *typestr = NULL;
