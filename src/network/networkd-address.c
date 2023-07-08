@@ -457,43 +457,6 @@ int address_equal(const Address *a1, const Address *a2) {
         return address_compare_func(a1, a2) == 0;
 }
 
-static int address_equalify(Address *address, const Address *src) {
-        bool src_is_null;
-        int r;
-
-        assert(address);
-        assert(src);
-
-        src_is_null = address_is_static_null(src);
-
-        if (src_is_null) {
-                /* When the source address has an null address, then we cannot compare the two objects with
-                 * address_kernel_compare_func(). Let's do minimal check here. */
-                if (address->family != src->family)
-                        return -EINVAL;
-                if (address->prefixlen != src->prefixlen)
-                        return -EINVAL;
-
-        } else if (address_kernel_compare_func(address, src) != 0)
-                return -EINVAL;
-
-        if (address->family == AF_INET) {
-                /* When the source is null, then the broadcast address will be determined based on the
-                 * acquired address. Hence, do not copy it here. */
-                if (!src_is_null)
-                        address->broadcast = src->broadcast;
-
-                r = free_and_strdup(&address->label, src->label);
-                if (r < 0)
-                        return r;
-        } else {
-                address->prefixlen = src->prefixlen;
-                address->in_addr_peer = src->in_addr_peer;
-        }
-
-        return 0;
-}
-
 int address_dup(const Address *src, Address **ret) {
         _cleanup_(address_freep) Address *dest = NULL;
         int r;
@@ -626,8 +589,7 @@ static int address_drop(Address *address) {
 
         address_del_netlabel(address);
 
-        if (address->state == 0)
-                address_free(address);
+        address_free(address);
 
         link_update_operstate(link, /* also_update_master = */ true);
         link_check_ready(link);
@@ -653,6 +615,47 @@ static bool address_match_null(const Address *a, const Address *null_address) {
                 return false;
 
         return true;
+}
+
+static int address_get_request(Link *link, const Address *address, Request **ret) {
+        Request *req;
+
+        assert(link);
+        assert(link->manager);
+        assert(address);
+
+        req = ordered_set_get(
+                        link->manager->request_queue,
+                        &(Request) {
+                                .link = link,
+                                .type = REQUEST_TYPE_ADDRESS,
+                                .userdata = (void*) address,
+                                .hash_func = (hash_func_t) address_kernel_hash_func,
+                                .compare_func = (compare_func_t) address_kernel_compare_func,
+                        });
+        if (req) {
+                if (ret)
+                        *ret = req;
+                return 0;
+        }
+
+        if (address_is_static_null(address))
+                ORDERED_SET_FOREACH(req, link->manager->request_queue) {
+                        if (req->link != link)
+                                continue;
+                        if (req->type != REQUEST_TYPE_ADDRESS)
+                                continue;
+
+                        if (!address_match_null(req->userdata, address))
+                                continue;
+
+                        if (ret)
+                                *ret = req;
+
+                        return 0;
+                }
+
+        return -ENOENT;
 }
 
 int address_get(Link *link, const Address *in, Address **ret) {
@@ -874,6 +877,7 @@ static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
 
 int address_remove(Address *address) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        Request *req;
         Link *link;
         int r;
 
@@ -906,6 +910,8 @@ int address_remove(Address *address) {
         link_ref(link);
 
         address_enter_removing(address);
+        if (address_get_request(link, address, &req) >= 0)
+                address_enter_removing(req->userdata);
 
         /* The operational state is determined by address state and carrier state. Hence, if we remove
          * an address, the operational state may be changed. */
@@ -1275,6 +1281,7 @@ static bool address_is_ready_to_configure(Link *link, const Address *address) {
 }
 
 static int address_process_request(Request *req, Link *link, Address *address) {
+        struct Address *existing;
         struct ifa_cacheinfo c;
         int r;
 
@@ -1290,7 +1297,10 @@ static int address_process_request(Request *req, Link *link, Address *address) {
                 log_link_debug(link, "Refuse to configure %s address %s, as its valid lifetime is zero.",
                                network_config_source_to_string(address->source),
                                IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
+
                 address_cancel_requesting(address);
+                if (address_get(link, address, &existing) >= 0)
+                        address_enter_configuring(existing);
                 return 1;
         }
 
@@ -1299,6 +1309,9 @@ static int address_process_request(Request *req, Link *link, Address *address) {
                 return log_link_warning_errno(link, r, "Failed to configure address: %m");
 
         address_enter_configuring(address);
+        if (address_get(link, address, &existing) >= 0)
+                address_enter_configuring(existing);
+
         return 1;
 }
 
@@ -1309,59 +1322,52 @@ int link_request_address(
                 address_netlink_handler_t netlink_handler,
                 Request **ret) {
 
-        Address *existing;
+        _cleanup_(address_freep) Address *tmp = NULL;
+        Address *existing = NULL;
         int r;
 
         assert(link);
         assert(address);
         assert(address->source != NETWORK_CONFIG_SOURCE_FOREIGN);
 
-        if (address_get(link, address, &existing) < 0) {
-                _cleanup_(address_freep) Address *tmp = NULL;
+        if (address->lifetime_valid_usec == 0)
+                /* The requested address is outdated. Let's ignore the request. */
+                return 0;
 
-                if (address->lifetime_valid_usec == 0)
-                        /* The requested address is outdated. Let's ignore the request. */
-                        return 0;
+        if (address_get(link, address, &existing) < 0) {
+                if (address_get_request(link, address, NULL) >= 0)
+                        return 0; /* already requested, skipping. */
 
                 r = address_acquire(link, address, &tmp);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Failed to acquire an address from pool: %m");
 
-                address_set_broadcast(tmp, link);
-
                 /* Consider address tentative until we get the real flags from the kernel */
                 tmp->flags |= IFA_F_TENTATIVE;
 
-                r = address_add(link, tmp);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to save requested address: %m");
-
-                existing = TAKE_PTR(tmp);
         } else {
-                if (address->lifetime_valid_usec == 0)
-                        /* The requested address is outdated. Let's remove it. */
-                        return address_remove_and_drop(existing);
-
-                r = address_equalify(existing, address);
+                r = address_dup(address, &tmp);
                 if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to equalify saved address with the requested one: %m");
+                        return log_oom();
 
-                address_set_broadcast(existing, link);
+                /* Copy already assigned address when it is requested as a null address. */
+                if (address_is_static_null(address))
+                        tmp->in_addr = existing->in_addr;
 
-                existing->source = address->source;
-                existing->provider = address->provider;
-                existing->duplicate_address_detection = address->duplicate_address_detection;
-                existing->lifetime_valid_usec = address->lifetime_valid_usec;
-                existing->lifetime_preferred_usec = address->lifetime_preferred_usec;
+                /* Copy state for logging below. */
+                tmp->state = existing->state;
         }
 
-        r = ipv4acd_configure(link, existing);
+        address_set_broadcast(tmp, link);
+
+        r = ipv4acd_configure(link, tmp);
         if (r < 0)
                 return r;
 
-        log_address_debug(existing, "Requesting", link);
+        log_address_debug(tmp, "Requesting", link);
         r = link_queue_request_safe(link, REQUEST_TYPE_ADDRESS,
-                                    existing, NULL,
+                                    tmp,
+                                    address_free,
                                     address_kernel_hash_func,
                                     address_kernel_compare_func,
                                     address_process_request,
@@ -1371,8 +1377,11 @@ int link_request_address(
         if (r == 0)
                 return 0;
 
-        address_enter_requesting(existing);
+        address_enter_requesting(tmp);
+        if (existing)
+                address_enter_requesting(existing);
 
+        TAKE_PTR(tmp);
         return 1;
 }
 
@@ -1464,6 +1473,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         Link *link;
         uint16_t type;
         Address *address = NULL;
+        Request *req = NULL;
         bool is_new = false;
         int ifindex, r;
 
@@ -1573,16 +1583,20 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 assert_not_reached();
         }
 
-        /* Then, find the managed Address object corresponding to the received address. */
+        /* Then, find the managed Address and Request objects corresponding to the received address. */
         (void) address_get(link, tmp, &address);
+        (void) address_get_request(link, tmp, &req);
 
         if (type == RTM_DELADDR) {
                 if (address) {
                         address_enter_removed(address);
-                        log_address_debug(address, address->state == 0 ? "Forgetting" : "Removed", link);
+                        log_address_debug(address, "Forgetting removed", link);
                         (void) address_drop(address);
                 } else
                         log_address_debug(tmp, "Kernel removed unknown", link);
+
+                if (req)
+                        address_enter_removed(req->userdata);
 
                 return 0;
         }
@@ -1603,6 +1617,17 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 /* Otherwise, update the managed Address object with the netlink notification. */
                 address->prefixlen = tmp->prefixlen;
                 address->in_addr_peer = tmp->in_addr_peer;
+        }
+
+        /* Also update information that cannot be obtained through netlink notification. */
+        if (req && req->waiting_reply) {
+                Address *a = ASSERT_PTR(req->userdata);
+
+                address->source = a->source;
+                address->provider = a->provider;
+                (void) free_and_strdup_warn(&address->netlabel, a->netlabel);
+                address->requested_as_null = a->requested_as_null;
+                address->callback = a->callback;
         }
 
         /* Then, update miscellaneous info. */
@@ -1643,6 +1668,9 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 log_link_debug_errno(link, r, "rtnl: failed to read IFA_CACHEINFO attribute, ignoring: %m");
 
         address_enter_configured(address);
+        if (req)
+                address_enter_configured(req->userdata);
+
         log_address_debug(address, is_new ? "Received new": "Received updated", link);
 
         /* address_update() logs internally, so we don't need to here. */
