@@ -587,6 +587,27 @@ static int address_drop(Address *address) {
         return 0;
 }
 
+static bool address_match_null(const Address *a, const Address *null_address) {
+        assert(a);
+        assert(null_address);
+
+        if (!a->requested_as_null)
+                return false;
+
+        /* Currently, null address is supported only by static addresses. Note that static
+         * address may be set as foreign during reconfiguring the interface. */
+        if (!IN_SET(a->source, NETWORK_CONFIG_SOURCE_FOREIGN, NETWORK_CONFIG_SOURCE_STATIC))
+                return false;
+
+        if (a->family != null_address->family)
+                return false;
+
+        if (a->prefixlen != null_address->prefixlen)
+                return false;
+
+        return true;
+}
+
 int address_get(Link *link, const Address *in, Address **ret) {
         Address *a;
 
@@ -603,17 +624,7 @@ int address_get(Link *link, const Address *in, Address **ret) {
         /* Find matching address that originally requested as null address. */
         if (address_is_static_null(in))
                 SET_FOREACH(a, link->addresses) {
-                        if (!a->requested_as_null)
-                                continue;
-
-                        /* Currently, null address is supported only by static addresses. Note that static
-                         * address may be set as foreign during reconfiguring the interface. */
-                        if (!IN_SET(a->source, NETWORK_CONFIG_SOURCE_FOREIGN, NETWORK_CONFIG_SOURCE_STATIC))
-                                continue;
-
-                        if (a->family != in->family)
-                                continue;
-                        if (a->prefixlen != in->prefixlen)
+                        if (!address_match_null(a, in))
                                 continue;
 
                         if (ret)
