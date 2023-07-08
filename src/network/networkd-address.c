@@ -1246,22 +1246,17 @@ static int address_process_request(Request *req, Link *link, Address *address) {
 
 int link_request_address(
                 Link *link,
-                Address *address,
-                bool consume_object,
+                const Address *address,
                 unsigned *message_counter,
                 address_netlink_handler_t netlink_handler,
                 Request **ret) {
 
-        _unused_ _cleanup_(address_freep) Address *address_will_be_freed = NULL;
         Address *existing;
         int r;
 
         assert(link);
         assert(address);
         assert(address->source != NETWORK_CONFIG_SOURCE_FOREIGN);
-
-        if (consume_object)
-                address_will_be_freed = address;
 
         if (address_get(link, address, &existing) < 0) {
                 _cleanup_(address_freep) Address *tmp = NULL;
@@ -1341,12 +1336,12 @@ static int static_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reque
         return 1;
 }
 
-int link_request_static_address(Link *link, Address *address, bool consume) {
+int link_request_static_address(Link *link, const Address *address) {
         assert(link);
         assert(address);
         assert(address->source == NETWORK_CONFIG_SOURCE_STATIC);
 
-        return link_request_address(link, address, consume, &link->static_address_messages,
+        return link_request_address(link, address, &link->static_address_messages,
                                     static_address_handler, NULL);
 }
 
@@ -1360,7 +1355,7 @@ int link_request_static_addresses(Link *link) {
         link->static_addresses_configured = false;
 
         ORDERED_HASHMAP_FOREACH(a, link->network->addresses_by_section) {
-                r = link_request_static_address(link, a, false);
+                r = link_request_static_address(link, a);
                 if (r < 0)
                         return r;
         }

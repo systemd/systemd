@@ -250,7 +250,7 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
 
         is_new = address_get(link, address, NULL) < 0;
 
-        r = link_request_address(link, TAKE_PTR(address), true, &link->ndisc_messages,
+        r = link_request_address(link, address, &link->ndisc_messages,
                                  ndisc_address_handler, NULL);
         if (r < 0)
                 return r;

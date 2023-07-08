@@ -421,7 +421,7 @@ static int dhcp_pd_request_address(
                 else
                         address_unmark(existing);
 
-                r = link_request_address(link, TAKE_PTR(address), true, &link->dhcp_pd_messages,
+                r = link_request_address(link, address, &link->dhcp_pd_messages,
                                          dhcp_pd_address_handler, NULL);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to request DHCP delegated prefix address: %m");
