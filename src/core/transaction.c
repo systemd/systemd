@@ -657,14 +657,19 @@ static int transaction_apply(
                 /* Clean the job dependencies */
                 transaction_unlink_job(tr, j, false);
 
-                installed_job = job_install(j, mode);
+                /* When RestartMode=direct is used, the service being restarted don't enter the inactive/failed
+                 * state, i.e. unit_process_job -> job_finish_and_invalidate is never called, and the previous
+                 * job might still be running (especially for Type=oneshot services). We need to refuse
+                 * late merge and re-enqueue the anchor job. */
+                installed_job = job_install(j,
+                                            /* refuse_late_merge = */ mode == JOB_RESTART_DEPENDENCIES && j == tr->anchor_job);
                 if (installed_job != j) {
                         /* j has been merged into a previously installed job */
                         if (tr->anchor_job == j)
                                 tr->anchor_job = installed_job;
+
                         hashmap_remove_value(m->jobs, UINT32_TO_PTR(j->id), j);
-                        job_free(j);
-                        j = installed_job;
+                        free_and_replace_full(j, installed_job, job_free);
                 }
 
                 job_add_to_run_queue(j);
