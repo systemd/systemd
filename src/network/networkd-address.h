@@ -107,12 +107,11 @@ bool manager_has_address(Manager *manager, int family, const union in_addr_union
 void address_cancel_request(Address *address);
 int link_request_address(
                 Link *link,
-                Address *address,
-                bool consume_object,
+                const Address *address,
                 unsigned *message_counter,
                 address_netlink_handler_t netlink_handler,
                 Request **ret);
-int link_request_static_address(Link *link, Address *address, bool consume);
+int link_request_static_address(Link *link, const Address *address);
 int link_request_static_addresses(Link *link);
 
 int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, Manager *m);
