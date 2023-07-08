@@ -12,4 +12,4 @@ static inline void unload_addons(EFI_HANDLE *addons) {
         // TODO: unload the installed protocol?
 }
 
-EFI_STATUS addons_install(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, const char16_t **addons);
+EFI_STATUS addons_install(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, char16_t * const *addons);
