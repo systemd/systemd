@@ -984,7 +984,7 @@ static int dhcp4_request_address(Link *link, bool announce) {
         else
                 address_unmark(existing);
 
-        r = link_request_address(link, TAKE_PTR(addr), true, &link->dhcp4_messages,
+        r = link_request_address(link, addr, &link->dhcp4_messages,
                                  dhcp4_address_handler, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv4 address: %m");
