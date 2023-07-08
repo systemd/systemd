@@ -1464,6 +1464,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         Link *link;
         uint16_t type;
         Address *address = NULL;
+        bool is_new = false;
         int ifindex, r;
 
         assert(rtnl);
@@ -1509,6 +1510,8 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         if (r < 0)
                 return log_oom();
 
+        /* First, read minimal information to make address_get() work below. */
+
         r = sd_rtnl_message_addr_get_family(message, &tmp->family);
         if (r < 0) {
                 log_link_warning(link, "rtnl: received address message without family, ignoring.");
@@ -1521,26 +1524,6 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         r = sd_rtnl_message_addr_get_prefixlen(message, &tmp->prefixlen);
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: received address message without prefixlen, ignoring: %m");
-                return 0;
-        }
-
-        r = sd_rtnl_message_addr_get_scope(message, &tmp->scope);
-        if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received address message without scope, ignoring: %m");
-                return 0;
-        }
-
-        r = sd_netlink_message_read_u32(message, IFA_FLAGS, &tmp->flags);
-        if (r == -ENODATA) {
-                unsigned char flags;
-
-                /* For old kernels. */
-                r = sd_rtnl_message_addr_get_flags(message, &flags);
-                if (r >= 0)
-                        tmp->flags = flags;
-        }
-        if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received address message without flags, ignoring: %m");
                 return 0;
         }
 
@@ -1560,19 +1543,6 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                         if (in4_addr_equal(&tmp->in_addr.in, &tmp->in_addr_peer.in))
                                 tmp->in_addr_peer = IN_ADDR_NULL;
                 }
-
-                r = sd_netlink_message_read_in_addr(message, IFA_BROADCAST, &tmp->broadcast);
-                if (r < 0 && r != -ENODATA) {
-                        log_link_warning_errno(link, r, "rtnl: could not get broadcast from address message, ignoring: %m");
-                        return 0;
-                }
-
-                r = sd_netlink_message_read_string_strdup(message, IFA_LABEL, &tmp->label);
-                if (r < 0 && r != -ENODATA) {
-                        log_link_warning_errno(link, r, "rtnl: could not get label from address message, ignoring: %m");
-                        return 0;
-                } else if (r >= 0 && streq_ptr(tmp->label, link->ifname))
-                        tmp->label = mfree(tmp->label);
 
                 break;
 
@@ -1603,52 +1573,10 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 assert_not_reached();
         }
 
-        r = sd_netlink_message_read_cache_info(message, IFA_CACHEINFO, &cinfo);
-        if (r < 0 && r != -ENODATA) {
-                log_link_warning_errno(link, r, "rtnl: cannot get IFA_CACHEINFO attribute, ignoring: %m");
-                return 0;
-        }
-
+        /* Then, find the managed Address object corresponding to the received address. */
         (void) address_get(link, tmp, &address);
 
-        switch (type) {
-        case RTM_NEWADDR:
-                if (address) {
-                        /* update flags and etc. */
-                        r = address_equalify(address, tmp);
-                        if (r < 0) {
-                                log_link_warning_errno(link, r, "Failed to update properties of address %s, ignoring: %m",
-                                                       IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
-                                return 0;
-                        }
-                        address->flags = tmp->flags;
-                        address->scope = tmp->scope;
-                        address_set_lifetime(m, address, &cinfo);
-                        address_enter_configured(address);
-                        log_address_debug(address, "Received updated", link);
-                } else {
-                        address_set_lifetime(m, tmp, &cinfo);
-                        address_enter_configured(tmp);
-                        log_address_debug(tmp, "Received new", link);
-
-                        r = address_add(link, tmp);
-                        if (r < 0) {
-                                log_link_warning_errno(link, r, "Failed to remember foreign address %s, ignoring: %m",
-                                                       IN_ADDR_PREFIX_TO_STRING(tmp->family, &tmp->in_addr, tmp->prefixlen));
-                                return 0;
-                        }
-
-                        address = TAKE_PTR(tmp);
-                }
-
-                /* address_update() logs internally, so we don't need to here. */
-                r = address_update(address);
-                if (r < 0)
-                        link_enter_failed(link);
-
-                break;
-
-        case RTM_DELADDR:
+        if (type == RTM_DELADDR) {
                 if (address) {
                         address_enter_removed(address);
                         log_address_debug(address, address->state == 0 ? "Forgetting" : "Removed", link);
@@ -1656,11 +1584,71 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 } else
                         log_address_debug(tmp, "Kernel removed unknown", link);
 
-                break;
-
-        default:
-                assert_not_reached();
+                return 0;
         }
+
+        if (!address) {
+                /* If we did not know the address, then save it. */
+                r = address_add(link, tmp);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to remember foreign address %s, ignoring: %m",
+                                               IN_ADDR_PREFIX_TO_STRING(tmp->family, &tmp->in_addr, tmp->prefixlen));
+                        return 0;
+                }
+                address = TAKE_PTR(tmp);
+
+                is_new = true;
+
+        } else {
+                /* Otherwise, update the managed Address object with the netlink notification. */
+                address->prefixlen = tmp->prefixlen;
+                address->in_addr_peer = tmp->in_addr_peer;
+        }
+
+        /* Then, update miscellaneous info. */
+        r = sd_rtnl_message_addr_get_scope(message, &address->scope);
+        if (r < 0)
+                log_link_debug_errno(link, r, "rtnl: received address message without scope, ignoring: %m");
+
+        if (address->family == AF_INET) {
+                _cleanup_free_ char *label = NULL;
+
+                r = sd_netlink_message_read_string_strdup(message, IFA_LABEL, &label);
+                if (r >= 0) {
+                        if (!streq_ptr(label, link->ifname))
+                                free_and_replace(address->label, label);
+                } else if (r != -ENODATA)
+                        log_link_debug_errno(link, r, "rtnl: could not get label from address message, ignoring: %m");
+
+                r = sd_netlink_message_read_in_addr(message, IFA_BROADCAST, &address->broadcast);
+                if (r < 0 && r != -ENODATA)
+                        log_link_debug_errno(link, r, "rtnl: could not get broadcast from address message, ignoring: %m");
+        }
+
+        r = sd_netlink_message_read_u32(message, IFA_FLAGS, &address->flags);
+        if (r == -ENODATA) {
+                unsigned char flags;
+
+                /* For old kernels. */
+                r = sd_rtnl_message_addr_get_flags(message, &flags);
+                if (r >= 0)
+                        address->flags = flags;
+        } else if (r < 0)
+                log_link_debug_errno(link, r, "rtnl: failed to read IFA_FLAGS attribute, ignoring: %m");
+
+        r = sd_netlink_message_read_cache_info(message, IFA_CACHEINFO, &cinfo);
+        if (r >= 0)
+                address_set_lifetime(m, address, &cinfo);
+        else if (r != -ENODATA)
+                log_link_debug_errno(link, r, "rtnl: failed to read IFA_CACHEINFO attribute, ignoring: %m");
+
+        address_enter_configured(address);
+        log_address_debug(address, is_new ? "Received new": "Received updated", link);
+
+        /* address_update() logs internally, so we don't need to here. */
+        r = address_update(address);
+        if (r < 0)
+                link_enter_failed(link);
 
         return 1;
 }
