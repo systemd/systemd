@@ -2405,7 +2405,7 @@ static EFI_STATUS image_start(
         }
 
         if (entry->addons) {
-                err = addons_install(loaded_image, (const char16_t**)entry->addons);
+                err = addons_install(loaded_image, entry->addons);
                 if (err != EFI_SUCCESS)
                         return log_error_status(err, "Error installing addons: %m");
         }
