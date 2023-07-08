@@ -1557,6 +1557,12 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 return 0;
         }
 
+        r = sd_netlink_message_read_u32(message, IFA_RT_PRIORITY, &tmp->route_metric);
+        if (r < 0 && r != -ENODATA) {
+                log_link_warning_errno(link, r, "rtnl: cannot get IFA_RT_PRIORITY attribute, ignoring: %m");
+                return 0;
+        }
+
         (void) address_get(link, tmp, &address);
 
         switch (type) {
