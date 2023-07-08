@@ -90,7 +90,7 @@ static int static_ipv4acd_address_remove(Link *link, Address *address, bool on_c
         return 0;
 }
 
-static int dhcp4_address_on_conflict(Link *link, Address *address) {
+static int dhcp4_address_on_conflict(Link *link) {
         int r;
 
         assert(link);
@@ -156,7 +156,7 @@ static void on_acd(sd_ipv4acd *acd, int event, void *userdata) {
                 if (address->source == NETWORK_CONFIG_SOURCE_STATIC)
                         r = static_ipv4acd_address_remove(link, address, /* on_conflict = */ true);
                 else
-                        r = dhcp4_address_on_conflict(link, address);
+                        r = dhcp4_address_on_conflict(link);
                 if (r < 0)
                         link_enter_failed(link);
                 break;
