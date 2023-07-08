@@ -80,6 +80,8 @@ struct Request {
          * request, and pass this request to the netlink_call_async(), and set the destroy function
          * to the slot. */
         request_netlink_handler_t netlink_handler;
+
+        bool waiting_reply;
 };
 
 Request *request_ref(Request *req);
