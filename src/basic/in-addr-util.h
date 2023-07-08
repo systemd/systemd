@@ -195,6 +195,16 @@ extern const struct hash_ops in_addr_data_hash_ops_free;
 extern const struct hash_ops in6_addr_hash_ops;
 extern const struct hash_ops in6_addr_hash_ops_free;
 
+static inline void PTR_TO_IN4_ADDR(const void *p, struct in_addr *ret) {
+        assert(ret);
+        ret->s_addr = (uint32_t) ((uintptr_t) p);
+}
+
+static inline void* IN4_ADDR_TO_PTR(const struct in_addr *a) {
+        assert(a);
+        return (void*) ((uintptr_t) a->s_addr);
+}
+
 #define IPV4_ADDRESS_FMT_STR     "%u.%u.%u.%u"
 #define IPV4_ADDRESS_FMT_VAL(address)              \
         be32toh((address).s_addr) >> 24,           \
