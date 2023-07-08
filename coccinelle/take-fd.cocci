@@ -4,7 +4,7 @@ local idexpression p;
 expression q;
 @@
 - p = q;
-- q = -1;
+- q = -EBADF;
 - return p;
 + return TAKE_FD(q);
 
@@ -18,5 +18,5 @@ expression p != errno;
 expression q;
 @@
 - p = q;
-- q = -1;
+- q = -EBADF;
 + p = TAKE_FD(q);
