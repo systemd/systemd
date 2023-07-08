@@ -79,16 +79,13 @@ static int static_ipv4acd_address_remove(Link *link, Address *address, bool on_c
                 return 0; /* Not assigned. */
 
         if (on_conflict)
-                log_link_warning(link, "Dropping address "IPV4_ADDRESS_FMT_STR", as an address conflict was detected.",
-                                 IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
+                log_link_warning(link, "Dropping address %s, as an address conflict was detected.", IN4_ADDR_TO_STRING(&address->in_addr.in));
         else
-                log_link_debug(link, "Removing address "IPV4_ADDRESS_FMT_STR", as the ACD client is stopped.",
-                               IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
+                log_link_debug(link, "Removing address %s, as the ACD client is stopped.", IN4_ADDR_TO_STRING(&address->in_addr.in));
 
         r = address_remove(address);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to remove address "IPV4_ADDRESS_FMT_STR": %m",
-                                              IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
+                return log_link_warning_errno(link, r, "Failed to remove address %s: %m", IN4_ADDR_TO_STRING(&address->in_addr.in));
 
         return 0;
 }
@@ -118,6 +115,7 @@ static int dhcp4_address_on_conflict(Link *link, Address *address) {
 
 static void on_acd(sd_ipv4acd *acd, int event, void *userdata) {
         Address *address = ASSERT_PTR(userdata);
+        struct in_addr a;
         Link *link;
         int r;
 
@@ -128,6 +126,7 @@ static void on_acd(sd_ipv4acd *acd, int event, void *userdata) {
         assert(IN_SET(address->source, NETWORK_CONFIG_SOURCE_STATIC, NETWORK_CONFIG_SOURCE_DHCP4));
 
         link = address->link;
+        a = address->in_addr.in;
 
         switch (event) {
         case SD_IPV4ACD_EVENT_STOP:
@@ -146,15 +145,13 @@ static void on_acd(sd_ipv4acd *acd, int event, void *userdata) {
         case SD_IPV4ACD_EVENT_BIND:
                 address->acd_bound = true;
 
-                log_link_debug(link, "Successfully claimed address "IPV4_ADDRESS_FMT_STR,
-                               IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
+                log_link_debug(link, "Successfully claimed address %s", IN4_ADDR_TO_STRING(&a));
                 break;
 
         case SD_IPV4ACD_EVENT_CONFLICT:
                 address->acd_bound = false;
 
-                log_link_warning(link, "Dropping address "IPV4_ADDRESS_FMT_STR", as an address conflict was detected.",
-                                 IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
+                log_link_warning(link, "Dropping address %s, as an address conflict was detected.", IN4_ADDR_TO_STRING(&a));
 
                 if (address->source == NETWORK_CONFIG_SOURCE_STATIC)
                         r = static_ipv4acd_address_remove(link, address, /* on_conflict = */ true);
@@ -216,8 +213,7 @@ int ipv4acd_configure(Address *address) {
         if (address->acd)
                 return address_ipv4acd_start(address);
 
-        log_link_debug(link, "Configuring IPv4ACD for address "IPV4_ADDRESS_FMT_STR,
-                       IPV4_ADDRESS_FMT_VAL(address->in_addr.in));
+        log_link_debug(link, "Configuring IPv4ACD for address %s.", IN4_ADDR_TO_STRING(&address->in_addr.in));
 
         r = sd_ipv4acd_new(&address->acd);
         if (r < 0)
