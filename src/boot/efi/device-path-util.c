@@ -4,11 +4,14 @@
 #include "util.h"
 
 EFI_STATUS make_multiple_file_device_path(
-                EFI_HANDLE device, const char16_t **files, EFI_DEVICE_PATH ***ret_dp) {
+                EFI_HANDLE device,
+                char16_t * const *files,
+                EFI_DEVICE_PATH ***ret_dp) {
+
         EFI_STATUS err;
         EFI_DEVICE_PATH *cur_dp = NULL, **iterator_dp = NULL;
         EFI_DEVICE_PATH *original_device_path = NULL;
-        size_t n_files = strv_length((const void**)files);
+        size_t n_files = strv_length(files);
 
         assert(files);
         assert(ret_dp);
