@@ -130,7 +130,7 @@ static uint64_t msr(uint64_t index) {
                                 index);
                 return 0;
         } else if (rv != sizeof(ret)) {
-                log_debug("Short read %ld bytes from MSR device %s (index %" PRIu64 "), ignoring",
+                log_debug("Short read %zd bytes from MSR device %s (index %" PRIu64 "), ignoring",
                           rv,
                           MSR_DEVICE,
                           index);
