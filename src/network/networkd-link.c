@@ -950,7 +950,7 @@ static Link *link_drop(Link *link) {
 }
 
 static int link_drop_foreign_config(Link *link) {
-        int k, r;
+        int r;
 
         assert(link);
         assert(link->manager);
@@ -967,48 +967,26 @@ static int link_drop_foreign_config(Link *link) {
 
         r = link_drop_foreign_routes(link);
 
-        k = link_drop_foreign_nexthops(link);
-        if (k < 0 && r >= 0)
-                r = k;
-
-        k = link_drop_foreign_addresses(link);
-        if (k < 0 && r >= 0)
-                r = k;
-
-        k = link_drop_foreign_neighbors(link);
-        if (k < 0 && r >= 0)
-                r = k;
-
-        k = manager_drop_foreign_routing_policy_rules(link->manager);
-        if (k < 0 && r >= 0)
-                r = k;
+        RET_GATHER(r, link_drop_foreign_nexthops(link));
+        RET_GATHER(r, link_drop_foreign_addresses(link));
+        RET_GATHER(r, link_drop_foreign_neighbors(link));
+        RET_GATHER(r, manager_drop_foreign_routing_policy_rules(link->manager));
 
         return r;
 }
 
 static int link_drop_managed_config(Link *link) {
-        int k, r;
+        int r;
 
         assert(link);
         assert(link->manager);
 
         r = link_drop_managed_routes(link);
 
-        k = link_drop_managed_nexthops(link);
-        if (k < 0 && r >= 0)
-                r = k;
-
-        k = link_drop_managed_addresses(link);
-        if (k < 0 && r >= 0)
-                r = k;
-
-        k = link_drop_managed_neighbors(link);
-        if (k < 0 && r >= 0)
-                r = k;
-
-        k = link_drop_managed_routing_policy_rules(link);
-        if (k < 0 && r >= 0)
-                r = k;
+        RET_GATHER(r, link_drop_managed_nexthops(link));
+        RET_GATHER(r, link_drop_managed_addresses(link));
+        RET_GATHER(r, link_drop_managed_neighbors(link));
+        RET_GATHER(r, link_drop_managed_routing_policy_rules(link));
 
         return r;
 }
