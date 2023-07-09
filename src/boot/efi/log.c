@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "console.h"
 #include "device-path-util.h"
 #include "log.h"
 #include "proto/rng.h"
 #include "proto/simple-text-io.h"
 #include "util.h"
+#include "vmm.h"
 
 LogLevel max_log_level = LOG_WARNING;
 static unsigned log_count = 0;
@@ -80,11 +82,33 @@ void log_device_path(const char16_t *prefix, const EFI_DEVICE_PATH *dp) {
 #endif
 
 void log_wait(void) {
+        EFI_STATUS err;
+
+        /* Give the user a chance to catch up on log messages on the console. */
+
         if (log_count == 0)
                 return;
 
-        BS->Stall(MIN(4u, log_count) * 2500 * 1000);
+        /* We skip this for VMs as these really should have a serial console with a scrollback
+         * buffer for easy consumption. It also ensures we don't slow down any CI. */
+        if (in_hypervisor())
+                return;
+
+        unsigned timeout_sec = CLAMP(log_count, 3u, 9u);
         log_count = 0;
+
+        for (;;) {
+                printf("\rContinuing in %u s, press any key to skip log timeout.", timeout_sec);
+
+                err = console_key_read(&(uint64_t){ 0 }, 1000 * 1000);
+                if (err == EFI_NOT_READY)
+                        continue;
+                if (err == EFI_TIMEOUT && timeout_sec > 0) {
+                        timeout_sec--;
+                        continue;
+                }
+                break;
+        }
 }
 
 _used_ intptr_t __stack_chk_guard = (intptr_t) 0x70f6967de78acae3;
