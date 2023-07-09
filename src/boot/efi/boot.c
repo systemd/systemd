@@ -778,16 +778,16 @@ static bool menu_run(
                         size_t len = strnlen16(status, x_max - 1);
                         size_t x = (x_max - len) / 2;
                         status[len] = '\0';
-                        print_at(0, y_status, COLOR_NORMAL, clearline + x_max - x);
+                        print_at(0, y_status + 1, COLOR_NORMAL, clearline + x_max - x);
                         ST->ConOut->OutputString(ST->ConOut, status);
                         ST->ConOut->OutputString(ST->ConOut, clearline + 1 + x + len);
 
                         len = MIN(MAX(len, line_width) + 2 * entry_padding, x_max);
                         x = (x_max - len) / 2;
-                        print_at(x, y_status - 1, COLOR_NORMAL, separator + x_max - len);
+                        print_at(x, y_status, COLOR_NORMAL, separator + x_max - len);
                 } else {
-                        print_at(0, y_status - 1, COLOR_NORMAL, clearline);
-                        print_at(0, y_status, COLOR_NORMAL, clearline + 1); /* See comment above. */
+                        print_at(0, y_status, COLOR_NORMAL, clearline);
+                        print_at(0, y_status + 1, COLOR_NORMAL, clearline + 1); /* See comment above. */
                 }
 
                 /* Beep several times so that the selected entry can be distinguished. */
