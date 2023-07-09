@@ -2422,6 +2422,7 @@ static EFI_STATUS image_start(
         }
 
         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeExecUSec", 0);
+        log_info("Starting image.");
         err = BS->StartImage(image, NULL, NULL);
         graphics_mode(false);
         if (err == EFI_SUCCESS)
@@ -2439,6 +2440,7 @@ static EFI_STATUS image_start(
                         EFI_IMAGE_ENTRY_POINT kernel_entry =
                                 (EFI_IMAGE_ENTRY_POINT) ((uint8_t *) loaded_image->ImageBase + compat_address);
 
+                        log_info("Starting kernel using compat entry address.");
                         err = kernel_entry(image, ST);
                         graphics_mode(false);
                         if (err == EFI_SUCCESS)
