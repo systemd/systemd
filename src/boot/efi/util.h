@@ -190,6 +190,7 @@ void notify_debugger(const char *identity, bool wait);
                 RT = system_table->RuntimeServices;                                    \
                 __stack_chk_guard_init();                                              \
                 notify_debugger((identity), (wait_for_debugger));                      \
+                log_init();                                                            \
                 EFI_STATUS err = func(image);                                          \
                 return err;                                                            \
         }

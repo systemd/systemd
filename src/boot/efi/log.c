@@ -17,6 +17,15 @@ static const int32_t log_colors[] = {
         [LOG_TRACE]   = EFI_TEXT_ATTR(EFI_BROWN, EFI_BLACK),
 };
 
+static const char16_t * const log_level_table[] = {
+        [LOG_FATAL]   = u"fatal",
+        [LOG_ERROR]   = u"error",
+        [LOG_WARNING] = u"warning",
+        [LOG_INFO]    = u"info",
+        [LOG_DEBUG]   = u"debug",
+        [LOG_TRACE]   = u"trace",
+};
+
 void freeze(void) {
         for (;;)
                 BS->Stall(60 * 1000 * 1000);
@@ -81,6 +90,24 @@ void log_device_path(const char16_t *prefix, const EFI_DEVICE_PATH *dp) {
                 log_error_status(err, "%ls: %m", prefix);
 }
 #endif
+
+static void set_log_level(const char16_t *level) {
+        for (unsigned i = 0; i < ELEMENTSOF(log_level_table); i++) 
+                if (strcaseeq16(level, log_level_table[i])) {
+                        max_log_level = i;
+                        return;
+                }
+}
+
+void log_init(void) {
+        /* By using the UEFI shell environment variable namespace one can easily set the logging
+         * level from the EFI shell with "set SYSTEMD_BOOT_LOG_LEVEL debug", which is much nicer
+         * than having to write out a GUID with "setvar". */
+
+        _cleanup_free_ char16_t *level = NULL;
+        if (efivar_get(MAKE_GUID_PTR(EFI_SHELL_VARIABLE), u"SYSTEMD_BOOT_LOG_LEVEL", &level) == EFI_SUCCESS)
+                set_log_level(level);
+}
 
 _used_ intptr_t __stack_chk_guard = (intptr_t) 0x70f6967de78acae3;
 
