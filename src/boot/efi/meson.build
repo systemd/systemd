@@ -203,29 +203,20 @@ if cc.get_id() == 'clang'
         efi_c_ld_args += '-Wno-unused-command-line-argument'
 endif
 
-if host_machine.cpu_family() == 'arm'
-        # libgcc is not compiled with -fshort-wchar, but it does not use it anyways,
-        # so it's fine to link against it.
-        efi_c_ld_args += '-Wl,--no-wchar-size-warning'
-endif
-
-efi_c_args_primary = [efi_c_args, '-DEFI_MACHINE_TYPE_NAME="' + efi_arch + '"']
-efi_c_args_alt = [efi_c_args, '-DEFI_MACHINE_TYPE_NAME="' + efi_arch_alt + '"']
-efi_c_ld_args_primary = efi_c_ld_args
-efi_c_ld_args_alt = efi_c_ld_args
-
 efi_arch_c_args = {
         'aarch64' : ['-mgeneral-regs-only'],
         'arm'     : ['-mgeneral-regs-only'],
-        'x86_64'  : ['-march=x86-64', '-mno-red-zone', '-mgeneral-regs-only'],
-        'x86'     : ['-march=i686', '-mgeneral-regs-only', '-malign-double'],
+        # Pass -m64/32 explicitly to make building on x32 work.
+        'x86_64'  : ['-m64', '-march=x86-64', '-mno-red-zone', '-mgeneral-regs-only'],
+        'x86'     : ['-m32', '-march=i686', '-mgeneral-regs-only', '-malign-double'],
 }
-efi_c_args_primary += efi_arch_c_args.get(host_machine.cpu_family(), [])
-
-if efi_arch_alt == 'ia32'
-        efi_c_args_alt += ['-m32', efi_arch_c_args['x86']]
-        efi_c_ld_args_alt += '-m32'
-endif
+efi_arch_c_ld_args = {
+        # libgcc is not compiled with -fshort-wchar, but it does not use it anyways,
+        # so it's fine to link against it.
+        'arm'    : ['-Wl,--no-wchar-size-warning'],
+        'x86_64' : ['-m64'],
+        'x86'    : ['-m32'],
+}
 
 ############################################################
 
@@ -282,15 +273,29 @@ efi_elf_binaries = []
 efi_archspecs = [
         {
                 'arch' : efi_arch,
-                'c_args' : efi_c_args_primary,
-                'link_args' : efi_c_ld_args_primary,
+                'c_args' : [
+                        efi_c_args,
+                        '-DEFI_MACHINE_TYPE_NAME="' + efi_arch + '"',
+                        efi_arch_c_args.get(host_machine.cpu_family(), []),
+                ],
+                'link_args' : [
+                        efi_c_ld_args,
+                        efi_arch_c_ld_args.get(host_machine.cpu_family(), []),
+                ],
         },
 ]
 if efi_arch_alt != ''
         efi_archspecs += {
                 'arch' : efi_arch_alt,
-                'c_args' : efi_c_args_alt,
-                'link_args' : efi_c_ld_args_alt,
+                'c_args' : [
+                        efi_c_args,
+                        '-DEFI_MACHINE_TYPE_NAME="' + efi_arch_alt + '"',
+                        efi_arch_c_args.get(efi_cpu_family_alt, []),
+                ],
+                'link_args' : [
+                        efi_c_ld_args,
+                        efi_arch_c_ld_args.get(efi_cpu_family_alt, []),
+                ],
         }
 endif
 

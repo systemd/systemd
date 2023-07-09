@@ -26,6 +26,10 @@ assert_cc(sizeof(char16_t) == 2);
 assert_cc(sizeof(char32_t) == 4);
 assert_cc(sizeof(size_t) == sizeof(void *));
 assert_cc(sizeof(size_t) == sizeof(uintptr_t));
+
+#  if defined(__x86_64__) && defined(__ILP32__)
+#    error Building for x64 requires -m64 on x32 ABI.
+#  endif
 #else
 #  include <uchar.h>
 #  include <wchar.h>
@@ -41,7 +45,7 @@ typedef size_t EFI_TPL;
 typedef uint64_t EFI_LBA;
 typedef uint64_t EFI_PHYSICAL_ADDRESS;
 
-#if defined(__x86_64__)
+#if defined(__x86_64__) && !defined(__ILP32__)
 #  define EFIAPI __attribute__((ms_abi))
 #else
 #  define EFIAPI
