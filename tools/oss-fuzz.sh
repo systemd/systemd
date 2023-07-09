@@ -35,6 +35,7 @@ else
     apt-get update
     apt-get install -y gperf m4 gettext python3-pip \
         libcap-dev libmount-dev \
+        python3-pyelftools \
         pkg-config wget python3-jinja2 zipmerge zstd
 
     if [[ "$ARCHITECTURE" == i386 ]]; then
