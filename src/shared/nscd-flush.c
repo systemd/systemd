@@ -128,21 +128,15 @@ static int nscd_flush_cache_one(const char *database, usec_t end) {
 }
 
 int nscd_flush_cache(char **databases) {
-        usec_t end;
         int r = 0;
 
-        /* Tries to invalidate the specified database in nscd. We do this carefully, with a 5s timeout, so that we
-         * don't block indefinitely on another service. */
+        /* Tries to invalidate the specified database in nscd. We do this carefully, with a 5s timeout,
+         * so that we don't block indefinitely on another service. */
 
-        end = usec_add(now(CLOCK_MONOTONIC), NSCD_FLUSH_CACHE_TIMEOUT_USEC);
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), NSCD_FLUSH_CACHE_TIMEOUT_USEC);
 
-        STRV_FOREACH(i, databases) {
-                int k;
-
-                k = nscd_flush_cache_one(*i, end);
-                if (k < 0 && r >= 0)
-                        r = k;
-        }
+        STRV_FOREACH(i, databases)
+                RET_GATHER(r, nscd_flush_cache_one(*i, end));
 
         return r;
 }
