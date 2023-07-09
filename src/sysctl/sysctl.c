@@ -113,7 +113,7 @@ static int sysctl_write_or_warn(const char *key, const char *value, bool ignore_
 static int apply_glob_option_with_prefix(OrderedHashmap *sysctl_options, Option *option, const char *prefix) {
         _cleanup_strv_free_ char **paths = NULL;
         _cleanup_free_ char *pattern = NULL;
-        int r, k;
+        int r;
 
         assert(sysctl_options);
         assert(option);
@@ -173,28 +173,23 @@ static int apply_glob_option_with_prefix(OrderedHashmap *sysctl_options, Option 
                         continue;
                 }
 
-                k = sysctl_write_or_warn(key, option->value,
-                                         /* ignore_failure = */ option->ignore_failure,
-                                         /* ignore_enoent = */ !arg_strict);
-                if (k < 0 && r >= 0)
-                        r = k;
+                RET_GATHER(r,
+                           sysctl_write_or_warn(key, option->value,
+                                                /* ignore_failure = */ option->ignore_failure,
+                                                /* ignore_enoent = */ !arg_strict));
         }
 
         return r;
 }
 
 static int apply_glob_option(OrderedHashmap *sysctl_options, Option *option) {
-        int r = 0, k;
+        int r = 0;
 
         if (strv_isempty(arg_prefixes))
                 return apply_glob_option_with_prefix(sysctl_options, option, NULL);
 
-        STRV_FOREACH(i, arg_prefixes) {
-                k = apply_glob_option_with_prefix(sysctl_options, option, *i);
-                if (k < 0 && r >= 0)
-                        r = k;
-        }
-
+        STRV_FOREACH(i, arg_prefixes)
+                RET_GATHER(r, apply_glob_option_with_prefix(sysctl_options, option, *i));
         return r;
 }
 
@@ -215,8 +210,7 @@ static int apply_all(OrderedHashmap *sysctl_options) {
                         k = sysctl_write_or_warn(option->key, option->value,
                                                  /* ignore_failure = */ option->ignore_failure,
                                                  /* ignore_enoent = */ !arg_strict);
-                if (k < 0 && r >= 0)
-                        r = k;
+                RET_GATHER(r, k);
         }
 
         return r;
@@ -444,7 +438,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_ordered_hashmap_free_ OrderedHashmap *sysctl_options = NULL;
-        int r, k;
+        int r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -455,15 +449,11 @@ static int run(int argc, char *argv[]) {
         umask(0022);
 
         if (argc > optind) {
-                int i;
-
                 r = 0;
 
-                for (i = optind; i < argc; i++) {
-                        k = parse_file(&sysctl_options, argv[i], false);
-                        if (k < 0 && r == 0)
-                                r = k;
-                }
+                for (int i = optind; i < argc; i++)
+                        RET_GATHER(r, parse_file(&sysctl_options, argv[i], false));
+
         } else {
                 _cleanup_strv_free_ char **files = NULL;
 
@@ -477,20 +467,13 @@ static int run(int argc, char *argv[]) {
                         return cat_files(NULL, files, 0);
                 }
 
-                STRV_FOREACH(f, files) {
-                        k = parse_file(&sysctl_options, *f, true);
-                        if (k < 0 && r == 0)
-                                r = k;
-                }
+                STRV_FOREACH(f, files)
+                        RET_GATHER(r, parse_file(&sysctl_options, *f, true));
 
-                k = read_credential_lines(&sysctl_options);
-                if (k < 0 && r == 0)
-                        r = k;
+                RET_GATHER(r, read_credential_lines(&sysctl_options));
         }
 
-        k = apply_all(sysctl_options);
-        if (k < 0 && r == 0)
-                r = k;
+        RET_GATHER(r, apply_all(sysctl_options));
 
         return r;
 }

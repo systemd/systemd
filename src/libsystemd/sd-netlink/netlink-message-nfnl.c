@@ -184,7 +184,7 @@ int sd_nfnl_call_batch(
 
         _cleanup_free_ sd_netlink_message **replies = NULL;
         _cleanup_free_ uint32_t *serials = NULL;
-        int k, r;
+        int r;
 
         assert_return(nfnl, -EINVAL);
         assert_return(!netlink_pid_changed(nfnl), -ECHILD);
@@ -201,11 +201,9 @@ int sd_nfnl_call_batch(
         if (r < 0)
                 return r;
 
-        for (size_t i = 0; i < n_messages; i++) {
-                k = sd_netlink_read(nfnl, serials[i], usec, ret_messages ? replies + i : NULL);
-                if (k < 0 && r >= 0)
-                        r = k;
-        }
+        for (size_t i = 0; i < n_messages; i++)
+                RET_GATHER(r,
+                           sd_netlink_read(nfnl, serials[i], usec, ret_messages ? replies + i : NULL));
         if (r < 0)
                 return r;
 

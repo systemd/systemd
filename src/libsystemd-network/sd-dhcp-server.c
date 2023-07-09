@@ -1448,19 +1448,16 @@ on_error:
 
 int sd_dhcp_server_forcerenew(sd_dhcp_server *server) {
         DHCPLease *lease;
-        int k, r = 0;
+        int r = 0;
 
         assert_return(server, -EINVAL);
 
         log_dhcp_server(server, "FORCERENEW");
 
-        HASHMAP_FOREACH(lease, server->bound_leases_by_client_id) {
-                k = server_send_forcerenew(server, lease->address, lease->gateway,
-                                           lease->htype, lease->hlen, lease->chaddr);
-                if (k < 0)
-                        r = k;
-        }
-
+        HASHMAP_FOREACH(lease, server->bound_leases_by_client_id)
+                RET_GATHER(r,
+                           server_send_forcerenew(server, lease->address, lease->gateway,
+                                                  lease->htype, lease->hlen, lease->chaddr));
         return r;
 }
 
