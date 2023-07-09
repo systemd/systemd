@@ -1687,6 +1687,10 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         else if (r != -ENODATA)
                 log_link_debug_errno(link, r, "rtnl: failed to read IFA_CACHEINFO attribute, ignoring: %m");
 
+        r = sd_netlink_message_read_u32(message, IFA_RT_PRIORITY, &address->route_metric);
+        if (r < 0 && r != -ENODATA)
+                log_link_debug_errno(link, r, "rtnl: failed to read IFA_RT_PRIORITY attribute, ignoring: %m");
+
         address_enter_configured(address);
         if (req)
                 address_enter_configured(req->userdata);
