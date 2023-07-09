@@ -167,6 +167,7 @@ const char *tpm2_asym_alg_to_string(uint16_t alg);
 int tpm2_asym_alg_from_string(const char *alg);
 
 char *tpm2_pcr_mask_to_string(uint32_t mask);
+int hex_to_bytes(uint8_t bytes[SHA256_DIGEST_SIZE], const char *hex);
 int tpm2_pcr_from_string(const char *arg, uint32_t *mask, uint32_t *literal_mask, uint8_t literal[][SHA256_DIGEST_SIZE]);
 
 typedef struct {

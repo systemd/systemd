@@ -21,6 +21,10 @@ static void test_tpm2_pcr_from_string_one(const char *s, uint32_t mask, uint32_t
 TEST(tpm2_mask_from_string) {
         uint32_t literal_mask = 0;
         uint8_t pcr_literal[24][SHA256_DIGEST_SIZE];
+        char pcr_string[77];
+        char *hex;
+        unsigned pcr_idx;
+
         memset(pcr_literal, 0, 24*SHA256_DIGEST_SIZE);
 
         test_tpm2_pcr_from_string_one("", 0, literal_mask, pcr_literal, 0);
@@ -44,6 +48,30 @@ TEST(tpm2_mask_from_string) {
         test_tpm2_pcr_from_string_one("sysexts,shim+kernel-boot", 0, literal_mask, pcr_literal, -EINVAL);
         test_tpm2_pcr_from_string_one("sysexts+17+23", 8527872, literal_mask, pcr_literal, 0);
         test_tpm2_pcr_from_string_one("debug+24", 0, literal_mask, pcr_literal, -EINVAL);
+
+        hex = (char *)"3D458CFE55CC03EA1F443F1562BEEC8DF51C75E14A9FCF9A7234A13F198E7969";
+        pcr_idx = 11;
+        sprintf(pcr_string, "0,%u:sha256=%s", pcr_idx, hex);
+        memset(pcr_literal, 0, 24*SHA256_DIGEST_SIZE);
+        hex_to_bytes(pcr_literal[pcr_idx], hex);
+        literal_mask = 1 << pcr_idx;
+        test_tpm2_pcr_from_string_one(pcr_string, 1, literal_mask, pcr_literal, 0);
+
+        hex = (char *)"3G458CFE55CC03EA1F443F1562BEEC8DF51C75E14A9FCF9A7234A13F198E7969";
+        pcr_idx = 11;
+        sprintf(pcr_string, "0,%u:sha256=%s", pcr_idx, hex);
+        memset(pcr_literal, 0, 24*SHA256_DIGEST_SIZE);
+        hex_to_bytes(pcr_literal[pcr_idx], hex);
+        literal_mask = 1 << pcr_idx;
+        test_tpm2_pcr_from_string_one(pcr_string, 1, literal_mask, pcr_literal, -EINVAL);
+
+        hex = (char *)"3D458CFE55CC03EA1F443F1562BEEC8DF51C75E14A9FCF9A7234A13F198E7969";
+        pcr_idx = 11;
+        sprintf(pcr_string, "0,%u:sha384=%s", pcr_idx, hex);
+        memset(pcr_literal, 0, 24*SHA256_DIGEST_SIZE);
+        hex_to_bytes(pcr_literal[pcr_idx], hex);
+        literal_mask = 1 << pcr_idx;
+        test_tpm2_pcr_from_string_one(pcr_string, 1, literal_mask, pcr_literal, -EINVAL);
 }
 
 TEST(pcr_index_from_string) {

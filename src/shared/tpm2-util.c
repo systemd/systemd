@@ -3819,6 +3819,18 @@ char *tpm2_pcr_mask_to_string(uint32_t mask) {
         return TAKE_PTR(s);
 }
 
+int hex_to_bytes(uint8_t bytes[SHA256_DIGEST_SIZE], const char *hex) {
+        for (int i=0, j=0; i<SHA256_DIGEST_SIZE*2; i+=2, j++) {
+                uint8_t f1 = (hex[i] % 32 + 9) % 25;
+                uint8_t f2 = (hex[i+1] % 32 + 9) % 25;
+                if (f1 >= 16 || f2 >= 16 ) {
+                        return -EINVAL;
+                }
+                bytes[j] = f1 * 16 + f2;
+        }
+        return 0;
+}
+
 int tpm2_pcr_from_string(const char *arg, uint32_t *ret_mask, uint32_t *ret_literal_mask, uint8_t ret_literal[][SHA256_DIGEST_SIZE]) {
         uint32_t mask = 0, literal_mask=0;
         int r;
@@ -3858,19 +3870,16 @@ int tpm2_pcr_from_string(const char *arg, uint32_t *ret_mask, uint32_t *ret_lite
                 /* if this is a pcr literal, try to parse it */
                 if (r2) {
                         unsigned pcr_idx;
-                        uint8_t pcr_hex[2*SHA256_DIGEST_SIZE+1];
+                        char pcr_hex[2*SHA256_DIGEST_SIZE+1];
                         r = sscanf(pcr, "%u:sha256=%s", &pcr_idx, pcr_hex);
                         if (r != 2)
-                                return log_error_errno(r, "Failed to parse specified PCR literal: %s", pcr);
+                                return log_error_errno(-EINVAL, "Failed to parse specified PCR literal: %s", pcr);
 
-                        for (int i=0, j=0; i<SHA256_DIGEST_SIZE; i+=2, j++) {
-                                uint8_t f1 = (pcr_hex[i] % 32 + 9) % 25;
-                                uint8_t f2 = (pcr_hex[i+1] % 32 + 9) % 25;
-                                if (f1 > 16 || f2 > 16 ) {
-                                        return log_error_errno(r, "Failed to parse specified PCR literal: %s", pcr);
-                                }
-                                ret_literal[pcr_idx][j] = f1 * 16 + f2;
+                        r = hex_to_bytes(ret_literal[pcr_idx], pcr_hex);
+                        if (r < 0) {
+                                return log_error_errno(r, "Failed to parse specified PCR literal: %s", pcr);
                         }
+
                         SET_BIT(literal_mask, pcr_idx);
                 } else
                 /* if this is a pcr index, parse it */
