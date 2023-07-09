@@ -1149,6 +1149,13 @@ static void restore_sigsetp(sigset_t **ssp) {
                 (void) sigprocmask(SIG_SETMASK, *ssp, NULL);
 }
 
+/* glibc does not provide clone() on ia64, only clone2(). Not only that, but it also doesn't provide a
+ * prototype, only the symbol in the shared library (it provides a prototype for clone(), but not the
+ * symbol in the shared library). */
+#if defined(__ia64__)
+int __clone2(int (*fn)(void *), void *stack_base, size_t stack_size, int flags, void *arg);
+#endif
+
 pid_t clone_with_nested_stack(int (*fn)(void *), int flags, void *userdata) {
         size_t ps;
         pid_t pid;
@@ -1177,7 +1184,11 @@ pid_t clone_with_nested_stack(int (*fn)(void *), int flags, void *userdata) {
         mystack = (uint8_t*) mystack + ps; /* move pointer one page ahead since stacks usually grow backwards */
         mystack = (void*) ALIGN_TO((uintptr_t) mystack, ps); /* align to page size (moving things further ahead) */
 
+#if defined(__ia64__)
+        pid = __clone2(fn, mystack, ps, flags, userdata);
+#else
         pid = clone(fn, mystack, flags, userdata);
+#endif
         if (pid < 0)
                 return -errno;
 

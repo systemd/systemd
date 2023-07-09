@@ -53,8 +53,7 @@
 static SleepOperation arg_operation = _SLEEP_OPERATION_INVALID;
 
 static int write_efi_hibernate_location(const HibernateLocation *hibernate_location, bool required) {
-        int log_level = required ? LOG_ERR : LOG_DEBUG,
-            log_level_ignore = required ? LOG_WARNING : LOG_DEBUG;
+        int log_level = required ? LOG_ERR : LOG_DEBUG;
 
 #if ENABLE_EFI
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
@@ -64,7 +63,7 @@ static int write_efi_hibernate_location(const HibernateLocation *hibernate_locat
         const char *uuid_str;
         sd_id128_t uuid;
         struct utsname uts = {};
-        int r;
+        int r, log_level_ignore = required ? LOG_WARNING : LOG_DEBUG;
 
         assert(hibernate_location);
         assert(hibernate_location->swap);
