@@ -21,6 +21,7 @@
 #include "main-func.h"
 #include "os-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "proc-cmdline.h"
 #include "special.h"
 #include "string-util.h"
@@ -169,7 +170,7 @@ static int parse_efi_hibernate_location(void) {
                 arg_resume_device = TAKE_PTR(device);
                 arg_resume_offset = location.offset;
         } else {
-                if (!streq(arg_resume_device, device))
+                if (!path_equal_or_inode_same(arg_resume_device, device))
                         log_warning("resume=%s doesn't match with HibernateLocation device '%s', proceeding anyway with resume=.",
                                     arg_resume_device, device);
 
@@ -222,7 +223,7 @@ static int process_resume(void) {
                 "\n"
                 "[Service]\n"
                 "Type=oneshot\n"
-                "ExecStart=" ROOTLIBEXECDIR "/systemd-hibernate-resume %2$s %3$" PRIu64,
+                "ExecStart=" ROOTLIBEXECDIR "/systemd-hibernate-resume %2$s %3$" PRIu64 "\n",
                 device_unit,
                 arg_resume_device,
                 arg_resume_offset);
