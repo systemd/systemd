@@ -5,8 +5,6 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include "sd-ipv4acd.h"
-
 #include "conf-parser.h"
 #include "in-addr-util.h"
 #include "networkd-link.h"
@@ -58,8 +56,6 @@ struct Address {
         /* duplicate_address_detection is only used by static or IPv4 dynamic addresses.
          * To control DAD for IPv6 dynamic addresses, set IFA_F_NODAD to flags. */
         AddressFamily duplicate_address_detection;
-        sd_ipv4acd *acd;
-        bool acd_bound;
 
         /* Called when address become ready */
         address_ready_callback_t callback;
@@ -107,12 +103,11 @@ bool manager_has_address(Manager *manager, int family, const union in_addr_union
 void address_cancel_request(Address *address);
 int link_request_address(
                 Link *link,
-                Address *address,
-                bool consume_object,
+                const Address *address,
                 unsigned *message_counter,
                 address_netlink_handler_t netlink_handler,
                 Request **ret);
-int link_request_static_address(Link *link, Address *address, bool consume);
+int link_request_static_address(Link *link, const Address *address);
 int link_request_static_addresses(Link *link);
 
 int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, Manager *m);
