@@ -276,6 +276,7 @@ bool in_hypervisor(void) {
                 return cache;
 
         cache = cpuid_in_hypervisor() || smbios_in_hypervisor();
+        log_debug("hypervisor: %ls", yes_no(cache));
         return cache;
 }
 
