@@ -2128,6 +2128,9 @@ efi_arch = {
 
 if get_option('bootloader') != 'false' and efi_arch != ''
         conf.set_quoted('EFI_MACHINE_TYPE_NAME', efi_arch)
+elif get_option('bootloader') == 'false' and efi_arch != ''
+        # Ensure that if the option is explicitly set to false, then no EFI code is built, including tests
+        efi_arch = ''
 elif get_option('bootloader') == 'true' and efi_arch == ''
         error('EFI not supported for this arch.')
 endif
