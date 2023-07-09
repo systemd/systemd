@@ -371,6 +371,8 @@
     url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>.</para>
   </refsect1>
 
+  <xi:include href="systemd-boot.xml" xpointer='uefi-shell-variables'/>
+
   <refsect1>
     <title>initrd Resources</title>
 
