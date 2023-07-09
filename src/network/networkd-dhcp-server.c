@@ -115,7 +115,7 @@ int link_request_dhcp_server_address(Link *link) {
                  * Configure the DHCP server address only when it is not. */
                 return 0;
 
-        return link_request_static_address(link, TAKE_PTR(address), true);
+        return link_request_static_address(link, address);
 }
 
 static int link_find_dhcp_server_address(Link *link, Address **ret) {
