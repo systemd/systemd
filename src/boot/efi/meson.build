@@ -3,6 +3,13 @@
 efi_config_h_dir = meson.current_build_dir()
 efi_addon = ''
 
+# On some architectures like x32 we'll detect a valid EFI arch (x86_64) but building for the EFI ABI is not
+# supported, so it will fail. Check that EFI_MACHINE_TYPE_NAME is actually set before building libefitest,
+# so that it is skipped when building with -Dbootloader=false
+if conf.get('EFI_MACHINE_TYPE_NAME', '') == ''
+        subdir_done()
+endif
+
 if efi_arch != ''
         libefitest = static_library(
                 'efitest',
