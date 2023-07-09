@@ -723,7 +723,7 @@ static int manager_enumerate_internal(
                 int (*process)(sd_netlink *, sd_netlink_message *, Manager *)) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL;
-        int k, r;
+        int r;
 
         assert(m);
         assert(nl);
@@ -739,11 +739,8 @@ static int manager_enumerate_internal(
                 return r;
 
         m->enumerating = true;
-        for (sd_netlink_message *reply_one = reply; reply_one; reply_one = sd_netlink_message_next(reply_one)) {
-                k = process(nl, reply_one, m);
-                if (k < 0 && r >= 0)
-                        r = k;
-        }
+        for (sd_netlink_message *reply_one = reply; reply_one; reply_one = sd_netlink_message_next(reply_one))
+                RET_GATHER(r, process(nl, reply_one, m));
         m->enumerating = false;
 
         return r;
