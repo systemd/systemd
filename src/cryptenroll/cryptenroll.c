@@ -38,6 +38,8 @@ static char *arg_pkcs11_token_uri = NULL;
 static char *arg_fido2_device = NULL;
 static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
+static uint32_t arg_tpm2_pcr_literal_mask = UINT32_MAX;
+static uint8_t arg_tpm2_pcr_literal[24][SHA256_DIGEST_SIZE];
 static bool arg_tpm2_pin = false;
 static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;
@@ -356,7 +358,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_TPM2_PCRS:
-                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_pcr_mask);
+                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_pcr_mask, &arg_tpm2_pcr_literal_mask, &arg_tpm2_pcr_literal);
                         if (r < 0)
                                 return r;
 
@@ -377,7 +379,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TPM2_PUBLIC_KEY_PCRS:
-                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_public_key_pcr_mask);
+int enroll_tpm2(struct crypt_device *cd,
+                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_public_key_pcr_mask, &arg_tpm2_pcr_literal_mask, &arg_tpm2_pcr_literal);
                         if (r < 0)
                                 return r;
 
@@ -655,7 +658,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_TPM2:
-                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_pcr_mask, arg_tpm2_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin);
+                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_pcr_mask, arg_tpm2_pcr_literal_mask, arg_tpm2_pcr_literal, arg_tpm2_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin);
                 break;
 
         case _ENROLL_TYPE_INVALID:
