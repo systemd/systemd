@@ -3,6 +3,10 @@
 efi_config_h_dir = meson.current_build_dir()
 efi_addon = ''
 
+if conf.get('ENABLE_BOOTLOADER') != 1
+        subdir_done()
+endif
+
 if efi_arch != ''
         libefitest = static_library(
                 'efitest',
@@ -50,10 +54,6 @@ if efi_arch != ''
                         'base' : efitest_base,
                 },
         ]
-endif
-
-if conf.get('ENABLE_BOOTLOADER') != 1
-        subdir_done()
 endif
 
 efi_conf = configuration_data()
