@@ -102,32 +102,22 @@ static int context_save(Context *context) {
         Network *network;
         NetDev *netdev;
         Link *link;
-        int k, r;
-        const char *p;
+        int r;
 
-        p = prefix_roota(arg_root, NETWORKD_UNIT_DIRECTORY);
+        const char *p = prefix_roota(arg_root, NETWORKD_UNIT_DIRECTORY);
 
         r = mkdir_p(p, 0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to create directory " NETWORKD_UNIT_DIRECTORY ": %m");
 
-        HASHMAP_FOREACH(network, context->networks_by_name) {
-                k = network_save(network, p);
-                if (k < 0 && r >= 0)
-                        r = k;
-        }
+        HASHMAP_FOREACH(network, context->networks_by_name)
+                RET_GATHER(r, network_save(network, p));
 
-        HASHMAP_FOREACH(netdev, context->netdevs_by_name) {
-                k = netdev_save(netdev, p);
-                if (k < 0 && r >= 0)
-                        r = k;
-        }
+        HASHMAP_FOREACH(netdev, context->netdevs_by_name)
+                RET_GATHER(r, netdev_save(netdev, p));
 
-        HASHMAP_FOREACH(link, context->links_by_filename) {
-                k = link_save(link, p);
-                if (k < 0 && r >= 0)
-                        r = k;
-        }
+        HASHMAP_FOREACH(link, context->links_by_filename)
+                RET_GATHER(r, link_save(link, p));
 
         return r;
 }

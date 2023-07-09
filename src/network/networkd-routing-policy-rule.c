@@ -684,7 +684,7 @@ static void manager_mark_routing_policy_rules(Manager *m, bool foreign, const Li
 
 int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const Link *except) {
         RoutingPolicyRule *rule;
-        int k, r = 0;
+        int r = 0;
 
         assert(m);
 
@@ -694,9 +694,7 @@ int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const L
                 if (!routing_policy_rule_is_marked(rule))
                         continue;
 
-                k = routing_policy_rule_remove(rule);
-                if (k < 0 && r >= 0)
-                        r = k;
+                RET_GATHER(r, routing_policy_rule_remove(rule));
         }
 
         return r;

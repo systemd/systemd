@@ -377,7 +377,7 @@ static int neighbor_remove(Neighbor *neighbor) {
 
 int link_drop_foreign_neighbors(Link *link) {
         Neighbor *neighbor;
-        int k, r = 0;
+        int r = 0;
 
         assert(link);
         assert(link->network);
@@ -407,9 +407,7 @@ int link_drop_foreign_neighbors(Link *link) {
                 if (!neighbor_is_marked(neighbor))
                         continue;
 
-                k = neighbor_remove(neighbor);
-                if (k < 0 && r >= 0)
-                        r = k;
+                RET_GATHER(r, neighbor_remove(neighbor));
         }
 
         return r;
@@ -417,7 +415,7 @@ int link_drop_foreign_neighbors(Link *link) {
 
 int link_drop_managed_neighbors(Link *link) {
         Neighbor *neighbor;
-        int k, r = 0;
+        int r = 0;
 
         assert(link);
 
@@ -430,9 +428,7 @@ int link_drop_managed_neighbors(Link *link) {
                 if (!neighbor_exists(neighbor))
                         continue;
 
-                k = neighbor_remove(neighbor);
-                if (k < 0 && r >= 0)
-                        r = k;
+                RET_GATHER(r, neighbor_remove(neighbor));
         }
 
         return r;
