@@ -22,6 +22,7 @@ static EtcHostsItemByAddress *etc_hosts_item_by_address_free(EtcHostsItemByAddre
         if (!item)
                 return NULL;
 
+        item->canon_name = NULL;
         set_free(item->names);
         return mfree(item);
 }
@@ -123,6 +124,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
 
         for (;;) {
                 _cleanup_free_ char *name = NULL;
+                const char *canon_name;
                 EtcHostsItemByName *bn;
 
                 r = extract_first_word(&line, &name, NULL, EXTRACT_RELAX);
@@ -189,9 +191,16 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                                 return log_oom();
                 }
 
+                canon_name = name;
                 r = set_ensure_consume(&item->names, &dns_name_hash_ops_free, TAKE_PTR(name));
                 if (r < 0)
                         return log_oom();
+                /*
+                 * Keep track of the first name listed for this address.
+                 * This name will be used in responses as the canonical address.
+                 */
+                if (!item->canon_name)
+                        item->canon_name = canon_name;
         }
 
         if (!found)
