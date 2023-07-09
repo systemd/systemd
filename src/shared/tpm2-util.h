@@ -51,8 +51,8 @@ int tpm2_calculate_policy_auth_value(TPM2B_DIGEST *digest);
 int tpm2_calculate_policy_authorize(const TPM2B_PUBLIC *public, const TPM2B_DIGEST *policy_ref, TPM2B_DIGEST *digest);
 int tpm2_calculate_policy_pcr(const TPML_PCR_SELECTION *pcr_selection, const TPM2B_DIGEST pcr_values[], size_t pcr_values_count, TPM2B_DIGEST *digest);
 
-int tpm2_seal(const char *device, uint32_t hash_pcr_mask, uint32_t literal_pcr_mask, uint8_t *hash_pcr_literal[], const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, const char *pin, void **ret_secret, size_t *ret_secret_size, void **ret_blob, size_t *ret_blob_size, void **ret_pcr_hash, size_t *ret_pcr_hash_size, uint16_t *ret_pcr_bank, uint16_t *ret_primary_alg, void **ret_srk_buf, size_t *ret_srk_buf_size);
-int tpm2_unseal(const char *device, uint32_t hash_pcr_mask, uint32_t literal_pcr_mask, uint8_t *hash_pcr_literal[], uint16_t pcr_bank, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, JsonVariant *signature, const char *pin, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, const void *srk_buf, size_t srk_buf_size, void **ret_secret, size_t *ret_secret_size);
+int tpm2_seal(const char *device, uint32_t hash_pcr_mask, uint32_t literal_pcr_mask, uint8_t hash_pcr_literal[][SHA256_DIGEST_SIZE], const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, const char *pin, void **ret_secret, size_t *ret_secret_size, void **ret_blob, size_t *ret_blob_size, void **ret_pcr_hash, size_t *ret_pcr_hash_size, uint16_t *ret_pcr_bank, uint16_t *ret_primary_alg, void **ret_srk_buf, size_t *ret_srk_buf_size);
+int tpm2_unseal(const char *device, uint32_t hash_pcr_mask, uint32_t literal_pcr_mask, uint8_t hash_pcr_literal[][SHA256_DIGEST_SIZE], uint16_t pcr_bank, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, JsonVariant *signature, const char *pin, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, const void *srk_buf, size_t srk_buf_size, void **ret_secret, size_t *ret_secret_size);
 
 typedef struct {
         unsigned n_ref;
@@ -128,7 +128,7 @@ int tpm2_find_device_auto(int log_level, char **ret);
 int tpm2_make_pcr_json_array(uint32_t pcr_mask, JsonVariant **ret);
 int tpm2_parse_pcr_json_array(JsonVariant *v, uint32_t *ret);
 
-int tpm2_make_luks2_json(int keyslot, uint32_t hash_pcr_mask, uint32_t literal_pcr_mask, uint8_t *hash_pcr_literal[], uint16_t pcr_bank, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, const void *salt, size_t salt_size, const void *srk_buf, size_t srk_buf_size, TPM2Flags flags, JsonVariant **ret);
+int tpm2_make_luks2_json(int keyslot, uint32_t hash_pcr_mask, uint32_t literal_pcr_mask, uint8_t hash_pcr_literal[][SHA256_DIGEST_SIZE], uint16_t pcr_bank, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, const void *salt, size_t salt_size, const void *srk_buf, size_t srk_buf_size, TPM2Flags flags, JsonVariant **ret);
 int tpm2_parse_luks2_json(JsonVariant *v, int *ret_keyslot, uint32_t *ret_hash_pcr_mask, uint16_t *ret_pcr_bank, void **ret_pubkey, size_t *ret_pubkey_size, uint32_t *ret_pubkey_pcr_mask, uint16_t *ret_primary_alg, void **ret_blob, size_t *ret_blob_size, void **ret_policy_hash, size_t *ret_policy_hash_size, void **ret_salt, size_t *ret_salt_size, void **ret_srk_buf, size_t *ret_srk_buf_size, TPM2Flags *ret_flags);
 
 /* Default to PCR 7 only */
@@ -167,7 +167,7 @@ const char *tpm2_asym_alg_to_string(uint16_t alg);
 int tpm2_asym_alg_from_string(const char *alg);
 
 char *tpm2_pcr_mask_to_string(uint32_t mask);
-int tpm2_pcr_from_string(const char *arg, uint32_t *mask, uint32_t *literal_mask, uint8_t *literal[]);
+int tpm2_pcr_from_string(const char *arg, uint32_t *mask, uint32_t *literal_mask, uint8_t literal[][SHA256_DIGEST_SIZE]);
 
 typedef struct {
         uint32_t search_pcr_mask;
@@ -215,8 +215,8 @@ enum {
 
 Tpm2Support tpm2_support(void);
 
-int tpm2_parse_pcr_argument(const char *arg, uint32_t *mask, uint32_t *literal_mask, uint8_t *literal[]);
-void copy_literal_sha256_pcr(uint8_t *dest[], uint8_t *src[], uint32_t bitmask);
+int tpm2_parse_pcr_argument(const char *arg, uint32_t *mask, uint32_t *literal_mask, uint8_t literal[][SHA256_DIGEST_SIZE]);
+void copy_literal_sha256_pcr(uint8_t dest[][SHA256_DIGEST_SIZE], uint8_t src[][SHA256_DIGEST_SIZE], uint32_t bitmask);
 
 int tpm2_load_pcr_signature(const char *path, JsonVariant **ret);
 int tpm2_load_pcr_public_key(const char *path, void **ret_pubkey, size_t *ret_pubkey_size);

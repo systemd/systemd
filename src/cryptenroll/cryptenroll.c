@@ -358,7 +358,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_TPM2_PCRS:
-                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_pcr_mask, &arg_tpm2_pcr_literal_mask, &arg_tpm2_pcr_literal);
+                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_pcr_mask, &arg_tpm2_pcr_literal_mask, arg_tpm2_pcr_literal);
                         if (r < 0)
                                 return r;
 
@@ -379,8 +379,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TPM2_PUBLIC_KEY_PCRS:
-int enroll_tpm2(struct crypt_device *cd,
-                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_public_key_pcr_mask, &arg_tpm2_pcr_literal_mask, &arg_tpm2_pcr_literal);
+                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_public_key_pcr_mask, &arg_tpm2_pcr_literal_mask, arg_tpm2_pcr_literal);
                         if (r < 0)
                                 return r;
 
