@@ -15,9 +15,12 @@ else
 fi
 
 src="$(dirname "$0")/testdata/test-fstab-generator"
+gen_dir="$(dirname "$generator")"
 
 # fsck(8) is located in /usr/sbin on Debian
-PATH=$PATH:/usr/sbin
+# systemd-detect-virt might not be installed, so add the generator directory in case we are running from
+# the build directory
+PATH=$PATH:/usr/sbin:$gen_dir
 
 # systemd-pcrfs@.service could be enabled or not, depending on the host state
 # of the host system. Override the measurement to avoid the issue.
