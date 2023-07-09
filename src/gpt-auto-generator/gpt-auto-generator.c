@@ -763,7 +763,7 @@ static int add_root_mount(void) {
 
 static int process_loader_partitions(DissectedPartition *esp, DissectedPartition *xbootldr) {
         sd_id128_t loader_uuid;
-        int r, ret = 0;
+        int r;
 
         assert(esp);
         assert(xbootldr);
@@ -797,26 +797,21 @@ static int process_loader_partitions(DissectedPartition *esp, DissectedPartition
         return 0;
 
 mount:
-        if (xbootldr->found) {
-                r = add_partition_xbootldr(xbootldr);
-                if (r < 0)
-                        ret = r;
-        }
+        r = 0;
 
-        if (esp->found) {
-                r = add_partition_esp(esp, xbootldr->found);
-                if (r < 0)
-                        ret = r;
-        }
+        if (xbootldr->found)
+                RET_GATHER(r, add_partition_xbootldr(xbootldr));
+        if (esp->found)
+                RET_GATHER(r, add_partition_esp(esp, xbootldr->found));
 
-        return ret;
+        return r;
 }
 
 static int enumerate_partitions(dev_t devnum) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_free_ char *devname = NULL;
-        int r, k;
+        int r;
 
         r = block_get_whole_disk(devnum, &devnum);
         if (r < 0)
@@ -856,45 +851,29 @@ static int enumerate_partitions(dev_t devnum) {
                 return ok ? 0 : r;
         }
 
-        if (m->partitions[PARTITION_SWAP].found) {
-                k = add_partition_swap(m->partitions + PARTITION_SWAP);
-                if (k < 0)
-                        r = k;
-        }
+        if (m->partitions[PARTITION_SWAP].found)
+                RET_GATHER(r, add_partition_swap(m->partitions + PARTITION_SWAP));
 
-        k = process_loader_partitions(m->partitions + PARTITION_ESP, m->partitions + PARTITION_XBOOTLDR);
-        if (k < 0)
-                r = k;
+        RET_GATHER(r, process_loader_partitions(m->partitions + PARTITION_ESP, m->partitions + PARTITION_XBOOTLDR));
 
-        if (m->partitions[PARTITION_HOME].found) {
-                k = add_partition_mount(PARTITION_HOME, m->partitions + PARTITION_HOME, "home", "/home", "Home Partition");
-                if (k < 0)
-                        r = k;
-        }
+        if (m->partitions[PARTITION_HOME].found)
+                RET_GATHER(r, add_partition_mount(PARTITION_HOME, m->partitions + PARTITION_HOME,
+                                                  "home", "/home", "Home Partition"));
 
-        if (m->partitions[PARTITION_SRV].found) {
-                k = add_partition_mount(PARTITION_SRV, m->partitions + PARTITION_SRV, "srv", "/srv", "Server Data Partition");
-                if (k < 0)
-                        r = k;
-        }
+        if (m->partitions[PARTITION_SRV].found)
+                RET_GATHER(r, add_partition_mount(PARTITION_SRV, m->partitions + PARTITION_SRV,
+                                                  "srv", "/srv", "Server Data Partition"));
 
-        if (m->partitions[PARTITION_VAR].found) {
-                k = add_partition_mount(PARTITION_VAR, m->partitions + PARTITION_VAR, "var", "/var", "Variable Data Partition");
-                if (k < 0)
-                        r = k;
-        }
+        if (m->partitions[PARTITION_VAR].found)
+                RET_GATHER(r, add_partition_mount(PARTITION_VAR, m->partitions + PARTITION_VAR,
+                                                  "var", "/var", "Variable Data Partition"));
 
-        if (m->partitions[PARTITION_TMP].found) {
-                k = add_partition_mount(PARTITION_TMP, m->partitions + PARTITION_TMP, "var-tmp", "/var/tmp", "Temporary Data Partition");
-                if (k < 0)
-                        r = k;
-        }
+        if (m->partitions[PARTITION_TMP].found)
+                RET_GATHER(r, add_partition_mount(PARTITION_TMP, m->partitions + PARTITION_TMP,
+                                                  "var-tmp", "/var/tmp", "Temporary Data Partition"));
 
-        if (m->partitions[PARTITION_ROOT].found) {
-                k = add_partition_root_rw(m->partitions + PARTITION_ROOT);
-                if (k < 0)
-                        r = k;
-        }
+        if (m->partitions[PARTITION_ROOT].found)
+                RET_GATHER(r, add_partition_root_rw(m->partitions + PARTITION_ROOT));
 
         return r;
 }
