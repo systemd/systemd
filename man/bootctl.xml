@@ -256,6 +256,13 @@
         <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>set-log-level</option></term>
+
+        <listitem><para>Set logging level for systemd-boot and systemd-stub. Valid values are listed in
+        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
