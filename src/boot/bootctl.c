@@ -161,6 +161,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  is-installed         Test whether systemd-boot is installed in the ESP\n"
                "  random-seed          Initialize or refresh random seed in ESP and EFI\n"
                "                       variables\n"
+               "  set-log-level LEVEL  Set logging level for systemd-boot/stub\n"
                "\n%3$sKernel Image Commands:%4$s\n"
                "  kernel-identify      Identify kernel image type\n"
                "  kernel-inspect       Prints details about the kernel image\n"
@@ -438,6 +439,7 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "set-oneshot",         2,        2,        0,            verb_set_efivar          },
                 { "set-timeout",         2,        2,        0,            verb_set_efivar          },
                 { "set-timeout-oneshot", 2,        2,        0,            verb_set_efivar          },
+                { "set-log-level",       2,        2,        0,            verb_set_efivar          },
                 { "random-seed",         VERB_ANY, 1,        0,            verb_random_seed         },
                 { "systemd-efi-options", VERB_ANY, 2,        0,            verb_systemd_efi_options },
                 { "reboot-to-firmware",  VERB_ANY, 2,        0,            verb_reboot_to_firmware  },
