@@ -32,15 +32,22 @@ extern LogLevel max_log_level;
 
 _noreturn_ void freeze(void);
 void log_init(void);
-_gnu_printf_(3, 4) EFI_STATUS log_internal(LogLevel level, EFI_STATUS status, const char *format, ...);
+_gnu_printf_(6, 7) EFI_STATUS log_internal(
+                LogLevel level,
+                EFI_STATUS status,
+                const char *file,
+                unsigned line,
+                const char *function,
+                const char *format,
+                ...);
 
-#define log_full_status(level, status, ...)                             \
-        ({                                                              \
-                LogLevel _level = (level);                              \
-                EFI_STATUS _status = (status);                          \
-                if (_unlikely_(_level <= max_log_level))                \
-                        log_internal((_level), (_status), __VA_ARGS__); \
-                (_status);                                              \
+#define log_full_status(level, status, ...)                                                                \
+        ({                                                                                                 \
+                LogLevel _level = (level);                                                                 \
+                EFI_STATUS _status = (status);                                                             \
+                if (_unlikely_(_level <= max_log_level))                                                   \
+                        log_internal((_level), (_status), __FILE_NAME__, __LINE__, __func__, __VA_ARGS__); \
+                (_status);                                                                                 \
         })
 
 #define log_fatal_status(status, ...) log_full_status(LOG_FATAL, status, __VA_ARGS__)

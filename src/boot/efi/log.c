@@ -47,11 +47,25 @@ void efi_assert(const char *expr, const char *file, unsigned line, const char *f
                 panic(u"systemd-boot: Nested assertion failure, halting.");
 
         asserting = true;
-        log_fatal("systemd-boot: Assertion '%s' failed at %s:%u@%s, halting.", expr, file, line, function);
+        log_internal(LOG_FATAL,
+                     EFI_INVALID_PARAMETER,
+                     file,
+                     line,
+                     function,
+                     "Assertion '%s' failed, halting.",
+                     expr);
         freeze();
 }
 
-EFI_STATUS log_internal(LogLevel level, EFI_STATUS status, const char *format, ...) {
+EFI_STATUS log_internal(
+                LogLevel level,
+                EFI_STATUS status,
+                const char *file,
+                unsigned line,
+                const char *function,
+                const char *format,
+                ...) {
+
         assert(format);
 
         int32_t attr = ST->ConOut->Mode->Attribute;
@@ -59,6 +73,19 @@ EFI_STATUS log_internal(LogLevel level, EFI_STATUS status, const char *format, .
         if (ST->ConOut->Mode->CursorColumn > 0)
                 ST->ConOut->OutputString(ST->ConOut, (char16_t *) u"\r\n");
         ST->ConOut->SetAttribute(ST->ConOut, log_colors[level]);
+
+        EFI_TIME time = {};
+        (void) RT->GetTime(&time, NULL);
+        printf_status(status,
+                      "[sd-boot %4u-%02u-%02u %02u:%02u:%02u %s:%u] ",
+                      time.Year,
+                      time.Month,
+                      time.Day,
+                      time.Hour,
+                      time.Minute,
+                      time.Second,
+                      file,
+                      line);
 
         va_list ap;
         va_start(ap, format);
