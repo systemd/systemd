@@ -7,20 +7,21 @@
 static void test_tpm2_pcr_from_string_one(const char *s, uint32_t mask, uint32_t literal_mask, uint8_t pcr_literal[][SHA256_DIGEST_SIZE], int ret) {
         uint32_t m, m2;
         uint8_t literal[24][SHA256_DIGEST_SIZE];
+        memset(literal, 0, 24*SHA256_DIGEST_SIZE);
 
         assert_se(tpm2_pcr_from_string(s, &m, &m2, literal) == ret);
 
         if (ret >= 0) {
                 assert_se(m == mask);
                 assert_se(m2 == literal_mask);
-                for (int i=0; i<24*32; i++)
-                        assert_se(literal[i] == pcr_literal[i]);
+                assert_se(memcmp(literal, pcr_literal, 24*SHA256_DIGEST_SIZE) == 0);
         }
 }
 
 TEST(tpm2_mask_from_string) {
-        uint32_t literal_mask = UINT32_MAX;
+        uint32_t literal_mask = 0;
         uint8_t pcr_literal[24][SHA256_DIGEST_SIZE];
+        memset(pcr_literal, 0, 24*SHA256_DIGEST_SIZE);
 
         test_tpm2_pcr_from_string_one("", 0, literal_mask, pcr_literal, 0);
         test_tpm2_pcr_from_string_one("0", 1, literal_mask, pcr_literal, 0);

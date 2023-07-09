@@ -3820,7 +3820,7 @@ char *tpm2_pcr_mask_to_string(uint32_t mask) {
 }
 
 int tpm2_pcr_from_string(const char *arg, uint32_t *ret_mask, uint32_t *ret_literal_mask, uint8_t ret_literal[][SHA256_DIGEST_SIZE]) {
-        uint32_t mask = 0;
+        uint32_t mask = 0, literal_mask=0;
         int r;
 
         assert(arg);
@@ -3829,6 +3829,7 @@ int tpm2_pcr_from_string(const char *arg, uint32_t *ret_mask, uint32_t *ret_lite
 
         if (isempty(arg)) {
                 *ret_mask = 0;
+                *ret_literal_mask = 0;
                 return 0;
         }
 
@@ -3856,9 +3857,9 @@ int tpm2_pcr_from_string(const char *arg, uint32_t *ret_mask, uint32_t *ret_lite
 
                 /* if this is a pcr literal, try to parse it */
                 if (r2) {
-                        int pcr_idx;
+                        unsigned pcr_idx;
                         uint8_t pcr_hex[2*SHA256_DIGEST_SIZE+1];
-                        r = sscanf(pcr, "%d:sha256=%s", &pcr_idx, pcr_hex);
+                        r = sscanf(pcr, "%u:sha256=%s", &pcr_idx, pcr_hex);
                         if (r != 2)
                                 return log_error_errno(r, "Failed to parse specified PCR literal: %s", pcr);
 
@@ -3870,6 +3871,7 @@ int tpm2_pcr_from_string(const char *arg, uint32_t *ret_mask, uint32_t *ret_lite
                                 }
                                 ret_literal[pcr_idx][j] = f1 * 16 + f2;
                         }
+                        SET_BIT(literal_mask, pcr_idx);
                 } else
                 /* if this is a pcr index, parse it */
                 {
@@ -3882,6 +3884,7 @@ int tpm2_pcr_from_string(const char *arg, uint32_t *ret_mask, uint32_t *ret_lite
         }
 
         *ret_mask = mask;
+        *ret_literal_mask = literal_mask;
         return 0;
 }
 
