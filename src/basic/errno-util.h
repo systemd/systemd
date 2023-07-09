@@ -73,6 +73,16 @@ static inline int RET_NERRNO(int ret) {
         return ret;
 }
 
+/* Collect possible errors in <acc>, so that the first error can be returned.
+ * Returns (possibly updated) <acc>. */
+#define RET_GATHER(acc, err)                    \
+        ({                                      \
+                int *__a = &(acc), __e = (err); \
+                if (*__a >= 0 && __e < 0)       \
+                        *__a = __e;             \
+                *__a;                           \
+        })
+
 static inline int errno_or_else(int fallback) {
         /* To be used when invoking library calls where errno handling is not defined clearly: we return
          * errno if it is set, and the specified error otherwise. The idea is that the caller initializes
