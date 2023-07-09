@@ -3,6 +3,10 @@
 efi_config_h_dir = meson.current_build_dir()
 efi_addon = ''
 
+if conf.get('EFI_MACHINE_TYPE_NAME', '') == ''
+        subdir_done()
+endif
+
 if efi_arch != ''
         libefitest = static_library(
                 'efitest',
