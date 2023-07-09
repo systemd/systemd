@@ -12,6 +12,7 @@
 
 #include "device-util.h"
 #include "devnode-acl.h"
+#include "errno-util.h"
 #include "login-util.h"
 #include "log.h"
 #include "udev-builtin.h"
@@ -66,8 +67,7 @@ finish:
                 k = devnode_acl(path, true, false, 0, false, 0);
                 if (k < 0) {
                         log_device_full_errno(dev, k == -ENOENT ? LOG_DEBUG : LOG_ERR, k, "Failed to apply ACL: %m");
-                        if (r >= 0)
-                                r = k;
+                        RET_GATHER(r, k);
                 }
         }
 

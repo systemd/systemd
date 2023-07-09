@@ -157,32 +157,23 @@ int verify_executable(Unit *u, const ExecCommand *exec, const char *root) {
 }
 
 static int verify_executables(Unit *u, const char *root) {
-        ExecCommand *exec;
-        int r = 0, k;
-        unsigned i;
+        int r = 0;
 
         assert(u);
 
-        exec =  u->type == UNIT_SOCKET ? SOCKET(u)->control_command :
+        ExecCommand *exec =
+                u->type == UNIT_SOCKET ? SOCKET(u)->control_command :
                 u->type == UNIT_MOUNT ? MOUNT(u)->control_command :
                 u->type == UNIT_SWAP ? SWAP(u)->control_command : NULL;
-        k = verify_executable(u, exec, root);
-        if (k < 0 && r == 0)
-                r = k;
+        RET_GATHER(r, verify_executable(u, exec, root));
 
         if (u->type == UNIT_SERVICE)
-                for (i = 0; i < ELEMENTSOF(SERVICE(u)->exec_command); i++) {
-                        k = verify_executable(u, SERVICE(u)->exec_command[i], root);
-                        if (k < 0 && r == 0)
-                                r = k;
-                }
+                for (unsigned i = 0; i < ELEMENTSOF(SERVICE(u)->exec_command); i++)
+                        RET_GATHER(r, verify_executable(u, SERVICE(u)->exec_command[i], root));
 
         if (u->type == UNIT_SOCKET)
-                for (i = 0; i < ELEMENTSOF(SOCKET(u)->exec_command); i++) {
-                        k = verify_executable(u, SOCKET(u)->exec_command[i], root);
-                        if (k < 0 && r == 0)
-                                r = k;
-                }
+                for (unsigned i = 0; i < ELEMENTSOF(SOCKET(u)->exec_command); i++)
+                        RET_GATHER(r, verify_executable(u, SOCKET(u)->exec_command[i], root));
 
         return r;
 }
@@ -215,7 +206,7 @@ static int verify_documentation(Unit *u, bool check_man) {
 
 static int verify_unit(Unit *u, bool check_man, const char *root) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r, k;
+        int r;
 
         assert(u);
 
@@ -227,17 +218,9 @@ static int verify_unit(Unit *u, bool check_man, const char *root) {
         if (r < 0)
                 log_unit_error_errno(u, r, "Failed to create %s/start: %s", u->id, bus_error_message(&error, r));
 
-        k = verify_socket(u);
-        if (k < 0 && r == 0)
-                r = k;
-
-        k = verify_executables(u, root);
-        if (k < 0 && r == 0)
-                r = k;
-
-        k = verify_documentation(u, check_man);
-        if (k < 0 && r == 0)
-                r = k;
+        RET_GATHER(r, verify_socket(u));
+        RET_GATHER(r, verify_executables(u, root));
+        RET_GATHER(r, verify_documentation(u, check_man));
 
         return r;
 }
@@ -267,7 +250,7 @@ int verify_units(
         _unused_ _cleanup_(clear_log_syntax_callback) dummy_t dummy;
         Unit *units[strv_length(filenames)];
         _cleanup_free_ char *var = NULL;
-        int r, k, i, count = 0;
+        int r, k, count = 0;
 
         if (strv_isempty(filenames))
                 return 0;
@@ -306,26 +289,21 @@ int verify_units(
                 k = verify_prepare_filename(*filename, &prepared);
                 if (k < 0) {
                         log_error_errno(k, "Failed to prepare filename %s: %m", *filename);
-                        if (r == 0)
-                                r = k;
+                        RET_GATHER(r, k);
                         continue;
                 }
 
                 k = manager_load_startable_unit_or_warn(m, NULL, prepared, &units[count]);
                 if (k < 0) {
-                        if (r == 0)
-                                r = k;
+                        RET_GATHER(r, k);
                         continue;
                 }
 
                 count++;
         }
 
-        for (i = 0; i < count; i++) {
-                k = verify_unit(units[i], check_man, root);
-                if (k < 0 && r == 0)
-                        r = k;
-        }
+        for (int i = 0; i < count; i++)
+                RET_GATHER(r, verify_unit(units[i], check_man, root));
 
         if (s == POINTER_MAX)
                 return log_oom();

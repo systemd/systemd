@@ -46,7 +46,7 @@ static int set_property_one(sd_bus *bus, const char *name, char **properties) {
 int verb_set_property(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         _cleanup_strv_free_ char **names = NULL;
-        int r, k;
+        int r;
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -59,10 +59,7 @@ int verb_set_property(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to expand '%s' into names: %m", argv[1]);
 
         r = 0;
-        STRV_FOREACH(name, names) {
-                k = set_property_one(bus, *name, strv_skip(argv, 2));
-                if (k < 0 && r >= 0)
-                        r = k;
-        }
+        STRV_FOREACH(name, names)
+                RET_GATHER(r, set_property_one(bus, *name, strv_skip(argv, 2)));
         return r;
 }
