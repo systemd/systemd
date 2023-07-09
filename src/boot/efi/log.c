@@ -9,6 +9,7 @@
 #include "vmm.h"
 
 LogLevel max_log_level = LOG_WARNING;
+static const char *log_identity;
 static unsigned log_count = 0;
 
 static const int32_t log_colors[] = {
@@ -80,7 +81,8 @@ EFI_STATUS log_internal(
         EFI_TIME time = {};
         (void) RT->GetTime(&time, NULL);
         printf_status(status,
-                      "[sd-boot %4u-%02u-%02u %02u:%02u:%02u %s:%u] ",
+                      "[%s %4u-%02u-%02u %02u:%02u:%02u %s:%u] ",
+                      log_identity,
                       time.Year,
                       time.Month,
                       time.Day,
@@ -126,7 +128,9 @@ static void set_log_level(const char16_t *level) {
         }
 }
 
-void log_init(void) {
+void log_init(const char *identity) {
+        log_identity = identity;
+
         /* By using the UEFI shell environment variable namespace one can easily set the logging
          * level from the EFI shell with "set SYSTEMD_BOOT_LOG_LEVEL debug", which is much nicer
          * than having to write out a GUID with "setvar". */
