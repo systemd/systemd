@@ -11,6 +11,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* __FILE_NAME__ is gcc 12+ and clang 9+. Note that __builtin_strrchr() is always evaluated
+ * at compile time. */
+#ifndef __FILE_NAME__
+#  define __FILE_NAME__ (__builtin_strrchr("/" __FILE__, '/') + 1)
+#endif
+
 #define _align_(x) __attribute__((__aligned__(x)))
 #define _alignas_(x) __attribute__((__aligned__(alignof(x))))
 #define _alignptr_ __attribute__((__aligned__(sizeof(void *))))
@@ -75,11 +81,11 @@
                 #define assert(expr)
                 #define assert_not_reached() __builtin_unreachable()
         #else
-                #define assert(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __func__); })
-                #define assert_not_reached() efi_assert("Code should not be reached", __FILE__, __LINE__, __func__)
+                #define assert(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE_NAME__, __LINE__, __func__); })
+                #define assert_not_reached() efi_assert("Code should not be reached", __FILE_NAME__, __LINE__, __func__)
         #endif
         #define static_assert _Static_assert
-        #define assert_se(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __func__); })
+        #define assert_se(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE_NAME__, __LINE__, __func__); })
 #endif
 
 /* This passes the argument through after (if asserts are enabled) checking that it is not null. */

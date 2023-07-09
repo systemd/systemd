@@ -21,6 +21,7 @@ assert_cc(!IS_SYNTHETIC_ERRNO(0));
 
 static void test_file(void) {
         log_info("__FILE__: %s", __FILE__);
+        log_info("__FILE_NAME__: %s", __FILE_NAME__);
         log_info("RELATIVE_SOURCE_PATH: %s", RELATIVE_SOURCE_PATH);
         log_info("PROJECT_FILE: %s", PROJECT_FILE);
 
