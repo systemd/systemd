@@ -189,9 +189,18 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                                 return log_oom();
                 }
 
-                r = set_ensure_consume(&item->names, &dns_name_hash_ops_free, TAKE_PTR(name));
+                r = set_ensure_put(&item->names, &dns_name_hash_ops_free, name);
                 if (r < 0)
                         return log_oom();
+                if (r == 0) /* the name is already listed */
+                        continue;
+                /*
+                 * Keep track of the first name listed for this address.
+                 * This name will be used in responses as the canonical name.
+                 */
+                if (!item->canonical_name)
+                        item->canonical_name = name;
+                TAKE_PTR(name);
         }
 
         if (!found)
