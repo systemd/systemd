@@ -134,7 +134,7 @@ node /org/freedesktop/resolve1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(isb) Domains = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly (tt) TransactionStatistics = ...;
+      readonly (tttttt) TransactionStatistics = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly (ttt) CacheStatistics = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
