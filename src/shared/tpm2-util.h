@@ -183,7 +183,8 @@ typedef enum Tpm2Support {
         TPM2_SUPPORT_DRIVER    = 1 << 1,  /* the kernel has a driver loaded for it */
         TPM2_SUPPORT_SYSTEM    = 1 << 2,  /* we support it ourselves */
         TPM2_SUPPORT_SUBSYSTEM = 1 << 3,  /* the kernel has the tpm subsystem enabled */
-        TPM2_SUPPORT_FULL      = TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER|TPM2_SUPPORT_SYSTEM|TPM2_SUPPORT_SUBSYSTEM,
+        TPM2_SUPPORT_LIBRARIES = 1 << 4,  /* we can dlopen the tpm2 libraries */
+        TPM2_SUPPORT_FULL      = TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER|TPM2_SUPPORT_SYSTEM|TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_LIBRARIES,
 } Tpm2Support;
 
 enum {
