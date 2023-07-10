@@ -160,10 +160,12 @@ ip link del hoge.foo
 ### SETUP ###
 # Configure network
 hostnamectl hostname ns1.unsigned.test
-{
-    echo "10.0.0.1               ns1.unsigned.test"
-    echo "fd00:dead:beef:cafe::1 ns1.unsigned.test"
-} >>/etc/hosts
+cat >>/etc/hosts <<EOF
+10.0.0.1               ns1.unsigned.test
+fd00:dead:beef:cafe::1 ns1.unsigned.test
+
+127.128.0.5     localhost5 localhost5.localdomain localhost5.localdomain4 localhost.localdomain5 localhost5.localdomain5
+EOF
 
 mkdir -p /etc/systemd/network
 cat >/etc/systemd/network/dns0.netdev <<EOF
@@ -292,6 +294,11 @@ grep -qE "^127\.0\.0\.1\s+localhost" "$RUN_OUT"
 run getent -s myhostname hosts localhost
 grep -qE "^127\.0\.0\.1\s+localhost" "$RUN_OUT"
 enable_ipv6
+
+# Issue: https://github.com/systemd/systemd/issues/25088
+run getent -s resolve hosts 127.128.0.5
+grep -qEx '127\.128\.0\.5\s+localhost5(\s+localhost5?\.localdomain[45]?){4}' "$RUN_OUT"
+[ "$(wc -l <"$RUN_OUT")" -eq 1 ]
 
 : "--- Basic resolved tests ---"
 # Issue: https://github.com/systemd/systemd/issues/22229
