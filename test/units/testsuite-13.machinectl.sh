@@ -91,16 +91,17 @@ machinectl disable long-running long-running long-running container1
 rm -f /var/lib/machines/long-running/poweroff
 machinectl poweroff long-running
 timeout 10 bash -c "while ! test -e /var/lib/machines/long-running/poweroff; do sleep .5; done"
-machinectl poweroff long-running long-running long-running
 # Equivalent to machinectl kill --signal=SIGINT --kill-whom=leader
 rm -f /var/lib/machines/long-running/reboot
 machinectl reboot long-running
 timeout 10 bash -c "while ! test -e /var/lib/machines/long-running/reboot; do sleep .5; done"
-machinectl reboot long-running long-running long-running
 # Skip machinectl terminate for now, as it doesn't play well with our "init"
 rm -f /var/lib/machines/long-running/trap
 machinectl kill --signal=SIGTRAP --kill-whom=leader long-running
 timeout 10 bash -c "while ! test -e /var/lib/machines/long-running/trap; do sleep .5; done"
+# Multiple machines at once
+machinectl poweroff long-running long-running long-running
+machinectl reboot long-running long-running long-running
 machinectl kill --signal=SIGTRAP --kill-whom=leader long-running long-running long-running
 # All used signals should've been caught by a handler
 [[ "$(machinectl show --property=State --value long-running)" == "running" ]]
