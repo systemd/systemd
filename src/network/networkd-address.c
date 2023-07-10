@@ -2183,6 +2183,12 @@ static int address_section_verify(Address *address) {
                                          address->section->filename, address->section->line);
         }
 
+        if (address->family == AF_INET6 && !socket_ipv6_is_supported())
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: an IPv6 address configured, but the kernel does not support IPv6. "
+                                         "Ignoring [Address] section from line %u.",
+                                         address->section->filename, address->section->line);
+
         assert(IN_SET(address->family, AF_INET, AF_INET6));
 
         address_section_adjust_broadcast(address);
