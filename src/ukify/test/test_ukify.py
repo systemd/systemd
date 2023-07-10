@@ -609,46 +609,48 @@ def test_pcr_signing(kernel_initrd, tmpdir):
         '--cmdline=ARG1 ARG2 ARG3',
         '--os-release=ID=foobar\n',
         '--pcr-banks=sha1',   # use sha1 because it doesn't really matter
-        f'--pcrpkey={pub.name}',
-        f'--pcr-public-key={pub.name}',
         f'--pcr-private-key={priv.name}',
     ])
 
-    try:
-        ukify.check_inputs(opts)
-    except OSError as e:
-        pytest.skip(str(e))
+    # If the public key is not explicitly specified, it is derived automatically. Let's make sure everything
+    # works as expected both when the public keys is specified explicitly and when it is derived from the
+    # private key.
+    for extra in ([f'--pcrpkey={pub.name}', f'--pcr-public-key={pub.name}'], []):
+        try:
+            ukify.check_inputs(opts + extra)
+        except OSError as e:
+            pytest.skip(str(e))
 
-    ukify.make_uki(opts)
+        ukify.make_uki(opts + extra)
 
-    # let's check that objdump likes the resulting file
-    dump = subprocess.check_output(['objdump', '-h', output], text=True)
+        # let's check that objdump likes the resulting file
+        dump = subprocess.check_output(['objdump', '-h', output], text=True)
 
-    for sect in 'text osrel cmdline linux initrd uname pcrsig'.split():
-        assert re.search(fr'^\s*\d+\s+.{sect}\s+0', dump, re.MULTILINE)
+        for sect in 'text osrel cmdline linux initrd uname pcrsig'.split():
+            assert re.search(fr'^\s*\d+\s+.{sect}\s+0', dump, re.MULTILINE)
 
-    # objcopy fails when called without an output argument (EPERM).
-    # It also fails when called with /dev/null (file truncated).
-    # It also fails when called with /dev/zero (because it reads the
-    # output file, infinitely in this case.)
-    # So let's just call it with a dummy output argument.
-    subprocess.check_call([
-        'objcopy',
-        *(f'--dump-section=.{n}={tmpdir}/out.{n}' for n in (
-            'pcrpkey', 'pcrsig', 'osrel', 'uname', 'cmdline')),
-        output,
-        tmpdir / 'dummy',
-    ],
-        text=True)
+        # objcopy fails when called without an output argument (EPERM).
+        # It also fails when called with /dev/null (file truncated).
+        # It also fails when called with /dev/zero (because it reads the
+        # output file, infinitely in this case.)
+        # So let's just call it with a dummy output argument.
+        subprocess.check_call([
+            'objcopy',
+            *(f'--dump-section=.{n}={tmpdir}/out.{n}' for n in (
+                'pcrpkey', 'pcrsig', 'osrel', 'uname', 'cmdline')),
+            output,
+            tmpdir / 'dummy',
+        ],
+            text=True)
 
-    assert open(tmpdir / 'out.pcrpkey').read() == open(pub.name).read()
-    assert open(tmpdir / 'out.osrel').read() == 'ID=foobar\n'
-    assert open(tmpdir / 'out.uname').read() == '1.2.3'
-    assert open(tmpdir / 'out.cmdline').read() == 'ARG1 ARG2 ARG3'
-    sig = open(tmpdir / 'out.pcrsig').read()
-    sig = json.loads(sig)
-    assert list(sig.keys()) == ['sha1']
-    assert len(sig['sha1']) == 4   # four items for four phases
+        assert open(tmpdir / 'out.pcrpkey').read() == open(pub.name).read()
+        assert open(tmpdir / 'out.osrel').read() == 'ID=foobar\n'
+        assert open(tmpdir / 'out.uname').read() == '1.2.3'
+        assert open(tmpdir / 'out.cmdline').read() == 'ARG1 ARG2 ARG3'
+        sig = open(tmpdir / 'out.pcrsig').read()
+        sig = json.loads(sig)
+        assert list(sig.keys()) == ['sha1']
+        assert len(sig['sha1']) == 4   # four items for four phases
 
 def test_pcr_signing2(kernel_initrd, tmpdir):
     if kernel_initrd is None:
