@@ -317,7 +317,9 @@ int network_verify(Network *network) {
         network_drop_invalid_nexthops(network);
         network_drop_invalid_bridge_fdb_entries(network);
         network_drop_invalid_bridge_mdb_entries(network);
-        network_drop_invalid_neighbors(network);
+        r = network_drop_invalid_neighbors(network);
+        if (r < 0)
+                return r;
         network_drop_invalid_address_labels(network);
         network_drop_invalid_prefixes(network);
         network_drop_invalid_route_prefixes(network);
@@ -772,7 +774,7 @@ static Network *network_free(Network *network) {
         hashmap_free_with_destructor(network->nexthops_by_section, nexthop_free);
         hashmap_free_with_destructor(network->bridge_fdb_entries_by_section, bridge_fdb_free);
         hashmap_free_with_destructor(network->bridge_mdb_entries_by_section, bridge_mdb_free);
-        hashmap_free_with_destructor(network->neighbors_by_section, neighbor_free);
+        ordered_hashmap_free_with_destructor(network->neighbors_by_section, neighbor_free);
         hashmap_free_with_destructor(network->address_labels_by_section, address_label_free);
         hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
         hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
@@ -828,7 +830,7 @@ bool network_has_static_ipv6_configurations(Network *network) {
                 if (mdb->family == AF_INET6)
                         return true;
 
-        HASHMAP_FOREACH(neighbor, network->neighbors_by_section)
+        ORDERED_HASHMAP_FOREACH(neighbor, network->neighbors_by_section)
                 if (neighbor->family == AF_INET6)
                         return true;
 

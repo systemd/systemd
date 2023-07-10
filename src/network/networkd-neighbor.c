@@ -16,7 +16,7 @@ Neighbor *neighbor_free(Neighbor *neighbor) {
 
         if (neighbor->network) {
                 assert(neighbor->section);
-                hashmap_remove(neighbor->network->neighbors_by_section, neighbor->section);
+                ordered_hashmap_remove(neighbor->network->neighbors_by_section, neighbor->section);
         }
 
         config_section_free(neighbor->section);
@@ -43,7 +43,7 @@ static int neighbor_new_static(Network *network, const char *filename, unsigned 
         if (r < 0)
                 return r;
 
-        neighbor = hashmap_get(network->neighbors_by_section, n);
+        neighbor = ordered_hashmap_get(network->neighbors_by_section, n);
         if (neighbor) {
                 *ret = TAKE_PTR(neighbor);
                 return 0;
@@ -60,7 +60,7 @@ static int neighbor_new_static(Network *network, const char *filename, unsigned 
                 .source = NETWORK_CONFIG_SOURCE_STATIC,
         };
 
-        r = hashmap_ensure_put(&network->neighbors_by_section, &config_section_hash_ops, neighbor->section, neighbor);
+        r = ordered_hashmap_ensure_put(&network->neighbors_by_section, &config_section_hash_ops, neighbor->section, neighbor);
         if (r < 0)
                 return r;
 
@@ -92,18 +92,13 @@ static void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state) 
 
         siphash24_compress(&neighbor->family, sizeof(neighbor->family), state);
 
-        switch (neighbor->family) {
-        case AF_INET:
-        case AF_INET6:
-                /* Equality of neighbors are given by the pair (addr,lladdr) */
-                siphash24_compress(&neighbor->in_addr, FAMILY_ADDRESS_SIZE(neighbor->family), state);
-                break;
-        default:
+        if (!IN_SET(neighbor->family, AF_INET, AF_INET6))
                 /* treat any other address family as AF_UNSPEC */
-                break;
-        }
+                return;
 
-        hw_addr_hash_func(&neighbor->ll_addr, state);
+        /* Equality of neighbors are given by the destination address.
+         * See neigh_lookup() in the kernel. */
+        siphash24_compress(&neighbor->in_addr, FAMILY_ADDRESS_SIZE(neighbor->family), state);
 }
 
 static int neighbor_compare_func(const Neighbor *a, const Neighbor *b) {
@@ -113,18 +108,25 @@ static int neighbor_compare_func(const Neighbor *a, const Neighbor *b) {
         if (r != 0)
                 return r;
 
-        switch (a->family) {
-        case AF_INET:
-        case AF_INET6:
-                r = memcmp(&a->in_addr, &b->in_addr, FAMILY_ADDRESS_SIZE(a->family));
-                if (r != 0)
-                        return r;
-        }
+        if (!IN_SET(a->family, AF_INET, AF_INET6))
+                /* treat any other address family as AF_UNSPEC */
+                return 0;
 
-        return hw_addr_compare(&a->ll_addr, &b->ll_addr);
+        return memcmp(&a->in_addr, &b->in_addr, FAMILY_ADDRESS_SIZE(a->family));
 }
 
-DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(neighbor_hash_ops, Neighbor, neighbor_hash_func, neighbor_compare_func, neighbor_free);
+DEFINE_PRIVATE_HASH_OPS(
+        neighbor_hash_ops,
+        Neighbor,
+        neighbor_hash_func,
+        neighbor_compare_func);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+        neighbor_hash_ops_free,
+        Neighbor,
+        neighbor_hash_func,
+        neighbor_compare_func,
+        neighbor_free);
 
 static int neighbor_get(Link *link, const Neighbor *in, Neighbor **ret) {
         Neighbor *existing;
@@ -147,7 +149,7 @@ static int neighbor_add(Link *link, Neighbor *neighbor) {
         assert(link);
         assert(neighbor);
 
-        r = set_ensure_put(&link->neighbors, &neighbor_hash_ops, neighbor);
+        r = set_ensure_put(&link->neighbors, &neighbor_hash_ops_free, neighbor);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -307,7 +309,7 @@ int link_request_static_neighbors(Link *link) {
 
         link->static_neighbors_configured = false;
 
-        HASHMAP_FOREACH(neighbor, link->network->neighbors_by_section) {
+        ORDERED_HASHMAP_FOREACH(neighbor, link->network->neighbors_by_section) {
                 r = link_request_neighbor(link, neighbor);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request neighbor: %m");
@@ -396,7 +398,7 @@ int link_drop_foreign_neighbors(Link *link) {
         }
 
         /* Next, unmark requested neighbors. They will be configured later. */
-        HASHMAP_FOREACH(neighbor, link->network->neighbors_by_section) {
+        ORDERED_HASHMAP_FOREACH(neighbor, link->network->neighbors_by_section) {
                 Neighbor *existing;
 
                 if (neighbor_get(link, neighbor, &existing) >= 0)
@@ -586,14 +588,45 @@ static int neighbor_section_verify(Neighbor *neighbor) {
         return 0;
 }
 
-void network_drop_invalid_neighbors(Network *network) {
+int network_drop_invalid_neighbors(Network *network) {
+        _cleanup_set_free_ Set *neighbors = NULL;
         Neighbor *neighbor;
+        int r;
 
         assert(network);
 
-        HASHMAP_FOREACH(neighbor, network->neighbors_by_section)
-                if (neighbor_section_verify(neighbor) < 0)
+        ORDERED_HASHMAP_FOREACH(neighbor, network->neighbors_by_section) {
+                Neighbor *dup;
+
+                if (neighbor_section_verify(neighbor) < 0) {
+                        /* Drop invalid [Neighbor] sections. Note that neighbor_free() will drop the
+                         * neighbor from neighbors_by_section. */
                         neighbor_free(neighbor);
+                        continue;
+                }
+
+                /* Always use the setting specified later. So, remove the previously assigned setting. */
+                dup = set_remove(neighbors, neighbor);
+                if (dup) {
+                        log_warning("%s: Duplicated neighbor settings for %s is specified at line %u and %u, "
+                                    "dropping the address setting specified at line %u.",
+                                    dup->section->filename,
+                                    IN_ADDR_TO_STRING(neighbor->family, &neighbor->in_addr),
+                                    neighbor->section->line,
+                                    dup->section->line, dup->section->line);
+                        /* neighbor_free() will drop the address from neighbors_by_section. */
+                        neighbor_free(dup);
+                }
+
+                /* Use neighbor_hash_ops, instead of neighbor_hash_ops_free. Otherwise, the Neighbor objects
+                 * will be freed. */
+                r = set_ensure_put(&neighbors, &neighbor_hash_ops, neighbor);
+                if (r < 0)
+                        return log_oom();
+                assert(r > 0);
+        }
+
+        return 0;
 }
 
 
