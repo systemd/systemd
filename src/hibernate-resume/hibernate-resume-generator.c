@@ -8,6 +8,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "device-nodes.h"
 #include "dropin.h"
 #include "efivars.h"
 #include "fd-util.h"
@@ -170,9 +171,16 @@ static int parse_efi_hibernate_location(void) {
                 arg_resume_device = TAKE_PTR(device);
                 arg_resume_offset = location.offset;
         } else {
-                if (!path_equal_or_inode_same(arg_resume_device, device, 0))
-                        log_warning("resume=%s doesn't match with HibernateLocation device '%s', proceeding anyway with resume=.",
-                                    arg_resume_device, device);
+                if (!path_equal(arg_resume_device, device)) {
+                        r = devnode_same(arg_resume_device, device);
+                        if (r < 0)
+                                log_debug_errno(r,
+                                                "Failed to check if resume=%s is the same device as HibernateLocation device '%s', ignoring: %m",
+                                                arg_resume_device, device);
+                        if (r == 0)
+                                log_warning("resume=%s doesn't match with HibernateLocation device '%s', proceeding anyway with resume=.",
+                                            arg_resume_device, device);
+                }
 
                 if (arg_resume_offset != location.offset)
                         log_warning("resume_offset=%" PRIu64 " doesn't match with HibernateLocation offset %" PRIu64 ", proceeding anyway with resume_offset=.",
