@@ -485,10 +485,6 @@ int path_compare(const char *a, const char *b) {
         }
 }
 
-bool path_equal_or_inode_same(const char *a, const char *b, int flags) {
-        return path_equal(a, b) || inode_same(a, b, flags) > 0;
-}
-
 int path_compare_filename(const char *a, const char *b) {
         _cleanup_free_ char *fa = NULL, *fb = NULL;
         int r, j, k;
