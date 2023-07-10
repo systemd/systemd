@@ -27,6 +27,9 @@
 
 #define NDISC_DNSSL_MAX 64U
 #define NDISC_RDNSS_MAX 64U
+/* Not defined RFC, but let's set an upper limit to make not consume much memory.
+ * This should be safe as typically there should be at most 1 portal per network. */
+#define NDISC_CAPTIVE_PORTAL_MAX 64U
 
 bool link_ipv6_accept_ra_enabled(Link *link) {
         assert(link);
@@ -912,6 +915,19 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
                 exist->router = router;
                 exist->lifetime_usec = lifetime_usec;
                 return 0;
+        }
+
+        if (set_size(link->ndisc_captive_portals) >= NDISC_CAPTIVE_PORTAL_MAX) {
+                NDiscCaptivePortal *c, *target = NULL;
+
+                /* Find the portal who has the minimal lifetime and drop it to store new one. */
+                SET_FOREACH(c, link->ndisc_captive_portals)
+                        if (!target || c->lifetime_usec < target->lifetime_usec)
+                                target = c;
+
+                assert(target);
+                assert(set_remove(link->ndisc_captive_portals, target) == target);
+                ndisc_captive_portal_free(target);
         }
 
         new_entry = new(NDiscCaptivePortal, 1);
