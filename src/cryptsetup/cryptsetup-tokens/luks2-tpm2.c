@@ -39,6 +39,8 @@ int acquire_luks2_key(
         _cleanup_free_ char *auto_device = NULL;
         _cleanup_(erase_and_freep) char *b64_salted_pin = NULL;
         int r;
+        uint32_t literal_pcr_mask = 0;
+        uint8_t hash_pcr_literal[24][SHA256_DIGEST_SIZE];
 
         assert(salt || salt_size == 0);
         assert(ret_decrypted_key);
@@ -83,6 +85,8 @@ int acquire_luks2_key(
         return tpm2_unseal(
                         device,
                         hash_pcr_mask,
+                        literal_pcr_mask,
+                        hash_pcr_literal,
                         pcr_bank,
                         pubkey, pubkey_size,
                         pubkey_pcr_mask,

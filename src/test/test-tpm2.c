@@ -4,37 +4,74 @@
 #include "tpm2-util.h"
 #include "tests.h"
 
-static void test_tpm2_pcr_mask_from_string_one(const char *s, uint32_t mask, int ret) {
-        uint32_t m;
+static void test_tpm2_pcr_from_string_one(const char *s, uint32_t mask, uint32_t literal_mask, uint8_t pcr_literal[][SHA256_DIGEST_SIZE], int ret) {
+        uint32_t m, m2;
+        uint8_t literal[24][SHA256_DIGEST_SIZE];
+        memset(literal, 0, 24*SHA256_DIGEST_SIZE);
 
-        assert_se(tpm2_pcr_mask_from_string(s, &m) == ret);
+        assert_se(tpm2_pcr_from_string(s, &m, &m2, literal) == ret);
 
-        if (ret >= 0)
+        if (ret >= 0) {
                 assert_se(m == mask);
+                assert_se(m2 == literal_mask);
+                assert_se(memcmp(literal, pcr_literal, 24*SHA256_DIGEST_SIZE) == 0);
+        }
 }
 
 TEST(tpm2_mask_from_string) {
-        test_tpm2_pcr_mask_from_string_one("", 0, 0);
-        test_tpm2_pcr_mask_from_string_one("0", 1, 0);
-        test_tpm2_pcr_mask_from_string_one("1", 2, 0);
-        test_tpm2_pcr_mask_from_string_one("0,1", 3, 0);
-        test_tpm2_pcr_mask_from_string_one("0+1", 3, 0);
-        test_tpm2_pcr_mask_from_string_one("0-1", 0, -EINVAL);
-        test_tpm2_pcr_mask_from_string_one("0,1,2", 7, 0);
-        test_tpm2_pcr_mask_from_string_one("0+1+2", 7, 0);
-        test_tpm2_pcr_mask_from_string_one("0+1,2", 7, 0);
-        test_tpm2_pcr_mask_from_string_one("0,1+2", 7, 0);
-        test_tpm2_pcr_mask_from_string_one("0,2", 5, 0);
-        test_tpm2_pcr_mask_from_string_one("0+2", 5, 0);
-        test_tpm2_pcr_mask_from_string_one("foo", 0, -EINVAL);
-        test_tpm2_pcr_mask_from_string_one("7+application-support", 8388736, 0);
-        test_tpm2_pcr_mask_from_string_one("8+boot-loader-code", 272, 0);
-        test_tpm2_pcr_mask_from_string_one("6+boot-loader-code,44", 0, -EINVAL);
-        test_tpm2_pcr_mask_from_string_one("7,shim-policy,4", 16528, 0);
-        test_tpm2_pcr_mask_from_string_one("sysexts,shim-policy+kernel-boot", 26624, 0);
-        test_tpm2_pcr_mask_from_string_one("sysexts,shim+kernel-boot", 0, -EINVAL);
-        test_tpm2_pcr_mask_from_string_one("sysexts+17+23", 8527872, 0);
-        test_tpm2_pcr_mask_from_string_one("debug+24", 0, -EINVAL);
+        uint32_t literal_mask = 0;
+        uint8_t pcr_literal[24][SHA256_DIGEST_SIZE];
+        char pcr_string[77];
+        char *hex;
+        unsigned pcr_idx;
+
+        memset(pcr_literal, 0, 24*SHA256_DIGEST_SIZE);
+
+        test_tpm2_pcr_from_string_one("", 0, literal_mask, pcr_literal, 0);
+        test_tpm2_pcr_from_string_one("0", 1, literal_mask, pcr_literal, 0);
+        test_tpm2_pcr_from_string_one("1", 2, literal_mask, pcr_literal, 0);
+        test_tpm2_pcr_from_string_one("0,1", 3, literal_mask, pcr_literal, 0);
+        test_tpm2_pcr_from_string_one("0+1", 3, literal_mask, pcr_literal, 0);
+        test_tpm2_pcr_from_string_one("0-1", 0, literal_mask, pcr_literal, -EINVAL);
+        test_tpm2_pcr_from_string_one("0,1,2", 7, literal_mask, pcr_literal, 0);
+        test_tpm2_pcr_from_string_one("0+1+2", 7, literal_mask, pcr_literal, 0);
+        test_tpm2_pcr_from_string_one("0+1,2", 7, literal_mask, pcr_literal, 0);
+        test_tpm2_pcr_from_string_one("0,1+2", 7, literal_mask, pcr_literal, 0);
+        test_tpm2_pcr_from_string_one("0,2", 5, literal_mask, pcr_literal, 0);
+        test_tpm2_pcr_from_string_one("0+2", 5, literal_mask, pcr_literal, 0);
+        test_tpm2_pcr_from_string_one("foo", 0, literal_mask, pcr_literal, -EINVAL);
+        test_tpm2_pcr_from_string_one("7+application-support", 8388736, literal_mask, pcr_literal, 0);
+        test_tpm2_pcr_from_string_one("8+boot-loader-code", 272, literal_mask, pcr_literal, 0);
+        test_tpm2_pcr_from_string_one("6+boot-loader-code,44", 0, literal_mask, pcr_literal, -EINVAL);
+        test_tpm2_pcr_from_string_one("7,shim-policy,4", 16528, literal_mask, pcr_literal, 0);
+        test_tpm2_pcr_from_string_one("sysexts,shim-policy+kernel-boot", 26624, literal_mask, pcr_literal, 0);
+        test_tpm2_pcr_from_string_one("sysexts,shim+kernel-boot", 0, literal_mask, pcr_literal, -EINVAL);
+        test_tpm2_pcr_from_string_one("sysexts+17+23", 8527872, literal_mask, pcr_literal, 0);
+        test_tpm2_pcr_from_string_one("debug+24", 0, literal_mask, pcr_literal, -EINVAL);
+
+        hex = (char *)"3D458CFE55CC03EA1F443F1562BEEC8DF51C75E14A9FCF9A7234A13F198E7969";
+        pcr_idx = 11;
+        sprintf(pcr_string, "0,%u:sha256=%s", pcr_idx, hex);
+        memset(pcr_literal, 0, 24*SHA256_DIGEST_SIZE);
+        hex_to_bytes(pcr_literal[pcr_idx], hex);
+        literal_mask = 1 << pcr_idx;
+        test_tpm2_pcr_from_string_one(pcr_string, 1, literal_mask, pcr_literal, 0);
+
+        hex = (char *)"3G458CFE55CC03EA1F443F1562BEEC8DF51C75E14A9FCF9A7234A13F198E7969";
+        pcr_idx = 11;
+        sprintf(pcr_string, "0,%u:sha256=%s", pcr_idx, hex);
+        memset(pcr_literal, 0, 24*SHA256_DIGEST_SIZE);
+        hex_to_bytes(pcr_literal[pcr_idx], hex);
+        literal_mask = 1 << pcr_idx;
+        test_tpm2_pcr_from_string_one(pcr_string, 1, literal_mask, pcr_literal, -EINVAL);
+
+        hex = (char *)"3D458CFE55CC03EA1F443F1562BEEC8DF51C75E14A9FCF9A7234A13F198E7969";
+        pcr_idx = 11;
+        sprintf(pcr_string, "0,%u:sha384=%s", pcr_idx, hex);
+        memset(pcr_literal, 0, 24*SHA256_DIGEST_SIZE);
+        hex_to_bytes(pcr_literal[pcr_idx], hex);
+        literal_mask = 1 << pcr_idx;
+        test_tpm2_pcr_from_string_one(pcr_string, 1, literal_mask, pcr_literal, -EINVAL);
 }
 
 TEST(pcr_index_from_string) {
