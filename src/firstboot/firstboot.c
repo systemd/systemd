@@ -12,6 +12,7 @@
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-unit-util.h"
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"
 #include "chase.h"
@@ -1574,7 +1575,6 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int reload_system_manager(sd_bus **bus) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -1585,9 +1585,10 @@ static int reload_system_manager(sd_bus **bus) {
                         return bus_log_connect_error(r, BUS_TRANSPORT_LOCAL);
         }
 
-        r = bus_call_method(*bus, bus_systemd_mgr, "Reload", &error, NULL, NULL);
+        r = bus_service_manager_reload(*bus);
         if (r < 0)
-                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
+                return r;
+
         log_info("Requested manager reload to apply locale configuration.");
         return 0;
 }

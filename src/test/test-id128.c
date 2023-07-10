@@ -214,7 +214,7 @@ TEST(benchmark_sd_id128_get_machine_app_specific) {
 
         q = now(CLOCK_MONOTONIC) - t;
 
-        log_info("%lf μs each\n", (double) q / iterations);
+        log_info("%lf μs each", (double) q / iterations);
 }
 
 TEST(id128_at) {
