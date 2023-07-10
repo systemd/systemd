@@ -133,7 +133,7 @@ static int bus_process_wait(sd_bus *bus) {
                         return 0;
 
                 r = sd_bus_wait(bus, UINT64_MAX);
-                if (r < 0)
+                if (r <= 0)
                         return r;
         }
 }
@@ -295,7 +295,7 @@ int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet, const char* const* extra_ar
                 int q;
 
                 q = bus_process_wait(d->bus);
-                if (q < 0)
+                if (q <= 0)
                         return log_error_errno(q, "Failed to wait for response: %m");
 
                 if (d->name && d->result) {
