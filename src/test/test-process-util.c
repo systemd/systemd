@@ -614,7 +614,7 @@ TEST(getpid_measure) {
                 (void) getpid();
         q = now(CLOCK_MONOTONIC) - t;
 
-        log_info(" glibc getpid(): %lf μs each\n", (double) q / iterations);
+        log_info(" glibc getpid(): %lf μs each", (double) q / iterations);
 
         iterations *= 50; /* _cached() is about 50 times faster, so we need more iterations */
 
@@ -623,7 +623,7 @@ TEST(getpid_measure) {
                 (void) getpid_cached();
         q = now(CLOCK_MONOTONIC) - t;
 
-        log_info("getpid_cached(): %lf μs each\n", (double) q / iterations);
+        log_info("getpid_cached(): %lf μs each", (double) q / iterations);
 }
 
 TEST(safe_fork) {

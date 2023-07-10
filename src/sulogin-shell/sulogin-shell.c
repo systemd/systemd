@@ -140,7 +140,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         goto fallback;
                 if (!r) {
-                        log_warning("%s is not inactive. Please review the %s setting.\n", target, target);
+                        log_warning("%s is not inactive. Please review the %s setting.", target, target);
                         goto fallback;
                 }
 
@@ -148,7 +148,7 @@ static int run(int argc, char *argv[]) {
                         break;
 
         fallback:
-                log_warning("Fallback to the single-user shell.\n");
+                log_warning("Fallback to the single-user shell.");
         }
 
         return 0;
