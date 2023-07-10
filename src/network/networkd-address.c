@@ -1403,7 +1403,7 @@ void address_cancel_request(Address *address) {
 int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
         _cleanup_(address_freep) Address *tmp = NULL;
         struct ifa_cacheinfo cinfo;
-        Link *link = NULL;
+        Link *link;
         uint16_t type;
         Address *address = NULL;
         int ifindex, r;
@@ -1439,7 +1439,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         }
 
         r = link_get_by_index(m, ifindex, &link);
-        if (r < 0 || !link) {
+        if (r < 0) {
                 /* when enumerating we might be out of sync, but we will get the address again, so just
                  * ignore it */
                 if (!m->enumerating)
