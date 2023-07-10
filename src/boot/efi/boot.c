@@ -751,25 +751,24 @@ static bool menu_run(
 
                         /* menu entries title lines */
                         lines = xnew(char16_t *, visible_entries + 1);
-                        size_t idx = 0;
+                        size_t idx_lines = 0;
                         for (size_t i = 0; i < config->n_entries; i++) {
                                 if (!entry_is_visible(config->entries[i], visible_group))
                                         continue;
                                 size_t j, padding;
-
-                                lines[idx] = xnew(char16_t, line_width + 1);
+                                lines[idx_lines] = xnew(char16_t, line_width + 1);
                                 padding = (line_width - MIN(strlen16(config->entries[i]->title_show), line_width)) / 2;
 
                                 for (j = 0; j < padding; j++)
-                                        lines[idx][j] = ' ';
+                                        lines[idx_lines][j] = ' ';
 
                                 for (size_t k = 0; config->entries[i]->title_show[k] != '\0' && j < line_width; j++, k++)
-                                        lines[idx][j] = config->entries[i]->title_show[k];
+                                        lines[idx_lines][j] = config->entries[i]->title_show[k];
 
                                 for (; j < line_width; j++)
-                                        lines[idx][j] = ' ';
-                                lines[idx][line_width] = '\0';
-                                idx++;
+                                        lines[idx_lines][j] = ' ';
+                                lines[idx_lines][line_width] = '\0';
+                                idx_lines++;
                         }
                         lines[visible_entries] = NULL;
 
