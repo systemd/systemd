@@ -381,6 +381,20 @@ static int manager_etc_hosts_read(Manager *m) {
         return 1;
 }
 
+static int answer_add_ptr(DnsAnswer *answer, DnsResourceKey *key, const char *name) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        rr = dns_resource_record_new(key);
+        if (!rr)
+                return -ENOMEM;
+
+        rr->ptr.name = strdup(name);
+        if (!rr->ptr.name)
+                return -ENOMEM;
+
+        return dns_answer_add(answer, rr, 0, DNS_ANSWER_AUTHENTICATED, NULL);
+}
+
 static int etc_hosts_lookup_by_address(
                 EtcHosts *hosts,
                 DnsQuestion *q,
@@ -427,18 +441,17 @@ static int etc_hosts_lookup_by_address(
                 if (r < 0)
                         return r;
 
+                if (item->canonical_name) {
+                        r = answer_add_ptr(*answer, found_ptr, item->canonical_name);
+                        if (r < 0)
+                                return r;
+                }
+
                 SET_FOREACH(n, item->names) {
-                        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                        if (n == item->canonical_name)
+                                continue;
 
-                        rr = dns_resource_record_new(found_ptr);
-                        if (!rr)
-                                return -ENOMEM;
-
-                        rr->ptr.name = strdup(n);
-                        if (!rr->ptr.name)
-                                return -ENOMEM;
-
-                        r = dns_answer_add(*answer, rr, 0, DNS_ANSWER_AUTHENTICATED, NULL);
+                        r = answer_add_ptr(*answer, found_ptr, n);
                         if (r < 0)
                                 return r;
                 }
