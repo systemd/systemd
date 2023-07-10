@@ -2102,7 +2102,9 @@ int dissected_image_mount(
                                 if (r < 0)
                                         return r;
                                 if (r == 0) {
-                                        r = path_is_extension_tree(IMAGE_SYSEXT, where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_SYSEXT_CHECK));
+                                        r = path_is_extension_tree(IMAGE_SYSEXT, where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_EXTENSION_CHECK));
+                                        if (r == 0)
+                                                r = path_is_extension_tree(IMAGE_CONFEXT, where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_EXTENSION_CHECK));
                                         if (r < 0)
                                                 return r;
                                         if (r > 0)
@@ -3363,6 +3365,8 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                                  * file found in the directory, if one named after the image cannot
                                  * be found first. */
                                 r = open_extension_release(t, IMAGE_SYSEXT, m->image_name, /* relax_extension_release_check= */ false, NULL, &fd);
+                                if (r == -ENOENT)
+                                        r = open_extension_release(t, IMAGE_CONFEXT, m->image_name, /* relax_extension_release_check= */ false, NULL, &fd);
                                 if (r < 0)
                                         fd = r; /* Propagate the error. */
                                 break;
@@ -3820,7 +3824,7 @@ int verity_dissect_and_mount(
                 return log_debug_errno(r, "Failed to load root hash: %m");
 
         dissect_image_flags = (verity.data_path ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0) |
-                (relax_extension_release_check ? DISSECT_IMAGE_RELAX_SYSEXT_CHECK : 0) |
+                (relax_extension_release_check ? DISSECT_IMAGE_RELAX_EXTENSION_CHECK : 0) |
                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES;
 
@@ -3889,10 +3893,16 @@ int verity_dissect_and_mount(
          * then a simple match on the ID will be performed. */
         if (required_host_os_release_id) {
                 _cleanup_strv_free_ char **extension_release = NULL;
+                ImageClass class = IMAGE_SYSEXT;
 
                 assert(!isempty(required_host_os_release_id));
 
                 r = load_extension_release_pairs(dest, IMAGE_SYSEXT, dissected_image->image_name, relax_extension_release_check, &extension_release);
+                if (r == -ENOENT) {
+                        r = load_extension_release_pairs(dest, IMAGE_CONFEXT, dissected_image->image_name, relax_extension_release_check, &extension_release);
+                        if (r != -ENOENT)
+                                class = IMAGE_CONFEXT;
+                }
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse image %s extension-release metadata: %m", dissected_image->image_name);
 
@@ -3903,7 +3913,7 @@ int verity_dissect_and_mount(
                                 required_host_os_release_sysext_level,
                                 required_sysext_scope,
                                 extension_release,
-                                IMAGE_SYSEXT);
+                                class);
                 if (r == 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Image %s extension-release metadata does not match the root's", dissected_image->image_name);
                 if (r < 0)
