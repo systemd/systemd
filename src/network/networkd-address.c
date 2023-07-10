@@ -353,6 +353,69 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
         address_kernel_compare_func,
         address_free);
 
+#define KNOWN_FLAGS                                                 \
+        (IFA_F_SECONDARY                                            \
+         IFA_F_NODAD |                                              \
+         IFA_F_OPTIMISTIC |                                         \
+         IFA_F_DADFAILED |                                          \
+         IFA_F_HOMEADDRESS |                                        \
+         IFA_F_DEPRECATED |                                         \
+         IFA_F_TENTATIVE |                                          \
+         IFA_F_PERMANENT |                                          \
+         IFA_F_MANAGETEMPADDR |                                     \
+         IFA_F_NOPREFIXROUTE |                                      \
+         IFA_F_MCAUTOJOIN |                                         \
+         IFA_F_STABLE_PRIVACY)
+#define UNMANAGED_FLAGS                         \
+        (IFA_F_SECONDARY |                      \
+         IFA_F_DADFAILED |                      \
+         IFA_F_DEPRECATED |                     \
+         IFA_F_TENTATIVE |                      \
+         IFA_F_PERMANENT |                      \
+         IFA_F_STABLE_PRIVACY)
+
+static bool address_can_update(const Address *la, const Address *na) {
+        assert(la);
+        assert(la->link);
+        assert(na);
+        assert(na->network);
+
+        /* IPv4 address: lifetime, route metric, and protocol can be updated.
+         * IPv6 address: lifetime, route metric, protocol, flags, and peer address can be updated. */
+
+        if (la->family != na->family)
+                return false;
+
+        if (la->prefixlen != na->prefixlen)
+                return false;
+
+        switch (la->family) {
+        case AF_INET:
+                if (la->scope != na->scope)
+                        return false;
+                if (na->flags != 0 &&
+                    (la->flags ^ na->flags) & KNOWN_FLAGS & ~UNMANAGED_FLAGS)
+                        return false;
+                if (!streq_ptr(la->label, na->label))
+                        return false;
+                if (!in4_addr_equal(&la->in_addr_peer, &na->in_addr_peer))
+                        return false;
+                /* FIXME: check broadcast address */
+                break;
+
+        case Af_INET6:
+                if (na->flags != 0 &&
+                    (la->flags ^ na->flags) & KNOWN_FLAGS & ~UNMANAGED_FLAGS)
+                        return false;
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        return true;
+}
+
 int address_compare_func(const Address *a1, const Address *a2) {
         int r;
 
