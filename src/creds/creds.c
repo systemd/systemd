@@ -636,11 +636,13 @@ static int verb_has_tpm2(int argc, char **argv, void *userdata) {
                 printf("%sfirmware\n"
                        "%sdriver\n"
                        "%ssystem\n"
-                       "%ssubsystem\n",
+                       "%ssubsystem\n"
+                       "%slibraries\n",
                        plus_minus(s & TPM2_SUPPORT_FIRMWARE),
                        plus_minus(s & TPM2_SUPPORT_DRIVER),
                        plus_minus(s & TPM2_SUPPORT_SYSTEM),
-                       plus_minus(s & TPM2_SUPPORT_SUBSYSTEM));
+                       plus_minus(s & TPM2_SUPPORT_SUBSYSTEM),
+                       plus_minus(s & TPM2_SUPPORT_LIBRARIES));
         }
 
         /* Return inverted bit flags. So that TPM2_SUPPORT_FULL becomes EXIT_SUCCESS and the other values
