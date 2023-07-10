@@ -900,21 +900,21 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
                 return log_link_warning_errno(link, r, "Failed to get captive portal from RA: %m");
 
         if (len == 0)
-                return 0;
+                return log_link_warning_errno(link, SYNTHETIC_ERRNO(EBADMSG), "Received empty captive portal, ignoring.");
 
         r = make_cstring(uri, len, MAKE_CSTRING_REFUSE_TRAILING_NUL, &captive_portal);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to convert captive portal URI: %m");
 
         if (!in_charset(captive_portal, URI_VALID))
-                return log_link_debug_errno(link, SYNTHETIC_ERRNO(EBADMSG), "Received invalid captive portal, ignoring.");
+                return log_link_warning_errno(link, SYNTHETIC_ERRNO(EBADMSG), "Received invalid captive portal, ignoring.");
 
         exist = set_get(link->ndisc_captive_portals, &(NDiscCaptivePortal) { .captive_portal = captive_portal });
         if (exist) {
                 /* update existing entry */
                 exist->router = router;
                 exist->lifetime_usec = lifetime_usec;
-                return 0;
+                return 1;
         }
 
         if (set_size(link->ndisc_captive_portals) >= NDISC_CAPTIVE_PORTAL_MAX) {
@@ -947,10 +947,11 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
         TAKE_PTR(new_entry);
 
         link_dirty(link);
-        return 0;
+        return 1;
 }
 
 static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
+        size_t n_captive_portal = 0;
         int r;
 
         assert(link);
@@ -986,7 +987,16 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                         r = ndisc_router_process_dnssl(link, rt);
                         break;
                 case SD_NDISC_OPTION_CAPTIVE_PORTAL:
+                        if (n_captive_portal > 0) {
+                                if (n_captive_portal == 1)
+                                        log_link_notice(link, "Received RA with multiple captive portals, only using the first one.");
+
+                                n_captive_portal++;
+                                continue;
+                        }
                         r = ndisc_router_process_captive_portal(link, rt);
+                        if (r > 0)
+                                n_captive_portal++;
                         break;
                 }
                 if (r < 0 && r != -EBADMSG)
