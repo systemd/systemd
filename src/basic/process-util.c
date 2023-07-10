@@ -1177,7 +1177,11 @@ pid_t clone_with_nested_stack(int (*fn)(void *), int flags, void *userdata) {
         mystack = (uint8_t*) mystack + ps; /* move pointer one page ahead since stacks usually grow backwards */
         mystack = (void*) ALIGN_TO((uintptr_t) mystack, ps); /* align to page size (moving things further ahead) */
 
+#if HAVE_CLONE
         pid = clone(fn, mystack, flags, userdata);
+#else
+        pid = __clone2(fn, mystack, ps, flags, userdata);
+#endif
         if (pid < 0)
                 return -errno;
 
