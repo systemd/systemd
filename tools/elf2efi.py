@@ -515,6 +515,7 @@ def elf2efi(args: argparse.Namespace):
 
     opt.SizeOfHeaders = align_to(
         PE_OFFSET
+        + sizeof(coff)
         + coff.SizeOfOptionalHeader
         + sizeof(PeSection) * max(coff.NumberOfSections, args.minimum_sections),
         FILE_ALIGNMENT,
