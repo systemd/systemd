@@ -21,9 +21,9 @@ static void log_cgroup_mask(CGroupMask got, CGroupMask expected) {
         _cleanup_free_ char *e_store = NULL, *g_store = NULL;
 
         assert_se(cg_mask_to_string(expected, &e_store) >= 0);
-        log_info("Expected mask: %s\n", e_store);
+        log_info("Expected mask: %s", e_store);
         assert_se(cg_mask_to_string(got, &g_store) >= 0);
-        log_info("Got mask: %s\n", g_store);
+        log_info("Got mask: %s", g_store);
 }
 
 TEST_RET(cgroup_mask, .sd_booted = true) {

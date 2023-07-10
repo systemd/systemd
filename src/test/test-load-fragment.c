@@ -923,7 +923,7 @@ TEST(config_parse_memory_limit) {
                 r = config_parse_memory_limit(NULL, "fake", 1, "section", 1,
                                               limit_tests[i].limit, 1,
                                               limit_tests[i].value, &c, NULL);
-                log_info("%s=%s\t%"PRIu64"==%"PRIu64"\n",
+                log_info("%s=%s\t%"PRIu64"==%"PRIu64,
                          limit_tests[i].limit, limit_tests[i].value,
                          *limit_tests[i].result, limit_tests[i].expected);
                 assert_se(r >= 0);

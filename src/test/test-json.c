@@ -95,7 +95,7 @@ static void test_variant_one(const char *data, Test test) {
         assert_se(s);
         assert_se((size_t) r == strlen(s));
 
-        log_info("formatted normally: %s\n", s);
+        log_info("formatted normally: %s", s);
 
         r = json_parse(data, JSON_PARSE_SENSITIVE, &w, NULL, NULL);
         assert_se(r == 0);
@@ -305,7 +305,7 @@ TEST(build) {
                                                   JSON_BUILD_STRV((char**) arr_1234))) >= 0);
 
         assert_se(json_variant_format(a, 0, &s) >= 0);
-        log_info("GOT: %s\n", s);
+        log_info("GOT: %s", s);
         assert_se(json_parse(s, 0, &b, NULL, NULL) >= 0);
         assert_se(json_variant_equal(a, b));
 
@@ -316,10 +316,10 @@ TEST(build) {
 
         s = mfree(s);
         assert_se(json_variant_format(a, 0, &s) >= 0);
-        log_info("GOT: %s\n", s);
+        log_info("GOT: %s", s);
         assert_se(json_parse(s, 0, &b, NULL, NULL) >= 0);
         assert_se(json_variant_format(b, 0, &t) >= 0);
-        log_info("GOT: %s\n", t);
+        log_info("GOT: %s", t);
 
         assert_se(streq(s, t));
 
