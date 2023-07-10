@@ -188,6 +188,8 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
+        umask(0022);
+
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
