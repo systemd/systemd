@@ -104,7 +104,7 @@ int asynchronous_close(int fd) {
                  * We usually prefer calling waitid(), but before kernel 4.7 it didn't support __WCLONE while
                  * waitpid() did. Hence let's use waitpid() here, it's good enough for our purposes here. */
                 for (;;) {
-                        if (waitpid(pid, NULL, WEXITED|__WCLONE) >= 0 || errno != EINTR)
+                        if (waitpid(pid, NULL, __WCLONE) >= 0 || errno != EINTR)
                                 break;
                 }
         }
