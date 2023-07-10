@@ -388,7 +388,7 @@ static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
 }
 
 static int nexthop_remove(NextHop *nexthop) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         Manager *manager;
         Link *link;
         int r;
@@ -407,15 +407,15 @@ static int nexthop_remove(NextHop *nexthop) {
 
         log_nexthop_debug(nexthop, "Removing", link);
 
-        r = sd_rtnl_message_new_nexthop(manager->rtnl, &req, RTM_DELNEXTHOP, AF_UNSPEC, RTPROT_UNSPEC);
+        r = sd_rtnl_message_new_nexthop(manager->rtnl, &m, RTM_DELNEXTHOP, AF_UNSPEC, RTPROT_UNSPEC);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create RTM_DELNEXTHOP message: %m");
 
-        r = sd_netlink_message_append_u32(req, NHA_ID, nexthop->id);
+        r = sd_netlink_message_append_u32(m, NHA_ID, nexthop->id);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append NHA_ID attribute: %m");
 
-        r = netlink_call_async(manager->rtnl, NULL, req, nexthop_remove_handler,
+        r = netlink_call_async(manager->rtnl, NULL, m, nexthop_remove_handler,
                                link ? link_netlink_destroy_callback : NULL, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
