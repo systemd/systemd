@@ -287,6 +287,16 @@ static int link_request_neighbor(Link *link, const Neighbor *neighbor) {
         assert(neighbor);
         assert(neighbor->source != NETWORK_CONFIG_SOURCE_FOREIGN);
 
+        if (neighbor->ll_addr.length != link->hw_addr.length) {
+                log_link_debug(link,
+                               "The link layer address lenght (%zu) for neighbor %s does not match "
+                               "the hardware address length (%zu), ignoring the setting.",
+                               neighbor->ll_addr.length,
+                               IN_ADDR_TO_STRING(neighbor->family, &neighbor->in_addr),
+                               link->hw_addr.length);
+                return 0;
+        }
+
         r = neighbor_dup(neighbor, &tmp);
         if (r < 0)
                 return r;
