@@ -3112,6 +3112,8 @@ static int tpm2_build_sealing_policy(
 
 int tpm2_seal(const char *device,
               uint32_t hash_pcr_mask,
+              uint32_t literal_pcr_mask,
+              uint8_t hash_pcr_literal[][SHA256_DIGEST_SIZE],
               const void *pubkey,
               const size_t pubkey_size,
               uint32_t pubkey_pcr_mask,
@@ -3139,8 +3141,10 @@ int tpm2_seal(const char *device,
         assert(ret_pcr_hash);
         assert(ret_pcr_hash_size);
         assert(ret_pcr_bank);
+        assert(hash_pcr_literal);
 
         assert(TPM2_PCR_MASK_VALID(hash_pcr_mask));
+        assert(TPM2_PCR_MASK_VALID(literal_pcr_mask));
         assert(TPM2_PCR_MASK_VALID(pubkey_pcr_mask));
 
         /* So here's what we do here: we connect to the TPM2 chip. It persistently contains a "seed" key that
@@ -3177,13 +3181,28 @@ int tpm2_seal(const char *device,
         TPML_PCR_SELECTION hash_pcr_selection = {};
         _cleanup_free_ TPM2B_DIGEST *hash_pcr_values = NULL;
         size_t n_hash_pcr_values = 0;
-        if (hash_pcr_mask) {
-                /* For now, we just read the current values from the system; we need to be able to specify
-                 * expected values, eventually. */
-                tpm2_tpml_pcr_selection_from_mask(hash_pcr_mask, pcr_bank, &hash_pcr_selection);
+
+        /* We will read both the required and the provided PCRs, so that its space is reserved
+           in hash_pcr_values */
+        const uint32_t agg_pcr_mask = hash_pcr_mask | literal_pcr_mask;
+        if (agg_pcr_mask) {
+                tpm2_tpml_pcr_selection_from_mask(agg_pcr_mask, pcr_bank, &hash_pcr_selection);
                 r = tpm2_pcr_read(c, &hash_pcr_selection, &hash_pcr_selection, &hash_pcr_values, &n_hash_pcr_values);
                 if (r < 0)
                         return r;
+        }
+
+        /* In case there are literal hashes passed, overwrite the existing values */
+        if (literal_pcr_mask) {
+          size_t count = 0;
+          for (int i=0; i<24; i++) {
+                if ((literal_pcr_mask >> i) & 1) {
+                        memcpy_safe(hash_pcr_values[count].buffer, hash_pcr_literal[i], SHA256_DIGEST_SIZE);
+                }
+                /* update the count if this bit is set in the aggregated mask */
+                count += ((agg_pcr_mask >> i) & 1);
+          }
+
         }
 
         TPM2B_PUBLIC pubkey_tpm2, *authorize_key = NULL;
@@ -3366,6 +3385,8 @@ int tpm2_seal(const char *device,
 
 int tpm2_unseal(const char *device,
                 uint32_t hash_pcr_mask,
+                uint32_t literal_pcr_mask,
+                uint8_t hash_pcr_literal[][SHA256_DIGEST_SIZE],
                 uint16_t pcr_bank,
                 const void *pubkey,
                 size_t pubkey_size,
@@ -3393,6 +3414,7 @@ int tpm2_unseal(const char *device,
         assert(ret_secret_size);
 
         assert(TPM2_PCR_MASK_VALID(hash_pcr_mask));
+        assert(TPM2_PCR_MASK_VALID(literal_pcr_mask));
         assert(TPM2_PCR_MASK_VALID(pubkey_pcr_mask));
 
         r = dlopen_tpm2();
@@ -3797,27 +3819,44 @@ char *tpm2_pcr_mask_to_string(uint32_t mask) {
         return TAKE_PTR(s);
 }
 
-int tpm2_pcr_mask_from_string(const char *arg, uint32_t *ret_mask) {
-        uint32_t mask = 0;
+int hex_to_bytes(uint8_t bytes[SHA256_DIGEST_SIZE], const char *hex) {
+        for (int i=0, j=0; i<SHA256_DIGEST_SIZE*2; i+=2, j++) {
+                uint8_t f1 = (hex[i] % 32 + 9) % 25;
+                uint8_t f2 = (hex[i+1] % 32 + 9) % 25;
+                if (f1 >= 16 || f2 >= 16 ) {
+                        return -EINVAL;
+                }
+                bytes[j] = f1 * 16 + f2;
+        }
+        return 0;
+}
+
+int tpm2_pcr_from_string(const char *arg, uint32_t *ret_mask, uint32_t *ret_literal_mask, uint8_t ret_literal[][SHA256_DIGEST_SIZE]) {
+        uint32_t mask = 0, literal_mask=0;
         int r;
 
         assert(arg);
         assert(ret_mask);
+        assert(ret_literal);
 
         if (isempty(arg)) {
                 *ret_mask = 0;
+                *ret_literal_mask = 0;
                 return 0;
         }
 
         /* Parses a "," or "+" separated list of PCR indexes. We support "," since this is a list after all,
          * and most other tools expect comma separated PCR specifications. We also support "+" since in
          * /etc/crypttab the "," is already used to separate options, hence a different separator is nice to
-         * avoid escaping. */
+         * avoid escaping.
+         * In case there are literals specified on the argument, they are expected to have the format
+         * <index>:sha256=<hash>*/
 
         const char *p = arg;
         for (;;) {
                 _cleanup_free_ char *pcr = NULL;
                 unsigned n;
+                char *r2;
 
                 r = extract_first_word(&p, &pcr, ",+", EXTRACT_DONT_COALESCE_SEPARATORS);
                 if (r == 0)
@@ -3825,16 +3864,39 @@ int tpm2_pcr_mask_from_string(const char *arg, uint32_t *ret_mask) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse PCR list: %s", arg);
 
-                r = pcr_index_from_string(pcr);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse specified PCR or specified PCR is out of range: %s", pcr);
-                n = r;
-                SET_BIT(mask, n);
+                /* detect if this is (potentially) a pcr index or a pcr literal*/
+                r2 = strchr(pcr, ':');
+
+                /* if this is a pcr literal, try to parse it */
+                if (r2) {
+                        unsigned pcr_idx;
+                        char pcr_hex[2*SHA256_DIGEST_SIZE+1];
+                        r = sscanf(pcr, "%u:sha256=%s", &pcr_idx, pcr_hex);
+                        if (r != 2)
+                                return log_error_errno(-EINVAL, "Failed to parse specified PCR literal: %s", pcr);
+
+                        r = hex_to_bytes(ret_literal[pcr_idx], pcr_hex);
+                        if (r < 0) {
+                                return log_error_errno(r, "Failed to parse specified PCR literal: %s", pcr);
+                        }
+
+                        SET_BIT(literal_mask, pcr_idx);
+                } else
+                /* if this is a pcr index, parse it */
+                {
+                        r = pcr_index_from_string(pcr);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse specified PCR or specified PCR is out of range: %s", pcr);
+                        n = r;
+                        SET_BIT(mask, n);
+                }
         }
 
         *ret_mask = mask;
+        *ret_literal_mask = literal_mask;
         return 0;
 }
+
 
 int tpm2_make_pcr_json_array(uint32_t pcr_mask, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *a = NULL;
@@ -3895,6 +3957,8 @@ int tpm2_parse_pcr_json_array(JsonVariant *v, uint32_t *ret) {
 int tpm2_make_luks2_json(
                 int keyslot,
                 uint32_t hash_pcr_mask,
+                uint32_t literal_pcr_mask,
+                uint8_t hash_pcr_literal[][SHA256_DIGEST_SIZE],
                 uint16_t pcr_bank,
                 const void *pubkey,
                 size_t pubkey_size,
@@ -4200,11 +4264,22 @@ Tpm2Support tpm2_support(void) {
         return support;
 }
 
-int tpm2_parse_pcr_argument(const char *arg, uint32_t *mask) {
-        uint32_t m;
+void copy_literal_sha256_pcr(uint8_t dest[][SHA256_DIGEST_SIZE], uint8_t src[][SHA256_DIGEST_SIZE], uint32_t bitmask) {
+            for (int i = 0; i < 24; i++) {
+                if ((bitmask >> i) & 1) {
+                        memcpy_safe(dest[i], src[i], SHA256_DIGEST_SIZE);
+                }
+        }
+}
+
+int tpm2_parse_pcr_argument(const char *arg, uint32_t *mask, uint32_t *literal_mask, uint8_t literal[][SHA256_DIGEST_SIZE]) {
+        uint32_t m, m2;
+        uint8_t l[24][SHA256_DIGEST_SIZE];
         int r;
 
         assert(mask);
+        assert(literal_mask);
+        assert(literal);
 
         /* For use in getopt_long() command line parsers: merges masks specified on the command line */
 
@@ -4213,7 +4288,7 @@ int tpm2_parse_pcr_argument(const char *arg, uint32_t *mask) {
                 return 0;
         }
 
-        r = tpm2_pcr_mask_from_string(arg, &m);
+        r = tpm2_pcr_from_string(arg, &m, &m2, l);
         if (r < 0)
                 return r;
 
@@ -4221,6 +4296,14 @@ int tpm2_parse_pcr_argument(const char *arg, uint32_t *mask) {
                 *mask = m;
         else
                 *mask |= m;
+
+        if (*literal_mask == UINT32_MAX) {
+                *literal_mask = m2;
+                copy_literal_sha256_pcr(literal, l, UINT32_MAX);
+        } else {
+                *literal_mask |= m2;
+                copy_literal_sha256_pcr(literal, l, m2);
+        }
 
         return 0;
 }
