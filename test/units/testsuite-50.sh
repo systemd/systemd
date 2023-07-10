@@ -551,6 +551,27 @@ echo abc > abc
 systemd-dissect --copy-to /tmp/img abc /abc
 test -f /tmp/img/abc
 
+# Test that systemd-sysext reloads the daemon.
+mkdir -p /var/lib/extensions/
+ln -s /usr/share/app-nodistro.raw /var/lib/extensions/app-nodistro.raw
+systemd-sysext merge
+for RETRY in $(seq 60) LAST; do
+  if systemctl status foo.service | grep -q -P 'echo\[[0-9]+\]: foo'; then
+    break
+  fi
+  if [ "${RETRY}" = LAST ]; then
+    echo "Output of foo.service not found"
+    exit 1
+  fi
+  sleep 0.5
+done
+systemd-sysext unmerge --no-reload
+# Grep on the Warning to find the warning helper mentioning the daemon reload.
+systemctl status foo.service 2>&1 | grep -q -F "Warning"
+systemd-sysext merge
+systemd-sysext unmerge
+systemctl status foo.service 2>&1 | grep -v -q -F "Warning"
+
 echo OK >/testok
 
 exit 0
