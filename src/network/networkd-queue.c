@@ -134,7 +134,6 @@ static int request_new(
                 .link = link_ref(link), /* link may be NULL, but link_ref() handles it gracefully. */
                 .type = type,
                 .userdata = userdata,
-                .free_func = free_func,
                 .hash_func = hash_func,
                 .compare_func = compare_func,
                 .process = process,
@@ -153,6 +152,7 @@ static int request_new(
                 return r;
 
         req->manager = manager;
+        req->free_func = free_func;
         req->counter = counter;
         if (req->counter)
                 (*req->counter)++;
