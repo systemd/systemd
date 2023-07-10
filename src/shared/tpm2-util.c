@@ -4194,7 +4194,9 @@ Tpm2Support tpm2_support(void) {
                 support |= TPM2_SUPPORT_FIRMWARE;
 
 #if HAVE_TPM2
-        support |= TPM2_SUPPORT_SYSTEM;
+        r = dlopen_tpm2();
+        if (r >= 0)
+                support |= TPM2_SUPPORT_SYSTEM;
 #endif
 
         return support;
