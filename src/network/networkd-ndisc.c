@@ -874,6 +874,19 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
         if (!in_charset(captive_portal, URI_VALID))
                 return log_link_warning_errno(link, SYNTHETIC_ERRNO(EBADMSG), "Received invalid captive portal, ignoring.");
 
+        if (lifetime_usec == 0) {
+                _unused_ _cleanup_(ndisc_captive_portal_freep) NDiscCaptivePortal *c = NULL;
+
+                /* The entry is outdated. */
+                c = set_remove(link->ndisc_captive_portals,
+                               &(NDiscCaptivePortal) {
+                                       .captive_portal = captive_portal,
+                               });
+                if (c)
+                        link_dirty(link);
+                return 1;
+        }
+
         exist = set_get(link->ndisc_captive_portals, &(NDiscCaptivePortal) { .captive_portal = captive_portal });
         if (exist) {
                 /* update existing entry */
