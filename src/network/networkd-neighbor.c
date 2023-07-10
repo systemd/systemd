@@ -175,24 +175,6 @@ static void log_neighbor_debug(const Neighbor *neighbor, const char *str, const 
                        IN_ADDR_TO_STRING(neighbor->family, &neighbor->in_addr));
 }
 
-static int neighbor_configure_message(Neighbor *neighbor, Link *link, sd_netlink_message *req) {
-        int r;
-
-        r = sd_rtnl_message_neigh_set_state(req, NUD_PERMANENT);
-        if (r < 0)
-                return r;
-
-        r = netlink_message_append_hw_addr(req, NDA_LLADDR, &neighbor->ll_addr);
-        if (r < 0)
-                return r;
-
-        r = netlink_message_append_in_addr_union(req, NDA_DST, neighbor->family, &neighbor->in_addr);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
 static int neighbor_configure(Neighbor *neighbor, Link *link, Request *req) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
@@ -211,7 +193,15 @@ static int neighbor_configure(Neighbor *neighbor, Link *link, Request *req) {
         if (r < 0)
                 return r;
 
-        r = neighbor_configure_message(neighbor, link, m);
+        r = sd_rtnl_message_neigh_set_state(m, NUD_PERMANENT);
+        if (r < 0)
+                return r;
+
+        r = netlink_message_append_hw_addr(m, NDA_LLADDR, &neighbor->ll_addr);
+        if (r < 0)
+                return r;
+
+        r = netlink_message_append_in_addr_union(m, NDA_DST, neighbor->family, &neighbor->in_addr);
         if (r < 0)
                 return r;
 
@@ -342,7 +332,7 @@ static int neighbor_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link
 }
 
 static int neighbor_remove(Neighbor *neighbor) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         Link *link;
         int r;
 
@@ -355,16 +345,16 @@ static int neighbor_remove(Neighbor *neighbor) {
 
         log_neighbor_debug(neighbor, "Removing", link);
 
-        r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_DELNEIGH,
+        r = sd_rtnl_message_new_neigh(link->manager->rtnl, &m, RTM_DELNEIGH,
                                       link->ifindex, neighbor->family);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not allocate RTM_DELNEIGH message: %m");
 
-        r = netlink_message_append_in_addr_union(req, NDA_DST, neighbor->family, &neighbor->in_addr);
+        r = netlink_message_append_in_addr_union(m, NDA_DST, neighbor->family, &neighbor->in_addr);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append NDA_DST attribute: %m");
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, neighbor_remove_handler,
+        r = netlink_call_async(link->manager->rtnl, NULL, m, neighbor_remove_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
