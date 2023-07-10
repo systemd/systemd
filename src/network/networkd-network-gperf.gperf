@@ -248,6 +248,8 @@ DHCPv4.SocketPriority,                       config_parse_dhcp_socket_priority, 
 DHCPv4.SendOption,                           config_parse_dhcp_send_option,                            AF_INET,                       offsetof(Network, dhcp_client_send_options)
 DHCPv4.SendVendorOption,                     config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_client_send_vendor_options)
 DHCPv4.RouteMTUBytes,                        config_parse_mtu,                                         AF_INET,                       offsetof(Network, dhcp_route_mtu)
+DHCPv4.InitialCongestionWindow,              config_parse_dhcp_tcp_window,                             0,                             offsetof(Network, dhcp_initcwnd)
+DHCPv4.InitialAdvertisedReceiveWindow,       config_parse_dhcp_tcp_window,                             0,                             offsetof(Network, dhcp_initrwnd)
 DHCPv4.FallbackLeaseLifetimeSec,             config_parse_dhcp_fallback_lease_lifetime,                0,                             0
 DHCPv4.Use6RD,                               config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_6rd)
 DHCPv4.NetLabel,                             config_parse_string,                                      CONFIG_PARSE_STRING_SAFE,      offsetof(Network, dhcp_netlabel)
