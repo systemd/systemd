@@ -569,6 +569,12 @@ int sd_ipv4acd_is_running(sd_ipv4acd *acd) {
         return acd->state != IPV4ACD_STATE_INIT;
 }
 
+int sd_ipv4acd_is_bound(sd_ipv4acd *acd) {
+        assert_return(acd, false);
+
+        return IN_SET(acd->state, IPV4ACD_STATE_ANNOUNCING, IPV4ACD_STATE_RUNNING);
+}
+
 int sd_ipv4acd_start(sd_ipv4acd *acd, bool reset_conflicts) {
         int r;
 
