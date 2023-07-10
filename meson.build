@@ -2658,6 +2658,7 @@ if want_tests != 'false'
              test_fstab_generator_sh,
              # https://github.com/mesonbuild/meson/issues/2681
              args : exe.full_path(),
+             env : test_env,
              depends : exe)
 endif
 
