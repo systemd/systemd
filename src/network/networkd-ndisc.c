@@ -26,6 +26,9 @@
 
 #define NDISC_DNSSL_MAX 64U
 #define NDISC_RDNSS_MAX 64U
+/* Not defined RFC, but let's set an upper limit to make not consume much memory.
+ * This should be safe as typically there should be at most 1 portal per network. */
+#define NDISC_CAPTIVE_PORTAL_MAX 64U
 
 bool link_ipv6_accept_ra_enabled(Link *link) {
         assert(link);
@@ -879,6 +882,19 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
                 return 0;
         }
 
+        if (set_size(link->ndisc_captive_portals) >= NDISC_CAPTIVE_PORTAL_MAX) {
+                NDiscCaptivePortal *c, *target = NULL;
+
+                /* Find the portal who has the minimal lifetime and drop it to store new one. */
+                SET_FOREACH(c, link->ndisc_captive_portals)
+                        if (!target || c->lifetime_usec < target->lifetime_usec)
+                                target = c;
+
+                assert(target);
+                assert(set_remove(link->ndisc_captive_portals, target) == target);
+                ndisc_captive_portal_free(target);
+        }
+
         new_entry = new(NDiscCaptivePortal, 1);
         if (!new_entry)
                 return log_oom();
@@ -900,6 +916,7 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
 }
 
 static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
+        size_t n_captive_portal = 0;
         int r;
 
         assert(link);
@@ -935,7 +952,16 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                         r = ndisc_router_process_dnssl(link, rt);
                         break;
                 case SD_NDISC_OPTION_CAPTIVE_PORTAL:
+                        if (n_captive_portal > 0) {
+                                if (n_captive_portal == 1)
+                                        log_link_debug(link, "Received RA with multiple captive portals, only using the first one.");
+
+                                n_captive_portal++;
+                                continue;
+                        }
                         r = ndisc_router_process_captive_portal(link, rt);
+                        if (r >= 0)
+                                n_captive_portal++;
                         break;
                 }
                 if (r < 0 && r != -EBADMSG)
