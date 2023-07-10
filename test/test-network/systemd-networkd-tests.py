@@ -3079,8 +3079,11 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print('### ip neigh list dev dummy98')
         output = check_output('ip neigh list dev dummy98')
         print(output)
-        self.assertRegex(output, '192.168.10.1.*00:00:5e:00:02:65.*PERMANENT')
-        self.assertRegex(output, '2004:da8:1::1.*00:00:5e:00:02:66.*PERMANENT')
+        self.assertIn('192.168.10.1 lladdr 00:00:5e:00:02:65 PERMANENT', output)
+        self.assertIn('2004:da8:1::1 lladdr 00:00:5e:00:02:66 PERMANENT', output)
+        self.assertNotIn('2004:da8:1:0::2', output)
+        self.assertNotIn('192.168.10.2', output)
+        self.assertNotIn('00:00:5e:00:02:67', output)
 
         # TODO: check json string
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
@@ -3093,8 +3096,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print('### ip neigh list dev dummy98')
         output = check_output('ip neigh list dev dummy98')
         print(output)
-        self.assertRegex(output, '192.168.10.1.*00:00:5e:00:02:65.*PERMANENT')
-        self.assertRegex(output, '2004:da8:1::1.*00:00:5e:00:02:66.*PERMANENT')
+        self.assertIn('192.168.10.1 lladdr 00:00:5e:00:02:65 PERMANENT', output)
+        self.assertIn('2004:da8:1::1 lladdr 00:00:5e:00:02:66 PERMANENT', output)
 
         remove_network_unit('25-neighbor-section.network')
         copy_network_unit('25-neighbor-next.network')
@@ -3103,9 +3106,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print('### ip neigh list dev dummy98')
         output = check_output('ip neigh list dev dummy98')
         print(output)
-        self.assertNotRegex(output, '192.168.10.1.*00:00:5e:00:02:65.*PERMANENT')
-        self.assertRegex(output, '192.168.10.1.*00:00:5e:00:02:66.*PERMANENT')
-        self.assertNotRegex(output, '2004:da8:1::1.*PERMANENT')
+        self.assertNotIn('00:00:5e:00:02:65', output)
+        self.assertIn('192.168.10.1 lladdr 00:00:5e:00:02:66 PERMANENT', output)
+        self.assertNotIn('2004:da8:1::1', output)
 
     def test_neighbor_gre(self):
         copy_network_unit('25-neighbor-ip.network', '25-neighbor-ipv6.network', '25-neighbor-ip-dummy.network',
@@ -3115,11 +3118,13 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('ip neigh list dev gretun97')
         print(output)
-        self.assertRegex(output, '10.0.0.22 lladdr 10.65.223.239 PERMANENT')
+        self.assertIn('10.0.0.22 lladdr 10.65.223.239 PERMANENT', output)
+        self.assertNotIn('10.0.0.23', output)
 
         output = check_output('ip neigh list dev ip6gretun97')
         print(output)
         self.assertRegex(output, '2001:db8:0:f102::17 lladdr 2a:?00:ff:?de:45:?67:ed:?de:[0:]*:49:?88 PERMANENT')
+        self.assertNotIn('2001:db8:0:f102::18', output)
 
         # TODO: check json string
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
