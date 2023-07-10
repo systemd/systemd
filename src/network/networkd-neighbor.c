@@ -128,6 +128,30 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
         neighbor_compare_func,
         neighbor_free);
 
+static int neighbor_get_request(Link *link, const Neighbor *neighbor, Request **ret) {
+        Request *req;
+
+        assert(link);
+        assert(link->manager);
+        assert(neighbor);
+
+        req = ordered_set_get(
+                        link->manager->request_queue,
+                        &(Request) {
+                                .link = link,
+                                .type = REQUEST_TYPE_NEIGHBOR,
+                                .userdata = (void*) neighbor,
+                                .hash_func = (hash_func_t) neighbor_hash_func,
+                                .compare_func = (compare_func_t) neighbor_compare_func,
+                        });
+        if (!req)
+                return -ENOENT;
+
+        if (ret)
+                *ret = req;
+        return 0;
+}
+
 static int neighbor_get(Link *link, const Neighbor *in, Neighbor **ret) {
         Neighbor *existing;
 
@@ -211,6 +235,7 @@ static int neighbor_configure(Neighbor *neighbor, Link *link, Request *req) {
 }
 
 static int neighbor_process_request(Request *req, Link *link, Neighbor *neighbor) {
+        Neighbor *existing;
         int r;
 
         assert(req);
@@ -225,6 +250,9 @@ static int neighbor_process_request(Request *req, Link *link, Neighbor *neighbor
                 return log_link_warning_errno(link, r, "Failed to configure neighbor: %m");
 
         neighbor_enter_configuring(neighbor);
+        if (neighbor_get(link, neighbor, &existing) >= 0)
+                neighbor_enter_configuring(existing);
+
         return 1;
 }
 
@@ -251,7 +279,8 @@ static int static_neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_messag
 }
 
 static int link_request_neighbor(Link *link, const Neighbor *neighbor) {
-        Neighbor *existing;
+        _cleanup_(neighbor_freep) Neighbor *tmp = NULL;
+        Neighbor *existing = NULL;
         int r;
 
         assert(link);
@@ -268,24 +297,18 @@ static int link_request_neighbor(Link *link, const Neighbor *neighbor) {
                 return 0;
         }
 
-        if (neighbor_get(link, neighbor, &existing) < 0) {
-                _cleanup_(neighbor_freep) Neighbor *tmp = NULL;
+        r = neighbor_dup(neighbor, &tmp);
+        if (r < 0)
+                return r;
 
-                r = neighbor_dup(neighbor, &tmp);
-                if (r < 0)
-                        return r;
+        if (neighbor_get(link, neighbor, &existing) >= 0)
+                /* Copy state for logging below. */
+                tmp->state = existing->state;
 
-                r = neighbor_add(link, tmp);
-                if (r < 0)
-                        return r;
-
-                existing = TAKE_PTR(tmp);
-        } else
-                existing->source = neighbor->source;
-
-        log_neighbor_debug(existing, "Requesting", link);
+        log_neighbor_debug(tmp, "Requesting", link);
         r = link_queue_request_safe(link, REQUEST_TYPE_NEIGHBOR,
-                                    existing, NULL,
+                                    tmp,
+                                    neighbor_free,
                                     neighbor_hash_func,
                                     neighbor_compare_func,
                                     neighbor_process_request,
@@ -295,7 +318,11 @@ static int link_request_neighbor(Link *link, const Neighbor *neighbor) {
         if (r <= 0)
                 return r;
 
-        neighbor_enter_requesting(existing);
+        neighbor_enter_requesting(tmp);
+        if (existing)
+                neighbor_enter_requesting(existing);
+
+        TAKE_PTR(tmp);
         return 1;
 }
 
@@ -345,6 +372,7 @@ static int neighbor_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link
 
 static int neighbor_remove(Neighbor *neighbor) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        Request *req;
         Link *link;
         int r;
 
@@ -374,6 +402,9 @@ static int neighbor_remove(Neighbor *neighbor) {
         link_ref(link);
 
         neighbor_enter_removing(neighbor);
+        if (neighbor_get_request(neighbor->link, neighbor, &req) >= 0)
+                neighbor_enter_removing(req->userdata);
+
         return 0;
 }
 
@@ -448,7 +479,9 @@ void link_foreignize_neighbors(Link *link) {
 int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
         _cleanup_(neighbor_freep) Neighbor *tmp = NULL;
         Neighbor *neighbor = NULL;
+        Request *req = NULL;
         uint16_t type, state;
+        bool is_new = false;
         int ifindex, r;
         Link *link;
 
@@ -501,6 +534,7 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
 
         tmp = new0(Neighbor, 1);
 
+        /* First, retrieve the fundamental information about the neighbor. */
         r = sd_rtnl_message_neigh_get_family(message, &tmp->family);
         if (r < 0) {
                 log_link_warning(link, "rtnl: received neighbor message without family, ignoring.");
@@ -516,49 +550,52 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
                 return 0;
         }
 
-        r = netlink_message_read_hw_addr(message, NDA_LLADDR, &tmp->ll_addr);
-        if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received neighbor message without valid link layer address, ignoring: %m");
-                return 0;
-        }
-
+        /* Then, find the managed Neighbor and Request objects corresponding to the netlink notification. */
         (void) neighbor_get(link, tmp, &neighbor);
+        (void) neighbor_get_request(link, tmp, &req);
 
-        switch (type) {
-        case RTM_NEWNEIGH:
-                if (neighbor) {
-                        neighbor_enter_configured(neighbor);
-                        log_neighbor_debug(neighbor, "Received remembered", link);
-                } else {
-                        neighbor_enter_configured(tmp);
-                        log_neighbor_debug(tmp, "Remembering", link);
-                        r = neighbor_add(link, tmp);
-                        if (r < 0) {
-                                log_link_warning_errno(link, r, "Failed to remember foreign neighbor, ignoring: %m");
-                                return 0;
-                        }
-                        TAKE_PTR(tmp);
-                }
-
-                break;
-
-        case RTM_DELNEIGH:
+        if (type == RTM_DELNEIGH) {
                 if (neighbor) {
                         neighbor_enter_removed(neighbor);
-                        if (neighbor->state == 0) {
-                                log_neighbor_debug(neighbor, "Forgetting", link);
-                                neighbor_free(neighbor);
-                        } else
-                                log_neighbor_debug(neighbor, "Removed", link);
+                        log_neighbor_debug(neighbor, "Forgetting removed", link);
+                        neighbor_free(neighbor);
                 } else
                         log_neighbor_debug(tmp, "Kernel removed unknown", link);
 
-                break;
+                if (req)
+                        neighbor_enter_removed(req->userdata);
 
-        default:
-                assert_not_reached();
+                return 0;
         }
 
+        /* If we did not know the neighbor, then save it. */
+        if (!neighbor) {
+                r = neighbor_add(link, tmp);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to remember foreign neighbor, ignoring: %m");
+                        return 0;
+                }
+                neighbor = TAKE_PTR(tmp);
+                is_new = true;
+        }
+
+        /* Also update information that cannot be obtained through netlink notification. */
+        if (req && req->waiting_reply) {
+                Neighbor *n = ASSERT_PTR(req->userdata);
+
+                neighbor->source = n->source;
+        }
+
+        /* Then, update miscellaneous info. */
+        r = netlink_message_read_hw_addr(message, NDA_LLADDR, &neighbor->ll_addr);
+        if (r < 0 && r != -ENODATA)
+                log_link_debug_errno(link, r, "rtnl: received neighbor message without valid link layer address, ignoring: %m");
+
+        neighbor_enter_configured(neighbor);
+        if (req)
+                neighbor_enter_configured(req->userdata);
+
+        log_neighbor_debug(neighbor, is_new ? "Remembering" : "Received remembered", link);
         return 1;
 }
 
