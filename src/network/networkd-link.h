@@ -130,6 +130,8 @@ typedef struct Link {
         bool dhcp4_configured:1;
         char *dhcp4_6rd_tunnel_name;
 
+        Hashmap *ipv4acd_by_address;
+
         sd_ipv4ll *ipv4ll;
         bool ipv4ll_address_configured:1;
 

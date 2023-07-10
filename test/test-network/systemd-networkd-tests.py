@@ -2251,20 +2251,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def tearDown(self):
         tear_down_common()
 
-    def test_address_static(self):
-        # test for #22515. The address will be removed and replaced with /64 prefix.
-        check_output('ip link add dummy98 type dummy')
-        check_output('ip link set dev dummy98 up')
-        check_output('ip -6 address add 2001:db8:0:f101::15/128 dev dummy98')
-        self.wait_address('dummy98', '2001:db8:0:f101::15/128', ipv='-6')
-        check_output('ip -4 address add 10.3.2.3/16 brd 10.3.255.250 scope global label dummy98:hoge dev dummy98')
-        self.wait_address('dummy98', '10.3.2.3/16 brd 10.3.255.250', ipv='-4')
-
-        copy_network_unit('25-address-static.network', '12-dummy.netdev')
-        start_networkd()
-
-        self.wait_online(['dummy98:routable'])
-
+    def verify_address_static(self, route_metric):
+        # IPv4 addresses
         output = check_output('ip -4 address show dev dummy98')
         print(output)
         self.assertIn('inet 10.1.2.3/16 brd 10.1.255.255 scope global dummy98', output)
@@ -2273,16 +2261,13 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('inet 10.7.8.9/16 brd 10.7.255.255 scope link deprecated dummy98', output)
         self.assertIn('inet 10.8.8.1/16 scope global dummy98', output)
         self.assertIn('inet 10.8.8.2/16 brd 10.8.8.128 scope global secondary dummy98', output)
-        self.assertRegex(output, 'inet 10.9.0.1/16 (metric 128 |)brd 10.9.255.255 scope global dummy98')
-
-        # test for ENOBUFS issue #17012
-        for i in range(1, 254):
-            self.assertIn(f'inet 10.3.3.{i}/16 brd 10.3.255.255', output)
+        self.assertRegex(output, rf'inet 10.9.0.1/16 (metric {route_metric} |)brd 10.9.255.255 scope global dummy98')
 
         # invalid sections
         self.assertNotIn('10.10.0.1/16', output)
         self.assertNotIn('10.10.0.2/16', output)
 
+        # address labels
         output = check_output('ip -4 address show dev dummy98 label 32')
         self.assertIn('inet 10.3.2.3/16 brd 10.3.255.255 scope global 32', output)
 
@@ -2295,10 +2280,15 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('ip -4 address show dev dummy98 label 35')
         self.assertRegex(output, r'inet 172.[0-9]*.0.1/16 brd 172.[0-9]*.255.255 scope global 35')
 
-        output = check_output('ip -4 route show dev dummy98')
+        # check metric of prefix route
+        output = check_output('ip -4 route show dev dummy98 10.9.0.0/16')
         print(output)
-        self.assertIn('10.9.0.0/16 proto kernel scope link src 10.9.0.1 metric 128', output)
+        self.assertIn(f'10.9.0.0/16 proto kernel scope link src 10.9.0.1 metric {route_metric}', output)
+        output = check_output('ip -6 route show dev dummy98 2001:db8:0:f104::/64')
+        print(output)
+        self.assertIn(f'2001:db8:0:f104::/64 proto kernel metric {route_metric}', output)
 
+        # IPv6 addresses
         output = check_output('ip -6 address show dev dummy98')
         print(output)
         self.assertIn('inet6 2001:db8:0:f101::15/64 scope global', output)
@@ -2306,10 +2296,39 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('inet6 2001:db8:0:f102::15/64 scope global', output)
         self.assertIn('inet6 2001:db8:0:f102::16/64 scope global', output)
         self.assertIn('inet6 2001:db8:0:f103::20 peer 2001:db8:0:f103::10/128 scope global', output)
+        self.assertRegex(output, rf'inet6 2001:db8:0:f104::16/64 (metric {route_metric} |)scope global')
         self.assertIn('inet6 2001:db8:1:f101::1/64 scope global deprecated', output)
         self.assertRegex(output, r'inet6 fd[0-9a-f:]*1/64 scope global')
 
+        # netlabel
         self.check_netlabel('dummy98', r'10\.4\.3\.0/24')
+
+        # TODO: check json string
+        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+
+    def test_address_static(self):
+        # test for #22515. The address will be removed and replaced with /64 prefix.
+        check_output('ip link add dummy98 type dummy')
+        check_output('ip link set dev dummy98 up')
+        check_output('ip -6 address add 2001:db8:0:f101::15/128 dev dummy98')
+        self.wait_address('dummy98', '2001:db8:0:f101::15/128', ipv='-6')
+        check_output('ip -4 address add 10.3.2.3/16 brd 10.3.255.250 scope global label dummy98:hoge dev dummy98')
+        self.wait_address('dummy98', '10.3.2.3/16 brd 10.3.255.250', ipv='-4')
+
+        copy_network_unit('25-address-static.network', '12-dummy.netdev', copy_dropins=False)
+        start_networkd()
+
+        self.wait_online(['dummy98:routable'])
+        self.verify_address_static(route_metric=128)
+
+        copy_network_unit('25-address-static.network.d/10-override-route-metric.conf')
+        networkctl_reload()
+        self.wait_online(['dummy98:routable'])
+        self.verify_address_static(route_metric=256)
+
+        networkctl_reconfigure('dummy98')
+        self.wait_online(['dummy98:routable'])
+        self.verify_address_static(route_metric=256)
 
         # Tests for #20891.
         # 1. set preferred lifetime forever to drop the deprecated flag for testing #20891.
@@ -2334,13 +2353,20 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('inet6 2001:db8:1:f101::1/64 scope global deprecated', output)
 
-        # test for ENOBUFS issue #17012
+        # test for ENOBUFS issue #17012 (with reload)
+        copy_network_unit('25-address-static.network.d/10-many-address.conf')
+        networkctl_reload()
+        self.wait_online(['dummy98:routable'])
         output = check_output('ip -4 address show dev dummy98')
         for i in range(1, 254):
             self.assertIn(f'inet 10.3.3.{i}/16 brd 10.3.255.255', output)
 
-        # TODO: check json string
-        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        # (with reconfigure)
+        networkctl_reconfigure('dummy98')
+        self.wait_online(['dummy98:routable'])
+        output = check_output('ip -4 address show dev dummy98')
+        for i in range(1, 254):
+            self.assertIn(f'inet 10.3.3.{i}/16 brd 10.3.255.255', output)
 
     def test_address_null(self):
         copy_network_unit('25-address-null.network', '12-dummy.netdev')
@@ -3053,8 +3079,11 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print('### ip neigh list dev dummy98')
         output = check_output('ip neigh list dev dummy98')
         print(output)
-        self.assertRegex(output, '192.168.10.1.*00:00:5e:00:02:65.*PERMANENT')
-        self.assertRegex(output, '2004:da8:1::1.*00:00:5e:00:02:66.*PERMANENT')
+        self.assertIn('192.168.10.1 lladdr 00:00:5e:00:02:65 PERMANENT', output)
+        self.assertIn('2004:da8:1::1 lladdr 00:00:5e:00:02:66 PERMANENT', output)
+        self.assertNotIn('2004:da8:1:0::2', output)
+        self.assertNotIn('192.168.10.2', output)
+        self.assertNotIn('00:00:5e:00:02:67', output)
 
         # TODO: check json string
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
@@ -3067,8 +3096,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print('### ip neigh list dev dummy98')
         output = check_output('ip neigh list dev dummy98')
         print(output)
-        self.assertRegex(output, '192.168.10.1.*00:00:5e:00:02:65.*PERMANENT')
-        self.assertRegex(output, '2004:da8:1::1.*00:00:5e:00:02:66.*PERMANENT')
+        self.assertIn('192.168.10.1 lladdr 00:00:5e:00:02:65 PERMANENT', output)
+        self.assertIn('2004:da8:1::1 lladdr 00:00:5e:00:02:66 PERMANENT', output)
 
         remove_network_unit('25-neighbor-section.network')
         copy_network_unit('25-neighbor-next.network')
@@ -3077,9 +3106,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print('### ip neigh list dev dummy98')
         output = check_output('ip neigh list dev dummy98')
         print(output)
-        self.assertNotRegex(output, '192.168.10.1.*00:00:5e:00:02:65.*PERMANENT')
-        self.assertRegex(output, '192.168.10.1.*00:00:5e:00:02:66.*PERMANENT')
-        self.assertNotRegex(output, '2004:da8:1::1.*PERMANENT')
+        self.assertNotIn('00:00:5e:00:02:65', output)
+        self.assertIn('192.168.10.1 lladdr 00:00:5e:00:02:66 PERMANENT', output)
+        self.assertNotIn('2004:da8:1::1', output)
 
     def test_neighbor_gre(self):
         copy_network_unit('25-neighbor-ip.network', '25-neighbor-ipv6.network', '25-neighbor-ip-dummy.network',
@@ -3089,11 +3118,13 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('ip neigh list dev gretun97')
         print(output)
-        self.assertRegex(output, '10.0.0.22 lladdr 10.65.223.239 PERMANENT')
+        self.assertIn('10.0.0.22 lladdr 10.65.223.239 PERMANENT', output)
+        self.assertNotIn('10.0.0.23', output)
 
         output = check_output('ip neigh list dev ip6gretun97')
         print(output)
         self.assertRegex(output, '2001:db8:0:f102::17 lladdr 2a:?00:ff:?de:45:?67:ed:?de:[0:]*:49:?88 PERMANENT')
+        self.assertNotIn('2001:db8:0:f102::18', output)
 
         # TODO: check json string
         check_output(*networkctl_cmd, '--json=short', 'status', env=env)
