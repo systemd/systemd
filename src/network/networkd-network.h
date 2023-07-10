@@ -148,6 +148,8 @@ struct Network {
         bool dhcp_use_routes;
         int dhcp_use_gateway;
         bool dhcp_quickack;
+        uint32_t dhcp_initial_congestion_window;
+        uint32_t dhcp_advertised_receive_window;
         bool dhcp_use_timezone;
         bool dhcp_use_hostname;
         bool dhcp_use_6rd;
