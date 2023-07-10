@@ -216,11 +216,9 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
 
                         link_remove_dhcp_pd_subnet_prefix(link, &prefix);
 
-                        k = address_remove(address);
+                        k = address_remove_and_drop(address);
                         if (k < 0)
                                 r = k;
-
-                        address_cancel_request(address);
                 }
         }
 
