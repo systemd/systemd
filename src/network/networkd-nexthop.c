@@ -835,7 +835,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 }
 
                 r = link_get_by_index(m, ifindex, &link);
-                if (r < 0 || !link) {
+                if (r < 0) {
                         if (!m->enumerating)
                                 log_warning("rtnl: received nexthop message for link (%"PRIu32") we do not know about, ignoring", ifindex);
                         return 0;
