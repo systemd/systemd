@@ -480,7 +480,7 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
         }
 
         r = link_get_by_index(m, ifindex, &link);
-        if (r < 0 || !link) {
+        if (r < 0) {
                 /* when enumerating we might be out of sync, but we will get the neighbor again. Also,
                  * kernel sends messages about neighbors after a link is removed. So, just ignore it. */
                 log_debug("rtnl: received neighbor for link '%d' we don't know about, ignoring.", ifindex);

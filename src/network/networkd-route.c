@@ -1719,7 +1719,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 }
 
                 r = link_get_by_index(m, ifindex, &link);
-                if (r < 0 || !link) {
+                if (r < 0) {
                         /* when enumerating we might be out of sync, but we will
                          * get the route again, so just ignore it */
                         if (!m->enumerating)
