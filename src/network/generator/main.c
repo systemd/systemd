@@ -186,6 +186,8 @@ static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context context = {};
         int r;
 
+        log_setup();
+
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
