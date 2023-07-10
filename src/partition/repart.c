@@ -3514,8 +3514,6 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 ssize_t base64_encoded_size;
                 uint16_t pcr_bank, primary_alg;
                 int keyslot;
-                uint32_t hash_pcr_mask_literal;
-                uint8_t hash_pcr_literal[24][SHA256_DIGEST_SIZE];
 
                 if (arg_tpm2_public_key_pcr_mask != 0) {
                         r = tpm2_load_pcr_public_key(arg_tpm2_public_key, &pubkey, &pubkey_size);
@@ -3530,8 +3528,8 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
                 r = tpm2_seal(arg_tpm2_device,
                               arg_tpm2_pcr_mask,
-                              hash_pcr_mask_literal,
-                              hash_pcr_literal,
+                              arg_tpm2_pcr_literal_mask,
+                              arg_tpm2_pcr_literal,
                               pubkey, pubkey_size,
                               arg_tpm2_public_key_pcr_mask,
                               /* pin= */ NULL,
