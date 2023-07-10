@@ -33,3 +33,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_socket_priority);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_mud_url);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_fallback_lease_lifetime);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_label);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_tcp_window);

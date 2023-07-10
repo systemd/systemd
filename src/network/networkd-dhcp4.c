@@ -203,6 +203,10 @@ static int dhcp4_request_route(Route *in, Link *link) {
                 route->mtu = link->network->dhcp_route_mtu;
         if (route->quickack < 0)
                 route->quickack = link->network->dhcp_quickack;
+        if (link->network->dhcp_initcwnd > 0)
+                route->initcwnd = link->network->dhcp_initcwnd;
+        if (link->network->dhcp_initrwnd > 0)
+                route->initrwnd = link->network->dhcp_initrwnd;
 
         if (route_get(NULL, link, route, &existing) < 0) /* This is a new route. */
                 link->dhcp4_configured = false;
@@ -1825,6 +1829,53 @@ int config_parse_dhcp_label(
         }
 
         return free_and_strdup_warn(label, rvalue);
+}
+
+int config_parse_dhcp_tcp_window(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = ASSERT_PTR(userdata);
+        uint32_t k;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = safe_atou32(rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Could not parse DHCPv4 TCP %s \"%s\", ignoring assignment: %m", lvalue, rvalue);
+                return 0;
+        }
+        if (k >= 1024) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Specified DHCPv4 TCP %s \"%s\" is too large, ignoring assignment: %m", lvalue, rvalue);
+                return 0;
+        }
+        if (k == 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid DHCPv4 TCP %s \"%s\", ignoring assignment: %m", lvalue, rvalue);
+                return 0;
+        }
+
+        if (streq(lvalue, "InitialCongestionWindow"))
+                network->dhcp_initcwnd = k;
+        else if (streq(lvalue, "InitialAdvertisedReceiveWindow"))
+                network->dhcp_initrwnd = k;
+        else
+                assert_not_reached();
+
+        return 0;
 }
 
 static const char* const dhcp_client_identifier_table[_DHCP_CLIENT_ID_MAX] = {
