@@ -1992,7 +1992,7 @@ static void config_group_entries(Config *config){
                                 break;
                         if(config->entries[k]->sort_key == NULL)
                                 break;
-                        if(strcmp(config->entries[i]->sort_key, 
+                        if(strcmp(config->entries[i]->sort_key,
                                   config->entries[k]->sort_key) == 0)
                                 continue;
                         break;
@@ -2000,11 +2000,11 @@ static void config_group_entries(Config *config){
                 if(k>=i+2){
                         indices = xrealloc(
                                         indices,
-                                        sizeof(void *) * group_count,
-                                        sizeof(void *) * (group_count + 1));
+                                        sizeof(Indices) * group_count,
+                                        sizeof(Indices) * (group_count + 1));
                         indices[group_count].start_index = i+1;
                         indices[group_count++].end_index = k-1;
-                        i = k;
+                        i = k-1;
                 }
         }
         if(group_count == 0)
