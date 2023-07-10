@@ -560,6 +560,13 @@ static int neighbor_section_verify(Neighbor *neighbor) {
                                          "Ignoring [Neighbor] section from line %u.",
                                          neighbor->section->filename, neighbor->section->line);
 
+        if (neighbor->family == AF_INET6 && !socket_ipv6_is_supported())
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: Neighbor section with an IPv6 destination address configured, "
+                                         "but the kernel does not support IPv6. "
+                                         "Ignoring [Neighbor] section from line %u.",
+                                         neighbor->section->filename, neighbor->section->line);
+
         if (neighbor->ll_addr.length == 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: Neighbor section without LinkLayerAddress= configured. "
