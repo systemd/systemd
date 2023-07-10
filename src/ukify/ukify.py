@@ -43,6 +43,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+from hashlib import sha256
 from typing import (Any,
                     Callable,
                     IO,
@@ -243,11 +244,24 @@ class Uname:
                 print(str(e))
         return None
 
+DEFAULT_LIST_OF_SECTIONS_TO_PRINT = {
+        '.linux'    : 'binary',
+        '.initrd'   : 'binary',
+        '.splash'   : 'binary',
+        '.dt'       : 'binary',
+        '.cmdline'  : 'text',
+        '.osrel'    : 'text',
+        '.uname'    : 'text',
+        '.pcrpkey'  : 'text',
+        '.pcrsig'   : 'text',
+        '.sbat'     : 'text'
+}
 
 @dataclasses.dataclass
 class Section:
     name: str
     content: pathlib.Path
+    files_to_write: dict[str, pathlib.Path]
     tmpfile: Optional[IO] = None
     measure: bool = False
 
@@ -277,6 +291,25 @@ class Section:
             contents = pathlib.Path(contents[1:])
 
         return cls.create(name, contents)
+
+    @classmethod
+    def parse_section_name_and_type(cls, s):
+        additionals = {}
+        for el in s:
+            if len(el) < 2 or len(el) > 3:
+                raise ValueError('Usage: --read-section section_name binary/text [output_file]')
+
+            name = el[0]
+            ttype = el[1]
+            out = el[2]
+
+            if ttype not in ('binary', 'text'):
+                raise ValueError(f'Cannot parse section spec (type can only be binary or text): {ttype!r}')
+
+            additionals[name] = ttype
+            cls.files_to_write[name] = pathlib.Path(out)
+
+        return DEFAULT_LIST_OF_SECTIONS_TO_PRINT | additionals
 
     def size(self):
         return self.content.stat().st_size
@@ -696,31 +729,32 @@ def make_uki(opts):
     # kernel payload signing
 
     sign_tool = None
-    if opts.signtool == 'sbsign':
-        sign_tool = find_sbsign(opts=opts)
-        sign = sbsign_sign
-        verify_tool = SBVERIFY
-    else:
-        sign_tool = find_pesign(opts=opts)
-        sign = pesign_sign
-        verify_tool = PESIGCHECK
-
     sign_args_present = opts.sb_key or opts.sb_cert_name
-
-    if sign_tool is None and sign_args_present:
-        raise ValueError(f'{opts.signtool}, required for signing, is not installed')
-
     sign_kernel = opts.sign_kernel
-    if sign_kernel is None and opts.linux is not None and sign_args_present:
-        # figure out if we should sign the kernel
-        sign_kernel = verify(verify_tool, opts)
+    sign = None
+    linux = opts.linux
 
-    if sign_kernel:
-        linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
-        linux = pathlib.Path(linux_signed.name)
-        sign(sign_tool, opts.linux, linux, opts=opts)
-    else:
-        linux = opts.linux
+    if sign_args_present:
+        if opts.signtool == 'sbsign':
+            sign_tool = find_sbsign(opts=opts)
+            sign = sbsign_sign
+            verify_tool = SBVERIFY
+        else:
+            sign_tool = find_pesign(opts=opts)
+            sign = pesign_sign
+            verify_tool = PESIGCHECK
+
+        if sign_tool is None:
+            raise ValueError(f'{opts.signtool}, required for signing, is not installed')
+
+        if sign_kernel is None and opts.linux is not None:
+            # figure out if we should sign the kernel
+            sign_kernel = verify(verify_tool, opts)
+
+        if sign_kernel:
+            linux_signed = tempfile.NamedTemporaryFile(prefix='linux-signed')
+            linux = pathlib.Path(linux_signed.name)
+            sign(sign_tool, opts.linux, linux, opts=opts)
 
     if opts.uname is None and opts.linux is not None:
         print('Kernel version not specified, starting autodetection 😖.')
@@ -776,16 +810,17 @@ uki,1,UKI,uki,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.ht
 
     if sign_args_present:
         unsigned = tempfile.NamedTemporaryFile(prefix='uki')
-        output = unsigned.name
+        unsigned_output = unsigned.name
     else:
-        output = opts.output
+        unsigned_output = opts.output
 
-    pe_add_sections(uki, output)
+    pe_add_sections(uki, unsigned_output)
 
     # UKI signing
 
     if sign_args_present:
-        sign(sign_tool, unsigned.name, opts.output, opts=opts)
+        assert sign
+        sign(sign_tool, unsigned_output, opts.output, opts=opts)
 
         # We end up with no executable bits, let's reapply them
         os.umask(umask := os.umask(0))
@@ -905,6 +940,55 @@ def generate_keys(opts):
         if pub_key:
             print(f'Writing public key for PCR signing to {pub_key}')
             pub_key.write_bytes(pub_key_pem)
+
+
+def pe_read_single_section(section, opts, name):
+    data = section.get_data(ignore_padding=True)
+    size = section.Misc_VirtualSize
+    h = sha256(data).hexdigest()
+    data_printed = None
+
+    tmp = {
+        'size' : size,
+        'sha256' : h,
+    }
+
+    if opts.print_text:
+        try:
+            data_printed = data.decode()
+        except UnicodeDecodeError:
+            print(f"Warning! {name} cannot be read. Not a valid UTF8-encoded text")
+            data_printed = None
+
+        tmp['text'] = data_printed
+
+    if opts.json:
+        out_str = json.dumps(tmp)
+    else:
+        out_str = f"{name}:\nsize: {size} bytes\nsha256: {h}\n"
+        if opts.print_text:
+            out_str += f"text:\n{data_printed}\n"
+        print(out_str)
+
+    if name in Section.files_to_write:
+        Section.files_to_write[name].write_text(out_str)
+
+    return tmp
+
+
+def pe_print_sections(opts, sections_to_show):
+    pe = pefile.PE(opts.file, fast_load=True)
+    json_obj = {}
+    for section in pe.sections:
+        name = section.Name.rstrip(b"\x00").decode()
+        opts.print_text = False
+        if name in sections_to_show:
+            opts.print_text = sections_to_show[name] == 'text'
+        if opts.print_all or name in sections_to_show:
+            json_obj[name] = pe_read_single_section(section, opts, name)
+
+    if opts.json:
+        json.dump(json_obj, sys.stdout)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -1039,7 +1123,7 @@ class ConfigItem:
         return (section_name, key, value)
 
 
-VERBS = ('build', 'genkey')
+VERBS = ('build', 'genkey', 'inspect')
 
 CONFIG_ITEMS = [
     ConfigItem(
@@ -1271,6 +1355,33 @@ CONFIG_ITEMS = [
         action = argparse.BooleanOptionalAction,
         help = 'print systemd-measure output for the UKI',
     ),
+
+    ConfigItem(
+        '--file',
+        type = pathlib.Path,
+        help = 'PE binary to inspect',
+        config_key = 'UKI/PEPath',
+    ),
+
+    ConfigItem(
+        '--read-section',
+        nargs='+',
+        action = 'append',
+        help = 'additional section as name and content type (binary or text). Example: .linux:binary',
+    ),
+
+    ConfigItem(
+        '--json',
+        help = 'print in JSON format',
+        action = 'store_true',
+    ),
+
+    ConfigItem(
+        '--print-all',
+        help = 'print all sections found',
+        action = 'store_true',
+    ),
+
 ]
 
 CONFIGFILE_ITEMS = { item.config_key:item
@@ -1433,7 +1544,7 @@ def finalize_options(opts):
             raise ValueError('--secureboot-private-key= and --secureboot-certificate= must be specified together when using --signtool=sbsign')
     else:
         if not bool(opts.sb_cert_name):
-            raise ValueError('--certificate-name must be specified when using --signtool=pesign')
+            raise ValueError('--secureboot-certificate-name must be specified when using --signtool=pesign')
 
     if opts.sign_kernel and not opts.sb_key and not opts.sb_cert_name:
         raise ValueError('--sign-kernel requires either --secureboot-private-key= and --secureboot-certificate= (for sbsign) or --secureboot-certificate-name= (for pesign) to be specified')
@@ -1468,6 +1579,9 @@ def main():
     elif opts.verb == 'genkey':
         check_cert_and_keys_nonexistent(opts)
         generate_keys(opts)
+    elif opts.verb == 'inspect':
+        sections = Section.parse_section_name_and_type(opts.read_section)
+        pe_print_sections(opts, sections)
     else:
         assert False
 
