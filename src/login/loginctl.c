@@ -1492,6 +1492,8 @@ static int run(int argc, char *argv[]) {
 
         sigbus_install();
 
+        getenv_output_mode(&arg_output);
+
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
