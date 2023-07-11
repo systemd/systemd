@@ -4127,6 +4127,18 @@ int tpm2_parse_luks2_json(
         return 0;
 }
 
+size_t tpm2_hash_alg_to_size(uint16_t alg) {
+        if (alg == TPM2_ALG_SHA1)
+                return 20;
+        if (alg == TPM2_ALG_SHA256)
+                return 32;
+        if (alg == TPM2_ALG_SHA384)
+                return 48;
+        if (alg == TPM2_ALG_SHA512)
+                return 64;
+        return 0;
+}
+
 const char *tpm2_hash_alg_to_string(uint16_t alg) {
         if (alg == TPM2_ALG_SHA1)
                 return "sha1";
