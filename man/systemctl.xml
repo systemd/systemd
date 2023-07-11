@@ -2633,18 +2633,18 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <citerefentry project='die-net'><refentrytitle>vi</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
+      <xi:include href="common-variables.xml" xpointer="log-level"/>
+      <xi:include href="common-variables.xml" xpointer="log-color"/>
+      <xi:include href="common-variables.xml" xpointer="log-time"/>
+      <xi:include href="common-variables.xml" xpointer="log-location"/>
+      <xi:include href="common-variables.xml" xpointer="log-target"/>
+      <xi:include href="common-variables.xml" xpointer="pager"/>
+      <xi:include href="common-variables.xml" xpointer="less"/>
+      <xi:include href="common-variables.xml" xpointer="lesscharset"/>
+      <xi:include href="common-variables.xml" xpointer="lesssecure"/>
+      <xi:include href="common-variables.xml" xpointer="colors"/>
+      <xi:include href="common-variables.xml" xpointer="urlify"/>
     </variablelist>
-    <xi:include href="common-variables.xml" xpointer="log-level"/>
-    <xi:include href="common-variables.xml" xpointer="log-color"/>
-    <xi:include href="common-variables.xml" xpointer="log-time"/>
-    <xi:include href="common-variables.xml" xpointer="log-location"/>
-    <xi:include href="common-variables.xml" xpointer="log-target"/>
-    <xi:include href="common-variables.xml" xpointer="pager"/>
-    <xi:include href="common-variables.xml" xpointer="less"/>
-    <xi:include href="common-variables.xml" xpointer="lesscharset"/>
-    <xi:include href="common-variables.xml" xpointer="lesssecure"/>
-    <xi:include href="common-variables.xml" xpointer="colors"/>
-    <xi:include href="common-variables.xml" xpointer="urlify"/>
   </refsect1>
 
   <refsect1>
