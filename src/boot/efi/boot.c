@@ -1955,6 +1955,7 @@ static void config_create_groups(Config *config, Indices *indices, size_t group_
 
         ConfigEntry **old_entries = config->entries;
         ConfigEntry **entries = NULL;
+        size_t old_n_entries = config->n_entries;
         config->entries = entries;
         config->n_entries = 0;
         TAKE_PTR(entries);
@@ -1971,8 +1972,8 @@ static void config_create_groups(Config *config, Indices *indices, size_t group_
                 if(i+1 < group_count)
                         config_copy_entries(config, old_entries, indices[i].end_index+1, indices[i+1].start_index-1, NULL);
         }
-        if (indices[i-1].end_index != config->n_entries-1)
-                config_copy_entries(config, old_entries, indices[i-1].end_index+1, config->n_entries - 1, NULL);
+        if (indices[i-1].end_index != old_n_entries-1)
+                config_copy_entries(config, old_entries, indices[i-1].end_index+1, old_n_entries - 1, NULL);
         free(old_entries);
 }
 
