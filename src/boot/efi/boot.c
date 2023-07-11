@@ -1965,7 +1965,7 @@ static void config_create_groups(Config *config, Indices *indices, size_t group_
         for (; i < group_count; i++) {
                 _cleanup_(config_entry_freep) ConfigEntry *group_entry = NULL;
                 group_entry = xnew(ConfigEntry, 1);
-                *group_entry = (ConfigEntry){ .title = xstrdup16(u"More..."), .group_entry = NULL, .type = LOADER_MORE };
+                *group_entry = (ConfigEntry){ .title = xstrdup16(u"More..."), .group_entry = NULL, .type = LOADER_MORE, .id = xstrdup16(u"More...") };
                 config_add_entry(config, group_entry);
                 config_copy_entries(config, old_entries, indices[i].start_index, indices[i].end_index, group_entry);
                 TAKE_PTR(group_entry);
