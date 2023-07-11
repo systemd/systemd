@@ -95,6 +95,7 @@ struct Session {
         char *fifo_path;
 
         sd_event_source *fifo_event_source;
+        sd_event_source *leader_pidfd_event_source;
 
         bool idle_hint;
         dual_timestamp idle_hint_timestamp;

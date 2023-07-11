@@ -4181,6 +4181,8 @@ static int source_dispatch(sd_event_source *s) {
 
         s->dispatching = true;
 
+        log_error("dispatching: %s", s->description);
+
         switch (s->type) {
 
         case SOURCE_IO:
