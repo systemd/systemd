@@ -48,6 +48,7 @@ static bool arg_reboot = false;
 static char *arg_component = NULL;
 static int arg_verify = -1;
 static ImagePolicy *arg_image_policy = NULL;
+static bool arg_offline = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -356,11 +357,13 @@ static int context_discover_update_sets(Context *c) {
         if (r < 0)
                 return r;
 
-        log_info("Determining available update sets%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+        if (!arg_offline) {
+                log_info("Determining available update sets%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
-        r = context_discover_update_sets_by_flag(c, UPDATE_AVAILABLE);
-        if (r < 0)
-                return r;
+                r = context_discover_update_sets_by_flag(c, UPDATE_AVAILABLE);
+                if (r < 0)
+                        return r;
+        }
 
         typesafe_qsort(c->update_sets, c->n_update_sets, update_set_cmp);
         return 0;
@@ -727,15 +730,17 @@ static int context_make_online(Context **ret, const char *node) {
         assert(ret);
 
         /* Like context_make_offline(), but also communicates with the update source looking for new
-         * versions. */
+         * versions (as long as --offline is not specified on the command line). */
 
         r = context_make_offline(&context, node);
         if (r < 0)
                 return r;
 
-        r = context_load_available_instances(context);
-        if (r < 0)
-                return r;
+        if (!arg_offline) {
+                r = context_load_available_instances(context);
+                if (r < 0)
+                        return r;
+        }
 
         r = context_discover_update_sets(context);
         if (r < 0)
@@ -1246,6 +1251,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "     --sync=BOOL          Controls whether to sync data to disk\n"
                "     --verify=BOOL        Force signature verification on or off\n"
                "     --reboot             Reboot after updating to newer version\n"
+               "     --offline            Do not fetch metadata from the network\n"
                "     --no-pager           Do not pipe output into a pager\n"
                "     --no-legend          Do not show the headers and footers\n"
                "     --json=pretty|short|off\n"
@@ -1275,6 +1281,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_IMAGE_POLICY,
                 ARG_REBOOT,
                 ARG_VERIFY,
+                ARG_OFFLINE,
         };
 
         static const struct option options[] = {
@@ -1292,6 +1299,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "reboot",            no_argument,       NULL, ARG_REBOOT            },
                 { "component",         required_argument, NULL, 'C'                   },
                 { "verify",            required_argument, NULL, ARG_VERIFY            },
+                { "offline",           no_argument,       NULL, ARG_OFFLINE           },
                 {}
         };
 
@@ -1394,6 +1402,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_verify = b;
                         break;
                 }
+
+                case ARG_OFFLINE:
+                        arg_offline = true;
+                        break;
 
                 case '?':
                         return -EINVAL;
