@@ -89,8 +89,6 @@ Deprecations and removals:
 * Remove any support for booting without /usr pre-mounted in the initrd entirely.
   Update INITRD_INTERFACE.md accordingly.
 
-* 2019-10 – Remove POINTINGSTICK_CONST_ACCEL references from the hwdb, see #9573
-
 * remove cgrouspv1 support EOY 2023. As per
   https://lists.freedesktop.org/archives/systemd-devel/2022-July/048120.html
   and then rework cgroupsv2 support around fds, i.e. keep one fd per active
