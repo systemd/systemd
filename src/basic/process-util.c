@@ -1592,6 +1592,19 @@ int pidfd_verify_pid(int pidfd, pid_t pid) {
         return current_pid != pid ? -ESRCH : 0;
 }
 
+int pidfd_is_alive(int pidfd) {
+        pid_t pid;
+        int r;
+
+        r = pidfd_get_pid(pidfd, &pid);
+        if (r < 0)
+                return r;
+
+        r = pid_is_alive(pid);
+
+        return pidfd_verify_pid(pidfd, pid) < 0 ? -ESRCH : r;
+}
+
 static int rlimit_to_nice(rlim_t limit) {
         if (limit <= 1)
                 return PRIO_MAX-1; /* i.e. 19 */
