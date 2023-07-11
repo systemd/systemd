@@ -967,7 +967,7 @@ static bool menu_run(
 
                         if (config->idx_default_efivar != idx_highlight) {
                                 free(config->entry_default_efivar);
-                                config->entry_default_efivar = xstrdup16(config->entries[idx_highlight]->id);
+                                config->entry_default_efivar = xstrdup16(config->entries[entry_index]->id);
                                 config->idx_default_efivar = idx_highlight;
                                 status = xstrdup16(u"Default boot entry selected.");
                         } else {
@@ -998,16 +998,16 @@ static bool menu_run(
                         }
 
                         /* only the options of configured entries can be edited */
-                        if (!config->editor || !IN_SET(config->entries[idx_highlight]->type,
+                        if (!config->editor || !IN_SET(config->entries[entry_index]->type,
                             LOADER_EFI, LOADER_LINUX, LOADER_UNIFIED_LINUX))
                                 break;
 
                         /* Unified kernels that are signed as a whole will not accept command line options
                          * when secure boot is enabled unless there is none embedded in the image. Do not try
                          * to pretend we can edit it to only have it be ignored. */
-                        if (config->entries[idx_highlight]->type == LOADER_UNIFIED_LINUX &&
+                        if (config->entries[entry_index]->type == LOADER_UNIFIED_LINUX &&
                             secure_boot_enabled() &&
-                            config->entries[idx_highlight]->options)
+                            config->entries[entry_index]->options)
                                 break;
 
                         /* The edit line may end up on the last line of the screen. And even though we're
@@ -1016,7 +1016,7 @@ static bool menu_run(
                          * Since we cannot paint the last character of the edit line, we simply start
                          * at x-offset 1 for symmetry. */
                         print_at(1, y_status, COLOR_EDIT, clearline + 2);
-                        exit = line_edit(&config->entries[idx_highlight]->options, x_max - 2, y_status);
+                        exit = line_edit(&config->entries[entry_index]->options, x_max - 2, y_status);
                         print_at(1, y_status, COLOR_NORMAL, clearline + 2);
                         break;
 
