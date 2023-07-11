@@ -810,6 +810,7 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = NULL;
         _cleanup_close_ int fifo_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
+        int r;
 
         assert(s);
 
@@ -829,6 +830,12 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
         fifo_fd = session_create_fifo(s);
         if (fifo_fd < 0)
                 return fifo_fd;
+
+        if (s->leader.fd >= 0) {
+                r = session_watch_pidfd(s);
+                if (r < 0)
+                        return r;
+        }
 
         /* Update the session state file before we notify the client about the result. */
         session_save(s);

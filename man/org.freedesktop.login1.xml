@@ -80,6 +80,30 @@ node /org/freedesktop/login1 {
                     out u vtnr,
                     out b existing);
       @org.freedesktop.systemd1.Privileged("true")
+      CreateSessionWithPIDFD(in  u uid,
+                             in  h pidfd,
+                             in  s service,
+                             in  s type,
+                             in  s class,
+                             in  s desktop,
+                             in  s seat_id,
+                             in  u vtnr,
+                             in  s tty,
+                             in  s display,
+                             in  b remote,
+                             in  s remote_user,
+                             in  s remote_host,
+                             in  t flags,
+                             in  a(sv) properties,
+                             out s session_id,
+                             out o object_path,
+                             out s runtime_path,
+                             out h fifo_fd,
+                             out u uid,
+                             out s seat_id,
+                             out u vtnr,
+                             out b existing);
+      @org.freedesktop.systemd1.Privileged("true")
       ReleaseSession(in  s session_id);
       ActivateSession(in  s session_id);
       ActivateSessionOnSeat(in  s session_id,
@@ -293,6 +317,8 @@ node /org/freedesktop/login1 {
     <variablelist class="dbus-method" generated="True" extra-ref="ListInhibitors()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="CreateSession()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CreateSessionWithPIDFD()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ReleaseSession()"/>
 
@@ -525,10 +551,10 @@ node /org/freedesktop/login1 {
       structures consisting of <varname>what</varname>, <varname>who</varname>, <varname>why</varname>,
       <varname>mode</varname>, <varname>uid</varname> (user ID), and <varname>pid</varname> (process ID).</para>
 
-      <para><function>CreateSession()</function> and <function>ReleaseSession()</function> may be used to
-      open or close login sessions. These calls should <emphasis>never</emphasis> be invoked directly by
-      clients. Creating/closing sessions is exclusively the job of PAM and its
-      <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <para><function>CreateSession()</function>, <function>CreateSessionWithPIDFD()</function> and
+      <function>ReleaseSession()</function> may be used to open or close login sessions. These calls should
+      <emphasis>never</emphasis> be invoked directly by clients. Creating/closing sessions is exclusively the job
+      of PAM and its <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       module.</para>
 
       <para><function>ActivateSession()</function> brings the session with the specified ID into the
@@ -1517,6 +1543,7 @@ node /org/freedesktop/login1/session/1 {
       <varname>HandleHibernateKeyLongPress</varname> were added in version 251.</para>
       <para><varname>StopIdleSessionUSec</varname> was added in version 252.</para>
       <para><function>PrepareForShutdownWithMetadata</function> was added in version 255.</para>
+      <para><function>CreateSessionWithPIDFD</function> was added in version 255.</para>
     </refsect2>
     <refsect2>
       <title>Session Objects</title>
