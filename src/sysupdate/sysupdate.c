@@ -15,6 +15,7 @@
 #include "format-table.h"
 #include "glyph-util.h"
 #include "hexdecoct.h"
+#include "json-util.h"
 #include "login-util.h"
 #include "main-func.h"
 #include "mount-util.h"
@@ -423,7 +424,6 @@ static const char *update_set_flags_to_string(UpdateSetFlags flags) {
         }
 }
 
-
 static int context_show_table(Context *c) {
         _cleanup_(table_unrefp) Table *t = NULL;
         int r;
@@ -478,6 +478,7 @@ static int context_show_version(Context *c, const char *version) {
                 have_fs_attributes = false, have_partition_attributes = false,
                 have_size = false, have_tries = false, have_no_auto = false,
                 have_read_only = false, have_growfs = false, have_sha256 = false;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
         UpdateSet *us;
         int r;
@@ -665,7 +666,45 @@ static int context_show_version(Context *c, const char *version) {
         if (!have_sha256)
                 (void) table_hide_column_from_display(t, 12);
 
-        return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
+        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                printf("%s%s%s Version: %s\n"
+                       "    State: %s%s%s\n"
+                       "Installed: %s%s\n"
+                       "Available: %s%s\n"
+                       "Protected: %s%s%s\n"
+                       " Obsolete: %s%s%s\n\n",
+                       strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_glyph(us->flags), ansi_normal(), us->version,
+                       strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_string(us->flags), ansi_normal(),
+                       yes_no(us->flags & UPDATE_INSTALLED), FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_NEWEST) ? " (newest)" : "",
+                       yes_no(us->flags & UPDATE_AVAILABLE), (us->flags & (UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_NEWEST)) == (UPDATE_AVAILABLE|UPDATE_NEWEST) ? " (newest)" : "",
+                       FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED) ? ansi_highlight() : "", yes_no(FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED)), ansi_normal(),
+                       us->flags & UPDATE_OBSOLETE ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_OBSOLETE), ansi_normal());
+
+                return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
+        } else {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *t_json = NULL;
+
+                r = table_to_json(t, &t_json);
+                if (r < 0)
+                        return log_error_errno(r, "failed to convert table to JSON: %m");
+
+                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING("version", us->version),
+                                          SD_JSON_BUILD_PAIR_BOOLEAN("newest", FLAGS_SET(us->flags, UPDATE_NEWEST)),
+                                          SD_JSON_BUILD_PAIR_BOOLEAN("available", FLAGS_SET(us->flags, UPDATE_AVAILABLE)),
+                                          SD_JSON_BUILD_PAIR_BOOLEAN("installed", FLAGS_SET(us->flags, UPDATE_INSTALLED)),
+                                          SD_JSON_BUILD_PAIR_BOOLEAN("obsolete", FLAGS_SET(us->flags, UPDATE_OBSOLETE)),
+                                          SD_JSON_BUILD_PAIR_BOOLEAN("protected", FLAGS_SET(us->flags, UPDATE_PROTECTED)),
+                                          SD_JSON_BUILD_PAIR_VARIANT("contents", t_json));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create JSON: %m");
+
+                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to print JSON: %m");
+
+                return 0;
+
+        }
 }
 
 static int context_vacuum(
@@ -690,10 +729,22 @@ static int context_vacuum(
                 count = MAX(count, r);
         }
 
-        if (count > 0)
-                log_info("Removed %i instances.", count);
-        else
-                log_info("Removed no instances.");
+        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                if (count > 0)
+                        log_info("Removed %i instances.", count);
+                else
+                        log_info("Removed no instances.");
+        } else {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+
+                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_INTEGER("removed", count));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create JSON: %m");
+
+                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to print JSON: %m");
+        }
 
         return 0;
 }
@@ -956,8 +1007,37 @@ static int verb_list(int argc, char **argv, void *userdata) {
 
         if (version)
                 return context_show_version(context, version);
-        else
+        else if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF))
                 return context_show_table(context);
+        else {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+                _cleanup_strv_free_ char **versions = NULL;
+                const char *current = NULL;
+
+                for (size_t i = 0; i < context->n_update_sets; i++) {
+                        UpdateSet *us = context->update_sets[i];
+
+                        if (FLAGS_SET(us->flags, UPDATE_INSTALLED) &&
+                            FLAGS_SET(us->flags, UPDATE_NEWEST))
+                                current = us->version;
+
+                        r = strv_extend(&versions, us->version);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_STRING("current", current),
+                                          SD_JSON_BUILD_PAIR_STRV("all", versions),
+                                          SD_JSON_BUILD_PAIR_STRV("appstream-url", context->appstream));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create JSON: %m");
+
+                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to print JSON: %m");
+
+                return 0;
+        }
 }
 
 static int verb_check_new(int argc, char **argv, void *userdata) {
@@ -976,12 +1056,28 @@ static int verb_check_new(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        if (!context->candidate) {
-                log_debug("No candidate found.");
-                return EXIT_FAILURE;
+        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                if (!context->candidate) {
+                        log_debug("No candidate found.");
+                        return EXIT_FAILURE;
+                }
+
+                puts(context->candidate->version);
+        } else {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+
+                if (context->candidate)
+                        r = sd_json_variant_new_string(&json, context->candidate->version);
+                else
+                        r = sd_json_variant_new_null(&json);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create JSON: %m");
+
+                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to print JSON: %m");
         }
 
-        puts(context->candidate->version);
         return EXIT_SUCCESS;
 }
 
@@ -1200,23 +1296,36 @@ static int verb_components(int argc, char **argv, void *userdata) {
                 }
         }
 
-        if (!has_default_component && set_isempty(names)) {
-                log_info("No components defined.");
-                return 0;
-        }
-
         z = set_get_strv(names);
         if (!z)
                 return log_oom();
 
         strv_sort(z);
 
-        if (has_default_component)
-                printf("%s<default>%s\n",
-                       ansi_highlight(), ansi_normal());
+        if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
+                if (!has_default_component && set_isempty(names)) {
+                        log_info("No components defined.");
+                        return 0;
+                }
 
-        STRV_FOREACH(i, z)
-                puts(*i);
+                if (has_default_component)
+                        printf("%s<default>%s\n",
+                               ansi_highlight(), ansi_normal());
+
+                STRV_FOREACH(i, z)
+                        puts(*i);
+        } else {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+
+                r = sd_json_buildo(&json, SD_JSON_BUILD_PAIR_BOOLEAN("default", has_default_component),
+                                          SD_JSON_BUILD_PAIR_STRV("components", z));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create JSON: %m");
+
+                r = sd_json_variant_dump(json, arg_json_format_flags, stdout, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to print JSON: %m");
+        }
 
         return 0;
 }
