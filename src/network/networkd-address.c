@@ -345,7 +345,7 @@ static uint32_t address_prefix(const Address *a) {
                 return be32toh(a->in_addr.in.s_addr) >> (32 - a->prefixlen);
 }
 
-static void address_kernel_hash_func(const Address *a, struct siphash *state) {
+static void address_hash_func(const Address *a, struct siphash *state) {
         assert(a);
 
         siphash24_compress(&a->family, sizeof(a->family), state);
@@ -367,7 +367,7 @@ static void address_kernel_hash_func(const Address *a, struct siphash *state) {
         }
 }
 
-static int address_kernel_compare_func(const Address *a1, const Address *a2) {
+static int address_compare_func(const Address *a1, const Address *a2) {
         int r;
 
         r = CMP(a1->family, a2->family);
@@ -396,16 +396,16 @@ static int address_kernel_compare_func(const Address *a1, const Address *a2) {
 }
 
 DEFINE_PRIVATE_HASH_OPS(
-        address_kernel_hash_ops,
+        address_hash_ops,
         Address,
-        address_kernel_hash_func,
-        address_kernel_compare_func);
+        address_hash_func,
+        address_compare_func);
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
-        address_kernel_hash_ops_free,
+        address_hash_ops_free,
         Address,
-        address_kernel_hash_func,
-        address_kernel_compare_func,
+        address_hash_func,
+        address_compare_func,
         address_free);
 
 static bool address_can_update(const Address *la, const Address *na) {
@@ -561,7 +561,7 @@ static int address_add(Link *link, Address *address) {
         assert(link);
         assert(address);
 
-        r = set_ensure_put(&link->addresses, &address_kernel_hash_ops_free, address);
+        r = set_ensure_put(&link->addresses, &address_hash_ops_free, address);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -658,8 +658,8 @@ static int address_get_request(Link *link, const Address *address, Request **ret
                                 .link = link,
                                 .type = REQUEST_TYPE_ADDRESS,
                                 .userdata = (void*) address,
-                                .hash_func = (hash_func_t) address_kernel_hash_func,
-                                .compare_func = (compare_func_t) address_kernel_compare_func,
+                                .hash_func = (hash_func_t) address_hash_func,
+                                .compare_func = (compare_func_t) address_compare_func,
                         });
         if (req) {
                 if (ret)
@@ -1406,8 +1406,8 @@ int link_request_address(
         r = link_queue_request_safe(link, REQUEST_TYPE_ADDRESS,
                                     tmp,
                                     address_free,
-                                    address_kernel_hash_func,
-                                    address_kernel_compare_func,
+                                    address_hash_func,
+                                    address_compare_func,
                                     address_process_request,
                                     message_counter, netlink_handler, ret);
         if (r < 0)
@@ -1497,8 +1497,8 @@ void address_cancel_request(Address *address) {
                 .link = address->link,
                 .type = REQUEST_TYPE_ADDRESS,
                 .userdata = address,
-                .hash_func = (hash_func_t) address_kernel_hash_func,
-                .compare_func = (compare_func_t) address_kernel_compare_func,
+                .hash_func = (hash_func_t) address_hash_func,
+                .compare_func = (compare_func_t) address_compare_func,
         };
 
         request_detach(address->link->manager, &req);
@@ -2342,9 +2342,9 @@ int network_drop_invalid_addresses(Network *network) {
                         address_free(dup);
                 }
 
-                /* Use address_kernel_hash_ops, instead of address_kernel_hash_ops_free. Otherwise, the
-                 * Address objects will be freed. */
-                r = set_ensure_put(&addresses, &address_kernel_hash_ops, address);
+                /* Use address_hash_ops, instead of address_hash_ops_free. Otherwise, the Address objects
+                 * will be freed. */
+                r = set_ensure_put(&addresses, &address_hash_ops, address);
                 if (r < 0)
                         return log_oom();
                 assert(r > 0);
