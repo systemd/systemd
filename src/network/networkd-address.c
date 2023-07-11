@@ -205,41 +205,55 @@ void link_mark_addresses(Link *link, NetworkConfigSource source) {
         }
 }
 
-static bool address_needs_to_set_broadcast(const Address *a, Link *link) {
+int address_get_broadcast(const Address *a, Link *link, struct in_addr *ret) {
+        struct in_addr b_addr = {};
+
         assert(a);
         assert(link);
 
-        if (a->family != AF_INET)
-                return false;
+        /* Returns 0 when broadcast address is null, 1 when non-null broadcast address, -EAGAIN when the main
+         * address is null. */
 
+        /* broadcast is only for IPv4. */
+        if (a->family != AF_INET)
+                goto finalize;
+
+        /* broadcast address cannot be used when peer address is specified. */
         if (in4_addr_is_set(&a->in_addr_peer.in))
-                return false;
+                goto finalize;
 
         /* A /31 or /32 IPv4 address does not have a broadcast address.
          * See https://tools.ietf.org/html/rfc3021 */
         if (a->prefixlen > 30)
-                return false;
+                goto finalize;
 
-        /* If explicitly configured, do not update the address. */
-        if (in4_addr_is_set(&a->broadcast))
-                return false;
+        /* If explicitly configured, use the address as is. */
+        if (in4_addr_is_set(&a->broadcast)) {
+                b_addr = a->broadcast;
+                goto finalize;
+        }
 
-        if (a->set_broadcast >= 0)
-                return a->set_broadcast;
+        /* If explicitly disabled, then return null address. */
+        if (a->set_broadcast == 0)
+                goto finalize;
 
-        /* Defaults to true, except for wireguard, as typical configuration for wireguard does not set
-         * broadcast. */
-        return !streq_ptr(link->kind, "wireguard");
-}
+        /* For wireguard interfaces, broadcast is disabled by default. */
+        if (a->set_broadcast < 0 && streq_ptr(link->kind, "wireguard"))
+                goto finalize;
 
-void address_set_broadcast(Address *a, Link *link) {
-        assert(a);
-        assert(link);
+        /* If the main address is null, e.g. Address=0.0.0.0/24, the broadcast address will be automatically
+         * determined after an address is acquired. */
+        if (!in4_addr_is_set(&a->in_addr.in))
+                return -EAGAIN;
 
-        if (!address_needs_to_set_broadcast(a, link))
-                return;
+        /* Otherwise, generate a broadcast address from the main address and prefix length. */
+        b_addr.s_addr = a->in_addr.in.s_addr | htobe32(UINT32_C(0xffffffff) >> a->prefixlen);
 
-        a->broadcast.s_addr = a->in_addr.in.s_addr | htobe32(UINT32_C(0xffffffff) >> a->prefixlen);
+finalize:
+        if (ret)
+                *ret = b_addr;
+
+        return in4_addr_is_set(&b_addr);
 }
 
 static void address_set_cinfo(Manager *m, const Address *a, struct ifa_cacheinfo *cinfo) {
