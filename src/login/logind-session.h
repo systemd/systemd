@@ -88,12 +88,14 @@ struct Session {
         int vtfd;
 
         pid_t leader;
+        int leader_pidfd;
         uint32_t audit_id;
 
         int fifo_fd;
         char *fifo_path;
 
         sd_event_source *fifo_event_source;
+        sd_event_source *leader_pidfd_event_source;
 
         bool idle_hint;
         dual_timestamp idle_hint_timestamp;
