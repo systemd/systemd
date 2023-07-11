@@ -295,7 +295,7 @@ int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet, const char* const* extra_ar
                 int q;
 
                 q = bus_process_wait(d->bus);
-                if (q <= 0)
+                if (q < 0)
                         return log_error_errno(q, "Failed to wait for response: %m");
 
                 if (d->name && d->result) {
