@@ -63,6 +63,25 @@
   </refsect1>
 
   <refsect1>
+    <title>Kernel Command Line</title>
+
+    <para>The following variables are understood:</para>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>systemd.skip-battery-check</varname></term>
+
+        <listitem>
+          <para>If specified, the starting of <filename>systemd-battery-check.service</filename> will be
+          skipped. This may be useful when <command>systemd-battery-check</command> wrongly detects and
+          reports battery capacity percentage or AC power existence, or when you want to boot the system
+          forcibly.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
