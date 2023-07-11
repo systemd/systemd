@@ -78,11 +78,9 @@ static int dhcp4_remove_address_and_routes(Link *link, bool only_marked) {
                 if (only_marked && !address_is_marked(address))
                         continue;
 
-                k = address_remove(address);
+                k = address_remove_and_drop(address);
                 if (k < 0)
                         r = k;
-
-                address_cancel_request(address);
         }
 
         return r;
@@ -896,7 +894,7 @@ static int dhcp4_request_address(Link *link, bool announce) {
         else
                 address_unmark(existing);
 
-        r = link_request_address(link, TAKE_PTR(addr), true, &link->dhcp4_messages,
+        r = link_request_address(link, addr, &link->dhcp4_messages,
                                  dhcp4_address_handler, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv4 address: %m");
