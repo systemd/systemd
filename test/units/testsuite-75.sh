@@ -302,6 +302,15 @@ run getent -s resolve hosts 127.128.0.5
 grep -qEx '127\.128\.0\.5\s+localhost5(\s+localhost5?\.localdomain[45]?){4}' "$RUN_OUT"
 [ "$(wc -l <"$RUN_OUT")" -eq 1 ]
 
+# Issue: https://github.com/systemd/systemd/issues/20158
+run dig +noall +answer +additional localhost5.
+grep -qEx 'localhost5\.\s+0\s+IN\s+A\s+127\.128\.0\.5' "$RUN_OUT"
+[ "$(wc -l <"$RUN_OUT")" -eq 1 ]
+run dig +noall +answer +additional localhost5.localdomain4.
+grep -qEx 'localhost5\.localdomain4\.\s+0\s+IN\s+CNAME\s+localhost5\.' "$RUN_OUT"
+grep -qEx 'localhost5\.\s+0\s+IN\s+A\s+127\.128\.0\.5' "$RUN_OUT"
+[ "$(wc -l <"$RUN_OUT")" -eq 2 ]
+
 : "--- Basic resolved tests ---"
 # Issue: https://github.com/systemd/systemd/issues/22229
 # PR: https://github.com/systemd/systemd/pull/22231
