@@ -295,6 +295,16 @@
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--offline</option></term>
+
+        <listitem><para>Prevents fetching metadata from the network (i.e. <filename>SHA256SUMS</filename>).
+        This is most useful when used in combination with the <command>list</command> command, to query
+        locally installed versions.</para>
+
+        <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
       <xi:include href="standard-options.xml" xpointer="json" />
