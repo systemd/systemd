@@ -890,6 +890,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "@signal\0"
                 "@sync\0"
                 "@timer\0"
+                "arm_fadvise64_64\0"
                 "capget\0"
                 "capset\0"
                 "copy_file_range\0"
