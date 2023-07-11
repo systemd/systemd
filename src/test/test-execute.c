@@ -1289,7 +1289,7 @@ static int prepare_ns(const char *process_name) {
                 _cleanup_free_ char *unit_dir = NULL;
 
                 /* Make "/" read-only. */
-                assert_se(mount_nofollow_verbose(LOG_DEBUG, NULL, "/", NULL, MS_BIND|MS_REMOUNT, NULL) >= 0);
+                assert_se(mount_nofollow_verbose(LOG_DEBUG, NULL, "/", NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL) >= 0);
 
                 /* Creating a new user namespace in the above means all MS_SHARED mounts become MS_SLAVE.
                  * Let's put them back to MS_SHARED here, since that's what we want as defaults. (This will
