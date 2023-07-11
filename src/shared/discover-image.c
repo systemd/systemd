@@ -1232,6 +1232,7 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
         case IMAGE_BLOCK: {
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
                 _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
+                int image_class;
 
                 r = loop_device_make_by_path(i->path, O_RDONLY, /* sector_size= */ UINT32_MAX, LO_FLAGS_PARTSCAN, LOCK_SH, &d);
                 if (r < 0)
@@ -1255,7 +1256,8 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
 
                 r = dissected_image_acquire_metadata(m,
                                                      DISSECT_IMAGE_VALIDATE_OS |
-                                                     DISSECT_IMAGE_VALIDATE_OS_EXT);
+                                                     DISSECT_IMAGE_VALIDATE_OS_EXT,
+                                                     &image_class);
                 if (r < 0)
                         return r;
 
