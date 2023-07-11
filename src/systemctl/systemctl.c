@@ -1123,6 +1123,7 @@ int systemctl_dispatch_parse_argv(int argc, char *argv[]) {
         }
 
         arg_action = ACTION_SYSTEMCTL;
+        getenv_output_mode(&arg_output);
         return systemctl_parse_argv(argc, argv);
 }
 
