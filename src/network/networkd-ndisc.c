@@ -168,6 +168,7 @@ static void ndisc_set_route_priority(Link *link, Route *route) {
 static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = in;
         struct in6_addr router;
+        uint32_t mtu = 0;
         bool is_new;
         int r;
 
@@ -180,6 +181,12 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
+        if (link->network->ipv6_accept_ra_use_mtu) {
+                r = sd_ndisc_router_get_mtu(rt, &mtu);
+                if (r < 0 && r != -ENODATA)
+                        return log_link_warning_errno(link, r, "Failed to get default router MTU from RA: %m");
+        }
+
         route->source = NETWORK_CONFIG_SOURCE_NDISC;
         route->provider.in6 = router;
         if (!route->table_set)
@@ -189,6 +196,8 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
                 route->protocol = RTPROT_RA;
         if (route->quickack < 0)
                 route->quickack = link->network->ipv6_accept_ra_quickack;
+        if (route->mtu == 0)
+                route->mtu = mtu;
 
         is_new = route_get(NULL, link, route, NULL) < 0;
 
@@ -256,7 +265,6 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         struct in6_addr gateway;
         uint16_t lifetime_sec;
         unsigned preference;
-        uint32_t mtu = 0;
         int r;
 
         assert(link);
@@ -292,12 +300,6 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get default router preference from RA: %m");
 
-        if (link->network->ipv6_accept_ra_use_mtu) {
-                r = sd_ndisc_router_get_mtu(rt, &mtu);
-                if (r < 0 && r != -ENODATA)
-                        return log_link_warning_errno(link, r, "Failed to get default router MTU from RA: %m");
-        }
-
         if (link->network->ipv6_accept_ra_use_gateway) {
                 _cleanup_(route_freep) Route *route = NULL;
 
@@ -310,7 +312,6 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 route->gw_family = AF_INET6;
                 route->gw.in6 = gateway;
                 route->lifetime_usec = lifetime_usec;
-                route->mtu = mtu;
 
                 r = ndisc_request_route(TAKE_PTR(route), link, rt);
                 if (r < 0)
@@ -335,8 +336,6 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 if (!route->pref_set)
                         route->pref = preference;
                 route->lifetime_usec = lifetime_usec;
-                if (route->mtu == 0)
-                        route->mtu = mtu;
 
                 r = ndisc_request_route(TAKE_PTR(route), link, rt);
                 if (r < 0)
