@@ -965,10 +965,10 @@ static bool menu_run(
                                 break;
                         }
 
-                        if (config->idx_default_efivar != idx_highlight) {
+                        if (config->idx_default_efivar != entry_index) {
                                 free(config->entry_default_efivar);
                                 config->entry_default_efivar = xstrdup16(config->entries[entry_index]->id);
-                                config->idx_default_efivar = idx_highlight;
+                                config->idx_default_efivar = entry_index;
                                 status = xstrdup16(u"Default boot entry selected.");
                         } else {
                                 config->entry_default_efivar = mfree(config->entry_default_efivar);
