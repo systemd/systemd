@@ -857,7 +857,7 @@ static void manager_mark_routes(Manager *manager, bool foreign, const Link *exce
 
 static int manager_drop_marked_routes(Manager *manager) {
         Route *route;
-        int k, r = 0;
+        int r = 0;
 
         assert(manager);
 
@@ -865,9 +865,7 @@ static int manager_drop_marked_routes(Manager *manager) {
                 if (!route_is_marked(route))
                         continue;
 
-                k = route_remove(route);
-                if (k < 0 && r >= 0)
-                        r = k;
+                RET_GATHER(r, route_remove(route));
         }
 
         return r;
@@ -907,7 +905,7 @@ static void link_unmark_wireguard_routes(Link *link) {
 
 int link_drop_foreign_routes(Link *link) {
         Route *route;
-        int k, r;
+        int r;
 
         assert(link);
         assert(link->manager);
@@ -962,23 +960,17 @@ int link_drop_foreign_routes(Link *link) {
                 if (!route_is_marked(route))
                         continue;
 
-                k = route_remove(route);
-                if (k < 0 && r >= 0)
-                        r = k;
+                RET_GATHER(r, route_remove(route));
         }
 
         manager_mark_routes(link->manager, /* foreign = */ true, NULL);
 
-        k = manager_drop_marked_routes(link->manager);
-        if (k < 0 && r >= 0)
-                r = k;
-
-        return r;
+        return RET_GATHER(r, manager_drop_marked_routes(link->manager));
 }
 
 int link_drop_managed_routes(Link *link) {
         Route *route;
-        int k, r = 0;
+        int r = 0;
 
         assert(link);
 
@@ -994,18 +986,12 @@ int link_drop_managed_routes(Link *link) {
                 if (!route_exists(route))
                         continue;
 
-                k = route_remove(route);
-                if (k < 0 && r >= 0)
-                        r = k;
+                RET_GATHER(r, route_remove(route));
         }
 
         manager_mark_routes(link->manager, /* foreign = */ false, link);
 
-        k = manager_drop_marked_routes(link->manager);
-        if (k < 0 && r >= 0)
-                r = k;
-
-        return r;
+        return RET_GATHER(r, manager_drop_marked_routes(link->manager));
 }
 
 void link_foreignize_routes(Link *link) {

@@ -100,9 +100,7 @@ static int apply_file(const char *filename, bool ignore_enoent) {
                 if (strchr(COMMENTS, p[0]))
                         continue;
 
-                k = apply_rule(filename, line, p);
-                if (k < 0 && r >= 0)
-                        r = k;
+                RET_GATHER(r, apply_rule(filename, line, p));
         }
 
         return r;
@@ -201,7 +199,7 @@ static int binfmt_mounted_warn(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        int r, k;
+        int r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -221,11 +219,9 @@ static int run(int argc, char *argv[]) {
                 if (r <= 0)
                         return r;
 
-                for (int i = optind; i < argc; i++) {
-                        k = apply_file(argv[i], false);
-                        if (k < 0 && r >= 0)
-                                r = k;
-                }
+                for (int i = optind; i < argc; i++)
+                        RET_GATHER(r, apply_file(argv[i], false));
+
         } else {
                 _cleanup_strv_free_ char **files = NULL;
 
@@ -250,11 +246,8 @@ static int run(int argc, char *argv[]) {
                 else
                         log_debug("Flushed all binfmt_misc rules.");
 
-                STRV_FOREACH(f, files) {
-                        k = apply_file(*f, true);
-                        if (k < 0 && r >= 0)
-                                r = k;
-                }
+                STRV_FOREACH(f, files)
+                        RET_GATHER(r, apply_file(*f, true));
         }
 
         return r;

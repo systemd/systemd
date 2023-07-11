@@ -421,8 +421,7 @@ static int install_binaries(const char *esp_path, const char *arch, bool force) 
                  * newer version, or other boot loader in place. */
                 if (arg_graceful && IN_SET(k, -ESTALE, -ESRCH))
                         continue;
-                if (k < 0 && r == 0)
-                        r = k;
+                RET_GATHER(r, k);
         }
 
         return r;
