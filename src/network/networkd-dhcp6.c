@@ -161,7 +161,7 @@ static int verify_dhcp6_address(Link *link, const Address *address) {
 
         const char *pretty = IN6_ADDR_TO_STRING(&address->in_addr.in6);
 
-        if (address_get(link, address, &existing) < 0) {
+        if (address_get_harder(link, address, &existing) < 0) {
                 /* New address. */
                 log_level = LOG_INFO;
                 goto simple_log;
