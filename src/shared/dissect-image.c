@@ -3262,7 +3262,7 @@ int dissected_image_load_verity_sig_partition(
         return 1;
 }
 
-int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_flags) {
+int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_flags, int *image_class) {
 
         enum {
                 META_HOSTNAME,
@@ -3297,10 +3297,12 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
         int fds[2 * _META_MAX], r, v;
         int has_init_system = -1;
         ssize_t n;
+        *image_class = 2;
 
         BLOCK_SIGNALS(SIGCHLD);
 
         assert(m);
+        assert(image_class);
 
         for (; n_meta_initialized < _META_MAX; n_meta_initialized ++) {
                 if (!paths[n_meta_initialized]) {
@@ -3354,7 +3356,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 
                         switch (k) {
 
-                        case META_EXTENSION_RELEASE:
+                        case META_EXTENSION_RELEASE: {
                                 /* As per the os-release spec, if the image is an extension it will have a file
                                  * named after the image name in extension-release.d/ - we use the image name
                                  * and try to resolve it with the extension-release helpers, as sometimes
@@ -3364,12 +3366,22 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                                  * we allow a fallback that matches on the first extension-release
                                  * file found in the directory, if one named after the image cannot
                                  * be found first. */
+                                int class = 2;
                                 r = open_extension_release(t, IMAGE_SYSEXT, m->image_name, /* relax_extension_release_check= */ false, NULL, &fd);
-                                if (r == -ENOENT)
+                                if (r == -ENOENT) {
                                         r = open_extension_release(t, IMAGE_CONFEXT, m->image_name, /* relax_extension_release_check= */ false, NULL, &fd);
+                                        if (r >= 0)
+                                                class = 3;
+                                }
                                 if (r < 0)
-                                        fd = r; /* Propagate the error. */
+                                        fd = r;
+
+                                r = loop_write(fds[2*k+1], &class, sizeof(class), false);
+                                if (r < 0)
+                                        goto inner_fail; /* Propagate the error to the parent */
+
                                 break;
+                        }
 
                         case META_HAS_INIT_SYSTEM: {
                                 bool found = false;
@@ -3491,12 +3503,23 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 
                         break;
 
-                case META_EXTENSION_RELEASE:
-                        r = load_env_file_pairs(f, "extension-release", &extension_release);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to read extension release file of image: %m");
+                case META_EXTENSION_RELEASE: {
+                        int cl = 2;
+                        size_t nr;
+
+                        errno = 0;
+                        nr = fread(&cl, 1, sizeof(cl), f);
+                        if (nr != sizeof(cl))
+                                log_debug_errno(errno_or_else(EIO), "Failed to read class of extension image: %m");
+                        else {
+                                *image_class = cl;
+                                r = load_env_file_pairs(f, "extension-release", &extension_release);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to read extension release file of image: %m");
+                        }
 
                         break;
+                }
 
                 case META_HAS_INIT_SYSTEM: {
                         bool b = false;
