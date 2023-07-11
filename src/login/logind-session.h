@@ -95,6 +95,7 @@ struct Session {
         char *fifo_path;
 
         sd_event_source *fifo_event_source;
+        sd_event_source *leader_pidfd_event_source;
 
         bool idle_hint;
         dual_timestamp idle_hint_timestamp;
@@ -130,7 +131,7 @@ Session* session_free(Session *s);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Session *, session_free);
 
 void session_set_user(Session *s, User *u);
-int session_set_leader(Session *s, pid_t pid);
+int session_set_leader(Session *s, pid_t pid, int pidfd);
 bool session_may_gc(Session *s, bool drop_not_started);
 void session_add_to_gc_queue(Session *s);
 int session_activate(Session *s);
