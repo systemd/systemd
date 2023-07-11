@@ -164,6 +164,8 @@ int tpm2_parse_luks2_json(JsonVariant *v, int *ret_keyslot, uint32_t *ret_hash_p
 #define TPM2_ALG_RSA 0x1
 #endif
 
+int tpm2_hash_alg_to_size(uint16_t alg);
+
 const char *tpm2_hash_alg_to_string(uint16_t alg);
 int tpm2_hash_alg_from_string(const char *alg);
 
