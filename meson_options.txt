@@ -56,7 +56,7 @@ option('initrd', type : 'boolean',
 option('compat-mutable-uid-boundaries', type : 'boolean', value : false,
        description : 'look at uid boundaries in /etc/login.defs for compatibility')
 option('nscd', type : 'boolean',
-       description : 'build support for flushing of the nscd caches')
+       description : 'This option is deprecated and will be removed in a future release')
 
 option('quotaon-path', type : 'string', description : 'path to quotaon')
 option('quotacheck-path', type : 'string', description : 'path to quotacheck')

@@ -21,7 +21,6 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "mount-util.h"
-#include "nscd-flush.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "path-util.h"
@@ -970,9 +969,6 @@ static int write_files(Context *c) {
                         return log_error_errno(r, "Failed to rename %s to %s: %m",
                                                group_tmp, group_path);
                 group_tmp = mfree(group_tmp);
-
-                if (!arg_root && !arg_image)
-                        (void) nscd_flush_cache(STRV_MAKE("group"));
         }
         if (gshadow) {
                 r = rename_and_apply_smack_floor_label(gshadow_tmp, gshadow_path);
@@ -990,9 +986,6 @@ static int write_files(Context *c) {
                                                passwd_tmp, passwd_path);
 
                 passwd_tmp = mfree(passwd_tmp);
-
-                if (!arg_root && !arg_image)
-                        (void) nscd_flush_cache(STRV_MAKE("passwd"));
         }
         if (shadow) {
                 r = rename_and_apply_smack_floor_label(shadow_tmp, shadow_path);
