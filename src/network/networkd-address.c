@@ -449,6 +449,60 @@ int address_equal(const Address *a1, const Address *a2) {
         return address_compare_func(a1, a2) == 0;
 }
 
+static bool address_can_update(const Address *la, const Address *na) {
+        assert(la);
+        assert(la->link);
+        assert(na);
+        assert(na->network);
+
+        /* IPv4: lifetime, route metric, and protocol can be updated.
+                 See inet_rtm_newaddr() in net/ipv4/devinet.c.
+         * IPv6: lifetime, route metric, protocol, flags, and peer address can be updated
+         *       (scope, label, and broadcast are not used).
+         *       See inet_rtm_newaddr() in net/ipv6/addrconf.c. */
+
+        if (la->family != na->family)
+                return false;
+
+        if (la->prefixlen != na->prefixlen)
+                return false;
+
+        if (!address_is_static_null(na) &&
+            in_addr_equal(la->family, &la->in_addr, &na->in_addr) <= 0)
+                return false;
+
+        switch (la->family) {
+        case AF_INET: {
+                struct in_addr bcast;
+
+                if (la->scope != na->scope)
+                        return false;
+                if (na->flags != 0 &&
+                    (la->flags ^ na->flags) & KNOWN_FLAGS & ~IPV6ONLY_FLAGS & ~UNMANAGED_FLAGS)
+                        return false;
+                if (!streq_ptr(la->label, na->label))
+                        return false;
+                if (!in4_addr_equal(&la->in_addr_peer.in, &na->in_addr_peer.in))
+                        return false;
+                if (address_get_broadcast(na, la->link, &bcast) >= 0) {
+                        if (!in4_addr_equal(&la->broadcast, &bcast))
+                                return false;
+                } else {
+                        if (!FLAGS_SET(la->broadcast.s_addr, htobe32(UINT32_C(0xffffffff) >> la->prefixlen)))
+                                return false;
+                }
+                break;
+        }
+        case AF_INET6:
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        return true;
+}
+
 int address_dup(const Address *src, Address **ret) {
         _cleanup_(address_freep) Address *dest = NULL;
         int r;
@@ -1088,21 +1142,9 @@ int link_drop_foreign_addresses(Link *link) {
                 if (address_get(link, address, &existing) < 0)
                         continue;
 
-                /* On update, the kernel ignores the address label and broadcast address. Hence we need to
-                 * distinguish addresses with different labels or broadcast addresses. Thus, we need to check
-                 * the existing address with address_equal(). Otherwise, the label or broadcast address
-                 * change will not be applied when we reconfigure the interface. */
-                if (address_is_static_null(address)) {
-                        /* If the static configuration has null address, then the broadcast address will be
-                         * determined automatically. Hence, here we need to compare only address label. */
-                        if (address->family == AF_INET && !streq_ptr(address->label, existing->label))
-                                continue;
-
-                } else if (!address_equal(address, existing))
-                        continue;
-
-                /* Found matching static configuration. Keep the existing address. */
-                address_unmark(existing);
+                if (address_can_update(existing, address))
+                        /* Found matching static configuration. Keep the existing address. */
+                        address_unmark(existing);
         }
 
         /* Finally, remove all marked addresses. */
