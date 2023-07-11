@@ -5,8 +5,6 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include "sd-ipv4acd.h"
-
 #include "conf-parser.h"
 #include "in-addr-util.h"
 #include "networkd-link.h"
@@ -58,8 +56,6 @@ struct Address {
         /* duplicate_address_detection is only used by static or IPv4 dynamic addresses.
          * To control DAD for IPv6 dynamic addresses, set IFA_F_NODAD to flags. */
         AddressFamily duplicate_address_detection;
-        sd_ipv4acd *acd;
-        bool acd_bound;
 
         /* Called when address become ready */
         address_ready_callback_t callback;
@@ -83,7 +79,11 @@ int address_remove_and_drop(Address *address);
 int address_dup(const Address *src, Address **ret);
 bool address_is_ready(const Address *a);
 bool link_check_addresses_ready(Link *link, NetworkConfigSource source);
-void address_set_broadcast(Address *a, Link *link);
+int address_get_broadcast(const Address *a, Link *link, struct in_addr *ret);
+static inline void address_set_broadcast(Address *a, Link *link) {
+        assert(a);
+        assert_se(address_get_broadcast(a, link, &a->broadcast) >= 0);
+}
 
 DEFINE_SECTION_CLEANUP_FUNCTIONS(Address, address_free);
 
@@ -107,20 +107,16 @@ bool manager_has_address(Manager *manager, int family, const union in_addr_union
 void address_cancel_request(Address *address);
 int link_request_address(
                 Link *link,
-                Address *address,
-                bool consume_object,
+                const Address *address,
                 unsigned *message_counter,
                 address_netlink_handler_t netlink_handler,
                 Request **ret);
-int link_request_static_address(Link *link, Address *address, bool consume);
+int link_request_static_address(Link *link, const Address *address);
 int link_request_static_addresses(Link *link);
 
 int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, Manager *m);
 
 int network_drop_invalid_addresses(Network *network);
-
-int address_compare_func(const Address *a1, const Address *a2);
-int address_equal(const Address *a1, const Address *a2);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Address, address);
 
