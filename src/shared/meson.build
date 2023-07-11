@@ -245,10 +245,6 @@ if conf.get('HAVE_PAM') == 1
         shared_sources += files('pam-util.c')
 endif
 
-if conf.get('ENABLE_NSCD') == 1
-        shared_sources += files('nscd-flush.c')
-endif
-
 if conf.get('HAVE_LIBFIDO2') == 1 and conf.get('HAVE_LIBCRYPTSETUP') == 1
         shared_sources += files('cryptsetup-fido2.c')
 endif

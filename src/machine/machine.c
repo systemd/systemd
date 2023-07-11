@@ -510,7 +510,6 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         machine_save(m);
 
         machine_send_signal(m, true);
-        (void) manager_enqueue_nscd_cache_flush(m->manager);
 
         return 0;
 }
@@ -537,7 +536,6 @@ int machine_stop(Machine *m) {
         m->stopping = true;
 
         machine_save(m);
-        (void) manager_enqueue_nscd_cache_flush(m->manager);
 
         return 0;
 }
