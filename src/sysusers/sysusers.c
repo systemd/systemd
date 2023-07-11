@@ -867,13 +867,13 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **ret_tmpfile
 static int write_files(void) {
         _cleanup_fclose_ FILE *passwd = NULL, *group = NULL, *shadow = NULL, *gshadow = NULL;
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL, *group_tmp = NULL, *shadow_tmp = NULL, *gshadow_tmp = NULL;
-        const char *passwd_path, *shadow_path, *group_path, *gshadow_path;
         int r;
 
-        passwd_path = prefix_roota(arg_root, "/etc/passwd");
-        shadow_path = prefix_roota(arg_root, "/etc/shadow");
-        group_path = prefix_roota(arg_root, "/etc/group");
-        gshadow_path = prefix_roota(arg_root, "/etc/gshadow");
+        const char
+                *passwd_path = prefix_roota(arg_root, "/etc/passwd"),
+                *shadow_path = prefix_roota(arg_root, "/etc/shadow"),
+                *group_path = prefix_roota(arg_root, "/etc/group"),
+                *gshadow_path = prefix_roota(arg_root, "/etc/gshadow");
 
         r = write_temporary_group(group_path, &group, &group_tmp);
         if (r < 0)
