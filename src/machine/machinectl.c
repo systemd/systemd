@@ -2812,9 +2812,6 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Unknown output '%s'.", optarg);
                         arg_output = r;
-
-                        if (OUTPUT_MODE_IS_JSON(arg_output))
-                                arg_legend = false;
                         break;
 
                 case ARG_NO_PAGER:
@@ -2929,6 +2926,9 @@ done:
                         argv[i] = argv[i+1];
                 argv[optind] = t;
         }
+
+        if (OUTPUT_MODE_IS_JSON(arg_output))
+                arg_legend = false;
 
         return 1;
 }

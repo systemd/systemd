@@ -533,7 +533,10 @@
             instead of the traditional syslog identifier. Useful when using templated instances, as it will
             include the arguments in the unit names.</para></listitem>
           </varlistentry>
-        </variablelist></listitem>
+        </variablelist>
+
+        <para>Defaults to <literal>short</literal> unless <varname>$SYSTEMD_JOURNAL_OUTPUT_MODE</varname>
+        environment variable is specified.</para></listitem>
       </varlistentry>
 
       <varlistentry>
