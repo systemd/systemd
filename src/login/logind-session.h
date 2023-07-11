@@ -95,6 +95,7 @@ struct Session {
         char *fifo_path;
 
         sd_event_source *fifo_event_source;
+        sd_event_source *leader_pidfd_event_source;
 
         bool idle_hint;
         dual_timestamp idle_hint_timestamp;
@@ -130,7 +131,7 @@ Session* session_free(Session *s);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Session *, session_free);
 
 void session_set_user(Session *s, User *u);
-int session_set_leader(Session *s, pid_t pid);
+int session_set_leader(Session *s, pid_t pid, int pidfd);
 bool session_may_gc(Session *s, bool drop_not_started);
 void session_add_to_gc_queue(Session *s);
 int session_activate(Session *s);
@@ -143,6 +144,7 @@ void session_set_type(Session *s, SessionType t);
 int session_set_display(Session *s, const char *display);
 int session_set_tty(Session *s, const char *tty);
 int session_create_fifo(Session *s);
+int session_watch_pidfd(Session *s);
 int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error);
 int session_stop(Session *s, bool force);
 int session_finalize(Session *s);

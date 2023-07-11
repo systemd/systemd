@@ -50,6 +50,7 @@ int pidref_new_from_pid(pid_t pid, PidRef **ret);
 int pidref_kill(PidRef *pidref, int sig);
 int pidref_kill_and_sigcont(PidRef *pidref, int sig);
 int pidref_sigqueue(PidRef *pidfref, int sig, int value);
+int pidref_is_alive(PidRef *pidref);
 
 int pidref_verify(PidRef *pidref);
 
