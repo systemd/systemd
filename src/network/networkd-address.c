@@ -26,6 +26,39 @@
 #define ADDRESSES_PER_LINK_MAX 2048U
 #define STATIC_ADDRESSES_PER_NETWORK_MAX 1024U
 
+#define KNOWN_FLAGS                             \
+        (IFA_F_SECONDARY |                      \
+         IFA_F_NODAD |                          \
+         IFA_F_OPTIMISTIC |                     \
+         IFA_F_DADFAILED |                      \
+         IFA_F_HOMEADDRESS |                    \
+         IFA_F_DEPRECATED |                     \
+         IFA_F_TENTATIVE |                      \
+         IFA_F_PERMANENT |                      \
+         IFA_F_MANAGETEMPADDR |                 \
+         IFA_F_NOPREFIXROUTE |                  \
+         IFA_F_MCAUTOJOIN |                     \
+         IFA_F_STABLE_PRIVACY)
+
+/* From net/ipv4/devinet.c */
+#define IPV6ONLY_FLAGS                          \
+        (IFA_F_NODAD |                          \
+         IFA_F_OPTIMISTIC |                     \
+         IFA_F_DADFAILED |                      \
+         IFA_F_HOMEADDRESS |                    \
+         IFA_F_TENTATIVE |                      \
+         IFA_F_MANAGETEMPADDR |                 \
+         IFA_F_STABLE_PRIVACY)
+
+/* We do not control the following flags. */
+#define UNMANAGED_FLAGS                         \
+        (IFA_F_SECONDARY |                      \
+         IFA_F_DADFAILED |                      \
+         IFA_F_DEPRECATED |                     \
+         IFA_F_TENTATIVE |                      \
+         IFA_F_PERMANENT |                      \
+         IFA_F_STABLE_PRIVACY)
+
 int address_flags_to_string_alloc(uint32_t flags, int family, char **ret) {
         _cleanup_free_ char *str = NULL;
         static const char* map[] = {
@@ -2198,6 +2231,19 @@ static int address_section_verify(Address *address) {
         if (address->family == AF_INET6 &&
             !FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV6))
                 address->flags |= IFA_F_NODAD;
+
+        uint32_t filtered_flags = address->family == AF_INET ?
+                address->flags & KNOWN_FLAGS & ~UNMANAGED_FLAGS & ~IPV6ONLY_FLAGS :
+                address->flags & KNOWN_FLAGS & ~UNMANAGED_FLAGS;
+        if (address->flags != filtered_flags) {
+                _cleanup_free_ char *str = NULL;
+
+                (void) address_flags_to_string_alloc(filtered_flags, address->family, &str);
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: unexpected address flags \"%s\" were configured. "
+                                         "Ignoring [Address] section from line %u.",
+                                         address->section->filename, strna(str), address->section->line);
+        }
 
         return 0;
 }
