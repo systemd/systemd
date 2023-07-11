@@ -408,55 +408,6 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
         address_kernel_compare_func,
         address_free);
 
-int address_compare_func(const Address *a1, const Address *a2) {
-        int r;
-
-        r = CMP(a1->family, a2->family);
-        if (r != 0)
-                return r;
-
-        if (!IN_SET(a1->family, AF_INET, AF_INET6))
-                return 0;
-
-        r = CMP(a1->prefixlen, a2->prefixlen);
-        if (r != 0)
-                return r;
-
-        r = memcmp(&a1->in_addr, &a2->in_addr, FAMILY_ADDRESS_SIZE(a1->family));
-        if (r != 0)
-                return r;
-
-        r = memcmp(&a1->in_addr_peer, &a2->in_addr_peer, FAMILY_ADDRESS_SIZE(a1->family));
-        if (r != 0)
-                return r;
-
-        if (a1->family == AF_INET) {
-                /* On update, the kernel ignores the address label and broadcast address, hence we need
-                 * to distinguish addresses with different labels or broadcast addresses. Otherwise,
-                 * the label or broadcast address change will not be applied when we reconfigure the
-                 * interface. */
-                r = strcmp_ptr(a1->label, a2->label);
-                if (r != 0)
-                        return r;
-
-                r = CMP(a1->broadcast.s_addr, a2->broadcast.s_addr);
-                if (r != 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-int address_equal(const Address *a1, const Address *a2) {
-        if (a1 == a2)
-                return true;
-
-        if (!a1 || !a2)
-                return false;
-
-        return address_compare_func(a1, a2) == 0;
-}
-
 static bool address_can_update(const Address *la, const Address *na) {
         assert(la);
         assert(la->link);
