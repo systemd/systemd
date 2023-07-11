@@ -816,6 +816,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *bn = NULL;
         uint64_t size = UINT64_MAX;
+        int image_class;
         int r;
 
         assert(m);
@@ -846,7 +847,9 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
 
         fflush(stdout);
 
-        r = dissected_image_acquire_metadata(m, 0);
+        r = dissected_image_acquire_metadata(m, 0, &image_class);
+        printf("\nThe image class is %i\n", image_class);
+
         if (r == -ENXIO)
                 return log_error_errno(r, "No root partition discovered.");
         if (r == -EUCLEAN)

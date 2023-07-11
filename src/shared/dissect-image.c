@@ -3262,7 +3262,7 @@ int dissected_image_load_verity_sig_partition(
         return 1;
 }
 
-int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_flags) {
+int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_flags, int *image_class) {
 
         enum {
                 META_HOSTNAME,
@@ -3301,6 +3301,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
         BLOCK_SIGNALS(SIGCHLD);
 
         assert(m);
+        assert(image_class);
 
         for (; n_meta_initialized < _META_MAX; n_meta_initialized ++) {
                 if (!paths[n_meta_initialized]) {
@@ -3365,8 +3366,13 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                                  * file found in the directory, if one named after the image cannot
                                  * be found first. */
                                 r = open_extension_release(t, IMAGE_SYSEXT, m->image_name, /* relax_extension_release_check= */ false, NULL, &fd);
-                                if (r == -ENOENT)
+                                if (r == -ENOENT) {
                                         r = open_extension_release(t, IMAGE_CONFEXT, m->image_name, /* relax_extension_release_check= */ false, NULL, &fd);
+                                        if (r >= 0)
+                                                *image_class = IMAGE_CONFEXT;
+                                }
+                                else if (r >= 0)
+                                        *image_class = IMAGE_SYSEXT;
                                 if (r < 0)
                                         fd = r; /* Propagate the error. */
                                 break;
