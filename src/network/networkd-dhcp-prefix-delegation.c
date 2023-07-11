@@ -359,7 +359,7 @@ static void log_dhcp_pd_address(Link *link, const Address *address) {
         assert(address);
         assert(address->family == AF_INET6);
 
-        int log_level = address_get(link, address, NULL) >= 0 ? LOG_DEBUG : LOG_INFO;
+        int log_level = address_get_harder(link, address, NULL) >= 0 ? LOG_DEBUG : LOG_INFO;
 
         if (log_level < log_get_max_level())
                 return;

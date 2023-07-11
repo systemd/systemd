@@ -685,6 +685,26 @@ int address_get(Link *link, const Address *in, Address **ret) {
         return -ENOENT;
 }
 
+int address_get_harder(Link *link, const Address *in, Address **ret) {
+        Request *req;
+        int r;
+
+        assert(link);
+        assert(in);
+
+        if (address_get(link, in, ret) >= 0)
+                return 0;
+
+        r = address_get_request(link, in, &req);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = ASSERT_PTR(req->userdata);
+
+        return 0;
+}
+
 int link_get_address(Link *link, int family, const union in_addr_union *address, unsigned char prefixlen, Address **ret) {
         Address *a;
         int r;
