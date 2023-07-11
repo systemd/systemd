@@ -1799,3 +1799,72 @@ int socket_disable_pmtud(int fd, int af) {
                 return -EAFNOSUPPORT;
         }
 }
+
+int dns_manager_dump_statistics_json(Manager *m, JsonVariant **ret) {
+        uint64_t size = 0, hit = 0, miss = 0;
+        int r;
+        assert(m);
+        assert(ret);
+
+
+        LIST_FOREACH(scopes, s, m->dns_scopes) {
+                size += dns_cache_size(&s->cache);
+                hit += s->cache.n_hit;
+                miss += s->cache.n_miss;
+        }
+
+        _cleanup_(json_variant_unrefp) JsonVariant *jTransactions = NULL;
+        r = json_build(&jTransactions,
+                          JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR_UNSIGNED("current", hashmap_size(m->dns_transactions)),
+                                        JSON_BUILD_PAIR_UNSIGNED("total", m->n_transactions_total),
+                                        JSON_BUILD_PAIR_UNSIGNED("totalTimeouts", m->n_timeouts_total),
+                                        JSON_BUILD_PAIR_UNSIGNED("totalTimeoutsServedStale", m->n_timeouts_served_stale_total),
+                                        JSON_BUILD_PAIR_UNSIGNED("totalFailedResponses", m->n_negative_responses_total),
+                                        JSON_BUILD_PAIR_UNSIGNED("totalFailedResponsesServedStale", m->n_negative_responses_served_stale_total)));
+
+        if (r < 0)
+                return r;
+
+        _cleanup_(json_variant_unrefp) JsonVariant *jCache = NULL;
+        r = json_build(&jCache,
+                          JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR_UNSIGNED("size", size),
+                                        JSON_BUILD_PAIR_UNSIGNED("hits", hit),
+                                        JSON_BUILD_PAIR_UNSIGNED("misses", miss)));
+
+        if (r < 0)
+                return r;
+
+        _cleanup_(json_variant_unrefp) JsonVariant *jDnssec = NULL;
+        r = json_build(&jDnssec,
+                          JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR_UNSIGNED("secure", m->n_dnssec_verdict[DNSSEC_SECURE]),
+                                        JSON_BUILD_PAIR_UNSIGNED("insecure", m->n_dnssec_verdict[DNSSEC_INSECURE]),
+                                        JSON_BUILD_PAIR_UNSIGNED("bogus", m->n_dnssec_verdict[DNSSEC_BOGUS]),
+                                        JSON_BUILD_PAIR_UNSIGNED("indeterminate", m->n_dnssec_verdict[DNSSEC_INDETERMINATE])));
+
+        if (r < 0)
+                return r;
+
+
+        return json_build(ret, JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR("transanctions", JSON_BUILD_VARIANT(jTransactions)),
+                                        JSON_BUILD_PAIR("cache", JSON_BUILD_VARIANT(jCache)),
+                                        JSON_BUILD_PAIR("dnssecVerdicts", JSON_BUILD_VARIANT(jDnssec))));
+}
+
+void dns_manager_reset_satistics(Manager *m) {
+
+        assert(m);
+
+        LIST_FOREACH(scopes, s, m->dns_scopes)
+                s->cache.n_hit = s->cache.n_miss = 0;
+
+        m->n_transactions_total = 0;
+        m->n_timeouts_total = 0;
+        m->n_timeouts_served_stale_total = 0;
+        m->n_negative_responses_total = 0;
+        m->n_negative_responses_served_stale_total = 0;
+        zero(m->n_dnssec_verdict);
+}

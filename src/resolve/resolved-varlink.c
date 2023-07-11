@@ -602,11 +602,8 @@ static void dns_server_dump_state_to_json_list(DnsServer *server, JsonVariant **
         assert(server);
 
         _cleanup_(json_variant_unrefp) JsonVariant *j = NULL;
-        if ( dns_server_dump_state_to_json(server, &j) < 0)
-                return;
-
-        if (json_variant_append_array(list, j) < 0)
-                return;
+        if (dns_server_dump_state_to_json(server, &j) >= 0)
+                json_variant_append_array(list, j);
 }
 
 static int vl_method_dump_server_state(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
@@ -641,6 +638,40 @@ static int vl_method_dump_server_state(Varlink *link, JsonVariant *parameters, V
                                               JSON_BUILD_PAIR("dump", JSON_BUILD_VARIANT(list))));
 }
 
+static int vl_method_dump_statistics(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        _cleanup_(json_variant_unrefp) JsonVariant *j = NULL;
+        Manager *m;
+        int r;
+        assert(link);
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        m = ASSERT_PTR(varlink_server_get_userdata(varlink_get_server(link)));
+
+        r = dns_manager_dump_statistics_json(m, &j);
+        if (r < 0)
+                return r;
+
+        return varlink_replyb(link, JSON_BUILD_OBJECT(
+                                              JSON_BUILD_PAIR("dump", JSON_BUILD_VARIANT(j))));
+}
+
+static int vl_method_reset_statistics(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        Manager *m;
+        assert(link);
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        m = ASSERT_PTR(varlink_server_get_userdata(varlink_get_server(link)));
+
+        dns_manager_reset_satistics(m);
+
+        return varlink_replyb(link, JSON_BUILD_OBJECT(
+                                              JSON_BUILD_PAIR("success", JSON_BUILD_BOOLEAN(true))));
+}
+
 static int varlink_monitor_server_init(Manager *m) {
         _cleanup_(varlink_server_unrefp) VarlinkServer *server = NULL;
         int r;
@@ -660,7 +691,9 @@ static int varlink_monitor_server_init(Manager *m) {
                         server,
                         "io.systemd.Resolve.Monitor.SubscribeQueryResults", vl_method_subscribe_dns_resolves,
                         "io.systemd.Resolve.Monitor.DumpCache", vl_method_dump_cache,
-                        "io.systemd.Resolve.Monitor.DumpServerState", vl_method_dump_server_state);
+                        "io.systemd.Resolve.Monitor.DumpServerState", vl_method_dump_server_state,
+                        "io.systemd.Resolve.Monitor.DumpStatistics", vl_method_dump_statistics,
+                        "io.systemd.Resolve.Monitor.ResetStatistics", vl_method_reset_statistics);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 

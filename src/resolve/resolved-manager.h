@@ -224,3 +224,7 @@ bool manager_next_dnssd_names(Manager *m);
 bool manager_server_is_stub(Manager *m, DnsServer *s);
 
 int socket_disable_pmtud(int fd, int af);
+
+int dns_manager_dump_statistics_json(Manager *m, JsonVariant **ret);
+
+void dns_manager_reset_satistics(Manager *m);
