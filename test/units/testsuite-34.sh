@@ -157,6 +157,4 @@ test_check_writable
 
 systemd-analyze log-level info
 
-echo OK >/testok
-
-exit 0
+touch /testok

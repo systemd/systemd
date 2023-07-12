@@ -316,6 +316,4 @@ systemd-cryptenroll --tpm2-pcrs=boot-loader-code+boot-loader-config "$img"
 (! systemd-cryptenroll --wipe-slot=10240000 "$img")
 (! systemd-cryptenroll --fido2-device=auto --unlock-fido2-device=auto "$img")
 
-echo OK >/testok
-
-exit 0
+touch /testok

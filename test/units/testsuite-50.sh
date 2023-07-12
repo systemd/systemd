@@ -551,6 +551,4 @@ echo abc > abc
 systemd-dissect --copy-to /tmp/img abc /abc
 test -f /tmp/img/abc
 
-echo OK >/testok
-
-exit 0
+touch /testok
