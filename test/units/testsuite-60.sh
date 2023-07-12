@@ -241,8 +241,6 @@ EOF
     done
 }
 
-: >/failed
-
 systemd-analyze log-level debug
 systemd-analyze log-target journal
 
@@ -308,4 +306,3 @@ test_issue_23796
 systemd-analyze log-level info
 
 touch /testok
-rm /failed

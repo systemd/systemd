@@ -140,6 +140,4 @@ machinectl remove scratch5
 test ! -f /var/lib/machines/scratch5
 (! machinectl image-status scratch5)
 
-echo OK >/testok
-
-exit 0
+touch /testok

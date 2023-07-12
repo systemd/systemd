@@ -6,7 +6,7 @@ set -o pipefail
 # Wait for a service to enter a state within a timeout period, if it doesn't
 # enter the desired state within the timeout period then this function will
 # exit the test case with a non zero exit code.
-wait_on_state_or_fail () {
+wait_on_state_or_fail() {
     service=$1
     expected_state=$2
     timeout=$3
@@ -212,6 +212,5 @@ systemctl start testservice-failure-68-template.service
 wait_on_state_or_fail "testservice-failure-exit-handler-68-template@testservice-failure-68-template.service.service" "inactive" "10"
 
 systemd-analyze log-level info
-echo OK >/testok
 
-exit 0
+touch /testok
