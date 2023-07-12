@@ -202,6 +202,4 @@ verify_version v4 2048 4096
 rm  /var/tmp/72-joined.raw
 rm -r /var/tmp/72-{dirs,defs,source,xbootldr,esp}
 
-echo OK >/testok
-
-exit 0
+touch /testok

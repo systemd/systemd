@@ -8,6 +8,4 @@ systemd-analyze log-level debug
 systemctl enable test-honor-first-shutdown.service
 systemctl start test-honor-first-shutdown.service
 
-echo OK >/testok
-
-exit 0
+touch /testok

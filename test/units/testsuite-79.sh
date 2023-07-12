@@ -54,6 +54,5 @@ systemd-run -u "$UNIT" -p Type=exec -p ProtectControlGroups=1 -p DynamicUser=1 -
 rm "$SCRIPT"
 
 systemd-analyze log-level info
-echo OK >/testok
 
-exit 0
+touch /testok

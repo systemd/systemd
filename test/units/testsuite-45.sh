@@ -277,9 +277,6 @@ EOF
     assert_rc 3 systemctl is-active --quiet systemd-timesyncd
 }
 
-: >/failed
-
 run_testcases
 
 touch /testok
-rm /failed

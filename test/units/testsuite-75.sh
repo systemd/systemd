@@ -14,8 +14,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-: >/failed
-
 RUN_OUT="$(mktemp)"
 
 run() {
@@ -580,4 +578,3 @@ else
 fi
 
 touch /testok
-rm /failed

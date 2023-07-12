@@ -15,6 +15,4 @@ grep "^hello world$" /tmp/hello-world
 
 systemd-analyze log-level info
 
-echo OK >/testok
-
-exit 0
+touch /testok

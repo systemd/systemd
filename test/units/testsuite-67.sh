@@ -116,4 +116,4 @@ do
     separate_data=0
 done
 
-echo OK >/testok
+touch /testok

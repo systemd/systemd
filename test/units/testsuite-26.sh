@@ -7,8 +7,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-: >/failed
-
 at_exit() {
     if [[ -v UNIT_NAME && -e "/usr/lib/systemd/system/$UNIT_NAME" ]]; then
         rm -fvr "/usr/lib/systemd/system/$UNIT_NAME" "/etc/systemd/system/$UNIT_NAME.d" "+4"
@@ -463,4 +461,3 @@ systemctl enable --now test-WantedBy.service || :
 systemctl daemon-reload
 
 touch /testok
-rm /failed

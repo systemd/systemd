@@ -682,8 +682,6 @@ testcase_locale_gen_leading_space() {
     localectl set-locale en_US.UTF-8
 }
 
-: >/failed
-
 # Make sure the content of kbd-model-map is the one that the tests expect
 # regardless of the version installed on the distro where the testsuite is
 # running on.
@@ -693,4 +691,3 @@ enable_debug
 run_testcases
 
 touch /testok
-rm /failed

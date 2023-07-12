@@ -3,8 +3,6 @@
 set -eux
 set -o pipefail
 
-: >/failed
-
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
 
@@ -12,4 +10,3 @@ set -o pipefail
 run_subtests_with_signals SIGUSR1 SIGUSR2 SIGRTMIN+1
 
 touch /testok
-rm /failed

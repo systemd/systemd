@@ -31,6 +31,5 @@ test "$(grep SigQ: /proc/"$P"/status | cut -d: -f2 | cut -d/ -f1)" -eq 6
 systemctl stop $UNIT
 
 systemd-analyze log-level info
-echo OK >/testok
 
-exit 0
+touch /testok

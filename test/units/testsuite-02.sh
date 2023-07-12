@@ -113,3 +113,4 @@ set -x
 journalctl --sync
 
 test ! -s /failed
+touch /testok

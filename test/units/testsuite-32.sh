@@ -33,6 +33,4 @@ if test -f /sys/fs/cgroup/system.slice/testsuite-32.service/memory.oom.group; th
     systemd-analyze log-level info
 fi
 
-echo OK >/testok
-
-exit 0
+touch /testok

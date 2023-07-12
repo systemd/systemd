@@ -212,6 +212,5 @@ systemctl start testservice-failure-68-template.service
 wait_on_state_or_fail "testservice-failure-exit-handler-68-template@testservice-failure-68-template.service.service" "inactive" "10"
 
 systemd-analyze log-level info
-echo OK >/testok
 
-exit 0
+touch /testok

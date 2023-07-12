@@ -223,9 +223,6 @@ testcase_nss-myhostname() {
     (! getent hosts -s myhostname fd00:dead:beef:cafe::1)
 }
 
-: >/failed
-
 run_testcases
 
 touch /testok
-rm /failed
