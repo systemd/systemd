@@ -141,6 +141,8 @@ static inline TableCell* TABLE_HEADER_CELL(size_t i) {
 size_t table_get_rows(Table *t);
 size_t table_get_columns(Table *t);
 
+size_t table_get_current_column(Table *t);
+
 TableCell *table_get_cell(Table *t, size_t row, size_t column);
 
 const void *table_get(Table *t, TableCell *cell);
