@@ -7,7 +7,7 @@ rm -f /test.log
 
 TESTLOG=/test.log.XXXXXXXX
 
-function wait_for()
+wait_for()
 {
     local service="${1:-wait_for: missing service argument}"
     local result="${2:-success}"
@@ -23,7 +23,7 @@ function wait_for()
     fi
 }
 
-function wait_for_timeout()
+wait_for_timeout()
 {
     local unit="$1"
     local time="$2"
