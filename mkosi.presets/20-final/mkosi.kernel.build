@@ -19,6 +19,7 @@ if [ -d "$SRCDIR"/mkosi.kernel/ ]; then
 
     # Make sure systemd-boot boots this kernel and not the distro provided one by overriding the version.
     make O="$BUILDDIR" VERSION=99 -j "$(nproc)"
+    make O="$BUILDDIR" VERSION=99 -j "$(nproc)" headers
 
     KERNEL_RELEASE=$(make O="$BUILDDIR" VERSION=99 -s kernelrelease)
     mkdir -p "$DESTDIR/usr/lib/modules/$KERNEL_RELEASE"
