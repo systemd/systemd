@@ -143,7 +143,6 @@ int devnode_acl_all(const char *seat,
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_set_free_ Set *nodes = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
-        sd_device *d;
         char *n;
         int r;
 
