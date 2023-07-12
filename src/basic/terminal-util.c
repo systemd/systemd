@@ -1476,3 +1476,15 @@ void get_log_colors(int priority, const char **on, const char **off, const char 
                         *highlight = ansi_highlight_red();
         }
 }
+
+int set_terminal_cursor_position(int fd, int row, int column) {
+        int r;
+        char cursor_position[STRLEN("\x1B[") + DECIMAL_STR_MAX(int) * 2 + STRLEN(";H") + 1];
+        xsprintf(cursor_position, "\x1B[%d;%dH", row, column);
+
+        r = write(fd, cursor_position, strlen(cursor_position));
+        if (r < 0)
+                return log_warning_errno(r, "Failed to set cursor position, ignoring: %m");
+
+        return 0;
+}
