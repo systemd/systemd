@@ -490,7 +490,7 @@ TEST(sd_device_get_child) {
 
         FOREACH_DEVICE(e, dev) {
                 const char *syspath, *parent_syspath, *expected_suffix, *suffix;
-                sd_device *parent, *child;
+                sd_device *parent;
                 bool found = false;
 
                 assert_se(sd_device_get_syspath(dev, &syspath) >= 0);

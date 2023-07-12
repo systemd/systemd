@@ -3862,7 +3862,9 @@ int tpm2_make_pcr_json_array(uint32_t pcr_mask, JsonVariant **ret) {
         r = 0;
 
 finish:
-        json_variant_unref_many(pcr_array, n_pcrs);
+        for (size_t i = 0; i < n_pcrs; i++)
+                json_variant_unref(pcr_array[i]);
+
         return r;
 }
 
