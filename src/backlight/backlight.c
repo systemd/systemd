@@ -47,7 +47,6 @@ static int help(void) {
 
 static int has_multiple_graphics_cards(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        sd_device *dev;
         bool found = false;
         int r;
 
@@ -173,7 +172,7 @@ static int same_device(sd_device *a, sd_device *b) {
 static int validate_device(sd_device *device) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *enumerate = NULL;
         const char *v, *sysname, *subsystem;
-        sd_device *parent, *other;
+        sd_device *parent;
         int r;
 
         assert(device);

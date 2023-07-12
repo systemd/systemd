@@ -1699,7 +1699,6 @@ static int action_detach(const char *path) {
 
         } else if (S_ISREG(st.st_mode)) {
                 _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-                sd_device *d;
 
                 /* If a regular file is specified, search for a loopback block device that is backed by it */
 

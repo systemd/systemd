@@ -107,7 +107,6 @@ int block_device_get_whole_disk(sd_device *dev, sd_device **ret) {
 static int block_device_get_originating(sd_device *dev, sd_device **ret) {
         _cleanup_(sd_device_unrefp) sd_device *first_found = NULL;
         const char *suffix;
-        sd_device *child;
         dev_t devnum = 0;  /* avoid false maybe-uninitialized warning */
 
         /* For the specified block device tries to chase it through the layers, in case LUKS-style DM
@@ -665,7 +664,6 @@ int block_device_remove_all_partitions(sd_device *dev, int fd) {
         _cleanup_(sd_device_unrefp) sd_device *dev_unref = NULL;
         _cleanup_close_ int fd_close = -EBADF;
         bool has_partitions = false;
-        sd_device *part;
         int r, k = 0;
 
         assert(dev || fd >= 0);
