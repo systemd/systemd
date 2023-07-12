@@ -435,7 +435,7 @@ static int parse_one_option(const char *option) {
                         }
 
                         pcr = r ? TPM_PCR_INDEX_VOLUME_KEY : UINT_MAX;
-                } else if (!TPM2_PCR_VALID(pcr)) {
+                } else if (!TPM2_PCR_INDEX_VALID(pcr)) {
                         log_warning("Selected TPM index for measurement %u outside of allowed range 0…%u, ignoring.", pcr, TPM2_PCRS_MAX-1);
                         return 0;
                 }
