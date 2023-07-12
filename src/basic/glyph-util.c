@@ -52,6 +52,7 @@ const char *special_glyph_full(SpecialGlyph code, bool force_utf) {
                         [SPECIAL_GLYPH_CROSS_MARK]              = "-",
                         [SPECIAL_GLYPH_LIGHT_SHADE]             = "-",
                         [SPECIAL_GLYPH_DARK_SHADE]              = "X",
+                        [SPECIAL_GLYPH_FULL_BLOCK]              = "#",
                         [SPECIAL_GLYPH_SIGMA]                   = "S",
                         [SPECIAL_GLYPH_ARROW_UP]                = "^",
                         [SPECIAL_GLYPH_ARROW_DOWN]              = "v",
@@ -97,6 +98,7 @@ const char *special_glyph_full(SpecialGlyph code, bool force_utf) {
                         [SPECIAL_GLYPH_CROSS_MARK]              = u8"✗",        /* actually called: BALLOT X */
                         [SPECIAL_GLYPH_LIGHT_SHADE]             = u8"░",
                         [SPECIAL_GLYPH_DARK_SHADE]              = u8"▒",
+                        [SPECIAL_GLYPH_FULL_BLOCK]              = u8"█",
                         [SPECIAL_GLYPH_SIGMA]                   = u8"Σ",
                         [SPECIAL_GLYPH_ARROW_UP]                = u8"↑",       /* actually called: UPWARDS ARROW */
                         [SPECIAL_GLYPH_ARROW_DOWN]              = u8"↓",       /* actually called: DOWNWARDS ARROW */
