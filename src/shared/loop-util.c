@@ -72,21 +72,6 @@ static int get_current_uevent_seqnum(uint64_t *ret) {
         return 0;
 }
 
-static int open_lock_fd(int primary_fd, int operation) {
-        _cleanup_close_ int lock_fd = -EBADF;
-
-        assert(IN_SET(operation & ~LOCK_NB, LOCK_SH, LOCK_EX));
-
-        lock_fd = fd_reopen(ASSERT_FD(primary_fd), O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (lock_fd < 0)
-                return lock_fd;
-
-        if (flock(lock_fd, operation) < 0)
-                return -errno;
-
-        return TAKE_FD(lock_fd);
-}
-
 static int loop_configure_verify_direct_io(int fd, const struct loop_config *c) {
         assert(fd);
         assert(c);
@@ -289,7 +274,7 @@ static int loop_configure(
          * long time udev would possibly never run on it again, even though the fd is unlocked, simply
          * because we never close() it. It also has the nice benefit we can use the _cleanup_close_ logic to
          * automatically release the lock, after we are done. */
-        lock_fd = open_lock_fd(fd, LOCK_EX);
+        lock_fd = lock_generic_new_fd(fd, LOCK_BSD, LOCK_EX);
         if (lock_fd < 0)
                 return log_device_debug_errno(dev, lock_fd, "Failed to acquire lock: %m");
 
@@ -888,7 +873,7 @@ int loop_device_open(
                 return fd;
 
         if ((lock_op & ~LOCK_NB) != LOCK_UN) {
-                lock_fd = open_lock_fd(fd, lock_op);
+                lock_fd = lock_generic_new_fd(fd, LOCK_BSD, lock_op);
                 if (lock_fd < 0)
                         return lock_fd;
         }
@@ -1109,7 +1094,7 @@ int loop_device_flock(LoopDevice *d, int operation) {
 
         /* If we had no lock fd so far, create one and lock it right-away */
         if (d->lock_fd < 0) {
-                d->lock_fd = open_lock_fd(ASSERT_FD(d->fd), operation);
+                d->lock_fd = lock_generic_new_fd(ASSERT_FD(d->fd), LOCK_BSD, operation);
                 if (d->lock_fd < 0)
                         return d->lock_fd;
 
@@ -1117,7 +1102,7 @@ int loop_device_flock(LoopDevice *d, int operation) {
         }
 
         /* Otherwise change the current lock mode on the existing fd */
-        return RET_NERRNO(flock(d->lock_fd, operation));
+        return lock_generic(d->lock_fd, LOCK_BSD, operation);
 }
 
 int loop_device_sync(LoopDevice *d) {

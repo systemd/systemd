@@ -172,6 +172,7 @@ void unposix_unlockpp(int **fd) {
 
 int lock_generic(int fd, LockType type, int operation) {
         assert(fd >= 0);
+        assert(IN_SET(operation & ~LOCK_NB, LOCK_EX, LOCK_SH));
 
         switch (type) {
         case LOCK_NONE:
@@ -185,4 +186,19 @@ int lock_generic(int fd, LockType type, int operation) {
         default:
                 assert_not_reached();
         }
+}
+
+int lock_generic_new_fd(int primary_fd, LockType type, int operation) {
+        _cleanup_close_ int lock_fd = -EBADF;
+        int r;
+
+        lock_fd = fd_reopen(ASSERT_FD(primary_fd), O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (lock_fd < 0)
+                return lock_fd;
+
+        r = lock_generic(lock_fd, type, operation);
+        if (r < 0)
+                return r;
+
+        return TAKE_FD(lock_fd);
 }

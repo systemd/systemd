@@ -41,3 +41,4 @@ typedef enum LockType {
 } LockType;
 
 int lock_generic(int fd, LockType type, int operation);
+int lock_generic_new_fd(int primary_fd, LockType type, int operation);
