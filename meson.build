@@ -4046,6 +4046,17 @@ public_programs += executable(
         install : true)
 
 public_programs += executable(
+        'systemd-bsod',
+        'src/journal/bsod.c',
+        include_directories : includes,
+        link_with : [libshared],
+        dependencies : [userspace,
+                        versiondep],
+        install_rpath : rootpkglibdir,
+        install_dir : rootlibexecdir,
+        install : true)
+
+public_programs += executable(
         'busctl',
         busctl_sources,
         include_directories : includes,
