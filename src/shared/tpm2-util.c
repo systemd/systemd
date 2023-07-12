@@ -3368,7 +3368,8 @@ static int tpm2_build_sealing_policy(
 }
 
 int tpm2_seal(const char *device,
-              uint32_t hash_pcr_mask,
+              const Tpm2PCRValue *hash_pcr_values,
+              size_t n_hash_pcr_values,
               const void *pubkey,
               const size_t pubkey_size,
               uint32_t pubkey_pcr_mask,
@@ -3387,6 +3388,7 @@ int tpm2_seal(const char *device,
         TSS2_RC rc;
         int r;
 
+        assert(hash_pcr_values || n_hash_pcr_values == 0);
         assert(pubkey || pubkey_size == 0);
 
         assert(ret_secret);
@@ -3397,7 +3399,7 @@ int tpm2_seal(const char *device,
         assert(ret_pcr_hash_size);
         assert(ret_pcr_bank);
 
-        assert(TPM2_PCR_MASK_VALID(hash_pcr_mask));
+        assert(TPM2_PCR_VALUES_VALID(hash_pcr_values, n_hash_pcr_values));
         assert(TPM2_PCR_MASK_VALID(pubkey_pcr_mask));
 
         /* So here's what we do here: we connect to the TPM2 chip. It persistently contains a "seed" key that
@@ -3423,25 +3425,64 @@ int tpm2_seal(const char *device,
         if (r < 0)
                 return r;
 
+        /* Find the first hash pcr value whose hash algorithm is set. */
         TPMI_ALG_HASH pcr_bank = 0;
-        if (hash_pcr_mask | pubkey_pcr_mask) {
-                /* Some TPM2 devices only can do SHA1. Prefer SHA256 but allow SHA1. */
+        for (size_t i = 0; i < n_hash_pcr_values; i++)
+                if (hash_pcr_values[i].hash != 0) {
+                        pcr_bank = hash_pcr_values[i].hash;
+                        break;
+                }
+
+        /* If we have no explicit PCR hash algorithm (i.e. PCR bank), we need to detect the "best" one. */
+        if (pcr_bank == 0 && (n_hash_pcr_values > 0 || pubkey_pcr_mask)) {
+                uint32_t hash_pcr_mask;
+
+                r = tpm2_pcr_values_to_mask(hash_pcr_values, n_hash_pcr_values, 0, &hash_pcr_mask);
+                if (r < 0)
+                        return log_error_errno(r, "Could not get mask from pcr values: %m");
+
                 r = tpm2_get_best_pcr_bank(c, hash_pcr_mask|pubkey_pcr_mask, &pcr_bank);
                 if (r < 0)
                         return r;
         }
 
-        _cleanup_free_ Tpm2PCRValue *hash_pcr_values = NULL;
-        size_t n_hash_pcr_values;
-        if (hash_pcr_mask) {
-                /* For now, we just read the current values from the system; we need to be able to specify
-                 * expected values, eventually. */
-                TPML_PCR_SELECTION hash_pcr_selection;
-                tpm2_tpml_pcr_selection_from_mask(hash_pcr_mask, pcr_bank, &hash_pcr_selection);
+        /* If any hash PCR values don't also include the digest to use for sealing, we have to read the
+         * current digest and update the PCR values array. */
+        _cleanup_free_ Tpm2PCRValue *full_hash_pcr_values = NULL;
+        if (n_hash_pcr_values > 0) {
+                /* Duplicate the hash pcr values, as we may need to update it */
+                full_hash_pcr_values = memdup(hash_pcr_values, sizeof(hash_pcr_values[0]) * n_hash_pcr_values);
+                if (!full_hash_pcr_values)
+                        return log_oom();
 
-                r = tpm2_pcr_read(c, &hash_pcr_selection, &hash_pcr_values, &n_hash_pcr_values);
-                if (r < 0)
-                        return r;
+                for (size_t i = 0; i < n_hash_pcr_values; i++) {
+                        Tpm2PCRValue *v = &full_hash_pcr_values[i];
+
+                        if (v->hash == 0)
+                                v->hash = pcr_bank;
+                        else if (v->hash != pcr_bank)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Multiple hash PCR banks specified, tpm2 sealing only currently supports single bank.");
+
+                        if (v->value.size > 0)
+                                /* Already have this PCR's digest for sealing */
+                                continue;
+
+                        TPML_PCR_SELECTION s;
+                        tpm2_tpml_pcr_selection_from_mask(INDEX_TO_MASK(uint32_t, v->index), v->hash, &s);
+
+                        _cleanup_free_ Tpm2PCRValue *tmp = NULL;
+                        size_t n_tmp;
+                        r = tpm2_pcr_read(c, &s, &tmp, &n_tmp);
+                        if (r < 0)
+                                return r;
+                        if (n_tmp != 1)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                                       "Could not read PCR value for hash %" PRIu16 " index %u.",
+                                                       v->hash, v->index);
+
+                        v->value = tmp[0].value;
+                }
         }
 
         TPM2B_PUBLIC pubkey_tpm2, *authorize_key = NULL;
@@ -3458,7 +3499,7 @@ int tpm2_seal(const char *device,
                 return r;
 
         r = tpm2_calculate_sealing_policy(
-                        hash_pcr_values,
+                        full_hash_pcr_values,
                         n_hash_pcr_values,
                         authorize_key,
                         pin,
