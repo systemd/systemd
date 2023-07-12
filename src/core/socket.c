@@ -283,11 +283,7 @@ static int socket_add_default_dependencies(Socket *s) {
                         return r;
         }
 
-        r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
-        if (r < 0)
-                return r;
-
-        return exec_context_add_default_dependencies(UNIT(s), &s->exec_context);
+        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
 }
 
 _pure_ static bool socket_has_exec(Socket *s) {

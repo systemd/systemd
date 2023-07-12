@@ -86,7 +86,6 @@
 #define SPECIAL_QUOTACHECK_SERVICE "systemd-quotacheck.service"
 #define SPECIAL_QUOTAON_SERVICE "quotaon.service"
 #define SPECIAL_REMOUNT_FS_SERVICE "systemd-remount-fs.service"
-#define SPECIAL_VCONSOLE_SETUP_SERVICE "systemd-vconsole-setup.service"
 #define SPECIAL_VOLATILE_ROOT_SERVICE "systemd-volatile-root.service"
 #define SPECIAL_UDEVD_SERVICE "systemd-udevd.service"
 #define SPECIAL_GROWFS_SERVICE "systemd-growfs@.service"
