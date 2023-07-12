@@ -942,6 +942,22 @@ struct json_data {
         JsonVariant* values[];
 };
 
+static struct json_data* json_data_free(struct json_data *d) {
+        if (!d)
+                return NULL;
+
+        json_variant_unref(d->name);
+
+        FOREACH_ARRAY(v, d->values, d->n_values)
+                json_variant_unref(*v);
+
+        return mfree(d);
+}
+
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(json_data_hash_ops_free,
+                                      char, string_hash_func, string_compare_func,
+                                      struct json_data, json_data_free);
+
 static int update_json_data(
                 Hashmap *h,
                 OutputFlags flags,
@@ -950,7 +966,7 @@ static int update_json_data(
                 size_t size) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        struct json_data *d;
+        struct json_data *d = NULL;
         int r;
 
         assert(name);
@@ -1049,12 +1065,12 @@ static int output_json(
 
         char usecbuf[CONST_MAX(DECIMAL_STR_MAX(usec_t), DECIMAL_STR_MAX(uint64_t))];
         _cleanup_(json_variant_unrefp) JsonVariant *object = NULL;
+        _cleanup_hashmap_free_ Hashmap *h = NULL;
         sd_id128_t journal_boot_id, seqnum_id;
         _cleanup_free_ char *cursor = NULL;
         usec_t realtime, monotonic;
         JsonVariant **array = NULL;
         struct json_data *d;
-        Hashmap *h = NULL;
         uint64_t seqnum;
         size_t n = 0;
         int r;
@@ -1083,36 +1099,36 @@ static int output_json(
         if (r < 0)
                 return log_error_errno(r, "Failed to get seqnum: %m");
 
-        h = hashmap_new(&string_hash_ops);
+        h = hashmap_new(&json_data_hash_ops_free);
         if (!h)
                 return log_oom();
 
         r = update_json_data(h, flags, "__CURSOR", cursor, SIZE_MAX);
         if (r < 0)
-                goto finish;
+                return r;
 
         xsprintf(usecbuf, USEC_FMT, realtime);
         r = update_json_data(h, flags, "__REALTIME_TIMESTAMP", usecbuf, SIZE_MAX);
         if (r < 0)
-                goto finish;
+                return r;
 
         xsprintf(usecbuf, USEC_FMT, monotonic);
         r = update_json_data(h, flags, "__MONOTONIC_TIMESTAMP", usecbuf, SIZE_MAX);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = update_json_data(h, flags, "_BOOT_ID", SD_ID128_TO_STRING(journal_boot_id), SIZE_MAX);
         if (r < 0)
-                goto finish;
+                return r;
 
         xsprintf(usecbuf, USEC_FMT, seqnum);
         r = update_json_data(h, flags, "__SEQNUM", usecbuf, SIZE_MAX);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = update_json_data(h, flags, "__SEQNUM_ID", SD_ID128_TO_STRING(seqnum_id), SIZE_MAX);
         if (r < 0)
-                goto finish;
+                return r;
 
         for (;;) {
                 const void *data;
@@ -1121,26 +1137,23 @@ static int output_json(
                 r = sd_journal_enumerate_data(j, &data, &size);
                 if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
                         log_debug_errno(r, "Skipping message we can't read: %m");
-                        r = 0;
-                        goto finish;
+                        return 0;
                 }
-                if (r < 0) {
-                        log_error_errno(r, "Failed to read journal: %m");
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read journal: %m");
                 if (r == 0)
                         break;
 
                 r = update_json_data_split(h, flags, output_fields, data, size);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
         array = new(JsonVariant*, hashmap_size(h)*2);
-        if (!array) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!array)
+                return log_oom();
+
+        CLEANUP_ARRAY(array, n, json_variant_unref_many);
 
         HASHMAP_FOREACH(d, h) {
                 assert(d->n_values > 0);
@@ -1153,41 +1166,22 @@ static int output_json(
                         _cleanup_(json_variant_unrefp) JsonVariant *q = NULL;
 
                         r = json_variant_new_array(&q, d->values, d->n_values);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to create JSON array: %m");
-                                goto finish;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create JSON array: %m");
 
                         array[n++] = TAKE_PTR(q);
                 }
         }
 
         r = json_variant_new_object(&object, array, n);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate JSON object: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate JSON object: %m");
 
-        json_variant_dump(object,
-                          output_mode_to_json_format_flags(mode) |
-                          (FLAGS_SET(flags, OUTPUT_COLOR) ? JSON_FORMAT_COLOR : 0),
-                          f, NULL);
 
-        r = 0;
-
-finish:
-        while ((d = hashmap_steal_first(h))) {
-                json_variant_unref(d->name);
-                json_variant_unref_many(d->values, d->n_values);
-                free(d);
-        }
-
-        hashmap_free(h);
-
-        json_variant_unref_many(array, n);
-        free(array);
-
-        return r;
+        return json_variant_dump(object,
+                                 output_mode_to_json_format_flags(mode) |
+                                 (FLAGS_SET(flags, OUTPUT_COLOR) ? JSON_FORMAT_COLOR : 0),
+                                 f, NULL);
 }
 
 static int output_cat_field(
