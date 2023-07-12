@@ -53,7 +53,7 @@ static void test_receive_device_fail(void) {
 
 static void test_send_receive_one(sd_device *device, bool subsystem_filter, bool tag_filter, bool use_bpf) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
-        const char *syspath, *subsystem, *tag, *devtype = NULL;
+        const char *syspath, *subsystem, *devtype = NULL;
 
         log_device_info(device, "/* %s(subsystem_filter=%s, tag_filter=%s, use_bpf=%s) */", __func__,
                         true_false(subsystem_filter), true_false(tag_filter), true_false(use_bpf));
