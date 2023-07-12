@@ -128,7 +128,7 @@ int asynchronous_rm_rf(const char *p, RemoveFlags flags) {
         r = rm_rf(p, flags);
         if (r < 0) {
                 log_debug_errno(r, "Failed to rm -rf '%s', ignoring: %m", p);
-                _exit(EXIT_FAILURE); /* This is a detached process, hence noone really cares, but who knows
+                _exit(EXIT_FAILURE); /* This is a detached process, hence no one really cares, but who knows
                                       * maybe it's good for debugging/tracing to return an exit code
                                       * indicative of our failure here. */
         }

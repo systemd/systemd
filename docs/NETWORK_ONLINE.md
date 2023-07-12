@@ -45,7 +45,7 @@ themselves. Services using the network should hence simply place an
 `After=network.target` stanza in their unit files, without
 `Wants=network.target` or `Requires=network.target`.
 
-## Network connectivity has been estabilished: `network-online.target`
+## Network connectivity has been established: `network-online.target`
 
 `network-online.target` is a target that actively waits until the network is
 "up", where the definition of "up" is defined by the network management

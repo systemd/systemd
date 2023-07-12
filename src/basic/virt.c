@@ -209,7 +209,7 @@ static Virtualization detect_vm_dmi_vendor(void) {
 }
 
 static int detect_vm_smbios(void) {
-        /* The SMBIOS BIOS Charateristics Extension Byte 2 (Section 2.1.2.2 of
+        /* The SMBIOS BIOS Characteristics Extension Byte 2 (Section 2.1.2.2 of
          * https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.4.0.pdf), specifies that
          * the 4th bit being set indicates a VM. The BIOS Characteristics table is exposed via the kernel in
          * /sys/firmware/dmi/entries/0-0. Note that in the general case, this bit being unset should not

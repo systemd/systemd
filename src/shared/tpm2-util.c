@@ -210,7 +210,7 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
          * by the SetAlgorithmSet() command. Unfortunately, the spec doesn't require a TPM reinitialization
          * after changing the algorithm set (unless the PCR algorithms are changed). However, the spec also
          * indicates the TPM behavior after SetAlgorithmSet() is "vendor-dependent", giving the example of
-         * flushing sessions and objects, erasing policies, etc. So, if the algorithm set is programatically
+         * flushing sessions and objects, erasing policies, etc. So, if the algorithm set is programmatically
          * changed while we are performing some operation, it's reasonable to assume it will break us even if
          * we don't cache the algorithms, thus they should be "safe" to cache. */
         TPM2_ALG_ID current_alg = TPM2_ALG_FIRST;
@@ -245,7 +245,7 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
         }
 
         /* Cache the command capabilities. The spec isn't actually clear if commands can be added/removed
-         * while running, but that would be crazy, so let's hope it is not possbile. */
+         * while running, but that would be crazy, so let's hope it is not possible. */
         TPM2_CC current_cc = TPM2_CC_FIRST;
         for (;;) {
                 r = tpm2_get_capability(

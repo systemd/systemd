@@ -589,7 +589,7 @@ CHANGES WITH 254 in spe:
           more resilient in case of network problems.
 
         * resolvectl gained a new verb "show-cache" to show the current cache
-          contents of systemd-resolved. This verb comunicates with the
+          contents of systemd-resolved. This verb communicates with the
           systemd-resolved daemon and requires privileges.
 
         Other:

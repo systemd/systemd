@@ -141,7 +141,7 @@ journalctl --cursor "t=0;t=-1;t=0;t=0x0" | grep . >/dev/null
 journalctl --header | grep system.journal
 journalctl --field _EXE | grep . >/dev/null
 journalctl --no-hostname --utc --catalog | grep . >/dev/null
-# Excercise executable_is_script() and the related code, e.g. `journalctl -b /path/to/a/script.sh` should turn
+# Exercise executable_is_script() and the related code, e.g. `journalctl -b /path/to/a/script.sh` should turn
 # into ((_EXE=/bin/bash AND _COMM=script.sh) AND _BOOT_ID=c002e3683ba14fa8b6c1e12878386514)
 journalctl -b "$(readlink -f "$0")" | grep . >/dev/null
 journalctl -b "$(systemd-id128 boot-id)" | grep . >/dev/null
