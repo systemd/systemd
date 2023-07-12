@@ -1183,6 +1183,4 @@ test_sector 1024
 test_sector 2048
 test_sector 4096
 
-echo OK >/testok
-
-exit 0
+touch /testok

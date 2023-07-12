@@ -6,11 +6,8 @@ set -o pipefail
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
 
-: >/failed
-
 udevadm settle
 
 run_subtests
 
 touch /testok
-rm /failed

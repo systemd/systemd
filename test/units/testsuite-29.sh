@@ -231,6 +231,4 @@ touch /tmp/emptyext/usr/lib/extension-release.d/extension-release.emptyext
 res="$(! portablectl attach --extension /tmp/emptyext /tmp/emptyroot 2> >(grep "Remote peer disconnected"))"
 test -z "${res}"
 
-echo OK >/testok
-
-exit 0
+touch /testok

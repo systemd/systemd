@@ -213,4 +213,4 @@ cryptsetup_start_and_check -f detached_fail{0..4}
 cryptsetup_start_and_check detached_slot{0..1}
 cryptsetup_start_and_check -f detached_slot_fail
 
-echo OK >/testok
+touch /testok

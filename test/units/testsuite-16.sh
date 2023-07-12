@@ -117,4 +117,3 @@ if [[ -f "$TESTLOG" ]]; then
 fi
 
 touch /testok
-exit 0

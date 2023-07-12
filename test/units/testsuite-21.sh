@@ -107,6 +107,4 @@ for bus in "${SESSION_BUS_LIST[@]}"; do
     systemctl --machine 'testuser@.host' --user daemon-reexec
 done
 
-echo OK >/testok
-
-exit 0
+touch /testok

@@ -45,4 +45,4 @@ systemctl daemon-reload
 # of systemd-analyze blame. See issue #27187.
 systemd-analyze blame
 
-echo OK >/testok
+touch /testok

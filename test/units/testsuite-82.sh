@@ -140,8 +140,6 @@ EOF
 fi
 
 systemd-analyze log-level info
-echo OK >/testok
 
+touch /testok
 systemctl --no-block poweroff
-
-exit 0

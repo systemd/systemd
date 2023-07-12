@@ -157,6 +157,4 @@ rm /run/notify-reload-test.sh
 
 systemd-analyze log-level info
 
-echo OK >/testok
-
-exit 0
+touch /testok

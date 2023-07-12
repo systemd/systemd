@@ -298,5 +298,4 @@ if [[ -e /sys/fs/cgroup/system.slice/cgroup.freeze ]]; then
     run_testcases
 fi
 
-echo OK >/testok
-exit 0
+touch /testok
