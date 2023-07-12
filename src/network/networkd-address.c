@@ -143,6 +143,14 @@ Address *address_free(Address *address) {
         return mfree(address);
 }
 
+static bool address_lifetime_is_valid(const Address *a) {
+        assert(a);
+
+        return
+                a->lifetime_valid_usec == USEC_INFINITY ||
+                a->lifetime_valid_usec > now(CLOCK_BOOTTIME);
+}
+
 bool address_is_ready(const Address *a) {
         assert(a);
 
@@ -158,7 +166,7 @@ bool address_is_ready(const Address *a) {
         if (!FLAGS_SET(a->state, NETWORK_CONFIG_STATE_CONFIGURED))
                 return false;
 
-        return true;
+        return address_lifetime_is_valid(a);
 }
 
 bool link_check_addresses_ready(Link *link, NetworkConfigSource source) {
@@ -707,7 +715,7 @@ bool manager_has_address(Manager *manager, int family, const union in_addr_union
         if (manager_get_address(manager, family, address, 0, &a) < 0)
                 return false;
 
-        return check_ready ? address_is_ready(a) : address_exists(a);
+        return check_ready ? address_is_ready(a) : (address_exists(a) && address_lifetime_is_valid(a));
 }
 
 const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) {
