@@ -82,7 +82,7 @@ TEST(keymaps) {
 
 #define dump_glyph(x) log_info(STRINGIFY(x) ": %s", special_glyph(x))
 TEST(dump_special_glyphs) {
-        assert_cc(SPECIAL_GLYPH_WARNING_SIGN + 1 == _SPECIAL_GLYPH_MAX);
+        assert_cc(SPECIAL_GLYPH_LINE_VERTICAL + 1 == _SPECIAL_GLYPH_MAX);
 
         log_info("is_locale_utf8: %s", yes_no(is_locale_utf8()));
 
@@ -124,6 +124,8 @@ TEST(dump_special_glyphs) {
         dump_glyph(SPECIAL_GLYPH_SPARKLES);
         dump_glyph(SPECIAL_GLYPH_LOW_BATTERY);
         dump_glyph(SPECIAL_GLYPH_WARNING_SIGN);
+        dump_glyph(SPECIAL_GLYPH_LINE_HORIZONTAL);
+        dump_glyph(SPECIAL_GLYPH_LINE_VERTICAL);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
