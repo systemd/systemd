@@ -23,6 +23,7 @@
 #include "parse-util.h"
 #include "random-util.h"
 #include "sha256.h"
+#include "sort-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "time-util.h"
@@ -1520,12 +1521,332 @@ size_t tpm2_tpml_pcr_selection_weight(const TPML_PCR_SELECTION *l) {
         return weight;
 }
 
+bool TPM2_PCR_VALUE_VALID(const Tpm2PCRValue *pcr_value) {
+        int r;
+
+        assert(pcr_value);
+
+        if (!TPM2_PCR_INDEX_VALID(pcr_value->index)) {
+                log_debug("PCR index %u invalid.", pcr_value->index);
+                return false;
+        }
+
+        /* If it contains a value, the value size must match the hash size. */
+        if (pcr_value->value.size > 0) {
+                r = tpm2_hash_alg_to_size(pcr_value->hash);
+                if (r < 0)
+                        return false;
+
+                if ((int) pcr_value->value.size != r) {
+                        log_debug("PCR hash 0x%" PRIx16 " expected size %d does not match actual size %" PRIu16 ".",
+                                  pcr_value->hash, r, pcr_value->value.size);
+                        return false;
+                }
+        }
+
+        return true;
+}
+
+/* Verify all entries are valid, and consistent with each other. The requirements for consistency are:
+ *
+ * 1) all entries must be sorted in ascending order (e.g. using tpm2_sort_pcr_values())
+ * 2) all entries must be unique, i.e. there cannot be 2 entries with the same hash and index
+ */
+bool TPM2_PCR_VALUES_VALID(const Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
+        assert(pcr_values || n_pcr_values == 0);
+
+        for (size_t i = 0; i < n_pcr_values; i++) {
+                const Tpm2PCRValue *v = &pcr_values[i];
+
+                if (!TPM2_PCR_VALUE_VALID(v))
+                        return false;
+
+                if (i == 0)
+                        continue;
+
+                const Tpm2PCRValue *l = &pcr_values[i - 1];
+
+                /* Hashes must be sorted in ascending order */
+                if (v->hash < l->hash) {
+                        log_debug("PCR values not in ascending order, hash %" PRIu16 " is after %" PRIu16 ".",
+                                  v->hash, l->hash);
+                        return false;
+                }
+
+                if (v->hash == l->hash) {
+                        /* Indexes (for the same hash) must be sorted in ascending order */
+                        if (v->index < l->index) {
+                                log_debug("PCR values not in ascending order, hash %" PRIu16 " index %u is after %u.",
+                                          v->hash, v->index, l->index);
+                                return false;
+                        }
+
+                        /* Indexes (for the same hash) must not be duplicates */
+                        if (v->index == l->index) {
+                                log_debug("PCR values contain duplicates for hash %" PRIu16 " index %u.",
+                                          v->hash, v->index);
+                                return false;
+                        }
+                }
+        }
+
+        return true;
+}
+
+static int cmp_pcr_values(const Tpm2PCRValue *a, const Tpm2PCRValue *b) {
+        assert(a);
+        assert(b);
+
+        return CMP(a->hash, b->hash) ?: CMP(a->index, b->index);
+}
+
+/* Sort the array of Tpm2PCRValue entries in-place. This sorts first in ascending order of hash algorithm
+ * (sorting simply by the TPM2 hash algorithm number), and then sorting by pcr index. */
+void tpm2_sort_pcr_values(Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
+        typesafe_qsort(pcr_values, n_pcr_values, cmp_pcr_values);
+}
+
+int tpm2_pcr_values_from_mask(uint32_t mask, TPMI_ALG_HASH hash, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values) {
+        _cleanup_free_ Tpm2PCRValue *pcr_values = NULL;
+        size_t n_pcr_values = 0;
+
+        assert(ret_pcr_values);
+        assert(ret_n_pcr_values);
+
+        FOREACH_PCR_IN_MASK(index, mask)
+                if (!GREEDY_REALLOC_APPEND(
+                                pcr_values,
+                                n_pcr_values,
+                                &TPM2_PCR_VALUE_MAKE(index, hash, {}),
+                                1))
+                        return log_oom_debug();
+
+        *ret_pcr_values = TAKE_PTR(pcr_values);
+        *ret_n_pcr_values = n_pcr_values;
+
+        return 0;
+}
+
+int tpm2_pcr_values_to_mask(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, TPMI_ALG_HASH hash, uint32_t *ret_mask) {
+        uint32_t mask = 0;
+
+        assert(pcr_values || n_pcr_values == 0);
+        assert(ret_mask);
+
+        if (!TPM2_PCR_VALUES_VALID(pcr_values, n_pcr_values))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid PCR values.");
+
+        for (size_t i = 0; i < n_pcr_values; i++)
+                if (pcr_values[i].hash == hash)
+                        SET_BIT(mask, pcr_values[i].index);
+
+        *ret_mask = mask;
+
+        return 0;
+}
+
+int tpm2_tpml_pcr_selection_from_pcr_values(
+                const Tpm2PCRValue *pcr_values,
+                size_t n_pcr_values,
+                TPML_PCR_SELECTION *ret_selection,
+                TPM2B_DIGEST **ret_values,
+                size_t *ret_n_values) {
+
+        TPML_PCR_SELECTION selection = {};
+        _cleanup_free_ TPM2B_DIGEST *values = NULL;
+        size_t n_values = 0;
+
+        assert(pcr_values || n_pcr_values == 0);
+
+        if (!TPM2_PCR_VALUES_VALID(pcr_values, n_pcr_values))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "PCR values are not valid.");
+
+        for (size_t i = 0; i < n_pcr_values; i++) {
+                unsigned index = pcr_values[i].index;
+                TPMI_ALG_HASH hash = pcr_values[i].hash;
+                const TPM2B_DIGEST *digest = &pcr_values[i].value;
+
+                tpm2_tpml_pcr_selection_add_mask(&selection, hash, INDEX_TO_MASK(uint32_t, index));
+
+                if (!GREEDY_REALLOC_APPEND(values, n_values, digest, 1))
+                        return log_oom_debug();
+        }
+
+        if (ret_selection)
+                *ret_selection = selection;
+        if (ret_values)
+                *ret_values = TAKE_PTR(values);
+        if (ret_n_values)
+                *ret_n_values = n_values;
+
+        return 0;
+}
+
+/* Count the number of different hash algorithms for all the entries. */
+int tpm2_pcr_values_hash_count(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, size_t *ret_count) {
+        TPML_PCR_SELECTION selection;
+        int r;
+
+        assert(pcr_values);
+        assert(ret_count);
+
+        r = tpm2_tpml_pcr_selection_from_pcr_values(
+                        pcr_values,
+                        n_pcr_values,
+                        &selection,
+                        /* ret_values= */ NULL,
+                        /* ret_n_values= */ NULL);
+        if (r < 0)
+                return r;
+
+        *ret_count = selection.count;
+
+        return 0;
+}
+
+/* Parse a string argument into a Tpm2PCRValue object.
+ *
+ * The format is <index>[:hash[=value]] where index is the index number (or name) of the PCR, e.g. 0 (or
+ * platform-code), hash is the name of the hash algorithm (e.g. sha256) and value is the hex hash digest
+ * value, optionally with a leading 0x. This does not check for validity of the fields. */
+int tpm2_pcr_value_from_string(const char *arg, Tpm2PCRValue *ret_pcr_value) {
+        Tpm2PCRValue pcr_value = {};
+        const char *p = arg;
+        int r;
+
+        assert(arg);
+        assert(ret_pcr_value);
+
+        _cleanup_free_ char *index = NULL;
+        r = extract_first_word(&p, &index, ":", /* flags= */ 0);
+        if (r < 1)
+                return log_error_errno(r, "Could not parse pcr value '%s': %m", p);
+
+        r = pcr_index_from_string(index);
+        if (r < 0)
+                return log_error_errno(r, "Invalid pcr index '%s': %m", index);
+        pcr_value.index = (unsigned) r;
+
+        if (!isempty(p)) {
+                _cleanup_free_ char *hash = NULL;
+                r = extract_first_word(&p, &hash, "=", /* flags= */ 0);
+                if (r < 1)
+                        return log_error_errno(r, "Could not parse pcr hash algorithm '%s': %m", p);
+
+                r = tpm2_hash_alg_from_string(hash);
+                if (r < 0)
+                        return log_error_errno(r, "Invalid pcr hash algorithm '%s': %m", hash);
+                pcr_value.hash = (TPMI_ALG_HASH) r;
+        }
+
+        if (!isempty(p)) {
+                /* Remove leading 0x if present */
+                p = startswith_no_case(p, "0x") ?: p;
+
+                _cleanup_free_ void *buf = NULL;
+                size_t buf_size = 0;
+                r = unhexmem(p, strlen(p), &buf, &buf_size);
+                if (r < 0)
+                        return log_error_errno(r, "Invalid pcr hash value '%s': %m", p);
+
+                pcr_value.value.size = buf_size;
+                assert(sizeof(pcr_value.value.buffer) >= pcr_value.value.size);
+                memcpy(pcr_value.value.buffer, buf, pcr_value.value.size);
+        }
+
+        *ret_pcr_value = pcr_value;
+
+        return 0;
+}
+
+/* Return a string for the PCR value. The format is described in tpm2_pcr_value_from_string(). Note that if
+ * the hash algorithm is not recognized, neither hash name nor hash digest value is included in the
+ * string. This does not check for validity. */
+char *tpm2_pcr_value_to_string(const Tpm2PCRValue *pcr_value) {
+        _cleanup_free_ char *index = NULL, *value = NULL;
+        int r;
+
+        r = asprintf(&index, "%u", pcr_value->index);
+        if (r < 0)
+                return NULL;
+
+        const char *hash = tpm2_hash_alg_to_string(pcr_value->hash);
+
+        if (hash && pcr_value->value.size > 0) {
+                value = hexmem(pcr_value->value.buffer, pcr_value->value.size);
+                if (!value)
+                        return NULL;
+        }
+
+        return strjoin(index, hash ? ":" : "", hash ?: "", value ? "=" : "", value ?: "");
+}
+
+/* Parse a string argument into an array of Tpm2PCRValue objects.
+ *
+ * The format is zero or more entries separated by ',' or '+'. The format of each entry is described in
+ * tpm2_pcr_value_from_string(). This does not check for validity of the entries. */
+int tpm2_pcr_values_from_string(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values) {
+        const char *p = arg;
+        int r;
+
+        assert(arg);
+        assert(ret_pcr_values);
+        assert(ret_n_pcr_values);
+
+        _cleanup_free_ Tpm2PCRValue *pcr_values = NULL;
+        size_t n_pcr_values = 0;
+
+        for (;;) {
+                _cleanup_free_ char *pcr_arg = NULL;
+                r = extract_first_word(&p, &pcr_arg, ",+", /* flags= */ 0);
+                if (r < 0)
+                        return log_error_errno(r, "Could not parse pcr values '%s': %m", p);
+                if (r == 0)
+                        break;
+
+                Tpm2PCRValue pcr_value;
+                r = tpm2_pcr_value_from_string(pcr_arg, &pcr_value);
+                if (r < 0)
+                        return r;
+
+                if (!GREEDY_REALLOC_APPEND(pcr_values, n_pcr_values, &pcr_value, 1))
+                        return log_oom();
+        }
+
+        *ret_pcr_values = TAKE_PTR(pcr_values);
+        *ret_n_pcr_values = n_pcr_values;
+
+        return 0;
+}
+
+/* Return a string representing the array of PCR values. The format is as described in
+ * tpm2_pcr_values_from_string(). This does not check for validity. */
+char *tpm2_pcr_values_to_string(const Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
+        _cleanup_free_ char *s = NULL;
+
+        for (size_t i = 0; i < n_pcr_values; i++) {
+                _cleanup_free_ char *pcrstr = tpm2_pcr_value_to_string(&pcr_values[i]);
+                if (!pcrstr || !strextend_with_separator(&s, "+", pcrstr))
+                        return NULL;
+        }
+
+        return s ? TAKE_PTR(s) : strdup("");
+}
+
 static void tpm2_log_debug_tpml_pcr_selection(const TPML_PCR_SELECTION *l, const char *msg) {
         if (!DEBUG_LOGGING || !l)
                 return;
 
         _cleanup_free_ char *s = tpm2_tpml_pcr_selection_to_string(l);
         log_debug("%s: %s", msg ?: "PCR selection", strna(s));
+}
+
+static void tpm2_log_debug_pcr_value(const Tpm2PCRValue *pcr_value, const char *msg) {
+        if (!DEBUG_LOGGING || !pcr_value)
+                return;
+
+        _cleanup_free_ char *s = tpm2_pcr_value_to_string(pcr_value);
+        log_debug("%s: %s", msg ?: "PCR value", strna(s));
 }
 
 static void tpm2_log_debug_buffer(const void *buffer, size_t size, const char *msg) {
@@ -1923,22 +2244,27 @@ int tpm2_create_loaded(
         return 0;
 }
 
+/* Read hash values from the specified PCR selection. Provides a Tpm2PCRValue array that contains all
+ * requested PCR values, in the order provided by the TPM. Normally, the provided pcr values will match
+ * exactly what is in the provided selection, but the TPM may ignore some selected PCRs (for example, if an
+ * unimplemented PCR index is requested), in which case those PCRs will be absent from the provided pcr
+ * values. */
 static int tpm2_pcr_read(
                 Tpm2Context *c,
                 const TPML_PCR_SELECTION *pcr_selection,
-                TPML_PCR_SELECTION *ret_pcr_selection,
-                TPM2B_DIGEST **ret_pcr_values,
+                Tpm2PCRValue **ret_pcr_values,
                 size_t *ret_n_pcr_values) {
 
-        _cleanup_free_ TPM2B_DIGEST *pcr_values = NULL;
-        TPML_PCR_SELECTION remaining, total_read = {};
+        _cleanup_free_ Tpm2PCRValue *pcr_values = NULL;
         size_t n_pcr_values = 0;
         TSS2_RC rc;
 
         assert(c);
         assert(pcr_selection);
+        assert(ret_pcr_values);
+        assert(ret_n_pcr_values);
 
-        remaining = *pcr_selection;
+        TPML_PCR_SELECTION remaining = *pcr_selection;
         while (!tpm2_tpml_pcr_selection_is_empty(&remaining)) {
                 _cleanup_(Esys_Freep) TPML_PCR_SELECTION *current_read = NULL;
                 _cleanup_(Esys_Freep) TPML_DIGEST *current_values = NULL;
@@ -1959,44 +2285,39 @@ static int tpm2_pcr_read(
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to read TPM2 PCRs: %s", sym_Tss2_RC_Decode(rc));
 
+                tpm2_log_debug_tpml_pcr_selection(current_read, "Read PCR selection");
+
                 if (tpm2_tpml_pcr_selection_is_empty(current_read)) {
                         log_warning("TPM2 refused to read possibly unimplemented PCRs, ignoring.");
                         break;
                 }
 
-                tpm2_tpml_pcr_selection_sub(&remaining, current_read);
-                tpm2_tpml_pcr_selection_add(&total_read, current_read);
+                unsigned i = 0;
+                FOREACH_PCR_IN_TPML_PCR_SELECTION(index, tpms, current_read) {
+                        assert(i < current_values->count);
+                        Tpm2PCRValue pcr_value = {
+                                .index = index,
+                                .hash = tpms->hash,
+                                .value = current_values->digests[i++],
+                        };
 
-                if (!GREEDY_REALLOC(pcr_values, n_pcr_values + current_values->count))
-                        return log_oom();
+                        tpm2_log_debug_pcr_value(&pcr_value, /* msg= */ NULL);
 
-                memcpy_safe(&pcr_values[n_pcr_values], current_values->digests,
-                            current_values->count * sizeof(TPM2B_DIGEST));
-                n_pcr_values += current_values->count;
-
-                if (DEBUG_LOGGING) {
-                        unsigned i = 0;
-                        FOREACH_PCR_IN_TPML_PCR_SELECTION(pcr, s, current_read) {
-                                assert(i < current_values->count);
-
-                                TPM2B_DIGEST *d = &current_values->digests[i];
-                                i++;
-
-                                TPML_PCR_SELECTION l;
-                                tpm2_tpml_pcr_selection_from_mask(INDEX_TO_MASK(uint32_t, pcr), s->hash, &l);
-
-                                _cleanup_free_ char *desc = tpm2_tpml_pcr_selection_to_string(&l);
-                                tpm2_log_debug_digest(d, strna(desc));
-                        }
+                        if (!GREEDY_REALLOC_APPEND(pcr_values, n_pcr_values, &pcr_value, 1))
+                                return log_oom();
                 }
+                assert(i == current_values->count);
+
+                tpm2_tpml_pcr_selection_sub(&remaining, current_read);
         }
 
-        if (ret_pcr_selection)
-                *ret_pcr_selection = total_read;
-        if (ret_pcr_values)
-                *ret_pcr_values = TAKE_PTR(pcr_values);
-        if (ret_n_pcr_values)
-                *ret_n_pcr_values = n_pcr_values;
+        tpm2_sort_pcr_values(pcr_values, n_pcr_values);
+
+        if (!TPM2_PCR_VALUES_VALID(pcr_values, n_pcr_values))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "PCR values read from TPM are not valid.");
+
+        *ret_pcr_values = TAKE_PTR(pcr_values);
+        *ret_n_pcr_values = n_pcr_values;
 
         return 0;
 }
@@ -2006,9 +2327,7 @@ static int tpm2_pcr_mask_good(
                 TPMI_ALG_HASH bank,
                 uint32_t mask) {
 
-        _cleanup_free_ TPM2B_DIGEST *pcr_values = NULL;
         TPML_PCR_SELECTION selection;
-        size_t n_pcr_values = 0;
         int r;
 
         assert(c);
@@ -2019,21 +2338,17 @@ static int tpm2_pcr_mask_good(
 
         tpm2_tpml_pcr_selection_from_mask(mask, bank, &selection);
 
-        r = tpm2_pcr_read(c, &selection, &selection, &pcr_values, &n_pcr_values);
+        _cleanup_free_ Tpm2PCRValue *pcr_values = NULL;
+        size_t n_pcr_values;
+        r = tpm2_pcr_read(c, &selection, &pcr_values, &n_pcr_values);
         if (r < 0)
                 return r;
 
         /* If at least one of the selected PCR values is something other than all 0x00 or all 0xFF we are happy. */
-        unsigned i = 0;
-        FOREACH_PCR_IN_TPML_PCR_SELECTION(pcr, s, &selection) {
-                assert(i < n_pcr_values);
-
-                if (!memeqbyte(0x00, pcr_values[i].buffer, pcr_values[i].size) &&
-                    !memeqbyte(0xFF, pcr_values[i].buffer, pcr_values[i].size))
+        for (unsigned i = 0; i < n_pcr_values; i++)
+                if (!memeqbyte(0x00, pcr_values[i].value.buffer, pcr_values[i].value.size) &&
+                    !memeqbyte(0xFF, pcr_values[i].value.buffer, pcr_values[i].value.size))
                         return true;
-
-                i++;
-        }
 
         return false;
 }
@@ -3314,14 +3629,26 @@ int tpm2_seal(const char *device,
 
         TPML_PCR_SELECTION hash_pcr_selection = {};
         _cleanup_free_ TPM2B_DIGEST *hash_pcr_values = NULL;
-        size_t n_hash_pcr_values = 0;
+        size_t n_hash_pcr_values;
         if (hash_pcr_mask) {
                 /* For now, we just read the current values from the system; we need to be able to specify
                  * expected values, eventually. */
                 tpm2_tpml_pcr_selection_from_mask(hash_pcr_mask, pcr_bank, &hash_pcr_selection);
-                r = tpm2_pcr_read(c, &hash_pcr_selection, &hash_pcr_selection, &hash_pcr_values, &n_hash_pcr_values);
+
+                _cleanup_free_ Tpm2PCRValue *pcr_values = NULL;
+                size_t n_pcr_values;
+                r = tpm2_pcr_read(c, &hash_pcr_selection, &pcr_values, &n_pcr_values);
                 if (r < 0)
                         return r;
+
+                r = tpm2_tpml_pcr_selection_from_pcr_values(
+                                pcr_values,
+                                n_pcr_values,
+                                &hash_pcr_selection,
+                                &hash_pcr_values,
+                                &n_hash_pcr_values);
+                if (r < 0)
+                        return log_error_errno(r, "Could not get PCR selection from values: %m");
         }
 
         TPM2B_PUBLIC pubkey_tpm2, *authorize_key = NULL;
