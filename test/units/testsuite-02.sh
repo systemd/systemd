@@ -23,7 +23,7 @@ MAX_QUEUE_SIZE=${NPROC:-2}
 mapfile -t TEST_LIST < <(find /usr/lib/systemd/tests/unit-tests/ -maxdepth 1 -type f -name "${TESTS_GLOB}")
 
 # Reset state
-rm -fv /failed-tests /skipped-tests /skipped
+rm -fv /failed /skipped /testok
 
 if ! systemd-detect-virt -qc; then
     # Make sure ping works for unprivileged users (for test-bpf-firewall)
@@ -112,4 +112,4 @@ set -x
 # Test logs are sometimes lost, as the system shuts down immediately after
 journalctl --sync
 
-exit 0
+test ! -s /failed
