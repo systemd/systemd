@@ -6,7 +6,7 @@ set -o pipefail
 # Wait for a service to enter a state within a timeout period, if it doesn't
 # enter the desired state within the timeout period then this function will
 # exit the test case with a non zero exit code.
-wait_on_state_or_fail () {
+wait_on_state_or_fail() {
     service=$1
     expected_state=$2
     timeout=$3
