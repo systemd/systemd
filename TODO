@@ -528,9 +528,9 @@ Features:
   intervals, validate the journal against current TPM state with that. (taking
   inspiration from IMA log)
 
-* provide an API to apps to encrypt/decrypt credentials. usecase: allow
-  bluez bluetooth daemon to pass pairings to initrd that way, without shelling
-  out to our tools.
+* provide an API (probably IPC) to apps to encrypt/decrypt
+  credentials. usecase: allow bluez bluetooth daemon to pass pairings to initrd
+  that way, without shelling out to our tools.
 
 * revisit default PCR bindings in cryptenroll and systemd-creds. Currently they
   use PCR 7 which should contain secureboot state db/dbx. Which sounded like a
