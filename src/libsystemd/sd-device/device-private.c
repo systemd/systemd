@@ -525,7 +525,6 @@ int device_new_from_nulstr(sd_device **ret, char *nulstr, size_t len) {
 static int device_update_properties_bufs(sd_device *device) {
         _cleanup_free_ char **buf_strv = NULL, *buf_nulstr = NULL;
         size_t nulstr_len = 0, num = 0;
-        const char *val, *prop;
 
         assert(device);
 
@@ -728,7 +727,6 @@ static int device_tag(sd_device *device, const char *tag, bool add) {
 }
 
 int device_tag_index(sd_device *device, sd_device *device_old, bool add) {
-        const char *tag;
         int r = 0, k;
 
         if (add && device_old)
@@ -819,11 +817,9 @@ int device_update_db(sd_device *device) {
         }
 
         if (has_info) {
-                const char *property, *value, *tag;
+                const char *property, *value, *ct;
 
                 if (major(device->devnum) > 0) {
-                        const char *devlink;
-
                         FOREACH_DEVICE_DEVLINK(device, devlink)
                                 fprintf(f, "S:%s\n", devlink + STRLEN("/dev/"));
 
@@ -840,8 +836,8 @@ int device_update_db(sd_device *device) {
                 FOREACH_DEVICE_TAG(device, tag)
                         fprintf(f, "G:%s\n", tag); /* Any tag */
 
-                SET_FOREACH(tag, device->current_tags)
-                        fprintf(f, "Q:%s\n", tag); /* Current tag */
+                SET_FOREACH(ct, device->current_tags)
+                        fprintf(f, "Q:%s\n", ct); /* Current tag */
 
                 /* Always write the latest database version here, instead of the value stored in
                  * device->database_version, as which may be 0. */

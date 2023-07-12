@@ -800,7 +800,7 @@ static int device_setup_devlink_unit_one(Manager *m, const char *devlink, Set **
 
 static int device_setup_extra_units(Manager *m, sd_device *dev, Set **ready_units, Set **not_ready_units) {
         _cleanup_strv_free_ char **aliases = NULL;
-        const char *devlink, *syspath, *devname = NULL;
+        const char *syspath, *devname = NULL;
         Device *l;
         int r;
 

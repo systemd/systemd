@@ -165,9 +165,11 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
         if (data->devlink) {
                 const char *devlink;
 
-                FOREACH_DEVICE_DEVLINK(device, devlink)
+                FOREACH_DEVICE_DEVLINK(device, link) {
+                        devlink = link;
                         if (path_equal(devlink, data->devlink))
                                 goto found;
+                }
 
                 if (sd_device_get_devname(device, &devlink) >= 0 && path_equal(devlink, data->devlink))
                         goto found;
