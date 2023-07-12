@@ -569,14 +569,6 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_output < 0)
                                 return log_error_errno(arg_output, "Unknown output format '%s'.", optarg);
 
-                        if (IN_SET(arg_output, OUTPUT_EXPORT, OUTPUT_JSON, OUTPUT_JSON_PRETTY, OUTPUT_JSON_SSE, OUTPUT_JSON_SEQ, OUTPUT_CAT))
-                                arg_quiet = true;
-
-                        if (OUTPUT_MODE_IS_JSON(arg_output))
-                                arg_json_format_flags = output_mode_to_json_format_flags(arg_output) | JSON_FORMAT_COLOR_AUTO;
-                        else
-                                arg_json_format_flags = JSON_FORMAT_OFF;
-
                         break;
 
                 case 'l':
@@ -1117,6 +1109,14 @@ static int parse_argv(int argc, char *argv[]) {
                 if (arg_lines >= 0 && !arg_follow)
                         arg_reverse = true;
         }
+
+        if (IN_SET(arg_output, OUTPUT_EXPORT, OUTPUT_JSON, OUTPUT_JSON_PRETTY, OUTPUT_JSON_SSE, OUTPUT_JSON_SEQ, OUTPUT_CAT))
+                arg_quiet = true;
+
+        if (OUTPUT_MODE_IS_JSON(arg_output))
+                arg_json_format_flags = output_mode_to_json_format_flags(arg_output) | JSON_FORMAT_COLOR_AUTO;
+        else
+                arg_json_format_flags = JSON_FORMAT_OFF;
 
         return 1;
 }
@@ -2356,6 +2356,8 @@ static int run(int argc, char *argv[]) {
         /* Increase max number of open files if we can, we might needs this when browsing journal files, which might be
          * split up into many files. */
         (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
+
+        getenv_output_mode(&arg_output);
 
         r = parse_argv(argc, argv);
         if (r <= 0)

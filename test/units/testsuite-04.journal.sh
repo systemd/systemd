@@ -213,6 +213,11 @@ timeout 10 bash -c 'while ! test -f /tmp/issue-26746-cursor; do sleep .5; done'
 CURSOR_FROM_FILE="$(cat /tmp/issue-26746-cursor)"
 CURSOR_FROM_JOURNAL="$(journalctl -t "$ID" --output=export MESSAGE=hogehoge | sed -n -e '/__CURSOR=/ { s/__CURSOR=//; p }')"
 test "$CURSOR_FROM_FILE" = "$CURSOR_FROM_JOURNAL"
+# Tests with $SYSTEMD_JOURNAL_OUTPUT_MODE
+CURSOR_FROM_JOURNAL="$(SYSTEMD_JOURNAL_OUTPUT_MODE=export journalctl -t "$ID" MESSAGE=hogehoge | sed -n -e '/__CURSOR=/ { s/__CURSOR=//; p }')"
+test "$CURSOR_FROM_FILE" = "$CURSOR_FROM_JOURNAL"
+CURSOR_FROM_JOURNAL="$(SYSTEMD_JOURNAL_OUTPUT_MODE=json journalctl -t "$ID" --output=export MESSAGE=hogehoge | sed -n -e '/__CURSOR=/ { s/__CURSOR=//; p }')"
+test "$CURSOR_FROM_FILE" = "$CURSOR_FROM_JOURNAL"
 
 # Check that the seqnum field at least superficially works
 systemd-cat echo "ya"
@@ -232,7 +237,13 @@ while read -r file; do
 done < <(find /test-journals/no-rtc -name "*.zst")
 
 journalctl --directory="$JOURNAL_DIR" --list-boots --output=json >/tmp/lb1
-diff -u /tmp/lb1 - <<'EOF'
+cat >/tmp/lb1-expected <<EOF
 [{"index":-3,"boot_id":"5ea5fc4f82a14186b5332a788ef9435e","first_entry":1666569600994371,"last_entry":1666584266223608},{"index":-2,"boot_id":"bea6864f21ad4c9594c04a99d89948b0","first_entry":1666584266731785,"last_entry":1666584347230411},{"index":-1,"boot_id":"4c708e1fd0744336be16f3931aa861fb","first_entry":1666584348378271,"last_entry":1666584354649355},{"index":0,"boot_id":"35e8501129134edd9df5267c49f744a4","first_entry":1666584356661527,"last_entry":1666584438086856}]
 EOF
-rm -rf "$JOURNAL_DIR" /tmp/lb1
+diff -u /tmp/lb1 /tmp/lb1-expected
+# Tests with $SYSTEMD_JOURNAL_OUTPUT_MODE
+SYSTEMD_JOURNAL_OUTPUT_MODE=json journalctl --directory="$JOURNAL_DIR" --list-boots >/tmp/lb1
+diff -u /tmp/lb1 /tmp/lb1-expected
+SYSTEMD_JOURNAL_OUTPUT_MODE=export journalctl --directory="$JOURNAL_DIR" --list-boots --output=json >/tmp/lb1
+diff -u /tmp/lb1 /tmp/lb1-expected
+rm -rf "$JOURNAL_DIR" /tmp/lb1 /tmp/lb1-expected

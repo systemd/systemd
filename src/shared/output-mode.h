@@ -55,3 +55,5 @@ JsonFormatFlags output_mode_to_json_format_flags(OutputMode m);
 
 const char* output_mode_to_string(OutputMode m) _const_;
 OutputMode output_mode_from_string(const char *s) _pure_;
+
+void getenv_output_mode(OutputMode *ret);

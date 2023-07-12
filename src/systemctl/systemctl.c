@@ -817,11 +817,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unknown output '%s'.",
                                                        optarg);
-
-                        if (OUTPUT_MODE_IS_JSON(arg_output)) {
-                                arg_legend = false;
-                                arg_plain = true;
-                        }
                         break;
 
                 case 'i':
@@ -1073,6 +1068,12 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         if (arg_image && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
+        if (OUTPUT_MODE_IS_JSON(arg_output)) {
+                if (arg_legend < 0)
+                        arg_legend = false;
+                arg_plain = true;
+        }
+
         return 1;
 }
 
@@ -1130,6 +1131,7 @@ int systemctl_dispatch_parse_argv(int argc, char *argv[]) {
         }
 
         arg_action = ACTION_SYSTEMCTL;
+        getenv_output_mode(&arg_output);
         return systemctl_parse_argv(argc, argv);
 }
 
