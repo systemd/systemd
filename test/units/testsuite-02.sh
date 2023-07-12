@@ -34,7 +34,7 @@ fi
 # Arguments:
 #   $1: test path
 #   $2: test exit code
-function report_result() {
+report_result() {
     if [[ $# -ne 2 ]]; then
         echo >&2 "check_result: missing arguments"
         exit 1
