@@ -48,8 +48,6 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
                devpath, subsystem);
 
         if (arg_show_property) {
-                const char *key, *value;
-
                 FOREACH_DEVICE_PROPERTY(device, key, value)
                         printf("%s=%s\n", key, value);
 
