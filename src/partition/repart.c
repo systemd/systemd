@@ -3524,8 +3524,15 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         }
                 }
 
+                _cleanup_free_ Tpm2PCRValue *hash_pcr_values = NULL;
+                size_t n_hash_pcr_values;
+                r = tpm2_pcr_values_from_mask(arg_tpm2_pcr_mask, /* hash= */ 0, &hash_pcr_values, &n_hash_pcr_values);
+                if (r < 0)
+                        return log_error_errno(r, "Could not create PCR values from PCR mask: %m");
+
                 r = tpm2_seal(arg_tpm2_device,
-                              arg_tpm2_pcr_mask,
+                              hash_pcr_values,
+                              n_hash_pcr_values,
                               pubkey, pubkey_size,
                               arg_tpm2_public_key_pcr_mask,
                               /* pin= */ NULL,

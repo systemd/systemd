@@ -813,8 +813,15 @@ int encrypt_credential_and_warn(
                 if (!pubkey)
                         tpm2_pubkey_pcr_mask = 0;
 
+                _cleanup_free_ Tpm2PCRValue *hash_pcr_values = NULL;
+                size_t n_hash_pcr_values;
+                r = tpm2_pcr_values_from_mask(tpm2_hash_pcr_mask, /* hash= */ 0, &hash_pcr_values, &n_hash_pcr_values);
+                if (r < 0)
+                        return log_error_errno(r, "Could not create PCR values from PCR mask: %m");
+
                 r = tpm2_seal(tpm2_device,
-                              tpm2_hash_pcr_mask,
+                              hash_pcr_values,
+                              n_hash_pcr_values,
                               pubkey, pubkey_size,
                               tpm2_pubkey_pcr_mask,
                               /* pin= */ NULL,
