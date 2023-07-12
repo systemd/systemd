@@ -539,6 +539,7 @@ mouse:bluetooth:v046dpb019:name:MX Master 2S Mouse:*
 mouse:usb:v046dp406f:name:Logitech MX Ergo:*
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:406f:*
 mouse:bluetooth:v046dpb01d:name:MX Ergo Mouse:*
+mouse:bluetooth:v046dpb01d:name:Logitech MX Ergo Multi-Device Trackball :*
  ID_INPUT_TRACKBALL=1
  MOUSE_DPI=380@125
 
