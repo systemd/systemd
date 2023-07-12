@@ -2519,7 +2519,7 @@ static int setup_exec_directory(
                          * didn't know the more recent addition to the xdg-basedir spec: the $XDG_STATE_HOME
                          * directory. In older systemd versions EXEC_DIRECTORY_STATE was aliased to
                          * EXEC_DIRECTORY_CONFIGURATION, with the advent of $XDG_STATE_HOME is is now
-                         * seperated. If a service has both dirs configured but only the configuration dir
+                         * separated. If a service has both dirs configured but only the configuration dir
                          * exists and the state dir does not, we assume we are looking at an update
                          * situation. Hence, create a compatibility symlink, so that all expectations are
                          * met.

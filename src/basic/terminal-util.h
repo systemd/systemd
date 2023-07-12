@@ -49,6 +49,7 @@
 
 /* Underlined */
 #define ANSI_GREY_UNDERLINE              "\x1B[0;4;38;5;245m"
+#define ANSI_BRIGHT_BLACK_UNDERLINE      "\x1B[0;4;90m"
 #define ANSI_HIGHLIGHT_RED_UNDERLINE     "\x1B[0;1;4;31m"
 #define ANSI_HIGHLIGHT_GREEN_UNDERLINE   "\x1B[0;1;4;32m"
 #define ANSI_HIGHLIGHT_YELLOW_UNDERLINE  "\x1B[0;1;4;38;5;185m"
@@ -62,8 +63,10 @@
 #define ANSI_HIGHLIGHT_UNDERLINE "\x1B[0;1;4m"
 
 /* Fallback colors: 256 -> 16 */
-#define ANSI_HIGHLIGHT_GREY_FALLBACK   "\x1B[0;1;90m"
-#define ANSI_HIGHLIGHT_YELLOW_FALLBACK "\x1B[0;1;33m"
+#define ANSI_HIGHLIGHT_GREY_FALLBACK             "\x1B[0;1;90m"
+#define ANSI_HIGHLIGHT_GREY_FALLBACK_UNDERLINE   "\x1B[0;1;4;90m"
+#define ANSI_HIGHLIGHT_YELLOW_FALLBACK           "\x1B[0;1;33m"
+#define ANSI_HIGHLIGHT_YELLOW_FALLBACK_UNDERLINE "\x1B[0;1;4;33m"
 
 /* Reset/clear ANSI styles */
 #define ANSI_NORMAL "\x1B[0m"
@@ -177,9 +180,13 @@ static inline bool colors_enabled(void) {
                 }                                              \
         }
 
+static inline const char *ansi_underline(void) {
+        return underline_enabled() ? ANSI_UNDERLINE : ANSI_NORMAL;
+}
+
 #define DEFINE_ANSI_FUNC_UNDERLINE(name, NAME)                            \
         static inline const char *ansi_##name(void) {                     \
-                return underline_enabled() ? ANSI_##NAME ANSI_UNDERLINE : \
+                return underline_enabled() ? ANSI_##NAME##_UNDERLINE : \
                         colors_enabled() ? ANSI_##NAME : "";              \
         }
 
@@ -188,8 +195,8 @@ static inline bool colors_enabled(void) {
         static inline const char *ansi_##name(void) {                                                                  \
                 switch (get_color_mode()) {                                                                            \
                         case COLOR_OFF: return "";                                                                     \
-                        case COLOR_16: return underline_enabled() ? ANSI_##FALLBACK ANSI_UNDERLINE : ANSI_##FALLBACK;  \
-                        default : return underline_enabled() ? ANSI_##NAME ANSI_UNDERLINE: ANSI_##NAME;                \
+                        case COLOR_16: return underline_enabled() ? ANSI_##FALLBACK##_UNDERLINE : ANSI_##FALLBACK;  \
+                        default : return underline_enabled() ? ANSI_##NAME##_UNDERLINE: ANSI_##NAME;                \
                 }                                                                                                      \
         }
 
@@ -229,7 +236,6 @@ static inline const char* _ansi_highlight_yellow(void) {
         return colors_enabled() ? _ANSI_HIGHLIGHT_YELLOW : "";
 }
 
-DEFINE_ANSI_FUNC_UNDERLINE(underline,                       NORMAL);
 DEFINE_ANSI_FUNC_UNDERLINE(highlight_underline,             HIGHLIGHT);
 DEFINE_ANSI_FUNC_UNDERLINE_256(grey_underline,              GREY, BRIGHT_BLACK);
 DEFINE_ANSI_FUNC_UNDERLINE(highlight_red_underline,         HIGHLIGHT_RED);

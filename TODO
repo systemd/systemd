@@ -359,7 +359,7 @@ Features:
   activation we'd simply set up a dm-linear mapping to merge them again. A
   partition that is to be extended would just set a bit in the partition flags
   field to indicate that there's another extension partition to look for. The
-  identifiying UUID of the extension partition would be hashed in counter mode
+  identifying UUID of the extension partition would be hashed in counter mode
   from the uuid of the original partition it extends. Inspiration for this is
   the "dynamic partitions" concept of new Android. This would be a minimalistic
   concept of a volume manager, with the extents it manages being exposes as GPT
@@ -400,7 +400,7 @@ Features:
   changed ("stepped"), and in timesyncd whenever we acquire an NTP fix
   ("slewing"). Then, in journalctl for each boot time we come across, find
   these records, and use the structured info they include to display
-  "corrected" wallclock time, as calculted from the monotonic timestamp in the
+  "corrected" wallclock time, as calculated from the monotonic timestamp in the
   log record, adjusted by the delta declared in the structured log record.
 
 * in journald: whenever we start a new journal file because the boot ID
@@ -528,9 +528,9 @@ Features:
   intervals, validate the journal against current TPM state with that. (taking
   inspiration from IMA log)
 
-* provide an API to apps to encrypt/decrypt credentials. usecase: allow
-  bluez bluetooth daemon to pass pairings to initrd that way, without shelling
-  out to our tools.
+* provide an API (probably IPC) to apps to encrypt/decrypt
+  credentials. usecase: allow bluez bluetooth daemon to pass pairings to initrd
+  that way, without shelling out to our tools.
 
 * revisit default PCR bindings in cryptenroll and systemd-creds. Currently they
   use PCR 7 which should contain secureboot state db/dbx. Which sounded like a

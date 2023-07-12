@@ -1289,7 +1289,7 @@ static int prepare_ns(const char *process_name) {
                 _cleanup_free_ char *unit_dir = NULL;
 
                 /* Make "/" read-only. */
-                assert_se(mount_nofollow_verbose(LOG_DEBUG, NULL, "/", NULL, MS_BIND|MS_REMOUNT, NULL) >= 0);
+                assert_se(mount_nofollow_verbose(LOG_DEBUG, NULL, "/", NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL) >= 0);
 
                 /* Creating a new user namespace in the above means all MS_SHARED mounts become MS_SLAVE.
                  * Let's put them back to MS_SHARED here, since that's what we want as defaults. (This will
@@ -1297,14 +1297,15 @@ static int prepare_ns(const char *process_name) {
                 assert_se(mount_follow_verbose(LOG_DEBUG, NULL, "/", NULL, MS_SHARED|MS_REC, NULL) >= 0);
 
                 assert_se(mkdir_p(PRIVATE_UNIT_DIR, 0755) >= 0);
-
-                /* Mount tmpfs on the following directories to make not StateDirectory= or friends disturb the host. */
-                FOREACH_STRING(p, "/dev/shm", "/root", "/tmp", "/var/tmp", "/var/lib", PRIVATE_UNIT_DIR)
-                        assert_se(mount_nofollow_verbose(LOG_DEBUG, "tmpfs", p, "tmpfs", MS_NOSUID|MS_NODEV, NULL) >= 0);
+                assert_se(mount_nofollow_verbose(LOG_DEBUG, "tmpfs", PRIVATE_UNIT_DIR, "tmpfs", MS_NOSUID|MS_NODEV, NULL) >= 0);
 
                 /* Copy unit files to make them accessible even when unprivileged. */
                 assert_se(get_testdata_dir("test-execute/", &unit_dir) >= 0);
                 assert_se(copy_directory_at(AT_FDCWD, unit_dir, AT_FDCWD, PRIVATE_UNIT_DIR, COPY_MERGE_EMPTY) >= 0);
+
+                /* Mount tmpfs on the following directories to make not StateDirectory= or friends disturb the host. */
+                FOREACH_STRING(p, "/dev/shm", "/root", "/tmp", "/var/tmp", "/var/lib")
+                        assert_se(mount_nofollow_verbose(LOG_DEBUG, "tmpfs", p, "tmpfs", MS_NOSUID|MS_NODEV, NULL) >= 0);
 
                 /* Prepare credstore like tmpfiles.d/credstore.conf for LoadCredential= tests. */
                 FOREACH_STRING(p, "/run/credstore", "/run/credstore.encrypted") {

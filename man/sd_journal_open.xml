@@ -137,7 +137,7 @@
 
     <para><function>sd_journal_open_directory_fd()</function> is similar to
     <function>sd_journal_open_directory()</function>, but takes a file descriptor referencing a directory in the file
-    system instead of an absolute file system path. In addtion to the flags accepted by
+    system instead of an absolute file system path. In addition to the flags accepted by
     <function>sd_journal_open_directory()</function>, this function also accepts
     <constant>SD_JOURNAL_TAKE_DIRECTORY_FD</constant>. If <constant>SD_JOURNAL_TAKE_DIRECTORY_FD</constant> is
     specified, the function will take the ownership of the specified file descriptor on success, and it will be
