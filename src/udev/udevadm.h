@@ -16,6 +16,7 @@ int builtin_main(int argc, char *argv[], void *userdata);
 int verify_main(int argc, char *argv[], void *userdata);
 int wait_main(int argc, char *argv[], void *userdata);
 int lock_main(int argc, char *argv[], void *userdata);
+int query_main(int argc, char *argv[], void *userdata);
 
 static inline int print_version(void) {
         /* Dracut relies on the version being a single integer */
