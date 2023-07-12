@@ -39,6 +39,14 @@ unsigned routes_max(void) {
         return cached;
 }
 
+static bool route_lifetime_is_valid(const Route *route) {
+        assert(route);
+
+        return
+                route->lifetime_usec == USEC_INFINITY ||
+                route->lifetime_usec > now(CLOCK_BOOTTIME);
+}
+
 static Route *link_find_default_gateway(Link *link, int family, Route *gw) {
         Route *route;
 
@@ -123,6 +131,8 @@ bool gateway_is_ready(Link *link, bool onlink, int family, const union in_addr_u
         SET_FOREACH(route, link->routes) {
                 if (!route_exists(route))
                         continue;
+                if (!route_lifetime_is_valid(route))
+                        continue;
                 if (route->family != family)
                         continue;
                 if (!in_addr_is_set(route->family, &route->dst) && route->dst_prefixlen == 0)
@@ -167,6 +177,9 @@ static int link_address_is_reachable_internal(
 
         SET_FOREACH(route, link->routes) {
                 if (!route_exists(route))
+                        continue;
+
+                if (!route_lifetime_is_valid(route))
                         continue;
 
                 if (route->type != RTN_UNICAST)
