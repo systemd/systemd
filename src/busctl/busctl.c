@@ -1679,34 +1679,26 @@ static int json_transform_array_or_struct(sd_bus_message *m, JsonVariant **ret) 
         assert(m);
         assert(ret);
 
+        CLEANUP_ARRAY(elements, n_elements, json_variant_unref_many);
+
         for (;;) {
                 r = sd_bus_message_at_end(m, false);
-                if (r < 0) {
-                        bus_log_parse_error(r);
-                        goto finish;
-                }
+                if (r < 0)
+                        return bus_log_parse_error(r);
                 if (r > 0)
                         break;
 
-                if (!GREEDY_REALLOC(elements, n_elements + 1)) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (!GREEDY_REALLOC(elements, n_elements + 1))
+                        return log_oom();
 
                 r = json_transform_one(m, elements + n_elements);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 n_elements++;
         }
 
-        r = json_variant_new_array(ret, elements, n_elements);
-
-finish:
-        json_variant_unref_many(elements, n_elements);
-        free(elements);
-
-        return r;
+        return json_variant_new_array(ret, elements, n_elements);
 }
 
 static int json_transform_variant(sd_bus_message *m, const char *contents, JsonVariant **ret) {
@@ -1737,15 +1729,15 @@ static int json_transform_dict_array(sd_bus_message *m, JsonVariant **ret) {
         assert(m);
         assert(ret);
 
+        CLEANUP_ARRAY(elements, n_elements, json_variant_unref_many);
+
         for (;;) {
                 const char *contents;
                 char type;
 
                 r = sd_bus_message_at_end(m, false);
-                if (r < 0) {
-                        bus_log_parse_error(r);
-                        goto finish;
-                }
+                if (r < 0)
+                        return bus_log_parse_error(r);
                 if (r > 0)
                         break;
 
@@ -1755,43 +1747,31 @@ static int json_transform_dict_array(sd_bus_message *m, JsonVariant **ret) {
 
                 assert(type == 'e');
 
-                if (!GREEDY_REALLOC(elements, n_elements + 2)) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (!GREEDY_REALLOC(elements, n_elements + 2))
+                        return log_oom();
 
                 r = sd_bus_message_enter_container(m, type, contents);
-                if (r < 0) {
-                        bus_log_parse_error(r);
-                        goto finish;
-                }
+                if (r < 0)
+                        return bus_log_parse_error(r);
 
                 r = json_transform_one(m, elements + n_elements);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 n_elements++;
 
                 r = json_transform_one(m, elements + n_elements);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 n_elements++;
 
                 r = sd_bus_message_exit_container(m);
-                if (r < 0) {
-                        bus_log_parse_error(r);
-                        goto finish;
-                }
+                if (r < 0)
+                        return bus_log_parse_error(r);
         }
 
-        r = json_variant_new_object(ret, elements, n_elements);
-
-finish:
-        json_variant_unref_many(elements, n_elements);
-        free(elements);
-
-        return r;
+        return json_variant_new_object(ret, elements, n_elements);
 }
 
 static int json_transform_one(sd_bus_message *m, JsonVariant **ret) {
