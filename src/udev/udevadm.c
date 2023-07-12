@@ -28,6 +28,7 @@ static int help(void) {
                 { "verify",       "Verify udev rules files"           },
                 { "wait",         "Wait for device or device symlink" },
                 { "lock",         "Lock a block device"               },
+                { "query",        "Query sysfs or the udev database"  },
         };
 
         _cleanup_free_ char *link = NULL;
@@ -108,6 +109,7 @@ static int udevadm_main(int argc, char *argv[]) {
                 { "test-builtin", VERB_ANY, VERB_ANY, 0, builtin_main },
                 { "wait",         VERB_ANY, VERB_ANY, 0, wait_main    },
                 { "lock",         VERB_ANY, VERB_ANY, 0, lock_main    },
+                { "query",        VERB_ANY, VERB_ANY, 0, query_main   },
                 { "verify",       VERB_ANY, VERB_ANY, 0, verify_main  },
                 { "version",      VERB_ANY, VERB_ANY, 0, version_main },
                 { "help",         VERB_ANY, VERB_ANY, 0, help_main    },

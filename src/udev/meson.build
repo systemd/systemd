@@ -7,6 +7,7 @@ udevadm_sources = files(
         'udevadm-info.c',
         'udevadm-lock.c',
         'udevadm-monitor.c',
+        'udevadm-query.c',
         'udevadm-settle.c',
         'udevadm-test.c',
         'udevadm-test-builtin.c',
