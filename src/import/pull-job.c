@@ -250,8 +250,8 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                         if (j->offset == UINT64_MAX) {
 
                                 if (j->written_compressed > 0) {
-                                        /* Make sure the file size is right, in case the file was sparse and we just seeked
-                                         * for the last part */
+                                        /* Make sure the file size is right, in case the file was sparse and
+                                         * we just moved to the last part. */
                                         if (ftruncate(j->disk_fd, j->written_uncompressed) < 0) {
                                                 r = log_error_errno(errno, "Failed to truncate file: %m");
                                                 goto finish;

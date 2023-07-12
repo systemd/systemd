@@ -263,7 +263,7 @@ int cg_trim(const char *controller, const char *path, bool delete_root) {
         else if (r < 0)
                 log_debug_errno(r, "Failed to iterate through cgroup %s: %m", path);
 
-        /* If we shall delete the top-level cgroup, then propagate the faiure to do so (except if it is
+        /* If we shall delete the top-level cgroup, then propagate the failure to do so (except if it is
          * already gone anyway). Also, let's debug log about this failure, except if the error code is an
          * expected one. */
         if (delete_root && !empty_or_root(path) &&
