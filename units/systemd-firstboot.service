@@ -15,7 +15,14 @@ ConditionPathIsReadWrite=/etc
 ConditionFirstBoot=yes
 
 DefaultDependencies=no
-After=systemd-remount-fs.service systemd-sysusers.service systemd-tmpfiles-setup.service
+# This service may need to write to the file system:
+After=systemd-remount-fs.service
+# Both systemd-sysusers and systemd-tmpfiles may create the root account
+# (via factory files or credentials), obviating the need for us to do that:
+After=systemd-sysusers.service systemd-tmpfiles-setup.service
+# Let vconsole-setup do its setup before starting user interaction:
+After=systemd-vconsole-setup.service
+
 Wants=first-boot-complete.target
 Before=first-boot-complete.target sysinit.target
 Conflicts=shutdown.target
