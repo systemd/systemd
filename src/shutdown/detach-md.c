@@ -44,7 +44,6 @@ static void raid_device_list_free(RaidDevice **head) {
 
 static int md_list_get(RaidDevice **head) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        sd_device *d;
         int r;
 
         assert(head);

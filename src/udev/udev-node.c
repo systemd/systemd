@@ -531,7 +531,6 @@ static int device_get_devpath_by_devnum(sd_device *dev, char **ret) {
 
 int udev_node_update(sd_device *dev, sd_device *dev_old) {
         _cleanup_free_ char *filename = NULL;
-        const char *devlink;
         int r;
 
         assert(dev);
@@ -577,7 +576,6 @@ int udev_node_update(sd_device *dev, sd_device *dev_old) {
 
 int udev_node_remove(sd_device *dev) {
         _cleanup_free_ char *filename = NULL;
-        const char *devlink;
         int r;
 
         assert(dev);

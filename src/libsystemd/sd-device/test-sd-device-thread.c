@@ -27,7 +27,6 @@ static void* thread(void *p) {
 int main(int argc, char *argv[]) {
         sd_device *loopback;
         pthread_t t;
-        const char *key, *value;
         int r;
 
         r = sd_device_new_from_syspath(&loopback, "/sys/class/net/lo");

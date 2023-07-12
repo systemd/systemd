@@ -86,7 +86,7 @@ static int sysattr_compare(const SysAttr *a, const SysAttr *b) {
 
 static int print_all_attributes(sd_device *device, bool is_parent) {
         _cleanup_free_ SysAttr *sysattrs = NULL;
-        const char *name, *value;
+        const char *value;
         size_t n_items = 0;
         int r;
 
@@ -180,7 +180,7 @@ static int print_device_chain(sd_device *device) {
 }
 
 static int print_record(sd_device *device, const char *prefix) {
-        const char *str, *val, *subsys;
+        const char *str, *subsys;
         dev_t devnum;
         uint64_t q;
         int i, ifi;
@@ -232,14 +232,16 @@ static int print_record(sd_device *device, const char *prefix) {
                 printf("%sI: %s%i%s\n", prefix, ansi_highlight_cyan(), ifi, ansi_normal());
 
         if (sd_device_get_devname(device, &str) >= 0) {
+                const char *val;
+
                 assert_se(val = path_startswith(str, "/dev/"));
                 printf("%sN: %s%s%s\n", prefix, ansi_highlight_cyan(), val, ansi_normal());
 
                 if (device_get_devlink_priority(device, &i) >= 0)
                         printf("%sL: %s%i%s\n", prefix, ansi_highlight_cyan(), i, ansi_normal());
 
-                FOREACH_DEVICE_DEVLINK(device, str) {
-                        assert_se(val = path_startswith(str, "/dev/"));
+                FOREACH_DEVICE_DEVLINK(device, link) {
+                        assert_se(val = path_startswith(link, "/dev/"));
                         printf("%sS: %s%s%s\n", prefix, ansi_highlight_cyan(), val, ansi_normal());
                 }
         }
@@ -250,8 +252,8 @@ static int print_record(sd_device *device, const char *prefix) {
         if (sd_device_get_driver(device, &str) >= 0)
                 printf("%sV: %s%s%s\n", prefix, ansi_highlight_yellow4(), str, ansi_normal());
 
-        FOREACH_DEVICE_PROPERTY(device, str, val)
-                printf("%sE: %s=%s\n", prefix, str, val);
+        FOREACH_DEVICE_PROPERTY(device, key, val)
+                printf("%sE: %s=%s\n", prefix, key, val);
 
         if (isempty(prefix))
                 puts("");
@@ -425,7 +427,7 @@ static int query_device(QueryType query, sd_device* device) {
         }
 
         case QUERY_SYMLINK: {
-                const char *devlink, *prefix = "";
+                const char *prefix = "";
 
                 FOREACH_DEVICE_DEVLINK(device, devlink) {
                         if (!arg_root)
@@ -448,9 +450,7 @@ static int query_device(QueryType query, sd_device* device) {
                 return 0;
         }
 
-        case QUERY_PROPERTY: {
-                const char *key, *value;
-
+        case QUERY_PROPERTY:
                 FOREACH_DEVICE_PROPERTY(device, key, value) {
                         if (arg_properties && !strv_contains(arg_properties, key))
                                 continue;
@@ -464,7 +464,6 @@ static int query_device(QueryType query, sd_device* device) {
                 }
 
                 return 0;
-        }
 
         case QUERY_ALL:
                 return print_record(device, NULL);

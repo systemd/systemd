@@ -230,7 +230,7 @@ static int link_set_sr_iov_phys_port(Link *link) {
 
 static int link_set_sr_iov_virt_ports(Link *link) {
         const char *dev_port, *name;
-        sd_device *pci_dev, *child;
+        sd_device *pci_dev;
         int r;
 
         assert(link);

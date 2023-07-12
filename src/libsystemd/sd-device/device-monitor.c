@@ -681,8 +681,8 @@ int device_monitor_send_device(
 
         /* add tag bloom filter */
         tag_bloom_bits = 0;
-        FOREACH_DEVICE_TAG(device, val)
-                tag_bloom_bits |= string_bloom64(val);
+        FOREACH_DEVICE_TAG(device, tag)
+                tag_bloom_bits |= string_bloom64(tag);
 
         if (tag_bloom_bits > 0) {
                 nlh.filter_tag_bloom_hi = htobe32(tag_bloom_bits >> 32);

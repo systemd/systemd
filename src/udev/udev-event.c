@@ -411,11 +411,11 @@ static ssize_t udev_event_subst_format(
                 }
                 break;
         case FORMAT_SUBST_LINKS:
-                FOREACH_DEVICE_DEVLINK(dev, val) {
+                FOREACH_DEVICE_DEVLINK(dev, link) {
                         if (s == dest)
-                                strpcpy_full(&s, l, val + STRLEN("/dev/"), &truncated);
+                                strpcpy_full(&s, l, link + STRLEN("/dev/"), &truncated);
                         else
-                                strpcpyl_full(&s, l, &truncated, " ", val + STRLEN("/dev/"), NULL);
+                                strpcpyl_full(&s, l, &truncated, " ", link + STRLEN("/dev/"), NULL);
                         if (truncated)
                                 break;
                 }
@@ -1107,7 +1107,6 @@ static int event_execute_rules_on_remove(
 }
 
 static int copy_all_tags(sd_device *d, sd_device *s) {
-        const char *tag;
         int r;
 
         assert(d);

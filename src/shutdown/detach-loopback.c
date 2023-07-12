@@ -44,7 +44,6 @@ static void loopback_device_list_free(LoopbackDevice **head) {
 
 static int loopback_list_get(LoopbackDevice **head) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        sd_device *d;
         int r;
 
         assert(head);

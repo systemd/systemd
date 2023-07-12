@@ -1296,7 +1296,7 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int trigger_device(Manager *m, sd_device *d) {
+static int trigger_device(Manager *m, sd_device *parent) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         int r;
 
@@ -1310,8 +1310,8 @@ static int trigger_device(Manager *m, sd_device *d) {
         if (r < 0)
                 return r;
 
-        if (d) {
-                r = sd_device_enumerator_add_match_parent(e, d);
+        if (parent) {
+                r = sd_device_enumerator_add_match_parent(e, parent);
                 if (r < 0)
                         return r;
         }

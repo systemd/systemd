@@ -491,7 +491,7 @@ fail:
 
 static void swap_process_new(Manager *m, const char *device, int prio, bool set_flags) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        const char *dn, *devlink;
+        const char *dn;
         struct stat st, st_link;
         int r;
 
@@ -1405,7 +1405,7 @@ fail:
 
 int swap_process_device_new(Manager *m, sd_device *dev) {
         _cleanup_free_ char *e = NULL;
-        const char *dn, *devlink;
+        const char *dn;
         Unit *u;
         int r;
 

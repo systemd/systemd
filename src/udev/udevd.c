@@ -1381,7 +1381,6 @@ static int synthesize_change(sd_device *dev) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         bool part_table_read;
         const char *sysname;
-        sd_device *d;
         int r, k;
 
         r = sd_device_get_sysname(dev, &sysname);
