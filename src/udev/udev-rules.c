@@ -1780,7 +1780,6 @@ static int get_property_from_string(char *line, char **ret_key, char **ret_value
 }
 
 static int import_parent_into_properties(sd_device *dev, const char *filter) {
-        const char *key, *val;
         sd_device *parent;
         int r;
 
@@ -1896,14 +1895,11 @@ static int udev_rule_apply_token_to_event(
 
                 return token_match_string(token, val);
         }
-        case TK_M_DEVLINK: {
-                const char *val;
-
+        case TK_M_DEVLINK:
                 FOREACH_DEVICE_DEVLINK(dev, val)
                         if (token_match_string(token, strempty(startswith(val, "/dev/"))) == (token->op == OP_MATCH))
                                 return token->op == OP_MATCH;
                 return token->op == OP_NOMATCH;
-        }
         case TK_M_NAME:
                 return token_match_string(token, event->name);
         case TK_M_ENV: {
@@ -1928,14 +1924,11 @@ static int udev_rule_apply_token_to_event(
                 return token_match_string(token, val);
         }
         case TK_M_TAG:
-        case TK_M_PARENTS_TAG: {
-                const char *val;
-
+        case TK_M_PARENTS_TAG:
                 FOREACH_DEVICE_CURRENT_TAG(dev, val)
                         if (token_match_string(token, val) == (token->op == OP_MATCH))
                                 return token->op == OP_MATCH;
                 return token->op == OP_NOMATCH;
-        }
         case TK_M_SUBSYSTEM:
         case TK_M_PARENTS_SUBSYSTEM: {
                 const char *val;
