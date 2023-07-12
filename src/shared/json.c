@@ -881,6 +881,8 @@ void json_variant_unref_many(JsonVariant **array, size_t n) {
 
         for (size_t i = 0; i < n; i++)
                 json_variant_unref(array[i]);
+
+        free(array);
 }
 
 const char *json_variant_string(JsonVariant *v) {
@@ -2879,8 +2881,7 @@ typedef struct JsonStack {
 static void json_stack_release(JsonStack *s) {
         assert(s);
 
-        json_variant_unref_many(s->elements, s->n_elements);
-        s->elements = mfree(s->elements);
+        CLEANUP_ARRAY(s->elements, s->n_elements, json_variant_unref_many);
 }
 
 static int json_parse_internal(
