@@ -103,6 +103,7 @@ TEST(dump_special_glyphs) {
         dump_glyph(SPECIAL_GLYPH_CROSS_MARK);
         dump_glyph(SPECIAL_GLYPH_LIGHT_SHADE);
         dump_glyph(SPECIAL_GLYPH_DARK_SHADE);
+        dump_glyph(SPECIAL_GLYPH_FULL_BLOCK);
         dump_glyph(SPECIAL_GLYPH_SIGMA);
         dump_glyph(SPECIAL_GLYPH_ARROW_UP);
         dump_glyph(SPECIAL_GLYPH_ARROW_DOWN);
