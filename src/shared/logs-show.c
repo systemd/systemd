@@ -936,13 +936,13 @@ void json_escape(
         }
 }
 
-struct json_data {
+typedef struct JsonData {
         JsonVariant* name;
         size_t n_values;
         JsonVariant* values[];
-};
+} JsonData;
 
-static struct json_data* json_data_free(struct json_data *d) {
+static JsonData* json_data_free(JsonData *d) {
         json_variant_unref(d->name);
 
         for (size_t i = 0; i < d->n_values; i++)
@@ -953,7 +953,7 @@ static struct json_data* json_data_free(struct json_data *d) {
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(json_data_hash_ops_free,
                                       char, string_hash_func, string_compare_func,
-                                      struct json_data, json_data_free);
+                                      JsonData, json_data_free);
 
 static int update_json_data(
                 Hashmap *h,
@@ -963,7 +963,7 @@ static int update_json_data(
                 size_t size) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        struct json_data *d = NULL;
+        JsonData *d = NULL;
         int r;
 
         assert(name);
@@ -983,9 +983,9 @@ static int update_json_data(
 
         d = hashmap_get(h, name);
         if (d) {
-                struct json_data *w;
+                JsonData *w;
 
-                w = realloc(d, offsetof(struct json_data, values) + sizeof(JsonVariant*) * (d->n_values + 1));
+                w = realloc(d, offsetof(JsonData, values) + sizeof(JsonVariant*) * (d->n_values + 1));
                 if (!w)
                         return log_oom();
 
@@ -998,7 +998,7 @@ static int update_json_data(
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate JSON name variant: %m");
 
-                d = malloc0(offsetof(struct json_data, values) + sizeof(JsonVariant*));
+                d = malloc0(offsetof(JsonData, values) + sizeof(JsonVariant*));
                 if (!d)
                         return log_oom();
 
@@ -1067,7 +1067,7 @@ static int output_json(
         _cleanup_free_ char *cursor = NULL;
         usec_t realtime, monotonic;
         JsonVariant **array = NULL;
-        struct json_data *d;
+        JsonData *d;
         uint64_t seqnum;
         size_t n = 0;
         int r;
