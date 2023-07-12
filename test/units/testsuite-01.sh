@@ -36,6 +36,7 @@ fi
 
 # Collect failed units & do one daemon-reload to a basic sanity check
 systemctl --state=failed --no-legend --no-pager | tee /failed
+test ! -s /failed
 systemctl daemon-reload
 
 # Check that the early setup is actually skipped on reexec.
