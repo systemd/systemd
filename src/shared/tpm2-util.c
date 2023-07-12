@@ -3383,7 +3383,7 @@ static int tpm2_policy_authorize(
 }
 
 /* Extend 'digest' with the calculated policy hash. */
-static int tpm2_calculate_sealing_policy(
+int tpm2_calculate_sealing_policy(
                 const Tpm2PCRValue *pcr_values,
                 size_t n_pcr_values,
                 const TPM2B_PUBLIC *public,
@@ -3678,103 +3678,27 @@ int tpm2_tpm2b_public_from_pem(const void *pem, size_t pem_size, TPM2B_PUBLIC *r
 #endif
 }
 
-int tpm2_seal(const char *device,
-              uint32_t hash_pcr_mask,
-              const void *pubkey,
-              const size_t pubkey_size,
-              uint32_t pubkey_pcr_mask,
+int tpm2_seal(Tpm2Context *c,
+              const TPM2B_DIGEST *policy,
               const char *pin,
               void **ret_secret,
               size_t *ret_secret_size,
               void **ret_blob,
               size_t *ret_blob_size,
-              void **ret_pcr_hash,
-              size_t *ret_pcr_hash_size,
-              uint16_t *ret_pcr_bank,
               uint16_t *ret_primary_alg,
               void **ret_srk_buf,
               size_t *ret_srk_buf_size) {
 
+        uint16_t primary_alg = 0;
         TSS2_RC rc;
         int r;
-
-        assert(pubkey || pubkey_size == 0);
 
         assert(ret_secret);
         assert(ret_secret_size);
         assert(ret_blob);
         assert(ret_blob_size);
-        assert(ret_pcr_hash);
-        assert(ret_pcr_hash_size);
-        assert(ret_pcr_bank);
-
-        assert(TPM2_PCR_MASK_VALID(hash_pcr_mask));
-        assert(TPM2_PCR_MASK_VALID(pubkey_pcr_mask));
-
-        /* So here's what we do here: we connect to the TPM2 chip. It persistently contains a "seed" key that
-         * is randomized when the TPM2 is first initialized or reset and remains stable across boots. We
-         * generate a "primary" key pair derived from that (ECC if possible, RSA as fallback). Given the seed
-         * remains fixed this will result in the same key pair whenever we specify the exact same parameters
-         * for it. We then create a PCR-bound policy session, which calculates a hash on the current PCR
-         * values of the indexes we specify. We then generate a randomized key on the host (which is the key
-         * we actually enroll in the LUKS2 keyslots), which we upload into the TPM2, where it is encrypted
-         * with the "primary" key, taking the PCR policy session into account. We then download the encrypted
-         * key from the TPM2 ("sealing") and marshall it into binary form, which is ultimately placed in the
-         * LUKS2 JSON header.
-         *
-         * The TPM2 "seed" key and "primary" keys never leave the TPM2 chip (and cannot be extracted at
-         * all). The random key we enroll in LUKS2 we generate on the host using the Linux random device. It
-         * is stored in the LUKS2 JSON only in encrypted form with the "primary" key of the TPM2 chip, thus
-         * binding the unlocking to the TPM2 chip. */
 
         usec_t start = now(CLOCK_MONOTONIC);
-
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
-        r = tpm2_context_new(device, &c);
-        if (r < 0)
-                return r;
-
-        TPMI_ALG_HASH pcr_bank = 0;
-        if (hash_pcr_mask | pubkey_pcr_mask) {
-                /* Some TPM2 devices only can do SHA1. Prefer SHA256 but allow SHA1. */
-                r = tpm2_get_best_pcr_bank(c, hash_pcr_mask|pubkey_pcr_mask, &pcr_bank);
-                if (r < 0)
-                        return r;
-        }
-
-        _cleanup_free_ Tpm2PCRValue *hash_pcr_values = NULL;
-        size_t n_hash_pcr_values;
-        if (hash_pcr_mask) {
-                /* For now, we just read the current values from the system; we need to be able to specify
-                 * expected values, eventually. */
-                TPML_PCR_SELECTION hash_pcr_selection;
-                tpm2_tpml_pcr_selection_from_mask(hash_pcr_mask, pcr_bank, &hash_pcr_selection);
-
-                r = tpm2_pcr_read(c, &hash_pcr_selection, &hash_pcr_values, &n_hash_pcr_values);
-                if (r < 0)
-                        return r;
-        }
-
-        TPM2B_PUBLIC pubkey_tpm2b;
-        if (pubkey) {
-                r = tpm2_tpm2b_public_from_pem(pubkey, pubkey_size, &pubkey_tpm2b);
-                if (r < 0)
-                        return log_error_errno(r, "Could not create TPMT_PUBLIC: %m");
-        }
-
-        TPM2B_DIGEST policy_digest;
-        r = tpm2_digest_init(TPM2_ALG_SHA256, &policy_digest);
-        if (r < 0)
-                return r;
-
-        r = tpm2_calculate_sealing_policy(
-                        hash_pcr_values,
-                        n_hash_pcr_values,
-                        pubkey ? &pubkey_tpm2b : NULL,
-                        !!pin,
-                        &policy_digest);
-        if (r < 0)
-                return r;
 
         /* We use a keyed hash object (i.e. HMAC) to store the secret key we want to use for unlocking the
          * LUKS2 volume with. We don't ever use for HMAC/keyed hash operations however, we just use it
@@ -3785,7 +3709,7 @@ int tpm2_seal(const char *device,
                 .objectAttributes = TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT,
                 .parameters.keyedHashDetail.scheme.scheme = TPM2_ALG_NULL,
                 .unique.keyedHash.size = SHA256_DIGEST_SIZE,
-                .authPolicy = policy_digest,
+                .authPolicy = policy ? *policy : TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE),
         };
 
         TPMS_SENSITIVE_CREATE hmac_sensitive = {
@@ -3810,21 +3734,24 @@ int tpm2_seal(const char *device,
         if (r < 0)
                 return log_error_errno(r, "Failed to generate secret key: %m");
 
-        _cleanup_(Esys_Freep) TPM2B_PUBLIC *primary_public = NULL;
         _cleanup_(tpm2_handle_freep) Tpm2Handle *primary_handle = NULL;
         if (ret_srk_buf) {
-                r = tpm2_get_or_create_srk(c, NULL, &primary_public, NULL, NULL, &primary_handle);
+                r = tpm2_get_or_create_srk(c, NULL, NULL, NULL, NULL, &primary_handle);
                 if (r < 0)
                         return r;
         } else {
                 /* TODO: force all callers to provide ret_srk_buf, so we can stop sealing with the legacy templates. */
+                primary_alg = TPM2_ALG_ECC;
+
                 TPMT_PUBLIC template;
-                r = tpm2_get_legacy_template(TPM2_ALG_ECC, &template);
+                r = tpm2_get_legacy_template(primary_alg, &template);
                 if (r < 0)
                         return log_error_errno(r, "Could not get legacy ECC template: %m");
 
                 if (!tpm2_supports_tpmt_public(c, &template)) {
-                        r = tpm2_get_legacy_template(TPM2_ALG_RSA, &template);
+                        primary_alg = TPM2_ALG_RSA;
+
+                        r = tpm2_get_legacy_template(primary_alg, &template);
                         if (r < 0)
                                 return log_error_errno(r, "Could not get legacy RSA template: %m");
 
@@ -3839,7 +3766,7 @@ int tpm2_seal(const char *device,
                                 /* session= */ NULL,
                                 &template,
                                 /* sensitive= */ NULL,
-                                &primary_public,
+                                /* ret_public= */ NULL,
                                 /* ret_private= */ NULL,
                                 &primary_handle);
                 if (r < 0)
@@ -3881,11 +3808,6 @@ int tpm2_seal(const char *device,
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to marshal public key: %s", sym_Tss2_RC_Decode(rc));
 
-        _cleanup_free_ void *hash = NULL;
-        hash = memdup(policy_digest.buffer, policy_digest.size);
-        if (!hash)
-                return log_oom();
-
         /* serialize the key for storage in the LUKS header. A deserialized ESYS_TR provides both
          * the raw TPM handle as well as the object name. The object name is used to verify that
          * the key we use later is the key we expect to establish the session with.
@@ -3921,10 +3843,9 @@ int tpm2_seal(const char *device,
         *ret_secret_size = hmac_sensitive.data.size;
         *ret_blob = TAKE_PTR(blob);
         *ret_blob_size = blob_size;
-        *ret_pcr_hash = TAKE_PTR(hash);
-        *ret_pcr_hash_size = policy_digest.size;
-        *ret_pcr_bank = pcr_bank;
-        *ret_primary_alg = primary_public->publicArea.type;
+
+        if (ret_primary_alg)
+                *ret_primary_alg = primary_alg;
 
         return 0;
 }
