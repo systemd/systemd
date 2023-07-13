@@ -380,60 +380,6 @@ static int context_discover_update_sets(Context *c) {
         return 0;
 }
 
-static const char *update_set_flags_to_string(UpdateSetFlags flags) {
-
-        switch ((unsigned) flags) {
-
-        case 0:
-                return "n/a";
-
-        case UPDATE_INSTALLED|UPDATE_NEWEST:
-        case UPDATE_INSTALLED|UPDATE_NEWEST|UPDATE_PROTECTED:
-        case UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_NEWEST:
-        case UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_NEWEST|UPDATE_PROTECTED:
-                return "current";
-
-        case UPDATE_AVAILABLE|UPDATE_NEWEST:
-        case UPDATE_AVAILABLE|UPDATE_NEWEST|UPDATE_PROTECTED:
-                return "candidate";
-
-        case UPDATE_INSTALLED:
-        case UPDATE_INSTALLED|UPDATE_AVAILABLE:
-                return "installed";
-
-        case UPDATE_INSTALLED|UPDATE_PROTECTED:
-        case UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_PROTECTED:
-                return "protected";
-
-        case UPDATE_AVAILABLE:
-        case UPDATE_AVAILABLE|UPDATE_PROTECTED:
-                return "available";
-
-        case UPDATE_INSTALLED|UPDATE_OBSOLETE|UPDATE_NEWEST:
-        case UPDATE_INSTALLED|UPDATE_OBSOLETE|UPDATE_NEWEST|UPDATE_PROTECTED:
-        case UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_OBSOLETE|UPDATE_NEWEST:
-        case UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_OBSOLETE|UPDATE_NEWEST|UPDATE_PROTECTED:
-                return "current+obsolete";
-
-        case UPDATE_INSTALLED|UPDATE_OBSOLETE:
-        case UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_OBSOLETE:
-                return "installed+obsolete";
-
-        case UPDATE_INSTALLED|UPDATE_OBSOLETE|UPDATE_PROTECTED:
-        case UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_OBSOLETE|UPDATE_PROTECTED:
-                return "protected+obsolete";
-
-        case UPDATE_AVAILABLE|UPDATE_OBSOLETE:
-        case UPDATE_AVAILABLE|UPDATE_OBSOLETE|UPDATE_PROTECTED:
-        case UPDATE_AVAILABLE|UPDATE_OBSOLETE|UPDATE_NEWEST:
-        case UPDATE_AVAILABLE|UPDATE_OBSOLETE|UPDATE_NEWEST|UPDATE_PROTECTED:
-                return "available+obsolete";
-
-        default:
-                assert_not_reached();
-        }
-}
-
 static int context_show_table(Context *c) {
         _cleanup_(table_unrefp) Table *t = NULL;
         int r;
