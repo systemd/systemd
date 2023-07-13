@@ -145,12 +145,11 @@ bool is_clean_exit(int code, int status, ExitClean clean, const ExitStatusSet *s
                         bitmap_isset(&success_status->status, status));
 
         /* If a daemon does not implement handlers for some of the signals, we do not consider this an
-           unclean shutdown */
+         * unclean shutdown */
         if (code == CLD_KILLED)
-                return
-                        (clean == EXIT_CLEAN_DAEMON && IN_SET(status, SIGHUP, SIGINT, SIGTERM, SIGPIPE)) ||
-                        (success_status &&
-                         bitmap_isset(&success_status->signal, status));
+                return (clean == EXIT_CLEAN_DAEMON && IN_SET(status, SIGHUP, SIGINT, SIGTERM, SIGPIPE)) ||
+                       (success_status &&
+                        bitmap_isset(&success_status->signal, status));
 
         return false;
 }
