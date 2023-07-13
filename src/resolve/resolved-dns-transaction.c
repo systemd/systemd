@@ -1367,25 +1367,25 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
         assert(t->scope);
 
         r = manager_recv(t->scope->manager, fd, DNS_PROTOCOL_DNS, &p);
-        if (ERRNO_IS_DISCONNECT(r)) {
-                usec_t usec;
-
-                /* UDP connection failures get reported via ICMP and then are possibly delivered to us on the
-                 * next recvmsg(). Treat this like a lost packet. */
-
-                log_debug_errno(r, "Connection failure for DNS UDP packet: %m");
-                assert_se(sd_event_now(t->scope->manager->event, CLOCK_BOOTTIME, &usec) >= 0);
-                dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_feature_level);
-
-                dns_transaction_close_connection(t, /* use_graveyard = */ false);
-
-                if (dns_transaction_limited_retry(t)) /* Try a different server */
-                        return 0;
-
-                dns_transaction_complete_errno(t, r);
-                return 0;
-        }
         if (r < 0) {
+                if (ERRNO_IS_DISCONNECT(r)) {
+                        usec_t usec;
+
+                        /* UDP connection failures get reported via ICMP and then are possibly delivered to us on the
+                         * next recvmsg(). Treat this like a lost packet. */
+
+                        log_debug_errno(r, "Connection failure for DNS UDP packet: %m");
+                        assert_se(sd_event_now(t->scope->manager->event, CLOCK_BOOTTIME, &usec) >= 0);
+                        dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_feature_level);
+
+                        dns_transaction_close_connection(t, /* use_graveyard = */ false);
+
+                        if (dns_transaction_limited_retry(t)) /* Try a different server */
+                                return 0;
+
+                        dns_transaction_complete_errno(t, r);
+                        return 0;
+                }
                 dns_transaction_complete_errno(t, r);
                 return 0;
         }
@@ -2055,40 +2055,40 @@ int dns_transaction_go(DnsTransaction *t) {
                 if (IN_SET(r, -EMSGSIZE, -EAGAIN, -EPERM))
                         r = dns_transaction_emit_tcp(t);
         }
-        if (r == -ELOOP) {
-                if (t->scope->protocol != DNS_PROTOCOL_DNS)
-                        return r;
+        if (r < 0) {
+                if (r == -ELOOP) {
+                        if (t->scope->protocol != DNS_PROTOCOL_DNS)
+                                return r;
 
-                /* One of our own stub listeners */
-                log_debug_errno(r, "Detected that specified DNS server is our own extra listener, switching DNS servers.");
+                        /* One of our own stub listeners */
+                        log_debug_errno(r, "Detected that specified DNS server is our own extra listener, switching DNS servers.");
 
-                dns_scope_next_dns_server(t->scope, t->server);
+                        dns_scope_next_dns_server(t->scope, t->server);
 
-                if (dns_scope_get_dns_server(t->scope) == t->server) {
-                        log_debug_errno(r, "Still pointing to extra listener after switching DNS servers, refusing operation.");
-                        dns_transaction_complete(t, DNS_TRANSACTION_STUB_LOOP);
+                        if (dns_scope_get_dns_server(t->scope) == t->server) {
+                                log_debug_errno(r, "Still pointing to extra listener after switching DNS servers, refusing operation.");
+                                dns_transaction_complete(t, DNS_TRANSACTION_STUB_LOOP);
+                                return 0;
+                        }
+
+                        return dns_transaction_go(t);
+                }
+                if (r == -ESRCH) {
+                        /* No servers to send this to? */
+                        dns_transaction_complete(t, DNS_TRANSACTION_NO_SERVERS);
                         return 0;
                 }
-
-                return dns_transaction_go(t);
-        }
-        if (r == -ESRCH) {
-                /* No servers to send this to? */
-                dns_transaction_complete(t, DNS_TRANSACTION_NO_SERVERS);
-                return 0;
-        }
-        if (r == -EOPNOTSUPP) {
-                /* Tried to ask for DNSSEC RRs, on a server that doesn't do DNSSEC  */
-                dns_transaction_complete(t, DNS_TRANSACTION_RR_TYPE_UNSUPPORTED);
-                return 0;
-        }
-        if (t->scope->protocol == DNS_PROTOCOL_LLMNR && ERRNO_IS_DISCONNECT(r)) {
-                /* On LLMNR, if we cannot connect to a host via TCP when doing reverse lookups. This means we cannot
-                 * answer this request with this protocol. */
-                dns_transaction_complete(t, DNS_TRANSACTION_NOT_FOUND);
-                return 0;
-        }
-        if (r < 0) {
+                if (r == -EOPNOTSUPP) {
+                        /* Tried to ask for DNSSEC RRs, on a server that doesn't do DNSSEC  */
+                        dns_transaction_complete(t, DNS_TRANSACTION_RR_TYPE_UNSUPPORTED);
+                        return 0;
+                }
+                if (t->scope->protocol == DNS_PROTOCOL_LLMNR && ERRNO_IS_DISCONNECT(r)) {
+                        /* On LLMNR, if we cannot connect to a host via TCP when doing reverse lookups. This means we cannot
+                         * answer this request with this protocol. */
+                        dns_transaction_complete(t, DNS_TRANSACTION_NOT_FOUND);
+                        return 0;
+                }
                 if (t->scope->protocol != DNS_PROTOCOL_DNS)
                         return r;
 

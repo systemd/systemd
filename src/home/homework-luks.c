@@ -498,10 +498,11 @@ static int acquire_open_luks_device(
                 return r;
 
         r = sym_crypt_init_by_name(&cd, setup->dm_name);
-        if ((ERRNO_IS_DEVICE_ABSENT(r) || r == -EINVAL) && graceful)
-                return 0;
-        if (r < 0)
+        if (r < 0) {
+                if ((ERRNO_IS_DEVICE_ABSENT(r) || r == -EINVAL) && graceful)
+                        return 0;
                 return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", setup->dm_name);
+        }
 
         cryptsetup_enable_logging(cd);
 
@@ -1638,11 +1639,12 @@ int home_deactivate_luks(UserRecord *h, HomeSetup *setup) {
                 cryptsetup_enable_logging(setup->crypt_device);
 
                 r = sym_crypt_deactivate_by_name(setup->crypt_device, setup->dm_name, 0);
-                if (ERRNO_IS_DEVICE_ABSENT(r) || r == -EINVAL)
-                        log_debug_errno(r, "LUKS device %s is already detached.", setup->dm_node);
-                else if (r < 0)
-                        return log_info_errno(r, "LUKS device %s couldn't be deactivated: %m", setup->dm_node);
-                else {
+                if (r < 0) {
+                        if (ERRNO_IS_DEVICE_ABSENT(r) || r == -EINVAL)
+                                log_debug_errno(r, "LUKS device %s is already detached.", setup->dm_node);
+                        else
+                                return log_info_errno(r, "LUKS device %s couldn't be deactivated: %m", setup->dm_node);
+                } else {
                         log_info("LUKS device detaching completed.");
                         we_detached = true;
                 }

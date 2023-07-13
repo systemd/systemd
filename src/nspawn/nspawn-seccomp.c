@@ -206,10 +206,11 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_allow_list, char **sy
                         return r;
 
                 r = seccomp_load(seccomp);
-                if (ERRNO_IS_SECCOMP_FATAL(r))
-                        return log_error_errno(r, "Failed to install seccomp filter: %m");
-                if (r < 0)
+                if (r < 0) {
+                        if (ERRNO_IS_SECCOMP_FATAL(r))
+                                return log_error_errno(r, "Failed to install seccomp filter: %m");
                         log_debug_errno(r, "Failed to install filter set for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                }
         }
 
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
@@ -242,10 +243,11 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_allow_list, char **sy
                 }
 
                 r = seccomp_load(seccomp);
-                if (ERRNO_IS_SECCOMP_FATAL(r))
-                        return log_error_errno(r, "Failed to install seccomp audit filter: %m");
-                if (r < 0)
+                if (r < 0) {
+                        if (ERRNO_IS_SECCOMP_FATAL(r))
+                                return log_error_errno(r, "Failed to install seccomp audit filter: %m");
                         log_debug_errno(r, "Failed to install filter set for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                }
         }
 
         return 0;
