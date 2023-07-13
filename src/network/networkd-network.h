@@ -307,6 +307,7 @@ struct Network {
         int proxy_arp;
         uint32_t ipv6_mtu;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
+        IPReversePathFilter ipv4_rp_filter;
         int ipv6_proxy_ndp;
         Set *ipv6_proxy_ndp_addresses;
 
