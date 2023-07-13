@@ -59,7 +59,7 @@ jobs:
           - distro: debian
             release: testing
           - distro: ubuntu
-            release: jammy
+            release: lunar
           - distro: fedora
             release: "38"
           - distro: fedora
