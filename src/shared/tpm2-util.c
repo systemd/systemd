@@ -3838,34 +3838,30 @@ int tpm2_pcr_mask_from_string(const char *arg, uint32_t *ret_mask) {
 
 int tpm2_make_pcr_json_array(uint32_t pcr_mask, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *a = NULL;
-        JsonVariant* pcr_array[TPM2_PCRS_MAX];
-        unsigned n_pcrs = 0;
         int r;
 
-        for (size_t i = 0; i < ELEMENTSOF(pcr_array); i++) {
+        assert(ret);
+
+        for (size_t i = 0; i < TPM2_PCRS_MAX; i++) {
+                _cleanup_(json_variant_unrefp) JsonVariant *e = NULL;
+
                 if ((pcr_mask & (UINT32_C(1) << i)) == 0)
                         continue;
 
-                r = json_variant_new_integer(pcr_array + n_pcrs, i);
+                r = json_variant_new_integer(&e, i);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
-                n_pcrs++;
+                r = json_variant_append_array(&a, e);
+                if (r < 0)
+                        return r;
         }
 
-        r = json_variant_new_array(&a, pcr_array, n_pcrs);
-        if (r < 0)
-                goto finish;
+        if (!a)
+                return json_variant_new_array(ret, NULL, 0);
 
-        if (ret)
-                *ret = TAKE_PTR(a);
-        r = 0;
-
-finish:
-        FOREACH_ARRAY(v, pcr_array, n_pcrs)
-                json_variant_unref(*v);
-
-        return r;
+        *ret = TAKE_PTR(a);
+        return 0;
 }
 
 int tpm2_parse_pcr_json_array(JsonVariant *v, uint32_t *ret) {
