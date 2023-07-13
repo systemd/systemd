@@ -2231,7 +2231,7 @@ static bool service_good(Service *s) {
         main_pid_ok = main_pid_good(s);
         if (main_pid_ok > 0) /* It's alive */
                 return true;
-        if (main_pid_ok == 0) /* It's dead */
+        if (main_pid_ok == 0 && s->exit_type == SERVICE_EXIT_MAIN) /* It's dead */
                 return false;
 
         /* OK, we don't know anything about the main PID, maybe
@@ -3879,7 +3879,12 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 default:
                                         assert_not_reached();
                                 }
-                        }
+                        } else if (s->exit_type == SERVICE_EXIT_CGROUP && s->state == SERVICE_START)
+                                /* If a main process exits very quickly, this function might be executed
+                                 * before service_dispatch_exec_io(). Since this function disabled IO events
+                                 * to monitor the main process above, we need to update the state here too.
+                                 * Let's consider the process is successfully launched and exited. */
+                                service_enter_start_post(s);
                 }
 
         } else if (s->control_pid == pid) {
