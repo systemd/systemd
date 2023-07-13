@@ -143,8 +143,8 @@
         </para>
 
         <para>Takes a boolean argument or <literal>allow-downgrade
-        </literal>. If true all DNS lookups are DNSSEC-validated locally
-        (excluding LLMNR and Multicast DNS). If the response to a lookup
+        </literal>. If true all DNS lookups are DNSSEC-validated locally 
+        (excluding LLMNR and Multicast DNS). If the response to a lookup 
         request is detected to be invalid a lookup failure is returned 
         to applications. Note that this mode requires a DNS server that 
         supports DNSSEC. If the DNS server does not properly support 
