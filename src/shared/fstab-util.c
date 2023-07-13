@@ -20,6 +20,8 @@ int fstab_has_fstype(const char *fstype) {
         _cleanup_endmntent_ FILE *f = NULL;
         struct mntent *m;
 
+        assert(fstype);
+
         f = setmntent(fstab_path(), "re");
         if (!f)
                 return errno == ENOENT ? false : -errno;
@@ -287,4 +289,15 @@ char *fstab_node_to_udev_node(const char *p) {
                 return tag_to_udev_node(p+10, "partlabel");
 
         return strdup(p);
+}
+
+bool fstab_is_bind(const char *options, const char *fstype) {
+
+        if (fstab_test_option(options, "bind\0" "rbind\0"))
+                return true;
+
+        if (fstype && STR_IN_SET(fstype, "bind", "rbind"))
+                return true;
+
+        return false;
 }
