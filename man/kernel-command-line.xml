@@ -607,6 +607,16 @@
         the <filename>/dev/</filename> prefix (e.g. <literal>systemd.tty.rows.ttyS0=80</literal>).
         </para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.preset.enable=</varname></term>
+        <term><varname>systemd.preset.disable=</varname></term>
+        <term><varname>systemd.preset.ignore=</varname></term>
+
+        <listitem><para>These arguments allow configuring extra presets on top of the ones shipped with the
+        image itself. Each argument can be specified multiple times and they take the same patterns as the
+        corresponding actions in preset files.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
