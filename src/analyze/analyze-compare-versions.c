@@ -18,9 +18,9 @@ int verb_compare_versions(int argc, char *argv[], void *userdata) {
         /* We only output a warning on invalid version strings (instead of failing), since the comparison
          * functions try to handle invalid strings graceful and it's still interesting to see what the
          * comparison result will be. */
-        if (!version_is_valid(v1))
+        if (!version_is_valid_versionspec(v1))
                 log_warning("Version string 1 is not valid, comparing anyway: %s", v1);
-        if (!version_is_valid(v2))
+        if (!version_is_valid_versionspec(v2))
                 log_warning("Version string 2 is not valid, comparing anyway: %s", v2);
 
         if (argc == 3) {
