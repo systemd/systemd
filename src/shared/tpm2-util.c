@@ -4259,45 +4259,6 @@ char *tpm2_pcr_mask_to_string(uint32_t mask) {
         return TAKE_PTR(s);
 }
 
-int tpm2_pcr_mask_from_string(const char *arg, uint32_t *ret_mask) {
-        uint32_t mask = 0;
-        int r;
-
-        assert(arg);
-        assert(ret_mask);
-
-        if (isempty(arg)) {
-                *ret_mask = 0;
-                return 0;
-        }
-
-        /* Parses a "," or "+" separated list of PCR indexes. We support "," since this is a list after all,
-         * and most other tools expect comma separated PCR specifications. We also support "+" since in
-         * /etc/crypttab the "," is already used to separate options, hence a different separator is nice to
-         * avoid escaping. */
-
-        const char *p = arg;
-        for (;;) {
-                _cleanup_free_ char *pcr = NULL;
-                unsigned n;
-
-                r = extract_first_word(&p, &pcr, ",+", EXTRACT_DONT_COALESCE_SEPARATORS);
-                if (r == 0)
-                        break;
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse PCR list: %s", arg);
-
-                r = pcr_index_from_string(pcr);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse specified PCR or specified PCR is out of range: %s", pcr);
-                n = r;
-                SET_BIT(mask, n);
-        }
-
-        *ret_mask = mask;
-        return 0;
-}
-
 int tpm2_make_pcr_json_array(uint32_t pcr_mask, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *a = NULL;
         int r;
@@ -4678,29 +4639,147 @@ Tpm2Support tpm2_support(void) {
         return support;
 }
 
-int tpm2_parse_pcr_argument(const char *arg, uint32_t *mask) {
-        uint32_t m;
+#if HAVE_TPM2
+static void tpm2_pcr_values_apply_default_hash_alg(Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
+        TPMI_ALG_HASH default_hash = 0;
+        for (size_t i = 0; i < n_pcr_values; i++)
+                if (pcr_values[i].hash != 0) {
+                        default_hash = pcr_values[i].hash;
+                        break;
+                }
+
+        if (default_hash != 0)
+                for (size_t i = 0; i < n_pcr_values; i++)
+                        if (pcr_values[i].hash == 0)
+                                pcr_values[i].hash = default_hash;
+}
+#endif
+
+/* Parse the PCR selection/value arg(s) and return a corresponding array of Tpm2PCRValue objects.
+ *
+ * The format is the same as tpm2_pcr_values_from_string(). The first provided entry with a hash algorithm
+ * set will be used as the 'default' hash algorithm. All entries with an unset hash algorithm will be updated
+ * with the 'default' hash algorithm. The resulting array will be sorted and checked for validity.
+ *
+ * This will replace *ret_pcr_values with the new array of pcr values; to append to an existing array, use
+ * tpm2_parse_pcr_argument_append(). */
+int tpm2_parse_pcr_argument(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values) {
+#if HAVE_TPM2
         int r;
 
-        assert(mask);
+        assert(arg);
+        assert(ret_pcr_values);
+        assert(ret_n_pcr_values);
 
-        /* For use in getopt_long() command line parsers: merges masks specified on the command line */
-
-        if (isempty(arg)) {
-                *mask = 0;
-                return 0;
-        }
-
-        r = tpm2_pcr_mask_from_string(arg, &m);
+        _cleanup_free_ Tpm2PCRValue *pcr_values = NULL;
+        size_t n_pcr_values = 0;
+        r = tpm2_pcr_values_from_string(arg, &pcr_values, &n_pcr_values);
         if (r < 0)
                 return r;
 
-        if (*mask == UINT32_MAX)
-                *mask = m;
-        else
-                *mask |= m;
+        tpm2_pcr_values_apply_default_hash_alg(pcr_values, n_pcr_values);
+
+        tpm2_sort_pcr_values(pcr_values, n_pcr_values);
+
+        if (!TPM2_PCR_VALUES_VALID(pcr_values, n_pcr_values))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parsed PCR values are not valid.");
+
+        *ret_pcr_values = TAKE_PTR(pcr_values);
+        *ret_n_pcr_values = n_pcr_values;
 
         return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support is disabled.");
+#endif
+}
+
+/* Same as tpm2_parse_pcr_argument(), but the pcr values array is appended to. If the provided pcr values
+ * array is not NULL, it must point to an allocated pcr values array and the provided number of pcr values
+ * must be correct.
+ *
+ * Note that 'arg' is parsed into a new array of pcr values independently of any previous pcr values,
+ * including application of the default hash algorithm. Then the two arrays are combined, the default hash
+ * algorithm check applied again (in case either the previous or current array had no default hash
+ * algorithm), and then the resulting array is sorted and rechecked for validity. */
+int tpm2_parse_pcr_argument_append(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values) {
+#if HAVE_TPM2
+        int r;
+
+        assert(arg);
+        assert(ret_pcr_values);
+        assert(ret_n_pcr_values);
+
+        _cleanup_free_ Tpm2PCRValue *pcr_values = NULL;
+        size_t n_pcr_values;
+        r = tpm2_parse_pcr_argument(arg, &pcr_values, &n_pcr_values);
+        if (r < 0)
+                return r;
+
+        /* If we got previous values, append them. */
+        if (*ret_pcr_values && !GREEDY_REALLOC_APPEND(pcr_values, n_pcr_values, *ret_pcr_values, *ret_n_pcr_values))
+                return log_oom();
+
+        tpm2_pcr_values_apply_default_hash_alg(pcr_values, n_pcr_values);
+
+        tpm2_sort_pcr_values(pcr_values, n_pcr_values);
+
+        if (!TPM2_PCR_VALUES_VALID(pcr_values, n_pcr_values))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parsed PCR values are not valid.");
+
+        SWAP_TWO(*ret_pcr_values, pcr_values);
+        *ret_n_pcr_values = n_pcr_values;
+
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support is disabled.");
+#endif
+}
+
+/* Same as tpm2_parse_pcr_argument() but converts the pcr values to a pcr mask. If more than one hash
+ * algorithm is included in the pcr values array this results in error. This retains the previous behavior of
+ * tpm2_parse_pcr_argument() of clearing the mask if 'arg' is empty, replacing the mask if it is set to
+ * UINT32_MAX, and or-ing the mask otherwise. */
+int tpm2_parse_pcr_argument_to_mask(const char *arg, uint32_t *ret_mask) {
+#if HAVE_TPM2
+        _cleanup_free_ Tpm2PCRValue *pcr_values = NULL;
+        size_t n_pcr_values;
+        int r;
+
+        assert(arg);
+        assert(ret_mask);
+
+        r = tpm2_parse_pcr_argument(arg, &pcr_values, &n_pcr_values);
+        if (r < 0)
+                return r;
+
+        if (n_pcr_values == 0) {
+                /* This retains the previous behavior of clearing the mask if the arg is empty */
+                *ret_mask = 0;
+                return 0;
+        }
+
+        size_t hash_count;
+        r = tpm2_pcr_values_hash_count(pcr_values, n_pcr_values, &hash_count);
+        if (r < 0)
+                return log_error_errno(r, "Could not get hash count from pcr values: %m");
+
+        if (hash_count > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Multiple PCR hash banks selected.");
+
+        uint32_t new_mask;
+        r = tpm2_pcr_values_to_mask(pcr_values, n_pcr_values, pcr_values[0].hash, &new_mask);
+        if (r < 0)
+                return log_error_errno(r, "Could not get pcr values mask: %m");
+
+        if (*ret_mask == UINT32_MAX)
+                *ret_mask = new_mask;
+        else
+                *ret_mask |= new_mask;
+
+        return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support is disabled.");
+#endif
 }
 
 int tpm2_load_pcr_signature(const char *path, JsonVariant **ret) {

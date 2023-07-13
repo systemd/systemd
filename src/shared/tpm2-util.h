@@ -208,7 +208,6 @@ const char *tpm2_asym_alg_to_string(uint16_t alg);
 int tpm2_asym_alg_from_string(const char *alg);
 
 char *tpm2_pcr_mask_to_string(uint32_t mask);
-int tpm2_pcr_mask_from_string(const char *arg, uint32_t *mask);
 
 typedef struct {
         uint32_t search_pcr_mask;
@@ -257,7 +256,9 @@ enum {
 
 Tpm2Support tpm2_support(void);
 
-int tpm2_parse_pcr_argument(const char *arg, uint32_t *mask);
+int tpm2_parse_pcr_argument(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
+int tpm2_parse_pcr_argument_append(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
+int tpm2_parse_pcr_argument_to_mask(const char *arg, uint32_t *mask);
 
 int tpm2_load_pcr_signature(const char *path, JsonVariant **ret);
 int tpm2_load_pcr_public_key(const char *path, void **ret_pubkey, size_t *ret_pubkey_size);
