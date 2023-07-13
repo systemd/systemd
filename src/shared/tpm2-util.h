@@ -76,13 +76,15 @@ typedef struct {
 
 #define TPM2_PCR_VALUE_MAKE(i, h, v) (Tpm2PCRValue) { .index = (i), .hash = (h), .value = ((TPM2B_DIGEST) v), }
 bool TPM2_PCR_VALUE_VALID(const Tpm2PCRValue *pcr_value);
+int tpm2_pcr_value_from_string(const char *arg, Tpm2PCRValue *ret_pcr_value);
 char *tpm2_pcr_value_to_string(const Tpm2PCRValue *pcr_value);
-char *tpm2_pcr_values_to_string(const Tpm2PCRValue *pcr_values, size_t n_pcr_values);
 
 bool TPM2_PCR_VALUES_VALID(const Tpm2PCRValue *pcr_values, size_t n_pcr_values);
 void tpm2_sort_pcr_values(Tpm2PCRValue *pcr_values, size_t n_pcr_values);
 int tpm2_pcr_values_from_mask(uint32_t mask, TPMI_ALG_HASH hash, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
 int tpm2_pcr_values_to_mask(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, TPMI_ALG_HASH hash, uint32_t *ret_mask);
+int tpm2_pcr_values_from_string(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
+char *tpm2_pcr_values_to_string(const Tpm2PCRValue *pcr_values, size_t n_pcr_values);
 int tpm2_pcr_values_hash_count(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, size_t *ret_count);
 int tpm2_tpml_pcr_selection_from_pcr_values(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, TPML_PCR_SELECTION *ret_selection, TPM2B_DIGEST **ret_values, size_t *ret_n_values);
 
@@ -202,7 +204,6 @@ const char *tpm2_asym_alg_to_string(uint16_t alg);
 int tpm2_asym_alg_from_string(const char *alg);
 
 char *tpm2_pcr_mask_to_string(uint32_t mask);
-int tpm2_pcr_mask_from_string(const char *arg, uint32_t *mask);
 
 typedef struct {
         uint32_t search_pcr_mask;
@@ -251,7 +252,9 @@ enum {
 
 Tpm2Support tpm2_support(void);
 
-int tpm2_parse_pcr_argument(const char *arg, uint32_t *mask);
+int tpm2_parse_pcr_argument(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
+int tpm2_parse_pcr_argument_append(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
+int tpm2_parse_pcr_argument_to_mask(const char *arg, uint32_t *mask);
 
 int tpm2_load_pcr_signature(const char *path, JsonVariant **ret);
 int tpm2_load_pcr_public_key(const char *path, void **ret_pubkey, size_t *ret_pubkey_size);
