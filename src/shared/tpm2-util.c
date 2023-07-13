@@ -3212,8 +3212,7 @@ static int tpm2_policy_auth_value(
 
 /* Extend 'digest' with the PolicyPCR calculated hash. */
 int tpm2_calculate_policy_pcr(
-                const TPML_PCR_SELECTION *pcr_selection,
-                const TPM2B_DIGEST pcr_values[],
+                const Tpm2PCRValue *pcr_values,
                 size_t n_pcr_values,
                 TPM2B_DIGEST *digest) {
 
@@ -3221,7 +3220,6 @@ int tpm2_calculate_policy_pcr(
         TSS2_RC rc;
         int r;
 
-        assert(pcr_selection);
         assert(pcr_values || n_pcr_values == 0);
         assert(digest);
         assert(digest->size == SHA256_DIGEST_SIZE);
@@ -3230,13 +3228,20 @@ int tpm2_calculate_policy_pcr(
         if (r < 0)
                 return log_error_errno(r, "TPM2 support not installed: %m");
 
+        TPML_PCR_SELECTION pcr_selection;
+        _cleanup_free_ TPM2B_DIGEST *values = NULL;
+        size_t n_values;
+        r = tpm2_tpml_pcr_selection_from_pcr_values(pcr_values, n_pcr_values, &pcr_selection, &values, &n_values);
+        if (r < 0)
+                return log_error_errno(r, "Could not convert PCR values to TPML_PCR_SELECTION: %m");
+
         TPM2B_DIGEST hash = {};
-        r = tpm2_digest_many_digests(TPM2_ALG_SHA256, &hash, pcr_values, n_pcr_values, /* extend= */ false);
+        r = tpm2_digest_many_digests(TPM2_ALG_SHA256, &hash, values, n_values, /* extend= */ false);
         if (r < 0)
                 return r;
 
         _cleanup_free_ uint8_t *buf = NULL;
-        size_t size = 0, maxsize = sizeof(command) + sizeof(*pcr_selection);
+        size_t size = 0, maxsize = sizeof(command) + sizeof(pcr_selection);
 
         buf = malloc(maxsize);
         if (!buf)
@@ -3247,7 +3252,7 @@ int tpm2_calculate_policy_pcr(
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to marshal PolicyPCR command: %s", sym_Tss2_RC_Decode(rc));
 
-        rc = sym_Tss2_MU_TPML_PCR_SELECTION_Marshal(pcr_selection, buf, maxsize, &size);
+        rc = sym_Tss2_MU_TPML_PCR_SELECTION_Marshal(&pcr_selection, buf, maxsize, &size);
         if (rc != TSS2_RC_SUCCESS)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to marshal PCR selection: %s", sym_Tss2_RC_Decode(rc));
@@ -3473,15 +3478,15 @@ static int tpm2_policy_authorize(
 
 /* Extend 'digest' with the calculated policy hash. */
 static int tpm2_calculate_sealing_policy(
-                const TPML_PCR_SELECTION *hash_pcr_selection,
-                const TPM2B_DIGEST *hash_pcr_values,
-                size_t n_hash_pcr_values,
+                const Tpm2PCRValue *pcr_values,
+                size_t n_pcr_values,
                 const TPM2B_PUBLIC *public,
-                const char *pin,
+                bool use_pin,
                 TPM2B_DIGEST *digest) {
 
         int r;
 
+        assert(pcr_values || n_pcr_values == 0);
         assert(digest);
 
         if (public) {
@@ -3490,13 +3495,13 @@ static int tpm2_calculate_sealing_policy(
                         return r;
         }
 
-        if (hash_pcr_selection && !tpm2_tpml_pcr_selection_is_empty(hash_pcr_selection)) {
-                r = tpm2_calculate_policy_pcr(hash_pcr_selection, hash_pcr_values, n_hash_pcr_values, digest);
+        if (n_pcr_values > 0) {
+                r = tpm2_calculate_policy_pcr(pcr_values, n_pcr_values, digest);
                 if (r < 0)
                         return r;
         }
 
-        if (pin) {
+        if (use_pin) {
                 r = tpm2_calculate_policy_auth_value(digest);
                 if (r < 0)
                         return r;
@@ -3627,28 +3632,17 @@ int tpm2_seal(const char *device,
                         return r;
         }
 
-        TPML_PCR_SELECTION hash_pcr_selection = {};
-        _cleanup_free_ TPM2B_DIGEST *hash_pcr_values = NULL;
+        _cleanup_free_ Tpm2PCRValue *hash_pcr_values = NULL;
         size_t n_hash_pcr_values;
         if (hash_pcr_mask) {
                 /* For now, we just read the current values from the system; we need to be able to specify
                  * expected values, eventually. */
+                TPML_PCR_SELECTION hash_pcr_selection;
                 tpm2_tpml_pcr_selection_from_mask(hash_pcr_mask, pcr_bank, &hash_pcr_selection);
 
-                _cleanup_free_ Tpm2PCRValue *pcr_values = NULL;
-                size_t n_pcr_values;
-                r = tpm2_pcr_read(c, &hash_pcr_selection, &pcr_values, &n_pcr_values);
+                r = tpm2_pcr_read(c, &hash_pcr_selection, &hash_pcr_values, &n_hash_pcr_values);
                 if (r < 0)
                         return r;
-
-                r = tpm2_tpml_pcr_selection_from_pcr_values(
-                                pcr_values,
-                                n_pcr_values,
-                                &hash_pcr_selection,
-                                &hash_pcr_values,
-                                &n_hash_pcr_values);
-                if (r < 0)
-                        return log_error_errno(r, "Could not get PCR selection from values: %m");
         }
 
         TPM2B_PUBLIC pubkey_tpm2, *authorize_key = NULL;
@@ -3665,11 +3659,10 @@ int tpm2_seal(const char *device,
                 return r;
 
         r = tpm2_calculate_sealing_policy(
-                        &hash_pcr_selection,
                         hash_pcr_values,
                         n_hash_pcr_values,
                         authorize_key,
-                        pin,
+                        !!pin,
                         &policy_digest);
         if (r < 0)
                 return r;
