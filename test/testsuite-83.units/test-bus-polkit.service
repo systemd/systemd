@@ -1,0 +1,4 @@
+[Service]
+Type=dbus
+BusName=io.systemd.test.TestBusPolkit
+ExecStart=/usr/lib/systemd/tests/unit-tests/manual/test-bus-polkit

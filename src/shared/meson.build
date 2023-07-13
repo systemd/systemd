@@ -355,3 +355,10 @@ if get_option('fdisk') != 'false'
                 c_args : ['-fvisibility=default'],
                 build_by_default : false)
 endif
+
+tests += [
+        {
+                'sources' : files('test-bus-polkit.c'),
+                'type' : 'manual',
+        },
+]
