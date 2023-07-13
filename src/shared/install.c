@@ -3183,14 +3183,14 @@ int unit_file_exists(RuntimeScope scope, const LookupPaths *lp, const char *name
         return 1;
 }
 
-static int split_pattern_into_name_and_instances(const char *pattern, char **out_unit_name, char ***out_instances) {
+static int split_pattern_into_name_and_instances(const char *pattern, char **ret_unit_name, char ***ret_instances) {
         _cleanup_strv_free_ char **instances = NULL;
         _cleanup_free_ char *unit_name = NULL;
         int r;
 
         assert(pattern);
-        assert(out_instances);
-        assert(out_unit_name);
+        assert(ret_instances);
+        assert(ret_unit_name);
 
         r = extract_first_word(&pattern, &unit_name, NULL, EXTRACT_RETAIN_ESCAPE);
         if (r < 0)
@@ -3207,11 +3207,10 @@ static int split_pattern_into_name_and_instances(const char *pattern, char **out
                 instances = strv_split(pattern, WHITESPACE);
                 if (!instances)
                         return -ENOMEM;
-
-                *out_instances = TAKE_PTR(instances);
         }
 
-        *out_unit_name = TAKE_PTR(unit_name);
+        *ret_unit_name = TAKE_PTR(unit_name);
+        *ret_instances = TAKE_PTR(instances);
 
         return 0;
 }
@@ -3282,7 +3281,7 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
                         parameter = first_word(l, "enable");
                         if (parameter) {
                                 char *unit_name;
-                                char **instances = NULL;
+                                char **instances;
 
                                 /* Unit_name will remain the same as parameter when no instances are specified */
                                 r = split_pattern_into_name_and_instances(parameter, &unit_name, &instances);
