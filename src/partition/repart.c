@@ -141,8 +141,7 @@ static EVP_PKEY *arg_private_key = NULL;
 static X509 *arg_certificate = NULL;
 static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
-static uint32_t arg_tpm2_pcr_literal_mask = UINT32_MAX;
-static uint8_t arg_tpm2_pcr_literal[24][SHA256_DIGEST_SIZE];
+static Hashmap *arg_tpm2_pcr_literal = NULL;
 static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;
 static bool arg_split = false;
@@ -3528,7 +3527,6 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
                 r = tpm2_seal(arg_tpm2_device,
                               arg_tpm2_pcr_mask,
-                              arg_tpm2_pcr_literal_mask,
                               arg_tpm2_pcr_literal,
                               pubkey, pubkey_size,
                               arg_tpm2_public_key_pcr_mask,
@@ -3564,7 +3562,6 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 r = tpm2_make_luks2_json(
                                 keyslot,
                                 arg_tpm2_pcr_mask,
-                                arg_tpm2_pcr_literal_mask,
                                 arg_tpm2_pcr_literal,
                                 pcr_bank,
                                 pubkey, pubkey_size,
@@ -6289,7 +6286,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_TPM2_PCRS:
-                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_pcr_mask, &arg_tpm2_pcr_literal_mask, arg_tpm2_pcr_literal);
+                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_pcr_mask, arg_tpm2_pcr_literal);
                         if (r < 0)
                                 return r;
 
@@ -6303,7 +6300,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TPM2_PUBLIC_KEY_PCRS:
-                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_public_key_pcr_mask, &arg_tpm2_pcr_literal_mask, arg_tpm2_pcr_literal);
+                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_public_key_pcr_mask, arg_tpm2_pcr_literal);
                         if (r < 0)
                                 return r;
 

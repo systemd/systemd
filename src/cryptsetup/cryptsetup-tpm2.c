@@ -57,8 +57,7 @@ int acquire_tpm2_key(
                 const char *volume_name,
                 const char *device,
                 uint32_t hash_pcr_mask,
-                uint32_t literal_pcr_mask,
-                uint8_t hash_pcr_literal[][SHA256_DIGEST_SIZE],
+                Hashmap *hash_pcr_literal,
                 uint16_t pcr_bank,
                 const void *pubkey,
                 size_t pubkey_size,
@@ -135,7 +134,6 @@ int acquire_tpm2_key(
                 return tpm2_unseal(
                                 device,
                                 hash_pcr_mask,
-                                literal_pcr_mask,
                                 hash_pcr_literal,
                                 pcr_bank,
                                 pubkey, pubkey_size,
@@ -179,7 +177,6 @@ int acquire_tpm2_key(
 
                 r = tpm2_unseal(device,
                                 hash_pcr_mask,
-                                literal_pcr_mask,
                                 hash_pcr_literal,
                                 pcr_bank,
                                 pubkey, pubkey_size,

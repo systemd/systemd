@@ -1,77 +1,133 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "tpm2-util.h"
 #include "tests.h"
 
-static void test_tpm2_pcr_from_string_one(const char *s, uint32_t mask, uint32_t literal_mask, uint8_t pcr_literal[][SHA256_DIGEST_SIZE], int ret) {
-        uint32_t m, m2;
-        uint8_t literal[24][SHA256_DIGEST_SIZE];
-        memset(literal, 0, 24*SHA256_DIGEST_SIZE);
+static void test_tpm2_pcr_from_string_one(const char *s, uint32_t mask, const char *idx, const char *bank, const char *hex, int ret) {
+        uint32_t m, literal_mask;
 
-        assert_se(tpm2_pcr_from_string(s, &m, &m2, literal) == ret);
+        if (idx) {
+                sscanf(idx, "%u", &literal_mask);
+                literal_mask = 1 << literal_mask;
+        }
+
+        _cleanup_hashmap_free_ Hashmap *pcr_literal = hashmap_new(NULL);
+        hashmap_put(pcr_literal, "sha1", hashmap_new(NULL));
+        hashmap_put(pcr_literal, "sha256", hashmap_new(NULL));
+
+        assert_se(tpm2_pcr_from_string(s, &m, pcr_literal) == ret);
 
         if (ret >= 0) {
+                Hashmap *pcr_bank = hashmap_get(pcr_literal, bank);
+                uint32_t l_mask = tpm2_mask_from_literals(pcr_bank);
                 assert_se(m == mask);
-                assert_se(m2 == literal_mask);
-                assert_se(memcmp(literal, pcr_literal, 24*SHA256_DIGEST_SIZE) == 0);
+
+                if (l_mask) {
+                        TPM2B_DIGEST *good_digest, *test_digest;
+                        hex_to_digest(&good_digest, hex);
+
+                        assert_se(l_mask == literal_mask);
+                        test_digest = hashmap_get(pcr_bank, idx);
+
+                        assert_se(test_digest->size == good_digest->size);
+                        assert_se(memcmp(test_digest->buffer, good_digest->buffer, good_digest->size) == 0);
+                } else
+                        assert_se(idx == NULL && bank == NULL && hex == NULL);
         }
 }
 
 TEST(tpm2_mask_from_string) {
-        uint32_t literal_mask = 0;
-        uint8_t pcr_literal[24][SHA256_DIGEST_SIZE];
-        char pcr_string[77];
-        char *hex;
-        unsigned pcr_idx;
+        test_tpm2_pcr_from_string_one("", 0, NULL, NULL, NULL, 0);
+        test_tpm2_pcr_from_string_one("0", 1, NULL, NULL, NULL, 0);
+        test_tpm2_pcr_from_string_one("1", 2, NULL, NULL, NULL, 0);
+        test_tpm2_pcr_from_string_one("0,1", 3, NULL, NULL, NULL, 0);
+        test_tpm2_pcr_from_string_one("0+1", 3, NULL, NULL, NULL, 0);
+        test_tpm2_pcr_from_string_one("0-1", 0, NULL, NULL, NULL, -EINVAL);
+        test_tpm2_pcr_from_string_one("0,1,2", 7, NULL, NULL, NULL, 0);
+        test_tpm2_pcr_from_string_one("0+1+2", 7, NULL, NULL, NULL, 0);
+        test_tpm2_pcr_from_string_one("0+1,2", 7, NULL, NULL, NULL, 0);
+        test_tpm2_pcr_from_string_one("0,1+2", 7, NULL, NULL, NULL, 0);
+        test_tpm2_pcr_from_string_one("0,2", 5, NULL, NULL, NULL, 0);
+        test_tpm2_pcr_from_string_one("0+2", 5, NULL, NULL, NULL, 0);
+        test_tpm2_pcr_from_string_one("foo", 0, NULL, NULL, NULL, -EINVAL);
+        test_tpm2_pcr_from_string_one("7+application-support", 8388736, NULL, NULL, NULL, 0);
+        test_tpm2_pcr_from_string_one("8+boot-loader-code", 272, NULL, NULL, NULL, 0);
+        test_tpm2_pcr_from_string_one("6+boot-loader-code,44", 0, NULL, NULL, NULL, -EINVAL);
+        test_tpm2_pcr_from_string_one("7,shim-policy,4", 16528, NULL, NULL, NULL, 0);
+        test_tpm2_pcr_from_string_one("sysexts,shim-policy+kernel-boot", 26624, NULL, NULL, NULL, 0);
+        test_tpm2_pcr_from_string_one("sysexts,shim+kernel-boot", 0, NULL, NULL, NULL, -EINVAL);
+        test_tpm2_pcr_from_string_one("sysexts+17+23", 8527872, NULL, NULL, NULL, 0);
+        test_tpm2_pcr_from_string_one("debug+24", 0, NULL, NULL, NULL, -EINVAL);
 
-        memset(pcr_literal, 0, 24*SHA256_DIGEST_SIZE);
+        _cleanup_free_ char *pcr_string = NULL;
+        const char *hex, *bank, *pcr_idx;
 
-        test_tpm2_pcr_from_string_one("", 0, literal_mask, pcr_literal, 0);
-        test_tpm2_pcr_from_string_one("0", 1, literal_mask, pcr_literal, 0);
-        test_tpm2_pcr_from_string_one("1", 2, literal_mask, pcr_literal, 0);
-        test_tpm2_pcr_from_string_one("0,1", 3, literal_mask, pcr_literal, 0);
-        test_tpm2_pcr_from_string_one("0+1", 3, literal_mask, pcr_literal, 0);
-        test_tpm2_pcr_from_string_one("0-1", 0, literal_mask, pcr_literal, -EINVAL);
-        test_tpm2_pcr_from_string_one("0,1,2", 7, literal_mask, pcr_literal, 0);
-        test_tpm2_pcr_from_string_one("0+1+2", 7, literal_mask, pcr_literal, 0);
-        test_tpm2_pcr_from_string_one("0+1,2", 7, literal_mask, pcr_literal, 0);
-        test_tpm2_pcr_from_string_one("0,1+2", 7, literal_mask, pcr_literal, 0);
-        test_tpm2_pcr_from_string_one("0,2", 5, literal_mask, pcr_literal, 0);
-        test_tpm2_pcr_from_string_one("0+2", 5, literal_mask, pcr_literal, 0);
-        test_tpm2_pcr_from_string_one("foo", 0, literal_mask, pcr_literal, -EINVAL);
-        test_tpm2_pcr_from_string_one("7+application-support", 8388736, literal_mask, pcr_literal, 0);
-        test_tpm2_pcr_from_string_one("8+boot-loader-code", 272, literal_mask, pcr_literal, 0);
-        test_tpm2_pcr_from_string_one("6+boot-loader-code,44", 0, literal_mask, pcr_literal, -EINVAL);
-        test_tpm2_pcr_from_string_one("7,shim-policy,4", 16528, literal_mask, pcr_literal, 0);
-        test_tpm2_pcr_from_string_one("sysexts,shim-policy+kernel-boot", 26624, literal_mask, pcr_literal, 0);
-        test_tpm2_pcr_from_string_one("sysexts,shim+kernel-boot", 0, literal_mask, pcr_literal, -EINVAL);
-        test_tpm2_pcr_from_string_one("sysexts+17+23", 8527872, literal_mask, pcr_literal, 0);
-        test_tpm2_pcr_from_string_one("debug+24", 0, literal_mask, pcr_literal, -EINVAL);
+        hex = "3D458CFE55CC03EA1F443F1562BEEC8DF51C75E14A9FCF9A7234A13F198E7969";
+        pcr_idx = "11";
+        bank = "sha256";
+        asprintf(&pcr_string, "0,%s:%s=%s", pcr_idx, bank, hex);
+        test_tpm2_pcr_from_string_one(pcr_string, 1, pcr_idx, bank, hex, 0);
 
-        hex = (char *)"3D458CFE55CC03EA1F443F1562BEEC8DF51C75E14A9FCF9A7234A13F198E7969";
-        pcr_idx = 11;
-        sprintf(pcr_string, "0,%u:sha256=%s", pcr_idx, hex);
-        memset(pcr_literal, 0, 24*SHA256_DIGEST_SIZE);
-        hex_to_bytes(pcr_literal[pcr_idx], hex);
-        literal_mask = 1 << pcr_idx;
-        test_tpm2_pcr_from_string_one(pcr_string, 1, literal_mask, pcr_literal, 0);
+        hex = "3G458CFE55CC03EA1F443F1562BEEC8DF51C75E14A9FCF9A7234A13F198E7969";
+        pcr_idx = "11";
+        bank = "sha256";
+        asprintf(&pcr_string, "0,%s:%s=%s", pcr_idx, bank, hex);
+        test_tpm2_pcr_from_string_one(pcr_string, 1, pcr_idx, bank, hex, -EINVAL);
 
-        hex = (char *)"3G458CFE55CC03EA1F443F1562BEEC8DF51C75E14A9FCF9A7234A13F198E7969";
-        pcr_idx = 11;
-        sprintf(pcr_string, "0,%u:sha256=%s", pcr_idx, hex);
-        memset(pcr_literal, 0, 24*SHA256_DIGEST_SIZE);
-        hex_to_bytes(pcr_literal[pcr_idx], hex);
-        literal_mask = 1 << pcr_idx;
-        test_tpm2_pcr_from_string_one(pcr_string, 1, literal_mask, pcr_literal, -EINVAL);
+        hex = "3D458CFE55CC03EA1F443F1562BEEC8DF51C75E14A9FCF9A7234A13F198E7969";
+        pcr_idx = "11";
+        bank = "sha384";
+        asprintf(&pcr_string, "0,%s:%s=%s", pcr_idx, bank, hex);
+        test_tpm2_pcr_from_string_one(pcr_string, 1, pcr_idx, bank, hex, -EINVAL);
+}
 
-        hex = (char *)"3D458CFE55CC03EA1F443F1562BEEC8DF51C75E14A9FCF9A7234A13F198E7969";
-        pcr_idx = 11;
-        sprintf(pcr_string, "0,%u:sha384=%s", pcr_idx, hex);
-        memset(pcr_literal, 0, 24*SHA256_DIGEST_SIZE);
-        hex_to_bytes(pcr_literal[pcr_idx], hex);
-        literal_mask = 1 << pcr_idx;
-        test_tpm2_pcr_from_string_one(pcr_string, 1, literal_mask, pcr_literal, -EINVAL);
+TEST(test_literal_banks) {
+        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        uint32_t sha1_mask, sha256_mask;
+
+        m = hashmap_new(NULL);
+        hashmap_put(m, "sha1", hashmap_new(NULL));
+        hashmap_put(m, "sha256", hashmap_new(NULL));
+
+        const char *t1_sha1i = "3D458CFE55CC03EA1F443F1562BEEC8DF51C75E1";
+        const char *t3_sha1i = "75E14A9FCF9A7234A13F198E79693D458CFE55CC";
+        const char *t1_sha256i = "3D458CFE55CC03EA1F443F1562BEEC8DF51C75E14A9FCF9A7234A13F198E7969";
+        const char *t2_sha256i = "75E14A9FCF9A7234A13F198E79693D458CFE55CC03EA1F443F1562BEEC8DF51C";
+
+        TPM2B_DIGEST *hv1_sha1, *hv3_sha1, *hv1_sha256, *hv2_sha256;
+        hex_to_digest(&hv1_sha1, t1_sha1i);
+        hex_to_digest(&hv3_sha1, t3_sha1i);
+        hex_to_digest(&hv1_sha256, t1_sha256i);
+        hex_to_digest(&hv2_sha256, t2_sha256i);
+
+        hashmap_put(hashmap_get(m, "sha1"), "1", hv1_sha1);
+        hashmap_put(hashmap_get(m, "sha1"), "3", hv3_sha1);
+        hashmap_put(hashmap_get(m, "sha256"), "1", hv1_sha256);
+        hashmap_put(hashmap_get(m, "sha256"), "2", hv2_sha256);
+
+        sha1_mask = tpm2_mask_from_literals(hashmap_get(m, "sha1"));
+        sha256_mask = tpm2_mask_from_literals(hashmap_get(m, "sha256"));
+        assert_se(sha1_mask == 10);
+        assert_se(sha256_mask == 6);
+
+        TPM2B_DIGEST *v1_sha1, *v3_sha1, *v1_sha256, *v2_sha256;
+        v1_sha1 = hashmap_get(hashmap_get(m, "sha1"), "1");
+        v3_sha1 = hashmap_get(hashmap_get(m, "sha1"), "3");
+        v1_sha256 = hashmap_get(hashmap_get(m, "sha256"), "1");
+        v2_sha256 = hashmap_get(hashmap_get(m, "sha256"), "2");
+
+        _cleanup_free_ char *t1_sha1o, *t3_sha1o, *t1_sha256o, *t2_sha256o;
+        t1_sha1o = bytes_to_hex(v1_sha1);
+        t3_sha1o = bytes_to_hex(v3_sha1);
+        t1_sha256o = bytes_to_hex(v1_sha256);
+        t2_sha256o = bytes_to_hex(v2_sha256);
+
+        assert_se(strcmp(t1_sha1i, t1_sha1o) == 0);
+        assert_se(strcmp(t3_sha1i, t3_sha1o) == 0);
+        assert_se(strcmp(t1_sha256i, t1_sha256o) == 0);
+        assert_se(strcmp(t2_sha256i, t2_sha256o) == 0);
 }
 
 TEST(pcr_index_from_string) {

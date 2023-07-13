@@ -704,8 +704,7 @@ int encrypt_credential_and_warn(
                 usec_t not_after,
                 const char *tpm2_device,
                 uint32_t tpm2_hash_pcr_mask,
-                uint32_t hash_pcr_mask_literal,
-                uint8_t hash_pcr_literal[][SHA256_DIGEST_SIZE],
+                Hashmap *hash_pcr_literal,
                 const char *tpm2_pubkey_path,
                 uint32_t tpm2_pubkey_pcr_mask,
                 const void *input,
@@ -817,7 +816,6 @@ int encrypt_credential_and_warn(
 
                 r = tpm2_seal(tpm2_device,
                               tpm2_hash_pcr_mask,
-                              hash_pcr_mask_literal,
                               hash_pcr_literal,
                               pubkey, pubkey_size,
                               tpm2_pubkey_pcr_mask,
@@ -1112,8 +1110,7 @@ int decrypt_credential_and_warn(
 #if HAVE_TPM2
                 struct tpm2_credential_header* t = (struct tpm2_credential_header*) ((uint8_t*) input + p);
                 struct tpm2_public_key_credential_header *z = NULL;
-                uint32_t literal_pcr_mask = 0;
-                uint8_t hash_pcr_literal[24][SHA256_DIGEST_SIZE];
+                Hashmap *hash_pcr_literal = NULL;
 
                 if (!TPM2_PCR_MASK_VALID(t->pcr_mask))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "TPM2 PCR mask out of range.");
@@ -1164,7 +1161,6 @@ int decrypt_credential_and_warn(
                  // through and used to verify the TPM session.
                 r = tpm2_unseal(tpm2_device,
                                 le64toh(t->pcr_mask),
-                                literal_pcr_mask,
                                 hash_pcr_literal,
                                 le16toh(t->pcr_bank),
                                 z ? z->data : NULL,
@@ -1336,7 +1332,7 @@ int get_credential_host_secret(CredentialSecretFlags flags, void **ret, size_t *
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Support for encrypted credentials not available.");
 }
 
-int encrypt_credential_and_warn(sd_id128_t with_key, const char *name, usec_t timestamp, usec_t not_after, const char *tpm2_device, uint32_t tpm2_hash_pcr_mask, uint32_t hash_pcr_mask_literal, uint8_t hash_pcr_literal[][SHA256_DIGEST_SIZE], const char *tpm2_pubkey_path, uint32_t tpm2_pubkey_pcr_mask, const void *input, size_t input_size, void **ret, size_t *ret_size) {
+int encrypt_credential_and_warn(sd_id128_t with_key, const char *name, usec_t timestamp, usec_t not_after, const char *tpm2_device, uint32_t tpm2_hash_pcr_mask, Hashmap *hash_pcr_literal, const char *tpm2_pubkey_path, uint32_t tpm2_pubkey_pcr_mask, const void *input, size_t input_size, void **ret, size_t *ret_size) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Support for encrypted credentials not available.");
 }
 

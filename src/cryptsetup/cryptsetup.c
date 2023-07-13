@@ -96,8 +96,7 @@ static char *arg_fido2_rp_id = NULL;
 static char *arg_tpm2_device = NULL; /* These and the following fields are about locking an encrypted volume to the local TPM */
 static bool arg_tpm2_device_auto = false;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
-static uint32_t arg_tpm2_literal_mask = UINT32_MAX;
-static uint8_t arg_tpm2_pcr_literal[24][SHA256_DIGEST_SIZE];
+static Hashmap *arg_tpm2_pcr_literal = NULL;
 static char *arg_tpm2_signature = NULL;
 static bool arg_tpm2_pin = false;
 static bool arg_headless = false;
@@ -401,7 +400,7 @@ static int parse_one_option(const char *option) {
 
         } else if ((val = startswith(option, "tpm2-pcrs="))) {
 
-                r = tpm2_parse_pcr_argument(val, &arg_tpm2_pcr_mask, &arg_tpm2_literal_mask, arg_tpm2_pcr_literal);
+                r = tpm2_parse_pcr_argument(val, &arg_tpm2_pcr_mask, arg_tpm2_pcr_literal);
                 if (r < 0)
                         return r;
 
@@ -1646,7 +1645,6 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         name,
                                         arg_tpm2_device,
                                         arg_tpm2_pcr_mask == UINT32_MAX ? TPM2_PCR_MASK_DEFAULT : arg_tpm2_pcr_mask,
-                                        arg_tpm2_literal_mask == UINT32_MAX ? 0 : arg_tpm2_literal_mask,
                                         arg_tpm2_pcr_literal,
                                         UINT16_MAX,
                                         /* pubkey= */ NULL, /* pubkey_size= */ 0,
@@ -1743,7 +1741,6 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 name,
                                                 arg_tpm2_device,
                                                 hash_pcr_mask,
-                                                arg_tpm2_literal_mask == UINT32_MAX ? 0 : arg_tpm2_literal_mask,
                                                 arg_tpm2_pcr_literal,
                                                 pcr_bank,
                                                 pubkey, pubkey_size,
