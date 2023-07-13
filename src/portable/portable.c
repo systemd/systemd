@@ -420,7 +420,7 @@ static int portable_extract_by_path(
                         seq[0] = safe_close(seq[0]);
 
                         if (path_is_extension)
-                                flags |= DISSECT_IMAGE_VALIDATE_OS_EXT | (relax_extension_release_check ? DISSECT_IMAGE_RELAX_SYSEXT_CHECK : 0);
+                                flags |= DISSECT_IMAGE_VALIDATE_OS_EXT | (relax_extension_release_check ? DISSECT_IMAGE_RELAX_EXTENSION_CHECK : 0);
                         else
                                 flags |= DISSECT_IMAGE_VALIDATE_OS;
 
