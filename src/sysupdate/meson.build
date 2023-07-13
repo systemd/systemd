@@ -8,6 +8,7 @@ systemd_sysupdate_sources = files(
         'sysupdate-resource.c',
         'sysupdate-transfer.c',
         'sysupdate-update-set.c',
+        'sysupdate-update-set-flags.c',
         'sysupdate.c',
 )
 
