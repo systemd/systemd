@@ -1437,3 +1437,16 @@ bool version_is_valid(const char *s) {
 
         return true;
 }
+
+bool version_is_valid_versionspec(const char *s) {
+        if (isempty(s))
+                return false;
+
+        if (!filename_part_is_valid(s))
+                return false;
+
+        if (!in_charset(s, ALPHANUMERICAL "-.~^"))
+                return false;
+
+        return true;
+}
