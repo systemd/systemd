@@ -208,10 +208,8 @@ static const char *exec_context_tty_path(const ExecContext *context) {
 }
 
 static int exec_context_tty_size(const ExecContext *context, unsigned *ret_rows, unsigned *ret_cols) {
-        _cleanup_free_ char *rowskey = NULL, *rowsvalue = NULL, *colskey = NULL, *colsvalue = NULL;
         unsigned rows, cols;
         const char *tty;
-        int r;
 
         assert(context);
         assert(ret_rows);
@@ -221,45 +219,8 @@ static int exec_context_tty_size(const ExecContext *context, unsigned *ret_rows,
         cols = context->tty_cols;
 
         tty = exec_context_tty_path(context);
-        if (!tty || (rows != UINT_MAX && cols != UINT_MAX)) {
-                *ret_rows = rows;
-                *ret_cols = cols;
-                return 0;
-        }
-
-        tty = skip_dev_prefix(tty);
-        if (!in_charset(tty, ALPHANUMERICAL)) {
-                log_debug("%s contains non-alphanumeric characters, ignoring", tty);
-                *ret_rows = rows;
-                *ret_cols = cols;
-                return 0;
-        }
-
-        rowskey = strjoin("systemd.tty.rows.", tty);
-        if (!rowskey)
-                return -ENOMEM;
-
-        colskey = strjoin("systemd.tty.columns.", tty);
-        if (!colskey)
-                return -ENOMEM;
-
-        r = proc_cmdline_get_key_many(/* flags = */ 0,
-                                      rowskey, &rowsvalue,
-                                      colskey, &colsvalue);
-        if (r < 0)
-                log_debug_errno(r, "Failed to read TTY size of %s from kernel cmdline, ignoring: %m", tty);
-
-        if (rows == UINT_MAX && rowsvalue) {
-                r = safe_atou(rowsvalue, &rows);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse %s=%s, ignoring: %m", rowskey, rowsvalue);
-        }
-
-        if (cols == UINT_MAX && colsvalue) {
-                r = safe_atou(colsvalue, &cols);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse %s=%s, ignoring: %m", colskey, colsvalue);
-        }
+        if (tty)
+                (void) proc_cmdline_tty_size(tty, rows == UINT_MAX ? &rows : NULL, cols == UINT_MAX ? &cols : NULL);
 
         *ret_rows = rows;
         *ret_cols = cols;

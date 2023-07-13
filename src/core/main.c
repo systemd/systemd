@@ -220,6 +220,7 @@ static int manager_find_user_config_paths(char ***ret_files, char ***ret_dirs) {
 
 static int console_setup(void) {
         _cleanup_close_ int tty_fd = -EBADF;
+        unsigned rows, cols;
         int r;
 
         tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
@@ -231,6 +232,15 @@ static int console_setup(void) {
         r = reset_terminal_fd(tty_fd, false);
         if (r < 0)
                 return log_error_errno(r, "Failed to reset /dev/console: %m");
+
+        r = proc_cmdline_tty_size("/dev/console", &rows, &cols);
+        if (r < 0)
+                log_warning_errno(r, "Failed to get terminal size, ignoring: %m");
+        else {
+                r = terminal_set_size_fd(tty_fd, NULL, rows, cols);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set terminal size, ignoring: %m");
+        }
 
         return 0;
 }
