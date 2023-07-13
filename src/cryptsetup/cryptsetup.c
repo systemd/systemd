@@ -399,7 +399,7 @@ static int parse_one_option(const char *option) {
 
         } else if ((val = startswith(option, "tpm2-pcrs="))) {
 
-                r = tpm2_parse_pcr_argument(val, &arg_tpm2_pcr_mask);
+                r = tpm2_parse_pcr_argument_to_mask(val, &arg_tpm2_pcr_mask);
                 if (r < 0)
                         return r;
 
