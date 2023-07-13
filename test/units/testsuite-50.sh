@@ -551,4 +551,36 @@ echo abc > abc
 systemd-dissect --copy-to /tmp/img abc /abc
 test -f /tmp/img/abc
 
+# Test for dissect tool support with systemd-sysext
+mkdir -p /run/extensions/ testkit/usr/lib/extension-release.d/
+echo "ID=_any" >testkit/usr/lib/extension-release.d/extension-release.testkit
+echo "ARCHITECTURE=_any" >>testkit/usr/lib/extension-release.d/extension-release.testkit
+echo "MARKER_SYSEXT_123" >testkit/usr/lib/testfile
+mksquashfs testkit/ testkit.raw
+cp testkit.raw /run/extensions/
+unsquashfs -l /run/extensions/testkit.raw
+systemd-dissect --no-pager /run/extensions/testkit.raw | grep -q '✓ sysext extension for portable service'
+systemd-dissect --no-pager /run/extensions/testkit.raw | grep -q '✓ sysext extension for system'
+systemd-sysext merge
+systemd-sysext status
+grep -q -F "MARKER_SYSEXT_123" /usr/lib/testfile
+systemd-sysext unmerge
+rm -rf /run/extensions/ testkit/
+
+# Test for dissect tool support with systemd-confext
+mkdir -p /run/confexts/ testjob/etc/extension-release.d/
+echo "ID=_any" >testjob/etc/extension-release.d/extension-release.testjob
+echo "ARCHITECTURE=_any" >>testjob/etc/extension-release.d/extension-release.testjob
+echo "MARKER_CONFEXT_123" >testjob/etc/testfile
+mksquashfs testjob/ testjob.raw
+cp testjob.raw /run/confexts/
+unsquashfs -l /run/confexts/testjob.raw
+systemd-dissect --no-pager /run/confexts/testjob.raw | grep -q '✓ confext extension for system'
+systemd-dissect --no-pager /run/confexts/testjob.raw | grep -q '✓ confext extension for portable service'
+systemd-confext merge
+systemd-confext status
+grep -q -F "MARKER_CONFEXT_123" /etc/testfile
+systemd-confext unmerge
+rm -rf /run/confexts/ testjob/
+
 touch /testok
