@@ -777,6 +777,31 @@ Table=1234</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IPv4ReversePathFilter=</varname></term>
+        <listitem>
+          <para>Configures IPv4 Reverse Path Filtering. Reverse Path Filtering is used to prevent packets that arrived
+          via one interface from leaving via a different interface. When a machine with reverse path filtering enabled
+          receives a packet, the machine will first check whether the source of the received packet is reachable through
+          the interface it came in. If it is routable through the interface which it came, then the machine will accept the packet.
+          If it is not routable through the interface which it came, then the machine will drop that packet. Takes one of
+          <literal>no</literal> No source validation.
+          <literal>strict</literal> In <literal>strict</literal> mode each incoming packet is tested against the FIB and
+          if the incoming interface is not the best reverse path, the packet check will fail. By default failed packets are discarded.
+          <literal>loose</literal> In <literal>loose</literal> mode each incoming packet's source address is tested against the FIB.
+          The packet is dropped only if the source address is not reachable via any interface on that router.
+          See <ulink url="https://tools.ietf.org/html/rfc1027">RFC 3704</ulink>.
+          When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IPv6ReversePathFilter=</varname></term>
+        <listitem>
+          <para>Configures IPv6 Reverse path filtering. As in <varname>IPv4ReversePathFilter=</varname>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IPv4AcceptLocal=</varname></term>
         <listitem>
           <para>Takes a boolean. Accept packets with local source addresses. In combination with
