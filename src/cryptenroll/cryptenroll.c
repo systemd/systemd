@@ -16,6 +16,7 @@
 #include "env-util.h"
 #include "escape.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "libfido2-util.h"
 #include "main-func.h"
 #include "memory-util.h"
@@ -38,6 +39,8 @@ static char *arg_pkcs11_token_uri = NULL;
 static char *arg_fido2_device = NULL;
 static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
+static Hashmap *arg_tpm2_pcr_literal;
+//static _cleanup_hashmap_free_ Hashmap *arg_tpm2_pcr_literal = NULL
 static bool arg_tpm2_pin = false;
 static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;
@@ -356,7 +359,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_TPM2_PCRS:
-                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_pcr_mask);
+                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_pcr_mask, arg_tpm2_pcr_literal);
                         if (r < 0)
                                 return r;
 
@@ -377,7 +380,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TPM2_PUBLIC_KEY_PCRS:
-                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_public_key_pcr_mask);
+                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_public_key_pcr_mask, arg_tpm2_pcr_literal);
                         if (r < 0)
                                 return r;
 
@@ -623,6 +626,8 @@ static int run(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        //tpm2_create_literals_store(&arg_tpm2_pcr_literal);
+
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
@@ -655,7 +660,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_TPM2:
-                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_pcr_mask, arg_tpm2_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin);
+                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_pcr_mask, arg_tpm2_pcr_literal, arg_tpm2_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin);
                 break;
 
         case _ENROLL_TYPE_INVALID:
