@@ -698,7 +698,9 @@ CHANGES WITH 254 in spe:
           charge level of the system. In case the charge level is very low the
           user is notified (graphically via Plymouth – if available – as well
           as in text form on the console), and the system is turned off after a
-          10s delay.
+          10s delay. It supports systemd.battery-check=BOOL kernel command line
+          option, and you can disable the feature by passing the option with
+          false.
 
         * The 'passwdqc' library is now supported as an alternative to the
           'pwquality' library and it can be selected at build time.
