@@ -218,8 +218,8 @@ int devnode_acl_all(const char *seat,
                 k = devnode_acl(n, flush, del, old_uid, add, new_uid);
                 if (k == -ENOENT)
                         log_debug("Device %s disappeared while setting ACLs", n);
-                else if (k < 0 && r == 0)
-                        r = k;
+                else
+                        RET_GATHER(r, k);
         }
 
         return r;

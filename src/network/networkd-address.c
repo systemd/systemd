@@ -986,7 +986,7 @@ int link_drop_ipv6ll_addresses(Link *link) {
 
 int link_drop_foreign_addresses(Link *link) {
         Address *address;
-        int k, r = 0;
+        int r = 0;
 
         assert(link);
         assert(link->network);
@@ -1046,9 +1046,7 @@ int link_drop_foreign_addresses(Link *link) {
                 if (!address_is_marked(address))
                         continue;
 
-                k = address_remove(address);
-                if (k < 0 && r >= 0)
-                        r = k;
+                RET_GATHER(r, address_remove(address));
         }
 
         return r;
@@ -1056,7 +1054,7 @@ int link_drop_foreign_addresses(Link *link) {
 
 int link_drop_managed_addresses(Link *link) {
         Address *address;
-        int k, r = 0;
+        int r = 0;
 
         assert(link);
 
@@ -1069,11 +1067,7 @@ int link_drop_managed_addresses(Link *link) {
                 if (!address_exists(address))
                         continue;
 
-                k = address_remove(address);
-                if (k < 0 && r >= 0) {
-                        r = k;
-                        continue;
-                }
+                RET_GATHER(r, address_remove(address));
         }
 
         return r;

@@ -245,8 +245,7 @@ static int fix_xattr(int fd, const Context *context) {
 
         assert(fd >= 0);
 
-        /* Attach some metadata to coredumps via extended
-         * attributes. Just because we can. */
+        /* Attach some metadata to coredumps via extended attributes. Just because we can. */
 
         for (unsigned i = 0; i < _META_MAX; i++) {
                 int k;
@@ -254,9 +253,8 @@ static int fix_xattr(int fd, const Context *context) {
                 if (isempty(context->meta[i]) || !xattrs[i])
                         continue;
 
-                k = fsetxattr(fd, xattrs[i], context->meta[i], strlen(context->meta[i]), XATTR_CREATE);
-                if (k < 0 && r == 0)
-                        r = -errno;
+                k = RET_NERRNO(fsetxattr(fd, xattrs[i], context->meta[i], strlen(context->meta[i]), XATTR_CREATE));
+                RET_GATHER(r, k);
         }
 
         return r;

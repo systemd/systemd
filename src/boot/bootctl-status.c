@@ -483,17 +483,11 @@ int verb_status(int argc, char *argv[], void *userdata) {
                        "Not booted with EFI\n\n",
                        ansi_underline(), ansi_normal());
 
-        if (arg_esp_path) {
-                k = status_binaries(arg_esp_path, esp_uuid);
-                if (k < 0)
-                        r = k;
-        }
+        if (arg_esp_path)
+                RET_GATHER(r, status_binaries(arg_esp_path, esp_uuid));
 
-        if (!arg_root && is_efi_boot()) {
-                k = status_variables();
-                if (k < 0)
-                        r = k;
-        }
+        if (!arg_root && is_efi_boot())
+                RET_GATHER(r, status_variables());
 
         if (arg_esp_path || arg_xbootldr_path) {
                 _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
@@ -501,15 +495,13 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 k = boot_config_load_and_select(&config,
                                                 arg_esp_path, esp_devid,
                                                 arg_xbootldr_path, xbootldr_devid);
-                if (k < 0)
-                        r = k;
-                else {
-                        k = status_entries(&config,
-                                           arg_esp_path, esp_uuid,
-                                           arg_xbootldr_path, xbootldr_uuid);
-                        if (k < 0)
-                                r = k;
-                }
+                RET_GATHER(r, k);
+
+                if (k >= 0)
+                        RET_GATHER(r,
+                                   status_entries(&config,
+                                                  arg_esp_path, esp_uuid,
+                                                  arg_xbootldr_path, xbootldr_uuid));
         }
 
         return r;
