@@ -29,6 +29,8 @@
 #include "mkdir-label.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
+#include "process-util.h"
 #include "rm-rf.h"
 #include "set.h"
 #include "special.h"
@@ -3215,6 +3217,63 @@ static int split_pattern_into_name_and_instances(const char *pattern, char **ret
         return 0;
 }
 
+static int parse_proc_cmdline_item(const char *key, const char *value, void *userdata) {
+        _cleanup_(unit_file_preset_rule_done) UnitFilePresetRule rule = {};
+        UnitFilePresets *ps = ASSERT_PTR(userdata);
+        int r;
+
+        if (proc_cmdline_key_streq(key, "systemd.preset.enable")) {
+                char *name, **instances;
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = split_pattern_into_name_and_instances(value, &name, &instances);
+                if (r < 0)
+                        return r;
+
+                rule = (UnitFilePresetRule) {
+                        .pattern = name,
+                        .action = PRESET_ENABLE,
+                        .instances = instances,
+                };
+
+        } else if (proc_cmdline_key_streq(key, "systemd.preset.disable")) {
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                char *pattern = strdup(value);
+                if (!pattern)
+                        return -ENOMEM;
+
+                rule = (UnitFilePresetRule) {
+                        .pattern = pattern,
+                        .action = PRESET_DISABLE,
+                };
+
+        } else if (proc_cmdline_key_streq(key, "systemd.preset.ignore")) {
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                char *pattern = strdup(value);
+                if (!pattern)
+                        return -ENOMEM;
+
+                rule = (UnitFilePresetRule) {
+                        .pattern = pattern,
+                        .action = PRESET_IGNORE,
+                };
+
+        } else
+                return 0;
+
+        if (!GREEDY_REALLOC(ps->rules, ps->n_rules + 1))
+                return -ENOMEM;
+
+        ps->rules[ps->n_rules++] = TAKE_STRUCT(rule);
+        return 0;
+}
+
 static int presets_find_config(RuntimeScope scope, const char *root_dir, char ***files) {
         static const char* const system_dirs[] = {CONF_PATHS("systemd/system-preset"), NULL};
         static const char* const user_dirs[] = {CONF_PATHS_USR("systemd/user-preset"), NULL};
@@ -3241,6 +3300,12 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
         assert(scope >= 0);
         assert(scope < _RUNTIME_SCOPE_MAX);
         assert(presets);
+
+        if (getpid_cached() == 1) {
+                r = proc_cmdline_parse(parse_proc_cmdline_item, &ps, 0);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse presets from kernel command line, ignoring: %m");
+        }
 
         r = presets_find_config(scope, root_dir, &files);
         if (r < 0)
