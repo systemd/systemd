@@ -19,6 +19,12 @@ Before=initrd-switch-root.target shutdown.target
 
 [Service]
 Type=oneshot
+# This service will be restarted by udev whenever a new vtcon device appears.
+# If the previous instance is still running, it shall be interrupted without
+# error.
+SuccessExitStatus=SIGTERM
 RemainAfterExit=yes
+
 ExecStart={{ROOTLIBEXECDIR}}/systemd-vconsole-setup
+
 ImportCredential=vconsole.*
