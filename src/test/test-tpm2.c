@@ -619,50 +619,58 @@ TEST(calculate_policy_authorize) {
 }
 
 TEST(calculate_policy_pcr) {
-        TPML_PCR_SELECTION pcr_selection;
-        TPM2B_DIGEST pcr_values[16];
-        TPM2B_DIGEST d;
-        uint32_t pcr_mask;
+        TPM2B_DIGEST d, dN[16];
+
+        digest_init_sha256(&dN[ 0], "2124793cbbe60c3a8637d3b84a5d054e87c351e1469a285acc04755e8b204dec");
+        digest_init_sha256(&dN[ 1], "bf7592f18adcfdc549fc0b94939f5069a24697f9cff4a0dca29014767b97559d");
+        digest_init_sha256(&dN[ 2], "4b00cff9dee3a364979b2dc241b34568a8ad49fcf2713df259e47dff8875feed");
+        digest_init_sha256(&dN[ 3], "3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969");
+        digest_init_sha256(&dN[ 4], "368f85b3013041dfe203faaa364f00b07c5da7b1e5f1dbf2efb06fa6b9bd92de");
+        digest_init_sha256(&dN[ 5], "c97c40369691c8e4aa78fb3a52655cd193b780a838b8e23f5f476576919db5e5");
+        digest_init_sha256(&dN[ 6], "3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969");
+        digest_init_sha256(&dN[ 7], "aa1154c9e0a774854ccbed4c8ce7e9b906b3d700a1a8db1772d0341a62dbe51b");
+        digest_init_sha256(&dN[ 8], "cfde439a2c06af3479ca6bdc60429b90553d65300c5cfcc40004a08c6b5ad81a");
+        digest_init_sha256(&dN[ 9], "9c2bac22ef5ec84fcdb71c3ebf776cba1247e5da980e5ee08e45666a2edf0b8b");
+        digest_init_sha256(&dN[10], "9885873f4d7348199ad286f8f2476d4f866940950f6f9fb9f945ed352dbdcbd2");
+        digest_init_sha256(&dN[11], "42400ab950d21aa79d12cc4fdef67d1087a39ad64900619831c0974dbae54e44");
+        digest_init_sha256(&dN[12], "767d064382e56ca1ad3bdcc6bc596112e6c2008b593d3570d24c2bfa64c4628c");
+        digest_init_sha256(&dN[13], "30c16133175959408c9745d8dafadef5daf4b39cb2be04df0d60089bd46d3cc4");
+        digest_init_sha256(&dN[14], "e3991b7ddd47be7e92726a832d6874c5349b52b789fa0db8b558c69fea29574e");
+        digest_init_sha256(&dN[15], "852dae3ecb992bdeb13d6002fefeeffdd90feca8b378d56681ef2c885d0e5137");
 
         digest_init_sha256(&d, "0000000000000000000000000000000000000000000000000000000000000000");
-        pcr_mask = (1<<4) | (1<<7) | (1<<8);
-        tpm2_tpml_pcr_selection_from_mask(pcr_mask, TPM2_ALG_SHA256, &pcr_selection);
-        digest_init_sha256(&pcr_values[0], "368f85b3013041dfe203faaa364f00b07c5da7b1e5f1dbf2efb06fa6b9bd92de");
-        digest_init_sha256(&pcr_values[1], "aa1154c9e0a774854ccbed4c8ce7e9b906b3d700a1a8db1772d0341a62dbe51b");
-        digest_init_sha256(&pcr_values[2], "cfde439a2c06af3479ca6bdc60429b90553d65300c5cfcc40004a08c6b5ad81a");
-        assert_se(tpm2_calculate_policy_pcr(&pcr_selection, pcr_values, 3, &d) == 0);
+        Tpm2PCRValue v1[] = {
+                TPM2_PCR_VALUE_MAKE(4, TPM2_ALG_SHA256, dN[4]),
+                TPM2_PCR_VALUE_MAKE(7, TPM2_ALG_SHA256, dN[7]),
+                TPM2_PCR_VALUE_MAKE(8, TPM2_ALG_SHA256, dN[8]),
+        };
+        assert_se(tpm2_calculate_policy_pcr(v1, ELEMENTSOF(v1), &d) == 0);
         assert_se(digest_check(&d, "76532a0e16f7e6bf6b02918c11f75d99d729fab0cc81d0df2c4284a2c4fe6e05"));
-
-        pcr_mask = (1<<4) | (1<<7) | (1<<8);
-        tpm2_tpml_pcr_selection_from_mask(pcr_mask, TPM2_ALG_SHA256, &pcr_selection);
-        digest_init_sha256(&pcr_values[0], "368f85b3013041dfe203faaa364f00b07c5da7b1e5f1dbf2efb06fa6b9bd92de");
-        digest_init_sha256(&pcr_values[1], "aa1154c9e0a774854ccbed4c8ce7e9b906b3d700a1a8db1772d0341a62dbe51b");
-        digest_init_sha256(&pcr_values[2], "cfde439a2c06af3479ca6bdc60429b90553d65300c5cfcc40004a08c6b5ad81a");
-        assert_se(tpm2_calculate_policy_pcr(&pcr_selection, pcr_values, 3, &d) == 0);
+        assert_se(tpm2_calculate_policy_pcr(v1, ELEMENTSOF(v1), &d) == 0);
         assert_se(digest_check(&d, "97e64bcabb64c1fa4b726528644926c8029f5b4458b0575c98c04fe225629a0b"));
 
         digest_init_sha256(&d, "0000000000000000000000000000000000000000000000000000000000000000");
-        pcr_mask = 0xffff;
-        tpm2_tpml_pcr_selection_from_mask(pcr_mask, TPM2_ALG_SHA256, &pcr_selection);
-        digest_init_sha256(&pcr_values[ 0], "2124793cbbe60c3a8637d3b84a5d054e87c351e1469a285acc04755e8b204dec");
-        digest_init_sha256(&pcr_values[ 1], "bf7592f18adcfdc549fc0b94939f5069a24697f9cff4a0dca29014767b97559d");
-        digest_init_sha256(&pcr_values[ 2], "4b00cff9dee3a364979b2dc241b34568a8ad49fcf2713df259e47dff8875feed");
-        digest_init_sha256(&pcr_values[ 3], "3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969");
-        digest_init_sha256(&pcr_values[ 4], "368f85b3013041dfe203faaa364f00b07c5da7b1e5f1dbf2efb06fa6b9bd92de");
-        digest_init_sha256(&pcr_values[ 5], "c97c40369691c8e4aa78fb3a52655cd193b780a838b8e23f5f476576919db5e5");
-        digest_init_sha256(&pcr_values[ 6], "3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969");
-        digest_init_sha256(&pcr_values[ 7], "aa1154c9e0a774854ccbed4c8ce7e9b906b3d700a1a8db1772d0341a62dbe51b");
-        digest_init_sha256(&pcr_values[ 8], "cfde439a2c06af3479ca6bdc60429b90553d65300c5cfcc40004a08c6b5ad81a");
-        digest_init_sha256(&pcr_values[ 9], "9c2bac22ef5ec84fcdb71c3ebf776cba1247e5da980e5ee08e45666a2edf0b8b");
-        digest_init_sha256(&pcr_values[10], "9885873f4d7348199ad286f8f2476d4f866940950f6f9fb9f945ed352dbdcbd2");
-        digest_init_sha256(&pcr_values[11], "42400ab950d21aa79d12cc4fdef67d1087a39ad64900619831c0974dbae54e44");
-        digest_init_sha256(&pcr_values[12], "767d064382e56ca1ad3bdcc6bc596112e6c2008b593d3570d24c2bfa64c4628c");
-        digest_init_sha256(&pcr_values[13], "30c16133175959408c9745d8dafadef5daf4b39cb2be04df0d60089bd46d3cc4");
-        digest_init_sha256(&pcr_values[14], "e3991b7ddd47be7e92726a832d6874c5349b52b789fa0db8b558c69fea29574e");
-        digest_init_sha256(&pcr_values[15], "852dae3ecb992bdeb13d6002fefeeffdd90feca8b378d56681ef2c885d0e5137");
-        assert_se(tpm2_calculate_policy_pcr(&pcr_selection, pcr_values, 16, &d) == 0);
+        Tpm2PCRValue v2[] = {
+                TPM2_PCR_VALUE_MAKE( 0, TPM2_ALG_SHA256, dN[ 0]),
+                TPM2_PCR_VALUE_MAKE( 1, TPM2_ALG_SHA256, dN[ 1]),
+                TPM2_PCR_VALUE_MAKE( 2, TPM2_ALG_SHA256, dN[ 2]),
+                TPM2_PCR_VALUE_MAKE( 3, TPM2_ALG_SHA256, dN[ 3]),
+                TPM2_PCR_VALUE_MAKE( 4, TPM2_ALG_SHA256, dN[ 4]),
+                TPM2_PCR_VALUE_MAKE( 5, TPM2_ALG_SHA256, dN[ 5]),
+                TPM2_PCR_VALUE_MAKE( 6, TPM2_ALG_SHA256, dN[ 6]),
+                TPM2_PCR_VALUE_MAKE( 7, TPM2_ALG_SHA256, dN[ 7]),
+                TPM2_PCR_VALUE_MAKE( 8, TPM2_ALG_SHA256, dN[ 8]),
+                TPM2_PCR_VALUE_MAKE( 9, TPM2_ALG_SHA256, dN[ 9]),
+                TPM2_PCR_VALUE_MAKE(10, TPM2_ALG_SHA256, dN[10]),
+                TPM2_PCR_VALUE_MAKE(11, TPM2_ALG_SHA256, dN[11]),
+                TPM2_PCR_VALUE_MAKE(12, TPM2_ALG_SHA256, dN[12]),
+                TPM2_PCR_VALUE_MAKE(13, TPM2_ALG_SHA256, dN[13]),
+                TPM2_PCR_VALUE_MAKE(14, TPM2_ALG_SHA256, dN[14]),
+                TPM2_PCR_VALUE_MAKE(15, TPM2_ALG_SHA256, dN[15]),
+        };
+        assert_se(tpm2_calculate_policy_pcr(v2, ELEMENTSOF(v2), &d) == 0);
         assert_se(digest_check(&d, "22be4f1674f792d6345cea9427701068f0e8d9f42755dcc0e927e545a68f9c13"));
-        assert_se(tpm2_calculate_policy_pcr(&pcr_selection, pcr_values, 16, &d) == 0);
+        assert_se(tpm2_calculate_policy_pcr(v2, ELEMENTSOF(v2), &d) == 0);
         assert_se(digest_check(&d, "7481fd1b116078eb3ac2456e4ad542c9b46b9b8eb891335771ca8e7c8f8e4415"));
 }
 
