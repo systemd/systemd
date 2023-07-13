@@ -40,3 +40,5 @@ char *fstab_node_to_udev_node(const char *p);
 static inline const char* fstab_path(void) {
         return secure_getenv("SYSTEMD_FSTAB") ?: "/etc/fstab";
 }
+
+bool fstab_is_bind(const char *options, const char *fstype);
