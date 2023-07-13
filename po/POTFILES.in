@@ -12,3 +12,4 @@ src/portable/org.freedesktop.portable1.policy
 src/resolve/org.freedesktop.resolve1.policy
 src/timedate/org.freedesktop.timedate1.policy
 src/core/dbus-unit.c
+src/home/pam_systemd_home.c
