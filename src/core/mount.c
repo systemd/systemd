@@ -121,18 +121,6 @@ static bool mount_is_loop(const MountParameters *p) {
         return false;
 }
 
-static bool mount_is_bind(const MountParameters *p) {
-        assert(p);
-
-        if (fstab_test_option(p->options, "bind\0" "rbind\0"))
-                return true;
-
-        if (p->fstype && STR_IN_SET(p->fstype, "bind", "rbind"))
-                return true;
-
-        return false;
-}
-
 static bool mount_is_bound_to_device(Mount *m) {
         const MountParameters *p;
 
@@ -163,10 +151,10 @@ static bool mount_propagate_stop(Mount *m) {
 static bool mount_needs_quota(const MountParameters *p) {
         assert(p);
 
-        if (p->fstype && !fstype_needs_quota(p->fstype))
+        if (!fstype_needs_quota(p->fstype))
                 return false;
 
-        if (mount_is_bind(p))
+        if (fstab_is_bind(p->options, p->fstype))
                 return false;
 
         return fstab_test_option(p->options,
