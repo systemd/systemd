@@ -153,6 +153,7 @@ static void test_route_tables(Manager *manager) {
 
         /* Invalid pairs */
         assert_se(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "main:123 default:333 local:999", manager, manager) >= 0);
+        assert_se(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "xxx:253 yyy:254 local:255", manager, manager) >= 0);
         assert_se(config_parse_route_table_names("manager", "filename", 1, "section", 1, "RouteTable", 0, "1234:321 :567 hoge:foo aaa:-888", manager, manager) >= 0);
         assert_se(!manager->route_table_names_by_number);
         assert_se(!manager->route_table_numbers_by_name);
