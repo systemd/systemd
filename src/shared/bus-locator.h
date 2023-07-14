@@ -2,10 +2,12 @@
 #pragma once
 
 #include "sd-bus.h"
+#include "macro.h"
 
 typedef struct BusLocator {
         const char *destination;
         const char *path;
+        char *allocated_path;
         const char *interface;
 } BusLocator;
 
@@ -22,6 +24,12 @@ extern const BusLocator* const bus_resolve_mgr;
 extern const BusLocator* const bus_systemd_mgr;
 extern const BusLocator* const bus_timedate;
 extern const BusLocator* const bus_timesync_mgr;
+
+/* Makes it possible to construct BusLocator objects w/ some dynamic path. Only the path
+ * is strdup'd and later free'd. */
+BusLocator *bus_locator_new(const char *dest, const char *iface, const char *path);
+BusLocator *bus_locator_free(BusLocator *l);
+DEFINE_TRIVIAL_CLEANUP_FUNC(BusLocator*, bus_locator_free);
 
 /* Shorthand flavors of the sd-bus convenience helpers with destination,path,interface strings encapsulated
  * within a single struct. */
