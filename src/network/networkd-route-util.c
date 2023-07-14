@@ -424,10 +424,9 @@ int manager_get_route_table_from_string(const Manager *m, const char *s, uint32_
         return 0;
 }
 
-int manager_get_route_table_to_string(const Manager *m, uint32_t table, char **ret) {
+int manager_get_route_table_to_string(const Manager *m, uint32_t table, bool append_num, char **ret) {
         _cleanup_free_ char *str = NULL;
         const char *s;
-        int r;
 
         assert(m);
         assert(ret);
@@ -439,13 +438,16 @@ int manager_get_route_table_to_string(const Manager *m, uint32_t table, char **r
         if (!s)
                 s = hashmap_get(m->route_table_names_by_number, UINT32_TO_PTR(table));
 
-        if (s)
-                /* Currently, this is only used in debugging logs. To not confuse any bug
-                 * reports, let's include the table number. */
-                r = asprintf(&str, "%s(%" PRIu32 ")", s, table);
-        else
-                r = asprintf(&str, "%" PRIu32, table);
-        if (r < 0)
+        if (s && !append_num) {
+                str = strdup(s);
+                if (!str)
+                        return -ENOMEM;
+
+        } else if (asprintf(&str, "%s%s%" PRIu32 "%s",
+                            strempty(s),
+                            s ? "(" : "",
+                            table,
+                            s ? ")" : "") < 0)
                 return -ENOMEM;
 
         *ret = TAKE_PTR(str);
