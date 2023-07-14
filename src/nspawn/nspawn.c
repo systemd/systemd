@@ -3825,19 +3825,20 @@ static int outer_child(
             arg_uid_shift != 0) {
 
                 r = remount_idmap(directory, arg_uid_shift, arg_uid_range, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
-                if (r == -EINVAL || ERRNO_IS_NOT_SUPPORTED(r)) {
-                        /* This might fail because the kernel or file system doesn't support idmapping. We
-                         * can't really distinguish this nicely, nor do we have any guarantees about the
-                         * error codes we see, could be EOPNOTSUPP or EINVAL. */
-                        if (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_AUTO)
-                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                                       "ID mapped mounts are apparently not available, sorry.");
+                if (r < 0) {
+                        if (r == -EINVAL || ERRNO_IS_NOT_SUPPORTED(r)) {
+                                /* This might fail because the kernel or file system doesn't support idmapping. We
+                                 * can't really distinguish this nicely, nor do we have any guarantees about the
+                                 * error codes we see, could be EOPNOTSUPP or EINVAL. */
+                                if (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_AUTO)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                               "ID mapped mounts are apparently not available, sorry.");
 
-                        log_debug("ID mapped mounts are apparently not available on this kernel or for the selected file system, reverting to recursive chown()ing.");
-                        arg_userns_ownership = USER_NAMESPACE_OWNERSHIP_CHOWN;
-                } else if (r < 0)
-                        return log_error_errno(r, "Failed to set up ID mapped mounts: %m");
-                else {
+                                log_debug("ID mapped mounts are apparently not available on this kernel or for the selected file system, reverting to recursive chown()ing.");
+                                arg_userns_ownership = USER_NAMESPACE_OWNERSHIP_CHOWN;
+                        } else
+                                return log_error_errno(r, "Failed to set up ID mapped mounts: %m");
+                } else {
                         log_debug("ID mapped mounts available, making use of them.");
                         idmap = true;
                 }
