@@ -29,6 +29,8 @@
 #include "mkdir-label.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
+#include "process-util.h"
 #include "rm-rf.h"
 #include "set.h"
 #include "special.h"
@@ -3183,14 +3185,14 @@ int unit_file_exists(RuntimeScope scope, const LookupPaths *lp, const char *name
         return 1;
 }
 
-static int split_pattern_into_name_and_instances(const char *pattern, char **out_unit_name, char ***out_instances) {
+static int split_pattern_into_name_and_instances(const char *pattern, char **ret_unit_name, char ***ret_instances) {
         _cleanup_strv_free_ char **instances = NULL;
         _cleanup_free_ char *unit_name = NULL;
         int r;
 
         assert(pattern);
-        assert(out_instances);
-        assert(out_unit_name);
+        assert(ret_instances);
+        assert(ret_unit_name);
 
         r = extract_first_word(&pattern, &unit_name, NULL, EXTRACT_RETAIN_ESCAPE);
         if (r < 0)
@@ -3207,12 +3209,68 @@ static int split_pattern_into_name_and_instances(const char *pattern, char **out
                 instances = strv_split(pattern, WHITESPACE);
                 if (!instances)
                         return -ENOMEM;
-
-                *out_instances = TAKE_PTR(instances);
         }
 
-        *out_unit_name = TAKE_PTR(unit_name);
+        *ret_unit_name = TAKE_PTR(unit_name);
+        *ret_instances = TAKE_PTR(instances);
 
+        return 0;
+}
+
+static int parse_proc_cmdline_item(const char *key, const char *value, void *userdata) {
+        _cleanup_(unit_file_preset_rule_done) UnitFilePresetRule rule = {};
+        UnitFilePresets *ps = ASSERT_PTR(userdata);
+        int r;
+
+        if (proc_cmdline_key_streq(key, "systemd.preset.enable")) {
+                char *name, **instances;
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = split_pattern_into_name_and_instances(value, &name, &instances);
+                if (r < 0)
+                        return r;
+
+                rule = (UnitFilePresetRule) {
+                        .pattern = name,
+                        .action = PRESET_ENABLE,
+                        .instances = instances,
+                };
+
+        } else if (proc_cmdline_key_streq(key, "systemd.preset.disable")) {
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                char *pattern = strdup(value);
+                if (!pattern)
+                        return -ENOMEM;
+
+                rule = (UnitFilePresetRule) {
+                        .pattern = pattern,
+                        .action = PRESET_DISABLE,
+                };
+
+        } else if (proc_cmdline_key_streq(key, "systemd.preset.ignore")) {
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                char *pattern = strdup(value);
+                if (!pattern)
+                        return -ENOMEM;
+
+                rule = (UnitFilePresetRule) {
+                        .pattern = pattern,
+                        .action = PRESET_IGNORE,
+                };
+
+        } else
+                return 0;
+
+        if (!GREEDY_REALLOC(ps->rules, ps->n_rules + 1))
+                return -ENOMEM;
+
+        ps->rules[ps->n_rules++] = TAKE_STRUCT(rule);
         return 0;
 }
 
@@ -3242,6 +3300,12 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
         assert(scope >= 0);
         assert(scope < _RUNTIME_SCOPE_MAX);
         assert(presets);
+
+        if (getpid_cached() == 1) {
+                r = proc_cmdline_parse(parse_proc_cmdline_item, &ps, 0);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse presets from kernel command line, ignoring: %m");
+        }
 
         r = presets_find_config(scope, root_dir, &files);
         if (r < 0)
@@ -3281,8 +3345,7 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
 
                         parameter = first_word(l, "enable");
                         if (parameter) {
-                                char *unit_name;
-                                char **instances = NULL;
+                                char *unit_name, **instances;
 
                                 /* Unit_name will remain the same as parameter when no instances are specified */
                                 r = split_pattern_into_name_and_instances(parameter, &unit_name, &instances);
