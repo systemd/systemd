@@ -2143,8 +2143,8 @@ if efi_arch == 'x64' and cc.links('''
 endif
 
 have_pyelftools = pymod.find_installation('python3', required : false, modules : ['elftools']).found()
-if get_option('bootloader') == 'true' and (not python_39 or not have_pyelftools)
-        error('EFI bootloader support requires Python >= 3.9 and pyelftools.')
+if get_option('bootloader') == 'true' and not have_pyelftools
+        error('EFI bootloader support requires pyelftools.')
 endif
 
 conf.set10(
@@ -2152,7 +2152,6 @@ conf.set10(
         get_option('efi') and
         get_option('bootloader') in ['auto', 'true'] and
         efi_arch != '' and
-        python_39 and
         have_pyelftools,
 )
 
