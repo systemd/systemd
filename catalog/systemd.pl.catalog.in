@@ -579,3 +579,25 @@ z powrotem do jądra systemu operacyjnego, udostępniając je innym częściom
 systemu.
 
 Zwrócono @TRIMMED_BYTES@ pamięci do systemu operacyjnego, co zajęło @TRIMMED_USEC@ μs.
+
+-- a8fa8dacdb1d443e9503b8be367a6adb
+Subject: Znaleziono usługę SysV
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Na komputerze odnaleziono skrypt usługi System V @SYSVSCRIPT@, który nie ma
+natywnej jednostki systemd. Utworzono automatyczny plik jednostki @UNIT@,
+aby zapewnić zgodność.
+
+Proszę zauważyć, że tego rodzaju automatycznie tworzone pliki jednostek
+nie mogą zastąpić natywnych plików jednostek, jako że zazwyczaj spowalniają
+one komputer (przez tworzenie niepotrzebnych, dodatkowych punktów
+synchronizacji), są mniej solidne (jako że nie można właściwie zarządzać
+usługami SysV ani ich automatycznie uruchamiać ponownie) oraz mniej
+bezpieczne (jako że nie można wymuszać żadnych ograniczeń piaskownicy).
+
+Obsługa zgodności z usługami System V w systemd jest oznaczona jako
+przestarzała. Proszę się upewnić, że zaktualizowano wymieniony pakiet,
+aby zapewnić właściwe, natywne pliki jednostek systemd. W razie potrzeby
+należy skontaktować się z producentem pakietu. Obsługa zgodności z usługami
+System V jest oznaczona jako przestarzała i niedługo zostanie usunięta.
