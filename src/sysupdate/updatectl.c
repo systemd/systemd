@@ -10,6 +10,7 @@
 #include "bus-label.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
+#include "errno-list.h"
 #include "format-table.h"
 #include "json.h"
 #include "main-func.h"
@@ -27,19 +28,6 @@ static bool arg_offline = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static char *arg_host = NULL;
 
-/*
-static BusLocator *job_locator_new(const uint64_t *id) {
-        // TODO: Do we need this?
-        _cleanup_free_ char *objpath = NULL;
-
-        if (asprintf(&objpath, "/org/freedesktop/sysupdate1/job/_%" PRIu64, id) < 0)
-                return NULL;
-
-        return bus_locator_new(bus_sysupdate_mgr.destination,
-                               "org.freedesktop.sysupdate1.Job",
-                               objpath);
-}*/
-
 typedef struct Version {
         char *version;
         UpdateSetFlags flags;
@@ -56,15 +44,48 @@ static void version_clear(Version *v) {
 }
 
 typedef struct AsyncUserdata {
-        void *userdata;
+        void *userdata; /* Make sure this comes first! */
+
+        void (*render)(void*);
         size_t remaining;
 } AsyncUserdata;
 
-typedef struct TargetAsyncUserdata {
+typedef struct Userdata {
         AsyncUserdata *async;
         BusLocator *target;
         const char *target_id;
-} TargetAsyncUserdata;
+
+        uint64_t job_id;
+        sd_bus_slot *job_properties_slot;
+        sd_bus_slot *job_finished_slot;
+} Userdata;
+
+static Userdata* userdata_free(Userdata *p) {
+        if (!p)
+                return NULL;
+
+        sd_bus_slot_unref(p->job_properties_slot);
+        sd_bus_slot_unref(p->job_finished_slot);
+
+        return mfree(p);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Userdata*, userdata_free);
+
+static Userdata* userdata_new(AsyncUserdata *async, BusLocator *target, const char *target_id) {
+        _cleanup_(userdata_freep) Userdata *u = NULL;
+
+        u = new(Userdata, 1);
+        if (!u)
+                return NULL;
+
+        *u = (Userdata) {
+                .async = async,
+                .target = target,
+                .target_id = target_id,
+        };
+        return TAKE_PTR(u);
+}
 
 static int async_userdata_wait(sd_bus *bus, AsyncUserdata *wait) {
         int r;
@@ -75,6 +96,9 @@ static int async_userdata_wait(sd_bus *bus, AsyncUserdata *wait) {
                         return log_error_errno(r, "Failed to process requests: %m");
                 if (r > 0)
                         continue;
+
+                if (wait->render)
+                        wait->render(wait->userdata);
 
                 r = sd_bus_wait(bus, UINT64_MAX);
                 if (r < 0)
@@ -237,6 +261,8 @@ static int parse_targets(
 }
 
 static int log_bus_error(int r, const sd_bus_error *error, const char *target, const char *action) {
+        assert(action);
+
         if (r == 0) {
                 assert(sd_bus_error_is_set(error));
                 r = sd_bus_error_get_errno(error);
@@ -318,6 +344,8 @@ static int map_version_flags(
         };
         ssize_t flag;
         int r, b;
+
+        assert(m);
 
         r = sd_bus_message_read_basic(m, 'b', &b);
         if (r < 0)
@@ -549,11 +577,9 @@ static int verb_list(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int check_finished(sd_bus_message *reply, void *_userdata, sd_bus_error *ret_error) {
-        TargetAsyncUserdata *userdata = ASSERT_PTR(_userdata);
-        Table *table = ASSERT_PTR(userdata->async->userdata);
-        BusLocator *target = ASSERT_PTR(userdata->target);
-        const char *target_id = ASSERT_PTR(userdata->target_id);
+static int check_finished(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
+        _cleanup_(userdata_freep) Userdata *data = ASSERT_PTR(userdata);
+        Table *table = ASSERT_PTR(data->async->userdata);
         sd_bus *bus;
         const sd_bus_error *e;
         _cleanup_free_ char *version = NULL, *update = NULL;
@@ -563,11 +589,11 @@ static int check_finished(sd_bus_message *reply, void *_userdata, sd_bus_error *
         assert(reply);
         assert_se(bus = sd_bus_message_get_bus(reply));
 
-        userdata->async->remaining--;
+        data->async->remaining--;
 
         e = sd_bus_message_get_error(reply);
         if (e)
-                return log_bus_error(0, e, target_id, "call CheckNew");
+                return log_bus_error(0, e, data->target_id, "call CheckNew");
 
         r = sd_bus_message_read(reply, "s", &new_version);
         if (r < 0)
@@ -576,16 +602,16 @@ static int check_finished(sd_bus_message *reply, void *_userdata, sd_bus_error *
         if (isempty(new_version))
                 return 0;
 
-        r = bus_get_property_string(bus, target, "Version", ret_error, &version);
+        r = bus_get_property_string(bus, data->target, "Version", ret_error, &version);
         if (r < 0)
-                return log_bus_error(r, ret_error, target_id, "get Version");
+                return log_bus_error(r, ret_error, data->target_id, "get Version");
 
         update = strjoin(version, " ", special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), " ", new_version);
         if (!update)
                 return log_oom();
 
         r = table_add_many(table,
-                           TABLE_STRING, target_id,
+                           TABLE_STRING, data->target_id,
                            TABLE_STRING, update);
         if (r < 0)
                 return table_log_add_error(r);
@@ -622,15 +648,15 @@ static int verb_check(int argc, char **argv, void *userdata) {
         async = (AsyncUserdata) { table };
 
         for (size_t i = 0; i < n; i++) {
-                TargetAsyncUserdata t = (TargetAsyncUserdata) {
-                        .async = &async,
-                        .target = objects[i],
-                        .target_id = targets[i],
-                };
+                _cleanup_(userdata_freep) Userdata *u = NULL;
+                u = userdata_new(&async, objects[i], targets[i]);
+                if (!u)
+                        return log_oom();
 
-                r = bus_call_method_async(bus, NULL, objects[i], "CheckNew", check_finished, &t, NULL);
+                r = bus_call_method_async(bus, NULL, objects[i], "CheckNew", check_finished, u, NULL);
                 if (r < 0)
                         return r;
+                TAKE_PTR(u);
 
                 async.remaining++;
         }
@@ -642,12 +668,173 @@ static int verb_check(int argc, char **argv, void *userdata) {
         return table_print_with_pager(table, JSON_FORMAT_OFF, arg_pager_flags, arg_legend);
 }
 
+#define UPDATE_PROGRESS_FAILED INT_MIN
+/* Make sure it doesn't overlap w/ errno values */
+assert_cc(UPDATE_PROGRESS_FAILED < -ERRNO_MAX);
+
+static void update_render_progress(void *userdata) {
+        Hashmap *map = ASSERT_PTR(userdata);
+        const char *key;
+        int progress;
+
+        HASHMAP_FOREACH_KEY(progress, key, map) {
+                log_info("%s -> %i%% done", key, progress);
+        }
+
+        // TODO: Scan the map & use it to render progress
+        //   key -> job name
+        //   value -> job progress (UINT_MAX = failed, 0-100 = progress)
+}
+
+static int update_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        Userdata *data = ASSERT_PTR(userdata);
+        Hashmap *map = ASSERT_PTR(data->async->userdata);
+        const char *interface;
+        unsigned progress = UINT_MAX;
+        const struct bus_properties_map prop_map[] = {
+                { "Progress", "u", NULL, PTR_TO_SIZE(&progress) },
+                {}
+        };
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_read(m, "s", &interface);
+        if (r < 0) {
+                bus_log_parse_error_debug(r);
+                return 0;
+        }
+
+        if (!streq(interface, "org.freedesktop.sysupdate1.Job"))
+                return 0;
+
+        r = bus_message_map_all_properties(m, prop_map, /* flags= */ 0, error, NULL);
+        if (r < 0)
+                return 0; /* map_all_properties does the debug logging internally... */
+
+        if (progress == UINT_MAX)
+                return 0;
+
+        r = hashmap_replace(map, data->target_id, INT_TO_PTR((int) progress));
+        if (r < 0)
+                log_debug_errno(r, "Failed to update hashmap: %m");
+        return 0;
+}
+
+static int update_finished(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_(userdata_freep) Userdata *data = ASSERT_PTR(userdata);
+        Hashmap *map = ASSERT_PTR(data->async->userdata);
+        uint64_t id;
+        int r, status;
+
+        assert(m);
+
+        r = sd_bus_message_read(m, "uoi", &id, NULL, &status);
+        if (r < 0) {
+                bus_log_parse_error_debug(r);
+                return 0;
+        }
+
+        if (id != data->job_id)
+                return 0;
+
+        data->async->remaining--;
+        log_info("status=%i", status);
+
+        if (status == 0) /* success */
+                status = 100;
+        else if (status > 0) /* exit status without errno */
+                status = UPDATE_PROGRESS_FAILED; /* i.e. EXIT_FAILURE */
+        /* else errno */
+
+        r = hashmap_replace(map, data->target_id, INT_TO_PTR(status));
+        if (r < 0)
+                log_debug_errno(r, "Failed to update hashmap: %m");
+        return 0;
+}
+
+static int update_started(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
+        _cleanup_(userdata_freep) Userdata *data = ASSERT_PTR(userdata);
+        Hashmap *map = ASSERT_PTR(data->async->userdata);
+        sd_bus *bus;
+        const sd_bus_error *e;
+        _cleanup_free_ char *key = NULL;
+        const char *new_version, *job_path;
+        int r;
+
+        assert(reply);
+        assert_se(bus = sd_bus_message_get_bus(reply));
+
+        e = sd_bus_message_get_error(reply);
+        if (e) {
+                r = sd_bus_error_get_errno(e);
+
+                /* Let the failed job show up in the progress view too so the user knows they failed */
+                key = strdup(data->target_id);
+                if (!key)
+                        return log_oom();
+                r = hashmap_put(map, key, INT_TO_PTR(r));
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to update hashmap: %m");
+                TAKE_PTR(key);
+
+                data->async->remaining--;
+                return r;
+        }
+
+        r = sd_bus_message_read(reply, "uo", &data->job_id, &job_path);
+        if (r < 0)
+                return bus_log_parse_error(r);
+        new_version = "asdf"; // TODO
+        assert(!isempty(new_version));
+
+        /* Register this job into the hashmap. This will give it a progress bar */
+        if (strchr(data->target_id, '@'))
+                key = strdup(data->target_id);
+        else
+                key = strjoin(data->target_id, "@", new_version);
+        if (!key)
+                return log_oom();
+        r = hashmap_put(map, key, INT_TO_PTR(0)); /* takes ownership of key */
+        if (r < 0)
+                return r;
+        data->target_id = TAKE_PTR(key); /* just borrowing */
+
+        /* Register for progress notifications */
+        r = sd_bus_match_signal_async(bus,
+                                      &data->job_properties_slot,
+                                      data->target->destination,
+                                      job_path,
+                                      "org.freedesktop.DBus.Properties",
+                                      "PropertiesChanged",
+                                      update_properties_changed,
+                                      NULL,
+                                      data);
+        if (r < 0)
+                return log_bus_error(r, NULL, data->target_id, "listen for PropertiesChanged");
+
+        /* Register for notification when the job ends */
+        r = bus_match_signal_async(bus,
+                                   &data->job_finished_slot,
+                                   bus_sysupdate_mgr,
+                                   "JobRemoved",
+                                   update_finished,
+                                   NULL,
+                                   data);
+        if (r < 0)
+                return log_bus_error(r, NULL, data->target_id, "listen for JobRemoved");
+        TAKE_PTR(data);
+
+        return 0;
+}
+
 static int verb_update(int argc, char **argv, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_hashmap_free_ Hashmap *map = NULL;
         _cleanup_strv_free_ char **targets = NULL, **versions = NULL;
         BusLocator **objects = NULL;
         size_t n;
+        AsyncUserdata async;
         int r;
 
         CLEANUP_ARRAY(objects, n, parse_targets_free);
@@ -660,12 +847,33 @@ static int verb_update(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        // TODO: Figure out event loop & progress
+        map = hashmap_new(&string_hash_ops_free);
+        if (!map)
+                return log_oom();
+
+        async = (AsyncUserdata) {
+                .userdata = map,
+                .render = update_render_progress,
+        };
 
         for (size_t i = 0; i < n; i++) {
-                // TODO
-                log_info("%s: Update(version=%s)", objects[i]->path, versions[i]);
+                _cleanup_(userdata_freep) Userdata *u = NULL;
+                u = userdata_new(&async, objects[i], targets[i]);
+                if (!u)
+                        return log_oom();
+
+                r = bus_call_method_async(bus, NULL, objects[i], "Update", update_started, u,
+                                          "s", versions[i]);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(u);
+
+                async.remaining++;
         }
+
+        r = async_userdata_wait(bus, &async);
+        if (r < 0)
+                return r;
 
         // TODO
         if (arg_reboot)
