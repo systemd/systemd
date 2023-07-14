@@ -18,13 +18,7 @@ srpm_build_deps: []
 actions:
   post-upstream-clone:
     # Use the Fedora Rawhide specfile
-    - "git clone https://src.fedoraproject.org/rpms/systemd .packit_rpm"
-    # FIXME: temporarily use older specfile that works with Packit
-    #
-    # This should be safe to drop after 2023-07-18 when [0] should be deployed
-    # to production
-    # [0] https://github.com/packit/specfile/commit/2bdcec3db5cbee5e1f61fd578edd6a3393afd787
-    - "bash -xec '(cd .packit_rpm && git checkout 9c05b44a4b8922cdd4671298107e067302509afc)'"
+    - "git clone https://src.fedoraproject.org/rpms/systemd .packit_rpm --depth=1"
     # Drop the "sources" file so rebase-helper doesn't think we're a dist-git
     - "rm -fv .packit_rpm/sources"
     # Drop backported patches from the specfile, but keep the downstream-only ones
