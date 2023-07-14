@@ -9,6 +9,7 @@
 #include "escape.h"
 #include "fileio.h"
 #include "format-table.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "json.h"
@@ -45,6 +46,7 @@ static int arg_newline = -1;
 static sd_id128_t arg_with_key = _CRED_AUTO;
 static const char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
+static Hashmap *arg_tpm2_pcr_literal = NULL;
 static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;
 static char *arg_tpm2_signature = NULL;
@@ -495,6 +497,7 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
                         arg_not_after,
                         arg_tpm2_device,
                         arg_tpm2_pcr_mask,
+                        arg_tpm2_pcr_literal,
                         arg_tpm2_public_key,
                         arg_tpm2_public_key_pcr_mask,
                         plaintext, plaintext_size,
@@ -860,7 +863,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TPM2_PCRS: /* For fixed hash PCR policies only */
-                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_pcr_mask);
+                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_pcr_mask, arg_tpm2_pcr_literal);
                         if (r < 0)
                                 return r;
 
@@ -874,7 +877,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TPM2_PUBLIC_KEY_PCRS: /* For public key PCR policies only */
-                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_public_key_pcr_mask);
+                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_public_key_pcr_mask, arg_tpm2_pcr_literal);
                         if (r < 0)
                                 return r;
 

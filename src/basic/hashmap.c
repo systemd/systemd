@@ -1358,6 +1358,7 @@ void* _hashmap_get(HashmapBase *h, const void *key) {
 
         hash = bucket_hash(h, key);
         idx = bucket_scan(h, hash, key);
+        fprintf(stderr, "HM: %p %s %u %u\n", h, (char*)key, hash, idx);
         if (idx == IDX_NIL)
                 return NULL;
 
