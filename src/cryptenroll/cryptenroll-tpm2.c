@@ -134,6 +134,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 size_t volume_key_size,
                 const char *device,
                 uint32_t hash_pcr_mask,
+                Hashmap *hash_pcr_literal,
                 const char *pubkey_path,
                 uint32_t pubkey_pcr_mask,
                 const char *signature_path,
@@ -164,6 +165,7 @@ int enroll_tpm2(struct crypt_device *cd,
         assert(volume_key);
         assert(volume_key_size > 0);
         assert(TPM2_PCR_MASK_VALID(hash_pcr_mask));
+        assert(TPM2_PCR_MASK_VALID(tpm2_mask_from_literals(hash_pcr_literal)));
         assert(TPM2_PCR_MASK_VALID(pubkey_pcr_mask));
 
         assert_se(node = crypt_get_device_name(cd));
@@ -208,6 +210,7 @@ int enroll_tpm2(struct crypt_device *cd,
 
         r = tpm2_seal(device,
                       hash_pcr_mask,
+                      hash_pcr_literal,
                       pubkey, pubkey_size,
                       pubkey_pcr_mask,
                       pin_str,
@@ -240,6 +243,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 log_debug("Unsealing for verification...");
                 r = tpm2_unseal(device,
                                 hash_pcr_mask,
+                                hash_pcr_literal,
                                 pcr_bank,
                                 pubkey, pubkey_size,
                                 pubkey_pcr_mask,
@@ -279,6 +283,7 @@ int enroll_tpm2(struct crypt_device *cd,
         r = tpm2_make_luks2_json(
                         keyslot,
                         hash_pcr_mask,
+                        hash_pcr_literal,
                         pcr_bank,
                         pubkey, pubkey_size,
                         pubkey_pcr_mask,
