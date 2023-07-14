@@ -450,8 +450,7 @@ static int journal_file_find_newest_for_boot_id(
                         return log_debug_errno(r, "Failed to read tail timestamp while trying to find newest journal file for boot ID %s.", SD_ID128_TO_STRING(id));
 
                 /* Refreshing the timestamp we read might have reshuffled the prioq, hence let's check the
-                 * prioq again and only use the the information once we reached an equilibrium or hit a
-                 * limit */
+                 * prioq again and only use the information once we reached an equilibrium or hit a limit */
         }
 }
 

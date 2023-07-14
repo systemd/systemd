@@ -938,21 +938,20 @@ void json_escape(
 
 typedef struct JsonData {
         JsonVariant* name;
-        size_t n_values;
-        JsonVariant* values[];
+        JsonVariant* values;
 } JsonData;
 
-static JsonData* json_data_free(struct JsonData *d) {
+static JsonData* json_data_free(JsonData *d) {
         if (!d)
                 return NULL;
 
         json_variant_unref(d->name);
-
-        FOREACH_ARRAY(v, d->values, d->n_values)
-                json_variant_unref(*v);
+        json_variant_unref(d->values);
 
         return mfree(d);
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(JsonData*, json_data_free);
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(json_data_hash_ops_free,
                                       char, string_hash_func, string_compare_func,
@@ -966,7 +965,7 @@ static int update_json_data(
                 size_t size) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        JsonData *d = NULL;
+        JsonData *d;
         int r;
 
         assert(name);
@@ -986,35 +985,31 @@ static int update_json_data(
 
         d = hashmap_get(h, name);
         if (d) {
-                JsonData *w;
+                r = json_variant_append_array(&d->values, v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append JSON value into array: %m");
+        } else {
+                _cleanup_(json_data_freep) JsonData *e = NULL;
 
-                w = realloc(d, offsetof(JsonData, values) + sizeof(JsonVariant*) * (d->n_values + 1));
-                if (!w)
+                e = new0(JsonData, 1);
+                if (!e)
                         return log_oom();
 
-                d = w;
-                assert_se(hashmap_update(h, json_variant_string(d->name), d) >= 0);
-        } else {
-                _cleanup_(json_variant_unrefp) JsonVariant *n = NULL;
-
-                r = json_variant_new_string(&n, name);
+                r = json_variant_new_string(&e->name, name);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate JSON name variant: %m");
 
-                d = malloc0(offsetof(JsonData, values) + sizeof(JsonVariant*));
-                if (!d)
-                        return log_oom();
+                r = json_variant_append_array(&e->values, v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create JSON value array: %m");
 
-                r = hashmap_put(h, json_variant_string(n), d);
-                if (r < 0) {
-                        free(d);
-                        return log_error_errno(r, "Failed to insert JSON name into hashmap: %m");
-                }
+                r = hashmap_put(h, json_variant_string(e->name), e);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to insert JSON data into hashmap: %m");
 
-                d->name = TAKE_PTR(n);
+                TAKE_PTR(e);
         }
 
-        d->values[d->n_values++] = TAKE_PTR(v);
         return 0;
 }
 
@@ -1156,27 +1151,19 @@ static int output_json(
         CLEANUP_ARRAY(array, n, json_variant_unref_many);
 
         HASHMAP_FOREACH(d, h) {
-                assert(d->n_values > 0);
+                assert(json_variant_elements(d->values) > 0);
 
                 array[n++] = json_variant_ref(d->name);
 
-                if (d->n_values == 1)
-                        array[n++] = json_variant_ref(d->values[0]);
-                else {
-                        _cleanup_(json_variant_unrefp) JsonVariant *q = NULL;
-
-                        r = json_variant_new_array(&q, d->values, d->n_values);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create JSON array: %m");
-
-                        array[n++] = TAKE_PTR(q);
-                }
+                if (json_variant_elements(d->values) == 1)
+                        array[n++] = json_variant_ref(json_variant_by_index(d->values, 0));
+                else
+                        array[n++] = json_variant_ref(d->values);
         }
 
         r = json_variant_new_object(&object, array, n);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate JSON object: %m");
-
 
         return json_variant_dump(object,
                                  output_mode_to_json_format_flags(mode) |
