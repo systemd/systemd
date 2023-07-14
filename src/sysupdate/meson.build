@@ -27,6 +27,14 @@ systemd_sysupdate_sources = files(
         'sysupdate.h',
 )
 
+systemd_updatectl_sources = files(
+        'sysupdate-update-set-flags.c',
+        'sysupdate-update-set-flags.h',
+        'sysupdate-util.c',
+        'sysupdate-util.h',
+        'updatectl.c',
+)
+
 if conf.get('ENABLE_SYSUPDATE') == 1
         install_data('org.freedesktop.sysupdate1.conf',
                      install_dir : dbuspolicydir)
