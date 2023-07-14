@@ -89,6 +89,39 @@ static int link_set_ipv6_forward(Link *link) {
         return sysctl_write_ip_property(AF_INET6, "all", "forwarding", "1");
 }
 
+static int link_set_ipv6_rp_filter(Link *link) {
+        assert(link);
+
+        if (!socket_ipv6_is_supported())
+                return 0;
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+         if (!link->network)
+                return 0;
+
+        if (link->network->ipv6_rp_filter < 0)
+                return 0;
+
+        return sysctl_write_ip_property_int(AF_INET6, link->ifname, "rp_filter", link->network->ipv6_rp_filter);
+}
+
+static int link_set_ipv4_rp_filter(Link *link) {
+        assert(link);
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        if (!link->network)
+                return 0;
+
+        if (link->network->ipv4_rp_filter < 0)
+                return 0;
+
+        return sysctl_write_ip_property_int(AF_INET, link->ifname, "rp_filter", link->network->ipv4_rp_filter);
+}
+
 static int link_set_ipv6_privacy_extensions(Link *link) {
         IPv6PrivacyExtensions val;
 
@@ -301,6 +334,14 @@ int link_set_sysctl(Link *link) {
         r = link_set_ipv4_route_localnet(link);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv4 route_localnet flag for interface, ignoring: %m");
+
+        r = link_set_ipv4_rp_filter(link);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot set IPv4 reverse path filtering for interface, ignoring: %m");
+
+        r = link_set_ipv6_rp_filter(link);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot set IPv6 reverse path filtering for interface, ignoring: %m");
 
         /* If promote_secondaries is not set, DHCP will work only as long as the IP address does not
          * changes between leases. The kernel will remove all secondary IP addresses of an interface
