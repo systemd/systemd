@@ -14,7 +14,9 @@
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "parse-util.h"
 #include "pretty-print.h"
+#include "proc-cmdline.h"
 #include "socket-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
@@ -23,6 +25,8 @@
         "Battery level critically low. Please connect your charger or the system will power off in 10 seconds."
 #define BATTERY_RESTORED_MESSAGE \
         "A.C. power restored, continuing."
+
+static bool arg_doit = true;
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -84,6 +88,23 @@ static int plymouth_send_message(const char *mode, const char *message) {
         return 0;
 }
 
+static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
+        int r;
+
+        assert(key);
+
+        if (streq(key, "systemd.battery-check")) {
+
+                r = value ? parse_boolean(value) : 1;
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse %s switch, ignoring: %s", key, value);
+                else
+                        arg_doit = r;
+        }
+
+        return 0;
+}
+
 static int parse_argv(int argc, char * argv[]) {
 
         enum {
@@ -132,9 +153,18 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
+        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
+
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (!arg_doit) {
+                log_info("Checking battery status and AC power existence is disabled by the kernel command line, skipping execution.");
+                return 0;
+        }
 
         r = battery_is_discharging_and_low();
         if (r < 0) {
