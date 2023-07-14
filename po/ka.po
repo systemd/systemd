@@ -5,9 +5,10 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-07-14 10:32+0100\n"
-"PO-Revision-Date: 2023-07-08 17:21+0000\n"
+"PO-Revision-Date: 2023-07-14 22:01+0000\n"
 "Last-Translator: Temuri Doghonadze <temuri.doghonadze@gmail.com>\n"
-"Language-Team: Georgian <https://translate.fedoraproject.org/projects/systemd/master/ka/>\n"
+"Language-Team: Georgian <https://translate.fedoraproject.org/projects/"
+"systemd/master/ka/>\n"
 "Language: ka\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -123,7 +124,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:304
 msgid "Password: "
-msgstr ""
+msgstr "პაროლი: "
 
 #: src/home/pam_systemd_home.c:306
 #, c-format
@@ -132,11 +133,11 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:307
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "თავიდან სცადეთ: "
 
 #: src/home/pam_systemd_home.c:329
 msgid "Recovery key: "
-msgstr ""
+msgstr "აღდგენის გასაღები: "
 
 #: src/home/pam_systemd_home.c:331
 #, c-format
@@ -145,16 +146,16 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:332
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "თავიდან შეიყვანეთ აღდგენის გასაღები: "
 
 #: src/home/pam_systemd_home.c:352
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr ""
+msgstr "მომხმარებლისთვის %s უსაფრთხოების კოდი ჩასმული არაა."
 
 #: src/home/pam_systemd_home.c:353 src/home/pam_systemd_home.c:356
 msgid "Try again with password: "
-msgstr ""
+msgstr "თავიდა სცადეთ, პაროლით: "
 
 #: src/home/pam_systemd_home.c:355
 #, c-format
@@ -163,12 +164,12 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:376
 msgid "Security token PIN: "
-msgstr ""
+msgstr "უსაფრთხოების კოდის PIN-კოდი: "
 
 #: src/home/pam_systemd_home.c:393
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr ""
+msgstr "მომხმარებლისთვის %s უსაფრთხოების კოდს ფიზიკური ავთენტიკაცია ესაჭიროება."
 
 #: src/home/pam_systemd_home.c:404
 #, c-format
@@ -187,12 +188,12 @@ msgstr ""
 #: src/home/pam_systemd_home.c:432
 #, c-format
 msgid "Security token PIN incorrect for user %s."
-msgstr ""
+msgstr "უსაფრთხოების კოდის PIN კოდი მომხმარებლისთვის %s არასწორია."
 
 #: src/home/pam_systemd_home.c:433 src/home/pam_systemd_home.c:452
 #: src/home/pam_systemd_home.c:471
 msgid "Sorry, retry security token PIN: "
-msgstr ""
+msgstr "უკაცრავად, თავიდან სცადეთ უსაფრთხოების კოდის PIN-კოდი: "
 
 #: src/home/pam_systemd_home.c:451
 #, c-format
@@ -221,40 +222,40 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:868
 msgid "User record is blocked, prohibiting access."
-msgstr ""
+msgstr "მომხმარებლის ჩანაწერი დაბლოკილია. წვდომა აკრძალულია."
 
 #: src/home/pam_systemd_home.c:872
 msgid "User record is not valid yet, prohibiting access."
-msgstr ""
+msgstr "მომხმარებლის წვდომა ჯერ არასწორია. წვდომა აკრძალულია."
 
 #: src/home/pam_systemd_home.c:876
 msgid "User record is not valid anymore, prohibiting access."
-msgstr ""
+msgstr "მომხმარებლის ჩანაწერო უკვე სწორი აღარაა. წვდომა აკრძალულია."
 
 #: src/home/pam_systemd_home.c:881 src/home/pam_systemd_home.c:932
 msgid "User record not valid, prohibiting access."
-msgstr ""
+msgstr "მომხმარებლის ჩანაწერი არასწორია. წვდომის აკრძალვა."
 
 #: src/home/pam_systemd_home.c:893
 #, c-format
 msgid "Too many logins, try again in %s."
-msgstr ""
+msgstr "მეტისმეტად ხშირი შესვლა. სცადეთ თავიდან %s-ის გასვლის შემდეგ."
 
 #: src/home/pam_systemd_home.c:904
 msgid "Password change required."
-msgstr ""
+msgstr "პაროლის შეცვლა აუცილებელია."
 
 #: src/home/pam_systemd_home.c:908
 msgid "Password expired, change required."
-msgstr ""
+msgstr "პაროლი ვადაგასულია, გთხოვთ, შეცვალეთ."
 
 #: src/home/pam_systemd_home.c:914
 msgid "Password is expired, but can't change, refusing login."
-msgstr ""
+msgstr "პაროლი ვადაგასულია, მაგრამ მას ვერ შეცვლით. შესვლა აკრძალულია."
 
 #: src/home/pam_systemd_home.c:918
 msgid "Password will expire soon, please change."
-msgstr ""
+msgstr "პაროლს ვადა მალე გაუვა. გთხოვთ, შეცვალეთ."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
