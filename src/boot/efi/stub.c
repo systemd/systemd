@@ -489,17 +489,21 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 log_error_status(err, "Error loading UKI-specific addons, ignoring: %m");
         parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
 
-        const char *extra = smbios_find_oem_string("io.systemd.stub.kernel-cmdline-extra");
-        if (extra) {
-                _cleanup_free_ char16_t *tmp = TAKE_PTR(cmdline), *extra16 = xstr8_to_16(extra);
-                cmdline = xasprintf("%ls %ls", tmp, extra16);
+        /* SMBIOS OEM Strings data is controlled by the host admin and not covered
+         * by the VM attestation, so MUST NOT be trusted when in a confidential VM */
+        if (!is_confidential_vm()) {
+                const char *extra = smbios_find_oem_string("io.systemd.stub.kernel-cmdline-extra");
+                if (extra) {
+                        _cleanup_free_ char16_t *tmp = TAKE_PTR(cmdline), *extra16 = xstr8_to_16(extra);
+                        cmdline = xasprintf("%ls %ls", tmp, extra16);
 
-                /* SMBIOS strings are measured in PCR1, but we also want to measure them in our specific
-                 * PCR12, as firmware-owned PCRs are very difficult to use as they'll contain unpredictable
-                 * measurements that are not under control of the machine owner. */
-                m = false;
-                (void) tpm_log_load_options(extra16, &m);
-                parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
+                        /* SMBIOS strings are measured in PCR1, but we also want to measure them in our specific
+                         * PCR12, as firmware-owned PCRs are very difficult to use as they'll contain unpredictable
+                         * measurements that are not under control of the machine owner. */
+                        m = false;
+                        (void) tpm_log_load_options(extra16, &m);
+                        parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
+                }
         }
 
         export_variables(loaded_image);
