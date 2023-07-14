@@ -70,7 +70,7 @@ bool credential_glob_valid(const char *s) {
                 return false;
 
         /* Make a copy of the string without the '*' suffix */
-        a = strndupa(s, n);
+        a = strndupa_safe(s, n);
 
         return credential_name_valid(a);
 }
