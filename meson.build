@@ -3677,19 +3677,7 @@ if conf.get('ENABLE_BINFMT') == 1
 endif
 
 if conf.get('ENABLE_SYSUPDATE') == 1
-        dbus_programs += executable(
-                'systemd-sysupdated',
-                systemd_sysupdated_sources,
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [threads,
-                                userspace,
-                                versiondep],
-                install_rpath : rootpkglibdir,
-                install : true,
-                install_dir : rootlibexecdir)
-
-        exe = executable(
+        public_programs += executable(
                 'systemd-sysupdate',
                 systemd_sysupdate_sources,
                 include_directories : includes,
@@ -3704,7 +3692,29 @@ if conf.get('ENABLE_SYSUPDATE') == 1
                 install_rpath : rootpkglibdir,
                 install : true,
                 install_dir : rootlibexecdir)
-        public_programs += exe
+
+        dbus_programs += executable(
+                'systemd-sysupdated',
+                systemd_sysupdated_sources,
+                include_directories : includes,
+                link_with : [libshared],
+                dependencies : [threads,
+                                userspace,
+                                versiondep],
+                install_rpath : rootpkglibdir,
+                install : true,
+                install_dir : rootlibexecdir)
+
+        public_programs += executable(
+                'updatectl',
+                systemd_updatectl_sources,
+                include_directories : includes,
+                link_with : [libshared],
+                dependencies : [userspace,
+                                versiondep],
+                install_rpath : rootpkglibdir,
+                install : true,
+                install_dir : rootbindir)
 endif
 
 if conf.get('ENABLE_VCONSOLE') == 1
