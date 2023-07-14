@@ -17,7 +17,7 @@ typedef enum TPM2Flags {
  * TPM2 on a Client PC must have at least 24 PCRs. This hardcodes our expectation of 24. */
 #define TPM2_PCRS_MAX 24U
 #define TPM2_PCRS_MASK ((UINT32_C(1) << TPM2_PCRS_MAX) - 1)
-static inline bool TPM2_PCR_VALID(unsigned pcr) {
+static inline bool TPM2_PCR_INDEX_VALID(unsigned pcr) {
         return pcr < TPM2_PCRS_MAX;
 }
 static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
@@ -33,26 +33,6 @@ static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
 #include <tss2/tss2_rc.h>
 
 int dlopen_tpm2(void);
-
-int tpm2_digest_many(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, const struct iovec data[], size_t count, bool extend);
-static inline int tpm2_digest_buffer(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, const void *data, size_t len, bool extend) {
-        return tpm2_digest_many(alg, digest, &IOVEC_MAKE((void*) data, len), 1, extend);
-}
-int tpm2_digest_many_digests(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, const TPM2B_DIGEST data[], size_t count, bool extend);
-static inline int tpm2_digest_rehash(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest) {
-        return tpm2_digest_many(alg, digest, NULL, 0, true);
-}
-static inline int tpm2_digest_init(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest) {
-        return tpm2_digest_many(alg, digest, NULL, 0, false);
-}
-
-int tpm2_calculate_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name);
-int tpm2_calculate_policy_auth_value(TPM2B_DIGEST *digest);
-int tpm2_calculate_policy_authorize(const TPM2B_PUBLIC *public, const TPM2B_DIGEST *policy_ref, TPM2B_DIGEST *digest);
-int tpm2_calculate_policy_pcr(const TPML_PCR_SELECTION *pcr_selection, const TPM2B_DIGEST pcr_values[], size_t pcr_values_count, TPM2B_DIGEST *digest);
-
-int tpm2_seal(const char *device, uint32_t hash_pcr_mask, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, const char *pin, void **ret_secret, size_t *ret_secret_size, void **ret_blob, size_t *ret_blob_size, void **ret_pcr_hash, size_t *ret_pcr_hash_size, uint16_t *ret_pcr_bank, uint16_t *ret_primary_alg, void **ret_srk_buf, size_t *ret_srk_buf_size);
-int tpm2_unseal(const char *device, uint32_t hash_pcr_mask, uint16_t pcr_bank, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, JsonVariant *signature, const char *pin, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, const void *srk_buf, size_t srk_buf_size, void **ret_secret, size_t *ret_secret_size);
 
 typedef struct {
         unsigned n_ref;
@@ -88,6 +68,26 @@ int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle);
 Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Handle*, tpm2_handle_free);
 
+typedef struct {
+        unsigned index;
+        TPMI_ALG_HASH hash;
+        TPM2B_DIGEST value;
+} Tpm2PCRValue;
+
+#define TPM2_PCR_VALUE_MAKE(i, h, v) (Tpm2PCRValue) { .index = (i), .hash = (h), .value = ((TPM2B_DIGEST) v), }
+bool TPM2_PCR_VALUE_VALID(const Tpm2PCRValue *pcr_value);
+int tpm2_pcr_value_from_string(const char *arg, Tpm2PCRValue *ret_pcr_value);
+char *tpm2_pcr_value_to_string(const Tpm2PCRValue *pcr_value);
+
+bool TPM2_PCR_VALUES_VALID(const Tpm2PCRValue *pcr_values, size_t n_pcr_values);
+void tpm2_sort_pcr_values(Tpm2PCRValue *pcr_values, size_t n_pcr_values);
+int tpm2_pcr_values_from_mask(uint32_t mask, TPMI_ALG_HASH hash, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
+int tpm2_pcr_values_to_mask(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, TPMI_ALG_HASH hash, uint32_t *ret_mask);
+int tpm2_pcr_values_from_string(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
+char *tpm2_pcr_values_to_string(const Tpm2PCRValue *pcr_values, size_t n_pcr_values);
+int tpm2_pcr_values_hash_count(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, size_t *ret_count);
+int tpm2_tpml_pcr_selection_from_pcr_values(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, TPML_PCR_SELECTION *ret_selection, TPM2B_DIGEST **ret_values, size_t *ret_n_values);
+
 bool tpm2_supports_alg(Tpm2Context *c, TPM2_ALG_ID alg);
 bool tpm2_supports_command(Tpm2Context *c, TPM2_CC command);
 
@@ -100,6 +100,9 @@ int tpm2_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const vo
 
 void tpm2_tpms_pcr_selection_to_mask(const TPMS_PCR_SELECTION *s, uint32_t *ret);
 void tpm2_tpms_pcr_selection_from_mask(uint32_t mask, TPMI_ALG_HASH hash, TPMS_PCR_SELECTION *ret);
+bool tpm2_tpms_pcr_selection_has_mask(const TPMS_PCR_SELECTION *s, uint32_t mask);
+void tpm2_tpms_pcr_selection_add_mask(TPMS_PCR_SELECTION *s, uint32_t mask);
+void tpm2_tpms_pcr_selection_sub_mask(TPMS_PCR_SELECTION *s, uint32_t mask);
 void tpm2_tpms_pcr_selection_add(TPMS_PCR_SELECTION *a, const TPMS_PCR_SELECTION *b);
 void tpm2_tpms_pcr_selection_sub(TPMS_PCR_SELECTION *a, const TPMS_PCR_SELECTION *b);
 void tpm2_tpms_pcr_selection_move(TPMS_PCR_SELECTION *a, TPMS_PCR_SELECTION *b);
@@ -109,6 +112,9 @@ size_t tpm2_tpms_pcr_selection_weight(const TPMS_PCR_SELECTION *s);
 
 int tpm2_tpml_pcr_selection_to_mask(const TPML_PCR_SELECTION *l, TPMI_ALG_HASH hash, uint32_t *ret);
 void tpm2_tpml_pcr_selection_from_mask(uint32_t mask, TPMI_ALG_HASH hash, TPML_PCR_SELECTION *ret);
+bool tpm2_tpml_pcr_selection_has_mask(const TPML_PCR_SELECTION *l, TPMI_ALG_HASH hash, uint32_t mask);
+void tpm2_tpml_pcr_selection_add_mask(TPML_PCR_SELECTION *l, TPMI_ALG_HASH hash, uint32_t mask);
+void tpm2_tpml_pcr_selection_sub_mask(TPML_PCR_SELECTION *l, TPMI_ALG_HASH hash, uint32_t mask);
 void tpm2_tpml_pcr_selection_add_tpms_pcr_selection(TPML_PCR_SELECTION *l, const TPMS_PCR_SELECTION *s);
 void tpm2_tpml_pcr_selection_sub_tpms_pcr_selection(TPML_PCR_SELECTION *l, const TPMS_PCR_SELECTION *s);
 void tpm2_tpml_pcr_selection_add(TPML_PCR_SELECTION *a, const TPML_PCR_SELECTION *b);
@@ -117,9 +123,38 @@ char *tpm2_tpml_pcr_selection_to_string(const TPML_PCR_SELECTION *l);
 size_t tpm2_tpml_pcr_selection_weight(const TPML_PCR_SELECTION *l);
 #define tpm2_tpml_pcr_selection_is_empty(l) (tpm2_tpml_pcr_selection_weight(l) == 0)
 
+int tpm2_digest_many(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, const struct iovec data[], size_t count, bool extend);
+static inline int tpm2_digest_buffer(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, const void *data, size_t len, bool extend) {
+        return tpm2_digest_many(alg, digest, &IOVEC_MAKE((void*) data, len), 1, extend);
+}
+int tpm2_digest_many_digests(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest, const TPM2B_DIGEST data[], size_t count, bool extend);
+static inline int tpm2_digest_rehash(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest) {
+        return tpm2_digest_many(alg, digest, NULL, 0, true);
+}
+static inline int tpm2_digest_init(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest) {
+        return tpm2_digest_many(alg, digest, NULL, 0, false);
+}
+
+void tpm2_log_debug_tpml_pcr_selection(const TPML_PCR_SELECTION *l, const char *msg);
+void tpm2_log_debug_pcr_value(const Tpm2PCRValue *pcr_value, const char *msg);
+void tpm2_log_debug_buffer(const void *buffer, size_t size, const char *msg);
+void tpm2_log_debug_digest(const TPM2B_DIGEST *digest, const char *msg);
+void tpm2_log_debug_name(const TPM2B_NAME *name, const char *msg);
+
+int tpm2_calculate_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name);
+int tpm2_calculate_policy_auth_value(TPM2B_DIGEST *digest);
+int tpm2_calculate_policy_authorize(const TPM2B_PUBLIC *public, const TPM2B_DIGEST *policy_ref, TPM2B_DIGEST *digest);
+int tpm2_calculate_policy_pcr(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, TPM2B_DIGEST *digest);
+
+int tpm2_seal(const char *device, const Tpm2PCRValue *hash_pcr_values, size_t n_hash_pcr_values, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, const char *pin, void **ret_secret, size_t *ret_secret_size, void **ret_blob, size_t *ret_blob_size, void **ret_pcr_hash, size_t *ret_pcr_hash_size, uint16_t *ret_pcr_bank, uint16_t *ret_primary_alg, void **ret_srk_buf, size_t *ret_srk_buf_size);
+int tpm2_unseal(const char *device, uint32_t hash_pcr_mask, uint16_t pcr_bank, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, JsonVariant *signature, const char *pin, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, const void *srk_buf, size_t srk_buf_size, void **ret_secret, size_t *ret_secret_size);
+
 #else /* HAVE_TPM2 */
 typedef struct {} Tpm2Context;
 typedef struct {} Tpm2Handle;
+typedef struct {} Tpm2PCRValue;
+
+#define TPM2_PCR_VALUE_MAKE(i, h, v) (Tpm2PCRValue) {}
 #endif /* HAVE_TPM2 */
 
 int tpm2_list_devices(void);
@@ -132,7 +167,8 @@ int tpm2_make_luks2_json(int keyslot, uint32_t hash_pcr_mask, uint16_t pcr_bank,
 int tpm2_parse_luks2_json(JsonVariant *v, int *ret_keyslot, uint32_t *ret_hash_pcr_mask, uint16_t *ret_pcr_bank, void **ret_pubkey, size_t *ret_pubkey_size, uint32_t *ret_pubkey_pcr_mask, uint16_t *ret_primary_alg, void **ret_blob, size_t *ret_blob_size, void **ret_policy_hash, size_t *ret_policy_hash_size, void **ret_salt, size_t *ret_salt_size, void **ret_srk_buf, size_t *ret_srk_buf_size, TPM2Flags *ret_flags);
 
 /* Default to PCR 7 only */
-#define TPM2_PCR_MASK_DEFAULT (UINT32_C(1) << 7)
+#define TPM2_PCR_INDEX_DEFAULT (7)
+#define TPM2_PCR_MASK_DEFAULT INDEX_TO_MASK(uint32_t, TPM2_PCR_INDEX_DEFAULT)
 
 /* We want the helpers below to work also if TPM2 libs are not available, hence define these four defines if
  * they are missing. */
@@ -160,6 +196,8 @@ int tpm2_parse_luks2_json(JsonVariant *v, int *ret_keyslot, uint32_t *ret_hash_p
 #define TPM2_ALG_RSA 0x1
 #endif
 
+size_t tpm2_hash_alg_to_size(uint16_t alg);
+
 const char *tpm2_hash_alg_to_string(uint16_t alg);
 int tpm2_hash_alg_from_string(const char *alg);
 
@@ -167,7 +205,6 @@ const char *tpm2_asym_alg_to_string(uint16_t alg);
 int tpm2_asym_alg_from_string(const char *alg);
 
 char *tpm2_pcr_mask_to_string(uint32_t mask);
-int tpm2_pcr_mask_from_string(const char *arg, uint32_t *mask);
 
 typedef struct {
         uint32_t search_pcr_mask;
@@ -216,7 +253,9 @@ enum {
 
 Tpm2Support tpm2_support(void);
 
-int tpm2_parse_pcr_argument(const char *arg, uint32_t *mask);
+int tpm2_parse_pcr_argument(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
+int tpm2_parse_pcr_argument_append(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
+int tpm2_parse_pcr_argument_to_mask(const char *arg, uint32_t *mask);
 
 int tpm2_load_pcr_signature(const char *path, JsonVariant **ret);
 int tpm2_load_pcr_public_key(const char *path, void **ret_pubkey, size_t *ret_pubkey_size);
