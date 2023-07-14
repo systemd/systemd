@@ -23,7 +23,7 @@
 static const char* const image_class_table[_IMAGE_CLASS_MAX] = {
         [IMAGE_MACHINE]  = "machine",
         [IMAGE_PORTABLE] = "portable",
-        [IMAGE_SYSEXT]   = "extension",
+        [IMAGE_SYSEXT]   = "sysext",
         [IMAGE_CONFEXT]  = "confext",
 };
 
