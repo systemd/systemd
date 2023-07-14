@@ -25,7 +25,7 @@ static void test_tpm2_pcr_from_string_one(const char *s, uint32_t mask, const ch
                         uint32_t l_mask = tpm2_mask_from_literals(pcr_bank);
 
                         if (l_mask) {
-                                _cleanup_free_ TPM2B_DIGEST *good_digest;
+                                _cleanup_free_ TPM2B_DIGEST *good_digest = NULL;
                                 hex_to_digest(&good_digest, hex);
 
                                 assert_se(l_mask == literal_mask);
