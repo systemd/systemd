@@ -391,13 +391,22 @@
         <term><option>--tpm2-pcrs=</option><arg rep="repeat">PCR</arg></term>
 
         <listitem><para>Configures the TPM2 PCRs (Platform Configuration Registers) to bind to when
-        enrollment is requested via <option>--tpm2-device=</option>. Takes a list of PCR names or numeric
-        indices in the range 0…23. Multiple PCR indexes are separated by <literal>+</literal>. If not
-        specified, the default is to use PCR 7 only. If an empty string is specified, binds the enrollment to
-        no PCRs at all. See the table above for a list of available PCRs.</para>
+        enrollment is requested via <option>--tpm2-device=</option>. Takes a list of PCR entries, where each
+        entry starts with a name or numeric index in the range 0…23, optionally followed by
+        <literal>:</literal> and a hash algorithm name (specifying the PCR bank), optionally followed by
+        <literal>=</literal> and a hash digest value. Multiple PCR entries are separated by
+        <literal>+</literal>. If not specified, the default is to use PCR 7 only. If an empty string is
+        specified, binds the enrollment to no PCRs at all. See the table above for a list of available
+        PCRs.</para>
 
         <para>Example: <option>--tpm2-pcrs=boot-loader-code+platform-config+boot-loader-config</option>
         specifies that PCR registers 4, 1, and 5 should be used.</para>
+        <para>Example: <option>--tpm2-pcrs=7:sha256</option> specifies that PCR register 7 from the SHA256
+        bank should be used.</para>
+        <para>Example: <option>--tpm2-pcrs=4:sha1=0x3A3F780F11A4B49969FCAA80CD6E3957C33B2275</option>
+        specifies that PCR register 4 from the SHA1 bank should be used, and a hash digest value of
+        0x3A3F780F11A4B49969FCAA80CD6E3957C33B2275 will be used instead of reading the current PCR
+        value.</para>
         </listitem>
       </varlistentry>
 
