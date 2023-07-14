@@ -18,7 +18,7 @@ static int get_pcr_alg(const char **ret) {
                         return log_oom();
 
                 if (access(p, F_OK) < 0) {
-                        if (errno != -ENOENT)
+                        if (errno != ENOENT)
                                 return log_error_errno(errno, "Failed to determine whether %s exists: %m", p);
                 } else {
                         *ret = alg;
