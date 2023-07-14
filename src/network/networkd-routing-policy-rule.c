@@ -427,7 +427,7 @@ static void log_routing_policy_rule_debug(const RoutingPolicyRule *rule, const c
                 return;
 
         (void) network_config_state_to_string_alloc(rule->state, &state);
-        (void) manager_get_route_table_to_string(m, rule->table, &table);
+        (void) manager_get_route_table_to_string(m, rule->table, /* append_num = */ true, &table);
 
         log_link_debug(link,
                        "%s %s routing policy rule (%s): priority: %"PRIu32", %s -> %s, iif: %s, oif: %s, table: %s",
