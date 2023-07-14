@@ -17,63 +17,95 @@
 #include "strv.h"
 #include "virt.h"
 
-int proc_cmdline_filter_pid1_args(
-                char **argv,   /* input, may be reordered by this function. */
-                char ***ret) {
-
+int proc_cmdline_filter_pid1_args(char **argv, char ***ret) {
         enum {
                 COMMON_GETOPT_ARGS,
                 SYSTEMD_GETOPT_ARGS,
                 SHUTDOWN_GETOPT_ARGS,
         };
-
         static const struct option options[] = {
                 COMMON_GETOPT_OPTIONS,
                 SYSTEMD_GETOPT_OPTIONS,
                 SHUTDOWN_GETOPT_OPTIONS,
-                {}
         };
+        static const char *short_options = SYSTEMD_GETOPT_SHORT_OPTIONS;
 
-        int saved_optind, saved_opterr, saved_optopt, argc;
-        char *saved_optarg;
-        char **filtered;
-        size_t idx;
+        _cleanup_strv_free_ char **filtered = NULL;
+        int state, r;
 
         assert(argv);
         assert(ret);
 
-        /* Backup global variables. */
-        saved_optind = optind;
-        saved_opterr = opterr;
-        saved_optopt = optopt;
-        saved_optarg = optarg;
-
-        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
-         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). Here, we do not use
-         * the GNU extensions, but might be used previously. Hence, we need to always reset it. */
-        optind = 0;
-
-        /* Do not print an error message. */
-        opterr = 0;
+        /* Currently, we do not support '-', '+', and ':' at the beginning. */
+        assert(!IN_SET(short_options[0], '-', '+', ':'));
 
         /* Filter out all known options. */
-        argc = strv_length(argv);
-        while (getopt_long(argc, argv, SYSTEMD_GETOPT_SHORT_OPTIONS, options, NULL) >= 0)
-                ;
+        state = no_argument;
+        STRV_FOREACH(p, strv_skip(argv, 1)) {
+                int prev_state = state;
+                const char *a = *p;
 
-        idx = optind;
+                /* Reset the state for the next step. */
+                state = no_argument;
 
-        /* Restore global variables. */
-        optind = saved_optind;
-        opterr = saved_opterr;
-        optopt = saved_optopt;
-        optarg = saved_optarg;
+                if (prev_state == required_argument ||
+                    (prev_state == optional_argument && a[0] != '-'))
+                        /* Handled as an argument of the previous option, filtering out the string. */
+                        continue;
 
-        filtered = strv_copy(strv_skip(argv, idx));
-        if (!filtered)
-                return -ENOMEM;
+                if (a[0] != '-') {
+                        /* Not an option, accepting the string. */
+                        r = strv_extend(&filtered, a);
+                        if (r < 0)
+                                return r;
+                        continue;
+                }
 
-        *ret = filtered;
+                if (a[1] == '-') {
+                        if (a[2] == '\0') {
+                                /* "--" is specified, accepting remaining strings. */
+                                r = strv_extend_strv(&filtered, strv_skip(p, 1), /* filter_duplicates = */ false);
+                                if (r < 0)
+                                        return r;
+                                break;
+                        }
+
+                        /* long option, e.g. --foo */
+                        for (size_t i = 0; i < ELEMENTSOF(options); i++) {
+                                const char *q = startswith(a + 2, options[i].name);
+                                if (!q || !IN_SET(q[0], '=', '\0'))
+                                        continue;
+
+                                /* Found matching option, updating the state if necessary. */
+                                if (q[0] == '\0' && options[i].has_arg == required_argument)
+                                        state = required_argument;
+
+                                break;
+                        }
+                        continue;
+                }
+
+                /* short option(s), e.g. -x or -xyz */
+                while (a && *++a != '\0')
+                        for (const char *q = short_options; *q != '\0'; q++) {
+                                if (*q != *a)
+                                        continue;
+
+                                /* Found matching short option. */
+
+                                if (q[1] == ':') {
+                                        /* An argument is required or optional, and remaining part
+                                         * is handled as argument if exists. */
+                                        state = a[1] != '\0' ? no_argument :
+                                                q[2] == ':' ? optional_argument : required_argument;
+
+                                        a = NULL; /* Not necessary to parse remaining part. */
+                                }
+                                break;
+                        }
+        }
+
+        *ret = TAKE_PTR(filtered);
         return 0;
 }
 
