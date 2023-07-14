@@ -591,7 +591,7 @@ int make_console_stdio(void) {
         } else {
                 unsigned rows, cols;
 
-                r = reset_terminal_fd(fd, true);
+                r = reset_terminal_fd(fd, /* switch_to_text= */ true);
                 if (r < 0)
                         log_warning_errno(r, "Failed to reset terminal, ignoring: %m");
 
