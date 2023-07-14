@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-07-06 20:45+0100\n"
+"POT-Creation-Date: 2023-07-14 10:32+0100\n"
 "PO-Revision-Date: 2016-06-09 19:50+0300\n"
 "Last-Translator: Viktar Vaŭčkievič <victorenator@gmail.com>\n"
 "Language-Team: \n"
@@ -120,6 +120,151 @@ msgstr ""
 #, fuzzy
 msgid "Authentication is required to change the password of a user's home area."
 msgstr "Nieabchodna aŭtentyfikacyja dlia kiravannia aktyŭnymi siesijami, karystaĺnikami i miescami."
+
+#: src/home/pam_systemd_home.c:287
+#, c-format
+msgid "Home of user %s is currently absent, please plug in the necessary storage device or backing file system."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:292
+#, c-format
+msgid "Too frequent login attempts for user %s, try again later."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:304
+msgid "Password: "
+msgstr ""
+
+#: src/home/pam_systemd_home.c:306
+#, c-format
+msgid "Password incorrect or not sufficient for authentication of user %s."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:307
+msgid "Sorry, try again: "
+msgstr ""
+
+#: src/home/pam_systemd_home.c:329
+msgid "Recovery key: "
+msgstr ""
+
+#: src/home/pam_systemd_home.c:331
+#, c-format
+msgid "Password/recovery key incorrect or not sufficient for authentication of user %s."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:332
+msgid "Sorry, reenter recovery key: "
+msgstr ""
+
+#: src/home/pam_systemd_home.c:352
+#, c-format
+msgid "Security token of user %s not inserted."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:353 src/home/pam_systemd_home.c:356
+msgid "Try again with password: "
+msgstr ""
+
+#: src/home/pam_systemd_home.c:355
+#, c-format
+msgid "Password incorrect or not sufficient, and configured security token of user %s not inserted."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:376
+msgid "Security token PIN: "
+msgstr ""
+
+#: src/home/pam_systemd_home.c:393
+#, c-format
+msgid "Please authenticate physically on security token of user %s."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:404
+#, c-format
+msgid "Please confirm presence on security token of user %s."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:415
+#, c-format
+msgid "Please verify user on security token of user %s."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:424
+msgid "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)"
+msgstr ""
+
+#: src/home/pam_systemd_home.c:432
+#, c-format
+msgid "Security token PIN incorrect for user %s."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:433 src/home/pam_systemd_home.c:452
+#: src/home/pam_systemd_home.c:471
+msgid "Sorry, retry security token PIN: "
+msgstr ""
+
+#: src/home/pam_systemd_home.c:451
+#, c-format
+msgid "Security token PIN of user %s incorrect (only a few tries left!)"
+msgstr ""
+
+#: src/home/pam_systemd_home.c:470
+#, c-format
+msgid "Security token PIN of user %s incorrect (only one try left!)"
+msgstr ""
+
+#: src/home/pam_systemd_home.c:616
+#, c-format
+msgid "Home of user %s is currently not active, please log in locally first."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:618
+#, c-format
+msgid "Home of user %s is currently locked, please unlock locally first."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:645
+#, c-format
+msgid "Too many unsuccessful login attempts for user %s, refusing."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:868
+msgid "User record is blocked, prohibiting access."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:872
+msgid "User record is not valid yet, prohibiting access."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:876
+msgid "User record is not valid anymore, prohibiting access."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:881 src/home/pam_systemd_home.c:932
+msgid "User record not valid, prohibiting access."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:893
+#, c-format
+msgid "Too many logins, try again in %s."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:904
+msgid "Password change required."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:908
+msgid "Password expired, change required."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:914
+msgid "Password is expired, but can't change, refusing login."
+msgstr ""
+
+#: src/home/pam_systemd_home.c:918
+msgid "Password will expire soon, please change."
+msgstr ""
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
