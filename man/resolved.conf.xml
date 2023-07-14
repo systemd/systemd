@@ -138,8 +138,8 @@
 
       <varlistentry>
         <term><varname>DNSSEC=</varname></term>
-        <listitem><para>Be warned that DNSSEC is an experimental 
-        feature, and has known vulnerabilities, so use at your own risk.
+        <listitem><para>Be warned that DNSSEC support is experimental
+        and has known validation vulnerabilities, so use at your own risk.
         </para>
 
         <para>Takes a boolean argument or <literal>allow-downgrade
