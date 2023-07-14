@@ -5813,6 +5813,18 @@ B00000-BFFFFF     (base 16)		Lafayette AB
 				41505 Gothenburg    41505
 				SE
 
+B8-4C-87   (hex)		Blum Novotest GmbH
+400000-4FFFFF     (base 16)		Blum Novotest GmbH
+				Kaufstraße 14
+				Gruenkraut    88287
+				DE
+
+B8-4C-87   (hex)		Airgain Inc.
+900000-9FFFFF     (base 16)		Airgain Inc.
+				3611 Valley Centre Dr, Ste 150
+				San Diego  CA  92130
+				US
+
 B4-4D-43   (hex)		Spot AI, Inc.
 600000-6FFFFF     (base 16)		Spot AI, Inc.
 				1350 Old Bayshore Hwy #920
@@ -11308,6 +11320,30 @@ C0-22-F1   (hex)		RCT Power GmbH
 				Line-Eid-Str. 1
 				Konstanz    78467
 				DE
+
+B8-4C-87   (hex)		Beijing Yunji Technology Co., Ltd.
+B00000-BFFFFF     (base 16)		Beijing Yunji Technology Co., Ltd.
+				Floor 7?Hailong Mansion?No.1 Zhongguancun Avenue,Haidian District,Beijing
+				Beijing    100080
+				CN
+
+B8-4C-87   (hex)		Psync Labs, Inc.
+500000-5FFFFF     (base 16)		Psync Labs, Inc.
+				1825 Allison Way
+				San Jose  CA  95132
+				US
+
+B8-4C-87   (hex)		SOND
+C00000-CFFFFF     (base 16)		SOND
+				1295 Beacon St, Unit #899
+				Brookline    02446
+				US
+
+B8-4C-87   (hex)		Shenzhen Link-all Technology Co., Ltd
+300000-3FFFFF     (base 16)		Shenzhen Link-all Technology Co., Ltd
+				Floor 5th, Block 9th, Sunny Industrial Zone, Xili Town, Nanshan District, Shenzhen, China 
+				Shenzhen  Guangdong  518108
+				CN
 
 6C-2A-DF   (hex)		WeatherFlow-Tempest, Inc
 E00000-EFFFFF     (base 16)		WeatherFlow-Tempest, Inc
@@ -17318,10 +17354,28 @@ C0-22-F1   (hex)		UtopiaTech Private Limited
 				Mumbai  Maharashtra  400072
 				IN
 
+B8-4C-87   (hex)		Shenzhen Huixiangfeng Electronic Technology Co., Ltd.
+200000-2FFFFF     (base 16)		Shenzhen Huixiangfeng Electronic Technology Co., Ltd.
+				Room 707M, Haosheng Business Center, No. 4096, Dongbin Road, Nanshan Community, Nanshan Street, Nanshan District
+				Shenzhen  Guangdong  518000
+				CN
+
+B8-4C-87   (hex)		Fujian Morefun Electronic Technology Co., Ltd.
+800000-8FFFFF     (base 16)		Fujian Morefun Electronic Technology Co., Ltd.
+				Floor 4, Building 15, Fuwan Standard Plant, Jinshan Industrialoncentration Zone, No. 869, Panyu Road, Gaishan Town, Cangshan District, Fuzhou, China
+				Fuzhou  Fujian  350026
+				CN
+
 C0-22-F1   (hex)		Masimo Corporation
 E00000-EFFFFF     (base 16)		Masimo Corporation
 				52 Discovery
 				Irvine  CA  92618
+				US
+
+B8-4C-87   (hex)		Altronix , Corp
+A00000-AFFFFF     (base 16)		Altronix , Corp
+				140 58th St. Bldg A, Ste 2N
+				Brooklyn  NY  11220
 				US
 
 B4-4D-43   (hex)		SERNET (SUZHOU) TECHNOLOGIES CORPORATION
@@ -23056,6 +23110,18 @@ C0-22-F1   (hex)		Spectra Technologies India Private Limited
 				8/33-C, FF, SF, Kirti Nagar Industrial Area, New Delhi
 				New Delhi  Delhi  110015
 				IN
+
+B8-4C-87   (hex)		Annapurna labs
+000000-0FFFFF     (base 16)		Annapurna labs
+				Matam Scientific Industries Center,   Building 8.2
+				Mail box 15123  Haifa  3508409
+				IL
+
+B8-4C-87   (hex)		HORIBA Precision Instruments (Beijing) Co.,Ltd
+600000-6FFFFF     (base 16)		HORIBA Precision Instruments (Beijing) Co.,Ltd
+				Building 1, No.3 Xixing Road, Houshayu Town, Shunyi District, Beijing, China
+				Beijing  Shunyi  101318
+				CN
 
 80-E4-DA   (hex)		Private
 F00000-FFFFFF     (base 16)		Private
@@ -28945,3 +29011,21 @@ C0-22-F1   (hex)		COMMUP WUHAN NETWORK TECHNOLOGY CO.,LTD
 				No.5-2, 3rd Floor, Building A, Wangjiadun Plaza Project, No.52 Changqing Road, Jianghan District, 
 				Wuhan  HuBei  430000
 				CN
+
+B8-4C-87   (hex)		Beijing Jiyuan Automation Technology CO.,LTD
+700000-7FFFFF     (base 16)		Beijing Jiyuan Automation Technology CO.,LTD
+				Room 808, 8/F Tianchen building, Chaoyang gate, Chaoyang District
+				Beijing    100026
+				CN
+
+B8-4C-87   (hex)		DFUN (ZHUHAI) CO,. LTD.
+D00000-DFFFFF     (base 16)		DFUN (ZHUHAI) CO,. LTD.
+				ROOM401,4/F,BUILDING,1,NO5,KEJI6ROAD,CHUANGXINHAIAN,TANGJIA HIGH-TECH ZONE,ZHUHAI,GUANGDONG
+				ZHUHAI  GUANGDONG  519000
+				CN
+
+B8-4C-87   (hex)		em-trak
+100000-1FFFFF     (base 16)		em-trak
+				wireless house,westfield industrial estateMidsomer Norton
+				Bath  Somerset  BA3 4BS
+				GB
