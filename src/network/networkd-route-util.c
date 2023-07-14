@@ -514,9 +514,10 @@ int config_parse_route_table_names(
                                    "Route table name cannot be numeric. Ignoring assignment: %s:%s", name, num);
                         continue;
                 }
-                if (STR_IN_SET(name, "default", "main", "local")) {
+                if (route_table_from_string(name) >= 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Route table name %s is already predefined. Ignoring assignment: %s:%s", name, name, num);
+                                   "Route table name %s is predefined for %i. Ignoring assignment: %s:%s",
+                                   name, route_table_from_string(name), name, num);
                         continue;
                 }
 
@@ -529,6 +530,12 @@ int config_parse_route_table_names(
                 if (table == 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Invalid route table number, ignoring assignment: %s:%s", name, num);
+                        continue;
+                }
+                if (route_table_to_string(table)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Route table name for %s is predefined (%s). Ignoring assignment: %s:%s",
+                                   num, route_table_to_string(table), name, num);
                         continue;
                 }
 
