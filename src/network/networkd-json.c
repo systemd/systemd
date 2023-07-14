@@ -235,7 +235,7 @@ static int route_build_json(Route *route, JsonVariant **ret) {
         if (r < 0)
                 return r;
 
-        r = manager_get_route_table_to_string(manager, route->table, &table);
+        r = manager_get_route_table_to_string(manager, route->table, /* append_num = */ false, &table);
         if (r < 0)
                 return r;
 
@@ -305,7 +305,7 @@ static int routing_policy_rule_build_json(RoutingPolicyRule *rule, JsonVariant *
         assert(rule->manager);
         assert(ret);
 
-        r = manager_get_route_table_to_string(rule->manager, rule->table, &table);
+        r = manager_get_route_table_to_string(rule->manager, rule->table, /* append_num = */ false, &table);
         if (r < 0 && r != -EINVAL)
                 return r;
 
