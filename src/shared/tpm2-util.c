@@ -3409,6 +3409,14 @@ int tpm2_unseal(const char *device,
 
         usec_t start = now(CLOCK_MONOTONIC);
 
+        /* Older code did not save the pcr_bank, and unsealing needed to detect the best pcr bank to use,
+         * so we need to handle that legacy situation. */
+        if (pcr_bank == UINT16_MAX) {
+                r = tpm2_get_best_pcr_bank(c, hash_pcr_mask|pubkey_pcr_mask, &pcr_bank);
+                if (r < 0)
+                        return r;
+        }
+
         log_debug("Unmarshalling private part of HMAC key.");
 
         TPM2B_PRIVATE private = {};
