@@ -5098,20 +5098,24 @@ static int exec_child(
                 /* When we can't make this change due to EPERM, then let's silently skip over it. User namespaces
                  * prohibit write access to this file, and we shouldn't trip up over that. */
                 r = set_oom_score_adjust(context->oom_score_adjust);
-                if (ERRNO_IS_PRIVILEGE(r))
-                        log_unit_debug_errno(unit, r, "Failed to adjust OOM setting, assuming containerized execution, ignoring: %m");
-                else if (r < 0) {
-                        *exit_status = EXIT_OOM_ADJUST;
-                        return log_unit_error_errno(unit, r, "Failed to adjust OOM setting: %m");
+                if (r < 0) {
+                        if (ERRNO_IS_PRIVILEGE(r))
+                                log_unit_debug_errno(unit, r, "Failed to adjust OOM setting, assuming containerized execution, ignoring: %m");
+                        else {
+                                *exit_status = EXIT_OOM_ADJUST;
+                                return log_unit_error_errno(unit, r, "Failed to adjust OOM setting: %m");
+                        }
                 }
         }
 
         if (context->coredump_filter_set) {
                 r = set_coredump_filter(context->coredump_filter);
-                if (ERRNO_IS_PRIVILEGE(r))
-                        log_unit_debug_errno(unit, r, "Failed to adjust coredump_filter, ignoring: %m");
-                else if (r < 0)
-                        return log_unit_error_errno(unit, r, "Failed to adjust coredump_filter: %m");
+                if (r < 0) {
+                        if (ERRNO_IS_PRIVILEGE(r))
+                                log_unit_debug_errno(unit, r, "Failed to adjust coredump_filter, ignoring: %m");
+                        else
+                                return log_unit_error_errno(unit, r, "Failed to adjust coredump_filter: %m");
+                }
         }
 
         if (context->nice_set) {
