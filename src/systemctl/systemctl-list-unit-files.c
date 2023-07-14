@@ -131,12 +131,10 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
         }
 
         r = output_table(table);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
-        if (arg_legend != 0)
-                printf("\n%u unit files listed.\n", c);
-
+        printf("\n%u unit files listed.\n", c);
         return 0;
 }
 

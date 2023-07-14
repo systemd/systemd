@@ -185,36 +185,34 @@ static int output_units_list(const UnitInfo *unit_infos, size_t c) {
         }
 
         r = output_table(table);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
-        if (arg_legend != 0) {
-                const char *on, *off;
-                size_t records = table_get_rows(table) - 1;
+        const char *on, *off;
+        size_t records = table_get_rows(table) - 1;
 
-                if (records > 0) {
-                        puts("\n"
-                             "LOAD   = Reflects whether the unit definition was properly loaded.\n"
-                             "ACTIVE = The high-level unit activation state, i.e. generalization of SUB.\n"
-                             "SUB    = The low-level unit activation state, values depend on unit type.");
-                        if (job_count > 0)
-                                puts("JOB    = Pending job for the unit.\n");
-                }
-
-                on = records > 0 ? ansi_highlight() : ansi_highlight_red();
-                off = ansi_normal();
-
-                if (arg_all || strv_contains(arg_states, "inactive"))
-                        printf("%s%zu loaded units listed.%s\n"
-                               "To show all installed unit files use 'systemctl list-unit-files'.\n",
-                               on, records, off);
-                else if (!arg_states)
-                        printf("%s%zu loaded units listed.%s Pass --all to see loaded but inactive units, too.\n"
-                               "To show all installed unit files use 'systemctl list-unit-files'.\n",
-                               on, records, off);
-                else
-                        printf("%zu loaded units listed.\n", records);
+        if (records > 0) {
+                puts("\n"
+                     "LOAD   = Reflects whether the unit definition was properly loaded.\n"
+                     "ACTIVE = The high-level unit activation state, i.e. generalization of SUB.\n"
+                     "SUB    = The low-level unit activation state, values depend on unit type.");
+                if (job_count > 0)
+                        puts("JOB    = Pending job for the unit.\n");
         }
+
+        on = records > 0 ? ansi_highlight() : ansi_highlight_red();
+        off = ansi_normal();
+
+        if (arg_all || strv_contains(arg_states, "inactive"))
+                printf("%s%zu loaded units listed.%s\n"
+                       "To show all installed unit files use 'systemctl list-unit-files'.\n",
+                       on, records, off);
+        else if (!arg_states)
+                printf("%s%zu loaded units listed.%s Pass --all to see loaded but inactive units, too.\n"
+                       "To show all installed unit files use 'systemctl list-unit-files'.\n",
+                       on, records, off);
+        else
+                printf("%zu loaded units listed.\n", records);
 
         return 0;
 }
@@ -442,12 +440,10 @@ static int output_sockets_list(const SocketInfo *sockets, size_t n_sockets) {
         }
 
         r = output_table(table);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
-        if (arg_legend != 0)
-                output_legend("socket", n_sockets);
-
+        output_legend("socket", n_sockets);
         return 0;
 }
 
@@ -649,12 +645,10 @@ static int output_timers_list(const TimerInfo *timers, size_t n_timers) {
         }
 
         r = output_table(table);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
-        if (arg_legend != 0)
-                output_legend("timer", n_timers);
-
+        output_legend("timer", n_timers);
         return 0;
 }
 
@@ -922,12 +916,10 @@ static int output_automounts_list(const AutomountInfo *infos, size_t n_infos) {
         }
 
         r = output_table(table);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
-        if (arg_legend != 0)
-                output_legend("automount", n_infos);
-
+        output_legend("automount", n_infos);
         return 0;
 }
 
@@ -1130,12 +1122,10 @@ static int output_paths_list(const PathInfo *paths, size_t n_paths) {
         }
 
         r = output_table(table);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
-        if (arg_legend != 0)
-                output_legend("path", n_paths);
-
+        output_legend("path", n_paths);
         return 0;
 }
 
