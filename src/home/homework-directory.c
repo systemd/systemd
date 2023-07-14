@@ -285,10 +285,11 @@ int home_resize_directory(
                 return r;
 
         r = home_update_quota_auto(h, NULL);
-        if (ERRNO_IS_NOT_SUPPORTED(r))
-                return -ESOCKTNOSUPPORT; /* make recognizable */
-        if (r < 0)
+        if (r < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(r))
+                        return -ESOCKTNOSUPPORT; /* make recognizable */
                 return r;
+        }
 
         r = home_store_embedded_identity(new_home, setup->root_fd, h->uid, embedded_home);
         if (r < 0)
