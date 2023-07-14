@@ -817,11 +817,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unknown output '%s'.",
                                                        optarg);
-
-                        if (OUTPUT_MODE_IS_JSON(arg_output)) {
-                                arg_legend = false;
-                                arg_plain = true;
-                        }
                         break;
 
                 case 'i':
@@ -1130,6 +1125,7 @@ int systemctl_dispatch_parse_argv(int argc, char *argv[]) {
         }
 
         arg_action = ACTION_SYSTEMCTL;
+        getenv_output_mode(&arg_output);
         return systemctl_parse_argv(argc, argv);
 }
 

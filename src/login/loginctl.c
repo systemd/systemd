@@ -160,7 +160,7 @@ static int show_table(Table *table, const char *word) {
                         return table_log_print_error(r);
         }
 
-        if (arg_legend) {
+        if (arg_legend && !OUTPUT_MODE_IS_JSON(arg_output)) {
                 if (table_get_rows(table) > 1)
                         printf("\n%zu %s listed.\n", table_get_rows(table) - 1, word);
                 else
@@ -1404,10 +1404,6 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0)
                                 return log_error_errno(arg_output, "Unknown output '%s'.", optarg);
-
-                        if (OUTPUT_MODE_IS_JSON(arg_output))
-                                arg_legend = false;
-
                         break;
 
                 case ARG_NO_PAGER:
@@ -1495,6 +1491,8 @@ static int run(int argc, char *argv[]) {
         (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
 
         sigbus_install();
+
+        getenv_output_mode(&arg_output);
 
         r = parse_argv(argc, argv);
         if (r <= 0)
