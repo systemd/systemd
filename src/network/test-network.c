@@ -114,8 +114,13 @@ static void test_route_tables_one(Manager *manager, const char *name, uint32_t n
         }
 
         assert_se(asprintf(&expected, "%s(%" PRIu32 ")", name, number) >= 0);
-        assert_se(manager_get_route_table_to_string(manager, number, &str) >= 0);
+        assert_se(manager_get_route_table_to_string(manager, number, /* append_num = */ true, &str) >= 0);
         assert_se(streq(str, expected));
+
+        str = mfree(str);
+
+        assert_se(manager_get_route_table_to_string(manager, number, /* append_num = */ false, &str) >= 0);
+        assert_se(streq(str, name));
 
         assert_se(manager_get_route_table_from_string(manager, name, &t) >= 0);
         assert_se(t == number);
