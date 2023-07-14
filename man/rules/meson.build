@@ -1282,6 +1282,7 @@ manpages = [
  ['udev_new', '3', ['udev_ref', 'udev_unref'], ''],
  ['udevadm', '8', [], ''],
  ['ukify', '1', [], 'ENABLE_UKIFY'],
+ ['updatectl', '1', [], 'ENABLE_SYSUPDATE'],
  ['user@.service',
   '5',
   ['systemd-user-runtime-dir', 'user-runtime-dir@.service'],
