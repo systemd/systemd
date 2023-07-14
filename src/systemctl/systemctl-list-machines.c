@@ -211,15 +211,13 @@ static int output_machines_list(struct machine_info *machine_infos, unsigned n) 
         }
 
         r = output_table(table);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
-        if (arg_legend != 0) {
-                printf("\n");
-                if (state_missing && geteuid() != 0)
-                        printf("Notice: some information only available to privileged users was not shown.\n");
-                printf("%u machines listed.\n", n);
-        }
+        printf("\n");
+        if (state_missing && geteuid() != 0)
+                printf("Notice: some information only available to privileged users was not shown.\n");
+        printf("%u machines listed.\n", n);
 
         return 0;
 }
