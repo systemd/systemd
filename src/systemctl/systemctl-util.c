@@ -865,7 +865,8 @@ int output_table(Table *table) {
         if (r < 0)
                 return table_log_print_error(r);
 
-        return 0;
+        /* Return true when the caller should show legend. */
+        return arg_legend != 0 && !OUTPUT_MODE_IS_JSON(arg_output);
 }
 
 bool show_preset_for_state(UnitFileState state) {

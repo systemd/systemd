@@ -1,7 +1,32 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
+#include "log.h"
 #include "output-mode.h"
 #include "string-table.h"
+
+void getenv_output_mode(OutputMode *mode) {
+        const char *e;
+        OutputMode m;
+
+        assert(mode);
+
+        /* This update 'mode' only when a valid mode is specified in the environment variable.
+         * Callers need to initialize the argument before calling this function. */
+
+        e = getenv("SYSTEMD_JOURNAL_OUTPUT_MODE");
+        if (!e)
+                return;
+
+        m = output_mode_from_string(e);
+        if (m < 0) {
+                log_debug_errno(m, "Unknown output format '%s' specified in '$SYSTEMD_JOURNAL_OUTPUT_MODE', ignoring.", e);
+                return;
+        }
+
+        *mode = m;
+}
 
 JsonFormatFlags output_mode_to_json_format_flags(OutputMode m) {
 

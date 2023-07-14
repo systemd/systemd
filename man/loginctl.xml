@@ -364,7 +364,8 @@
         of the journal entries that are shown. For the available
         choices, see
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-        Defaults to <literal>short</literal>.</para></listitem>
+        Defaults to <literal>short</literal> unless <varname>$SYSTEMD_JOURNAL_OUTPUT_MODE</varname>
+        environment variable is specified.</para></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />
