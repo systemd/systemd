@@ -8,6 +8,7 @@
 typedef struct EtcHostsItemByAddress {
         struct in_addr_data address;
         Set *names;
+        const char *canonical_name;
 } EtcHostsItemByAddress;
 
 typedef struct EtcHostsItemByName {
