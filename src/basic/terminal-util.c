@@ -589,9 +589,20 @@ int make_console_stdio(void) {
                         return log_error_errno(r, "Failed to make /dev/null stdin/stdout/stderr: %m");
 
         } else {
-                r = reset_terminal_fd(fd, true);
+                unsigned rows, cols;
+
+                r = reset_terminal_fd(fd, /* switch_to_text= */ true);
                 if (r < 0)
                         log_warning_errno(r, "Failed to reset terminal, ignoring: %m");
+
+                r = proc_cmdline_tty_size("/dev/console", &rows, &cols);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to get terminal size, ignoring: %m");
+                else {
+                        r = terminal_set_size_fd(fd, NULL, rows, cols);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to set terminal size, ignoring: %m");
+                }
 
                 r = rearrange_stdio(fd, fd, fd); /* This invalidates 'fd' both on success and on failure. */
                 if (r < 0)
@@ -878,6 +889,54 @@ int terminal_set_size_fd(int fd, const char *ident, unsigned rows, unsigned cols
 
         if (ioctl(fd, TIOCSWINSZ, &ws) < 0)
                 return log_debug_errno(errno, "TIOCSWINSZ ioctl for setting %s size failed: %m", ident ?: "TTY");
+
+        return 0;
+}
+
+int proc_cmdline_tty_size(const char *tty, unsigned *ret_rows, unsigned *ret_cols) {
+        _cleanup_free_ char *rowskey = NULL, *rowsvalue = NULL, *colskey = NULL, *colsvalue = NULL;
+        unsigned rows = UINT_MAX, cols = UINT_MAX;
+        int r;
+
+        assert(tty);
+
+        if (!ret_rows && !ret_cols)
+                return 0;
+
+        tty = skip_dev_prefix(tty);
+        if (!in_charset(tty, ALPHANUMERICAL))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "%s contains non-alphanumeric characters", tty);
+
+        rowskey = strjoin("systemd.tty.rows.", tty);
+        if (!rowskey)
+                return -ENOMEM;
+
+        colskey = strjoin("systemd.tty.columns.", tty);
+        if (!colskey)
+                return -ENOMEM;
+
+        r = proc_cmdline_get_key_many(/* flags = */ 0,
+                                      rowskey, &rowsvalue,
+                                      colskey, &colsvalue);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read TTY size of %s from kernel cmdline: %m", tty);
+
+        if (rowsvalue) {
+                r = safe_atou(rowsvalue, &rows);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse %s=%s: %m", rowskey, rowsvalue);
+        }
+
+        if (colsvalue) {
+                r = safe_atou(colsvalue, &cols);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse %s=%s: %m", colskey, colsvalue);
+        }
+
+        if (ret_rows)
+                *ret_rows = rows;
+        if (ret_cols)
+                *ret_cols = cols;
 
         return 0;
 }
