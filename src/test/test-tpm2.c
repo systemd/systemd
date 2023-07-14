@@ -8,33 +8,34 @@
 static void test_tpm2_pcr_from_string_one(const char *s, uint32_t mask, const char *idx, const char *bank, const char *hex, int ret) {
         uint32_t m, literal_mask;
 
-        if (idx) {
-                sscanf(idx, "%u", &literal_mask);
-                literal_mask = 1 << literal_mask;
-        }
+        if (idx)
+                literal_mask = 1 << atoi(idx);
 
-        _cleanup_hashmap_free_ Hashmap *pcr_literal = hashmap_new(NULL);
-        hashmap_put(pcr_literal, "sha1", hashmap_new(NULL));
-        hashmap_put(pcr_literal, "sha256", hashmap_new(NULL));
+        _cleanup_hashmap_free_ Hashmap *pcr_literal = hashmap_new(&string_hash_ops);
+        hashmap_put(pcr_literal, "sha1", hashmap_new(&string_hash_ops));
+        hashmap_put(pcr_literal, "sha256", hashmap_new(&string_hash_ops));
 
         assert_se(tpm2_pcr_from_string(s, &m, pcr_literal) == ret);
 
         if (ret >= 0) {
-                Hashmap *pcr_bank = hashmap_get(pcr_literal, bank);
-                uint32_t l_mask = tpm2_mask_from_literals(pcr_bank);
                 assert_se(m == mask);
 
-                if (l_mask) {
-                        TPM2B_DIGEST *good_digest, *test_digest;
-                        hex_to_digest(&good_digest, hex);
+                if (idx && bank && hex) {
+                        Hashmap *pcr_bank = hashmap_get(pcr_literal, bank);
+                        uint32_t l_mask = tpm2_mask_from_literals(pcr_bank);
 
-                        assert_se(l_mask == literal_mask);
-                        test_digest = hashmap_get(pcr_bank, idx);
+                        if (l_mask) {
+                                _cleanup_free_ TPM2B_DIGEST *good_digest;
+                                hex_to_digest(&good_digest, hex);
 
-                        assert_se(test_digest->size == good_digest->size);
-                        assert_se(memcmp(test_digest->buffer, good_digest->buffer, good_digest->size) == 0);
-                } else
-                        assert_se(idx == NULL && bank == NULL && hex == NULL);
+                                assert_se(l_mask == literal_mask);
+                                TPM2B_DIGEST *test_digest = hashmap_get(pcr_bank, idx);
+
+                                assert_se(test_digest->size == good_digest->size);
+                                assert_se(memcmp(test_digest->buffer, good_digest->buffer, good_digest->size) == 0);
+                        } else
+                                assert_se(idx == NULL && bank == NULL && hex == NULL);
+                }
         }
 }
 

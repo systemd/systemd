@@ -39,8 +39,7 @@ static char *arg_pkcs11_token_uri = NULL;
 static char *arg_fido2_device = NULL;
 static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
-static Hashmap *arg_tpm2_pcr_literal;
-//static _cleanup_hashmap_free_ Hashmap *arg_tpm2_pcr_literal = NULL
+static Hashmap *arg_tpm2_pcr_literal = NULL;
 static bool arg_tpm2_pin = false;
 static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;

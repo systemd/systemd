@@ -10,6 +10,7 @@
 #include "fileio.h"
 #include "format-table.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "hmac.h"
 #include "initrd-util.h"
@@ -3859,16 +3860,29 @@ char *bytes_to_hex(TPM2B_DIGEST *digest) {
 
 uint32_t tpm2_mask_from_literals(Hashmap *bank) {
         uint32_t mask = 0;
-        char *k;
-        void *v;
 
+        TPM2B_DIGEST *t = hashmap_get(bank, "11");
+        fprintf(stderr, "OUT1: %p %p\n", bank, t);
+
+        /* DEBUGGING: PRINT ALL THE KEYS ON THE HASH*/
+        int *k;
+        TPM2B_DIGEST *v;
         HASHMAP_FOREACH_KEY(v, k, bank) {
-                unsigned idx;
-                sscanf(k, "%u", &idx);
-                mask |= 1 << idx;
+                _cleanup_free_ char *hex = NULL;
+                hex = hexmem(v->buffer, v->size);
+                fprintf(stderr, "OUT2: %p %d %s\n", bank, *k, hex);
         }
+
+        for (unsigned i=0; i<TPM2_PCRS_MAX; i++) {
+                _cleanup_free_ char *idx = NULL;
+                asprintf(&idx, "%u", i);
+                if(hashmap_get(bank, idx))
+                        mask |= 1 << i;
+        }
+
         return mask;
 }
+
 char *tpm2_pcr_mask_to_string(uint32_t mask) {
         _cleanup_free_ char *s = NULL;
 
@@ -3900,7 +3914,7 @@ int tpm2_pcr_from_string(const char *arg, uint32_t *ret_mask, Hashmap *ret_liter
          * /etc/crypttab the "," is already used to separate options, hence a different separator is nice to
          * avoid escaping.
          * In case there are literals specified on the argument, they are expected to have the format
-         * <index>:sha256=<hash>*/
+         * <index>:<bank>=<hash>*/
 
         const char *p = arg;
         for (;;) {
@@ -3921,24 +3935,37 @@ int tpm2_pcr_from_string(const char *arg, uint32_t *ret_mask, Hashmap *ret_liter
                 if (r2) {
                         _cleanup_free_ char *pcr_idx = NULL, *pcr_bank = NULL, *pcr_hex = NULL;
                         extract_many_words((const char **)&pcr, ":=", 0,  &pcr_idx, &pcr_bank, &pcr_hex, NULL);
-                        TPM2B_DIGEST *digest;
 
                         if (pcr_idx == NULL || pcr_bank == NULL || pcr_hex == NULL)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse specified PCR literal: %s", pcr);
 
                         int pcr_idx_i;
-                        if ((unsigned)safe_atoi(pcr_idx, &pcr_idx_i) > TPM2_PCRS_MAX-1)
+                        r = safe_atoi(pcr_idx, &pcr_idx_i);
+                        if ( r < 0 || (unsigned) pcr_idx_i > TPM2_PCRS_MAX-1)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "PCR index exceeds maximum allowed: %s", pcr);
 
-                        r = hex_to_digest(&digest, pcr_hex);
-                        if (r < 0)
-                                return log_error_errno(r, "Could not convert PCR hex value to bytes: %s", pcr);
+                        TPM2B_DIGEST *digest;
+                        if (hex_to_digest(&digest, pcr_hex) < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Could not convert PCR hex value to bytes: %s", pcr);
 
                         Hashmap *bank = hashmap_get(ret_literals, pcr_bank);
                         if (bank == NULL)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Bank required not found in pcr_literal struct");
 
-                        hashmap_put(bank, pcr_idx, digest);
+                        if (hashmap_put(bank, pcr_idx, digest) != 1)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to add the digest for PCR %s", pcr_idx);
+
+                        TPM2B_DIGEST *v2 = hashmap_get(bank, "11");
+                        fprintf(stderr, "IN1 : %p %p\n", bank, v2);
+
+                        /* DEBUGGING: PRINT ALL THE KEYS ON THE HASH*/
+                        int *k;
+                        TPM2B_DIGEST *v;
+                        HASHMAP_FOREACH_KEY(v, k, bank) {
+                                _cleanup_free_ char *hex = NULL;
+                                hex = hexmem(v->buffer, v->size);
+                                fprintf(stderr, "IN2 : %p %d %s\n", bank, *k, hex);
+                        }
                 } else {
                 /* if this is a pcr index, parse it */
                         r = pcr_index_from_string(pcr);
