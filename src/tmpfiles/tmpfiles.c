@@ -1883,7 +1883,7 @@ static int create_directory_or_subvolume(
         } else
                 r = 0;
 
-        if (!subvol || ERRNO_IS_NOT_SUPPORTED(r))
+        if (!subvol || (r < 0 && ERRNO_IS_NOT_SUPPORTED(r)))
                 WITH_UMASK(0000)
                         r = mkdirat_label(pfd, bn, mode);
 
