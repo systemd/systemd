@@ -123,14 +123,7 @@ static bool mount_is_loop(const MountParameters *p) {
 
 static bool mount_is_bind(const MountParameters *p) {
         assert(p);
-
-        if (fstab_test_option(p->options, "bind\0" "rbind\0"))
-                return true;
-
-        if (p->fstype && STR_IN_SET(p->fstype, "bind", "rbind"))
-                return true;
-
-        return false;
+        return fstab_is_bind(p->options, p->fstype);
 }
 
 static bool mount_is_bound_to_device(Mount *m) {
