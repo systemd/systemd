@@ -162,7 +162,7 @@ static int output_machines_list(struct machine_info *machine_infos, unsigned n) 
                 return log_oom();
 
         table_set_header(table, arg_legend != 0);
-        if (arg_plain) {
+        if (arg_plain || OUTPUT_MODE_IS_JSON(arg_output)) {
                 /* Hide the 'glyph' column when --plain is requested */
                 r = table_hide_column_from_display(table, 0);
                 if (r < 0)

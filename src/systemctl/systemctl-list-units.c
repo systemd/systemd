@@ -115,7 +115,7 @@ static int output_units_list(const UnitInfo *unit_infos, size_t c) {
                 return log_oom();
 
         table_set_header(table, arg_legend != 0);
-        if (arg_plain) {
+        if (arg_plain || OUTPUT_MODE_IS_JSON(arg_output)) {
                 /* Hide the 'glyph' column when --plain is requested */
                 r = table_hide_column_from_display(table, 0);
                 if (r < 0)
@@ -137,11 +137,11 @@ static int output_units_list(const UnitInfo *unit_infos, size_t c) {
                         underline = true;
                 }
 
-                if (STR_IN_SET(u->load_state, "error", "not-found", "bad-setting", "masked") && !arg_plain) {
+                if (STR_IN_SET(u->load_state, "error", "not-found", "bad-setting", "masked")) {
                         on_circle = underline ? ansi_highlight_yellow_underline() : ansi_highlight_yellow();
                         circle = true;
                         on_loaded = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
-                } else if (streq(u->active_state, "failed") && !arg_plain) {
+                } else if (streq(u->active_state, "failed")) {
                         on_circle = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
                         circle = true;
                         on_active = underline ? ansi_highlight_red_underline() : ansi_highlight_red();
