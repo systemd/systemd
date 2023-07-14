@@ -458,7 +458,7 @@ static int run(int argc, char **argv) {
         if (!exec_argv)
                 return log_oom();
 
-        assert(strv_length(exec_argv) > 0);
+        assert(!strv_isempty(exec_argv));
 
         r = install_chld_handler();
         if (r < 0)
