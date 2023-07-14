@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "bus-locator.h"
 #include "macro.h"
 
@@ -80,6 +81,31 @@ const BusLocator* const bus_hostname = &(BusLocator){
         .path = "/org/freedesktop/hostname1",
         .interface = "org.freedesktop.hostname1"
 };
+
+BusLocator *bus_locator_new(const char *dest, const char *iface, const char *path) {
+        BusLocator *l = new(BusLocator, 1);
+        if (!l)
+                return NULL;
+
+        *l = (BusLocator) {
+                .destination = dest,
+                .interface = iface,
+        };
+
+        l->path = l->allocated_path = strdup(path);
+        if (!l->path)
+                return mfree(l);
+
+        return l;
+}
+
+BusLocator *bus_locator_free(BusLocator *l) {
+        if (!l || !l->allocated_path)
+                return NULL;
+
+        free(l->allocated_path);
+        return mfree(l);
+}
 
 /* Shorthand flavors of the sd-bus convenience helpers with destination,path,interface strings encapsulated
  * within a single struct. */
