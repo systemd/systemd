@@ -814,9 +814,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                         arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown output '%s'.",
-                                                       optarg);
+                                return log_error_errno(arg_output, "Unknown output '%s'.", optarg);
 
                         if (OUTPUT_MODE_IS_JSON(arg_output)) {
                                 arg_legend = false;
