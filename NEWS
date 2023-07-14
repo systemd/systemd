@@ -238,6 +238,11 @@ CHANGES WITH 254 in spe:
           and will also set a SYSTEMD_CONFIDENTIAL_VIRTUALIZATION= environment
           variable for unit generators. Finally, udev rules can match on a new
           'cvm' key that will be set when in a confidential VM.
+          Additionally, when running in a 'Confidential Virtual Machine', SMBIOS
+          strings and QEMU's fw_cfg protocol will not be used to import
+          credentials and kernel command line parameters by the system manager,
+          systemd-boot and systemd-stub, because the hypervisor is considered
+          untrusted in this particular setting.
 
         Journal:
 
