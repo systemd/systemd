@@ -48,6 +48,13 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         rootprefix=/${rootprefix#/}
     fi
 
+    . /etc/os-release
+    if [ "$ID" = "centos" ] && [ "$VERSION" = "8" ]; then
+        UKIFY=false
+    else
+        UKIFY=true
+    fi
+
     CONFIGURE_OPTS=(
         -D sysvinit-path="$sysvinit_path"
         -D rootprefix="$rootprefix"
@@ -133,7 +140,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D kernel-install=true
         -D analyze=true
         -D bpf-framework=true
-        -D ukify=true
+        -D ukify="$UKIFY"
         -D seccomp=true
         -D selinux=auto
         -D apparmor=auto
