@@ -139,6 +139,12 @@ static inline int tpm2_digest_init(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest) {
         return tpm2_digest_many(alg, digest, NULL, 0, false);
 }
 
+void tpm2_log_debug_tpml_pcr_selection(const TPML_PCR_SELECTION *l, const char *msg);
+void tpm2_log_debug_pcr_value(const Tpm2PCRValue *pcr_value, const char *msg);
+void tpm2_log_debug_buffer(const void *buffer, size_t size, const char *msg);
+void tpm2_log_debug_digest(const TPM2B_DIGEST *digest, const char *msg);
+void tpm2_log_debug_name(const TPM2B_NAME *name, const char *msg);
+
 int tpm2_calculate_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name);
 int tpm2_calculate_policy_auth_value(TPM2B_DIGEST *digest);
 int tpm2_calculate_policy_authorize(const TPM2B_PUBLIC *public, const TPM2B_DIGEST *policy_ref, TPM2B_DIGEST *digest);

@@ -1833,7 +1833,7 @@ char *tpm2_pcr_values_to_string(const Tpm2PCRValue *pcr_values, size_t n_pcr_val
         return s ? TAKE_PTR(s) : strdup("");
 }
 
-static void tpm2_log_debug_tpml_pcr_selection(const TPML_PCR_SELECTION *l, const char *msg) {
+void tpm2_log_debug_tpml_pcr_selection(const TPML_PCR_SELECTION *l, const char *msg) {
         if (!DEBUG_LOGGING || !l)
                 return;
 
@@ -1841,7 +1841,7 @@ static void tpm2_log_debug_tpml_pcr_selection(const TPML_PCR_SELECTION *l, const
         log_debug("%s: %s", msg ?: "PCR selection", strna(s));
 }
 
-static void tpm2_log_debug_pcr_value(const Tpm2PCRValue *pcr_value, const char *msg) {
+void tpm2_log_debug_pcr_value(const Tpm2PCRValue *pcr_value, const char *msg) {
         if (!DEBUG_LOGGING || !pcr_value)
                 return;
 
@@ -1849,7 +1849,7 @@ static void tpm2_log_debug_pcr_value(const Tpm2PCRValue *pcr_value, const char *
         log_debug("%s: %s", msg ?: "PCR value", strna(s));
 }
 
-static void tpm2_log_debug_buffer(const void *buffer, size_t size, const char *msg) {
+void tpm2_log_debug_buffer(const void *buffer, size_t size, const char *msg) {
         if (!DEBUG_LOGGING || !buffer || size == 0)
                 return;
 
@@ -1857,12 +1857,12 @@ static void tpm2_log_debug_buffer(const void *buffer, size_t size, const char *m
         log_debug("%s: %s", msg ?: "Buffer", strna(h));
 }
 
-static void tpm2_log_debug_digest(const TPM2B_DIGEST *digest, const char *msg) {
+void tpm2_log_debug_digest(const TPM2B_DIGEST *digest, const char *msg) {
         if (digest)
                 tpm2_log_debug_buffer(digest->buffer, digest->size, msg ?: "Digest");
 }
 
-static void tpm2_log_debug_name(const TPM2B_NAME *name, const char *msg) {
+void tpm2_log_debug_name(const TPM2B_NAME *name, const char *msg) {
         if (name)
                 tpm2_log_debug_buffer(name->name, name->size, msg ?: "Name");
 }
