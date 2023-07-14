@@ -17,6 +17,12 @@ systemd_sysupdated_sources = files(
         'sysupdated.c',
 )
 
+systemd_updatectl_sources = files(
+        'sysupdate-update-set-flags.c',
+        'sysupdate-util.c',
+        'updatectl.c',
+)
+
 executables += [
         libexec_template + {
                 'name' : 'systemd-sysupdate',
@@ -40,6 +46,12 @@ executables += [
                 'conditions' : ['ENABLE_SYSUPDATE'],
                 'sources' : systemd_sysupdated_sources,
                 'dependencies' : threads,
+        },
+        executable_template + {
+                'name' : 'updatectl',
+                'public' : true,
+                'sources' : systemd_updatectl_sources,
+                'conditions' : ['ENABLE_SYSUPDATE'],
         },
 ]
 
