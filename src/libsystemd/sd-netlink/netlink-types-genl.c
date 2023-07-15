@@ -8,6 +8,7 @@
 #include <linux/if.h>
 #include <linux/if_macsec.h>
 #include <linux/l2tp.h>
+#include <linux/mptcp.h>
 #include <linux/nl80211.h>
 #include <linux/wireguard.h>
 
@@ -231,6 +232,25 @@ static const NLAPolicy genl_wireguard_policies[] = {
         [WGDEVICE_A_PEERS]       = BUILD_POLICY_NESTED(genl_wireguard_peer),
 };
 
+/********************************MPTCP************************************/
+static const NLAPolicy mptcp_pm_attr_addr_policies[] = {
+        [MPTCP_PM_ADDR_ATTR_FAMILY] = BUILD_POLICY(U16),
+        [MPTCP_PM_ADDR_ATTR_ID]     = BUILD_POLICY(U8),
+        [MPTCP_PM_ADDR_ATTR_ADDR4]  = BUILD_POLICY(IN_ADDR),
+        [MPTCP_PM_ADDR_ATTR_ADDR6]  = BUILD_POLICY(IN_ADDR),
+        [MPTCP_PM_ADDR_ATTR_PORT]   = BUILD_POLICY(U16),
+        [MPTCP_PM_ADDR_ATTR_FLAGS]  = BUILD_POLICY(FLAG),
+        [MPTCP_PM_ADDR_ATTR_IF_IDX] = BUILD_POLICY(S32),
+};
+
+DEFINE_POLICY_SET(mptcp_pm_attr_addr);
+
+static const NLAPolicy genl_mptcp_policies[] = {
+        [MPTCP_PM_ATTR_ADDR]          = BUILD_POLICY_NESTED(mptcp_pm_attr_addr),
+        [MPTCP_PM_ATTR_RCV_ADD_ADDRS] = BUILD_POLICY(U32),
+        [MPTCP_PM_ATTR_SUBFLOWS]      = BUILD_POLICY(U32),
+};
+
 /***************** genl families *****************/
 static const NLAPolicySetUnionElement genl_policy_set_union_elements[] = {
         BUILD_UNION_ELEMENT_BY_STRING(CTRL_GENL_NAME,               genl_ctrl),
@@ -241,6 +261,7 @@ static const NLAPolicySetUnionElement genl_policy_set_union_elements[] = {
         BUILD_UNION_ELEMENT_BY_STRING(NETLBL_NLTYPE_UNLABELED_NAME, genl_netlabel),
         BUILD_UNION_ELEMENT_BY_STRING(NL80211_GENL_NAME,            genl_nl80211),
         BUILD_UNION_ELEMENT_BY_STRING(WG_GENL_NAME,                 genl_wireguard),
+        BUILD_UNION_ELEMENT_BY_STRING(MPTCP_PM_NAME,                genl_mptcp),
 };
 
 /* This is the root type system union, so match_attribute is not necessary. */
