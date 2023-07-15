@@ -152,7 +152,9 @@
         "downgrade" attacks, where an attacker might be able to
         trigger a downgrade to non-DNSSEC mode by synthesizing a DNS
         response that suggests DNSSEC was not supported. If set to
-        false, DNS lookups are not DNSSEC validated.</para>
+        false, DNS lookups are not DNSSEC validated and the resolver
+        becomes security-unaware. All forwarded queries have DNSSEC OK (DO)
+        bit unset.</para>
 
         <para>Note that DNSSEC validation requires retrieval of
         additional DNS data, and thus results in a small DNS look-up
