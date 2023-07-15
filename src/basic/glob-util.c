@@ -63,6 +63,8 @@ int glob_first(const char *path, char **ret_first) {
                 return k;
 
         if (ret_first) {
+                assert(g.gl_pathv && g.gl_pathv[0]);
+
                 char *first = strdup(g.gl_pathv[0]);
                 if (!first)
                         return log_oom_debug();
