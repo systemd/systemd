@@ -30,7 +30,7 @@ CHANGES WITH 254 in spe:
         * Behaviour of sandboxing options for the per-user service manager
           units has changed. They now imply PrivateUsers=yes, which means user
           namespaces will be implicitly enabled when a sandboxing option is
-          enabled in a user unit. Enabling user namespaces has the the drawback
+          enabled in a user unit. Enabling user namespaces has the drawback
           that system users will no longer be visible (and processes/files will
           appear as owned by 'nobody') in the user unit.
 
