@@ -118,6 +118,20 @@
 
       <para>The output files must not exist.</para>
     </refsect2>
+
+    <refsect2>
+      <title><command>inspect</command></title>
+
+      <para>Display information about the sections in a given binary or binaries.
+      If <option>--all</option> is given, all sections are shown.
+      Otherwise, if <option>--section=</option> option is specified at least once, only those sections are shown.
+      Otherwise, well-known sections that are typically included in an UKI are shown.
+      For each section, its name, size, and sha256-digest is printed.
+      For text sections, the contents are printed.</para>
+
+      <para>Also see the description of <option>-j</option>/<option>--json=</option> and
+      <option>--section=</option>.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -163,13 +177,23 @@
 
         <varlistentry>
           <term><option>--section=<replaceable>NAME</replaceable>:<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
+          <term><option>--section=<replaceable>NAME</replaceable>:<arg choice="plain">text|binary</arg><optional>@<replaceable>PATH</replaceable></optional></option></term>
 
-          <listitem><para>Specify an arbitrary additional section
-          <literal><replaceable>NAME</replaceable></literal>. Note that the name is used as-is, and if the
-          section name should start with a dot, it must be included in <replaceable>NAME</replaceable>. The
-          argument may be a literal string, or <literal>@</literal> followed by a path name. This option may be
-          specified more than once. Any sections specified in this fashion will be inserted (in order) before
-          the <literal>.linux</literal> section which is always last.</para></listitem>
+          <listitem><para>For all verbs except <command>inspect</command>, the first syntax is used.
+          Specify an arbitrary additional section <literal><replaceable>NAME</replaceable></literal>.
+          The argument may be a literal string, or <literal>@</literal> followed by a path name.
+          This option may be specified more than once. Any sections specified in this fashion will be
+          inserted (in order) before the <literal>.linux</literal> section which is always last.</para>
+
+          <para>For the <command>inspect</command> verb, the second syntax is used.
+          The section <replaceable>NAME</replaceable> will be inspected (if found).
+          If the second argument is <literal>text</literal>, the contents will be printed.
+          If the third argument is given, the contents will be saved to file <replaceable>PATH</replaceable>.
+          </para>
+
+          <para>Note that the name is used as-is, and if the section name should start with a dot, it must be
+          included in <replaceable>NAME</replaceable>.</para>
+          </listitem>
         </varlistentry>
 
         <varlistentry>
@@ -194,6 +218,18 @@
 
           <listitem><para>Print a summary of loaded config and exit. This is useful to check how the options
           form the configuration file and the commandline are combined.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--all</option></term>
+
+          <listitem><para>Print all sections (with <command>inspect</command> verb).</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--json</option></term>
+
+          <listitem><para>Generate JSON output (with <command>inspect</command> verb).</para></listitem>
         </varlistentry>
 
         <xi:include href="standard-options.xml" xpointer="help" />
