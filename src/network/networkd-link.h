@@ -111,6 +111,7 @@ typedef struct Link {
         unsigned static_route_messages;
         unsigned static_routing_policy_rule_messages;
         unsigned tc_messages;
+        unsigned mp_tcp_messages;
         unsigned sr_iov_messages;
         unsigned set_link_messages;
         unsigned set_flags_messages;
@@ -143,6 +144,7 @@ typedef struct Link {
         bool static_routes_configured:1;
         bool static_routing_policy_rules_configured:1;
         bool tc_configured:1;
+        bool mp_tcp_configured:1;
         bool sr_iov_configured:1;
         bool activated:1;
         bool master_set:1;
