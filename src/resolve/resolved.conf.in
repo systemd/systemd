@@ -22,6 +22,7 @@
 #DNS=
 #FallbackDNS={{DNS_SERVERS}}
 #Domains=
+# DNSSEC support is experimental!
 #DNSSEC={{DEFAULT_DNSSEC_MODE_STR}}
 #DNSOverTLS={{DEFAULT_DNS_OVER_TLS_MODE_STR}}
 #MulticastDNS={{DEFAULT_MDNS_MODE_STR}}
