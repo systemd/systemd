@@ -2,18 +2,22 @@
 #
 # Polish translation for systemd.
 #
+# Piotr Drąg <piotrdrag@gmail.com>, 2023.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-07-14 10:32+0100\n"
-"PO-Revision-Date: 2023-05-28 13:01+0200\n"
+"PO-Revision-Date: 2023-07-15 10:56+0000\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
-"Language-Team: Polish <trans-pl@lists.fedoraproject.org>\n"
+"Language-Team: Polish <https://translate.fedoraproject.org/projects/systemd/"
+"master/pl/>\n"
 "Language: pl\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"Plural-Forms: nplurals=3; plural=n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
+"|| n%100>=20) ? 1 : 2;\n"
+"X-Generator: Weblate 4.18.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -115,146 +119,165 @@ msgstr "Wymagane jest uwierzytelnienie, aby zmienić hasło przestrzeni domowej 
 #, c-format
 msgid "Home of user %s is currently absent, please plug in the necessary storage device or backing file system."
 msgstr ""
+"Katalog domowy użytkownika %s jest teraz nieobecny, proszę podłączyć "
+"wymagane urządzenie do przechowywania danych lub system plików, na którym "
+"się znajduje."
 
 #: src/home/pam_systemd_home.c:292
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr ""
+msgstr "Za częste próby logowania użytkownika %s, proszę spróbować później."
 
 #: src/home/pam_systemd_home.c:304
 msgid "Password: "
-msgstr ""
+msgstr "Hasło: "
 
 #: src/home/pam_systemd_home.c:306
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
+"Hasło jest niepoprawne lub niewystarczające do uwierzytelnienia użytkownika "
+"%s."
 
 #: src/home/pam_systemd_home.c:307
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "Proszę spróbować ponownie: "
 
 #: src/home/pam_systemd_home.c:329
 msgid "Recovery key: "
-msgstr ""
+msgstr "Klucz odzyskiwania: "
 
 #: src/home/pam_systemd_home.c:331
 #, c-format
 msgid "Password/recovery key incorrect or not sufficient for authentication of user %s."
 msgstr ""
+"Hasło/klucz odzyskiwania jest niepoprawny lub niewystarczający do "
+"uwierzytelnienia użytkownika %s."
 
 #: src/home/pam_systemd_home.c:332
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "Proszę ponownie wpisać klucz odzyskiwania: "
 
 #: src/home/pam_systemd_home.c:352
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr ""
+msgstr "Nie włożono tokena zabezpieczeń użytkownika %s."
 
 #: src/home/pam_systemd_home.c:353 src/home/pam_systemd_home.c:356
 msgid "Try again with password: "
-msgstr ""
+msgstr "Proszę spróbować ponownie za pomocą hasła: "
 
 #: src/home/pam_systemd_home.c:355
 #, c-format
 msgid "Password incorrect or not sufficient, and configured security token of user %s not inserted."
 msgstr ""
+"Hasło jest niepoprawne lub niewystarczające, a skonfigurowany token "
+"zabezpieczeń użytkownika %s nie jest włożony."
 
 #: src/home/pam_systemd_home.c:376
 msgid "Security token PIN: "
-msgstr ""
+msgstr "Kod PIN tokena zabezpieczeń: "
 
 #: src/home/pam_systemd_home.c:393
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr ""
+msgstr "Proszę fizycznie uwierzytelnić na tokenie zabezpieczeń użytkownika %s."
 
 #: src/home/pam_systemd_home.c:404
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr ""
+msgstr "Proszę potwierdzić obecność na tokenie zabezpieczeń użytkownika %s."
 
 #: src/home/pam_systemd_home.c:415
 #, c-format
 msgid "Please verify user on security token of user %s."
-msgstr ""
+msgstr "Proszę zweryfikować użytkownika na tokenie zabezpieczeń użytkownika %s."
 
 #: src/home/pam_systemd_home.c:424
 msgid "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)"
 msgstr ""
+"Kod PIN tokena zabezpieczeń jest zablokowany, proszę najpierw go odblokować "
+"(wskazówka: wyjęcie i włożenie ponownie może wystarczyć)."
 
 #: src/home/pam_systemd_home.c:432
 #, c-format
 msgid "Security token PIN incorrect for user %s."
-msgstr ""
+msgstr "Niepoprawny kod PIN tokena zabezpieczeń dla użytkownika %s."
 
 #: src/home/pam_systemd_home.c:433 src/home/pam_systemd_home.c:452
 #: src/home/pam_systemd_home.c:471
 msgid "Sorry, retry security token PIN: "
-msgstr ""
+msgstr "Proszę ponownie wpisać kod PIN tokena zabezpieczeń: "
 
 #: src/home/pam_systemd_home.c:451
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
+"Niepoprawny kod PIN tokena zabezpieczeń użytkownika %s (pozostało tylko "
+"kilka prób)."
 
 #: src/home/pam_systemd_home.c:470
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
+"Niepoprawny kod PIN tokena zabezpieczeń użytkownika %s (pozostała tylko "
+"jedna próba)."
 
 #: src/home/pam_systemd_home.c:616
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
+"Katalog domowy użytkownika %s jest teraz nieaktywny, proszę najpierw "
+"zalogować się lokalnie."
 
 #: src/home/pam_systemd_home.c:618
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
+"Katalog domowy użytkownika %s jest teraz zablokowany, proszę najpierw "
+"odblokować go lokalnie."
 
 #: src/home/pam_systemd_home.c:645
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
-msgstr ""
+msgstr "Za dużo nieudanych prób logowania użytkownika %s, odmawianie."
 
 #: src/home/pam_systemd_home.c:868
 msgid "User record is blocked, prohibiting access."
-msgstr ""
+msgstr "Wpis użytkownika jest zablokowany, zabranianie dostępu."
 
 #: src/home/pam_systemd_home.c:872
 msgid "User record is not valid yet, prohibiting access."
-msgstr ""
+msgstr "Wpis użytkownika nie jest jeszcze ważny, zabranianie dostępu."
 
 #: src/home/pam_systemd_home.c:876
 msgid "User record is not valid anymore, prohibiting access."
-msgstr ""
+msgstr "Wpis użytkownika nie jest już ważny, zabranianie dostępu."
 
 #: src/home/pam_systemd_home.c:881 src/home/pam_systemd_home.c:932
 msgid "User record not valid, prohibiting access."
-msgstr ""
+msgstr "Wpis użytkownika jest nieważny, zabranianie dostępu."
 
 #: src/home/pam_systemd_home.c:893
 #, c-format
 msgid "Too many logins, try again in %s."
-msgstr ""
+msgstr "Za dużo logowań, proszę spróbować ponownie za %s."
 
 #: src/home/pam_systemd_home.c:904
 msgid "Password change required."
-msgstr ""
+msgstr "Wymagana jest zmiana hasła."
 
 #: src/home/pam_systemd_home.c:908
 msgid "Password expired, change required."
-msgstr ""
+msgstr "Hasło wygasło, wymagana jest zmiana."
 
 #: src/home/pam_systemd_home.c:914
 msgid "Password is expired, but can't change, refusing login."
-msgstr ""
+msgstr "Hasło wygasło, ale nie można go zmienić, odmawianie logowania."
 
 #: src/home/pam_systemd_home.c:918
 msgid "Password will expire soon, please change."
-msgstr ""
+msgstr "Hasło niedługo wygaśnie, proszę je zmienić."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
