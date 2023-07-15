@@ -96,6 +96,9 @@ struct Manager {
         usec_t speed_meter_usec_new;
         usec_t speed_meter_usec_old;
 
+        uint32_t mp_tcp_subflows;
+        uint32_t mp_tcp_add_addr_accepted;
+
         bool bridge_mdb_on_master_not_supported;
 
         FirewallContext *fw_ctx;

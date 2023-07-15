@@ -23,6 +23,7 @@
 #include "networkd-dhcp-server.h"
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-manager.h"
+#include "networkd-mptcp.h"
 #include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
 #include "networkd-network.h"
@@ -324,6 +325,7 @@ int network_verify(Network *network) {
         network_drop_invalid_routing_policy_rules(network);
         network_drop_invalid_qdisc(network);
         network_drop_invalid_tclass(network);
+        network_drop_invalid_mp_tcp(network);
         r = sr_iov_drop_invalid_sections(UINT32_MAX, network->sr_iov_by_section);
         if (r < 0)
                 return r; /* sr_iov_drop_invalid_sections() logs internally. */
@@ -525,6 +527,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "IPv6Prefix\0"
                         "IPv6RoutePrefix\0"
                         "LLDP\0"
+                        "MPTCP\0"
                         "TrafficControlQueueingDiscipline\0"
                         "CAN\0"
                         "QDisc\0"
@@ -775,6 +778,7 @@ static Network *network_free(Network *network) {
         hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
         hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
         hashmap_free_with_destructor(network->rules_by_section, routing_policy_rule_free);
+        hashmap_free_with_destructor(network->mp_tcp_by_section, mp_tcp_free);
         hashmap_free_with_destructor(network->dhcp_static_leases_by_section, dhcp_static_lease_free);
         ordered_hashmap_free_with_destructor(network->sr_iov_by_section, sr_iov_free);
         hashmap_free_with_destructor(network->qdiscs_by_section, qdisc_free);

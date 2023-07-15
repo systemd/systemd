@@ -24,6 +24,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-ipv6ll.h"
 #include "networkd-lldp-tx.h"
+#include "networkd-mptcp.h"
 #include "networkd-ndisc.h"
 #include "networkd-netlabel.h"
 #include "networkd-network.h"
@@ -381,6 +382,8 @@ IPv6Prefix.Token,                            config_parse_prefix_token,         
 IPv6RoutePrefix.Route,                       config_parse_route_prefix,                                0,                             0
 IPv6RoutePrefix.LifetimeSec,                 config_parse_route_prefix_lifetime,                       0,                             0
 LLDP.MUDURL,                                 config_parse_mud_url,                                     0,                             offsetof(Network, lldp_mudurl)
+MPTCP.Id,                                    config_parse_mp_tcp_id,                                   0,                             0
+MPTCP.Address,                               config_parse_mp_tcp_address,                              0,                             0
 CAN.BitRate,                                 config_parse_can_bitrate,                                 0,                             offsetof(Network, can_bitrate)
 CAN.SamplePoint,                             config_parse_permille,                                    0,                             offsetof(Network, can_sample_point)
 CAN.TimeQuantaNSec,                          config_parse_can_time_quanta,                             0,                             offsetof(Network, can_time_quanta_ns)

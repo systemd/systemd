@@ -16,6 +16,7 @@
 #include "networkd-conf.h"
 #include "networkd-manager-bus.h"
 #include "networkd-manager.h"
+#include "networkd-mptcp.h"
 #include "service-util.h"
 #include "signal-util.h"
 #include "user-util.h"
@@ -100,6 +101,8 @@ static int run(int argc, char *argv[]) {
         r = manager_enumerate(m);
         if (r < 0)
                 return r;
+
+        (void) mp_tcp_configure_limit(m);
 
         r = manager_start(m);
         if (r < 0)
