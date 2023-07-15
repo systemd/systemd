@@ -1068,6 +1068,54 @@ mismatch:
         return 0.0;
 }
 
+int json_variant_bytes(JsonVariant *v, uint8_t **ret, size_t *ret_size) {
+        _cleanup_free_ uint8_t *buf = NULL;
+        size_t n;
+
+        assert(ret);
+        assert(ret_size);
+
+        if (!v)
+                goto not_found;
+        if (!json_variant_is_array(v))
+                return -EINVAL;
+
+        n = json_variant_elements(v);
+        if (n == 0)
+                goto not_found;
+
+        buf = new(uint8_t, n + 1);
+        if (!buf)
+                return -ENOMEM;
+        // Silently allocate one extra byte to have a NULL terminated string to
+        // protect against buffer over read when the return value is misused as
+        // a string.
+        buf[n] = '\0';
+
+        for (size_t i = 0; i < n; i++) {
+                JsonVariant *e = json_variant_by_index(v, i);
+                uint64_t ev;
+
+                if (!json_variant_is_unsigned(e))
+                        return -EINVAL;
+
+                ev = json_variant_unsigned(e);
+                if (ev > UINT8_MAX)
+                        return -EINVAL;
+
+                buf[i] = (uint8_t) ev;
+        }
+
+        *ret = TAKE_PTR(buf);
+        *ret_size = n;
+        return 0;
+
+not_found:
+        *ret = NULL;
+        *ret_size = 0;
+        return 0;
+}
+
 bool json_variant_is_negative(JsonVariant *v) {
         if (!v)
                 goto mismatch;
