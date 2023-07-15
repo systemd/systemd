@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-07-14 10:32+0100\n"
-"PO-Revision-Date: 2023-07-14 22:01+0000\n"
+"PO-Revision-Date: 2023-07-15 00:15+0000\n"
 "Last-Translator: Temuri Doghonadze <temuri.doghonadze@gmail.com>\n"
 "Language-Team: Georgian <https://translate.fedoraproject.org/projects/"
 "systemd/master/ka/>\n"
@@ -21,7 +21,8 @@ msgid "Send passphrase back to system"
 msgstr "საკვანძო ფრაზის სისტემაში გადაგზავნა"
 
 #: src/core/org.freedesktop.systemd1.policy.in:23
-msgid "Authentication is required to send the entered passphrase back to the system."
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
 msgstr "საკვანძო ფრაზის სისტემისთვის დასაბრუნებლად საჭიროა ავთენტიკაცია."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
@@ -45,8 +46,12 @@ msgid "Set or unset system and service manager environment variables"
 msgstr "სისტემისა და სერვისების მმართველის გარემოს ცვლადების დაყენება და წაშლა"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
-msgid "Authentication is required to set or unset system and service manager environment variables."
-msgstr "სისტემისა და სერვისის მენეჯერის გარემოს ცვლადების დასაყენებლად ან წასაშლელად საჭიროა ავთენტიკაცია."
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr ""
+"სისტემისა და სერვისის მენეჯერის გარემოს ცვლადების დასაყენებლად ან წასაშლელად "
+"საჭიროა ავთენტიკაცია."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
@@ -61,8 +66,11 @@ msgid "Dump the systemd state without rate limits"
 msgstr "Systemd-ს მდგომარეობის დამპი სიხშირის შეზღუდვის გარეშე"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
-msgid "Authentication is required to dump the systemd state without rate limits."
-msgstr "Systemd-ის მდგომარეობის სიხშირის შეზღუდვების გარეშე დამპისთვის აუცილებელია ავთენტიკაცია."
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
+msgstr ""
+"Systemd-ის მდგომარეობის სიხშირის შეზღუდვების გარეშე დამპისთვის აუცილებელია "
+"ავთენტიკაცია."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
@@ -85,8 +93,11 @@ msgid "Check credentials of a home area"
 msgstr "სახლის ტერიტორიის მომხმარებლისა და პაროლის შემოწმება"
 
 #: src/home/org.freedesktop.home1.policy:34
-msgid "Authentication is required to check credentials against a user's home area."
-msgstr "სახლის ტერიტორიის მომხმარებლისა და პაროლის შემოწმებისთვის საჭიროა ავთენტიკაცია."
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr ""
+"სახლის ტერიტორიის მომხმარებლისა და პაროლის შემოწმებისთვის საჭიროა "
+"ავთენტიკაცია."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -109,18 +120,24 @@ msgid "Change password of a home area"
 msgstr "სახლის ტერიტორიის პაროლის შეცვლა"
 
 #: src/home/org.freedesktop.home1.policy:64
-msgid "Authentication is required to change the password of a user's home area."
+msgid ""
+"Authentication is required to change the password of a user's home area."
 msgstr "სახლის ტერიტორიის პაროლის შეცვლისთვის საჭიროა ავთენტიკაცია."
 
 #: src/home/pam_systemd_home.c:287
 #, c-format
-msgid "Home of user %s is currently absent, please plug in the necessary storage device or backing file system."
+msgid ""
+"Home of user %s is currently absent, please plug in the necessary storage "
+"device or backing file system."
 msgstr ""
+"მომხმარებლისთვის %s საწყისი საქაღალდე ჯერჯერობით არ არსებობს. მიაერთეთ "
+"შესაბამისი საცავის მოწყობილობა ან ფაილური სისტემა."
 
 #: src/home/pam_systemd_home.c:292
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
+"მომხმარებლისთვის %s შესვლის მეტისმეტად ხშირი მცდელობა. მოგვიანებით სცადეთ."
 
 #: src/home/pam_systemd_home.c:304
 msgid "Password: "
@@ -129,7 +146,7 @@ msgstr "პაროლი: "
 #: src/home/pam_systemd_home.c:306
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr ""
+msgstr "მომხმარებლის (%s) ავთენტიკაციისთვის პაროლი არასწორი ან არასაკმარისია."
 
 #: src/home/pam_systemd_home.c:307
 msgid "Sorry, try again: "
@@ -141,8 +158,12 @@ msgstr "აღდგენის გასაღები: "
 
 #: src/home/pam_systemd_home.c:331
 #, c-format
-msgid "Password/recovery key incorrect or not sufficient for authentication of user %s."
+msgid ""
+"Password/recovery key incorrect or not sufficient for authentication of user "
+"%s."
 msgstr ""
+"მომხმარებლის (%s) ავთენტიკაციისთვის პაროლი/აღდგენის გასაღები არასწორი ან "
+"არასაკმარისია."
 
 #: src/home/pam_systemd_home.c:332
 msgid "Sorry, reenter recovery key: "
@@ -159,8 +180,12 @@ msgstr "თავიდა სცადეთ, პაროლით: "
 
 #: src/home/pam_systemd_home.c:355
 #, c-format
-msgid "Password incorrect or not sufficient, and configured security token of user %s not inserted."
+msgid ""
+"Password incorrect or not sufficient, and configured security token of user "
+"%s not inserted."
 msgstr ""
+"პაროლი არასწორი ან არასაკმარისია და მომხმარებლისთვის %s უსაფრთხოების კოდი "
+"ჩასმული არაა."
 
 #: src/home/pam_systemd_home.c:376
 msgid "Security token PIN: "
@@ -169,21 +194,26 @@ msgstr "უსაფრთხოების კოდის PIN-კოდი: "
 #: src/home/pam_systemd_home.c:393
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr "მომხმარებლისთვის %s უსაფრთხოების კოდს ფიზიკური ავთენტიკაცია ესაჭიროება."
+msgstr ""
+"მომხმარებლისთვის %s უსაფრთხოების კოდს ფიზიკური ავთენტიკაცია ესაჭიროება."
 
 #: src/home/pam_systemd_home.c:404
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr ""
+msgstr "დაადასტურეთ არსებობა უსაფრთხოებით კოდში მომხმარებლისთვის %s."
 
 #: src/home/pam_systemd_home.c:415
 #, c-format
 msgid "Please verify user on security token of user %s."
-msgstr ""
+msgstr "გადაამოწმეთ მომხმარებელი უსაფრთხოების კოდზე მომხმარებლისთვის %s."
 
 #: src/home/pam_systemd_home.c:424
-msgid "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)"
+msgid ""
+"Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
+"insertion might suffice.)"
 msgstr ""
+"უსაფრთხოების კოდის PIN-კოდი დაბლოკილია. ჯერ განბლოკეთ ის. (მინიშნება: წაშლა "
+"და თავიდან ჩასმა, როგორც წესი, საკმარისია.)"
 
 #: src/home/pam_systemd_home.c:432
 #, c-format
@@ -199,26 +229,34 @@ msgstr "უკაცრავად, თავიდან სცადეთ �
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
+"მომხმარებლისთვის %s უსაფრთხოების კოდის PIN კოდი არასწორია (დარჩენილია მხოლოდ "
+"რამდენიმე ცდა!)"
 
 #: src/home/pam_systemd_home.c:470
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
+"მომხმარებლისთვის %s უსაფრთხოების კოდის PIN-კოდი არასწორია (დარჩა მხოლოდ "
+"ერთი!)"
 
 #: src/home/pam_systemd_home.c:616
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
+"მომხმარებლისთვის %s საწყისი საქაღალდე აქტიური არაა. სცადეთ, ჯერ ლოკალურად "
+"შეხვიდეთ."
 
 #: src/home/pam_systemd_home.c:618
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
+"მომხმარებლისთვის %s საწყისი საქაღალდე ამჟამად დაბლოკილია. გთხოვთ, ჯერ "
+"ლოკალურად განბლოკეთ ის."
 
 #: src/home/pam_systemd_home.c:645
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
-msgstr ""
+msgstr "მომხმარებლისთვის %s შესვლის მეტისმეტად ბევრი მცდელობა. უარყოფა."
 
 #: src/home/pam_systemd_home.c:868
 msgid "User record is blocked, prohibiting access."
@@ -270,7 +308,9 @@ msgid "Set static hostname"
 msgstr "ჰოსტის სტატიკური სახელის დაყენება"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
-msgid "Authentication is required to set the statically configured local hostname, as well as the pretty hostname."
+msgid ""
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
 msgstr "ჰოსტის სტატიკური სახელის დაყენებისთვის საჭიროა ავთენტიკაცია."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
@@ -350,7 +390,8 @@ msgid "Allow applications to inhibit system shutdown"
 msgstr "აპლიკაციებისთვის სისტემის გათიშვის დაყოვნების უფლების მიცემა"
 
 #: src/login/org.freedesktop.login1.policy:23
-msgid "Authentication is required for an application to inhibit system shutdown."
+msgid ""
+"Authentication is required for an application to inhibit system shutdown."
 msgstr "აპლიკაციას სისტემის გამორთვის დასაყოვნებლად სჭირდება ავთენტიკაცია."
 
 #: src/login/org.freedesktop.login1.policy:33
@@ -359,7 +400,9 @@ msgstr "აპლიკაციებისთვის სისტემი�
 
 #: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
-msgstr "აპლიკაციებისთვის სისტემის გამორთვის დაყოვნების უფლების მიცემისთვის საჭიროა ავთენტიკაცია."
+msgstr ""
+"აპლიკაციებისთვის სისტემის გამორთვის დაყოვნების უფლების მიცემისთვის საჭიროა "
+"ავთენტიკაცია."
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
@@ -367,7 +410,9 @@ msgstr "აპლიკაციებისთვის სისტემს �
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
-msgstr "აპლიკაციებისთვის სისტემს დაძინების აკრძალვის უფლების მიცემას ავთენტიკაცია სჭირდება."
+msgstr ""
+"აპლიკაციებისთვის სისტემს დაძინების აკრძალვის უფლების მიცემას ავთენტიკაცია "
+"სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
@@ -375,55 +420,82 @@ msgstr "აპლიკაციებისთვის სისტემს �
 
 #: src/login/org.freedesktop.login1.policy:56
 msgid "Authentication is required for an application to delay system sleep."
-msgstr "აპლიკაციებისთვის სისტემს დაძინების გადადების უფლების მიცემას ავთენტიკაცია სჭირდება."
+msgstr ""
+"აპლიკაციებისთვის სისტემს დაძინების გადადების უფლების მიცემას ავთენტიკაცია "
+"სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:65
 msgid "Allow applications to inhibit automatic system suspend"
 msgstr "აპლიკაციებისთვის სისტემს შეჩერების აკრძალვის უფლების მიცემა"
 
 #: src/login/org.freedesktop.login1.policy:66
-msgid "Authentication is required for an application to inhibit automatic system suspend."
-msgstr "აპლიკაციებისთვის სისტემს შეჩერების აკრძალვის უფლების მიცემას ავთენტიკაცია სჭირდება."
+msgid ""
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
+msgstr ""
+"აპლიკაციებისთვის სისტემს შეჩერების აკრძალვის უფლების მიცემას ავთენტიკაცია "
+"სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:75
 msgid "Allow applications to inhibit system handling of the power key"
 msgstr "აპლიკაციებისთვის ჩართვის ღილაკის უგულებელყოფის უფლების მიცემა"
 
 #: src/login/org.freedesktop.login1.policy:76
-msgid "Authentication is required for an application to inhibit system handling of the power key."
-msgstr "აპლიკაციებისთვის ჩართვის ღილაკის უგულებელყოფის უფლების მიცემას ავთენტიკაცია სჭირდება."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
+msgstr ""
+"აპლიკაციებისთვის ჩართვის ღილაკის უგულებელყოფის უფლების მიცემას ავთენტიკაცია "
+"სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
 msgstr "აპლიკაციებისთვის შეჩერების ღილაკის უგულებელყოფის უფლების მიცემა"
 
 #: src/login/org.freedesktop.login1.policy:87
-msgid "Authentication is required for an application to inhibit system handling of the suspend key."
-msgstr "აპლიკაციებისთვის შეჩერების ღილაკის უგულებელყოფის უფლების მიცემას ავთენტიკაცის სჭირდება."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
+msgstr ""
+"აპლიკაციებისთვის შეჩერების ღილაკის უგულებელყოფის უფლების მიცემას "
+"ავთენტიკაცის სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
 msgstr "აპლიკაციებისთვის დაყვინთვის ღილაკის უგულებელყოფის უფლების მიცემა"
 
 #: src/login/org.freedesktop.login1.policy:98
-msgid "Authentication is required for an application to inhibit system handling of the hibernate key."
-msgstr "აპლიკაციებისთვის დაყვინთვის ღილაკის უგულებელყოფის უფლების მიცემას ავთენტიკაცია სჭირდება."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
+msgstr ""
+"აპლიკაციებისთვის დაყვინთვის ღილაკის უგულებელყოფის უფლების მიცემას "
+"ავთენტიკაცია სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
-msgstr "აპლიკაციებისთვის ნოუთბუქის დახურვის ღილაკის უგულებელყოფის უფლების მიცემა"
+msgstr ""
+"აპლიკაციებისთვის ნოუთბუქის დახურვის ღილაკის უგულებელყოფის უფლების მიცემა"
 
 #: src/login/org.freedesktop.login1.policy:108
-msgid "Authentication is required for an application to inhibit system handling of the lid switch."
-msgstr "აპლიკაციებისთვის ნოუთბუქის დახურვის ღილაკის უგულებელყოფის უფლების მიცემას ავთენტიკაცია სჭირდება."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
+msgstr ""
+"აპლიკაციებისთვის ნოუთბუქის დახურვის ღილაკის უგულებელყოფის უფლების მიცემას "
+"ავთენტიკაცია სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:117
 msgid "Allow applications to inhibit system handling of the reboot key"
 msgstr "აპლიკაციებისთვის გადატვირთვის ღილაკის უგულებელყოფის უფლების მიცემა"
 
 #: src/login/org.freedesktop.login1.policy:118
-msgid "Authentication is required for an application to inhibit system handling of the reboot key."
-msgstr "აპლიკაციებისთვის გადატვირთვის ღილაკის უგულებელყოფის უფლების მიცემას ავთენტიკაცია სჭირდება."
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the reboot key."
+msgstr ""
+"აპლიკაციებისთვის გადატვირთვის ღილაკის უგულებელყოფის უფლების მიცემას "
+"ავთენტიკაცია სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
@@ -431,7 +503,9 @@ msgstr "არ-შესული მომხმარებლებისთ�
 
 #: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
-msgstr "არ-შესული მომხმარებლებისთვის პროგრამების გაშვების უფლების მიცემას სპეციფიკური მოთხოვნა სჭირდება."
+msgstr ""
+"არ-შესული მომხმარებლებისთვის პროგრამების გაშვების უფლების მიცემას "
+"სპეციფიკური მოთხოვნა სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
@@ -439,7 +513,9 @@ msgstr "არ-შესული მომხმარებლებისთ�
 
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
-msgstr "არ-შესული მომხმარებლებისთვის პროგრამების გაშვების უფლების მიცემას ავთენტიკაცია სჭირდება."
+msgstr ""
+"არ-შესული მომხმარებლებისთვის პროგრამების გაშვების უფლების მიცემას "
+"ავთენტიკაცია სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
@@ -447,7 +523,9 @@ msgstr "სამუშაო მაგიდებისთვის მოწ�
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
-msgstr "სამუშაო მაგიდებისთვის მოწყობილობების მიერთების უფლების მიცემას ავთენტიკაცია სჭირდება."
+msgstr ""
+"სამუშაო მაგიდებისთვის მოწყობილობების მიერთების უფლების მიცემას ავთენტიკაცია "
+"სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
@@ -455,7 +533,8 @@ msgstr "სამუშაო მაგიდებისთვის მოწ�
 
 #: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
-msgstr "სამუშაო მაგიდებისთვის მოწყობილობების ბმების წასაშლელად საჭიროა ავთენტიკაცია."
+msgstr ""
+"სამუშაო მაგიდებისთვის მოწყობილობების ბმების წასაშლელად საჭიროა ავთენტიკაცია."
 
 #: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
@@ -470,16 +549,23 @@ msgid "Power off the system while other users are logged in"
 msgstr "სისტემის გამორთვა, როცა სხვა მომხმარებლებიც არიან შესული"
 
 #: src/login/org.freedesktop.login1.policy:181
-msgid "Authentication is required to power off the system while other users are logged in."
-msgstr "სისტემის გამორთვას, როცა სხვა მომხმარებლებიც არიან შესული, ავთენტიკაცია სჭირდება."
+msgid ""
+"Authentication is required to power off the system while other users are "
+"logged in."
+msgstr ""
+"სისტემის გამორთვას, როცა სხვა მომხმარებლებიც არიან შესული, ავთენტიკაცია "
+"სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
 msgstr "სისტემის გამორთვა, როცა აპლიკაციები ბლოკავენ ამას"
 
 #: src/login/org.freedesktop.login1.policy:192
-msgid "Authentication is required to power off the system while an application is inhibiting this."
-msgstr "სისტემის გამორთვას, როცა აპლიკაციები ბლოკავენ ამას, ავთენტიკაცია სჭირდება."
+msgid ""
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
+msgstr ""
+"სისტემის გამორთვას, როცა აპლიკაციები ბლოკავენ ამას, ავთენტიკაცია სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
@@ -494,16 +580,24 @@ msgid "Reboot the system while other users are logged in"
 msgstr "სისტემის გამორთვა, როცა სხვა მომხმარებლებიც არიან შესული"
 
 #: src/login/org.freedesktop.login1.policy:214
-msgid "Authentication is required to reboot the system while other users are logged in."
-msgstr "სისტემის გამორთვას, როცა სხვა მომხმარებლებიც არიან შესული, ავთენტიკაცია სჭირდება."
+msgid ""
+"Authentication is required to reboot the system while other users are logged "
+"in."
+msgstr ""
+"სისტემის გამორთვას, როცა სხვა მომხმარებლებიც არიან შესული, ავთენტიკაცია "
+"სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
 msgstr "სისტემის გადატვირთვა მაშინაც კი, როცა აპლიკაცია ბლოკავს"
 
 #: src/login/org.freedesktop.login1.policy:225
-msgid "Authentication is required to reboot the system while an application is inhibiting this."
-msgstr "სისტემის გადატვირთვას მაშინაც კი, როცა აპლიკაცია ბლოკავს, ავთენტიკაცია სჭირდება."
+msgid ""
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
+msgstr ""
+"სისტემის გადატვირთვას მაშინაც კი, როცა აპლიკაცია ბლოკავს, ავთენტიკაცია "
+"სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
@@ -518,16 +612,24 @@ msgid "Halt the system while other users are logged in"
 msgstr "სისტემის გაჩერება მაშინაც კი, როცა სხვა მომხმარებლებიც არიან შესული"
 
 #: src/login/org.freedesktop.login1.policy:247
-msgid "Authentication is required to halt the system while other users are logged in."
-msgstr "სისტემის გაჩერებას მაშინაც კი, როცა სხვა მომხმარებლებიც არიან შესული, ავთენტიკაცია სჭირდება."
+msgid ""
+"Authentication is required to halt the system while other users are logged "
+"in."
+msgstr ""
+"სისტემის გაჩერებას მაშინაც კი, როცა სხვა მომხმარებლებიც არიან შესული, "
+"ავთენტიკაცია სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
 msgstr "სისტემის გაჩერება აპლიკაციის მიერ აკრძალვის შემთხვევაშიც"
 
 #: src/login/org.freedesktop.login1.policy:258
-msgid "Authentication is required to halt the system while an application is inhibiting this."
-msgstr "სისტემის გაჩერებას აპლიკაციის მიერ აკრძალვის შემთხვევაშიც კი სჭირდება ავთენტიკაცია."
+msgid ""
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
+msgstr ""
+"სისტემის გაჩერებას აპლიკაციის მიერ აკრძალვის შემთხვევაშიც კი სჭირდება "
+"ავთენტიკაცია."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -542,16 +644,24 @@ msgid "Suspend the system while other users are logged in"
 msgstr "სისტემის შეჩერება, როცა სხვა მომხმარებლებიც არიან შესული"
 
 #: src/login/org.freedesktop.login1.policy:279
-msgid "Authentication is required to suspend the system while other users are logged in."
-msgstr "სისტემის შეჩერებას, როცა სხვა მომხმარებლებიც არიან შესული, ავთენტიკაცია სჭირდება."
+msgid ""
+"Authentication is required to suspend the system while other users are "
+"logged in."
+msgstr ""
+"სისტემის შეჩერებას, როცა სხვა მომხმარებლებიც არიან შესული, ავთენტიკაცია "
+"სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
 msgstr "სისტემის შეჩერება მაშინაც კი, როცა აპლიკაცია კრძალავს ამას"
 
 #: src/login/org.freedesktop.login1.policy:290
-msgid "Authentication is required to suspend the system while an application is inhibiting this."
-msgstr "სისტემის შეჩერებას მაშინაც კი, როცა აპლიკაცია კრძალავს ამას, სჭირდება ავთენტიკაცია."
+msgid ""
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
+msgstr ""
+"სისტემის შეჩერებას მაშინაც კი, როცა აპლიკაცია კრძალავს ამას, სჭირდება "
+"ავთენტიკაცია."
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
@@ -566,16 +676,24 @@ msgid "Hibernate the system while other users are logged in"
 msgstr "სისტემის მიძინება მაშინაც კი, როცა სხვა მომხმარებლები არიან შესული"
 
 #: src/login/org.freedesktop.login1.policy:311
-msgid "Authentication is required to hibernate the system while other users are logged in."
-msgstr "სისტემის მიძინებას მაშინაც კი, როცა სხვა მომხმარებლები არიან შესული, ავთენტიკაცია სჭირდება."
+msgid ""
+"Authentication is required to hibernate the system while other users are "
+"logged in."
+msgstr ""
+"სისტემის მიძინებას მაშინაც კი, როცა სხვა მომხმარებლები არიან შესული, "
+"ავთენტიკაცია სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
 msgstr "სისტემის მიძინება მაშინაც კი, როცა აპლიკაცია კრძალავს ამას"
 
 #: src/login/org.freedesktop.login1.policy:322
-msgid "Authentication is required to hibernate the system while an application is inhibiting this."
-msgstr "სისტემის მიძინებას მაშინაც კი, როცა აპლიკაცია კრძალავს ამას, სჭირდება ავთენტიკაცია."
+msgid ""
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
+msgstr ""
+"სისტემის მიძინებას მაშინაც კი, როცა აპლიკაცია კრძალავს ამას, სჭირდება "
+"ავთენტიკაცია."
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
@@ -583,7 +701,9 @@ msgstr "აქტიური სესიების, მომხმარე
 
 #: src/login/org.freedesktop.login1.policy:333
 msgid "Authentication is required to manage active sessions, users and seats."
-msgstr "აქტიური სესიების, მომხმარებლებისა და სამუშაო მაგიდების მართვას ავთენტიკაცია სჭირდება."
+msgstr ""
+"აქტიური სესიების, მომხმარებლებისა და სამუშაო მაგიდების მართვას ავთენტიკაცია "
+"სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
@@ -606,24 +726,37 @@ msgid "Indicate to the firmware to boot to setup interface"
 msgstr "მიკროკოდისთვის დაყენების ინტერფეისში ჩატვირთვის ბრძანების გადაცემა"
 
 #: src/login/org.freedesktop.login1.policy:364
-msgid "Authentication is required to indicate to the firmware to boot to setup interface."
-msgstr "მიკროკოდისთვის დაყენების ინტერფეისში ჩატვირთვის ბრძანების გადაცემას ავთენტიკაცია სჭირდება."
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr ""
+"მიკროკოდისთვის დაყენების ინტერფეისში ჩატვირთვის ბრძანების გადაცემას "
+"ავთენტიკაცია სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
 msgstr "ბირთვის ჩამტვირთველისთვის მენიუში ჩატვირთვის ბრძანების გადაცემა"
 
 #: src/login/org.freedesktop.login1.policy:375
-msgid "Authentication is required to indicate to the boot loader to boot to the boot loader menu."
-msgstr "ბირთვის ჩამტვირთველისთვის მენიუში ჩატვირთვის ბრძანების გადაცემას ავთენტიკაცია სჭირდება."
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr ""
+"ბირთვის ჩამტვირთველისთვის მენიუში ჩატვირთვის ბრძანების გადაცემას "
+"ავთენტიკაცია სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
-msgstr "ბირთვის ჩამტვირთველისთვის მითითებული ელემენტის ჩატვირთვის ბრძანების გადაცემა"
+msgstr ""
+"ბირთვის ჩამტვირთველისთვის მითითებული ელემენტის ჩატვირთვის ბრძანების გადაცემა"
 
 #: src/login/org.freedesktop.login1.policy:386
-msgid "Authentication is required to indicate to the boot loader to boot into a specific boot loader entry."
-msgstr "ბირთვის ჩამტვირთველისთვის მითითებული ელემენტის ჩატვირთვის ბრძანების გადაცემას ავთენტიკაცია სჭირდება."
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr ""
+"ბირთვის ჩამტვირთველისთვის მითითებული ელემენტის ჩატვირთვის ბრძანების "
+"გადაცემას ავთენტიკაცია სჭირდება."
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
@@ -678,7 +811,8 @@ msgid "Acquire a pseudo TTY in a local container"
 msgstr "ლოკალურ კონტეინერში ფსევდოტერმინალის მიღება"
 
 #: src/machine/org.freedesktop.machine1.policy:65
-msgid "Authentication is required to acquire a pseudo TTY in a local container."
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
 msgstr "ლოკალურ კონტეინერში ფსევდოტერმინალის მიღებას ავთენტიკაცია სჭირდება."
 
 #: src/machine/org.freedesktop.machine1.policy:74
@@ -694,16 +828,23 @@ msgid "Manage local virtual machines and containers"
 msgstr "ლოკალური ვირტუალური მანქანებისა და კონტეინერების მართვა"
 
 #: src/machine/org.freedesktop.machine1.policy:85
-msgid "Authentication is required to manage local virtual machines and containers."
-msgstr "ლოკალური ვირტუალური მანქანებისა და კონტეინერების მართვას ავთენტიკაცია სჭირდება."
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr ""
+"ლოკალური ვირტუალური მანქანებისა და კონტეინერების მართვას ავთენტიკაცია "
+"სჭირდება."
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Manage local virtual machine and container images"
 msgstr "ლოკალური ვირტუალური მანქანებისა და კონტეინერების იმიჯების მართვა"
 
 #: src/machine/org.freedesktop.machine1.policy:96
-msgid "Authentication is required to manage local virtual machine and container images."
-msgstr "ლოკალური ვირტუალური მანქანებისა და კონტეინერების იმიჯების მართვას ავთენტიკაცია სჭირდება."
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr ""
+"ლოკალური ვირტუალური მანქანებისა და კონტეინერების იმიჯების მართვას "
+"ავთენტიკაცია სჭირდება."
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -854,16 +995,20 @@ msgid "Attach or detach a portable service image"
 msgstr "გადატანადი სერვისის იმიჯის მოძრობა ან მიმაგრება"
 
 #: src/portable/org.freedesktop.portable1.policy:24
-msgid "Authentication is required to attach or detach a portable service image."
-msgstr "გადატანადი სერვისის იმიჯის მოსაძრობად ან მისამაგრებლად საჭიროა ავთენტიკაცია."
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr ""
+"გადატანადი სერვისის იმიჯის მოსაძრობად ან მისამაგრებლად საჭიროა ავთენტიკაცია."
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
 msgstr "გადატანადი სერვისის იმიჯის წაშლა ან შეცვლა"
 
 #: src/portable/org.freedesktop.portable1.policy:35
-msgid "Authentication is required to delete or modify a portable service image."
-msgstr "გადატანადი სერვისის იმიჯის წასაშლელად ან შესაცვლელად საჭიროა ავთენტიკაცია."
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr ""
+"გადატანადი სერვისის იმიჯის წასაშლელად ან შესაცვლელად საჭიროა ავთენტიკაცია."
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
@@ -910,15 +1055,20 @@ msgid "Set RTC to local timezone or UTC"
 msgstr "RTC-ის ლოკალურ დროის სარტყელზე ან UTC-ზე დაყენება"
 
 #: src/timedate/org.freedesktop.timedate1.policy:44
-msgid "Authentication is required to control whether the RTC stores the local or UTC time."
-msgstr "RTC-ის ლოკალურ დროის სარტყელზე ან UTC-ზე დასაყენებლად საჭიროა ავთენტიკაცია."
+msgid ""
+"Authentication is required to control whether the RTC stores the local or "
+"UTC time."
+msgstr ""
+"RTC-ის ლოკალურ დროის სარტყელზე ან UTC-ზე დასაყენებლად საჭიროა ავთენტიკაცია."
 
 #: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
 msgstr "დროის ქსელური სინქრონიზაციის ჩართ/გამორთ"
 
 #: src/timedate/org.freedesktop.timedate1.policy:54
-msgid "Authentication is required to control whether network time synchronization shall be enabled."
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
 msgstr "დროის ქსელური სინქრონიზაციის ჩართ/გამორთ-თვის საჭიროა ავთენტიკაცია."
 
 #: src/core/dbus-unit.c:364
@@ -938,21 +1088,31 @@ msgid "Authentication is required to restart '$(unit)'."
 msgstr "'$(unit)'-ის გადასატვირთად საჭიროა ავთენტიკაცია."
 
 #: src/core/dbus-unit.c:565
-msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
-msgstr "'$(unit)'-ის პროცესებისთვის UNIX სიგნალის გასაგზავნად საჭიროა ავთნტიკაცია."
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"'$(unit)'."
+msgstr ""
+"'$(unit)'-ის პროცესებისთვის UNIX სიგნალის გასაგზავნად საჭიროა ავთნტიკაცია."
 
 #: src/core/dbus-unit.c:595
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
-msgstr "'$(unit)'-ის შეცდომით გაშვების მდგომარეობის გასასუფთავებლად საჭიროა ავთენტიკაცია."
+msgstr ""
+"'$(unit)'-ის შეცდომით გაშვების მდგომარეობის გასასუფთავებლად საჭიროა "
+"ავთენტიკაცია."
 
 #: src/core/dbus-unit.c:627
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "'$(unit)'-ის თვისებების დასაყენებლად საჭიროა ავთენტიკაცია."
 
 #: src/core/dbus-unit.c:728
-msgid "Authentication is required to delete files and directories associated with '$(unit)'."
-msgstr "'$(unit)'-თან ასოცირებული ფაილების და საქაღალდეების წასაშლელად საჭიროა ავთენტიკაცია."
+msgid ""
+"Authentication is required to delete files and directories associated with "
+"'$(unit)'."
+msgstr ""
+"'$(unit)'-თან ასოცირებული ფაილების და საქაღალდეების წასაშლელად საჭიროა "
+"ავთენტიკაცია."
 
 #: src/core/dbus-unit.c:776
-msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "'$(unit)'-ის პროცესების გასაყინად საჭიროა ავთენტიკაცია."
