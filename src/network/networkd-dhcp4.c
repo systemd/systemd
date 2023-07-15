@@ -203,6 +203,10 @@ static int dhcp4_request_route(Route *in, Link *link) {
                 route->mtu = link->network->dhcp_route_mtu;
         if (route->quickack < 0)
                 route->quickack = link->network->dhcp_quickack;
+        if (route->initcwnd == 0)
+                route->initcwnd = link->network->dhcp_initial_congestion_window;
+        if (route->initrwnd == 0)
+                route->initrwnd = link->network->dhcp_advertised_receive_window;
 
         if (route_get(NULL, link, route, &existing) < 0) /* This is a new route. */
                 link->dhcp4_configured = false;
