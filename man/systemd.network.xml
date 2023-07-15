@@ -1789,12 +1789,12 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
       <varlistentry>
         <term><varname>ClientIdentifier=</varname></term>
         <listitem>
-          <para>The DHCPv4 client identifier to use. Takes one of <option>mac</option>,
-          <option>duid</option> or <option>duid-only</option>. If set to <option>mac</option>, the
-          MAC address of the link is used. If set to <option>duid</option>, an RFC4361-compliant Client
-          ID, which is the combination of IAID and DUID (see below), is used. If set to
-          <option>duid-only</option>, only DUID is used, this may not be RFC compliant, but some setups
-          may require to use this. Defaults to <option>duid</option>.</para>
+          <para>The DHCPv4 client identifier to use. Takes one of <option>mac</option> or
+          <option>duid</option>. If set to <option>mac</option>, the MAC address of the link is used. If set
+          to <option>duid</option>, an RFC4361-compliant Client ID, which is the combination of IAID and
+          DUID, is used. IAID can be configured by <varname>IAID=</varname>. DUID can be configured by
+          <varname>DUIDType=</varname> and <varname>DUIDRawData=</varname>. Defaults to
+          <option>duid</option>.</para>
         </listitem>
       </varlistentry>
 

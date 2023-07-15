@@ -404,7 +404,6 @@ int sd_dhcp_client_set_client_id(
  */
 static int dhcp_client_set_iaid_duid_internal(
                 sd_dhcp_client *client,
-                bool iaid_append,
                 bool iaid_set,
                 uint32_t iaid,
                 DUIDType duid_type,
@@ -428,16 +427,14 @@ static int dhcp_client_set_iaid_duid_internal(
         zero(client->client_id);
         client->client_id.type = 255;
 
-        if (iaid_append) {
-                if (iaid_set)
-                        client->client_id.ns.iaid = htobe32(iaid);
-                else {
-                        r = dhcp_identifier_set_iaid(client->dev, &client->hw_addr,
-                                                     /* legacy_unstable_byteorder = */ true,
-                                                     &client->client_id.ns.iaid);
-                        if (r < 0)
-                                return log_dhcp_client_errno(client, r, "Failed to set IAID: %m");
-                }
+        if (iaid_set)
+                client->client_id.ns.iaid = htobe32(iaid);
+        else {
+                r = dhcp_identifier_set_iaid(client->dev, &client->hw_addr,
+                                             /* legacy_unstable_byteorder = */ true,
+                                             &client->client_id.ns.iaid);
+                if (r < 0)
+                        return log_dhcp_client_errno(client, r, "Failed to set IAID: %m");
         }
 
         if (duid) {
@@ -459,8 +456,7 @@ static int dhcp_client_set_iaid_duid_internal(
                                                      duid_type_to_string(duid_type));
         }
 
-        client->client_id_len = sizeof(client->client_id.type) + len +
-                                (iaid_append ? sizeof(client->client_id.ns.iaid) : 0);
+        client->client_id_len = sizeof(client->client_id.type) + sizeof(client->client_id.ns.iaid) + len;
 
         return 0;
 }
@@ -472,7 +468,7 @@ int sd_dhcp_client_set_iaid_duid(
                 uint16_t duid_type,
                 const void *duid,
                 size_t duid_len) {
-        return dhcp_client_set_iaid_duid_internal(client, true, iaid_set, iaid, duid_type, duid, duid_len, 0);
+        return dhcp_client_set_iaid_duid_internal(client, iaid_set, iaid, duid_type, duid, duid_len, 0);
 }
 
 int sd_dhcp_client_set_iaid_duid_llt(
@@ -480,21 +476,7 @@ int sd_dhcp_client_set_iaid_duid_llt(
                 bool iaid_set,
                 uint32_t iaid,
                 usec_t llt_time) {
-        return dhcp_client_set_iaid_duid_internal(client, true, iaid_set, iaid, DUID_TYPE_LLT, NULL, 0, llt_time);
-}
-
-int sd_dhcp_client_set_duid(
-                sd_dhcp_client *client,
-                uint16_t duid_type,
-                const void *duid,
-                size_t duid_len) {
-        return dhcp_client_set_iaid_duid_internal(client, false, false, 0, duid_type, duid, duid_len, 0);
-}
-
-int sd_dhcp_client_set_duid_llt(
-                sd_dhcp_client *client,
-                usec_t llt_time) {
-        return dhcp_client_set_iaid_duid_internal(client, false, false, 0, DUID_TYPE_LLT, NULL, 0, llt_time);
+        return dhcp_client_set_iaid_duid_internal(client, iaid_set, iaid, DUID_TYPE_LLT, NULL, 0, llt_time);
 }
 
 void dhcp_client_set_test_mode(sd_dhcp_client *client, bool test_mode) {
