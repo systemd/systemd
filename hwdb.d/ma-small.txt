@@ -6629,11 +6629,47 @@ CFD000-CFDFFF     (base 16)		Smart-VOD Pty Ltd
 				Silea    31057
 				IT
 
+8C-1F-64   (hex)		Exypnos - Creative Solutions LTD
+9F8000-9F8FFF     (base 16)		Exypnos - Creative Solutions LTD
+				Hamovil st., Ziporit Industrial Park
+				Nof Hagalil    1710601
+				IL
+
+8C-1F-64   (hex)		BnB Information Technology
+3EE000-3EEFFF     (base 16)		BnB Information Technology
+				#813 Kongdanlo140St Goonpo city Gyeonggido
+				Gunpo  Gunpo-si/Gyeonggi-do,  15847
+				KR
+
+8C-1F-64   (hex)		Navtech Radar Ltd.
+129000-129FFF     (base 16)		Navtech Radar Ltd.
+				Unit 4 Home Farm, Ardington
+				Wantage  Oxfordshire  OX12 8PD
+				GB
+
 8C-1F-64   (hex)		IPCOMM GmbH
 096000-096FFF     (base 16)		IPCOMM GmbH
 				Walter-Bouhon-Str. 4
 				Nuremberg    90427
 				DE
+
+8C-1F-64   (hex)		Intercreate
+055000-055FFF     (base 16)		Intercreate
+				2325 3rd St.Suite 204
+				San Francisco  CA  94107
+				US
+
+8C-1F-64   (hex)		MG s.r.l.
+B7A000-B7AFFF     (base 16)		MG s.r.l.
+				via Monte Bianco, 1
+				Solbiate Olona  VA  21058
+				IT
+
+8C-1F-64   (hex)		ALISONIC SRL
+C16000-C16FFF     (base 16)		ALISONIC SRL
+				via Ercolano 3
+				Monza  mb  20900
+				IT
 
 8C-1F-64   (hex)		Chemito Infotech PVT LTD
 E23000-E23FFF     (base 16)		Chemito Infotech PVT LTD
@@ -13286,6 +13322,36 @@ E2D000-E2DFFF     (base 16)		RADA Electronics Industries Ltd.
 				    
 				
 
+8C-1F-64   (hex)		Power Electronics Espana, S.L.
+E80000-E80FFF     (base 16)		Power Electronics Espana, S.L.
+				C/ Leonardo Da Vinci, 24-26
+				Paterna  Valencia  46980
+				ES
+
+8C-1F-64   (hex)		Gogo Business Aviation
+DE5000-DE5FFF     (base 16)		Gogo Business Aviation
+				105 Edgeview Dr., Suite 300
+				Broomfield  CO  80021
+				US
+
+8C-1F-64   (hex)		YUYAMA MFG Co.,Ltd
+B5A000-B5AFFF     (base 16)		YUYAMA MFG Co.,Ltd
+				1-4-30
+				MEISHINGUCHI,TOYONAKA  OSAKA  561-0841
+				JP
+
+8C-1F-64   (hex)		Jacobs Technology, Inc.
+A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
+				7765 Old Telegraph Road
+				Severn  MD  21144
+				US
+
+8C-1F-64   (hex)		Martec Marine S.p.a.
+4A9000-4A9FFF     (base 16)		Martec Marine S.p.a.
+				Via dell'industria 1/3
+				Vignate  Milano  20052
+				IT
+
 8C-1F-64   (hex)		SECURICO ELECTRONICS INDIA LTD
 4D9000-4D9FFF     (base 16)		SECURICO ELECTRONICS INDIA LTD
 				Plot No.4, 14/3, Mathura Road
@@ -19894,6 +19960,18 @@ A0E000-A0EFFF     (base 16)		Elac Americas Inc.
 				Atir Yeda 15
 				Kfar Saba    4464312
 				IL
+
+8C-1F-64   (hex)		Minartime(Beijing)Science &Technology Development Co.,Ltd
+D09000-D09FFF     (base 16)		Minartime(Beijing)Science &Technology Development Co.,Ltd
+				1201B, 12th Floor, Building 4, No. 2 Ronghua South Road Beijing Economic and Technological Development Zone, Beijing (Yizhuang Group, High-end Industrial Area, Beijing Pilot Free Trade Zone)
+				Beijing    100176
+				CN
+
+8C-1F-64   (hex)		Vision Systems Safety Tech
+E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
+				5 Chemin de Chiradie
+				Brignais    69530
+				FR
 
 8C-1F-64   (hex)		SD OPTICS
 C42000-C42FFF     (base 16)		SD OPTICS
@@ -26537,11 +26615,32 @@ C09000-C09FFF     (base 16)		RCH SPA
 				Silea    31057
 				IT
 
+8C-1F-64   (hex)		NUANCES ORG
+049000-049FFF     (base 16)		NUANCES ORG
+				92 AVENUE DE WAGRAM
+				PARIS    75017
+				FR
+
+8C-1F-64   (hex)		  Fuzhou Tucsen Photonics Co.,Ltd
+FF3000-FF3FFF     (base 16)		  Fuzhou Tucsen Photonics Co.,Ltd
+				5# Wanwushe Smart Industrial Park , No.2 Yangqi Branch Rd, Gaishan Town, Cangshan Area, Fuzhou, Fujian,PRC
+				fuzhou    350008
+				CN
+
+8C-1F-64   (hex)		Private
+4F6000-4F6FFF     (base 16)		Private
+
 8C-1F-64   (hex)		RCH SPA
 5A7000-5A7FFF     (base 16)		RCH SPA
 				Via Cendon 39
 				Silea    31057
 				IT
+
+8C-1F-64   (hex)		Flow Power
+82B000-82BFFF     (base 16)		Flow Power
+				Suite 2, Level 3, 18 - 20 York St
+				Sydney    2000
+				AU
 
 8C-1F-64   (hex)		Hiwin Mikrosystem Corp.
 52A000-52AFFF     (base 16)		Hiwin Mikrosystem Corp.
@@ -28831,12 +28930,6 @@ A67000-A67FFF     (base 16)		Gstar Creation Co .,Ltd
 				1F NO53 Jimay Street san chong district
 				New Taipei    241
 				TW
-
-70-B3-D5   (hex)		Maytronics Ltd.
-90E000-90EFFF     (base 16)		Maytronics Ltd.
-				
-				    
-				
 
 70-B3-D5   (hex)		Light field Lab
 D27000-D27FFF     (base 16)		Light field Lab
@@ -33020,8 +33113,14 @@ DDB000-DDBFFF     (base 16)		Efficient Residential Heating GmbH
 				Silea    31057
 				IT
 
-8C-1F-64   (hex)		Airgain Inc.
-753000-753FFF     (base 16)		Airgain Inc.
-				3611 Valley Centre Dr, Ste 150
-				San Diego  CA  92130
-				US
+70-B3-D5   (hex)		Maytronics Ltd.
+90E000-90EFFF     (base 16)		Maytronics Ltd.
+				Kibbutz Yizrael
+				Kibbutz Yizrael    1935000
+				IL
+
+8C-1F-64   (hex)		Hiwin Mikrosystem Corp.
+201000-201FFF     (base 16)		Hiwin Mikrosystem Corp.
+				NO 6 JINGKE CENTRAL RD  TAICHUNG CITY TAIWAN 40841
+				TAICHUNG    40841
+				TW
