@@ -1260,22 +1260,6 @@ static int dhcp4_set_client_identifier(Link *link) {
                         return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set IAID+DUID: %m");
                 break;
         }
-        case DHCP_CLIENT_ID_DUID_ONLY: {
-                /* If configured, apply user specified DUID */
-                const DUID *duid = link_get_dhcp4_duid(link);
-
-                if (duid->type == DUID_TYPE_LLT && duid->raw_data_len == 0)
-                        r = sd_dhcp_client_set_duid_llt(link->dhcp_client,
-                                                        duid->llt_time);
-                else
-                        r = sd_dhcp_client_set_duid(link->dhcp_client,
-                                                    duid->type,
-                                                    duid->raw_data_len > 0 ? duid->raw_data : NULL,
-                                                    duid->raw_data_len);
-                if (r < 0)
-                        return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set DUID: %m");
-                break;
-        }
         case DHCP_CLIENT_ID_MAC: {
                 const uint8_t *hw_addr = link->hw_addr.bytes;
                 size_t hw_addr_len = link->hw_addr.length;
@@ -1595,8 +1579,9 @@ int dhcp4_start(Link *link) {
 
 static int dhcp4_configure_duid(Link *link) {
         assert(link);
+        assert(link->network);
 
-        if (!IN_SET(link->network->dhcp_client_identifier, DHCP_CLIENT_ID_DUID, DHCP_CLIENT_ID_DUID_ONLY))
+        if (link->network->dhcp_client_identifier != DHCP_CLIENT_ID_DUID)
                 return 1;
 
         return dhcp_configure_duid(link, link_get_dhcp4_duid(link));
@@ -1832,9 +1817,8 @@ int config_parse_dhcp_label(
 }
 
 static const char* const dhcp_client_identifier_table[_DHCP_CLIENT_ID_MAX] = {
-        [DHCP_CLIENT_ID_MAC] = "mac",
+        [DHCP_CLIENT_ID_MAC]  = "mac",
         [DHCP_CLIENT_ID_DUID] = "duid",
-        [DHCP_CLIENT_ID_DUID_ONLY] = "duid-only",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(dhcp_client_identifier, DHCPClientIdentifier);
