@@ -2244,6 +2244,34 @@ int tpm2_digest_many_digests(
         return tpm2_digest_many(alg, digest, iovecs, n_data, extend);
 }
 
+/* This hashes the provided pin into a digest value, but also verifies that the final byte is not 0, because
+ * the TPM specification Part 1 ("Architecture") section Authorization Values (subsection "Authorization Size
+ * Convention") states "Trailing octets of zero are to be removed from any string before it is used as an
+ * authValue". Since the TPM doesn't know if the auth value is a "string" or just a hash digest, any hash
+ * digest that randomly happens to end in 0 must have the final 0 changed, or the TPM will remove it before
+ * using the value in its HMAC calculations, resulting in failed HMAC checks. */
+static int tpm2_get_pin_auth(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *ret_auth) {
+        TPM2B_AUTH auth = {};
+        int r;
+
+        assert(pin);
+        assert(ret_auth);
+
+        r = tpm2_digest_buffer(hash, &auth, pin, strlen(pin), /* extend= */ false);
+        if (r < 0)
+                return r;
+
+        assert(auth.size > 0);
+        if (auth.buffer[auth.size - 1] == 0) {
+                log_debug("authValue digest ends in 0 which the TPM will remove and cause HMAC authorization failures, adjusting.");
+                auth.buffer[auth.size - 1] = 0xff;
+        }
+
+        *ret_auth = TAKE_STRUCT(auth);
+
+        return 0;
+}
+
 static int tpm2_set_auth(Tpm2Context *c, const Tpm2Handle *handle, const char *pin) {
         TPM2B_AUTH auth = {};
         TSS2_RC rc;
@@ -2257,7 +2285,7 @@ static int tpm2_set_auth(Tpm2Context *c, const Tpm2Handle *handle, const char *p
 
         CLEANUP_ERASE(auth);
 
-        r = tpm2_digest_buffer(TPM2_ALG_SHA256, &auth, pin, strlen(pin), /* extend= */ false);
+        r = tpm2_get_pin_auth(TPM2_ALG_SHA256, pin, &auth);
         if (r < 0)
                 return r;
 
@@ -3228,7 +3256,7 @@ int tpm2_seal(const char *device,
         CLEANUP_ERASE(hmac_sensitive);
 
         if (pin) {
-                r = tpm2_digest_buffer(TPM2_ALG_SHA256, &hmac_sensitive.userAuth, pin, strlen(pin), /* extend= */ false);
+                r = tpm2_get_pin_auth(TPM2_ALG_SHA256, pin, &hmac_sensitive.userAuth);
                 if (r < 0)
                         return r;
         }
