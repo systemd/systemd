@@ -544,9 +544,11 @@ static bool push_str(FormatContext *ctx, SpecifierContext *sp) {
         if (sp->wstr && sizeof(wchar_t) == sizeof(char16_t)) {
                 memcpy(ctx->buf + ctx->n, sp->wstr, sp->len * sizeof(*sp->wstr));
                 ctx->n += sp->len;
-        } else
+        } else {
+                assert(sp->str || sp->wstr);
                 for (size_t i = 0; i < sp->len; i++)
                         ctx->buf[ctx->n++] = sp->str ? sp->str[i] : sp->wstr[i];
+        }
 
         if (sp->align_left)
                 push_padding(ctx, ' ', sp->padded_len);
