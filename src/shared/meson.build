@@ -131,6 +131,7 @@ shared_sources = files(
         'password-quality-util-passwdqc.c',
         'password-quality-util-pwquality.c',
         'pcre2-util.c',
+        'pcrphase-util.c',
         'pe-binary.c',
         'pkcs11-util.c',
         'pretty-print.c',
