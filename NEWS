@@ -492,6 +492,10 @@ CHANGES WITH 254 in spe:
         * The DHCPv4 + DHCPv6 + IPv6 RA logic in networkd gained support for
           the RFC8910 captive portal option.
 
+        * The "duid-only" option for DHCPv4 client's ClientIdentifier= setting
+          is now dropped, as it never worked, hence it should not be used by
+          anyone.
+
         Device Management:
 
         * udevadm gained the new "verify" verb for validating udev rules files
@@ -7877,7 +7881,8 @@ CHANGES WITH 239:
           hibernates again.
 
         * networkd's ClientIdentifier= now accepts a new option "duid-only". If
-          set the client will only send a DUID as client identifier.
+          set the client will only send a DUID as client identifier. (EDIT: the
+          option was broken, and was dropped in v254.)
 
         * The nss-systemd glibc NSS module will now enumerate dynamic users and
           groups in effect. Previously, it could resolve UIDs/GIDs to user
