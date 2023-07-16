@@ -472,10 +472,6 @@ static int boot_id_hex(const char s[static 4]) {
         return id;
 }
 
-static int cmp_uint16(const uint16_t *a, const uint16_t *b) {
-        return CMP(*a, *b);
-}
-
 int efi_get_boot_options(uint16_t **ret_options) {
         _cleanup_closedir_ DIR *dir = NULL;
         _cleanup_free_ uint16_t *list = NULL;

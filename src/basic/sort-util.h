@@ -76,3 +76,4 @@ static inline void qsort_r_safe(void *base, size_t nmemb, size_t size, compariso
         })
 
 int cmp_int(const int *a, const int *b);
+int cmp_uint16(const uint16_t *a, const uint16_t *b);
