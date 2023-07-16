@@ -2214,6 +2214,10 @@ static void vl_disconnect(VarlinkServer *server, Varlink *link, void *userdata) 
         (void) server_start_or_stop_idle_timer(s); /* maybe we are idle now */
 }
 
+static void vl_subscribe_var(const char * log_level) {
+        printf("A message with log_level %s\n has just been processed", log_level);
+}
+
 static int server_open_varlink(Server *s, const char *socket, int fd) {
         int r;
 
@@ -2230,7 +2234,8 @@ static int server_open_varlink(Server *s, const char *socket, int fd) {
                         "io.systemd.Journal.Synchronize",   vl_method_synchronize,
                         "io.systemd.Journal.Rotate",        vl_method_rotate,
                         "io.systemd.Journal.FlushToVar",    vl_method_flush_to_var,
-                        "io.systemd.Journal.RelinquishVar", vl_method_relinquish_var);
+                        "io.systemd.Journal.RelinquishVar", vl_method_relinquish_var,
+                        "io.systemd.Journal.Subscribe", vl_subscribe_var);
         if (r < 0)
                 return r;
 
