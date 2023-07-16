@@ -86,6 +86,7 @@ struct sd_journal {
         uint64_t current_field;
 
         Match *level0, *level1, *level2;
+        Set *exclude;
 
         uint64_t origin_id;
 
