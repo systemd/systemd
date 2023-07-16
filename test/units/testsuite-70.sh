@@ -41,6 +41,8 @@ tpm_check_failure_with_wrong_pin() {
 img="/tmp/test.img"
 truncate -s 20M "$img"
 echo -n passphrase >/tmp/passphrase
+# Change file mode to avoid "/tmp/password has 0644 mode that is too permissive" messages
+chmod 0600 /tmp/passphrase
 cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom "$img" /tmp/passphrase
 
 # Unlocking via keyfile
