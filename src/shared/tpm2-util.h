@@ -261,11 +261,11 @@ int tpm2_parse_luks2_json(JsonVariant *v, int *ret_keyslot, uint32_t *ret_hash_p
 
 int tpm2_hash_alg_to_size(uint16_t alg);
 
-const char *tpm2_hash_alg_to_string(uint16_t alg);
-int tpm2_hash_alg_from_string(const char *alg);
+const char *tpm2_hash_alg_to_string(uint16_t alg) _const_;
+int tpm2_hash_alg_from_string(const char *alg) _pure_;
 
-const char *tpm2_asym_alg_to_string(uint16_t alg);
-int tpm2_asym_alg_from_string(const char *alg);
+const char *tpm2_asym_alg_to_string(uint16_t alg) _const_;
+int tpm2_asym_alg_from_string(const char *alg) _pure_;
 
 char *tpm2_pcr_mask_to_string(uint32_t mask);
 
