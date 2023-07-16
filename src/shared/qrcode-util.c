@@ -36,8 +36,13 @@ int dlopen_qrencode(void) {
         return r;
 }
 
-static void print_border(FILE *output, unsigned width) {
+static void print_positioned_border(FILE *output, unsigned width, unsigned row, unsigned column) {
         /* Four rows of border */
+        int fd = fileno(output);
+        if (fd < 0)
+                return (void)log_warning_errno(fd, "unable to get file descriptor from the file stream: %m");
+
+        set_terminal_cursor_position(fd, row, column);
         for (unsigned y = 0; y < 4; y += 2) {
                 fputs(ANSI_WHITE_ON_BLACK, output);
 
@@ -45,22 +50,31 @@ static void print_border(FILE *output, unsigned width) {
                         fputs(UNICODE_FULL_BLOCK, output);
 
                 fputs(ANSI_NORMAL "\n", output);
+                set_terminal_cursor_position(fd, row + 1, column);
         }
 }
 
-static void write_qrcode(FILE *output, QRcode *qr) {
+static void write_positioned_qrcode(FILE *output, QRcode *qr, unsigned int row, unsigned int column) {
         assert(qr);
 
         if (!output)
                 output = stdout;
 
-        print_border(output, qr->width);
+        int fd, move_down = 3;
 
+        fd = fileno(output);
+        if (fd < 0)
+                return (void)log_warning_errno(fd, "unable to get file descriptor from the file stream: %m");
+
+        print_positioned_border(output, qr->width, row, column);
+
+        set_terminal_cursor_position(fd, row + 2, column);
         for (unsigned y = 0; y < (unsigned) qr->width; y += 2) {
                 const uint8_t *row1 = qr->data + qr->width * y;
                 const uint8_t *row2 = row1 + qr->width;
 
                 fputs(ANSI_WHITE_ON_BLACK, output);
+
                 for (unsigned x = 0; x < 4; x++)
                         fputs(UNICODE_FULL_BLOCK, output);
 
@@ -82,16 +96,22 @@ static void write_qrcode(FILE *output, QRcode *qr) {
 
                 for (unsigned x = 0; x < 4; x++)
                         fputs(UNICODE_FULL_BLOCK, output);
+                set_terminal_cursor_position(fd, row + move_down, column);
+                move_down += 1;
                 fputs(ANSI_NORMAL "\n", output);
         }
 
-        print_border(output, qr->width);
+        print_positioned_border(output, qr->width, row + move_down, column);
         fflush(output);
 }
 
-int print_qrcode(FILE *out, const char *header, const char *string) {
+int print_positioned_qrcode(FILE *out, const char *header, const char *string, unsigned int row, unsigned int column) {
         QRcode* qr;
-        int r;
+        int r, fd;
+
+        fd = fileno(out);
+        if (fd < 0)
+                return log_warning_errno(fd, "unable to get file descriptor from the file stream: %m");
 
         /* If this is not a UTF-8 system or ANSI colors aren't supported/disabled don't print any QR
          * codes */
@@ -106,10 +126,12 @@ int print_qrcode(FILE *out, const char *header, const char *string) {
         if (!qr)
                 return -ENOMEM;
 
-        if (header)
+        if (header) {
+                set_terminal_cursor_position(fd, row - 1, column);
                 fprintf(out, "\n%s:\n\n", header);
+        }
 
-        write_qrcode(out, qr);
+        write_positioned_qrcode(out, qr, row, column);
 
         fputc('\n', out);
 
