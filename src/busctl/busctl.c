@@ -1627,8 +1627,11 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                         p--;
 
                         r = signature_element_length(signature, &k);
-                        if (r < 0)
+                        if (r < 0 || k < 2) {
+                                if (r >= 0 && k < 2)
+                                        r = -ERANGE;
                                 return log_error_errno(r, "Invalid struct/dict entry signature: %m");
+                        }
 
                         {
                                 char s[k-1];
