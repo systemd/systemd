@@ -2,23 +2,17 @@
 
 #include <getopt.h>
 
-#include <sd-device.h>
 #include <sd-messages.h>
 
-#include "blkid-util.h"
-#include "blockdev-util.h"
 #include "build.h"
-#include "chase.h"
 #include "efi-loader.h"
-#include "efivars.h"
-#include "escape.h"
-#include "fd-util.h"
 #include "main-func.h"
-#include "mountpoint-util.h"
 #include "openssl-util.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "pcrextend-util.h"
 #include "pretty-print.h"
+#include "strv.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
 
@@ -190,73 +184,6 @@ static int determine_banks(Tpm2Context *c, unsigned target_pcr_nr) {
         return 0;
 }
 
-static int get_file_system_word(
-                sd_device *d,
-                const char *prefix,
-                char **ret) {
-
-        int r;
-
-        assert(d);
-        assert(prefix);
-        assert(ret);
-
-        _cleanup_close_ int block_fd = sd_device_open(d, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
-        if (block_fd < 0)
-                return block_fd;
-
-        _cleanup_(blkid_free_probep) blkid_probe b = blkid_new_probe();
-        if (!b)
-                return -ENOMEM;
-
-        errno = 0;
-        r = blkid_probe_set_device(b, block_fd, 0, 0);
-        if (r != 0)
-                return errno_or_else(ENOMEM);
-
-        (void) blkid_probe_enable_superblocks(b, 1);
-        (void) blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_UUID|BLKID_SUBLKS_LABEL);
-        (void) blkid_probe_enable_partitions(b, 1);
-        (void) blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
-
-        errno = 0;
-        r = blkid_do_safeprobe(b);
-        if (r == _BLKID_SAFEPROBE_ERROR)
-                return errno_or_else(EIO);
-        if (IN_SET(r, _BLKID_SAFEPROBE_AMBIGUOUS, _BLKID_SAFEPROBE_NOT_FOUND))
-                return -ENOPKG;
-
-        assert(r == _BLKID_SAFEPROBE_FOUND);
-
-        _cleanup_strv_free_ char **l = strv_new(prefix);
-        if (!l)
-                return log_oom();
-
-        FOREACH_STRING(field, "TYPE", "UUID", "LABEL", "PART_ENTRY_UUID", "PART_ENTRY_TYPE", "PART_ENTRY_NAME") {
-                const char *v = NULL;
-
-                (void) blkid_probe_lookup_value(b, field, &v, NULL);
-
-                _cleanup_free_ char *escaped = xescape(strempty(v), ":"); /* Avoid ambiguity around ":" */
-                if (!escaped)
-                        return log_oom();
-
-                r = strv_consume(&l, TAKE_PTR(escaped));
-                if (r < 0)
-                        return log_oom();
-
-        }
-
-        assert(strv_length(l) == 7); /* We always want 7 components, to avoid ambiguous strings */
-
-        _cleanup_free_ char *word = strv_join(l, ":");
-        if (!word)
-                return log_oom();
-
-        *ret = TAKE_PTR(word);
-        return 0;
-}
-
 static int run(int argc, char *argv[]) {
         _cleanup_free_ char *joined = NULL, *word = NULL;
         Tpm2UserspaceEventType event;
@@ -270,59 +197,23 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         if (arg_file_system) {
-                _cleanup_free_ char *normalized = NULL, *normalized_escaped = NULL;
-                _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-                _cleanup_close_ int dfd = -EBADF;
-
                 if (optind != argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected no argument.");
 
-                dfd = chase_and_open(arg_file_system, NULL, 0, O_DIRECTORY|O_CLOEXEC, &normalized);
-                if (dfd < 0)
-                        return log_error_errno(dfd, "Failed to open path '%s': %m", arg_file_system);
-
-                r = fd_is_mount_point(dfd, NULL, 0);
+                r = pcrextend_file_system_word(arg_file_system, &word, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to determine if path '%s' is mount point: %m", normalized);
-                if (r == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "Specified path '%s' is not a mount point, refusing: %m", normalized);
-
-                normalized_escaped = xescape(normalized, ":"); /* Avoid ambiguity around ":" */
-                if (!normalized_escaped)
-                        return log_oom();
-
-                _cleanup_free_ char* prefix = strjoin("file-system:", normalized_escaped);
-                if (!prefix)
-                        return log_oom();
-
-                r = block_device_new_from_fd(dfd, BLOCK_DEVICE_LOOKUP_BACKING, &d);
-                if (r < 0) {
-                        log_notice_errno(r, "Unable to determine backing block device of '%s', measuring generic fallback file system identity string: %m", arg_file_system);
-
-                        word = strjoin(prefix, "::::::");
-                        if (!word)
-                                return log_oom();
-                } else {
-                        r = get_file_system_word(d, prefix, &word);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to get file system identifier string for '%s': %m", arg_file_system);
-                }
+                        return r;
 
                 event = TPM2_EVENT_FILESYSTEM;
 
         } else if (arg_machine_id) {
-                sd_id128_t mid;
 
                 if (optind != argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected no argument.");
 
-                r = sd_id128_get_machine(&mid);
+                r = pcrextend_machine_id_word(&word);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to acquire machine ID: %m");
-
-                word = strjoin("machine-id:", SD_ID128_TO_STRING(mid));
-                if (!word)
-                        return log_oom();
+                        return r;
 
                 event = TPM2_EVENT_MACHINE_ID;
 
