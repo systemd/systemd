@@ -10201,6 +10201,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     properties:
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u MaxUnits = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u Units = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s Slice = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -10379,6 +10381,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
 
     <!--property MaxUnits is not documented!-->
 
+    <!--property Units is not documented!-->
+
     <!--property Slice is not documented!-->
 
     <!--property ControlGroupId is not documented!-->
@@ -10552,6 +10556,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-method" generated="True" extra-ref="AttachProcesses()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MaxUnits"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Units"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Slice"/>
 
