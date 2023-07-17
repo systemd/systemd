@@ -490,7 +490,7 @@ TEST(write_string_file_verify) {
         int r;
 
         r = read_one_line_file("/proc/version", &buf);
-        if (ERRNO_IS_PRIVILEGE(r))
+        if (r < 0 && ERRNO_IS_PRIVILEGE(r))
                 return;
         assert_se(r >= 0);
         assert_se(buf2 = strjoin(buf, "\n"));
