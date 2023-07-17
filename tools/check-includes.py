@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-# pylint: disable=missing-docstring,invalid-name,unspecified-encoding,consider-using-with
+# pylint: disable=consider-using-with
 
 import os
 import pathlib
@@ -13,7 +13,7 @@ PROJECT_ROOT = pathlib.Path(os.getenv('PROJECT_SOURCE_ROOT', '.'))
 def check_file(filename):
     seen = set()
     good = True
-    for n, line in enumerate(open(filename)):
+    for n, line in enumerate(open(filename, encoding="utf-8")):
         m = re.match(r'^\s*#\s*include\s*[<"](\S*)[>"]', line)
         if m:
             include = m.group(1)
@@ -28,5 +28,5 @@ def check_file(filename):
     return good
 
 if __name__ == '__main__':
-    good = all(check_file(name) for name in sys.argv[1:])
-    sys.exit(0 if good else 1)
+    all_good = all(check_file(name) for name in sys.argv[1:])
+    sys.exit(0 if all_good else 1)
