@@ -1367,25 +1367,22 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
         assert(t->scope);
 
         r = manager_recv(t->scope->manager, fd, DNS_PROTOCOL_DNS, &p);
-        if (ERRNO_IS_DISCONNECT(r)) {
-                usec_t usec;
-
-                /* UDP connection failures get reported via ICMP and then are possibly delivered to us on the
-                 * next recvmsg(). Treat this like a lost packet. */
-
-                log_debug_errno(r, "Connection failure for DNS UDP packet: %m");
-                assert_se(sd_event_now(t->scope->manager->event, CLOCK_BOOTTIME, &usec) >= 0);
-                dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_feature_level);
-
-                dns_transaction_close_connection(t, /* use_graveyard = */ false);
-
-                if (dns_transaction_limited_retry(t)) /* Try a different server */
-                        return 0;
-
-                dns_transaction_complete_errno(t, r);
-                return 0;
-        }
         if (r < 0) {
+                if (ERRNO_IS_DISCONNECT(r)) {
+                        usec_t usec;
+
+                        /* UDP connection failures get reported via ICMP and then are possibly delivered to us on the
+                         * next recvmsg(). Treat this like a lost packet. */
+
+                        log_debug_errno(r, "Connection failure for DNS UDP packet: %m");
+                        assert_se(sd_event_now(t->scope->manager->event, CLOCK_BOOTTIME, &usec) >= 0);
+                        dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_feature_level);
+
+                        dns_transaction_close_connection(t, /* use_graveyard = */ false);
+
+                        if (dns_transaction_limited_retry(t)) /* Try a different server */
+                                return 0;
+                }
                 dns_transaction_complete_errno(t, r);
                 return 0;
         }
