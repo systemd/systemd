@@ -35,6 +35,8 @@ dnsmasq_lease_file = '/run/networkd-ci/test-dnsmasq.lease'
 isc_dhcpd_pid_file = '/run/networkd-ci/test-isc-dhcpd.pid'
 isc_dhcpd_lease_file = '/run/networkd-ci/test-isc-dhcpd.lease'
 
+radvd_pid_file = '/run/networkd-ci/test-radvd.pid'
+
 systemd_lib_paths = ['/usr/lib/systemd', '/lib/systemd']
 which_paths = ':'.join(systemd_lib_paths + os.getenv('PATH', os.defpath).lstrip(':').split(':'))
 
@@ -537,6 +539,23 @@ def read_ipv6_sysctl_attr(link, attribute):
 def read_ipv4_sysctl_attr(link, attribute):
     return read_ip_sysctl_attr(link, attribute, 'ipv4')
 
+def stop_by_pid_file(pid_file):
+    if not os.path.exists(pid_file):
+        return
+    with open(pid_file, 'r', encoding='utf-8') as f:
+        pid = f.read().rstrip(' \t\r\n\0')
+        os.kill(int(pid), signal.SIGTERM)
+        for _ in range(25):
+            try:
+                os.kill(int(pid), 0)
+                print(f"PID {pid} is still alive, waiting...")
+                time.sleep(.2)
+            except OSError as e:
+                if e.errno == errno.ESRCH:
+                    break
+                print(f"Unexpected exception when waiting for {pid} to die: {e.errno}")
+    rm_f(pid_file)
+
 def start_dnsmasq(*additional_options, interface='veth-peer', lease_time='2m', ipv4_range='192.168.5.10,192.168.5.200', ipv4_router='192.168.5.1', ipv6_range='2600::10,2600::20'):
     command = (
         'dnsmasq',
@@ -558,23 +577,6 @@ def start_dnsmasq(*additional_options, interface='veth-peer', lease_time='2m', i
     ) + additional_options
     check_output(*command)
 
-def stop_by_pid_file(pid_file):
-    if not os.path.exists(pid_file):
-        return
-    with open(pid_file, 'r', encoding='utf-8') as f:
-        pid = f.read().rstrip(' \t\r\n\0')
-        os.kill(int(pid), signal.SIGTERM)
-        for _ in range(25):
-            try:
-                os.kill(int(pid), 0)
-                print(f"PID {pid} is still alive, waiting...")
-                time.sleep(.2)
-            except OSError as e:
-                if e.errno == errno.ESRCH:
-                    break
-                print(f"Unexpected exception when waiting for {pid} to die: {e.errno}")
-    os.remove(pid_file)
-
 def stop_dnsmasq():
     stop_by_pid_file(dnsmasq_pid_file)
     rm_f(dnsmasq_lease_file)
@@ -593,6 +595,29 @@ def start_isc_dhcpd(conf_file, ipv, interface='veth-peer'):
 def stop_isc_dhcpd():
     stop_by_pid_file(isc_dhcpd_pid_file)
     rm_f(isc_dhcpd_lease_file)
+
+def start_radvd(*additional_options, config_file):
+    config_file_path = os.path.join(networkd_ci_temp_dir, 'radvd', config_file)
+    command = (
+        'radvd',
+        f'--pidfile={radvd_pid_file}',
+        f'--config={config_file_path}',
+        '--logmethod=stderr',
+    ) + additional_options
+    check_output(*command)
+
+def stop_radvd():
+    stop_by_pid_file(radvd_pid_file)
+
+def radvd_check_config(config_file):
+    if not shutil.which('radvd'):
+        print('radvd is not installed, assuming the config check failed')
+        return False
+
+    # Note: can't use networkd_ci_temp_dir here, as this command may run before that dir is
+    #       set up (one instance is @unittest.skipX())
+    config_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'conf/radvd', config_file)
+    return call(f'radvd --config={config_file_path} --configtest') == 0
 
 def networkd_invocation_id():
     return check_output('systemctl show --value -p InvocationID systemd-networkd.service')
@@ -637,9 +662,10 @@ def setup_common():
     print()
 
 def tear_down_common():
-    # 1. stop DHCP servers
+    # 1. stop DHCP/RA servers
     stop_dnsmasq()
     stop_isc_dhcpd()
+    stop_radvd()
 
     # 2. remove modules
     call_quiet('rmmod netdevsim')
@@ -4552,6 +4578,64 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         output = check_output('ip -6 route show dev client default via fe80::1034:56ff:fe78:9a98')
         print(output)
         self.assertIn('pref low', output)
+
+    @unittest.skipUnless(radvd_check_config('captive-portal.conf'), "Installed radvd doesn't support captive portals")
+    def test_captive_portal(self):
+        copy_network_unit('25-veth-client.netdev',
+                          '25-veth-router-captive.netdev',
+                          '26-bridge.netdev',
+                          '25-veth-client-captive.network',
+                          '25-veth-router-captive.network',
+                          '25-veth-bridge-captive.network',
+                          '25-bridge99.network')
+        start_networkd()
+        self.wait_online(['bridge99:routable', 'client-p:enslaved',
+                          'router-captive:degraded', 'router-captivep:enslaved'])
+
+        start_radvd(config_file='captive-portal.conf')
+        networkctl_reconfigure('client')
+        self.wait_online(['client:routable'])
+
+        self.wait_address('client', '2002:da8:1:99:1034:56ff:fe78:9a00/64', ipv='-6', timeout_sec=10)
+        output = check_output(*networkctl_cmd, 'status', 'client', env=env)
+        print(output)
+        self.assertIn('Captive Portal: http://systemd.io', output)
+
+    @unittest.skipUnless(radvd_check_config('captive-portal.conf'), "Installed radvd doesn't support captive portals")
+    def test_invalid_captive_portal(self):
+        def radvd_write_config(captive_portal_uri):
+            with open(os.path.join(networkd_ci_temp_dir, 'radvd/bogus-captive-portal.conf'), mode='w', encoding='utf-8') as f:
+                f.write(f'interface router-captive {{ AdvSendAdvert on; AdvCaptivePortalAPI "{captive_portal_uri}"; prefix 2002:da8:1:99::/64 {{ AdvOnLink on; AdvAutonomous on; }}; }};')
+
+        captive_portal_uris = [
+            "42ěščěškd ěšč ě s",
+            "                 ",
+            "🤔",
+        ]
+
+        copy_network_unit('25-veth-client.netdev',
+                          '25-veth-router-captive.netdev',
+                          '26-bridge.netdev',
+                          '25-veth-client-captive.network',
+                          '25-veth-router-captive.network',
+                          '25-veth-bridge-captive.network',
+                          '25-bridge99.network')
+        start_networkd()
+        self.wait_online(['bridge99:routable', 'client-p:enslaved',
+                          'router-captive:degraded', 'router-captivep:enslaved'])
+
+        for uri in captive_portal_uris:
+            print(f"Captive portal: {uri}")
+            radvd_write_config(uri)
+            stop_radvd()
+            start_radvd(config_file='bogus-captive-portal.conf')
+            networkctl_reconfigure('client')
+            self.wait_online(['client:routable'])
+
+            self.wait_address('client', '2002:da8:1:99:1034:56ff:fe78:9a00/64', ipv='-6', timeout_sec=10)
+            output = check_output(*networkctl_cmd, 'status', 'client', env=env)
+            print(output)
+            self.assertNotIn('Captive Portal:', output)
 
 class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
