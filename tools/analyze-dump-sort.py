@@ -13,8 +13,9 @@ tools/analyze-dump-sort.py /var/tmp/{dump1,dump2} → this does a diff from dump
 """
 
 import argparse
-import tempfile
 import subprocess
+import tempfile
+
 
 def sort_dump(sourcefile, destfile=None):
     if destfile is None:
