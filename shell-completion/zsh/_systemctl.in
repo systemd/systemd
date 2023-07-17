@@ -165,7 +165,7 @@ __systemctl()
            ! _retrieve_cache SYS_ALL_UNITS$_sys_service_mgr;
     then
         _sys_all_units=( ${${(f)"$(__systemctl list-units --all)"}%% *} )
-        _store_cache SYS_ALL_UNITS$_sys_service_mgr _sys_all_unis
+        _store_cache SYS_ALL_UNITS$_sys_service_mgr _sys_all_units
     fi
 }
 
