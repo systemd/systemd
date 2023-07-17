@@ -1118,6 +1118,9 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_reverse = true;
         }
 
+        if (arg_action == ACTION_VERIFY && arg_verify_key && !arg_quiet)
+                log_notice("Use of Forward-secure sealing is deprecated.");
+
         return 1;
 }
 
@@ -1810,6 +1813,9 @@ static int setup_keys(void) {
         struct stat st;
         uint64_t n;
         int r;
+
+        if (!arg_quiet)
+                log_notice("Use of Forward-secure sealing is deprecated.");
 
         r = stat("/var/log/journal", &st);
         if (r < 0 && !IN_SET(errno, ENOENT, ENOTDIR))
