@@ -8,14 +8,16 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-07-14 10:32+0100\n"
-"PO-Revision-Date: 2023-07-08 17:21+0000\n"
+"PO-Revision-Date: 2023-07-17 11:20+0000\n"
 "Last-Translator: Pavel Borecki <pavel.borecki@gmail.com>\n"
-"Language-Team: Czech <https://translate.fedoraproject.org/projects/systemd/master/cs/>\n"
+"Language-Team: Czech <https://translate.fedoraproject.org/projects/systemd/"
+"master/cs/>\n"
 "Language: cs\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
+"|| n%100>=20) ? 1 : 2);\n"
 "X-Generator: Weblate 4.18.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
@@ -126,20 +128,20 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:304
 msgid "Password: "
-msgstr ""
+msgstr "Heslo: "
 
 #: src/home/pam_systemd_home.c:306
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr ""
+msgstr "Neplatné heslo nebo nedostačující pro ověření se uživatele %s."
 
 #: src/home/pam_systemd_home.c:307
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "Je nám líto, zkuste znovu: "
 
 #: src/home/pam_systemd_home.c:329
 msgid "Recovery key: "
-msgstr ""
+msgstr "Obnovovací klíč: "
 
 #: src/home/pam_systemd_home.c:331
 #, c-format
@@ -148,7 +150,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:332
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "Je nám líto, zadejte obnovovací klíč znovu: "
 
 #: src/home/pam_systemd_home.c:352
 #, c-format
@@ -211,53 +213,60 @@ msgstr ""
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
+"Domovská složka uživatele %s v tuto chvíli není aktivní – nejprve se "
+"přihlaste lokálně."
 
 #: src/home/pam_systemd_home.c:618
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
+"Domovská složka uživatele %s je v tuto chvíli uzamčená – nejprve lokálně "
+"odemkněte."
 
 #: src/home/pam_systemd_home.c:645
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
+"Příliš mnoho neúspěšných pokusů o přihlášení uživatele %s, proto odmítnuto."
 
 #: src/home/pam_systemd_home.c:868
 msgid "User record is blocked, prohibiting access."
-msgstr ""
+msgstr "Záznam uživatele je blokován, přístup proto zamezen."
 
 #: src/home/pam_systemd_home.c:872
 msgid "User record is not valid yet, prohibiting access."
-msgstr ""
+msgstr "Záznam uživatele ještě není platný, přístup proto zamezen."
 
 #: src/home/pam_systemd_home.c:876
 msgid "User record is not valid anymore, prohibiting access."
-msgstr ""
+msgstr "Záznam uživatele už není platný, přístup proto zamezen."
 
 #: src/home/pam_systemd_home.c:881 src/home/pam_systemd_home.c:932
 msgid "User record not valid, prohibiting access."
-msgstr ""
+msgstr "Záznam uživatele neplatný, přístup proto zamezen."
 
 #: src/home/pam_systemd_home.c:893
 #, c-format
 msgid "Too many logins, try again in %s."
-msgstr ""
+msgstr "Příliš mnoho přihlášení, zkuste znovu za %s."
 
 #: src/home/pam_systemd_home.c:904
 msgid "Password change required."
-msgstr ""
+msgstr "Je vyžadována změna hesla."
 
 #: src/home/pam_systemd_home.c:908
 msgid "Password expired, change required."
-msgstr ""
+msgstr "Platnost hesla skončila, je zapotřebí ho změnit."
 
 #: src/home/pam_systemd_home.c:914
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
+"Platnost hesla skončila, ale není možné ho změnit – přihlášení proto "
+"odmítnuto."
 
 #: src/home/pam_systemd_home.c:918
 msgid "Password will expire soon, please change."
-msgstr ""
+msgstr "Platnost hesla brzy skončí – změňte si ho."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
