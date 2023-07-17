@@ -424,20 +424,13 @@ done
 (( $+functions[_systemctl_caching_policy] )) ||
     _systemctl_caching_policy()
 {
-    local _sysunits
-    local -a oldcache
-
     # rebuild if cache is more than a day old
-    oldcache=( "$1"(mh+1) )
-    (( $#oldcache )) && return 0
+    [[ -n $1(#qNmd+1) ]] && return 0
 
-    _sysunits=(${${(f)"$(__systemctl --all)"}%% *})
-
-    if (( $#_sysunits )); then
-        for unit in $_sysunits; do
-            [[ "$unit" -nt "$1" ]] && return 0
-        done
-    fi
+    local pathkind=systemd-search-${1##*--}-unit
+    for dir in ${(s-:-)^$(_call_program $pathkind systemd-path $pathkind)}; do
+        [[ $dir -nt $1 ]] && return 0
+    done
 
     return 1
 }
