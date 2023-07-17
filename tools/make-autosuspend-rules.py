@@ -12,13 +12,13 @@ for entry in chromiumos.gen_autosuspend_rules.PCI_IDS:
     vendor, device = entry.split(':')
     vendor = int(vendor, 16)
     device = int(device, 16)
-    print('pci:v{:08X}d{:08X}*'.format(vendor, device))
+    print(f'pci:v{vendor:08X}d{device:08X}*')
 
 print('# usb:v<VEND>p<PROD> (4 uppercase hexadecimal digits twice)')
 for entry in chromiumos.gen_autosuspend_rules.USB_IDS:
     vendor, product = entry.split(':')
     vendor = int(vendor, 16)
     product = int(product, 16)
-    print('usb:v{:04X}p{:04X}*'.format(vendor, product))
+    print(f'usb:v{vendor:04X}p{product:04X}*')
 
 print(' ID_AUTOSUSPEND=1')
