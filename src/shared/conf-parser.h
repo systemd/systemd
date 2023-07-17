@@ -164,6 +164,7 @@ static inline bool section_is_invalid(ConfigSection *section) {
 
 CONFIG_PARSER_PROTOTYPE(config_parse_int);
 CONFIG_PARSER_PROTOTYPE(config_parse_unsigned);
+CONFIG_PARSER_PROTOTYPE(config_parse_unsigned_infinity);
 CONFIG_PARSER_PROTOTYPE(config_parse_long);
 CONFIG_PARSER_PROTOTYPE(config_parse_uint8);
 CONFIG_PARSER_PROTOTYPE(config_parse_uint16);
