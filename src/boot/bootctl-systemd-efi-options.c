@@ -1,11 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "bootctl.h"
 #include "bootctl-systemd-efi-options.h"
 #include "efi-loader.h"
 
 int verb_systemd_efi_options(int argc, char *argv[], void *userdata) {
         int r;
+
+        if (!arg_quiet)
+                log_notice("Use of the SystemdOptions EFI variable is deprecated.");
 
         if (argc == 1) {
                 _cleanup_free_ char *line = NULL, *new = NULL;
