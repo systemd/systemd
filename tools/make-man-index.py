@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 import collections
-import sys
 import re
-from xml_helper import xml_parse, xml_print, tree
+import sys
+
+from xml_helper import tree, xml_parse, xml_print
 
 MDASH = ' — ' if sys.version_info.major >= 3 else ' -- '
 
@@ -44,9 +45,9 @@ This index contains {count} entries, referring to {pages} individual manual page
 
 
 def check_id(page, t):
-    id = t.getroot().get('id')
-    if not re.search('/' + id + '[.]', page):
-        raise ValueError("id='{}' is not the same as page name '{}'".format(id, page))
+    page_id = t.getroot().get('id')
+    if not re.search('/' + page_id + '[.]', page):
+        raise ValueError(f"id='{page_id}' is not the same as page name '{page}'")
 
 def make_index(pages):
     index = collections.defaultdict(list)
@@ -68,7 +69,7 @@ def add_letter(template, letter, pages):
     title.text = letter
     para = tree.SubElement(refsect1, 'para')
     for info in sorted(pages, key=lambda info: str.lower(info[0])):
-        refname, section, purpose, realname = info
+        refname, section, purpose, _realname = info
 
         b = tree.SubElement(para, 'citerefentry')
         c = tree.SubElement(b, 'refentrytitle')
@@ -86,7 +87,7 @@ def add_summary(template, indexpages):
     for group in indexpages:
         count += len(group)
         for info in group:
-            refname, section, purpose, realname = info
+            _refname, section, _purpose, realname = info
             pages.add((realname, section))
 
     refsect1 = tree.fromstring(SUMMARY)
@@ -107,5 +108,5 @@ def make_page(*xml_files):
     return template
 
 if __name__ == '__main__':
-    with open(sys.argv[1], 'wb') as f:
-        f.write(xml_print(make_page(*sys.argv[2:])))
+    with open(sys.argv[1], 'wb') as file:
+        file.write(xml_print(make_page(*sys.argv[2:])))
