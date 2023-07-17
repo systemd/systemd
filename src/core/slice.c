@@ -7,6 +7,7 @@
 #include "dbus-unit.h"
 #include "fd-util.h"
 #include "log.h"
+#include "parse-util.h"
 #include "serialize.h"
 #include "slice.h"
 #include "special.h"
@@ -25,6 +26,7 @@ static void slice_init(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         u->ignore_on_isolate = true;
+        SLICE(u)->n_max_units = UINT_MAX;
 }
 
 static void slice_set_state(Slice *t, SliceState state) {
@@ -259,12 +261,14 @@ static int slice_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(fds);
 
         (void) serialize_item(f, "state", slice_state_to_string(s->state));
+        (void) serialize_item_format(f, "n_units", "%u", s->n_units);
 
         return 0;
 }
 
 static int slice_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
         Slice *s = SLICE(u);
+        int r;
 
         assert(u);
         assert(key);
@@ -279,6 +283,11 @@ static int slice_deserialize_item(Unit *u, const char *key, const char *value, F
                         log_debug("Failed to parse state value %s", value);
                 else
                         s->deserialized_state = state;
+
+        } else if (streq(key, "n_units")) {
+                r = safe_atou(value, &s->n_units);
+                if (r < 0)
+                        log_debug("Failed to parse unit count %s", value);
 
         } else
                 log_debug("Unknown serialization key '%s'", key);
