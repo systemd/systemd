@@ -250,6 +250,13 @@ systemd-run -p PrivateDevices=yes -p LoadCredentialEncrypted=testdata.encrypted:
 systemd-run -p PrivateDevices=yes -p SetCredentialEncrypted=testdata.encrypted:"$(cat /tmp/testdata.encrypted)" --pipe --wait systemd-creds cat testdata.encrypted | cmp - /tmp/testdata
 rm -f /tmp/testdata
 
+# There is an external issue with libcryptsetup on ppc64 that hits 95% of Ubuntu ppc64 test runs, so skip it
+machine="$(uname -m)"
+if [ "${machine}" = "ppc64le" ]; then
+    touch /testok
+    exit 0
+fi
+
 cryptenroll_wipe_and_check() {(
     set +o pipefail
 
