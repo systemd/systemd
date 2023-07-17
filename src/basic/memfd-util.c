@@ -89,18 +89,19 @@ int memfd_get_seals(int fd, unsigned int *ret_seals) {
 }
 
 int memfd_map(int fd, uint64_t offset, size_t size, void **p) {
+        unsigned int seals;
         void *q;
-        int sealed;
+        int r;
 
         assert(fd >= 0);
         assert(size > 0);
         assert(p);
 
-        sealed = memfd_get_sealed(fd);
-        if (sealed < 0)
-                return sealed;
+        r = memfd_get_seals(fd, &seals);
+        if (r < 0)
+                return r;
 
-        if (sealed)
+        if (seals & F_SEAL_WRITE)
                 q = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, offset);
         else
                 q = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset);
