@@ -12,6 +12,8 @@ int memfd_new(const char *name);
 int memfd_new_and_map(const char *name, size_t sz, void **p);
 int memfd_new_and_seal(const char *name, const void *data, size_t sz);
 
+int memfd_add_seals(int fd, unsigned int seals);
+int memfd_get_seals(int fd, unsigned int *ret_seals);
 int memfd_map(int fd, uint64_t offset, size_t size, void **p);
 
 int memfd_set_sealed(int fd);
