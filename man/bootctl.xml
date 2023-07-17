@@ -77,7 +77,10 @@
         <literal>SystemdOptions</literal> EFI variable. When called with an argument, sets the variable to
         that value. See
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> for the
-        meaning of that variable.</para></listitem>
+        meaning of that variable.</para>
+
+        <para>Note: use of <literal>SystemdOptions</literal> and this command is deprecated.</para>
+        </listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
