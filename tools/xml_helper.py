@@ -3,14 +3,18 @@
 
 from lxml import etree as tree
 
+
 class CustomResolver(tree.Resolver):
-    def resolve(self, url, id, context):
+    def resolve(self, url, _id, context):
         if 'custom-entities.ent' in url:
             return self.resolve_filename('man/custom-entities.ent', context)
         if 'ethtool-link-mode' in url:
             return self.resolve_filename('src/shared/ethtool-link-mode.xml', context)
 
+        return None
+
 _parser = tree.XMLParser()
+# pylint: disable=no-member
 _parser.resolvers.add(CustomResolver())
 
 def xml_parse(page):
