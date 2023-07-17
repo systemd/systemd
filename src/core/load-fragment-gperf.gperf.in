@@ -574,6 +574,7 @@ Path.DirectoryMode,                      config_parse_mode,                     
 Path.TriggerLimitIntervalSec,            config_parse_sec,                            0,                                  offsetof(Path, trigger_limit.interval)
 Path.TriggerLimitBurst,                  config_parse_unsigned,                       0,                                  offsetof(Path, trigger_limit.burst)
 {{ CGROUP_CONTEXT_CONFIG_ITEMS('Slice') }}
+Slice.MaxUnits,                          config_parse_unsigned_infinity,              0,                                  offsetof(Slice, n_max_units)
 {{ CGROUP_CONTEXT_CONFIG_ITEMS('Scope') }}
 {{ KILL_CONTEXT_CONFIG_ITEMS('Scope') }}
 Scope.RuntimeMaxSec,                     config_parse_sec,                            0,                                  offsetof(Scope, runtime_max_usec)
