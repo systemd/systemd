@@ -89,6 +89,21 @@ static int link_set_ipv6_forward(Link *link) {
         return sysctl_write_ip_property(AF_INET6, "all", "forwarding", "1");
 }
 
+static int link_set_ipv4_rp_filter(Link *link) {
+        assert(link);
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        if (!link->network)
+                return 0;
+
+        if (link->network->ipv4_rp_filter < 0)
+                return 0;
+
+        return sysctl_write_ip_property_int(AF_INET, link->ifname, "rp_filter", link->network->ipv4_rp_filter);
+}
+
 static int link_set_ipv6_privacy_extensions(Link *link) {
         IPv6PrivacyExtensions val;
 
@@ -302,6 +317,10 @@ int link_set_sysctl(Link *link) {
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv4 route_localnet flag for interface, ignoring: %m");
 
+        r = link_set_ipv4_rp_filter(link);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot set IPv4 reverse path filtering for interface, ignoring: %m");
+
         /* If promote_secondaries is not set, DHCP will work only as long as the IP address does not
          * changes between leases. The kernel will remove all secondary IP addresses of an interface
          * otherwise. The way systemd-networkd works is that the new IP of a lease is added as a
@@ -325,3 +344,13 @@ DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(ipv6_privacy_extensions, IPv6PrivacyExte
                                         IPV6_PRIVACY_EXTENSIONS_YES);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_ipv6_privacy_extensions, ipv6_privacy_extensions, IPv6PrivacyExtensions,
                          "Failed to parse IPv6 privacy extensions option");
+
+static const char* const ip_reverse_path_filter_table[_IP_REVERSE_PATH_FILTER_MAX] = {
+        [IP_REVERSE_PATH_FILTER_NO]     = "no",
+        [IP_REVERSE_PATH_FILTER_STRICT] = "strict",
+        [IP_REVERSE_PATH_FILTER_LOOSE]  = "loose",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(ip_reverse_path_filter, IPReversePathFilter);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_ip_reverse_path_filter, ip_reverse_path_filter, IPReversePathFilter,
+                         "Failed to parse IP reverse path filter option");

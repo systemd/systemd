@@ -17,10 +17,22 @@ typedef enum IPv6PrivacyExtensions {
         _IPV6_PRIVACY_EXTENSIONS_INVALID = -EINVAL,
 } IPv6PrivacyExtensions;
 
+typedef enum IPReversePathFilter {
+        IP_REVERSE_PATH_FILTER_NO,
+        IP_REVERSE_PATH_FILTER_STRICT,
+        IP_REVERSE_PATH_FILTER_LOOSE,
+        _IP_REVERSE_PATH_FILTER_MAX,
+        _IP_REVERSE_PATH_FILTER_INVALID = -EINVAL,
+} IPReversePathFilter;
+
 int link_set_sysctl(Link *link);
 int link_set_ipv6_mtu(Link *link);
 
 const char* ipv6_privacy_extensions_to_string(IPv6PrivacyExtensions i) _const_;
 IPv6PrivacyExtensions ipv6_privacy_extensions_from_string(const char *s) _pure_;
 
+const char* ip_reverse_path_filter_to_string(IPReversePathFilter i) _const_;
+IPReversePathFilter ip_reverse_path_filter_from_string(const char *s) _pure_;
+
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_privacy_extensions);
+CONFIG_PARSER_PROTOTYPE(config_parse_ip_reverse_path_filter);
