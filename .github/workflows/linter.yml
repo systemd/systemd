@@ -32,13 +32,5 @@ jobs:
         uses: github/super-linter/slim@45fc0d88288beee4701c62761281edfee85655d7
         env:
           DEFAULT_BRANCH: main
-          MULTI_STATUS: false
-          # Excludes:
-          #   - man/.* - all snippets in man pages (false positives due to
-          #              missing shebangs)
-          #   - .*\.(in|SKELETON) - all template/skeleton files
-          #                         except kernel-install
-          FILTER_REGEX_EXCLUDE: .*/(man/.*|([^k]|k(k|ek)*([^ek]|e[^kr]))*(k(k|ek)*e?)?\.(in|SKELETON))$
           VALIDATE_ALL_CODEBASE: false
-          VALIDATE_BASH: true
           VALIDATE_GITHUB_ACTIONS: true
