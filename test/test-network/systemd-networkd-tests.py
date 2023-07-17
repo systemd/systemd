@@ -695,7 +695,7 @@ def setUpModule():
         [
             '[Service]',
             'ExecStart=',
-            f'ExecStart=!!{udevd_bin}',
+            f'ExecStart=!!@{udevd_bin} systemd-udevd',
         ]
     )
     create_unit_dropin(
@@ -5882,7 +5882,7 @@ if __name__ == '__main__':
         networkd_bin = os.path.join(ns.build_dir, 'systemd-networkd')
         resolved_bin = os.path.join(ns.build_dir, 'systemd-resolved')
         timesyncd_bin = os.path.join(ns.build_dir, 'systemd-timesyncd')
-        udevd_bin = os.path.join(ns.build_dir, 'systemd-udevd')
+        udevd_bin = os.path.join(ns.build_dir, 'udevadm')
         wait_online_bin = os.path.join(ns.build_dir, 'systemd-networkd-wait-online')
         networkctl_bin = os.path.join(ns.build_dir, 'networkctl')
         resolvectl_bin = os.path.join(ns.build_dir, 'resolvectl')
