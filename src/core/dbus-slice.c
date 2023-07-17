@@ -7,6 +7,8 @@
 
 const sd_bus_vtable bus_slice_vtable[] = {
         SD_BUS_VTABLE_START(0),
+        SD_BUS_PROPERTY("MaxUnits", "u", NULL, offsetof(Slice, n_max_units), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Units", "u", NULL, offsetof(Slice, n_units), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_VTABLE_END
 };
 
