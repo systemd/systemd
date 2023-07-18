@@ -11,6 +11,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -23,6 +24,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
+#include "socket-util.h"
 #include "stat-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
@@ -1118,6 +1120,62 @@ static void check_token_delimiters(UdevRuleLine *rule_line, const char *line) {
         }
 }
 
+int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {
+        char *i, *j;
+        bool is_escaped;
+
+        /* value must be double quotated */
+        is_escaped = str[0] == 'e';
+        str += is_escaped;
+        if (str[0] != '"')
+                return -EINVAL;
+
+        if (!is_escaped) {
+                /* unescape double quotation '\"'->'"' */
+                for (j = str, i = str + 1; *i != '"'; i++, j++) {
+                        if (*i == '\0')
+                                return -EINVAL;
+                        if (i[0] == '\\' && i[1] == '"')
+                                i++;
+                        *j = *i;
+                }
+                j[0] = '\0';
+                /*
+                 * The return value must be terminated by two subsequent NULs
+                 * so it could be safely interpreted as nulstr.
+                 */
+                j[1] = '\0';
+        } else {
+                _cleanup_free_ char *unescaped = NULL;
+                ssize_t l;
+
+                /* find the end position of value */
+                for (i = str + 1; *i != '"'; i++) {
+                        if (i[0] == '\\')
+                                i++;
+                        if (*i == '\0')
+                                return -EINVAL;
+                }
+                i[0] = '\0';
+
+                l = cunescape_length(str + 1, i - (str + 1), 0, &unescaped);
+                if (l < 0)
+                        return l;
+
+                assert(l <= i - (str + 1));
+                memcpy(str, unescaped, l + 1);
+                /*
+                 * The return value must be terminated by two subsequent NULs
+                 * so it could be safely interpreted as nulstr.
+                 */
+                str[l + 1] = '\0';
+        }
+
+        *ret_value = str;
+        *ret_endpos = i + 1;
+        return 0;
+}
+
 static int parse_line(char **line, char **ret_key, char **ret_attr, UdevRuleOperatorType *ret_op, char **ret_value) {
         char *key_begin, *key_end, *attr, *tmp;
         UdevRuleOperatorType op;
@@ -1848,6 +1906,22 @@ static int attr_subst_subdir(char attr[static UDEV_PATH_SIZE]) {
         }
 
         return -ENOENT;
+}
+
+static size_t udev_replace_ifname(char *str) {
+        size_t replaced = 0;
+
+        assert(str);
+
+        /* See ifname_valid_full(). */
+
+        for (char *p = str; *p != '\0'; p++)
+                if (!ifname_valid_char(*p)) {
+                        *p = '_';
+                        replaced++;
+                }
+
+        return replaced;
 }
 
 static int udev_rule_apply_token_to_event(

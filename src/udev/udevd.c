@@ -889,6 +889,19 @@ static int event_run(Event *event) {
         return 1; /* event is now processing. */
 }
 
+bool devpath_conflict(const char *a, const char *b) {
+        /* This returns true when two paths are equivalent, or one is a child of another. */
+
+        if (!a || !b)
+                return false;
+
+        for (; *a != '\0' && *b != '\0'; a++, b++)
+                if (*a != *b)
+                        return false;
+
+        return *a == '/' || *b == '/' || *a == *b;
+}
+
 static int event_is_blocked(Event *event) {
         Event *loop_event = NULL;
         int r;

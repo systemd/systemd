@@ -18,6 +18,7 @@ typedef enum {
         _ESCAPE_TYPE_INVALID = -EINVAL,
 } UdevRuleEscapeType;
 
+int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos);
 int udev_rules_parse_file(UdevRules *rules, const char *filename, bool extra_checks, UdevRuleFile **ret);
 unsigned udev_rule_file_get_issues(UdevRuleFile *rule_file);
 UdevRules* udev_rules_new(ResolveNameTiming resolve_name_timing);
