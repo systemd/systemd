@@ -220,6 +220,10 @@ tests += [
                 'base' : test_libudev_base,
         },
         {
+                'sources' : files('test-udev-manager.c'),
+                'base' : test_libudev_base,
+        },
+        {
                 'sources' : files('test-udev-node.c'),
                 'base' : test_libudev_base,
         },
@@ -229,10 +233,6 @@ tests += [
         },
         {
                 'sources' : files('test-udev-spawn.c'),
-                'base' : test_libudev_base,
-        },
-        {
-                'sources' : files('test-udevd.c'),
                 'base' : test_libudev_base,
         },
 ]
