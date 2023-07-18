@@ -2251,7 +2251,7 @@ int tpm2_create_loaded(
  * exactly what is in the provided selection, but the TPM may ignore some selected PCRs (for example, if an
  * unimplemented PCR index is requested), in which case those PCRs will be absent from the provided pcr
  * values. */
-static int tpm2_pcr_read(
+int tpm2_pcr_read(
                 Tpm2Context *c,
                 const TPML_PCR_SELECTION *pcr_selection,
                 Tpm2PCRValue **ret_pcr_values,
@@ -2324,6 +2324,70 @@ static int tpm2_pcr_read(
         return 0;
 }
 
+/* Read the PCR value for each TPM2PCRValue entry in the array that does not have a value set. If all entries
+ * have an unset hash (i.e. hash == 0), this first detects the "best" PCR bank to use; otherwise, all entries
+ * must have a valid hash set. All entries must have a valid index. If this cannot read a PCR value for all
+ * appropriate entries, this returns an error. This does not check the array for validity. */
+int tpm2_pcr_read_missing_values(Tpm2Context *c, Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
+        TPMI_ALG_HASH pcr_bank = 0;
+        int r;
+
+        assert(c);
+        assert(pcr_values || n_pcr_values == 0);
+
+        if (n_pcr_values > 0) {
+                size_t hash_count;
+                r = tpm2_pcr_values_hash_count(pcr_values, n_pcr_values, &hash_count);
+                if (r < 0)
+                        return log_error_errno(r, "Could not get hash count from pcr values: %m");
+
+                if (hash_count == 1 && pcr_values[0].hash == 0) {
+                        uint32_t mask;
+                        r = tpm2_pcr_values_to_mask(pcr_values, n_pcr_values, 0, &mask);
+                        if (r < 0)
+                                return r;
+
+                        r = tpm2_get_best_pcr_bank(c, mask, &pcr_bank);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        for (size_t i = 0; i < n_pcr_values; i++) {
+                Tpm2PCRValue *v = &pcr_values[i];
+
+                if (v->hash == 0)
+                        v->hash = pcr_bank;
+
+                if (v->value.size > 0)
+                        continue;
+
+                TPML_PCR_SELECTION selection;
+                r = tpm2_tpml_pcr_selection_from_pcr_values(v, 1, &selection, NULL, NULL);
+                if (r < 0)
+                        return r;
+
+                _cleanup_free_ Tpm2PCRValue *read_values = NULL;
+                size_t n_read_values;
+                r = tpm2_pcr_read(c, &selection, &read_values, &n_read_values);
+                if (r < 0)
+                        return r;
+
+                if (n_read_values == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Could not read PCR hash 0x%" PRIu16 " index %u",
+                                               v->hash, v->index);
+
+                assert(n_read_values == 1);
+                assert(read_values[0].hash == v->hash);
+                assert(read_values[0].index == v->index);
+
+                v->value = read_values[0].value;
+        }
+
+        return 0;
+}
+
 static int tpm2_pcr_mask_good(
                 Tpm2Context *c,
                 TPMI_ALG_HASH bank,
@@ -2385,7 +2449,7 @@ static int tpm2_bank_has24(const TPMS_PCR_SELECTION *selection) {
         return valid;
 }
 
-static int tpm2_get_best_pcr_bank(
+int tpm2_get_best_pcr_bank(
                 Tpm2Context *c,
                 uint32_t pcr_mask,
                 TPMI_ALG_HASH *ret) {

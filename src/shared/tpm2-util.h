@@ -99,6 +99,7 @@ bool tpm2_test_parms(Tpm2Context *c, TPMI_ALG_PUBLIC alg, const TPMU_PUBLIC_PARM
 
 int tpm2_get_good_pcr_banks(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH **ret_banks);
 int tpm2_get_good_pcr_banks_strv(Tpm2Context *c, uint32_t pcr_mask, char ***ret);
+int tpm2_get_best_pcr_bank(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH *ret);
 
 int tpm2_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const void *data, size_t data_size, const void *secret, size_t secret_size);
 
@@ -144,6 +145,9 @@ void tpm2_log_debug_pcr_value(const Tpm2PCRValue *pcr_value, const char *msg);
 void tpm2_log_debug_buffer(const void *buffer, size_t size, const char *msg);
 void tpm2_log_debug_digest(const TPM2B_DIGEST *digest, const char *msg);
 void tpm2_log_debug_name(const TPM2B_NAME *name, const char *msg);
+
+int tpm2_pcr_read(Tpm2Context *c, const TPML_PCR_SELECTION *pcr_selection, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
+int tpm2_pcr_read_missing_values(Tpm2Context *c, Tpm2PCRValue *pcr_values, size_t n_pcr_values);
 
 int tpm2_calculate_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name);
 int tpm2_calculate_policy_auth_value(TPM2B_DIGEST *digest);
