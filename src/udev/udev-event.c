@@ -13,6 +13,7 @@
 #include "udev-event.h"
 #include "udev-node.h"
 #include "udev-trace.h"
+#include "udev-util.h"
 #include "udev-watch.h"
 #include "user-util.h"
 
