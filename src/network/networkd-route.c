@@ -1241,6 +1241,12 @@ static int route_configure(const Route *route, uint32_t lifetime_sec, Link *link
                         return r;
         }
 
+        if (route->hop_limit > 0) {
+                r = sd_netlink_message_append_u32(m, RTAX_HOPLIMIT, route->hop_limit);
+                if (r < 0)
+                        return r;
+        }
+
         r = sd_netlink_message_close_container(m);
         if (r < 0)
                 return r;

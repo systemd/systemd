@@ -168,6 +168,7 @@ static void ndisc_set_route_priority(Link *link, Route *route) {
 static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = in;
         struct in6_addr router;
+        uint8_t hop_limit = 0;
         uint32_t mtu = 0;
         bool is_new;
         int r;
@@ -187,6 +188,12 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
                         return log_link_warning_errno(link, r, "Failed to get default router MTU from RA: %m");
         }
 
+       if (link->network->ipv6_accept_ra_use_hop_limit) {
+                r = sd_ndisc_router_get_hop_limit(rt, &hop_limit);
+                if (r < 0 && r != -ENODATA)
+                        return log_link_warning_errno(link, r, "Failed to get default router hop limit from RA: %m");
+        }
+
         route->source = NETWORK_CONFIG_SOURCE_NDISC;
         route->provider.in6 = router;
         if (!route->table_set)
@@ -198,6 +205,9 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
                 route->quickack = link->network->ipv6_accept_ra_quickack;
         if (route->mtu == 0)
                 route->mtu = mtu;
+
+        if (route->hop_limit == 0)
+                route->hop_limit = hop_limit;
 
         is_new = route_get(NULL, link, route, NULL) < 0;
 
