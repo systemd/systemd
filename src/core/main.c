@@ -35,6 +35,7 @@
 #include "clock-util.h"
 #include "conf-parser.h"
 #include "confidential-virt.h"
+#include "copy.h"
 #include "cpu-set-util.h"
 #include "crash-handler.h"
 #include "dbus-manager.h"
@@ -1382,6 +1383,38 @@ static int os_release_status(void) {
         return 0;
 }
 
+static int setup_os_release(RuntimeScope scope) {
+        _cleanup_free_ char *os_release_dst = NULL;
+        const char *os_release_src = "/etc/os-release";
+        int r;
+
+        if (access("/etc/os-release", F_OK) < 0) {
+                if (errno != ENOENT)
+                        log_debug_errno(errno, "Failed to check if /etc/os-release exists, ignoring: %m");
+
+                os_release_src = "/usr/lib/os-release";
+        }
+
+        if (scope == RUNTIME_SCOPE_SYSTEM) {
+                os_release_dst = strdup("/run/systemd/propagate/os-release");
+                if (!os_release_dst)
+                        return log_oom_debug();
+        } else {
+                if (asprintf(&os_release_dst, "/run/user/" UID_FMT "/systemd/propagate/os-release", geteuid()) < 0)
+                        return log_oom_debug();
+        }
+
+        r = mkdir_parents_label(os_release_dst, 0755);
+        if (r < 0 && r != -EEXIST)
+                return log_debug_errno(r, "Failed to create parent directory of %s, ignoring: %m", os_release_dst);
+
+        r = copy_file(os_release_src, os_release_dst, /* open_flags= */ 0, 0644, COPY_MAC_CREATE);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create %s, ignoring: %m", os_release_dst);
+
+        return 0;
+}
+
 static int write_container_id(void) {
         const char *c;
         int r = 0;  /* avoid false maybe-uninitialized warning */
@@ -2253,6 +2286,12 @@ static int initialize_runtime(
                         bump_file_max_and_nr_open();
                         test_usr();
                         write_container_id();
+
+                        /* Copy os-release to the propagate directory, so that we update it for services running
+                         * under RootDirectory=/RootImage= when we do a soft reboot. */
+                        r = setup_os_release(RUNTIME_SCOPE_SYSTEM);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to copy os-release for propagation, ignoring: %m");
                 }
 
                 r = watchdog_set_device(arg_watchdog_device);
@@ -2275,6 +2314,9 @@ static int initialize_runtime(
 
                 (void) mkdir_p_label(p, 0755);
                 (void) make_inaccessible_nodes(p, UID_INVALID, GID_INVALID);
+                r = setup_os_release(RUNTIME_SCOPE_USER);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to copy os-release for propagation, ignoring: %m");
                 break;
         }
 

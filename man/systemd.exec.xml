@@ -139,6 +139,14 @@
         not be able to log via the syslog or journal protocols to the host logging infrastructure, unless the
         relevant sockets are mounted from the host, specifically:</para>
 
+        <para>The host's
+        <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        file will be made available for the service (read-only) as
+        <filename>/run/host/os-release</filename>.
+        It will be updated automatically on soft reboot (see:
+        <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>),
+        in case the service is configured to survive it.</para>
+
         <example>
           <title>Mounting logging sockets into root environment</title>
 
@@ -171,6 +179,14 @@
 
         <para>Units making use of <varname>RootImage=</varname> automatically gain an
         <varname>After=</varname> dependency on <filename>systemd-udevd.service</filename>.</para>
+
+        <para>The host's
+        <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        file will be made available for the service (read-only) as
+        <filename>/run/host/os-release</filename>.
+        It will be updated automatically on soft reboot (see:
+        <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>),
+        in case the service is configured to survive it.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>

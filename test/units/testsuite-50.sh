@@ -583,4 +583,6 @@ grep -q -F "MARKER_CONFEXT_123" /etc/testfile
 systemd-confext unmerge
 rm -rf /run/confexts/ testjob/
 
+systemd-run -P -p RootImage="${image}.raw" cat /run/host/os-release | cmp "${os_release}"
+
 touch /testok

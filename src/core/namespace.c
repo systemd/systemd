@@ -1701,7 +1701,8 @@ static size_t namespace_calculate_mounts(
                 const char *creds_path,
                 const char* log_namespace,
                 bool setup_propagate,
-                const char* notify_socket) {
+                const char* notify_socket,
+                const char* host_os_release) {
 
         size_t protect_home_cnt;
         size_t protect_system_cnt =
@@ -1746,6 +1747,7 @@ static size_t namespace_calculate_mounts(
                 !!log_namespace +
                 setup_propagate + /* /run/systemd/incoming */
                 !!notify_socket +
+                !!host_os_release +
                 ns_info->private_network + /* /sys */
                 ns_info->private_ipc; /* /dev/mqueue */
 }
@@ -2005,6 +2007,7 @@ int setup_namespace(
                 const char *incoming_dir,
                 const char *extension_dir,
                 const char *notify_socket,
+                const char *host_os_release,
                 char **error_path) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
@@ -2130,7 +2133,8 @@ int setup_namespace(
                         creds_path,
                         log_namespace,
                         setup_propagate,
-                        notify_socket);
+                        notify_socket,
+                        host_os_release);
 
         if (n_mounts > 0) {
                 m = mounts = new0(MountEntry, n_mounts);
@@ -2363,6 +2367,15 @@ int setup_namespace(
                                 .source_const = notify_socket,
                                 .mode = BIND_MOUNT,
                                 .read_only = true,
+                        };
+
+                if (host_os_release)
+                        *(m++) = (MountEntry) {
+                                .path_const = "/run/host/os-release",
+                                .source_const = host_os_release,
+                                .mode = BIND_MOUNT,
+                                .read_only = true,
+                                .ignore = true, /* Live copy, don't hard-fail if it goes missing */
                         };
 
                 assert(mounts + n_mounts == m);
