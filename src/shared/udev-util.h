@@ -5,21 +5,6 @@
 
 #include "time-util.h"
 
-#define UDEV_NAME_SIZE   512
-#define UDEV_PATH_SIZE  1024
-#define UDEV_LINE_SIZE 16384
-
-typedef enum ResolveNameTiming {
-        RESOLVE_NAME_NEVER,
-        RESOLVE_NAME_LATE,
-        RESOLVE_NAME_EARLY,
-        _RESOLVE_NAME_TIMING_MAX,
-        _RESOLVE_NAME_TIMING_INVALID = -EINVAL,
-} ResolveNameTiming;
-
-ResolveNameTiming resolve_name_timing_from_string(const char *s) _pure_;
-const char *resolve_name_timing_to_string(ResolveNameTiming i) _const_;
-
 int udev_set_max_log_level(char *str);
 int udev_parse_config(void);
 

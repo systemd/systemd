@@ -18,18 +18,9 @@
 #include "path-util.h"
 #include "signal-util.h"
 #include "stat-util.h"
-#include "string-table.h"
 #include "string-util.h"
 #include "udev-util.h"
 #include "utf8.h"
-
-static const char* const resolve_name_timing_table[_RESOLVE_NAME_TIMING_MAX] = {
-        [RESOLVE_NAME_NEVER] = "never",
-        [RESOLVE_NAME_LATE]  = "late",
-        [RESOLVE_NAME_EARLY] = "early",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(resolve_name_timing, ResolveNameTiming);
 
 int udev_set_max_log_level(char *str) {
         size_t n;
