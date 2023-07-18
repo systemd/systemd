@@ -24,6 +24,7 @@
 #include "string-util.h"
 #include "tests.h"
 #include "udev-event.h"
+#include "udev-spawn.h"
 #include "version.h"
 
 static int device_new_from_synthetic_event(sd_device **ret, const char *syspath, const char *action) {

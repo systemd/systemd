@@ -5,6 +5,7 @@
 #include "strv.h"
 #include "tests.h"
 #include "udev-event.h"
+#include "udev-spawn.h"
 
 #define BUF_SIZE 1024
 
