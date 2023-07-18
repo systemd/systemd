@@ -25,6 +25,7 @@ libudevd_core_sources = files(
         'udev-rules.c',
         'udev-spawn.c',
         'udev-watch.c',
+        'udev-worker.c',
         'udev-builtin-btrfs.c',
         'udev-builtin-hwdb.c',
         'udev-builtin-input_id.c',
