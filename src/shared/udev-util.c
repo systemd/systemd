@@ -10,7 +10,6 @@
 #include "device-util.h"
 #include "env-file.h"
 #include "errno-util.h"
-#include "escape.h"
 #include "fd-util.h"
 #include "id128-util.h"
 #include "log.h"
@@ -18,11 +17,9 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "signal-util.h"
-#include "socket-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "strxcpyx.h"
 #include "udev-util.h"
 #include "utf8.h"
 
@@ -337,62 +334,6 @@ void log_device_uevent(sd_device *device, const char *str) {
                          sd_id128_is_null(event_id) ? "" : SD_ID128_TO_UUID_STRING(event_id));
 }
 
-int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {
-        char *i, *j;
-        bool is_escaped;
-
-        /* value must be double quotated */
-        is_escaped = str[0] == 'e';
-        str += is_escaped;
-        if (str[0] != '"')
-                return -EINVAL;
-
-        if (!is_escaped) {
-                /* unescape double quotation '\"'->'"' */
-                for (j = str, i = str + 1; *i != '"'; i++, j++) {
-                        if (*i == '\0')
-                                return -EINVAL;
-                        if (i[0] == '\\' && i[1] == '"')
-                                i++;
-                        *j = *i;
-                }
-                j[0] = '\0';
-                /*
-                 * The return value must be terminated by two subsequent NULs
-                 * so it could be safely interpreted as nulstr.
-                 */
-                j[1] = '\0';
-        } else {
-                _cleanup_free_ char *unescaped = NULL;
-                ssize_t l;
-
-                /* find the end position of value */
-                for (i = str + 1; *i != '"'; i++) {
-                        if (i[0] == '\\')
-                                i++;
-                        if (*i == '\0')
-                                return -EINVAL;
-                }
-                i[0] = '\0';
-
-                l = cunescape_length(str + 1, i - (str + 1), 0, &unescaped);
-                if (l < 0)
-                        return l;
-
-                assert(l <= i - (str + 1));
-                memcpy(str, unescaped, l + 1);
-                /*
-                 * The return value must be terminated by two subsequent NULs
-                 * so it could be safely interpreted as nulstr.
-                 */
-                str[l + 1] = '\0';
-        }
-
-        *ret_value = str;
-        *ret_endpos = i + 1;
-        return 0;
-}
-
 size_t udev_replace_whitespace(const char *str, char *to, size_t len) {
         bool is_space = false;
         size_t i, j;
@@ -433,22 +374,6 @@ size_t udev_replace_whitespace(const char *str, char *to, size_t len) {
 
         to[j] = '\0';
         return j;
-}
-
-size_t udev_replace_ifname(char *str) {
-        size_t replaced = 0;
-
-        assert(str);
-
-        /* See ifname_valid_full(). */
-
-        for (char *p = str; *p != '\0'; p++)
-                if (!ifname_valid_char(*p)) {
-                        *p = '_';
-                        replaced++;
-                }
-
-        return replaced;
 }
 
 size_t udev_replace_chars(char *str, const char *allow) {
@@ -493,83 +418,6 @@ size_t udev_replace_chars(char *str, const char *allow) {
                 replaced++;
         }
         return replaced;
-}
-
-int udev_resolve_subsys_kernel(const char *string, char *result, size_t maxsize, bool read_value) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-        _cleanup_free_ char *temp = NULL;
-        char *subsys, *sysname, *attr;
-        const char *val;
-        int r;
-
-        assert(string);
-        assert(result);
-
-        /* handle "[<SUBSYSTEM>/<KERNEL>]<attribute>" format */
-
-        if (string[0] != '[')
-                return -EINVAL;
-
-        temp = strdup(string);
-        if (!temp)
-                return -ENOMEM;
-
-        subsys = &temp[1];
-
-        sysname = strchr(subsys, '/');
-        if (!sysname)
-                return -EINVAL;
-        sysname[0] = '\0';
-        sysname = &sysname[1];
-
-        attr = strchr(sysname, ']');
-        if (!attr)
-                return -EINVAL;
-        attr[0] = '\0';
-        attr = &attr[1];
-        if (attr[0] == '/')
-                attr = &attr[1];
-        if (attr[0] == '\0')
-                attr = NULL;
-
-        if (read_value && !attr)
-                return -EINVAL;
-
-        r = sd_device_new_from_subsystem_sysname(&dev, subsys, sysname);
-        if (r < 0)
-                return r;
-
-        if (read_value) {
-                r = sd_device_get_sysattr_value(dev, attr, &val);
-                if (r < 0 && !ERRNO_IS_PRIVILEGE(r) && r != -ENOENT)
-                        return r;
-                if (r >= 0)
-                        strscpy(result, maxsize, val);
-                else
-                        result[0] = '\0';
-                log_debug("value '[%s/%s]%s' is '%s'", subsys, sysname, attr, result);
-        } else {
-                r = sd_device_get_syspath(dev, &val);
-                if (r < 0)
-                        return r;
-
-                strscpyl(result, maxsize, val, attr ? "/" : NULL, attr ?: NULL, NULL);
-                log_debug("path '[%s/%s]%s' is '%s'", subsys, sysname, strempty(attr), result);
-        }
-        return 0;
-}
-
-bool devpath_conflict(const char *a, const char *b) {
-        /* This returns true when two paths are equivalent, or one is a child of another. */
-
-        if (!a || !b)
-                return false;
-
-        for (; *a != '\0' && *b != '\0'; a++, b++)
-                if (*a != *b)
-                        return false;
-
-        return *a == '/' || *b == '/' || *a == *b;
 }
 
 int udev_queue_is_empty(void) {
