@@ -51,7 +51,6 @@
 #include "list.h"
 #include "main-func.h"
 #include "mkdir.h"
-#include "netlink-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -103,8 +102,6 @@ typedef struct Manager {
 
         UdevRules *rules;
         Hashmap *properties;
-
-        sd_netlink *rtnl;
 
         sd_device_monitor *monitor;
         UdevCtrl *ctrl;
@@ -184,8 +181,6 @@ static Event *event_free(Event *event) {
         LIST_REMOVE(event, event->manager->events, event);
         sd_device_unref(event->dev);
 
-        /* Do not use sd_event_source_disable_unref() here, as this is called by both workers and the
-         * main process. */
         sd_event_source_unref(event->retry_event_source);
         sd_event_source_unref(event->timeout_warning_event);
         sd_event_source_unref(event->timeout_event);
@@ -222,43 +217,29 @@ static Worker *worker_free(Worker *worker) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(Worker*, worker_free);
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(worker_hash_op, void, trivial_hash_func, trivial_compare_func, Worker, worker_free);
 
-static void manager_clear_for_worker(Manager *manager) {
-        assert(manager);
-
-        /* Do not use sd_event_source_disable_unref() here, as this is called by both workers and the
-         * main process. */
-        manager->inotify_event = sd_event_source_unref(manager->inotify_event);
-        manager->kill_workers_event = sd_event_source_unref(manager->kill_workers_event);
-
-        manager->event = sd_event_unref(manager->event);
-
-        manager->workers = hashmap_free(manager->workers);
-        event_queue_cleanup(manager, EVENT_UNDEF);
-
-        manager->monitor = sd_device_monitor_unref(manager->monitor);
-        manager->ctrl = udev_ctrl_unref(manager->ctrl);
-
-        manager->worker_watch[READ_END] = safe_close(manager->worker_watch[READ_END]);
-}
-
 static Manager* manager_free(Manager *manager) {
         if (!manager)
                 return NULL;
 
         udev_builtin_exit();
 
-        manager_clear_for_worker(manager);
-
-        sd_netlink_unref(manager->rtnl);
-
         hashmap_free_free_free(manager->properties);
         udev_rules_free(manager->rules);
+
+        hashmap_free(manager->workers);
+        event_queue_cleanup(manager, EVENT_UNDEF);
 
         safe_close(manager->inotify_fd);
         safe_close_pair(manager->worker_watch);
 
+        sd_device_monitor_unref(manager->monitor);
+        udev_ctrl_unref(manager->ctrl);
+
+        sd_event_source_unref(manager->inotify_event);
+        sd_event_source_unref(manager->kill_workers_event);
         sd_event_source_unref(manager->memory_pressure_event_source);
         sd_event_source_unref(manager->sigrtmin18_event_source);
+        sd_event_unref(manager->event);
 
         free(manager->cgroup);
         return mfree(manager);
