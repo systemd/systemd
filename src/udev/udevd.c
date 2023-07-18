@@ -82,12 +82,6 @@
 
 static bool arg_debug = false;
 static int arg_daemonize = false;
-static ResolveNameTiming arg_resolve_name_timing = RESOLVE_NAME_EARLY;
-static unsigned arg_children_max = 0;
-static usec_t arg_exec_delay_usec = 0;
-static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
-static int arg_timeout_signal = SIGKILL;
-static bool arg_blockdev_read_only = false;
 
 typedef struct Event Event;
 typedef struct Worker Worker;
@@ -116,6 +110,13 @@ typedef struct Manager {
         sd_event_source *sigrtmin18_event_source;
 
         usec_t last_usec;
+
+        ResolveNameTiming resolve_name_timing;
+        unsigned children_max;
+        usec_t exec_delay_usec;
+        usec_t timeout_usec;
+        int timeout_signal;
+        bool blockdev_read_only;
 
         bool udev_node_needs_cleanup;
         bool stop_exec_queue;
@@ -322,12 +323,14 @@ static void manager_exit(Manager *manager) {
         manager_kill_workers(manager, true);
 }
 
-static void notify_ready(void) {
+static void notify_ready(Manager *manager) {
         int r;
+
+        assert(manager);
 
         r = sd_notifyf(/* unset= */ false,
                        "READY=1\n"
-                       "STATUS=Processing with %u children at max", arg_children_max);
+                       "STATUS=Processing with %u children at max", manager->children_max);
         if (r < 0)
                 log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 }
@@ -371,14 +374,14 @@ static void manager_reload(Manager *manager, bool force) {
                 udev_builtin_exit();
                 udev_builtin_init();
 
-                r = udev_rules_load(&rules, arg_resolve_name_timing);
+                r = udev_rules_load(&rules, manager->resolve_name_timing);
                 if (r < 0)
                         log_warning_errno(r, "Failed to read udev rules, using the previously loaded rules, ignoring: %m");
                 else
                         udev_rules_free_and_replace(manager->rules, rules);
         }
 
-        notify_ready();
+        notify_ready(manager);
 }
 
 static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -393,9 +396,10 @@ static int on_kill_workers_event(sd_event_source *s, uint64_t usec, void *userda
 static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         Event *event = ASSERT_PTR(userdata);
 
+        assert(event->manager);
         assert(event->worker);
 
-        kill_and_sigcont(event->worker->pid, arg_timeout_signal);
+        kill_and_sigcont(event->worker->pid, event->manager->timeout_signal);
         event->worker->state = WORKER_KILLED;
 
         log_device_error(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" killed", event->worker->pid, event->seqnum);
@@ -414,6 +418,7 @@ static int on_event_timeout_warning(sd_event_source *s, uint64_t usec, void *use
 }
 
 static void worker_attach_event(Worker *worker, Event *event) {
+        Manager *manager;
         sd_event *e;
 
         assert(worker);
@@ -427,14 +432,15 @@ static void worker_attach_event(Worker *worker, Event *event) {
         event->state = EVENT_RUNNING;
         event->worker = worker;
 
-        e = worker->manager->event;
+        manager = worker->manager;
+        e = manager->event;
 
         (void) sd_event_add_time_relative(e, &event->timeout_warning_event, CLOCK_MONOTONIC,
-                                          udev_warn_timeout(arg_event_timeout_usec), USEC_PER_SEC,
+                                          udev_warn_timeout(manager->timeout_usec), USEC_PER_SEC,
                                           on_event_timeout_warning, event);
 
         (void) sd_event_add_time_relative(e, &event->timeout_event, CLOCK_MONOTONIC,
-                                          arg_event_timeout_usec, USEC_PER_SEC,
+                                          manager->timeout_usec, USEC_PER_SEC,
                                           on_event_timeout, event);
 }
 
@@ -472,11 +478,11 @@ static int worker_spawn(Manager *manager, Event *event) {
                         .rules = TAKE_PTR(manager->rules),
                         .pipe_fd = TAKE_FD(manager->worker_watch[WRITE_END]),
                         .inotify_fd = TAKE_FD(manager->inotify_fd),
-                        .exec_delay_usec = arg_exec_delay_usec,
-                        .timeout_usec = arg_event_timeout_usec,
-                        .timeout_signal = arg_timeout_signal,
+                        .exec_delay_usec = manager->exec_delay_usec,
+                        .timeout_usec = manager->timeout_usec,
+                        .timeout_signal = manager->timeout_signal,
                         .log_level = manager->log_level,
-                        .blockdev_read_only = arg_blockdev_read_only,
+                        .blockdev_read_only = manager->blockdev_read_only,
                 };
 
                 /* Worker process */
@@ -525,10 +531,10 @@ static int event_run(Event *event) {
                 return 1; /* event is now processing. */
         }
 
-        if (hashmap_size(manager->workers) >= arg_children_max) {
+        if (hashmap_size(manager->workers) >= manager->children_max) {
                 /* Avoid spamming the debug logs if the limit is already reached and
                  * many events still need to be processed */
-                if (log_children_max_reached && arg_children_max > 1) {
+                if (log_children_max_reached && manager->children_max > 1) {
                         log_debug("Maximum number (%u) of children reached.", hashmap_size(manager->workers));
                         log_children_max_reached = false;
                 }
@@ -1010,9 +1016,9 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
                 }
 
                 log_debug("Received udev control message (SET_MAX_CHILDREN), setting children_max=%i", value->intval);
-                arg_children_max = value->intval;
+                manager->children_max = value->intval;
 
-                notify_ready();
+                notify_ready(manager);
                 break;
         case UDEV_CTRL_PING:
                 log_debug("Received udev control message (PING)");
@@ -1286,6 +1292,7 @@ static int listen_fds(int *ret_ctrl, int *ret_netlink) {
  *   udev.blockdev_read_only<=bool>            mark all block devices read-only when they appear
  */
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
+        Manager *manager = ASSERT_PTR(data);
         int r;
 
         assert(key);
@@ -1305,21 +1312,21 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = parse_sec(value, &arg_event_timeout_usec);
+                r = parse_sec(value, &manager->timeout_usec);
 
         } else if (proc_cmdline_key_streq(key, "udev.children_max")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = safe_atou(value, &arg_children_max);
+                r = safe_atou(value, &manager->children_max);
 
         } else if (proc_cmdline_key_streq(key, "udev.exec_delay")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = parse_sec(value, &arg_exec_delay_usec);
+                r = parse_sec(value, &manager->exec_delay_usec);
 
         } else if (proc_cmdline_key_streq(key, "udev.timeout_signal")) {
 
@@ -1328,21 +1335,21 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 r = signal_from_string(value);
                 if (r > 0)
-                        arg_timeout_signal = r;
+                        manager->timeout_signal = r;
 
         } else if (proc_cmdline_key_streq(key, "udev.blockdev_read_only")) {
 
                 if (!value)
-                        arg_blockdev_read_only = true;
+                        manager->blockdev_read_only = true;
                 else {
                         r = parse_boolean(value);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse udev.blockdev-read-only argument, ignoring: %s", value);
                         else
-                                arg_blockdev_read_only = r;
+                                manager->blockdev_read_only = r;
                 }
 
-                if (arg_blockdev_read_only)
+                if (manager->blockdev_read_only)
                         log_notice("All physical block devices will be marked read-only.");
 
                 return 0;
@@ -1386,7 +1393,7 @@ static int help(void) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
+static int parse_argv(int argc, char *argv[], Manager *manager) {
         enum {
                 ARG_TIMEOUT_SIGNAL,
         };
@@ -1408,6 +1415,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         assert(argc >= 0);
         assert(argv);
+        assert(manager);
 
         while ((c = getopt_long(argc, argv, "c:de:Dt:N:hV", options, NULL)) >= 0) {
                 switch (c) {
@@ -1416,12 +1424,12 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_daemonize = true;
                         break;
                 case 'c':
-                        r = safe_atou(optarg, &arg_children_max);
+                        r = safe_atou(optarg, &manager->children_max);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse --children-max= value '%s', ignoring: %m", optarg);
                         break;
                 case 'e':
-                        r = parse_sec(optarg, &arg_exec_delay_usec);
+                        r = parse_sec(optarg, &manager->exec_delay_usec);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse --exec-delay= value '%s', ignoring: %m", optarg);
                         break;
@@ -1430,11 +1438,11 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r <= 0)
                                 log_warning_errno(r, "Failed to parse --timeout-signal= value '%s', ignoring: %m", optarg);
                         else
-                                arg_timeout_signal = r;
+                                manager->timeout_signal = r;
 
                         break;
                 case 't':
-                        r = parse_sec(optarg, &arg_event_timeout_usec);
+                        r = parse_sec(optarg, &manager->timeout_usec);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse --event-timeout= value '%s', ignoring: %m", optarg);
                         break;
@@ -1448,7 +1456,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (t < 0)
                                 log_warning("Invalid --resolve-names= value '%s', ignoring.", optarg);
                         else
-                                arg_resolve_name_timing = t;
+                                manager->resolve_name_timing = t;
                         break;
                 }
                 case 'h':
@@ -1467,21 +1475,30 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent) {
-        _cleanup_(manager_freep) Manager *manager = NULL;
-        _cleanup_free_ char *cgroup = NULL;
-        int r;
-
-        assert(ret);
+static Manager* manager_new(void) {
+        Manager *manager;
 
         manager = new(Manager, 1);
         if (!manager)
-                return log_oom();
+                return NULL;
 
         *manager = (Manager) {
                 .inotify_fd = -EBADF,
                 .worker_watch = PIPE_EBADF,
+                .log_level = LOG_INFO,
+                .resolve_name_timing = RESOLVE_NAME_EARLY,
+                .timeout_usec = 180 * USEC_PER_SEC,
+                .timeout_signal = SIGKILL,
         };
+
+        return manager;
+}
+
+static int manager_init(Manager *manager, int fd_ctrl, int fd_uevent) {
+        _cleanup_free_ char *cgroup = NULL;
+        int r;
+
+        assert(manager);
 
         r = udev_ctrl_new_from_fd(&manager->ctrl, fd_ctrl);
         if (r < 0)
@@ -1520,12 +1537,10 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent) {
                 manager->cgroup = TAKE_PTR(cgroup);
         }
 
-        *ret = TAKE_PTR(manager);
-
         return 0;
 }
 
-static int main_loop(Manager *manager) {
+static int manager_main(Manager *manager) {
         int fd_worker, r;
 
         /* unnamed socket from workers to the main daemon */
@@ -1618,7 +1633,7 @@ static int main_loop(Manager *manager) {
 
         udev_builtin_init();
 
-        r = udev_rules_load(&manager->rules, arg_resolve_name_timing);
+        r = udev_rules_load(&manager->rules, manager->resolve_name_timing);
         if (r < 0)
                 return log_error_errno(r, "Failed to read udev rules: %m");
 
@@ -1626,7 +1641,7 @@ static int main_loop(Manager *manager) {
         if (r < 0)
                 log_warning_errno(r, "Failed to apply permissions on static device nodes, ignoring: %m");
 
-        notify_ready();
+        notify_ready(manager);
 
         r = sd_event_loop(manager->event);
         if (r < 0)
@@ -1643,15 +1658,26 @@ int run_udevd(int argc, char *argv[]) {
 
         log_set_target(LOG_TARGET_AUTO);
         log_open();
-        udev_parse_config_full(&arg_children_max, &arg_exec_delay_usec, &arg_event_timeout_usec, &arg_resolve_name_timing, &arg_timeout_signal);
+
+        manager = manager_new();
+        if (!manager)
+                return log_oom();
+
+        udev_parse_config_full(
+                        &manager->children_max,
+                        &manager->exec_delay_usec,
+                        &manager->timeout_usec,
+                        &manager->resolve_name_timing,
+                        &manager->timeout_signal);
+
         log_parse_environment();
         log_open(); /* Done again to update after reading configuration. */
 
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, manager);
         if (r <= 0)
                 return r;
 
-        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
+        r = proc_cmdline_parse(parse_proc_cmdline_item, manager, PROC_CMDLINE_STRIP_RD_PREFIX);
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
@@ -1664,7 +1690,7 @@ int run_udevd(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        if (arg_children_max == 0) {
+        if (manager->children_max == 0) {
                 unsigned long cpu_limit, mem_limit, cpu_count = 1;
 
                 r = cpus_in_affinity_mask();
@@ -1676,10 +1702,8 @@ int run_udevd(int argc, char *argv[]) {
                 cpu_limit = cpu_count * 2 + 16;
                 mem_limit = MAX(physical_memory() / (128UL*1024*1024), 10U);
 
-                arg_children_max = MIN(cpu_limit, mem_limit);
-                arg_children_max = MIN(WORKER_NUM_MAX, arg_children_max);
-
-                log_debug("Set children_max to %u", arg_children_max);
+                manager->children_max = MIN3(cpu_limit, mem_limit, WORKER_NUM_MAX);
+                log_debug("Set children_max to %u", manager->children_max);
         }
 
         /* set umask before creating any file/directory */
@@ -1697,7 +1721,7 @@ int run_udevd(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to listen on fds: %m");
 
-        r = manager_new(&manager, fd_ctrl, fd_uevent);
+        r = manager_init(manager, fd_ctrl, fd_uevent);
         if (r < 0)
                 return log_error_errno(r, "Failed to create manager: %m");
 
@@ -1724,5 +1748,5 @@ int run_udevd(int argc, char *argv[]) {
                 (void) setsid();
         }
 
-        return main_loop(manager);
+        return manager_main(manager);
 }
