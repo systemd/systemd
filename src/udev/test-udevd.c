@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "tests.h"
-#include "udevd.h"
+#include "udev-manager.h"
 
 TEST(devpath_conflict) {
         assert_se(!devpath_conflict(NULL, NULL));
