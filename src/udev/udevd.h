@@ -2,3 +2,5 @@
 #pragma once
 
 int run_udevd(int argc, char *argv[]);
+
+bool devpath_conflict(const char *a, const char *b);

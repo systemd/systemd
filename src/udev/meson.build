@@ -14,7 +14,6 @@ udevadm_sources = files(
         'udevadm-verify.c',
         'udevadm-wait.c',
         'udevadm.c',
-        'udevd.c',
 )
 
 libudevd_core_sources = files(
@@ -35,6 +34,7 @@ libudevd_core_sources = files(
         'udev-builtin-path_id.c',
         'udev-builtin-usb_id.c',
         'udev-builtin.c',
+        'udevd.c',
 )
 
 if conf.get('HAVE_KMOD') == 1
@@ -170,10 +170,6 @@ if install_sysconfdir
                                  mkdir_p.format(sysconfdir / 'udev/rules.d'))
 endif
 
-simple_fuzzers += files(
-        'fuzz-udev-rule-parse-value.c',
-)
-
 fuzzer_udev_base = {
         'link_with' : [libudevd_core, libshared],
         'dependencies' : [threads, libacl],
@@ -183,6 +179,10 @@ fuzzers += [
         {
                 'sources' : files('net/fuzz-link-parser.c'),
                 'includes' : udev_includes,
+                'base' : fuzzer_udev_base,
+        },
+        {
+                'sources' : files('fuzz-udev-rule-parse-value.c'),
                 'base' : fuzzer_udev_base,
         },
         {
@@ -214,11 +214,23 @@ tests += [
                 'base' : test_libudev_base,
         },
         {
+                'sources' : files('test-udev-format.c'),
+                'base' : test_libudev_base,
+        },
+        {
                 'sources' : files('test-udev-node.c'),
                 'base' : test_libudev_base,
         },
         {
+                'sources' : files('test-udev-rules.c'),
+                'base' : test_libudev_base,
+        },
+        {
                 'sources' : files('test-udev-spawn.c'),
+                'base' : test_libudev_base,
+        },
+        {
+                'sources' : files('test-udevd.c'),
                 'base' : test_libudev_base,
         },
 ]
