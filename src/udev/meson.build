@@ -214,11 +214,11 @@ tests += [
                 'base' : test_libudev_base,
         },
         {
-                'sources' : files('test-udev-event.c'),
+                'sources' : files('test-udev-node.c'),
                 'base' : test_libudev_base,
         },
         {
-                'sources' : files('test-udev-node.c'),
+                'sources' : files('test-udev-spawn.c'),
                 'base' : test_libudev_base,
         },
 ]
