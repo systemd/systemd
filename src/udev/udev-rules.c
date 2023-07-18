@@ -32,6 +32,7 @@
 #include "udev-event.h"
 #include "udev-node.h"
 #include "udev-rules.h"
+#include "udev-trace.h"
 #include "udev-util.h"
 #include "user-util.h"
 #include "virt.h"
