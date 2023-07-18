@@ -319,6 +319,7 @@ struct Network {
         bool ipv6_accept_ra_use_autonomous_prefix;
         bool ipv6_accept_ra_use_onlink_prefix;
         bool ipv6_accept_ra_use_mtu;
+        bool ipv6_accept_ra_use_hop_limit;
         bool ipv6_accept_ra_quickack;
         bool ipv6_accept_ra_use_captive_portal;
         bool active_slave;
