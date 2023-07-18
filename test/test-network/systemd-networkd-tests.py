@@ -11,6 +11,7 @@
 import argparse
 import errno
 import itertools
+import json
 import os
 import pathlib
 import re
@@ -123,6 +124,13 @@ def run(*command, **kwargs):
     # This returns CompletedProcess instance.
     command = command[0].split() + list(command[1:])
     return subprocess.run(command, check=False, universal_newlines=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
+
+def check_json(string):
+    try:
+        json.loads(string)
+    except json.JSONDecodeError:
+        print(f"String is not a valid JSON: '{string}'")
+        raise
 
 def is_module_available(*module_names):
     for module_name in module_names:
@@ -2365,8 +2373,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         for i in range(1, 254):
             self.assertIn(f'inet 10.3.3.{i}/16 brd 10.3.255.255', output)
 
-        # TODO: check json string
-        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        check_json(output)
+
 
     def test_address_null(self):
         copy_network_unit('25-address-null.network', '12-dummy.netdev')
@@ -2591,8 +2600,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'iif test1')
         self.assertRegex(output, 'lookup 10')
 
-        # TODO: check json string
-        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        check_json(output)
 
     def test_routing_policy_rule_issue_11280(self):
         copy_network_unit('25-routing-policy-rule-test1.network', '11-dummy.netdev',
@@ -2814,8 +2823,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('via 2001:1234:5:8fff:ff:ff:ff:ff dev dummy98', output)
         self.assertIn('via 2001:1234:5:9fff:ff:ff:ff:ff dev dummy98', output)
 
-        # TODO: check json string
-        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        check_json(output)
 
         copy_network_unit('25-address-static.network')
         networkctl_reload()
@@ -3082,8 +3091,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '192.168.10.1.*00:00:5e:00:02:65.*PERMANENT')
         self.assertRegex(output, '2004:da8:1::1.*00:00:5e:00:02:66.*PERMANENT')
 
-        # TODO: check json string
-        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        check_json(output)
 
     def test_neighbor_reconfigure(self):
         copy_network_unit('25-neighbor-section.network', '12-dummy.netdev')
@@ -3121,8 +3130,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '2001:db8:0:f102::17 lladdr 2a:?00:ff:?de:45:?67:ed:?de:[0:]*:49:?88 PERMANENT')
 
-        # TODO: check json string
-        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        check_json(output)
 
     def test_link_local_addressing(self):
         copy_network_unit('25-link-local-addressing-yes.network', '11-dummy.netdev',
@@ -3520,8 +3529,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             self.assertIn('nexthop via 192.168.20.1 dev dummy98 weight 1', output)
             self.assertIn('nexthop via 192.168.5.1 dev veth99 weight 3', output)
 
-            # TODO: check json string
-            check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+            output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+            check_json(output)
 
         copy_network_unit('25-nexthop.network', '25-veth.netdev', '25-veth-peer.network',
                           '12-dummy.netdev', '25-nexthop-dummy.network')
@@ -3840,8 +3849,8 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
         # make link state file updated
         check_output(*resolvectl_cmd, 'revert', 'dummy98', env=env)
 
-        # TODO: check json string
-        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        check_json(output)
 
         output = read_link_state_file('dummy98')
         print(output)
@@ -3869,8 +3878,8 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
         check_output(*resolvectl_cmd, 'dnssec', 'dummy98', 'yes', env=env)
         check_output(*timedatectl_cmd, 'ntp-servers', 'dummy98', '2.fedora.pool.ntp.org', '3.fedora.pool.ntp.org', env=env)
 
-        # TODO: check json string
-        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        check_json(output)
 
         output = read_link_state_file('dummy98')
         print(output)
@@ -3884,8 +3893,8 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
 
         check_output(*timedatectl_cmd, 'revert', 'dummy98', env=env)
 
-        # TODO: check json string
-        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        check_json(output)
 
         output = read_link_state_file('dummy98')
         print(output)
@@ -3899,8 +3908,8 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
 
         check_output(*resolvectl_cmd, 'revert', 'dummy98', env=env)
 
-        # TODO: check json string
-        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        check_json(output)
 
         output = read_link_state_file('dummy98')
         print(output)
@@ -4998,8 +5007,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
             self.assertNotRegex(output, r'8.8.8.8 via 192.168.5.[0-9]* proto dhcp src 192.168.5.[0-9]* metric 1024')
             self.assertNotRegex(output, r'9.9.9.9 via 192.168.5.[0-9]* proto dhcp src 192.168.5.[0-9]* metric 1024')
 
-        # TODO: check json string
-        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        check_json(output)
 
     def test_dhcp_client_settings_anonymize(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-anonymize.network')
@@ -5253,8 +5262,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
             else:
                 self.assertNotIn('2600::1', output)
 
-            # TODO: check json string
-            check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+            output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+            check_json(output)
 
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client.network', copy_dropins=False)
 
@@ -5292,8 +5301,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
             else:
                 self.assertNotIn('Captive Portal: http://systemd.io', output)
 
-            # TODO: check json string
-            check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+            output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+            check_json(output)
 
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client.network', copy_dropins=False)
 
@@ -5329,8 +5338,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
             self.assertNotIn('Captive Portal: ', output)
             self.assertNotIn('invalid/url', output)
 
-            # TODO: check json string
-            check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+            output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+            check_json(output)
 
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client.network', copy_dropins=False)
 
@@ -5825,8 +5834,8 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('example.com', output)
 
-        # TODO: check json string
-        check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        check_json(output)
 
     def test_ipv6_route_prefix_deny_list(self):
         copy_network_unit('25-veth.netdev', '25-ipv6ra-prefix-client-deny-list.network', '25-ipv6ra-prefix.network',
