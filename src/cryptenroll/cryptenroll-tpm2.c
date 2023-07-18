@@ -133,7 +133,8 @@ int enroll_tpm2(struct crypt_device *cd,
                 const void *volume_key,
                 size_t volume_key_size,
                 const char *device,
-                uint32_t hash_pcr_mask,
+                const Tpm2PCRValue *hash_pcrs,
+                size_t n_hash_pcrs,
                 const char *pubkey_path,
                 uint32_t pubkey_pcr_mask,
                 const char *signature_path,
@@ -163,7 +164,7 @@ int enroll_tpm2(struct crypt_device *cd,
         assert(cd);
         assert(volume_key);
         assert(volume_key_size > 0);
-        assert(TPM2_PCR_MASK_VALID(hash_pcr_mask));
+        assert(TPM2_PCR_VALUES_VALID(hash_pcrs, n_hash_pcrs));
         assert(TPM2_PCR_MASK_VALID(pubkey_pcr_mask));
 
         assert_se(node = crypt_get_device_name(cd));
@@ -207,7 +208,7 @@ int enroll_tpm2(struct crypt_device *cd,
         }
 
         r = tpm2_seal(device,
-                      hash_pcr_mask,
+                      hash_pcrs, n_hash_pcrs,
                       pubkey, pubkey_size,
                       pubkey_pcr_mask,
                       pin_str,
@@ -232,8 +233,26 @@ int enroll_tpm2(struct crypt_device *cd,
                 return r; /* return existing keyslot, so that wiping won't kill it */
         }
 
+        TPML_PCR_SELECTION hash_pcr_selection;
+        r = tpm2_tpml_pcr_selection_from_pcr_values(hash_pcrs, n_hash_pcrs, &hash_pcr_selection, /* ret_values= */ NULL, /* ret_n_values= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Could not get PCR selection from PCR values: %m");
+
+        uint32_t hash_pcr_mask = 0;
+        if (hash_pcr_selection.count == 1)
+                tpm2_tpms_pcr_selection_to_mask(&hash_pcr_selection.pcrSelections[0], &hash_pcr_mask);
+        else if (hash_pcr_selection.count > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Multiple PCR banks selected.");
+
+        bool pcr_value_specified = false;
+        for (size_t i = 0; i < n_hash_pcrs; i++)
+                if (hash_pcrs[i].value.size > 0) {
+                        pcr_value_specified = true;
+                        break;
+                }
+
         /* Quick verification that everything is in order, we are not in a hurry after all. */
-        if (!pubkey || signature_json) {
+        if ((!pubkey || signature_json) && !pcr_value_specified) {
                 _cleanup_(erase_and_freep) void *secret2 = NULL;
                 size_t secret2_size;
 

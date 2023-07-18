@@ -28,7 +28,6 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "tpm-pcr.h"
-#include "tpm2-util.h"
 
 static EnrollType arg_enroll_type = _ENROLL_TYPE_INVALID;
 static char *arg_unlock_keyfile = NULL;
@@ -37,7 +36,8 @@ static char *arg_unlock_fido2_device = NULL;
 static char *arg_pkcs11_token_uri = NULL;
 static char *arg_fido2_device = NULL;
 static char *arg_tpm2_device = NULL;
-static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
+static Tpm2PCRValue *arg_tpm2_pcrs = NULL;
+static size_t arg_tpm2_n_pcrs = 0;
 static bool arg_tpm2_pin = false;
 static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;
@@ -61,6 +61,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_unlock_fido2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_token_uri, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_tpm2_pcrs, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_node, freep);
@@ -356,7 +357,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_TPM2_PCRS:
-                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_pcr_mask);
+                        r = tpm2_parse_pcr_argument_append(optarg, &arg_tpm2_pcrs, &arg_tpm2_n_pcrs);
                         if (r < 0)
                                 return r;
 
@@ -377,7 +378,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TPM2_PUBLIC_KEY_PCRS:
-                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_public_key_pcr_mask);
+                        r = tpm2_parse_pcr_argument_to_mask(optarg, &arg_tpm2_public_key_pcr_mask);
                         if (r < 0)
                                 return r;
 
@@ -476,10 +477,24 @@ static int parse_argv(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        if (arg_tpm2_pcr_mask == UINT32_MAX)
-                arg_tpm2_pcr_mask = TPM2_PCR_MASK_DEFAULT;
-        if (arg_tpm2_public_key_pcr_mask == UINT32_MAX)
-                arg_tpm2_public_key_pcr_mask = UINT32_C(1) << TPM_PCR_INDEX_KERNEL_IMAGE;
+        if (arg_tpm2_public_key_pcr_mask == UINT32_MAX) {
+                if (arg_tpm2_public_key)
+                        /* If public key is set without any public key pcr indexes, select public key pcr
+                         * default index */
+                        arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM_PCR_INDEX_KERNEL_IMAGE);
+                else
+                        /* Otherwise set to no public key pcrs */
+                        arg_tpm2_public_key_pcr_mask = 0;
+        }
+
+        /* If public key is unset, and no hash pcr index is either, select hash pcr default index */
+        if (!arg_tpm2_public_key && !arg_tpm2_pcrs)
+                if (!GREEDY_REALLOC_APPEND(
+                                arg_tpm2_pcrs,
+                                arg_tpm2_n_pcrs,
+                                &TPM2_PCR_VALUE_MAKE(TPM2_PCR_INDEX_DEFAULT, /* hash= */ 0, /* value= */ {}),
+                                1))
+                        return log_oom();
 
         return 1;
 }
@@ -655,7 +670,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_TPM2:
-                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_pcr_mask, arg_tpm2_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin);
+                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_pcrs, arg_tpm2_n_pcrs, arg_tpm2_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin);
                 break;
 
         case _ENROLL_TYPE_INVALID:
