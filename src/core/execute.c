@@ -3967,7 +3967,7 @@ static int apply_mount_namespace(
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
                         **read_write_paths_cleanup = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
-                        *extension_dir = NULL;
+                        *extension_dir = NULL, *host_os_release = NULL;
         const char *root_dir = NULL, *root_image = NULL, *tmp_dir = NULL, *var_tmp_dir = NULL;
         char **read_write_paths;
         NamespaceInfo ns_info;
@@ -4087,11 +4087,24 @@ static int apply_mount_namespace(
                 extension_dir = strdup("/run/systemd/unit-extensions");
                 if (!extension_dir)
                         return -ENOMEM;
+
+                /* If running under a different root filesystem, propagate the host's os-release. We make a
+                 * copy rather than just bind mounting it, so that it can be updated on soft-reboot. */
+                if (root_dir || root_image) {
+                        host_os_release = strdup("/run/systemd/propagate/os-release");
+                        if (!host_os_release)
+                                return -ENOMEM;
+                }
         } else {
                 assert(params->runtime_scope == RUNTIME_SCOPE_USER);
 
                 if (asprintf(&extension_dir, "/run/user/" UID_FMT "/systemd/unit-extensions", geteuid()) < 0)
                         return -ENOMEM;
+
+                if (root_dir || root_image) {
+                        if (asprintf(&host_os_release, "/run/user/" UID_FMT "/systemd/propagate/os-release", geteuid()) < 0)
+                                return -ENOMEM;
+                }
         }
 
         if (root_image) {
@@ -4139,6 +4152,7 @@ static int apply_mount_namespace(
                         incoming_dir,
                         extension_dir,
                         root_dir || root_image ? params->notify_socket : NULL,
+                        host_os_release,
                         error_path);
 
         /* If we couldn't set up the namespace this is probably due to a missing capability. setup_namespace() reports
