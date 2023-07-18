@@ -4710,6 +4710,11 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'DNS: 192.168.5.1\n *192.168.5.10')
         self.assertRegex(output, 'NTP: 192.168.5.1\n *192.168.5.11')
 
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
+        self.assertRegex(output, "Offered DHCP leases: 192.168.5.[0-9]*")
+
+        call_check(*networkctl_cmd, "status", "--stats", "veth-peer")
+
     def test_dhcp_server_with_uplink(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-downstream.network',
                           '12-dummy.netdev', '25-dhcp-server-uplink.network')
