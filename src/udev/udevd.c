@@ -97,7 +97,6 @@ typedef struct Manager {
         Hashmap *workers;
         LIST_HEAD(Event, events);
         char *cgroup;
-        pid_t pid; /* the process that originally allocated the manager object */
         int log_level;
 
         UdevRules *rules;
@@ -775,9 +774,6 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
 
         assert(manager);
         assert(dev);
-
-        /* only one process can add events to the queue */
-        assert(manager->pid == getpid_cached());
 
         /* We only accepts devices received by device monitor. */
         r = sd_device_get_seqnum(dev, &seqnum);
@@ -1531,8 +1527,6 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent) {
 
 static int main_loop(Manager *manager) {
         int fd_worker, r;
-
-        manager->pid = getpid_cached();
 
         /* unnamed socket from workers to the main daemon */
         r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
