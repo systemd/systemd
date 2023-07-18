@@ -2,7 +2,6 @@
 
 #include <ctype.h>
 #include <errno.h>
-#include <sys/inotify.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -576,19 +575,6 @@ bool devpath_conflict(const char *a, const char *b) {
 int udev_queue_is_empty(void) {
         return access("/run/udev/queue", F_OK) < 0 ?
                 (errno == ENOENT ? true : -errno) : false;
-}
-
-int udev_queue_init(void) {
-        _cleanup_close_ int fd = -EBADF;
-
-        fd = inotify_init1(IN_CLOEXEC);
-        if (fd < 0)
-                return -errno;
-
-        if (inotify_add_watch(fd, "/run/udev" , IN_DELETE) < 0)
-                return -errno;
-
-        return TAKE_FD(fd);
 }
 
 bool udev_available(void) {
