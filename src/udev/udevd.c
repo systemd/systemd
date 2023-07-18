@@ -10,6 +10,7 @@
 #include "sd-daemon.h"
 
 #include "cpu-set-util.h"
+#include "env-file.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "limits-util.h"
@@ -22,6 +23,7 @@
 #include "signal-util.h"
 #include "syslog-util.h"
 #include "udev-manager.h"
+#include "udev-util.h"
 #include "udevd.h"
 #include "version.h"
 
@@ -61,6 +63,74 @@ static int listen_fds(int *ret_ctrl, int *ret_netlink) {
 
         *ret_ctrl = ctrl_fd;
         *ret_netlink = netlink_fd;
+
+        return 0;
+}
+
+static int manager_parse_udev_config(Manager *manager) {
+        _cleanup_free_ char *log_val = NULL, *children_max = NULL, *exec_delay = NULL,
+                *event_timeout = NULL, *resolve_names = NULL, *timeout_signal = NULL;
+        int r;
+
+        assert(manager);
+
+        r = parse_env_file(NULL, "/etc/udev/udev.conf",
+                           "udev_log", &log_val,
+                           "children_max", &children_max,
+                           "exec_delay", &exec_delay,
+                           "event_timeout", &event_timeout,
+                           "resolve_names", &resolve_names,
+                           "timeout_signal", &timeout_signal);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return r;
+
+        r = udev_set_max_log_level(log_val);
+        if (r < 0)
+                log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
+                           "Failed to set udev log level '%s', ignoring: %m", log_val);
+
+        if (children_max) {
+                r = safe_atou(children_max, &manager->children_max);
+                if (r < 0)
+                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
+                                   "Failed to parse children_max=%s, ignoring: %m", children_max);
+        }
+
+        if (exec_delay) {
+                r = parse_sec(exec_delay, &manager->exec_delay_usec);
+                if (r < 0)
+                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
+                                   "Failed to parse exec_delay=%s, ignoring: %m", exec_delay);
+        }
+
+        if (event_timeout) {
+                r = parse_sec(event_timeout, &manager->timeout_usec);
+                if (r < 0)
+                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
+                                   "Failed to parse event_timeout=%s, ignoring: %m", event_timeout);
+        }
+
+        if (resolve_names) {
+                ResolveNameTiming t;
+
+                t = resolve_name_timing_from_string(resolve_names);
+                if (t < 0)
+                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
+                                   "Failed to parse resolve_names=%s, ignoring.", resolve_names);
+                else
+                        manager->resolve_name_timing = t;
+        }
+
+        if (timeout_signal) {
+                r = signal_from_string(timeout_signal);
+                if (r < 0)
+                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
+                                   "Failed to parse timeout_signal=%s, ignoring: %m", timeout_signal);
+                else
+                        manager->timeout_signal = r;
+        }
 
         return 0;
 }
@@ -269,12 +339,7 @@ int run_udevd(int argc, char *argv[]) {
         if (!manager)
                 return log_oom();
 
-        udev_parse_config_full(
-                        &manager->children_max,
-                        &manager->exec_delay_usec,
-                        &manager->timeout_usec,
-                        &manager->resolve_name_timing,
-                        &manager->timeout_signal);
+        manager_parse_udev_config(manager);
 
         log_parse_environment();
         log_open(); /* Done again to update after reading configuration. */
