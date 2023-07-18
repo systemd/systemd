@@ -16,3 +16,5 @@ size_t udev_event_apply_format(
                 bool replace_whitespace,
                 bool *ret_truncated);
 int udev_check_format(const char *value, size_t *offset, const char **hint);
+
+int udev_resolve_subsys_kernel(const char *string, char *result, size_t maxsize, bool read_value);

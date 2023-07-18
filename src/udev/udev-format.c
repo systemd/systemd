@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "device-util.h"
+#include "errno-util.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
@@ -479,5 +480,69 @@ int udev_check_format(const char *value, size_t *offset, const char **hint) {
                 }
         }
 
+        return 0;
+}
+
+int udev_resolve_subsys_kernel(const char *string, char *result, size_t maxsize, bool read_value) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_free_ char *temp = NULL;
+        char *subsys, *sysname, *attr;
+        const char *val;
+        int r;
+
+        assert(string);
+        assert(result);
+
+        /* handle "[<SUBSYSTEM>/<KERNEL>]<attribute>" format */
+
+        if (string[0] != '[')
+                return -EINVAL;
+
+        temp = strdup(string);
+        if (!temp)
+                return -ENOMEM;
+
+        subsys = &temp[1];
+
+        sysname = strchr(subsys, '/');
+        if (!sysname)
+                return -EINVAL;
+        sysname[0] = '\0';
+        sysname = &sysname[1];
+
+        attr = strchr(sysname, ']');
+        if (!attr)
+                return -EINVAL;
+        attr[0] = '\0';
+        attr = &attr[1];
+        if (attr[0] == '/')
+                attr = &attr[1];
+        if (attr[0] == '\0')
+                attr = NULL;
+
+        if (read_value && !attr)
+                return -EINVAL;
+
+        r = sd_device_new_from_subsystem_sysname(&dev, subsys, sysname);
+        if (r < 0)
+                return r;
+
+        if (read_value) {
+                r = sd_device_get_sysattr_value(dev, attr, &val);
+                if (r < 0 && !ERRNO_IS_PRIVILEGE(r) && r != -ENOENT)
+                        return r;
+                if (r >= 0)
+                        strscpy(result, maxsize, val);
+                else
+                        result[0] = '\0';
+                log_debug("value '[%s/%s]%s' is '%s'", subsys, sysname, attr, result);
+        } else {
+                r = sd_device_get_syspath(dev, &val);
+                if (r < 0)
+                        return r;
+
+                strscpyl(result, maxsize, val, attr ? "/" : NULL, attr ?: NULL, NULL);
+                log_debug("path '[%s/%s]%s' is '%s'", subsys, sysname, strempty(attr), result);
+        }
         return 0;
 }
