@@ -19,6 +19,7 @@
 #include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-rr.h"
@@ -371,10 +372,19 @@ static void try_isolate_network(void) {
         assert_se(ioctl(socket_fd, SIOCSIFFLAGS, &req) >= 0);
 }
 
+static in_port_t random_port(void) {
+        in_port_t port;
+
+        while ((port = random_u64()) <= 1024)
+                ;
+
+        return port;
+}
+
 int main(int argc, char **argv) {
         server_address = (union sockaddr_union) {
                 .in.sin_family = AF_INET,
-                .in.sin_port = htobe16(12345),
+                .in.sin_port = htobe16(random_port()),
                 .in.sin_addr.s_addr = htobe32(INADDR_LOOPBACK)
         };
 
