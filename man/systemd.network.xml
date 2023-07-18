@@ -2629,6 +2629,14 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UseHopLimit=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the hop limit received in the Router Advertisement will be set to routes
+          configured based on the advertisement. See also <varname>IPv6HopLimit=</varname>. Defaults to true.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UseGateway=</varname></term>
         <listitem>
           <para>When true (the default), the router address will be configured as the default gateway.
