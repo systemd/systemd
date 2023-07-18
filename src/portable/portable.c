@@ -1052,19 +1052,11 @@ static int install_chroot_dropin(
                 return log_debug_errno(r, "Failed to generate marker string for portable drop-in: %m");
 
         if (endswith(m->name, ".service")) {
-                const char *os_release_source, *root_type;
+                const char *root_type;
                 _cleanup_free_ char *base_name = NULL;
                 Image *ext;
 
                 root_type = root_setting_from_image(type);
-
-                if (access("/etc/os-release", F_OK) < 0) {
-                        if (errno != ENOENT)
-                                return log_debug_errno(errno, "Failed to check if /etc/os-release exists: %m");
-
-                        os_release_source = "/usr/lib/os-release";
-                } else
-                        os_release_source = "/etc/os-release";
 
                 r = path_extract_filename(m->image_path ?: image_path, &base_name);
                 if (r < 0)
@@ -1075,7 +1067,6 @@ static int install_chroot_dropin(
                                "[Service]\n",
                                root_type, image_path, "\n"
                                "Environment=PORTABLE=", base_name, "\n"
-                               "BindReadOnlyPaths=", os_release_source, ":/run/host/os-release\n"
                                "LogExtraFields=PORTABLE=", base_name, "\n"))
                         return -ENOMEM;
 
