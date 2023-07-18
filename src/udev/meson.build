@@ -1,29 +1,29 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 udevadm_sources = files(
-        'udevadm.c',
         'udevadm-control.c',
         'udevadm-hwdb.c',
         'udevadm-info.c',
         'udevadm-lock.c',
         'udevadm-monitor.c',
         'udevadm-settle.c',
-        'udevadm-test.c',
         'udevadm-test-builtin.c',
+        'udevadm-test.c',
         'udevadm-trigger.c',
         'udevadm-util.c',
         'udevadm-verify.c',
         'udevadm-wait.c',
+        'udevadm.c',
         'udevd.c',
 )
 
 libudevd_core_sources = files(
+        'net/link-config.c',
         'udev-ctrl.c',
         'udev-event.c',
         'udev-node.c',
         'udev-rules.c',
         'udev-watch.c',
-        'udev-builtin.c',
         'udev-builtin-btrfs.c',
         'udev-builtin-hwdb.c',
         'udev-builtin-input_id.c',
@@ -32,7 +32,7 @@ libudevd_core_sources = files(
         'udev-builtin-net_setup_link.c',
         'udev-builtin-path_id.c',
         'udev-builtin-usb_id.c',
-        'net/link-config.c',
+        'udev-builtin.c',
 )
 
 if conf.get('HAVE_KMOD') == 1
