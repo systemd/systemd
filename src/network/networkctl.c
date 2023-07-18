@@ -708,7 +708,8 @@ static int link_get_property(
                 sd_bus_error *error,
                 sd_bus_message **reply,
                 const char *iface,
-                const char *propname) {
+                const char *propname,
+                const char *type) {
 
         _cleanup_free_ char *path = NULL;
         char ifindex_str[DECIMAL_STR_MAX(int)];
@@ -721,6 +722,7 @@ static int link_get_property(
         assert(reply);
         assert(iface);
         assert(propname);
+        assert(type);
 
         xsprintf(ifindex_str, "%i", link->ifindex);
 
@@ -728,7 +730,7 @@ static int link_get_property(
         if (r < 0)
                 return r;
 
-        return sd_bus_get_property(bus, "org.freedesktop.network1", path, iface, propname, error, reply, "ss");
+        return sd_bus_get_property(bus, "org.freedesktop.network1", path, iface, propname, error, reply, type);
 }
 
 static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
@@ -739,7 +741,7 @@ static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
         assert(bus);
         assert(link);
 
-        r = link_get_property(bus, link, &error, &reply, "org.freedesktop.network1.Link", "BitRates");
+        r = link_get_property(bus, link, &error, &reply, "org.freedesktop.network1.Link", "BitRates", "(tt)");
         if (r < 0) {
                 bool quiet = sd_bus_error_has_names(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY,
                                                             BUS_ERROR_SPEED_METER_INACTIVE);
@@ -747,10 +749,6 @@ static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
                 return log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING,
                                       r, "Failed to query link bit rates: %s", bus_error_message(&error, r));
         }
-
-        r = sd_bus_message_enter_container(reply, 'v', "(tt)");
-        if (r < 0)
-                return bus_log_parse_error(r);
 
         r = sd_bus_message_read(reply, "(tt)", &link->tx_bitrate, &link->rx_bitrate);
         if (r < 0)
@@ -1402,7 +1400,7 @@ static int dump_dhcp_leases(Table *table, const char *prefix, sd_bus *bus, const
         assert(bus);
         assert(link);
 
-        r = link_get_property(bus, link, &error, &reply, "org.freedesktop.network1.DHCPServer", "Leases");
+        r = link_get_property(bus, link, &error, &reply, "org.freedesktop.network1.DHCPServer", "Leases", "a(uayayayayt)");
         if (r < 0) {
                 bool quiet = sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY);
 
@@ -1410,10 +1408,6 @@ static int dump_dhcp_leases(Table *table, const char *prefix, sd_bus *bus, const
                                r, "Failed to query link DHCP leases: %s", bus_error_message(&error, r));
                 return 0;
         }
-
-        r = sd_bus_message_enter_container(reply, 'v', "a(uayayayayt)");
-        if (r < 0)
-                return bus_log_parse_error(r);
 
         r = sd_bus_message_enter_container(reply, 'a', "(uayayayayt)");
         if (r < 0)
