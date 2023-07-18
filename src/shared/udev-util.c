@@ -31,90 +31,43 @@ static const char* const resolve_name_timing_table[_RESOLVE_NAME_TIMING_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(resolve_name_timing, ResolveNameTiming);
 
-int udev_parse_config_full(
-                unsigned *ret_children_max,
-                usec_t *ret_exec_delay_usec,
-                usec_t *ret_event_timeout_usec,
-                ResolveNameTiming *ret_resolve_name_timing,
-                int *ret_timeout_signal) {
+int udev_set_max_log_level(char *str) {
+        size_t n;
 
-        _cleanup_free_ char *log_val = NULL, *children_max = NULL, *exec_delay = NULL, *event_timeout = NULL, *resolve_names = NULL, *timeout_signal = NULL;
+        /* This may modify input string. */
+
+        if (isempty(str))
+                return 0;
+
+        /* unquote */
+        n = strlen(str);
+        if (n >= 2 &&
+            ((str[0] == '"' && str[n - 1] == '"') ||
+             (str[0] == '\'' && str[n - 1] == '\''))) {
+                str[n - 1] = '\0';
+                str++;
+        }
+
+        /* we set the udev log level here explicitly, this is supposed
+         * to regulate the code in libudev/ and udev/. */
+        return log_set_max_level_from_string(str);
+}
+
+int udev_parse_config(void) {
+        _cleanup_free_ char *log_val = NULL;
         int r;
 
         r = parse_env_file(NULL, "/etc/udev/udev.conf",
-                           "udev_log", &log_val,
-                           "children_max", &children_max,
-                           "exec_delay", &exec_delay,
-                           "event_timeout", &event_timeout,
-                           "resolve_names", &resolve_names,
-                           "timeout_signal", &timeout_signal);
+                           "udev_log", &log_val);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
                 return r;
 
-        if (log_val) {
-                const char *log;
-                size_t n;
-
-                /* unquote */
-                n = strlen(log_val);
-                if (n >= 2 &&
-                    ((log_val[0] == '"' && log_val[n-1] == '"') ||
-                     (log_val[0] == '\'' && log_val[n-1] == '\''))) {
-                        log_val[n - 1] = '\0';
-                        log = log_val + 1;
-                } else
-                        log = log_val;
-
-                /* we set the udev log level here explicitly, this is supposed
-                 * to regulate the code in libudev/ and udev/. */
-                r = log_set_max_level_from_string(log);
-                if (r < 0)
-                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
-                                   "failed to set udev log level '%s', ignoring: %m", log);
-        }
-
-        if (ret_children_max && children_max) {
-                r = safe_atou(children_max, ret_children_max);
-                if (r < 0)
-                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
-                                   "failed to parse children_max=%s, ignoring: %m", children_max);
-        }
-
-        if (ret_exec_delay_usec && exec_delay) {
-                r = parse_sec(exec_delay, ret_exec_delay_usec);
-                if (r < 0)
-                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
-                                   "failed to parse exec_delay=%s, ignoring: %m", exec_delay);
-        }
-
-        if (ret_event_timeout_usec && event_timeout) {
-                r = parse_sec(event_timeout, ret_event_timeout_usec);
-                if (r < 0)
-                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
-                                   "failed to parse event_timeout=%s, ignoring: %m", event_timeout);
-        }
-
-        if (ret_resolve_name_timing && resolve_names) {
-                ResolveNameTiming t;
-
-                t = resolve_name_timing_from_string(resolve_names);
-                if (t < 0)
-                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
-                                   "failed to parse resolve_names=%s, ignoring.", resolve_names);
-                else
-                        *ret_resolve_name_timing = t;
-        }
-
-        if (ret_timeout_signal && timeout_signal) {
-                r = signal_from_string(timeout_signal);
-                if (r < 0)
-                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
-                                   "failed to parse timeout_signal=%s, ignoring: %m", timeout_signal);
-                else
-                        *ret_timeout_signal = r;
-        }
+        r = udev_set_max_log_level(log_val);
+        if (r < 0)
+                log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
+                           "Failed to set udev log level '%s', ignoring: %m", log_val);
 
         return 0;
 }
