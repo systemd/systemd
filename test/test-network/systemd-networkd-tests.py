@@ -116,6 +116,11 @@ def call(*command, **kwargs):
     command = command[0].split() + list(command[1:])
     return subprocess.run(command, check=False, universal_newlines=True, stderr=subprocess.STDOUT, **kwargs).returncode
 
+def call_check(*command, **kwargs):
+    # Same as call() above, but it triggers CalledProcessError if rc != 0
+    command = command[0].split() + list(command[1:])
+    return subprocess.run(command, check=False, universal_newlines=True, stderr=subprocess.STDOUT, **kwargs).check_returncode()
+
 def call_quiet(*command, **kwargs):
     command = command[0].split() + list(command[1:])
     return subprocess.run(command, check=False, universal_newlines=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **kwargs).returncode
@@ -1015,6 +1020,42 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         self.assertIn('inet 10.1.2.4/16 brd 10.1.255.255 scope global secondary dummy98', output)
         self.assertIn('inet 10.2.2.4/16 brd 10.2.255.255 scope global dummy98', output)
 
+    def test_renew(self):
+        def check():
+            self.wait_online(['veth99:routable', 'veth-peer:routable'])
+            output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
+            print(output)
+            self.assertRegex(output, r'Address: 192.168.5.[0-9]* \(DHCP4 via 192.168.5.1\)')
+            self.assertIn('Gateway: 192.168.5.3', output)
+            self.assertRegex(output, 'DNS: 192.168.5.1\n *192.168.5.10')
+            self.assertRegex(output, 'NTP: 192.168.5.1\n *192.168.5.11')
+
+        copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server.network')
+        start_networkd()
+        check()
+        output = check_output(*networkctl_cmd, '--lines=0', '--stats', '--all', '--full', '--json=short', 'status')
+        check_json(output)
+
+        for verb in ['renew', 'forcerenew']:
+            call_check(*networkctl_cmd, verb, 'veth99')
+            check()
+            call_check(*networkctl_cmd, verb, 'veth99', 'veth99', 'veth99')
+            check()
+
+    def test_up_down(self):
+        copy_network_unit('25-address-static.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online(['dummy98:routable'])
+
+        call_check(*networkctl_cmd, 'down', 'dummy98')
+        self.wait_online(['dummy98:off'])
+        call_check(*networkctl_cmd, 'up', 'dummy98')
+        self.wait_online(['dummy98:routable'])
+        call_check(*networkctl_cmd, 'down', 'dummy98', 'dummy98', 'dummy98')
+        self.wait_online(['dummy98:off'])
+        call_check(*networkctl_cmd, 'up', 'dummy98', 'dummy98', 'dummy98')
+        self.wait_online(['dummy98:routable'])
+
     def test_reload(self):
         start_networkd()
 
@@ -1116,6 +1157,9 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         self.check_link_exists('test1', expected=False)
         self.check_link_exists('veth99', expected=False)
         self.check_link_exists('veth-peer', expected=False)
+
+    def test_label(self):
+        call_check(*networkctl_cmd, 'label')
 
 class NetworkdMatchTests(unittest.TestCase, Utilities):
 
