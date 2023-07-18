@@ -5720,9 +5720,11 @@ static int context_minimize(Context *context) {
                                 return log_error_errno(errno, "Failed to truncate temporary file to %s: %m",
                                                        FORMAT_BYTES(1024ULL * 1024ULL * 1024ULL * 1024ULL));
 
-                        r = loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, 0, LOCK_EX, &d);
-                        if (r < 0 && r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))
-                                return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
+                        if (arg_offline <= 0) {
+                                r = loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, 0, LOCK_EX, &d);
+                                if (r < 0 && (arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))))
+                                        return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
+                        }
 
                         /* We're going to populate this filesystem twice so use a random UUID the first time
                          * to avoid UUID conflicts. */
@@ -5809,9 +5811,11 @@ static int context_minimize(Context *context) {
                 if (ftruncate(fd, fsz))
                         return log_error_errno(errno, "Failed to truncate temporary file to %s: %m", FORMAT_BYTES(fsz));
 
-                r = loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, 0, LOCK_EX, &d);
-                if (r < 0 && r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))
-                        return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
+                if (arg_offline <= 0) {
+                        r = loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, 0, LOCK_EX, &d);
+                        if (r < 0 && (arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))))
+                                return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
+                }
 
                 r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, p->fs_uuid,
                                     arg_discard, /* quiet = */ false, context->sector_size, extra_mkfs_options);
