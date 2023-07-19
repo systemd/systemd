@@ -25,6 +25,9 @@ struct Transfer {
         uint64_t instances_max;
         bool remove_temporary;
 
+        char *changelog;
+        char *appstream;
+
         /* When creating a new partition/file, optionally override these attributes explicitly */
         sd_id128_t partition_uuid;
         bool partition_uuid_set;
