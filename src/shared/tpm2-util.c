@@ -1232,30 +1232,45 @@ void tpm2_tpms_pcr_selection_from_mask(uint32_t mask, TPMI_ALG_HASH hash_alg, TP
         };
 }
 
+/* Test if all bits in the mask are set in the TPMS_PCR_SELECTION. */
+bool tpm2_tpms_pcr_selection_has_mask(const TPMS_PCR_SELECTION *s, uint32_t mask) {
+        assert(s);
+
+        return FLAGS_SET(tpm2_tpms_pcr_selection_to_mask(s), mask);
+}
+
+static void tpm2_tpms_pcr_selection_update_mask(TPMS_PCR_SELECTION *s, uint32_t mask, bool b) {
+        assert(s);
+
+        tpm2_tpms_pcr_selection_from_mask(UPDATE_FLAG(tpm2_tpms_pcr_selection_to_mask(s), mask, b), s->hash, s);
+}
+
+/* Add all PCR selections in the mask. */
+void tpm2_tpms_pcr_selection_add_mask(TPMS_PCR_SELECTION *s, uint32_t mask) {
+        tpm2_tpms_pcr_selection_update_mask(s, mask, 1);
+}
+
+/* Remove all PCR selections in the mask. */
+void tpm2_tpms_pcr_selection_sub_mask(TPMS_PCR_SELECTION *s, uint32_t mask) {
+        tpm2_tpms_pcr_selection_update_mask(s, mask, 0);
+}
+
 /* Add all PCR selections in 'b' to 'a'. Both must have the same hash alg. */
 void tpm2_tpms_pcr_selection_add(TPMS_PCR_SELECTION *a, const TPMS_PCR_SELECTION *b) {
-        uint32_t maska, maskb;
-
         assert(a);
         assert(b);
         assert(a->hash == b->hash);
 
-        maska = tpm2_tpms_pcr_selection_to_mask(a);
-        maskb = tpm2_tpms_pcr_selection_to_mask(b);
-        tpm2_tpms_pcr_selection_from_mask(maska | maskb, a->hash, a);
+        tpm2_tpms_pcr_selection_add_mask(a, tpm2_tpms_pcr_selection_to_mask(b));
 }
 
 /* Remove all PCR selections in 'b' from 'a'. Both must have the same hash alg. */
 void tpm2_tpms_pcr_selection_sub(TPMS_PCR_SELECTION *a, const TPMS_PCR_SELECTION *b) {
-        uint32_t maska, maskb;
-
         assert(a);
         assert(b);
         assert(a->hash == b->hash);
 
-        maska = tpm2_tpms_pcr_selection_to_mask(a);
-        maskb = tpm2_tpms_pcr_selection_to_mask(b);
-        tpm2_tpms_pcr_selection_from_mask(maska & ~maskb, a->hash, a);
+        tpm2_tpms_pcr_selection_sub_mask(a, tpm2_tpms_pcr_selection_to_mask(b));
 }
 
 /* Move all PCR selections in 'b' to 'a'. Both must have the same hash alg. */
@@ -1428,6 +1443,33 @@ void tpm2_tpml_pcr_selection_sub_tpms_pcr_selection(TPML_PCR_SELECTION *l, const
         TPMS_PCR_SELECTION *selection = tpm2_tpml_pcr_selection_get_tpms_pcr_selection(l, s->hash);
         if (selection)
                 tpm2_tpms_pcr_selection_sub(selection, s);
+}
+
+/* Test if all bits in the mask for the hash are set in the TPML_PCR_SELECTION. */
+bool tpm2_tpml_pcr_selection_has_mask(const TPML_PCR_SELECTION *l, TPMI_ALG_HASH hash, uint32_t mask) {
+        assert(l);
+
+        return FLAGS_SET(tpm2_tpml_pcr_selection_to_mask(l, hash), mask);
+}
+
+/* Add the PCR selections in the mask, with the provided hash. */
+void tpm2_tpml_pcr_selection_add_mask(TPML_PCR_SELECTION *l, TPMI_ALG_HASH hash, uint32_t mask) {
+        TPMS_PCR_SELECTION tpms;
+
+        assert(l);
+
+        tpm2_tpms_pcr_selection_from_mask(mask, hash, &tpms);
+        tpm2_tpml_pcr_selection_add_tpms_pcr_selection(l, &tpms);
+}
+
+/* Remove the PCR selections in the mask, with the provided hash. */
+void tpm2_tpml_pcr_selection_sub_mask(TPML_PCR_SELECTION *l, TPMI_ALG_HASH hash, uint32_t mask) {
+        TPMS_PCR_SELECTION tpms;
+
+        assert(l);
+
+        tpm2_tpms_pcr_selection_from_mask(mask, hash, &tpms);
+        tpm2_tpml_pcr_selection_sub_tpms_pcr_selection(l, &tpms);
 }
 
 /* Add all PCR selections in 'b' to 'a'. */
