@@ -4,8 +4,6 @@
 #include <unistd.h>
 
 #include "build.h"
-#include "bus-error.h"
-#include "bus-locator.h"
 #include "chase.h"
 #include "conf-files.h"
 #include "constants.h"
@@ -15,7 +13,6 @@
 #include "format-table.h"
 #include "glyph-util.h"
 #include "hexdecoct.h"
-#include "login-util.h"
 #include "main-func.h"
 #include "mount-util.h"
 #include "os-util.h"
@@ -29,9 +26,10 @@
 #include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "sysupdate.h"
 #include "sysupdate-transfer.h"
 #include "sysupdate-update-set.h"
-#include "sysupdate.h"
+#include "sysupdate-util.h"
 #include "terminal-util.h"
 #include "utf8.h"
 #include "verbs.h"
@@ -878,23 +876,6 @@ static int context_apply(
                 *ret_applied = us;
 
         return 1;
-}
-
-static int reboot_now(void) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
-        int r;
-
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to open bus connection: %m");
-
-        r = bus_call_method(bus, bus_login_mgr, "RebootWithFlags", &error, NULL, "t",
-                            (uint64_t) SD_LOGIND_ROOT_CHECK_INHIBITORS);
-        if (r < 0)
-                return log_error_errno(r, "Failed to issue reboot request: %s", bus_error_message(&error, r));
-
-        return 0;
 }
 
 static int process_image(
