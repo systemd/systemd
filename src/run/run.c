@@ -45,7 +45,7 @@ static const char *arg_unit = NULL;
 static const char *arg_description = NULL;
 static const char *arg_slice = NULL;
 static bool arg_slice_inherit = false;
-static bool arg_expand_environment = true;
+static int arg_expand_environment = -1;
 static bool arg_send_sighup = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
@@ -291,11 +291,17 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_slice_inherit = true;
                         break;
 
-                case ARG_EXPAND_ENVIRONMENT:
-                        r = parse_boolean_argument("--expand-environment=", optarg, &arg_expand_environment);
+                case ARG_EXPAND_ENVIRONMENT: {
+                        bool b;
+
+                        r = parse_boolean_argument("--expand-environment=", optarg, &b);
                         if (r < 0)
                                 return r;
+
+                        arg_expand_environment = b;
+
                         break;
+                }
 
                 case ARG_SEND_SIGHUP:
                         arg_send_sighup = true;
@@ -732,7 +738,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
         /* We disable environment expansion on the server side via ExecStartEx=:.
          * ExecStartEx was added relatively recently (v243), and some bugs were fixed only later.
          * So use that feature only if required. It will fail with older systemds. */
-        bool use_ex_prop = !arg_expand_environment;
+        bool use_ex_prop = arg_expand_environment == 0;
 
         assert(m);
 
@@ -896,7 +902,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 if (use_ex_prop)
                         r = sd_bus_message_append_strv(
                                         m,
-                                        STRV_MAKE(arg_expand_environment ? NULL : "no-env-expand"));
+                                        STRV_MAKE(arg_expand_environment > 0 ? NULL : "no-env-expand"));
                 else
                         r = sd_bus_message_append(m, "b", false);
                 if (r < 0)
@@ -1197,7 +1203,7 @@ static int bus_call_with_hint(
         if (r < 0) {
                 log_error_errno(r, "Failed to start transient %s unit: %s", name, bus_error_message(&error, r));
 
-                if (!arg_expand_environment &&
+                if (arg_expand_environment == 0 &&
                     sd_bus_error_has_names(&error,
                                            SD_BUS_ERROR_UNKNOWN_PROPERTY,
                                            SD_BUS_ERROR_PROPERTY_READ_ONLY))
@@ -1614,7 +1620,7 @@ static int start_transient_scope(sd_bus *bus) {
         if (!arg_quiet)
                 log_info("Running scope as unit: %s", scope);
 
-        if (arg_expand_environment) {
+        if (arg_expand_environment > 0) {
                 _cleanup_strv_free_ char **expanded_cmdline = NULL, **unset_variables = NULL, **bad_variables = NULL;
 
                 r = replace_env_argv(arg_cmdline, env, &expanded_cmdline, &unset_variables, &bad_variables);
@@ -1866,6 +1872,18 @@ static int run(int argc, char* argv[]) {
                 }
 
                 arg_description = description;
+        }
+
+        /* For backward compatibility reasons env var expansion is disabled by default for scopes, and
+         * enabled by default for everything else. Try to detect it and print a warning, so that we can
+         * change it in the future and harmonize it. */
+        if (arg_expand_environment < 0) {
+                arg_expand_environment = !arg_scope;
+
+                if (!arg_quiet && arg_scope && strchr(arg_description, '$'))
+                        log_warning("Scope command line contains environment variable, which is not expanded"
+                                    " by default for now, but will be expanded by default in the future."
+                                    " Use --expand-environment=yes/no to explicitly control it as needed.");
         }
 
         /* If --wait is used connect via the bus, unconditionally, as ref/unref is not supported via the limited direct
