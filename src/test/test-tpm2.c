@@ -444,8 +444,7 @@ static void digest_init(TPM2B_DIGEST *digest, const char *hash) {
         /* Make sure the length matches a known hash algorithm */
         assert_se(IN_SET(s, TPM2_SHA1_DIGEST_SIZE, TPM2_SHA256_DIGEST_SIZE, TPM2_SHA384_DIGEST_SIZE, TPM2_SHA512_DIGEST_SIZE));
 
-        memcpy_safe(digest->buffer, h, s);
-        digest->size = s;
+        *digest = TPM2B_DIGEST_MAKE(h, s);
 
         assert_se(digest_check(digest, hash));
 }
@@ -726,9 +725,7 @@ static void tpm2b_public_init(TPM2B_PUBLIC *public) {
         _cleanup_free_ void *mem = NULL;
         size_t len = 0;
         assert_se(unhexmem(key, strlen(key), &mem, &len) == 0);
-        assert_se(len <= sizeof(tpmt.unique.rsa.buffer));
-        memcpy_safe(tpmt.unique.rsa.buffer, mem, len);
-        tpmt.unique.rsa.size = len;
+        tpmt.unique.rsa = TPM2B_PUBLIC_KEY_RSA_MAKE(mem, len);
 
         public->publicArea = tpmt;
 }
