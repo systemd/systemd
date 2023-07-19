@@ -1749,9 +1749,11 @@ int tpm2_pcr_value_from_string(const char *arg, Tpm2PCRValue *ret_pcr_value) {
                 if (r < 0)
                         return log_error_errno(r, "Invalid pcr hash value '%s': %m", p);
 
-                pcr_value.value.size = buf_size;
-                assert(sizeof(pcr_value.value.buffer) >= pcr_value.value.size);
-                memcpy(pcr_value.value.buffer, buf, pcr_value.value.size);
+                r = TPM2B_DIGEST_CHECK_SIZE(buf_size);
+                if (r < 0)
+                        return log_error_errno(r, "PCR hash value size %zu too large.", buf_size);
+
+                pcr_value.value = TPM2B_DIGEST_MAKE(buf, buf_size);
         }
 
         *ret_pcr_value = pcr_value;
@@ -3424,16 +3426,17 @@ static int tpm2_policy_authorize(
                 if (r < 0)
                         return r;
 
+                r = TPM2B_PUBLIC_KEY_RSA_CHECK_SIZE(signature_size);
+                if (r < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Signature larger than buffer.");
+
                 TPMT_SIGNATURE policy_signature = {
                         .sigAlg = TPM2_ALG_RSASSA,
                         .signature.rsassa = {
                                 .hash = TPM2_ALG_SHA256,
-                                .sig.size = signature_size,
+                                .sig = TPM2B_PUBLIC_KEY_RSA_MAKE(signature_raw, signature_size),
                         },
                 };
-                if (signature_size > sizeof(policy_signature.signature.rsassa.sig.buffer))
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Signature larger than buffer.");
-                memcpy(policy_signature.signature.rsassa.sig.buffer, signature_raw, signature_size);
 
                 rc = sym_Esys_VerifySignature(
                                 c->esys_context,
