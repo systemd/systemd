@@ -205,6 +205,7 @@ TEST(protect_kernel_logs) {
                                     NULL,
                                     NULL,
                                     NULL,
+                                    NULL,
                                     NULL);
                 assert_se(r == 0);
 

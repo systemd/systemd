@@ -190,6 +190,13 @@ CHANGES WITH 254 in spe:
           reboot mechanism is accessible via the new "systemctl soft-reboot"
           command.
 
+        * Services using RootDirectory= or RootImage= will now have read-only
+          access to a copy of the host's os-release file under
+          /run/host/os-release, which will be kept up-to-date on 'soft-reboot'.
+          This was already the case for Portable Services, and the feature has
+          now been extended to all services that do not run off the host's
+          root filesystem.
+
         * A new service setting MemoryKSM= has been added to enable kernel
           same-page merging individually for services.
 
