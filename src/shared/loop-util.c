@@ -531,6 +531,24 @@ static int loop_device_make_internal(
                                 probe_fd = fd;
 
                         r = probe_sector_size(probe_fd, &sector_size);
+                        if (r == 0) {
+                                /* Didn't find the sector size from partition table (which may not even
+                                 * exist), so let's try harder by looking up the backing block device. */
+                                dev_t devno;
+
+                                r = get_block_device_fd(probe_fd, &devno);
+                                if (r < 0)
+                                        return r;
+
+                                if (devno != 0) {
+                                        _cleanup_close_ int devfd = -EBADF;
+
+                                        devfd = r = device_open_from_devnum(S_IFBLK, devno, O_RDONLY|O_CLOEXEC, NULL);
+                                        if (r < 0)
+                                                return r;
+                                        r = blockdev_get_sector_size(devfd, &sector_size);
+                                }
+                        }
                 }
                 if (r < 0)
                         return r;
