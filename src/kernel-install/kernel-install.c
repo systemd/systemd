@@ -1041,8 +1041,12 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         Context *c = ASSERT_PTR(userdata);
         int r;
 
-        assert(argc == 2);
+        assert(argc >= 2);
         assert(argv);
+
+        if (argc > 2)
+                log_debug("Too many arguments specified. 'kernel-install remove' takes only kernel version. "
+                          "Ignoring residual arguments.");
 
         c->action = ACTION_REMOVE;
 
@@ -1220,7 +1224,7 @@ static int parse_argv(int argc, char *argv[], Context *c) {
 static int run(int argc, char* argv[]) {
         static const Verb verbs[] = {
                 { "add",         3,        VERB_ANY, 0,            verb_add            },
-                { "remove",      2,        2,        0,            verb_remove         },
+                { "remove",      2,        VERB_ANY, 0,            verb_remove         },
                 { "inspect",     1,        2,        VERB_DEFAULT, verb_inspect        },
                 {}
         };
