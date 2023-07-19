@@ -41,6 +41,11 @@ test_append_files() {
     generate_module_dependencies
 }
 
+# Setup a one shot service in initrd that creates a dummy bind mount under /run
+# to check if the mount persists though the initrd transition. The "check" part
+# is in the respective testsuite-01.sh script.
+#
+# See: https://github.com/systemd/systemd/issues/28452
 run_qemu_hook() {
     local td="$WORKDIR"/initrd.extra."$RANDOM"
     mkdir -m 755 "$td"
