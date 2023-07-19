@@ -200,7 +200,10 @@ __systemctl()
   )"}:#*@.*}%%[[:space:]]*} }
 
 (( $+functions[_systemctl_get_template_names] )) ||
-    _systemctl_get_template_names() { echo -E - ${^${(M)${(f)"$(__systemctl list-unit-files)"}##*@.[^[:space:]]##}%%@.*}\@ }
+    _systemctl_get_template_names() {
+        local pathkind=systemd-search-${_sys_service_mgr##*--}-unit
+        print -r - ${(s-:-)^$(_call_program $pathkind systemd-path $pathkind)}/*@.(${(~j.|.)$(__systemctl --type=help)})(N:t:r)
+    }
 
 (( $+functions[_systemctl_active_units] )) ||
     _systemctl_active_units()  {_sys_active_units=(  ${${(f)"$(__systemctl list-units)"}%% *} )}
