@@ -11,6 +11,7 @@
 #include <linux/loop.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <sys/statvfs.h>
 #include <unistd.h>
 
 #include "sd-device.h"
@@ -495,16 +496,17 @@ static int loop_device_make_internal(
         if (control < 0)
                 return -errno;
 
-        if (sector_size == 0)
-                /* If no sector size is specified, default to the classic default */
-                sector_size = 512;
-        else if (sector_size == UINT32_MAX) {
+        log_debug("Initial sector_size %u", sector_size);
+        if (sector_size == UINT32_MAX) {
 
-                if (S_ISBLK(st.st_mode))
+                if (S_ISBLK(st.st_mode)) {
                         /* If the sector size is specified as UINT32_MAX we'll propagate the sector size of
                          * the underlying block device. */
                         r = blockdev_get_sector_size(fd, &sector_size);
-                else {
+                        log_debug("Blockdev, sector_size %u, ret %d", sector_size, r);
+                        if (r < 0)
+                                return r;
+                } else {
                         _cleanup_close_ int non_direct_io_fd = -EBADF;
                         int probe_fd;
 
@@ -531,10 +533,42 @@ static int loop_device_make_internal(
                                 probe_fd = fd;
 
                         r = probe_sector_size(probe_fd, &sector_size);
+                        log_debug("Not blockdev, probe sector_size %u, ret %d", sector_size, r);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                /* Didn't find the sector size from partition table (which may not even
+                                 * exist), so let's try harder by looking up the backing block device. */
+                                dev_t devno = 0;
+
+                                r = get_block_device_fd(probe_fd, &devno);
+                                if (r < 0)
+                                        return r;
+
+                                log_debug("Backing dev %u:%u", major(devno), minor(devno));
+                                if (devno != 0) {
+                                        _cleanup_free_ char *devname = NULL;
+
+                                        r = devname_from_devnum(S_IFBLK, devno, &devname);
+                                        if (r < 0)
+                                                return r;
+
+                                        struct statvfs buf;
+                                        r = statvfs(devname, &buf);
+                                        if (r < 0)
+                                                return r;
+
+                                        sector_size = buf.f_bsize;
+                                        log_debug("Backing blockdev sector_size %u, ret %d", sector_size, r);
+                                }
+                        }
                 }
-                if (r < 0)
-                        return r;
         }
+
+        log_debug("Final sector_size %u", sector_size);
+        if (sector_size == 0)
+                /* If no sector size is specified or can be probed, default to the classic default */
+                sector_size = 512;
 
         config = (struct loop_config) {
                 .fd = fd,
