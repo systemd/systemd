@@ -30,19 +30,6 @@ int switch_root(const char *new_root,
                 const char *old_root_after,   /* path below the new root, where to place the old root after the transition; may be NULL to unmount it */
                 SwitchRootFlags flags) {
 
-        struct {
-                const char *path;
-                unsigned long mount_flags;
-        } transfer_table[] = {
-                { "/dev",                                 MS_BIND|MS_REC }, /* Recursive, because we want to save the original /dev/shm + /dev/pts and similar */
-                { "/sys",                                 MS_BIND|MS_REC }, /* Similar, we want to retain various API VFS, or the cgroupv1 /sys/fs/cgroup/ tree */
-                { "/proc",                                MS_BIND|MS_REC }, /* Similar */
-                { "/run",                                 MS_BIND        }, /* Stuff mounted below this we don't save, as it might have lost its relevance, i.e. credentials, removable media and such, we rather want that the new boot mounts this fresh */
-                { SYSTEM_CREDENTIALS_DIRECTORY,           MS_BIND        }, /* Credentials passed into the system should survive */
-                { ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, MS_BIND        }, /* Similar */
-                { "/run/host",                            MS_BIND|MS_REC }, /* Host supplied hierarchy should also survive */
-        };
-
         _cleanup_close_ int old_root_fd = -EBADF, new_root_fd = -EBADF;
         _cleanup_free_ char *resolved_old_root_after = NULL;
         int r, istmp;
@@ -109,17 +96,18 @@ int switch_root(const char *new_root,
          * and switch_root() nevertheless. */
         (void) base_filesystem_create_fd(new_root_fd, new_root, UID_INVALID, GID_INVALID);
 
-        FOREACH_ARRAY(transfer, transfer_table, ELEMENTSOF(transfer_table)) {
+        /* All the API VFS filesystems and /run (and their submounts) should survive the switch root operation. */
+        FOREACH_STRING(transfer, "/dev", "/sys", "/proc", "/run") {
                 _cleanup_free_ char *chased = NULL;
 
-                if (access(transfer->path, F_OK) < 0) {
-                        log_debug_errno(errno, "Path '%s' to move to target root directory, not found, ignoring: %m", transfer->path);
+                if (access(transfer, F_OK) < 0) {
+                        log_debug_errno(errno, "Path '%s' to move to target root directory, not found, ignoring: %m", transfer);
                         continue;
                 }
 
-                r = chase(transfer->path, new_root, CHASE_PREFIX_ROOT, &chased, NULL);
+                r = chase(transfer, new_root, CHASE_PREFIX_ROOT, &chased, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, transfer->path);
+                        return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, transfer);
 
                 /* Let's see if it is a mount point already. */
                 r = path_is_mount_point(chased, NULL, 0);
@@ -128,7 +116,7 @@ int switch_root(const char *new_root,
                 if (r > 0) /* If it is already mounted, then do nothing */
                         continue;
 
-                r = mount_nofollow_verbose(LOG_ERR, transfer->path, chased, NULL, transfer->mount_flags, NULL);
+                r = mount_nofollow_verbose(LOG_ERR, transfer, chased, NULL, MS_BIND|MS_REC, NULL);
                 if (r < 0)
                         return r;
         }
