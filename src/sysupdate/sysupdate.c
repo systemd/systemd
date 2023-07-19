@@ -66,6 +66,8 @@ typedef struct Context {
 
         UpdateSet *newest_installed, *candidate;
 
+        char **changelog, **appstream;
+
         Hashmap *web_cache; /* Cache for downloaded resources, keyed by URL */
 } Context;
 
@@ -162,8 +164,16 @@ static int context_read_definitions(
                                        "No transfer definitions found.");
         }
 
-        for (size_t i = 0; i < c->n_transfers; i++) {
-                r = transfer_resolve_paths(c->transfers[i], root, node);
+        FOREACH_ARRAY(tr, c->transfers, c->n_transfers) {
+                Transfer *t = *tr;
+                r = strv_extend_strv(&c->changelog, t->changelog, /* filter_duplicates */ true);
+                if (r < 0)
+                        return r;
+                r = strv_extend_strv(&c->appstream, t->appstream, /* filter_duplicates */ true);
+                if (r < 0)
+                        return r;
+
+                r = transfer_resolve_paths(t, root, node);
                 if (r < 0)
                         return r;
         }
@@ -480,6 +490,8 @@ static int context_show_version(Context *c, const char *version) {
                 have_read_only = false, have_growfs = false, have_sha256 = false;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_free_ char *changelog_url = NULL;
+        _cleanup_strv_free_ char **changelog_urls = NULL;
         UpdateSet *us;
         int r;
 
@@ -666,19 +678,37 @@ static int context_show_version(Context *c, const char *version) {
         if (!have_sha256)
                 (void) table_hide_column_from_display(t, 12);
 
+        STRV_FOREACH(changelog, c->changelog) {
+                *changelog = strreplace(*changelog, "@v", version);
+                if (*changelog == NULL)
+                        return log_oom();
+                r = strv_push(&changelog_urls, *changelog);
+                if (r < 0)
+                        return log_oom();
+        }
+
         if (FLAGS_SET(arg_json_format_flags, SD_JSON_FORMAT_OFF)) {
                 printf("%s%s%s Version: %s\n"
                        "    State: %s%s%s\n"
                        "Installed: %s%s\n"
                        "Available: %s%s\n"
                        "Protected: %s%s%s\n"
-                       " Obsolete: %s%s%s\n\n",
+                       " Obsolete: %s%s%s\n",
                        strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_glyph(us->flags), ansi_normal(), us->version,
                        strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_string(us->flags), ansi_normal(),
                        yes_no(us->flags & UPDATE_INSTALLED), FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_NEWEST) ? " (newest)" : "",
                        yes_no(us->flags & UPDATE_AVAILABLE), (us->flags & (UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_NEWEST)) == (UPDATE_AVAILABLE|UPDATE_NEWEST) ? " (newest)" : "",
                        FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED) ? ansi_highlight() : "", yes_no(FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED)), ansi_normal(),
                        us->flags & UPDATE_OBSOLETE ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_OBSOLETE), ansi_normal());
+
+                STRV_FOREACH(url, changelog_urls) {
+                        _cleanup_free_ char *changelog_link = NULL;
+                        r = terminal_urlify(*url, NULL, &changelog_link);
+                        if (r < 0)
+                                return log_oom();
+                        printf("ChangeLog: %s\n", changelog_link);
+                }
+                printf("\n");
 
                 return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
         } else {
@@ -694,6 +724,7 @@ static int context_show_version(Context *c, const char *version) {
                                           SD_JSON_BUILD_PAIR_BOOLEAN("installed", FLAGS_SET(us->flags, UPDATE_INSTALLED)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("obsolete", FLAGS_SET(us->flags, UPDATE_OBSOLETE)),
                                           SD_JSON_BUILD_PAIR_BOOLEAN("protected", FLAGS_SET(us->flags, UPDATE_PROTECTED)),
+                                          SD_JSON_BUILD_PAIR_STRV("changelog-url", changelog_urls),
                                           SD_JSON_BUILD_PAIR_VARIANT("contents", t_json));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
