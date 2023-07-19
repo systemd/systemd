@@ -37,7 +37,7 @@ int switch_root(const char *new_root,
                 { "/dev",                                 MS_BIND|MS_REC }, /* Recursive, because we want to save the original /dev/shm + /dev/pts and similar */
                 { "/sys",                                 MS_BIND|MS_REC }, /* Similar, we want to retain various API VFS, or the cgroupv1 /sys/fs/cgroup/ tree */
                 { "/proc",                                MS_BIND|MS_REC }, /* Similar */
-                { "/run",                                 MS_BIND        }, /* Stuff mounted below this we don't save, as it might have lost its relevance, i.e. credentials, removable media and such, we rather want that the new boot mounts this fresh */
+                { "/run",                                 MS_BIND|MS_REC }, /* Stuff mounted below this we don't save, as it might have lost its relevance, i.e. credentials, removable media and such, we rather want that the new boot mounts this fresh */
                 { SYSTEM_CREDENTIALS_DIRECTORY,           MS_BIND        }, /* Credentials passed into the system should survive */
                 { ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, MS_BIND        }, /* Similar */
                 { "/run/host",                            MS_BIND|MS_REC }, /* Host supplied hierarchy should also survive */
