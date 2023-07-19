@@ -19,6 +19,11 @@ if systemd-detect-virt -q --container; then
     test ! -e /run/systemd/container
     cp -afv /tmp/container /run/systemd/container
 else
+    # We should've created a mount under /run in initrd (see the other half of the test)
+    # that should've survived the transition from initrd to the real system
+    test -d /run/initrd-mount-target
+    mountpoint /run/initrd-mount-target
+
     # We bring the loopback netdev up only during a full setup, so it should
     # not get brought back up during reexec if we disable it beforehand
     [[ "$(ip -o link show lo)" =~ LOOPBACK,UP ]]
