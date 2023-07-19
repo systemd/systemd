@@ -48,6 +48,9 @@ Transfer *transfer_free(Transfer *t) {
         free(t->current_symlink);
         free(t->final_path);
 
+        free(t->changelog);
+        free(t->appstream);
+
         partition_info_destroy(&t->partition_info);
 
         resource_destroy(&t->source);
@@ -162,6 +165,44 @@ static int config_parse_min_version(
         }
 
         return free_and_replace(*version, resolved);
+}
+
+static int config_parse_url_specifiers(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        char **s = ASSERT_PTR(data);
+        _cleanup_free_ char *resolved = NULL;
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *s = mfree(*s);
+                return 0;
+        }
+
+        r = specifier_printf(rvalue, NAME_MAX, specifier_table, arg_root, NULL, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (!http_url_is_valid(resolved)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "%s= URL is not valid, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        return free_and_replace(*s, resolved);
 }
 
 static int config_parse_current_symlink(
@@ -427,6 +468,8 @@ int transfer_read_definition(Transfer *t, const char *path) {
                 { "Transfer",    "MinVersion",              config_parse_min_version,          0, &t->min_version             },
                 { "Transfer",    "ProtectVersion",          config_parse_protect_version,      0, &t->protected_versions      },
                 { "Transfer",    "Verify",                  config_parse_bool,                 0, &t->verify                  },
+                { "Transfer",    "Changelog",               config_parse_url_specifiers,       0, &t->changelog               },
+                { "Transfer",    "Appstream",               config_parse_url_specifiers,       0, &t->appstream               },
                 { "Source",      "Type",                    config_parse_resource_type,        0, &t->source.type             },
                 { "Source",      "Path",                    config_parse_resource_path,        0, &t->source                  },
                 { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,  0, &t->source.path_relative_to },

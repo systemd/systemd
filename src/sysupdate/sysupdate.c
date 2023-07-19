@@ -65,6 +65,8 @@ typedef struct Context {
 
         UpdateSet *newest_installed, *candidate;
 
+        char *changelog, *appstream;
+
         Hashmap *web_cache; /* Cache for downloaded resources, keyed by URL */
 } Context;
 
@@ -162,6 +164,15 @@ static int context_read_definitions(
         }
 
         for (size_t i = 0; i < c->n_transfers; i++) {
+                if (c->transfers[i]->changelog && c->changelog)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Only one transfer definition can have Changelog= set.");
+                if (c->transfers[i]->appstream && c->appstream)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Only one transfer definition can have Appstream= set.");
+                c->changelog = c->transfers[i]->changelog;
+                c->appstream = c->transfers[i]->appstream;
+
                 r = transfer_resolve_paths(c->transfers[i], root, node);
                 if (r < 0)
                         return r;
@@ -479,6 +490,7 @@ static int context_show_version(Context *c, const char *version) {
                 have_read_only = false, have_growfs = false, have_sha256 = false;
         _cleanup_(json_variant_unrefp) JsonVariant *json = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_free_ char *changelog_url = NULL, *changelog_link = NULL;
         UpdateSet *us;
         int r;
 
@@ -650,19 +662,30 @@ static int context_show_version(Context *c, const char *version) {
         if (!have_sha256)
                 (void) table_hide_column_from_display(t, 12);
 
+        if (c->changelog) {
+                changelog_url = strreplace(c->changelog, "@v", version);
+                if (!changelog_url)
+                        return log_oom();
+                r = terminal_urlify(changelog_url, NULL, &changelog_link);
+                if (r < 0)
+                        return log_oom();
+        }
+
         if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
                 printf("%s%s%s Version: %s\n"
                        "    State: %s%s%s\n"
                        "Installed: %s%s\n"
                        "Available: %s%s\n"
                        "Protected: %s%s%s\n"
-                       " Obsolete: %s%s%s\n\n",
+                       " Obsolete: %s%s%s\n"
+                       "Changelog: %s\n\n",
                        strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_glyph(us->flags), ansi_normal(), us->version,
                        strempty(update_set_flags_to_color(us->flags)), update_set_flags_to_string(us->flags), ansi_normal(),
                        yes_no(us->flags & UPDATE_INSTALLED), FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_NEWEST) ? " (newest)" : "",
                        yes_no(us->flags & UPDATE_AVAILABLE), (us->flags & (UPDATE_INSTALLED|UPDATE_AVAILABLE|UPDATE_NEWEST)) == (UPDATE_AVAILABLE|UPDATE_NEWEST) ? " (newest)" : "",
                        FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED) ? ansi_highlight() : "", yes_no(FLAGS_SET(us->flags, UPDATE_INSTALLED|UPDATE_PROTECTED)), ansi_normal(),
-                       us->flags & UPDATE_OBSOLETE ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_OBSOLETE), ansi_normal());
+                       us->flags & UPDATE_OBSOLETE ? ansi_highlight_red() : "", yes_no(us->flags & UPDATE_OBSOLETE), ansi_normal(),
+                       strna(changelog_link));
 
                 return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
         } else {
@@ -679,6 +702,7 @@ static int context_show_version(Context *c, const char *version) {
                                         JSON_BUILD_PAIR_BOOLEAN("installed", FLAGS_SET(us->flags, UPDATE_INSTALLED)),
                                         JSON_BUILD_PAIR_BOOLEAN("obsolete", FLAGS_SET(us->flags, UPDATE_OBSOLETE)),
                                         JSON_BUILD_PAIR_BOOLEAN("protected", FLAGS_SET(us->flags, UPDATE_PROTECTED)),
+                                        JSON_BUILD_PAIR_STRING("changelog-url", changelog_url),
                                         JSON_BUILD_PAIR_VARIANT("contents", t_json)));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
@@ -1011,7 +1035,8 @@ static int verb_list(int argc, char **argv, void *userdata) {
 
                 r = json_build(&json, JSON_BUILD_OBJECT(
                                         JSON_BUILD_PAIR_STRING("current", current),
-                                        JSON_BUILD_PAIR_STRV("all", versions)));
+                                        JSON_BUILD_PAIR_STRV("all", versions),
+                                        JSON_BUILD_PAIR_STRING("appstream-url", context->appstream)));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create JSON: %m");
 
