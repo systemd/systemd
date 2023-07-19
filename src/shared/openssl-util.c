@@ -1,10 +1,29 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "fd-util.h"
 #include "openssl-util.h"
 #include "alloc-util.h"
 #include "hexdecoct.h"
 
 #if HAVE_OPENSSL
+int openssl_pkey_from_pem(const void *pem, size_t pem_size, EVP_PKEY **ret) {
+        assert(pem);
+        assert(ret);
+
+        _cleanup_fclose_ FILE *f = NULL;
+        f = fmemopen((void*) pem, pem_size, "r");
+        if (!f)
+                return log_oom_debug();
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = PEM_read_PUBKEY(f, NULL, NULL, NULL);
+        if (!pkey)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse PEM.");
+
+        *ret = TAKE_PTR(pkey);
+
+        return 0;
+}
+
 int openssl_hash(const EVP_MD *alg,
                  const void *msg,
                  size_t msg_len,

@@ -43,6 +43,8 @@ static inline void sk_X509_free_allp(STACK_OF(X509) **sk) {
         sk_X509_pop_free(*sk, X509_free);
 }
 
+int openssl_pkey_from_pem(const void *pem, size_t pem_size, EVP_PKEY **ret);
+
 int openssl_hash(const EVP_MD *alg, const void *msg, size_t msg_len, uint8_t *ret_hash, size_t *ret_hash_len);
 
 int rsa_encrypt_bytes(EVP_PKEY *pkey, const void *decrypted_key, size_t decrypted_key_size, void **ret_encrypt_key, size_t *ret_encrypt_key_size);
