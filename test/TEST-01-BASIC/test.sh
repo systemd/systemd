@@ -23,4 +23,26 @@ test_append_files() {
     cp -v "$TEST_UNITS_DIR"/{testsuite-01,end}.service "$TEST_UNITS_DIR/testsuite.target" "$dst"
 }
 
+run_qemu_hook() {
+    local extra="$WORKDIR/initrd.extra"
+
+    mkdir -m 755 "$extra"
+    mkdir -m 755 "$extra/etc" "$extra/etc/systemd" "$extra/etc/systemd/system" "$extra/etc/systemd/system/initrd.target.wants"
+
+    cat >"$extra/etc/systemd/system/initrd-run-mount.service" <<EOF
+[Unit]
+Description=Create a mount in /run that should survive the transition from initrd
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=sh -xec "mkdir /run/initrd-mount-source /run/initrd-mount-target; mount -v --bind /run/initrd-mount-source /run/initrd-mount-target"
+EOF
+    ln -svrf "$extra/etc/systemd/system/initrd-run-mount.service" "$extra/etc/systemd/system/initrd.target.wants/initrd-run-mount.service"
+
+    (cd "$extra" && find . | cpio -o -H newc -R root:root > "$extra.cpio")
+
+    INITRD_EXTRA="$extra.cpio"
+}
+
 do_test "$@"
