@@ -601,7 +601,7 @@ def test_pcr_signing(kernel_initrd, tmpdir):
     priv = unbase64(ourdir / 'example.tpm2-pcr-private.pem.base64')
 
     output = f'{tmpdir}/signed.efi'
-    opts = ukify.parse_args([
+    args = [
         'build',
         *kernel_initrd,
         f'--output={output}',
@@ -610,18 +610,19 @@ def test_pcr_signing(kernel_initrd, tmpdir):
         '--os-release=ID=foobar\n',
         '--pcr-banks=sha1',   # use sha1 because it doesn't really matter
         f'--pcr-private-key={priv.name}',
-    ])
+    ]
 
     # If the public key is not explicitly specified, it is derived automatically. Let's make sure everything
     # works as expected both when the public keys is specified explicitly and when it is derived from the
     # private key.
     for extra in ([f'--pcrpkey={pub.name}', f'--pcr-public-key={pub.name}'], []):
+        opts = ukify.parse_args(args + extra)
         try:
-            ukify.check_inputs(opts + extra)
+            ukify.check_inputs(opts)
         except OSError as e:
             pytest.skip(str(e))
 
-        ukify.make_uki(opts + extra)
+        ukify.make_uki(opts)
 
         # let's check that objdump likes the resulting file
         dump = subprocess.check_output(['objdump', '-h', output], text=True)
