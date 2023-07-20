@@ -292,9 +292,25 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         }
 
                         r = path_extract_directory(done, &parent);
-                        if (r >= 0 || r == -EDESTADDRREQ)
+                        if (r >= 0) {
+                                assert(!need_absolute || path_is_absolute(parent));
                                 free_and_replace(done, parent);
-                        else if (IN_SET(r, -EINVAL, -EADDRNOTAVAIL)) {
+                        } else if (r == -EDESTADDRREQ) {
+                                /* 'done' contains filename only (i.e. no slash). */
+                                assert(!need_absolute);
+                                done = mfree(done);
+                        } else if (r == -EADDRNOTAVAIL) {
+                                /* 'done' is "/". This branch should be already handled in the above. */
+                                assert(!FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT));
+                                assert_not_reached();
+                        } else if (r == -EINVAL) {
+                                /* 'done' is an empty string, ends with '..', or an invalid path. */
+                                assert(!need_absolute);
+                                assert(!FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT));
+
+                                if (!path_is_valid(done))
+                                        return -EINVAL;
+
                                 /* If we're at the top of "dir_fd", start appending ".." to "done". */
                                 if (!path_extend(&done, ".."))
                                         return -ENOMEM;
