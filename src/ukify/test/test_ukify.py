@@ -36,6 +36,12 @@ except ImportError as e:
 sys.path.append(os.path.dirname(__file__) + '/..')
 import ukify
 
+build_root = os.getenv('PROJECT_BUILD_ROOT')
+arg_tools = ['--tools', build_root] if build_root else []
+
+def systemd_measure():
+    opts = ukify.create_parser().parse_args(arg_tools)
+    return ukify.find_tool('systemd-measure', opts=opts)
 
 def test_guess_efi_arch():
     arch = ukify.guess_efi_arch()
@@ -372,8 +378,13 @@ def test_help_error(capsys):
 
 @pytest.fixture(scope='session')
 def kernel_initrd():
+    opts = ukify.create_parser().parse_args(arg_tools)
+    bootctl = ukify.find_tool('bootctl', opts=opts)
+    if bootctl is None:
+        return None
+
     try:
-        text = subprocess.check_output(['bootctl', 'list', '--json=short'],
+        text = subprocess.check_output([bootctl, 'list', '--json=short'],
                                        text=True)
     except subprocess.CalledProcessError:
         return None
@@ -595,6 +606,8 @@ def test_efi_signing_pesign(kernel_initrd, tmpdir):
 def test_pcr_signing(kernel_initrd, tmpdir):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
+    if systemd_measure() is None:
+        pytest.skip('systemd-measure not found')
 
     ourdir = pathlib.Path(__file__).parent
     pub = unbase64(ourdir / 'example.tpm2-pcr-public.pem.base64')
@@ -610,7 +623,7 @@ def test_pcr_signing(kernel_initrd, tmpdir):
         '--os-release=ID=foobar\n',
         '--pcr-banks=sha1',   # use sha1 because it doesn't really matter
         f'--pcr-private-key={priv.name}',
-    ]
+    ] + arg_tools
 
     # If the public key is not explicitly specified, it is derived automatically. Let's make sure everything
     # works as expected both when the public keys is specified explicitly and when it is derived from the
@@ -656,6 +669,8 @@ def test_pcr_signing(kernel_initrd, tmpdir):
 def test_pcr_signing2(kernel_initrd, tmpdir):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
+    if systemd_measure() is None:
+        pytest.skip('systemd-measure not found')
 
     ourdir = pathlib.Path(__file__).parent
     pub = unbase64(ourdir / 'example.tpm2-pcr-public.pem.base64')
@@ -686,7 +701,7 @@ def test_pcr_signing2(kernel_initrd, tmpdir):
         f'--pcr-public-key={pub2.name}',
         f'--pcr-private-key={priv2.name}',
         '--phases=sysinit ready shutdown final',  # yes, those phase paths are not reachable
-    ])
+    ] + arg_tools)
 
     try:
         ukify.check_inputs(opts)
