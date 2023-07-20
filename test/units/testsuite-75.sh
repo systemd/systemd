@@ -593,4 +593,19 @@ else
     echo "nftables is not installed. Skipped serve stale feature test."
 fi
 
+### Test resolvectl show-server-state ###
+run resolvectl show-server-state
+grep -qF "10.0.0.1" "$RUN_OUT"
+grep -qF "Interface" "$RUN_OUT"
+
+### Test resolvectl statistics ###
+run resolvectl statistics
+grep -qF "Transactions" "$RUN_OUT"
+grep -qF "Cache" "$RUN_OUT"
+grep -qF "Failure Transactions" "$RUN_OUT"
+grep -qF "DNSSEC Verdicts" "$RUN_OUT"
+
+### Test resolvectl reset-statistics ###
+run resolvectl reset-statistics
+
 touch /testok
