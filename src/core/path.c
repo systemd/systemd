@@ -342,12 +342,24 @@ static int path_add_default_dependencies(Path *p) {
                 return r;
 
         if (MANAGER_IS_SYSTEM(UNIT(p)->manager)) {
-                r = unit_add_two_dependencies_by_name(UNIT(p), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+                r = unit_add_two_dependencies_by_name(UNIT(p),
+                                UNIT_AFTER,
+                                UNIT(p)->ignore_on_soft_reboot ? -EINVAL : UNIT_REQUIRES,
+                                SPECIAL_SYSINIT_TARGET,
+                                true,
+                                UNIT_DEPENDENCY_DEFAULT);
                 if (r < 0)
                         return r;
         }
 
-        return unit_add_two_dependencies_by_name(UNIT(p), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        if (!UNIT(p)->ignore_on_soft_reboot)
+                return unit_add_two_dependencies_by_name(
+                                UNIT(p),
+                                UNIT_BEFORE, UNIT_CONFLICTS,
+                                SPECIAL_SHUTDOWN_TARGET, true,
+                                UNIT_DEPENDENCY_DEFAULT);
+
+        return unit_add_dependencies_on_real_shutdown_targets(UNIT(p));
 }
 
 static int path_add_trigger_dependencies(Path *p) {

@@ -124,12 +124,9 @@
     otherwise the old root filesystem will be kept in memory as long as the unit is running.</para>
 
     <para>If units shall be left running until the very end of shutdown during a soft reboot operation, but
-    shall be terminated regularly during other forms of shutdown, it's recommended to set
-    <varname>DefaultDependencies=no</varname> and then place
-    <varname>Conflicts=</varname>/<varname>Before=</varname> onto <filename>reboot.target</filename>,
-    <filename>kexec.target</filename>, <filename>poweroff.target</filename> and
-    <filename>halt.target</filename> (but <emphasis>not</emphasis> onto
-    <filename>soft-reboot.target</filename>).</para>
+    shall be terminated regularly during other forms of shutdown, <varname>IgnoreOnSoftReboot=yes</varname>
+    can be set. This will ensure that soft reboot operations do not affect it, but other types of reboot
+    or shutdown stop it as expected.</para>
   </refsect1>
 
   <refsect1>

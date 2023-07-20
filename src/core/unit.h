@@ -450,6 +450,9 @@ typedef struct Unit {
         /* Create default dependencies */
         bool default_dependencies;
 
+        /* Configure so that the unit survives a soft reboot without stopping/starting. */
+        bool ignore_on_soft_reboot;
+
         /* Refuse manual starting, allow starting only indirectly via dependency. */
         bool refuse_manual_start;
 
@@ -852,6 +855,8 @@ int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, boo
 int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, bool add_reference, UnitDependencyMask mask);
 
 int unit_add_exec_dependencies(Unit *u, ExecContext *c);
+/* Helper for IgnoreOnSoftReboot units that need to survive soft-reboot.target but not others */
+int unit_add_dependencies_on_real_shutdown_targets(Unit *u);
 
 int unit_choose_id(Unit *u, const char *name);
 int unit_set_description(Unit *u, const char *description);
