@@ -94,7 +94,19 @@ static int timer_add_default_dependencies(Timer *t) {
                 return r;
 
         if (MANAGER_IS_SYSTEM(UNIT(t)->manager)) {
-                r = unit_add_two_dependencies_by_name(UNIT(t), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+                if (!UNIT(t)->survive_soft_reboot)
+                        r = unit_add_two_dependencies_by_name(UNIT(t),
+                                        UNIT_AFTER,
+                                        UNIT_REQUIRES,
+                                        SPECIAL_SYSINIT_TARGET,
+                                        true,
+                                        UNIT_DEPENDENCY_DEFAULT);
+                else
+                        r = unit_add_dependency_by_name(UNIT(t),
+                                        UNIT_AFTER,
+                                        SPECIAL_SYSINIT_TARGET,
+                                        true,
+                                        UNIT_DEPENDENCY_DEFAULT);
                 if (r < 0)
                         return r;
 
@@ -112,7 +124,28 @@ static int timer_add_default_dependencies(Timer *t) {
                 }
         }
 
-        return unit_add_two_dependencies_by_name(UNIT(t), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        if (!UNIT(t)->survive_soft_reboot)
+                return unit_add_two_dependencies_by_name(
+                                UNIT(t),
+                                UNIT_BEFORE, UNIT_CONFLICTS,
+                                SPECIAL_SHUTDOWN_TARGET, true,
+                                UNIT_DEPENDENCY_DEFAULT);
+
+        STRV_FOREACH(target, STRV_MAKE(SPECIAL_REBOOT_TARGET,
+                                       SPECIAL_KEXEC_TARGET,
+                                       SPECIAL_HALT_TARGET,
+                                       SPECIAL_POWEROFF_TARGET)) {
+                r = unit_add_two_dependencies_by_name(UNIT(t),
+                                UNIT_BEFORE,
+                                UNIT_CONFLICTS,
+                                *target,
+                                true,
+                                UNIT_DEPENDENCY_DEFAULT);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int timer_add_trigger_dependencies(Timer *t) {

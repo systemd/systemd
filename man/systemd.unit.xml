@@ -980,6 +980,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>SurviveSoftReboot=</varname></term>
+
+        <listitem><para>Takes a boolean argument. Defaults to <option>no</option>. If <option>yes</option>,
+        the unit will be configured to survive a soft reboot operation (see:
+        <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
+        This has the same effect as <varname>IgnoreOnIsolate=yes</varname>, and will also ensure the unit is
+        stopped normally during reboot or shutdown operations other than a soft reboot.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>CollectMode=</varname></term>
 
         <listitem><para>Tweaks the "garbage collection" algorithm for this unit. Takes one of <option>inactive</option>

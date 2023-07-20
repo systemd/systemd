@@ -278,12 +278,45 @@ static int socket_add_default_dependencies(Socket *s) {
                 return r;
 
         if (MANAGER_IS_SYSTEM(UNIT(s)->manager)) {
-                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+                if (!UNIT(s)->survive_soft_reboot)
+                        r = unit_add_two_dependencies_by_name(UNIT(s),
+                                        UNIT_AFTER,
+                                        UNIT_REQUIRES,
+                                        SPECIAL_SYSINIT_TARGET,
+                                        true,
+                                        UNIT_DEPENDENCY_DEFAULT);
+                else
+                        r = unit_add_dependency_by_name(UNIT(s),
+                                        UNIT_AFTER,
+                                        SPECIAL_SYSINIT_TARGET,
+                                        true,
+                                        UNIT_DEPENDENCY_DEFAULT);
                 if (r < 0)
                         return r;
         }
 
-        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        if (!UNIT(s)->survive_soft_reboot)
+                return unit_add_two_dependencies_by_name(
+                                UNIT(s),
+                                UNIT_BEFORE, UNIT_CONFLICTS,
+                                SPECIAL_SHUTDOWN_TARGET, true,
+                                UNIT_DEPENDENCY_DEFAULT);
+
+        STRV_FOREACH(target, STRV_MAKE(SPECIAL_REBOOT_TARGET,
+                                       SPECIAL_KEXEC_TARGET,
+                                       SPECIAL_HALT_TARGET,
+                                       SPECIAL_POWEROFF_TARGET)) {
+                r = unit_add_two_dependencies_by_name(UNIT(s),
+                                UNIT_BEFORE,
+                                UNIT_CONFLICTS,
+                                *target,
+                                true,
+                                UNIT_DEPENDENCY_DEFAULT);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 _pure_ static bool socket_has_exec(Socket *s) {
