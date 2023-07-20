@@ -511,9 +511,14 @@ int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path,
                 return -EINVAL;
 
         /* A root directory of "/" or "" is identical to "/". */
-        if (empty_or_root(root))
+        if (empty_or_root(root)) {
                 root = "/";
-        else {
+
+                /* When the root directory is "/", we will drop CHASE_AT_RESOLVE_IN_ROOT in chaseat(),
+                 * hence below is not necessary, but let's shortcut. */
+                flags &= ~CHASE_AT_RESOLVE_IN_ROOT;
+
+        } else {
                 r = path_make_absolute_cwd(root, &root_abs);
                 if (r < 0)
                         return r;
