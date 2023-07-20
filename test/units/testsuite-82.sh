@@ -136,11 +136,10 @@ rm "$T"
 exec sleep infinity
 EOF
     chmod +x "$T"
-    # This sets DefaultDependencies=no so that it remains running until the
-    # very end, and IgnoreOnIsolate=yes so that it isn't stopped via the
-    # "testsuite.target" isolation we do on next boot
-    systemd-run -p Type=notify -p DefaultDependencies=no -p IgnoreOnIsolate=yes --unit=testsuite-82-survive.service "$T"
-    systemd-run -p Type=exec -p DefaultDependencies=no -p IgnoreOnIsolate=yes --unit=testsuite-82-nosurvive.service sleep infinity
+    # Configure this transient unit to survive the soft reboot - it will not conflict with shutdown.target
+    # and it will be ignored on the isolate that happens in the next boot.
+    systemd-run -p Type=notify -p IgnoreOnSoftReboot=yes --unit=testsuite-82-survive.service "$T"
+    systemd-run -p Type=exec -p IgnoreOnSoftReboot=yes --unit=testsuite-82-nosurvive.service sleep infinity
 
     # Now issue the soft reboot. We should be right back soon.
     touch /run/testsuite82.touch
