@@ -47,9 +47,10 @@ enum {
 
 /* Route preference, RFC 4191, Section 2.1 */
 enum {
-        SD_NDISC_PREFERENCE_LOW    = 3U,
-        SD_NDISC_PREFERENCE_MEDIUM = 0U,
-        SD_NDISC_PREFERENCE_HIGH   = 1U
+        SD_NDISC_PREFERENCE_LOW      = 3U,
+        SD_NDISC_PREFERENCE_MEDIUM   = 0U,
+        SD_NDISC_PREFERENCE_HIGH     = 1U,
+        SD_NDISC_PREFERENCE_RESERVED = 2U
 };
 
 typedef struct sd_ndisc sd_ndisc;

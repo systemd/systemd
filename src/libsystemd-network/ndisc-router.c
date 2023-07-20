@@ -159,6 +159,8 @@ int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt) {
                 }
 
                 case SD_NDISC_OPTION_ROUTE_INFORMATION:
+                        uint8_t rif_flags;
+
                         if (length < 1*8 || length > 3*8)
                                 return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
                                                        "Route information option of invalid size, ignoring datagram.");
@@ -167,6 +169,14 @@ int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt) {
                                 return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
                                                        "Bad route prefix length, ignoring datagram.");
 
+                        rif_flags = (p[3] >> 3) & 3;
+
+                        /* RFC4191 – Section 2.3 Route Information Option's Prf field:
+                         * If the Reserved (10) value is received, the Route Information Option MUST be ignored.
+                         */
+                        if (rif_flags == SD_NDISC_PREFERENCE_RESERVED)
+                                return log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
+                                                        "Reserved (10) received in Route Information Option's Prf field, ignoring datagram.");
                         break;
 
                 case SD_NDISC_OPTION_RDNSS:
