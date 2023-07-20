@@ -212,6 +212,17 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         return -ENOMEM;
         }
 
+        /* If a positive directory file descriptor is provided, always resolve the given path relative to it,
+         * regardless of whether it is absolute or not. If we get AT_FDCWD, follow regular openat()
+         * semantics, if the path is relative, resolve against the current working directory. Otherwise,
+         * resolve against root. */
+        fd = openat(dir_fd, done ?: ".", O_CLOEXEC|O_DIRECTORY|O_PATH);
+        if (fd < 0)
+                return -errno;
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
         /* If we get AT_FDCWD, we always resolve symlinks relative to the host's root. Only if a positive
          * directory file descriptor is provided we will look at CHASE_AT_RESOLVE_IN_ROOT to determine
          * whether to resolve symlinks in it or not. */
@@ -220,20 +231,6 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         else
                 root_fd = open("/", O_CLOEXEC|O_DIRECTORY|O_PATH);
         if (root_fd < 0)
-                return -errno;
-
-        /* If a positive directory file descriptor is provided, always resolve the given path relative to it,
-         * regardless of whether it is absolute or not. If we get AT_FDCWD, follow regular openat()
-         * semantics, if the path is relative, resolve against the current working directory. Otherwise,
-         * resolve against root. */
-        if (dir_fd >= 0 || !path_is_absolute(path))
-                fd = openat(dir_fd, ".", O_CLOEXEC|O_DIRECTORY|O_PATH);
-        else
-                fd = open("/", O_CLOEXEC|O_DIRECTORY|O_PATH);
-        if (fd < 0)
-                return -errno;
-
-        if (fstat(fd, &st) < 0)
                 return -errno;
 
         if (FLAGS_SET(flags, CHASE_TRAIL_SLASH))
