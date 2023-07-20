@@ -264,8 +264,11 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
 
                         /* If we already are at the top, then going up will not change anything. This is
                          * in-line with how the kernel handles this. */
-                        if (empty_or_root(done) && FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT))
+                        if (empty_or_root(done) && FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT)) {
+                                if (FLAGS_SET(flags, CHASE_STEP))
+                                        goto chased_one;
                                 continue;
+                        }
 
                         fd_parent = openat(fd, "..", O_CLOEXEC|O_NOFOLLOW|O_PATH|O_DIRECTORY);
                         if (fd_parent < 0)
@@ -281,8 +284,11 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                                 r = dir_fd_is_root(fd);
                                 if (r < 0)
                                         return r;
-                                if (r > 0)
+                                if (r > 0) {
+                                        if (FLAGS_SET(flags, CHASE_STEP))
+                                                goto chased_one;
                                         continue;
+                                }
                         }
 
                         r = path_extract_directory(done, &parent);
