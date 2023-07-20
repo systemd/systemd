@@ -66,7 +66,30 @@ static int target_add_default_dependencies(Target *t) {
                 return 0;
 
         /* Make sure targets are unloaded on shutdown */
-        return unit_add_two_dependencies_by_name(UNIT(t), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        if (!UNIT(t)->survive_soft_reboot)
+                return unit_add_two_dependencies_by_name(
+                                UNIT(t),
+                                UNIT_BEFORE, UNIT_CONFLICTS,
+                                SPECIAL_SHUTDOWN_TARGET, true,
+                                UNIT_DEPENDENCY_DEFAULT);
+
+        /* Unless we are meant to survive soft reboot, in which case we need to conflict with
+         * non-soft-reboot targets*/
+        STRV_FOREACH(target, STRV_MAKE(SPECIAL_REBOOT_TARGET,
+                                       SPECIAL_KEXEC_TARGET,
+                                       SPECIAL_HALT_TARGET,
+                                       SPECIAL_POWEROFF_TARGET)) {
+                r = unit_add_two_dependencies_by_name(UNIT(t),
+                                UNIT_BEFORE,
+                                UNIT_CONFLICTS,
+                                *target,
+                                true,
+                                UNIT_DEPENDENCY_DEFAULT);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int target_load(Unit *u) {

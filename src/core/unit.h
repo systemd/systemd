@@ -450,6 +450,9 @@ typedef struct Unit {
         /* Create default dependencies */
         bool default_dependencies;
 
+        /* Configure so that the unit survives a soft reboot without stopping/starting. */
+        bool survive_soft_reboot;
+
         /* Refuse manual starting, allow starting only indirectly via dependency. */
         bool refuse_manual_start;
 
