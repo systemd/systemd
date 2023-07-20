@@ -495,10 +495,7 @@ static int loop_device_make_internal(
         if (control < 0)
                 return -errno;
 
-        if (sector_size == 0)
-                /* If no sector size is specified, default to the classic default */
-                sector_size = 512;
-        else if (sector_size == UINT32_MAX) {
+        if (sector_size == UINT32_MAX) {
 
                 if (S_ISBLK(st.st_mode))
                         /* If the sector size is specified as UINT32_MAX we'll propagate the sector size of
@@ -531,10 +528,32 @@ static int loop_device_make_internal(
                                 probe_fd = fd;
 
                         r = probe_sector_size(probe_fd, &sector_size);
+                        if (r == 0) {
+                                /* Didn't find the sector size from partition table (which may not even
+                                 * exist), so let's try harder by looking up the backing block device. */
+                                dev_t devno;
+
+                                r = get_block_device_fd(probe_fd, &devno);
+                                if (r < 0)
+                                        return r;
+
+                                if (devno != 0) {
+                                        _cleanup_close_ int devfd = -EBADF;
+
+                                        devfd = r = device_open_from_devnum(S_IFBLK, devno, O_RDONLY|O_CLOEXEC, NULL);
+                                        if (r < 0)
+                                                return r;
+                                        r = blockdev_get_sector_size(devfd, &sector_size);
+                                }
+                        }
                 }
                 if (r < 0)
                         return r;
         }
+
+        if (sector_size == 0)
+                /* If no sector size is specified or can be probed, default to the classic default */
+                sector_size = 512;
 
         config = (struct loop_config) {
                 .fd = fd,
