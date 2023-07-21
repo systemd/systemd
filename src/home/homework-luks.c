@@ -4,6 +4,7 @@
 #include <poll.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <sys/statvfs.h>
 #include <sys/xattr.h>
 
 #if HAVE_VALGRIND_MEMCHECK_H
@@ -2134,6 +2135,7 @@ int home_create_luks(
         _cleanup_close_ int mount_fd = -EBADF;
         const char *fstype, *ip;
         struct statfs sfs;
+        uint32_t sector_size;
         int r;
         _cleanup_strv_free_ char **extra_mkfs_options = NULL;
 
@@ -2264,6 +2266,13 @@ int home_create_luks(
                         else
                                 log_info("Full device discard completed.");
                 }
+
+                if (h->luks_sector_size == UINT64_MAX) {
+                        r = blockdev_get_sector_size(setup->image_fd, &sector_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get sector size of %s: %m", ip);
+                } else
+                        sector_size = h->luks_sector_size;
         } else {
                 _cleanup_free_ char *t = NULL;
 
@@ -2294,12 +2303,25 @@ int home_create_luks(
                 if (r < 0)
                         return r;
 
+                if (h->luks_sector_size == UINT64_MAX) {
+                        struct statvfs buf;
+
+                        r = fstatvfs(setup->image_fd, &buf);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get sector size of %s: %m", t);
+
+                        sector_size = buf.f_bsize;
+                } else
+                        sector_size = h->luks_sector_size;
+
                 log_info("Allocating image file completed.");
         }
 
+        log_debug("Sector size %u", sector_size);
+
         r = make_partition_table(
                         setup->image_fd,
-                        user_record_luks_sector_size(h),
+                        sector_size,
                         user_record_user_name_and_realm(h),
                         partition_uuid,
                         &partition_offset,
@@ -2315,7 +2337,7 @@ int home_create_luks(
                         O_RDWR,
                         partition_offset,
                         partition_size,
-                        user_record_luks_sector_size(h),
+                        sector_size,
                         0,
                         LOCK_EX,
                         &setup->loop);
@@ -2838,7 +2860,7 @@ static int apply_resize_partition(
         if (r < 0)
                 return log_error_errno(r, "Failed to change partition size: %m");
 
-        r = probe_sector_size(fd, &ssz);
+        r = probe_sector_size_prefer_ioctl(fd, &ssz);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine current sector size: %m");
 
