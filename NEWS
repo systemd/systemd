@@ -511,21 +511,6 @@ CHANGES WITH 254 in spe:
         * udevadm gained the new "verify" verb for validating udev rules files
           offline.
 
-        * udev will now create symlinks to loopback block devices in the
-          /dev/loop/by-ref/ directory that are based on the .lo_file_name
-          string field selected during allocation. The systemd-dissect tool and
-          the util-linux losetup command now supports a complementing new
-          switch --loop-ref= for selecting the string. This means a loopback
-          block device may now be allocated under a caller-chosen reference and
-          can subsequently be referenced by that without first having to look
-          up the block device name the caller ended up with.
-
-        * udev also creates symlinks to loopback block devices in the
-          /dev/loop/by-ref/ directory based on the .st_dev/st_ino fields of the
-          inode attached to the loopback block device. This means that attaching
-          a file to a loopback device will implicitly make a handle available to
-          be found via that file's inode information.
-
         * udev gained a new tool "iocost" that can be used to configure QoS IO
           cost data based on hwdb information onto suitable block devices. Also
           see https://github.com/iocost-benchmark/iocost-benchmarks.
