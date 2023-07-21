@@ -43,7 +43,7 @@
     delivered with minimally sized images (for example lacking any state or swap partitions), and which on
     first boot automatically take possession of any remaining disk space following a few basic rules.</para>
 
-    <para>Currently, support for partition definition files is only implemented for GPT partitition
+    <para>Currently, support for partition definition files is only implemented for GPT partition
     tables.</para>
 
     <para>Partition files are generally matched against any partitions already existing on disk in a simple

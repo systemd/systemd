@@ -106,7 +106,7 @@ CHANGES WITH 254 in spe:
           or RootDirectory= an ephemeral copy of the disk image or directory
           tree is made when the service is started. It is removed automatically
           when the service is stopped. That ephemeral copy is made using
-          btrfs/xfs reflinks or btrfs snaphots, if available.
+          btrfs/xfs reflinks or btrfs snapshots, if available.
 
         * The service activation logic gained new settings RestartSteps= and
           RestartMaxDelaySec= which allow exponentially-growing restart

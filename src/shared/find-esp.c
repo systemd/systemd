@@ -624,7 +624,7 @@ static int verify_xbootldr_blkid(
                 if (sd_id128_string_equal(v, SD_GPT_XBOOTLDR) <= 0)
                         return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                               searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
-                                              "%s: Partitition has wrong PART_ENTRY_TYPE=%s for XBOOTLDR partition.", node, v);
+                                              "%s: Partition has wrong PART_ENTRY_TYPE=%s for XBOOTLDR partition.", node, v);
 
                 errno = 0;
                 r = blkid_probe_lookup_value(b, "PART_ENTRY_UUID", &v, NULL);
