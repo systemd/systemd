@@ -359,9 +359,21 @@ int path_is_mount_point(const char *t, const char *root, int flags) {
         return fd_is_mount_point(fd, last_path_component(t), flags);
 }
 
+int path_get_mnt_id_at_fallback(int dir_fd, const char *path, int *ret) {
+        int r;
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(ret);
+
+        r = name_to_handle_at_loop(dir_fd, path, NULL, ret, isempty(path) ? AT_EMPTY_PATH : 0);
+        if (r == 0 || is_name_to_handle_at_fatal_error(r))
+                return r;
+
+        return fd_fdinfo_mnt_id(dir_fd, path, isempty(path) ? AT_EMPTY_PATH : 0, ret);
+}
+
 int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
         STRUCT_NEW_STATX_DEFINE(buf);
-        int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(ret);
@@ -386,11 +398,7 @@ int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
                 return 0;
         }
 
-        r = name_to_handle_at_loop(dir_fd, path, NULL, ret, isempty(path) ? AT_EMPTY_PATH : 0);
-        if (r == 0 || is_name_to_handle_at_fatal_error(r))
-                return r;
-
-        return fd_fdinfo_mnt_id(dir_fd, path, isempty(path) ? AT_EMPTY_PATH : 0, ret);
+        return path_get_mnt_id_at_fallback(dir_fd, path, ret);
 }
 
 bool fstype_is_network(const char *fstype) {
