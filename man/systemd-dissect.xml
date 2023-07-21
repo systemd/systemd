@@ -413,13 +413,7 @@
         <literal>.lo_file_name</literal> field for the block device. Note this is distinct from the
         <filename>/sys/class/block/loopX/loop/backing_file</filename> attribute file that always reports a
         path referring to the actual backing file. The latter is subject to mount namespace translation, the
-        former is not.</para>
-
-        <para>This setting is particularly useful in combination with the <option>--attach</option> command,
-        as it allows later referencing the allocated loop device via <filename>/dev/loop/by-ref/…</filename>
-        symlinks. Example: first, set up the loopback device via <command>systemd-dissect attach
-        --loop-ref=quux foo.raw</command>, and then reference it in a command via the specified filename:
-        <command>cfdisk /dev/loop/by-ref/quux</command>.</para></listitem>
+        former is not.</para></listitem>
       </varlistentry>
 
       <varlistentry>
