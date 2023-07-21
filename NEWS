@@ -49,6 +49,10 @@ CHANGES WITH 254 in spe:
           needed in the system service manager. For more details, see:
           https://lists.freedesktop.org/archives/systemd-devel/2022-December/048682.html
 
+        * systemd-run's switch --expand-environment= which currently is disabled
+          by default when combined with --scope, will be changed in a future
+          release to be enabled by default.
+
         Security Relevant Changes:
 
         * pam_systemd will now by default pass the CAP_WAKE_ALARM ambient
@@ -651,7 +655,12 @@ CHANGES WITH 254 in spe:
 
         * systemd-run gained a new switch --expand-environment=no to disable
           server-side environment variable expansion in specified command
-          lines.
+          lines. Expansion defaults to enabled for all execution types except
+          --scope, where it defaults to off (and prints a warning) for backward
+          compatbility reasons. --scope will be flipped to default enabled too
+          in a future release, so if you are using --scope and passing a '$'
+          character in the payload you should start explicitly using
+          --expand-environment=yes/no according to the use case.
 
         * The systemd-system-update-generator has been updated to also look for
           the special flag file /etc/system-update in addition to the existing
