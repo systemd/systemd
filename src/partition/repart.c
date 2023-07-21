@@ -3306,7 +3306,7 @@ static int partition_target_prepare(
          * also to cut out sections of block devices into new block devices. */
 
         if (arg_offline <= 0) {
-                r = loop_device_make(whole_fd, O_RDWR, p->offset, size, 0, 0, LOCK_EX, &d);
+                r = loop_device_make(whole_fd, O_RDWR, p->offset, size, context->sector_size, 0, LOCK_EX, &d);
                 if (r < 0 && (arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))))
                         return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
                 if (r >= 0) {
@@ -5721,7 +5721,7 @@ static int context_minimize(Context *context) {
                                                        FORMAT_BYTES(1024ULL * 1024ULL * 1024ULL * 1024ULL));
 
                         if (arg_offline <= 0) {
-                                r = loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, 0, LOCK_EX, &d);
+                                r = loop_device_make(fd, O_RDWR, 0, UINT64_MAX, context->sector_size, 0, LOCK_EX, &d);
                                 if (r < 0 && (arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))))
                                         return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
                         }
@@ -5812,7 +5812,7 @@ static int context_minimize(Context *context) {
                         return log_error_errno(errno, "Failed to truncate temporary file to %s: %m", FORMAT_BYTES(fsz));
 
                 if (arg_offline <= 0) {
-                        r = loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, 0, LOCK_EX, &d);
+                        r = loop_device_make(fd, O_RDWR, 0, UINT64_MAX, context->sector_size, 0, LOCK_EX, &d);
                         if (r < 0 && (arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))))
                                 return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
                 }
