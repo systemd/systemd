@@ -518,6 +518,13 @@ chased_one:
         return 0;
 }
 
+static const char *empty_or_root_to_null(const char *path) {
+        if (empty_or_root(path))
+                return NULL;
+
+        return path_is_root(path) > 0 ? NULL : path;
+}
+
 int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path, int *ret_fd) {
         _cleanup_free_ char *root_abs = NULL, *absolute = NULL, *p = NULL;
         _cleanup_close_ int fd = -EBADF, pfd = -EBADF;
@@ -527,6 +534,8 @@ int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path,
 
         if (isempty(path))
                 return -EINVAL;
+
+        root = empty_or_root_to_null(root);
 
         /* A root directory of "/" or "" is identical to "/". */
         if (empty_or_root(root)) {
@@ -624,6 +633,8 @@ int chaseat_prefix_root(const char *path, const char *root, char **ret) {
         if (!path_is_absolute(path)) {
                 _cleanup_free_ char *root_abs = NULL;
 
+                root = empty_or_root_to_null(root);
+
                 /* If the dir_fd points to the root directory, chaseat() always returns an absolute path. */
                 assert(!empty_or_root(root));
 
@@ -657,6 +668,8 @@ int chase_extract_filename(const char *path, const char *root, char **ret) {
 
         if (!path_is_absolute(path))
                 return -EINVAL;
+
+        root = empty_or_root_to_null(root);
 
         if (!empty_or_root(root)) {
                 _cleanup_free_ char *root_abs = NULL;
