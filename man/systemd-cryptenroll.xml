@@ -391,8 +391,23 @@
         <term><option>--tpm2-handle-index=</option><replaceable>INDEX</replaceable></term>
 
         <listitem><para>This specifies the TPM handle index of the parent key to use for sealing. The default
-        is the Storage Root Key (SRK) index <literal>0x81000001</literal>. This should not be changed unless
-        you know what you are doing.</para></listitem>
+        is the Storage Root Key (SRK) index <literal>0x81000001</literal>. This can be used with a local TPM
+        or with <option>--tpm2-external-key=</option>. This should not be changed unless you know what you are
+        doing.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-external-key=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Enroll an external TPM2 security chip. Expects a path referring to the TPM2 public
+        key in TPM2B_PUBLIC format. This cannot be used with <option>--tpm2-device=</option>, and this does
+        not use any TPM for the enrollment. However, once successfully enrolled, the TPM that provided the
+        public key will be able to unlock the LUKS2 volume just as if it was directly enrolled.</para>
+
+        <para>One method to get the TPM2B_PUBLIC formatted key from a TPM is to use the tpm2_readpublic
+        command from the tpm2-tools project:</para>
+
+        <programlisting>tpm2_readpublic -c 0x81000001 -o srk.pub</programlisting></listitem>
       </varlistentry>
 
       <varlistentry>
