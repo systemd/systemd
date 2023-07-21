@@ -592,7 +592,7 @@ int xdg_autostart_service_generate_unit(
                                 return 0;
                         }
                 }
-                log_debug("%s: GNOME startup phases are handled seprately, marking as NotShowIn=GNOME.",
+                log_debug("%s: GNOME startup phases are handled separately, marking as NotShowIn=GNOME.",
                           service->path);
 
                 if (strv_extend(&not_show_in, "GNOME") < 0)
