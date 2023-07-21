@@ -33,6 +33,23 @@ CHANGES WITH 255 in spe:
           by default when combined with --scope, will be changed in a future
           release to be enabled by default.
 
+        Device Management:
+
+        * udev will now create symlinks to loopback block devices in the
+          /dev/disk/by-loop-ref/ directory that are based on the .lo_file_name
+          string field selected during allocation. The systemd-dissect tool and
+          the util-linux losetup command now supports a complementing new
+          switch --loop-ref= for selecting the string. This means a loopback
+          block device may now be allocated under a caller-chosen reference and
+          can subsequently be referenced by that without first having to look
+          up the block device name the caller ended up with.
+
+        * udev also creates symlinks to loopback block devices in the
+          /dev/disk/by-loop-inode/ directory based on the .st_dev/st_ino fields
+          of the inode attached to the loopback block device. This means that
+          attaching a file to a loopback device will implicitly make a handle
+          available to be found via that file's inode information.
+
         Network Management:
 
         * The "duid-only" option for DHCPv4 client's ClientIdentifier= setting
