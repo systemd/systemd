@@ -412,6 +412,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--tpm2-handle=</option><replaceable>HANDLE</replaceable></term>
+
+        <listitem><para>Configures which parent key to use for sealing, using the TPM handle of the
+        key. Expects a hexadecimal 32bit integer, optionally prefixed with <literal>0x</literal>. Allowable
+        values are any handle index in the persistent (0x81000000-0x81ffffff), transient
+        (0x80000000-0x80ffffff), or NV (0x01000000-0x01ffffff) ranges. Since transient handles are lost after
+        a TPM reset, and may be flushed during TPM context switching, they should not be used except for very
+        specific use cases, e.g. testing.</para>
+
+        <para>The default is the Storage Root Key (SRK) handle index <literal>0x81000001</literal>. A value
+        of 0 will use the default. For the SRK handle, a new key will be created and stored in the TPM if one
+        does not already exist; for any other handle, the key must already exist in the TPM at the specified
+        handle index.</para>
+
+        <para>This should not be changed unless you know what you are doing.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--tpm2-pcrs=</option><arg rep="repeat">PCR</arg></term>
 
         <listitem><para>Configures the TPM2 PCRs (Platform Configuration Registers) to bind to when
