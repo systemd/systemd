@@ -388,6 +388,28 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--tpm2-external-key=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Enroll an external TPM2 security chip. Expects a path referring to the TPM2 public
+        key in TPM2B_PUBLIC format. This cannot be used with <option>--tpm2-device</option>, and this does
+        not use any TPM for the enrollment. However, once successfully enrolled, the TPM that provided the
+        public key will be able to unlock the LUKS2 volume just as if it was directly enrolled.</para>
+
+        <para>In order to unlock a LUKS2 volume with an externally enrolled TPM2 security chip, use the same
+        configuration in <filename>/etc/crypttab</filename> as would be used for direct TPM
+        enrollment.</para>
+
+        <para>Also see <option>--tpm2-external-location</option>, which is the TPM handle location where the
+        public key must be located to perform the unlocking.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-external-location=</option><replaceable>LOCATION</replaceable></term>
+
+        <listitem><para>When used with <option>--tpm2-external-key</option>, specifies the external TPM handle location of the public key. This default to the Storage Root Key (SRK) defined location <literal>0x81000001</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--tpm2-pcrs=</option><arg rep="repeat">PCR</arg></term>
 
         <listitem><para>Configures the TPM2 PCRs (Platform Configuration Registers) to bind to when
