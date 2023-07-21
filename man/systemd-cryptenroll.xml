@@ -410,10 +410,33 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--tpm2-external-key=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Enroll an external TPM2 security chip. Expects a path referring to the TPM2 public
+        key in TPM2B_PUBLIC format. This cannot be used with <option>--tpm2-device=</option>, and this does
+        not use any TPM for the enrollment. However, once successfully enrolled, the TPM that provided the
+        public key will be able to unlock (using <command>systemd-cryptsetup</command>) the LUKS2 volume just
+        as if it was directly enrolled.</para>
+
+        <para>The provided key, in most cases, should be the Storage Root Key (SRK) from the external TPM. If
+        a key from a different handle (not the SRK) is used, you must specify its handle index using
+        <option>--tpm2-handle=</option>.</para>
+
+        <para>You may use tpm2-tss tools to get the SRK from the external TPM with <citerefentry
+        project='mankier'><refentrytitle>tpm2_readpublic</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        for example:</para>
+
+        <programlisting>tpm2_readpublic -c 0x81000001 -o srk.pub</programlisting>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--tpm2-handle=</option><replaceable>HANDLE</replaceable></term>
 
         <listitem><para>Configures which parent key to use for sealing, using the TPM handle of the key. The
-        default is the Storage Root Key (SRK) handle index <literal>0x81000001</literal>. This should not be
+        default is the Storage Root Key (SRK) handle index <literal>0x81000001</literal>. This can be used
+        with <option>--tpm2-device=</option> or <option>--tpm2-external-key=</option>. This should not be
         changed unless you know what you are doing.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
