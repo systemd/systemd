@@ -73,6 +73,11 @@ TEST(chase) {
         assert_se(path_equal(result, "/usr"));
         result = mfree(result);
 
+        r = chase(p, "/.//../../../", 0, &result, NULL);
+        assert_se(r > 0);
+        assert_se(path_equal(result, "/usr"));
+        result = mfree(result);
+
         pslash = strjoina(p, "/");
         r = chase(pslash, NULL, 0, &result, NULL);
         assert_se(r > 0);
