@@ -3688,6 +3688,8 @@ static int partition_format_verity_hash(
         _cleanup_free_ uint8_t *rh = NULL;
         size_t rhs;
         int r;
+        long unsigned int block_size;
+        char *env_block_size;
 
         assert(context);
         assert(p);
@@ -3727,6 +3729,24 @@ static int partition_format_verity_hash(
 
         cryptsetup_enable_logging(cd);
 
+        env_block_size = getenv("SYSTEMD_REPART_VERITY_BLOCK_SIZE");
+        if (env_block_size) {
+                env_block_size = * strv_split(env_block_size, NULL);
+                if (!env_block_size)
+                        return log_error_errno(
+                                SYNTHETIC_ERRNO(ENOMEM),
+                                "Failed to parse SYSTEMD_REPART_VERITY_BLOCK_SIZE"
+                        );
+                r = parse_sector_size(env_block_size, &block_size);
+                if (r < 0)
+                        return log_error_errno(r,
+                                "Failed to parse SYSTEMD_REPART_VERITY_BLOCK_SIZE=%s: %m",
+                                env_block_size
+                        );
+        } else {
+                block_size = context->sector_size;
+        }
+
         r = sym_crypt_format(
                         cd, CRYPT_VERITY, NULL, NULL, NULL, NULL, 0,
                         &(struct crypt_params_verity){
@@ -3734,8 +3754,8 @@ static int partition_format_verity_hash(
                                 .flags = CRYPT_VERITY_CREATE_HASH,
                                 .hash_name = "sha256",
                                 .hash_type = 1,
-                                .data_block_size = context->sector_size,
-                                .hash_block_size = context->sector_size,
+                                .data_block_size = block_size,
+                                .hash_block_size = block_size,
                                 .salt_size = 32,
                         });
         if (r < 0) {
