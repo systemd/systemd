@@ -776,7 +776,8 @@ int tpm2_index_to_handle(
 
         assert(c);
 
-        /* Let's restrict this, at least for now, to allow only some handle types. */
+        /* Only allow only some handle types. The man page for systemd-cryptenroll states only persistent,
+         * transient, and nv handle indexes are allowed, and it relies on this to enforce that. */
         switch (TPM2_HANDLE_TYPE(index)) {
         case TPM2_HT_PERSISTENT:
         case TPM2_HT_NV_INDEX:
@@ -4733,6 +4734,7 @@ int tpm2_calculate_seal(
 #endif /* HAVE_OPENSSL */
 
 int tpm2_seal(Tpm2Context *c,
+              uint32_t handle_index,
               const TPM2B_DIGEST *policy,
               const char *pin,
               void **ret_secret,
@@ -4806,18 +4808,38 @@ int tpm2_seal(Tpm2Context *c,
         _cleanup_(tpm2_handle_freep) Tpm2Handle *primary_handle = NULL;
         if (ret_srk_buf) {
                 _cleanup_(Esys_Freep) TPM2B_PUBLIC *primary_public = NULL;
-                r = tpm2_get_or_create_srk(
-                                c,
-                                /* session= */ NULL,
-                                &primary_public,
-                                /* ret_name= */ NULL,
-                                /* ret_qname= */ NULL,
-                                &primary_handle);
-                if (r < 0)
-                        return r;
+
+                if (IN_SET(handle_index, 0, TPM2_SRK_HANDLE)) {
+                        r = tpm2_get_or_create_srk(
+                                        c,
+                                        /* session= */ NULL,
+                                        &primary_public,
+                                        /* ret_name= */ NULL,
+                                        /* ret_qname= */ NULL,
+                                        &primary_handle);
+                        if (r < 0)
+                                return r;
+                } else { /* We do NOT automatically create anything other than the SRK */
+                        r = tpm2_index_to_handle(
+                                        c,
+                                        handle_index,
+                                        /* session= */ NULL,
+                                        &primary_public,
+                                        /* ret_name= */ NULL,
+                                        /* ret_qname= */ NULL,
+                                        &primary_handle);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                                       "No handle found at index 0x%" PRIx32, handle_index);
+                }
 
                 primary_alg = primary_public->publicArea.type;
         } else {
+                if (handle_index != 0)
+                        log_debug("Using primary alg sealing, but handle index also provided; ignoring handle index.");
+
                 /* TODO: force all callers to provide ret_srk_buf, so we can stop sealing with the legacy templates. */
                 primary_alg = TPM2_ALG_ECC;
 
