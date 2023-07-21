@@ -155,6 +155,25 @@ TEST(conf_files_list) {
         assert_se(strv_equal(result, STRV_MAKE("a.conf", "aa.conf", "b.conf")));
 }
 
+TEST(conf_files_list_strv_network) {
+        char **files;
+
+        assert_se(conf_files_list_strv(&files, ".link", NULL, 0, STRV_MAKE_CONST(CONF_PATHS_USR("systemd/network"))) >= 0);
+        files = strv_free(files);
+        assert_se(conf_files_list_strv(&files, ".netdev", NULL, 0, STRV_MAKE_CONST(CONF_PATHS_USR("systemd/network"))) >= 0);
+        files = strv_free(files);
+        assert_se(conf_files_list_strv(&files, ".network", NULL, 0, STRV_MAKE_CONST(CONF_PATHS_USR("systemd/network"))) >= 0);
+        files = strv_free(files);
+
+        /* for split-usr case */
+        assert_se(conf_files_list_strv(&files, ".link", NULL, 0, STRV_MAKE_CONST(CONF_PATHS_USR("systemd/network"), "/lib/systemd/network")) >= 0);
+        files = strv_free(files);
+        assert_se(conf_files_list_strv(&files, ".netdev", NULL, 0, STRV_MAKE_CONST(CONF_PATHS_USR("systemd/network"), "/lib/systemd/network")) >= 0);
+        files = strv_free(files);
+        assert_se(conf_files_list_strv(&files, ".network", NULL, 0, STRV_MAKE_CONST(CONF_PATHS_USR("systemd/network"), "/lib/systemd/network")) >= 0);
+        files = strv_free(files);
+}
+
 static void test_conf_files_insert_one(const char *root) {
         _cleanup_strv_free_ char **s = NULL;
 
