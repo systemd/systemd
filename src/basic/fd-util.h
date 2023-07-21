@@ -102,6 +102,9 @@ int read_nr_open(void);
 int fd_get_diskseq(int fd, uint64_t *ret);
 
 int path_is_root_at(int dir_fd, const char *path);
+static inline int path_is_root(const char *path) {
+        return path_is_root_at(AT_FDCWD, path);
+}
 static inline int dir_fd_is_root(int dir_fd) {
         return path_is_root_at(dir_fd, NULL);
 }
