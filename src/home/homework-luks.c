@@ -572,7 +572,7 @@ static int luks_open(
         if (r == -ENOKEY)
                 return log_error_errno(r, "No valid password for LUKS superblock.");
         if (r < 0)
-                return log_error_errno(r, "Failed to unlocks LUKS superblock: %m");
+                return log_error_errno(r, "Failed to unlock LUKS superblock: %m");
 
         log_info("Discovered used LUKS device /dev/mapper/%s, and validated password.", setup->dm_name);
 
@@ -3630,7 +3630,7 @@ int home_passwd_luks(
         if (r == -ENOKEY)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "Failed to unlock LUKS superblock with supplied passwords.");
         if (r < 0)
-                return log_error_errno(r, "Failed to unlocks LUKS superblock: %m");
+                return log_error_errno(r, "Failed to unlock LUKS superblock: %m");
 
         n_effective = strv_length(effective_passwords);
 
