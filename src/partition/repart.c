@@ -3830,6 +3830,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         return log_error_errno(r, "Could not calculate sealing policy digest: %m");
 
                 r = tpm2_seal(tpm2_context,
+                              /* seal_key_handle= */ 0,
                               &policy,
                               /* pin= */ NULL,
                               &secret, &secret_size,
