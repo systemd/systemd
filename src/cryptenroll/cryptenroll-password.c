@@ -78,6 +78,8 @@ int load_volume_key_password(
                                 if (r >= 0)
                                         break;
                         }
+                        if (r >= 0)
+                                break;
 
                         log_error_errno(r, "Password not correct, please try again: %m");
                         ask_password_flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
