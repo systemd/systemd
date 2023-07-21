@@ -2248,8 +2248,31 @@ int tpm2_digest_many_digests(
  * the TPM specification Part 1 ("Architecture") section Authorization Values (subsection "Authorization Size
  * Convention") states "Trailing octets of zero are to be removed from any string before it is used as an
  * authValue". Since the TPM doesn't know if the auth value is a "string" or just a hash digest, any hash
- * digest that randomly happens to end in 0 must have the final 0 changed, or the TPM will remove it before
- * using the value in its HMAC calculations, resulting in failed HMAC checks. */
+ * digest that randomly happens to end in 0 must have the final 0(s) trimmed.
+ *
+ * TPM implementations will perform the trimming for any authValue, so the tpm2-tss library must also perform
+ * the trimming, but it does not yet; this bug is open to add the trimming:
+ * https://github.com/tpm2-software/tpm2-tss/issues/2664
+ *
+ * Until our minimum tpm2-tss version contains a fix for that bug, we must perform the trimming
+ * ourselves. Note that since we are trimming, which is exactly what a TPM implementation would do, this will
+ * work for both existing objects with a authValue ending in 0(s) as well as new sealed objects we create,
+ * which we will trim the 0(s) from before sending to the TPM.
+ */
+static void tpm2_trim_auth_value(TPM2_AUTH *auth) {
+        bool trimmed = false;
+
+        assert(auth);
+
+        while (auth->size > 0 && auth->buffer[auth.size - 1] == 0) {
+                trimmed = true;
+                auth->size--;
+        }
+
+        if (trimmed)
+                log_debug("authValue ends in 0, trimming as required by the specification.");
+}
+
 static int tpm2_get_pin_auth(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *ret_auth) {
         TPM2B_AUTH auth = {};
         int r;
@@ -2261,11 +2284,7 @@ static int tpm2_get_pin_auth(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *re
         if (r < 0)
                 return r;
 
-        assert(auth.size > 0);
-        if (auth.buffer[auth.size - 1] == 0) {
-                log_debug("authValue digest ends in 0 which the TPM will remove and cause HMAC authorization failures, adjusting.");
-                auth.buffer[auth.size - 1] = 0xff;
-        }
+        tpm2_trim_auth_value(&auth);
 
         *ret_auth = TAKE_STRUCT(auth);
 
