@@ -929,17 +929,18 @@ int path_is_root_at(int dir_fd, const char *path) {
          * $ mount --bind /tmp/x /tmp/x/y
          *
          * Note, statx() does not provide the mount ID and path_get_mnt_id_at() does not work when an old
-         * kernel is used without /proc mounted. In that case, let's assume that we do not have such spurious
-         * mount points in an early boot stage, and silently skip the following check. */
+         * kernel is used. In that case, let's assume that we do not have such spurious mount points in an
+         * early boot stage, and silently skip the following check. */
 
         if (!FLAGS_SET(st.nsx.stx_mask, STATX_MNT_ID)) {
                 int mntid;
 
-                r = path_get_mnt_id_at(dir_fd, "", &mntid);
-                if (r == -ENOSYS)
-                        return true; /* skip the mount ID check */
-                if (r < 0)
+                r = path_get_mnt_id_at_fallback(dir_fd, "", &mntid);
+                if (r < 0) {
+                        if (ERRNO_IS_NOT_SUPPORTED(r))
+                                return true; /* skip the mount ID check */
                         return r;
+                }
                 assert(mntid >= 0);
 
                 st.nsx.stx_mnt_id = mntid;
@@ -949,11 +950,12 @@ int path_is_root_at(int dir_fd, const char *path) {
         if (!FLAGS_SET(pst.nsx.stx_mask, STATX_MNT_ID)) {
                 int mntid;
 
-                r = path_get_mnt_id_at(dir_fd, "..", &mntid);
-                if (r == -ENOSYS)
-                        return true; /* skip the mount ID check */
-                if (r < 0)
+                r = path_get_mnt_id_at_fallback(dir_fd, "..", &mntid);
+                if (r < 0) {
+                        if (ERRNO_IS_NOT_SUPPORTED(r))
+                                return true; /* skip the mount ID check */
                         return r;
+                }
                 assert(mntid >= 0);
 
                 pst.nsx.stx_mnt_id = mntid;
