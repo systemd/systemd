@@ -388,6 +388,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--tpm2-handle=</option><replaceable>HANDLE</replaceable></term>
+
+        <listitem><para>This specifies the TPM handle of the parent key to use for sealing. The default is
+        the Storage Root Key (SRK) index <literal>0x81000001</literal>. This should not be changed unless you
+        know what you are doing.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--tpm2-pcrs=</option><arg rep="repeat">PCR</arg></term>
 
         <listitem><para>Configures the TPM2 PCRs (Platform Configuration Registers) to bind to when
