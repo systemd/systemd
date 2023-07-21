@@ -83,7 +83,7 @@ static TSS2_RC (*sym_Tss2_MU_TPM2B_NAME_Marshal)(TPM2B_NAME const *src, uint8_t 
 static TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Marshal)(TPM2B_PRIVATE const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 static TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PRIVATE  *dest) = NULL;
 static TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Marshal)(TPM2B_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
-static TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PUBLIC *dest) = NULL;
+TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PUBLIC *dest) = NULL;
 static TSS2_RC (*sym_Tss2_MU_TPM2B_SENSITIVE_Marshal)(TPM2B_SENSITIVE const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 static TSS2_RC (*sym_Tss2_MU_TPML_PCR_SELECTION_Marshal)(TPML_PCR_SELECTION const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 static TSS2_RC (*sym_Tss2_MU_TPMS_ECC_POINT_Marshal)(TPMS_ECC_POINT const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
