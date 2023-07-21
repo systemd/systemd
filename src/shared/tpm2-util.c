@@ -758,20 +758,23 @@ int tpm2_index_to_handle(
 
         assert(c);
 
-        /* Let's restrict this, at least for now, to allow only some handle types. */
+        /* Only allow persistent, transient, or NV index handle types. */
         switch (TPM2_HANDLE_TYPE(index)) {
         case TPM2_HT_PERSISTENT:
         case TPM2_HT_NV_INDEX:
         case TPM2_HT_TRANSIENT:
                 break;
         case TPM2_HT_PCR:
+                /* PCR handles are referenced by their actual index number and do not need a Tpm2Handle */
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Invalid handle 0x%08" PRIx32 " (in PCR range).", index);
         case TPM2_HT_HMAC_SESSION:
         case TPM2_HT_POLICY_SESSION:
+                /* Session indexes are only used internally by tpm2-tss (or lower code) */
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Invalid handle 0x%08" PRIx32 " (in session range).", index);
-        case TPM2_HT_PERMANENT: /* Permanent handles are defined, e.g. ESYS_TR_RH_OWNER. */
+        case TPM2_HT_PERMANENT:
+                /* Permanent handles are defined, e.g. ESYS_TR_RH_OWNER. */
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Invalid handle 0x%08" PRIx32 " (in permanent range).", index);
         default:
@@ -3931,6 +3934,7 @@ static int tpm2_deserialize(
 }
 
 int tpm2_seal(Tpm2Context *c,
+              uint32_t seal_key_handle,
               const TPM2B_DIGEST *policy,
               const char *pin,
               void **ret_secret,
@@ -4004,18 +4008,42 @@ int tpm2_seal(Tpm2Context *c,
         _cleanup_(tpm2_handle_freep) Tpm2Handle *primary_handle = NULL;
         if (ret_srk_buf) {
                 _cleanup_(Esys_Freep) TPM2B_PUBLIC *primary_public = NULL;
-                r = tpm2_get_or_create_srk(
-                                c,
-                                /* session= */ NULL,
-                                &primary_public,
-                                /* ret_name= */ NULL,
-                                /* ret_qname= */ NULL,
-                                &primary_handle);
-                if (r < 0)
-                        return r;
+
+                if (IN_SET(seal_key_handle, 0, TPM2_SRK_HANDLE)) {
+                        r = tpm2_get_or_create_srk(
+                                        c,
+                                        /* session= */ NULL,
+                                        &primary_public,
+                                        /* ret_name= */ NULL,
+                                        /* ret_qname= */ NULL,
+                                        &primary_handle);
+                        if (r < 0)
+                                return r;
+                } else if (IN_SET(TPM2_HANDLE_TYPE(seal_key_handle), TPM2_HT_TRANSIENT, TPM2_HT_PERSISTENT)) {
+                        r = tpm2_index_to_handle(
+                                        c,
+                                        seal_key_handle,
+                                        /* session= */ NULL,
+                                        &primary_public,
+                                        /* ret_name= */ NULL,
+                                        /* ret_qname= */ NULL,
+                                        &primary_handle);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                /* We do NOT automatically create anything other than the SRK */
+                                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
+                                                       "No handle found at index 0x%" PRIx32, seal_key_handle);
+                } else
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Seal key handle 0x%" PRIx32 " is neither transient nor persistent.",
+                                               seal_key_handle);
 
                 primary_alg = primary_public->publicArea.type;
         } else {
+                if (seal_key_handle != 0)
+                        log_debug("Using primary alg sealing, but seal key handle also provided; ignoring seal key handle.");
+
                 /* TODO: force all callers to provide ret_srk_buf, so we can stop sealing with the legacy templates. */
                 primary_alg = TPM2_ALG_ECC;
 
