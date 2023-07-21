@@ -449,6 +449,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 }
 
                 if (!done) {
+                        assert(!need_absolute || FLAGS_SET(flags, CHASE_EXTRACT_FILENAME));
                         done = strdup(append_trail_slash ? "./" : ".");
                         if (!done)
                                 return -ENOMEM;
@@ -475,6 +476,7 @@ chased_one:
                 const char *e;
 
                 if (!done) {
+                        assert(!need_absolute);
                         done = strdup(append_trail_slash ? "./" : ".");
                         if (!done)
                                 return -ENOMEM;
