@@ -358,6 +358,8 @@ int tpm2_deserialize(Tpm2Context *c, const void *serialized, size_t serialized_s
                         0;                                              \
         })
 
+extern TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PUBLIC *dest);
+
 #else /* HAVE_TPM2 */
 typedef struct {} Tpm2Context;
 typedef struct {} Tpm2Handle;
