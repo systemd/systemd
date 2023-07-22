@@ -131,22 +131,23 @@ static void scope_set_state(Scope *s, ScopeState state) {
 }
 
 static int scope_add_default_dependencies(Scope *s) {
+        int r;
+
         assert(s);
 
         if (!UNIT(s)->default_dependencies)
                 return 0;
 
         /* Make sure scopes are unloaded on shutdown */
-        if (!UNIT(s)->ignore_on_soft_reboot)
-                return unit_add_two_dependencies_by_name(
-                                UNIT(s),
-                                UNIT_BEFORE, UNIT_CONFLICTS,
-                                SPECIAL_SHUTDOWN_TARGET, true,
-                                UNIT_DEPENDENCY_DEFAULT);
+        r = unit_add_two_dependencies_by_name(
+                        UNIT(s),
+                        UNIT_BEFORE, UNIT_CONFLICTS,
+                        SPECIAL_SHUTDOWN_TARGET, true,
+                        UNIT_DEPENDENCY_DEFAULT);
+        if (r < 0)
+                return r;
 
-        /* Unless we are meant to survive soft reboot, in which case we need to conflict with
-         * non-soft-reboot targets. */
-        return unit_add_dependencies_on_real_shutdown_targets(UNIT(s));
+        return 0;
 }
 
 static int scope_verify(Scope *s) {
