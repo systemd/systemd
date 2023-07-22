@@ -122,14 +122,6 @@
     url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink>, but make sure no resource from
     the host's root filesystem is pinned via <varname>BindPaths=</varname> or similar unit settings,
     otherwise the old root filesystem will be kept in memory as long as the unit is running.</para>
-
-    <para>If units shall be left running until the very end of shutdown during a soft reboot operation, but
-    shall be terminated regularly during other forms of shutdown, it's recommended to set
-    <varname>DefaultDependencies=no</varname> and then place
-    <varname>Conflicts=</varname>/<varname>Before=</varname> onto <filename>reboot.target</filename>,
-    <filename>kexec.target</filename>, <filename>poweroff.target</filename> and
-    <filename>halt.target</filename> (but <emphasis>not</emphasis> onto
-    <filename>soft-reboot.target</filename>).</para>
   </refsect1>
 
   <refsect1>
