@@ -3291,46 +3291,19 @@ int unit_add_dependency(
 }
 
 int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit *other, bool add_reference, UnitDependencyMask mask) {
-        int r = 0, s = 0;
+        int r, s;
 
         assert(u);
-        assert(d >= 0 || e >= 0);
 
-        if (d >= 0) {
-                r = unit_add_dependency(u, d, other, add_reference, mask);
-                if (r < 0)
-                        return r;
-        }
+        r = unit_add_dependency(u, d, other, add_reference, mask);
+        if (r < 0)
+                return r;
 
-        if (e >= 0) {
-                s = unit_add_dependency(u, e, other, add_reference, mask);
-                if (s < 0)
-                        return s;
-        }
+        s = unit_add_dependency(u, e, other, add_reference, mask);
+        if (s < 0)
+                return s;
 
         return r > 0 || s > 0;
-}
-
-int unit_add_dependencies_on_real_shutdown_targets(Unit *u) {
-        int r;
-
-        assert(u);
-
-        STRV_FOREACH(target, STRV_MAKE(SPECIAL_REBOOT_TARGET,
-                                SPECIAL_KEXEC_TARGET,
-                                SPECIAL_HALT_TARGET,
-                                SPECIAL_POWEROFF_TARGET)) {
-                r = unit_add_two_dependencies_by_name(u,
-                                UNIT_BEFORE,
-                                UNIT_CONFLICTS,
-                                *target,
-                                /* add_reference= */ true,
-                                UNIT_DEPENDENCY_DEFAULT);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
 }
 
 static int resolve_template(Unit *u, const char *name, char **buf, const char **ret) {
