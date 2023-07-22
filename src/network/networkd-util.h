@@ -125,10 +125,6 @@ int network_config_state_to_string_alloc(NetworkConfigState s, char **ret);
                                     NETWORK_CONFIG_STATE_REMOVING,      \
                                     NETWORK_CONFIG_STATE_REMOVING);     \
         }                                                               \
-        static inline bool name##_is_removing(const type *t) {          \
-                assert(t);                                              \
-                return FLAGS_SET(t->state, NETWORK_CONFIG_STATE_REMOVING); \
-        }                                                               \
         static inline void name##_enter_removed(type *t) {              \
                 name##_update_state(t,                                  \
                                     NETWORK_CONFIG_STATE_CONFIGURED |   \

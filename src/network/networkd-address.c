@@ -1212,9 +1212,6 @@ static bool address_is_ready_to_configure(Link *link, const Address *address) {
         if (!link_is_ready_to_configure(link, false))
                 return false;
 
-        if (address_is_removing(address))
-                return false;
-
         if (!ipv4acd_bound(address))
                 return false;
 
