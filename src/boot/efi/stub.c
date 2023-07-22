@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "stub.h"
 #include "cpio.h"
 #include "device-path-util.h"
 #include "addon-util.h"
@@ -21,6 +22,9 @@
 
 /* magic string to find in the binary image */
 _used_ _section_(".sdmagic") static const char magic[] = "#### LoaderInfo: systemd-stub " GIT_VERSION " ####";
+_used_ _section_(".sdmeta") static const struct pe_metadata metadata = {
+        .fname = STUB_FILENAME
+};
 
 struct addon_entry {
         char16_t *source_path;

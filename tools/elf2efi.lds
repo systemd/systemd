@@ -29,9 +29,10 @@ SECTIONS {
                 *(COMMON)
         }
 
-        .sdmagic ALIGN(CONSTANT(MAXPAGESIZE)) : { *(.sdmagic) }
-        .osrel   ALIGN(CONSTANT(MAXPAGESIZE)) : { *(.osrel) }
-        .sbat    ALIGN(CONSTANT(MAXPAGESIZE)) : { *(.sbat) }
+        .sdmagic    ALIGN(CONSTANT(MAXPAGESIZE)) : { *(.sdmagic) }
+        .sdmeta     ALIGN(CONSTANT(MAXPAGESIZE)) : { *(.sdmeta) }
+        .osrel      ALIGN(CONSTANT(MAXPAGESIZE)) : { *(.osrel) }
+        .sbat       ALIGN(CONSTANT(MAXPAGESIZE)) : { *(.sbat) }
 
         /* These are used for PE conversion and then discarded. */
         .dynsym   : { *(.dynsym) }
