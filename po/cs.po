@@ -2,14 +2,14 @@
 #
 # Czech translation for systemd.
 #
-# Daniel Rusek <mail@asciiwolf.com>, 2022.
+# Daniel Rusek <mail@asciiwolf.com>, 2022, 2023.
 # Pavel Borecki <pavel.borecki@gmail.com>, 2023.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-07-14 10:32+0100\n"
-"PO-Revision-Date: 2023-07-17 11:20+0000\n"
-"Last-Translator: Pavel Borecki <pavel.borecki@gmail.com>\n"
+"PO-Revision-Date: 2023-07-22 16:21+0000\n"
+"Last-Translator: Daniel Rusek <mail@asciiwolf.com>\n"
 "Language-Team: Czech <https://translate.fedoraproject.org/projects/systemd/"
 "master/cs/>\n"
 "Language: cs\n"
@@ -239,7 +239,7 @@ msgstr "Záznam uživatele ještě není platný, přístup proto zamezen."
 
 #: src/home/pam_systemd_home.c:876
 msgid "User record is not valid anymore, prohibiting access."
-msgstr "Záznam uživatele už není platný, přístup proto zamezen."
+msgstr "Záznam uživatele již není platný, přístup proto zamezen."
 
 #: src/home/pam_systemd_home.c:881 src/home/pam_systemd_home.c:932
 msgid "User record not valid, prohibiting access."
