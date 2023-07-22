@@ -240,6 +240,7 @@ def use_section(elf_s: ELFSection) -> bool:
         ".rodata",
         ".sbat",
         ".sdmagic",
+        ".sdmeta",
         ".text",
     ]
 
