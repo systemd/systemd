@@ -20,13 +20,9 @@ if [ -f /run/testsuite82.touch3 ]; then
     read -r x <&5
     test "$x" = "oinkoink"
 
-    # Check that the surviving service is still around
-    test "$(systemctl show -P ActiveState testsuite-82-survive.service)" = "active"
+    # Check that no service is still around
+    test "$(systemctl show -P ActiveState testsuite-82-survive.service)" != "active"
     test "$(systemctl show -P ActiveState testsuite-82-nosurvive.service)" != "active"
-
-    # Take out the big guns now, and kill the service via SIGKILL (SIGTERM is blocked after all, see below)
-    systemctl --signal=KILL kill testsuite-82-survive.service
-    systemctl stop testsuite-82-survive.service
 
     # All succeeded, exit cleanly now
 
@@ -47,8 +43,8 @@ elif [ -f /run/testsuite82.touch2 ]; then
     systemd-notify --fd=3 --pid=parent 3<"$T"
     rm "$T"
 
-    # Check that the surviving service is still around
-    test "$(systemctl show -P ActiveState testsuite-82-survive.service)" = "active"
+    # Check that no services is still not around
+    test "$(systemctl show -P ActiveState testsuite-82-survive.service)" != "active"
     test "$(systemctl show -P ActiveState testsuite-82-nosurvive.service)" != "active"
 
     # Test that we really are in the new overlayfs root fs
@@ -86,8 +82,8 @@ elif [ -f /run/testsuite82.touch ]; then
     systemd-notify --fd=3 --pid=parent 3<"$T"
     rm "$T"
 
-    # Check that the surviving service is still around
-    test "$(systemctl show -P ActiveState testsuite-82-survive.service)" = "active"
+    # Check that no service survived, regardless of the configuration
+    test "$(systemctl show -P ActiveState testsuite-82-survive.service)" != "active"
     test "$(systemctl show -P ActiveState testsuite-82-nosurvive.service)" != "active"
 
     # This time we test the /run/nextroot/ root switching logic. (We synthesize a new rootfs from the old via overlayfs)
@@ -136,10 +132,11 @@ rm "$T"
 exec sleep infinity
 EOF
     chmod +x "$T"
-    # Configure this transient unit to survive the soft reboot - it will not conflict with shutdown.target
-    # and it will be ignored on the isolate that happens in the next boot.
-    systemd-run -p Type=notify -p IgnoreOnSoftReboot=yes --unit=testsuite-82-survive.service "$T"
-    systemd-run -p Type=exec -p IgnoreOnSoftReboot=yes --unit=testsuite-82-nosurvive.service sleep infinity
+    # This sets DefaultDependencies=no so that it remains running until the
+    # very end, and IgnoreOnIsolate=yes so that it isn't stopped via the
+    # "testsuite.target" isolation we do on next boot
+    systemd-run -p Type=notify -p DefaultDependencies=no -p IgnoreOnIsolate=yes --unit=testsuite-82-survive.service "$T"
+    systemd-run -p Type=exec -p DefaultDependencies=no -p IgnoreOnIsolate=yes --unit=testsuite-82-nosurvive.service sleep infinity
 
     # Now issue the soft reboot. We should be right back soon.
     touch /run/testsuite82.touch
