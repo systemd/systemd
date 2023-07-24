@@ -52,6 +52,30 @@ void network_adjust_dhcp4(Network *network) {
                 network->dhcp_client_identifier = network->dhcp_anonymize ? DHCP_CLIENT_ID_MAC : DHCP_CLIENT_ID_DUID;
 }
 
+static int dhcp4_prefix_covers(
+                Link *link,
+                const struct in_addr *in_prefix,
+                uint8_t in_prefixlen) {
+
+        struct in_addr prefix;
+        uint8_t prefixlen;
+        int r;
+
+        assert(link);
+        assert(link->dhcp_lease);
+        assert(in_prefix);
+
+        /* Return true if the input address or address range is in the assigned network.
+         * E.g. if the DHCP server provides 192.168.0.100/24, then this returns true for the address or
+         * address range in 192.168.0.0/24, and returns false otherwise. */
+
+        r = sd_dhcp_lease_get_prefix(link->dhcp_lease, &prefix, &prefixlen);
+        if (r < 0)
+                return r;
+
+        return in4_addr_prefix_covers_full(&prefix, prefixlen, in_prefix, in_prefixlen);
+}
+
 static int dhcp4_get_router(Link *link, struct in_addr *ret) {
         const struct in_addr *routers;
         int r;
@@ -340,7 +364,7 @@ static int dhcp4_request_route_auto(
                 bool force_use_gw) {
 
         _cleanup_(route_freep) Route *route = in;
-        struct in_addr address, netmask, prefix;
+        struct in_addr address, prefix;
         uint8_t prefixlen;
         int r;
 
@@ -353,12 +377,9 @@ static int dhcp4_request_route_auto(
         if (r < 0)
                 return r;
 
-        r = sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
+        r = sd_dhcp_lease_get_prefix(link->dhcp_lease, &prefix, &prefixlen);
         if (r < 0)
                 return r;
-
-        prefix.s_addr = address.s_addr & netmask.s_addr;
-        prefixlen = in4_addr_netmask_to_prefixlen(&netmask);
 
         if (in4_addr_is_localhost(&route->dst.in)) {
                 if (in4_addr_is_set(gw))
@@ -383,8 +404,7 @@ static int dhcp4_request_route_auto(
                 route->prefsrc.in = address;
 
         } else if (!force_use_gw &&
-                   route->dst_prefixlen >= prefixlen &&
-                   (route->dst.in.s_addr & netmask.s_addr) == prefix.s_addr) {
+                   dhcp4_prefix_covers(link, &route->dst.in, route->dst_prefixlen) > 0) {
                 if (in4_addr_is_set(gw))
                         log_link_debug(link, "DHCP: requested route destination "IPV4_ADDRESS_FMT_STR"/%u is in the assigned network "
                                        IPV4_ADDRESS_FMT_STR"/%u, ignoring gateway address "IPV4_ADDRESS_FMT_STR,
