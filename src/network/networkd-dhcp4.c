@@ -458,12 +458,10 @@ static int dhcp4_request_route_to_gateway(Link *link, const struct in_addr *gw) 
 static int dhcp4_request_route_auto(
                 Route *in,
                 Link *link,
-                const struct in_addr *gw,
-                bool force_use_gw) {
+                const struct in_addr *gw) {
 
         _cleanup_(route_freep) Route *route = in;
-        struct in_addr address, prefix;
-        uint8_t prefixlen;
+        struct in_addr address;
         int r;
 
         assert(route);
@@ -472,10 +470,6 @@ static int dhcp4_request_route_auto(
         assert(gw);
 
         r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
-        if (r < 0)
-                return r;
-
-        r = sd_dhcp_lease_get_prefix(link->dhcp_lease, &prefix, &prefixlen);
         if (r < 0)
                 return r;
 
@@ -501,25 +495,23 @@ static int dhcp4_request_route_auto(
                 route->gw = IN_ADDR_NULL;
                 route->prefsrc.in = address;
 
-        } else if (!force_use_gw &&
-                   dhcp4_prefix_covers(link, &route->dst.in, route->dst_prefixlen) > 0) {
-                if (in4_addr_is_set(gw))
-                        log_link_debug(link, "DHCP: requested route destination "IPV4_ADDRESS_FMT_STR"/%u is in the assigned network "
-                                       IPV4_ADDRESS_FMT_STR"/%u, ignoring gateway address "IPV4_ADDRESS_FMT_STR,
-                                       IPV4_ADDRESS_FMT_VAL(route->dst.in), route->dst_prefixlen,
-                                       IPV4_ADDRESS_FMT_VAL(prefix), prefixlen,
-                                       IPV4_ADDRESS_FMT_VAL(*gw));
-
-                route->scope = RT_SCOPE_LINK;
-                route->gw_family = AF_UNSPEC;
-                route->gw = IN_ADDR_NULL;
-                route->prefsrc.in = address;
-
         } else if (in4_addr_is_null(gw)) {
-                log_link_debug(link, "DHCP: requested route destination "IPV4_ADDRESS_FMT_STR"/%u is not in the assigned network "
-                               IPV4_ADDRESS_FMT_STR"/%u, but no gateway is specified, using 'link' scope.",
-                               IPV4_ADDRESS_FMT_VAL(route->dst.in), route->dst_prefixlen,
-                               IPV4_ADDRESS_FMT_VAL(prefix), prefixlen);
+                r = dhcp4_prefix_covers(link, &route->dst.in, route->dst_prefixlen);
+                if (r < 0)
+                        return r;
+                if (r == 0 && DEBUG_LOGGING) {
+                        struct in_addr prefix;
+                        uint8_t prefixlen;
+
+                        r = sd_dhcp_lease_get_prefix(link->dhcp_lease, &prefix, &prefixlen);
+                        if (r < 0)
+                                return r;
+
+                        log_link_debug(link, "DHCP: requested route destination "IPV4_ADDRESS_FMT_STR"/%u is not in the assigned network "
+                                       IPV4_ADDRESS_FMT_STR"/%u, but no gateway is specified, using 'link' scope.",
+                                       IPV4_ADDRESS_FMT_VAL(route->dst.in), route->dst_prefixlen,
+                                       IPV4_ADDRESS_FMT_VAL(prefix), prefixlen);
+                }
 
                 route->scope = RT_SCOPE_LINK;
                 route->gw_family = AF_UNSPEC;
@@ -625,9 +617,7 @@ static int dhcp4_request_static_routes(Link *link, struct in_addr *ret_default_g
                     in4_addr_is_null(&default_gw))
                         default_gw = gw;
 
-                /* Do not ignore the gateway given by the classless route option even if the destination is
-                 * in the same network. See issue #28280. */
-                r = dhcp4_request_route_auto(TAKE_PTR(route), link, &gw, /* force_use_gw = */ is_classless);
+                r = dhcp4_request_route_auto(TAKE_PTR(route), link, &gw);
                 if (r < 0)
                         return r;
         }
@@ -774,7 +764,7 @@ static int dhcp4_request_routes_to_servers(
                 route->dst.in = *dst;
                 route->dst_prefixlen = 32;
 
-                r = dhcp4_request_route_auto(TAKE_PTR(route), link, &gw, /* force_use_gw = */ false);
+                r = dhcp4_request_route_auto(TAKE_PTR(route), link, &gw);
                 if (r < 0)
                         return r;
         }
