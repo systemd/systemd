@@ -52,6 +52,39 @@ void network_adjust_dhcp4(Network *network) {
                 network->dhcp_client_identifier = network->dhcp_anonymize ? DHCP_CLIENT_ID_MAC : DHCP_CLIENT_ID_DUID;
 }
 
+static int dhcp4_get_classless_static_or_static_routes(Link *link, sd_dhcp_route ***ret_routes, size_t *ret_num) {
+        _cleanup_free_ sd_dhcp_route **routes = NULL;
+        int r;
+
+        assert(link);
+        assert(link->dhcp_lease);
+
+        /* If the DHCP server returns both a Classless Static Routes option and a Static Routes option,
+         * the DHCP client MUST ignore the Static Routes option. */
+
+        r = sd_dhcp_lease_get_classless_routes(link->dhcp_lease, &routes);
+        if (r >= 0) {
+                assert(r > 0);
+                if (ret_routes)
+                        *ret_routes = TAKE_PTR(routes);
+                if (ret_num)
+                        *ret_num = r;
+                return 1; /* classless */
+        } else if (r != -ENODATA)
+                return r;
+
+        r = sd_dhcp_lease_get_static_routes(link->dhcp_lease, &routes);
+        if (r < 0)
+                return r;
+
+        assert(r > 0);
+        if (ret_routes)
+                *ret_routes = TAKE_PTR(routes);
+        if (ret_num)
+                *ret_num = r;
+        return 0; /* static */
+}
+
 static int dhcp4_remove_address_and_routes(Link *link, bool only_marked) {
         Address *address;
         Route *route;
@@ -365,48 +398,33 @@ static int dhcp4_request_route_auto(
 }
 
 static int dhcp4_request_static_routes(Link *link, struct in_addr *ret_default_gw) {
-        _cleanup_free_ sd_dhcp_route **static_routes = NULL, **classless_routes = NULL;
-        size_t n_static_routes, n_classless_routes, n_routes;
+        _cleanup_free_ sd_dhcp_route **routes = NULL;
+        size_t n_routes;
+        bool is_classless;
         struct in_addr default_gw = {};
-        sd_dhcp_route **routes;
         int r;
 
         assert(link);
         assert(link->dhcp_lease);
         assert(ret_default_gw);
 
-        r = sd_dhcp_lease_get_static_routes(link->dhcp_lease, &static_routes);
+        r = dhcp4_get_classless_static_or_static_routes(link, &routes, &n_routes);
         if (r == -ENODATA)
-                n_static_routes = 0;
-        else if (r < 0)
-                return r;
-        else
-                n_static_routes = r;
-
-        r = sd_dhcp_lease_get_classless_routes(link->dhcp_lease, &classless_routes);
-        if (r == -ENODATA)
-                n_classless_routes = 0;
-        else if (r < 0)
-                return r;
-        else
-                n_classless_routes = r;
-
-        if (n_classless_routes == 0 && n_static_routes == 0) {
-                log_link_debug(link, "DHCP: No static routes received from DHCP server.");
                 return 0;
-        }
+        if (r < 0)
+                return r;
 
-        /* if the DHCP server returns both a Classless Static Routes option and a Static Routes option,
-         * the DHCP client MUST ignore the Static Routes option. */
-        if (n_classless_routes > 0 && n_static_routes > 0)
-                log_link_debug(link, "Classless static routes received from DHCP server: ignoring static-route option");
+        is_classless = r > 0;
 
         if (!link->network->dhcp_use_routes) {
+
+                if (!is_classless)
+                        return 0;
 
                 /* Even if UseRoutes=no, try to find default gateway to make semi-static routes and
                  * routes to DNS or NTP servers can be configured in later steps. */
 
-                FOREACH_ARRAY(e, classless_routes, n_classless_routes) {
+                FOREACH_ARRAY(e, routes, n_routes) {
                         struct in_addr dst;
                         uint8_t prefixlen;
 
@@ -436,15 +454,6 @@ static int dhcp4_request_static_routes(Link *link, struct in_addr *ret_default_g
                 return 0;
         }
 
-        if (n_classless_routes > 0) {
-                n_routes = n_classless_routes;
-                routes = classless_routes;
-        } else if (n_static_routes > 0){
-                n_routes = n_static_routes;
-                routes = static_routes;
-        } else
-                assert_not_reached();
-
         FOREACH_ARRAY(e, routes, n_routes) {
                 _cleanup_(route_freep) Route *route = NULL;
                 struct in_addr gw;
@@ -468,20 +477,20 @@ static int dhcp4_request_static_routes(Link *link, struct in_addr *ret_default_g
                 /* When classless static routes are provided, then router option will be ignored. To
                  * use the default gateway later in other routes, e.g., routes to dns servers, here we
                  * need to find the default gateway in the classless static routes. */
-                if (n_classless_routes > 0 &&
+                if (is_classless &&
                     in4_addr_is_null(&route->dst.in) && route->dst_prefixlen == 0 &&
                     in4_addr_is_null(&default_gw))
                         default_gw = gw;
 
                 /* Do not ignore the gateway given by the classless route option even if the destination is
                  * in the same network. See issue #28280. */
-                r = dhcp4_request_route_auto(TAKE_PTR(route), link, &gw, /* force_use_gw = */ n_classless_routes > 0);
+                r = dhcp4_request_route_auto(TAKE_PTR(route), link, &gw, /* force_use_gw = */ is_classless);
                 if (r < 0)
                         return r;
         }
 
         *ret_default_gw = default_gw;
-        return n_classless_routes > 0;
+        return is_classless;
 }
 
 static int dhcp4_request_gateway(Link *link, struct in_addr *gw) {
