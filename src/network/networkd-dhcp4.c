@@ -453,8 +453,6 @@ static int dhcp4_request_static_routes(Link *link, struct in_addr *ret_default_g
                 if (r < 0)
                         return r;
 
-                route->gw_family = AF_INET;
-
                 r = sd_dhcp_route_get_gateway(*e, &gw);
                 if (r < 0)
                         return r;
