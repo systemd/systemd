@@ -59,7 +59,7 @@ EFI_ARCH_MAP = {
     'x86_64'       : ['x64', 'ia32'],
     'i[3456]86'    : ['ia32'],
     'aarch64'      : ['aa64'],
-    'arm[45678]*l' : ['arm'],
+    'armv[45678]*l': ['arm'],
     'loongarch32'  : ['loongarch32'],
     'loongarch64'  : ['loongarch64'],
     'riscv32'      : ['riscv32'],
