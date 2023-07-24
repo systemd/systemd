@@ -530,10 +530,10 @@ int sd_ndisc_router_route_get_preference(sd_ndisc_router *rt, unsigned *ret) {
         if (r < 0)
                 return r;
 
-        *ret = (ri[3] >> 3) & 3;
-        if (!IN_SET(*ret, SD_NDISC_PREFERENCE_LOW, SD_NDISC_PREFERENCE_HIGH))
-                *ret = SD_NDISC_PREFERENCE_MEDIUM;
+        if (!IN_SET((ri[3] >> 3) & 3, SD_NDISC_PREFERENCE_LOW, SD_NDISC_PREFERENCE_MEDIUM, SD_NDISC_PREFERENCE_HIGH))
+                return -ENOTSUP;
 
+        *ret = (ri[3] >> 3) & 3;
         return 0;
 }
 
