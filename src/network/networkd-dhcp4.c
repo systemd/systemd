@@ -366,7 +366,7 @@ static int dhcp4_request_route_auto(
 
 static int dhcp4_request_static_routes(Link *link, struct in_addr *ret_default_gw) {
         _cleanup_free_ sd_dhcp_route **static_routes = NULL, **classless_routes = NULL;
-        size_t n_static_routes, n_classless_routes, n;
+        size_t n_static_routes, n_classless_routes, n_routes;
         struct in_addr default_gw = {};
         sd_dhcp_route **routes;
         int r;
@@ -406,25 +406,25 @@ static int dhcp4_request_static_routes(Link *link, struct in_addr *ret_default_g
                 /* Even if UseRoutes=no, try to find default gateway to make semi-static routes and
                  * routes to DNS or NTP servers can be configured in later steps. */
 
-                for (size_t i = 0; i < n_classless_routes; i++) {
+                FOREACH_ARRAY(e, classless_routes, n_classless_routes) {
                         struct in_addr dst;
                         uint8_t prefixlen;
 
-                        r = sd_dhcp_route_get_destination(classless_routes[i], &dst);
+                        r = sd_dhcp_route_get_destination(*e, &dst);
                         if (r < 0)
                                 return r;
 
                         if (in4_addr_is_set(&dst))
                                 continue;
 
-                        r = sd_dhcp_route_get_destination_prefix_length(classless_routes[i], &prefixlen);
+                        r = sd_dhcp_route_get_destination_prefix_length(*e, &prefixlen);
                         if (r < 0)
                                 return r;
 
                         if (prefixlen != 0)
                                 continue;
 
-                        r = sd_dhcp_route_get_gateway(classless_routes[i], ret_default_gw);
+                        r = sd_dhcp_route_get_gateway(*e, ret_default_gw);
                         if (r < 0)
                                 return r;
 
@@ -437,15 +437,15 @@ static int dhcp4_request_static_routes(Link *link, struct in_addr *ret_default_g
         }
 
         if (n_classless_routes > 0) {
-                n = n_classless_routes;
+                n_routes = n_classless_routes;
                 routes = classless_routes;
         } else if (n_static_routes > 0){
-                n = n_static_routes;
+                n_routes = n_static_routes;
                 routes = static_routes;
         } else
                 assert_not_reached();
 
-        for (size_t i = 0; i < n; i++) {
+        FOREACH_ARRAY(e, routes, n_routes) {
                 _cleanup_(route_freep) Route *route = NULL;
                 struct in_addr gw;
 
@@ -455,15 +455,15 @@ static int dhcp4_request_static_routes(Link *link, struct in_addr *ret_default_g
 
                 route->gw_family = AF_INET;
 
-                r = sd_dhcp_route_get_gateway(routes[i], &gw);
+                r = sd_dhcp_route_get_gateway(*e, &gw);
                 if (r < 0)
                         return r;
 
-                r = sd_dhcp_route_get_destination(routes[i], &route->dst.in);
+                r = sd_dhcp_route_get_destination(*e, &route->dst.in);
                 if (r < 0)
                         return r;
 
-                r = sd_dhcp_route_get_destination_prefix_length(routes[i], &route->dst_prefixlen);
+                r = sd_dhcp_route_get_destination_prefix_length(*e, &route->dst_prefixlen);
                 if (r < 0)
                         return r;
 
@@ -600,17 +600,17 @@ static int dhcp4_request_routes_to_servers(
         assert(servers || n_servers == 0);
         assert(gw);
 
-        for (size_t i = 0; i < n_servers; i++) {
+        FOREACH_ARRAY(dst, servers, n_servers) {
                 _cleanup_(route_freep) Route *route = NULL;
 
-                if (in4_addr_is_null(&servers[i]))
+                if (in4_addr_is_null(dst))
                         continue;
 
                 r = route_new(&route);
                 if (r < 0)
                         return r;
 
-                route->dst.in = servers[i];
+                route->dst.in = *dst;
                 route->dst_prefixlen = 32;
 
                 r = dhcp4_request_route_auto(TAKE_PTR(route), link, gw, /* force_use_gw = */ false);
