@@ -187,10 +187,7 @@ CHANGES WITH 254 in spe:
           system reset involves. Moreover, open file descriptors may be passed
           across the soft reboot into the new system where they will be passed
           back to the originating services. This allows pinning resources
-          across the reboot, thus minimizing grey-out time further. Moreover,
-          it is possible to allow specific crucial services to survive the
-          reboot process, if they run off a separate root file system (i.e. use
-          RootDirectory= or RootImage=, or are portable services). This new
+          across the reboot, thus minimizing grey-out time further. This new
           reboot mechanism is accessible via the new "systemctl soft-reboot"
           command.
 
