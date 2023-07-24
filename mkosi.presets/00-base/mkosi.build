@@ -55,6 +55,13 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         UKIFY=true
     fi
 
+    # On Debian 'loadkeys us' fails
+    if [ "$ID" = "debian" ] || [ "$ID_LIKE" = "debian" ]; then
+        DEFAULT_KEYMAP=""
+    else
+        DEFAULT_KEYMAP="us"
+    fi
+
     CONFIGURE_OPTS=(
         -D sysvinit-path="$sysvinit_path"
         -D rootprefix="$rootprefix"
@@ -149,6 +156,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D first-boot-full-preset=true
         -D initrd=true
         -D fexecve=true
+        -D default-keymap="$DEFAULT_KEYMAP"
     )
 
     # On debian-like systems the library directory is not /usr/lib64 but /usr/lib/<arch-triplet>/.
