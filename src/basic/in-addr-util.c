@@ -727,16 +727,20 @@ int in_addr_mask(int family, union in_addr_union *addr, unsigned char prefixlen)
         }
 }
 
-int in4_addr_prefix_covers(
+int in4_addr_prefix_covers_full(
                 const struct in_addr *prefix,
                 unsigned char prefixlen,
-                const struct in_addr *address) {
+                const struct in_addr *address,
+                unsigned char address_prefixlen) {
 
         struct in_addr masked_prefix, masked_address;
         int r;
 
         assert(prefix);
         assert(address);
+
+        if (prefixlen > address_prefixlen)
+                return false;
 
         masked_prefix = *prefix;
         r = in4_addr_mask(&masked_prefix, prefixlen);
@@ -751,16 +755,20 @@ int in4_addr_prefix_covers(
         return in4_addr_equal(&masked_prefix, &masked_address);
 }
 
-int in6_addr_prefix_covers(
+int in6_addr_prefix_covers_full(
                 const struct in6_addr *prefix,
                 unsigned char prefixlen,
-                const struct in6_addr *address) {
+                const struct in6_addr *address,
+                unsigned char address_prefixlen) {
 
         struct in6_addr masked_prefix, masked_address;
         int r;
 
         assert(prefix);
         assert(address);
+
+        if (prefixlen > address_prefixlen)
+                return false;
 
         masked_prefix = *prefix;
         r = in6_addr_mask(&masked_prefix, prefixlen);
@@ -775,20 +783,21 @@ int in6_addr_prefix_covers(
         return in6_addr_equal(&masked_prefix, &masked_address);
 }
 
-int in_addr_prefix_covers(
+int in_addr_prefix_covers_full(
                 int family,
                 const union in_addr_union *prefix,
                 unsigned char prefixlen,
-                const union in_addr_union *address) {
+                const union in_addr_union *address,
+                unsigned char address_prefixlen) {
 
         assert(prefix);
         assert(address);
 
         switch (family) {
         case AF_INET:
-                return in4_addr_prefix_covers(&prefix->in, prefixlen, &address->in);
+                return in4_addr_prefix_covers_full(&prefix->in, prefixlen, &address->in, address_prefixlen);
         case AF_INET6:
-                return in6_addr_prefix_covers(&prefix->in6, prefixlen, &address->in6);
+                return in6_addr_prefix_covers_full(&prefix->in6, prefixlen, &address->in6, address_prefixlen);
         default:
                 return -EAFNOSUPPORT;
         }
