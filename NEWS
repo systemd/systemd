@@ -297,6 +297,10 @@ CHANGES WITH 254 in spe:
           automatically adjusted to match the specified CPU architecture, in
           order to simplify cross-architecture DDI building.
 
+        * systemd-repart will now default to a minimum size of 300MB for XFS
+          filesystems if no size parameter is specified. This matches what the
+          XFS tools (xfsprogs) can support.
+
         systemd-boot, systemd-stub, ukify, bootctl, kernel-install:
 
         * gnu-efi is no longer required to build systemd-boot and systemd-stub.
@@ -763,7 +767,7 @@ CHANGES WITH 254 in spe:
         Zbigniew Jędrzejewski-Szmek, zhmylove, ZjYwMj,
         Дамјан Георгиевски, наб
 
-        — Edinburgh, 2023-07-14
+        — Edinburgh, 2023-07-24
 
 CHANGES WITH 253:
 
