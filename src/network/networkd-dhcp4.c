@@ -224,7 +224,6 @@ static bool link_prefixroute(Link *link) {
 
 static int dhcp4_request_prefix_route(Link *link) {
         _cleanup_(route_freep) Route *route = NULL;
-        struct in_addr address, netmask;
         int r;
 
         assert(link);
@@ -234,22 +233,19 @@ static int dhcp4_request_prefix_route(Link *link) {
                 /* When true, the route will be created by kernel. See dhcp4_update_address(). */
                 return 0;
 
-        r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
-        if (r < 0)
-                return r;
-
-        r = sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
-        if (r < 0)
-                return r;
-
         r = route_new(&route);
         if (r < 0)
                 return r;
 
-        route->dst.in.s_addr = address.s_addr & netmask.s_addr;
-        route->dst_prefixlen = in4_addr_netmask_to_prefixlen(&netmask);
-        route->prefsrc.in = address;
         route->scope = RT_SCOPE_LINK;
+
+        r = sd_dhcp_lease_get_prefix(link->dhcp_lease, &route->dst.in, &route->dst_prefixlen);
+        if (r < 0)
+                return r;
+
+        r = sd_dhcp_lease_get_address(link->dhcp_lease, &route->prefsrc.in);
+        if (r < 0)
+                return r;
 
         return dhcp4_request_route(TAKE_PTR(route), link);
 }
@@ -804,8 +800,8 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
 
 static int dhcp4_request_address(Link *link, bool announce) {
         _cleanup_(address_freep) Address *addr = NULL;
-        struct in_addr address, netmask, server;
-        unsigned prefixlen;
+        struct in_addr address, server;
+        uint8_t prefixlen;
         Address *existing;
         usec_t lifetime_usec;
         int r;
@@ -819,7 +815,7 @@ static int dhcp4_request_address(Link *link, bool announce) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "DHCP error: no address: %m");
 
-        r = sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
+        r = sd_dhcp_lease_get_prefix(link->dhcp_lease, NULL, &prefixlen);
         if (r < 0)
                 return log_link_warning_errno(link, r, "DHCP error: no netmask: %m");
 
@@ -839,8 +835,6 @@ static int dhcp4_request_address(Link *link, bool announce) {
                 lifetime_usec = sec_to_usec(lifetime_sec, now_usec);
         } else
                 lifetime_usec = USEC_INFINITY;
-
-        prefixlen = in4_addr_netmask_to_prefixlen(&netmask);
 
         if (announce) {
                 const struct in_addr *router;
