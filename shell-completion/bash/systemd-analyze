@@ -33,7 +33,7 @@ __get_machines() {
 }
 
 __get_units_all() {
-    systemctl list-units --no-legend --no-pager --plain --all | \
+    systemctl list-units --no-legend --no-pager --plain --all $1 | \
         { while read -r a b c; do echo " $a"; done }
 }
 
@@ -91,6 +91,12 @@ _systemd_analyze() {
         fi
     done
 
+    if __contains_word "--user" ${COMP_WORDS[*]}; then
+        mode=--user
+    else
+        mode=--system
+    fi
+
     if __contains_word "$prev" ${OPTS[ARG]}; then
         case $prev in
             --host|-H)
@@ -121,7 +127,7 @@ _systemd_analyze() {
         if [[ $cur = -* ]]; then
             comps='--help --version --system --user --fuzz --no-pager'
         else
-            comps=$( __get_units_all )
+            comps=$( __get_units_all $mode )
         fi
 
     elif __contains_word "$verb" ${VERBS[DOT]}; then
@@ -133,7 +139,7 @@ _systemd_analyze() {
         if [[ $cur = -* ]]; then
             comps='--help --version --system --user --no-pager'
         else
-            comps=$( __get_units_all )
+            comps=$( __get_units_all $mode )
         fi
 
     elif __contains_word "$verb" ${VERBS[SECCOMP_FILTER]}; then
@@ -147,7 +153,8 @@ _systemd_analyze() {
         if [[ $cur = -* ]]; then
             comps='--help --version --system --user --global --man=no --generators=yes --root --image --recursive-errors=no --recursive-errors=yes --recursive-errors=one'
         else
-            comps=$( compgen -A file -- "$cur" )
+            comps=$( compgen -A file -- "$cur";
+                     __get_units_all $mode )
             compopt -o filenames
         fi
 
@@ -166,11 +173,6 @@ _systemd_analyze() {
         if [[ $cur = -* ]]; then
             comps='--help --version --no-pager --system --user -H --host -M --machine --offline --threshold --security-policy --json=off --json=pretty --json=short --root --image --profile=default --profile=nonetwork --profile=strict --profile=trusted'
         elif ! __contains_word "--offline" ${COMP_WORDS[*]}; then
-            if __contains_word "--user" ${COMP_WORDS[*]}; then
-                mode=--user
-            else
-                mode=--system
-            fi
             comps=$( __get_services $mode )
         else
             comps="$CONFIGS $( compgen -A file -- "$cur" )"
@@ -181,11 +183,6 @@ _systemd_analyze() {
         if [[ $cur = -* ]]; then
             comps='--help --version --system --user --global --no-pager --root --image'
         elif [[ $prev = "-u" ]] || [[ $prev = "--unit" ]]; then
-            if __contains_word "--user" ${COMP_WORDS[*]}; then
-                mode=--user
-            else
-                mode=--system
-            fi
             comps=$( __get_services $mode )
         fi
 
