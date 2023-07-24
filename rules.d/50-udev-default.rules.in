@@ -17,6 +17,15 @@ SUBSYSTEM=="rtc", KERNEL=="rtc0", SYMLINK+="rtc", OPTIONS+="link_priority=-100"
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", IMPORT{builtin}="usb_id", IMPORT{builtin}="hwdb --subsystem=usb"
 ENV{MODALIAS}!="", IMPORT{builtin}="hwdb --subsystem=$env{SUBSYSTEM}"
 
+# Before c43ff248f94266cfc93e300a2d3d163ed805e55b, the following line in
+# 60-drm.rules also sets ID_PATH for all pci, usb, and platform devices:
+####
+# ACTION!="remove", SUBSYSTEM=="drm", SUBSYSTEMS=="pci|usb|platform", IMPORT{builtin}="path_id"
+####
+# Unfortunately, some existing rules already rely on the unexpected behavior.
+# To keep the backward compatibility, let's set ID_PATH for them.
+SUBSYSTEM=="pci|usb|platform", IMPORT{builtin}="path_id"
+
 ACTION!="add", GOTO="default_end"
 
 SUBSYSTEM=="tty", KERNEL=="ptmx", GROUP="tty", MODE="0666"
