@@ -532,62 +532,22 @@ static int dhcp4_request_route_auto(
         return dhcp4_request_route(TAKE_PTR(route), link);
 }
 
-static int dhcp4_request_static_routes(Link *link, struct in_addr *ret_default_gw) {
+static int dhcp4_request_classless_static_or_static_routes(Link *link) {
         _cleanup_free_ sd_dhcp_route **routes = NULL;
         size_t n_routes;
-        bool is_classless;
-        struct in_addr default_gw = {};
         int r;
 
         assert(link);
         assert(link->dhcp_lease);
-        assert(ret_default_gw);
+
+        if (!link->network->dhcp_use_routes)
+                return 0;
 
         r = dhcp4_get_classless_static_or_static_routes(link, &routes, &n_routes);
         if (r == -ENODATA)
                 return 0;
         if (r < 0)
                 return r;
-
-        is_classless = r > 0;
-
-        if (!link->network->dhcp_use_routes) {
-
-                if (!is_classless)
-                        return 0;
-
-                /* Even if UseRoutes=no, try to find default gateway to make semi-static routes and
-                 * routes to DNS or NTP servers can be configured in later steps. */
-
-                FOREACH_ARRAY(e, routes, n_routes) {
-                        struct in_addr dst;
-                        uint8_t prefixlen;
-
-                        r = sd_dhcp_route_get_destination(*e, &dst);
-                        if (r < 0)
-                                return r;
-
-                        if (in4_addr_is_set(&dst))
-                                continue;
-
-                        r = sd_dhcp_route_get_destination_prefix_length(*e, &prefixlen);
-                        if (r < 0)
-                                return r;
-
-                        if (prefixlen != 0)
-                                continue;
-
-                        r = sd_dhcp_route_get_gateway(*e, ret_default_gw);
-                        if (r < 0)
-                                return r;
-
-                        break;
-                }
-
-                /* Do not return 1 here, to ensure the router option can override the default gateway
-                 * that was found. */
-                return 0;
-        }
 
         FOREACH_ARRAY(e, routes, n_routes) {
                 _cleanup_(route_freep) Route *route = NULL;
@@ -609,31 +569,30 @@ static int dhcp4_request_static_routes(Link *link, struct in_addr *ret_default_g
                 if (r < 0)
                         return r;
 
-                /* When classless static routes are provided, then router option will be ignored. To
-                 * use the default gateway later in other routes, e.g., routes to dns servers, here we
-                 * need to find the default gateway in the classless static routes. */
-                if (is_classless &&
-                    in4_addr_is_null(&route->dst.in) && route->dst_prefixlen == 0 &&
-                    in4_addr_is_null(&default_gw))
-                        default_gw = gw;
-
                 r = dhcp4_request_route_auto(TAKE_PTR(route), link, &gw);
                 if (r < 0)
                         return r;
         }
 
-        *ret_default_gw = default_gw;
-        return is_classless;
+        return 0;
 }
 
-static int dhcp4_request_gateway(Link *link, struct in_addr *gw) {
+static int dhcp4_request_default_gateway(Link *link) {
         _cleanup_(route_freep) Route *route = NULL;
         struct in_addr address, router;
         int r;
 
         assert(link);
         assert(link->dhcp_lease);
-        assert(gw);
+
+        if (!link->network->dhcp_use_gateway)
+                return 0;
+
+        /* According to RFC 3442: If the DHCP server returns both a Classless Static Routes option and
+         * a Router option, the DHCP client MUST ignore the Router option. */
+        if (link->network->dhcp_use_routes &&
+            dhcp4_get_classless_static_or_static_routes(link, NULL, NULL) > 0)
+                return 0;
 
         r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
         if (r < 0)
@@ -646,16 +605,6 @@ static int dhcp4_request_gateway(Link *link, struct in_addr *gw) {
         }
         if (r < 0)
                 return r;
-
-        if (!link->network->dhcp_use_gateway) {
-                /* When no classless static route is provided, even if UseGateway=no, use the gateway
-                 * address to configure semi-static routes or routes to DNS or NTP servers. Note, if
-                 * neither UseRoutes= nor UseGateway= is disabled, use the default gateway in classless
-                 * static routes if provided (in that case, in4_addr_is_null(gw) below is true). */
-                if (in4_addr_is_null(gw))
-                        *gw = router;
-                return 0;
-        }
 
         /* The dhcp netmask may mask out the gateway. First, add an explicit route for the gateway host
          * so that we can route no matter the netmask or existing kernel route tables. */
@@ -672,14 +621,7 @@ static int dhcp4_request_gateway(Link *link, struct in_addr *gw) {
         route->gw.in = router;
         route->prefsrc.in = address;
 
-        r = dhcp4_request_route(TAKE_PTR(route), link);
-        if (r < 0)
-                return r;
-
-        /* When no classless static route is provided, or UseRoutes=no, then use the router address to
-         * configure semi-static routes and routes to DNS or NTP servers in later steps. */
-        *gw = router;
-        return 0;
+        return dhcp4_request_route(TAKE_PTR(route), link);
 }
 
 static int dhcp4_request_semi_static_routes(Link *link) {
@@ -815,7 +757,6 @@ static int dhcp4_request_routes_to_ntp(Link *link) {
 }
 
 static int dhcp4_request_routes(Link *link) {
-        struct in_addr gw = {};
         int r;
 
         assert(link);
@@ -825,16 +766,13 @@ static int dhcp4_request_routes(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not request prefix route: %m");
 
-        r = dhcp4_request_static_routes(link, &gw);
+        r = dhcp4_request_default_gateway(link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP error: Could not request default gateway: %m");
+
+        r = dhcp4_request_classless_static_or_static_routes(link);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not request static routes: %m");
-        if (r == 0) {
-                /* According to RFC 3442: If the DHCP server returns both a Classless Static Routes option and
-                 * a Router option, the DHCP client MUST ignore the Router option. */
-                r = dhcp4_request_gateway(link, &gw);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "DHCP error: Could not request gateway: %m");
-        }
 
         r = dhcp4_request_semi_static_routes(link);
         if (r < 0)
