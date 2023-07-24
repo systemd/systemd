@@ -134,6 +134,104 @@ static int dhcp4_get_classless_static_or_static_routes(Link *link, sd_dhcp_route
         return 0; /* static */
 }
 
+static int dhcp4_find_gateway_for_destination(
+                Link *link,
+                const struct in_addr *destination,
+                uint8_t prefixlength,
+                bool allow_null,
+                struct in_addr *ret) {
+
+        _cleanup_free_ sd_dhcp_route **routes = NULL;
+        size_t n_routes = 0;
+        bool is_classless, reachable;
+        uint8_t max_prefixlen = UINT8_MAX;
+        struct in_addr gw;
+        int r;
+
+        assert(link);
+        assert(link->dhcp_lease);
+        assert(destination);
+        assert(ret);
+
+        /* This tries to find the most suitable gateway for an address or address range.
+         * E.g. if the server provides the default gateway 192.168.0.1 and a classless static route for
+         * 8.0.0.0/8 with gateway 192.168.0.2, then this returns 192.168.0.2 for 8.8.8.8/32, and 192.168.0.1
+         * for 9.9.9.9/32. If 'allow_null' flag is set, and the input address or address range is in the
+         * assigned network, then the default gateway will be ignored and the null address will be returned
+         * unless a matching non-default gateway found. */
+
+        r = dhcp4_prefix_covers(link, destination, prefixlength);
+        if (r < 0)
+                return r;
+        reachable = r > 0;
+
+        r = dhcp4_get_classless_static_or_static_routes(link, &routes, &n_routes);
+        if (r < 0 && r != -ENODATA)
+                return r;
+        is_classless = r > 0;
+
+        /* First, find most suitable gateway. */
+        FOREACH_ARRAY(e, routes, n_routes) {
+                struct in_addr dst;
+                uint8_t len;
+
+                r = sd_dhcp_route_get_destination(*e, &dst);
+                if (r < 0)
+                        return r;
+
+                r = sd_dhcp_route_get_destination_prefix_length(*e, &len);
+                if (r < 0)
+                        return r;
+
+                r = in4_addr_prefix_covers_full(&dst, len, destination, prefixlength);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                if (max_prefixlen != UINT8_MAX && max_prefixlen > len)
+                        continue;
+
+                r = sd_dhcp_route_get_gateway(*e, &gw);
+                if (r < 0)
+                        return r;
+
+                max_prefixlen = len;
+        }
+
+        /* Found a suitable gateway in classless static routes or static routes. */
+        if (max_prefixlen != UINT8_MAX) {
+                if (max_prefixlen == 0 && reachable && allow_null)
+                        /* Do not return the default gateway, if the destination is in the assigned network. */
+                        *ret = (struct in_addr) {};
+                else
+                        *ret = gw;
+                return 0;
+        }
+
+        /* When the destination is in the assigned network, return the null address if allowed. */
+        if (reachable && allow_null) {
+                *ret = (struct in_addr) {};
+                return 0;
+        }
+
+        /* According to RFC 3442: If the DHCP server returns both a Classless Static Routes option and
+         * a Router option, the DHCP client MUST ignore the Router option. */
+        if (!is_classless) {
+                r = dhcp4_get_router(link, ret);
+                if (r >= 0)
+                        return 0;
+                if (r != -ENODATA)
+                        return r;
+        }
+
+        if (!reachable)
+                return -EHOSTUNREACH; /* Not in the same network, cannot reach the destination. */
+
+        assert(!allow_null);
+        return -ENODATA; /* No matching gateway found. */
+}
+
 static int dhcp4_remove_address_and_routes(Link *link, bool only_marked) {
         Address *address;
         Route *route;
@@ -594,20 +692,17 @@ static int dhcp4_request_gateway(Link *link, struct in_addr *gw) {
         return 0;
 }
 
-static int dhcp4_request_semi_static_routes(Link *link, const struct in_addr *gw) {
+static int dhcp4_request_semi_static_routes(Link *link) {
         Route *rt;
         int r;
 
         assert(link);
         assert(link->dhcp_lease);
         assert(link->network);
-        assert(gw);
-
-        if (in4_addr_is_null(gw))
-                return 0;
 
         HASHMAP_FOREACH(rt, link->network->routes_by_section) {
                 _cleanup_(route_freep) Route *route = NULL;
+                struct in_addr gw;
 
                 if (!rt->gateway_from_dhcp_or_ra)
                         continue;
@@ -615,7 +710,18 @@ static int dhcp4_request_semi_static_routes(Link *link, const struct in_addr *gw
                 if (rt->gw_family != AF_INET)
                         continue;
 
-                r = dhcp4_request_route_to_gateway(link, gw);
+                assert(rt->family == AF_INET);
+
+                r = dhcp4_find_gateway_for_destination(link, &rt->dst.in, rt->dst_prefixlen, /* allow_null = */ false, &gw);
+                if (IN_SET(r, -EHOSTUNREACH, -ENODATA)) {
+                        log_link_debug_errno(link, r, "DHCP: Cannot find suitable gateway for destination %s of semi-static route, ignoring: %m",
+                                             IN4_ADDR_PREFIX_TO_STRING(&rt->dst.in, rt->dst_prefixlen));
+                        continue;
+                }
+                if (r < 0)
+                        return r;
+
+                r = dhcp4_request_route_to_gateway(link, &gw);
                 if (r < 0)
                         return r;
 
@@ -623,7 +729,7 @@ static int dhcp4_request_semi_static_routes(Link *link, const struct in_addr *gw
                 if (r < 0)
                         return r;
 
-                route->gw.in = *gw;
+                route->gw.in = gw;
 
                 r = dhcp4_request_route(TAKE_PTR(route), link);
                 if (r < 0)
@@ -636,8 +742,7 @@ static int dhcp4_request_semi_static_routes(Link *link, const struct in_addr *gw
 static int dhcp4_request_routes_to_servers(
                 Link *link,
                 const struct in_addr *servers,
-                size_t n_servers,
-                const struct in_addr *gw) {
+                size_t n_servers) {
 
         int r;
 
@@ -645,13 +750,22 @@ static int dhcp4_request_routes_to_servers(
         assert(link->dhcp_lease);
         assert(link->network);
         assert(servers || n_servers == 0);
-        assert(gw);
 
         FOREACH_ARRAY(dst, servers, n_servers) {
                 _cleanup_(route_freep) Route *route = NULL;
+                struct in_addr gw;
 
                 if (in4_addr_is_null(dst))
                         continue;
+
+                r = dhcp4_find_gateway_for_destination(link, dst, 32, /* allow_null = */ true, &gw);
+                if (r == -EHOSTUNREACH) {
+                        log_link_debug_errno(link, r, "DHCP: Cannot find suitable gateway for destination %s, ignoring: %m",
+                                             IN4_ADDR_PREFIX_TO_STRING(dst, 32));
+                        continue;
+                }
+                if (r < 0)
+                        return r;
 
                 r = route_new(&route);
                 if (r < 0)
@@ -660,7 +774,7 @@ static int dhcp4_request_routes_to_servers(
                 route->dst.in = *dst;
                 route->dst_prefixlen = 32;
 
-                r = dhcp4_request_route_auto(TAKE_PTR(route), link, gw, /* force_use_gw = */ false);
+                r = dhcp4_request_route_auto(TAKE_PTR(route), link, &gw, /* force_use_gw = */ false);
                 if (r < 0)
                         return r;
         }
@@ -668,14 +782,13 @@ static int dhcp4_request_routes_to_servers(
         return 0;
 }
 
-static int dhcp4_request_routes_to_dns(Link *link, const struct in_addr *gw) {
+static int dhcp4_request_routes_to_dns(Link *link) {
         const struct in_addr *dns;
         int r;
 
         assert(link);
         assert(link->dhcp_lease);
         assert(link->network);
-        assert(gw);
 
         if (!link->network->dhcp_use_dns ||
             !link->network->dhcp_routes_to_dns)
@@ -687,17 +800,16 @@ static int dhcp4_request_routes_to_dns(Link *link, const struct in_addr *gw) {
         if (r < 0)
                 return r;
 
-        return dhcp4_request_routes_to_servers(link, dns, r, gw);
+        return dhcp4_request_routes_to_servers(link, dns, r);
 }
 
-static int dhcp4_request_routes_to_ntp(Link *link, const struct in_addr *gw) {
+static int dhcp4_request_routes_to_ntp(Link *link) {
         const struct in_addr *ntp;
         int r;
 
         assert(link);
         assert(link->dhcp_lease);
         assert(link->network);
-        assert(gw);
 
         if (!link->network->dhcp_use_ntp ||
             !link->network->dhcp_routes_to_ntp)
@@ -709,7 +821,7 @@ static int dhcp4_request_routes_to_ntp(Link *link, const struct in_addr *gw) {
         if (r < 0)
                 return r;
 
-        return dhcp4_request_routes_to_servers(link, ntp, r, gw);
+        return dhcp4_request_routes_to_servers(link, ntp, r);
 }
 
 static int dhcp4_request_routes(Link *link) {
@@ -734,15 +846,15 @@ static int dhcp4_request_routes(Link *link) {
                         return log_link_error_errno(link, r, "DHCP error: Could not request gateway: %m");
         }
 
-        r = dhcp4_request_semi_static_routes(link, &gw);
+        r = dhcp4_request_semi_static_routes(link);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not request routes with Gateway=_dhcp4 setting: %m");
 
-        r = dhcp4_request_routes_to_dns(link, &gw);
+        r = dhcp4_request_routes_to_dns(link);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not request routes to DNS servers: %m");
 
-        r = dhcp4_request_routes_to_ntp(link, &gw);
+        r = dhcp4_request_routes_to_ntp(link);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP error: Could not request routes to NTP servers: %m");
 
