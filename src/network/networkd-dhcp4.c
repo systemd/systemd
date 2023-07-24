@@ -52,6 +52,31 @@ void network_adjust_dhcp4(Network *network) {
                 network->dhcp_client_identifier = network->dhcp_anonymize ? DHCP_CLIENT_ID_MAC : DHCP_CLIENT_ID_DUID;
 }
 
+static int dhcp4_get_router(Link *link, struct in_addr *ret) {
+        const struct in_addr *routers;
+        int r;
+
+        assert(link);
+        assert(link->dhcp_lease);
+        assert(ret);
+
+        r = sd_dhcp_lease_get_router(link->dhcp_lease, &routers);
+        if (r < 0)
+                return r;
+
+        /* The router option may provide multiple routers, We only use the first non-null address. */
+
+        FOREACH_ARRAY(router, routers, r) {
+                if (in4_addr_is_null(router))
+                        continue;
+
+                *ret = *router;
+                return 0;
+        }
+
+        return -ENODATA;
+}
+
 static int dhcp4_get_classless_static_or_static_routes(Link *link, sd_dhcp_route ***ret_routes, size_t *ret_num) {
         _cleanup_free_ sd_dhcp_route **routes = NULL;
         int r;
@@ -495,8 +520,7 @@ static int dhcp4_request_static_routes(Link *link, struct in_addr *ret_default_g
 
 static int dhcp4_request_gateway(Link *link, struct in_addr *gw) {
         _cleanup_(route_freep) Route *route = NULL;
-        const struct in_addr *router;
-        struct in_addr address;
+        struct in_addr address, router;
         int r;
 
         assert(link);
@@ -507,17 +531,13 @@ static int dhcp4_request_gateway(Link *link, struct in_addr *gw) {
         if (r < 0)
                 return r;
 
-        r = sd_dhcp_lease_get_router(link->dhcp_lease, &router);
-        if (IN_SET(r, 0, -ENODATA)) {
-                log_link_debug(link, "DHCP: No gateway received from DHCP server.");
+        r = dhcp4_get_router(link, &router);
+        if (r == -ENODATA) {
+                log_link_debug(link, "DHCP: No valid router address received from DHCP server.");
                 return 0;
         }
         if (r < 0)
                 return r;
-        if (in4_addr_is_null(&router[0])) {
-                log_link_debug(link, "DHCP: Received gateway address is null.");
-                return 0;
-        }
 
         if (!link->network->dhcp_use_gateway) {
                 /* When no classless static route is provided, even if UseGateway=no, use the gateway
@@ -525,13 +545,13 @@ static int dhcp4_request_gateway(Link *link, struct in_addr *gw) {
                  * neither UseRoutes= nor UseGateway= is disabled, use the default gateway in classless
                  * static routes if provided (in that case, in4_addr_is_null(gw) below is true). */
                 if (in4_addr_is_null(gw))
-                        *gw = router[0];
+                        *gw = router;
                 return 0;
         }
 
         /* The dhcp netmask may mask out the gateway. First, add an explicit route for the gateway host
          * so that we can route no matter the netmask or existing kernel route tables. */
-        r = dhcp4_request_route_to_gateway(link, &router[0]);
+        r = dhcp4_request_route_to_gateway(link, &router);
         if (r < 0)
                 return r;
 
@@ -541,7 +561,7 @@ static int dhcp4_request_gateway(Link *link, struct in_addr *gw) {
 
         /* Next, add a default gateway. */
         route->gw_family = AF_INET;
-        route->gw.in = router[0];
+        route->gw.in = router;
         route->prefsrc.in = address;
 
         r = dhcp4_request_route(TAKE_PTR(route), link);
@@ -550,7 +570,7 @@ static int dhcp4_request_gateway(Link *link, struct in_addr *gw) {
 
         /* When no classless static route is provided, or UseRoutes=no, then use the router address to
          * configure semi-static routes and routes to DNS or NTP servers in later steps. */
-        *gw = router[0];
+        *gw = router;
         return 0;
 }
 
