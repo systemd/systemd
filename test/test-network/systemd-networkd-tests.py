@@ -4994,7 +4994,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         additional_options = [
             '--dhcp-option=option:dns-server,192.168.5.10,8.8.8.8',
             '--dhcp-option=option:ntp-server,192.168.5.11,9.9.9.9',
-            '--dhcp-option=option:static-route,192.168.5.100,192.168.5.2,8.8.8.8,192.168.5.3'
+            '--dhcp-option=option:static-route,192.168.6.100,192.168.5.2,8.8.8.8,192.168.5.3'
         ]
         if classless:
             additional_options += [
@@ -5015,16 +5015,18 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                 self.assertRegex(output, r'192.168.5.4 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
                 self.assertRegex(output, r'192.168.5.5 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
             else:
-                self.assertRegex(output, r'192.168.5.0/24 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
+                self.assertRegex(output, r'192.168.6.0/24 via 192.168.5.2 proto dhcp src 192.168.5.[0-9]* metric 1024')
                 self.assertRegex(output, r'8.0.0.0/8 via 192.168.5.3 proto dhcp src 192.168.5.[0-9]* metric 1024')
+                self.assertRegex(output, r'192.168.5.2 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
                 self.assertRegex(output, r'192.168.5.3 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
         else:
             self.assertNotRegex(output, r'default via 192.168.5.4 proto dhcp src 192.168.5.[0-9]* metric 1024')
             self.assertNotRegex(output, r'8.0.0.0/8 via 192.168.5.5 proto dhcp src 192.168.5.[0-9]* metric 1024')
             self.assertNotRegex(output, r'192.168.5.4 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
             self.assertNotRegex(output, r'192.168.5.5 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
-            self.assertNotRegex(output, r'192.168.5.0/24 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
+            self.assertNotRegex(output, r'192.168.6.0/24 via 192.168.5.2 proto dhcp src 192.168.5.[0-9]* metric 1024')
             self.assertNotRegex(output, r'8.0.0.0/8 via 192.168.5.3 proto dhcp src 192.168.5.[0-9]* metric 1024')
+            self.assertNotRegex(output, r'192.168.5.2 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
             self.assertNotRegex(output, r'192.168.5.3 proto dhcp scope link src 192.168.5.[0-9]* metric 1024')
 
         # Check UseGateway=
