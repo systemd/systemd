@@ -43,7 +43,8 @@ static bool can_unshare;
 
 STATIC_DESTRUCTOR_REGISTER(user_runtime_unit_dir, freep);
 
-typedef void (*test_function_t)(Manager *m);
+/* Return the number of services spawned */
+typedef int (*test_function_t)(Manager *m);
 
 static int cld_dumped_to_killed(int code) {
         /* Depending on the system, seccomp version, … some signals might result in dumping, others in plain
@@ -227,6 +228,7 @@ static void _test(const char *file, unsigned line, const char *func,
         /* We need to start the slices as well otherwise the slice cgroups might be pruned
          * in on_cgroup_empty_event. */
         start_parent_slices(unit);
+        manager_spawn_workers(m);
         assert_se(unit_start(unit, NULL) >= 0);
         check_main_result(file, line, func, m, unit, status_expected, code_expected);
 }
@@ -246,7 +248,7 @@ static void _test_service(const char *file, unsigned line, const char *func,
 #define test_service(m, unit_name, result_expected) \
         _test_service(PROJECT_FILE, __LINE__, __func__, m, unit_name, result_expected)
 
-static void test_exec_bindpaths(Manager *m) {
+static int test_exec_bindpaths(Manager *m) {
         assert_se(mkdir_p("/tmp/test-exec-bindpaths", 0755) >= 0);
         assert_se(mkdir_p("/tmp/test-exec-bindreadonlypaths", 0755) >= 0);
 
@@ -254,9 +256,11 @@ static void test_exec_bindpaths(Manager *m) {
 
         (void) rm_rf("/tmp/test-exec-bindpaths", REMOVE_ROOT|REMOVE_PHYSICAL);
         (void) rm_rf("/tmp/test-exec-bindreadonlypaths", REMOVE_ROOT|REMOVE_PHYSICAL);
+
+        return 1;
 }
 
-static void test_exec_cpuaffinity(Manager *m) {
+static int test_exec_cpuaffinity(Manager *m) {
         _cleanup_(cpu_set_reset) CPUSet c = {};
 
         assert_se(cpu_set_realloc(&c, 8192) >= 0); /* just allocate the maximum possible size */
@@ -264,7 +268,7 @@ static void test_exec_cpuaffinity(Manager *m) {
 
         if (!CPU_ISSET_S(0, c.allocated, c.set)) {
                 log_notice("Cannot use CPU 0, skipping %s", __func__);
-                return;
+                return 0;
         }
 
         test(m, "exec-cpuaffinity1.service", 0, CLD_EXITED);
@@ -273,28 +277,34 @@ static void test_exec_cpuaffinity(Manager *m) {
         if (!CPU_ISSET_S(1, c.allocated, c.set) ||
             !CPU_ISSET_S(2, c.allocated, c.set)) {
                 log_notice("Cannot use CPU 1 or 2, skipping remaining tests in %s", __func__);
-                return;
+                return 2;
         }
 
         test(m, "exec-cpuaffinity3.service", 0, CLD_EXITED);
+
+        return 3;
 }
 
-static void test_exec_credentials(Manager *m) {
+static int test_exec_credentials(Manager *m) {
         test(m, "exec-set-credential.service", 0, CLD_EXITED);
         test(m, "exec-load-credential.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_CREDENTIALS, CLD_EXITED);
         test(m, "exec-credentials-dir-specifier.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_CREDENTIALS, CLD_EXITED);
+
+        return 3;
 }
 
-static void test_exec_workingdirectory(Manager *m) {
+static int test_exec_workingdirectory(Manager *m) {
         assert_se(mkdir_p("/tmp/test-exec_workingdirectory", 0755) >= 0);
 
         test(m, "exec-workingdirectory.service", 0, CLD_EXITED);
         test(m, "exec-workingdirectory-trailing-dot.service", 0, CLD_EXITED);
 
         (void) rm_rf("/tmp/test-exec_workingdirectory", REMOVE_ROOT|REMOVE_PHYSICAL);
+
+        return 2;
 }
 
-static void test_exec_execsearchpath(Manager *m) {
+static int test_exec_execsearchpath(Manager *m) {
         assert_se(mkdir_p("/tmp/test-exec_execsearchpath", 0755) >= 0);
 
         assert_se(copy_file("/bin/ls", "/tmp/test-exec_execsearchpath/ls_temp", 0,  0777, COPY_REPLACE) >= 0);
@@ -304,18 +314,24 @@ static void test_exec_execsearchpath(Manager *m) {
         assert_se(rm_rf("/tmp/test-exec_execsearchpath", REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 
         test(m, "exec-execsearchpath.service", EXIT_EXEC, CLD_EXITED);
+
+        return 2;
 }
 
-static void test_exec_execsearchpath_specifier(Manager *m) {
+static int test_exec_execsearchpath_specifier(Manager *m) {
         test(m, "exec-execsearchpath-unit-specifier.service", 0, CLD_EXITED);
+
+        return 1;
 }
 
-static void test_exec_execsearchpath_environment(Manager *m) {
+static int test_exec_execsearchpath_environment(Manager *m) {
         test(m, "exec-execsearchpath-environment.service", 0, CLD_EXITED);
         test(m, "exec-execsearchpath-environment-path-set.service", 0, CLD_EXITED);
+
+        return 2;
 }
 
-static void test_exec_execsearchpath_environment_files(Manager *m) {
+static int test_exec_execsearchpath_environment_files(Manager *m) {
         static const char path_not_set[] =
                 "VAR1='word1 word2'\n"
                 "VAR2=word3 \n"
@@ -359,9 +375,11 @@ static void test_exec_execsearchpath_environment_files(Manager *m) {
         test(m, "exec-execsearchpath-environmentfile-set.service", 0, CLD_EXITED);
 
         (void) unlink("/tmp/test-exec_environmentfile-set.conf");
+
+        return 2;
 }
 
-static void test_exec_execsearchpath_passenvironment(Manager *m) {
+static int test_exec_execsearchpath_passenvironment(Manager *m) {
         assert_se(setenv("VAR1", "word1 word2", 1) == 0);
         assert_se(setenv("VAR2", "word3", 1) == 0);
         assert_se(setenv("VAR3", "$word 5 6", 1) == 0);
@@ -379,9 +397,11 @@ static void test_exec_execsearchpath_passenvironment(Manager *m) {
         assert_se(unsetenv("VAR4") == 0);
         assert_se(unsetenv("VAR5") == 0);
         assert_se(unsetenv("PATH") == 0);
+
+        return 2;
 }
 
-static void test_exec_personality(Manager *m) {
+static int test_exec_personality(Manager *m) {
 #if defined(__x86_64__)
         test(m, "exec-personality-x86-64.service", 0, CLD_EXITED);
 
@@ -404,15 +424,20 @@ static void test_exec_personality(Manager *m) {
         test(m, "exec-personality-loongarch64.service", 0, CLD_EXITED);
 #else
         log_notice("Unknown personality, skipping %s", __func__);
+        return 0;
 #endif
+
+        return 1;
 }
 
-static void test_exec_ignoresigpipe(Manager *m) {
+static int test_exec_ignoresigpipe(Manager *m) {
         test(m, "exec-ignoresigpipe-yes.service", 0, CLD_EXITED);
         test(m, "exec-ignoresigpipe-no.service", SIGPIPE, CLD_KILLED);
+
+        return 2;
 }
 
-static void test_exec_privatetmp(Manager *m) {
+static int test_exec_privatetmp(Manager *m) {
         assert_se(touch("/tmp/test-exec_privatetmp") >= 0);
 
         test(m, "exec-privatetmp-yes.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
@@ -420,18 +445,20 @@ static void test_exec_privatetmp(Manager *m) {
         test(m, "exec-privatetmp-disabled-by-prefix.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 
         (void) unlink("/tmp/test-exec_privatetmp");
+
+        return 3;
 }
 
-static void test_exec_privatedevices(Manager *m) {
+static int test_exec_privatedevices(Manager *m) {
         int r;
 
         if (detect_container() > 0) {
                 log_notice("Testing in container, skipping %s", __func__);
-                return;
+                return 0;
         }
         if (!is_inaccessible_available()) {
                 log_notice("Testing without inaccessible, skipping %s", __func__);
-                return;
+                return 0;
         }
 
         test(m, "exec-privatedevices-yes.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
@@ -444,86 +471,98 @@ static void test_exec_privatedevices(Manager *m) {
         r = find_executable("capsh", NULL);
         if (r < 0) {
                 log_notice_errno(r, "Could not find capsh binary, skipping remaining tests in %s: %m", __func__);
-                return;
+                return 4;
         }
 
         test(m, "exec-privatedevices-yes-capability-mknod.service", can_unshare || MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-privatedevices-no-capability-mknod.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
         test(m, "exec-privatedevices-yes-capability-sys-rawio.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-privatedevices-no-capability-sys-rawio.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
+
+        return 8;
 }
 
-static void test_exec_protecthome(Manager *m) {
+static int test_exec_protecthome(Manager *m) {
         if (!can_unshare) {
                 log_notice("Cannot reliably unshare, skipping %s", __func__);
-                return;
+                return 0;
         }
 
         test(m, "exec-protecthome-tmpfs-vs-protectsystem-strict.service", 0, CLD_EXITED);
+
+        return 1;
 }
 
-static void test_exec_protectkernelmodules(Manager *m) {
+static int test_exec_protectkernelmodules(Manager *m) {
         int r;
 
         if (detect_container() > 0) {
                 log_notice("Testing in container, skipping %s", __func__);
-                return;
+                return 0;
         }
         if (!is_inaccessible_available()) {
                 log_notice("Testing without inaccessible, skipping %s", __func__);
-                return;
+                return 0;
         }
 
         r = find_executable("capsh", NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
-                return;
+                return 0;
         }
 
         test(m, "exec-protectkernelmodules-no-capabilities.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
         test(m, "exec-protectkernelmodules-yes-capabilities.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-protectkernelmodules-yes-mount-propagation.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+
+        return 3;
 }
 
-static void test_exec_readonlypaths(Manager *m) {
+static int test_exec_readonlypaths(Manager *m) {
 
         test(m, "exec-readonlypaths-simple.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 
         if (path_is_read_only_fs("/var") > 0) {
                 log_notice("Directory /var is readonly, skipping remaining tests in %s", __func__);
-                return;
+                return 1;
         }
 
         test(m, "exec-readonlypaths.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-readonlypaths-with-bindpaths.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-readonlypaths-mount-propagation.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+
+        return 4;
 }
 
-static void test_exec_readwritepaths(Manager *m) {
+static int test_exec_readwritepaths(Manager *m) {
 
         if (path_is_read_only_fs("/") > 0) {
                 log_notice("Root directory is readonly, skipping %s", __func__);
-                return;
+                return 0;
         }
 
         test(m, "exec-readwritepaths-mount-propagation.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+
+        return 1;
 }
 
-static void test_exec_inaccessiblepaths(Manager *m) {
+static int test_exec_inaccessiblepaths(Manager *m) {
 
         if (!is_inaccessible_available()) {
                 log_notice("Testing without inaccessible, skipping %s", __func__);
-                return;
+                return 0;
         }
 
         test(m, "exec-inaccessiblepaths-sys.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
 
         if (path_is_read_only_fs("/") > 0) {
                 log_notice("Root directory is readonly, skipping remaining tests in %s", __func__);
-                return;
+                return 1;
         }
 
         test(m, "exec-inaccessiblepaths-mount-propagation.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+
+        return 2;
 }
 
 static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -666,7 +705,7 @@ static int find_libraries(const char *exec, char ***ret) {
         return 0;
 }
 
-static void test_exec_mount_apivfs(Manager *m) {
+static int test_exec_mount_apivfs(Manager *m) {
         _cleanup_free_ char *fullpath_touch = NULL, *fullpath_test = NULL, *data = NULL;
         _cleanup_strv_free_ char **libraries = NULL, **libraries_test = NULL;
         int r;
@@ -676,17 +715,17 @@ static void test_exec_mount_apivfs(Manager *m) {
         r = find_executable("ldd", NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find 'ldd' command: %m", __func__);
-                return;
+                return 0;
         }
         r = find_executable("touch", &fullpath_touch);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find 'touch' command: %m", __func__);
-                return;
+                return 0;
         }
         r = find_executable("test", &fullpath_test);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find 'test' command: %m", __func__);
-                return;
+                return 0;
         }
 
         assert_se(find_libraries(fullpath_touch, &libraries) >= 0);
@@ -709,28 +748,34 @@ static void test_exec_mount_apivfs(Manager *m) {
         test(m, "exec-mount-apivfs-no.service", can_unshare || !MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
 
         (void) rm_rf("/tmp/test-exec-mount-apivfs-no/root", REMOVE_ROOT|REMOVE_PHYSICAL);
+
+        return 1;
 }
 
-static void test_exec_noexecpaths(Manager *m) {
+static int test_exec_noexecpaths(Manager *m) {
 
         test(m, "exec-noexecpaths-simple.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+
+        return 1;
 }
 
-static void test_exec_temporaryfilesystem(Manager *m) {
+static int test_exec_temporaryfilesystem(Manager *m) {
 
         test(m, "exec-temporaryfilesystem-options.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-temporaryfilesystem-ro.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-temporaryfilesystem-rw.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-temporaryfilesystem-usr.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+
+        return 4;
 }
 
-static void test_exec_systemcallfilter(Manager *m) {
+static int test_exec_systemcallfilter(Manager *m) {
 #if HAVE_SECCOMP
         int r;
 
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
-                return;
+                return 0;
         }
 
         test(m, "exec-systemcallfilter-not-failing.service", 0, CLD_EXITED);
@@ -743,7 +788,7 @@ static void test_exec_systemcallfilter(Manager *m) {
         r = find_executable("python3", NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping remaining tests in %s, could not find python3 binary: %m", __func__);
-                return;
+                return 6;
         }
 
         test(m, "exec-systemcallfilter-with-errno-name.service", errno_from_name("EILSEQ"), CLD_EXITED);
@@ -752,34 +797,42 @@ static void test_exec_systemcallfilter(Manager *m) {
         test(m, "exec-systemcallfilter-with-errno-in-allow-list.service", errno_from_name("EILSEQ"), CLD_EXITED);
         test(m, "exec-systemcallfilter-override-error-action.service", SIGSYS, CLD_KILLED);
         test(m, "exec-systemcallfilter-override-error-action2.service", errno_from_name("EILSEQ"), CLD_EXITED);
+
+        return 12;
+#else
+        return 0;
 #endif
 }
 
-static void test_exec_systemcallerrornumber(Manager *m) {
+static int test_exec_systemcallerrornumber(Manager *m) {
 #if HAVE_SECCOMP
         int r;
 
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
-                return;
+                return 0;
         }
 
         r = find_executable("python3", NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find python3 binary: %m", __func__);
-                return;
+                return 0;
         }
 
         test(m, "exec-systemcallerrornumber-name.service", errno_from_name("EACCES"), CLD_EXITED);
         test(m, "exec-systemcallerrornumber-number.service", 255, CLD_EXITED);
+
+        return 2;
+#else
+        return 0;
 #endif
 }
 
-static void test_exec_restrictnamespaces(Manager *m) {
+static int test_exec_restrictnamespaces(Manager *m) {
 #if HAVE_SECCOMP
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
-                return;
+                return 0;
         }
 
         test(m, "exec-restrictnamespaces-no.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
@@ -789,10 +842,14 @@ static void test_exec_restrictnamespaces(Manager *m) {
         test(m, "exec-restrictnamespaces-merge-and.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
         test(m, "exec-restrictnamespaces-merge-or.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
         test(m, "exec-restrictnamespaces-merge-all.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
+
+        return 7;
+#else
+        return 0;
 #endif
 }
 
-static void test_exec_systemcallfilter_system(Manager *m) {
+static int test_exec_systemcallfilter_system(Manager *m) {
 /* Skip this particular test case when running under ASan, as
  * LSan intermittently segfaults when accessing memory right
  * after the test finishes. Generally, ASan & LSan don't like
@@ -801,58 +858,66 @@ static void test_exec_systemcallfilter_system(Manager *m) {
 #if HAVE_SECCOMP && !HAS_FEATURE_ADDRESS_SANITIZER
         if (!is_seccomp_available()) {
                 log_notice("Seccomp not available, skipping %s", __func__);
-                return;
+                return 0;
         }
 
         test(m, "exec-systemcallfilter-system-user.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
                 log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
-                return;
+                return 1;
         }
 
         if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
                 log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
-                return;
+                return 1;
         }
 
         test(m, "exec-systemcallfilter-system-user-" NOBODY_USER_NAME ".service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+
+        return 2;
+#else
+        return 0;
 #endif
 }
 
-static void test_exec_user(Manager *m) {
+static int test_exec_user(Manager *m) {
         test(m, "exec-user.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
                 log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
-                return;
+                return 1;
         }
 
         if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
                 log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
-                return;
+                return 1;
         }
 
         test(m, "exec-user-" NOBODY_USER_NAME ".service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+
+        return 2;
 }
 
-static void test_exec_group(Manager *m) {
+static int test_exec_group(Manager *m) {
         test(m, "exec-group.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
                 log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
-                return;
+                return 1;
         }
 
         if (!STR_IN_SET(NOBODY_GROUP_NAME, "nobody", "nfsnobody", "nogroup")) {
                 log_notice("Unsupported nobody group name '%s', skipping remaining tests in %s", NOBODY_GROUP_NAME, __func__);
-                return;
+                return 1;
         }
 
         test(m, "exec-group-" NOBODY_GROUP_NAME ".service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+
+        return 2;
 }
 
-static void test_exec_supplementarygroups(Manager *m) {
+static int test_exec_supplementarygroups(Manager *m) {
         int status = MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP;
         test(m, "exec-supplementarygroups.service", status, CLD_EXITED);
         test(m, "exec-supplementarygroups-single-group.service", status, CLD_EXITED);
@@ -860,6 +925,8 @@ static void test_exec_supplementarygroups(Manager *m) {
         test(m, "exec-supplementarygroups-multiple-groups-default-group-user.service", status, CLD_EXITED);
         test(m, "exec-supplementarygroups-multiple-groups-withgid.service", status, CLD_EXITED);
         test(m, "exec-supplementarygroups-multiple-groups-withuid.service", status, CLD_EXITED);
+
+        return 6;
 }
 
 static char* private_directory_bad(Manager *m) {
@@ -879,25 +946,30 @@ static char* private_directory_bad(Manager *m) {
         return NULL;
 }
 
-static void test_exec_dynamicuser(Manager *m) {
+static int test_exec_dynamicuser(Manager *m) {
         _cleanup_free_ char *bad = private_directory_bad(m);
+        int optionals = 0;
         if (bad) {
                 log_warning("%s: %s has bad permissions, skipping test.", __func__, bad);
-                return;
+                return 0;
         }
 
         if (strstr_ptr(ci_environment(), "github-actions")) {
                 log_notice("%s: skipping test on GH Actions because of systemd/systemd#10337", __func__);
-                return;
+                return 0;
         }
 
         int status = can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_NAMESPACE : EXIT_GROUP;
 
         test(m, "exec-dynamicuser-fixeduser.service", status, CLD_EXITED);
-        if (check_user_has_group_with_same_name("adm"))
+        if (check_user_has_group_with_same_name("adm")) {
                 test(m, "exec-dynamicuser-fixeduser-adm.service", status, CLD_EXITED);
-        if (check_user_has_group_with_same_name("games"))
+                optionals++;
+        }
+        if (check_user_has_group_with_same_name("games")) {
                 test(m, "exec-dynamicuser-fixeduser-games.service", status, CLD_EXITED);
+                optionals++;
+        }
         test(m, "exec-dynamicuser-fixeduser-one-supplementarygroup.service", status, CLD_EXITED);
         test(m, "exec-dynamicuser-supplementarygroups.service", status, CLD_EXITED);
         test(m, "exec-dynamicuser-statedir.service", status, CLD_EXITED);
@@ -923,16 +995,20 @@ static void test_exec_dynamicuser(Manager *m) {
         test(m, "exec-dynamicuser-runtimedirectory1.service", status, CLD_EXITED);
         test(m, "exec-dynamicuser-runtimedirectory2.service", status, CLD_EXITED);
         test(m, "exec-dynamicuser-runtimedirectory3.service", status, CLD_EXITED);
+
+        return optionals + 10;
 }
 
-static void test_exec_environment(Manager *m) {
+static int test_exec_environment(Manager *m) {
         test(m, "exec-environment-no-substitute.service", 0, CLD_EXITED);
         test(m, "exec-environment.service", 0, CLD_EXITED);
         test(m, "exec-environment-multiple.service", 0, CLD_EXITED);
         test(m, "exec-environment-empty.service", 0, CLD_EXITED);
+
+        return 4;
 }
 
-static void test_exec_environmentfile(Manager *m) {
+static int test_exec_environmentfile(Manager *m) {
         static const char e[] =
                 "VAR1='word1 word2'\n"
                 "VAR2=word3 \n"
@@ -952,9 +1028,11 @@ static void test_exec_environmentfile(Manager *m) {
         test(m, "exec-environmentfile.service", 0, CLD_EXITED);
 
         (void) unlink("/tmp/test-exec_environmentfile.conf");
+
+        return 1;
 }
 
-static void test_exec_passenvironment(Manager *m) {
+static int test_exec_passenvironment(Manager *m) {
         /* test-execute runs under MANAGER_USER which, by default, forwards all
          * variables present in the environment, but only those that are
          * present _at the time it is created_!
@@ -980,14 +1058,18 @@ static void test_exec_passenvironment(Manager *m) {
         assert_se(unsetenv("VAR4") == 0);
         assert_se(unsetenv("VAR5") == 0);
         test(m, "exec-passenvironment-absent.service", 0, CLD_EXITED);
+
+        return 4;
 }
 
-static void test_exec_umask(Manager *m) {
+static int test_exec_umask(Manager *m) {
         test(m, "exec-umask-default.service", can_unshare || MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-umask-0177.service", can_unshare || MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+
+        return 2;
 }
 
-static void test_exec_runtimedirectory(Manager *m) {
+static int test_exec_runtimedirectory(Manager *m) {
         (void) rm_rf("/run/test-exec_runtimedirectory2", REMOVE_ROOT|REMOVE_PHYSICAL);
         test(m, "exec-runtimedirectory.service", 0, CLD_EXITED);
         (void) rm_rf("/run/test-exec_runtimedirectory2", REMOVE_ROOT|REMOVE_PHYSICAL);
@@ -997,44 +1079,50 @@ static void test_exec_runtimedirectory(Manager *m) {
 
         if (!check_nobody_user_and_group()) {
                 log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
-                return;
+                return 3;
         }
 
         if (!STR_IN_SET(NOBODY_GROUP_NAME, "nobody", "nfsnobody", "nogroup")) {
                 log_notice("Unsupported nobody group name '%s', skipping remaining tests in %s", NOBODY_GROUP_NAME, __func__);
-                return;
+                return 3;
         }
 
         test(m, "exec-runtimedirectory-owner-" NOBODY_GROUP_NAME ".service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+
+        return 4;
 }
 
-static void test_exec_capabilityboundingset(Manager *m) {
+static int test_exec_capabilityboundingset(Manager *m) {
         int r;
 
         r = find_executable("capsh", NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
-                return;
+                return 0;
         }
 
         if (have_effective_cap(CAP_CHOWN) <= 0 ||
             have_effective_cap(CAP_FOWNER) <= 0 ||
             have_effective_cap(CAP_KILL) <= 0) {
                 log_notice("Skipping %s, this process does not have enough capabilities", __func__);
-                return;
+                return 0;
         }
 
         test(m, "exec-capabilityboundingset-simple.service", 0, CLD_EXITED);
         test(m, "exec-capabilityboundingset-reset.service", 0, CLD_EXITED);
         test(m, "exec-capabilityboundingset-merge.service", 0, CLD_EXITED);
         test(m, "exec-capabilityboundingset-invert.service", 0, CLD_EXITED);
+
+        return 4;
 }
 
-static void test_exec_basic(Manager *m) {
+static int test_exec_basic(Manager *m) {
         test(m, "exec-basic.service", can_unshare || MANAGER_IS_SYSTEM(m) ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+
+        return 1;
 }
 
-static void test_exec_ambientcapabilities(Manager *m) {
+static int test_exec_ambientcapabilities(Manager *m) {
         int r;
 
         /* Check if the kernel has support for ambient capabilities. Run
@@ -1044,13 +1132,13 @@ static void test_exec_ambientcapabilities(Manager *m) {
         r = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0);
         if (r < 0 && IN_SET(errno, EINVAL, EOPNOTSUPP, ENOSYS)) {
                 log_notice("Skipping %s, the kernel does not support ambient capabilities", __func__);
-                return;
+                return 0;
         }
 
         if (have_effective_cap(CAP_CHOWN) <= 0 ||
             have_effective_cap(CAP_NET_RAW) <= 0) {
                 log_notice("Skipping %s, this process does not have enough capabilities", __func__);
-                return;
+                return 0;
         }
 
         test(m, "exec-ambientcapabilities.service", 0, CLD_EXITED);
@@ -1058,71 +1146,83 @@ static void test_exec_ambientcapabilities(Manager *m) {
 
         if (!check_nobody_user_and_group()) {
                 log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
-                return;
+                return 2;
         }
 
         if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
                 log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
-                return;
+                return 2;
         }
 
         test(m, "exec-ambientcapabilities-" NOBODY_USER_NAME ".service", 0, CLD_EXITED);
         test(m, "exec-ambientcapabilities-merge-" NOBODY_USER_NAME ".service", 0, CLD_EXITED);
+
+        return 4;
 }
 
-static void test_exec_privatenetwork(Manager *m) {
+static int test_exec_privatenetwork(Manager *m) {
         int r;
 
         r = find_executable("ip", NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find ip binary: %m", __func__);
-                return;
+                return 0;
         }
 
         test(m, "exec-privatenetwork-yes-privatemounts-no.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_NETWORK : EXIT_FAILURE, CLD_EXITED);
         test(m, "exec-privatenetwork-yes-privatemounts-yes.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_NETWORK : EXIT_NAMESPACE, CLD_EXITED);
+
+        return 2;
 }
 
-static void test_exec_networknamespacepath(Manager *m) {
+static int test_exec_networknamespacepath(Manager *m) {
         int r;
 
         r = find_executable("ip", NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find ip binary: %m", __func__);
-                return;
+                return 0;
         }
 
         test(m, "exec-networknamespacepath-privatemounts-no.service", MANAGER_IS_SYSTEM(m) ? EXIT_SUCCESS : EXIT_FAILURE, CLD_EXITED);
         test(m, "exec-networknamespacepath-privatemounts-yes.service", can_unshare ? EXIT_SUCCESS : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+
+        return 2;
 }
 
-static void test_exec_oomscoreadjust(Manager *m) {
+static int test_exec_oomscoreadjust(Manager *m) {
         test(m, "exec-oomscoreadjust-positive.service", 0, CLD_EXITED);
 
         if (detect_container() > 0) {
                 log_notice("Testing in container, skipping remaining tests in %s", __func__);
-                return;
+                return 1;
         }
         test(m, "exec-oomscoreadjust-negative.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_FAILURE, CLD_EXITED);
+
+        return 2;
 }
 
-static void test_exec_ioschedulingclass(Manager *m) {
+static int test_exec_ioschedulingclass(Manager *m) {
         test(m, "exec-ioschedulingclass-none.service", 0, CLD_EXITED);
         test(m, "exec-ioschedulingclass-idle.service", 0, CLD_EXITED);
         test(m, "exec-ioschedulingclass-best-effort.service", 0, CLD_EXITED);
 
         if (detect_container() > 0) {
                 log_notice("Testing in container, skipping remaining tests in %s", __func__);
-                return;
+                return 3;
         }
         test(m, "exec-ioschedulingclass-realtime.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_IOPRIO, CLD_EXITED);
+
+        return 4;
 }
 
-static void test_exec_unsetenvironment(Manager *m) {
+static int test_exec_unsetenvironment(Manager *m) {
         test(m, "exec-unsetenvironment.service", 0, CLD_EXITED);
+
+        return 1;
 }
 
-static void test_exec_specifier(Manager *m) {
+static int test_exec_specifier(Manager *m) {
         test(m, "exec-specifier.service", 0, CLD_EXITED);
         if (MANAGER_IS_SYSTEM(m))
                 test(m, "exec-specifier-system.service", 0, CLD_EXITED);
@@ -1130,39 +1230,53 @@ static void test_exec_specifier(Manager *m) {
                 test(m, "exec-specifier-user.service", 0, CLD_EXITED);
         test(m, "exec-specifier@foo-bar.service", 0, CLD_EXITED);
         test(m, "exec-specifier-interpolation.service", 0, CLD_EXITED);
+
+        return 4;
 }
 
-static void test_exec_standardinput(Manager *m) {
+static int test_exec_standardinput(Manager *m) {
         test(m, "exec-standardinput-data.service", 0, CLD_EXITED);
         test(m, "exec-standardinput-file.service", 0, CLD_EXITED);
         test(m, "exec-standardinput-file-cat.service", 0, CLD_EXITED);
+
+        return 3;
 }
 
-static void test_exec_standardoutput(Manager *m) {
+static int test_exec_standardoutput(Manager *m) {
         test(m, "exec-standardoutput-file.service", 0, CLD_EXITED);
+
+        return 1;
 }
 
-static void test_exec_standardoutput_append(Manager *m) {
+static int test_exec_standardoutput_append(Manager *m) {
         test(m, "exec-standardoutput-append.service", 0, CLD_EXITED);
+
+        return 1;
 }
 
-static void test_exec_standardoutput_truncate(Manager *m) {
+static int test_exec_standardoutput_truncate(Manager *m) {
         test(m, "exec-standardoutput-truncate.service", 0, CLD_EXITED);
+
+        return 1;
 }
 
-static void test_exec_condition(Manager *m) {
+static int test_exec_condition(Manager *m) {
         test_service(m, "exec-condition-failed.service", SERVICE_FAILURE_EXIT_CODE);
         test_service(m, "exec-condition-skip.service", SERVICE_SKIP_CONDITION);
+
+        return 2;
 }
 
-static void test_exec_umask_namespace(Manager *m) {
+static int test_exec_umask_namespace(Manager *m) {
         /* exec-specifier-credentials-dir.service creates /run/credentials and enables implicit
          * InaccessiblePath= for the directory for all later services with mount namespace. */
         if (!is_inaccessible_available()) {
                 log_notice("Testing without inaccessible, skipping %s", __func__);
-                return;
+                return 0;
         }
         test(m, "exec-umask-namespace.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_NAMESPACE : EXIT_GROUP, CLD_EXITED);
+
+        return 1;
 }
 
 typedef struct test_entry {
@@ -1176,7 +1290,8 @@ static void run_tests(RuntimeScope scope, char **patterns) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_free_ char *unit_paths = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
-        int r;
+        usec_t start, finish;
+        int r, n_ran_tests = 0;
 
         static const test_entry tests[] = {
                 entry(test_exec_basic),
@@ -1259,16 +1374,31 @@ static void run_tests(RuntimeScope scope, char **patterns) {
 
         m->default_std_output = EXEC_OUTPUT_NULL; /* don't rely on host journald */
         assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
+        manager_spawn_workers(m);
 
         /* Uncomment below if you want to make debugging logs stored to journal. */
         //manager_override_log_target(m, LOG_TARGET_AUTO);
         //manager_override_log_level(m, LOG_DEBUG);
 
+        /* Measure and print the time that it takes to run tests, excluding startup of the manager object,
+         * to try and measure latency of spawning services */
+        start = now(CLOCK_MONOTONIC);
+
         for (const test_entry *test = tests; test->f; test++)
                 if (strv_fnmatch_or_empty(patterns, test->name, FNM_NOESCAPE))
-                        test->f(m);
+                        n_ran_tests += test->f(m);
                 else
                         log_info("Skipping %s because it does not match any pattern.", test->name);
+
+        finish = now(CLOCK_MONOTONIC);
+
+        log_info("ran %d tests with %s manager + unshare=%s in: %s",
+                 n_ran_tests,
+                 scope == RUNTIME_SCOPE_SYSTEM ? "system" : "user",
+                 yes_no(can_unshare),
+                 FORMAT_TIMESPAN(finish - start, USEC_PER_MSEC));
+
+        manager_kill_workers(m);
 }
 
 static int prepare_ns(const char *process_name) {
