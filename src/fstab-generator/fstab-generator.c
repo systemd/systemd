@@ -306,7 +306,7 @@ static int add_swap(
                         return r;
         }
 
-        return true;
+        return 0;
 }
 
 static bool mount_is_network(const char *fstype, const char *options) {
@@ -990,13 +990,13 @@ static int parse_fstab(bool prefix_sysroot) {
                                     prefix_sysroot,
                                     /* accept_root = */ false,
                                     /* use_swap_enabled = */ true);
-                if (r < 0 && ret >= 0)
+                if (r != 0 && ret >= 0)
                         ret = r;
                 if (arg_sysroot_check && r > 0)
                         return true;  /* We found a mount or swap that would be started… */
         }
 
-        return ret;
+        return ret; /* Return positive if at least one entry found. */
 }
 
 static int sysroot_is_nfsroot(void) {
@@ -1310,17 +1310,17 @@ static int add_mounts_from_cmdline(void) {
                               /* prefix_sysroot = */ !m->for_initrd && in_initrd(),
                               /* accept_root = */ true,
                               /* use_swap_enabled = */ false);
-                if (r < 0 && ret >= 0)
+                if (r != 0 && ret >= 0)
                         ret = r;
         }
 
-        return ret;
+        return ret; /* Return positive if at least one entry found. */
 }
 
 static int add_mounts_from_creds(bool prefix_sysroot) {
         _cleanup_free_ void *b = NULL;
         struct mntent *me;
-        int r, ret = 0;
+        int r, ret = true; /* Return true if the credential exists. */
         size_t bs;
 
         assert(in_initrd() || !prefix_sysroot);
@@ -1347,11 +1347,11 @@ static int add_mounts_from_creds(bool prefix_sysroot) {
                                 /* prefix_sysroot = */ prefix_sysroot,
                                 /* accept_root = */ true,
                                 /* use_swap_enabled = */ true);
-                if (r < 0 && ret >= 0)
+                if (r != 0 && ret >= 0)
                         ret = r;
         }
 
-        return ret;
+        return ret; /* Return positive if at least one entry found. */
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
@@ -1529,6 +1529,7 @@ static int determine_usr(void) {
  * with /sysroot/etc/fstab available, and then we can write additional units based
  * on that file. */
 static int run_generator(void) {
+        bool enable_remount_fs = false;
         int r, ret = 0;
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
@@ -1570,25 +1571,33 @@ static int run_generator(void) {
         r = parse_fstab(/* prefix_sysroot = */ false);
         if (r < 0 && ret >= 0)
                 ret = r;
+        enable_remount_fs = r > 0;
 
         /* If running in the initrd also parse the /etc/fstab from the host */
-        if (in_initrd())
+        if (in_initrd()) {
                 r = parse_fstab(/* prefix_sysroot = */ true);
-        else
-                r = generator_enable_remount_fs_service(arg_dest);
-        if (r < 0 && ret >= 0)
-                ret = r;
+                if (r < 0 && ret >= 0)
+                        ret = r;
+        }
 
         r = add_mounts_from_cmdline();
         if (r < 0 && ret >= 0)
                 ret = r;
+        enable_remount_fs = enable_remount_fs || r > 0;
 
         r = add_mounts_from_creds(/* prefix_sysroot = */ false);
         if (r < 0 && ret >= 0)
                 ret = r;
+        enable_remount_fs = enable_remount_fs || r > 0;
 
         if (in_initrd()) {
                 r = add_mounts_from_creds(/* prefix_sysroot = */ true);
+                if (r < 0 && ret >= 0)
+                        ret = r;
+        }
+
+        if (!in_initrd() && enable_remount_fs) {
+                r = generator_enable_remount_fs_service(arg_dest);
                 if (r < 0 && ret >= 0)
                         ret = r;
         }
