@@ -954,6 +954,10 @@ static int parse_fstab(bool prefix_sysroot) {
         struct mntent *me;
         int r, ret = 0;
 
+        /* Honour /etc/fstab only when that's enabled */
+        if (!arg_fstab_enabled)
+                return 0;
+
         if (prefix_sysroot)
                 fstab = sysroot_fstab_path();
         else {
@@ -1544,21 +1548,18 @@ static int run_generator(void) {
                         ret = r;
         }
 
-        /* Honour /etc/fstab only when that's enabled */
-        if (arg_fstab_enabled) {
-                /* Parse the local /etc/fstab, possibly from the initrd */
-                r = parse_fstab(/* prefix_sysroot = */ false);
-                if (r < 0 && ret >= 0)
-                        ret = r;
+        /* Parse the local /etc/fstab, possibly from the initrd */
+        r = parse_fstab(/* prefix_sysroot = */ false);
+        if (r < 0 && ret >= 0)
+                ret = r;
 
-                /* If running in the initrd also parse the /etc/fstab from the host */
-                if (in_initrd())
-                        r = parse_fstab(/* prefix_sysroot = */ true);
-                else
-                        r = generator_enable_remount_fs_service(arg_dest);
-                if (r < 0 && ret >= 0)
-                        ret = r;
-        }
+        /* If running in the initrd also parse the /etc/fstab from the host */
+        if (in_initrd())
+                r = parse_fstab(/* prefix_sysroot = */ true);
+        else
+                r = generator_enable_remount_fs_service(arg_dest);
+        if (r < 0 && ret >= 0)
+                ret = r;
 
         r = add_mounts_from_cmdline();
         if (r < 0 && ret >= 0)
