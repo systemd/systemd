@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <mntent.h>
 #include <stdlib.h>
 #include <sys/file.h>
 #include <unistd.h>
@@ -11,6 +12,7 @@
 #include "blkid-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
+#include "device-nodes.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
@@ -514,6 +516,36 @@ static bool slash_boot_exists(void) {
         return (cache = false);
 }
 
+static bool fstab_is_same_device(const char *where, const char *what) {
+        _cleanup_endmntent_ FILE *f = NULL;
+        struct mntent *me;
+        int r;
+
+        assert(where);
+        assert(what);
+
+        f = setmntent(fstab_path(), "re");
+        if (!f) {
+                assert(errno != ENOENT); /* We already know the path has an fstab entry, so fstab must exist */
+
+                log_debug_errno(errno, "Failed to open '%s': %m", fstab_path());
+                return false;
+        }
+
+        while ((me = getmntent(f)))
+                if (path_equal(where, me->mnt_dir))
+                        break;
+
+        if (path_equal(what, me->mnt_fsname))
+                return true;
+
+        r = devnode_same(what, me->mnt_fsname);
+        if (r < 0)
+                log_debug_errno(r, "Failed to check if fstab entry for '%s' is the same device as '%s', assuming not: %m",
+                                where, what);
+        return r > 0;
+}
+
 static int add_partition_xbootldr(DissectedPartition *p) {
         _cleanup_free_ char *options = NULL;
         int r;
@@ -582,6 +614,8 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
                 r = slash_boot_in_fstab();
                 if (r < 0)
                         return r;
+                if (r > 0 && fstab_is_same_device("/boot", p->node))
+                        return 0;
                 if (r == 0) {
                         r = path_is_busy("/boot");
                         if (r < 0)
