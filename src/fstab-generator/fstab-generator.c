@@ -49,6 +49,7 @@ typedef enum MountPointFlags {
 } MountPointFlags;
 
 typedef struct Mount {
+        bool for_initrd;
         char *what;
         char *where;
         char *fstype;
@@ -102,7 +103,13 @@ static void mount_array_free(Mount *mounts, size_t n) {
         free(mounts);
 }
 
-static int mount_array_add_internal(char *in_what, char *in_where, const char *in_fstype, const char *in_options) {
+static int mount_array_add_internal(
+                bool for_initrd,
+                char *in_what,
+                char *in_where,
+                const char *in_fstype,
+                const char *in_options) {
+
         _cleanup_free_ char *what = NULL, *where = NULL, *fstype = NULL, *options = NULL;
         int r;
 
@@ -135,6 +142,7 @@ static int mount_array_add_internal(char *in_what, char *in_where, const char *i
                 return -ENOMEM;
 
         arg_mounts[arg_n_mounts++] = (Mount) {
+                .for_initrd = for_initrd,
                 .what = TAKE_PTR(what),
                 .where = TAKE_PTR(where),
                 .fstype = TAKE_PTR(fstype),
@@ -144,7 +152,7 @@ static int mount_array_add_internal(char *in_what, char *in_where, const char *i
         return 0;
 }
 
-static int mount_array_add(const char *str) {
+static int mount_array_add(bool for_initrd, const char *str) {
         _cleanup_free_ char *what = NULL, *where = NULL, *fstype = NULL, *options = NULL;
         int r;
 
@@ -159,10 +167,10 @@ static int mount_array_add(const char *str) {
         if (!isempty(str))
                 return -EINVAL;
 
-        return mount_array_add_internal(TAKE_PTR(what), TAKE_PTR(where), fstype, options);
+        return mount_array_add_internal(for_initrd, TAKE_PTR(what), TAKE_PTR(where), fstype, options);
 }
 
-static int mount_array_add_swap(const char *str) {
+static int mount_array_add_swap(bool for_initrd, const char *str) {
         _cleanup_free_ char *what = NULL, *options = NULL;
         int r;
 
@@ -177,7 +185,7 @@ static int mount_array_add_swap(const char *str) {
         if (!isempty(str))
                 return -EINVAL;
 
-        return mount_array_add_internal(TAKE_PTR(what), NULL, "swap", options);
+        return mount_array_add_internal(for_initrd, TAKE_PTR(what), NULL, "swap", options);
 }
 
 static int write_options(FILE *f, const char *options) {
@@ -1282,6 +1290,9 @@ static int add_mounts_from_cmdline(void) {
         /* Handle each entries found in cmdline as a fstab entry. */
 
         FOREACH_ARRAY(m, arg_mounts, arg_n_mounts) {
+                if (m->for_initrd && !in_initrd())
+                        continue;
+
                 r = parse_fstab_one(
                               "/proc/cmdline",
                               m->what,
@@ -1289,7 +1300,7 @@ static int add_mounts_from_cmdline(void) {
                               m->fstype,
                               m->options,
                               /* passno = */ 0,
-                              /* prefix_sysroot = */ false,
+                              /* prefix_sysroot = */ !m->for_initrd && in_initrd(),
                               /* use_swap_enabled = */ false);
                 if (r < 0 && ret >= 0)
                         ret = r;
@@ -1437,21 +1448,21 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 else
                         arg_verity = r;
 
-        } else if (streq(key, "systemd.mount-extra")) {
+        } else if (STR_IN_SET(key, "systemd.mount-extra", "rd.systemd.mount-extra")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = mount_array_add(value);
+                r = mount_array_add(startswith(key, "rd."), value);
                 if (r < 0)
                         log_warning("Failed to parse systemd.mount-extra= option, ignoring: %s", value);
 
-        } else if (streq(key, "systemd.swap-extra")) {
+        } else if (STR_IN_SET(key, "systemd.swap-extra", "rd.systemd.swap-extra")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = mount_array_add_swap(value);
+                r = mount_array_add_swap(startswith(key, "rd."), value);
                 if (r < 0)
                         log_warning("Failed to parse systemd.swap-extra= option, ignoring: %s", value);
         }
