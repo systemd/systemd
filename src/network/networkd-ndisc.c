@@ -968,7 +968,7 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
                 if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
                         continue;
 
-                if (route->lifetime_usec >= timestamp_usec)
+                if (route->lifetime_usec >= timestamp_usec && timestamp_usec != 0)
                         continue; /* the route is still valid */
 
                 k = route_remove_and_drop(route);
@@ -1129,8 +1129,9 @@ static int ndisc_start_dhcp6_client(Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
+        usec_t timestamp_usec, lifetime_usec
         struct in6_addr router;
-        usec_t timestamp_usec;
+        uint16_t lifetime_sec;
         int r;
 
         assert(link);
@@ -1165,6 +1166,16 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 return r;
 
         r = ndisc_drop_outdated(link, timestamp_usec);
+        if (r < 0)
+                return r;
+
+        r = sd_ndisc_router_get_lifetime(rt, &lifetime_sec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get lifetime of RA message: %m");
+
+        lifetime_usec = sec16_to_usec(lifetime_sec, timestamp_usec);
+
+        r = ndisc_drop_outdated(link, lifetime_usec);
         if (r < 0)
                 return r;
 
