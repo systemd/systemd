@@ -1176,6 +1176,7 @@ static void run_tests(RuntimeScope scope, char **patterns) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_free_ char *unit_paths = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
+        usec_t start, finish;
         int r;
 
         static const test_entry tests[] = {
@@ -1264,11 +1265,22 @@ static void run_tests(RuntimeScope scope, char **patterns) {
         //manager_override_log_target(m, LOG_TARGET_AUTO);
         //manager_override_log_level(m, LOG_DEBUG);
 
+        /* Measure and print the time that it takes to run tests, excluding startup of the manager object,
+         * to try and measure latency of spawning services */
+        start = now(CLOCK_MONOTONIC);
+
         for (const test_entry *test = tests; test->f; test++)
                 if (strv_fnmatch_or_empty(patterns, test->name, FNM_NOESCAPE))
                         test->f(m);
                 else
                         log_info("Skipping %s because it does not match any pattern.", test->name);
+
+        finish = now(CLOCK_MONOTONIC);
+
+        log_info("%s manager + unshare=%s test runtime: %s",
+                 scope == RUNTIME_SCOPE_SYSTEM ? "system" : "user",
+                 yes_no(can_unshare),
+                 FORMAT_TIMESPAN(finish - start, USEC_PER_MSEC));
 }
 
 static int prepare_ns(const char *process_name) {
