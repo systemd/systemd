@@ -1309,14 +1309,16 @@ static int add_mounts_from_cmdline(void) {
         return ret;
 }
 
-static int add_mounts_from_creds(void) {
+static int add_mounts_from_creds(bool prefix_sysroot) {
         _cleanup_free_ void *b = NULL;
         struct mntent *me;
         int r, ret = 0;
         size_t bs;
 
+        assert(in_initrd() || !prefix_sysroot);
+
         r = read_credential_with_decryption(
-                        in_initrd() ? "fstab.extra.initrd" : "fstab.extra",
+                        in_initrd() && !prefix_sysroot ? "fstab.extra.initrd" : "fstab.extra",
                         &b, &bs);
         if (r <= 0)
                 return r;
@@ -1334,7 +1336,7 @@ static int add_mounts_from_creds(void) {
                                 me->mnt_type,
                                 me->mnt_opts,
                                 me->mnt_passno,
-                                /* prefix_sysroot = */ false,
+                                /* prefix_sysroot = */ prefix_sysroot,
                                 /* use_swap_enabled = */ true);
                 if (r < 0 && ret >= 0)
                         ret = r;
@@ -1575,9 +1577,15 @@ static int run_generator(void) {
         if (r < 0 && ret >= 0)
                 ret = r;
 
-        r = add_mounts_from_creds();
+        r = add_mounts_from_creds(/* prefix_sysroot = */ false);
         if (r < 0 && ret >= 0)
                 ret = r;
+
+        if (in_initrd()) {
+                r = add_mounts_from_creds(/* prefix_sysroot = */ true);
+                if (r < 0 && ret >= 0)
+                        ret = r;
+        }
 
         return ret;
 }
