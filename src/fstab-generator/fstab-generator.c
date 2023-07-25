@@ -49,6 +49,7 @@ typedef enum MountPointFlags {
 } MountPointFlags;
 
 typedef struct Mount {
+        bool for_initrd;
         char *what;
         char *where;
         char *fstype;
@@ -102,7 +103,13 @@ static void mount_array_free(Mount *mounts, size_t n) {
         free(mounts);
 }
 
-static int mount_array_add_internal(char *in_what, char *in_where, const char *in_fstype, const char *in_options) {
+static int mount_array_add_internal(
+                bool for_initrd,
+                char *in_what,
+                char *in_where,
+                const char *in_fstype,
+                const char *in_options) {
+
         _cleanup_free_ char *what = NULL, *where = NULL, *fstype = NULL, *options = NULL;
         int r;
 
@@ -135,6 +142,7 @@ static int mount_array_add_internal(char *in_what, char *in_where, const char *i
                 return -ENOMEM;
 
         arg_mounts[arg_n_mounts++] = (Mount) {
+                .for_initrd = for_initrd,
                 .what = TAKE_PTR(what),
                 .where = TAKE_PTR(where),
                 .fstype = TAKE_PTR(fstype),
@@ -144,7 +152,7 @@ static int mount_array_add_internal(char *in_what, char *in_where, const char *i
         return 0;
 }
 
-static int mount_array_add(const char *str) {
+static int mount_array_add(bool for_initrd, const char *str) {
         _cleanup_free_ char *what = NULL, *where = NULL, *fstype = NULL, *options = NULL;
         int r;
 
@@ -159,10 +167,10 @@ static int mount_array_add(const char *str) {
         if (!isempty(str))
                 return -EINVAL;
 
-        return mount_array_add_internal(TAKE_PTR(what), TAKE_PTR(where), fstype, options);
+        return mount_array_add_internal(for_initrd, TAKE_PTR(what), TAKE_PTR(where), fstype, options);
 }
 
-static int mount_array_add_swap(const char *str) {
+static int mount_array_add_swap(bool for_initrd, const char *str) {
         _cleanup_free_ char *what = NULL, *options = NULL;
         int r;
 
@@ -177,7 +185,7 @@ static int mount_array_add_swap(const char *str) {
         if (!isempty(str))
                 return -EINVAL;
 
-        return mount_array_add_internal(TAKE_PTR(what), NULL, "swap", options);
+        return mount_array_add_internal(for_initrd, TAKE_PTR(what), NULL, "swap", options);
 }
 
 static int write_options(FILE *f, const char *options) {
@@ -298,7 +306,7 @@ static int add_swap(
                         return r;
         }
 
-        return true;
+        return 0;
 }
 
 static bool mount_is_network(const char *fstype, const char *options) {
@@ -801,7 +809,7 @@ static MountPointFlags fstab_options_to_flags(const char *options, bool is_swap)
         return flags;
 }
 
-static int canonicalize_mount_path(const char *path, const char *type, bool initrd, char **ret) {
+static int canonicalize_mount_path(const char *path, const char *type, bool prefix_sysroot, char **ret) {
         _cleanup_free_ char *p = NULL;
         bool changed;
         int r;
@@ -813,11 +821,11 @@ static int canonicalize_mount_path(const char *path, const char *type, bool init
 
         // FIXME: when chase() learns to chase non-existent paths, use this here and drop the prefixing with
         // /sysroot on error below.
-        r = chase(path, initrd ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &p, NULL);
+        r = chase(path, prefix_sysroot ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &p, NULL);
         if (r < 0) {
                 log_debug_errno(r, "Failed to chase '%s', using as-is: %m", path);
 
-                if (initrd)
+                if (prefix_sysroot)
                         p = path_join("/sysroot", path);
                 else
                         p = strdup(path);
@@ -842,7 +850,7 @@ static int parse_fstab_one(
                 const char *fstype,
                 const char *options,
                 int passno,
-                bool initrd,
+                bool prefix_sysroot,
                 bool use_swap_enabled) {
 
         _cleanup_free_ char *what = NULL, *where = NULL;
@@ -854,7 +862,7 @@ static int parse_fstab_one(
         assert(fstype);
         assert(options);
 
-        if (initrd && !mount_in_initrd(where_original, options))
+        if (prefix_sysroot && !mount_in_initrd(where_original, options))
                 return 0;
 
         is_swap = streq_ptr(fstype, "swap");
@@ -891,16 +899,16 @@ static int parse_fstab_one(
          * /etc/fstab. So we canonicalize here. Note that we use CHASE_NONEXISTENT to handle the case
          * where a symlink refers to another mount target; this works assuming the sub-mountpoint
          * target is the final directory. */
-        r = canonicalize_mount_path(where_original, "where", initrd, &where);
+        r = canonicalize_mount_path(where_original, "where", prefix_sysroot, &where);
         if (r < 0)
                 return r;
         where_changed = r > 0;
 
-        if (initrd && fstab_is_bind(options, fstype)) {
+        if (prefix_sysroot && fstab_is_bind(options, fstype)) {
                 /* When in initrd, the source of bind mount needs to be prepended with /sysroot as well. */
                 _cleanup_free_ char *p = NULL;
 
-                r = canonicalize_mount_path(what, "what", initrd, &p);
+                r = canonicalize_mount_path(what, "what", prefix_sysroot, &p);
                 if (r < 0)
                         return r;
 
@@ -919,7 +927,7 @@ static int parse_fstab_one(
         bool is_sysroot_usr = in_initrd() && path_equal(where, "/sysroot/usr");
 
         const char *target_unit =
-                        initrd ?                            SPECIAL_INITRD_FS_TARGET :
+                        prefix_sysroot ?                    SPECIAL_INITRD_FS_TARGET :
                         is_sysroot ?                        SPECIAL_INITRD_ROOT_FS_TARGET :
                         is_sysroot_usr ?                    SPECIAL_INITRD_USR_FS_TARGET :
                         mount_is_network(fstype, options) ? SPECIAL_REMOTE_FS_TARGET :
@@ -948,13 +956,17 @@ static int parse_fstab_one(
         return true;
 }
 
-static int parse_fstab(bool initrd) {
+static int parse_fstab(bool prefix_sysroot) {
         _cleanup_endmntent_ FILE *f = NULL;
         const char *fstab;
         struct mntent *me;
         int r, ret = 0;
 
-        if (initrd)
+        /* Honour /etc/fstab only when that's enabled */
+        if (!arg_fstab_enabled)
+                return 0;
+
+        if (prefix_sysroot)
                 fstab = sysroot_fstab_path();
         else {
                 fstab = fstab_path();
@@ -974,14 +986,14 @@ static int parse_fstab(bool initrd) {
         while ((me = getmntent(f))) {
                 r = parse_fstab_one(fstab,
                                     me->mnt_fsname, me->mnt_dir, me->mnt_type, me->mnt_opts, me->mnt_passno,
-                                    initrd, /* use_swap_enabled = */ true);
-                if (r < 0 && ret >= 0)
+                                    prefix_sysroot, /* use_swap_enabled = */ true);
+                if (r != 0 && ret >= 0)
                         ret = r;
                 if (arg_sysroot_check && r > 0)
                         return true;  /* We found a mount or swap that would be started… */
         }
 
-        return ret;
+        return ret; /* Return positive if at least one entry found. */
 }
 
 static int sysroot_is_nfsroot(void) {
@@ -1282,6 +1294,9 @@ static int add_mounts_from_cmdline(void) {
         /* Handle each entries found in cmdline as a fstab entry. */
 
         FOREACH_ARRAY(m, arg_mounts, arg_n_mounts) {
+                if (m->for_initrd && !in_initrd())
+                        continue;
+
                 r = parse_fstab_one(
                               "/proc/cmdline",
                               m->what,
@@ -1289,23 +1304,25 @@ static int add_mounts_from_cmdline(void) {
                               m->fstype,
                               m->options,
                               /* passno = */ 0,
-                              /* initrd = */ false,
+                              /* prefix_sysroot = */ !m->for_initrd && in_initrd(),
                               /* use_swap_enabled = */ false);
-                if (r < 0 && ret >= 0)
+                if (r != 0 && ret >= 0)
                         ret = r;
         }
 
-        return ret;
+        return ret; /* Return positive if at least one entry found. */
 }
 
-static int add_mounts_from_creds(void) {
+static int add_mounts_from_creds(bool prefix_sysroot) {
         _cleanup_free_ void *b = NULL;
         struct mntent *me;
-        int r, ret = 0;
+        int r, ret = true; /* Return true if the credential exists. */
         size_t bs;
 
+        assert(in_initrd() || !prefix_sysroot);
+
         r = read_credential_with_decryption(
-                        in_initrd() ? "fstab.extra.initrd" : "fstab.extra",
+                        (in_initrd() && !prefix_sysroot) ? "fstab.extra.initrd" : "fstab.extra",
                         &b, &bs);
         if (r <= 0)
                 return r;
@@ -1323,13 +1340,13 @@ static int add_mounts_from_creds(void) {
                                 me->mnt_type,
                                 me->mnt_opts,
                                 me->mnt_passno,
-                                /* initrd = */ false,
+                                /* prefix_sysroot = */ prefix_sysroot,
                                 /* use_swap_enabled = */ true);
-                if (r < 0 && ret >= 0)
+                if (r != 0 && ret >= 0)
                         ret = r;
         }
 
-        return ret;
+        return ret; /* Return positive if at least one entry found. */
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
@@ -1437,21 +1454,21 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 else
                         arg_verity = r;
 
-        } else if (streq(key, "systemd.mount-extra")) {
+        } else if (STR_IN_SET(key, "systemd.mount-extra", "rd.systemd.mount-extra")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = mount_array_add(value);
+                r = mount_array_add(startswith(key, "rd."), value);
                 if (r < 0)
                         log_warning("Failed to parse systemd.mount-extra= option, ignoring: %s", value);
 
-        } else if (streq(key, "systemd.swap-extra")) {
+        } else if (STR_IN_SET(key, "systemd.swap-extra", "rd.systemd.swap-extra")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = mount_array_add_swap(value);
+                r = mount_array_add_swap(startswith(key, "rd."), value);
                 if (r < 0)
                         log_warning("Failed to parse systemd.swap-extra= option, ignoring: %s", value);
         }
@@ -1507,6 +1524,7 @@ static int determine_usr(void) {
  * with /sysroot/etc/fstab available, and then we can write additional units based
  * on that file. */
 static int run_generator(void) {
+        bool enable_remount_fs = false;
         int r, ret = 0;
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
@@ -1517,7 +1535,7 @@ static int run_generator(void) {
         (void) determine_usr();
 
         if (arg_sysroot_check) {
-                r = parse_fstab(/* initrd= */ true);
+                r = parse_fstab(/* prefix_sysroot = */ true);
                 if (r == 0)
                         log_debug("Nothing interesting found, not doing daemon-reload.");
                 if (r > 0)
@@ -1544,18 +1562,15 @@ static int run_generator(void) {
                         ret = r;
         }
 
-        /* Honour /etc/fstab only when that's enabled */
-        if (arg_fstab_enabled) {
-                /* Parse the local /etc/fstab, possibly from the initrd */
-                r = parse_fstab(/* initrd= */ false);
-                if (r < 0 && ret >= 0)
-                        ret = r;
+        /* Parse the local /etc/fstab, possibly from the initrd */
+        r = parse_fstab(/* prefix_sysroot = */ false);
+        if (r < 0 && ret >= 0)
+                ret = r;
+        enable_remount_fs = r > 0;
 
-                /* If running in the initrd also parse the /etc/fstab from the host */
-                if (in_initrd())
-                        r = parse_fstab(/* initrd= */ true);
-                else
-                        r = generator_enable_remount_fs_service(arg_dest);
+        /* If running in the initrd also parse the /etc/fstab from the host */
+        if (in_initrd()) {
+                r = parse_fstab(/* prefix_sysroot = */ true);
                 if (r < 0 && ret >= 0)
                         ret = r;
         }
@@ -1563,10 +1578,24 @@ static int run_generator(void) {
         r = add_mounts_from_cmdline();
         if (r < 0 && ret >= 0)
                 ret = r;
+        enable_remount_fs = enable_remount_fs || r > 0;
 
-        r = add_mounts_from_creds();
+        r = add_mounts_from_creds(/* prefix_sysroot = */ false);
         if (r < 0 && ret >= 0)
                 ret = r;
+        enable_remount_fs = enable_remount_fs || r > 0;
+
+        if (in_initrd()) {
+                r = add_mounts_from_creds(/* prefix_sysroot = */ true);
+                if (r < 0 && ret >= 0)
+                        ret = r;
+        }
+
+        if (!in_initrd() && enable_remount_fs) {
+                r = generator_enable_remount_fs_service(arg_dest);
+                if (r < 0 && ret >= 0)
+                        ret = r;
+        }
 
         return ret;
 }
