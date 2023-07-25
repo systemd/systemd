@@ -24,11 +24,12 @@ PATH=$PATH:/usr/sbin
 export SYSTEMD_FORCE_MEASURE=0
 
 test_one() (
-    local input out exp i j k dir fname expf
+    local initrd input out exp i j k dir fname expf
 
     input=${1?}
+    initrd=${2?}
 
-    : "*** Running $input"
+    : "*** Running $input (initrd=$initrd)"
 
     out=$(mktemp --tmpdir --directory "test-fstab-generator.XXXXXXXXXX")
     # shellcheck disable=SC2064
@@ -38,17 +39,21 @@ test_one() (
     if [[ "${input##*/}" =~ swap ]] && systemd-detect-virt --container >/dev/null; then
         exp="${exp}.container"
     fi
+    if [[ "$initrd" == no ]]; then
+        exp="${exp}.sysroot"
+    fi
 
     if [[ "${input##*/}" =~ \.fstab\.input ]]; then
-        SYSTEMD_LOG_LEVEL=debug SYSTEMD_IN_INITRD=yes SYSTEMD_SYSFS_CHECK=no SYSTEMD_PROC_CMDLINE="fstab=yes root=fstab" SYSTEMD_FSTAB="$input" SYSTEMD_SYSROOT_FSTAB="/dev/null" $generator "$out" "$out" "$out"
+        SYSTEMD_LOG_LEVEL=debug SYSTEMD_IN_INITRD="$initrd" SYSTEMD_SYSFS_CHECK=no SYSTEMD_PROC_CMDLINE="fstab=yes root=fstab" SYSTEMD_FSTAB="$input" SYSTEMD_SYSROOT_FSTAB="/dev/null" $generator "$out" "$out" "$out"
     else
-        SYSTEMD_LOG_LEVEL=debug SYSTEMD_IN_INITRD=yes SYSTEMD_SYSFS_CHECK=no SYSTEMD_PROC_CMDLINE="fstab=no $(cat "$input")" $generator "$out" "$out" "$out"
+        SYSTEMD_LOG_LEVEL=debug SYSTEMD_IN_INITRD="$initrd" SYSTEMD_SYSFS_CHECK=no SYSTEMD_PROC_CMDLINE="fstab=no $(cat "$input")" $generator "$out" "$out" "$out"
     fi
 
     # The option x-systemd.growfs creates symlink to system's systemd-growfs@.service in .mount.wants directory.
+    # Also, when $initrd is no, symlink to systemd-remount-fs.service is created.
     # The system that the test is currently running on may not have or may have outdated unit file.
     # Let's replace the symlink with an empty file.
-    for i in "$out"/*/systemd-growfs@*.service; do
+    for i in "$out"/*/systemd-growfs@*.service "$out"/local-fs.target.wants/systemd-remount-fs.service; do
         [[ -L "$i" ]] || continue
         rm "$i"
         touch "$i"
@@ -80,16 +85,21 @@ test_one() (
         fi
     done
 
+    # We do not store empty directory.
+    if [[ -z "$(ls -A "$out")" && ! -d "$exp" ]]; then
+        return 0
+    fi
+
     # We store empty files rather than dead symlinks, so that they don't get pruned when packaged up, so compare
     # the list of filenames rather than their content
     if ! diff -u <(find "$out" -printf '%P\n' | sort) <(find "$exp" -printf '%P\n' | sort); then
-        : "**** Unexpected output for $input"
+        : "**** Unexpected output for $input (initrd=$initrd)"
         return 1
     fi
 
     # Check the main units.
     if ! diff -u "$out" "$exp"; then
-        : "**** Unexpected output for $input"
+        : "**** Unexpected output for $input (initrd=$initrd)"
         return 1
     fi
 
@@ -106,14 +116,14 @@ test_one() (
             if [[ -L "$j" && ! -e "$j" ]]; then
                 # For dead symlink, we store an empty file.
                 if [[ ! -e "$expf" || -n "$(cat "$expf")" ]]; then
-                    : "**** Unexpected symlink $j created by $input"
+                    : "**** Unexpected symlink $j created by $input (initrd=$initrd)"
                     return 1
                 fi
                 continue
             fi
 
             if ! diff -u "$j" "$expf"; then
-                : "**** Unexpected output in $j for $input"
+                : "**** Unexpected output in $j for $input (initrd=$initrd)"
                 return 1
             fi
         done
@@ -123,5 +133,6 @@ test_one() (
 )
 
 for f in "$src"/test-*.input; do
-    test_one "$f"
+    test_one "$f" yes
+    test_one "$f" no
 done
