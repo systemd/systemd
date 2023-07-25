@@ -422,10 +422,10 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
 
 static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = NULL;
+        unsigned prefixlen, preference;
         usec_t timestamp_usec;
         uint32_t lifetime_sec;
         struct in6_addr prefix;
-        unsigned prefixlen;
         int r;
 
         assert(link);
@@ -451,6 +451,10 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get prefix length: %m");
 
+        r = sd_ndisc_router_get_preference(rt, &preference);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to get default router preference from RA: %m");
+
         r = route_new(&route);
         if (r < 0)
                 return log_oom();
@@ -458,6 +462,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         route->family = AF_INET6;
         route->dst.in6 = prefix;
         route->dst_prefixlen = prefixlen;
+        route->pref = preference;
         route->lifetime_usec = sec_to_usec(lifetime_sec, timestamp_usec);
 
         r = ndisc_request_route(TAKE_PTR(route), link, rt);
@@ -963,7 +968,7 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
                 if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
                         continue;
 
-                if (route->lifetime_usec >= timestamp_usec)
+                if (route->lifetime_usec >= timestamp_usec && timestamp_usec != 0)
                         continue; /* the route is still valid */
 
                 k = route_remove_and_drop(route);
@@ -1124,8 +1129,9 @@ static int ndisc_start_dhcp6_client(Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
+        usec_t timestamp_usec, lifetime_usec;
         struct in6_addr router;
-        usec_t timestamp_usec;
+        uint16_t lifetime_sec;
         int r;
 
         assert(link);
@@ -1160,6 +1166,16 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 return r;
 
         r = ndisc_drop_outdated(link, timestamp_usec);
+        if (r < 0)
+                return r;
+
+        r = sd_ndisc_router_get_lifetime(rt, &lifetime_sec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get lifetime of RA message: %m");
+
+        lifetime_usec = sec16_to_usec(lifetime_sec, timestamp_usec);
+
+        r = ndisc_drop_outdated(link, lifetime_usec);
         if (r < 0)
                 return r;
 
