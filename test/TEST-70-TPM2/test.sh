@@ -11,7 +11,7 @@ TEST_REQUIRE_INSTALL_TESTS=0
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
-test_require_bin openssl swtpm tpm2_createprimary tpm2_dictionarylockout tpm2_evictcontrol tpm2_flushcontext tpm2_pcrextend tpm2_pcrread
+test_require_bin openssl swtpm tpm2_createprimary tpm2_dictionarylockout tpm2_evictcontrol tpm2_flushcontext tpm2_pcrextend tpm2_pcrread tpm2_readpublic
 
 test_append_files() {
     local workspace="${1:?}"
@@ -31,6 +31,7 @@ test_append_files() {
     inst_binary tpm2_flushcontext
     inst_binary tpm2_pcrextend
     inst_binary tpm2_pcrread
+    inst_binary tpm2_readpublic
 }
 
 do_test "$@"
