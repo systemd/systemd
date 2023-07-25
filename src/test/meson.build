@@ -169,7 +169,6 @@ simple_tests += files(
         'test-sysctl-util.c',
         'test-terminal-util.c',
         'test-tmpfile-util.c',
-        'test-tpm2.c',
         'test-udev-util.c',
         'test-uid-alloc-range.c',
         'test-uid-range.c',
@@ -348,6 +347,11 @@ tests += [
                 'condition' : 'ENABLE_NSS',
         },
         {
+                'sources' : files('test-openssl.c'),
+                'dependencies' : libopenssl,
+                'condition' : 'HAVE_OPENSSL',
+        },
+        {
                 'sources' : files('test-parse-util.c'),
                 'dependencies' : libm,
         },
@@ -408,6 +412,10 @@ tests += [
         {
                 'sources' : files('test-time-util.c'),
                 'timeout' : 120,
+        },
+        {
+                'sources' : files('test-tpm2.c'),
+                'dependencies' : libopenssl,
         },
         {
                 'sources' : files('udev-rule-runner.c'),
