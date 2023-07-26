@@ -7,8 +7,12 @@
 #include "macro.h"
 
 bool fstab_is_extrinsic(const char *mount, const char *opts);
-int fstab_is_mount_point(const char *mount);
 int fstab_has_fstype(const char *fstype);
+
+int fstab_is_mount_point_full(const char *where, const char *path);
+static inline int fstab_is_mount_point(const char *where) {
+        return fstab_is_mount_point_full(where, NULL);
+}
 
 int fstab_filter_options(
                 const char *opts,
