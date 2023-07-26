@@ -932,6 +932,30 @@ int config_parse_bool(
         return 0;
 }
 
+int config_parse_unsigned_infinity(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        unsigned *bytes = ASSERT_PTR(data);
+
+        assert(rvalue);
+
+        if (streq(rvalue, "infinity")) {
+                *bytes = UINT_MAX;
+                return 0;
+        }
+
+        return config_parse_unsigned(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+}
+
 int config_parse_id128(
                 const char *unit,
                 const char *filename,
