@@ -174,6 +174,11 @@ efi_c_ld_args = [
         '-T' + elf2efi_lds,
 ]
 
+# CentOS 8 does not like this
+if cc.has_link_argument('-Wl,-z,nopack-relative-relocs')
+        efi_c_ld_args += ['-z', 'nopack-relative-relocs']
+endif
+
 # efi_c_args is explicitly passed to targets so that they can override distro-provided flags
 # that should not be used for EFI binaries.
 efi_disabled_c_args = cc.get_supported_arguments(
