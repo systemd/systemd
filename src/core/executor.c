@@ -221,6 +221,8 @@ int main(int argc, char *argv[]) {
 
         r = exec_deserialize_invocation(arg_serialization,
                                         fdset,
+                                        /* fds_array= */ NULL,
+                                        /* n_fds_array= */ 0,
                                         &context,
                                         &command,
                                         &params,
